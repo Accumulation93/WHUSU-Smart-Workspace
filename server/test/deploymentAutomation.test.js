@@ -61,7 +61,16 @@ function testDeploymentScriptContract() {
   assert.match(script, /AUDIT_UPLOAD_DIR="\$SHARED_DIR\/uploads\/audit"/);
   assert.match(script, /pm2 delete whusu-smart-workspace-backup/);
   assert.match(script, /pm2 start "\$NEW_RELEASE\/server\/ecosystem\.config\.js" --only whusu-smart-workspace-backup --update-env/);
-  assert.match(script, /pm2 stop whusu-smart-workspace-backup/);
+  assert.match(script, /stop_process_group whusu-smart-workspace-backup/);
+  assert.match(script, /stop_process_group whusu-smart-workspace-api/);
+  assert.match(script, /pm2 jlist/);
+  assert.doesNotMatch(script, /pm2 stop whusu-smart-workspace-api \|\| true/);
+  assert.match(script, /无法确认全部数据库客户端已经停止，拒绝恢复快照或切换旧版本/);
+  assert.match(script, /stop_process_group whusu-smart-workspace-notification-worker \|\| rollback_stop_failed=1/);
+  assert.match(script, /trap 'rollback "\$LINENO"' TERM INT HUP/);
+  assert.match(script, /materializeUtcTimeReviews\.js" --status/);
+  assert.match(script, /record-id\+raw-value:v1/);
+  assert.match(script, /mappedReviewCount !== unresolvedCount/);
   assert.match(script, /WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
@@ -80,7 +89,9 @@ function testDeploymentScriptContract() {
   assert.doesNotMatch(remoteCollab, /branch=feature%2Faudit/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.doesNotMatch(workflow, /github\.ref == 'refs\/heads\/feature\/audit'/);
-  assert.match(workflow, /env WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH=main timeout/);
+  assert.match(workflow, /timeout-minutes: 45/);
+  assert.match(workflow, /env WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH=main \/home\/ubuntu\/whusu-smart-workspace-deploy\/bin\/deploy-entrypoint/);
+  assert.doesNotMatch(workflow, /kill-after=10s 120s/);
 }
 
 testMigrationDiscoveryAndLedger();

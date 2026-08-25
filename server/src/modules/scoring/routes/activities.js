@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/rou
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const activityModel = require('../models/scoreActivity');
 const rateRuleModel = require('../models/rateRule');
@@ -85,7 +86,7 @@ router.post('/saveScoreActivity', async (req, res) => {
     }
 
     if (id) {
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const nowUtc = nowMysqlUtc();
       const current = await activityModel.getById(id);
       if (!current) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
       if (current && current.participant_granularity !== participantGranularity) {
@@ -183,7 +184,7 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
     if (!target) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
 
     await activityModel.clearAllCurrent();
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     await activityModel.update(id, {
       name: target.name,
       description: target.description,

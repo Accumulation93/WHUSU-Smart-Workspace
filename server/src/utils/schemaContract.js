@@ -39,6 +39,9 @@ const REQUIRED_COLUMNS = [
   ,['venue_bookings', 'approver_assignment_id']
   ,['venue_bookings', 'approver_admin_grant_id']
   ,['venue_bookings', 'approver_context_snapshot']
+  ,['system_config', 'timezone_config_version']
+  ,['absolute_time_record_reviews', 'materialization_token']
+  ,['absolute_time_record_reviews', 'primary_record_id']
 ];
 
 const FORBIDDEN_COLUMNS = [
@@ -84,6 +87,10 @@ const REQUIRED_TABLES = [
   ,'venue_booking_policies'
   ,'person_profile_values'
   ,'person_profile_value_history'
+  ,'absolute_time_source_registry'
+  ,'absolute_time_record_reviews'
+  ,'absolute_time_migration_audit'
+  ,'absolute_time_cutovers'
 ];
 
 const REQUIRED_INDEXES = [
@@ -110,6 +117,8 @@ const REQUIRED_INDEXES = [
   ,['identity_verification_invites', 'idx_identity_invite_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']
   ,['venue_booking_policies', 'uk_vbp_venue_org']
+  ,['absolute_time_record_reviews', 'idx_absolute_time_presentation_record']
+  ,['absolute_time_record_reviews', 'idx_absolute_time_presentation_raw']
 ];
 
 async function verifySchemaContract(pool) {

@@ -31,11 +31,27 @@ async function run() {
 
   const replayConn = makeConnection('replay');
   const replay = await dedup.claim(replayConn, {
-    orgId: 'org-a', actorKey: 'user:u1', operationType: 'create', clientRequestId: 'req-1', resourceId: 'resource-other'
+    orgId: 'org-a', actorKey: 'user:u1', operationType: 'create', clientRequestId: 'req-1', resourceId: 'resource-first'
   });
   assert.strictEqual(replay.claimed, false);
   assert.strictEqual(replay.resourceId, 'resource-first');
   assert.deepStrictEqual(replay.response, { status: 'success', id: 'resource-first' });
+
+  await assert.rejects(
+    dedup.claim(makeConnection('replay'), {
+      orgId: 'org-a', actorKey: 'user:u1', operationType: 'create', clientRequestId: 'req-1', resourceId: 'resource-other'
+    }),
+    (error) => error.code === 'IDEMPOTENCY_RESOURCE_CONFLICT' && error.httpStatus === 409
+  );
+
+  const firstStableId = dedup.stableResourceId('submit_score', ['org-a', 'activity-a', 'scorer-a', 'target-a']);
+  const secondStableId = dedup.stableResourceId('submit_score', ['org-a', 'activity-a', 'scorer-a', 'target-a']);
+  assert.strictEqual(firstStableId, secondStableId);
+  assert.strictEqual(firstStableId.length, 64);
+  assert.notStrictEqual(
+    firstStableId,
+    dedup.stableResourceId('submit_score', ['org-a', 'activity-a', 'scorer-a', 'target-b'])
+  );
 
   assert.throws(() => dedup.normalizeClientRequestId('包含空格'), /invalid_client_request_id/);
 

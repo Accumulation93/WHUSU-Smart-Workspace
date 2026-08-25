@@ -43,7 +43,7 @@
               </view>
               <text class="audit-submission-id">{{item.submissionNumber}}</text>
             </view>
-            <view class="audit-submission-date">{{item.createdAt}}</view>
+            <view class="audit-submission-date">{{item.createdAtText}}</view>
           </view>
           <view class="audit-list-arrow">›</view>
         </view>

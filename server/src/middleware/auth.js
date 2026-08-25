@@ -14,6 +14,7 @@ const PUBLIC_PATHS = new Set([
   '/api/health',
   '/api/userLogin',
   '/api/adminLogin',
+  '/api/getTimeConfig',
   '/api/auth/wechat/session',
   '/api/auth/claims',
   '/api/auth/claims/verify',

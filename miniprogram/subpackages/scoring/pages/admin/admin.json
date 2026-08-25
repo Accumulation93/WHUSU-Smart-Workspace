@@ -1,6 +1,9 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
-    "ui-icon": "/components/ui-icon/ui-icon"
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "hr-directory-controls": "/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls",
+    "hr-permanent-deletion-dialog": "/subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog",
+    "score-record-detail-dialog": "/subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog"
   }
 }

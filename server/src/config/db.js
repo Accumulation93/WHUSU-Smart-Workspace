@@ -25,11 +25,15 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 30000,
   charset: 'utf8mb4',
-  timezone: '+08:00'
+  // DATE 是日历值而非绝对时间，保持 YYYY-MM-DD 字符串，禁止经时区转换漂移日期。
+  dateStrings: ['DATE'],
+  // DATETIME/TIMESTAMP 一律按 UTC 与 Node.js 交换；显示时区由 system_config 决定。
+  timezone: 'Z'
 });
 
-// Apply query timeout to every new connection (15s safety margin)
+// 新连接先固定 UTC 会话，再应用查询超时。监听器中的查询会按连接队列顺序先于业务查询执行。
 pool.on('connection', (conn) => {
+  conn.query("SET SESSION time_zone = '+00:00'");
   conn.query('SET SESSION max_execution_time = 15000');
 });
 

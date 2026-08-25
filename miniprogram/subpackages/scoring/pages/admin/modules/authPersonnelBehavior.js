@@ -1,31 +1,24 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
-const { callFunction, showShortToast, getErrorText, formatAuditTime } = require('../../../../../utils/api');
+const { callFunction, showShortToast, getErrorText, formatAuditTime, formatAuditDetailTime } = require('../../../../../utils/api');
 const authContext = require('../../../../../utils/authContext');
 const orgSession = require('../../../../../utils/orgSession');
+const dateTime = require('../../../../../utils/dateTime');
 
 const DIRECTORY_LIMIT = 2000;
 
 function splitPolicyDateTime(value) {
-  if (!value) return { date: '', time: '' };
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return { date: '', time: '' };
-  const pad = function(number) { return String(number).padStart(2, '0'); };
-  return {
-    date: [parsed.getFullYear(), pad(parsed.getMonth() + 1), pad(parsed.getDate())].join('-'),
-    time: [pad(parsed.getHours()), pad(parsed.getMinutes())].join(':')
-  };
+  return value ? dateTime.splitSystemDateTime(value) : { date: '', time: '' };
 }
 
 function combinePolicyDateTime(date, time) {
-  if (!date) return '';
-  return date + ' ' + (time || '00:00') + ':00';
+  return date ? dateTime.systemDateTimeToIsoUtc(date, time || '00:00') : '';
 }
 
 function decorateClaim(item) {
   return Object.assign({}, item, {
     selected: false,
-    createdText: formatAuditTime(String(item.createdAt || '')),
-    expiresText: formatAuditTime(String(item.expiresAt || ''))
+    createdText: formatAuditTime(String(item.createdAt || ''), item.createdAtReviewStatus),
+    expiresText: formatAuditTime(String(item.expiresAt || ''), item.expiresAtReviewStatus)
   });
 }
 
@@ -279,13 +272,26 @@ module.exports = Behavior({
           id: row.id,
           hrId: row.id,
           name: row.name,
-          studentId: row.studentId
+          studentId: row.studentId,
+          membershipId: row.membershipId,
+          membershipStatus: row.membershipStatus,
+          joinedAt: row.joinedAt,
+          leftAt: row.leftAt,
+          assignments: row.assignments,
+          assignmentNatures: row.assignmentNatures,
+          departments: row.departments,
+          identities: row.identities,
+          workGroups: row.workGroups,
+          assignmentCount: row.assignmentCount,
+          auditStatus: row.auditStatus,
+          auditStatusText: row.auditStatusText,
+          isComplete: row.isComplete
         }), selected.has(String(row.id || ''))));
       });
     },
 
     applyHrGovernancePermissions(row) {
-      const canSelect = Boolean(row && (
+      const canSelect = Boolean(row && row.membershipStatus !== 'left' && (
         (this.data.canVerifyIdentity && (row.canIssueVerification || row.canRevokeVerification))
         || (this.data.canGlobalAccountManage && (row.canIssueRecovery || row.canRevokeRecovery))
       ));
@@ -1003,18 +1009,26 @@ module.exports = Behavior({
       this.setData({ showAuthRecoveryDialog: false, pendingAuthRecovery: null });
     },
 
-    async loadDetailHrSecurity(personId) {
+    async loadDetailHrSecurity(personId, detailRequestId) {
       if (!this.data.canGlobalAccountManage) return;
       if (!personId || this.data.authActionLoadingKey) return;
+      const expectedPersonId = String(personId);
+      const expectedRequestId = Number(detailRequestId || this._hrPersonDetailRequestId || 0);
       try {
         const result = await callFunction({ name: 'admin/auth/security', data: { personId } });
+        const currentGovernance = this.data.detailHrGovernance || {};
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(currentGovernance.personId || '') !== expectedPersonId
+          || !this.data.showHrPersonDetail) return;
         if (!result || result.status !== 'success') {
           this.setData({ detailHrSecurity: null });
           return;
         }
         const sessions = (result.sessions || []).map(function(item) {
           return Object.assign({}, item, {
-            lastSeenText: item.lastSeenAt ? formatAuditTime(item.lastSeenAt) : localeCopy.copy_cb56cac0f1
+            lastSeenText: item.lastSeenAt
+              ? formatAuditDetailTime(item.lastSeenAt, item.lastSeenAtReviewStatus)
+              : localeCopy.copy_cb56cac0f1
           });
         });
         this.setData({
@@ -1026,6 +1040,10 @@ module.exports = Behavior({
           }
         });
       } catch (error) {
+        const currentGovernance = this.data.detailHrGovernance || {};
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(currentGovernance.personId || '') !== expectedPersonId
+          || !this.data.showHrPersonDetail) return;
         this.setData({ detailHrSecurity: null });
       }
     },

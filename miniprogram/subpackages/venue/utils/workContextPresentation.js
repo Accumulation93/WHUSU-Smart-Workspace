@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
+const { formatListTime } = require('../../../utils/dateTime');
 
 function safeText(value) {
   return value === undefined || value === null ? '' : String(value).trim();
@@ -64,6 +65,13 @@ function decorateRequiredWorkContexts(contexts) {
 
 function decoratePendingBooking(item) {
   const row = Object.assign({}, item || {});
+  row.timeStartText = formatListTime(row.fullTimeStart || row.timeStart, {
+    reviewStatus: row.fullTimeStart ? row.fullTimeStartReviewStatus : row.timeStartReviewStatus
+  });
+  row.timeEndText = formatListTime(row.fullTimeEnd || row.timeEnd, {
+    reviewStatus: row.fullTimeEnd ? row.fullTimeEndReviewStatus : row.timeEndReviewStatus
+  });
+  row.createdAtText = formatListTime(row.createdAt, { reviewStatus: row.createdAtReviewStatus });
   row.requiredWorkContexts = decorateRequiredWorkContexts(row.requiredWorkContexts);
   row._requiresContextSwitch = row.canProcessInCurrentContext === false;
   row._creatorAssignmentText = formatAssignmentLabel({

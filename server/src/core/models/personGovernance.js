@@ -483,7 +483,7 @@ async function mergePersons(data, actor) {
         if (membership.status === 'active' && targetMembership.status !== 'active') {
           await connection.query(
             `UPDATE organization_memberships
-                SET status = 'active', updated_at = NOW()
+                SET status = 'active', departure_batch_id = NULL, updated_at = NOW()
               WHERE id = ? AND org_id = ?`,
             [targetMembership.id, membership.org_id]
           );

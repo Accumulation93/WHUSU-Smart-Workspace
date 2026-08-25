@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS organizations (
 CREATE TABLE IF NOT EXISTS system_config (
   id VARCHAR(32) NOT NULL PRIMARY KEY DEFAULT 'default',
   timezone INT NOT NULL DEFAULT 8,
+  timezone_config_version BIGINT NOT NULL DEFAULT 1,
   current_organization VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -1201,6 +1202,7 @@ CREATE TABLE IF NOT EXISTS organization_memberships (
   org_id VARCHAR(64) NOT NULL,
   legacy_hr_id VARCHAR(64) NOT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
+  departure_batch_id VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX uk_membership_person_org (person_id, org_id),
@@ -1219,9 +1221,11 @@ CREATE TABLE IF NOT EXISTS membership_assignments (
   identity_id VARCHAR(64) DEFAULT NULL,
   work_group_id VARCHAR(64) DEFAULT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
+  revoked_by_departure_id VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_assignment_membership (membership_id, status),
+  INDEX idx_assignment_departure (membership_id, status, revoked_by_departure_id),
   INDEX idx_assignment_org (org_id, status),
   INDEX idx_assignment_rule (org_id, department_id, identity_id, work_group_id),
   CONSTRAINT chk_assignment_active_dimensions CHECK (
@@ -1497,3 +1501,89 @@ CREATE TABLE IF NOT EXISTS auth_audit_events (
   INDEX idx_auth_audit_type (event_type, created_at),
   INDEX idx_auth_audit_org (organization_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS absolute_time_source_registry (
+  table_name VARCHAR(64) NOT NULL,
+  column_name VARCHAR(64) NOT NULL,
+  source_type VARCHAR(48) NOT NULL,
+  migration_action VARCHAR(32) NOT NULL,
+  evidence VARCHAR(500) NOT NULL,
+  primary_key_json JSON DEFAULT NULL,
+  snapshot_non_null_count BIGINT NOT NULL DEFAULT 0,
+  user_visible TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (table_name, column_name),
+  INDEX idx_time_source_action (migration_action, source_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS absolute_time_record_reviews (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  migration_key VARCHAR(64) NOT NULL,
+  table_name VARCHAR(64) NOT NULL,
+  column_name VARCHAR(64) NOT NULL,
+  record_hash CHAR(64) NOT NULL,
+  record_key VARCHAR(1000) NOT NULL,
+  record_locator JSON NOT NULL,
+  primary_record_id VARCHAR(191) DEFAULT NULL,
+  materialization_token VARCHAR(64) NOT NULL DEFAULT '',
+  raw_value DATETIME(3) NOT NULL,
+  source_type VARCHAR(48) NOT NULL,
+  proof_type VARCHAR(48) NOT NULL DEFAULT 'none',
+  proof_reference VARCHAR(500) DEFAULT NULL,
+  review_status VARCHAR(32) NOT NULL DEFAULT 'review_required',
+  resolved_value DATETIME(3) DEFAULT NULL,
+  resolution_note VARCHAR(500) DEFAULT NULL,
+  resolved_at DATETIME(3) DEFAULT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE INDEX uk_absolute_time_record (migration_key, table_name, column_name, record_hash),
+  INDEX idx_absolute_time_record_lookup (table_name, primary_record_id, review_status),
+  INDEX idx_absolute_time_record_status (review_status, table_name, column_name),
+  INDEX idx_absolute_time_presentation_record (migration_key, review_status, primary_record_id, raw_value),
+  INDEX idx_absolute_time_presentation_raw (migration_key, review_status, raw_value)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS absolute_time_migration_audit (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  migration_key VARCHAR(64) NOT NULL,
+  table_name VARCHAR(64) NOT NULL,
+  column_name VARCHAR(64) NOT NULL,
+  source_type VARCHAR(48) NOT NULL,
+  normalization_status VARCHAR(32) NOT NULL,
+  affected_rows BIGINT NOT NULL DEFAULT 0,
+  before_min DATETIME(3) DEFAULT NULL,
+  before_max DATETIME(3) DEFAULT NULL,
+  after_min DATETIME(3) DEFAULT NULL,
+  after_max DATETIME(3) DEFAULT NULL,
+  detail_json JSON DEFAULT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE INDEX uk_absolute_time_migration_field (migration_key, table_name, column_name),
+  INDEX idx_absolute_time_review (normalization_status, table_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS absolute_time_cutovers (
+  migration_key VARCHAR(64) NOT NULL PRIMARY KEY,
+  status VARCHAR(32) NOT NULL,
+  snapshot_started_at DATETIME(3) NOT NULL,
+  materialized_at DATETIME(3) DEFAULT NULL,
+  verified_at DATETIME(3) DEFAULT NULL,
+  detail_json JSON DEFAULT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO absolute_time_cutovers
+  (migration_key, status, snapshot_started_at, materialized_at, verified_at, detail_json)
+VALUES (
+  '20260823190000', 'verified', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3),
+  JSON_OBJECT(
+    'automaticOffsetMinutes', 0,
+    'policy', 'fresh_schema_utc',
+    'reviewRecordCount', 0,
+    'verifiedRecordCount', 0,
+    'unresolvedReviewCount', 0
+  )
+)
+ON DUPLICATE KEY UPDATE migration_key = VALUES(migration_key);

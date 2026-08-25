@@ -4,6 +4,7 @@ const Module = require('module');
 const permissionByAdminId = {
   'super-1': { isSuper: true, permissions: {} },
   'hr-only': { isSuper: false, permissions: { 'hr.people': true } },
+  'profile-reviewer': { isSuper: false, permissions: { 'hr.profile_review': true } },
   'admin-reader': { isSuper: false, permissions: { 'system.admin_accounts.read': true } },
   'admin-writer': { isSuper: false, permissions: { 'system.admin_accounts.write': true } }
 };
@@ -22,7 +23,8 @@ const mocks = {
       return [
         { organizationId: 'org-44', organizationName: '第四十四届', actor: { profile: { id: 'admin-writer' } } },
         { organizationId: 'org-43', organizationName: '第四十三届', actor: { profile: { id: 'hr-only' } } },
-        { organizationId: 'org-college', organizationName: '学院学生会', actor: { profile: { id: 'admin-reader' } } }
+        { organizationId: 'org-college', organizationName: '学院学生会', actor: { profile: { id: 'admin-reader' } } },
+        { organizationId: 'org-review', organizationName: '资料审核组织', actor: { profile: { id: 'profile-reviewer' } } }
       ];
     }
   },
@@ -54,13 +56,17 @@ Module._load = originalLoad;
     authContext: { organizationId: 'org-44' }
   };
   const access = await listAdminOrganizationAccess(req);
-  assert.deepStrictEqual(access.map((item) => item.organizationId), ['org-44', 'org-43', 'org-college']);
+  assert.deepStrictEqual(access.map((item) => item.organizationId), ['org-44', 'org-43', 'org-college', 'org-review']);
   assert.strictEqual(access[0].canEditAdmins, true);
   assert.strictEqual(access[0].canReadAssignments, false);
   assert.strictEqual(access[1].canReadAssignments, true);
   assert.strictEqual(access[1].canReadAdmins, false);
   assert.strictEqual(access[2].canReadAdmins, true);
   assert.strictEqual(access[2].canEditAdmins, false);
+  assert.strictEqual(access[3].canReadPeople, true);
+  assert.strictEqual(access[3].canReadAssignments, true);
+  assert.strictEqual(access[3].canEditAssignments, false);
+  assert.strictEqual(access[3].canReadAdmins, false);
 
   const connection = { marker: 'transaction' };
   const allowed = await requireAdminOrganizationPermission(

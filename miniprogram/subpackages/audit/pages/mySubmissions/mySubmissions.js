@@ -1,5 +1,5 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/mySubmissions/mySubmissions');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const workContextView = require('../../utils/workContextView');
@@ -52,7 +52,9 @@ Page({
         data: { status: this.data.statusFilter, limit: 50, offset: 0 }
       });
       if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        this.setData({ submissions: res.submissions || [] });
+        this.setData({ submissions: (res.submissions || []).map((item) => Object.assign({}, item, {
+          createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus)
+        })) });
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));

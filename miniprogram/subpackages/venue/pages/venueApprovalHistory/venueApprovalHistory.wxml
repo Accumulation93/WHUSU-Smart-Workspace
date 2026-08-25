@@ -21,7 +21,7 @@
             <view class="history-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
             <view class="history-item-meta">{{localeCopy.copy_7d935d1225}}{{item.applicantName}}</view>
             <view class="history-assignment-chip" wx:if="{{item._applicantAssignmentText}}">{{localeCopy.applicantAssignment}} · {{item._applicantAssignmentText}}</view>
-            <view class="history-item-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
+            <view class="history-item-meta">{{item.timeStartText}} {{localeCopy.copy_e8d9493a44}} {{item.timeEndText}}</view>
             <view class="history-item-entry">{{localeCopy.copy_100eaafa28}} <text class="history-item-arrow">›</text></view>
           </view>
           <view class="audit-empty-state" wx:if="{{!history.length}}">

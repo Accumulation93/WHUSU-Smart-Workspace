@@ -10,6 +10,7 @@ const requestContext = require('./middleware/requestContext');
 const { authMiddleware } = require('./middleware/auth');
 const { orgContextMiddleware } = require('./middleware/orgContext');
 const { adminPermissionMiddleware } = require('./middleware/adminPermission');
+const { timeReviewPresentationMiddleware } = require('./middleware/timeReviewPresentation');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
 const { createRateLimiter } = require('./middleware/rateLimiter');
 const { verifySchemaContract } = require('./utils/schemaContract');
@@ -145,6 +146,9 @@ app.use(orgContextMiddleware);
 
 // 管理端细粒度权限由服务端统一强制执行；前端隐藏入口仅用于改善体验。
 app.use(adminPermissionMiddleware);
+
+// 历史绝对时间逐记录待核对状态必须随业务响应下发，禁止把未证明的墙上时间静默当作 UTC。
+app.use(timeReviewPresentationMiddleware);
 
 app.get('/api/admin/health', async (req, res) => {
   const startedAt = Date.now();

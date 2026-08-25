@@ -636,24 +636,67 @@ function getErrorText(error, fallback) {
   return text || fallback;
 }
 
-const HR_PROFILE_STATUS_OPTIONS = [localeCopy.copy_03a3d115c7, localeCopy.copy_8f73640107, localeCopy.copy_67f2697101, localeCopy.copy_f8babd0e5d, localeCopy.copy_5d5af942c5];
+const HR_PROFILE_SEARCH_FIELDS = [
+  { value: 'all', label: localeCopy.hrSearchAllCore },
+  { value: 'name', label: localeCopy.hrSearchName },
+  { value: 'studentId', label: localeCopy.hrSearchStudentId },
+  { value: 'assignmentNature', label: localeCopy.hrAssignmentNature },
+  { value: 'department', label: localeCopy.hrSearchDepartment },
+  { value: 'identity', label: localeCopy.hrSearchIdentity },
+  { value: 'workGroup', label: localeCopy.hrSearchWorkGroup },
+  { value: 'membershipStatus', label: localeCopy.hrSearchMembershipStatus },
+  { value: 'accountStatus', label: localeCopy.hrSearchAccountStatus },
+  { value: 'profileStatus', label: localeCopy.hrSearchProfileStatus }
+];
+
+const HR_PROFILE_SORT_OPTIONS = [
+  { value: 'name_asc', label: localeCopy.hrSortNameAsc },
+  { value: 'student_id_asc', label: localeCopy.hrSortStudentIdAsc },
+  { value: 'membership_status', label: localeCopy.hrSortMembershipStatus },
+  { value: 'assignment_count_desc', label: localeCopy.hrSortAssignmentCount },
+  { value: 'profile_status', label: localeCopy.hrSortProfileStatus },
+  { value: 'joined_at_desc', label: localeCopy.hrSortJoinedAt },
+  { value: 'left_at_desc', label: localeCopy.hrSortLeftAt }
+];
+const HR_PROFILE_STATUS_OPTIONS = [
+  localeCopy.hrProfilePending,
+  localeCopy.hrProfileApproved,
+  localeCopy.hrProfileRejected,
+  localeCopy.hrProfileNone
+];
 
 function emptyHrProfileFilters() {
   return {
-    department: localeCopy.copy_68f7277730,
-    identity: localeCopy.copy_55780718f9,
-    workGroup: localeCopy.copy_54e953f1bb,
-    status: localeCopy.copy_03a3d115c7,
-    keyword: ''
+    searchField: 'all',
+    keyword: '',
+    membershipStatuses: [],
+    positionStates: [],
+    assignmentNatures: [],
+    departments: [],
+    identities: [],
+    workGroups: [],
+    profileStatuses: [],
+    completenessStates: [],
+    accountStates: [],
+    bindingStates: [],
+    sortMode: 'name_asc'
   };
 }
 
 function emptyHrProfileFilterOptions() {
   return {
-    departments: [localeCopy.copy_68f7277730],
-    identities: [localeCopy.copy_55780718f9],
-    workGroups: [localeCopy.copy_54e953f1bb],
-    statuses: HR_PROFILE_STATUS_OPTIONS
+    searchFields: HR_PROFILE_SEARCH_FIELDS,
+    sortModes: HR_PROFILE_SORT_OPTIONS,
+    membershipStatuses: [],
+    positionStates: [],
+    assignmentNatures: [],
+    departments: [],
+    identities: [],
+    workGroups: [],
+    profileStatuses: [],
+    completenessStates: [],
+    accountStates: [],
+    bindingStates: []
   };
 }
 
@@ -670,56 +713,153 @@ function getHrProfileStatusOrder(auditStatus) {
   return 3;
 }
 
+function normalizeAssignmentFilterTuple(assignment) {
+  const source = assignment || {};
+  const department = String(source.department || source.departmentName || '');
+  const identity = String(source.identityCategoryName || source.identity || source.identityName || '');
+  const workGroup = String(source.workGroup || source.workGroupName || '');
+  const departmentId = String(source.departmentId || '');
+  const identityCategoryId = String(source.identityCategoryId || source.identityId || '');
+  const workGroupId = String(source.workGroupId || '');
+  const departmentValue = departmentId || (department ? 'legacy-department:' + department : '');
+  const identityValue = identityCategoryId || (identity ? 'legacy-identity:' + identity : '');
+  const workGroupValue = workGroupId || (workGroup
+    ? 'legacy-work-group:' + (departmentId || department) + ':' + workGroup
+    : '');
+  return {
+    assignmentNature: String(source.assignmentNature || source.assignmentKind || 'staff'),
+    department,
+    departmentValue,
+    identity,
+    identityValue,
+    workGroup,
+    workGroupValue
+  };
+}
+
+function addFilterOption(optionMap, value, label) {
+  if (!value || !label || optionMap.has(value)) return;
+  optionMap.set(value, { value, label });
+}
+
 function buildHrProfileFilterOptions(rows = []) {
-  const departments = [];
-  const identities = [];
-  const workGroups = [];
+  const departments = new Map();
+  const identities = new Map();
+  const workGroups = new Map();
 
   rows.forEach((item) => {
-    departments.push(...(Array.isArray(item.departments) ? item.departments : (item.department ? [item.department] : [])));
-    identities.push(...(Array.isArray(item.identities) ? item.identities : (item.identity ? [item.identity] : [])));
-    workGroups.push(...(Array.isArray(item.workGroups) ? item.workGroups : (item.workGroup ? [item.workGroup] : [])));
+    const assignments = Array.isArray(item.assignments) ? item.assignments : [];
+    assignments.forEach((assignment) => {
+      const tuple = normalizeAssignmentFilterTuple(assignment);
+      addFilterOption(departments, tuple.departmentValue, tuple.department);
+      addFilterOption(identities, tuple.identityValue, tuple.identity);
+      addFilterOption(
+        workGroups,
+        tuple.workGroupValue,
+        tuple.workGroup && tuple.department ? tuple.workGroup + ' · ' + tuple.department : tuple.workGroup
+      );
+    });
   });
 
+  const option = (value, label) => ({ value, label });
+  const sortOptions = (optionMap) => Array.from(optionMap.values()).sort((a, b) => (
+    String(a.label).localeCompare(String(b.label), 'zh-CN') || String(a.value).localeCompare(String(b.value))
+  ));
   return {
-    departments: [localeCopy.copy_68f7277730, ...[...new Set(departments)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    identities: [localeCopy.copy_55780718f9, ...[...new Set(identities)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    workGroups: [localeCopy.copy_f54076411e, ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    statuses: HR_PROFILE_STATUS_OPTIONS
+    searchFields: HR_PROFILE_SEARCH_FIELDS,
+    sortModes: HR_PROFILE_SORT_OPTIONS,
+    membershipStatuses: [option('active', localeCopy.hrMembershipActive), option('left', localeCopy.hrMembershipLeft)],
+    positionStates: [option('with_position', localeCopy.hrWithPosition), option('without_position', localeCopy.hrWithoutPosition)],
+    assignmentNatures: [option('staff', localeCopy.hrNatureStaff), option('liaison', localeCopy.hrNatureLiaison), option('other', localeCopy.hrNatureOther)],
+    departments: sortOptions(departments),
+    identities: sortOptions(identities),
+    workGroups: sortOptions(workGroups),
+    profileStatuses: [
+      option('pending', localeCopy.hrProfilePending), option('approved', localeCopy.hrProfileApproved),
+      option('rejected', localeCopy.hrProfileRejected), option('none', localeCopy.hrProfileNone)
+    ],
+    completenessStates: [option('complete', localeCopy.hrProfileComplete), option('incomplete', localeCopy.hrProfileIncomplete)],
+    accountStates: [
+      option('bound', localeCopy.hrAccountActive),
+      option('pending_activation', localeCopy.hrAccountPendingActivation),
+      option('recovery_required', localeCopy.hrAccountRecoveryRequired),
+      option('frozen', localeCopy.hrAccountFrozen),
+      option('unbound', localeCopy.hrAccountUnbound)
+    ],
+    bindingStates: [option('bound', localeCopy.hrBindingBound), option('unbound', localeCopy.hrBindingUnbound)]
   };
 }
 
 function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
   const keyword = String(filters.keyword || '').trim().toLowerCase();
-  return (rows || []).filter((item) => {
-    const departments = Array.isArray(item.departments) ? item.departments : [item.department];
-    const identities = Array.isArray(item.identities) ? item.identities : [item.identity];
-    const workGroups = Array.isArray(item.workGroups) ? item.workGroups : [item.workGroup];
-    if (filters.department !== localeCopy.copy_68f7277730 && !departments.includes(filters.department)) {
-      return false;
-    }
-    if (filters.identity !== localeCopy.copy_55780718f9 && !identities.includes(filters.identity)) {
-      return false;
-    }
-    if (filters.workGroup !== localeCopy.copy_54e953f1bb && filters.workGroup !== localeCopy.copy_e986e973a2 && filters.workGroup !== localeCopy.copy_f54076411e && !workGroups.includes(filters.workGroup)) {
-      return false;
-    }
-    if (filters.status !== localeCopy.copy_03a3d115c7 && item.auditStatusText !== filters.status) {
-      return false;
-    }
+  const selected = (key) => Array.isArray(filters[key]) ? filters[key] : [];
+  const includesSelected = (key, value) => !selected(key).length || selected(key).includes(value);
+  const assignmentKinds = { staff: localeCopy.hrNatureStaff, liaison: localeCopy.hrNatureLiaison, other: localeCopy.hrNatureOther };
+  const filtered = (rows || []).filter((item) => {
+    if (!includesSelected('membershipStatuses', item.membershipStatus || 'active')) return false;
+    if (!includesSelected('positionStates', Number(item.assignmentCount || 0) > 0 ? 'with_position' : 'without_position')) return false;
+    if (!includesSelected('profileStatuses', item.auditStatus || 'none')) return false;
+    if (!includesSelected('completenessStates', item.isComplete ? 'complete' : 'incomplete')) return false;
+    if (!includesSelected('accountStates', item.accountState || 'unbound')) return false;
+    if (!includesSelected('bindingStates', item.wxBindStatus === 'bound' ? 'bound' : 'unbound')) return false;
+    const assignmentFiltersActive = selected('assignmentNatures').length || selected('departments').length
+      || selected('identities').length || selected('workGroups').length;
+    const assignments = Array.isArray(item.assignments) ? item.assignments : [];
+    const tupleMatchesFilters = (assignment) => {
+      const tuple = normalizeAssignmentFilterTuple(assignment);
+      const includesTupleValue = (key, value, legacyName) => !selected(key).length
+        || selected(key).includes(value)
+        || selected(key).includes(legacyName);
+      return includesSelected('assignmentNatures', tuple.assignmentNature)
+        && includesTupleValue('departments', tuple.departmentValue, tuple.department)
+        && includesTupleValue('identities', tuple.identityValue, tuple.identity)
+        && includesTupleValue('workGroups', tuple.workGroupValue, tuple.workGroup);
+    };
+    const matchingAssignments = assignmentFiltersActive
+      ? assignments.filter(tupleMatchesFilters)
+      : assignments;
+    if (assignmentFiltersActive && !matchingAssignments.length) return false;
     if (keyword) {
-      const name = String(item.name || '').trim().toLowerCase();
-      const studentId = String(item.studentId || '').trim().toLowerCase();
-      if (!name.includes(keyword) && !studentId.includes(keyword)) {
-        return false;
-      }
+      const assignmentText = matchingAssignments.map((assignment) => [
+        assignmentKinds[assignment.assignmentNature] || assignment.assignmentNature,
+        assignment.department, assignment.identityCategoryName, assignment.workGroup
+      ].filter(Boolean).join(' ')).join(' ');
+      const searchValues = {
+        name: item.name,
+        studentId: item.studentId,
+        assignmentNature: (item.assignmentNatures || []).map((value) => assignmentKinds[value] || value).join(' '),
+        department: (item.departments || []).join(' '),
+        identity: (item.identities || []).join(' '),
+        workGroup: (item.workGroups || []).join(' '),
+        membershipStatus: item.membershipStatusText,
+        accountStatus: item.accountStateText,
+        profileStatus: item.auditStatusText
+      };
+      const field = filters.searchField || 'all';
+      const assignmentFieldValues = {
+        assignmentNature: matchingAssignments.map((assignment) => assignmentKinds[assignment.assignmentNature] || assignment.assignmentNature).join(' '),
+        department: matchingAssignments.map((assignment) => assignment.department || '').join(' '),
+        identity: matchingAssignments.map((assignment) => assignment.identityCategoryName || assignment.identity || '').join(' '),
+        workGroup: matchingAssignments.map((assignment) => assignment.workGroup || '').join(' ')
+      };
+      const haystack = field === 'all'
+        ? [item.name, item.studentId, assignmentText, item.membershipStatusText, item.accountStateText, item.auditStatusText].join(' ')
+        : (Object.prototype.hasOwnProperty.call(assignmentFieldValues, field)
+          ? assignmentFieldValues[field]
+          : searchValues[field]);
+      if (!String(haystack || '').toLowerCase().includes(keyword)) return false;
     }
     return true;
-  }).sort((a, b) => {
-    const statusDiff = getHrProfileStatusOrder(a.auditStatus) - getHrProfileStatusOrder(b.auditStatus);
-    if (statusDiff !== 0) {
-      return statusDiff;
-    }
+  });
+  const dateValue = (value) => value ? new Date(value).getTime() || 0 : 0;
+  return filtered.sort((a, b) => {
+    const mode = filters.sortMode || 'name_asc';
+    if (mode === 'student_id_asc') return String(a.studentId || '').localeCompare(String(b.studentId || ''), 'zh-CN');
+    if (mode === 'membership_status') return String(a.membershipStatus || '').localeCompare(String(b.membershipStatus || '')) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
+    if (mode === 'assignment_count_desc') return Number(b.assignmentCount || 0) - Number(a.assignmentCount || 0) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
+    if (mode === 'profile_status') return getHrProfileStatusOrder(a.auditStatus) - getHrProfileStatusOrder(b.auditStatus) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
+    if (mode === 'joined_at_desc') return dateValue(b.joinedAt) - dateValue(a.joinedAt) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
+    if (mode === 'left_at_desc') return dateValue(b.leftAt) - dateValue(a.leftAt) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
     return String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
   });
 }
@@ -739,15 +879,15 @@ function isValidDateString(value) {
     return false;
   }
 
-  const date = new Date(`${value}T00:00:00`);
+  const date = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     return false;
   }
 
   const [year, month, day] = value.split('-').map((item) => Number(item));
-  return date.getFullYear() === year
-    && date.getMonth() + 1 === month
-    && date.getDate() === day;
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() + 1 === month
+    && date.getUTCDate() === day;
 }
 
 function getNumericLength(value) {
@@ -897,8 +1037,8 @@ function tryParseDateValue(value) {
     let month = Number(m1[2]);
     let day = Number(m1[3]);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      let dt = new Date(year, month - 1, day);
-      if (dt.getFullYear() === year && dt.getMonth() + 1 === month && dt.getDate() === day) {
+      let dt = new Date(Date.UTC(year, month - 1, day));
+      if (dt.getUTCFullYear() === year && dt.getUTCMonth() + 1 === month && dt.getUTCDate() === day) {
         return { year: year, month: month, day: day };
       }
     }
@@ -911,8 +1051,8 @@ function tryParseDateValue(value) {
     let mo = Number(m2[2]);
     let y = Number(m2[3]);
     if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      let dt2 = new Date(y, mo - 1, d);
-      if (dt2.getFullYear() === y && dt2.getMonth() + 1 === mo && dt2.getDate() === d) {
+      let dt2 = new Date(Date.UTC(y, mo - 1, d));
+      if (dt2.getUTCFullYear() === y && dt2.getUTCMonth() + 1 === mo && dt2.getUTCDate() === d) {
         return { year: y, month: mo, day: d };
       }
     }
@@ -920,12 +1060,12 @@ function tryParseDateValue(value) {
 
   // Fallback to native Date
   let d3 = new Date(v);
-  if (!isNaN(d3.getTime()) && d3.getFullYear() > 1900) {
-    return { year: d3.getFullYear(), month: d3.getMonth() + 1, day: d3.getDate() };
+  if (!isNaN(d3.getTime()) && d3.getUTCFullYear() > 1900) {
+    return { year: d3.getUTCFullYear(), month: d3.getUTCMonth() + 1, day: d3.getUTCDate() };
   }
   let d4 = new Date(v.replace(' ', 'T'));
-  if (!isNaN(d4.getTime()) && d4.getFullYear() > 1900) {
-    return { year: d4.getFullYear(), month: d4.getMonth() + 1, day: d4.getDate() };
+  if (!isNaN(d4.getTime()) && d4.getUTCFullYear() > 1900) {
+    return { year: d4.getUTCFullYear(), month: d4.getUTCMonth() + 1, day: d4.getUTCDate() };
   }
   return null;
 }
@@ -1292,6 +1432,7 @@ module.exports = {
   getHrProfileStatusOrder,
   buildHrProfileFilterOptions,
   applyHrProfileFilters,
+  normalizeAssignmentFilterTuple,
   emptyResultFilters,
   isValidDateString,
   getNumericLength,

@@ -43,9 +43,9 @@ Object.assign(context, behavior.methods);
 
 context.exportHrProfiles();
 assert.strictEqual(context.data.hrProfileExportVisible, true);
-assert.strictEqual(context.data.hrProfileExportColumns.length, 9);
-assert.strictEqual(context.data.hrProfileExportColumns[7].label, '喜欢的颜色');
-assert.strictEqual(context.data.hrProfileExportColumns[8].label, '喜欢的颜色（待审核）');
+assert.strictEqual(context.data.hrProfileExportColumns.length, 13);
+assert.strictEqual(context.data.hrProfileExportColumns[11].label, '喜欢的颜色');
+assert.strictEqual(context.data.hrProfileExportColumns[12].label, '喜欢的颜色（待审核）');
 
 context.onHrProfileExportColumnChange({ detail: { value: ['name', 'profile_0'] } });
 let captured = null;

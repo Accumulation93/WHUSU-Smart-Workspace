@@ -41,9 +41,9 @@ Page({
             return view.hasSnapshot;
           }).map(function(view) { return view.assignmentLabel; })));
           return Object.assign({}, item, {
-            createdAt: formatAuditTime(item.createdAt),
-            updatedAt: formatAuditTime(item.updatedAt),
-            myLastActionAt: formatAuditTime(item.myLastActionAt),
+            createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
+            updatedAtText: formatAuditTime(item.updatedAt, item.updatedAtReviewStatus),
+            myLastActionAtText: formatAuditTime(item.myLastActionAt, item.myLastActionAtReviewStatus),
             handledAssignmentLabels: labels,
             hasLegacyAssignmentSnapshot: Boolean((item.mySteps || []).length && !labels.length)
           });

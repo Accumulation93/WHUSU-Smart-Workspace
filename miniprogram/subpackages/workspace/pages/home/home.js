@@ -2,6 +2,7 @@ const { callFunction, getErrorText, formatAuditTime } = require('../../../../uti
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
+const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 
@@ -49,7 +50,7 @@ function decorateAccountSessions(sessions) {
   return (sessions || []).map(function(item) {
     return Object.assign({}, item, {
       roleLabel: item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
-      lastSeenText: formatAuditTime(String(item.lastSeenAt || '')),
+      lastSeenText: formatAuditTime(String(item.lastSeenAt || ''), item.lastSeenAtReviewStatus),
       deviceTitle: item.currentDevice || item.current
         ? copy.text.currentDevice
         : (item.recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
@@ -140,19 +141,7 @@ function showShortToast(title, icon = 'none') {
 }
 
 function isValidDateString(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  const [year, month, day] = value.split('-').map((item) => Number(item));
-  return date.getFullYear() === year
-    && date.getMonth() + 1 === month
-    && date.getDate() === day;
+  return Boolean(formatDateOnly(String(value || '')));
 }
 
 function getNumericLength(value) {
@@ -1022,18 +1011,15 @@ Page({
     }
     const activity = this.data.currentActivity;
     if (activity) {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = getSystemDate();
       if (activity.startDate) {
-        const startDate = new Date(activity.startDate.replace(/-/g, '/'));
-        if (today < startDate) {
+        if (today < activity.startDate) {
           wx.showToast({ title: copy.text.activityNotStarted, icon: 'none' });
           return;
         }
       }
       if (activity.endDate) {
-        const endDate = new Date(activity.endDate.replace(/-/g, '/'));
-        if (today > endDate) {
+        if (today > activity.endDate) {
           wx.showToast({ title: copy.text.activityEnded, icon: 'none' });
           return;
         }

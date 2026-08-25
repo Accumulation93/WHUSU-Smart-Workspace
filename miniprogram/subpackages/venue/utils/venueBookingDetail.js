@@ -1,6 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
 const { buildFlowTimeline } = require('./flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
+const { formatListTime, formatDetailTime, parseAbsoluteTime } = require('../../../utils/dateTime');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -15,9 +16,10 @@ function computeDisplayStatus(item) {
   if (!item) return '';
   if (item.status === 'pending' || item.status === 'rejected' || item.status === 'cancelled') return item.status;
   if (item.status === 'approved') {
-    const now = new Date();
-    const timeStart = new Date(String(item.timeStart || '').replace(' ', 'T'));
-    const timeEnd = new Date(String(item.timeEnd || '').replace(' ', 'T'));
+    const now = Date.now();
+    const timeStart = parseAbsoluteTime(item.fullTimeStart || item.timeStart);
+    const timeEnd = parseAbsoluteTime(item.fullTimeEnd || item.timeEnd);
+    if (timeStart === null || timeEnd === null) return 'approved';
     if (now < timeStart) return 'approved';
     if (now >= timeEnd) return 'completed';
     return 'inUse';
@@ -36,6 +38,14 @@ function getSnapshotCompletedSteps(progress) {
 
 function prepareVenueBookingDetail(item) {
   const detail = Object.assign({}, item || {});
+  detail.timeStartText = formatListTime(detail.fullTimeStart || detail.timeStart, {
+    reviewStatus: detail.fullTimeStart ? detail.fullTimeStartReviewStatus : detail.timeStartReviewStatus
+  });
+  detail.timeEndText = formatListTime(detail.fullTimeEnd || detail.timeEnd, {
+    reviewStatus: detail.fullTimeEnd ? detail.fullTimeEndReviewStatus : detail.timeEndReviewStatus
+  });
+  detail.createdAtText = formatListTime(detail.createdAt, { reviewStatus: detail.createdAtReviewStatus });
+  detail.approvedAtText = formatDetailTime(detail.approvedAt, { reviewStatus: detail.approvedAtReviewStatus });
   detail._creatorAssignmentText = formatAssignmentLabel({
     assignmentId: detail.creatorAssignmentId || detail.applicantAssignmentId,
     assignmentLabel: detail.creatorAssignmentLabel || detail.applicantAssignmentLabel,

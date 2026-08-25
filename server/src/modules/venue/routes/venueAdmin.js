@@ -4,8 +4,11 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
+const systemConfigModel = require('../../../core/models/systemConfig');
+const { parseSystemDateTime, systemDateTimeToMysqlUtc, toMysqlUtc } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
@@ -98,11 +101,6 @@ function rejectLegacyFlowEndpoint(req, res) {
 
 function fmtLocalDate(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
-function fmtDatetime(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-    + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
 function parseAdminBookingDatetime(value) {
@@ -433,12 +431,16 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
+    const systemConfig = await systemConfigModel.get();
+    const timezoneOffset = systemConfig ? systemConfig.timezone : 8;
     const start = parseAdminBookingDatetime(req.body.timeStart);
     const end = parseAdminBookingDatetime(req.body.timeEnd);
-    if (!venueId || !title || !start || !end) return res.json({ status: 'invalid_params', message: localeCopy.copy_90c32deaa9 });
+    const absoluteStart = parseSystemDateTime(safeString(req.body.timeStart), timezoneOffset);
+    const absoluteEnd = parseSystemDateTime(safeString(req.body.timeEnd), timezoneOffset);
+    if (!venueId || !title || !start || !end || !absoluteStart || !absoluteEnd) return res.json({ status: 'invalid_params', message: localeCopy.copy_90c32deaa9 });
     if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: localeCopy.copy_f450f21538 });
-    if (end <= start) return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
-    if (start < new Date()) return res.json({ status: 'invalid_params', message: localeCopy.copy_10df33d76e });
+    if (absoluteEnd <= absoluteStart) return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
+    if (absoluteStart < new Date()) return res.json({ status: 'invalid_params', message: localeCopy.copy_10df33d76e });
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
@@ -452,13 +454,21 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
     const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
     if (!covered) return res.json({ status: 'conflict', message: localeCopy.copy_ac59b4dfc5 });
-    const activitySlots = buildActivitySlots(dateText, activityRules);
+    const activitySlots = buildActivitySlots(dateText, activityRules, timezoneOffset);
     const activityConflict = activitySlots.some((slot) => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart);
     if (activityConflict) return res.json({ status: 'conflict', message: localeCopy.copy_f64d815664 });
 
     await conn.beginTransaction();
     const id = generateId();
     const orgId = await getCurrentOrgId();
+    if (safeString(req.authContext && req.authContext.personId)) {
+      await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
+        personId: safeString(req.authContext.personId),
+        organizationId: orgId,
+        assignmentId: safeString(req.authContext.assignmentId),
+        requireMembership: Boolean(safeString(req.authContext.assignmentId))
+      }]);
+    }
     const dedupClaim = await requestDeduplication.claim(conn, {
       orgId,
       actorKey: 'admin:' + admin.id,
@@ -472,8 +482,8 @@ router.post('/createAdminVenueBooking', async (req, res) => {
         status: 'success', id: dedupClaim.resourceId, bookingStatus: 'approved', message: localeCopy.copy_eb813c46d9, idempotent: true
       });
     }
-    const dbStart = fmtDatetime(start);
-    const dbEnd = fmtDatetime(end);
+    const dbStart = systemDateTimeToMysqlUtc(safeString(req.body.timeStart), timezoneOffset);
+    const dbEnd = systemDateTimeToMysqlUtc(safeString(req.body.timeEnd), timezoneOffset);
     const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);
     if (conflict) {
       await conn.rollback();
@@ -631,8 +641,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
         : (applicant.assignmentLabel || localeCopy.historicalAssignmentMissing),
       title: b.title,
       description: b.description,
-      timeStart: fmtDatetime(new Date(b.time_start)),
-      timeEnd: fmtDatetime(new Date(b.time_end)),
+      timeStart: b.time_start,
+      timeEnd: b.time_end,
       status: b.status,
       approverHrId: b.approver_hr_id,
       approvalComment: b.approval_comment,
@@ -823,10 +833,10 @@ router.post('/approveVenueBooking', async (req, res) => {
     }
 
     // Approval within booking window - adjust start time
-    await venueBookingModel.updateTimeStart(id, fmtDatetime(approvedAt), conn);
+    await venueBookingModel.updateTimeStart(id, toMysqlUtc(approvedAt), conn);
 
-    const timeStart = fmtDatetime(approvedAt);
-    const timeEnd = fmtDatetime(new Date(booking.time_end));
+    const timeStart = toMysqlUtc(approvedAt);
+    const timeEnd = toMysqlUtc(new Date(booking.time_end));
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
     if (conflict) {
       await conn.rollback();

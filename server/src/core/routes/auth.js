@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/auth');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const userInfoModel = require('../models/userInfo');
 const adminInfoModel = require('../models/adminInfo');
@@ -120,7 +121,7 @@ async function resolveUserInOrganization(openid, orgId) {
   }
 
   if (existing) {
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     await userInfoModel.updateInOrg(existing.id, matchedHr.id, nowUtc, orgId);
     return { binding: Object.assign({}, existing, { hr_id: matchedHr.id }), hr: matchedHr };
   }

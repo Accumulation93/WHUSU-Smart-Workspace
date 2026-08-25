@@ -3,14 +3,18 @@ const API_BASE = 'https://accumulation93.com/api';
 const CLIENT_VERSION = '1.2.0-security';
 const orgSession = require('./orgSession');
 const { getDeviceIdentity } = require('./deviceIdentity');
+const dateTime = require('./dateTime');
 const IDEMPOTENT_WRITE_APIS = {
   submitScoreRecord: true,
   startAuditSubmission: true,
   startAdHocAudit: true,
   createVenueBooking: true,
-  createAdminVenueBooking: true
+  createAdminVenueBooking: true,
+  deleteHrMembershipPermanently: true,
+  deletePersonPermanently: true
 };
 const AUTH_ENTRY_APIS = {
+  getTimeConfig: true,
   'auth/wechat/session': true,
   'auth/claims': true,
   'auth/claims/verify': true,
@@ -55,6 +59,27 @@ function notifyUpgrade(result) {
     const app = getApp();
     if (app && app.notifyUpgradeRequired) app.notifyUpgradeRequired(result.message);
   } catch (_) {}
+}
+
+function captureSystemTimezone(result) {
+  if (!result || typeof result !== 'object') return;
+  const config = result.config && typeof result.config === 'object' ? result.config : {};
+  const offset = result.systemTimezoneOffset !== undefined
+    ? result.systemTimezoneOffset
+    : config.timezone;
+  if (offset === undefined) return;
+  dateTime.setSystemTimezoneConfig(
+    offset,
+    result.timezoneConfigVersion !== undefined
+      ? result.timezoneConfigVersion
+      : config.timezoneConfigVersion,
+    result.historicalTimeReviewRequired !== undefined
+      ? result.historicalTimeReviewRequired
+      : config.historicalTimeReviewRequired,
+    result.timeReviewConfigVersion !== undefined
+      ? result.timeReviewConfigVersion
+      : config.timeReviewConfigVersion
+  );
 }
 
 let orgPromptVisible = false;
@@ -233,6 +258,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
           return;
         }
         if (res.statusCode === 200) {
+          captureSystemTimezone(res.data);
           notifyUpgrade(res.data);
           notifyOrgContextRequired(res.data);
           resolve(res.data);
@@ -332,23 +358,12 @@ function getErrorText(error, fallback) {
  * Handles both ISO 8601 (2026-06-12T08:30:00.000Z) and MySQL DATETIME (2026-06-12 16:30:00).
  * Output: "2026-06-12 16:30" in local time
  */
-function formatAuditTime(raw) {
-  if (!raw) return '';
-  try {
-    let d;
-    if (raw.indexOf('T') !== -1) {
-      // ISO 8601 — parse as UTC, display in local
-      d = new Date(raw);
-    } else {
-      // MySQL DATETIME — already in local time
-      d = new Date(raw.replace(' ', 'T') + '+08:00');
-    }
-    if (isNaN(d.getTime())) return raw;
-    const pad = function(n) { return String(n).padStart(2, '0'); };
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-  } catch (_) {
-    return raw;
-  }
+function formatAuditTime(raw, reviewStatus) {
+  return dateTime.formatListTime(raw, { reviewStatus: reviewStatus });
+}
+
+function formatAuditDetailTime(raw, reviewStatus) {
+  return dateTime.formatDetailTime(raw, { reviewStatus: reviewStatus });
 }
 
 module.exports = {
@@ -363,5 +378,6 @@ module.exports = {
   showShortToast: showShortToast,
   getErrorText: getErrorText,
   isRequestCancelled: function(error) { return !!(error && (error.silent || error.status === 'request_cancelled')); },
-  formatAuditTime: formatAuditTime
+  formatAuditTime: formatAuditTime,
+  formatAuditDetailTime: formatAuditDetailTime
 };

@@ -22,7 +22,7 @@
               <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{item.currentStepName}}</view>
               <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} {{localeCopy.copy_dc59906817}}</view>
             </view>
-            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
+            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStartText}} {{localeCopy.copy_e8d9493a44}} {{item.timeEndText}}</view>
             <view class="assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.applicantAssignment}} · {{item._creatorAssignmentText}}</view>
             <view class="context-switch-notice" wx:if="{{item._requiresContextSwitch}}">
               <view class="context-switch-title">{{localeCopy.contextSwitchRequired}}</view>
@@ -80,7 +80,7 @@
                   <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
                     <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
                     <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-processed-meta"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text>{{node.approverAssignmentText}}</view>
-                    <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
+                    <view wx:if="{{node.approvedAtText}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAtText}}</view>
                     <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                   </view>
                 </view>
@@ -97,7 +97,7 @@
             <view class="context-switch-detail" wx:if="{{approvalTarget._requiredContextText}}">{{approvalTarget._requiredContextText}}</view>
             <text class="context-switch-action ui-motion-chip" catchtap="goWorkContextSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.switchWorkContext}}</text>
           </view>
-          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
+          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalTarget.timeStartText}} — {{approvalTarget.timeEndText}}</text></view>
           <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{approvalTarget.description}}</text></view>
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag pending">{{localeCopy.copy_310d71700e}}</text></view>
           <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">{{localeCopy.copy_9e26c149ee}}</text><text class="detail-val">{{localeCopy.copy_ef8b7ffa9b}}{{approvalTarget.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{approvalTarget.currentStepName}}</text></view>

@@ -7,6 +7,7 @@ const personnelViewModel = require('./personnelViewModel');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
+const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
 
 function toHrProfileListRow(item) {
   return {
@@ -36,8 +37,173 @@ function toHrProfileListRow(item) {
     canRevokeRecovery: Boolean(item.canRevokeRecovery),
     canUnbindWechat: Boolean(item.canUnbindWechat),
     canSelectForAuth: Boolean(item.canSelectForAuth),
-    hasAssignments: Number(item.assignmentCount || 0) > 0
+    hasAssignments: Number(item.assignmentCount || 0) > 0,
+    membershipStatus: item.membershipStatus || 'active',
+    membershipStatusText: item.membershipStatusText || '',
+    isFormer: item.membershipStatus === 'left',
+    joinedAtText: item.joinedAtText || '',
+    leftAtText: item.leftAtText || '',
+    isComplete: Boolean(item.isComplete)
   };
+}
+
+function decorateDirectoryRow(item) {
+  const membershipStatus = item.membershipStatus === 'left' ? 'left' : 'active';
+  return Object.assign({}, item, {
+    membershipStatus,
+    membershipStatusText: membershipStatus === 'left' ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive,
+    joinedAtText: formatListTime(item.joinedAt, { reviewStatus: item.joinedAtReviewStatus }),
+    leftAtText: formatListTime(item.leftAt, { reviewStatus: item.leftAtReviewStatus }),
+    assignments: (item.assignments || []).map((assignment) => Object.assign({}, assignment, {
+      historical: membershipStatus === 'left' || Boolean(assignment.historical)
+    }))
+  });
+}
+
+function buildGovernanceAssignments(item) {
+  if (Array.isArray(item.assignments) && item.assignments.length) return item.assignments;
+  const department = String(item.department || item.departmentName || '');
+  const identity = String(item.identityCategoryName || item.identity || item.identityName || '');
+  const workGroup = String(item.workGroup || item.workGroupName || '');
+  if (!department && !identity && !workGroup) return [];
+  const departmentId = String(item.departmentId || '');
+  const identityCategoryId = String(item.identityCategoryId || item.identityId || '');
+  const workGroupId = String(item.workGroupId || '');
+  return [{
+    assignmentId: String(item.assignmentId || ''),
+    assignmentNature: String(item.assignmentNature || item.assignmentKind || 'staff'),
+    departmentId: departmentId || (department ? 'legacy-department:' + department : ''),
+    department,
+    identityCategoryId: identityCategoryId || (identity ? 'legacy-identity:' + identity : ''),
+    identityCategoryName: identity,
+    workGroupId: workGroupId || (workGroup
+      ? 'legacy-work-group:' + (departmentId || department) + ':' + workGroup
+      : ''),
+    workGroup,
+    historical: item.membershipStatus === 'left'
+  }];
+}
+
+function decorateFilterOptions(options, filters) {
+  const result = {};
+  Object.keys(options || {}).forEach((key) => {
+    const values = Array.isArray(filters[key]) ? filters[key] : [];
+    result[key] = (options[key] || []).map((item) => Object.assign({}, item, {
+      selected: values.indexOf(item.value) >= 0
+    }));
+  });
+  return result;
+}
+
+function buildActiveFilterChips(options, filters) {
+  const chips = [];
+  Object.keys(options || {}).forEach((key) => {
+    if (!Array.isArray(filters[key])) return;
+    (options[key] || []).forEach((item) => {
+      if (filters[key].indexOf(item.value) >= 0) chips.push({ id: key + ':' + item.value, category: key, value: item.value, label: item.label });
+    });
+  });
+  return chips;
+}
+
+function deletionCategoryLabel(category) {
+  const canonicalCategory = String(category || '').replace(/([A-Z])/g, '_$1').toLowerCase();
+  const labels = {
+    scoring_records: localeCopy.hrDeletionBlockScoring,
+    scoring_designations: localeCopy.hrDeletionBlockScoringDesignation,
+    audit_submissions: localeCopy.hrDeletionBlockAuditSubmission,
+    audit_steps: localeCopy.hrDeletionBlockAuditStep,
+    audit_signatures: localeCopy.hrDeletionBlockSignature,
+    audit_events: localeCopy.hrDeletionBlockAuditEvent,
+    venue_bookings: localeCopy.hrDeletionBlockVenue,
+    profile_review_history: localeCopy.hrDeletionBlockProfileReview,
+    reviewed_profile_records: localeCopy.hrDeletionBlockReviewedProfile,
+    merged_person_history: localeCopy.hrDeletionBlockMergedHistory,
+    current_operator: localeCopy.hrDeletionBlockCurrentOperator,
+    last_effective_super_admin: localeCopy.hrDeletionBlockLastSuperAdmin,
+    legacy_hr_records: localeCopy.hrDeletionCleanupHr,
+    profile_records: localeCopy.hrDeletionCleanupProfile,
+    profile_values: localeCopy.hrDeletionCleanupProfileValues,
+    global_profile_values: localeCopy.hrDeletionCleanupGlobalProfile,
+    global_profile_values_restored: localeCopy.hrDeletionCleanupGlobalProfileRestored,
+    global_profile_history: localeCopy.hrDeletionCleanupGlobalProfileHistory,
+    signature_templates: localeCopy.hrDeletionCleanupSignatureTemplate,
+    notifications: localeCopy.hrDeletionCleanupNotification,
+    notification_outbox: localeCopy.hrDeletionCleanupNotificationOutbox,
+    audit_read_cursors: localeCopy.hrDeletionCleanupReadCursor,
+    read_cursors: localeCopy.hrDeletionCleanupReadCursor,
+    audit_verification_permissions: localeCopy.hrDeletionCleanupVerificationPermission,
+    verification_permissions: localeCopy.hrDeletionCleanupVerificationPermission,
+    admin_grants: localeCopy.hrDeletionCleanupAdminGrant,
+    admin_records: localeCopy.hrDeletionCleanupAdminRecord,
+    legacy_admin_records: localeCopy.hrDeletionCleanupAdminRecord,
+    admin_permission_audit_preserved: localeCopy.hrDeletionCleanupAdminAuditPreserved,
+    admin_permission_audit_redacted: localeCopy.hrDeletionCleanupAdminAuditRedacted,
+    admin_permission_overrides: localeCopy.hrDeletionCleanupAdminOverride,
+    admin_permission_override_issuers_redacted: localeCopy.hrDeletionCleanupAdminOverrideIssuer,
+    redacted_admin_permission_audit: localeCopy.hrDeletionCleanupAdminAuditRedacted,
+    redacted_admin_permission_override_issuers: localeCopy.hrDeletionCleanupAdminOverrideIssuer,
+    identity_invites: localeCopy.hrDeletionCleanupIdentityInvite,
+    identity_invites_for_member: localeCopy.hrDeletionCleanupIdentityInvite,
+    active_identity_invites_issued: localeCopy.hrDeletionCleanupIssuedIdentityInvite,
+    issued_identity_invites_revoked: localeCopy.hrDeletionCleanupIssuedIdentityInvite,
+    identity_tokens: localeCopy.hrDeletionCleanupIdentityToken,
+    identity_tokens_for_member_claims: localeCopy.hrDeletionCleanupIdentityToken,
+    active_identity_tokens_issued: localeCopy.hrDeletionCleanupIssuedIdentityToken,
+    issued_identity_tokens_revoked: localeCopy.hrDeletionCleanupIssuedIdentityToken,
+    identity_claims: localeCopy.hrDeletionCleanupIdentityClaim,
+    account_recovery_requests: localeCopy.hrDeletionCleanupRecoveryRequest,
+    recovery_requests: localeCopy.hrDeletionCleanupRecoveryRequest,
+    account_recovery_approvals: localeCopy.hrDeletionCleanupRecoveryApproval,
+    recovery_approvals_redacted: localeCopy.hrDeletionCleanupRecoveryApproval,
+    recovery_approver_references: localeCopy.hrDeletionCleanupRecoveryApproval,
+    auth_sessions: localeCopy.hrDeletionCleanupSession,
+    sessions: localeCopy.hrDeletionCleanupSession,
+    legacy_user_bindings: localeCopy.hrDeletionCleanupLegacyBinding,
+    accounts: localeCopy.hrDeletionCleanupAccount,
+    wechat_bindings: localeCopy.hrDeletionCleanupWechatBinding,
+    recovery_credentials: localeCopy.hrDeletionCleanupRecoveryCredential,
+    auth_audit_events_redacted: localeCopy.hrDeletionCleanupAuthAudit,
+    redacted_audit_events: localeCopy.hrDeletionCleanupAuthAudit,
+    assignments: localeCopy.hrDeletionCleanupAssignment,
+    memberships: localeCopy.hrDeletionCleanupMembership,
+    persons: localeCopy.hrDeletionCleanupPerson,
+    scoring_caches: localeCopy.hrDeletionCleanupCache,
+    legacy_auth_challenges: localeCopy.hrDeletionCleanupLegacyChallenge,
+    bootstrap_sessions: localeCopy.hrDeletionCleanupBootstrapSession,
+    auth_policy_references: localeCopy.hrDeletionCleanupAuthPolicy
+  };
+  return labels[canonicalCategory] || localeCopy.hrDeletionRelatedData;
+}
+
+function decorateDeletionImpact(rows) {
+  return (rows || []).filter((item) => Number(item.count || 0) > 0).map((item, index) => ({
+    id: String(item.category || item.type || 'impact') + ':' + String(item.id || index),
+    label: deletionCategoryLabel(item.category),
+    count: Number(item.count || 0)
+  }));
+}
+
+function decorateDeletionRules(rows) {
+  const referenceLabels = {
+    step_condition: localeCopy.hrDeletionReferenceStepCondition,
+    approval_step: localeCopy.hrDeletionReferenceApprovalStep,
+    starter_condition: localeCopy.hrDeletionReferenceStarterCondition,
+    approver: localeCopy.hrDeletionReferenceVenueApprover
+  };
+  return (rows || []).map((item, index) => {
+    const typeLabel = item.type === 'audit_template'
+      ? localeCopy.hrDeletionAuditTemplate : localeCopy.hrDeletionVenueRule;
+    const stepLabel = item.stepName || (Number(item.stepOrder || 0) > 0
+      ? localeFormat(localeCopy.hrDeletionStepOrder, [Number(item.stepOrder)]) : '');
+    return {
+      id: [item.type || 'rule', item.id || index, item.reference || '', stepLabel].join(':'),
+      label: item.name || typeLabel,
+      typeLabel,
+      referenceText: [stepLabel, referenceLabels[item.reference] || ''].filter(Boolean).join(' · '),
+      wouldDisable: Boolean(item.wouldDisable)
+    };
+  });
 }
 
 module.exports = Behavior({
@@ -94,28 +260,9 @@ module.exports = Behavior({
       }
     },
 
-    async loadFormerHrMembers() {
-      if (!this.data.canManageHrPeople || this.data.loadingFormerHrMembers) return;
-      this.setData({ loadingFormerHrMembers: true });
-      try {
-        const result = await this.callCloud('listFormerHrMembers', {
-          organizationId: this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || ''
-        });
-        if (!result || result.status !== 'success') {
-          wx.showToast({ title: result && result.message || localeCopy.formerMembersLoadFailed, icon: 'none' });
-          return;
-        }
-        this.setData({ formerHrMembers: result.list || [] });
-      } catch (error) {
-        wx.showToast({ title: localeCopy.formerMembersLoadFailed, icon: 'none' });
-      } finally {
-        this.setData({ loadingFormerHrMembers: false });
-      }
-    },
-
     async reactivateHrMembership(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
-      if (!hrId || !this.data.canManageHrPeople) return;
+      if (!hrId || !this.data.canManageHrPeople || this.data.reactivatingHrId) return;
       this.setData({ reactivatingHrId: hrId });
       try {
         const result = await this.callCloud('reactivateHrMembership', {
@@ -126,12 +273,151 @@ module.exports = Behavior({
           wx.showToast({ title: result && result.message || localeCopy.membershipReactivateFailed, icon: 'none' });
           return;
         }
-        await Promise.all([this.loadFormerHrMembers(), this.loadHrList(), this.loadHrProfileAdminData()]);
-        wx.showToast({ title: localeCopy.membershipReactivated, icon: 'success' });
+        if (this.data.showHrPersonDetail && String(this.data.detailHrId || '') === hrId) {
+          this.closeHrPersonDetail();
+        }
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+        wx.showToast({ title: localeCopy.hrReactivatedNoPosition, icon: 'success' });
       } catch (error) {
         wx.showToast({ title: localeCopy.membershipReactivateFailed, icon: 'none' });
       } finally {
         this.setData({ reactivatingHrId: '' });
+      }
+    },
+
+    async previewPermanentHrDeletion(e) {
+      const scope = String(e && e.currentTarget && e.currentTarget.dataset.scope || 'membership');
+      const governance = this.data.detailHrGovernance || {};
+      if (!this.data.canManageHrPeople || this.data.hrPermanentDeletionLoading
+        || (scope === 'person' && !this.data.isSuperAdmin)) return;
+      const target = {
+        scope,
+        hrId: String(this.data.detailHrId || ''),
+        personId: String(governance.personId || ''),
+        organizationId: String(this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || ''),
+        name: String(this.data.detailHrValues && this.data.detailHrValues._name || governance.name || ''),
+        studentId: String(this.data.detailHrValues && this.data.detailHrValues._studentId || governance.studentId || '')
+      };
+      if (!target.hrId || (scope === 'person' && !target.personId)) return;
+      const requestSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      this._hrPermanentDeletionPreviewSeq = requestSeq;
+      this.setData({
+        hrPermanentDeletionLoading: true,
+        hrPermanentDeletionScope: scope,
+        hrPermanentDeletionTarget: null
+      });
+      try {
+        const result = await this.callCloud('previewHrMemberDeletion', {
+          scope,
+          hrId: target.hrId,
+          personId: target.personId,
+          organizationId: target.organizationId
+        });
+        if (this._hrPermanentDeletionPreviewSeq !== requestSeq
+          || !this.data.showHrPersonDetail
+          || String(this.data.detailHrId || '') !== target.hrId) return;
+        if (!result || result.status !== 'success' || !result.preview) {
+          wx.showToast({ title: result && result.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
+          return;
+        }
+        const preview = Object.assign({}, result.preview, {
+          organizations: (result.preview.organizations || []).map((item) => Object.assign({}, item, {
+            organizationNameText: item.organizationName || localeCopy.hrDeletionUnknownOrganization,
+            membershipStatusText: item.membershipStatus === 'left'
+              ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive
+          }))
+        });
+        this.setData({
+          hrPermanentDeletionVisible: true,
+          hrPermanentDeletionScope: scope,
+          hrPermanentDeletionTarget: target,
+          hrPermanentDeletionPreview: preview,
+          hrPermanentDeletionResult: null,
+          hrPermanentDeletionBlockers: decorateDeletionImpact((preview.blockers || []).concat(preview.safetyBlocks || [])),
+          hrPermanentDeletionCleanup: decorateDeletionImpact(preview.cleanupImpact || []),
+          hrPermanentDeletionRules: decorateDeletionRules(preview.affectedRules || []),
+          hrPermanentDeletionCleanupAccepted: false,
+          hrPermanentDeletionConfirmation: ''
+        });
+      } catch (error) {
+        if (this._hrPermanentDeletionPreviewSeq !== requestSeq) return;
+        wx.showToast({ title: error && error.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
+      } finally {
+        if (this._hrPermanentDeletionPreviewSeq === requestSeq) {
+          this.setData({ hrPermanentDeletionLoading: false });
+        }
+      }
+    },
+
+    closePermanentHrDeletion() {
+      if (this.data.hrPermanentDeletionLoading) return;
+      this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      const deletionCompleted = Boolean(this.data.hrPermanentDeletionResult);
+      this.setData({
+        hrPermanentDeletionVisible: false,
+        hrPermanentDeletionPreview: null,
+        hrPermanentDeletionTarget: null,
+        hrPermanentDeletionResult: null,
+        hrPermanentDeletionBlockers: [],
+        hrPermanentDeletionCleanup: [],
+        hrPermanentDeletionRules: [],
+        hrPermanentDeletionCleanupAccepted: false,
+        hrPermanentDeletionConfirmation: ''
+      });
+      if (deletionCompleted && this.data.showHrPersonDetail) this.closeHrPersonDetail();
+    },
+
+    onPermanentHrDeletionCleanupAcceptance(e) {
+      this.setData({ hrPermanentDeletionCleanupAccepted: Boolean(e.detail && e.detail.accepted) });
+    },
+
+    onPermanentHrDeletionConfirmation(e) {
+      this.setData({ hrPermanentDeletionConfirmation: String(e.detail.value || '') });
+    },
+
+    async confirmPermanentHrDeletion() {
+      const preview = this.data.hrPermanentDeletionPreview;
+      const target = this.data.hrPermanentDeletionTarget;
+      if (!preview || !target || !preview.eligible || this.data.hrPermanentDeletionLoading) return;
+      const scope = target.scope;
+      const cleanupRequired = Array.isArray(this.data.hrPermanentDeletionCleanup)
+        && this.data.hrPermanentDeletionCleanup.length > 0;
+      if (cleanupRequired && !this.data.hrPermanentDeletionCleanupAccepted) return;
+      if (scope === 'person' && this.data.hrPermanentDeletionConfirmation !== String(preview.target && preview.target.studentId || '')) {
+        wx.showToast({ title: localeCopy.hrDeletionStudentIdMismatch, icon: 'none' });
+        return;
+      }
+      this.setData({ hrPermanentDeletionLoading: true });
+      try {
+        const result = await this.callCloud(
+          scope === 'person' ? 'deletePersonPermanently' : 'deleteHrMembershipPermanently',
+          {
+            hrId: target.hrId,
+            personId: target.personId,
+            organizationId: target.organizationId,
+            expectedVersion: preview.version,
+            acceptCleanup: !cleanupRequired || this.data.hrPermanentDeletionCleanupAccepted,
+            confirmStudentId: scope === 'person' ? this.data.hrPermanentDeletionConfirmation : ''
+          }
+        );
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
+          return;
+        }
+        const cleanupLabels = decorateDeletionImpact(Object.keys(result.cleanupCounts || {}).map((category) => ({
+          category,
+          count: Number(result.cleanupCounts[category] || 0)
+        })));
+        const affectedRules = decorateDeletionRules(result.affectedRules || []);
+        this.setData({
+          hrPermanentDeletionLoading: false,
+          hrPermanentDeletionResult: { cleanup: cleanupLabels, affectedRules }
+        });
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+      } catch (error) {
+        wx.showToast({ title: error && error.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
+      } finally {
+        this.setData({ hrPermanentDeletionLoading: false });
       }
     },
 
@@ -165,19 +451,10 @@ module.exports = Behavior({
           && !(governanceResult.error && governanceResult.error.silent);
   
         const template = result.template || null;
-        const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId);
+        const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId).map(decorateDirectoryRow);
         const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
-        const hrProfileFilterOptions = buildHrProfileFilterOptions(rawRows);
-        // Cascade work group options based on current department filter
-        if (this.data.hrProfileFilters.department === localeCopy.copy_68f7277730) {
-          hrProfileFilterOptions.workGroups = [localeCopy.copy_54e953f1bb];
-        } else {
-          const dept = this.data.departmentList.find(d => d.name === this.data.hrProfileFilters.department) || {};
-          const wgs = this.data.workGroupList
-            .filter(w => w.departmentId === dept.id)
-            .map(w => w.name);
-          hrProfileFilterOptions.workGroups = [localeCopy.copy_54e953f1bb, ...wgs];
-        }
+        const rawFilterOptions = buildHrProfileFilterOptions(rawRows);
+        const hrProfileFilterOptions = decorateFilterOptions(rawFilterOptions, this.data.hrProfileFilters);
         const filteredRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
         const actionState = this.buildHrMemberActionState(filteredRows);
         const selected = new Set(actionState.selectedHrMemberIds);
@@ -200,6 +477,9 @@ module.exports = Behavior({
           } : emptyHrProfileTemplateForm(),
           hrProfileFields,
           hrProfileFilterOptions,
+          hrProfileSearchFieldIndex: Math.max(0, rawFilterOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
+          hrProfileSortIndex: Math.max(0, rawFilterOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
+          hrProfileActiveFilterChips: buildActiveFilterChips(rawFilterOptions, this.data.hrProfileFilters),
           hrProfileRows: synchronizedRows.map(toHrProfileListRow),
           hrGovernanceUnavailable: governanceUnavailable
         }, actionState));
@@ -221,18 +501,24 @@ module.exports = Behavior({
       try {
         const governanceByHrId = await this.loadHrGovernanceRows();
         if (!orgSession.isRequestCurrent(this, request)) return;
-        const rows = Array.from(governanceByHrId.values()).map((item) => this.applyHrGovernancePermissions(Object.assign({}, item, {
-          id: item.hrId || item.id,
-          departments: item.department ? [item.department] : [],
-          identities: item.identity ? [item.identity] : [],
-          workGroups: item.workGroup ? [item.workGroup] : [],
-          assignmentCount: item.department || item.identity || item.workGroup ? 1 : 0,
-          auditStatus: '',
-          auditStatusText: '',
-          hasPending: false,
-          wxBindStatus: item.auth && item.auth.hasActiveBinding ? 'bound' : 'unbound'
-        })));
-        const options = buildHrProfileFilterOptions(rows);
+        const rows = Array.from(governanceByHrId.values()).map((item) => {
+          const assignments = buildGovernanceAssignments(item);
+          return decorateDirectoryRow(this.applyHrGovernancePermissions(Object.assign({}, item, {
+            id: item.hrId || item.id,
+            assignments,
+            departments: assignments.map((assignment) => assignment.department).filter(Boolean),
+            identities: assignments.map((assignment) => assignment.identityCategoryName).filter(Boolean),
+            workGroups: assignments.map((assignment) => assignment.workGroup).filter(Boolean),
+            assignmentNatures: assignments.map((assignment) => assignment.assignmentNature).filter(Boolean),
+            assignmentCount: assignments.length,
+            auditStatus: '',
+            auditStatusText: '',
+            hasPending: false,
+            wxBindStatus: item.auth && item.auth.hasActiveBinding ? 'bound' : 'unbound'
+          })));
+        });
+        const rawOptions = buildHrProfileFilterOptions(rows);
+        const options = decorateFilterOptions(rawOptions, this.data.hrProfileFilters);
         const filteredRows = applyHrProfileFilters(rows, this.data.hrProfileFilters);
         const actionState = this.buildHrMemberActionState(filteredRows);
         const selected = new Set(actionState.selectedHrMemberIds);
@@ -246,6 +532,9 @@ module.exports = Behavior({
         this.setData(Object.assign({
           hrProfileFields: [],
           hrProfileFilterOptions: options,
+          hrProfileSearchFieldIndex: Math.max(0, rawOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
+          hrProfileSortIndex: Math.max(0, rawOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
+          hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, this.data.hrProfileFilters),
           hrProfileRows: synchronizedRows.map(toHrProfileListRow),
           hrGovernanceUnavailable: false
         }, actionState));
@@ -556,49 +845,61 @@ module.exports = Behavior({
       this._hrProfileFilteredRows = filteredRows.map((item) => Object.assign({}, item, {
         selected: selected.has(String(item.id || ''))
       }));
+      const rawOptions = buildHrProfileFilterOptions(nextRawRows);
       this.setData(Object.assign({}, actionState, {
+        hrProfileFilterOptions: decorateFilterOptions(rawOptions, nextFilters),
+        hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, nextFilters),
         hrProfileRows: this._hrProfileFilteredRows.map(toHrProfileListRow)
       }));
     },
 
-    onHrProfileFilterChange(e) {
-      const field = String(e.currentTarget.dataset.field || '');
-      const options = this.data.hrProfileFilterOptions[field] || [];
-      const keyMap = {
-        departments: 'department',
-        identities: 'identity',
-        workGroups: 'workGroup',
-        statuses: 'status'
-      };
-      const valueKey = keyMap[field] || 'status';
-      const value = options[Number(e.detail.value)] || options[0] || '';
-      const nextFilters = {
-        ...this.data.hrProfileFilters,
-        [valueKey]: value
-      };
-      const patch = { hrProfileFilters: nextFilters };
-  
-      // Cascade work group options when department filter changes
-      if (field === 'departments') {
-        if (value === localeCopy.copy_68f7277730) {
-          patch['hrProfileFilterOptions.workGroups'] = [localeCopy.copy_54e953f1bb];
-          nextFilters.workGroup = localeCopy.copy_54e953f1bb;
-          patch.hrProfileFilters = nextFilters;
-        } else {
-          const dept = this.data.departmentList.find(d => d.name === value) || {};
-          const wgs = dept.id
-            ? this.data.workGroupList.filter(w => w.departmentId === dept.id).map(w => w.name)
-            : (this._hrProfileRawRows || [])
-              .filter((row) => (row.departments || [row.department]).includes(value))
-              .reduce((all, row) => all.concat(row.workGroups || (row.workGroup ? [row.workGroup] : [])), [])
-              .filter((name, index, all) => name && all.indexOf(name) === index);
-          patch['hrProfileFilterOptions.workGroups'] = [localeCopy.copy_54e953f1bb, ...wgs];
-          nextFilters.workGroup = localeCopy.copy_54e953f1bb;
-          patch.hrProfileFilters = nextFilters;
-        }
-      }
-  
-      this.setData(patch);
+    onHrProfileFilterGroupChange(e) {
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const field = String(detail.field || dataset.field || '');
+      if (!field || !Array.isArray(this.data.hrProfileFilters[field])) return;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        [field]: (detail.value || []).map(String)
+      });
+      this.setData({ hrProfileFilters: nextFilters });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    onHrProfileSearchFieldChange(e) {
+      const options = this.data.hrProfileFilterOptions.searchFields || [];
+      const index = Number(e.detail.value) || 0;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        searchField: options[index] && options[index].value || 'all'
+      });
+      this.setData({ hrProfileFilters: nextFilters, hrProfileSearchFieldIndex: index });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    onHrProfileSortChange(e) {
+      const options = this.data.hrProfileFilterOptions.sortModes || [];
+      const index = Number(e.detail.value) || 0;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        sortMode: options[index] && options[index].value || 'name_asc'
+      });
+      this.setData({ hrProfileFilters: nextFilters, hrProfileSortIndex: index });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    toggleHrProfileAdvancedFilters() {
+      this.setData({ hrProfileAdvancedFiltersVisible: !this.data.hrProfileAdvancedFiltersVisible });
+    },
+
+    clearHrProfileFilterChip(e) {
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const category = String(detail.category || dataset.category || '');
+      const value = String(detail.value || dataset.value || '');
+      const current = this.data.hrProfileFilters[category];
+      if (!Array.isArray(current)) return;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        [category]: current.filter((item) => String(item) !== value)
+      });
+      this.setData({ hrProfileFilters: nextFilters });
       this.refreshHrProfileRows(nextFilters);
     },
 
@@ -624,10 +925,12 @@ module.exports = Behavior({
     },
 
     resetHrProfileFilters() {
+      this.clearHrInfoKeywordTimer();
       const nextFilters = emptyHrProfileFilters();
       this.setData({
         hrProfileFilters: nextFilters,
-        'hrProfileFilterOptions.workGroups': [localeCopy.copy_54e953f1bb],
+        hrProfileSearchFieldIndex: 0,
+        hrProfileSortIndex: 0,
         _hrInfoKeywordInput: ''
       });
       this.refreshHrProfileRows(nextFilters);
@@ -644,6 +947,10 @@ module.exports = Behavior({
       const columns = [
         { key: 'name', label: localeCopy.copy_3c946202ff, groupLabel: localeCopy.copy_142861823e, source: 'name', checked: true },
         { key: 'studentId', label: localeCopy.copy_cbb853db1b, groupLabel: localeCopy.copy_142861823e, source: 'studentId', checked: true },
+        { key: 'membershipStatus', label: localeCopy.hrExportMembershipStatus, groupLabel: localeCopy.copy_142861823e, source: 'membershipStatusText', checked: true },
+        { key: 'joinedAt', label: localeCopy.hrExportJoinedAt, groupLabel: localeCopy.copy_142861823e, source: 'joinedAtText', checked: true },
+        { key: 'leftAt', label: localeCopy.hrExportLeftAt, groupLabel: localeCopy.copy_142861823e, source: 'leftAtText', checked: true },
+        { key: 'assignmentNature', label: localeCopy.hrAssignmentNature, groupLabel: localeCopy.copy_79a04f117c, source: 'assignmentNatures', checked: true },
         { key: 'department', label: localeCopy.copy_cb8ac66b1a, groupLabel: localeCopy.copy_79a04f117c, source: 'department', checked: true },
         { key: 'identity', label: localeCopy.copy_e69d9e7df1, groupLabel: localeCopy.copy_79a04f117c, source: 'identity', checked: true },
         { key: 'workGroup', label: localeCopy.copy_6cc69fb176, groupLabel: localeCopy.copy_79a04f117c, source: 'workGroup', checked: true },
@@ -765,6 +1072,9 @@ module.exports = Behavior({
             exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || localeCopy.copy_ba9b0425fd;
           } else if (column.source === 'auditStatus') {
             exportRow[column.key] = item.auditStatusText || '';
+          } else if (column.source === 'assignmentNatures') {
+            const natureText = { staff: localeCopy.hrNatureStaff, liaison: localeCopy.hrNatureLiaison, other: localeCopy.hrNatureOther };
+            exportRow[column.key] = (item.assignmentNatures || []).map((value) => natureText[value] || value).join('、');
           } else {
             exportRow[column.key] = item[column.source] || '';
           }
@@ -800,7 +1110,39 @@ module.exports = Behavior({
 
     async openHrPersonDetail(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
-      if (!hrId || !this.data.canBrowseHrInfo) return;
+      const canOpenGovernanceDetail = this.data.canVerifyIdentity
+        || this.data.canRecoverAccounts || this.data.canGlobalAccountManage;
+      if (!hrId || (!this.data.canBrowseHrInfo && !canOpenGovernanceDetail)) return;
+      const detailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
+      this._hrPersonDetailRequestId = detailRequestId;
+
+      const governance = this.getHrGovernanceRow(hrId);
+      if (!this.data.canBrowseHrInfo) {
+        if (!governance) return;
+        const isFormer = governance.membershipStatus === 'left';
+        this.setData({
+          showHrPersonDetail: true,
+          detailHrId: hrId,
+          detailHrGovernance: governance,
+          detailHrProfile: { name: governance.name || '', studentId: governance.studentId || '' },
+          detailHrValues: { _name: governance.name || '', _studentId: governance.studentId || '' },
+          detailHrMembershipStatus: isFormer ? 'left' : 'active',
+          detailHrReadOnly: isFormer,
+          detailHrJoinedAtText: formatDetailTime(governance.joinedAt, { reviewStatus: governance.joinedAtReviewStatus }),
+          detailHrLeftAtText: formatDetailTime(governance.leftAt, { reviewStatus: governance.leftAtReviewStatus }),
+          detailHrTemplate: null,
+          detailHrHasPending: false,
+          detailHrAuditStatus: '',
+          detailHrAuditStatusText: '',
+          loadingDetailHr: false
+        });
+        if (this.data.canGlobalAccountManage && governance.personId && governance.accountId) {
+          this.loadDetailHrSecurity(governance.personId, detailRequestId);
+        } else {
+          this.setData({ detailHrSecurity: null });
+        }
+        return;
+      }
   
       // Proactively ensure department/identity/workGroup lists are loaded
       const loadPromises = [];
@@ -816,8 +1158,8 @@ module.exports = Behavior({
       if (loadPromises.length) {
         await Promise.all(loadPromises);
       }
+      if (this._hrPersonDetailRequestId !== detailRequestId) return;
   
-      const governance = this.getHrGovernanceRow(hrId);
       this.setData({
         showHrPersonDetail: true,
         detailHrId: hrId,
@@ -825,12 +1167,15 @@ module.exports = Behavior({
         loadingDetailHr: true
       });
       if (this.data.canGlobalAccountManage && governance && governance.personId && governance.accountId) {
-        this.loadDetailHrSecurity(governance.personId);
+        this.loadDetailHrSecurity(governance.personId, detailRequestId);
       } else {
         this.setData({ detailHrSecurity: null });
       }
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
+        if (this._hrPersonDetailRequestId !== detailRequestId
+          || String(this.data.detailHrId || '') !== hrId
+          || !this.data.showHrPersonDetail) return;
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
@@ -870,6 +1215,14 @@ module.exports = Behavior({
         const pendingValues = result.pendingValues || {};
         this.setData({
           detailHrProfile: profile,
+          detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
+          detailHrReadOnly: (result.membershipStatus || profile.membershipStatus) === 'left',
+          detailHrJoinedAtText: formatDetailTime(result.joinedAt || profile.joinedAt, {
+            reviewStatus: result.joinedAt ? result.joinedAtReviewStatus : profile.joinedAtReviewStatus
+          }),
+          detailHrLeftAtText: formatDetailTime(result.leftAt || profile.leftAt, {
+            reviewStatus: result.leftAt ? result.leftAtReviewStatus : profile.leftAtReviewStatus
+          }),
           detailHrTemplate,
           detailHrValues: vals,
           detailHrPendingValues: pendingValues,
@@ -885,18 +1238,26 @@ module.exports = Behavior({
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });
-        await this.loadPersonIdentities(hrId);
+        await this.loadPersonIdentities(hrId, detailRequestId);
       } catch (err) {
+        if (this._hrPersonDetailRequestId !== detailRequestId
+          || String(this.data.detailHrId || '') !== hrId) return;
         wx.showToast({ title: localeCopy.copy_94b36657df, icon: 'none' });
         this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
       }
     },
 
-    async loadPersonIdentities(hrId) {
+    async loadPersonIdentities(hrId, detailRequestId) {
+      const expectedHrId = String(hrId || this.data.detailHrId || '');
+      const expectedRequestId = Number(detailRequestId || this._hrPersonDetailRequestId || 0);
+      if (!expectedHrId || !this.data.showHrPersonDetail) return;
       try {
         const result = await this.callCloud('listPersonIdentities', {
-          hrId: hrId || this.data.detailHrId
+          hrId: expectedHrId
         });
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(this.data.detailHrId || '') !== expectedHrId
+          || !this.data.showHrPersonDetail) return;
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_c24b3e04d9, icon: 'none' });
           return;
@@ -911,6 +1272,9 @@ module.exports = Behavior({
           canAddGlobalSuperAdmin: result.canAddGlobalSuperAdmin === true
         });
       } catch (error) {
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(this.data.detailHrId || '') !== expectedHrId
+          || !this.data.showHrPersonDetail) return;
         wx.showToast({ title: localeCopy.copy_c24b3e04d9, icon: 'none' });
       }
     },
@@ -920,6 +1284,7 @@ module.exports = Behavior({
     },
 
     startCreateMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
       const orgIndex = Number(e && e.currentTarget && e.currentTarget.dataset.orgIndex);
       const organization = (this.data.personIdentityOrganizations || [])[Number.isFinite(orgIndex) ? orgIndex : 0];
       if (!organization || !organization.canEditAssignments) return;
@@ -949,6 +1314,7 @@ module.exports = Behavior({
     },
 
     editMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
       const orgIndex = Number(e.currentTarget.dataset.orgIndex);
       const assignmentIndex = Number(e.currentTarget.dataset.assignmentIndex);
       const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
@@ -998,11 +1364,13 @@ module.exports = Behavior({
     },
 
     onMembershipAssignmentInput(e) {
+      if (this.data.detailHrReadOnly) return;
       const field = String(e.currentTarget.dataset.field || '');
       this.setData({ ['membershipAssignmentForm.' + field]: e.detail.value });
     },
 
     onMembershipAssignmentKindChange(e) {
+      if (this.data.detailHrReadOnly) return;
       const index = Number(e.detail.value) || 0;
       this.setData({
         'membershipAssignmentForm.assignmentKindIndex': index,
@@ -1011,6 +1379,7 @@ module.exports = Behavior({
     },
 
     onMembershipAssignmentDepartmentChange(e) {
+      if (this.data.detailHrReadOnly) return;
       const index = Number(e.detail.value) || 0;
       const department = (this.data.assignmentDepartmentOptions || [])[index] || {};
       const organization = (this.data.personIdentityOrganizations || []).find((item) => (
@@ -1032,6 +1401,7 @@ module.exports = Behavior({
     },
 
     onMembershipAssignmentIdentityChange(e) {
+      if (this.data.detailHrReadOnly) return;
       const index = Number(e.detail.value) || 0;
       const identity = (this.data.assignmentIdentityOptions || [])[index] || {};
       this.setData({
@@ -1042,6 +1412,7 @@ module.exports = Behavior({
     },
 
     onMembershipAssignmentWorkGroupChange(e) {
+      if (this.data.detailHrReadOnly) return;
       const index = Number(e.detail.value) || 0;
       const workGroup = (this.data.assignmentWorkGroupOptions || [])[index] || {};
       this.setData({
@@ -1052,6 +1423,7 @@ module.exports = Behavior({
     },
 
     async saveMembershipAssignment() {
+      if (this.data.detailHrReadOnly) return;
       const form = this.data.membershipAssignmentForm || {};
       if (!form.departmentId || !form.identityId) {
         wx.showToast({ title: localeCopy.copy_2550a901e4, icon: 'none' });
@@ -1084,6 +1456,7 @@ module.exports = Behavior({
     },
 
     deleteMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
       const id = String(e.currentTarget.dataset.id || '');
       const organizationId = String(e.currentTarget.dataset.organizationId || '');
       if (!id) return;
@@ -1096,6 +1469,7 @@ module.exports = Behavior({
     },
 
     async addPersonAdminIdentity(e) {
+      if (this.data.detailHrReadOnly) return;
       const orgIndex = Number(e.currentTarget.dataset.orgIndex);
       const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
       if (!organization || !organization.canAddAdmin) return;
@@ -1107,6 +1481,7 @@ module.exports = Behavior({
     },
 
     addPersonSuperAdmin() {
+      if (this.data.detailHrReadOnly) return;
       const organization = (this.data.personIdentityOrganizations || [])[0];
       if (!organization || !this.data.canAddGlobalSuperAdmin || !this.data.identityManagementOrganizationId) return;
       this.setData({
@@ -1122,6 +1497,7 @@ module.exports = Behavior({
     },
 
     removePersonAdminIdentity(e) {
+      if (this.data.detailHrReadOnly) return;
       const id = String(e.currentTarget.dataset.id || '');
       const organizationId = String(e.currentTarget.dataset.organizationId || '');
       const level = String(e.currentTarget.dataset.level || 'admin');
@@ -1135,6 +1511,7 @@ module.exports = Behavior({
     },
 
     async _savePersonAdminIdentity(data) {
+      if (this.data.detailHrReadOnly) return;
       this.setLoading('savePersonAdminIdentity', true);
       try {
         const profile = this.data.detailHrProfile || {};
@@ -1167,7 +1544,7 @@ module.exports = Behavior({
 
     async confirmIdentityAction() {
       const action = this.data.identityActionConfirmAction;
-      if (!action) return;
+      if (!action || this.data.detailHrReadOnly) return;
       this.closeIdentityActionConfirm();
       if (action.type === 'addSuperAdmin') {
         await this._savePersonAdminIdentity({
@@ -1200,6 +1577,8 @@ module.exports = Behavior({
     },
 
     closeHrPersonDetail() {
+      this._hrPersonDetailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
+      this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
       this.setData({
         showHrPersonDetail: false,
         detailHrGovernance: null,
@@ -1222,6 +1601,17 @@ module.exports = Behavior({
         assignmentIdentityOptions: [],
         detailScrollTarget: '',
         detailHrComparisonRows: [],
+        detailHrMembershipStatus: 'active',
+        detailHrReadOnly: false,
+        detailHrJoinedAtText: '',
+        detailHrLeftAtText: '',
+        hrPermanentDeletionVisible: false,
+        hrPermanentDeletionPreview: null,
+        hrPermanentDeletionTarget: null,
+        hrPermanentDeletionResult: null,
+        hrPermanentDeletionCleanupAccepted: false,
+        hrPermanentDeletionConfirmation: '',
+        hrPermanentDeletionLoading: false,
         profileRejectVisible: false,
         profileRejectStudentId: '',
         profileRejectReason: '',
@@ -1233,13 +1623,13 @@ module.exports = Behavior({
     },
 
     onDetailBasicFieldInput(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.data.canGlobalAccountManage || this.data.detailHrReadOnly) return;
       const field = String(e.currentTarget.dataset.field || '');
       this.setData({ ['detailHrValues.' + field]: e.detail.value });
     },
 
     onDetailProfileFieldInput(e) {
-      if (!this.data.canManageHrPeople) return;
+      if (!this.data.canManageHrPeople || this.data.detailHrReadOnly) return;
       const field = String(e.currentTarget.dataset.field || '');
       let value = e.detail.value;
   
@@ -1266,7 +1656,7 @@ module.exports = Behavior({
     },
 
     async saveHrPersonDetail() {
-      if (!this.data.canManageHrPeople) return;
+      if (!this.data.canManageHrPeople || this.data.detailHrReadOnly) return;
       const vals = this.data.detailHrValues || {};
       const hrId = this.data.detailHrId;
       if (!hrId) return;

@@ -1,0 +1,58 @@
+<viewport-portal wx:if="{{visible}}">
+  <view class="modal-mask ui-overlay" bindtap="emitClose">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="modal-card hr-deletion-dialog ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-header ui-dialog-header">
+        <view>
+          <view class="modal-title">{{scope === 'person' ? localeCopy.hrDeletePersonPermanently : localeCopy.hrDeleteMembershipPermanently}}</view>
+          <view class="hint-text">{{personName}} · {{studentId}}</view>
+        </view>
+        <view class="modal-close ui-motion-chip" catchtap="emitClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-deletion-body">
+        <view class="hr-deletion-callout is-clear" wx:if="{{result}}">{{localeCopy.hrDeletionCompleted}}</view>
+        <view class="hr-deletion-callout {{preview.eligible ? 'is-clear' : 'is-blocked'}}" wx:else>{{preview.eligible ? localeCopy.hrDeletionEligible : localeCopy.hrDeletionBlocked}}</view>
+        <view class="hr-deletion-section" wx:if="{{preview.organizations && preview.organizations.length}}">
+          <view class="field-label">{{localeCopy.hrDeletionOrganizations}}</view>
+          <view class="hr-deletion-item" wx:for="{{preview.organizations}}" wx:key="organizationId"><text>{{item.organizationNameText}}</text><text>{{item.membershipStatusText}}</text></view>
+        </view>
+        <view class="hr-deletion-section" wx:if="{{!result && blockers.length}}">
+          <view class="field-label">{{localeCopy.hrDeletionBlockers}}</view>
+          <view class="hr-deletion-item is-blocker" wx:for="{{blockers}}" wx:key="id"><text>{{item.label}}</text><text>{{item.count}}</text></view>
+        </view>
+        <view class="hr-deletion-section" wx:if="{{(result && result.cleanup.length) || (!result && cleanup.length)}}">
+          <view class="field-label">{{result ? localeCopy.hrDeletionCleaned : localeCopy.hrDeletionCleanup}}</view>
+          <block wx:if="{{result}}">
+            <view class="hr-deletion-item" wx:for="{{result.cleanup}}" wx:key="id"><text>{{item.label}}</text><text>{{item.count}}</text></view>
+          </block>
+          <block wx:else>
+          <view class="hr-deletion-item" wx:for="{{cleanup}}" wx:key="id"><text>{{item.label}}</text><text>{{item.count}}</text></view>
+          </block>
+        </view>
+        <view class="hr-deletion-section" wx:if="{{(result && result.affectedRules.length) || (!result && affectedRules.length)}}">
+          <view class="field-label">{{result ? localeCopy.hrDeletionDisabledRules : localeCopy.hrDeletionAffectedRules}}</view>
+          <view class="hr-deletion-rule" wx:for="{{result ? result.affectedRules : affectedRules}}" wx:key="id">
+            <view><text>{{item.label}}</text><text class="hint-text" wx:if="{{item.typeLabel}}"> · {{item.typeLabel}}</text><view class="hint-text" wx:if="{{item.referenceText}}">{{item.referenceText}}</view></view>
+            <text class="status-chip {{item.wouldDisable === false ? 'pending-chip' : 'rejected-chip'}}">{{item.wouldDisable === false ? (result ? localeCopy.hrDeletionRuleReferenceRemovedDone : localeCopy.hrDeletionRuleReferenceRemoved) : (result ? localeCopy.hrDeletionRuleDisabledDone : localeCopy.hrDeletionRuleDisabled)}}</text>
+          </view>
+        </view>
+        <view class="hr-deletion-section hr-deletion-consent" wx:if="{{!result && preview.eligible && cleanup.length}}">
+          <checkbox-group bindchange="emitCleanupAcceptance">
+            <label class="hr-deletion-consent-row">
+              <checkbox value="accepted" checked="{{cleanupAccepted}}" color="#2563eb" />
+              <text>{{localeCopy.hrDeletionCleanupConsent}}</text>
+            </label>
+          </checkbox-group>
+        </view>
+        <view class="field hr-deletion-confirm" wx:if="{{!result && scope === 'person' && preview.eligible}}">
+          <view class="field-label">{{localeCopy.hrDeletionConfirmStudentId}}</view>
+          <input class="field-input" value="{{confirmation}}" bindinput="emitConfirmationInput" placeholder="{{preview.target.studentId}}" />
+        </view>
+      </scroll-view>
+      <view class="button-row ui-dialog-footer">
+        <button class="secondary-btn ui-motion-button" disabled="{{loading}}" catchtap="emitClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{result ? localeCopy.hrDeletionFinish : localeCopy.copy_06dbb49961}}</button>
+        <button class="danger-btn ui-motion-button" wx:if="{{!result}}" disabled="{{!preview.eligible || (cleanup.length && !cleanupAccepted) || (scope === 'person' && confirmation !== preview.target.studentId)}}" loading="{{loading}}" catchtap="emitConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrConfirmPermanentDeletion}}</button>
+      </view>
+    </view>
+  </view>
+</viewport-portal>

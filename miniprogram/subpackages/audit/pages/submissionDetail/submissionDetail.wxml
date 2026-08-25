@@ -380,7 +380,7 @@
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}} · {{node.processedAt || ''}}
+                  {{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}} · {{node.processedAtText || ''}}
                 </view>
                 <!-- Expand indicator -->
                 <view class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
@@ -392,7 +392,7 @@
                     <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text>{{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
-                    {{localeCopy.copy_aa5c293ca5}}{{node.processedAt || ''}}
+                    {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.processedAssignment}}</text>{{node.processedAssignmentView.hasSnapshot ? node.processedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
@@ -455,7 +455,7 @@
         <view class="section-title">{{localeCopy.copy_6a200ce590}} ({{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
           <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : localeCopy.copy_ed981b1744}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
-          <view class="list-desc"><text wx:if="{{item.signerStudentId}}">{{item.signerStudentId}} · </text>{{item.signedAt}}</view>
+          <view class="list-desc"><text wx:if="{{item.signerStudentId}}">{{item.signerStudentId}} · </text>{{item.signedAtText}}</view>
         </view>
       </view>
 

@@ -3,6 +3,7 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const workContextView = require('../../utils/workContextView');
+const { formatSystemClock } = require('../../../../utils/dateTime');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
@@ -124,9 +125,7 @@ Page({
   },
 
   _formatTime() {
-    let now = new Date();
-    let pad = function(n) { return String(n).padStart(2, '0'); };
-    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    return formatSystemClock(Date.now(), true);
   },
 
   refreshActiveWorkContext() {

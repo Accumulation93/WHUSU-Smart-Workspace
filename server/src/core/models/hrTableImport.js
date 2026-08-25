@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/models/hrTableImp
 const { format: localeFormat } = require('../../locales/runtime');
 const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const unifiedIdentityModel = require('./unifiedIdentity');
 
 const REQUIRED_BASIC_FIELDS = ['name', 'studentId', 'department', 'identity'];
@@ -519,7 +520,7 @@ async function importPreparedRows(prepared, orgId) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     const [departments] = await conn.query('SELECT * FROM departments WHERE org_id = ?', [orgId]);
     const [identities] = await conn.query('SELECT * FROM identities WHERE org_id = ?', [orgId]);
     const [workGroups] = await conn.query('SELECT * FROM work_groups WHERE org_id = ?', [orgId]);

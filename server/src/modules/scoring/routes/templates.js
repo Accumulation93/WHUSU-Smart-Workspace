@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/rou
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, generateId } = require('../../../utils/helpers');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const templateModel = require('../models/scoreTemplate');
@@ -121,7 +122,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
     const oldSig = buildQuestionStructureSignature(oldQs);
     const newSig = buildQuestionStructureSignature(validQs);
 
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
 
     if (id) {
       await templateModel.update(id, { name, description, updatedBy: admin.id, updatedAt: nowUtc });

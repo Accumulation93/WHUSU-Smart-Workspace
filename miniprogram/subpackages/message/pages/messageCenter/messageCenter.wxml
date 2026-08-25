@@ -52,7 +52,7 @@
             </view>
             <view class="message-title">{{item.title}}</view>
             <view class="message-desc">{{item.description}}</view>
-            <view class="message-time">{{item.createdAt}}</view>
+            <view class="message-time">{{item.createdAtText}}</view>
           </view>
           <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
         </view>
@@ -77,7 +77,7 @@
               </view>
               <view class="message-title">{{item.title}}</view>
               <view class="message-desc">{{item.description}}</view>
-              <view class="message-time">{{item.createdAt}}</view>
+              <view class="message-time">{{item.createdAtText}}</view>
             </view>
           </view>
           <view class="message-delete ui-motion-chip" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><ui-icon name="trash" tone="danger" size="28" ariaLabel="{{copy.deleteNotification}}" /></view>

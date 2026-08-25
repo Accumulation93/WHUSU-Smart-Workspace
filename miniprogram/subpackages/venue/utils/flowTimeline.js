@@ -1,5 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
+const { formatDetailTime } = require('../../../utils/dateTime');
 /**
  * Shared utility: builds a full flow timeline array for rendering in WXML.
  * Pre-computes all state classes, icons, labels, expandable detail fields
@@ -44,7 +45,7 @@ function buildFlowTimeline(prog) {
     // Description line for collapsed view
     let meta = '';
     if (state === 'done' && snap && snap.approvedAt) {
-      meta = snap.approvedAt;
+      meta = formatDetailTime(snap.approvedAt, { reviewStatus: snap.approvedAtReviewStatus });
     } else if (state === 'active') {
       meta = localeCopy.copy_1d12af72f6;
     } else if (state === 'rejected') {
@@ -53,7 +54,9 @@ function buildFlowTimeline(prog) {
 
     let comment = (snap && snap.comment) || '';
     let approverName = (snap && snap.approverName) || '';
-    let approvedAt = (snap && snap.approvedAt) || '';
+    let approvedAtText = formatDetailTime(snap && snap.approvedAt, {
+      reviewStatus: snap && snap.approvedAtReviewStatus
+    });
     let approverAssignmentText = '';
     if (snap) {
       const assignmentSnapshot = snap.approverAssignmentSnapshot || null;
@@ -82,7 +85,7 @@ function buildFlowTimeline(prog) {
       comment: comment,
       approverName: approverName,
       approverAssignmentText: approverAssignmentText,
-      approvedAt: approvedAt,
+      approvedAtText: approvedAtText,
       isLast: si === totalSteps - 1
     });
   }

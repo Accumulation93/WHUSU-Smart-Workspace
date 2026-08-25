@@ -42,7 +42,7 @@
             {{item.title}}
           </view>
           <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
-          <view class="notification-time">{{item.createdAt}}</view>
+          <view class="notification-time">{{item.createdAtText}}</view>
         </view>
         <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
       </view>
@@ -89,7 +89,7 @@
               {{item.title}}
             </view>
             <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
-            <view class="notification-time">{{item.createdAt}}</view>
+            <view class="notification-time">{{item.createdAtText}}</view>
           </view>
           <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
         </view>

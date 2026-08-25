@@ -195,6 +195,10 @@ Page({
     hrProfileTemplateForm: emptyHrProfileTemplateForm(),
     hrProfileFilters: emptyHrProfileFilters(),
     hrProfileFilterOptions: emptyHrProfileFilterOptions(),
+    hrProfileAdvancedFiltersVisible: false,
+    hrProfileActiveFilterChips: [],
+    hrProfileSearchFieldIndex: 0,
+    hrProfileSortIndex: 0,
     hrProfileRows: [],
     hrProfileFields: [],
     hrGovernanceUnavailable: false,
@@ -228,7 +232,22 @@ Page({
     detailHrAuditStatusText: '',
     detailHrRejectionReason: '',
     detailHrHasPending: false,
+    detailHrMembershipStatus: 'active',
+    detailHrReadOnly: false,
+    detailHrJoinedAtText: '',
+    detailHrLeftAtText: '',
     detailHrComparisonRows: [],
+    hrPermanentDeletionVisible: false,
+    hrPermanentDeletionScope: 'membership',
+    hrPermanentDeletionTarget: null,
+    hrPermanentDeletionPreview: null,
+    hrPermanentDeletionResult: null,
+    hrPermanentDeletionBlockers: [],
+    hrPermanentDeletionCleanup: [],
+    hrPermanentDeletionRules: [],
+    hrPermanentDeletionCleanupAccepted: false,
+    hrPermanentDeletionConfirmation: '',
+    hrPermanentDeletionLoading: false,
     loadingDetailHr: false,
     savingDetailHr: false,
     membershipAssignmentList: [],
@@ -251,8 +270,6 @@ Page({
     assignmentIdentityIndex: 0,
     assignmentWorkGroupIndex: 0,
     assignmentWorkGroupOptions: [],
-    formerHrMembers: [],
-    loadingFormerHrMembers: false,
     reactivatingHrId: '',
     profileRejectVisible: false,
     profileRejectStudentId: '',
@@ -419,7 +436,6 @@ Page({
         meritSummaryLoaded: false,
         meritSummaryLoadFailed: false,
         hrList: [],
-        formerHrMembers: [],
         reactivatingHrId: '',
         hrProfileRows: [],
         hrProfileFields: [],
@@ -433,6 +449,9 @@ Page({
         hrTemplateSwitchSummary: null,
         hrProfileFilters: emptyHrProfileFilters(),
         hrProfileFilterOptions: emptyHrProfileFilterOptions(),
+        hrProfileActiveFilterChips: [],
+        hrProfileSearchFieldIndex: 0,
+        hrProfileSortIndex: 0,
         departmentList: [],
         workGroupList: [],
         identityList: [],
@@ -452,6 +471,11 @@ Page({
         profileRejectVisible: false,
         profileRejectStudentId: '',
         profileRejectReason: '',
+        hrPermanentDeletionVisible: false,
+        hrPermanentDeletionTarget: null,
+        hrPermanentDeletionPreview: null,
+        hrPermanentDeletionResult: null,
+        hrPermanentDeletionLoading: false,
         personCorrectionVisible: false,
         personCorrectionPreview: null,
         personCorrectionConfirmed: false,
@@ -520,6 +544,12 @@ Page({
     this.onShow();
   },
 
+  onSystemTimezoneChanged() {
+    if (!this._pageVisible) return Promise.resolve();
+    if (!this._bootstrapComplete) return Promise.resolve(this.bootstrapPage());
+    return this._refreshActiveOrganizationTab(this.data.activeTab);
+  },
+
   async _refreshActiveOrganizationTab(tab) {
     if (['activities', 'rules', 'results', 'publications'].indexOf(tab) >= 0) {
       await this.loadActivityList();
@@ -529,7 +559,7 @@ Page({
       hrInfo: () => {
         const loads = [];
         if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
-        else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) loads.push(this.loadHrGovernanceDirectory());
+        else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts || this.data.canGlobalAccountManage) loads.push(this.loadHrGovernanceDirectory());
         return Promise.all(loads);
       },
       hrTemplates: () => this.loadHrProfileTemplates(),
@@ -789,12 +819,10 @@ Page({
       this.loadAuthPolicy().catch(() => {
         utils.showShortToast(localeCopy.copy_439c4fcf37);
       });
-    } else if (mode === 'former') {
-      if (this.data.canManageHrPeople) this.loadFormerHrMembers();
     } else if (this.data.canBrowseHrInfo) {
       this.loadHrList();
       this.loadHrProfileAdminData();
-    } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+    } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts || this.data.canGlobalAccountManage) {
       this.loadHrGovernanceDirectory();
     }
   },
@@ -826,8 +854,6 @@ Page({
         this.loadAuthPolicy().catch(() => {
           utils.showShortToast(localeCopy.copy_439c4fcf37);
         });
-      } else if (this.data.hrInfoMode === 'former') {
-        if (this.data.canManageHrPeople) this.loadFormerHrMembers();
       } else {
         if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           this.loadHrProfileAdminData();

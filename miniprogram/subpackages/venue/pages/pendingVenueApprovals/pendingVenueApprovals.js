@@ -4,6 +4,7 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { formatSystemClock } = require('../../../../utils/dateTime');
 const {
   decoratePendingBooking,
   decorateApproverCandidates,
@@ -185,9 +186,7 @@ Page({
   },
 
   _formatTime() {
-    let now = new Date();
-    let pad = function(n) { return String(n).padStart(2, '0'); };
-    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    return formatSystemClock(Date.now(), true);
   },
 
   // ═══ Approval actions ═══

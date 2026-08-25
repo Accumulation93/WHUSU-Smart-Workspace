@@ -80,7 +80,7 @@ function matchesApprovalContext(snapshot, actor) {
   return true;
 }
 
-function findMyVenueApproval(booking, actor, formatDateTime) {
+function findMyVenueApproval(booking, actor) {
   const snapshots = parseSnapshots(booking && booking.approval_snapshots_json);
   const matched = snapshots
     .filter(snapshot => matchesApprovalContext(snapshot, actor))
@@ -118,9 +118,7 @@ function findMyVenueApproval(booking, actor, formatDateTime) {
   return {
     action,
     actionLabel: action === 'rejected' ? '已驳回' : '已通过',
-    approvedAt: booking && booking.updated_at
-      ? formatDateTime(new Date(booking.updated_at))
-      : '',
+    approvedAt: booking && booking.updated_at || null,
     comment: safeString(booking && booking.approval_comment),
     stepName: '',
     stepIndex: Number(booking && booking.approval_reject_step) || 0,

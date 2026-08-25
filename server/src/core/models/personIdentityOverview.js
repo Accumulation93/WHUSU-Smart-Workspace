@@ -9,13 +9,13 @@ function placeholders(values) {
   return values.map(() => '?').join(',');
 }
 
-async function resolvePersonByLegacyHrId(legacyHrId, connection) {
+async function resolvePersonByLegacyHrId(legacyHrId, connection, includeFormer = false) {
   const db = connection || pool;
   const [rows] = await db.query(
     `SELECT p.id, p.name, p.student_id
        FROM organization_memberships om
        JOIN persons p ON p.id = om.person_id AND p.status = 'active'
-      WHERE om.legacy_hr_id = ? AND om.status = 'active'
+      WHERE om.legacy_hr_id = ? AND ${includeFormer ? "om.status IN ('active', 'left')" : "om.status = 'active'"}
       LIMIT 1`,
     [safeString(legacyHrId)]
   );
@@ -25,15 +25,17 @@ async function resolvePersonByLegacyHrId(legacyHrId, connection) {
 async function listPersonIdentityData(legacyHrId, readableOrganizationIds, editableOrganizationIds) {
   const organizationIds = uniqueIds(readableOrganizationIds);
   if (!organizationIds.length) return null;
-  const person = await resolvePersonByLegacyHrId(legacyHrId);
+  const person = await resolvePersonByLegacyHrId(legacyHrId, null, true);
   if (!person) return null;
   const orgSql = placeholders(organizationIds);
   const [membershipRows, assignmentRows, grantRows] = await Promise.all([
     pool.query(
-      `SELECT om.id AS membership_id, o.id AS org_id, om.legacy_hr_id, o.name AS organization_name
+      `SELECT om.id AS membership_id, o.id AS org_id, om.legacy_hr_id, o.name AS organization_name,
+              om.status AS membership_status, om.created_at AS joined_at,
+              CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at
          FROM organizations o
          LEFT JOIN organization_memberships om
-           ON om.org_id = o.id AND om.person_id = ? AND om.status = 'active'
+           ON om.org_id = o.id AND om.person_id = ? AND om.status IN ('active', 'left')
         WHERE o.id IN (${orgSql})
           AND (
             om.id IS NOT NULL
@@ -48,15 +50,19 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
     ).then((result) => result[0]),
     pool.query(
       `SELECT ma.id, ma.membership_id, ma.org_id, ma.assignment_kind, ma.title,
+              om.status AS membership_status,
               ma.department_id, ma.identity_id, ma.work_group_id,
               d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
          FROM organization_memberships om
          JOIN membership_assignments ma
-           ON ma.membership_id = om.id AND ma.org_id = om.org_id AND ma.status = 'active'
+          ON ma.membership_id = om.id AND ma.org_id = om.org_id
+          AND ((om.status = 'active' AND ma.status = 'active')
+            OR (om.status = 'left' AND ma.status = 'revoked'
+              AND ma.revoked_by_departure_id = om.departure_batch_id))
          LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
          LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
          LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id
-        WHERE om.person_id = ? AND om.status = 'active' AND om.org_id IN (${orgSql})
+        WHERE om.person_id = ? AND om.status IN ('active', 'left') AND om.org_id IN (${orgSql})
         ORDER BY ma.created_at ASC, ma.id ASC`,
       [person.id, ...organizationIds]
     ).then((result) => result[0]),

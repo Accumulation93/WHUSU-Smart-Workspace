@@ -17,7 +17,7 @@
           <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
         </view>
         <view class="booking-meta">{{item.venueName}} · {{item.venueLocation || '-'}}</view>
-        <view class="booking-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
+        <view class="booking-meta">{{item.timeStartText}} {{localeCopy.copy_e8d9493a44}} {{item.timeEndText}}</view>
         <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
         <view class="booking-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>

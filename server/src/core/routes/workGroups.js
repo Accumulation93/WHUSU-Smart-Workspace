@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/workGroups
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const workGroupModel = require('../models/workGroup');
 const departmentModel = require('../models/department');
@@ -61,7 +62,7 @@ router.post('/saveWorkGroup', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const newId = id ? '' : generateId();
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     const saved = await dictionaryUsage.saveWorkGroupDefinition({
       id,
       name,

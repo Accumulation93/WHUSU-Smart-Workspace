@@ -3,6 +3,7 @@ const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
@@ -17,29 +18,11 @@ const scoreRecordModel = require('../models/scoreRecord');
 const scoreAnswerModel = require('../models/scoreAnswer');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const participantService = require('../services/participants');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 // ──────────────────────────── helpers ────────────────────────────
-
-function parseTimezone(value) {
-  const tz = Number(value);
-  return (Number.isFinite(tz) && tz >= -12 && tz <= 14) ? tz : 8;
-}
-
-function formatDate(value, timezone) {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  const tz = parseTimezone(timezone);
-  const utcEpoch = date.getTime() - date.getTimezoneOffset() * 60000;
-  const local = new Date(utcEpoch + tz * 3600000);
-  const p = (n) => String(n).padStart(2, '0');
-  const datePart = `${local.getUTCFullYear()}-${p(local.getUTCMonth() + 1)}-${p(local.getUTCDate())}`;
-  const timePart = `${p(local.getUTCHours())}:${p(local.getUTCMinutes())}:${p(local.getUTCSeconds())}`;
-  const timezoneLabel = tz === 8 ? '' : ` (UTC${tz >= 0 ? '+' : ''}${tz})`;
-  return `${datePart} ${timePart}${timezoneLabel}`;
-}
 
 async function fetchOrgLookups() {
   const [departments, identities, workGroups] = await Promise.all([
@@ -330,7 +313,6 @@ const RULE_SCOPE_LABEL_MAP = {
 
 router.post('/getScoreFormData', async (req, res) => {
   try {
-    const timezone = parseTimezone(req.body.timezone);
     const targetId = safeString(req.body.targetId);
     if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
 
@@ -467,7 +449,7 @@ router.post('/getScoreFormData', async (req, res) => {
     for (const record of existingRecords) {
       if (safeString(record.template_config_signature) === templateConfigSignature) {
         const answers = await scoreAnswerModel.getByRecordId(record.id);
-        existingRecord = { id: record.id, submittedAt: formatDate(record.submitted_at, timezone), answers };
+        existingRecord = { id: record.id, submittedAt: record.submitted_at || null, answers };
         break;
       } else {
         await scoreAnswerModel.removeByRecordId(record.id);
@@ -685,7 +667,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // Save record — update existing or create new, then insert answers — all in a transaction
     const { withTransaction } = require('../../../config/db');
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     let resultRecordId;
     let duplicateResponse = null;
     const clientRequestId = safeString(req.body.clientRequestId);
@@ -693,18 +675,28 @@ router.post('/submitScoreRecord', async (req, res) => {
     await withTransaction(async (conn) => {
       const dedup = require('../../../utils/requestDeduplication');
       const candidateRecordId = generateId();
+      const stableScoreResourceId = dedup.stableResourceId('submit_score', [
+        orgId, activityId, scorerSubjectKey, targetSubjectKey
+      ]);
       const claim = await dedup.claim(conn, {
         orgId,
         actorKey: 'score-subject:' + scorerSubjectKey,
         operationType: 'submit_score',
         clientRequestId,
-        resourceId: candidateRecordId
+        resourceId: stableScoreResourceId
       });
       if (!claim.claimed) {
         duplicateResponse = claim.response || { status: 'success', recordId: claim.resourceId, idempotent: true };
         resultRecordId = duplicateResponse.recordId || claim.resourceId;
         return;
       }
+
+      await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [scorerRecord, targetRecord].map((record) => ({
+        personId: safeString(record.person_id),
+        legacyHrId: safeString(record.legacy_hr_id || record.id),
+        organizationId: orgId,
+        assignmentId: safeString(record.assignment_id)
+      })));
 
       await conn.query(
         `INSERT INTO score_records
@@ -767,7 +759,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       resultRecordId = recordId;
       await dedup.complete(conn, {
         ...claim,
-        resourceId: recordId,
+        resourceId: stableScoreResourceId,
         orgId,
         actorKey: 'score-subject:' + scorerSubjectKey,
         operationType: 'submit_score'

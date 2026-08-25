@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/rou
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, generateId, buildNameMap, makeOrgRuleKey } = require('../../../utils/helpers');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const rateRuleModel = require('../models/rateRule');
 const rateRuleClauseModel = require('../models/rateRuleClause');
@@ -228,7 +229,7 @@ router.post('/saveRateRule', async (req, res) => {
     }
 
     const scorerKey = scorerDepartmentId + '::' + scorerIdentityId;
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     const orgId = await getCurrentOrgId();
     let ruleId = id;
 

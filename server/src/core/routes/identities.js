@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/identities
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const identityModel = require('../models/identity');
 const adminInfoModel = require('../models/adminInfo');
@@ -54,7 +55,7 @@ router.post('/saveIdentity', async (req, res) => {
     }
 
     if (id) {
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const nowUtc = nowMysqlUtc();
       await identityModel.update(id, name, description, nowUtc);
       res.json({ status: 'success', message: localeCopy.copy_4fb370f421 });
     } else {

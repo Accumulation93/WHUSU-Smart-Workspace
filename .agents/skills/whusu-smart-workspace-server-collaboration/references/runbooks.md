@@ -44,6 +44,8 @@ powershell -File scripts/remote-collab.ps1 retry
 4. 部署成功后确认维护关闭、账本新增且健康恢复。
 5. 失败时确认部署系统已停止进程、恢复快照、切回旧 release 并重新健康检查。
 
+UTC 历史校正必须先运行来源预检：仅对能够证明由旧 UTC+8 数据库墙上时间生成的字段平移 `-480` 分钟；混合来源字段用主键游标分批物化逐记录待核对账本，禁止按整表猜测。`schema_migrations` 已记账不等于 UTC 语义切换完成，必须额外确认对应 cutover 为 `verified`、物化数与校验数一致且未解决数量可解释。离任和其他 `ON UPDATE CURRENT_TIMESTAMP` 表在回填关系字段时必须显式恢复原事实时间。
+
 ## 故障判断
 
 - `audit-and-test` 失败：生产不应被连接；修复 CI，不要远端部署。
@@ -51,6 +53,7 @@ powershell -File scripts/remote-collab.ps1 retry
 - 目标 SHA 过期：部署入口应跳过；让最新分支头的工作流接管。
 - 新 release 健康失败：检查最新部署日志；自动回退成功时保持旧服务并修复本地代码。
 - 回退后仍不健康：维护标志应保留；不要手工删除，先检查 PM2 cwd、环境链接、数据库恢复和 Nginx。
+- 回滚时任一 PM2 进程无法确认停止：不得恢复数据库快照或切换旧 release；保留维护状态，先排除残留数据库客户端。
 - 公网失败但本地成功：检查 Nginx、证书、DNS 和外部网络，不重复 reload 应用。
 - PM2 在线但接口失败：检查实际 `/proc/<pid>/cwd` 是否指向 `whusu-smart-workspace-current` 对应 release，并读取部署后的新错误日志。
 - Worker 异常：只处理 `whusu-smart-workspace-notification-worker`，不要连带重启 `whusu-smart-workspace-backup` 或同机其他服务。

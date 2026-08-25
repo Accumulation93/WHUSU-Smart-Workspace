@@ -1,4 +1,19 @@
+const crypto = require('crypto');
 const { safeString } = require('./helpers');
+
+function stableResourceId(operationType, parts) {
+  const operation = safeString(operationType).trim();
+  const normalizedParts = Array.isArray(parts) ? parts.map((part) => safeString(part)) : [];
+  if (!operation || normalizedParts.some((part) => !part)) {
+    const error = new Error('invalid_idempotency_resource');
+    error.code = 'INVALID_IDEMPOTENCY_RESOURCE';
+    throw error;
+  }
+  const digest = crypto.createHash('sha256')
+    .update(JSON.stringify([operation, ...normalizedParts]))
+    .digest('hex');
+  return digest;
+}
 
 function normalizeClientRequestId(value) {
   const id = safeString(value).trim();
@@ -31,18 +46,34 @@ async function claim(conn, data) {
      FOR UPDATE`,
     [data.orgId, data.actorKey, data.operationType, clientRequestId]
   );
+  const storedResourceId = safeString(rows[0] && rows[0].resource_id);
+  const requestedResourceId = safeString(data.resourceId);
+  if (!storedResourceId || storedResourceId !== requestedResourceId) {
+    const error = new Error('idempotency_resource_conflict');
+    error.code = 'IDEMPOTENCY_RESOURCE_CONFLICT';
+    error.httpStatus = 409;
+    throw error;
+  }
   let response = null;
   try { response = rows[0] && rows[0].response_json ? JSON.parse(rows[0].response_json) : null; } catch (_) {}
-  return { claimed: false, enabled: true, resourceId: rows[0] && rows[0].resource_id, response };
+  return { claimed: false, enabled: true, clientRequestId, resourceId: storedResourceId, response };
 }
 
 async function complete(conn, data, response) {
   if (!data || !data.enabled || !data.clientRequestId) return;
-  await conn.query(
-    `UPDATE request_deduplication SET resource_id = ?, response_json = ?
-     WHERE org_id = ? AND actor_key = ? AND operation_type = ? AND client_request_id = ?`,
-    [data.resourceId, JSON.stringify(response), data.orgId, data.actorKey, data.operationType, data.clientRequestId]
+  const [result] = await conn.query(
+    `UPDATE request_deduplication SET response_json = ?
+     WHERE org_id = ? AND actor_key = ? AND operation_type = ? AND client_request_id = ?
+       AND resource_id = ?`,
+    [JSON.stringify(response), data.orgId, data.actorKey, data.operationType,
+      data.clientRequestId, data.resourceId]
   );
+  if (Number(result && result.affectedRows || 0) !== 1) {
+    const error = new Error('idempotency_resource_conflict');
+    error.code = 'IDEMPOTENCY_RESOURCE_CONFLICT';
+    error.httpStatus = 409;
+    throw error;
+  }
 }
 
 async function cleanupOld(conn, options) {
@@ -65,4 +96,4 @@ async function cleanupOld(conn, options) {
   return removed;
 }
 
-module.exports = { normalizeClientRequestId, claim, complete, cleanupOld };
+module.exports = { stableResourceId, normalizeClientRequestId, claim, complete, cleanupOld };

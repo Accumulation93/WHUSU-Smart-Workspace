@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/org');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const organizationModel = require('../models/organization');
 const systemConfigModel = require('../models/systemConfig');
@@ -212,7 +213,7 @@ router.post('/switchOrganization', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_6809d8bae7 });
     }
 
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     await systemConfigModel.ensureExists();
     const { withTransaction } = require('../../config/db');
     const switchResult = await withTransaction(async (conn) => {

@@ -6,6 +6,7 @@ const utils = require('./adminUtils');
 const { emptyResultFilters, toNumber, clampNumber, formatScoreFixed3, buildProgressFillStyle, buildResultFilterOptions, getErrorText } = utils;
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
+const { formatAuditTime, formatAuditDetailTime } = require('../../../../../utils/api');
 
 module.exports = Behavior({
   methods: {
@@ -361,6 +362,7 @@ module.exports = Behavior({
             : normalizedItem.status;
           return {
             ...normalizedItem,
+            submittedAtText: formatAuditTime(normalizedItem.submittedAt, normalizedItem.submittedAtReviewStatus),
             status: recordStatus,
             canViewDetail: (recordStatus === 'completed' || recordStatus === 'inactive') && !!normalizedItem.recordId,
             departmentText: normalizedItem.scorerHistoricalAssignmentUnavailable
@@ -445,6 +447,10 @@ module.exports = Behavior({
   
         const recordDetail = result.recordDetail ? {
           ...result.recordDetail,
+          submittedAtText: formatAuditDetailTime(
+            result.recordDetail.submittedAt,
+            result.recordDetail.submittedAtReviewStatus
+          ),
           templates: (result.recordDetail.templates || []).map((template) => ({
             ...template,
             questions: (template.questions || []).map((question) => ({
@@ -482,8 +488,10 @@ module.exports = Behavior({
     },
 
     toggleScoreLabel(e) {
-      const templateIndex = Number(e.currentTarget.dataset.templateIndex);
-      const questionIndex = Number(e.currentTarget.dataset.questionIndex);
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const templateIndex = Number(detail.templateIndex === undefined ? dataset.templateIndex : detail.templateIndex);
+      const questionIndex = Number(detail.questionIndex === undefined ? dataset.questionIndex : detail.questionIndex);
       const recordDetail = this.data.recordDetail;
       if (!recordDetail || !recordDetail.templates || !recordDetail.templates[templateIndex]) {
         return;
@@ -922,7 +930,9 @@ module.exports = Behavior({
     },
 
     async revokeScoreRecord(e) {
-      const { id } = e.currentTarget.dataset;
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const id = detail.id || dataset.id;
       if (!id) {
         return;
       }

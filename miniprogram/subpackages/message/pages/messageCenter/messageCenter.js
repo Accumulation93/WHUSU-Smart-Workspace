@@ -98,7 +98,7 @@ Page({
     return (items || []).map(function(item) {
       return Object.assign({}, item, {
         categoryLabel: CATEGORY_LABELS[item.category] || copy.messages.notification,
-        createdAt: formatAuditTime(item.createdAt),
+        createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       });
     });

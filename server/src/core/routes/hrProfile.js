@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { createNotification } = require('../../modules/audit/utils/notificationHelper');
 const { safeString, generateId, buildNameMap, normalizeEmptyValue } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminInfoModel = require('../models/adminInfo');
 const userInfoModel = require('../models/userInfo');
@@ -158,6 +159,11 @@ async function enrichHrWithOrg(hr) {
   const wgMap = buildNameMap(workGroups);
   return {
     id: hr.id, name: safeString(hr.name), studentId: safeString(hr.student_id),
+    personId: safeString(hr.person_id),
+    membershipId: safeString(hr.membership_id),
+    membershipStatus: safeString(hr.membership_status) || 'active',
+    joinedAt: hr.joined_at || null,
+    leftAt: hr.left_at || null,
     departmentId: safeString(hr.department_id), department: deptMap.get(safeString(hr.department_id)) || '',
     identityId: safeString(hr.identity_id), identity: identMap.get(safeString(hr.identity_id)) || '',
     workGroupId: safeString(hr.work_group_id), workGroup: wgMap.get(safeString(hr.work_group_id)) || ''
@@ -269,7 +275,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
       }
     }
 
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     const orgId = await getCurrentOrgId();
     await pool.withTransaction(async (connection) => {
       const existing = await profileRecordModel.getByHrId(hr.id, connection, orgId);
@@ -447,13 +453,13 @@ router.post('/listHrProfileAdminData', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const [template, hrRows, records] = await Promise.all([
       profileTemplateModel.getByTemplateKey(TEMPLATE_KEY),
-      hrInfoModel.getAll(),
+      hrInfoModel.getMembershipDirectory(),
       profileRecordModel.getAll()
     ]);
 
     const [bindingStates, assignmentSummaries] = await Promise.all([
       resolveHrBindingStates(hrRows, orgId),
-      unifiedIdentityModel.listMembershipAssignmentSummaries(hrRows.map((row) => row.id), orgId)
+      unifiedIdentityModel.listDirectoryAssignmentSummaries(hrRows.map((row) => row.id), orgId)
     ]);
 
     const recordMap = new Map(records.map((r) => [safeString(r.hr_id), r]));
@@ -482,7 +488,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       const hrPlaceholders = legacyHrIds.map(() => '?').join(',');
       const [personRows] = await pool.query(
         `SELECT legacy_hr_id, person_id FROM organization_memberships
-          WHERE legacy_hr_id IN (${hrPlaceholders}) AND org_id = ? AND status = 'active'`,
+          WHERE legacy_hr_id IN (${hrPlaceholders}) AND org_id = ? AND status IN ('active', 'left')`,
         legacyHrIds.concat([orgId])
       );
       personRows.forEach((item) => personByHrId.set(safeString(item.legacy_hr_id), safeString(item.person_id)));
@@ -536,14 +542,23 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         count: 0,
         departments: [],
         identities: [],
-        workGroups: []
+        workGroups: [],
+        assignmentNatures: [],
+        assignments: []
       };
       rows.push({
         id: item.id,
+        personId: safeString(item.person_id),
+        membershipId: safeString(item.membership_id),
+        membershipStatus: safeString(item.membership_status) || 'active',
+        joinedAt: item.joined_at || null,
+        leftAt: item.left_at || null,
         recordId: safeString(record ? record.id : ''),
         name: safeString(item.name),
         studentId: safeString(item.student_id),
         assignmentCount: assignmentSummary.count,
+        assignments: assignmentSummary.assignments,
+        assignmentNatures: assignmentSummary.assignmentNatures,
         departments: assignmentSummary.departments,
         identities: assignmentSummary.identities,
         workGroups: assignmentSummary.workGroups,
@@ -614,7 +629,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     if (!hrRecord) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
 
     const orgId = await getCurrentOrgId();
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowUtc = nowMysqlUtc();
     const reviewResult = await pool.withTransaction(async (connection) => {
       const record = await profileRecordModel.getByHrId(hrRecord.id, connection, orgId, true);
       if (!record) return { status: 'not_found' };
@@ -722,7 +737,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const hrId = safeString(req.body.hrId);
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
-    const hr = await hrInfoModel.getById(hrId);
+    const hr = await hrInfoModel.getByIdIncludingFormer(hrId);
     if (!hr) return res.json({ status: 'not_found', message: localeCopy.copy_9ccefa96da });
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
@@ -755,7 +770,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
 
-    const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
+    const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId, null, true);
     if (person && templateData && templateData.fields.length) {
       const globalRows = await personProfileValueModel.listForPerson(person.id);
       const globalValues = personProfileValueModel.mapRows(globalRows);
@@ -794,7 +809,10 @@ router.post('/getHrPersonDetail', async (req, res) => {
         reviewerPersonId: safeString(item.reviewer_person_id),
         reviewerContextId: safeString(item.reviewer_context_id),
         createdAt: item.created_at
-      }))
+      })),
+      membershipStatus: safeString(hr.membership_status) || 'active',
+      joinedAt: hr.joined_at || null,
+      leftAt: hr.left_at || null
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -828,7 +846,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
       return res.json({ status: 'permission_denied', message: localeCopy.copy_b0fe1df7fb });
     }
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     if (name !== safeString(hr.name) || studentId !== safeString(hr.student_id)) {
       return res.json({
         status: 'person_correction_required',

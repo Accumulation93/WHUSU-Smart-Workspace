@@ -49,7 +49,8 @@ function createDatabaseConfig() {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    charset: 'utf8mb4'
+    charset: 'utf8mb4',
+    timezone: 'Z'
   };
 }
 
@@ -103,6 +104,7 @@ function runMysqlFile(migration, config) {
       if (code === 0) resolve();
       else reject(new Error(`迁移执行失败 ${migration.name}: ${stderr.trim() || `mysql 退出码 ${code}`}`));
     });
+    child.stdin.write("SET SESSION time_zone = '+00:00';\n");
     fs.createReadStream(migration.path).pipe(child.stdin);
   });
 }
@@ -111,6 +113,7 @@ async function planMigrations(directory = DEFAULT_DIRECTORY) {
   const config = createDatabaseConfig();
   const connection = await mysql.createConnection(config);
   try {
+    await connection.query("SET SESSION time_zone = '+00:00'");
     return buildPlan(discoverMigrations(directory), await readApplied(connection));
   } finally {
     await connection.end();
@@ -121,6 +124,7 @@ async function applyMigrations({ directory = DEFAULT_DIRECTORY, deployedSha = ''
   const config = createDatabaseConfig();
   const connection = await mysql.createConnection(config);
   try {
+    await connection.query("SET SESSION time_zone = '+00:00'");
     const migrations = discoverMigrations(directory);
     const initialPlan = buildPlan(migrations, await readApplied(connection));
     if (!initialPlan.pendingCount) return initialPlan;

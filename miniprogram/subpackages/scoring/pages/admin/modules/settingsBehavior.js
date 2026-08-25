@@ -3,6 +3,7 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const orgSession = require('../../../../../utils/orgSession');
+const dateTime = require('../../../../../utils/dateTime');
 
 module.exports = Behavior({
   methods: {
@@ -57,6 +58,7 @@ module.exports = Behavior({
           timezone: this.data.systemConfig.timezone
         });
         if (result.status === 'success') {
+          dateTime.setSystemTimezoneConfig(result.systemTimezoneOffset, result.timezoneConfigVersion);
           wx.showToast({ title: localeCopy.copy_c1add6c36e, icon: 'success' });
         } else {
           wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });

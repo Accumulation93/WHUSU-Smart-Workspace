@@ -37,6 +37,7 @@ const forge = require('node-forge');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const {
   assignmentSnapshot,
   listActiveAssignments,
@@ -204,12 +205,42 @@ async function normalizePersonConditionsForPersistence(conditions, orgId, db) {
       error.code = binding.reason;
       throw error;
     }
+    const assignmentIds = new Set(safeString(binding.condition.assignmentIds).split(',').filter(Boolean));
+    const assignments = await listActiveAssignments(orgId, {
+      hrIds: safeString(binding.condition.personHrIds).split(',').filter(Boolean)
+    }, db);
+    await unifiedIdentityModel.lockActiveBusinessSubjects(db, assignments
+      .filter((assignment) => assignmentIds.has(safeString(assignment.assignment_id)))
+      .map((assignment) => ({
+        personId: safeString(assignment.person_id),
+        legacyHrId: safeString(assignment.hr_id),
+        organizationId: orgId,
+        assignmentId: safeString(assignment.assignment_id)
+      })));
     normalized.push(Object.assign({}, condition, {
       personHrIds: binding.condition.personHrIds,
       assignmentIds: binding.condition.assignmentIds
     }));
   }
   return normalized;
+}
+
+async function lockAuditActor(connection, assignment, organizationId) {
+  await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
+    personId: safeString(assignment && assignment.person_id),
+    legacyHrId: safeString(assignment && assignment.hr_id),
+    organizationId,
+    assignmentId: safeString(assignment && assignment.assignment_id)
+  }]);
+}
+
+async function lockAuditAssignmentIds(connection, assignmentIds, organizationId) {
+  const ids = [...new Set((Array.isArray(assignmentIds) ? assignmentIds : [])
+    .map(function(id) { return safeString(id); }).filter(Boolean))];
+  if (!ids.length) return;
+  await unifiedIdentityModel.lockActiveBusinessSubjects(connection, ids.map(function(assignmentId) {
+    return { organizationId, assignmentId };
+  }));
 }
 
 function buildAuditOperatorContext(req, assignment) {
@@ -451,6 +482,10 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, submitterFull, orgId);
+    await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
+      return item.assignmentIds;
+    }), orgId);
 
     // Create submission
     const submissionId = generateId();
@@ -647,6 +682,14 @@ router.post('/startAdHocAudit', async (req, res) => {
     if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, submitterAssignment, orgId);
+    await lockAuditAssignmentIds(conn, steps.flatMap(function(step) {
+      const conditions = Array.isArray(step && step.conditions) ? step.conditions : [];
+      return conditions.flatMap(function(condition) {
+        const ids = condition && (condition.assignmentIds || condition.assignment_ids);
+        return Array.isArray(ids) ? ids : safeString(ids).split(',');
+      });
+    }), orgId);
 
     const submissionId = generateId();
     const dedupClaim = await requestDeduplication.claim(conn, {
@@ -1350,12 +1393,20 @@ router.post('/approveStep', async (req, res) => {
     const stepId = safeString(req.body.stepId);
     const comment = safeString(req.body.comment);
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
+    const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
+      ? [...new Set(req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
+    const designatedNextAssignmentIds = Array.isArray(req.body.designatedNextAssignmentIds)
+      ? [...new Set(req.body.designatedNextAssignmentIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
 
     if (!submissionId || !stepId) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_a21fccedd7 });
     }
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, approverAssignment, orgId);
+    await lockAuditAssignmentIds(conn, designatedNextAssignmentIds, orgId);
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
@@ -1405,12 +1456,6 @@ router.post('/approveStep', async (req, res) => {
     const now = new Date();
     const nowISO = nowLocal();
     const currentRound = step.round;
-    const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
-      ? [...new Set(req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean))]
-      : [];
-    const designatedNextAssignmentIds = Array.isArray(req.body.designatedNextAssignmentIds)
-      ? [...new Set(req.body.designatedNextAssignmentIds.map(function(id) { return safeString(id); }).filter(Boolean))]
-      : [];
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
     const currentSteps = allSteps
       .filter((s) => s.round === currentRound)
@@ -1741,6 +1786,7 @@ router.post('/rejectStep', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, rejecterAssignment, orgId);
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
@@ -1902,6 +1948,10 @@ router.post('/updateAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, editorAssignment, orgId);
+    await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
+      return item.assignmentIds;
+    }), orgId);
 
     // Update submission metadata
     await submissionModel.update(submissionId, {
@@ -2116,6 +2166,10 @@ router.post('/resubmitAudit', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await lockAuditActor(conn, resubmitterAssignment, orgId);
+    await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
+      return item.assignmentIds;
+    }), orgId);
 
     // Optional updates during resubmission
     const newTitle = safeString(req.body.title);

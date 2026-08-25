@@ -168,6 +168,7 @@ self._lastUpdateTime = now;
 - `project.private.config.json` 必须保持 `compileHotReLoad: false`。私有配置会覆盖公共配置，审计时必须按合并后的有效配置判断。
 - 不随意修改 `useCompilerPlugins`、`useCompilerModule`；确需修改时必须逐页编译验证。
 - `node --check` 只验证 JavaScript 语法，不能替代微信编译器验证；热重载成功也不能替代清缓存后的冷启动验证。
+- 超大 WXML 会触发 Glass-Easel 生成代码变量名碰撞保留字（已出现 `if`）并在运行时白屏。独立控制卡、复杂弹窗和详情区必须拆成自定义组件；每次运行 `node scripts/wechat-template-runtime-audit.js`，有本机编译器时逐个生成并解析模板代码，无编译器时执行元素数量硬上限。复杂度门禁和真实冷编译必须同时通过。
 
 **错误排查顺序：**先处理首个 `module ... is not defined`，再看 `wx://not-found`；后者通常是页面或组件脚本未注册的次生错误。最后单独检查接口 `timeout`，不要把网络超时误判为组件路径错误。
 
@@ -235,7 +236,7 @@ Page({
 |------|------|------|
 | `callFunction({ name, data })` | api.js | 通用 API，返回 Promise |
 | `showShortToast(title, icon)` | api.js | Toast（自动截断 ≤7 中文字符） |
-| `formatAuditTime(raw)` | api.js | 审核时间格式化 |
+| `formatAuditTime(raw, reviewStatus)` | api.js | 旧审核时间兼容入口；必须委托共享系统时区工具并透传逐记录待核对状态，不得读取设备时区 |
 | `getErrorText(error, fallback)` | api.js | 提取错误文本 |
 | `eventBus.on/off/emit` | eventBus.js | 跨页面事件 |
 | `parseCsvContent/buildCsv/buildExcelXml` | tableFile.js | CSV/Excel 解析导出 |
@@ -288,7 +289,17 @@ Page({
 - 前端只以 `activeContextId` 保存当前工作上下文，只以 `contextId` 传递或比较上下文；`assignmentId` 是岗位 ID，`identityCategoryId/Name` 是身份类别。`activeIdentityId`、`selection.identityId` 等旧字段只允许一轮兼容读取，禁止继续写入、发事件或参与判权。
 - 岗位编辑固定按“岗位性质 → 部门 → 身份类别 → 职能组”排列。职能组可空，但非空时必须属于所选部门；禁止自由文本“岗位名称”。岗位展示名由“身份类别 · 部门 · 职能组”自动生成，缺少职能组时省略。
 - 人事目录一名自然人只显示一张成员卡；多个岗位只在成员详情内分组展示。无岗位在职成员仍然可见，并使用中性状态气泡，禁止虚构默认岗位或把身份类别冒充岗位。
+- 成员资料目录必须一次包含在职与已离开成员，默认状态筛选为全部；禁止独立“已离开成员”模式或重复目录。已离开成员使用灰蓝气泡，详情只读并展示离任时间和离任前岗位，仅允许重新加入为在职无岗位。
+- 查询字段、关键词、排序、高级筛选和批量工具共同放入 `.section-control-card`；高级筛选在卡内展开，已选条件使用可单项清除的紧凑气泡。岗位性质、部门、身份类别、职能组必须在同一岗位元组内同时匹配；同类多选 OR、不同类别 AND，禁止跨岗位拼接命中。
 - 无岗位成员可以进入组织公共区域并维护个人资料，但审核、场地审批、评分等岗位规则驱动入口必须禁用或隐藏，并由服务端再次拒绝；前端不得从人员资料快照推导权限。
 - 资料卡必须同时展示“审核状态”和“完整度”；存在待审提交时状态始终为待审核。生效资料维护与待审值审核使用不同操作区；对照界面使用生效值/待审值比较卡，驳回通过受控弹窗采集必填原因。
 - “离开当前组织”不得写成“删除成员”。离开后自然人、全局账号和历史仍保留；只有具备 `auth.accounts.global_manage` 的用户可看到冻结、解绑、重置全局账号等高危操作。
+- 永久删除只放在成员详情危险操作区，并且必须先展示全引用预检；业务记录阻断，允许清理的未执行引用按事务清理，零候选规则停用。组织删除不得影响其他组织；彻底删除自然人仅限超级管理员并要求学号确认。
 - 人事页面标题、筛选、批量操作和岗位组至少置于一层语义玻璃容器。长表单弹窗使用固定标题、直接子级可滚动正文和固定底部操作区；正文高度随内容增长并受视口安全上限约束，手机、Pad 竖屏、Pad 横屏都必须能滚动到底并操作保存/取消。
+
+## 12. 绝对时间与系统时区硬规范
+
+- 绝对时间只通过共享时间工具按 `systemTimezoneOffset` 转换，禁止使用设备本地时区、`toLocaleString` 或 `toLocaleDateString`。系统配置版本变化后必须刷新缓存并重新预计算页面时间文本。
+- 列表预计算 `YYYY-MM-DD HH:mm`，详情、验签和安全记录预计算 `YYYY-MM-DD HH:mm:ss`；WXML 只允许绑定 `createdAtText/processedAtText/...`，禁止直接绑定原始 `createdAt/updatedAt/processedAt/signedAt/expiresAt` 或显示 ISO `T...Z`。
+- `YYYY-MM-DD` 纯日期、`HH:mm` 每日时刻、时长、提前量和周期规则不做时区转换。历史来源不明的绝对时间仍正常格式化，但必须使用同一业务对象的 `createdAtReviewStatus/processedAtReviewStatus/...` 逐字段传入格式器并显示“历史时区待核对”；禁止把全局待核对状态套到所有时间，也禁止漏传后静默显示。
+- 修改时间展示后必须运行时间审计，并以 UTC−12、UTC、UTC+8、UTC+12 验证跨日、跨月、跨年；纯日期和每日时刻不得漂移。

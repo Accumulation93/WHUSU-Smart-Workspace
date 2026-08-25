@@ -4,6 +4,7 @@ const express = require('express');
 const { safeString } = require('../../utils/helpers');
 const pool = require('../../config/db');
 const identityModel = require('../models/unifiedIdentity');
+const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
 const {
   hasGrantedPermission,
@@ -11,6 +12,14 @@ const {
 } = require('../services/adminPermissions');
 
 const router = express.Router();
+
+async function withSystemTimezone(payload) {
+  const config = await systemConfigModel.get();
+  return Object.assign({}, payload, {
+    systemTimezoneOffset: config ? config.timezone : 8,
+    timezoneConfigVersion: config ? String(config.timezone_config_version || 1) : '1'
+  });
+}
 
 function metadata(req) {
   return {
@@ -93,7 +102,7 @@ function claimPolicyOpen(policy) {
 router.post('/auth/wechat/session', async (req, res) => {
   try {
     const result = await unifiedAuth.startWechatSession(req.body || {}, metadata(req));
-    return res.json(result);
+    return res.json(await withSystemTimezone(result));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -137,7 +146,7 @@ router.post('/auth/claims/verify', async (req, res) => {
     );
     const result = await unifiedAuth.createAuthenticatedSession(account, '', metadata(req));
     if (account.rotatedRecoveryCode) result.recoveryCode = account.rotatedRecoveryCode;
-    return res.json(result);
+    return res.json(await withSystemTimezone(result));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -152,7 +161,9 @@ router.post('/auth/claims/redeem', async (req, res) => {
       organizationId: req.body && req.body.organizationId,
       code: req.body && (req.body.code || req.body.verificationCode)
     }, metadata(req));
-    return res.json(await unifiedAuth.createAuthenticatedSession(account, '', metadata(req)));
+    return res.json(await withSystemTimezone(
+      await unifiedAuth.createAuthenticatedSession(account, '', metadata(req))
+    ));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -166,11 +177,11 @@ router.post('/auth/password/session', async (req, res) => {
     );
     await identityModel.appendAuditEvent({ eventType: 'password_session_created', targetPersonId: account.person_id,
       accountId: account.id, requestId: req.requestId, ip: req.ip });
-    return res.json(await unifiedAuth.createAuthenticatedSession(account, {
+    return res.json(await withSystemTimezone(await unifiedAuth.createAuthenticatedSession(account, {
       contextId: req.body && req.body.preferredContextId,
       organizationId: req.body && req.body.preferredOrganizationId,
       identityId: req.body && req.body.preferredIdentityId
-    }, metadata(req)));
+    }, metadata(req))));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -185,7 +196,7 @@ router.get('/auth/contexts', async (req, res) => {
     const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
       || req.authContext;
     const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'success',
       currentContextId: req.authContext.contextId,
       contexts,
@@ -193,7 +204,7 @@ router.get('/auth/contexts', async (req, res) => {
       selection: catalog.selection,
       organizations: catalog.organizations,
       identities: catalog.identities
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -208,7 +219,7 @@ router.post('/auth/contexts', async (req, res) => {
     const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
       || req.authContext;
     const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'success',
       currentContextId: req.authContext.contextId,
       contexts,
@@ -216,7 +227,7 @@ router.post('/auth/contexts', async (req, res) => {
       selection: catalog.selection,
       organizations: catalog.organizations,
       identities: catalog.identities
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -265,7 +276,7 @@ router.post('/auth/contexts/activate', async (req, res) => {
         identityScope: decorated.identityScope
       }
     });
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'success',
       token: unifiedAuth.signAccessToken(
         Object.assign({}, req.authSession, { context: decorated }),
@@ -283,7 +294,7 @@ router.post('/auth/contexts/activate', async (req, res) => {
       user: unifiedAuth.profileFromContext(decorated),
       activeRole: decorated.role,
       activeOrg: { id: decorated.organizationId, name: decorated.organizationName }
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -389,14 +400,14 @@ router.post('/admin/auth/security', async (req, res) => {
     const passphraseSet = canGlobalManage
       ? await identityModel.getPassphraseStatus(account.account_id)
       : null;
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'success',
       account: { name: account.name, studentId: account.student_id },
       bindingStatus: safeString(account.account_status),
       canGlobalManage,
       passphraseSet,
       sessions: sessions.map(mapSecuritySession)
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -507,11 +518,11 @@ router.post('/auth/recovery/start', async (req, res) => {
       studentId: req.body && req.body.studentId,
       organizationId: req.body && req.body.organizationId
     }, metadata(req));
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'accepted',
       recoveryRequestId: result.recoveryRequestId,
       message: localeCopy.copy_d8ee19964e
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -780,7 +791,7 @@ router.post('/admin/auth/audit', async (req, res) => {
       ? safeString(req.body && req.body.organizationId)
       : actor.organizationId;
     const rows = await identityModel.listAuditEvents(orgId, req.body && req.body.limit);
-    return res.json({
+    return res.json(await withSystemTimezone({
       status: 'success',
       list: rows.map((row) => ({
         id: safeString(row.id),
@@ -791,7 +802,7 @@ router.post('/admin/auth/audit', async (req, res) => {
         outcome: safeString(row.outcome),
         createdAt: row.created_at
       }))
-    });
+    }));
   } catch (error) {
     return sendError(req, res, error);
   }

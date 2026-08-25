@@ -4,7 +4,10 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
+const systemConfigModel = require('../../../core/models/systemConfig');
+const { formatListTime, parseSystemDateTime, systemDateTimeToMysqlUtc, nowMysqlUtc } = require('../../../utils/dateTime');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
@@ -58,8 +61,8 @@ function fmtLocalTime(d) {
 }
 
 /** Format a Date to "YYYY-MM-DD HH:MM" for display and MySQL DATETIME */
-function fmtDatetime(d) {
-  return fmtLocalDate(d) + ' ' + fmtLocalTime(d);
+function fmtDatetime(d, timezoneOffset) {
+  return formatListTime(d, timezoneOffset);
 }
 
 function getVenueDisplayStatus(booking) {
@@ -293,6 +296,8 @@ router.post('/getVenueSchedule', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_ab5ebc56e8 });
     }
 
+    const systemConfig = await systemConfigModel.get();
+    const timezoneOffset = systemConfig ? systemConfig.timezone : 8;
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
@@ -304,8 +309,8 @@ router.post('/getVenueSchedule', async (req, res) => {
     }
 
     // Fetch ALL bookings that overlap with the week range
-    const weekStart = dateFrom + ' 00:00';
-    const weekEnd = endDate + ' 23:59';
+    const weekStart = systemDateTimeToMysqlUtc(dateFrom + ' 00:00', timezoneOffset);
+    const weekEnd = systemDateTimeToMysqlUtc(endDate + ' 23:59', timezoneOffset);
     const allBookings = await venueBookingModel.getByVenueId(venueId, {
       statuses: ['approved', 'pending'],
       timeFrom: weekStart,
@@ -427,20 +432,20 @@ router.post('/getVenueSchedule', async (req, res) => {
     while (cur <= end) {
       const dateStr = fmtLocalDate(cur);
       const openSlots = getOpenSlots(dateStr, openRules);
-      const activitySlots = buildActivitySlots(dateStr, activityRules);
+      const activitySlots = buildActivitySlots(dateStr, activityRules, timezoneOffset);
 
       // Filter bookings that overlap with this date
       const dayStart = dateStr + ' 00:00';
       const dayEnd = dateStr + ' 23:59';
       const dayBookings = activeBookings.filter(b => {
-        const bs = fmtDatetime(new Date(b.time_start));
-        const be = fmtDatetime(new Date(b.time_end));
+        const bs = fmtDatetime(new Date(b.time_start), timezoneOffset);
+        const be = fmtDatetime(new Date(b.time_end), timezoneOffset);
         return bs < dayEnd && be > dayStart;
       });
 
       const bookedSlots = dayBookings.map(b => {
-        const ts = fmtDatetime(new Date(b.time_start));
-        const te = fmtDatetime(new Date(b.time_end));
+        const ts = fmtDatetime(new Date(b.time_start), timezoneOffset);
+        const te = fmtDatetime(new Date(b.time_end), timezoneOffset);
         // Extract just the time portion if the booking is on this date, otherwise clip
         let displayStart = ts.substring(11, 16);
         let displayEnd = te.substring(11, 16);
@@ -597,12 +602,16 @@ router.post('/createVenueBooking', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_ea94858596 });
     }
 
+    const systemConfig = await systemConfigModel.get();
+    const timezoneOffset = systemConfig ? systemConfig.timezone : 8;
     const startDate = parseDatetime(timeStartStr);
     const endDate = parseDatetime(timeEndStr);
-    if (!startDate || !endDate) {
+    const absoluteStart = parseSystemDateTime(timeStartStr, timezoneOffset);
+    const absoluteEnd = parseSystemDateTime(timeEndStr, timezoneOffset);
+    if (!startDate || !endDate || !absoluteStart || !absoluteEnd) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_7873aabe9e });
     }
-    if (startDate >= endDate) {
+    if (absoluteStart >= absoluteEnd) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
 
@@ -616,11 +625,11 @@ router.post('/createVenueBooking', async (req, res) => {
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
     const bookingPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
-    const windowError = validateBookingWindow(bookingPolicy, startDate, new Date());
+    const windowError = validateBookingWindow(bookingPolicy, absoluteStart, new Date());
     if (windowError) return res.json({ status: 'invalid_state', message: windowError.message });
 
-    const dbTimeStart = fmtDatetime(startDate);
-    const dbTimeEnd = fmtDatetime(endDate);
+    const dbTimeStart = systemDateTimeToMysqlUtc(timeStartStr, timezoneOffset);
+    const dbTimeEnd = systemDateTimeToMysqlUtc(timeEndStr, timezoneOffset);
 
     // Cross-day validation: split into per-date segments, validate with interval merging
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
@@ -645,7 +654,7 @@ router.post('/createVenueBooking', async (req, res) => {
       }
 
       // Check activity conflicts — any overlap with activity slots is rejected
-      const actSlots = buildActivitySlots(seg.date, activityRules);
+      const actSlots = buildActivitySlots(seg.date, activityRules, timezoneOffset);
       if (actSlots.length) {
         const mergedActivity = mergeIntervals(slotsToIntervals(actSlots));
         const actConflict = findBlockedOverlap(segStart, segEnd, mergedActivity);
@@ -656,6 +665,12 @@ router.post('/createVenueBooking', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
+      personId: applicantAssignment.personId,
+      legacyHrId: applicantAssignment.legacyHrId,
+      organizationId: orgId,
+      assignmentId: applicantAssignment.assignmentId
+    }]);
 
     const id = generateId();
     const dedupClaim = await requestDeduplication.claim(conn, {
@@ -832,8 +847,8 @@ router.post('/listMyVenueBookings', async (req, res) => {
       userWorkGroup: display.workGroup,
       creatorAssignmentId: display.assignmentId,
       creatorAssignmentLabel: display.assignmentLabel || localeCopy.historicalAssignmentMissing,
-      timeStart: fmtDatetime(new Date(b.time_start)),
-      timeEnd: fmtDatetime(new Date(b.time_end)),
+      timeStart: b.time_start,
+      timeEnd: b.time_end,
       status: b.status,
       approvalComment: b.approval_comment,
       createdAt: b.created_at,
@@ -1040,8 +1055,8 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         userWorkGroup: (applicantHrInfo && applicantHrInfo.work_group_name) || '',
         creatorAssignmentId: (applicantHrInfo && applicantHrInfo.assignment_id) || '',
         creatorAssignmentLabel: (applicantHrInfo && applicantHrInfo.assignment_label) || '',
-        timeStart: fmtDatetime(new Date(booking.time_start)),
-        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        timeStart: booking.time_start,
+        timeEnd: booking.time_end,
         status: booking.status,
         approvalFlowId: booking.approval_flow_id,
         approvalCurrentStep: booking.approval_current_step,
@@ -1142,7 +1157,7 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
 
     const history = [];
     for (const booking of bookings) {
-      const approval = findMyVenueApproval(booking, actor, fmtDatetime);
+      const approval = findMyVenueApproval(booking, actor);
       if (!approval) continue;
       const applicant = assignmentDisplay(applicantAssignments.get(safeString(booking.id)));
       history.push({
@@ -1156,8 +1171,8 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
         applicantDepartmentId: applicant.departmentId,
         applicantAssignmentId: applicant.assignmentId,
         applicantAssignmentLabel: applicant.assignmentLabel || localeCopy.historicalAssignmentMissing,
-        timeStart: fmtDatetime(new Date(booking.time_start)),
-        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        timeStart: booking.time_start,
+        timeEnd: booking.time_end,
         status: booking.status,
         displayStatus: getVenueDisplayStatus(booking),
         myAction: approval.action,
@@ -1213,7 +1228,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     const applicantAssignment = await resolveBookingApplicantAssignment(booking);
     const applicant = assignmentDisplay(applicantAssignment);
 
-    const approval = findMyVenueApproval(booking, actor, fmtDatetime);
+    const approval = findMyVenueApproval(booking, actor);
     if (!approval) return res.json({ status: 'forbidden', message: localeCopy.copy_c4a87d8e1c });
 
     const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
@@ -1286,8 +1301,8 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
         applicantDepartmentId: applicant.departmentId,
         applicantAssignmentId: applicant.assignmentId,
         applicantAssignmentLabel: applicant.assignmentLabel || localeCopy.historicalAssignmentMissing,
-        timeStart: fmtDatetime(new Date(booking.time_start)),
-        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        timeStart: booking.time_start,
+        timeEnd: booking.time_end,
         status: safeString(booking.status),
         displayStatus: getVenueDisplayStatus(booking),
         approvalComment: safeString(booking.approval_comment),
@@ -1395,7 +1410,7 @@ router.post('/endVenueBooking', async (req, res) => {
     }
 
     // Set time_end to now (early end)
-    const dbTimeEnd = fmtDatetime(now);
+    const dbTimeEnd = nowMysqlUtc();
     await venueBookingModel.updateTimeEnd(id, dbTimeEnd);
     res.json({ status: 'success', message: localeCopy.copy_26f5cb7f15 });
   } catch (e) {

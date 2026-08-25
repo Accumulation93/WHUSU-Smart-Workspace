@@ -3,6 +3,7 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { formatAssignmentLabel } = require('../../utils/workContextPresentation');
+const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -57,14 +58,14 @@ Page({
       if (res.status === 'success') {
         const history = (res.history || []).map(function(item) {
           const displayStatus = item.displayStatus || item.status || '';
-          return Object.assign({}, item, {
+          return prepareVenueBookingDetail(Object.assign({}, item, {
             _statusLabel: STATUS_LABELS[displayStatus] || displayStatus,
             _statusClass: displayStatus,
             _applicantAssignmentText: formatAssignmentLabel({
               assignmentId: item.applicantAssignmentId,
               assignmentLabel: item.applicantAssignmentLabel
             }, '')
-          });
+          }));
         });
         this.setData({ history: history });
       } else {

@@ -5,8 +5,17 @@ const test = require('node:test');
 
 const adminRoot = path.resolve(__dirname, '..');
 const wxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+const directoryControlsWxml = fs.readFileSync(path.join(adminRoot, 'components', 'hrDirectoryControls', 'hrDirectoryControls.wxml'), 'utf8');
+const deletionDialogWxml = fs.readFileSync(path.join(adminRoot, 'components', 'hrPermanentDeletionDialog', 'hrPermanentDeletionDialog.wxml'), 'utf8');
 const hrBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'hrInfoBehavior.js'), 'utf8');
 const authBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'authPersonnelBehavior.js'), 'utf8');
+const resultBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'resultBehavior.js'), 'utf8');
+const adminJs = fs.readFileSync(path.join(adminRoot, 'admin.js'), 'utf8');
+const adminWxss = fs.readFileSync(path.join(adminRoot, 'admin.wxss'), 'utf8');
+const appJs = fs.readFileSync(path.resolve(adminRoot, '../../../../app.js'), 'utf8');
+const submissionDetailJs = fs.readFileSync(path.resolve(adminRoot, '../../../audit/pages/submissionDetail/submissionDetail.js'), 'utf8');
+const { buildHrProfileFilterOptions, emptyHrProfileFilters, applyHrProfileFilters } = require('../modules/adminUtils');
+const dateTime = require('../../../../../utils/dateTime');
 
 test('岗位编辑器不再展示或提交自由文本岗位名称', () => {
   assert.doesNotMatch(wxml, /membershipAssignmentForm\.title|data-field="title"|assignmentItem\.title/);
@@ -16,7 +25,7 @@ test('岗位编辑器不再展示或提交自由文本岗位名称', () => {
 });
 
 test('账号高危控件只由全局账号治理权限控制', () => {
-  assert.doesNotMatch(wxml, /canRecoverAccounts/);
+  assert.doesNotMatch(wxml, /wx:if="\{\{canRecoverAccounts && detailHrGovernance/);
   assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.canIssueRecovery/);
   assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.personId/);
   assert.match(authBehavior, /async toggleAuthAccountFrozen\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
@@ -24,9 +33,9 @@ test('账号高危控件只由全局账号治理权限控制', () => {
 });
 
 test('姓名和学号仅由全局账号治理者通过受控纠错修改', () => {
-  assert.match(wxml, /disabled="\{\{!canGlobalAccountManage\}\}" data-field="_name"/);
-  assert.match(wxml, /disabled="\{\{!canGlobalAccountManage\}\}" data-field="_studentId"/);
-  assert.match(hrBehavior, /onDetailBasicFieldInput\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+  assert.match(wxml, /disabled="\{\{!canGlobalAccountManage \|\| detailHrReadOnly\}\}" data-field="_name"/);
+  assert.match(wxml, /disabled="\{\{!canGlobalAccountManage \|\| detailHrReadOnly\}\}" data-field="_studentId"/);
+  assert.match(hrBehavior, /onDetailBasicFieldInput\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage \|\| this\.data\.detailHrReadOnly\) return;/);
   assert.match(hrBehavior, /hasBasicIdentityChange[\s\S]*if \(!this\.data\.canGlobalAccountManage\) return;[\s\S]*previewPersonIdentityCorrection/);
 });
 
@@ -48,9 +57,147 @@ test('资料驳回必须通过受控原因弹窗提交非空原因', () => {
   assert.match(hrBehavior, /action: 'reject', reason/);
 });
 
-test('离开组织与重新加入入口同时存在', () => {
-  assert.match(wxml, /data-mode="former"/);
+test('离任成员并入成员资料目录且详情只读并可重新加入', () => {
+  assert.doesNotMatch(wxml, /data-mode="former"/);
+  assert.doesNotMatch(hrBehavior, /callCloud\('listFormerHrMembers'/);
+  assert.match(wxml, /item\.membershipStatusText/);
+  assert.match(wxml, /detailHrReadOnly/);
   assert.match(wxml, /catchtap="reactivateHrMembership"/);
-  assert.match(hrBehavior, /callCloud\('listFormerHrMembers'/);
   assert.match(hrBehavior, /callCloud\('reactivateHrMembership'/);
+});
+
+test('成员目录筛选位于语义控制卡并提供字段搜索、多选筛选和排序', () => {
+  assert.match(wxml, /<hr-directory-controls/);
+  assert.match(directoryControlsWxml, /section-control-card[^\n]*hr-directory-control-card/);
+  assert.match(directoryControlsWxml, /bindchange="emitSearchFieldChange"/);
+  assert.match(directoryControlsWxml, /bindchange="emitFilterGroupChange"/);
+  assert.match(directoryControlsWxml, /bindchange="emitSortChange"/);
+  assert.match(directoryControlsWxml, /class="hr-member-tools"/);
+  assert.doesNotMatch(wxml, /class="hr-member-tools"/);
+});
+
+test('成员详情异步请求必须以请求序号和当前成员双重隔离', () => {
+  assert.match(hrBehavior, /const detailRequestId = Number\(this\._hrPersonDetailRequestId \|\| 0\) \+ 1;/);
+  assert.match(hrBehavior, /this\._hrPersonDetailRequestId !== detailRequestId/);
+  assert.match(hrBehavior, /String\(this\.data\.detailHrId \|\| ''\) !== hrId/);
+  assert.match(hrBehavior, /async loadPersonIdentities\(hrId, detailRequestId\)/);
+  assert.match(authBehavior, /async loadDetailHrSecurity\(personId, detailRequestId\)/);
+  assert.match(authBehavior, /const currentGovernance = this\.data\.detailHrGovernance \|\| \{\};[\s\S]*String\(currentGovernance\.personId \|\| ''\) !== expectedPersonId/);
+});
+
+test('永久删除必须经过引用预检且彻底删除要求学号确认', () => {
+  assert.match(wxml, /data-scope="membership"[\s\S]*catchtap="previewPermanentHrDeletion"/);
+  assert.match(wxml, /wx:if="\{\{isSuperAdmin\}\}" data-scope="person"/);
+  assert.match(wxml, /<hr-permanent-deletion-dialog/);
+  assert.match(wxml, /blockers="\{\{hrPermanentDeletionBlockers\}\}"/);
+  assert.match(wxml, /cleanup="\{\{hrPermanentDeletionCleanup\}\}"/);
+  assert.match(wxml, /cleanup-accepted="\{\{hrPermanentDeletionCleanupAccepted\}\}"/);
+  assert.match(wxml, /result="\{\{hrPermanentDeletionResult\}\}"/);
+  assert.match(wxml, /confirmation="\{\{hrPermanentDeletionConfirmation\}\}"/);
+  assert.match(deletionDialogWxml, /preview\.eligible/);
+  assert.match(deletionDialogWxml, /preview\.organizations/);
+  assert.match(deletionDialogWxml, /bindchange="emitCleanupAcceptance"/);
+  assert.match(deletionDialogWxml, /cleanup\.length && !cleanupAccepted/);
+  assert.match(deletionDialogWxml, /result\.affectedRules/);
+  assert.match(hrBehavior, /callCloud\('previewHrMemberDeletion'/);
+  assert.match(hrBehavior, /scope === 'person' \? 'deletePersonPermanently' : 'deleteHrMembershipPermanently'/);
+  assert.match(hrBehavior, /expectedVersion: preview\.version/);
+  assert.match(hrBehavior, /acceptCleanup: !cleanupRequired \|\| this\.data\.hrPermanentDeletionCleanupAccepted/);
+  assert.match(hrBehavior, /resetHrProfileFilters\(\) \{\s+this\.clearHrInfoKeywordTimer\(\);/);
+  assert.match(wxml, /assignmentItem\.historical[\s\S]*localeCopy\.hrHistoricalPosition/);
+});
+
+test('列表与详情时间使用共享精度且全局复核状态不污染具体记录', () => {
+  assert.match(
+    resultBehavior,
+    /submittedAtText: formatAuditTime\(normalizedItem\.submittedAt, normalizedItem\.submittedAtReviewStatus\)/
+  );
+  assert.match(
+    resultBehavior,
+    /submittedAtText: formatAuditDetailTime\(\s*result\.recordDetail\.submittedAt,\s*result\.recordDetail\.submittedAtReviewStatus\s*\)/
+  );
+  assert.match(
+    submissionDetailJs,
+    /signedAtText: formatAuditDetailTime\(item\.signedAt, item\.signedAtReviewStatus\)/
+  );
+  assert.match(
+    authBehavior,
+    /lastSeenText: item\.lastSeenAt\s*\? formatAuditDetailTime\(item\.lastSeenAt, item\.lastSeenAtReviewStatus\)/
+  );
+
+  dateTime.setSystemTimezoneConfig(8, 'test-version', true, 'review-version');
+  const utcSample = new Date(Date.UTC(2026, 7, 23, 11, 10, 16)).toISOString();
+  assert.equal(dateTime.formatListTime(utcSample), '2026-08-23 19:10');
+  assert.match(
+    dateTime.formatListTime(utcSample, { reviewStatus: 'review_required' }),
+    /历史时区待核对/
+  );
+});
+
+test('系统时区变化会刷新真实当前页而不是遍历空钩子', () => {
+  assert.match(appJs, /const page = pages\.length \? pages\[pages\.length - 1\] : null;/);
+  assert.match(appJs, /else if \(typeof page\.onShow === 'function'\)/);
+  assert.match(adminJs, /onSystemTimezoneChanged\(\) \{[\s\S]*_refreshActiveOrganizationTab\(this\.data\.activeTab\)/);
+  assert.match(submissionDetailJs, /onSystemTimezoneChanged\(\) \{[\s\S]*return this\.loadDetail\(\)/);
+});
+
+test('认证治理降级目录可进入详情并构造完整岗位元组', () => {
+  assert.match(hrBehavior, /function buildGovernanceAssignments\(item\)/);
+  assert.match(hrBehavior, /departmentId:[\s\S]*identityCategoryId:[\s\S]*workGroupId:/);
+  assert.match(hrBehavior, /canOpenGovernanceDetail = this\.data\.canVerifyIdentity[\s\S]*this\.data\.canGlobalAccountManage/);
+  assert.match(wxml, /canBrowseHrInfo \|\| canVerifyIdentity \|\| canRecoverAccounts \|\| canGlobalAccountManage/);
+  assert.match(adminJs, /canVerifyIdentity \|\| this\.data\.canRecoverAccounts \|\| this\.data\.canGlobalAccountManage/);
+});
+
+test('离任详情岗位与管理员操作在模板和方法层均只读', () => {
+  assert.match(wxml, /!detailHrReadOnly && orgItem\.canEditAssignments/);
+  assert.match(wxml, /!detailHrReadOnly && orgItem\.canAddAdmin/);
+  assert.match(wxml, /!detailHrReadOnly && orgItem\.canEditAdmins/);
+  ['startCreateMembershipAssignment', 'editMembershipAssignment', 'saveMembershipAssignment',
+    'deleteMembershipAssignment', 'addPersonAdminIdentity', 'addPersonSuperAdmin',
+    'removePersonAdminIdentity', 'confirmIdentityAction'].forEach((methodName) => {
+    const methodStart = hrBehavior.indexOf(methodName + '(');
+    assert.ok(methodStart >= 0, methodName);
+    assert.match(hrBehavior.slice(methodStart, methodStart + 220), /detailHrReadOnly/);
+  });
+});
+
+test('永久删除预检冻结目标并以请求序号隔离迟到响应', () => {
+  assert.match(wxml, /disabled="\{\{hrPermanentDeletionLoading\}\}"[\s\S]*catchtap="previewPermanentHrDeletion"/);
+  assert.match(hrBehavior, /const requestSeq = Number\(this\._hrPermanentDeletionPreviewSeq \|\| 0\) \+ 1;/);
+  assert.match(hrBehavior, /this\._hrPermanentDeletionPreviewSeq !== requestSeq/);
+  assert.match(hrBehavior, /hrPermanentDeletionTarget: target/);
+  assert.match(hrBehavior, /const target = this\.data\.hrPermanentDeletionTarget;/);
+  assert.match(hrBehavior, /hrId: target\.hrId[\s\S]*personId: target\.personId[\s\S]*organizationId: target\.organizationId/);
+});
+
+test('重新加入使用可禁用按钮并在行为层阻止重复提交', () => {
+  assert.match(wxml, /<button class="secondary-btn compact-action hr-action-chip[\s\S]*disabled="\{\{reactivatingHrId\}\}"[\s\S]*catchtap="reactivateHrMembership"/);
+  assert.match(hrBehavior, /if \(!hrId \|\| !this\.data\.canManageHrPeople \|\| this\.data\.reactivatingHrId\) return;/);
+});
+
+test('岗位筛选使用字典 ID 且同名职能组按部门区分', () => {
+  const rows = [{
+    assignments: [
+      { departmentId: 'department-a', department: '甲部门', identityCategoryId: 'identity-a', identityCategoryName: '成员', workGroupId: 'group-a', workGroup: '项目组' },
+      { departmentId: 'department-b', department: '乙部门', identityCategoryId: 'identity-a', identityCategoryName: '成员', workGroupId: 'group-b', workGroup: '项目组' }
+    ],
+    membershipStatus: 'active', assignmentCount: 2, auditStatus: 'none', accountState: 'unbound', wxBindStatus: 'unbound'
+  }];
+  const options = buildHrProfileFilterOptions(rows);
+  assert.deepEqual(options.workGroups.map((item) => item.value).sort(), ['group-a', 'group-b']);
+  assert.deepEqual(options.workGroups.map((item) => item.label).sort(), ['项目组 · 乙部门', '项目组 · 甲部门'].sort());
+  const filters = emptyHrProfileFilters();
+  filters.departments = ['department-a'];
+  filters.workGroups = ['group-b'];
+  assert.equal(applyHrProfileFilters(rows, filters).length, 0);
+  filters.workGroups = ['group-a'];
+  assert.equal(applyHrProfileFilters(rows, filters).length, 1);
+});
+
+test('手机账号长按钮最多两列', () => {
+  const phoneStart = adminWxss.lastIndexOf('@media (max-width: 519px)');
+  const phoneBlock = adminWxss.slice(phoneStart, adminWxss.indexOf('@media (min-width: 520px)', phoneStart));
+  assert.match(phoneBlock, /\.hr-account-actions[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(phoneBlock, /\.hr-account-actions[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/);
 });

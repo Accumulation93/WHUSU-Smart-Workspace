@@ -7,6 +7,11 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
+const {
+  getSystemDate,
+  getSystemWeekStart,
+  addDateDays
+} = require('../../../../utils/dateTime');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -62,14 +67,6 @@ function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
   return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
-}
-
-function fmtLocalDate(d) {
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-function fmtLocalTime(d) {
-  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
 /** Compute display status from db status + time comparison */
@@ -460,11 +457,8 @@ Page({
   },
 
   _initBookingsTimeRange() {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-    const from = fmtLocalDate(weekAgo);
-    const to = fmtLocalDate(now);
+    const to = getSystemDate();
+    const from = addDateDays(to, -7);
     this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
   },
 
@@ -1330,14 +1324,13 @@ Page({
     this.loadBookingsData();
   },
   onClearTime() {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
+    const to = getSystemDate();
+    const from = addDateDays(to, -7);
     this.setData({
-      timeFrom: fmtLocalDate(weekAgo),
-      timeTo: fmtLocalDate(now),
-      timeFromDisplay: fmtLocalDate(weekAgo),
-      timeToDisplay: fmtLocalDate(now)
+      timeFrom: from,
+      timeTo: to,
+      timeFromDisplay: from,
+      timeToDisplay: to
     });
     this.loadBookingsData();
   },
@@ -1417,11 +1410,7 @@ Page({
 
   // ── Admin Timetable / Schedule ──
   _initWeekStart() {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    this.setData({ scheduleWeekStart: fmtLocalDate(monday) });
+    this.setData({ scheduleWeekStart: getSystemWeekStart() });
   },
 
   async openVenueSchedule(e) {
@@ -1439,9 +1428,7 @@ Page({
   async loadVenueTimetable() {
     const request = orgSession.beginRequest(this, 'manageTimetable');
     const { scheduleVenueId, scheduleWeekStart } = this.data;
-    const [y, m, d] = scheduleWeekStart.split('-').map(Number);
-    const end = new Date(y, m - 1, d + 6);
-    const dateTo = fmtLocalDate(end);
+    const dateTo = addDateDays(scheduleWeekStart, 6);
     wx.showLoading({ title: localeCopy.copy_fc99c4cc7b });
     try {
       const res = await callFunction({
@@ -1460,13 +1447,11 @@ Page({
   },
 
   _buildAdminTimetable(dailySchedules) {
-    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
     const weekDayLabels = [localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100];
     const columns = [];
     for (let i = 0; i < 7; i++) {
-      const dd = new Date(y, m - 1, d + i);
-      const dateStr = fmtLocalDate(dd);
-      const dateDisplay = String(dd.getMonth() + 1).padStart(2, '0') + '/' + String(dd.getDate()).padStart(2, '0');
+      const dateStr = addDateDays(this.data.scheduleWeekStart, i);
+      const dateDisplay = dateStr.slice(5).replace('-', '/');
       const dayData = dailySchedules.find(ds => ds.date === dateStr);
       const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i], dateDisplay);
       columns.push(col);
@@ -1552,15 +1537,11 @@ Page({
   },
 
   onTimetablePrevWeek() {
-    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
-    const dt = new Date(y, m - 1, d - 7);
-    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
+    this.setData({ scheduleWeekStart: addDateDays(this.data.scheduleWeekStart, -7) });
     this.loadVenueTimetable();
   },
   onTimetableNextWeek() {
-    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
-    const dt = new Date(y, m - 1, d + 7);
-    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
+    this.setData({ scheduleWeekStart: addDateDays(this.data.scheduleWeekStart, 7) });
     this.loadVenueTimetable();
   },
 

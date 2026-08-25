@@ -4,6 +4,7 @@ const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
+const { nowMysqlUtc } = require('../../utils/dateTime');
 const { parseCsv } = require('../../utils/csv');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
@@ -12,6 +13,7 @@ const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const personGovernanceModel = require('../models/personGovernance');
+const hrMemberDeletionService = require('../services/hrMemberDeletionService');
 const {
   AdminOrganizationAccessError,
   listAdminOrganizationAccess,
@@ -184,7 +186,10 @@ router.post('/listHrGovernance', async (req, res) => {
     const placeholders = organizationIds.map(() => '?').join(',');
     const [rows] = await pool.query(
       `SELECT h.id, h.org_id, h.name, h.student_id,
-              om.person_id, o.name AS organization_name,
+              om.person_id, om.id AS membership_id, om.status AS membership_status,
+              om.created_at AS joined_at,
+              CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at,
+              o.name AS organization_name,
               d.name AS department_name, i.name AS identity_name, wg.name AS work_group_name,
               a.id AS account_id, a.status AS account_status, a.verified_at, a.recovery_required_at,
               EXISTS (SELECT 1 FROM account_wechat_bindings b WHERE b.account_id = a.id AND b.status = 'active') AS has_active_binding,
@@ -212,7 +217,7 @@ router.post('/listHrGovernance', async (req, res) => {
                 ORDER BY recovery.created_at DESC LIMIT 1) AS pending_recovery_id
          FROM hr_info h
          JOIN organization_memberships om ON om.legacy_hr_id = h.id
-           AND om.org_id = h.org_id AND om.status = 'active'
+           AND om.org_id = h.org_id AND om.status IN ('active', 'left')
          JOIN organizations o ON o.id = h.org_id
          LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
          LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
@@ -237,6 +242,10 @@ router.post('/listHrGovernance', async (req, res) => {
         id: safeString(item.id),
         hrId: safeString(item.id),
         personId: safeString(item.person_id),
+        membershipId: safeString(item.membership_id),
+        membershipStatus: safeString(item.membership_status) || 'active',
+        joinedAt: item.joined_at || null,
+        leftAt: item.left_at || null,
         organizationId: safeString(item.org_id),
         organizationName: safeString(item.organization_name),
         name: safeString(item.name),
@@ -354,7 +363,8 @@ router.post('/listPersonIdentities', async (req, res) => {
         identityCategoryId: safeString(item.identity_id),
         identityCategoryName: safeString(item.identity_name),
         workGroupId: safeString(item.work_group_id),
-        workGroup: safeString(item.work_group_name)
+        workGroup: safeString(item.work_group_name),
+        historical: safeString(item.membership_status) === 'left'
       });
       assignmentsByOrg.set(orgId, rows);
     });
@@ -392,6 +402,8 @@ router.post('/listPersonIdentities', async (req, res) => {
     const organizations = data.memberships.map((membership) => {
       const orgId = safeString(membership.org_id);
       const access = accessByOrg.get(orgId) || {};
+      const membershipStatus = safeString(membership.membership_status) || 'active';
+      const isActiveMembership = membershipStatus === 'active';
       const adminIdentities = access.canReadAdmins ? (grantsByOrg.get(orgId) || []) : [];
       const dictionaries = dictionariesByOrg.get(orgId) || {
         departments: [], identities: [], workGroups: []
@@ -400,13 +412,16 @@ router.post('/listPersonIdentities', async (req, res) => {
         organizationId: orgId,
         organizationName: safeString(membership.organization_name),
         hrId: safeString(membership.legacy_hr_id),
+        membershipStatus,
+        joinedAt: membership.joined_at || null,
+        leftAt: membership.left_at || null,
         canReadAssignments: Boolean(access.canReadAssignments),
-        canEditAssignments: Boolean(access.canEditAssignments),
+        canEditAssignments: Boolean(isActiveMembership && access.canEditAssignments),
         canReadAdmins: Boolean(access.canReadAdmins),
-        canEditAdmins: Boolean(access.canEditAdmins),
+        canEditAdmins: Boolean(isActiveMembership && access.canEditAdmins),
         assignments: access.canReadAssignments ? (assignmentsByOrg.get(orgId) || []) : [],
         adminIdentities,
-        canAddAdmin: Boolean(access.canEditAdmins && !adminIdentities.length),
+        canAddAdmin: Boolean(isActiveMembership && access.canEditAdmins && !adminIdentities.length),
         dictionaries: Object.assign({}, dictionaries, {
           identityCategories: dictionaries.identities
         })
@@ -544,19 +559,29 @@ router.post('/saveHrInfo', async (req, res) => {
 // deleteHrInfo
 router.post('/deleteHrInfo', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
-    const result = await hrInfoModel.remove(id);
+    const result = await pool.withTransaction(async (connection) => {
+      await requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection);
+      return unifiedIdentityModel.removeLegacyHrRecord(connection, id, orgId, {
+        personId: safeString(req.authAccount && req.authAccount.personId),
+        contextId: safeString(req.authContext && req.authContext.contextId),
+        requestId: safeString(req.requestId),
+        ip: safeString(req.ip)
+      });
+    });
     if (!result || !result.left) {
       return res.json({ status: 'not_found', message: personnelCopy.formerMemberNotFound });
     }
     res.json({ status: 'success', left: true, message: personnelCopy.memberLeftOrganization });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    const isExpected = e instanceof AdminOrganizationAccessError
+      || e instanceof unifiedIdentityModel.IdentityError;
+    res.status(isExpected ? (e.httpStatus || 400) : 500).json({
+      status: isExpected ? safeString(e.code) : 'error',
+      message: isExpected ? safeString(e.message) : localeCopy.copy_1681c6c6eb
+    });
   }
 });
 
@@ -609,6 +634,107 @@ router.post('/reactivateHrMembership', async (req, res) => {
       status: isExpected ? error.code : 'error',
       message: isExpected ? error.message : safeString(error.message)
     });
+  }
+});
+
+function deletionActor(req, access) {
+  const effective = access && access.effective || {};
+  return {
+    personId: safeString(req.authAccount && req.authAccount.personId),
+    contextId: safeString(req.authContext && req.authContext.contextId),
+    organizationId: safeString(access && access.organizationId),
+    adminLevel: effective.isSuper ? 'super_admin' : 'admin'
+  };
+}
+
+function deletionAuthorize(req, organizationId) {
+  return async (connection) => {
+    const access = await requireAdminOrganizationPermission(
+      req,
+      organizationId,
+      ['hr.people'],
+      connection
+    );
+    return deletionActor(req, access);
+  };
+}
+
+function deletionRequestData(req, scope, organizationId) {
+  return {
+    scope,
+    organizationId,
+    legacyHrId: safeString(req.body && (req.body.hrId || req.body.legacyHrId)),
+    personId: safeString(req.body && req.body.personId),
+    expectedVersion: safeString(req.body && req.body.expectedVersion),
+    clientRequestId: safeString(req.body && req.body.clientRequestId),
+    acceptCleanup: Boolean(req.body && req.body.acceptCleanup === true),
+    confirmStudentId: safeString(req.body && req.body.confirmStudentId),
+    requestId: safeString(req.requestId),
+    ip: safeString(req.ip)
+  };
+}
+
+function sendDeletionError(req, res, error) {
+  const expected = error instanceof hrMemberDeletionService.HrMemberDeletionError
+    || error instanceof AdminOrganizationAccessError;
+  if (!expected && req.logger) {
+    req.logger.error('HR permanent deletion failed', {
+      event: 'hr.member_permanent_deletion_failed',
+      code: safeString(error && error.code),
+      error: safeString(error && error.message)
+    });
+  }
+  const code = expected ? safeString(error.code) : 'error';
+  return res.status(expected ? (error.httpStatus || 400) : 500).json({
+    status: code,
+    message: personnelCopy.hrDeletionMessages[code]
+      || (expected ? personnelCopy.hrDeletionFailed : personnelCopy.hrDeletionSystemError),
+    details: error && error.details || null
+  });
+}
+
+router.post('/previewHrMemberDeletion', async (req, res) => {
+  try {
+    const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const scope = safeString(req.body && req.body.scope) || hrMemberDeletionService.MEMBERSHIP_SCOPE;
+    const preview = await hrMemberDeletionService.previewHrMemberDeletion(
+      deletionRequestData(req, scope, organizationId),
+      deletionActor(req, access)
+    );
+    return res.json({ status: 'success', preview });
+  } catch (error) {
+    return sendDeletionError(req, res, error);
+  }
+});
+
+router.post('/deleteHrMembershipPermanently', async (req, res) => {
+  try {
+    const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const result = await hrMemberDeletionService.deleteHrMembershipPermanently(
+      deletionRequestData(req, hrMemberDeletionService.MEMBERSHIP_SCOPE, organizationId),
+      deletionActor(req, access),
+      { authorize: deletionAuthorize(req, organizationId) }
+    );
+    return res.json({ status: 'success', result, message: personnelCopy.hrMembershipPermanentlyDeleted });
+  } catch (error) {
+    return sendDeletionError(req, res, error);
+  }
+});
+
+router.post('/deletePersonPermanently', async (req, res) => {
+  try {
+    const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const result = await hrMemberDeletionService.deletePersonPermanently(
+      deletionRequestData(req, hrMemberDeletionService.PERSON_SCOPE, organizationId),
+      deletionActor(req, access),
+      { authorize: deletionAuthorize(req, organizationId) }
+    );
+    return res.json({ status: 'success', result, message: personnelCopy.personPermanentlyDeleted });
+  } catch (error) {
+    return sendDeletionError(req, res, error);
   }
 });
 
@@ -915,7 +1041,7 @@ router.post('/importHrCsv', async (req, res) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const nowUtc = nowMysqlUtc();
       const orgId = await getCurrentOrgId();
 
       for (const name of newDeptNames) {

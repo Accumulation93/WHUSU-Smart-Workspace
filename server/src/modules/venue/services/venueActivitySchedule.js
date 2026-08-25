@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueActivitySchedule');
+const { parseSystemDateTime, toIsoUtc } = require('../../../utils/dateTime');
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
@@ -123,19 +124,24 @@ function ruleValidationError(rule) {
   return null;
 }
 
-function buildDetail(rule, occurrenceStart, occurrenceEnd) {
+function absoluteOccurrence(value, timezoneOffset) {
+  const parsed = parseSystemDateTime(formatDateTime(value), timezoneOffset);
+  return parsed ? toIsoUtc(parsed) : null;
+}
+
+function buildDetail(rule, occurrenceStart, occurrenceEnd, timezoneOffset) {
   return {
     id: rule.id,
     venueId: rule.venue_id,
     name: rule.activity_name || localeCopy.copy_acd4c5c171,
     cycleType: rule.cycle_type || 'weekly',
     cycleValues: parseCycleValues(rule.cycle_values),
-    occurrenceStart: formatDateTime(occurrenceStart),
-    occurrenceEnd: formatDateTime(occurrenceEnd)
+    occurrenceStart: absoluteOccurrence(occurrenceStart, timezoneOffset),
+    occurrenceEnd: absoluteOccurrence(occurrenceEnd, timezoneOffset)
   };
 }
 
-function getActivitySlots(dateText, activityRules) {
+function getActivitySlots(dateText, activityRules, timezoneOffset) {
   const dayStart = parseLocalDateTime(dateText, '00:00');
   if (!dayStart) return [];
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60000);
@@ -173,9 +179,9 @@ function getActivitySlots(dateText, activityRules) {
           ruleName: rule.activity_name || localeCopy.copy_acd4c5c171,
           timeStart: formatTime(start),
           timeEnd: end.getTime() >= dayEnd.getTime() ? '24:00' : formatTime(end),
-          fullTimeStart: formatDateTime(range.start),
-          fullTimeEnd: formatDateTime(range.end),
-          activity: buildDetail(rule, range.start, range.end)
+          fullTimeStart: absoluteOccurrence(range.start, timezoneOffset),
+          fullTimeEnd: absoluteOccurrence(range.end, timezoneOffset),
+          activity: buildDetail(rule, range.start, range.end, timezoneOffset)
         });
       }
       continue;
@@ -199,9 +205,9 @@ function getActivitySlots(dateText, activityRules) {
       ruleName: rule.activity_name || localeCopy.copy_acd4c5c171,
       timeStart: formatTime(start),
       timeEnd: end.getTime() >= dayEnd.getTime() ? '24:00' : formatTime(end),
-      fullTimeStart: formatDateTime(start),
-      fullTimeEnd: formatDateTime(end),
-      activity: buildDetail(rule, start, end)
+      fullTimeStart: absoluteOccurrence(start, timezoneOffset),
+      fullTimeEnd: absoluteOccurrence(end, timezoneOffset),
+      activity: buildDetail(rule, start, end, timezoneOffset)
     });
   }
   return slots;

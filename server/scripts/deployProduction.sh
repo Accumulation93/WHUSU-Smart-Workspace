@@ -52,6 +52,9 @@ MAINTENANCE_ACTIVE=0
 MIGRATION_STARTED=0
 RELEASE_SWITCHED=0
 WORKER_STOPPED=0
+API_STOPPED=0
+BACKUP_STOPPED=0
+UTC_CUTOVER_REQUIRED=0
 
 log() {
   printf '[%s] %s\n' "$(date '+%F %T')" "$*"
@@ -113,15 +116,46 @@ reload_release() {
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 start "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
 }
 
+stop_process_group() {
+  local process_name="$1"
+  local attempt
+  pm2 stop "$process_name"
+  for attempt in $(seq 1 15); do
+    if pm2 jlist | node -e '
+      let source = "";
+      process.stdin.on("data", (chunk) => { source += chunk; });
+      process.stdin.on("end", () => {
+        const processes = JSON.parse(source);
+        const name = process.argv[1];
+        const active = processes.some((item) => item.name === name
+          && item.pm2_env && item.pm2_env.status !== "stopped");
+        process.exit(active ? 1 : 0);
+      });
+    ' "$process_name"; then
+      return 0
+    fi
+    sleep 1
+  done
+  log "进程组 $process_name 未能确认停止"
+  return 1
+}
+
 rollback() {
   local failed_line="$1"
-  trap - ERR
+  trap - ERR TERM INT HUP
   set +e
   log "部署在第 ${failed_line} 行失败，开始自动恢复"
   if [[ "$MIGRATION_STARTED" -eq 1 && -n "$SNAPSHOT" && -f "$SNAPSHOT" ]]; then
-    log "停止 API 与通知 Worker，释放数据库连接"
-    pm2 stop whusu-smart-workspace-api >/dev/null 2>&1 || true
-    pm2 stop whusu-smart-workspace-notification-worker >/dev/null 2>&1 || true
+    log "确认停止 API、通知 Worker 与备份进程，释放数据库连接"
+    local rollback_stop_failed=0
+    stop_process_group whusu-smart-workspace-api || rollback_stop_failed=1
+    stop_process_group whusu-smart-workspace-notification-worker || rollback_stop_failed=1
+    stop_process_group whusu-smart-workspace-backup || rollback_stop_failed=1
+    if [[ "$rollback_stop_failed" -ne 0 ]]; then
+      log "无法确认全部数据库客户端已经停止，拒绝恢复快照或切换旧版本"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
     log "恢复部署前数据库快照"
     node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"
     AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
@@ -144,8 +178,10 @@ rollback() {
       touch "$MAINTENANCE_FLAG"
     fi
   else
-    log "未找到可回退的旧 release，保留维护状态"
-    touch "$MAINTENANCE_FLAG"
+    if [[ "$MAINTENANCE_ACTIVE" -eq 1 || "$API_STOPPED" -eq 1 || "$WORKER_STOPPED" -eq 1 || "$BACKUP_STOPPED" -eq 1 ]]; then
+      log "未找到可回退的旧 release，保留维护状态"
+      touch "$MAINTENANCE_FLAG"
+    fi
   fi
   if [[ -d "$NEW_RELEASE" && "$NEW_RELEASE" != "$OLD_RELEASE" ]]; then
     git -C "$REPO_DIR" worktree remove --force "$NEW_RELEASE" >/dev/null 2>&1 || true
@@ -154,6 +190,7 @@ rollback() {
 }
 
 trap 'rollback "$LINENO"' ERR
+trap 'rollback "$LINENO"' TERM INT HUP
 
 log "开始部署 $TARGET_SHA"
 [[ -d "$REPO_DIR/.git" ]] || { log "远端仓库不存在"; exit 1; }
@@ -197,25 +234,51 @@ fi
 ln -s "$SHARED_DIR/uploads" "$NEW_RELEASE/server/uploads"
 
 log "安装锁定的生产依赖"
-npm --prefix "$NEW_RELEASE/server" ci --omit=dev --no-audit --no-fund
+timeout --signal=TERM --kill-after=30s 300s npm --prefix "$NEW_RELEASE/server" ci --omit=dev --no-audit --no-fund
 log "执行发布前语法与自动化检查"
 while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$NEW_RELEASE/server" -path '*/node_modules' -prune -o -name '*.js' -type f -print0)
 node "$NEW_RELEASE/server/test/deploymentAutomation.test.js"
 
 PLAN_JSON="$(node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" plan | tail -n 1)"
 PENDING_COUNT="$(printf '%s' "$PLAN_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).pendingCount)))")"
-if [[ "$PENDING_COUNT" -gt 0 ]]; then
-  log "检测到 $PENDING_COUNT 个待执行迁移，进入维护状态"
+if [[ "$PLAN_JSON" == *"20260823190000_utc_time_normalization.sql"* ]]; then
+  log "执行生产时间来源只读预检"
+  timeout --signal=TERM --kill-after=30s 300s node "$NEW_RELEASE/server/scripts/preflightUtcTimeMigration.js" --strict
+  UTC_CUTOVER_REQUIRED=1
+else
+  UTC_CUTOVER_STATUS="$(timeout --signal=TERM --kill-after=10s 60s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --status)"
+  if [[ "$UTC_CUTOVER_STATUS" == "missing" ]]; then
+    log "UTC 迁移已记账但切换记录缺失，拒绝继续发布"
+    exit 1
+  fi
+  if [[ "$UTC_CUTOVER_STATUS" != "verified" && "$UTC_CUTOVER_STATUS" != "review_pending" ]]; then
+    UTC_CUTOVER_REQUIRED=1
+    log "检测到未完成的 UTC 切换状态：$UTC_CUTOVER_STATUS"
+  fi
+fi
+if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
+  log "检测到 $PENDING_COUNT 个待执行迁移，UTC 切换待恢复=$UTC_CUTOVER_REQUIRED，进入维护状态"
   touch "$MAINTENANCE_FLAG"
   MAINTENANCE_ACTIVE=1
-  pm2 stop whusu-smart-workspace-notification-worker || true
-  pm2 stop whusu-smart-workspace-backup || true
+  stop_process_group whusu-smart-workspace-api
+  API_STOPPED=1
+  stop_process_group whusu-smart-workspace-notification-worker
   WORKER_STOPPED=1
+  stop_process_group whusu-smart-workspace-backup
+  BACKUP_STOPPED=1
   sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
-  node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
+  timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
   MIGRATION_STARTED=1
-  node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" apply --sha "$TARGET_SHA"
+  if [[ "$PENDING_COUNT" -gt 0 ]]; then
+    timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" apply --sha "$TARGET_SHA"
+  fi
+  if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
+    log "物化逐记录历史时间待核对账本"
+    timeout --signal=TERM --kill-after=30s 1200s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --materialize
+    log "执行 UTC 迁移逐记录语义校验"
+    timeout --signal=TERM --kill-after=30s 1200s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --verify
+  fi
   AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
     AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
     node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js"
@@ -228,6 +291,37 @@ reload_release
 PORT="$(read_port)"
 wait_for_health "$PORT"
 curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
+TIME_CONFIG_JSON="$(curl --fail --silent --show-error --max-time 8 \
+  -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/api/getTimeConfig")"
+printf '%s' "$TIME_CONFIG_JSON" | node -e '
+  let source = "";
+  process.stdin.on("data", (chunk) => { source += chunk; });
+  process.stdin.on("end", () => {
+    const result = JSON.parse(source);
+    const offset = Number(result.systemTimezoneOffset);
+    const configVersion = Number(result.timezoneConfigVersion);
+    const reviewCount = Number(result.timeReviewRecordCount);
+    const verifiedCount = Number(result.timeVerifiedRecordCount);
+    const unresolvedCount = Number(result.timeUnresolvedReviewCount);
+    const mappedReviewCount = Number(result.timePresentationMappedReviewCount);
+    const expectedCutoverStatus = unresolvedCount > 0 ? "review_pending" : "verified";
+    if (result.status !== "success"
+      || !Number.isInteger(offset) || offset < -12 || offset > 14
+      || !Number.isInteger(configVersion) || configVersion < 1
+      || typeof result.historicalTimeReviewRequired !== "boolean"
+      || !Object.prototype.hasOwnProperty.call(result, "timeReviewConfigVersion")
+      || result.timeCutoverStatus !== expectedCutoverStatus
+      || result.timeMigrationKey !== "20260823190000"
+      || !Number.isInteger(reviewCount) || reviewCount < 0
+      || !Number.isInteger(verifiedCount) || verifiedCount !== reviewCount
+      || !Number.isInteger(unresolvedCount) || unresolvedCount < 0 || unresolvedCount > reviewCount
+      || !Number.isInteger(mappedReviewCount) || mappedReviewCount !== unresolvedCount
+      || result.timePresentationMappingVersion !== "record-id+raw-value:v1"
+      || result.historicalTimeReviewRequired !== (unresolvedCount > 0)) {
+      throw new Error("时间配置语义健康检查未通过");
+    }
+  });
+'
 
 pm2 save
 bash "$NEW_RELEASE/server/scripts/setupCollabSession.sh"

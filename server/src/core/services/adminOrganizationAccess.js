@@ -48,7 +48,7 @@ async function listAdminOrganizationAccess(req) {
         || permissions['auth.identity.verify'] || permissions['auth.accounts.recover']
         || permissions['auth.policy.manage']
       ),
-      canReadAssignments: Boolean(permissions['hr.people']),
+      canReadAssignments: Boolean(permissions['hr.people'] || permissions['hr.profile_review']),
       canEditAssignments: Boolean(permissions['hr.people']),
       canReadAdmins: Boolean(
         permissions['system.admin_accounts.read']

@@ -75,6 +75,95 @@ function buildAssignmentLabel(row) {
   return parts.join(' · ') || personnelCopy.unassignedPosition;
 }
 
+async function lockActiveBusinessSubjects(connection, subjects) {
+  const normalized = [];
+  for (const source of Array.isArray(subjects) ? subjects : []) {
+    const organizationId = safeString(source && (source.organizationId || source.orgId));
+    const legacyHrId = safeString(source && (source.legacyHrId || source.hrId));
+    const assignmentId = safeString(source && source.assignmentId);
+    let personId = safeString(source && source.personId);
+    if (!personId && assignmentId) {
+      const [assignmentRows] = await connection.query(
+        `SELECT om.person_id
+           FROM membership_assignments ma
+           JOIN organization_memberships om ON om.id = ma.membership_id AND om.org_id = ma.org_id
+          WHERE ma.id = ? AND (? = '' OR ma.org_id = ?)
+          LIMIT 1`,
+        [assignmentId, organizationId, organizationId]
+      );
+      personId = safeString(assignmentRows[0] && assignmentRows[0].person_id);
+    }
+    if (!personId && legacyHrId) {
+      const [membershipRows] = await connection.query(
+        `SELECT person_id
+           FROM organization_memberships
+          WHERE legacy_hr_id = ? AND (? = '' OR org_id = ?)
+          LIMIT 1`,
+        [legacyHrId, organizationId, organizationId]
+      );
+      personId = safeString(membershipRows[0] && membershipRows[0].person_id);
+    }
+    if (!personId) {
+      throw new IdentityError('work_context_required', personnelCopy.organizationSelectionExpired, 409);
+    }
+    normalized.push({
+      personId,
+      organizationId,
+      legacyHrId,
+      assignmentId,
+      requireMembership: !(source && source.requireMembership === false)
+    });
+  }
+  const personIds = [...new Set(normalized.map((item) => item.personId))].sort();
+  if (!personIds.length) return [];
+  const [personRows] = await connection.query(
+    `SELECT id, status FROM persons
+      WHERE id IN (${personIds.map(() => '?').join(', ')})
+      ORDER BY id FOR UPDATE`,
+    personIds
+  );
+  const activePersonIds = new Set(personRows
+    .filter((row) => safeString(row.status) === 'active')
+    .map((row) => safeString(row.id)));
+  if (activePersonIds.size !== personIds.length) {
+    throw new IdentityError('work_context_required', personnelCopy.organizationSelectionExpired, 409);
+  }
+
+  const orderedSubjects = normalized.slice().sort((left, right) => (
+    [left.personId, left.organizationId, left.assignmentId, left.legacyHrId].join(':')
+      .localeCompare([right.personId, right.organizationId, right.assignmentId, right.legacyHrId].join(':'))
+  ));
+  for (const subject of orderedSubjects) {
+    if (!subject.organizationId || !subject.requireMembership) continue;
+    let assignmentSql = '';
+    if (subject.assignmentId) {
+      assignmentSql = `
+        JOIN membership_assignments ma
+          ON ma.membership_id = om.id AND ma.org_id = om.org_id
+         AND ma.id = ? AND ma.status = 'active'`;
+    }
+    const legacySql = subject.legacyHrId ? ' AND om.legacy_hr_id = ?' : '';
+    const params = (subject.assignmentId ? [subject.assignmentId] : [])
+      .concat([subject.personId, subject.organizationId])
+      .concat(subject.legacyHrId ? [subject.legacyHrId] : []);
+    const [membershipRows] = await connection.query(
+      `SELECT om.id
+         FROM organization_memberships om${assignmentSql}
+        WHERE om.person_id = ? AND om.org_id = ? AND om.status = 'active'${legacySql}
+        LIMIT 1 FOR UPDATE`,
+      params
+    );
+    if (!membershipRows[0]) {
+      throw new IdentityError(
+        subject.assignmentId ? 'assignment_not_found' : 'work_context_required',
+        subject.assignmentId ? personnelCopy.assignmentNotFound : personnelCopy.organizationSelectionExpired,
+        409
+      );
+    }
+  }
+  return orderedSubjects;
+}
+
 function mapAssignmentContext(row) {
   return {
     contextId: contextId('assignment', row.assignment_id, row.organization_id),
@@ -368,7 +457,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
           VALUES (?, ?, ?, 'staff', ?, ?, ?, 'active')
           ON DUPLICATE KEY UPDATE membership_id = VALUES(membership_id), org_id = VALUES(org_id), department_id = VALUES(department_id),
             identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
-            status = 'active', updated_at = NOW()`,
+            status = 'active', revoked_by_departure_id = NULL, updated_at = NOW()`,
         [
           assignmentId,
           membershipId,
@@ -381,7 +470,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
     } else {
       await connection.query(
         `UPDATE membership_assignments
-            SET status = 'revoked', updated_at = NOW()
+            SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
           WHERE id = ? AND membership_id = ? AND org_id = ? AND status = 'active'`,
         [assignmentId, membershipId, row.org_id]
       );
@@ -515,6 +604,73 @@ async function validateAssignmentReferences(connection, organizationId, data) {
   }
 }
 
+// 目录筛选使用完整岗位元组。已离开成员仅返回其离任前已撤销岗位，
+// 避免把不同岗位的部门、身份类别和职能组拼成不存在的组合。
+async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
+  const ids = Array.from(new Set((legacyHrIds || []).map(safeString).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await pool.query(
+    `SELECT om.legacy_hr_id, om.status AS membership_status,
+            ma.id AS assignment_id, ma.assignment_kind, ma.status AS assignment_status,
+            ma.department_id, ma.identity_id, ma.work_group_id,
+            d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
+       FROM organization_memberships om
+       LEFT JOIN membership_assignments ma
+         ON ma.membership_id = om.id AND ma.org_id = om.org_id
+         AND ((om.status = 'active' AND ma.status = 'active')
+          OR (om.status = 'left' AND ma.status = 'revoked'
+            AND ma.revoked_by_departure_id = om.departure_batch_id))
+       LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
+       LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
+       LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id
+      WHERE om.org_id = ? AND om.status IN ('active', 'left')
+        AND om.legacy_hr_id IN (${placeholders})
+      ORDER BY ma.created_at ASC, ma.id ASC`,
+    [safeString(organizationId), ...ids]
+  );
+  const summaries = new Map();
+  rows.forEach((row) => {
+    const legacyHrId = safeString(row.legacy_hr_id);
+    const summary = summaries.get(legacyHrId) || {
+      count: 0,
+      departments: [],
+      identities: [],
+      workGroups: [],
+      assignmentNatures: [],
+      assignments: []
+    };
+    if (safeString(row.assignment_id)) {
+      const assignment = {
+        assignmentId: safeString(row.assignment_id),
+        assignmentNature: safeString(row.assignment_kind) || 'staff',
+        departmentId: safeString(row.department_id),
+        department: safeString(row.department_name),
+        identityCategoryId: safeString(row.identity_id),
+        identityCategoryName: safeString(row.identity_name),
+        workGroupId: safeString(row.work_group_id),
+        workGroup: safeString(row.work_group_name),
+        historical: safeString(row.membership_status) === 'left',
+        assignmentLabel: buildAssignmentLabel(row)
+      };
+      summary.count += 1;
+      summary.assignments.push(assignment);
+      if (assignment.assignmentNature && !summary.assignmentNatures.includes(assignment.assignmentNature)) {
+        summary.assignmentNatures.push(assignment.assignmentNature);
+      }
+      [
+        ['departments', assignment.department],
+        ['identities', assignment.identityCategoryName],
+        ['workGroups', assignment.workGroup]
+      ].forEach(([key, value]) => {
+        if (value && !summary[key].includes(value)) summary[key].push(value);
+      });
+    }
+    summaries.set(legacyHrId, summary);
+  });
+  return summaries;
+}
+
 async function refreshLegacyHrCompatibilitySnapshot(connection, membership) {
   const membershipId = safeString(membership.membership_id || membership.id);
   const [rows] = await connection.query(
@@ -579,7 +735,7 @@ async function saveMembershipAssignment(data, actor, authorize) {
       await connection.query(
         `UPDATE membership_assignments
             SET assignment_kind = ?, title = NULL, department_id = ?, identity_id = ?,
-                work_group_id = ?, updated_at = NOW()
+                work_group_id = ?, revoked_by_departure_id = NULL, updated_at = NOW()
           WHERE id = ?`,
         [
           assignmentKind,
@@ -637,7 +793,7 @@ async function revokeMembershipAssignment(data, actor, authorize) {
     if (!assignment) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
     await connection.query(
       `UPDATE membership_assignments
-          SET status = 'revoked', updated_at = NOW()
+          SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
         WHERE id = ?`,
       [assignmentId]
     );
@@ -661,38 +817,117 @@ async function revokeMembershipAssignment(data, actor, authorize) {
   });
 }
 
-async function removeLegacyHrRecord(connection, legacyHrId, organizationId) {
+async function revokeOrganizationAdminAccessForDeparture(connection, personId, organizationId) {
+  const orgId = safeString(organizationId);
+  const [grantRows] = await connection.query(
+    `SELECT id, legacy_admin_id
+       FROM admin_grants
+      WHERE person_id = ? AND org_id = ? AND admin_level = 'admin' AND status = 'active'
+      ORDER BY id FOR UPDATE`,
+    [safeString(personId), orgId]
+  );
+  const grantIds = [...new Set(grantRows.map((row) => safeString(row.id)).filter(Boolean))];
+  const legacyAdminIds = [...new Set(grantRows
+    .map((row) => safeString(row.legacy_admin_id)).filter(Boolean))];
+  if (!grantIds.length) {
+    return { grantsRevoked: 0, overridesRemoved: 0, adminRecordsRemoved: 0, sessionsRevoked: 0 };
+  }
+
+  const grantPlaceholders = grantIds.map(() => '?').join(', ');
+  const [sessionResult] = await connection.query(
+    `UPDATE auth_sessions
+        SET status = 'revoked', revoked_at = NOW()
+      WHERE organization_id = ? AND context_type = 'admin' AND status = 'active'
+        AND context_subject_id IN (${grantPlaceholders})`,
+    [orgId, ...grantIds]
+  );
+  const [grantResult] = await connection.query(
+    `UPDATE admin_grants
+        SET status = 'revoked', updated_at = NOW()
+      WHERE id IN (${grantPlaceholders}) AND person_id = ? AND org_id = ?
+        AND admin_level = 'admin' AND status = 'active'`,
+    [...grantIds, safeString(personId), orgId]
+  );
+
+  let overridesRemoved = 0;
+  let adminRecordsRemoved = 0;
+  if (legacyAdminIds.length) {
+    const adminPlaceholders = legacyAdminIds.map(() => '?').join(', ');
+    const [overrideResult] = await connection.query(
+      `DELETE FROM admin_permission_overrides
+        WHERE org_id = ? AND admin_id IN (${adminPlaceholders})`,
+      [orgId, ...legacyAdminIds]
+    );
+    overridesRemoved = Number(overrideResult.affectedRows || 0);
+    const [adminResult] = await connection.query(
+      `DELETE FROM admin_info
+        WHERE org_id = ? AND admin_level = 'admin' AND id IN (${adminPlaceholders})`,
+      [orgId, ...legacyAdminIds]
+    );
+    adminRecordsRemoved = Number(adminResult.affectedRows || 0);
+  }
+  return {
+    grantsRevoked: Number(grantResult.affectedRows || 0),
+    overridesRemoved,
+    adminRecordsRemoved,
+    sessionsRevoked: Number(sessionResult.affectedRows || 0)
+  };
+}
+
+async function removeLegacyHrRecord(connection, legacyHrId, organizationId, actor) {
   const [rows] = await connection.query(
     `SELECT om.id, om.person_id
        FROM organization_memberships om
-      WHERE om.legacy_hr_id = ? AND om.org_id = ?
+      WHERE om.legacy_hr_id = ? AND om.org_id = ? AND om.status = 'active'
       LIMIT 1 FOR UPDATE`,
     [safeString(legacyHrId), safeString(organizationId)]
   );
   const membership = rows[0];
   if (!membership) return { removed: false };
+  const departureBatchId = generateId();
   await connection.query(
     `UPDATE membership_assignments
-        SET status = 'revoked', updated_at = NOW()
+        SET status = 'revoked', revoked_by_departure_id = ?, updated_at = NOW()
       WHERE membership_id = ? AND org_id = ? AND status = 'active'`,
-    [membership.id, safeString(organizationId)]
+    [departureBatchId, membership.id, safeString(organizationId)]
   );
   await connection.query(
     `UPDATE organization_memberships
-        SET status = 'left', updated_at = NOW()
+        SET status = 'left', departure_batch_id = ?, updated_at = NOW()
       WHERE id = ? AND org_id = ?`,
-    [membership.id, safeString(organizationId)]
+    [departureBatchId, membership.id, safeString(organizationId)]
   );
   await connection.query(
     `UPDATE auth_sessions
         SET status = 'revoked', revoked_at = NOW()
       WHERE organization_id = ?
+        AND status = 'active'
         AND ((context_type = 'membership' AND context_subject_id = ?)
           OR (context_type = 'assignment' AND context_subject_id IN (
             SELECT id FROM membership_assignments WHERE membership_id = ?
           )))`,
     [safeString(organizationId), membership.id, membership.id]
   );
+  const adminAccessCleanup = await revokeOrganizationAdminAccessForDeparture(
+    connection,
+    membership.person_id,
+    organizationId
+  );
+  await appendAuditEvent({
+    connection,
+    eventType: 'hr_membership_left',
+    actorPersonId: safeString(actor && actor.personId),
+    targetPersonId: safeString(membership.person_id),
+    organizationId: safeString(organizationId),
+    contextId: safeString(actor && actor.contextId),
+    requestId: safeString(actor && actor.requestId),
+    ip: safeString(actor && actor.ip),
+    detail: {
+      membershipId: safeString(membership.id),
+      departureBatchId,
+      adminAccessCleanup
+    }
+  });
   return { removed: true, left: true, personId: membership.person_id, membershipId: membership.id };
 }
 
@@ -733,7 +968,7 @@ async function reactivateMembership(data, actor, authorize) {
     }
     await connection.query(
       `UPDATE organization_memberships
-          SET status = 'active', updated_at = NOW()
+          SET status = 'active', departure_batch_id = NULL, updated_at = NOW()
         WHERE id = ? AND org_id = ?`,
       [membership.id, organizationId]
     );
@@ -2618,14 +2853,17 @@ module.exports = {
   contextId,
   authIdentityId,
   buildAssignmentLabel,
+  lockActiveBusinessSubjects,
   normalizeStudentId,
   listClaimOrganizations,
   syncLegacyHrRecords,
   listMembershipAssignments,
   listMembershipAssignmentSummaries,
+  listDirectoryAssignmentSummaries,
   saveMembershipAssignment,
   revokeMembershipAssignment,
   removeLegacyHrRecord,
+  revokeOrganizationAdminAccessForDeparture,
   listFormerMemberships,
   reactivateMembership,
   syncLegacyAdminGrant,

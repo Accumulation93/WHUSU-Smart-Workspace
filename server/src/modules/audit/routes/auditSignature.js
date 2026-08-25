@@ -11,6 +11,7 @@ const submissionModel = require('../models/auditSubmission');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const verificationPermModel = require('../models/verificationPermission');
 const adminInfoModel = require('../../../core/models/adminInfo');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const { verifySignatureChain } = require('../utils/hashChain');
 const { verifyPdfSignature } = require('../utils/pdfSignature');
 
@@ -25,6 +26,29 @@ async function resolveHrId(openid) {
     [openid, orgId]
   );
   return rows[0] ? rows[0].hr_id : null;
+}
+
+async function withLockedSignatureOwner(req, callback) {
+  return pool.withTransaction(async (connection) => {
+    const orgId = await getCurrentOrgId();
+    const [rows] = await connection.query(
+      'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1',
+      [safeString(req.openid), orgId]
+    );
+    const hrId = safeString(rows[0] && rows[0].hr_id);
+    if (!hrId) return { forbidden: true };
+    await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
+      personId: safeString(req.authContext && req.authContext.personId),
+      legacyHrId: hrId,
+      organizationId: orgId,
+      assignmentId: safeString(req.authContext && req.authContext.assignmentId)
+    }]);
+    return callback(connection, { hrId, orgId });
+  });
+}
+
+function signatureOwnerForbidden(res) {
+  return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 }
 
 // ═══════════════════════════════════════════════════
@@ -56,10 +80,6 @@ router.post('/listMySignatures', async (req, res) => {
 // saveSignature
 router.post('/saveSignature', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const imageData = safeString(req.body.imageData);
@@ -69,71 +89,109 @@ router.post('/saveSignature', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_a35b383a47 });
     }
 
-    if (isDefault) {
-      await signatureTemplateModel.clearDefaults(hrId);
-    }
-
-    if (id) {
-      const existing = await signatureTemplateModel.getById(id);
-      if (!existing || existing.hr_id !== hrId) {
-        return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
+    const result = await withLockedSignatureOwner(req, async (connection, owner) => {
+      if (id) {
+        const [rows] = await connection.query(
+          'SELECT id, hr_id FROM signature_templates WHERE id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+          [id, owner.orgId]
+        );
+        const existing = rows[0];
+        if (!existing || safeString(existing.hr_id) !== owner.hrId) return { forbiddenSignature: true };
+        if (isDefault) {
+          await connection.query(
+            'UPDATE signature_templates SET is_default = 0 WHERE hr_id = ? AND org_id = ?',
+            [owner.hrId, owner.orgId]
+          );
+        }
+        await connection.query(
+          `UPDATE signature_templates
+              SET name = ?, image_data = ?, is_default = ?
+            WHERE id = ? AND hr_id = ? AND org_id = ?`,
+          [name || '', imageData, isDefault ? 1 : 0, id, owner.hrId, owner.orgId]
+        );
+        return { status: 'success', message: localeCopy.copy_1c620d13e8 };
       }
-      await signatureTemplateModel.update(id, { name, imageData, isDefault }, hrId);
-      res.json({ status: 'success', message: localeCopy.copy_1c620d13e8 });
-    } else {
+      if (isDefault) {
+        await connection.query(
+          'UPDATE signature_templates SET is_default = 0 WHERE hr_id = ? AND org_id = ?',
+          [owner.hrId, owner.orgId]
+        );
+      }
       const newId = generateId();
-      await signatureTemplateModel.create(newId, { hrId, name: name || localeCopy.copy_214c901792, imageData, isDefault });
-      res.json({ status: 'success', id: newId, message: localeCopy.copy_082505816e });
+      await connection.query(
+        `INSERT INTO signature_templates (id, hr_id, name, image_data, is_default, org_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [newId, owner.hrId, name || localeCopy.copy_214c901792, imageData, isDefault ? 1 : 0, owner.orgId]
+      );
+      return { status: 'success', id: newId, message: localeCopy.copy_082505816e };
+    });
+    if (result.forbidden) return signatureOwnerForbidden(res);
+    if (result.forbiddenSignature) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
     }
+    return res.json(result);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return res.json({ status: 'error', message: safeString(e.message) });
   }
 });
 
 // deleteSignature
 router.post('/deleteSignature', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6ae85136ce });
-
-    const existing = await signatureTemplateModel.getById(id);
-    if (!existing || existing.hr_id !== hrId) {
+    const result = await withLockedSignatureOwner(req, async (connection, owner) => {
+      const [rows] = await connection.query(
+        'SELECT id, hr_id FROM signature_templates WHERE id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+        [id, owner.orgId]
+      );
+      const existing = rows[0];
+      if (!existing || safeString(existing.hr_id) !== owner.hrId) return { forbiddenSignature: true };
+      await connection.query(
+        'DELETE FROM signature_templates WHERE id = ? AND hr_id = ? AND org_id = ?',
+        [id, owner.hrId, owner.orgId]
+      );
+      return { status: 'success', message: localeCopy.copy_1c47adeb46 };
+    });
+    if (result.forbidden) return signatureOwnerForbidden(res);
+    if (result.forbiddenSignature) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
     }
-    await signatureTemplateModel.remove(id, hrId);
-    res.json({ status: 'success', message: localeCopy.copy_1c47adeb46 });
+    return res.json(result);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return res.json({ status: 'error', message: safeString(e.message) });
   }
 });
 
 // setDefaultSignature
 router.post('/setDefaultSignature', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6ae85136ce });
-
-    const existing = await signatureTemplateModel.getById(id);
-    if (!existing || existing.hr_id !== hrId) {
+    const result = await withLockedSignatureOwner(req, async (connection, owner) => {
+      const [rows] = await connection.query(
+        'SELECT id, hr_id FROM signature_templates WHERE id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+        [id, owner.orgId]
+      );
+      const existing = rows[0];
+      if (!existing || safeString(existing.hr_id) !== owner.hrId) return { forbiddenSignature: true };
+      await connection.query(
+        'UPDATE signature_templates SET is_default = 0 WHERE hr_id = ? AND org_id = ?',
+        [owner.hrId, owner.orgId]
+      );
+      await connection.query(
+        'UPDATE signature_templates SET is_default = 1 WHERE id = ? AND hr_id = ? AND org_id = ?',
+        [id, owner.hrId, owner.orgId]
+      );
+      return { status: 'success', message: localeCopy.copy_ce2b164f35 };
+    });
+    if (result.forbidden) return signatureOwnerForbidden(res);
+    if (result.forbiddenSignature) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
     }
-    await signatureTemplateModel.clearDefaults(hrId);
-    await signatureTemplateModel.update(id, {
-      name: existing.name,
-      imageData: existing.image_data,
-      isDefault: true
-    }, hrId);
-    res.json({ status: 'success', message: localeCopy.copy_ce2b164f35 });
+    return res.json(result);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return res.json({ status: 'error', message: safeString(e.message) });
   }
 });
 

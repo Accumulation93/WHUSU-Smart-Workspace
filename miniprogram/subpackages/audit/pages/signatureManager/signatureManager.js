@@ -1,6 +1,7 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/signatureManager/signatureManager');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 
 Page({
   onLoad() {
@@ -67,7 +68,7 @@ Page({
         name: 'saveSignature',
         data: {
           id: editingSig ? editingSig.id : '',
-          name: editingSig ? editingSig.name : (localeCopy.copy_66a2af4df9 + new Date().toLocaleDateString()),
+          name: editingSig ? editingSig.name : (localeCopy.copy_66a2af4df9 + formatAbsoluteDate(Date.now())),
           imageData: imageData
         }
       });

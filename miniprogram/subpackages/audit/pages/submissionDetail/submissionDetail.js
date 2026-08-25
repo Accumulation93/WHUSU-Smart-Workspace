@@ -1,7 +1,8 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
-const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, formatAuditTime, formatAuditDetailTime } = require('../../../../utils/api');
 const { openAuditFile } = require('../../../../utils/filePreview');
 const orgSession = require('../../../../utils/orgSession');
+const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const workContextView = require('../../utils/workContextView');
@@ -299,6 +300,11 @@ Page({
     } catch (e) {
       // Non-fatal; picker will just show fewer options
     }
+  },
+
+  onSystemTimezoneChanged() {
+    if (!this._pageActive || this.data.action !== 'view' || !this.data.submissionId) return;
+    return this.loadDetail();
   },
 
   _normalizeApproverList(list) {
@@ -1124,7 +1130,7 @@ Page({
             eventOperatorMap[eoKey] = {
               operatorName: eo.operatorName || '',
               comment: eo.comment || '',
-              time: formatAuditTime(eo.createdAt),
+              time: formatAuditTime(eo.createdAt, eo.createdAtReviewStatus),
               assignmentView: workContextView.normalizeSnapshot(eo.operatorContextSnapshot)
             };
           }
@@ -1158,7 +1164,7 @@ Page({
             type: 'lifecycle',
             event: 'submit',
             label: localeCopy.copy_c94eb77b73,
-            time: formatAuditTime(initialSubmit.createdAt),
+            time: formatAuditTime(initialSubmit.createdAt, initialSubmit.createdAtReviewStatus),
             iconName: 'file',
             operatorName: initialSubmit.operatorName || '',
             operatorAssignmentView: workContextView.normalizeSnapshot(initialSubmit.operatorContextSnapshot),
@@ -1204,7 +1210,7 @@ Page({
                 event: interEvt.eventType,
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
                 subLabel: (interEvt.round > 1 ? localeCopy.copy_93c50c01c0 + interEvt.round + localeCopy.copy_4707e47a7a : '') + interStepLabel,
-                time: formatAuditTime(interEvt.createdAt),
+                time: formatAuditTime(interEvt.createdAt, interEvt.createdAtReviewStatus),
                 iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
                 operatorName: interEvt.operatorName || '',
@@ -1220,7 +1226,7 @@ Page({
                 event: 'resubmit',
                 label: localeCopy.copy_aed5de2d69,
                 subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
-                time: formatAuditTime(resubmitEvt.createdAt),
+                time: formatAuditTime(resubmitEvt.createdAt, resubmitEvt.createdAtReviewStatus),
                 iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
                 operatorAssignmentView: workContextView.normalizeSnapshot(resubmitEvt.operatorContextSnapshot),
@@ -1359,7 +1365,9 @@ Page({
             let eventInfo = eventOperatorMap[eventKey] || {};
             let actualOperatorName = eventInfo.operatorName || '';
             let actualComment = eventInfo.comment || step.comment || '';
-            let actualProcessedAt = eventInfo.time || (step.processedAt ? formatAuditTime(step.processedAt) : '');
+            let actualProcessedAt = eventInfo.time || (step.processedAt
+              ? formatAuditTime(step.processedAt, step.processedAtReviewStatus)
+              : '');
 
             flowTimeline.push({
               _key: 'step_' + step.id,
@@ -1384,7 +1392,7 @@ Page({
               comment: actualComment,
               rejectionReason: step.status === 'rejected' ? (eventInfo.comment || step.rejectionReason || '') : step.rejectionReason,
               round: step.round,
-              processedAt: actualProcessedAt,
+              processedAtText: actualProcessedAt,
               processedAssignmentView: eventInfo.assignmentView && eventInfo.assignmentView.hasSnapshot
                 ? eventInfo.assignmentView
                 : workContextView.normalizeSnapshot(step.processedContextSnapshot),
@@ -1438,7 +1446,7 @@ Page({
             event: lateEvt.eventType,
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
             subLabel: lateEvt.round > 1 ? localeCopy.copy_93c50c01c0 + lateEvt.round + localeCopy.copy_14144be09d : '',
-            time: formatAuditTime(lateEvt.createdAt),
+            time: formatAuditTime(lateEvt.createdAt, lateEvt.createdAtReviewStatus),
             iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
             operatorAssignmentView: workContextView.normalizeSnapshot(lateEvt.operatorContextSnapshot),
@@ -1460,7 +1468,9 @@ Page({
             event: 'approved',
             label: localeCopy.copy_126a0e1f4c,
             subLabel: localeCopy.copy_1188f4f2ad,
-            time: lastApproveEvt ? formatAuditTime(lastApproveEvt.createdAt) : '',
+            time: lastApproveEvt
+              ? formatAuditTime(lastApproveEvt.createdAt, lastApproveEvt.createdAtReviewStatus)
+              : '',
             iconName: 'check',
             operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
             operatorAssignmentView: workContextView.normalizeSnapshot(lastApproveEvt && lastApproveEvt.operatorContextSnapshot),
@@ -1581,7 +1591,9 @@ Page({
           rawStepCount: rawSteps.length,
           steps: rawSteps,
           files: res.files || [],
-          signatures: res.signatures || [],
+          signatures: (res.signatures || []).map((item) => Object.assign({}, item, {
+            signedAtText: formatAuditDetailTime(item.signedAt, item.signedAtReviewStatus)
+          })),
           flowProgressPercent: flowProgressPercent,
           flowProgressText: flowProgressText,
           activeApprovalStepId: computedActiveStepId,
@@ -1760,7 +1772,7 @@ Page({
 
     // If user wants to save this signature to library
     if (this.data.sigSaveNew) {
-      let saveName = this.data.sigSaveName || (localeCopy.copy_66a2af4df9 + new Date().toLocaleDateString());
+      let saveName = this.data.sigSaveName || (localeCopy.copy_66a2af4df9 + formatAbsoluteDate(Date.now()));
       callFunction({
         name: 'saveSignature',
         data: { id: '', name: saveName, imageData: imageData }

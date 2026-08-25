@@ -6,6 +6,14 @@ const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const {
+  getSystemDate,
+  getSystemMinuteOfDay,
+  getSystemWeekStart,
+  addDateDays,
+  formatSystemClock,
+  systemDateTimeToTimestamp
+} = require('../../../../utils/dateTime');
+const {
   decoratePendingBooking,
   decorateApproverCandidates,
   activeUserHasAssignment,
@@ -22,7 +30,6 @@ const SNAP = 10;
 const MINUTE_OPTS = [0,10,20,30,40,50];
 
 function timeToMin(t) { if (!t) return 0; const p = String(t).split(':'); return (parseInt(p[0])||0)*60 + (parseInt(p[1])||0); }
-function fmtLocalDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function formatActivityCycleLabel(type, values) {
   let parsed = values;
   if (typeof parsed === 'string') {
@@ -94,23 +101,17 @@ function bookingWindowAdvanceMinutes(window, side) {
   return minutes === null || minutes === undefined ? null : Math.max(0, Number(minutes) || 0);
 }
 
-function bookingStartDate(dateStr, minute) {
-  const parts = String(dateStr || '').split('-').map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
-  const hour = Math.floor(minute / 60);
-  const mins = minute % 60;
-  return new Date(parts[0], parts[1] - 1, parts[2], hour, mins, 0, 0);
-}
-
 function isBookingStartInWindow(dateStr, minute, window, now) {
-  const start = bookingStartDate(dateStr, minute);
-  if (!start) return false;
-  const current = now || new Date();
-  if (start.getTime() <= current.getTime()) return false;
+  const startTimestamp = systemDateTimeToTimestamp(dateStr, minToTime(minute));
+  if (startTimestamp === null) return false;
+  const currentTimestamp = now === undefined
+    ? Date.now()
+    : (now instanceof Date ? now.getTime() : Number(now));
+  if (!Number.isFinite(currentTimestamp) || startTimestamp <= currentTimestamp) return false;
   const openMinutes = bookingWindowAdvanceMinutes(window, 'open');
-  if (openMinutes !== null && start.getTime() > current.getTime() + openMinutes * 60000) return false;
+  if (openMinutes !== null && startTimestamp > currentTimestamp + openMinutes * 60000) return false;
   const deadlineMinutes = bookingWindowAdvanceMinutes(window, 'deadline');
-  if (deadlineMinutes !== null && start.getTime() <= current.getTime() + deadlineMinutes * 60000) return false;
+  if (deadlineMinutes !== null && startTimestamp <= currentTimestamp + deadlineMinutes * 60000) return false;
   return true;
 }
 
@@ -146,7 +147,7 @@ function computeOpenHours(openSlots) {
 function findDefaultStartMin(dayData, dateStr) {
   let openSlots = dayData.openSlots || [];
   if (!openSlots.length) return -1;
-  let now = new Date(), today = fmtLocalDate(now), cur = now.getHours() * 60 + now.getMinutes();
+  let today = getSystemDate(), cur = getSystemMinuteOfDay();
   for (let i = 0; i < openSlots.length; i++) {
     let s = timeToMin(openSlots[i].timeStart), e = timeToMin(openSlots[i].timeEnd);
     if (dateStr === today) {
@@ -161,10 +162,10 @@ function findDefaultStartMin(dayData, dateStr) {
 
 /** Find the nearest valid start minute ≥ now (or ≥ 0 for future dates), skipping blocked/closed. */
 function findNearestValidStartMin(dateStr, dayData) {
-  let now = new Date(), today = fmtLocalDate(now);
+  let today = getSystemDate();
   let openSlots = dayData.openSlots || [];
   if (!openSlots.length) return -1;
-  let curMin = now.getHours() * 60 + now.getMinutes();
+  let curMin = getSystemMinuteOfDay();
   let blockedMerged = buildBlockedIntervals(dayData);
   let startMin;
   if (dateStr === today) {
@@ -419,10 +420,8 @@ Page({
   },
 
   _initWeekStart() {
-    let now = new Date(), day = now.getDay(), monday = new Date(now);
-    monday.setDate(now.getDate()-(day===0?6:day-1));
-    let today = fmtLocalDate(now);
-    this.setData({ scheduleWeekStart: fmtLocalDate(monday), bookingStartDate: today, bookingStartDateDisplay: today, bookingEndDate: today, bookingEndDateDisplay: today });
+    const today = getSystemDate();
+    this.setData({ scheduleWeekStart: getSystemWeekStart(), bookingStartDate: today, bookingStartDateDisplay: today, bookingEndDate: today, bookingEndDateDisplay: today });
   },
 
   onSelectPurpose(e) { this.setData({ bookingTitle: e.currentTarget.dataset.text }); },
@@ -439,8 +438,7 @@ Page({
   async loadTimetable() {
     const request = orgSession.beginRequest(this, 'venueTimetable');
     let _a = this.data, scheduleVenueId = _a.scheduleVenueId, scheduleWeekStart = _a.scheduleWeekStart;
-    let parts = scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2];
-    let end = new Date(y,m-1,d+6), dateTo = fmtLocalDate(end);
+    const dateTo = addDateDays(scheduleWeekStart, 6);
     wx.showLoading({title:localeCopy.copy_fc99c4cc7b});
     try {
       let res = await callFunction({name:'getVenueSchedule',data:{venueId:scheduleVenueId,dateFrom:scheduleWeekStart,dateTo}});
@@ -452,14 +450,13 @@ Page({
   },
 
   _buildTimetable(dailySchedules) {
-    let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2];
     let labels = [localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100];
     let columns = [];
     let venue = this.data.venues.find(function(item) { return item.id === this.data.scheduleVenueId; }.bind(this));
     this._timetableDayData = dailySchedules || [];
     for(let i=0;i<7;i++) {
-      let dd = new Date(y,m-1,d+i), dateStr = fmtLocalDate(dd);
-      let dateDisp = String(dd.getMonth()+1).padStart(2,'0')+'/'+String(dd.getDate()).padStart(2,'0');
+      const dateStr = addDateDays(this.data.scheduleWeekStart, i);
+      const dateDisp = dateStr.slice(5).replace('-', '/');
       let dayData = dailySchedules.find(function(ds){return ds.date===dateStr;});
       columns.push(this._buildDayColumn(dayData,dateStr,labels[i],dateDisp,venue ? venue.bookingWindow : null));
     }
@@ -532,8 +529,8 @@ Page({
     return {date:dateStr,label:label,dateDisplay:dateDisplay,openBlocks:openBlocks,eventBlocks:eventBlocks,timeTargets:timeTargets};
   },
 
-  onTimetablePrevWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d-7))}); this.loadTimetable(); },
-  onTimetableNextWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d+7))}); this.loadTimetable(); },
+  onTimetablePrevWeek() { this.setData({scheduleWeekStart:addDateDays(this.data.scheduleWeekStart, -7)}); this.loadTimetable(); },
+  onTimetableNextWeek() { this.setData({scheduleWeekStart:addDateDays(this.data.scheduleWeekStart, 7)}); this.loadTimetable(); },
   onTimetableBlockTap(e) {
     let b=e.currentTarget.dataset.block;
     if (b && b.activity) {
@@ -1334,11 +1331,9 @@ Page({
 
   /** Search within 30 days for the nearest date with open slots. */
   async _findNearestAvailableDate() {
-    let now = new Date();
+    const today = getSystemDate();
     for (let i = 0; i < 30; i++) {
-      let d = new Date(now);
-      d.setDate(d.getDate() + i);
-      let ds = fmtLocalDate(d);
+      const ds = addDateDays(today, i);
       try {
         let res = await callFunction({ name: 'getVenueSchedule', data: { venueId: this.data.bookingVenueId, dateFrom: ds, dateTo: ds } });
         if (res.status === 'success') {
@@ -1356,7 +1351,7 @@ Page({
 
   async onStartDateChange(e) {
     let d = e.detail.value;
-    let today = fmtLocalDate(new Date());
+    const today = getSystemDate();
     const previousDate = this.data.bookingStartDate;
     if (d < today) {
       showShortToast(localeCopy.copy_902c3411f2);
@@ -1536,9 +1531,10 @@ Page({
 
   /** Semantic gray for start time: past / blocked / closed checks. */
   _applyStartSemanticGray(gray, target, field, hVal, mVal) {
-    let now = new Date(), today = fmtLocalDate(now);
+    const today = getSystemDate();
     if (this.data.bookingStartDate !== today) return;
-    let nowHour = now.getHours(), nowMin = now.getMinutes();
+    const currentMinute = getSystemMinuteOfDay();
+    const nowHour = Math.floor(currentMinute / 60), nowMin = currentMinute % 60;
     let dayData = this.data._dayData;
     if (!dayData) return;
 
@@ -1665,8 +1661,8 @@ Page({
     if(!vid||!sd||!st||!et){showShortToast(localeCopy.copy_9dc5c7d79f);return;}
     if(!title){showShortToast(localeCopy.copy_7db68605c6);return;}
     if (this.data.allowUserSelectFlow && !this.data.selectedFlowId) { showShortToast(localeCopy.copy_29ea17e75c); return; }
-    let now = new Date(), today = fmtLocalDate(now);
-    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast(localeCopy.copy_10df33d76e); return; }
+    const today = getSystemDate();
+    if (sd === today && timeToMin(st) < getSystemMinuteOfDay()) { showShortToast(localeCopy.copy_10df33d76e); return; }
     let ts = sd+'T'+st, te = sd+'T'+et;
     if(ts >= te) { showShortToast(localeCopy.copy_0b091cba77); return; }
     let err = this._validateRange(dd, sd, st, et);
@@ -1788,9 +1784,7 @@ Page({
   },
 
   _formatTime() {
-    let now = new Date();
-    let pad = function(n) { return String(n).padStart(2, '0'); };
-    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    return formatSystemClock(Date.now(), true);
   },
 
   async loadPendingData() {

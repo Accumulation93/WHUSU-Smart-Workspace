@@ -33,25 +33,6 @@ function decorateAssignmentRows(rows) {
   return { rows: Array.isArray(rows) ? rows : [], needsAssignmentDisambiguation: false };
 }
 
-function parseTimezone(value) {
-  const tz = Number(value);
-  return (Number.isFinite(tz) && tz >= -12 && tz <= 14) ? tz : 8;
-}
-
-function formatDate(value, timezone) {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  const tz = parseTimezone(timezone);
-  const utcEpoch = date.getTime() - date.getTimezoneOffset() * 60000;
-  const local = new Date(utcEpoch + tz * 3600000);
-  const p = (n) => String(n).padStart(2, '0');
-  const datePart = `${local.getUTCFullYear()}-${p(local.getUTCMonth() + 1)}-${p(local.getUTCDate())}`;
-  const timePart = `${p(local.getUTCHours())}:${p(local.getUTCMinutes())}:${p(local.getUTCSeconds())}`;
-  const timezoneLabel = tz === 8 ? '' : ` (UTC${tz >= 0 ? '+' : ''}${tz})`;
-  return `${datePart} ${timePart}${timezoneLabel}`;
-}
-
 async function buildXlsxBase64(sheetName, headers, rows) {
   const headerLabels = headers.map(h => h.label);
   const dataRows = rows.map(row => headers.map(h => row[h.key]));
@@ -921,7 +902,6 @@ function applyCalcMethod(scores, weight, method, trimH, trimL) {
 // getScoreResults
 router.post('/getScoreResults', async (req, res) => {
   try {
-    const timezone = parseTimezone(req.body.timezone);
     const openid = req.openid;
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
@@ -1246,7 +1226,7 @@ router.post('/getScoreResults', async (req, res) => {
           recordId: safeString(record.id),
           scorer: { id: safeString(record.scorerId), name: safeString(record.scorerName), studentId: safeString(record.scorerStudentId), identity: safeString(record.scorerIdentity) },
           target: { id: safeString(record.targetId), name: safeString(record.targetName), studentId: safeString(record.targetStudentId), identity: safeString(record.targetIdentity) },
-          submittedAt: formatDate(record.submittedAt, timezone),
+          submittedAt: record.submittedAt || null,
           templates: answerGroups,
           rawAnswers: ansArr.map((item, index) => ({
             questionIndex: item.questionIndex != null ? item.questionIndex : index + 1,
@@ -1344,7 +1324,7 @@ router.post('/getScoreResults', async (req, res) => {
           scorerCategoryLabel: record.scorerHistoricalAssignmentUnavailable
             ? ''
             : ([safeString(record.scorerDepartment), safeString(record.scorerIdentityCategory || record.scorerIdentity)].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1),
-          targetId: safeString(record.targetId), submittedAt: formatDate(record.submittedAt, timezone),
+          targetId: safeString(record.targetId), submittedAt: record.submittedAt || null,
           excludedByRequireAll: invalidScorerClauseKeys.has(lookupClauseKey(record, sk))
         };
       });
@@ -1458,7 +1438,7 @@ router.post('/getScoreResults', async (req, res) => {
           const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item);
           return `${safeString(cfg.templateName || item.templateName)} × ${getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item)}`;
         }).filter(Boolean).join('；');
-        recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(record.scorerWorkGroup || ''), scorerCategoryLabel, ...scorerHistoricalFields, ...targetBase, templateSummary: tplSummary, submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale: false, historicalRuleUnavailable });
+        recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(record.scorerWorkGroup || ''), scorerCategoryLabel, ...scorerHistoricalFields, ...targetBase, templateSummary: tplSummary, submittedAt: record.submittedAt || null, excludedByRequireAll, signatureStale: false, historicalRuleUnavailable });
         return;
       }
 
@@ -1480,7 +1460,7 @@ router.post('/getScoreResults', async (req, res) => {
           weight: null,
           templateScore: null,
           weightedScore: null,
-          submittedAt: formatDate(record.submittedAt, timezone),
+          submittedAt: record.submittedAt || null,
           excludedByRequireAll,
           signatureStale: true,
           historicalRuleUnavailable: true
@@ -1504,7 +1484,7 @@ router.post('/getScoreResults', async (req, res) => {
         }
 
         if (needsDetail) {
-          detailRows.push({ ...targetBase, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerCategoryLabel, ...scorerHistoricalFields, ruleId: safeString(record.ruleId), recordId: safeString(record.id), templateId: tplItem.templateId, templateName: tplName, weight, templateScore: tplScore, weightedScore: roundScore(tplScore * weight), submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale, historicalRuleUnavailable });
+          detailRows.push({ ...targetBase, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerCategoryLabel, ...scorerHistoricalFields, ruleId: safeString(record.ruleId), recordId: safeString(record.id), templateId: tplItem.templateId, templateName: tplName, weight, templateScore: tplScore, weightedScore: roundScore(tplScore * weight), submittedAt: record.submittedAt || null, excludedByRequireAll, signatureStale, historicalRuleUnavailable });
         }
       });
     });
@@ -1600,7 +1580,6 @@ function buildCompletionBoard(rows, field, lean) {
 // exportScoreResults
 router.post('/exportScoreResults', async (req, res) => {
   try {
-    const timezone = parseTimezone(req.body.timezone);
     const openid = req.openid;
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'completion';
@@ -1685,7 +1664,7 @@ router.post('/exportScoreResults', async (req, res) => {
               templateName: safeString(config.templateName) || safeString(tpl && tpl.name),
               question: safeString(q.question), score: toNumber(answerMap.get(String(cursor + qi + 1)), 0),
               maxValue: toNumber(q.maxValue, 0), weight,
-              submittedAt: formatDate(record.submittedAt, timezone)
+              submittedAt: record.submittedAt || null
             });
           });
           cursor += qs.length;
@@ -1699,7 +1678,7 @@ router.post('/exportScoreResults', async (req, res) => {
             targetDepartment: safeString(record.targetDepartment), targetIdentity: safeString(record.targetIdentity),
             targetWorkGroup: safeString(record.targetWorkGroup || ''),
             templateName: '', question: '', score: '', maxValue: '', weight: '',
-            submittedAt: formatDate(record.submittedAt, timezone)
+            submittedAt: record.submittedAt || null
           });
         }
       });

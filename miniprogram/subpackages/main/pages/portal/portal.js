@@ -330,7 +330,7 @@ Page({
     return (items || []).map(function(item) {
       const extra = {
         categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? copy.messages.notification : copy.messages.todo),
-        createdAt: formatAuditTime(item.createdAt),
+        createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });

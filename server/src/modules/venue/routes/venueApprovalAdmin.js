@@ -4,8 +4,10 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
+const { toMysqlUtc } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
@@ -33,11 +35,6 @@ function collectRuleDictionaryReferences(rule) {
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
-}
-
-function fmtDatetime(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-    + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
 // ═══════════════════════════════════════════════════
@@ -421,6 +418,19 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     await conn.beginTransaction();
+    const approvalSubjects = [{
+      personId: safeString(actor.personId),
+      organizationId: orgId,
+      assignmentId: safeString(actor.assignmentId),
+      requireMembership: safeString(actor.type) === 'user'
+    }];
+    if (safeString(req.body.nextApproverAssignmentId)) {
+      approvalSubjects.push({
+        organizationId: orgId,
+        assignmentId: safeString(req.body.nextApproverAssignmentId)
+      });
+    }
+    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, approvalSubjects);
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
@@ -490,10 +500,10 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       }
 
       // Approval within booking window - adjust start time to approval moment
-      await venueBookingModel.updateTimeStart(id, fmtDatetime(approvedAt), conn);
+      await venueBookingModel.updateTimeStart(id, toMysqlUtc(approvedAt), conn);
 
-      const timeStart = fmtDatetime(approvedAt);
-      const timeEnd = fmtDatetime(new Date(booking.time_end));
+      const timeStart = toMysqlUtc(approvedAt);
+      const timeEnd = toMysqlUtc(new Date(booking.time_end));
       const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
       if (conflict) {
         await conn.rollback();
@@ -577,6 +587,12 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     await conn.beginTransaction();
+    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
+      personId: safeString(actor.personId),
+      organizationId: orgId,
+      assignmentId: safeString(actor.assignmentId),
+      requireMembership: safeString(actor.type) === 'user'
+    }]);
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();

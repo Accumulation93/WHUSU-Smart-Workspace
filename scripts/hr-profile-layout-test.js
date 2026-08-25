@@ -24,6 +24,11 @@ const adminWxml = hydrateLocale(
   adminCopy,
   'localeCopy'
 );
+const hrDirectoryControlsWxml = hydrateLocale(
+  fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.wxml'), 'utf8'),
+  adminCopy,
+  'localeCopy'
+);
 const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
 const authPersonnelBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');
@@ -74,11 +79,11 @@ assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '�
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
 
 assert(/activeTab === 'hrInfo' && hrInfoMode === 'profiles'/.test(adminWxml)
-    && /issueSelectedHrVerificationCodes/.test(adminWxml)
-    && /revokeSelectedHrVerificationCodes/.test(adminWxml)
-    && /issueSelectedHrRecoveryCodes/.test(adminWxml)
-    && /revokeSelectedHrRecoveryCodes/.test(adminWxml)
-    && /disabled="\{\{hrGovernanceUnavailable \|\| authActionLoadingKey/.test(adminWxml),
+    && /bindissueverification="issueSelectedHrVerificationCodes"/.test(adminWxml)
+    && /bindrevokeverification="revokeSelectedHrVerificationCodes"/.test(adminWxml)
+    && /bindissuerecovery="issueSelectedHrRecoveryCodes"/.test(adminWxml)
+    && /bindrevokerecovery="revokeSelectedHrRecoveryCodes"/.test(adminWxml)
+    && /disabled="\{\{governanceUnavailable \|\| authActionLoadingKey/.test(hrDirectoryControlsWxml),
   '人员认证和账号恢复的批量操作必须常驻成员资料工具区，并在不可用时原生禁用');
 const memberCard = adminWxml.match(/<view class="hr-member-card[\s\S]*?<\/view>\s*<view class="empty-inline"/);
 assert(memberCard, '应保留成员资料卡片');

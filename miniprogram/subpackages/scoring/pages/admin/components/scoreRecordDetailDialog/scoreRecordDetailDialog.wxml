@@ -1,0 +1,34 @@
+<viewport-portal wx:if="{{visible}}">
+  <view class="popup-mask ui-overlay" bindtap="emitClose">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="popup-card completion-popup-card ui-dialog-shell ui-dialog-shell--wide" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
+        <view class="popup-title">{{localeCopy.copy_0e17af2227}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="emitClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:if="{{recordDetail}}">
+        <view class="list-item detail-summary-card">
+          <view class="list-main">
+            <view class="detail-people-row">
+              <view class="detail-person-block"><view class="detail-person-label">{{localeCopy.copy_b9b9929aee}}</view><view class="detail-person-name">{{recordDetail.scorer.name}}</view></view>
+              <view class="detail-person-divider"></view>
+              <view class="detail-person-block"><view class="detail-person-label">{{localeCopy.copy_12cd162fda}}</view><view class="detail-person-name">{{recordDetail.target.name}}</view></view>
+            </view>
+            <view class="list-desc">{{recordDetail.submittedAtText}}</view>
+            <view class="detail-action-row"><button wx:if="{{canRevoke}}" class="secondary-btn compact-action-btn revoke-score-btn ui-motion-button" data-id="{{recordDetail.recordId}}" catchtap="emitRevoke" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_96380cec9a}}</button></view>
+          </view>
+        </view>
+        <view class="question-card" wx:for="{{recordDetail.templates}}" wx:for-index="templateIndex" wx:key="templateId">
+          <view class="question-title">{{item.templateName}}</view>
+          <view class="detail-tag-row"><view class="score-tag score-tag-template">{{localeCopy.copy_4675a7e226}} {{item.score}}</view><view class="score-tag score-tag-weight">{{localeCopy.copy_30e235fb56}} {{item.weight}}</view><view class="score-tag score-tag-weighted">{{localeCopy.copy_01fb465b6e}} {{item.weightedScore}}</view></view>
+          <view class="detail-question compact-question" wx:for="{{item.questions}}" wx:for-item="question" wx:for-index="questionIndex" wx:key="questionIndex">
+            <view class="compact-question-head"><view class="list-name detail-question-title">{{question.question}}</view><view class="question-score-corner">{{question.score}} / {{question.maxValue}}</view></view>
+            <view class="score-label-toggle ui-motion-chip" wx:if="{{question.hasScoreLabel}}" data-template-index="{{templateIndex}}" data-question-index="{{questionIndex}}" catchtap="emitToggleScoreLabel" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{question.scoreLabelExpanded ? localeCopy.copy_1e28fe0260 : localeCopy.copy_b66760c55a}}</view>
+            <view class="score-label-box" wx:if="{{question.hasScoreLabel && question.scoreLabelExpanded}}">{{question.scoreLabel}}</view>
+          </view>
+        </view>
+      </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+      <view class="card-loading-overlay" wx:if="{{!recordDetail}}"><view class="card-loading-spinner"></view></view>
+    </view>
+  </view>
+</viewport-portal>

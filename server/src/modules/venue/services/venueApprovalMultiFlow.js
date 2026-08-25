@@ -29,11 +29,6 @@ const REASONS = Object.freeze({
   DESIGNATE_INVALID: '请选择符合条件的审批人'
 });
 
-function fmtDatetime(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-    + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
-}
-
 function parseSnapshots(raw) {
   try {
     const snapshots = raw ? JSON.parse(raw) : [];
@@ -400,7 +395,7 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
   const matched = eligibility.matchedFlows;
   const snapshots = parseSnapshots(booking.approval_snapshots_json);
   const effectiveActor = eligibility.actor || actor;
-  const now = fmtDatetime(new Date());
+  const now = new Date().toISOString();
 
   const singleFlow = isSingleFlowState(state);
   let completedFlowId = null;

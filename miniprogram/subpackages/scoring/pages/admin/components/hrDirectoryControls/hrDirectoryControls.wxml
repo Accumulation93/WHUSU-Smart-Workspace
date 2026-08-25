@@ -1,0 +1,53 @@
+<view class="section-control-card section-control-card--stacked hr-directory-control-card" wx:if="{{visible}}">
+  <view class="list-card-header hr-member-list-header">
+    <view class="list-title">{{localeCopy.copy_86937eac2b}}</view>
+    <button class="secondary-btn hr-profile-export-btn ui-motion-button" wx:if="{{canBrowseHrInfo}}" loading="{{loadingMap.exportHrProfiles}}" bindtap="emitExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b26bdbb604}}</button>
+  </view>
+  <view class="hr-directory-query-grid">
+    <view class="field field-half">
+      <view class="field-label">{{localeCopy.hrDirectorySearchField}}</view>
+      <picker range="{{filterOptions.searchFields}}" range-key="label" value="{{searchFieldIndex}}" bindchange="emitSearchFieldChange">
+        <view class="picker-value">{{filterOptions.searchFields[searchFieldIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="field field-half">
+      <view class="field-label">{{localeCopy.hrDirectoryKeyword}}</view>
+      <input class="field-input search-input" bindinput="emitKeywordInput" value="{{keyword}}" placeholder="{{localeCopy.hrDirectoryKeywordPlaceholder}}" />
+    </view>
+    <view class="field field-half">
+      <view class="field-label">{{localeCopy.hrDirectorySort}}</view>
+      <picker range="{{filterOptions.sortModes}}" range-key="label" value="{{sortIndex}}" bindchange="emitSortChange">
+        <view class="picker-value">{{filterOptions.sortModes[sortIndex].label}}</view>
+      </picker>
+    </view>
+    <button class="secondary-btn compact-action hr-advanced-filter-toggle ui-motion-button" bindtap="emitToggleFilters" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{advancedVisible ? localeCopy.hrCollapseFilters : localeCopy.hrAdvancedFilters}}</button>
+  </view>
+
+  <view class="hr-advanced-filter-panel" wx:if="{{advancedVisible}}">
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrMembershipStatus}}</view><checkbox-group class="hr-filter-options" data-field="membershipStatuses" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.membershipStatuses}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrPositionStatus}}</view><checkbox-group class="hr-filter-options" data-field="positionStates" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.positionStates}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrAssignmentNature}}</view><checkbox-group class="hr-filter-options" data-field="assignmentNatures" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.assignmentNatures}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group" wx:if="{{filterOptions.departments.length}}"><view class="field-label">{{localeCopy.hrDepartment}}</view><checkbox-group class="hr-filter-options" data-field="departments" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.departments}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group" wx:if="{{filterOptions.identities.length}}"><view class="field-label">{{localeCopy.hrIdentityCategory}}</view><checkbox-group class="hr-filter-options" data-field="identities" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.identities}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group" wx:if="{{filterOptions.workGroups.length}}"><view class="field-label">{{localeCopy.hrWorkGroup}}</view><checkbox-group class="hr-filter-options" data-field="workGroups" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.workGroups}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrProfileStatus}}</view><checkbox-group class="hr-filter-options" data-field="profileStatuses" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.profileStatuses}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrProfileCompleteness}}</view><checkbox-group class="hr-filter-options" data-field="completenessStates" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.completenessStates}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrAccountStatus}}</view><checkbox-group class="hr-filter-options" data-field="accountStates" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.accountStates}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+    <view class="hr-filter-group"><view class="field-label">{{localeCopy.hrBindingStatus}}</view><checkbox-group class="hr-filter-options" data-field="bindingStates" bindchange="emitFilterGroupChange"><label class="hr-filter-option {{item.selected ? 'is-selected' : ''}}" wx:for="{{filterOptions.bindingStates}}" wx:key="value"><checkbox value="{{item.value}}" checked="{{item.selected}}" color="#3b82f6"/><text>{{item.label}}</text></label></checkbox-group></view>
+  </view>
+  <view class="hr-active-filter-chips" wx:if="{{activeFilterChips.length}}"><view class="hr-active-filter-chip" wx:for="{{activeFilterChips}}" wx:key="id"><text>{{item.label}}</text><text class="hr-active-filter-remove ui-motion-chip" data-category="{{item.category}}" data-value="{{item.value}}" catchtap="emitClearChip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text></view></view>
+  <view class="hr-member-tools">
+    <view class="hr-member-tools-summary" wx:if="{{canVerifyIdentity || canGlobalAccountManage}}">{{localeCopy.copy_801a88e4a1}} {{selectionCount}} {{localeCopy.copy_2370e6144f}}</view>
+    <view class="hr-member-tools-actions">
+      <button class="secondary-btn compact-action ui-motion-button" bindtap="emitReset" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bed15e0757}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canGlobalAccountManage}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canSelectAll}}" bindtap="emitSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_00c8a8f256}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canGlobalAccountManage}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canInvertSelection}}" bindtap="emitInvertSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_ba3a4b8440}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canGlobalAccountManage}}" disabled="{{authActionLoadingKey || !canClearSelection}}" bindtap="emitClearSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_6888d59833}}</button>
+      <button class="primary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canIssueVerification}}" loading="{{authActionLoadingKey === 'member-verify-batch'}}" bindtap="emitIssueVerification" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_6b7249dab1}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canRevokeVerification}}" loading="{{authActionLoadingKey === 'member-verify-revoke-batch'}}" bindtap="emitRevokeVerification" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_265032194a}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canIssueRecovery}}" loading="{{authActionLoadingKey === 'member-recovery-batch'}}" bindtap="emitIssueRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_bbb93316d5}}</button>
+      <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage}}" disabled="{{governanceUnavailable || authActionLoadingKey || !canRevokeRecovery}}" loading="{{authActionLoadingKey === 'member-recovery-revoke'}}" bindtap="emitRevokeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_1cda406196}}</button>
+    </view>
+    <view class="field-hint hr-governance-warning" wx:if="{{governanceUnavailable}}">{{localeCopy.copy_f2dd354103}}</view>
+  </view>
+</view>

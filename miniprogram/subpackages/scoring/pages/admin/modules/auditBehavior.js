@@ -1437,7 +1437,9 @@ module.exports = Behavior({
         });
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
-          this.setData({ auditSubmissions: res.submissions || [] });
+          this.setData({ auditSubmissions: (res.submissions || []).map((item) => Object.assign({}, item, {
+            createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus)
+          })) });
         } else {
           console.error('[audit] listAllAuditSubmissions failed:', res.message);
         }
@@ -1505,7 +1507,7 @@ module.exports = Behavior({
             flowTimeline.push({
               _key: 'lifecycle_submit',
               type: 'lifecycle', event: 'submit', label: localeCopy.copy_c94eb77b73,
-              time: formatAuditTime(initialSubmit.createdAt), iconName: 'file'
+              time: formatAuditTime(initialSubmit.createdAt, initialSubmit.createdAtReviewStatus), iconName: 'file'
             });
           }
 
@@ -1530,7 +1532,7 @@ module.exports = Behavior({
                   _key: 'lifecycle_resubmit_r' + round,
                   type: 'lifecycle', event: 'resubmit', label: localeCopy.copy_aed5de2d69,
                   subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
-                  time: formatAuditTime(resubmitEvt.createdAt),
+                  time: formatAuditTime(resubmitEvt.createdAt, resubmitEvt.createdAtReviewStatus),
                   iconName: 'edit'
                 });
               } else {
@@ -1614,7 +1616,9 @@ module.exports = Behavior({
                 type: 'step', ...s,
                 flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
                 approverDesc, actionLabel,
-                processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
+                processedAtText: s.processed_at
+                  ? formatAuditTime(s.processed_at, s.processed_atReviewStatus)
+                  : ''
               });
             }
 
@@ -1649,14 +1653,14 @@ module.exports = Behavior({
               flowTimeline.push({
                 _key: 'lifecycle_withdraw_' + lateEvt.id,
                 type: 'lifecycle', event: 'withdraw', label: localeCopy.copy_0f438fa581,
-                time: formatAuditTime(lateEvt.createdAt), iconName: 'chevron-right'
+                time: formatAuditTime(lateEvt.createdAt, lateEvt.createdAtReviewStatus), iconName: 'chevron-right'
               });
             } else if (lateEvt.eventType === 'resubmit') {
               flowTimeline.push({
                 _key: 'lifecycle_resubmit_late_' + lateEvt.id,
                 type: 'lifecycle', event: 'resubmit', label: localeCopy.copy_aed5de2d69,
                 subLabel: localeCopy.copy_93c50c01c0 + (lateEvt.round || 1) + localeCopy.copy_14144be09d,
-                time: formatAuditTime(lateEvt.createdAt), iconName: 'edit'
+                time: formatAuditTime(lateEvt.createdAt, lateEvt.createdAtReviewStatus), iconName: 'edit'
               });
             }
           }

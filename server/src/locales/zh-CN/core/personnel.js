@@ -37,5 +37,24 @@ module.exports = {
   personMergeConfirmationRequired: '请确认合并方向后再执行人员合并',
   personMergeCompleted: '自然人记录已合并',
   personMergeVersionConflict: '人员信息已变化，请重新预览后再合并',
-  mergedPersonAuthenticationBlocked: '该人员记录已合并，请使用保留人员的账号'
+  mergedPersonAuthenticationBlocked: '该人员记录已合并，请使用保留人员的账号',
+  hrMembershipPermanentlyDeleted: '组织成员记录已永久删除',
+  personPermanentlyDeleted: '自然人及其全局账号已永久删除',
+  hrDeletionFailed: '无法执行永久删除，请重新预检',
+  hrDeletionSystemError: '永久删除服务暂时不可用',
+  hrDeletionMessages: {
+    invalid_hr_deletion_scope: '删除范围无效',
+    hr_member_deletion_forbidden: '只有组织管理员可以执行此操作',
+    person_deletion_super_admin_required: '只有超级管理员可以彻底删除自然人',
+    hr_member_deletion_wrong_organization: '不能删除其他组织的成员记录',
+    hr_member_deletion_target_required: '缺少待删除成员信息',
+    hr_member_deletion_target_not_found: '未找到待删除成员',
+    hr_member_deletion_has_business_history: '该成员已产生业务记录，不能永久删除',
+    hr_member_deletion_safety_blocked: '该成员受安全规则保护，不能永久删除',
+    hr_member_deletion_cleanup_confirmation_required: '请先确认预检列出的自动清理项目',
+    hr_member_deletion_preview_expired: '成员数据已变化，请重新预检',
+    hr_member_deletion_busy: '该成员正在被处理，请稍后重试',
+    person_deletion_confirmation_mismatch: '输入的学号与待删除人员不一致',
+    hr_deletion_audit_secret_missing: '服务器缺少删除审计密钥，已阻止操作'
+  }
 };

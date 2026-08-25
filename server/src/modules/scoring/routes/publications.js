@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const notificationOutboxModel = require('../../audit/models/notificationOutbox');
 const { safeString, toNumber, roundScore, generateId, buildNameMap } = require('../../../utils/helpers');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const { logger } = require('../../../utils/logger');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const publicationModel = require('../models/resultPublication');
@@ -23,6 +24,7 @@ const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 
 const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
@@ -263,7 +265,7 @@ router.post('/saveResultPublication', async (req, res) => {
     const activity = await activityModel.getById(activityId);
     if (!activity) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     let existing = await publicationModel.getByActivity(activityId);
     const wasPublished = !!(existing && existing.is_published);
 
@@ -529,6 +531,21 @@ router.post('/saveMeritListDesignations', async (req, res) => {
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
+      const subjects = designationTargets.map((targetAssignment) => ({
+        personId: safeString(targetAssignment.person_id),
+        legacyHrId: publicationAssignments.legacyHrIdOf(targetAssignment),
+        organizationId: orgId,
+        assignmentId: publicationAssignments.assignmentIdOf(targetAssignment)
+      }));
+      if (safeString(designatorSnapshot.personId)) {
+        subjects.push({
+          personId: safeString(designatorSnapshot.personId),
+          organizationId: orgId,
+          assignmentId: safeString(designatorSnapshot.assignmentId),
+          requireMembership: Boolean(safeString(designatorSnapshot.assignmentId))
+        });
+      }
+      await unifiedIdentityModel.lockActiveBusinessSubjects(conn, subjects);
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
@@ -1044,6 +1061,14 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
+      await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [viewerAssignment]
+        .concat(designationTargets)
+        .map((assignment) => ({
+          personId: safeString(assignment.person_id),
+          legacyHrId: publicationAssignments.legacyHrIdOf(assignment),
+          organizationId: orgId,
+          assignmentId: publicationAssignments.assignmentIdOf(assignment)
+        })));
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
@@ -1122,7 +1147,7 @@ router.post('/generatePubViewRules', async (req, res) => {
 
     const categories = publicationAssignments.collectRuleCategories(activeAssignments);
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     let createdCount = 0;
     for (const [key, cat] of categories) {
       if (existingKeys.has(key)) continue;
@@ -1161,7 +1186,7 @@ router.post('/generatePubMeritRules', async (req, res) => {
     const existingKeys = new Set();
     existingMeritRules.forEach(r => existingKeys.add(safeString(r.grantee_department_id) + '::' + safeString(r.grantee_identity_id)));
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     let createdCount = 0;
     for (const rule of viewRules) {
       const key = safeString(rule.grantee_department_id) + '::' + safeString(rule.grantee_identity_id);
@@ -1227,7 +1252,7 @@ router.post('/savePubViewRule', async (req, res) => {
       dedupedClauses.push({ scopeType: st, targetIdentityId: tid, displayMode: clauseDisplayMode, gradeBands: clauseGradeBands });
     }
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     let ruleId = id;
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
@@ -1412,7 +1437,7 @@ router.post('/savePubMeritRule', async (req, res) => {
       dedupedClauses.push({ scopeType: st, targetIdentityId: tid, quotaLimit: quota, requireExactQuota: exact });
     }
 
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const now = nowMysqlUtc();
     let ruleId = id;
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {

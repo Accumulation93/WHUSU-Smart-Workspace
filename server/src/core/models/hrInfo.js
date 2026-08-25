@@ -17,6 +17,23 @@ async function getAll() {
   return rows;
 }
 
+// 人事治理目录必须同时返回在职和已离开成员；离任并不删除组织档案。
+async function getMembershipDirectory() {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT h.*, om.id AS membership_id, om.person_id, om.status AS membership_status,
+            om.created_at AS joined_at,
+            CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at
+       FROM hr_info h
+       JOIN organization_memberships om
+         ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
+      WHERE h.org_id = ? AND om.status IN ('active', 'left')
+      ORDER BY h.name ASC, h.student_id ASC`,
+    [orgId]
+  );
+  return rows;
+}
+
 async function getAllWithDirectory() {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -114,6 +131,22 @@ async function remove(id) {
   ));
 }
 
+async function getByIdIncludingFormer(id) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT h.*, om.id AS membership_id, om.person_id, om.status AS membership_status,
+            om.created_at AS joined_at,
+            CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at
+       FROM hr_info h
+       JOIN organization_memberships om
+         ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
+      WHERE h.id = ? AND h.org_id = ? AND om.status IN ('active', 'left')
+      LIMIT 1`,
+    [id, orgId]
+  );
+  return rows[0] || null;
+}
+
 async function getByIds(ids) {
   if (!ids.length) return [];
   const orgId = await getCurrentOrgId();
@@ -200,8 +233,10 @@ async function getByIdInOrg(id, orgId) {
 
 module.exports = {
   getAll,
+  getMembershipDirectory,
   getAllWithDirectory,
   getById,
+  getByIdIncludingFormer,
   getByIdInOrg,
   getByIds,
   getByStudentId,
