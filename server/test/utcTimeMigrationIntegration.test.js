@@ -179,15 +179,28 @@ async function run() {
       );
       const pruned = await materializer.materialize(database);
       const prunedVerified = await materializer.verify(database, true);
-      assert.strictEqual(pruned.records, first.records - 1);
-      assert.strictEqual(prunedVerified.records, first.records - 1);
-      const [staleRows] = await database.query(
+      assert.strictEqual(prunedVerified.records, pruned.records);
+      const [prunedRows] = await database.query(
+        `SELECT
+           (SELECT COUNT(*) FROM composite_time_sample) AS source_count,
+           (SELECT COUNT(*) FROM absolute_time_record_reviews
+             WHERE migration_key = ? AND table_name = 'composite_time_sample'
+               AND column_name = 'processed_at') AS review_count,
+           (SELECT COUNT(*) FROM absolute_time_record_reviews
+             WHERE migration_key = ? AND table_name = 'composite_time_sample'
+               AND record_key LIKE '%sequence_no=2%') AS stale_count`,
+        [materializer.MIGRATION_KEY, materializer.MIGRATION_KEY]
+      );
+      assert.strictEqual(Number(prunedRows[0].source_count), 2);
+      assert.strictEqual(Number(prunedRows[0].review_count), 2);
+      assert.strictEqual(Number(prunedRows[0].stale_count), 0);
+      const [unmappedRows] = await database.query(
         `SELECT COUNT(*) AS count FROM absolute_time_record_reviews
-          WHERE migration_key = ? AND table_name = 'composite_time_sample'
-            AND record_key LIKE '%sequence_no=2%'`,
+          WHERE migration_key = ? AND review_status = 'review_required'
+            AND (primary_record_id IS NULL OR primary_record_id = '')`,
         [materializer.MIGRATION_KEY]
       );
-      assert.strictEqual(Number(staleRows[0].count), 0);
+      assert.strictEqual(Number(unmappedRows[0].count), 0);
     } finally {
       await database.end();
     }
