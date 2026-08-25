@@ -2,7 +2,14 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/servi
 const { safeString } = require('../../../utils/helpers');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const messageDataModel = require('../models/messageData');
-const { evaluateVenueApprovalStep } = require('../../venue/services/venueApprovalPolicy');
+const venueApprovalMultiFlow = require('../../venue/services/venueApprovalMultiFlow');
+const venueBookingRuleModel = require('../../venue/models/venueBookingRule');
+const { evaluateBookingRules } = require('../../venue/services/venueBookingRuleAuthorization');
+const {
+  resolveCurrentActorAssignment,
+  resolveBookingApplicantAssignment,
+  toRuleProfile
+} = require('../../venue/services/venueAssignmentContext');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
 
 function groupBy(items, keyName) {
@@ -49,38 +56,41 @@ async function listAuditItems(actor, orgId) {
 async function listVenueItems(actor, orgId) {
   const bookings = await messageDataModel.getPendingVenueBookings(orgId);
   if (!bookings.length) return [];
-  const flowIds = [...new Set(bookings.map((item) => item.approval_flow_id).filter(Boolean))];
-  const steps = await messageDataModel.getVenueFlowSteps(flowIds, orgId);
-  const stepsByFlow = groupBy(steps, 'flow_id');
-  const currentSteps = [];
-  for (const booking of bookings) {
-    const flowSteps = stepsByFlow.get(booking.approval_flow_id) || [];
-    const currentStep = flowSteps[Number(booking.approval_current_step)];
-    if (currentStep) currentSteps.push(currentStep);
-  }
-  const rules = await messageDataModel.getVenueStepRules(
-    [...new Set(currentSteps.map((item) => item.id))],
-    orgId
-  );
-  const rulesByStep = groupBy(rules, 'step_id');
   const applicantIds = [...new Set(bookings.map((item) => item.user_hr_id).filter(Boolean))];
   const applicantMap = buildHrMap(await messageDataModel.getHrPeople(applicantIds, orgId));
+  let contextualActor = actor;
+  if (actor.type === 'user') {
+    const assignment = await resolveCurrentActorAssignment(actor, orgId);
+    if (!assignment) return [];
+    contextualActor = Object.assign({}, actor, { assignment, profile: toRuleProfile(assignment) });
+  }
 
   const items = [];
   for (const booking of bookings) {
-    const flowSteps = stepsByFlow.get(booking.approval_flow_id) || [];
-    const currentStep = flowSteps[Number(booking.approval_current_step)];
-    if (!currentStep) continue;
-    const stepRules = rulesByStep.get(currentStep.id) || [];
-    currentStep.rules = stepRules;
-    const authorization = evaluateVenueApprovalStep({
-      booking,
-      actor,
-      steps: flowSteps,
-      applicantHrInfo: applicantMap.get(booking.user_hr_id) || null
-    });
-    if (!authorization.ok) continue;
-    const applicant = applicantMap.get(booking.user_hr_id);
+    const isFlowBooking = Boolean(
+      (booking.approval_flow_id || booking.approval_flow_state_json)
+      && Number(booking.approval_total_steps) > 0
+    );
+    let currentStepName = '';
+    let applicant = applicantMap.get(booking.user_hr_id) || null;
+    if (isFlowBooking) {
+      const authorization = await venueApprovalMultiFlow.evaluateActorEligibility(
+        booking,
+        contextualActor,
+        orgId
+      );
+      if (!authorization.ok) continue;
+      const summary = authorization.summary || { flowSummary: [] };
+      const firstActive = (summary.flowSummary || []).find((item) => item.active && !item.completed);
+      currentStepName = safeString(firstActive && firstActive.stepName);
+      applicant = authorization.applicantHrInfo || applicant;
+    } else {
+      const applicantAssignment = await resolveBookingApplicantAssignment(booking);
+      if (!applicantAssignment) continue;
+      const rules = await venueBookingRuleModel.getByVenueIdForOrg(booking.venue_id, orgId);
+      if (!evaluateBookingRules(rules, contextualActor)) continue;
+      applicant = toRuleProfile(applicantAssignment);
+    }
     items.push({
       id: 'venue:' + safeString(booking.id),
       type: 'todo',
@@ -88,7 +98,7 @@ async function listVenueItems(actor, orgId) {
       title: safeString(booking.title || localeCopy.copy_592351d93c),
       description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || localeCopy.copy_de00c3e48a) +
         localeCopy.copy_70c04ce8e3 + safeString((applicant && applicant.name) || localeCopy.copy_de00c3e48a) +
-        ' · ' + safeString(currentStep.name || ('第' + (Number(booking.approval_current_step) + 1) + localeCopy.copy_493a127a99)),
+        ' · ' + safeString(currentStepName || (localeCopy.copy_93c50c01c0 + (Number(booking.approval_current_step) + 1) + localeCopy.copy_493a127a99)),
       category: 'venue',
       targetType: 'booking',
       targetId: safeString(booking.id),

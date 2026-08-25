@@ -1,5 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/scoring');
 const { format: localeFormat } = require('../../../locales/runtime');
+const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
@@ -65,6 +66,7 @@ function normalizeHrPerson(record, lookups) {
 
 function normalizeClause(clauseData, templateConfigs) {
   return {
+    id: safeString(clauseData.id),
     scopeType: safeString(clauseData.scope_type),
     targetIdentityId: safeString(clauseData.target_identity_id),
     requireAllComplete: clauseData.require_all_complete === 1,
@@ -115,21 +117,128 @@ async function loadRuleFull(ruleId) {
   };
 }
 
-function buildTemplateConfigSignature(templateConfigs, templatesById) {
+function snapshotQuestion(question, questionIndex, globalQuestionIndex) {
+  return {
+    id: safeString(question.id),
+    questionIndex,
+    globalQuestionIndex,
+    question: safeString(question.question),
+    scoreLabel: safeString(question.score_label || question.scoreLabel),
+    minValue: toNumber(question.min_value !== undefined ? question.min_value : question.minValue, 0),
+    startValue: toNumber(question.start_value !== undefined ? question.start_value : question.startValue, 0),
+    maxValue: toNumber(question.max_value !== undefined ? question.max_value : question.maxValue, 0),
+    stepValue: toNumber(question.step_value !== undefined ? question.step_value : question.stepValue, 0.5)
+  };
+}
+
+function buildTemplateSnapshots(templateConfigs, templatesById) {
+  let globalQuestionIndex = 0;
   return (templateConfigs || [])
-    .map(config => {
-      const template = templatesById.get(safeString(config.templateId));
-      if (!template) return '';
-      // Use question count instead of full parameters so that score-range changes
-      // (min/start/max/step) do not invalidate existing score records
-      const qCount = template.questions.length;
-      const method = safeString(config.calculationMethod || config.calculation_method) || 'weighted_average';
-      const trimH = Number(config.trimHighCount || config.trim_high_count || 0);
-      const trimL = Number(config.trimLowCount || config.trim_low_count || 0);
-      return `${safeString(config.templateId)}[${qCount}|${method}|${trimH}|${trimL}]`;
+    .slice()
+    .sort((left, right) => Number(left.sortOrder || left.sort_order || 0) - Number(right.sortOrder || right.sort_order || 0))
+    .map((config) => {
+      const templateId = safeString(config.templateId || config.template_id);
+      const template = templatesById.get(templateId);
+      if (!template || !Array.isArray(template.questions) || !template.questions.length) return null;
+      const questions = template.questions.map((question, index) => {
+        globalQuestionIndex += 1;
+        return snapshotQuestion(question, index + 1, globalQuestionIndex);
+      });
+      return {
+        templateId,
+        templateName: safeString(template.name),
+        weight: toNumber(config.weight, 1),
+        sortOrder: Number(config.sortOrder || config.sort_order || 0),
+        calculationMethod: safeString(config.calculationMethod || config.calculation_method) || 'weighted_average',
+        trimHighCount: Number(config.trimHighCount || config.trim_high_count || 0),
+        trimLowCount: Number(config.trimLowCount || config.trim_low_count || 0),
+        questions
+      };
     })
-    .filter(Boolean)
-    .join('|');
+    .filter(Boolean);
+}
+
+function sha256Json(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function buildTemplateConfigSignature(templateConfigs, templatesById) {
+  const templates = buildTemplateSnapshots(templateConfigs, templatesById);
+  return templates.length ? 'v2:' + sha256Json(templates) : '';
+}
+
+function matchesClauseTarget(clause, scorer, target) {
+  if (!clause || !scorer || !target) return false;
+  if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
+    return false;
+  }
+  if (clause.scopeType === 'same_department_identity') {
+    return target.departmentId === scorer.departmentId && target.identityId === clause.targetIdentityId;
+  }
+  if (clause.scopeType === 'same_department_all') return target.departmentId === scorer.departmentId;
+  if (clause.scopeType === 'same_work_group_identity') {
+    return target.departmentId === scorer.departmentId
+      && target.workGroupId === scorer.workGroupId
+      && target.identityId === clause.targetIdentityId;
+  }
+  if (clause.scopeType === 'same_work_group_all') {
+    return target.departmentId === scorer.departmentId && target.workGroupId === scorer.workGroupId;
+  }
+  if (clause.scopeType === 'identity_only') return target.identityId === clause.targetIdentityId;
+  return clause.scopeType === 'all_people';
+}
+
+function buildCalculationContextSnapshot(options) {
+  const templates = buildTemplateSnapshots(options.clause.templateConfigs, options.templatesById);
+  const requiredTargets = (options.requiredTargetRecords || []).map((record) => ({
+    participantId: safeString(record.assignment_id || record.id),
+    subjectKey: participantService.participantSubjectKey(record, options.granularity),
+    personId: safeString(record.person_id),
+    assignmentId: safeString(record.assignment_id || record.id)
+  }));
+  const policy = {
+    rule: {
+      id: safeString(options.rule.id),
+      scorerDepartmentId: safeString(options.scorer.departmentId),
+      scorerIdentityCategoryId: safeString(options.scorer.identityId),
+      allowSelfAssessment: Number(options.rule.allow_self_assessment) === 1
+    },
+    clause: {
+      id: safeString(options.clause.id),
+      scopeType: safeString(options.clause.scopeType),
+      targetIdentityCategoryId: safeString(options.clause.targetIdentityId),
+      requireAllComplete: options.clause.requireAllComplete === true,
+      requiredTargets
+    },
+    templates
+  };
+  return {
+    version: 1,
+    capturedAt: options.capturedAt,
+    activityId: safeString(options.activityId),
+    participantGranularity: options.granularity,
+    templateConfigSignature: options.templateConfigSignature,
+    calculationPolicySignature: 'v1:' + sha256Json(policy),
+    scorer: {
+      participantId: safeString(options.scorerRecord.assignment_id || options.scorerRecord.id),
+      subjectKey: options.scorerSubjectKey,
+      personId: safeString(options.scorerRecord.person_id),
+      assignmentId: safeString(options.scorerRecord.assignment_id || options.scorerRecord.id),
+      context: participantService.buildAssignmentSnapshot(options.scorerRecord, {
+        contextId: options.contextId
+      })
+    },
+    target: {
+      participantId: safeString(options.targetRecord.assignment_id || options.targetRecord.id),
+      subjectKey: options.targetSubjectKey,
+      personId: safeString(options.targetRecord.person_id),
+      assignmentId: safeString(options.targetRecord.assignment_id || options.targetRecord.id),
+      context: participantService.buildAssignmentSnapshot(options.targetRecord)
+    },
+    rule: policy.rule,
+    clause: policy.clause,
+    templates: policy.templates
+  };
 }
 
 // ──────────────────── getRateTargets ────────────────────
@@ -451,10 +560,22 @@ router.post('/getScoreFormData', async (req, res) => {
         const answers = await scoreAnswerModel.getByRecordId(record.id);
         existingRecord = { id: record.id, submittedAt: record.submitted_at || null, answers };
         break;
-      } else {
-        await scoreAnswerModel.removeByRecordId(record.id);
-        await scoreRecordModel.remove(record.id);
       }
+    }
+
+    if (existingRecords.length && !existingRecord) {
+      const historicalRecord = existingRecords[0];
+      return res.json({
+        status: 'historical_structure_conflict',
+        readOnly: true,
+        message: localeCopy.historicalStructureConflict,
+        historicalRecord: {
+          id: safeString(historicalRecord.id),
+          submittedAt: historicalRecord.submitted_at || null,
+          templateConfigSignature: safeString(historicalRecord.template_config_signature)
+        },
+        currentTemplateConfigSignature: templateConfigSignature
+      });
     }
 
     const answerMap = new Map();
@@ -644,6 +765,15 @@ router.post('/submitScoreRecord', async (req, res) => {
       return a.questionIndex - b.questionIndex;
     });
 
+    // 固化提交时该评分人、该规则分支下的完整目标集合；后续调岗或离任不得重写完成性语义。
+    const participantRecordsAtSubmission = await participantService.listParticipants(orgId, granularity);
+    const requiredTargetRecords = participantRecordsAtSubmission.filter((record) => {
+      const candidate = normalizeHrPerson(record, lookups);
+      if (!matchesClauseTarget(matchedClause, scorer, candidate)) return false;
+      return Number(rule.allow_self_assessment) === 1
+        || !participantService.isSameNaturalPerson(scorerRecord, record);
+    });
+
     // Validate answers
     const answerMap = new Map(answers.map(a => [String(a.questionIndex), Number(a.score)]));
     const normalizedAnswers = [];
@@ -668,8 +798,25 @@ router.post('/submitScoreRecord', async (req, res) => {
     // Save record — update existing or create new, then insert answers — all in a transaction
     const { withTransaction } = require('../../../config/db');
     const nowUtc = nowMysqlUtc();
+    const calculationContextSnapshot = buildCalculationContextSnapshot({
+      activityId,
+      granularity,
+      capturedAt: nowUtc,
+      rule,
+      clause: matchedClause,
+      templatesById,
+      templateConfigSignature,
+      requiredTargetRecords,
+      scorer,
+      scorerRecord,
+      scorerSubjectKey,
+      targetRecord,
+      targetSubjectKey,
+      contextId: actorResult.actor.contextId
+    });
     let resultRecordId;
     let duplicateResponse = null;
+    let immutableConflictResponse = null;
     const clientRequestId = safeString(req.body.clientRequestId);
 
     await withTransaction(async (conn) => {
@@ -698,24 +845,39 @@ router.post('/submitScoreRecord', async (req, res) => {
         assignmentId: safeString(record.assignment_id)
       })));
 
+      const [existingRecords] = await conn.query(
+        `SELECT id, submitted_at, template_config_signature
+           FROM score_records
+          WHERE org_id = ? AND activity_id = ?
+            AND scorer_subject_key = ? AND target_subject_key = ?
+          FOR UPDATE`,
+        [orgId, activityId, scorerSubjectKey, targetSubjectKey]
+      );
+      if (existingRecords.length) {
+        immutableConflictResponse = {
+          status: 'score_already_submitted',
+          readOnly: true,
+          recordId: safeString(existingRecords[0].id),
+          submittedAt: existingRecords[0].submitted_at || null,
+          message: localeCopy.scoreAlreadySubmitted
+        };
+        await dedup.complete(conn, {
+          ...claim,
+          resourceId: stableScoreResourceId,
+          orgId,
+          actorKey: 'score-subject:' + scorerSubjectKey,
+          operationType: 'submit_score'
+        }, immutableConflictResponse);
+        return;
+      }
+
       await conn.query(
         `INSERT INTO score_records
           (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
            scorer_context_snapshot, scorer_subject_key, target_id, target_person_id, target_assignment_id,
-           target_context_snapshot, target_subject_key, template_config_signature, submitted_at, org_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-          rule_id = VALUES(rule_id),
-          scorer_id = VALUES(scorer_id),
-           scorer_person_id = VALUES(scorer_person_id),
-           scorer_assignment_id = VALUES(scorer_assignment_id),
-           scorer_context_snapshot = VALUES(scorer_context_snapshot),
-          target_id = VALUES(target_id),
-           target_person_id = VALUES(target_person_id),
-           target_assignment_id = VALUES(target_assignment_id),
-           target_context_snapshot = VALUES(target_context_snapshot),
-          template_config_signature = VALUES(template_config_signature),
-          submitted_at = VALUES(submitted_at)`,
+           target_context_snapshot, target_subject_key, template_config_signature, calculation_context_snapshot,
+           submitted_at, org_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           candidateRecordId,
           activityId,
@@ -733,20 +895,12 @@ router.post('/submitScoreRecord', async (req, res) => {
           JSON.stringify(participantService.buildAssignmentSnapshot(targetRecord)),
           targetSubjectKey,
           templateConfigSignature,
+          JSON.stringify(calculationContextSnapshot),
           nowUtc,
           orgId
         ]
       );
-      const [records] = await conn.query(
-        `SELECT id FROM score_records
-         WHERE org_id = ? AND activity_id = ?
-           AND scorer_subject_key = ? AND target_subject_key = ?
-         FOR UPDATE`,
-        [orgId, activityId, scorerSubjectKey, targetSubjectKey]
-      );
-      if (!records.length) throw new Error(localeCopy.copy_af9ac03fc1);
-      const recordId = records[0].id;
-      await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
+      const recordId = candidateRecordId;
 
       // Insert answers
       for (const answer of normalizedAnswers) {
@@ -766,6 +920,8 @@ router.post('/submitScoreRecord', async (req, res) => {
       }, { status: 'success', recordId });
     });
 
+    if (immutableConflictResponse) return res.json(immutableConflictResponse);
+
     // Invalidate publication score cache so next viewer sees fresh results
     await pubCache.invalidate(activityId, orgId);
 
@@ -773,6 +929,9 @@ router.post('/submitScoreRecord', async (req, res) => {
   } catch (e) {
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_534935765f });
+    }
+    if (e && e.code === 'ER_DUP_ENTRY') {
+      return res.json({ status: 'score_already_submitted', readOnly: true, message: localeCopy.scoreAlreadySubmitted });
     }
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_fee6d129e3 });
   }

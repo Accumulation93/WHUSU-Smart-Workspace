@@ -22,6 +22,10 @@ assert.deepStrictEqual(
   { status: 'error', message: '请稍后重试' }
 );
 assert.deepStrictEqual(
+  protectPublicMessage({ status: 'error', message: 'ENOENT C:\\Users\\developer\\secret.pdf' }),
+  { status: 'error', message: '请稍后重试' }
+);
+assert.deepStrictEqual(
   protectPublicMessage({ status: 'success', message: '人事信息已保存' }),
   { status: 'success', message: '人事信息已保存' }
 );

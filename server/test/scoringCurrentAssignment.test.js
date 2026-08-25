@@ -1,6 +1,10 @@
 const assert = require('assert');
 const Module = require('module');
 
+// 该测试完全替换数据库模块；只提供加载期必需的占位配置，避免误依赖开发机环境。
+process.env.DB_USER = process.env.DB_USER || 'test-only';
+process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test-only';
+
 const rows = [
   {
     id: 'scorer-a', assignment_id: 'scorer-a', membership_id: 'membership-scorer',

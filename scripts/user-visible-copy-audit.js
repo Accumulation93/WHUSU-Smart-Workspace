@@ -2,6 +2,25 @@
 
 const fs = require('fs');
 const path = require('path');
+const childProcess = require('child_process');
+
+let acorn;
+try {
+  acorn = require('internal/deps/acorn/acorn/dist/acorn');
+} catch (_) {
+  if (process.env.WHUSU_COPY_AUDIT_ACORN_CHILD === '1') {
+    throw new Error('无法加载 Node.js 内置 Acorn 解析器');
+  }
+  const child = childProcess.spawnSync(
+    process.execPath,
+    ['--expose-internals', __filename].concat(process.argv.slice(2)),
+    {
+      stdio: 'inherit',
+      env: Object.assign({}, process.env, { WHUSU_COPY_AUDIT_ACORN_CHILD: '1' })
+    }
+  );
+  process.exit(child.status == null ? 1 : child.status);
+}
 
 const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
@@ -22,6 +41,10 @@ const RULES = [
 ];
 const HR_VERSION_PATTERN = /(版本|最新版|当前来源|源模板|历史快照)/;
 const HR_COPY_FILES = /(?:hrProfile|hrInfoBehavior|subpackages\/scoring\/pages\/admin\/admin\.(?:js|wxml))/;
+const SERVER_VISIBLE_PROPERTIES = new Set([
+  'message', 'label', 'description', 'title', 'content', 'placeholder',
+  'statusText', 'reason', 'fileName', 'emptyText', 'hintText', 'note'
+]);
 const EXEMPTIONS = [
   { file: 'server/src/index.js', pattern: /数据库不可用/ }
 ];
@@ -37,6 +60,11 @@ function walk(dir, extensions, output = []) {
 
 function relative(file) {
   return path.relative(ROOT, file).replace(/\\/g, '/');
+}
+
+function isTestSource(fileName) {
+  return /(?:^|\/)(?:tests?|__tests__)(?:\/|$)/.test(fileName)
+    || /\.(?:test|spec)\.js$/.test(fileName);
 }
 
 function lineAt(source, offset) {
@@ -97,7 +125,11 @@ function visibleWxmlFragments(file) {
       for (const match of token.raw.matchAll(attrPattern)) {
         if (!VISIBLE_ATTRIBUTES.has(match[1])) continue;
         const text = match[3].replace(/\{\{[\s\S]*?\}\}/g, ' ').replace(/\s+/g, ' ').trim();
-        if (text) fragments.push({ text, offset: token.index + match.index });
+        if (text) fragments.push({
+          text,
+          offset: token.index + match.index,
+          attribute: match[1]
+        });
       }
     }
     if (/^<wxs\b/.test(token.raw)) insideWxs = true;
@@ -172,12 +204,71 @@ function visibleJsFragments(file) {
 function guidanceJsFragments(file) {
   const source = fs.readFileSync(file, 'utf8');
   const isServer = file.startsWith(SERVER_ROOT);
-  const fragments = jsStringLiterals(source).filter((literal) => {
-    if (!/[\u3400-\u9fff]/.test(literal.text)) return false;
-    if (!isServer) return true;
-    const context = source.slice(Math.max(0, literal.offset - 220), literal.offset).replace(/\s+/g, ' ');
-    return /(?:(?:message|label|description|title|content|placeholder|statusText|reason)\s*:\s*|throw\s+new\s+\w*Error\s*\(|return\s+|\|\|\s*|\+\s*)$/.test(context);
+  if (!isServer) {
+    return {
+      source,
+      fragments: jsStringLiterals(source).filter((literal) => /[\u3400-\u9fff]/.test(literal.text))
+    };
+  }
+
+  const program = acorn.parse(source, {
+    ecmaVersion: 'latest',
+    sourceType: 'script',
+    allowAwaitOutsideFunction: true,
+    allowReturnOutsideFunction: true
   });
+  const fragments = [];
+
+  function propertyName(node) {
+    if (!node || node.type !== 'Property' || node.computed) return '';
+    if (node.key.type === 'Identifier') return node.key.name;
+    if (node.key.type === 'Literal') return String(node.key.value || '');
+    return '';
+  }
+
+  function callName(node) {
+    if (!node || (node.type !== 'CallExpression' && node.type !== 'NewExpression')) return '';
+    const callee = node.callee;
+    if (!callee) return '';
+    if (callee.type === 'Identifier') return callee.name;
+    if (callee.type === 'MemberExpression' && !callee.computed) {
+      const object = callee.object && callee.object.type === 'Identifier' ? callee.object.name : '';
+      const property = callee.property && callee.property.type === 'Identifier' ? callee.property.name : '';
+      return object && property ? `${object}.${property}` : property;
+    }
+    return '';
+  }
+
+  function isVisible(ancestors) {
+    return ancestors.some((ancestor) => {
+      if (ancestor.type === 'Property' && SERVER_VISIBLE_PROPERTIES.has(propertyName(ancestor))) return true;
+      if (ancestor.type === 'NewExpression' && /Error$/.test(callName(ancestor))) return true;
+      if (ancestor.type === 'CallExpression' && /^(?:res\.)?json$/.test(callName(ancestor))) return true;
+      return false;
+    });
+  }
+
+  function visit(node, ancestors) {
+    if (!node || typeof node.type !== 'string') return;
+    const visible = isVisible(ancestors);
+    if (node.type === 'Literal' && typeof node.value === 'string'
+      && /[\u3400-\u9fff]/.test(node.value) && visible) {
+      fragments.push({ text: node.value.replace(/\s+/g, ' ').trim(), offset: node.start, end: node.end });
+      return;
+    }
+    if (node.type === 'TemplateLiteral' && visible) {
+      const text = node.quasis.map((item) => item.value.cooked || item.value.raw || '').join(' ').replace(/\s+/g, ' ').trim();
+      if (/[\u3400-\u9fff]/.test(text)) fragments.push({ text, offset: node.start, end: node.end });
+    }
+    const nextAncestors = ancestors.concat(node);
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'start' || key === 'end' || key === 'loc') continue;
+      if (Array.isArray(value)) value.forEach((child) => visit(child, nextAncestors));
+      else if (value && typeof value.type === 'string') visit(value, nextAncestors);
+    }
+  }
+
+  visit(program, []);
   return { source, fragments };
 }
 
@@ -203,13 +294,17 @@ for (const file of files) {
   const fileName = relative(file);
   if (fileName.includes('/locales/')) continue;
   const result = file.endsWith('.wxml') ? visibleWxmlFragments(file) : visibleJsFragments(file);
-  const guidanceResult = file.endsWith('.js') ? guidanceJsFragments(file) : { source: result.source, fragments: [] };
+  const guidanceResult = file.endsWith('.js') && !isTestSource(fileName)
+    ? guidanceJsFragments(file)
+    : { source: result.source, fragments: [] };
   for (const fragment of result.fragments) {
     if (!fragment.text || isExempt(fileName, fragment.text)) continue;
     inventory.push({ file: fileName, line: lineAt(result.source, fragment.offset), text: fragment.text });
-    if (localizationPrefix && fileName.startsWith(localizationPrefix) && /[\u4e00-\u9fff]/.test(fragment.text)) {
+    const numericPlaceholder = fragment.attribute === 'placeholder' && /\d/.test(fragment.text);
+    if (localizationPrefix && fileName.startsWith(localizationPrefix)
+      && (/[\u4e00-\u9fff]/.test(fragment.text) || numericPlaceholder)) {
       localizationFindings.push({
-        rule: 'hardcoded-visible-copy',
+        rule: numericPlaceholder ? 'numeric-placeholder-must-use-locale' : 'hardcoded-visible-copy',
         file: fileName,
         line: lineAt(result.source, fragment.offset),
         text: fragment.text

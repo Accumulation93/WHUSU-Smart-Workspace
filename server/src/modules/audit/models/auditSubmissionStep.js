@@ -16,6 +16,18 @@ async function getBySubmissionId(submissionId, conn) {
   return rows;
 }
 
+async function getBySubmissionIdForUpdate(submissionId, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await conn.query(
+    `SELECT * FROM audit_submission_steps
+      WHERE submission_id = ? AND org_id = ?
+      ORDER BY round, sort_order, id
+      FOR UPDATE`,
+    [submissionId, orgId]
+  );
+  return rows;
+}
+
 async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -44,9 +56,8 @@ async function getCurrentStep(submissionId, currentStepIndex) {
 }
 
 /**
- * Get template step conditions for fallback matching.
- * Used when a submission step has no step_conditions_json (legacy submission)
- * or the conditions failed to parse.
+ * Read current template conditions only while creating or explicitly editing a flow.
+ * Historical submission authorization must never call this function.
  * @param {string} templateStepId
  * @returns {Array|null} parsed conditions array or null
  */
@@ -71,41 +82,10 @@ async function getTemplateStepConditions(templateStepId) {
 }
 
 /**
- * Batch-load template step conditions for multiple template_step_ids.
- * Returns a map: template_step_id → conditions array.
- */
-async function _batchLoadTemplateConditions(templateStepIds) {
-  const orgId = await getCurrentOrgId();
-  const map = {};
-  if (!templateStepIds.length) return map;
-
-  const [tplCondRows] = await pool.query(
-    `SELECT * FROM audit_flow_template_step_conditions
-     WHERE template_step_id IN (?) AND org_id = ?
-     ORDER BY template_step_id, sort_order`,
-    [templateStepIds, orgId]
-  );
-  for (const tc of tplCondRows) {
-    if (!map[tc.template_step_id]) map[tc.template_step_id] = [];
-    map[tc.template_step_id].push({
-      conditionType: tc.condition_type,
-      personHrIds: tc.person_hr_ids,
-      assignmentIds: tc.assignment_ids,
-      departmentScope: tc.department_scope,
-      specificDepartmentId: tc.specific_department_id,
-      workGroupScope: tc.work_group_scope,
-      specificWorkGroupId: tc.specific_work_group_id,
-      identityScope: tc.identity_scope,
-      specificIdentityId: tc.specific_identity_id
-    });
-  }
-  return map;
-}
-
-/**
  * Get pending steps that the given approver can approve.
- * Supports both legacy flat fields and new step_conditions_json multi-condition OR logic.
- * Also falls back to template step conditions for legacy submissions.
+ * Authorization is based exclusively on the immutable step_conditions_json snapshot.
+ * Missing or corrupt historical snapshots fail closed and must never fall back to
+ * the mutable template or legacy flat fields.
  */
 async function getPendingByApprover(actor, approverOverride) {
   const orgId = await getCurrentOrgId();
@@ -128,10 +108,8 @@ async function getPendingByApprover(actor, approverOverride) {
     [orgId, orgId]
   );
 
-  const tplStepIds = [...new Set(pendingRows.map((r) => r.template_step_id).filter(Boolean))];
-  const templateConditionMap = await _batchLoadTemplateConditions(tplStepIds);
   const submitterMap = new Map();
-  const rows = [];
+  let rows = [];
 
   for (const row of pendingRows) {
     if (!submitterMap.has(row.submission_id)) {
@@ -142,50 +120,13 @@ async function getPendingByApprover(actor, approverOverride) {
     }
     const submitters = submitterMap.get(row.submission_id);
 
-    let hasExplicitConditions = false;
-
-    // Check new step_conditions_json first
-    if (row.step_conditions_json) {
-      hasExplicitConditions = true;
-      try {
-        const conditions = JSON.parse(row.step_conditions_json);
-        const matched = matchesAnyCondition(conditions, approver, submitters);
-        if (matched) {
-          rows.push(row);
-          continue;
-        }
-      } catch (e) {
-        // Corrupt explicit conditions must fail closed. Falling back to the
-        // broader template or legacy fields could grant unintended access.
-      }
+    if (!row.step_conditions_json) continue;
+    try {
+      const conditions = JSON.parse(row.step_conditions_json);
+      if (matchesAnyCondition(conditions, approver, submitters)) rows.push(row);
+    } catch (_) {
+      // 快照缺失或损坏时失败关闭；模板后续修改不得重新授权历史步骤。
     }
-
-    // Fallback: only when NO explicit conditions exist (e.g., legacy submissions).
-    // If step_conditions_json was parsed successfully (even if it didn't match),
-    // don't fall back to template conditions — the explicit conditions are the
-    // sole authority (e.g., narrowed person list from designated approvers).
-    if (!hasExplicitConditions && row.template_step_id && templateConditionMap[row.template_step_id]) {
-      const tplConds = templateConditionMap[row.template_step_id];
-      const tplMatched = matchesAnyCondition(tplConds, approver, submitters);
-      if (tplMatched) {
-        rows.push(row);
-        continue;
-      }
-    }
-
-    // Legacy check: approver_type='identity' with approver_identity_id match.
-    // Only used when NO explicit conditions exist — if step_conditions_json is
-    // present, it is the sole authority (legacy fields may be stale).
-    if (!hasExplicitConditions && row.approver_type === 'identity' && row.approver_identity_id) {
-      const identMatch = inCsv(row.approver_identity_id, approver.identity_id);
-      const scopeMatch = identMatch ? matchesScope(row, approver, submitters) : false;
-      if (identMatch && scopeMatch) {
-        rows.push(row);
-        continue;
-      }
-    }
-
-    // 旧 specific_person 仅保存自然人，没有岗位约束，必须失败关闭。
   }
 
   // Deduplicate by submission_id: keep only the MAX round per submission.
@@ -360,7 +301,7 @@ async function create(id, data, conn) {
   const {
     submissionId, templateStepId, sortOrder,
     approverType, approverHrId, approverIdentityId,
-    actionType, round,
+    actionType, round, status,
     stepConditionsJson, stepName, allowApproverDesignation
   } = data;
   const orgId = await getCurrentOrgId();
@@ -369,13 +310,14 @@ async function create(id, data, conn) {
     `INSERT INTO audit_submission_steps
      (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id,
       step_conditions_json,
-      action_type, allow_approver_designation, step_name, status, round, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+       action_type, allow_approver_designation, step_name, status, round, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, submissionId, templateStepId || null, sortOrder || 1,
       approverType || 'identity', approverHrId || null, approverIdentityId || null,
       stepConditionsJson || null,
-      actionType || 'sign', allowApproverDesignation ? 1 : 0, stepName || '', round || 1, orgId
+      actionType || 'sign', allowApproverDesignation ? 1 : 0, stepName || '', status || 'pending',
+      Number.isInteger(Number(round)) && Number(round) >= 0 ? Number(round) : 1, orgId
     ]
   );
 }
@@ -436,7 +378,7 @@ async function removeBySubmissionId(submissionId, conn) {
 }
 
 module.exports = {
-  getBySubmissionId, getById, getByIdForUpdate, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
+  getBySubmissionId, getBySubmissionIdForUpdate, getById, getByIdForUpdate, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
   removeBySubmissionId,
   getTemplateStepConditions,
   matchesScope, matchesAnyCondition, matchesIdentityScopeCondition

@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/schemaContract');
 const REQUIRED_COLUMNS = [
   ['admin_info', 'invite_code'],
   ['admin_info', 'invite_expires_at'],
@@ -27,10 +28,14 @@ const REQUIRED_COLUMNS = [
   ,['score_records', 'target_person_id']
   ,['score_records', 'target_assignment_id']
   ,['score_records', 'target_subject_key']
+  ,['score_records', 'calculation_context_snapshot']
   ,['audit_events', 'operator_person_id']
   ,['audit_events', 'operator_assignment_id']
   ,['audit_events', 'operator_admin_grant_id']
   ,['audit_events', 'operator_context_snapshot']
+  ,['audit_submission_files', 'revision_round']
+  ,['audit_submission_files', 'is_current']
+  ,['audit_submission_files', 'signing_key_encryption_version']
   ,['venue_bookings', 'creator_person_id']
   ,['venue_bookings', 'creator_assignment_id']
   ,['venue_bookings', 'creator_admin_grant_id']
@@ -39,6 +44,10 @@ const REQUIRED_COLUMNS = [
   ,['venue_bookings', 'approver_assignment_id']
   ,['venue_bookings', 'approver_admin_grant_id']
   ,['venue_bookings', 'approver_context_snapshot']
+  ,['venue_bookings', 'approval_flow_snapshot_json']
+  ,['venue_booking_rules', 'approver_assignment_id']
+  ,['security_rate_limit_buckets', 'expires_at']
+  ,['audit_temp_uploads', 'organization_id']
   ,['system_config', 'timezone_config_version']
   ,['absolute_time_record_reviews', 'materialization_token']
   ,['absolute_time_record_reviews', 'primary_record_id']
@@ -91,11 +100,15 @@ const REQUIRED_TABLES = [
   ,'absolute_time_record_reviews'
   ,'absolute_time_migration_audit'
   ,'absolute_time_cutovers'
+  ,'security_rate_limit_buckets'
+  ,'audit_temp_uploads'
+  ,'score_snapshot_backfill_audits'
 ];
 
 const REQUIRED_INDEXES = [
   ['score_records', 'uk_sr_business'],
   ['score_answers', 'uk_sa_record_question'],
+  ['score_snapshot_backfill_audits', 'idx_score_snapshot_audit_status'],
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],
   ['notifications', 'uk_notification_event'],
   ['notifications', 'idx_notification_recipient_page'],
@@ -119,6 +132,10 @@ const REQUIRED_INDEXES = [
   ,['venue_booking_policies', 'uk_vbp_venue_org']
   ,['absolute_time_record_reviews', 'idx_absolute_time_presentation_record']
   ,['absolute_time_record_reviews', 'idx_absolute_time_presentation_raw']
+  ,['venue_booking_rules', 'idx_vbr_approver_assignment']
+  ,['security_rate_limit_buckets', 'idx_security_rate_limit_expiry']
+  ,['audit_temp_uploads', 'idx_audit_temp_upload_owner']
+  ,['audit_submission_files', 'idx_asf_current_revision']
 ];
 
 async function verifySchemaContract(pool) {
@@ -156,7 +173,7 @@ async function verifySchemaContract(pool) {
     if (tableSet.has(table)) missing.push('legacy-table:' + table);
   }
   if (missing.length) {
-    const error = new Error('数据库迁移未完成: ' + missing.join(', '));
+    const error = new Error(localeCopy.copy_973bd5883b + missing.join(', '));
     error.code = 'schema_contract_failed';
     error.missing = missing;
     throw error;
@@ -168,7 +185,7 @@ async function verifySchemaContract(pool) {
       LIMIT 1`
   );
   if (invalidAdmins.length) {
-    const error = new Error('数据库迁移未完成: admin_info.two_level_admins');
+    const error = new Error(localeCopy.copy_31b25fc434);
     error.code = 'schema_contract_failed';
     error.missing = ['data:admin_info.two_level_admins'];
     throw error;
@@ -188,7 +205,7 @@ async function verifySchemaContract(pool) {
   );
   const hrIntegrity = invalidHrProfiles[0] || {};
   if (Number(hrIntegrity.invalid_records) || Number(hrIntegrity.invalid_values)) {
-    const error = new Error('数据库迁移未完成: data:hr_profile_snapshot_integrity');
+    const error = new Error(localeCopy.copy_6d870b69a4);
     error.code = 'schema_contract_failed';
     error.missing = ['data:hr_profile_snapshot_integrity'];
     throw error;
@@ -234,9 +251,24 @@ async function verifySchemaContract(pool) {
     || Number(identityIntegrity.insecure_active_bindings)
     || Number(identityIntegrity.unmapped_hr_records)
     || Number(identityIntegrity.unmapped_admin_records)) {
-    const error = new Error('数据库迁移未完成: data:unified_identity_integrity');
+    const error = new Error(localeCopy.copy_5c60f991c0);
     error.code = 'schema_contract_failed';
     error.missing = ['data:unified_identity_integrity'];
+    throw error;
+  }
+  const [signingKeyIntegrityRows] = await pool.query(
+    `SELECT COUNT(*) AS invalid_count
+       FROM audit_submission_files
+      WHERE signing_key_private IS NOT NULL
+        AND signing_key_private <> ''
+        AND (signing_key_encryption_version IS NULL
+             OR signing_key_private NOT REGEXP '^enc:v1:[A-Za-z0-9._-]{1,32}:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:gcm$'
+             OR signing_key_private NOT LIKE CONCAT('enc:v1:', signing_key_encryption_version, ':%'))`
+  );
+  if (Number(signingKeyIntegrityRows[0] && signingKeyIntegrityRows[0].invalid_count)) {
+    const error = new Error(localeCopy.copy_2f34ed57e0);
+    error.code = 'schema_contract_failed';
+    error.missing = ['data:audit_signing_key_encryption'];
     throw error;
   }
   const [boundSuperAdmins] = await pool.query(
@@ -250,7 +282,7 @@ async function verifySchemaContract(pool) {
   );
   const superAdminState = boundSuperAdmins[0] || {};
   if (Number(superAdminState.total) > 0 && Number(superAdminState.bound_count) < 1) {
-    const error = new Error('数据库迁移中止: 必须至少保留一名已绑定超级管理员');
+    const error = new Error(localeCopy.copy_c2f32234c0);
     error.code = 'schema_contract_failed';
     error.missing = ['data:unified_identity_bound_super_admin'];
     throw error;

@@ -156,7 +156,7 @@
       </view>
       <view class="field">
         <view class="field-label">{{localeCopy.copy_a97eb08acb}}</view>
-        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
+        <view class="input-row purpose-input-row"><input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
       </view>
       <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
       <block wx:if="{{purposes.length}}">
@@ -261,7 +261,7 @@
                 <view class="picker-display">{{bookingWindowForm.open.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.open.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.open.mode === 'days'}}" class="booking-window-value-row">
-                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="0" />
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
                 <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.open.mode === 'duration'}}" class="booking-window-value-row">
@@ -278,7 +278,7 @@
                 <view class="picker-display">{{bookingWindowForm.deadline.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.deadline.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'days'}}" class="booking-window-value-row">
-                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="0" />
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
                 <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'duration'}}" class="booking-window-value-row">
@@ -407,8 +407,8 @@
             </block>
 
             <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="{{localeCopy.venueStartTimePlaceholder}}"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="{{localeCopy.venueEndTimePlaceholder}}"/></view>
             </block>
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
@@ -744,7 +744,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
           <view class="field"><view class="field-label">{{purposeEditId ? localeCopy.copy_259bd6c893 : localeCopy.copy_c312b03c06}}</view>
-            <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
+            <view class="input-row"><input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
           </view>
           <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
           <block wx:if="{{purposes.length}}">

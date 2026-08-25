@@ -61,27 +61,34 @@ function decorateDirectoryRow(item) {
 }
 
 function buildGovernanceAssignments(item) {
-  if (Array.isArray(item.assignments) && item.assignments.length) return item.assignments;
-  const department = String(item.department || item.departmentName || '');
-  const identity = String(item.identityCategoryName || item.identity || item.identityName || '');
-  const workGroup = String(item.workGroup || item.workGroupName || '');
-  if (!department && !identity && !workGroup) return [];
-  const departmentId = String(item.departmentId || '');
-  const identityCategoryId = String(item.identityCategoryId || item.identityId || '');
-  const workGroupId = String(item.workGroupId || '');
-  return [{
-    assignmentId: String(item.assignmentId || ''),
-    assignmentNature: String(item.assignmentNature || item.assignmentKind || 'staff'),
-    departmentId: departmentId || (department ? 'legacy-department:' + department : ''),
-    department,
-    identityCategoryId: identityCategoryId || (identity ? 'legacy-identity:' + identity : ''),
-    identityCategoryName: identity,
-    workGroupId: workGroupId || (workGroup
-      ? 'legacy-work-group:' + (departmentId || department) + ':' + workGroup
-      : ''),
-    workGroup,
-    historical: item.membershipStatus === 'left'
-  }];
+  return Array.isArray(item && item.assignments)
+    ? item.assignments.filter((assignment) => assignment && assignment.assignmentId)
+    : [];
+}
+
+function buildHistoricalProfileFields(fields) {
+  return (Array.isArray(fields) ? fields : []).map((field) => ({
+    id: String(field.id || ''),
+    label: String(field.label || ''),
+    valueText: String(field.pendingValue || field.value || localeCopy.hrProfileNoValue),
+    hasPendingValue: Boolean(field.pendingValue),
+    historical: true
+  })).filter((field) => field.id && field.label);
+}
+
+function buildProfileReviewHistory(items) {
+  const actionLabels = {
+    approve: localeCopy.hrReviewActionApproved,
+    reject: localeCopy.hrReviewActionRejected,
+    maintained: localeCopy.hrReviewActionMaintained
+  };
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    id: String(item.id || ''),
+    actionText: actionLabels[item.action] || localeCopy.hrReviewActionUpdated,
+    reason: String(item.reason || ''),
+    reviewerName: String(item.reviewerName || localeCopy.hrReviewUnknownReviewer),
+    createdAtText: formatDetailTime(item.createdAt, { reviewStatus: item.createdAtReviewStatus })
+  })).filter((item) => item.id);
 }
 
 function decorateFilterOptions(options, filters) {
@@ -404,14 +411,37 @@ module.exports = Behavior({
           wx.showToast({ title: result && result.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
           return;
         }
-        const cleanupLabels = decorateDeletionImpact(Object.keys(result.cleanupCounts || {}).map((category) => ({
+        const deletionResult = result.result && typeof result.result === 'object'
+          ? result.result : result;
+        const cleanupLabels = decorateDeletionImpact(Object.keys(deletionResult.cleanupCounts || {}).map((category) => ({
           category,
-          count: Number(result.cleanupCounts[category] || 0)
+          count: Number(deletionResult.cleanupCounts[category] || 0)
         })));
-        const affectedRules = decorateDeletionRules(result.affectedRules || []);
+        const rawAffectedRules = deletionResult.affectedRules || [];
+        const rawDisabledRules = deletionResult.disabledRules || [];
+        const disabledRuleKeys = new Set(rawDisabledRules.map((item) => (
+          String(item.type || '') + ':' + String(item.id || '')
+        )));
+        const completionRules = rawAffectedRules.map((item) => Object.assign({}, item, {
+          wouldDisable: disabledRuleKeys.has(String(item.type || '') + ':' + String(item.id || ''))
+        }));
+        rawDisabledRules.forEach((item) => {
+          const key = String(item.type || '') + ':' + String(item.id || '');
+          if (!rawAffectedRules.some((affected) => (
+            String(affected.type || '') + ':' + String(affected.id || '') === key
+          ))) completionRules.push(Object.assign({ wouldDisable: true }, item));
+        });
+        const affectedRules = decorateDeletionRules(completionRules);
+        const disabledRules = decorateDeletionRules(rawDisabledRules.map((item) => (
+          Object.assign({ wouldDisable: true }, item)
+        )));
         this.setData({
           hrPermanentDeletionLoading: false,
-          hrPermanentDeletionResult: { cleanup: cleanupLabels, affectedRules }
+          hrPermanentDeletionResult: {
+            cleanup: cleanupLabels,
+            affectedRules,
+            disabledRules
+          }
         });
         await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
       } catch (error) {
@@ -513,8 +543,7 @@ module.exports = Behavior({
             assignmentCount: assignments.length,
             auditStatus: '',
             auditStatusText: '',
-            hasPending: false,
-            wxBindStatus: item.auth && item.auth.hasActiveBinding ? 'bound' : 'unbound'
+            hasPending: false
           })));
         });
         const rawOptions = buildHrProfileFilterOptions(rows);
@@ -1131,6 +1160,8 @@ module.exports = Behavior({
           detailHrJoinedAtText: formatDetailTime(governance.joinedAt, { reviewStatus: governance.joinedAtReviewStatus }),
           detailHrLeftAtText: formatDetailTime(governance.leftAt, { reviewStatus: governance.leftAtReviewStatus }),
           detailHrTemplate: null,
+          detailHrHistoricalFields: [],
+          detailHrReviewHistory: [],
           detailHrHasPending: false,
           detailHrAuditStatus: '',
           detailHrAuditStatusText: '',
@@ -1224,6 +1255,8 @@ module.exports = Behavior({
             reviewStatus: result.leftAt ? result.leftAtReviewStatus : profile.leftAtReviewStatus
           }),
           detailHrTemplate,
+          detailHrHistoricalFields: buildHistoricalProfileFields(result.historicalFields),
+          detailHrReviewHistory: buildProfileReviewHistory(result.reviewHistory),
           detailHrValues: vals,
           detailHrPendingValues: pendingValues,
           detailHrComparisonRows: personnelViewModel.buildProfileComparisonRows(
@@ -1601,6 +1634,8 @@ module.exports = Behavior({
         assignmentIdentityOptions: [],
         detailScrollTarget: '',
         detailHrComparisonRows: [],
+        detailHrHistoricalFields: [],
+        detailHrReviewHistory: [],
         detailHrMembershipStatus: 'active',
         detailHrReadOnly: false,
         detailHrJoinedAtText: '',

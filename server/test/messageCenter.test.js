@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'message-center-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'message-center-identity-test-secret-32-bytes';
 
 const root = path.join(__dirname, '..');
 

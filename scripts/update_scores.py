@@ -23,12 +23,19 @@ RULE_ID    = "7a15c9e5e25ed444b080ae25b2ce9781d70e99b89bcd17d519507465d09f7721"
 TEMPLATE_SIG = "4ed920d37165e01e1102a949e2626dad8a6a9a345a6c5a3b96a20950191dee63[1|weighted_average|0|0]"
 IDENTITY_ID = "3d510268afc113c3a1e1c7223a5f9a7b5870e874041d590f6b9ea02443a62632"
 
+def required_env(name):
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 DB_CONFIG = {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "whusu_workspace",
-    "password": "e9cadd9f07e3f76e8a518956e1062ee8",
-    "database": "whusu_smart_workspace",
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": required_env("DB_USER"),
+    "password": required_env("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME", "whusu_smart_workspace"),
     "charset": "utf8mb4",
 }
 

@@ -5,6 +5,9 @@ on:
     branches: [feature/audit, main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   audit-and-test:
     runs-on: ubuntu-latest
@@ -31,8 +34,10 @@ jobs:
       DEPLOY_TEST_DB_USER: root
       DEPLOY_TEST_DB_PASSWORD: ''
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
@@ -47,6 +52,7 @@ jobs:
           node scripts/wechat-template-runtime-audit.js
           node scripts/org-lifecycle-audit.js --strict
           node scripts/security-audit.js --strict
+          node scripts/secret-audit.js --strict
           node scripts/tenant-sql-audit.js
           node scripts/time-system-audit.js --strict
           node server/scripts/preflightUtcTimeMigration.js --schema server/db/init.sql --strict
@@ -55,6 +61,7 @@ jobs:
           node scripts/user-visible-copy-audit.js --strict
           node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
           node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
+          node scripts/user-visible-copy-audit.js --strict-guidance
           git diff --check
       - name: Unit and integration tests
         run: |
@@ -74,62 +81,8 @@ jobs:
           node scripts/login-auth-continuation-test.js
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
-          node miniprogram/subpackages/scoring/pages/admin/tests/hrDirectoryFilter.test.js
-          node miniprogram/subpackages/scoring/pages/admin/tests/personnelUiContract.test.js
-          node server/test/hrMemberDeletionService.test.js
-          node server/test/hrMemberDeletionModel.test.js
-          node server/test/hrMembershipDeparture.test.js
-          node server/test/utcTimeSystem.test.js
-          node server/test/venueApprovalFlowRule.test.js
-          node server/test/venueApprovalAuthorization.test.js
-          node server/test/venueApprovalValidation.test.js
-          node server/test/auditApprovalConditionSecurity.test.js
-          node server/test/auditWorkflowContract.test.js
-          node server/test/scoreRecordQuerySecurity.test.js
-          node server/test/scoreCalculationIdentity.test.js
-          node server/test/publicationOrgIsolation.test.js
-          node server/test/tableFileAuthorization.test.js
-          node server/test/tableFileExport.test.js
-          node server/test/organizationDeletionSafety.test.js
-          node server/test/organizationManagementIntegration.test.js
-          node server/test/activateOrganization.test.js
-          node server/test/scoringOrgCacheIsolation.test.js
-          node server/test/historicalScoreResults.test.js
-          node server/test/orgContextSecurity.test.js
-          node server/test/adminAuthorization.test.js
-          node server/test/adminPermissions.test.js
-          node server/test/adminOrganizationAccess.test.js
-          node server/test/personIdentityOverview.test.js
-          node server/test/userBindingStatus.test.js
-          node server/test/userBindingUnbind.test.js
-          node server/test/adminPermissionMiddleware.test.js
-          node server/test/adminPermissionsMigration.test.js
-          node server/test/authChallenge.test.js
-          node server/test/unifiedSessionPolicy.test.js
-          node server/test/unifiedAuthContextToken.test.js
-          node server/test/unifiedContextCatalog.test.js
-          node server/test/loginBindingContract.test.js
-          node server/test/requestDeduplication.test.js
-          node server/test/clientVersion.test.js
-          node server/test/runtimeHardening.test.js
-          node server/test/publicMessage.test.js
-          node server/test/securityMigration.test.js
-          node server/test/dataIntegrityMigration.test.js
-          node server/test/hrTableImport.test.js
-          node server/test/hrProfileTemplateLibrary.test.js
-          node server/test/hrProfileTemplateMigration.test.js
-          node server/test/messageCenter.test.js
-          node server/test/crossOrgMessageRoutes.test.js
-          node server/test/notificationReliability.test.js
-          node server/test/auditUploadMigration.test.js
-          node server/test/deploymentAutomation.test.js
-          node server/test/deploymentMigrationIntegration.test.js
-          node server/test/utcTimeMigrationIntegration.test.js
-          node server/test/hrDeletionBarrierIntegration.test.js
-          node server/test/unifiedIdentityMigration.test.js
-          node server/test/venueFlowRestoreMigration.test.js
-          node server/test/freshSchemaVenue.test.js
-          node server/test/pdfSignature.test.js
+          find miniprogram -type f -name '*.test.js' -print0 | sort -z | xargs -0 -n1 node
+          for test_file in server/test/*.test.js; do node "$test_file"; done
           bash -n server/scripts/deployProduction.sh
           bash -n server/scripts/deployEntrypoint.sh
           bash -n server/scripts/setupCollabSession.sh

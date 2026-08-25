@@ -38,6 +38,46 @@ const PROFILE_STATUS_TEXT = {
   approved: personnelCopy.profileStatusApproved
 };
 
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = value ? JSON.parse(String(value)) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function profileFieldResponse(field, historical) {
+  return {
+    id: safeString(field.id),
+    label: safeString(field.label),
+    type: safeString(field.type || 'text'),
+    required: historical ? false : Boolean(field.required),
+    minLength: field.min_length,
+    maxLength: field.max_length,
+    numberRule: field.number_rule,
+    allowDecimal: Boolean(field.allow_decimal),
+    minDigits: field.min_digits,
+    maxDigits: field.max_digits,
+    minValue: field.min_value,
+    maxValue: field.max_value,
+    options: parseJsonArray(field.options_json),
+    historical: Boolean(historical)
+  };
+}
+
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
 }
@@ -278,6 +318,10 @@ router.post('/submitUserHrProfile', async (req, res) => {
     const nowUtc = nowMysqlUtc();
     const orgId = await getCurrentOrgId();
     await pool.withTransaction(async (connection) => {
+      await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
+        legacyHrId: hr.id,
+        organizationId: orgId
+      }]);
       const existing = await profileRecordModel.getByHrId(hr.id, connection, orgId);
       const recordId = existing ? existing.id : generateId();
       if (existing) {
@@ -631,6 +675,10 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const nowUtc = nowMysqlUtc();
     const reviewResult = await pool.withTransaction(async (connection) => {
+      await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
+        legacyHrId: hrRecord.id,
+        organizationId: orgId
+      }]);
       const record = await profileRecordModel.getByHrId(hrRecord.id, connection, orgId, true);
       if (!record) return { status: 'not_found' };
       const effectiveVals = await profileValueModel.getByRecordIdAndPending(
@@ -739,6 +787,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
 
     const hr = await hrInfoModel.getByIdIncludingFormer(hrId);
     if (!hr) return res.json({ status: 'not_found', message: localeCopy.copy_9ccefa96da });
+    const orgId = await getCurrentOrgId();
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
     const templateData = template ? {
@@ -761,13 +810,51 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const activeFieldIds = new Set(templateData ? templateData.fields.map((field) => field.id) : []);
     let values = {};
     let pendingValues = {};
+    let historicalFields = [];
+    const reviewHistory = record
+      ? await profileReviewEventModel.listByRecordId(record.id, orgId)
+      : [];
     if (record) {
       const [vals, pvals] = await Promise.all([
-        profileValueModel.getByRecordIdAndPending(record.id, 0),
-        profileValueModel.getByRecordIdAndPending(record.id, 1)
+        profileValueModel.getByRecordIdAndPending(record.id, 0, pool, orgId),
+        profileValueModel.getByRecordIdAndPending(record.id, 1, pool, orgId)
       ]);
-      vals.forEach((v) => { if (activeFieldIds.has(v.field_id)) values[v.field_id] = v.field_value; });
-      pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
+      const historicalValues = {};
+      const historicalPendingValues = {};
+      vals.forEach((value) => {
+        if (activeFieldIds.has(value.field_id)) values[value.field_id] = value.field_value;
+        else historicalValues[value.field_id] = value.field_value;
+      });
+      pvals.forEach((value) => {
+        if (activeFieldIds.has(value.field_id)) pendingValues[value.field_id] = value.field_value;
+        else historicalPendingValues[value.field_id] = value.field_value;
+      });
+      reviewHistory.forEach((event) => {
+        const effectiveSnapshot = parseJsonObject(event.effective_values_snapshot);
+        const pendingSnapshot = parseJsonObject(event.pending_values_snapshot);
+        Object.keys(effectiveSnapshot).forEach((fieldId) => {
+          if (!activeFieldIds.has(fieldId) && !Object.prototype.hasOwnProperty.call(historicalValues, fieldId)) {
+            historicalValues[fieldId] = effectiveSnapshot[fieldId];
+          }
+        });
+        Object.keys(pendingSnapshot).forEach((fieldId) => {
+          if (!activeFieldIds.has(fieldId) && !Object.prototype.hasOwnProperty.call(historicalPendingValues, fieldId)) {
+            historicalPendingValues[fieldId] = pendingSnapshot[fieldId];
+          }
+        });
+      });
+      const historicalFieldIds = Array.from(new Set(
+        Object.keys(historicalValues).concat(Object.keys(historicalPendingValues))
+      ));
+      const historicalDefinitions = await profileFieldModel.getByIds(historicalFieldIds, orgId);
+      historicalFields = historicalDefinitions
+        .filter((field) => !activeFieldIds.has(safeString(field.id)))
+        .map((field) => Object.assign(profileFieldResponse(field, true), {
+          value: Object.prototype.hasOwnProperty.call(historicalValues, field.id)
+            ? safeString(historicalValues[field.id]) : '',
+          pendingValue: Object.prototype.hasOwnProperty.call(historicalPendingValues, field.id)
+            ? safeString(historicalPendingValues[field.id]) : ''
+        }));
     }
 
     const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId, null, true);
@@ -786,16 +873,13 @@ router.post('/getHrPersonDetail', async (req, res) => {
       templateData ? templateData.fields : [], values, pendingValues, auditStatus
     );
 
-    const reviewHistory = record
-      ? await profileReviewEventModel.listByRecordId(record.id, await getCurrentOrgId())
-      : [];
-
     res.json({
       status: 'success',
       profile: await enrichHrWithOrg(hr),
       template: templateData,
       values,
       pendingValues,
+      historicalFields,
       auditStatus,
       auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
       isComplete: completeness.isComplete,
@@ -806,6 +890,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
         id: safeString(item.id),
         action: safeString(item.action),
         reason: safeString(item.reason),
+        reviewerName: safeString(item.reviewer_name),
         reviewerPersonId: safeString(item.reviewer_person_id),
         reviewerContextId: safeString(item.reviewer_context_id),
         createdAt: item.created_at
@@ -884,6 +969,10 @@ router.post('/saveHrPersonFull', async (req, res) => {
 
       const orgId = await getCurrentOrgId();
       await pool.withTransaction(async (connection) => {
+        await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
+          legacyHrId: hrId,
+          organizationId: orgId
+        }]);
         const existing = await profileRecordModel.getByHrId(hrId, connection, orgId, true);
         const recordId = existing ? existing.id : generateId();
         const pendingRows = existing

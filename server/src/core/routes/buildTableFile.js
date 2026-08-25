@@ -63,12 +63,12 @@ router.post('/buildTableFile', async (req, res) => {
 
 function buildCsvBuffer(rows) {
   if (!Array.isArray(rows) || !rows.length) {
-    const error = new Error('缺少表格数据');
+    const error = new Error(localeCopy.copy_3e4128b733);
     error.code = 'invalid_workbook';
     throw error;
   }
   if (rows.length > LIMITS.maxRows) {
-    const error = new Error('导出行数超过限制');
+    const error = new Error(localeCopy.copy_d16a0093f5);
     error.code = 'invalid_workbook';
     throw error;
   }
@@ -77,7 +77,7 @@ function buildCsvBuffer(rows) {
     let text = String(value == null ? '' : value);
     totalCells += 1;
     if (row.length > LIMITS.maxColumns || totalCells > LIMITS.maxCells || text.length > LIMITS.maxCellLength) {
-      const error = new Error('导出数据量超过限制');
+      const error = new Error(localeCopy.copy_55061c833a);
       error.code = 'invalid_workbook';
       throw error;
     }

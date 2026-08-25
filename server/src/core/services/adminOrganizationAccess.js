@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/adminOrganizationAccess');
 const { safeString } = require('../../utils/helpers');
 const adminInfoModel = require('../models/adminInfo');
 const { listAccessibleActorContexts } = require('./accessibleOrganizations');
@@ -62,7 +63,7 @@ async function listAdminOrganizationAccess(req) {
 async function requireAdminOrganizationPermission(req, organizationId, permissionKeys, connection) {
   const orgId = safeString(organizationId);
   if (!orgId) {
-    throw new AdminOrganizationAccessError('invalid_organization', '请重新选择组织', 400);
+    throw new AdminOrganizationAccessError('invalid_organization', localeCopy.copy_cc9e4b8129, 400);
   }
   const admin = await adminInfoModel.getByOpenidForOrganization(
     safeString(req.openid),
@@ -71,11 +72,11 @@ async function requireAdminOrganizationPermission(req, organizationId, permissio
     Boolean(connection)
   );
   if (!admin) {
-    throw new AdminOrganizationAccessError('organization_forbidden', '您已无法管理该组织', 403);
+    throw new AdminOrganizationAccessError('organization_forbidden', localeCopy.copy_33bbc50b8f, 403);
   }
   const effective = await loadEffectivePermissions(admin, orgId, connection);
   if (!hasAnyPermission(effective, permissionKeys)) {
-    throw new AdminOrganizationAccessError('permission_denied', '您没有该组织的管理权限', 403);
+    throw new AdminOrganizationAccessError('permission_denied', localeCopy.copy_5914228d50, 403);
   }
   return { admin, effective, organizationId: orgId };
 }

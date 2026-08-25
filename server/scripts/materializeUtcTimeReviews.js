@@ -6,6 +6,10 @@ const { createDatabaseConfig, quoteIdentifier, runPreflight } = require('./prefl
 
 const MIGRATION_KEY = '20260823190000';
 const BATCH_SIZE = 250;
+const PRESENTATION_MAPPING_VERSION = 'record-id+raw-value:v1';
+const PRESENTATION_MAPPING_PROOF_VERSION = 'record-id+column+raw-value:v2';
+const ABSOLUTE_RESPONSE_FIELD = /(?:At|Until|TimeStart|TimeEnd|Starts|Ends|_at|_until|time_start|time_end)$/;
+const RECORD_ID_FIELD = /(?:^id$|Id$|_id)$/;
 
 function stableRecordKey(primaryKeys, row) {
   return primaryKeys.map((column) => `${encodeURIComponent(column)}=${encodeURIComponent(String(row[column]))}`).join('&');
@@ -28,6 +32,76 @@ function canonicalTime(value) {
   if (value === null || value === undefined) return '';
   const parsed = Date.parse(String(value).replace(' ', 'T') + (/Z$|[+-]\d\d:\d\d$/.test(String(value)) ? '' : 'Z'));
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : String(value);
+}
+
+function columnNameToResponseKeys(columnName) {
+  const column = String(columnName || '').trim();
+  if (!/^[a-z][a-z0-9_]{0,127}$/.test(column)) return [];
+  const camel = column.replace(/_([a-z0-9])/g, (unused, part) => part.toUpperCase());
+  return Array.from(new Set([column, camel]));
+}
+
+function isProvablePresentationColumn(columnName) {
+  return columnNameToResponseKeys(columnName).some((key) => ABSOLUTE_RESPONSE_FIELD.test(key));
+}
+
+function isProvableRecordLocator(recordLocator, primaryRecordId) {
+  let locator = recordLocator;
+  if (typeof locator === 'string') {
+    try { locator = JSON.parse(locator || '{}'); } catch (_) { return false; }
+  }
+  if (!locator || typeof locator !== 'object' || Array.isArray(locator)) return false;
+  const primaryColumn = Object.keys(locator)[0];
+  if (!primaryColumn || String(locator[primaryColumn]) !== String(primaryRecordId || '')) return false;
+  return columnNameToResponseKeys(primaryColumn).some((key) => RECORD_ID_FIELD.test(key));
+}
+
+async function analyzeProvablePresentationMappings(connection) {
+  const groups = new Map();
+  let lastId = '';
+  let total = 0;
+  let structurallyUnmapped = 0;
+  while (true) {
+    const [rows] = await connection.query(
+      `SELECT id, table_name AS tableName, column_name AS columnName,
+              record_locator AS recordLocator, primary_record_id AS primaryRecordId,
+              raw_value AS rawValue
+         FROM absolute_time_record_reviews
+        WHERE migration_key = ? AND review_status = 'review_required' AND id > ?
+        ORDER BY id LIMIT ?`,
+      [MIGRATION_KEY, lastId, BATCH_SIZE]
+    );
+    for (const row of rows) {
+      total += 1;
+      lastId = String(row.id || '');
+      const recordId = String(row.primaryRecordId || '').trim();
+      const columnName = String(row.columnName || '').trim();
+      const rawValue = canonicalTime(row.rawValue);
+      if (!recordId || !rawValue || !isProvablePresentationColumn(columnName)
+        || !isProvableRecordLocator(row.recordLocator, recordId)) {
+        structurallyUnmapped += 1;
+        continue;
+      }
+      const key = `${recordId}\u0000${columnName}\u0000${rawValue}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(`${String(row.tableName || '')}\u0000${String(row.id || '')}`);
+    }
+    if (rows.length < BATCH_SIZE) break;
+  }
+
+  let mappedCount = 0;
+  let ambiguousCount = 0;
+  groups.forEach((identities) => {
+    const uniqueIdentities = new Set(identities);
+    if (uniqueIdentities.size === 1 && identities.length === 1) mappedCount += 1;
+    else ambiguousCount += identities.length;
+  });
+  return {
+    total,
+    mappedCount,
+    ambiguousCount,
+    unmappedCount: structurallyUnmapped + ambiguousCount
+  };
 }
 
 async function ensureReviewSchema(connection) {
@@ -253,32 +327,36 @@ async function verify(connection, markVerified) {
       [MIGRATION_KEY]
     );
     const unresolvedReviewCount = Number(unresolvedRows[0] && unresolvedRows[0].count || 0);
-    const [unmappedRows] = await connection.query(
-      `SELECT COUNT(*) AS count FROM absolute_time_record_reviews
-        WHERE migration_key = ? AND review_status = 'review_required'
-          AND (primary_record_id IS NULL OR primary_record_id = '')`,
-      [MIGRATION_KEY]
-    );
-    const unmappedReviewCount = Number(unmappedRows[0] && unmappedRows[0].count || 0);
-    if (unmappedReviewCount) {
-      throw new Error(`存在 ${unmappedReviewCount} 条无法映射到业务响应的待核对时间记录`);
+    const presentationMapping = await analyzeProvablePresentationMappings(connection);
+    if (presentationMapping.total !== unresolvedReviewCount) {
+      throw new Error('待核对时间记录与展示映射分析数量不一致');
     }
-    const cutoverStatus = unresolvedReviewCount > 0 ? 'review_pending' : 'verified';
-    const presentationMappingVersion = 'record-id+raw-value:v1';
+    const presentationMappingIncomplete = presentationMapping.unmappedCount > 0;
+    const cutoverStatus = presentationMappingIncomplete
+      ? 'mapping_incomplete'
+      : (unresolvedReviewCount > 0 ? 'review_pending' : 'verified');
     await connection.query(
       `UPDATE absolute_time_cutovers
-          SET status = ?, verified_at = CURRENT_TIMESTAMP(3),
+          SET status = ?, verified_at = IF(? = 'mapping_incomplete', NULL, CURRENT_TIMESTAMP(3)),
               detail_json = JSON_SET(
                 COALESCE(detail_json, JSON_OBJECT()),
                 '$.verifiedRecordCount', ?,
                 '$.unresolvedReviewCount', ?,
                 '$.presentationMappedReviewCount', ?,
-                '$.presentationMappingVersion', ?
+                '$.presentationUnmappedReviewCount', ?,
+                '$.presentationAmbiguousReviewCount', ?,
+                '$.presentationMappingVersion', ?,
+                '$.presentationMappingProofVersion', ?
               )
-        WHERE migration_key = ? AND status IN ('materialized', 'review_pending', 'verified')`,
-      [cutoverStatus, recordCount, unresolvedReviewCount, unresolvedReviewCount,
-        presentationMappingVersion, MIGRATION_KEY]
+        WHERE migration_key = ? AND status IN ('materialized', 'review_pending', 'verified', 'mapping_incomplete')`,
+      [cutoverStatus, cutoverStatus, recordCount, unresolvedReviewCount,
+        presentationMapping.mappedCount, presentationMapping.unmappedCount,
+        presentationMapping.ambiguousCount, PRESENTATION_MAPPING_VERSION,
+        PRESENTATION_MAPPING_PROOF_VERSION, MIGRATION_KEY]
     );
+    if (presentationMappingIncomplete) {
+      throw new Error(`存在 ${presentationMapping.unmappedCount} 条无法证明展示映射的待核对时间记录`);
+    }
     const [cutoverRows] = await connection.query(
       'SELECT status FROM absolute_time_cutovers WHERE migration_key = ?',
       [MIGRATION_KEY]
@@ -345,6 +423,10 @@ module.exports = {
   stableRecordKey,
   recordHash,
   canonicalTime,
+  columnNameToResponseKeys,
+  isProvablePresentationColumn,
+  isProvableRecordLocator,
+  analyzeProvablePresentationMappings,
   buildKeysetClause,
   forEachSourceBatch,
   readSourceRows,

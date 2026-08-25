@@ -115,7 +115,7 @@ async function resolveUserInOrganization(openid, orgId) {
 
   const conflict = await userInfoModel.getByHrIdInOrg(matchedHr.id, openid, orgId);
   if (conflict) {
-    const error = new Error('该组织中的人事身份已绑定其他微信');
+    const error = new Error(localeCopy.copy_e9125ff384);
     error.code = 'ORG_IDENTITY_CONFLICT';
     throw error;
   }

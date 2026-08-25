@@ -183,50 +183,28 @@ router.post('/listHrGovernance', async (req, res) => {
       ? (allowedIds.indexOf(requestedOrgId) >= 0 ? [requestedOrgId] : [])
       : allowedIds;
     if (!organizationIds.length) return res.status(403).json({ status: 'organization_forbidden', message: localeCopy.copy_b267164ab8 });
-    const placeholders = organizationIds.map(() => '?').join(',');
-    const [rows] = await pool.query(
-      `SELECT h.id, h.org_id, h.name, h.student_id,
-              om.person_id, om.id AS membership_id, om.status AS membership_status,
-              om.created_at AS joined_at,
-              CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at,
-              o.name AS organization_name,
-              d.name AS department_name, i.name AS identity_name, wg.name AS work_group_name,
-              a.id AS account_id, a.status AS account_status, a.verified_at, a.recovery_required_at,
-              EXISTS (SELECT 1 FROM account_wechat_bindings b WHERE b.account_id = a.id AND b.status = 'active') AS has_active_binding,
-              EXISTS (SELECT 1 FROM account_wechat_bindings history_binding WHERE history_binding.account_id = a.id) AS has_binding_history,
-              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
-                AND c.method = 'recovery_code' AND c.status = 'active') AS has_recovery_code,
-              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
-                AND c.method = 'passphrase' AND c.status = 'active') AS has_passphrase,
-              (SELECT COUNT(*) FROM auth_sessions s WHERE s.account_id = a.id
-                AND s.status = 'active' AND s.expires_at > NOW()) AS active_session_count,
-              (SELECT claim.id FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
-                AND claim.requested_org_id = h.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()
-                ORDER BY claim.created_at DESC LIMIT 1) AS pending_claim_id,
-              EXISTS (SELECT 1 FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
-                AND claim.requested_org_id = h.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()) AS has_pending_claim,
-              EXISTS (SELECT 1 FROM identity_verification_tokens token
-                JOIN identity_claim_requests claim ON claim.id = token.claim_request_id
-                WHERE claim.person_id = om.person_id AND claim.requested_org_id = h.org_id
-                  AND claim.status = 'pending' AND claim.expires_at > NOW()
-                  AND token.status = 'active' AND token.expires_at > NOW()) AS has_active_claim_code,
-              EXISTS (SELECT 1 FROM identity_verification_invites invite WHERE invite.person_id = om.person_id
-                AND invite.org_id = h.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite,
-              (SELECT recovery.id FROM account_recovery_requests recovery
-                WHERE recovery.person_id = om.person_id AND recovery.status = 'pending' AND recovery.expires_at > NOW()
-                ORDER BY recovery.created_at DESC LIMIT 1) AS pending_recovery_id
-         FROM hr_info h
-         JOIN organization_memberships om ON om.legacy_hr_id = h.id
-           AND om.org_id = h.org_id AND om.status IN ('active', 'left')
-         JOIN organizations o ON o.id = h.org_id
-         LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
-         LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
-         LEFT JOIN work_groups wg ON wg.id = h.work_group_id AND wg.org_id = h.org_id
-         LEFT JOIN accounts a ON a.person_id = om.person_id
-        WHERE h.org_id IN (${placeholders})
-        ORDER BY h.org_id, h.name, h.id`,
-      organizationIds
-    );
+    const directory = await personIdentityOverviewModel.listGovernanceDirectory(organizationIds);
+    const rows = directory.memberships;
+    const assignmentsByMembership = new Map();
+    directory.assignments.forEach((assignment) => {
+      const membershipId = safeString(assignment.membership_id);
+      const assignmentList = assignmentsByMembership.get(membershipId) || [];
+      assignmentList.push({
+        assignmentId: safeString(assignment.id),
+        assignmentNature: safeString(assignment.assignment_kind),
+        assignmentKind: safeString(assignment.assignment_kind),
+        departmentId: safeString(assignment.department_id),
+        department: safeString(assignment.department_name),
+        identityCategoryId: safeString(assignment.identity_id),
+        identityCategoryName: safeString(assignment.identity_name),
+        identityId: safeString(assignment.identity_id),
+        identity: safeString(assignment.identity_name),
+        workGroupId: safeString(assignment.work_group_id),
+        workGroup: safeString(assignment.work_group_name),
+        historical: safeString(assignment.membership_status) === 'left'
+      });
+      assignmentsByMembership.set(membershipId, assignmentList);
+    });
     const countByStatus = { verified: 0, pending_verification: 0, frozen: 0, recovery_required: 0 };
     const list = rows.map((item) => {
       const accountStatus = safeString(item.account_status);
@@ -234,9 +212,10 @@ router.post('/listHrGovernance', async (req, res) => {
         ? 'frozen'
         : accountStatus === 'recovery_required'
           ? 'recovery_required'
-          : accountStatus === 'verified' && Boolean(item.has_active_binding)
+          : accountStatus === 'verified'
             ? 'verified'
             : 'pending_verification';
+      const assignments = assignmentsByMembership.get(safeString(item.membership_id)) || [];
       countByStatus[status] = Number(countByStatus[status] || 0) + 1;
       return {
         id: safeString(item.id),
@@ -250,11 +229,14 @@ router.post('/listHrGovernance', async (req, res) => {
         organizationName: safeString(item.organization_name),
         name: safeString(item.name),
         studentId: safeString(item.student_id),
-        department: safeString(item.department_name),
-        identity: safeString(item.identity_name),
-        identityCategory: safeString(item.identity_name),
-        workGroup: safeString(item.work_group_name),
+        assignments,
+        assignmentCount: assignments.length,
+        assignmentNatures: assignments.map((assignment) => assignment.assignmentNature).filter(Boolean),
+        departments: assignments.map((assignment) => assignment.department).filter(Boolean),
+        identities: assignments.map((assignment) => assignment.identityCategoryName).filter(Boolean),
+        workGroups: assignments.map((assignment) => assignment.workGroup).filter(Boolean),
         accountId: safeString(item.account_id),
+        wxBindStatus: Boolean(item.has_active_binding) ? 'bound' : 'unbound',
         auth: {
           status,
           hasActiveBinding: Boolean(item.has_active_binding),
@@ -836,7 +818,7 @@ async function handleStructuredHrImport(req, res, previewOnly) {
     }
     return res.json({
       status: isExpectedImportError ? safeString(error.status) : 'error',
-      message: isExpectedImportError ? safeString(error.message) : '表格未导入，请重试',
+      message: isExpectedImportError ? safeString(error.message) : localeCopy.copy_5840966982,
       requestId: req.requestId || ''
     });
   }
@@ -1043,6 +1025,12 @@ router.post('/importHrCsv', async (req, res) => {
       await conn.beginTransaction();
       const nowUtc = nowMysqlUtc();
       const orgId = await getCurrentOrgId();
+      await hrTableImportModel.lockExistingImportSubjects(
+        conn,
+        parsedRows,
+        orgId,
+        Array.from(hrInfoRecMap.values())
+      );
 
       for (const name of newDeptNames) {
         const newId = deptMap.get(name);

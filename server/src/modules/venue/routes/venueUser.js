@@ -331,25 +331,13 @@ router.post('/getVenueSchedule', async (req, res) => {
     // 与借用记录列表一致：为可见借用补充审批进度（流程步骤、快照）与审批人姓名
     const flowStepsMap = {};
     const approvalBookings = detailBookings.filter(b => b.approval_flow_id && b.approval_total_steps > 0);
-    if (approvalBookings.length) {
-      const stepKeys = [...new Set(
-        approvalBookings.map(b => b.approval_flow_id + '|' + safeString(b.approval_org_id))
-      )];
-      for (const key of stepKeys) {
-        const sep = key.indexOf('|');
-        const flowId = key.slice(0, sep);
-        const flowOrg = key.slice(sep + 1);
-        const [steps] = await pool.query(
-          'SELECT sort_order, name FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-          [flowId, flowOrg]
-        );
-        flowStepsMap[key] = (steps || []).map(s => ({
-          sortOrder: s.sort_order,
-          name: s.name,
-          actionType: ''
-        }));
-      }
-    }
+    approvalBookings.forEach(function(booking) {
+      flowStepsMap[booking.id] = venueApprovalMultiFlow.getSnapshotFlowSteps(
+        booking,
+        booking.approval_org_id,
+        booking.approval_flow_id
+      );
+    });
     const snapshotHrIds = new Set();
     approvalBookings.forEach(b => {
       try {
@@ -516,7 +504,8 @@ router.post('/getVenueSchedule', async (req, res) => {
                 return snaps;
               } catch (_) { return []; }
             })(),
-            flowSteps: flowStepsMap[b.approval_flow_id + '|' + safeString(b.approval_org_id)] || []
+            flowSteps: flowStepsMap[b.id] || [],
+            flowSnapshotAvailable: Boolean(flowStepsMap[b.id] && flowStepsMap[b.id].length)
           } : null
         };
       });
@@ -705,13 +694,14 @@ router.post('/createVenueBooking', async (req, res) => {
     let approvalFlowId = null;
     let approvalTotalSteps = 0;
     let approvalFlowState = null;
+    let approvalFlowSnapshot = null;
 
     if (hasDirect) {
       // Direct: no approval needed at all
       autoApprove = true;
     } else {
       // 多审批流：允许用户选择时必选；否则全部流程并行
-      const approvalFlows = await venueApprovalFlowModel.listByVenueId(venueId);
+      const approvalFlows = await venueApprovalFlowModel.listByVenueId(venueId, orgId, conn);
       if (approvalFlows.length) {
         const allowUserSelect = approvalFlows.some(function(flow) { return Number(flow.allow_user_select) === 1; });
         let selectedFlowId = null;
@@ -727,13 +717,21 @@ router.post('/createVenueBooking', async (req, res) => {
         }
         const stepsByFlow = {};
         for (const flow of approvalFlows) {
-          stepsByFlow[flow.id] = await venueApprovalFlowStepModel.getByFlowId(flow.id, flow.org_id || orgId);
+          stepsByFlow[flow.id] = await venueApprovalFlowStepModel.getByFlowId(
+            flow.id,
+            flow.org_id || orgId,
+            conn
+          );
         }
         const activeFlows = approvalFlows.filter(function(flow) {
           return (stepsByFlow[flow.id] || []).length > 0;
         });
         if (activeFlows.length) {
           const applicantHrInfo = toRuleProfile(applicantAssignment);
+          if (selectedFlowId && !activeFlows.some(function(flow) { return safeString(flow.id) === selectedFlowId; })) {
+            await conn.rollback();
+            return res.json({ status: 'invalid_state', message: localeCopy.copy_29ea17e75c });
+          }
           const singleSelected = selectedFlowId
             ? approvalFlows.find(function(flow) { return String(flow.id) === selectedFlowId; })
             : (activeFlows.length === 1 ? activeFlows[0] : null);
@@ -755,6 +753,13 @@ router.post('/createVenueBooking', async (req, res) => {
             }
           }
           approvalFlowState = venueApprovalMultiFlow.buildInitialFlowState(activeFlows, selectedFlowId, firstDesignation);
+          approvalFlowSnapshot = venueApprovalMultiFlow.buildFlowDefinitionSnapshot(
+            activeFlows,
+            stepsByFlow,
+            selectedFlowId,
+            orgId,
+            applicantHrInfo
+          );
           approvalFlowId = selectedFlowId || activeFlows[0].id;
           approvalTotalSteps = selectedFlowId
             ? (stepsByFlow[selectedFlowId] || []).length
@@ -776,13 +781,13 @@ router.post('/createVenueBooking', async (req, res) => {
       ))),
       creatorOrgId: orgId, approvalOrgId: orgId,
       timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
-      approvalFlowId, approvalFlowState, approvalTotalSteps
+      approvalFlowId, approvalFlowState, approvalFlowSnapshot, approvalTotalSteps
     }, conn);
 
     const response = {
       status: 'success', id, bookingStatus: status,
-      message: autoApprove ? '借用已通过'
-        : (approvalFlowId ? ('借用申请已提交，等待 ' + approvalTotalSteps + localeCopy.copy_1648a1e6e4) : '借用申请已提交，等待审批')
+      message: autoApprove ? localeCopy.copy_a453f693a6
+        : (approvalFlowId ? (localeCopy.copy_fd193b8d0b + approvalTotalSteps + localeCopy.copy_1648a1e6e4) : localeCopy.copy_7dc3085474)
     };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
@@ -895,33 +900,19 @@ router.post('/listMyVenueBookings', async (req, res) => {
       } catch (_) {}
     }
 
-    // Attach flow step definitions to each booking's approvalProgress
-    try {
-      const flowBookings = list.filter(b => b.approvalProgress && b.approvalProgress.flowId);
-      if (flowBookings.length) {
-        const flowKeys = [...new Set(flowBookings.map(function(booking) {
-          return booking.approvalProgress.flowId + '|' + booking.approvalOrgId;
-        }))];
-        const flowStepsMap = {};
-        for (const flowKey of flowKeys) {
-          const separator = flowKey.indexOf('|');
-          const flowId = flowKey.slice(0, separator);
-          const flowOrgId = flowKey.slice(separator + 1);
-          try {
-            const steps = await venueApprovalFlowStepModel.getByFlowId(flowId, flowOrgId);
-            flowStepsMap[flowKey] = steps.map(s => ({
-              sortOrder: s.sort_order,
-              name: s.name,
-              actionType: s.action_type
-            }));
-          } catch (_) { flowStepsMap[flowKey] = []; }
-        }
-        for (const b of flowBookings) {
-          const flowKey = b.approvalProgress.flowId + '|' + b.approvalOrgId;
-          b.approvalProgress.flowSteps = flowStepsMap[flowKey] || [];
-        }
-      }
-    } catch (_) { /* silently ignore — flow timeline won't render full step names */ }
+    // 历史与在途进度只展示借用创建时固化的流程，不读取当前规则。
+    for (const item of list) {
+      if (!item.approvalProgress || !item.approvalProgress.flowId) continue;
+      const sourceBooking = bookings.find(function(booking) { return booking.id === item.id; });
+      item.approvalProgress.flowSteps = sourceBooking
+        ? venueApprovalMultiFlow.getSnapshotFlowSteps(
+          sourceBooking,
+          sourceBooking.approval_org_id,
+          item.approvalProgress.flowId
+        )
+        : [];
+      item.approvalProgress.flowSnapshotAvailable = item.approvalProgress.flowSteps.length > 0;
+    }
 
     res.json({ status: 'success', bookings: list });
   } catch (e) {
@@ -1242,14 +1233,16 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       approverRows.forEach(row => { approverNameMap[row.id] = safeString(row.name); });
     }
 
-    let flowSteps = [];
-    if (booking.approval_flow_id) {
-      const stepRows = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id, orgId);
-      flowSteps = stepRows.map((step, index) => ({
+    const flowSteps = venueApprovalMultiFlow.getSnapshotFlowSteps(
+      booking,
+      orgId,
+      booking.approval_flow_id
+    ).map(function(step, index) {
+      return {
         stepIndex: index,
         stepName: safeString(step.name) || ('第' + (index + 1) + localeCopy.copy_493a127a99)
-      }));
-    }
+      };
+    });
 
     const approvalEvents = snapshots.map((snapshot, index) => {
       const stepIndex = Number(snapshot.stepIndex);

@@ -1,3 +1,5 @@
+process.umask(0o077);
+
 require('dotenv').config();
 const pool = require('./src/config/db');
 const copy = require('./src/locales/zh-CN/notificationWorker');
@@ -72,7 +74,7 @@ async function tick() {
       await outboxModel.cleanupDone(30);
       await outboxModel.cleanupDead(90);
       await requestDeduplication.cleanupOld(pool, { retentionDays: 90, batchSize: 500, maxBatches: 20 });
-      cleanupAuditTemp({ maxAgeMs: 24 * 60 * 60 * 1000 });
+      await cleanupAuditTemp({ maxAgeMs: 24 * 60 * 60 * 1000 });
       lastMaintenanceDay = maintenanceDay;
     }
   } catch (error) {

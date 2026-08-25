@@ -1,7 +1,6 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueApprovalMultiFlow');
 const pool = require('../../../config/db');
 const { safeString } = require('../../../utils/helpers');
-const flowModel = require('../models/venueApprovalFlow');
-const stepModel = require('../models/venueApprovalFlowStep');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
 const {
   toRuleProfile,
@@ -9,7 +8,6 @@ const {
   loadAssignmentById,
   listActiveAssignmentsByOrg,
   resolveCurrentActorAssignment,
-  resolveBookingApplicantAssignment,
   actorMatchesDesignation
 } = require('./venueAssignmentContext');
 
@@ -21,7 +19,8 @@ const REASONS = Object.freeze({
   ADMIN_REQUIRED: '该步骤仅允许当前组织管理员审批',
   USER_ROLE_REQUIRED: '当前步骤需切换到普通用户身份审批',
   NO_RULES: '请联系管理员设置审批条件',
-  INVALID_HR: '绑定的人事信息不存在',
+  INVALID_HR: localeCopy.applicantSnapshotMissing,
+  FLOW_SNAPSHOT_MISSING: localeCopy.flowSnapshotMissing,
   RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
   ALREADY_APPROVED: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤',
   DESIGNATED_ONLY: '该步骤已指定审批人，只有指定人员可以审批',
@@ -36,6 +35,137 @@ function parseSnapshots(raw) {
   } catch (_) {
     return [];
   }
+}
+
+function jsonValue(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+function immutableRule(rule) {
+  const source = rule || {};
+  return {
+    id: safeString(source.id),
+    sort_order: Number(source.sort_order || source.sortOrder) || 0,
+    department_scope: safeString(source.department_scope || source.departmentScope) || 'all',
+    specific_department_id: safeString(source.specific_department_id || source.specificDepartmentId),
+    work_group_scope: safeString(source.work_group_scope || source.workGroupScope) || 'all',
+    specific_work_group_id: safeString(source.specific_work_group_id || source.specificWorkGroupId),
+    identity_scope: safeString(source.identity_scope || source.identityScope) || 'all',
+    specific_identity_id: safeString(source.specific_identity_id || source.specificIdentityId)
+  };
+}
+
+function immutableStep(step, index) {
+  const source = step || {};
+  return {
+    id: safeString(source.id),
+    sort_order: Number(source.sort_order || source.sortOrder) || index + 1,
+    name: safeString(source.name),
+    approval_mode: safeString(source.approval_mode || source.approvalMode) === 'admin_any'
+      ? 'admin_any'
+      : 'hr_rule',
+    rules: (Array.isArray(source.rules) ? source.rules : []).map(immutableRule)
+  };
+}
+
+function immutableFlow(flow, steps) {
+  const source = flow || {};
+  return {
+    id: safeString(source.id),
+    name: safeString(source.name),
+    allow_user_select: Number(source.allow_user_select || source.allowUserSelect) === 1 ? 1 : 0,
+    allow_designate_first: Number(source.allow_designate_first || source.allowDesignateFirst) === 1 ? 1 : 0,
+    allow_designate_next: Number(source.allow_designate_next || source.allowDesignateNext) === 1 ? 1 : 0,
+    steps: (Array.isArray(steps) ? steps : []).map(immutableStep)
+  };
+}
+
+function buildFlowDefinitionSnapshot(flows, stepsByFlow, selectedFlowId, orgId, applicantRuleProfile) {
+  const list = Array.isArray(flows) ? flows : [];
+  const selectedId = safeString(selectedFlowId);
+  const chosen = selectedId
+    ? list.filter(function(flow) { return safeString(flow && flow.id) === selectedId; })
+    : list;
+  const snapshotFlows = chosen.map(function(flow) {
+    return immutableFlow(flow, stepsByFlow && stepsByFlow[flow.id]);
+  }).filter(function(flow) { return flow.id && flow.steps.length; });
+  return {
+    schemaVersion: 1,
+    organizationId: safeString(orgId),
+    selectedFlowId: selectedId,
+    applicantRuleProfile: applicantRuleProfile ? {
+      id: safeString(applicantRuleProfile.id),
+      assignment_id: safeString(applicantRuleProfile.assignment_id),
+      assignment_kind: safeString(applicantRuleProfile.assignment_kind),
+      membership_id: safeString(applicantRuleProfile.membership_id),
+      person_id: safeString(applicantRuleProfile.person_id),
+      org_id: safeString(applicantRuleProfile.org_id),
+      name: safeString(applicantRuleProfile.name),
+      student_id: safeString(applicantRuleProfile.student_id),
+      department_id: safeString(applicantRuleProfile.department_id),
+      department_name: safeString(applicantRuleProfile.department_name),
+      work_group_id: safeString(applicantRuleProfile.work_group_id),
+      work_group_name: safeString(applicantRuleProfile.work_group_name),
+      identity_id: safeString(applicantRuleProfile.identity_id),
+      identity_name: safeString(applicantRuleProfile.identity_name),
+      assignment_label: safeString(applicantRuleProfile.assignment_label)
+    } : null,
+    flows: snapshotFlows
+  };
+}
+
+function parseFlowDefinitionSnapshot(booking, orgId) {
+  const parsed = jsonValue(booking && booking.approval_flow_snapshot_json);
+  if (!parsed || Number(parsed.schemaVersion) !== 1 || !Array.isArray(parsed.flows)) {
+    return { ok: false, reason: REASONS.FLOW_SNAPSHOT_MISSING, snapshot: null, flowsMap: {} };
+  }
+  if (!safeString(parsed.organizationId) || safeString(parsed.organizationId) !== safeString(orgId)) {
+    return { ok: false, reason: REASONS.FLOW_SNAPSHOT_MISSING, snapshot: null, flowsMap: {} };
+  }
+  const flowsMap = {};
+  for (const sourceFlow of parsed.flows) {
+    const flow = immutableFlow(sourceFlow, sourceFlow && sourceFlow.steps);
+    if (!flow.id || !flow.steps.length || flowsMap[flow.id]) {
+      return { ok: false, reason: REASONS.FLOW_SNAPSHOT_MISSING, snapshot: null, flowsMap: {} };
+    }
+    for (const step of flow.steps) {
+      if (!step.id || (step.approval_mode === 'hr_rule' && !step.rules.length)) {
+        return { ok: false, reason: REASONS.FLOW_SNAPSHOT_MISSING, snapshot: null, flowsMap: {} };
+      }
+    }
+    flowsMap[flow.id] = flow;
+  }
+  if (!Object.keys(flowsMap).length) {
+    return { ok: false, reason: REASONS.FLOW_SNAPSHOT_MISSING, snapshot: null, flowsMap: {} };
+  }
+  return {
+    ok: true,
+    reason: '',
+    snapshot: Object.assign({}, parsed, { flows: Object.values(flowsMap) }),
+    flowsMap
+  };
+}
+
+function getSnapshotFlowSteps(booking, orgId, flowId) {
+  const parsed = parseFlowDefinitionSnapshot(booking, orgId);
+  if (!parsed.ok) return [];
+  const targetFlowId = safeString(flowId || (booking && booking.approval_flow_id));
+  const flow = parsed.flowsMap[targetFlowId] || parsed.snapshot.flows[0];
+  return flow ? flow.steps.map(function(step) {
+    return {
+      stepIndex: flow.steps.indexOf(step),
+      sortOrder: Number(step.sort_order) || flow.steps.indexOf(step) + 1,
+      name: safeString(step.name),
+      actionType: '',
+      approvalMode: safeString(step.approval_mode)
+    };
+  }) : [];
 }
 
 function parseFlowState(booking) {
@@ -116,67 +246,14 @@ function buildInitialFlowState(flows, selectedFlowId, firstDesignation) {
   return state;
 }
 
-async function loadFlowsWithSteps(flowIds, orgId) {
-  const map = {};
-  for (const flowId of flowIds) {
-    if (!flowId || map[flowId]) continue;
-    const [flowRows] = await pool.query(
-      'SELECT * FROM venue_approval_flows WHERE id = ? AND org_id = ? AND is_active = 1',
-      [safeString(flowId), orgId]
-    );
-    const flow = flowRows[0];
-    if (!flow) continue;
-    const steps = await stepModel.getByFlowId(flow.id, orgId);
-    map[flow.id] = Object.assign({}, flow, { steps });
+function hasImmutableApproverReference(approval) {
+  if (safeString(approval && approval.approverType) === 'admin') {
+    return Boolean(safeString(approval.approverAdminGrantId) || safeString(approval.approverHrId));
   }
-  return map;
+  return Boolean(safeString(approval && approval.approverAssignmentId));
 }
 
-async function getApplicantHrInfo(booking) {
-  const assignment = await resolveBookingApplicantAssignment(booking);
-  return assignment ? toRuleProfile(assignment) : null;
-}
-
-async function isAdminStillValid(approval, orgId) {
-  const grantId = safeString(approval.approverAdminGrantId);
-  if (grantId) {
-    const [rows] = await pool.query(
-      `SELECT 1 FROM admin_grants
-        WHERE id = ? AND status = 'active' AND (org_id = ? OR org_id = '')
-        LIMIT 1`,
-      [grantId, orgId]
-    );
-    if (rows.length) return true;
-  }
-  const adminId = safeString(approval.approverHrId);
-  if (adminId) {
-    const [rows] = await pool.query(
-      `SELECT 1 FROM admin_info
-        WHERE id = ? AND org_id = ? AND bind_status = 'active'
-        LIMIT 1`,
-      [adminId, orgId]
-    );
-    if (rows.length) return true;
-  }
-  return false;
-}
-
-async function isApproverStillValid(step, approval, applicantHrInfo, orgId) {
-  if (!step) return false;
-  const mode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
-  if (mode === 'admin_any') {
-    return safeString(approval.approverType) === 'admin' && await isAdminStillValid(approval, orgId);
-  }
-  const assignmentId = safeString(approval.approverAssignmentId);
-  if (assignmentId) {
-    const assignment = await loadAssignmentById(assignmentId, orgId, true);
-    return Boolean(assignment && matchesAnyRule(step.rules || [], toRuleProfile(assignment), applicantHrInfo || null));
-  }
-  // 旧审批事件没有岗位引用，不能用审批人的当前岗位重新解释历史步骤。
-  return false;
-}
-
-async function recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId) {
+async function recomputeActiveFlows(state, flowsMap) {
   for (const flowId of Object.keys(state.flows)) {
     const st = state.flows[flowId];
     if (!st || !st.active || st.completed) continue;
@@ -185,10 +262,10 @@ async function recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId) {
       st.active = false;
       continue;
     }
-    let valid = true;
+    let valid = Boolean(flow);
     for (const ap of (st.approvedSteps || [])) {
-      const step = flow.steps[Number(ap.stepIndex)];
-      if (!step || !(await isApproverStillValid(step, ap, applicantHrInfo, orgId))) {
+      // 已发生审批只按当时写入的管理员授权/岗位引用认定，不能因事后调岗、离任或规则变化被追溯推翻。
+      if (!hasImmutableApproverReference(ap)) {
         valid = false;
         break;
       }
@@ -328,8 +405,28 @@ async function evaluateActorEligibility(booking, actor, orgId) {
     });
   }
   const state = parseFlowState(booking);
-  const flowsMap = await loadFlowsWithSteps(Object.keys(state.flows), orgId);
-  const applicantHrInfo = await getApplicantHrInfo(booking);
+  const flowDefinition = parseFlowDefinitionSnapshot(booking, orgId);
+  const flowsMap = flowDefinition.flowsMap;
+  const stateFlowIds = Object.keys(state.flows || {});
+  const snapshotFlowIds = Object.keys(flowsMap);
+  const stateMatchesSnapshot = flowDefinition.ok
+    && stateFlowIds.length === snapshotFlowIds.length
+    && stateFlowIds.every(function(flowId) { return Boolean(flowsMap[flowId]); })
+    && (!state.selectedFlowId || stateFlowIds.includes(state.selectedFlowId));
+  if (!stateMatchesSnapshot) {
+    return {
+      ok: false,
+      reason: REASONS.FLOW_SNAPSHOT_MISSING,
+      matchedFlows: [],
+      state,
+      flowsMap,
+      applicantHrInfo: null,
+      actor: effectiveActor,
+      candidateMissing: true,
+      summary: summarizeState(state, flowsMap)
+    };
+  }
+  const applicantHrInfo = flowDefinition.snapshot.applicantRuleProfile || null;
   if (!applicantHrInfo) {
     return {
       ok: false,
@@ -343,7 +440,7 @@ async function evaluateActorEligibility(booking, actor, orgId) {
       summary: summarizeState(state, flowsMap)
     };
   }
-  await recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId);
+  await recomputeActiveFlows(state, flowsMap);
 
   const actorPersonId = safeString(effectiveActor && effectiveActor.personId);
   const actorLegacyId = safeString(effectiveActor && effectiveActor.id);
@@ -465,7 +562,7 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     };
   }
 
-  await recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId);
+  await recomputeActiveFlows(state, flowsMap);
   const summary = summarizeState(state, flowsMap);
   let candidateMissing = false;
   if (summary.activeFlowIds.length) {
@@ -541,8 +638,10 @@ module.exports = {
   parseSnapshots,
   parseFlowState,
   buildInitialFlowState,
+  buildFlowDefinitionSnapshot,
+  parseFlowDefinitionSnapshot,
+  getSnapshotFlowSteps,
   isSingleFlowState,
-  loadFlowsWithSteps,
   validateDesignation,
   evaluateActorEligibility,
   evaluateWorkContextEligibility,

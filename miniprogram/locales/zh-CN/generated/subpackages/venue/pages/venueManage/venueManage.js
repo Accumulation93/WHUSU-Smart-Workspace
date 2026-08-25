@@ -1,6 +1,9 @@
 'use strict';
 
 module.exports = Object.freeze({
+  bookingPurposeDeletePrefix: '确定删除常用事由“',
+  bookingPurposeDeleteSuffix: '”吗？已被借用记录使用的事由不能删除。',
+  bookingPurposeTooLong: '事由内容最多填写 200 个字符',
   approverAssignment: '处理岗位：',
   bookingAssignment: '提交岗位',
   copy_00c8a8f256: "全选",
@@ -319,5 +322,8 @@ module.exports = Object.freeze({
   copy_fd4601c1f9: '已取消',
   copy_fdb45fb38f: '请输入事由内容',
   copy_fe59d1afcd: '不设置',
+  numericZeroPlaceholder: '0',
+  venueStartTimePlaceholder: '09:00',
+  venueEndTimePlaceholder: '18:00',
   navigationTitle: "场地借用 - WHUSU智慧工作台"
 });

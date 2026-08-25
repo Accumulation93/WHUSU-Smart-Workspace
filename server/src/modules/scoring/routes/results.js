@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/results');
+const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
@@ -21,6 +22,11 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const sharedCache = require('../utils/sharedCache');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const participantService = require('../services/participants');
+const {
+  validateCalculationSnapshot,
+  getHistoricalSnapshotFailure,
+  buildAggregationPolicySignature
+} = require('../utils/scoreCalc');
 
 const DEFAULT_WORK_GROUP = '';
 const RESPONSE_SAFE_LIMIT = 850 * 1024;
@@ -218,6 +224,34 @@ function normalizeMember(record, orgLookups) {
     identityId, identity: getLookupName(orgLookups.identitiesById, identityId),
     workGroupId, workGroup: getLookupName(orgLookups.workGroupsById, workGroupId) || DEFAULT_WORK_GROUP
   };
+}
+
+function mergeHistoricalTargets(currentMembers, targetSnapshots) {
+  const merged = new Map((currentMembers || []).map((member) => [safeString(member.id), member]));
+  if (!(targetSnapshots instanceof Map)) return Array.from(merged.values());
+  targetSnapshots.forEach((target, targetId) => {
+    const id = safeString(targetId || target && target.participantId);
+    if (!id || merged.has(id)) return;
+    const context = target && target.context || {};
+    merged.set(id, {
+      id,
+      legacyHrId: safeString(context.legacyHrId),
+      personId: safeString(target && target.personId || context.personId),
+      assignmentId: safeString(target && target.assignmentId || context.assignmentId || id),
+      assignmentNature: safeString(context.assignmentNature),
+      assignmentLabel: safeString(context.assignmentLabel),
+      name: safeString(context.name),
+      studentId: safeString(context.studentId),
+      departmentId: safeString(context.departmentId),
+      department: safeString(context.department),
+      identityId: safeString(context.identityCategoryId),
+      identity: safeString(context.identityCategory),
+      workGroupId: safeString(context.workGroupId),
+      workGroup: safeString(context.workGroup),
+      historicalOnly: true
+    });
+  });
+  return Array.from(merged.values());
 }
 
 function normalizeRuleClause(rawClause, orgLookups) {
@@ -716,24 +750,22 @@ function getCurrentTemplateWeight(rule, clauseIndex, templateId, fallback) {
   return 1;
 }
 
-function getRecordTemplateScores(record, rule, expectedTask, orgLookups) {
-  const configs = (Array.isArray(record.templateConfigs) && record.templateConfigs.length
-    ? record.templateConfigs
-    : ((rule.clauses || [])[toNumber(expectedTask && expectedTask.clauseIndex, 0)] || {}).templateConfigs || [])
-    .map((item) => {
-      const templateId = safeString(item.templateId);
-      const tpl = orgLookups.templatesById && orgLookups.templatesById.get(templateId);
-      return {
-        templateId, templateName: safeString(tpl && tpl.name),
-        weight: toNumber(item.weight, 0), sortOrder: toNumber(item.sortOrder, 0),
-        calculationMethod: safeString(item.calculationMethod || item.calculation_method) || 'weighted_average',
-        trimHighCount: Number(item.trimHighCount || item.trim_high_count || 0),
-        trimLowCount: Number(item.trimLowCount || item.trim_low_count || 0),
-        questionCount: toNumber(tpl && tpl.questionCount, 0),
-        questions: Array.isArray(tpl && tpl.questions) ? tpl.questions : []
-      };
-    }).filter((item) => item.templateId).sort((a, b) => a.sortOrder - b.sortOrder);
-
+function getRecordTemplateScores(record) {
+  const snapshot = record.calculationSnapshot || {};
+  const templates = (Array.isArray(snapshot.templates) ? snapshot.templates : [])
+    .map((template) => ({
+      templateId: safeString(template.templateId),
+      templateName: safeString(template.templateName),
+      weight: toNumber(template.weight, 0),
+      sortOrder: toNumber(template.sortOrder, 0),
+      calculationMethod: safeString(template.calculationMethod) || 'weighted_average',
+      trimHighCount: Number(template.trimHighCount || 0),
+      trimLowCount: Number(template.trimLowCount || 0),
+      questionCount: Array.isArray(template.questions) ? template.questions.length : 0,
+      questions: Array.isArray(template.questions) ? template.questions : []
+    }))
+    .filter((item) => item.templateId)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
   const answers = Array.isArray(record.answers) ? record.answers : [];
   const answerMap = new Map(answers.map((item, index) => {
     const raw = item.questionIndex != null ? item.questionIndex : index;
@@ -742,7 +774,7 @@ function getRecordTemplateScores(record, rule, expectedTask, orgLookups) {
     return [String(key), toNumber(item.score, 0)];
   }));
   let cursor = 0;
-  return configs.map((config) => {
+  return templates.map((config) => {
     let score = 0;
     if (config.questionCount) {
       for (let i = 0; i < config.questionCount; i++) score += toNumber(answerMap.get(String(cursor + i + 1)), 0);
@@ -752,6 +784,200 @@ function getRecordTemplateScores(record, rule, expectedTask, orgLookups) {
     cursor += config.questionCount;
     return { ...config, score };
   });
+}
+
+function addSnapshotDiagnostic(diagnostics, recordId, reason) {
+  diagnostics.skippedRecords += 1;
+  diagnostics.reasons[reason] = (diagnostics.reasons[reason] || 0) + 1;
+  if (diagnostics.records.length < 50) diagnostics.records.push({ recordId: safeString(recordId), reason });
+}
+
+function inspectImmutableRecords(records, activityId) {
+  const diagnostics = {
+    totalRecords: records.length,
+    acceptedRecords: 0,
+    skippedRecords: 0,
+    reasons: {},
+    records: []
+  };
+  const accepted = [];
+  records.forEach((record) => {
+    const validation = validateCalculationSnapshot(record, activityId);
+    if (!validation.ok) {
+      addSnapshotDiagnostic(diagnostics, record.id, validation.reason);
+      return;
+    }
+    const answers = Array.isArray(record.answers) ? record.answers : [];
+    const hasZeroBasedAnswer = answers.some((item) => Number(item.questionIndex) === 0);
+    const answerIndexes = new Set(answers.map((item, index) => {
+      const raw = item.questionIndex != null ? Number(item.questionIndex) : index + 1;
+      return hasZeroBasedAnswer ? raw + 1 : raw;
+    }));
+    if (answerIndexes.size !== validation.questionCount) {
+      addSnapshotDiagnostic(diagnostics, record.id, 'answer_count_mismatch');
+      return;
+    }
+    for (let index = 1; index <= validation.questionCount; index += 1) {
+      if (!answerIndexes.has(index)) {
+        addSnapshotDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch');
+        return;
+      }
+    }
+    const snapshot = validation.snapshot;
+    const scorerContext = snapshot.scorer.context || {};
+    const targetContext = snapshot.target.context || {};
+    accepted.push(Object.assign({}, record, {
+      calculationSnapshot: snapshot,
+      scorerId: safeString(snapshot.scorer.participantId),
+      scorerPersonId: safeString(snapshot.scorer.personId),
+      scorerAssignmentId: safeString(snapshot.scorer.assignmentId),
+      scorerName: safeString(scorerContext.name),
+      scorerStudentId: safeString(scorerContext.studentId),
+      scorerDepartmentId: safeString(scorerContext.departmentId),
+      scorerIdentityCategoryId: safeString(scorerContext.identityCategoryId),
+      scorerIdentityId: safeString(scorerContext.identityCategoryId),
+      scorerWorkGroupId: safeString(scorerContext.workGroupId),
+      scorerDepartment: safeString(scorerContext.department),
+      scorerIdentityCategory: safeString(scorerContext.identityCategory),
+      scorerIdentity: safeString(scorerContext.identityCategory),
+      scorerWorkGroup: safeString(scorerContext.workGroup),
+      scorerAssignmentNature: safeString(scorerContext.assignmentNature),
+      scorerAssignmentLabel: safeString(scorerContext.assignmentLabel),
+      scorerHistoricalAssignmentUnavailable: false,
+      targetId: safeString(snapshot.target.participantId),
+      targetPersonId: safeString(snapshot.target.personId),
+      targetAssignmentId: safeString(snapshot.target.assignmentId),
+      targetName: safeString(targetContext.name),
+      targetStudentId: safeString(targetContext.studentId),
+      targetDepartmentId: safeString(targetContext.departmentId),
+      targetIdentityCategoryId: safeString(targetContext.identityCategoryId),
+      targetIdentityId: safeString(targetContext.identityCategoryId),
+      targetWorkGroupId: safeString(targetContext.workGroupId),
+      targetDepartment: safeString(targetContext.department),
+      targetIdentityCategory: safeString(targetContext.identityCategory),
+      targetIdentity: safeString(targetContext.identityCategory),
+      targetWorkGroup: safeString(targetContext.workGroup),
+      targetAssignmentNature: safeString(targetContext.assignmentNature),
+      targetAssignmentLabel: safeString(targetContext.assignmentLabel),
+      targetHistoricalAssignmentUnavailable: false,
+      ruleId: safeString(snapshot.rule.id),
+      templateConfigSignature: safeString(snapshot.templateConfigSignature)
+    }));
+    diagnostics.acceptedRecords += 1;
+  });
+  return { records: accepted, diagnostics };
+}
+
+function buildImmutableTaskData(records) {
+  const targetBySubjectKey = new Map();
+  const completionBuckets = new Map();
+  const submittedByTarget = new Map();
+
+  records.forEach((record) => {
+    const snapshot = record.calculationSnapshot;
+    targetBySubjectKey.set(safeString(snapshot.target.subjectKey), {
+      targetId: safeString(snapshot.target.participantId),
+      targetName: safeString(record.targetName),
+      targetStudentId: safeString(record.targetStudentId),
+      targetDepartment: safeString(record.targetDepartment),
+      targetIdentity: safeString(record.targetIdentity),
+      targetWorkGroup: safeString(record.targetWorkGroup)
+    });
+    const completionKey = safeString(snapshot.scorer.subjectKey)
+      + '||' + safeString(snapshot.calculationPolicySignature);
+    if (!completionBuckets.has(completionKey)) {
+      completionBuckets.set(completionKey, {
+        key: completionKey,
+        scorerId: safeString(snapshot.scorer.participantId),
+        scorerSubjectKey: safeString(snapshot.scorer.subjectKey),
+        scorer: snapshot.scorer,
+        requireAllComplete: snapshot.clause.requireAllComplete === true,
+        requiredTargets: new Map(),
+        submittedTargets: new Set(),
+        recordIds: new Set()
+      });
+    }
+    const bucket = completionBuckets.get(completionKey);
+    snapshot.clause.requiredTargets.forEach((target) => {
+      const subjectKey = safeString(target && target.subjectKey);
+      if (subjectKey) bucket.requiredTargets.set(subjectKey, target);
+    });
+    bucket.submittedTargets.add(safeString(snapshot.target.subjectKey));
+    bucket.recordIds.add(safeString(record.id));
+    record.completionKey = completionKey;
+    if (!submittedByTarget.has(record.targetId)) submittedByTarget.set(record.targetId, new Set());
+    submittedByTarget.get(record.targetId).add(safeString(snapshot.scorer.participantId));
+  });
+
+  const excludedRecordIds = new Set();
+  completionBuckets.forEach((bucket) => {
+    if (!bucket.requireAllComplete) return;
+    const incomplete = Array.from(bucket.requiredTargets.keys())
+      .some((subjectKey) => !bucket.submittedTargets.has(subjectKey));
+    if (incomplete) bucket.recordIds.forEach((recordId) => excludedRecordIds.add(recordId));
+  });
+
+  const scorerRowsById = new Map();
+  const expectedPairs = [];
+  completionBuckets.forEach((bucket) => {
+    const context = bucket.scorer.context || {};
+    if (!scorerRowsById.has(bucket.scorerId)) {
+      scorerRowsById.set(bucket.scorerId, {
+        scorerKey: bucket.scorerId,
+        scorerId: bucket.scorerId,
+        scorerName: safeString(context.name),
+        scorerStudentId: safeString(context.studentId),
+        personId: safeString(bucket.scorer.personId),
+        assignmentId: safeString(bucket.scorer.assignmentId),
+        assignmentKind: safeString(context.assignmentNature),
+        assignmentLabel: safeString(context.assignmentLabel),
+        departmentId: safeString(context.departmentId),
+        identityId: safeString(context.identityCategoryId),
+        workGroupId: safeString(context.workGroupId),
+        department: safeString(context.department),
+        identity: safeString(context.identityCategory),
+        workGroup: safeString(context.workGroup),
+        expectedKeys: new Set(),
+        submittedKeys: new Set()
+      });
+    }
+    const scorerRow = scorerRowsById.get(bucket.scorerId);
+    bucket.requiredTargets.forEach((requiredTarget, subjectKey) => {
+      scorerRow.expectedKeys.add(subjectKey);
+      const target = targetBySubjectKey.get(subjectKey) || {
+        targetId: safeString(requiredTarget.participantId || requiredTarget.assignmentId),
+        targetName: '', targetStudentId: '', targetDepartment: '', targetIdentity: '', targetWorkGroup: ''
+      };
+      expectedPairs.push(Object.assign({}, target, {
+        completionKey: bucket.key,
+        scorerKey: bucket.scorerId,
+        scorerId: bucket.scorerId,
+        scorerName: scorerRow.scorerName,
+        scorerStudentId: scorerRow.scorerStudentId,
+        scorerDepartment: scorerRow.department,
+        scorerIdentity: scorerRow.identity,
+        scorerWorkGroup: scorerRow.workGroup,
+        targetSubjectKey: subjectKey,
+        requireAllComplete: bucket.requireAllComplete
+      }));
+    });
+    bucket.submittedTargets.forEach((subjectKey) => scorerRow.submittedKeys.add(subjectKey));
+  });
+
+  const scorerTaskRows = Array.from(scorerRowsById.values()).map((row) => {
+    const expectedCount = row.expectedKeys.size;
+    const submittedCount = Array.from(row.submittedKeys).filter((key) => row.expectedKeys.has(key)).length;
+    return Object.assign({}, row, {
+      expectedKeys: undefined,
+      submittedKeys: undefined,
+      expectedCount,
+      submittedCount,
+      pendingCount: Math.max(expectedCount - submittedCount, 0),
+      completionRate: expectedCount ? Number(((submittedCount / expectedCount) * 100).toFixed(2)) : 100
+    });
+  });
+
+  return { completionBuckets, excludedRecordIds, expectedPairs, scorerTaskRows, submittedByTarget };
 }
 
 function findRecordScorerClauseKeyFromPairs(record, scorerKey, expectedPairs) {
@@ -929,7 +1155,7 @@ router.post('/getScoreResults', async (req, res) => {
       const cacheKey = getOverviewCacheKey(orgId, activityId, dataType, filters);
       if (nocache) await sharedCache.invalidateKey(cacheKey);
       const cached = await getCachedOverview(cacheKey);
-      if (cached) {
+      if (cached && cached.historicalIntegrityVerified === true) {
         return res.json({
           status: 'success',
           activity: cached.activity,
@@ -940,6 +1166,7 @@ router.post('/getScoreResults', async (req, res) => {
           pagination: { total: cached.overviewRows.length }
         });
       }
+      if (cached) await sharedCache.invalidateKey(cacheKey);
       // Cache miss — compute via unified scoring engine (same as user-side, millisecond-fast)
       const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
       const [memRaw, orgLk] = await Promise.all([
@@ -950,11 +1177,27 @@ router.post('/getScoreResults', async (req, res) => {
       const mems = memRaw.map((item) => normalizeMember(item, orgLk));
       const actBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
 
-      const { computeValidScoreMap } = require('../utils/scoreCalc');
-      const { finalScoreMap, submittedByTarget, expectedByCount, scorerExpectedCount } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
+      const { computeValidScoreMap, getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
+      const {
+        finalScoreMap,
+        submittedByTarget,
+        expectedByCount,
+        scorerExpectedCount,
+        targetSnapshots,
+        diagnostics
+      } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
+      const historicalFailure = getHistoricalSnapshotFailure(diagnostics);
+      if (historicalFailure) {
+        return res.json(Object.assign({}, historicalFailure, {
+          message: historicalFailure.status === 'historical_snapshot_missing'
+            ? localeCopy.historicalSnapshotMissing
+            : localeCopy.historicalSnapshotInvalid
+        }));
+      }
 
-      // Build overview rows from unified engine results
-      const overviewRows = mems.map(function (member) {
+      // 当前目录用于补充尚未产生评分的成员；已有历史评分必须保留提交时目标快照。
+      const overviewMembers = mergeHistoricalTargets(mems, targetSnapshots);
+      const overviewRows = overviewMembers.map(function (member) {
         let scoreData = finalScoreMap.get(member.id);
         let finalScore = scoreData ? scoreData.finalScore : 0;
         let expCount = expectedByCount.get(member.id) || 0;
@@ -1003,8 +1246,8 @@ router.post('/getScoreResults', async (req, res) => {
       let scoredIds = new Set();
       submittedByTarget.forEach(function (scorers, tid) { if (scorers.size > 0) scoredIds.add(tid); });
       let recCount = 0;
-      let midSet = new Set(mems.map(function (m) { return m.id; }));
-      let memById = new Map(mems.map(function (m) { return [m.id, m]; }));
+      let midSet = new Set(overviewMembers.map(function (m) { return m.id; }));
+      let memById = new Map(overviewMembers.map(function (m) { return [m.id, m]; }));
       submittedByTarget.forEach(function (scorers, tid) {
         if (!midSet.has(tid)) return;
         let tm = memById.get(tid);
@@ -1032,6 +1275,7 @@ router.post('/getScoreResults', async (req, res) => {
 
       // Cache and return
       await setCachedOverview(cacheKey, {
+        historicalIntegrityVerified: true,
         overviewRows: filteredRows,
         needsAssignmentDisambiguation: overviewPresentation.needsAssignmentDisambiguation,
         stats: overviewStats,
@@ -1060,83 +1304,50 @@ router.post('/getScoreResults', async (req, res) => {
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
     const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
-    const records = enrichScoreRecords(recordsWithAnswers, members, granularity);
-    const activityBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
-    const rules = await loadRulesWithClauses(activityId, orgLookups);
-
-    // ── Conditional data building ──
-    // 'completion' uses the lightweight arithmetic counter (O(targets+scorers) per clause).
-    // Other types need full buildTaskData for expectedPairs detail.
-    let taskData = null;
-    let completionData = null;
-    if (dataType === 'completion') {
-      completionData = computeScorerCompletionData(members, rules, records);
-    } else {
-      taskData = buildTaskData(members, rules, records);
+    const enrichedRecords = enrichScoreRecords(recordsWithAnswers, members, granularity);
+    const inspection = inspectImmutableRecords(enrichedRecords, activityId);
+    const historicalFailure = getHistoricalSnapshotFailure(inspection.diagnostics);
+    if (historicalFailure) {
+      return res.json(Object.assign({}, historicalFailure, {
+        message: historicalFailure.status === 'historical_snapshot_missing'
+          ? localeCopy.historicalSnapshotMissing
+          : localeCopy.historicalSnapshotInvalid
+      }));
     }
-
-    const resolveScorerKey = createScorerKeyResolver(members);
-    const memberByScorerKey = new Map(members.map((m) => [getScorerUniqueKey(m), m]));
-    const memberById = new Map(members.map((m) => [safeString(m.id), m]));
-    const ruleById = new Map(rules.map((item) => [safeString(item._id), item]));
-
-    // ── Pre-build lookup Maps to replace O(N) linear searches with O(1) ──
-    // ruleByScorerKey: "deptId::identityId" → rule (replaces for...of rules loop in catch-all)
-    let ruleByScorerKey = new Map();
-    rules.forEach(function (r) { ruleByScorerKey.set(safeString(r.scorerKey), r); });
+    const records = inspection.records;
+    const activityBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
+    const taskData = buildImmutableTaskData(records);
+    const completionData = taskData;
+    const resolveScorerKey = (record) => safeString(
+      record && record.calculationSnapshot && record.calculationSnapshot.scorer.participantId
+    );
+    const memberByScorerKey = new Map(taskData.scorerTaskRows.map((row) => [safeString(row.scorerKey), row]));
 
     // pairTaskByKey: "ruleId::targetId::scorerKey" → expectedPair (replaces findExpectedPairTask)
     let pairTaskByKey = new Map();
-    if (taskData && taskData.expectedPairs) {
+    if (taskData.expectedPairs) {
       taskData.expectedPairs.forEach(function (task) {
-        pairTaskByKey.set(task.ruleId + '::' + task.targetId + '::' + task.scorerKey, task);
-        if (task.scorerId && task.scorerId !== task.scorerKey) {
-          pairTaskByKey.set(task.ruleId + '::' + task.targetId + '::' + task.scorerId, task);
-        }
+        pairTaskByKey.set(task.targetId + '::' + task.scorerKey, task);
       });
     }
 
     // ── Inline findExpectedPairTask (O(1) Map lookup) ──
     function lookupExpectedTask(record, scorerKey) {
-      let rId = safeString(record.ruleId);
       let tId = safeString(record.targetId);
-      return pairTaskByKey.get(rId + '::' + tId + '::' + scorerKey)
-        || pairTaskByKey.get(rId + '::' + tId + '::' + safeString(record.scorerId))
-        || null;
-    }
-
-    function lookupClauseKey(record, scorerKey) {
-      let task = lookupExpectedTask(record, scorerKey);
-      let rId = safeString(record.ruleId);
-      let sk = safeString(task ? task.scorerKey || scorerKey : scorerKey);
-      return rId + '::' + toNumber(task && task.clauseIndex, 0) + '::' + sk;
+      return pairTaskByKey.get(tId + '::' + scorerKey) || null;
     }
 
     // ── Unified activity-level stats (same meaning across all dataType views) ──
-    let invalidScorerClauseKeys = dataType === 'completion' ? new Set() : new Set((taskData && taskData.invalidScorerClauseKeys) || []);
+    const excludedRecordIds = taskData.excludedRecordIds;
     const scoredTargetIds = new Set();
-    if (dataType === 'completion') {
-      // Completion: scored targets come from submittedByTarget Set
-      completionData.submittedByTarget.forEach(function (scorers, tid) {
-        if (scorers.size > 0) scoredTargetIds.add(tid);
-      });
-    } else {
-      records.forEach((r) => {
-        const tid = safeString(r.targetId);
-        if (!tid) return;
-        const rsk = resolveScorerKey(r);
-        const clauseKey = lookupClauseKey(r, rsk);
-        if (invalidScorerClauseKeys.has(clauseKey)) return;
-        scoredTargetIds.add(tid);
-      });
-    }
+    records.forEach((record) => {
+      if (!excludedRecordIds.has(safeString(record.id))) scoredTargetIds.add(safeString(record.targetId));
+    });
     const baseStats = {
       totalMembers: members.length,
       scoredMembers: members.filter((m) => scoredTargetIds.has(safeString(m.id))).length,
       recordCount: records.length,
-      completedMembers: dataType === 'completion'
-        ? completionData.scorerTaskRows.filter((s) => toNumber(s.pendingCount, 0) === 0).length
-        : (taskData ? taskData.scorerTaskRows.filter((s) => toNumber(s.pendingCount, 0) === 0).length : 0)
+      completedMembers: taskData.scorerTaskRows.filter((s) => toNumber(s.pendingCount, 0) === 0).length
     };
 
     if (dataType === 'scorerTargets') {
@@ -1167,7 +1378,7 @@ router.post('/getScoreResults', async (req, res) => {
           targetDepartment: target.targetDepartment, targetIdentity: target.targetIdentity,
           targetWorkGroup: target.targetWorkGroup,
           status: isSubmitted ? 'submitted' : 'pending',
-          statusText: isSubmitted ? '已评' : '未评',
+          statusText: isSubmitted ? localeCopy.copy_0274004bba : localeCopy.copy_6efdc6ebba,
           statusClass: isSubmitted ? 'status-completed' : 'status-pending',
           recordId: isSubmitted ? (submittedRecordMap.get(target.targetId) || '') : ''
         };
@@ -1183,14 +1394,10 @@ router.post('/getScoreResults', async (req, res) => {
       const recordById = new Map(records.map((r) => [safeString(r.id), r]));
       const record = recordById.get(safeString(recordId));
       if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
-      const currentRule = ruleById.get(safeString(record.ruleId)) || null;
-      const rule = currentRule || { _id: safeString(record.ruleId), clauses: [] };
-      const rsk = resolveScorerKey(record);
-      const expectedTask = lookupExpectedTask(record, rsk);
-      const templates = getRecordTemplateScores(record, rule, expectedTask, orgLookups).map((tpl) => ({
-        ...tpl, templateName: safeString(tpl.templateName),
-        weight: getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, tpl.templateId, tpl),
-        weightedScore: tpl.score * getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, tpl.templateId, tpl)
+      const templates = getRecordTemplateScores(record).map((template) => ({
+        ...template,
+        templateName: safeString(template.templateName),
+        weightedScore: template.score * template.weight
       }));
       // Build answer map keyed by global questionIndex (handles legacy 0-based data)
       const ansArr = Array.isArray(record.answers) ? record.answers : [];
@@ -1232,7 +1439,8 @@ router.post('/getScoreResults', async (req, res) => {
             questionIndex: item.questionIndex != null ? item.questionIndex : index + 1,
             score: toNumber(item.score, 0)
           })),
-          historicalRuleUnavailable: !currentRule
+          historicalRuleUnavailable: false,
+          immutableSnapshot: true
         }
       });
     }
@@ -1292,24 +1500,12 @@ router.post('/getScoreResults', async (req, res) => {
     if (dataType === 'targetRecords') {
       if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
       const targetRecords = records.filter((r) => safeString(r.targetId) === safeString(targetId));
-      const expectRow = { targetId, expectedScorers: [] };
-      const membersByRuleKey = new Map();
-      members.forEach((m) => { const k = getMemberRuleKey(m); if (!membersByRuleKey.has(k)) membersByRuleKey.set(k, []); membersByRuleKey.get(k).push(m); });
-      rules.forEach((rule) => {
-        const scorers = membersByRuleKey.get(makeOrgRuleKey(rule.scorerDepartmentId, rule.scorerIdentityId)) || [];
-        rule.clauses.forEach((clause, ci) => {
-          if (!clause.templateConfigs.length) return;
-          scorers.forEach((scorer) => {
-            const target = memberById.get(safeString(targetId));
-            if (!target || !matchesClauseTarget(target, scorer, clause)) return;
-            if (!rule.allowSelfAssessment && participantService.isSameNaturalPerson(scorer, target)) return;
-            expectRow.expectedScorers.push({ ruleId: safeString(rule._id), clauseIndex: ci, requireAllComplete: clause.requireAllComplete === true, scorerKey: getScorerUniqueKey(scorer), scorerId: scorer.id, scorerName: scorer.name, scorerStudentId: scorer.studentId, scorerDepartment: scorer.department, scorerIdentity: scorer.identity, scorerWorkGroup: scorer.workGroup || DEFAULT_WORK_GROUP });
-          });
-        });
-      });
+      const expectRow = {
+        targetId,
+        expectedScorers: taskData.expectedPairs.filter((pair) => safeString(pair.targetId) === safeString(targetId))
+      };
 
       const recordRows = targetRecords.map((record) => {
-        const rule = ruleById.get(safeString(record.ruleId)) || {};
         const rsk = resolveScorerKey(record);
         const task = lookupExpectedTask(record, rsk);
         const sk = safeString((task && task.scorerKey) || rsk || record.scorerId);
@@ -1325,7 +1521,7 @@ router.post('/getScoreResults', async (req, res) => {
             ? ''
             : ([safeString(record.scorerDepartment), safeString(record.scorerIdentityCategory || record.scorerIdentity)].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1),
           targetId: safeString(record.targetId), submittedAt: record.submittedAt || null,
-          excludedByRequireAll: invalidScorerClauseKeys.has(lookupClauseKey(record, sk))
+          excludedByRequireAll: excludedRecordIds.has(safeString(record.id))
         };
       });
 
@@ -1339,7 +1535,7 @@ router.post('/getScoreResults', async (req, res) => {
         targetRecordRows.push(rec ? {
           ...rec,
           status: rec.excludedByRequireAll ? 'inactive' : 'completed',
-          statusText: rec.excludedByRequireAll ? '评分未生效' : '已完成'
+          statusText: rec.excludedByRequireAll ? scoringCopy.statusInactive : scoringCopy.statusCompleted
         } : { recordId: '', targetId, scorerKey: sk, scorerId: safeString(task.scorerId), scorerName: safeString(task.scorerName), scorerStudentId: safeString(task.scorerStudentId), scorerDepartment: safeString(task.scorerDepartment), scorerIdentity: safeString(task.scorerIdentity), scorerWorkGroup: safeString(task.scorerWorkGroup), status: 'pending', statusText: localeCopy.copy_8d112a0e5f, submittedAt: '', excludedByRequireAll: false });
       });
       // 当前规则变化或审批人离任后，已发生的评分事实仍须出现在历史中。
@@ -1348,7 +1544,7 @@ router.post('/getScoreResults', async (req, res) => {
         targetRecordRows.push({
           ...recordRow,
           status: 'completed',
-          statusText: '已完成',
+          statusText: scoringCopy.statusCompleted,
           historicalOnly: true
         });
       });
@@ -1366,20 +1562,6 @@ router.post('/getScoreResults', async (req, res) => {
     const needsRecords = dataType === 'records';
     const needsDetail = dataType === 'detail';
     const needsCalculation = dataType === 'calculation' || dataType === 'overview';
-
-    // Build current template structure signatures per rule for signature validation.
-    // Uses structure-only format (question count, not full parameters) so that
-    // changing score ranges does not invalidate existing records.
-    const currentSignaturesByRule = new Map();
-    rules.forEach((rule) => {
-      const sigs = new Set();
-      rule.clauses.forEach((clause) => {
-        if (!clause.templateConfigs.length) return;
-        const sig = buildTemplateConfigSignature(clause.templateConfigs, orgLookups.templatesById);
-        if (sig) sigs.add(sig);
-      });
-      currentSignaturesByRule.set(safeString(rule._id), sigs);
-    });
 
     const calculationMap = new Map();
     const detailRows = [];
@@ -1407,16 +1589,8 @@ router.post('/getScoreResults', async (req, res) => {
       const scorerDepartmentId = safeString(record.scorerDepartmentId);
       const scorerIdentityId = safeString(record.scorerIdentityId);
       const scorerCategoryKey = `${scorerDepartmentId}::${scorerIdentityId}`;
-      const currentRule = ruleById.get(safeString(record.ruleId)) || null;
-      const rule = currentRule || { _id: safeString(record.ruleId), clauses: [] };
-      const historicalRuleUnavailable = !currentRule;
-
-      // ── Template signature validation: compare structure (question count), not full parameters ──
-      const ruleSigs = currentSignaturesByRule.get(safeString(rule._id));
-      const recordSigRaw = safeString(record.templateConfigSignature || record.template_config_signature);
-      // Normalize the record's stored signature to structure-only format for comparison
-      const recordSigNormalized = normalizeSignatureToStructure(recordSigRaw) || recordSigRaw;
-      const sigStale = ruleSigs && ruleSigs.size > 0 && !ruleSigs.has(recordSigNormalized);
+      const historicalRuleUnavailable = false;
+      const sigStale = false;
 
       const scorerDepartment = safeString(record.scorerDepartment);
       const scorerIdentity = safeString(record.scorerIdentityCategory || record.scorerIdentity);
@@ -1430,19 +1604,18 @@ router.post('/getScoreResults', async (req, res) => {
       const rsk = resolveScorerKey(record);
       const expectedTask = lookupExpectedTask(record, rsk);
       const sk = safeString((expectedTask && expectedTask.scorerKey) || rsk || record.scorerId);
-      const excludedByRequireAll = invalidScorerClauseKeys.has(lookupClauseKey(record, sk));
+      const excludedByRequireAll = excludedRecordIds.has(safeString(record.id));
 
       if (needsRecords) {
-        const tplScores = getRecordTemplateScores(record, rule, expectedTask, orgLookups);
-        const tplSummary = tplScores.map((item) => {
-          const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item);
-          return `${safeString(cfg.templateName || item.templateName)} × ${getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item)}`;
-        }).filter(Boolean).join('；');
+        const tplScores = getRecordTemplateScores(record);
+        const tplSummary = tplScores.map((item) => (
+          `${safeString(item.templateName)} × ${toNumber(item.weight, 0)}`
+        )).filter(Boolean).join('；');
         recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(record.scorerWorkGroup || ''), scorerCategoryLabel, ...scorerHistoricalFields, ...targetBase, templateSummary: tplSummary, submittedAt: record.submittedAt || null, excludedByRequireAll, signatureStale: false, historicalRuleUnavailable });
         return;
       }
 
-      const tplScores = getRecordTemplateScores(record, rule, expectedTask, orgLookups);
+      const tplScores = getRecordTemplateScores(record);
       if (needsDetail && !tplScores.length) {
         detailRows.push({
           ...targetBase,
@@ -1467,13 +1640,18 @@ router.post('/getScoreResults', async (req, res) => {
         });
       }
       tplScores.forEach((tplItem) => {
-        const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, tplItem.templateId, tplItem);
-        const tplName = safeString(cfg.templateName || tplItem.templateName);
-        const weight = getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, tplItem.templateId, tplItem);
+        const cfg = tplItem;
+        const tplName = safeString(tplItem.templateName);
+        const weight = toNumber(tplItem.weight, 0);
         const tplScore = toNumber(tplItem.score, 0);
 
         if (needsCalculation) {
-          const gKey = [targetBase.targetId, scorerCategoryKey, tplItem.templateId].join('||');
+          const gKey = [
+            targetBase.targetId,
+            scorerCategoryKey,
+            tplItem.templateId,
+            buildAggregationPolicySignature(record.calculationSnapshot)
+          ].join('||');
           if (!calculationMap.has(gKey)) {
             const calcMethod = safeString(cfg.calculationMethod || cfg.calculation_method) || 'weighted_average';
             const trimH = Number(cfg.trimHighCount || cfg.trim_high_count || 0);
@@ -1602,19 +1780,42 @@ router.post('/exportScoreResults', async (req, res) => {
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
     const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
-    const records = enrichScoreRecords(recordsWithAnswers, members, granularity);
-    const rules = await loadRulesWithClauses(activityId, orgLookups);
-    const taskData = buildTaskData(members, rules, records);
+    const enrichedRecords = enrichScoreRecords(recordsWithAnswers, members, granularity);
+    const inspection = inspectImmutableRecords(enrichedRecords, activityId);
+    const exportHistoricalFailure = getHistoricalSnapshotFailure(inspection.diagnostics);
+    if (exportHistoricalFailure) {
+      return res.json(Object.assign({}, exportHistoricalFailure, {
+        message: exportHistoricalFailure.status === 'historical_snapshot_missing'
+          ? localeCopy.historicalSnapshotMissing
+          : localeCopy.historicalSnapshotInvalid
+      }));
+    }
+    const records = inspection.records;
+    const taskData = buildImmutableTaskData(records);
     const activityName = safeString(activity.name);
 
     let rows = []; let headers = []; let fileName = activityName;
 
     if (reportType === 'overview') {
       // Use unified scoring engine (same as getScoreResults overview)
-      const { computeValidScoreMap } = require('../utils/scoreCalc');
-      const { finalScoreMap, submittedByTarget, expectedByCount } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
+      const { computeValidScoreMap, getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
+      const {
+        finalScoreMap,
+        submittedByTarget,
+        expectedByCount,
+        targetSnapshots,
+        diagnostics
+      } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
+      const historicalFailure = getHistoricalSnapshotFailure(diagnostics);
+      if (historicalFailure) {
+        return res.json(Object.assign({}, historicalFailure, {
+          message: historicalFailure.status === 'historical_snapshot_missing'
+            ? localeCopy.historicalSnapshotMissing
+            : localeCopy.historicalSnapshotInvalid
+        }));
+      }
 
-      rows = members.map(function (m) {
+      rows = mergeHistoricalTargets(members, targetSnapshots).map(function (m) {
         let scoreData = finalScoreMap.get(m.id);
         let finalScore = scoreData ? scoreData.finalScore : 0;
         let expCount = expectedByCount.get(m.id) || 0;
@@ -1633,9 +1834,6 @@ router.post('/exportScoreResults', async (req, res) => {
     } else if (reportType === 'detail') {
       headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'scorerDepartment', label: localeCopy.copy_1b48da3bfa }, { key: 'scorerIdentity', label: localeCopy.copy_98dbb06c03 }, { key: 'scorerWorkGroup', label: localeCopy.copy_92042b74b7 }, { key: 'targetName', label: localeCopy.copy_de4dcf6fb4 }, { key: 'targetStudentId', label: localeCopy.copy_ba70cb6582 }, { key: 'targetDepartment', label: localeCopy.copy_155d45cc30 }, { key: 'targetIdentity', label: localeCopy.copy_f15fa8cc75 }, { key: 'targetWorkGroup', label: localeCopy.copy_c5cab60297 }, { key: 'templateName', label: localeCopy.copy_fac1711a09 }, { key: 'question', label: localeCopy.copy_b66cf0dd1d }, { key: 'score', label: localeCopy.copy_011a01321b }, { key: 'maxValue', label: localeCopy.copy_8ca6566932 }, { key: 'weight', label: localeCopy.copy_e3cee0beef }, { key: 'submittedAt', label: localeCopy.copy_6a2da85cb7 }];
       records.forEach((record) => {
-        const rule = rules.find((r) => safeString(r._id) === safeString(record.ruleId)) || {};
-        const configs = [];
-        (Array.isArray(rule.clauses) ? rule.clauses : []).forEach((c) => { configs.push(...(Array.isArray(c.templateConfigs) ? c.templateConfigs : [])); });
         const answers = record.answers || [];
         const answerMap = new Map();
         answers.forEach((a, ai) => {
@@ -1643,16 +1841,10 @@ router.post('/exportScoreResults', async (req, res) => {
           const hasZero = answers.some(aa => aa.questionIndex === 0);
           answerMap.set(String(hasZero ? raw + 1 : raw), toNumber(a.score, 0));
         });
-        let cursor = 0;
-        const seen = new Set();
+        const templates = getRecordTemplateScores(record);
         let appended = false;
-        configs.filter((c) => safeString(c.templateId)).forEach((config) => {
-          const tid = safeString(config.templateId);
-          if (seen.has(tid)) return; seen.add(tid);
-          const tpl = orgLookups.templatesById && orgLookups.templatesById.get(tid);
-          const qs = tpl ? (Array.isArray(tpl.questions) ? tpl.questions : []) : [];
-          const weight = toNumber(config.weight, 0);
-          qs.forEach((q, qi) => {
+        templates.forEach((template) => {
+          template.questions.forEach((question) => {
             appended = true;
             rows.push({
               scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId),
@@ -1661,13 +1853,14 @@ router.post('/exportScoreResults', async (req, res) => {
               targetName: safeString(record.targetName), targetStudentId: safeString(record.targetStudentId),
               targetDepartment: safeString(record.targetDepartment), targetIdentity: safeString(record.targetIdentity),
               targetWorkGroup: safeString(record.targetWorkGroup || ''),
-              templateName: safeString(config.templateName) || safeString(tpl && tpl.name),
-              question: safeString(q.question), score: toNumber(answerMap.get(String(cursor + qi + 1)), 0),
-              maxValue: toNumber(q.maxValue, 0), weight,
+              templateName: safeString(template.templateName),
+              question: safeString(question.question),
+              score: toNumber(answerMap.get(String(question.globalQuestionIndex)), 0),
+              maxValue: toNumber(question.maxValue, 0),
+              weight: toNumber(template.weight, 0),
               submittedAt: record.submittedAt || null
             });
           });
-          cursor += qs.length;
         });
         if (!appended) {
           rows.push({

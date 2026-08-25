@@ -22,6 +22,7 @@ const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
+const { effectiveBookingStart } = require('../services/venueEffectiveBookingTime');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 
 function collectRuleDictionaryReferences(rule) {
@@ -358,7 +359,7 @@ router.post('/saveVenueApprovalStepRule', async (req, res) => {
       await ruleModel.create(id, data, conn);
     }
     await conn.commit();
-    res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
+    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
     await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
@@ -499,10 +500,14 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
       }
 
-      // Approval within booking window - adjust start time to approval moment
-      await venueBookingModel.updateTimeStart(id, toMysqlUtc(approvedAt), conn);
+      // 未来借用保持原开始时间；只有审批时原开始时间已过去，才从审批时刻起生效。
+      const originalTimeStart = new Date(booking.time_start);
+      const effectiveTimeStart = effectiveBookingStart(originalTimeStart, approvedAt);
+      if (effectiveTimeStart.getTime() !== originalTimeStart.getTime()) {
+        await venueBookingModel.updateTimeStart(id, toMysqlUtc(effectiveTimeStart), conn);
+      }
 
-      const timeStart = toMysqlUtc(approvedAt);
+      const timeStart = toMysqlUtc(effectiveTimeStart);
       const timeEnd = toMysqlUtc(new Date(booking.time_end));
       const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
       if (conflict) {
@@ -551,7 +556,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
     res.json({
       status: 'success',
-      message: completed ? '所有步骤审批完成，借用已通过' : '审批完成，等待下一步审批',
+      message: completed ? localeCopy.copy_bc02bd8ffe : localeCopy.copy_8a21926f75,
       approvalProgress: {
         currentStep: legacy.currentStep,
         totalSteps: totalSteps,

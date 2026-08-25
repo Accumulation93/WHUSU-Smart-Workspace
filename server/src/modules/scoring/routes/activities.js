@@ -254,7 +254,7 @@ router.post('/toggleActivityPause', async (req, res) => {
     res.json({
       status: 'success',
       isPaused: !!newPaused,
-      message: newPaused ? '活动已暂停' : '活动已恢复'
+      message: newPaused ? localeCopy.copy_122bce702a : localeCopy.copy_adb9a74154
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_0531ed9e78 });

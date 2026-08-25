@@ -54,7 +54,7 @@ async function processScoringRecipients(job, payload) {
     if (!task || task.pendingCount <= 0) return;
     await createForRecipient(job, 'user', user.id, Object.assign({}, payload, {
       targetId: safeString(task.activity.id),
-      description: payload.description || ('还有 ' + task.pendingCount + localeCopy.copy_67a5467bc2)
+      description: payload.description || (localeCopy.copy_50fc130639 + task.pendingCount + localeCopy.copy_67a5467bc2)
     }));
   });
 }

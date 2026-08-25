@@ -49,6 +49,8 @@ function testDeploymentScriptContract() {
   const remoteCollab = fs.readFileSync(path.resolve(__dirname, '../../scripts/remote-collab.ps1'), 'utf8');
   const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/ci.yml'), 'utf8');
   assert.match(script, /flock -n/);
+  assert.ok(script.indexOf('flock -n') < script.indexOf('mapfile -t EXISTING_RELEASES'));
+  assert.ok(script.indexOf('flock -n') < script.indexOf('remote set-url'));
   assert.match(script, /pull --ff-only/);
   assert.match(script, /git_with_timeout/);
   assert.match(script, /worktree add --detach/);
@@ -63,6 +65,8 @@ function testDeploymentScriptContract() {
   assert.match(script, /ln -sfn "\$SHARED_DIR\/server\.env"/);
   assert.match(script, /ln -s "\$SHARED_DIR\/uploads"/);
   assert.match(script, /migrateAuditUploads\.js/);
+  assert.match(script, /PDF_SIGNING_KEY_ALLOW_LEGACY_PLAINTEXT=true[\s\S]+migrateAuditSigningKeys\.js" --apply/);
+  assert.match(script, /node "\$NEW_RELEASE\/server\/scripts\/migrateAuditSigningKeys\.js"/);
   assert.match(script, /AUDIT_UPLOAD_DIR="\$SHARED_DIR\/uploads\/audit"/);
   assert.match(script, /pm2 delete whusu-smart-workspace-backup/);
   assert.match(script, /pm2 start "\$process_release\/server\/ecosystem\.config\.js" --only whusu-smart-workspace-backup --update-env/);
@@ -76,12 +80,17 @@ function testDeploymentScriptContract() {
   assert.match(script, /stop_process_group whusu-smart-workspace-notification-worker \|\| rollback_stop_failed=1/);
   assert.match(script, /trap 'rollback "\$LINENO"' TERM INT HUP/);
   assert.match(script, /materializeUtcTimeReviews\.js" --status/);
+  assert.match(script, /backfillScoreCalculationSnapshots\.js" --require-all/);
+  assert.match(script, /backfillScoreCalculationSnapshots\.js" --apply --require-all/);
   assert.match(script, /record-id\+raw-value:v1/);
   assert.match(script, /mappedReviewCount !== unresolvedCount/);
   assert.match(script, /WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
+  assert.match(workflow, /^permissions:\s*\n\s+contents:\s+read/m);
+  assert.match(workflow, /persist-credentials:\s+false/);
+  assert.doesNotMatch(workflow, /uses:\s+[^\s#]+@v\d+/);
   assert.match(entrypoint, /git -C "\$REPO_DIR" show/);
   assert.match(entrypoint, /timeout --signal=TERM/);
   assert.match(entrypoint, /bash -n/);

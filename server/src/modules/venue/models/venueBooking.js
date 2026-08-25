@@ -97,6 +97,7 @@ async function create(id, data, conn) {
     status,
     approvalFlowId,
     approvalFlowState,
+    approvalFlowSnapshot,
     approvalTotalSteps
   } = data;
   const db = conn || pool;
@@ -108,13 +109,21 @@ async function create(id, data, conn) {
       (id, venue_id, user_hr_id, creator_person_id, creator_assignment_id,
        creator_admin_grant_id, creator_context_snapshot, creator_type, creator_admin_id,
        creator_org_id, approval_org_id, title, description, time_start, time_end, status,
-       approval_flow_id, approval_flow_state_json, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       approval_flow_id, approval_flow_state_json, approval_flow_snapshot_json,
+       approval_current_step, approval_total_steps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, venueId, userHrId || null, creatorPersonId || null, creatorAssignmentId || null,
      creatorAdminGrantId || null, contextSnapshot, creatorType || 'user', creatorAdminId || null,
      creatorOrgId, approvalOrgId, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
-     approvalFlowId || null, approvalFlowState || null, 0, approvalTotalSteps || 0]
+     approvalFlowId || null,
+     approvalFlowState && typeof approvalFlowState === 'object'
+       ? JSON.stringify(approvalFlowState)
+       : approvalFlowState || null,
+     approvalFlowSnapshot && typeof approvalFlowSnapshot === 'object'
+       ? JSON.stringify(approvalFlowSnapshot)
+       : approvalFlowSnapshot || null,
+     0, approvalTotalSteps || 0]
   );
 }
 

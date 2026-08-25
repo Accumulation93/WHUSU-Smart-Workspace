@@ -1,4 +1,5 @@
 const localeCopy = require('../locales/zh-CN/generated/middleware/rateLimiter');
+const securityCopy = require('../locales/zh-CN/core/security');
 function normalizeRoutePath(pathname) {
   return String(pathname || '/')
     .split('?')[0]
@@ -53,4 +54,62 @@ function createRateLimiter(options) {
   };
 }
 
-module.exports = { normalizeRoutePath, createRateLimiter };
+function createSharedRateLimiter(options) {
+  const config = options || {};
+  const store = config.store;
+  const policies = config.policies || {};
+  const keyResolver = typeof config.keyResolver === 'function'
+    ? config.keyResolver
+    : (req) => 'ip:' + String(req.ip || '-');
+  const cleanupIntervalMs = Math.max(1000, Number(config.cleanupIntervalMs) || 60000);
+  let lastCleanupAt = 0;
+
+  if (!store || typeof store.consume !== 'function' || typeof store.cleanupExpired !== 'function') {
+    throw new Error(securityCopy.codes.sharedRateLimitStoreRequired);
+  }
+
+  return async function sharedRateLimiter(req, res, next) {
+    const routePath = normalizeRoutePath(req.path);
+    const policy = policies[routePath];
+    if (!policy) return next();
+    const now = Date.now();
+    const windowMs = Math.max(1000, Number(policy.windowMs) || 60000);
+    const maxRequests = Math.max(1, Number(policy.maxRequests) || 1);
+    const discriminator = String(keyResolver(req, routePath) || 'anonymous');
+    try {
+      if (now - lastCleanupAt >= cleanupIntervalMs) {
+        await store.cleanupExpired(now);
+        lastCleanupAt = now;
+      }
+      const result = await store.consume({
+        key: routePath + ':' + discriminator,
+        routeKey: routePath,
+        windowMs,
+        maxRequests,
+        now
+      });
+      res.setHeader('X-RateLimit-Limit', String(maxRequests));
+      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, maxRequests - result.count)));
+      res.setHeader('X-RateLimit-Scope', 'shared');
+      if (!result.allowed) {
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil((result.resetAt - now) / 1000))));
+        return res.status(429).json({ status: 'rate_limited', message: localeCopy.copy_4482813d2a });
+      }
+      return next();
+    } catch (error) {
+      if (req.logger && typeof req.logger.error === 'function') {
+        req.logger.error('Shared rate limit unavailable', {
+          error: error.message,
+          path: routePath,
+          requestId: req.requestId
+        });
+      }
+      return res.status(503).json({
+        status: 'rate_limit_unavailable',
+        message: securityCopy.rateLimitUnavailable
+      });
+    }
+  };
+}
+
+module.exports = { normalizeRoutePath, createRateLimiter, createSharedRateLimiter };

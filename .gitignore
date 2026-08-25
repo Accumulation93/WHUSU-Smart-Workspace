@@ -26,6 +26,8 @@ dist/
 build/
 tmp/
 temp/
+__pycache__/
+*.py[cod]
 
 # Server sensitive files (do not commit credentials)
 server/.env

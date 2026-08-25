@@ -1,8 +1,6 @@
 'use strict';
 
 module.exports = Object.freeze({
-  historicalAssignmentMissing: "历史岗位未记录",
-  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择",
   copy_02339c7f77: "借用申请已提交",
   copy_04ab0b03d0: "请选择其他场地",
   copy_0b091cba77: "请将结束时间设在开始时间之后",
@@ -28,11 +26,13 @@ module.exports = Object.freeze({
   copy_754113ad21: "请重新打开审批记录",
   copy_7873aabe9e: "请重新选择时间",
   copy_7db68605c6: "请填写借用事由",
+  copy_7dc3085474: '借用申请已提交，等待审批',
   copy_80886b8642: "审批记录不存在或已不属于当前组织",
   copy_890d7f4874: "场地审批流程",
   copy_96d1893745: " 场地全天不开放",
   copy_9aa2375ba5: "借用尚未开始，请取消借用",
   copy_9dc5c7d79f: "请填写完整信息",
+  copy_a453f693a6: '借用已通过',
   copy_ab5ebc56e8: "请重新选择日期",
   copy_bba7f8b8ba: "请使用普通用户岗位",
   copy_bbcf12ed5f: "场地已删除",
@@ -48,5 +48,8 @@ module.exports = Object.freeze({
   copy_e92ecaf2f5: "借用已取消",
   copy_ea94858596: "请缩短借用事由或说明",
   copy_f450f21538: "请选择同一天的开始和结束时间",
-  copy_f65527e76d: "该借用已被取消"
+  copy_f65527e76d: "该借用已被取消",
+  copy_fd193b8d0b: '借用申请已提交，等待 ',
+  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择",
+  historicalAssignmentMissing: "历史岗位未记录"
 });

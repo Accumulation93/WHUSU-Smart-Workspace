@@ -4,6 +4,7 @@ const path = require('path');
 const Module = require('module');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-membership-departure-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-membership-departure-identity-secret';
 
 function normalizeSql(sql) {
   return String(sql).replace(/\s+/g, ' ').trim();
@@ -184,9 +185,9 @@ function testSchemaMigrationAndRouteContracts() {
       < migrationSql.indexOf('UPDATE organization_memberships membership_row\nJOIN tmp_utc_departure_snapshot'),
     '必须在成员关系回填前使用原始离任时间识别离任岗位'
   );
-  assert(routeSource.includes('om.created_at AS joined_at'));
-  assert(routeSource.includes("CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at"));
-  assert(!routeSource.includes('om.joined_at, om.left_at'));
+  assert.match(overviewSource, /(?:om|membership_row)\.created_at AS joined_at/);
+  assert.match(overviewSource, /CASE WHEN (?:om|membership_row)\.status = 'left' THEN (?:om|membership_row)\.updated_at ELSE NULL END AS left_at/);
+  assert(!overviewSource.includes('om.joined_at, om.left_at'));
   assert(overviewSource.includes('ma.revoked_by_departure_id = om.departure_batch_id'));
 }
 

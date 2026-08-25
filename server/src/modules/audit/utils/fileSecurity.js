@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/utils/fileSecurity');
+const securityCopy = require('../../../locales/zh-CN/core/security');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -9,8 +10,11 @@ const verificationPermModel = require('../models/verificationPermission');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const { hasAnyPermission } = require('../../../core/services/adminPermissions');
+const auditTempUploadModel = require('../../../core/models/auditTempUpload');
 const { resolveActorAssignment } = require('../services/auditAssignmentContext');
 const { JWT_SECRET } = require('../../../middleware/auth');
+const { hmac: identityHash } = require('../../../core/services/identityCrypto');
 const { hashFile } = require('./hashChain');
 
 const UPLOAD_DIR = path.resolve(
@@ -21,6 +25,27 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 const MAX_FILES_PER_SUBMISSION = 20;
+const MAX_FILE_NAME_CHARS = 500;
+
+function ensurePrivateDirectory(directoryPath) {
+  if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true, mode: 0o700 });
+  fs.chmodSync(directoryPath, 0o700);
+}
+
+function ensurePrivateFile(filePath) {
+  fs.chmodSync(filePath, 0o600);
+}
+
+function normalizeUploadFileName(fileName, mimeType) {
+  const fallback = 'audit-file' + extForMime(mimeType);
+  const normalized = safeString(fileName).replace(/[\u0000-\u001f\u007f]/g, ' ').trim() || fallback;
+  if (Array.from(normalized).length > MAX_FILE_NAME_CHARS) {
+    const error = new Error(localeCopy.uploadFileNameTooLong);
+    error.status = 'invalid_params';
+    throw error;
+  }
+  return normalized;
+}
 
 function normalizeMime(mimeType) {
   const mime = safeString(mimeType).toLowerCase();
@@ -53,12 +78,12 @@ function assertAllowedFile(buffer, declaredMime) {
   const detectedMime = detectMime(buffer);
   const mimeType = detectedMime || normalizeMime(declaredMime);
   if (!ALLOWED_MIMES.includes(mimeType)) {
-    const err = new Error('不支持的文件类型或文件内容与类型不匹配');
+    const err = new Error(localeCopy.copy_1e8b224ee3);
     err.status = 'invalid_params';
     throw err;
   }
   if (buffer.length > MAX_FILE_SIZE) {
-    const err = new Error('文件过大，最大支持 10MB');
+    const err = new Error(localeCopy.copy_9288d54fa0);
     err.status = 'invalid_params';
     throw err;
   }
@@ -86,17 +111,95 @@ function verifyUploadToken(token) {
   }
 }
 
+function uploadOwnerHash(accountId) {
+  return crypto.createHmac('sha256', JWT_SECRET)
+    .update('audit-upload-owner:' + safeString(accountId))
+    .digest('hex');
+}
+
+async function resolveUploadOwnerHash(openid) {
+  const normalizedOpenid = safeString(openid);
+  if (!normalizedOpenid) throw uploadQuotaError({ code: securityCopy.codes.uploadQuotaUnavailable });
+  const [rows] = await pool.query(
+    `SELECT account_id
+       FROM account_wechat_bindings
+      WHERE openid_hash = ? AND status = 'active'
+      LIMIT 1`,
+    [identityHash(normalizedOpenid)]
+  );
+  if (!rows[0] || !safeString(rows[0].account_id)) {
+    throw uploadQuotaError({ code: securityCopy.codes.uploadQuotaUnavailable });
+  }
+  return uploadOwnerHash(rows[0].account_id);
+}
+
+async function removeExpiredTempFiles(rows) {
+  const candidates = (rows || []).map((row) => {
+    const tempName = path.basename(safeString(row && row.temp_name));
+    if (!tempName || tempName !== safeString(row && row.temp_name)) return null;
+    return path.join(TMP_DIR, tempName);
+  }).filter(Boolean);
+  if (!candidates.length) return;
+  const [referencedRows] = await pool.query(
+    `SELECT file_path
+       FROM audit_submission_files
+      WHERE file_path IN (${candidates.map(() => '?').join(', ')})`,
+    candidates
+  );
+  const referenced = new Set(referencedRows.map((row) => path.resolve(safeString(row.file_path))));
+  candidates.forEach((candidate) => {
+    if (referenced.has(path.resolve(candidate))) return;
+    try { fs.unlinkSync(candidate); } catch (_) { /* 文件可能已由维护任务清理 */ }
+  });
+}
+
+function uploadQuotaError(error) {
+  const code = safeString(error && (error.code || error.status));
+  const mapped = new Error(
+    code === securityCopy.codes.uploadAccountQuotaExceeded ? securityCopy.uploadAccountQuotaExceeded
+      : code === securityCopy.codes.uploadGlobalQuotaExceeded ? securityCopy.uploadGlobalQuotaExceeded
+        : code === securityCopy.codes.uploadQuotaBusy ? securityCopy.uploadQuotaBusy
+          : securityCopy.uploadQuotaUnavailable
+  );
+  mapped.status = code || securityCopy.codes.uploadQuotaUnavailable;
+  return mapped;
+}
+
 async function createTempUpload({ buffer, fileName, mimeType, openid }) {
   const orgId = await getCurrentOrgId();
-  if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+  const ownerHash = await resolveUploadOwnerHash(openid);
+  ensurePrivateDirectory(UPLOAD_DIR);
+  ensurePrivateDirectory(TMP_DIR);
 
   const actualMime = assertAllowedFile(buffer, mimeType);
   const fileId = generateId();
-  const cleanName = safeString(fileName) || ('audit-file' + extForMime(actualMime));
-  const ext = path.extname(cleanName) || extForMime(actualMime);
+  const cleanName = normalizeUploadFileName(fileName, actualMime);
+  const ext = extForMime(actualMime);
   const tempName = fileId + ext;
   const tmpPath = path.join(TMP_DIR, tempName);
-  fs.writeFileSync(tmpPath, buffer);
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+  let reserved = false;
+  try {
+    const reservation = await auditTempUploadModel.reserve({
+      fileId,
+      ownerHash,
+      orgId,
+      tempName,
+      fileSize: buffer.length,
+      expiresAt
+    });
+    reserved = true;
+    await removeExpiredTempFiles(reservation.expiredRows);
+    fs.writeFileSync(tmpPath, buffer, { flag: 'wx', mode: 0o600 });
+    ensurePrivateFile(tmpPath);
+  } catch (error) {
+    try { fs.unlinkSync(tmpPath); } catch (_) { /* 未创建文件时忽略 */ }
+    if (reserved) {
+      try { await auditTempUploadModel.remove(fileId); } catch (_) { /* 配额记录会按 expires_at 自动清理 */ }
+    }
+    if (error && safeString(error.code || error.status).startsWith('upload_')) throw uploadQuotaError(error);
+    throw uploadQuotaError({ code: securityCopy.codes.uploadQuotaUnavailable });
+  }
 
   const fileHash = hashFile(buffer);
   const token = signUploadToken({
@@ -106,9 +209,9 @@ async function createTempUpload({ buffer, fileName, mimeType, openid }) {
     fileSize: buffer.length,
     fileHash,
     tempName,
-    openid: safeString(openid),
+    ownerHash,
     orgId,
-    exp: Date.now() + TOKEN_TTL_MS
+    exp: expiresAt.getTime()
   });
 
   return { fileId, fileName: cleanName, mimeType: actualMime, fileSize: buffer.length, fileHash, fileToken: token };
@@ -116,72 +219,129 @@ async function createTempUpload({ buffer, fileName, mimeType, openid }) {
 
 async function resolveUploadedFile(uploadedFile, openid) {
   const orgId = await getCurrentOrgId();
+  const ownerHash = await resolveUploadOwnerHash(openid);
   const tokenPayload = verifyUploadToken(uploadedFile.fileToken);
   const meta = tokenPayload;
   if (!meta) {
-    const err = new Error('请重新选择文件');
+    const err = new Error(localeCopy.copy_03d69a9d28);
     err.status = 'invalid_params';
     throw err;
   }
 
-  if (!safeString(meta.openid) || safeString(meta.openid) !== safeString(openid)) {
-    const err = new Error('上传文件不属于当前用户');
+  if (!safeString(meta.ownerHash) || safeString(meta.ownerHash) !== ownerHash) {
+    const err = new Error(localeCopy.copy_8753bfeb5f);
     err.status = 'forbidden';
     throw err;
   }
   if (!safeString(meta.orgId) || safeString(meta.orgId) !== orgId) {
-    const err = new Error('上传文件不属于当前组织');
+    const err = new Error(localeCopy.copy_a5b624ccc1);
     err.status = 'forbidden';
     throw err;
   }
   const tempName = path.basename(safeString(meta.tempName));
   if (!tempName || tempName !== safeString(meta.tempName)) {
-    const err = new Error('请重新选择文件');
+    const err = new Error(localeCopy.copy_03d69a9d28);
     err.status = 'invalid_params';
+    throw err;
+  }
+  let quotaRecord;
+  try {
+    quotaRecord = await auditTempUploadModel.findActive(safeString(meta.fileId), ownerHash, orgId);
+  } catch (_) {
+    throw uploadQuotaError({ code: securityCopy.codes.uploadQuotaUnavailable });
+  }
+  if (!quotaRecord || safeString(quotaRecord.temp_name) !== tempName) {
+    const err = new Error(localeCopy.copy_03d69a9d28);
+    err.status = 'not_found';
     throw err;
   }
   const tmpPath = path.join(TMP_DIR, tempName);
   if (!fs.existsSync(tmpPath)) {
-    const err = new Error('请重新选择文件');
+    const err = new Error(localeCopy.copy_03d69a9d28);
     err.status = 'not_found';
     throw err;
   }
 
   const buffer = fs.readFileSync(tmpPath);
   const actualMime = assertAllowedFile(buffer, meta.mimeType);
+  const actualHash = hashFile(buffer);
+  if (Number(meta.fileSize) !== buffer.length || safeString(meta.fileHash) !== actualHash) {
+    const err = new Error(localeCopy.uploadedFileIntegrityMismatch);
+    err.status = 'invalid_params';
+    throw err;
+  }
   return {
     fileId: safeString(meta.fileId) || generateId(),
-    fileName: safeString(meta.fileName) || ('audit-file' + extForMime(actualMime)),
+    fileName: normalizeUploadFileName(meta.fileName, actualMime),
     mimeType: actualMime,
     fileSize: buffer.length,
-    fileHash: hashFile(buffer),
+    fileHash: actualHash,
     tmpPath
   };
 }
 
 async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }) {
   if (!Array.isArray(uploadedFiles) || uploadedFiles.length > MAX_FILES_PER_SUBMISSION) {
-    const err = new Error('单次最多上传20个文件');
+    const err = new Error(localeCopy.copy_a0736fb41c);
     err.status = 'invalid_params';
     throw err;
   }
-  const submissionDir = path.join(UPLOAD_DIR, submissionId);
-  if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
+  if (!conn || typeof conn.query !== 'function') {
+    const error = new Error(localeCopy.uploadTransactionUnavailable);
+    error.status = 'error';
+    throw error;
+  }
+  const normalizedSubmissionId = safeString(submissionId);
+  if (!normalizedSubmissionId || path.basename(normalizedSubmissionId) !== normalizedSubmissionId) {
+    const error = new Error(localeCopy.copy_03d69a9d28);
+    error.status = 'invalid_params';
+    throw error;
+  }
+  ensurePrivateDirectory(UPLOAD_DIR);
+  const submissionDir = path.join(UPLOAD_DIR, normalizedSubmissionId);
+  ensurePrivateDirectory(submissionDir);
+  const movedFiles = [];
 
-  for (let i = 0; i < uploadedFiles.length; i++) {
-    const meta = await resolveUploadedFile(uploadedFiles[i], openid);
-    const ext = path.extname(meta.fileName) || extForMime(meta.mimeType);
-    const destPath = path.join(submissionDir, meta.fileId + ext);
-    fs.renameSync(meta.tmpPath, destPath);
-    await submissionFileModel.create(meta.fileId, {
-      submissionId,
-      fileName: meta.fileName,
-      mimeType: meta.mimeType,
-      filePath: destPath,
-      fileSize: meta.fileSize,
-      fileHash: meta.fileHash,
-      sortOrder: i + 1
-    }, conn);
+  try {
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const meta = await resolveUploadedFile(uploadedFiles[i], openid);
+      const ext = extForMime(meta.mimeType);
+      const destPath = path.join(submissionDir, meta.fileId + ext);
+      if (fs.existsSync(destPath)) {
+        const error = new Error(localeCopy.uploadedFileIntegrityMismatch);
+        error.status = 'invalid_params';
+        throw error;
+      }
+      fs.renameSync(meta.tmpPath, destPath);
+      ensurePrivateFile(destPath);
+      movedFiles.push({ sourcePath: meta.tmpPath, destinationPath: destPath });
+      await submissionFileModel.create(meta.fileId, {
+        submissionId: normalizedSubmissionId,
+        fileName: meta.fileName,
+        mimeType: meta.mimeType,
+        filePath: destPath,
+        fileSize: meta.fileSize,
+        fileHash: meta.fileHash,
+        sortOrder: i + 1
+      }, conn);
+      await auditTempUploadModel.remove(meta.fileId, conn);
+    }
+  } catch (error) {
+    for (let index = movedFiles.length - 1; index >= 0; index -= 1) {
+      const moved = movedFiles[index];
+      try {
+        if (fs.existsSync(moved.destinationPath) && !fs.existsSync(moved.sourcePath)) {
+          fs.renameSync(moved.destinationPath, moved.sourcePath);
+          ensurePrivateFile(moved.sourcePath);
+        }
+      } catch (_) {
+        // 无法立即复原时保留文件，由带宽限期且逐文件复核数据库引用的维护任务接管。
+      }
+    }
+    try {
+      if (fs.existsSync(submissionDir) && fs.readdirSync(submissionDir).length === 0) fs.rmdirSync(submissionDir);
+    } catch (_) { /* 目录仍被使用时保留 */ }
+    throw error;
   }
 }
 
@@ -199,7 +359,12 @@ async function getAuthorizedAuditFile(fileId, req) {
 
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
-  if (actorResult.actor.type === 'admin') return { status: 'success', file };
+  if (actorResult.actor.type === 'admin') {
+    if (!hasAnyPermission(req.adminPermissions, ['audit.submissions'])) {
+      return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
+    }
+    return { status: 'success', file };
+  }
 
   const actor = actorResult.actor;
   const assignment = await resolveActorAssignment(actor, orgId);
@@ -230,7 +395,13 @@ module.exports = {
   UPLOAD_DIR,
   MAX_FILE_SIZE,
   ALLOWED_MIMES,
+  MAX_FILE_NAME_CHARS,
   assertAllowedFile,
+  normalizeUploadFileName,
+  ensurePrivateDirectory,
+  ensurePrivateFile,
+  uploadOwnerHash,
+  resolveUploadOwnerHash,
   createTempUpload,
   attachUploadedFiles,
   getAuthorizedAuditFile

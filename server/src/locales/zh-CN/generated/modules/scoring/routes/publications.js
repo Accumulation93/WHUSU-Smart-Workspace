@@ -2,11 +2,13 @@
 
 module.exports = Object.freeze({
   copy_02f1651e0a: "已保存 {0} 条评优名单",
+  copy_08f97574f4: '评优名单汇总',
   copy_157f5cd8f8: "请重新打开评优名单",
   copy_162d055e98: "请先绑定人事信息",
   copy_201bb379be: "未评级",
   copy_21368b3e76: "请选择评分活动",
   copy_22d72751cb: "请刷新评优范围",
+  copy_250c8669f1: '公示已关闭',
   copy_25e27df7c6: "未分类",
   copy_35fa8f1d08: "请填写第 {0} 个等第名称",
   copy_36ab872bc9: "请调整第 {0} 个等第的分数范围",
@@ -30,6 +32,7 @@ module.exports = Object.freeze({
   copy_7bd7eb5da6: "评优条款不属于同一授权类别",
   copy_880ad7309d: "（等第）",
   copy_8f467e6dad: "评优名单指定权限已保存",
+  copy_912e2f8389: '结果已公示',
   copy_939db6a08b: "未找到评分活动",
   copy_9984065ffd: "评优分组",
   copy_9e7a5b00ee: "」的结果已向您公示。",
@@ -59,5 +62,7 @@ module.exports = Object.freeze({
   copy_f3dd2d1ffc: "请刷新人员名单",
   copy_f4a11b6280: "暂无查看评分结果的权限",
   copy_f60a08009f: "查看权限已更新",
-  copy_ff90093cad: "评优指定权已删除"
+  copy_ff90093cad: "评优指定权已删除",
+  historicalSnapshotInvalid: "历史评分依据校验失败，结果暂不能公示，请联系管理员核对历史数据",
+  historicalSnapshotMissing: "部分历史评分缺少提交时的计算快照，结果暂不能公示，不能使用当前规则推断"
 });

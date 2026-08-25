@@ -47,7 +47,13 @@ const config = {
         [databaseName]
       );
       const columnNames = new Set(columns.map(row => row.COLUMN_NAME));
-      ['creator_org_id', 'approval_org_id', 'approval_flow_id', 'approval_current_step'].forEach(column => {
+      [
+        'creator_org_id',
+        'approval_org_id',
+        'approval_flow_id',
+        'approval_flow_snapshot_json',
+        'approval_current_step'
+      ].forEach(column => {
         assert.ok(columnNames.has(column), `缺少 venue_bookings.${column}`);
       });
       const [indexes] = await database.query(

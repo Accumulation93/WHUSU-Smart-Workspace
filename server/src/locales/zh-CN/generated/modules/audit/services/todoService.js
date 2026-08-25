@@ -11,6 +11,7 @@ module.exports = Object.freeze({
   copy_67a5467bc2: " 人待评分",
   copy_70c04ce8e3: " · 提交人 ",
   copy_80f5cda995: " · 第",
+  copy_93c50c01c0: '第',
   copy_c9fa920da1: " · 待审核补充资料",
   copy_d18a11f195: "场地：",
   copy_de00c3e48a: "信息已失效",

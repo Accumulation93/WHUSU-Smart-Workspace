@@ -12,7 +12,43 @@ const NON_USER_VISIBLE_TABLES = new Set([
   'absolute_time_source_registry',
   'absolute_time_record_reviews',
   'absolute_time_migration_audit',
-  'absolute_time_cutovers'
+  'absolute_time_cutovers',
+  'score_snapshot_backfill_audits',
+  'security_rate_limit_buckets',
+  'audit_temp_uploads'
+]);
+
+// 这两张内部安全表只会在 UTC 体系切换完成后创建，写入连接也固定为 UTC。
+// 必须逐列显式登记，避免 fresh schema 预检把 CURRENT_TIMESTAMP 误判成历史 +08:00 墙上时间。
+const NATIVE_UTC_INTERNAL_COLUMNS = new Map([
+  ['security_rate_limit_buckets', new Set([
+    'window_started_at',
+    'expires_at',
+    'created_at',
+    'updated_at'
+  ])],
+  ['audit_temp_uploads', new Set([
+    'expires_at',
+    'created_at'
+  ])],
+  ['score_snapshot_backfill_audits', new Set([
+    'reconstructed_at',
+    'applied_at'
+  ])]
+]);
+
+// 这些旧生产字段已有迁移账本、迁移前备份和行级因果关系的组合证据，
+// 可以证明写入源是数据库/mysql2 +08:00 墙上时间。仅这些精确字段允许整列平移；
+// 其他用户可见字段即使具有 CURRENT_TIMESTAMP 默认值，也必须逐记录核对。
+const PROVEN_LEGACY_WALL_TIME_COLUMNS = new Map([
+  ['accounts', new Set(['created_at', 'updated_at'])],
+  ['persons', new Set(['created_at', 'updated_at'])],
+  ['organization_memberships', new Set(['created_at', 'updated_at'])],
+  ['membership_assignments', new Set(['created_at', 'updated_at'])],
+  ['identity_migration_guards', new Set(['checked_at'])],
+  ['personnel_migration_audit', new Set(['created_at'])],
+  ['organization_dictionary_locks', new Set(['touched_at'])],
+  ['hr_profile_record_values', new Set(['updated_at'])]
 ]);
 
 // 这些表在旧版本中同时存在手工 UTC 字符串和 mysql2 +08:00/数据库墙上时间写入。
@@ -49,8 +85,28 @@ function hasDatabaseWallClockDefault(column) {
 }
 
 function classifyColumn(tableName, columnName, column) {
+  const nativeUtcColumns = NATIVE_UTC_INTERNAL_COLUMNS.get(tableName);
+  if (nativeUtcColumns && nativeUtcColumns.has(columnName)) {
+    return {
+      sourceType: 'post_cutover_native_utc',
+      migrationAction: 'keep_utc',
+      evidence: 'UTC 体系切换后创建的内部表，由 UTC 数据库会话原生写入；保持原值，禁止历史时区平移'
+    };
+  }
   if (isAbsoluteColumnName(columnName)) {
-    if (!MIXED_SOURCE_TABLES.has(tableName) && hasDatabaseWallClockDefault(column)) {
+    const provenColumns = PROVEN_LEGACY_WALL_TIME_COLUMNS.get(tableName);
+    if (provenColumns && provenColumns.has(columnName) && hasDatabaseWallClockDefault(column)) {
+      return {
+        sourceType: 'legacy_wall_utc_plus_8',
+        migrationAction: 'shift_minus_480',
+        evidence: '迁移账本、迁移前备份与行级因果关系共同证明该字段由旧 +08:00 墙上时间写入'
+      };
+    }
+    // 用户可见历史表即使存在 CURRENT_TIMESTAMP 默认值，也可能被应用显式写入。
+    // 没有逐记录证明时一律进入核对账本，禁止仅凭列默认值整列平移。
+    if (!isUserVisibleTable(tableName)
+      && !MIXED_SOURCE_TABLES.has(tableName)
+      && hasDatabaseWallClockDefault(column)) {
       return {
         sourceType: 'legacy_wall_utc_plus_8',
         migrationAction: 'shift_minus_480',
@@ -76,6 +132,8 @@ function isUserVisibleTable(tableName) {
 
 module.exports = {
   NON_USER_VISIBLE_TABLES,
+  NATIVE_UTC_INTERNAL_COLUMNS,
+  PROVEN_LEGACY_WALL_TIME_COLUMNS,
   MIXED_SOURCE_TABLES,
   ABSOLUTE_COLUMN_PATTERN,
   isAbsoluteColumnName,

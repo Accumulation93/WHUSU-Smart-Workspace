@@ -21,7 +21,7 @@ const BOOTSTRAP_AUDIENCE = 'whusu-smart-workspace-bootstrap';
 async function exchangeWechatCode(code, devOpenid) {
   if (ALLOW_DEV_OPENID_LOGIN && safeString(devOpenid)) return safeString(devOpenid);
   const jsCode = safeString(code);
-  if (!jsCode) throw new identityModel.IdentityError('invalid_wechat_code', '请重新微信登录', 401);
+  if (!jsCode) throw new identityModel.IdentityError('invalid_wechat_code', localeCopy.copy_b10d64a68c, 401);
   let response;
   try {
     response = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
@@ -34,10 +34,10 @@ async function exchangeWechatCode(code, devOpenid) {
       timeout: 5000
     });
   } catch (_) {
-    throw new identityModel.IdentityError('wechat_unavailable', '微信登录服务暂不可用，请稍后重试', 503);
+    throw new identityModel.IdentityError('wechat_unavailable', localeCopy.copy_4466c2266e, 503);
   }
   const openid = safeString(response && response.data && response.data.openid);
-  if (!openid) throw new identityModel.IdentityError('invalid_wechat_code', '请重新微信登录', 401);
+  if (!openid) throw new identityModel.IdentityError('invalid_wechat_code', localeCopy.copy_b10d64a68c, 401);
   return openid;
 }
 
@@ -266,7 +266,7 @@ async function startWechatSession(data, metadata) {
   const openid = await exchangeWechatCode(data.code, data.openid || data.deviceOpenid);
   const account = await identityModel.findAccountByOpenid(openid);
   if (account && account.status === 'frozen') {
-    throw new identityModel.IdentityError('account_frozen', '账号已冻结，请联系管理员', 403);
+    throw new identityModel.IdentityError('account_frozen', localeCopy.copy_d6a178f6ce, 403);
   }
   if (account) {
     return createAuthenticatedSession(account, {
@@ -298,7 +298,7 @@ function bootstrapIdFromRequest(req) {
   const authHeader = safeString(req.headers.authorization);
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   const bootstrapId = verifyBootstrapToken(token);
-  if (!bootstrapId) throw new identityModel.IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+  if (!bootstrapId) throw new identityModel.IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
   return bootstrapId;
 }
 

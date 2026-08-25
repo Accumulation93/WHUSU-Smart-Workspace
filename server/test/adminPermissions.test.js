@@ -60,6 +60,10 @@ const {
   assert.strictEqual(ROUTE_RULES.get('/saveVenueApprovalWholeFlow').allowUserRole, false);
   assert.deepStrictEqual(ROUTE_RULES.get('/listUserBindings').anyOf, ['system.admin_accounts.read']);
   assert.strictEqual(ROUTE_RULES.get('/getSubmissionDetail').allowUserRole, true);
+  ['/getAuditFile', '/downloadAuditFile', '/getAuditFilePreview'].forEach((route) => {
+    assert.deepStrictEqual(ROUTE_RULES.get(route).anyOf, ['audit.submissions']);
+    assert.strictEqual(ROUTE_RULES.get(route).allowUserRole, true);
+  });
   assert.strictEqual(ROUTE_RULES.get('/verifySignatureChain').allowUserRole, true);
   assert.deepStrictEqual(ROUTE_RULES.get('/unbindHrWechat').anyOf, ['auth.accounts.global_manage']);
   assert.deepStrictEqual(ROUTE_RULES.get('/previewPersonIdentityCorrection').anyOf, ['auth.accounts.global_manage']);

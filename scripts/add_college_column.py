@@ -17,12 +17,19 @@ from collections import OrderedDict
 XLSX_IN  = os.path.expanduser("~/第二学期名单.xlsx")
 XLSX_OUT = os.path.expanduser("~/第二学期名单_含学院.xlsx")
 
+def required_env(name):
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 DB_CONFIG = {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "whusu_workspace",
-    "password": "e9cadd9f07e3f76e8a518956e1062ee8",
-    "database": "whusu_smart_workspace",
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": required_env("DB_USER"),
+    "password": required_env("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME", "whusu_smart_workspace"),
     "charset": "utf8mb4",
 }
 

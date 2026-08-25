@@ -97,7 +97,8 @@ async function run() {
     activity: scenario.activity,
     overviewRows: [],
     stats: { memberCount: 0 },
-    filterOptions: {}
+    filterOptions: {},
+    historicalIntegrityVerified: true
   };
   const org44 = await invoke('activity-44');
   assert.strictEqual(org44.status, 'success');

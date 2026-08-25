@@ -1,8 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择",
   copy_00853d1d28: "请刷新审批流程后重试",
+  copy_11748a2634: '规则已更新',
   copy_3458928c55: "请重新选择场地",
   copy_3508043e2a: "请刷新借用记录",
   copy_3b95420d79: "该借用已处理",
@@ -19,17 +19,21 @@ module.exports = Object.freeze({
   copy_782bc123ee: "审批流已更新",
   copy_7b831c34ee: "」因借用时间已结束，已自动取消。",
   copy_890d7f4874: "场地审批流程",
+  copy_8a21926f75: '审批完成，等待下一步审批',
   copy_94e247d756: "审批流已删除",
   copy_a56890077c: "请联系管理员补充审批设置",
   copy_a5f604a639: "请重新打开审批设置",
   copy_aa20a1e7b8: "审批时借用已结束，已自动取消",
   copy_b069f9d0fd: "请刷新审批步骤后重试",
   copy_b4432643e3: "驳回",
+  copy_bc02bd8ffe: '所有步骤审批完成，借用已通过',
   copy_c7b826b0c0: "借用已驳回",
+  copy_cf3264f4d8: '规则已创建',
   copy_d185bef128: "审批流程已保存",
   copy_db3e12e237: "请刷新审批设置后重试",
   copy_dcd1184a46: "该时段已被其他借用占用",
   copy_e0725727f3: "请重新选择审批规则",
   copy_f048be09ae: "请使用管理员身份",
-  copy_f553985be3: "已被驳回"
+  copy_f553985be3: "已被驳回",
+  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择"
 });

@@ -1,12 +1,21 @@
 'use strict';
 
 module.exports = Object.freeze({
-  historicalAssignmentMissing: "历史岗位未记录，不能按岗位规则处理该借用",
+  bookingPurposeCreated: "事由已创建",
+  bookingPurposeDeleteFailed: "事由未删除，请稍后重试",
+  bookingPurposeReferenced: "该事由已被借用记录引用，不能删除",
+  bookingPurposeTooLong: "事由内容最多填写 200 个字符",
+  bookingPurposeUpdated: "事由已更新",
+  bookingRuleAssignmentInvalid: "指定人员与岗位不匹配或岗位已失效",
+  bookingRuleAssignmentRequired: "指定人员规则必须同时选择人员和岗位",
+  bookingRuleIdentityRequired: "请选择审批身份类别",
   copy_04ab0b03d0: "请选择其他场地",
   copy_09f81fd1db: "请使用其他事由内容",
   copy_0a29a31b8e: "请重新选择借用规则",
   copy_0b091cba77: "请将结束时间设在开始时间之后",
+  copy_0c95f1e1c6: '场地已更新',
   copy_10df33d76e: "请选择当前时间之后",
+  copy_11748a2634: '规则已更新',
   copy_20ca49e5e7: "请微信登录",
   copy_215e3c57da: "未保存，请重试",
   copy_26f68cb229: "借用时间已保存",
@@ -38,15 +47,19 @@ module.exports = Object.freeze({
   copy_c4a10a56e4: " 审批通过，进入下一步",
   copy_c7b826b0c0: "借用已驳回",
   copy_cba470e634: "审批状态已变化，请刷新",
+  copy_cf3264f4d8: '规则已创建',
   copy_dcd1184a46: "该时段已被其他借用占用",
   copy_de00c3e48a: "信息已失效",
   copy_e075eae47d: "普通用户",
   copy_e52119b17e: "请稍后刷新",
   copy_eb813c46d9: "场地使用已创建",
+  copy_ecda79c975: '场地已创建',
   copy_f048be09ae: "请使用管理员身份",
   copy_f450f21538: "请选择同一天的开始和结束时间",
   copy_f553985be3: "已被驳回",
   copy_f64d815664: "所选时段已有活动占用",
   copy_f95e1a0218: "事由已删除",
-  copy_fdb45fb38f: "请输入事由内容"
+  copy_fdb45fb38f: "请输入事由内容",
+  historicalAssignmentMissing: "历史岗位未记录，不能按岗位规则处理该借用",
+  invalidBookingRuleType: "请选择有效的借用审批规则类型"
 });

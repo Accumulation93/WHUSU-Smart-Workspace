@@ -2,11 +2,16 @@ const localeCopy = require('../locales/zh-CN/generated/middleware/auth');
 const jwt = require('jsonwebtoken');
 const { logger } = require('../utils/logger');
 const unifiedIdentityModel = require('../core/models/unifiedIdentity');
+const { validateIdentityCryptoConfig } = require('../core/services/identityCrypto');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required but not set');
 }
+if (process.env.NODE_ENV === 'production' && Buffer.byteLength(JWT_SECRET, 'utf8') < 32) {
+  throw new Error('JWT_SECRET must contain at least 32 bytes in production');
+}
+if (process.env.NODE_ENV === 'production') validateIdentityCryptoConfig();
 
 // Paths that do not require authentication
 const PUBLIC_PATHS = new Set([

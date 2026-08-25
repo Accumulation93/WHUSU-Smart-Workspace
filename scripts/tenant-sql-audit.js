@@ -44,6 +44,10 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/modules/venue/routes/venueAdmin.js', sql: /SELECT id, name FROM hr_info WHERE id IN/i, reason: '跨组织可见借用记录解析审批快照审批人姓名' },
   { file: 'server/src/modules/audit/models/notification.js', sql: /DELETE FROM notifications WHERE created_at </i, reason: '后台全局保留期清理' },
   { file: 'server/src/modules/audit/models/notificationOutbox.js', sql: /notification_outbox/i, reason: '后台工作进程跨组织领取与清理事件' },
+  { file: 'server/src/modules/audit/models/auditSubmissionFile.js', sql: /SUM\(CASE WHEN signing_key_private/i, reason: '离线私钥迁移工具只汇总全库加密状态，不返回文件或人员业务内容' },
+  { file: 'server/src/modules/audit/services/auditFileStorageMaintenance.js', sql: /SELECT id\s+FROM audit_submission_files\s+WHERE file_path = \?/i, reason: '全局附件存储维护任务在删除候选文件前按绝对路径二次确认数据库引用' },
+  { file: 'server/src/modules/audit/services/auditFileStorageMaintenance.js', sql: /SELECT file_path\s+FROM audit_submission_files\s+WHERE file_path IS NOT NULL/i, reason: '全局附件存储维护任务建立引用集合，防止跨组织共享存储中的有效文件被误删' },
+  { file: 'server/src/modules/audit/utils/fileSecurity.js', sql: /SELECT file_path\s+FROM audit_submission_files\s+WHERE file_path IN/i, reason: '临时文件保留期清理仅按服务端生成的绝对候选路径检查全库引用，避免误删已归档附件' },
   { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE legacy_hr_id = \?/i, reason: '由已授权的旧人员主键解析统一成员关系' },
   { file: 'server/src/core/models/personIdentityOverview.js', sql: /FROM organization_memberships om[\s\S]*WHERE om\.legacy_hr_id = \?/i, reason: '由当前人事列表已授权的旧人员主键解析自然人，后续结果仍按服务端可访问组织过滤' },
@@ -81,6 +85,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE identity_verification_invites SET status = 'consumed'/i, reason: '按已验证的一次性邀请单元消费' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT 1\s+FROM admin_grants\s+WHERE person_id = \? AND admin_level = 'super_admin'/i, reason: '锁定目标自然人的超级管理员授权' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+\(SELECT COUNT\(\*\)\s+FROM persons p\s+LEFT JOIN organization_memberships/i, reason: '启动时统一身份全局一致性检查' },
+  { file: 'server/src/utils/schemaContract.js', sql: /SELECT COUNT\(\*\) AS invalid_count\s+FROM audit_submission_files\s+WHERE signing_key_private/i, reason: '启动时全库阻断任何未完成静态加密迁移的 PDF 签名私钥' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+COUNT\(DISTINCT ag\.id\) AS total,\s+COUNT/i, reason: '启动时超级管理员绑定存续检查' }
 ];
 

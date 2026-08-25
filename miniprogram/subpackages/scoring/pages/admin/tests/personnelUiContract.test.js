@@ -14,6 +14,7 @@ const adminJs = fs.readFileSync(path.join(adminRoot, 'admin.js'), 'utf8');
 const adminWxss = fs.readFileSync(path.join(adminRoot, 'admin.wxss'), 'utf8');
 const appJs = fs.readFileSync(path.resolve(adminRoot, '../../../../app.js'), 'utf8');
 const submissionDetailJs = fs.readFileSync(path.resolve(adminRoot, '../../../audit/pages/submissionDetail/submissionDetail.js'), 'utf8');
+const copyAuditJs = fs.readFileSync(path.resolve(adminRoot, '../../../../../scripts/user-visible-copy-audit.js'), 'utf8');
 const { buildHrProfileFilterOptions, emptyHrProfileFilters, applyHrProfileFilters } = require('../modules/adminUtils');
 const dateTime = require('../../../../../utils/dateTime');
 
@@ -30,6 +31,31 @@ test('账号高危控件只由全局账号治理权限控制', () => {
   assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.personId/);
   assert.match(authBehavior, /async toggleAuthAccountFrozen\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
   assert.match(hrBehavior, /async unbindHrWechat\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+});
+
+test('认证码和恢复码撤销冻结目标并统一经过受控确认', () => {
+  assert.match(wxml, /wx:if="\{\{authMemberConfirmVisible\}\}"/);
+  assert.match(authBehavior, /function freezeCredentialTargets\(rows\)/);
+  assert.match(authBehavior, /_authMemberConfirmPayload = Object\.freeze\(\{/);
+  assert.match(authBehavior, /revokeHrMemberVerificationCode\(e\) \{\s+if \(!this\.data\.canVerifyIdentity\) return;/);
+  assert.match(authBehavior, /revokeSelectedHrVerificationCodes\(\) \{\s+if \(!this\.data\.canVerifyIdentity\) return;/);
+  assert.match(authBehavior, /revokeHrMemberRecoveryCode\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+  assert.match(authBehavior, /revokeSelectedHrRecoveryCodes\(\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+  assert.match(authBehavior, /_openCredentialRevokeConfirm\('verification', \[row\], false\)/);
+  assert.match(authBehavior, /_openCredentialRevokeConfirm\('verification', rows, true\)/);
+  assert.match(authBehavior, /_openCredentialRevokeConfirm\('recovery', \[row\], false\)/);
+  assert.match(authBehavior, /_openCredentialRevokeConfirm\('recovery', rows, true\)/);
+  assert.match(authBehavior, /closeAuthMemberConfirm\(\) \{[\s\S]*this\._authMemberConfirmPayload = null;/);
+  assert.match(authBehavior, /action === 'verification-code-revoke'[\s\S]*!this\.data\.canVerifyIdentity/);
+  assert.match(authBehavior, /action === 'recovery-code-revoke'[\s\S]*!this\.data\.canGlobalAccountManage/);
+  assert.match(authBehavior, /async _revokeHrVerificationTargets\(targets, isBatch\) \{\s+if \(!this\.data\.canVerifyIdentity/);
+  assert.match(authBehavior, /async _revokeHrRecoveryTargets\(targets, isBatch\) \{\s+if \(!this\.data\.canGlobalAccountManage/);
+  const openStart = authBehavior.indexOf('_openCredentialRevokeConfirm(kind, rows, isBatch)');
+  const executeStart = authBehavior.indexOf('async _revokeHrVerificationTargets', openStart);
+  const closeStart = authBehavior.indexOf('closeAuthMemberConfirm()');
+  const confirmStart = authBehavior.indexOf('confirmAuthMemberAction()', closeStart);
+  assert.doesNotMatch(authBehavior.slice(openStart, executeStart), /callFunction|runBatchedAuthAction/);
+  assert.doesNotMatch(authBehavior.slice(closeStart, confirmStart), /callFunction|runBatchedAuthAction/);
 });
 
 test('姓名和学号仅由全局账号治理者通过受控纠错修改', () => {
@@ -103,6 +129,10 @@ test('永久删除必须经过引用预检且彻底删除要求学号确认', ()
   assert.match(hrBehavior, /scope === 'person' \? 'deletePersonPermanently' : 'deleteHrMembershipPermanently'/);
   assert.match(hrBehavior, /expectedVersion: preview\.version/);
   assert.match(hrBehavior, /acceptCleanup: !cleanupRequired \|\| this\.data\.hrPermanentDeletionCleanupAccepted/);
+  assert.match(hrBehavior, /result\.result && typeof result\.result === 'object'/);
+  assert.match(hrBehavior, /deletionResult\.cleanupCounts/);
+  assert.match(hrBehavior, /deletionResult\.affectedRules/);
+  assert.match(hrBehavior, /deletionResult\.disabledRules/);
   assert.match(hrBehavior, /resetHrProfileFilters\(\) \{\s+this\.clearHrInfoKeywordTimer\(\);/);
   assert.match(wxml, /assignmentItem\.historical[\s\S]*localeCopy\.hrHistoricalPosition/);
 });
@@ -143,10 +173,31 @@ test('系统时区变化会刷新真实当前页而不是遍历空钩子', () =>
 
 test('认证治理降级目录可进入详情并构造完整岗位元组', () => {
   assert.match(hrBehavior, /function buildGovernanceAssignments\(item\)/);
-  assert.match(hrBehavior, /departmentId:[\s\S]*identityCategoryId:[\s\S]*workGroupId:/);
+  assert.match(hrBehavior, /item\.assignments\.filter\(\(assignment\) => assignment && assignment\.assignmentId\)/);
+  assert.doesNotMatch(hrBehavior, /legacy-department:|legacy-identity:|legacy-work-group:/);
+  assert.match(authBehavior, /auth\.hasActiveBinding \? 'bound' : 'unbound'/);
+  assert.match(authBehavior, /wxBindStatus: bindStatus/);
   assert.match(hrBehavior, /canOpenGovernanceDetail = this\.data\.canVerifyIdentity[\s\S]*this\.data\.canGlobalAccountManage/);
   assert.match(wxml, /canBrowseHrInfo \|\| canVerifyIdentity \|\| canRecoverAccounts \|\| canGlobalAccountManage/);
   assert.match(adminJs, /canVerifyIdentity \|\| this\.data\.canRecoverAccounts \|\| this\.data\.canGlobalAccountManage/);
+});
+
+test('离任详情展示历史字段与资料审核历史且历史字段不可编辑', () => {
+  assert.match(hrBehavior, /buildHistoricalProfileFields\(result\.historicalFields\)/);
+  assert.match(hrBehavior, /buildProfileReviewHistory\(result\.reviewHistory\)/);
+  assert.match(wxml, /detailHrHistoricalFields\.length[\s\S]*hrHistoricalProfileFields/);
+  assert.match(wxml, /detailHrReviewHistory\.length[\s\S]*hrProfileReviewHistory/);
+  const historicalSection = wxml.slice(
+    wxml.indexOf('detailHrHistoricalFields.length'),
+    wxml.indexOf('detailHrReviewHistory.length')
+  );
+  assert.doesNotMatch(historicalSection, /bindinput|bindchange|<input|<picker/);
+});
+
+test('数字型 placeholder 必须通过 locale，审计器可识别回归', () => {
+  assert.match(copyAuditJs, /numeric-placeholder-must-use-locale/);
+  assert.match(copyAuditJs, /fragment\.attribute === 'placeholder' && \/\\d\//);
+  assert.doesNotMatch(wxml, /placeholder=["'](?:0|1|10|100|0\.5|00:00|23:59)["']/);
 });
 
 test('离任详情岗位与管理员操作在模板和方法层均只读', () => {

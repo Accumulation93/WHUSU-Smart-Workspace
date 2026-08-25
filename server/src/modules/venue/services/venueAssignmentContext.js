@@ -192,16 +192,8 @@ async function resolveBookingApplicantAssignment(booking) {
       historicalSnapshotComplete: true
     });
   }
-  if (stored.assignmentId) {
-    const assignment = await loadAssignmentById(stored.assignmentId, stored.organizationId, false);
-    if (assignment) {
-      return Object.assign(overlayStoredSnapshot(assignment, stored), {
-        source: 'assignment_reference',
-        historicalSnapshotComplete: false
-      });
-    }
-  }
-  // 没有不可变岗位引用时失败关闭：当前 hr_info 不能冒充借用发生时的岗位。
+  // 不完整快照不得用当前岗位补齐；人员调岗后，当前值不能反向改变历史审批条件。
+  // 没有完整不可变岗位快照时统一失败关闭，等待管理员按历史资料处理。
   return null;
 }
 

@@ -2,6 +2,7 @@
 
 module.exports = Object.freeze({
   copy_011a01321b: "得分",
+  copy_0274004bba: '已评',
   copy_02b5a88c0f: "应评人数",
   copy_155d45cc30: "被评人部门",
   copy_1a9dbccd72: "评分人学号",
@@ -21,6 +22,7 @@ module.exports = Object.freeze({
   copy_66565f7cf6: "请选择要查看的评分人",
   copy_6a2da85cb7: "提交时间",
   copy_6c33883f9b: "应评分人数",
+  copy_6efdc6ebba: '未评',
   copy_80528cd2d0: "最终得分",
   copy_83aacffc9f: "未找到对应的评分活动",
   copy_8ca6566932: "最高分",
@@ -47,5 +49,7 @@ module.exports = Object.freeze({
   copy_e3cee0beef: "权重",
   copy_f048be09ae: "请使用管理员身份",
   copy_f15fa8cc75: "被评人身份",
-  copy_fac1711a09: "评分问题"
+  copy_fac1711a09: "评分问题",
+  historicalSnapshotInvalid: "历史评分依据校验失败，结果已停止计算，请联系管理员核对历史数据",
+  historicalSnapshotMissing: "部分历史评分缺少提交时的计算快照，结果已停止计算，不能使用当前规则推断"
 });

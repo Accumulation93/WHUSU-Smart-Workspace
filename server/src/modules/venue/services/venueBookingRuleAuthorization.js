@@ -8,7 +8,9 @@ function matchesBookingRule(rule, actor) {
   if (actor.type !== 'user' || !actor.assignment) return false;
   if (rule.rule_type === 'person') {
     return Boolean(safeString(rule.approver_hr_id)
-      && safeString(rule.approver_hr_id) === safeString(actor.id));
+      && safeString(rule.approver_assignment_id)
+      && safeString(rule.approver_hr_id) === safeString(actor.id)
+      && safeString(rule.approver_assignment_id) === safeString(actor.assignmentId));
   }
   if (rule.rule_type !== 'identity') return false;
   const assignment = toRuleProfile(actor.assignment);

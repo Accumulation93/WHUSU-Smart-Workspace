@@ -1,6 +1,15 @@
 'use strict';
 
 module.exports = Object.freeze({
+  credentialRevokeAction: '撤销',
+  credentialSelectedPrefix: '已选择 ',
+  credentialSelectedSuffix: ' 名成员',
+  recoveryRevokeBatchTitle: '批量撤销恢复码',
+  recoveryRevokeMessage: '撤销后，当前恢复码将立即失效，成员需要重新生成恢复码。',
+  recoveryRevokeTitle: '撤销恢复码',
+  verificationRevokeBatchTitle: '批量撤销认证码',
+  verificationRevokeMessage: '撤销后，当前认证码将立即失效，成员需要重新生成认证码。',
+  verificationRevokeTitle: '撤销认证码',
   copy_0531ed9e78: '未完成，请重试',
   copy_0aacec2714: '已保存',
   copy_0bc2266433: '所选成员无需生成认证码',

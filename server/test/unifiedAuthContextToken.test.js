@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const Module = require('module');
 
 process.env.JWT_SECRET = 'unified-context-token-test-secret';
+process.env.AUTH_IDENTITY_SECRET = 'unified-context-token-identity-secret-32';
 process.env.WECHAT_APPID = 'test-app';
 process.env.WECHAT_SECRET = 'test-secret';
 

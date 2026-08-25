@@ -2,6 +2,9 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/route
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
+const {
+  isBookingPurposeLengthValid
+} = require('../services/venueTextValidation');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const systemConfigModel = require('../../../core/models/systemConfig');
@@ -24,15 +27,17 @@ const requestDeduplication = require('../../../utils/requestDeduplication');
 const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
-const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
+const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
 const { normalizeBookingWindow, fromRow } = require('../services/venueBookingWindow');
 const { getActivitySlots: buildActivitySlots, ruleValidationError } = require('../services/venueActivitySchedule');
 const { evaluateBookingRules } = require('../services/venueBookingRuleAuthorization');
+const { effectiveBookingStart } = require('../services/venueEffectiveBookingTime');
 const {
   toRuleProfile,
   resolveCurrentActorAssignment,
   resolveBookingApplicantAssignment,
-  resolveBookingApplicantAssignments
+  resolveBookingApplicantAssignments,
+  listActiveAssignmentsByLegacyHrId
 } = require('../services/venueAssignmentContext');
 
 async function ensureAdmin(openid) {
@@ -169,7 +174,7 @@ router.post('/saveVenue', async (req, res) => {
     } else {
       await venueModel.create(id, data);
     }
-    res.json({ status: 'success', id, message: existing ? '场地已更新' : '场地已创建' });
+    res.json({ status: 'success', id, message: existing ? localeCopy.copy_0c95f1e1c6 : localeCopy.copy_ecda79c975 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -229,7 +234,7 @@ router.post('/saveVenueOpenRule', async (req, res) => {
     } else {
       await venueOpenRuleModel.create(id, data);
     }
-    res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
+    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -291,7 +296,7 @@ router.post('/saveVenueActivityRule', async (req, res) => {
     } else {
       await venueActivityRuleModel.create(id, data);
     }
-    res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
+    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -357,6 +362,25 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const ruleType = safeString(req.body.ruleType) || 'admin';
+    if (!['admin', 'direct', 'identity', 'person'].includes(ruleType)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.invalidBookingRuleType });
+    }
+    const orgId = await getCurrentOrgId();
+    const approverIdentityId = ruleType === 'identity' ? safeString(req.body.approverIdentityId) : '';
+    const approverHrId = ruleType === 'person' ? safeString(req.body.approverHrId) : '';
+    const approverAssignmentId = ruleType === 'person' ? safeString(req.body.approverAssignmentId) : '';
+    if (ruleType === 'identity' && !approverIdentityId) {
+      return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleIdentityRequired });
+    }
+    if (ruleType === 'person') {
+      if (!approverHrId || !approverAssignmentId) {
+        return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleAssignmentRequired });
+      }
+      const activeAssignments = await listActiveAssignmentsByLegacyHrId(approverHrId, orgId);
+      if (!activeAssignments.some(function(item) { return safeString(item.assignmentId) === approverAssignmentId; })) {
+        return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleAssignmentInvalid });
+      }
+    }
 
     // Mutual exclusion + auto-cleanup
     const allRules = await venueBookingRuleModel.getByVenueId(venueId);
@@ -379,8 +403,9 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     const data = {
       venueId,
       ruleType,
-      approverIdentityId: safeString(req.body.approverIdentityId),
-      approverHrId: safeString(req.body.approverHrId),
+      approverIdentityId,
+      approverHrId,
+      approverAssignmentId,
       scopeDepartmentId: safeString(req.body.scopeDepartmentId),
       scopeWorkGroupId: safeString(req.body.scopeWorkGroupId),
       sortOrder: parseInt(req.body.sortOrder) || 1
@@ -398,7 +423,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       }));
       await venueBookingPolicyModel.upsert(venueId, bookingWindow);
     }
-    res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
+    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -691,52 +716,21 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } catch (_) {}
     }
 
-    // ── Load flow step definitions for ALL flow-based bookings ──
+    // ── 流程型借用只读取创建时固化的流程快照 ──
     const allFlowBookings = list.filter(lb => lb.approvalProgress && lb.approvalProgress.flowId);
-    const flowStepsMap = {}; // flowId|approvalOrgId → [{sort_order, name, action_type, rules}]
-    if (allFlowBookings.length) {
-      try {
-        const flowStepKeys = [...new Set(
-          allFlowBookings.map(b => b.approvalProgress.flowId + '|' + safeString(b.approvalOrgId))
-        )];
-        for (const key of flowStepKeys) {
-          const sep = key.indexOf('|');
-          const flowId = key.slice(0, sep);
-          const flowOrg = key.slice(sep + 1);
-          const [steps] = await pool.query(
-            'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-            [flowId, flowOrg]
-          );
-          // Load rules for all steps in this flow (needed for userCanApprove later)
-          const stepIds = steps.map(s => s.id);
-          if (stepIds.length) {
-            const [allRules] = await pool.query(
-              'SELECT * FROM venue_approval_flow_step_rules WHERE step_id IN (?) AND org_id = ? ORDER BY sort_order',
-              [stepIds, flowOrg]
-            );
-            const ruleMap = {};
-            for (const r of allRules) {
-              if (!ruleMap[r.step_id]) ruleMap[r.step_id] = [];
-              ruleMap[r.step_id].push(r);
-            }
-            for (const step of steps) { step.rules = ruleMap[step.id] || []; }
-          }
-          flowStepsMap[key] = steps;
-        }
-        // Attach display-only flowSteps to each booking's approvalProgress
-        for (const lb of allFlowBookings) {
-          const steps = flowStepsMap[lb.approvalProgress.flowId + '|' + safeString(lb.approvalOrgId)] || [];
-          lb.approvalProgress.flowSteps = steps.map(s => ({
-            sortOrder: s.sort_order,
-            name: s.name,
-            actionType: s.action_type
-          }));
-        }
-      } catch (_) { /* silently ignore — flowSteps won't be attached */ }
+    const bookingMap = new Map(bookings.map(booking => [booking.id, booking]));
+    for (const listBooking of allFlowBookings) {
+      const booking = bookingMap.get(listBooking.id);
+      const flowSteps = booking ? venueApprovalMultiFlow.getSnapshotFlowSteps(
+        booking,
+        booking.approval_org_id,
+        listBooking.approvalProgress.flowId
+      ) : [];
+      listBooking.approvalProgress.flowSteps = flowSteps;
+      listBooking.approvalProgress.flowSnapshotAvailable = flowSteps.length > 0;
     }
 
     // 管理端只按管理员身份判断，不复用同一微信的普通用户人事身份。
-    const bookingMap = new Map(bookings.map(booking => [booking.id, booking]));
     const adminActor = {
       type: 'admin',
       id: safeString(admin.id),
@@ -755,14 +749,11 @@ router.post('/listAllVenueBookings', async (req, res) => {
         listBooking.userCanApprove = false;
         continue;
       }
-      const steps = flowStepsMap[listBooking.approvalProgress.flowId + '|' + safeString(listBooking.approvalOrgId)] || [];
-      const authorization = evaluateVenueApprovalStep({
-        booking,
-        actor: adminActor,
-        steps,
-        applicantHrInfo: null
-      });
+      const authorization = await venueApprovalMultiFlow.evaluateActorEligibility(booking, adminActor, orgId);
       listBooking.userCanApprove = authorization.ok;
+      if (!authorization.ok && authorization.reason === venueApprovalMultiFlow.REASONS.FLOW_SNAPSHOT_MISSING) {
+        listBooking.approvalBlockedReason = authorization.reason;
+      }
     }
 
     // 旧规则待办也复用写接口授权，避免列表显示可审批但提交时被拒绝。
@@ -832,10 +823,11 @@ router.post('/approveVenueBooking', async (req, res) => {
       return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
     }
 
-    // Approval within booking window - adjust start time
-    await venueBookingModel.updateTimeStart(id, toMysqlUtc(approvedAt), conn);
+    // 审批发生在借用开始前时保留申请人原定开始；仅已迟于原开始时才收窄到审批时刻。
+    const effectiveTimeStart = effectiveBookingStart(booking.time_start, approvedAt);
+    await venueBookingModel.updateTimeStart(id, toMysqlUtc(effectiveTimeStart), conn);
 
-    const timeStart = toMysqlUtc(approvedAt);
+    const timeStart = toMysqlUtc(effectiveTimeStart);
     const timeEnd = toMysqlUtc(new Date(booking.time_end));
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
     if (conflict) {
@@ -947,6 +939,9 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     const id = safeString(req.body.id) || generateId();
     const text = safeString(req.body.text).trim();
     if (!text) return res.json({ status: 'invalid_params', message: localeCopy.copy_fdb45fb38f });
+    if (!isBookingPurposeLengthValid(text)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.bookingPurposeTooLong });
+    }
     const data = { text, sortOrder: parseInt(req.body.sortOrder) || 1 };
     const existing = await venueBookingPurposeModel.getById(id);
     if (existing) {
@@ -954,7 +949,11 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     } else {
       await venueBookingPurposeModel.create(id, data);
     }
-    res.json({ status: 'success', id, message: existing ? '事由已更新' : '事由已创建' });
+    res.json({
+      status: 'success',
+      id,
+      message: existing ? localeCopy.bookingPurposeUpdated : localeCopy.bookingPurposeCreated
+    });
   } catch (e) {
     if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: localeCopy.copy_09f81fd1db });
     console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
@@ -969,10 +968,24 @@ router.post('/deleteVenueBookingPurpose', async (req, res) => {
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_5869ec3d99 });
+    const existing = await venueBookingPurposeModel.getById(id);
+    if (existing) {
+      // 历史结构未保存 purpose_id，只能用借用记录中的事由文本快照判定引用。
+      const [referenceRows] = await pool.query(
+        'SELECT 1 FROM venue_bookings WHERE title = ? LIMIT 1',
+        [existing.text]
+      );
+      if (referenceRows.length) {
+        return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
+      }
+    }
     await venueBookingPurposeModel.remove(id);
     res.json({ status: 'success', message: localeCopy.copy_f95e1a0218 });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (e && (e.code === 'ER_ROW_IS_REFERENCED' || e.code === 'ER_ROW_IS_REFERENCED_2')) {
+      return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
+    }
+    res.json({ status: 'error', message: localeCopy.bookingPurposeDeleteFailed });
   }
 });
 

@@ -14,6 +14,18 @@ const migrationTools = require('../scripts/runDeploymentMigrations');
 
 const root = path.resolve(__dirname, '../..');
 const migrationPath = path.join(root, 'server/db/deploy/20260823190000_utc_time_normalization.sql');
+const securityMigrationPath = path.join(
+  root,
+  'server/db/deploy/20260825233000_server_security_hardening.sql'
+);
+const venueLegacyMigrationPath = path.join(
+  root,
+  'server/db/deploy/20260825234500_venue_legacy_person_assignment.sql'
+);
+const unprovenTimeReclassificationMigrationPath = path.join(
+  root,
+  'server/db/deploy/20260826093000_reclassify_unproven_user_visible_times.sql'
+);
 
 function writeFixture(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -188,7 +200,15 @@ function testSourceClassificationAndMigrationContract() {
     sourceCatalog.classifyColumn('auth_sessions', 'created_at', {
       columnDefault: 'CURRENT_TIMESTAMP'
     }).migrationAction,
-    'shift_minus_480'
+    'record_review',
+    '用户可见绝对时间即使由 CURRENT_TIMESTAMP 默认值生成，也不得按整列猜测平移'
+  );
+  assert.strictEqual(
+    sourceCatalog.classifyColumn('hr_profile_templates', 'updated_at', {
+      columnDefault: 'CURRENT_TIMESTAMP'
+    }).migrationAction,
+    'record_review',
+    '用户可见业务表必须保留逐记录来源审查'
   );
   assert.strictEqual(
     sourceCatalog.classifyColumn('hr_info', 'created_at', {
@@ -198,6 +218,13 @@ function testSourceClassificationAndMigrationContract() {
     '存在手工 UTC 写入的混合来源表禁止整列平移'
   );
   assert.strictEqual(
+    sourceCatalog.classifyColumn('accounts', 'created_at', {
+      columnDefault: 'CURRENT_TIMESTAMP'
+    }).migrationAction,
+    'shift_minus_480',
+    '只有具备迁移账本、备份与行级因果证据的旧字段允许保留整列平移结论'
+  );
+  assert.strictEqual(
     sourceCatalog.classifyColumn('venue_bookings', 'time_start').sourceType,
     'legacy_unverified'
   );
@@ -205,6 +232,28 @@ function testSourceClassificationAndMigrationContract() {
     sourceCatalog.classifyColumn('future_table', 'unexpected_time').sourceType,
     'unclassified'
   );
+  const nativeUtcColumns = {
+    security_rate_limit_buckets: [
+      'window_started_at',
+      'expires_at',
+      'created_at',
+      'updated_at'
+    ],
+    audit_temp_uploads: ['expires_at', 'created_at'],
+    score_snapshot_backfill_audits: ['reconstructed_at', 'applied_at']
+  };
+  Object.entries(nativeUtcColumns).forEach(([tableName, columnNames]) => {
+    assert.strictEqual(sourceCatalog.isUserVisibleTable(tableName), false);
+    columnNames.forEach((columnName) => {
+      const classification = sourceCatalog.classifyColumn(tableName, columnName, {
+        columnDefault: columnName === 'created_at' || columnName === 'updated_at'
+          ? 'CURRENT_TIMESTAMP(3)'
+          : null
+      });
+      assert.strictEqual(classification.sourceType, 'post_cutover_native_utc');
+      assert.strictEqual(classification.migrationAction, 'keep_utc');
+    });
+  });
   assert.strictEqual(preflight.quoteIdentifier('audit_events'), '`audit_events`');
   assert.throws(() => preflight.quoteIdentifier('audit_events;DROP TABLE x'));
   const schemaReport = preflight.runSchemaPreflight(path.join(root, 'server/db/init.sql'));
@@ -232,6 +281,25 @@ function testSourceClassificationAndMigrationContract() {
   sourceCatalog.MIXED_SOURCE_TABLES.forEach((tableName) => {
     assert.ok(migration.includes(`'${tableName}'`), `迁移 SQL 缺少混合来源表：${tableName}`);
   });
+
+  const securityMigration = fs.readFileSync(securityMigrationPath, 'utf8');
+  assert.match(securityMigration, /SET @server_security_previous_time_zone := @@SESSION\.time_zone/);
+  assert.match(securityMigration, /SET SESSION time_zone = '\+00:00'/);
+  assert.match(securityMigration, /SET SESSION time_zone = @server_security_previous_time_zone/);
+
+  const venueLegacyMigration = fs.readFileSync(venueLegacyMigrationPath, 'utf8');
+  assert.match(venueLegacyMigration, /SET @venue_assignment_previous_time_zone = @@SESSION\.time_zone/);
+  assert.match(venueLegacyMigration, /SET SESSION time_zone = '\+00:00'/);
+  assert.match(venueLegacyMigration, /SET SESSION time_zone = @venue_assignment_previous_time_zone/);
+
+  const reclassificationMigration = fs.readFileSync(unprovenTimeReclassificationMigrationPath, 'utf8');
+  assert.match(reclassificationMigration, /reclassified_review_required/);
+  assert.match(reclassificationMigration, /previous_audit\.affected_rows/);
+  assert.match(reclassificationMigration, /table_name = 'accounts'/);
+  assert.match(reclassificationMigration, /table_name = 'hr_profile_record_values'/);
+  assert.match(reclassificationMigration, /migration_action = 'record_review'/);
+  assert.match(reclassificationMigration, /status = 'review_pending'/);
+  assert.doesNotMatch(reclassificationMigration, /DATE_(?:ADD|SUB)\s*\(/i);
 
   const materializer = fs.readFileSync(
     path.join(root, 'server/scripts/materializeUtcTimeReviews.js'), 'utf8'

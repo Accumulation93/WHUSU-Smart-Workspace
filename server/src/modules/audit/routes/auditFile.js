@@ -38,7 +38,7 @@ async function assertSafeFileContent(buffer, mimeType) {
     const { PDFDocument } = require('pdf-lib');
     const pdf = await PDFDocument.load(buffer, { updateMetadata: false });
     if (pdf.getPageCount() > MAX_PDF_PAGES) {
-      const error = new Error('PDF 页数超过限制');
+      const error = new Error(localeCopy.copy_e21f279212);
       error.status = 'invalid_params';
       throw error;
     }
@@ -47,7 +47,7 @@ async function assertSafeFileContent(buffer, mimeType) {
   const metadata = await require('sharp')(buffer, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
   const pixels = Number(metadata.width || 0) * Number(metadata.height || 0);
   if (!pixels || pixels > MAX_IMAGE_PIXELS) {
-    const error = new Error('请重新选择尺寸较小的图片');
+    const error = new Error(localeCopy.copy_321d99b760);
     error.status = 'invalid_params';
     throw error;
   }

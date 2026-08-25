@@ -220,8 +220,14 @@ requireSourceContract('server/src/modules/audit/models/auditSubmissionStep.js', 
   },
   {
     rule: 'audit-corrupt-condition-deny',
-    test: source => source.includes('Corrupt explicit conditions must fail closed')
-      && !/catch \(e\) \{\s*hasExplicitConditions = false/.test(source)
+    test: source => {
+      const snapshotParse = source.match(
+        /if \(!row\.step_conditions_json\) continue;\s*try \{\s*const conditions = JSON\.parse\(row\.step_conditions_json\);[\s\S]*?\} catch \(_\) \{([\s\S]*?)\n\s*\}/
+      );
+      return Boolean(snapshotParse)
+        && !/rows\.push|return\s+true|hasExplicitConditions\s*=\s*false/.test(snapshotParse[1])
+        && !/catch \(e\) \{\s*hasExplicitConditions = false/.test(source);
+    }
   }
 ]);
 requireSourceContract('server/src/modules/scoring/routes/scoring.js', [

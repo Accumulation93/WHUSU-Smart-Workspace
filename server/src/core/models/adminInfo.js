@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
-const { hmac, legacyHash } = require('../services/identityCrypto');
+const { hmacCandidates, legacyHash } = require('../services/identityCrypto');
 
 const APP_ID = 'whusu-smart-workspace';
 
@@ -25,13 +25,16 @@ function unifiedAuthorizationClause(alias) {
        WHERE active_grant.legacy_admin_id = ${alias}.id
          AND active_grant.org_id = ${alias}.org_id
          AND active_grant.status = 'active'
-         AND (binding.openid_hash IN (?, ?) OR binding.legacy_openid = ?)
+         AND (binding.openid_hash IN (?, ?, ?) OR binding.legacy_openid = ?)
     )
   )`;
 }
 
 function unifiedAuthorizationParams(openid) {
-  return [APP_ID, hmac(openid), legacyHash(openid), openid];
+  const candidates = hmacCandidates(openid);
+  const primaryHash = candidates[0];
+  const legacyHmacHash = candidates[1] || primaryHash;
+  return [APP_ID, primaryHash, legacyHmacHash, legacyHash(openid), openid];
 }
 
 async function getByOpenid(openid) {

@@ -56,7 +56,7 @@ const {
   assignmentSqlExpression
 } = require('../services/auditHistoryScope');
 
-const { matchesAnyCondition, matchesScope } = submissionStepModel;
+const { matchesAnyCondition } = submissionStepModel;
 
 /**
  * Helper: check if a value exists in a comma-separated list.
@@ -590,7 +590,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         stepConditionsJson = JSON.stringify(conditions);
       }
       if (!conditions.length && !ts.approver_hr_id && !ts.approver_identity_id) {
-        const configError = new Error('请为每个审批步骤选择审批人');
+        const configError = new Error(localeCopy.copy_e6048310d4);
         configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
         throw configError;
       }
@@ -771,7 +771,7 @@ router.post('/startAdHocAudit', async (req, res) => {
         stepConditionsJson = JSON.stringify(conditions);
       }
       if (!conditions.length && !safeString(s.approverHrId) && !safeString(s.approverIdentityId)) {
-        const configError = new Error('请为每个审批步骤选择审批人');
+        const configError = new Error(localeCopy.copy_e6048310d4);
         configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
         throw configError;
       }
@@ -968,64 +968,20 @@ router.post('/getSubmissionDetail', async (req, res) => {
       const approverInfo = detailAssignment;
       if (approverInfo) {
         const submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
-        // Batch-load template step conditions for fallback
-        const tplStepIds = [...new Set(steps.map(s => s.template_step_id).filter(Boolean))];
-        const templateConditionMap = {};
-        if (tplStepIds.length) {
-          const [tplCondRows] = await pool.query(
-            `SELECT * FROM audit_flow_template_step_conditions
-             WHERE template_step_id IN (?) AND org_id = ?
-             ORDER BY template_step_id, sort_order`,
-            [tplStepIds, orgId]
-          );
-          for (const tc of tplCondRows) {
-            if (!templateConditionMap[tc.template_step_id]) templateConditionMap[tc.template_step_id] = [];
-            templateConditionMap[tc.template_step_id].push({
-              conditionType: tc.condition_type,
-              personHrIds: tc.person_hr_ids,
-              assignmentIds: tc.assignment_ids,
-              departmentScope: tc.department_scope,
-              specificDepartmentId: tc.specific_department_id,
-              workGroupScope: tc.work_group_scope,
-              specificWorkGroupId: tc.specific_work_group_id,
-              identityScope: tc.identity_scope,
-              specificIdentityId: tc.specific_identity_id
-            });
-          }
-        }
         // Only check CURRENT pending steps (at current_step_index).
         // Don't match against already-approved or future steps — the user
         // must match the step that is actually waiting for approval.
         for (const s of steps) {
           if (s.status !== 'pending') continue;
           if (s.sort_order !== submission.current_step_index) continue;
-          let stepHasExplicitConds = false;
-          // Check step_conditions_json
-          if (s.step_conditions_json) {
-            stepHasExplicitConds = true;
-            try {
-              const conds = JSON.parse(s.step_conditions_json);
-              if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
-                isApprover = true; break;
-              }
-            } catch (_) {
-              // Invalid explicit conditions fail closed; never broaden to the
-              // template or legacy approver fields.
-            }
-          }
-          // Fallback: template step conditions (only when NO explicit conditions)
-          if (!isApprover && !stepHasExplicitConds && s.template_step_id && templateConditionMap[s.template_step_id]) {
-            if (matchesAnyCondition(templateConditionMap[s.template_step_id], approverInfo, submitterInfo)) {
+          if (!s.step_conditions_json) continue;
+          try {
+            const conds = JSON.parse(s.step_conditions_json);
+            if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
               isApprover = true; break;
             }
-          }
-          // Legacy check (only when NO explicit conditions — legacy fields may be stale)
-          if (!isApprover && !stepHasExplicitConds && s.approver_type === 'identity' && s.approver_identity_id) {
-            if (inCsv(s.approver_identity_id, approverInfo.identity_id)) {
-              if (matchesScope(s, approverInfo, submitterInfo)) {
-                isApprover = true; break;
-              }
-            }
+          } catch (_) {
+            // 历史步骤只使用不可变快照；缺失或损坏时失败关闭。
           }
         }
       }
@@ -1036,7 +992,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
     }
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
-    const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
+    const currentFileIds = new Set(files.map(function(file) { return safeString(file.id); }));
+    const signatures = (await submissionSignatureModel.getBySubmissionId(submissionId))
+      .filter(function(signature) { return currentFileIds.has(safeString(signature.file_id)); });
     // Load HR names
     const allHrIds = new Set();
     allHrIds.add(submission.submitted_by);
@@ -1191,39 +1149,39 @@ router.post('/getSubmissionDetail', async (req, res) => {
             const names = hrIds.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
             personNames = names.join('、');
           }
-          legacyApproverDesc = '由 ' + (personNames || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
+          legacyApproverDesc = localeCopy.copy_d3028048b3 + (personNames || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
         } else if (identName || scopeType) {
           // Always build from scope + identity, using fallback labels when names are missing
           const identLabel = identName || localeCopy.copy_5a83091c13;
           if (!scopeType || scopeType === 'all') {
-            legacyApproverDesc = '由 全体 ' + identLabel + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_9b774f950c + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_department') {
-            legacyApproverDesc = '由 同部门 ' + identLabel + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_fc98ff863c + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_work_group') {
-            legacyApproverDesc = '由 同职能组 ' + identLabel + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d0348010eb + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_department') {
             const dn = resolveMultiNames(s.scope_department_id, deptMap);
             if (dn) {
-              legacyApproverDesc = '由 ' + dn + ' ' + identLabel + localeCopy.copy_7abed5378f;
+              legacyApproverDesc = localeCopy.copy_d3028048b3 + dn + ' ' + identLabel + localeCopy.copy_7abed5378f;
             } else {
-              legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
+              legacyApproverDesc = localeCopy.copy_d3028048b3 + identLabel + localeCopy.copy_7abed5378f;
             }
           } else if (scopeType === 'specific_work_group') {
             const dn = resolveMultiNames(s.scope_department_id, deptMap);
             const wn = resolveMultiNames(s.scope_work_group_id, wgMap);
             const loc = [dn, wn].filter(Boolean).join('·');
             if (loc) {
-              legacyApproverDesc = '由 ' + loc + ' ' + identLabel + localeCopy.copy_7abed5378f;
+              legacyApproverDesc = localeCopy.copy_d3028048b3 + loc + ' ' + identLabel + localeCopy.copy_7abed5378f;
             } else {
-              legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
+              legacyApproverDesc = localeCopy.copy_d3028048b3 + identLabel + localeCopy.copy_7abed5378f;
             }
           } else {
-            legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d3028048b3 + identLabel + localeCopy.copy_7abed5378f;
           }
         }
 
         // Resolve multi-select names for legacy flat fields
-        let approverNameDisplay = '未指定';
+        let approverNameDisplay = localeCopy.copy_86bbf0d28e;
         let rawHrId2 = (s.approver_hr_id || '').trim();
         if (rawHrId2) {
           let hrIds2 = rawHrId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
@@ -1303,56 +1261,29 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
 /**
  * Shared authorization check for approve/reject step actions.
- * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
- * @returns {boolean} authorized
+ * Historical authorization uses only the immutable step_conditions_json snapshot.
+ * A missing or corrupt snapshot fails closed and is reported distinctly so that
+ * operations can be repaired by a controlled migration instead of current templates.
+ * @returns {{ authorized: boolean, snapshotValid: boolean }}
  */
 async function checkStepAuthorization(step, submission, approverAssignment, db) {
   const orgId = await getCurrentOrgId();
-  if (!approverAssignment) return false;
+  if (!approverAssignment) return { authorized: false, snapshotValid: true };
   const currentApprover = approverAssignment;
   const submitters = await getSubmissionSubmitterAssignments(submission, orgId, db);
-
-  let hasExplicitConditions = false;
-
-  // 1. Check step_conditions_json first (new multi-condition model)
-  if (step.step_conditions_json) {
-    hasExplicitConditions = true;
-    try {
-      const conditions = JSON.parse(step.step_conditions_json);
-      if (matchesAnyCondition(conditions, currentApprover, submitters)) return true;
-    } catch (_) {
-      // Corrupt explicit conditions fail closed; template and legacy fields
-      // may be broader and must not become an authorization fallback.
+  if (!step.step_conditions_json) return { authorized: false, snapshotValid: false };
+  try {
+    const conditions = JSON.parse(step.step_conditions_json);
+    if (!Array.isArray(conditions) || !conditions.length) {
+      return { authorized: false, snapshotValid: false };
     }
+    return {
+      authorized: matchesAnyCondition(conditions, currentApprover, submitters),
+      snapshotValid: true
+    };
+  } catch (_) {
+    return { authorized: false, snapshotValid: false };
   }
-
-  // 2. Fallback: load conditions from template step (covers legacy submissions
-  //    or steps created before conditions were properly serialized).
-  //    Only when NO explicit conditions exist — if step_conditions_json was parsed
-  //    successfully (even if it didn't match), it is the sole authority.
-  if (!hasExplicitConditions && step.template_step_id) {
-    try {
-      const tplConds = await submissionStepModel.getTemplateStepConditions(step.template_step_id);
-      if (tplConds && matchesAnyCondition(tplConds, currentApprover, submitters)) return true;
-    } catch (_) { /* fall through */ }
-  }
-
-  // 3. Legacy check — uses inCsv() to handle comma-separated multi-ID fields.
-  //    Only when NO explicit conditions exist (legacy fields may be stale).
-  if (!hasExplicitConditions) {
-    if (step.approver_type === 'identity' && step.approver_identity_id) {
-      if (inCsv(step.approver_identity_id, currentApprover.identity_id)) {
-        if (matchesScope(step, currentApprover, submitters)) return true;
-      }
-    }
-    // 4. 无条件步骤不授予隐式审批权；管理员身份也不能替代普通用户人事身份审批。
-    if (!step.step_conditions_json && !step.template_step_id &&
-        !step.approver_hr_id && !step.approver_identity_id) {
-      return false;
-    }
-  }
-
-  return false;
 }
 
 // approveStep — Approve current step with optional signature/stamp
@@ -1447,9 +1378,15 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, approverAssignment, conn);
-    if (!authorized) {
+    const authorization = await checkStepAuthorization(step, submission, approverAssignment, conn);
+    if (!authorization.authorized) {
       await conn.rollback();
+      if (!authorization.snapshotValid) {
+        return res.json({
+          status: 'historical_snapshot_missing',
+          message: localeCopy.historicalApprovalSnapshotMissing
+        });
+      }
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
@@ -1468,7 +1405,7 @@ router.post('/approveStep', async (req, res) => {
     }
     if (hasNextDesignation && (!nextStep || Number(nextStep.allow_approver_designation) !== 1)) {
       await conn.rollback();
-      return res.json({ status: 'invalid_params', message: nextStep ? '下一步按审批条件确定审批人' : '已是最后一步' });
+      return res.json({ status: 'invalid_params', message: nextStep ? localeCopy.copy_97d569974c : localeCopy.copy_f75a962ed9 });
     }
 
     // Update step status to approved
@@ -1507,7 +1444,7 @@ router.post('/approveStep', async (req, res) => {
     }
 
     for (const [fileId, fileSignatures] of signaturesByFile) {
-      const file = await submissionFileModel.getById(fileId);
+      const file = await submissionFileModel.getCurrentById(fileId);
       if (!file || file.submission_id !== submissionId) {
         throw new Error(localeCopy.copy_6ae85136ce);
       }
@@ -1673,12 +1610,8 @@ router.post('/approveStep', async (req, res) => {
             throw new Error(localeCopy.copy_93c41f359c);
           }
         }
-        // Fallback: load from template
-        if (!originalConds.length && nextStep.template_step_id) {
-          try {
-            const tplConds2 = await submissionStepModel.getTemplateStepConditions(nextStep.template_step_id);
-            if (tplConds2) originalConds = tplConds2;
-          } catch (_) {}
+        if (!originalConds.length) {
+          throw new Error(localeCopy.historicalApprovalSnapshotMissing);
         }
 
         const submitterAssignments = await getSubmissionSubmitterAssignments(submission, orgId, conn);
@@ -1745,7 +1678,7 @@ router.post('/approveStep', async (req, res) => {
       }, conn);
     }
     await conn.commit();
-    res.json({ status: 'success', message: localeCopy.copy_126a0e1f4c + (nextStep ? '，已流转至下一步' : '，审核完成') });
+    res.json({ status: 'success', message: localeCopy.copy_126a0e1f4c + (nextStep ? localeCopy.copy_1d9affae0d : localeCopy.copy_e34c2ce1d6) });
   } catch (e) {
     await conn.rollback();
     for (const backup of signedFileBackups.reverse()) {
@@ -1821,9 +1754,15 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, rejecterAssignment, conn);
-    if (!authorized) {
+    const authorization = await checkStepAuthorization(step, submission, rejecterAssignment, conn);
+    if (!authorization.authorized) {
       await conn.rollback();
+      if (!authorization.snapshotValid) {
+        return res.json({
+          status: 'historical_snapshot_missing',
+          message: localeCopy.historicalApprovalSnapshotMissing
+        });
+      }
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
@@ -1894,7 +1833,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
-    const submission = await submissionModel.getById(submissionId);
+    let submission = await submissionModel.getById(submissionId);
     if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
@@ -1953,6 +1892,27 @@ router.post('/updateAuditSubmission', async (req, res) => {
       return item.assignmentIds;
     }), orgId);
 
+    const lockedSubmission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!lockedSubmission) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+    }
+    if (lockedSubmission.submitted_by !== hrId) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
+    }
+    if (!editableStatuses.includes(lockedSubmission.status)) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_62614a6df0 });
+    }
+    if (safeString(lockedSubmission.status) !== safeString(submission.status)
+      || safeString(lockedSubmission.type) !== safeString(submission.type)
+      || safeString(lockedSubmission.template_id) !== safeString(submission.template_id)) {
+      await conn.rollback();
+      return res.json({ status: 'state_changed', message: localeCopy.concurrentStateChanged });
+    }
+    submission = lockedSubmission;
+
     // Update submission metadata
     await submissionModel.update(submissionId, {
       title,
@@ -1962,16 +1922,29 @@ router.post('/updateAuditSubmission', async (req, res) => {
       resubmitMode: newResubmitMode
     }, conn);
 
-    // Compute max round BEFORE removing old steps (for edit event logging)
-    const oldSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    // 历史步骤必须与申请行在同一事务内锁定，避免审批动作与编辑并发改写证据。
+    const oldSteps = await submissionStepModel.getBySubmissionIdForUpdate(submissionId, conn);
     let editEventRound = 1;
     for (let osi = 0; osi < oldSteps.length; osi++) {
-      editEventRound = Math.max(editEventRound, oldSteps[osi].round || 1);
+      if (Number(oldSteps[osi].round) > 0) {
+        editEventRound = Math.max(editEventRound, Number(oldSteps[osi].round));
+      }
     }
+    const preserveHistoricalEvidence = submission.status === 'rejected' || submission.status === 'withdrawn';
+    const editedRound = preserveHistoricalEvidence ? 0 : 1;
 
-    // Replace steps
-    // Remove existing steps for this submission
-    await submissionStepModel.removeBySubmissionId(submissionId, conn);
+    if (preserveHistoricalEvidence) {
+      // 编辑只保存 round=0/status=draft 的待重提配置，不创建正式审批轮次，
+      // 也不改写旧轮次的待办、处理结果、签名或岗位快照。
+      await conn.query(
+        `DELETE FROM audit_submission_steps
+          WHERE submission_id = ? AND round = 0 AND status = 'draft' AND org_id = ?`,
+        [submissionId, orgId]
+      );
+    } else {
+      // draft/pending 尚未形成审批证据，可替换其未启用流程。
+      await submissionStepModel.removeBySubmissionId(submissionId, conn);
+    }
 
     let stepsToCreate = [];
     if (newType === 'template' && newTemplateId) {
@@ -2038,6 +2011,9 @@ router.post('/updateAuditSubmission', async (req, res) => {
       });
     }
 
+    if (!stepsToCreate.length) {
+      throw new Error(localeCopy.auditStepsRequired);
+    }
     if (stepsToCreate.length > 0) {
       for (let i = 0; i < stepsToCreate.length; i++) {
         const s = stepsToCreate[i];
@@ -2061,27 +2037,28 @@ router.post('/updateAuditSubmission', async (req, res) => {
           actionType: s.actionType || 'sign',
           allowApproverDesignation: s.allowApproverDesignation === true,
           stepName: s.name || s.stepName || '',
-          round: 1,
+          round: editedRound,
+          status: preserveHistoricalEvidence ? 'draft' : 'pending',
           stepConditionsJson
         }, conn);
       }
     }
 
-    // Reset to step 1 since steps changed
-    await submissionModel.update(submissionId, { currentStepIndex: 1, previousRejectStepIndex: null }, conn);
+    if (!preserveHistoricalEvidence) {
+      // 尚未形成审批历史的草稿可以直接重置为第一步。
+      await submissionModel.update(submissionId, { currentStepIndex: 1, previousRejectStepIndex: null }, conn);
+    }
 
-    // Replace files if provided
+    // 新附件形成不可变修订；旧附件退出当前集合，但继续供历史签名和验签按 file_id 读取。
     if (uploadedFiles && uploadedFiles.length) {
-      // Remove existing files
-      const existingFiles = await submissionFileModel.getBySubmissionId(submissionId);
-      for (const ef of existingFiles) {
-        if (ef.file_path && require('fs').existsSync(ef.file_path)) {
-          try { require('fs').unlinkSync(ef.file_path); } catch (_) {}
-        }
-      }
-      await submissionFileModel.removeBySubmissionId(submissionId, conn);
-
+      await submissionFileModel.getAllBySubmissionId(submissionId, conn, true);
+      await submissionFileModel.markCurrentAsHistorical(submissionId, conn);
       await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
+      await submissionFileModel.setCurrentRevisionRound(
+        submissionId,
+        preserveHistoricalEvidence ? 0 : 1,
+        conn
+      );
     }
 
     // Insert edit event
@@ -2123,7 +2100,7 @@ router.post('/resubmitAudit', async (req, res) => {
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
-    const submission = await submissionModel.getById(submissionId);
+    let submission = await submissionModel.getById(submissionId);
     if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
@@ -2148,28 +2125,34 @@ router.post('/resubmitAudit', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_935d2dc973 });
     }
 
-    let resubmitTemplateConditions = {};
-    let resubmitTemplateSteps = [];
-    let resubmitTemplateStepIds = new Set();
-    let resubmitSubmitter = null;
-    if (submission.type === 'template' && submission.template_id) {
-      resubmitTemplateSteps = await flowTemplateStepModel.getByTemplateId(submission.template_id);
-      resubmitTemplateStepIds = new Set(resubmitTemplateSteps.map(function(step) { return String(step.id); }));
-      resubmitTemplateConditions = buildTemplateConditionMap(
-        await flowTemplateStepConditionModel.getByTemplateId(submission.template_id)
-      );
-      if (requestedOverrides.length && (!resubmitTemplateSteps.length ||
-        Number(resubmitTemplateSteps[0].allow_approver_designation) !== 1)) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
-      }
-      resubmitSubmitter = resubmitterAssignment;
-    }
-
     await conn.beginTransaction();
     await lockAuditActor(conn, resubmitterAssignment, orgId);
     await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
       return item.assignmentIds;
     }), orgId);
+
+    const lockedSubmission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!lockedSubmission) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+    }
+    if (lockedSubmission.submitted_by !== hrId) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
+    }
+    if (lockedSubmission.status !== 'rejected'
+      && lockedSubmission.status !== 'withdrawn'
+      && lockedSubmission.status !== 'pending') {
+      await conn.rollback();
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_debdfa4054 });
+    }
+    if (safeString(lockedSubmission.status) !== safeString(submission.status)
+      || safeString(lockedSubmission.type) !== safeString(submission.type)
+      || safeString(lockedSubmission.template_id) !== safeString(submission.template_id)) {
+      await conn.rollback();
+      return res.json({ status: 'state_changed', message: localeCopy.concurrentStateChanged });
+    }
+    submission = lockedSubmission;
 
     // Optional updates during resubmission
     const newTitle = safeString(req.body.title);
@@ -2184,6 +2167,11 @@ router.post('/resubmitAudit', async (req, res) => {
     const isWithdrawn = submission.status === 'withdrawn';
     const isPending = submission.status === 'pending';
 
+    const allSteps = await submissionStepModel.getBySubmissionIdForUpdate(submissionId, conn);
+    if (!allSteps.length) {
+      throw new Error(localeCopy.copy_f428da1450);
+    }
+
     // Clean up: mark all old-round pending steps as 'superseded' so they
     // don't pollute authorization queries that should only see the latest round.
     await conn.query(
@@ -2193,68 +2181,26 @@ router.post('/resubmitAudit', async (req, res) => {
       [submissionId, orgId]
     );
 
-    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
-
-    if (isPending) {
-      // Pending: steps already exist but status wasn't updated to in_progress
-      // Simply activate the submission — no new steps needed
-      if (requestedOverrides.length && submission.type === 'template') {
-        const firstStep = allSteps.find(function(step) {
-          return Number(step.sort_order) === 1 && Number(step.allow_approver_designation) === 1;
-        });
-        if (firstStep) {
-          const firstConditions = resubmitTemplateConditions[firstStep.template_step_id] || [];
-          const narrowed = await narrowTemplateStepConditions(
-            firstConditions,
-            requestedOverrides[0].personHrIds,
-            requestedOverrides[0].assignmentIds,
-            resubmitSubmitter,
-            orgId,
-            conn
-          );
-          await conn.query(
-            'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
-            [JSON.stringify(narrowed), firstStep.id, orgId]
-          );
-        }
-      }
-      await submissionModel.update(submissionId, {
-        status: 'in_progress',
-        currentStepIndex: 1,
-        submittedPersonId: resubmitterAssignment.person_id,
-        submittedAssignmentId: resubmitterAssignment.assignment_id,
-        submittedContextSnapshot: assignmentSnapshot(resubmitterAssignment, req.authContext)
-      }, conn);
-      // Insert submit event (first submit from pending state)
-      await auditEventModel.create(generateId(), {
-        ...buildAuditOperatorContext(req, resubmitterAssignment),
-        submissionId,
-        eventType: 'submit',
-        stepIndex: null,
-        round: 1,
-        operatorHrId: hrId,
-        operatorName: resubmitterAssignment.name,
-        comment: null
-      }, conn);
-
-      await conn.commit();
-      return res.json({
-        status: 'success',
-        message: localeCopy.copy_7946f0a5a8
-      });
-    }
-
-    const resubmitMode = isWithdrawn ? 'fresh' : submission.resubmit_mode;
-    const rejectStepIndex = isWithdrawn ? 1 : (submission.previous_reject_step_index || 1);
+    // pending 也必须创建独立新轮次；禁止把旧步骤全部 superseded 后直接置为进行中。
+    const resubmitMode = (isWithdrawn || isPending) ? 'fresh' : submission.resubmit_mode;
+    const rejectStepIndex = (isWithdrawn || isPending) ? 1 : (submission.previous_reject_step_index || 1);
     // Use MAX round across ALL steps (not just the first one) to ensure
     // round numbers only ever increase, never decrease or repeat.
     let maxExistingRound = 1;
     for (let ri = 0; ri < allSteps.length; ri++) {
-      maxExistingRound = Math.max(maxExistingRound, allSteps[ri].round || 1);
+      if (Number(allSteps[ri].round) > 0) {
+        maxExistingRound = Math.max(maxExistingRound, Number(allSteps[ri].round));
+      }
     }
     const newRound = maxExistingRound + 1;
+    const draftSteps = allSteps.filter(function(step) {
+      return Number(step.round) === 0 && safeString(step.status) === 'draft';
+    });
     const latestStepBySortOrder = {};
-    allSteps
+    const sourceSteps = draftSteps.length
+      ? draftSteps
+      : allSteps.filter(function(step) { return Number(step.round) > 0; });
+    sourceSteps
       .slice()
       .sort(function(a, b) {
         if ((a.round || 1) !== (b.round || 1)) return (a.round || 1) - (b.round || 1);
@@ -2266,6 +2212,12 @@ router.post('/resubmitAudit', async (req, res) => {
     const canonicalSteps = Object.keys(latestStepBySortOrder)
       .map(function(k) { return latestStepBySortOrder[k]; })
       .sort(function(a, b) { return a.sort_order - b.sort_order; });
+    if (!canonicalSteps.length) {
+      throw new Error(localeCopy.copy_f428da1450);
+    }
+    if (requestedOverrides.length && Number(canonicalSteps[0].allow_approver_designation) !== 1) {
+      throw new Error(localeCopy.copy_670f4a48f1);
+    }
 
     if (!isWithdrawn && resubmitMode === 'from_rejector') {
       // Create new round entries for all steps from reject step onwards.
@@ -2278,17 +2230,13 @@ router.post('/resubmitAudit', async (req, res) => {
         let rs = remainingSteps[rsi];
         let stepId = generateId();
         let conditions = parseConditionsJson(rs.step_conditions_json);
-        if (rs.template_step_id && resubmitTemplateStepIds.has(String(rs.template_step_id))) {
-          conditions = (resubmitTemplateConditions[rs.template_step_id] || []).map(function(item) {
-            return Object.assign({}, item);
-          });
-        }
+        if (!conditions.length) throw new Error(localeCopy.historicalApprovalSnapshotMissing);
         if (requestedOverrides.length && Number(rs.sort_order) === 1) {
           conditions = await narrowTemplateStepConditions(
             conditions,
             requestedOverrides[0].personHrIds,
             requestedOverrides[0].assignmentIds,
-            resubmitSubmitter,
+            resubmitterAssignment,
             orgId,
             conn
           );
@@ -2313,15 +2261,14 @@ router.post('/resubmitAudit', async (req, res) => {
       const templateSteps = canonicalSteps;
       for (const ts of templateSteps) {
         const stepId = generateId();
-        let conditions = ts.template_step_id && resubmitTemplateStepIds.has(String(ts.template_step_id))
-          ? (resubmitTemplateConditions[ts.template_step_id] || []).map(function(item) { return Object.assign({}, item); })
-          : parseConditionsJson(ts.step_conditions_json);
+        let conditions = parseConditionsJson(ts.step_conditions_json);
+        if (!conditions.length) throw new Error(localeCopy.historicalApprovalSnapshotMissing);
         if (requestedOverrides.length && Number(ts.sort_order) === 1) {
           conditions = await narrowTemplateStepConditions(
             conditions,
             requestedOverrides[0].personHrIds,
             requestedOverrides[0].assignmentIds,
-            resubmitSubmitter,
+            resubmitterAssignment,
             orgId,
             conn
           );
@@ -2343,8 +2290,43 @@ router.post('/resubmitAudit', async (req, res) => {
       }
     }
 
-    // Reset submission status
+    // 草稿步骤只保存编辑配置；正式新轮次创建成功后在同一事务内清除。
+    if (draftSteps.length) {
+      await conn.query(
+        `DELETE FROM audit_submission_steps
+          WHERE submission_id = ? AND round = 0 AND status = 'draft' AND org_id = ?`,
+        [submissionId, orgId]
+      );
+    }
+
+    // 当前附件与正式步骤在同一事务内绑定到完全一致的新轮次。
+    await submissionFileModel.getAllBySubmissionId(submissionId, conn, true);
+    await submissionFileModel.setCurrentRevisionRound(submissionId, newRound, conn);
+    const [fileRoundRows] = await conn.query(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN revision_round <> ? THEN 1 ELSE 0 END) AS mismatched
+         FROM audit_submission_files
+        WHERE submission_id = ? AND is_current = 1 AND org_id = ?`,
+      [newRound, submissionId, orgId]
+    );
+    if (Number(fileRoundRows[0] && fileRoundRows[0].total) < 1
+      || Number(fileRoundRows[0] && fileRoundRows[0].mismatched) !== 0) {
+      throw new Error(localeCopy.resubmitFileRoundInvalid);
+    }
+
     const startStepIndex = resubmitMode === 'from_rejector' ? rejectStepIndex : 1;
+    const [newFirstStepRows] = await conn.query(
+      `SELECT COUNT(*) AS total
+         FROM audit_submission_steps
+        WHERE submission_id = ? AND round = ? AND sort_order = ?
+          AND status = 'pending' AND org_id = ?`,
+      [submissionId, newRound, startStepIndex, orgId]
+    );
+    if (Number(newFirstStepRows[0] && newFirstStepRows[0].total) !== 1) {
+      throw new Error(localeCopy.resubmitFirstStepInvalid);
+    }
+
+    // Reset submission status
     await submissionModel.update(submissionId, {
       status: 'in_progress',
       currentStepIndex: startStepIndex,
@@ -2370,10 +2352,10 @@ router.post('/resubmitAudit', async (req, res) => {
     res.json({
       status: 'success',
       message: isWithdrawn
-        ? '已重新提交，将从头开始审批流程'
+        ? localeCopy.resubmittedFromStart
         : (resubmitMode === 'from_rejector'
-          ? '已重提交，直接流转至驳回审批人'
-          : '已重提交，将从头开始审批流程')
+          ? localeCopy.resubmittedFromRejector
+          : localeCopy.resubmittedFromStart)
     });
   } catch (e) {
     await conn.rollback();
@@ -2890,8 +2872,21 @@ router.post('/listEligibleApprovers', async (req, res) => {
       const currentStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx; });
       const nextStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx + 1; });
 
-      if (!currentStep || !(await checkStepAuthorization(currentStep, submission, actorContext.assignment))) {
+      if (!currentStep) {
         return res.json({ status: 'forbidden', message: localeCopy.copy_4d7982666d });
+      }
+      const currentAuthorization = await checkStepAuthorization(
+        currentStep,
+        submission,
+        actorContext.assignment
+      );
+      if (!currentAuthorization.authorized) {
+        return res.json({
+          status: currentAuthorization.snapshotValid ? 'forbidden' : 'historical_snapshot_missing',
+          message: currentAuthorization.snapshotValid
+            ? localeCopy.copy_4d7982666d
+            : localeCopy.historicalApprovalSnapshotMissing
+        });
       }
       if (!nextStep) {
         return res.json({ status: 'success', approvers: [], message: localeCopy.copy_798fa078a7 });
@@ -2910,10 +2905,11 @@ router.post('/listEligibleApprovers', async (req, res) => {
         }
       }
 
-      // Fallback: template step conditions
-      if (!conditions.length && nextStep.template_step_id) {
-        const tplConds = await submissionStepModel.getTemplateStepConditions(nextStep.template_step_id);
-        if (tplConds) conditions = tplConds;
+      if (!conditions.length) {
+        return res.json({
+          status: 'historical_snapshot_missing',
+          message: localeCopy.historicalApprovalSnapshotMissing
+        });
       }
       hasUnboundLegacyPersonCondition = nextStep.approver_type === 'specific_person'
         && !conditions.length;

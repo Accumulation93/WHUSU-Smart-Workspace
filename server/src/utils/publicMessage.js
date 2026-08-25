@@ -24,6 +24,12 @@ function fallbackForStatus(status) {
 function protectPublicMessage(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
   if (typeof body.message !== 'string') return body;
+  const status = String(body.status || '').toLowerCase();
+  // 未分类异常可能包含驱动消息、绝对路径或第三方响应。所有通用 error
+  // 都失败关闭；需要向用户解释的业务错误必须使用明确状态和 locale 文案。
+  if (status === 'error' || status === 'internal_error') {
+    return Object.assign({}, body, { message: fallbackForStatus(status) });
+  }
   if (
     !INTERNAL_COPY_PATTERN.test(body.message)
     && !FAILURE_COPY_PATTERN.test(body.message)

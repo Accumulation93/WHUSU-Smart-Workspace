@@ -31,6 +31,10 @@ const TARGET = TARGET_ARG ? TARGET_ARG.slice('--target='.length).replace(/\\/g, 
 const WRITE = process.argv.includes('--write');
 const HAN = /[\u3400-\u9fff]/;
 const SERVER_MODE = TARGET === 'server/src' || TARGET.startsWith('server/src/');
+const SERVER_VISIBLE_PROPERTIES = new Set([
+  'message', 'label', 'description', 'title', 'content', 'placeholder',
+  'statusText', 'reason', 'fileName', 'emptyText', 'hintText', 'note'
+]);
 const SOURCE_ROOT = SERVER_MODE ? SERVER_ROOT : MINI_ROOT;
 const LOCALE_ROOT = path.join(SOURCE_ROOT, 'locales', 'zh-CN', 'generated');
 const RUNTIME_FILE = path.join(SOURCE_ROOT, 'locales', 'runtime.js');
@@ -127,22 +131,48 @@ function addLiteral(entries, sourceLiteral) {
   return key;
 }
 
-function isServerVisibleNode(source, node) {
+function astPropertyName(node) {
+  if (!node || node.type !== 'Property' || node.computed) return '';
+  if (node.key.type === 'Identifier') return node.key.name;
+  if (node.key.type === 'Literal') return String(node.key.value || '');
+  return '';
+}
+
+function astCallName(node) {
+  if (!node || (node.type !== 'CallExpression' && node.type !== 'NewExpression')) return '';
+  const callee = node.callee;
+  if (!callee) return '';
+  if (callee.type === 'Identifier') return callee.name;
+  if (callee.type === 'MemberExpression' && !callee.computed) {
+    const object = callee.object && callee.object.type === 'Identifier' ? callee.object.name : '';
+    const property = callee.property && callee.property.type === 'Identifier' ? callee.property.name : '';
+    return object && property ? `${object}.${property}` : property;
+  }
+  return '';
+}
+
+function isServerVisibleNode(source, node, ancestors) {
   if (!SERVER_MODE) return true;
+  if ((ancestors || []).some((ancestor) => {
+    if (ancestor.type === 'Property' && SERVER_VISIBLE_PROPERTIES.has(astPropertyName(ancestor))) return true;
+    if (ancestor.type === 'NewExpression' && /Error$/.test(astCallName(ancestor))) return true;
+    if (ancestor.type === 'CallExpression' && /^(?:res\.)?json$/.test(astCallName(ancestor))) return true;
+    return false;
+  })) return true;
   const context = source.slice(Math.max(0, node.start - 220), node.start).replace(/\s+/g, ' ');
   return /(?:(?:message|label|description|title|content|placeholder|statusText|reason)\s*:\s*|throw new Error\s*\(|new \w+Error\s*\(|return\s+|\|\|\s*|\+\s*)$/.test(context);
 }
 
 function transformAstNode(source, node, entries, force) {
   const replacements = [];
-  collectAstReplacements(source, node, null, entries, replacements, node.start, force);
+  collectAstReplacements(source, node, null, entries, replacements, node.start, force, []);
   return applyReplacements(source.slice(node.start, node.end), replacements);
 }
 
-function collectAstReplacements(source, node, parent, entries, replacements, baseOffset, force) {
+function collectAstReplacements(source, node, parent, entries, replacements, baseOffset, force, ancestors) {
   if (!node || typeof node.type !== 'string') return;
   if (node.type === 'Literal' && typeof node.value === 'string' && HAN.test(node.value)
-    && (force || isServerVisibleNode(source, node))) {
+    && (force || isServerVisibleNode(source, node, ancestors))) {
     const raw = source.slice(node.start, node.end);
     const key = addLiteral(entries, raw);
     const isObjectKey = parent && parent.type === 'Property'
@@ -156,7 +186,7 @@ function collectAstReplacements(source, node, parent, entries, replacements, bas
   }
   if (node.type === 'TemplateLiteral') {
     const hasChineseText = node.quasis.some((quasi) => HAN.test(quasi.value.cooked || quasi.value.raw));
-    if (hasChineseText && (force || isServerVisibleNode(source, node))) {
+    if (hasChineseText && (force || isServerVisibleNode(source, node, ancestors))) {
       const templateValue = node.quasis.map((quasi, index) => (
         `${quasi.value.raw}${index < node.expressions.length ? `{${index}}` : ''}`
       )).join('');
@@ -174,16 +204,17 @@ function collectAstReplacements(source, node, parent, entries, replacements, bas
       return;
     }
   }
+  const nextAncestors = ancestors.concat(node);
   for (const [property, value] of Object.entries(node)) {
     if (property === 'start' || property === 'end' || property === 'loc') continue;
     if (Array.isArray(value)) {
       for (const child of value) {
         if (child && typeof child.type === 'string') {
-          collectAstReplacements(source, child, node, entries, replacements, baseOffset, force);
+          collectAstReplacements(source, child, node, entries, replacements, baseOffset, force, nextAncestors);
         }
       }
     } else if (value && typeof value.type === 'string') {
-      collectAstReplacements(source, value, node, entries, replacements, baseOffset, force);
+      collectAstReplacements(source, value, node, entries, replacements, baseOffset, force, nextAncestors);
     }
   }
 }
@@ -196,7 +227,7 @@ function transformJavascript(source, entries) {
     allowReturnOutsideFunction: true
   });
   const replacements = [];
-  collectAstReplacements(source, program, null, entries, replacements, 0, false);
+  collectAstReplacements(source, program, null, entries, replacements, 0, false, []);
   return applyReplacements(source, replacements);
 }
 

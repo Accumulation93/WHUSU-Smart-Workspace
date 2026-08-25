@@ -24,19 +24,19 @@ async function getById(id) {
 }
 
 async function create(id, data, conn) {
-  const { venueId, ruleType, approverIdentityId, approverHrId, scopeDepartmentId, scopeWorkGroupId, sortOrder } = data;
+  const { venueId, ruleType, approverIdentityId, approverHrId, approverAssignmentId, scopeDepartmentId, scopeWorkGroupId, sortOrder } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venue_booking_rules (id, venue_id, org_id, rule_type, approver_identity_id, approver_hr_id, scope_department_id, scope_work_group_id, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, venueId, orgId, ruleType || 'admin', approverIdentityId || null, approverHrId || null,
+    `INSERT INTO venue_booking_rules (id, venue_id, org_id, rule_type, approver_identity_id, approver_hr_id, approver_assignment_id, scope_department_id, scope_work_group_id, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, venueId, orgId, ruleType || 'admin', approverIdentityId || null, approverHrId || null, approverAssignmentId || null,
      scopeDepartmentId || null, scopeWorkGroupId || null, sortOrder || 1]
   );
 }
 
 async function update(id, data, conn) {
-  const { ruleType, approverIdentityId, approverHrId, scopeDepartmentId, scopeWorkGroupId, sortOrder, isActive } = data;
+  const { ruleType, approverIdentityId, approverHrId, approverAssignmentId, scopeDepartmentId, scopeWorkGroupId, sortOrder, isActive } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const fields = [];
@@ -44,6 +44,7 @@ async function update(id, data, conn) {
   if (ruleType !== undefined) { fields.push('rule_type = ?'); values.push(ruleType); }
   if (approverIdentityId !== undefined) { fields.push('approver_identity_id = ?'); values.push(approverIdentityId || null); }
   if (approverHrId !== undefined) { fields.push('approver_hr_id = ?'); values.push(approverHrId || null); }
+  if (approverAssignmentId !== undefined) { fields.push('approver_assignment_id = ?'); values.push(approverAssignmentId || null); }
   if (scopeDepartmentId !== undefined) { fields.push('scope_department_id = ?'); values.push(scopeDepartmentId || null); }
   if (scopeWorkGroupId !== undefined) { fields.push('scope_work_group_id = ?'); values.push(scopeWorkGroupId || null); }
   if (sortOrder !== undefined) { fields.push('sort_order = ?'); values.push(sortOrder); }

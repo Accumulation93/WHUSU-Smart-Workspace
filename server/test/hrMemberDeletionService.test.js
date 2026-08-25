@@ -4,6 +4,7 @@ const Module = require('module');
 const safeString = (value) => value == null ? '' : String(value);
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-member-deletion-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-member-deletion-identity-test-secret';
 process.env.DB_USER = process.env.DB_USER || 'hr_member_deletion_test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'hr_member_deletion_test';
 
@@ -177,6 +178,7 @@ async function testMembershipDeletionUsesPreviewVersionAndAudit() {
   state.audits = [];
   state.completions = [];
   state.claims = [];
+  state.lockOrder = [];
   const preview = await service.previewHrMemberDeletion(membershipRequest(), adminActor());
   assert.strictEqual(preview.eligible, true);
   assert.strictEqual(preview.affectedRules[0].wouldDisable, true);
@@ -199,6 +201,10 @@ async function testMembershipDeletionUsesPreviewVersionAndAudit() {
   assert.strictEqual(state.completions.length, 1);
   assert.strictEqual(state.claims[0].resourceId.length, 64);
   assert(!state.claims[0].resourceId.includes('org-a'));
+  assert(
+    state.lockOrder.indexOf('global-governance') < state.lockOrder.indexOf('person-row'),
+    '组织成员永久删除必须先获取全局治理锁，再锁目标人员行'
+  );
 }
 
 async function testSelfAndLastSuperAdminAreBlocked() {
@@ -210,6 +216,12 @@ async function testSelfAndLastSuperAdminAreBlocked() {
 
   state.targetIsSuperAdmin = true;
   state.activeSuperAdmins = 1;
+  preview = await service.previewHrMemberDeletion(
+    membershipRequest(),
+    adminActor()
+  );
+  assert(preview.safetyBlocks.some((item) => item.category === 'last_effective_super_admin'));
+
   preview = await service.previewHrMemberDeletion({
     scope: 'person', personId: 'person-target', organizationId: 'org-a'
   }, adminActor({ adminLevel: 'super_admin' }));
@@ -270,6 +282,71 @@ async function testDeletionReauthorizesInsideTransaction() {
     (error) => error.code === 'permission_denied'
   );
   assert.strictEqual(state.cleanupCalls.length, 0);
+}
+
+async function testDeletionRequiresValidClientRequestIdAndReplaysStoredResult() {
+  await assert.rejects(
+    service.deleteHrMembershipPermanently(
+      membershipRequest({ clientRequestId: '' }),
+      adminActor()
+    ),
+    (error) => error.code === 'hr_member_deletion_client_request_id_required'
+      && error.httpStatus === 400
+  );
+  await assert.rejects(
+    service.deleteHrMembershipPermanently(
+      membershipRequest({ clientRequestId: 'invalid request id' }),
+      adminActor()
+    ),
+    (error) => error.code === 'hr_member_deletion_client_request_id_invalid'
+      && error.httpStatus === 400
+  );
+  await assert.rejects(
+    service.deleteHrMembershipPermanently(
+      membershipRequest({ clientRequestId: 'x'.repeat(97) }),
+      adminActor()
+    ),
+    (error) => error.code === 'hr_member_deletion_client_request_id_invalid'
+      && error.httpStatus === 400
+  );
+
+  const originalClaim = requestDeduplicationStub.claim;
+  const storedResult = {
+    scope: 'membership', deleted: true, idempotent: false, targetId: 'person-target',
+    cleanupCounts: { memberships: 1 }, affectedRules: [], disabledRules: []
+  };
+  state.cleanupCalls = [];
+  requestDeduplicationStub.claim = async () => ({
+    claimed: false,
+    enabled: true,
+    clientRequestId: 'request-replay',
+    resourceId: 'stored-resource',
+    response: storedResult
+  });
+  try {
+    const replayed = await service.deleteHrMembershipPermanently(
+      membershipRequest({ clientRequestId: 'request-replay' }),
+      adminActor()
+    );
+    assert.deepStrictEqual(replayed, storedResult);
+    assert.strictEqual(state.cleanupCalls.length, 0);
+
+    requestDeduplicationStub.claim = async () => {
+      const error = new Error('conflict');
+      error.code = 'IDEMPOTENCY_RESOURCE_CONFLICT';
+      throw error;
+    };
+    await assert.rejects(
+      service.deleteHrMembershipPermanently(
+        membershipRequest({ clientRequestId: 'request-replay' }),
+        adminActor()
+      ),
+      (error) => error.code === 'hr_member_deletion_idempotency_conflict'
+        && error.httpStatus === 409
+    );
+  } finally {
+    requestDeduplicationStub.claim = originalClaim;
+  }
 }
 
 async function testPersonDeletionRequiresTypedStudentIdAndKeepsOnlyDigest() {
@@ -424,6 +501,7 @@ async function testOrganizationProfileCleanupRestoresOtherOrganizationValue() {
   await testExpiredPreviewIsRejected();
   await testCleanupRequiresExplicitAcceptance();
   await testDeletionReauthorizesInsideTransaction();
+  await testDeletionRequiresValidClientRequestIdAndReplaysStoredResult();
   await testPersonDeletionRequiresTypedStudentIdAndKeepsOnlyDigest();
   await testPersonPreviewIncludesEveryOrganizationRuleInVersion();
   testReferencePairRemoval();

@@ -68,7 +68,8 @@ assert(!submissionBehaviorSource.includes("name: 'listHrInfo'"),
   '审批详情不能调用管理员专用的人事目录接口');
 assert(submissionBehaviorSource.includes('editSubmissionId')
   && submissionBehaviorSource.includes('stepOverrides: stepOverrides')
-  && routeSource.includes('resubmitTemplateConditions'),
+  && routeSource.includes('const draftSteps = allSteps.filter')
+  && routeSource.includes('const sourceSteps = draftSteps.length'),
   '模板修改和重新提交必须保留审批人重新指定链路');
 assert(routeSource.includes('hasHistoricalApprovalEvent')
   && routeSource.includes('auditEventModel.getBySubmissionId(submissionId)'),

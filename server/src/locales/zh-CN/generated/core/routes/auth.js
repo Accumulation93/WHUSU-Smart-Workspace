@@ -16,5 +16,6 @@ module.exports = Object.freeze({
   copy_c22a252e97: "请先登录",
   copy_cc9e4b8129: "请重新选择组织",
   copy_d0ec43dfe5: "人事信息已更新，请重新登录",
+  copy_e9125ff384: '该组织中的人事身份已绑定其他微信',
   copy_fe40320d45: "组织信息已更新，请重新登录"
 });

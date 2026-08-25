@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 TARGET_SHA="${1:-}"
 BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main}"
@@ -23,6 +24,17 @@ if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 64
 fi
 
+# 锁必须覆盖所有会改变远端状态的操作；仅允许为锁文件本身准备父目录。
+mkdir -p "$DEPLOY_DIR"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "已有生产部署正在执行，本次提交交由后续任务处理"
+  exit 75
+fi
+
+mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR" \
+  "$SHARED_DIR/uploads/audit/_tmp"
+
 mapfile -t EXISTING_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -print)
 for existing_release in "${EXISTING_RELEASES[@]}"; do
   release_env="$existing_release/server/.env"
@@ -32,16 +44,8 @@ for existing_release in "${EXISTING_RELEASES[@]}"; do
 done
 git -C "$REPO_DIR" remote set-url origin git@github.com:Accumulation93/WHUSU-Smart-Workspace.git
 
-mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR" \
-  "$SHARED_DIR/uploads/audit/_tmp"
 LOG_FILE="$LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S)-${TARGET_SHA:0:12}.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
-
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  echo "已有生产部署正在执行，本次提交交由后续任务处理"
-  exit 75
-fi
 
 STARTED_AT="$(date +%s)"
 OLD_RELEASE=""
@@ -277,6 +281,11 @@ node "$NEW_RELEASE/server/test/deploymentAutomation.test.js"
 
 PLAN_JSON="$(node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" plan | tail -n 1)"
 PENDING_COUNT="$(printf '%s' "$PLAN_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).pendingCount)))")"
+if [[ "$PLAN_JSON" == *"20260825234500_score_calculation_context_snapshot.sql"* ]]; then
+  log "执行旧评分记录不可变快照只读预检"
+  timeout --signal=TERM --kill-after=30s 600s \
+    node "$NEW_RELEASE/server/scripts/backfillScoreCalculationSnapshots.js" --require-all
+fi
 if [[ "$PLAN_JSON" == *"20260823190000_utc_time_normalization.sql"* ]]; then
   log "执行生产时间来源只读预检"
   timeout --signal=TERM --kill-after=30s 300s node "$NEW_RELEASE/server/scripts/preflightUtcTimeMigration.js" --strict
@@ -309,7 +318,12 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
   if [[ "$PENDING_COUNT" -gt 0 ]]; then
     timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" apply --sha "$TARGET_SHA"
   fi
-  if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
+  if [[ "$PLAN_JSON" == *"20260825234500_score_calculation_context_snapshot.sql"* ]]; then
+    log "按活动回填或隔离旧评分记录不可变快照"
+    timeout --signal=TERM --kill-after=30s 1200s \
+      node "$NEW_RELEASE/server/scripts/backfillScoreCalculationSnapshots.js" --apply --require-all
+  fi
+  if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 || "$PENDING_COUNT" -gt 0 ]]; then
     log "物化逐记录历史时间待核对账本"
     timeout --signal=TERM --kill-after=30s 1200s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --materialize
     log "执行 UTC 迁移逐记录语义校验"
@@ -318,7 +332,15 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
   AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
     AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
     node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js"
+  log "加密并核验历史 PDF 签名私钥"
+  PDF_SIGNING_KEY_ALLOW_LEGACY_PLAINTEXT=true \
+    timeout --signal=TERM --kill-after=30s 600s \
+    node "$NEW_RELEASE/server/scripts/migrateAuditSigningKeys.js" --apply
 fi
+
+# 即使本次没有数据库迁移，也必须拒绝带明文或损坏签名私钥的版本上线。
+timeout --signal=TERM --kill-after=10s 120s \
+  node "$NEW_RELEASE/server/scripts/migrateAuditSigningKeys.js"
 
 log "原子切换服务版本"
 atomic_link "$NEW_RELEASE"

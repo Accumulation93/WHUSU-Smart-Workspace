@@ -1,5 +1,6 @@
 const assert = require('assert');
 const Module = require('module');
+const crypto = require('crypto');
 
 const participants = [
   { id: 'scorer-1', person_id: 'person-1', department_id: 'dept', identity_id: 'scorer', work_group_id: '' },
@@ -31,6 +32,64 @@ const records = [
     template_config_signature: 'template-1[1|weighted_average|0|0]'
   }
 ];
+
+function calculationSnapshot(scorerId, targetId) {
+  const rule = {
+    id: 'rule-1',
+    scorerDepartmentId: 'dept',
+    scorerIdentityCategoryId: 'scorer',
+    allowSelfAssessment: true
+  };
+  const clause = {
+    id: 'clause-1',
+    scopeType: 'all_people',
+    targetIdentityCategoryId: 'target',
+    requireAllComplete: true,
+    requiredTargets: ['target-1', 'target-2'].map((id) => ({
+      participantId: id,
+      subjectKey: 'assignment:' + id,
+      personId: id === 'target-1' ? 'person-3' : 'person-4',
+      assignmentId: id
+    }))
+  };
+  const templates = [{
+    templateId: 'template-1',
+    templateName: '模板',
+    weight: 1,
+    sortOrder: 1,
+    calculationMethod: 'weighted_average',
+    trimHighCount: 0,
+    trimLowCount: 0,
+    questions: [{
+      id: 'question-1', questionIndex: 1, globalQuestionIndex: 1,
+      question: '评分', scoreLabel: '', minValue: 0, startValue: 0, maxValue: 100, stepValue: 1
+    }]
+  }];
+  const policySignature = 'v1:' + crypto.createHash('sha256')
+    .update(JSON.stringify({ rule, clause, templates })).digest('hex');
+  return JSON.stringify({
+    version: 1,
+    activityId: 'activity-1',
+    participantGranularity: 'assignment',
+    templateConfigSignature: 'template-1[1|weighted_average|0|0]',
+    calculationPolicySignature: policySignature,
+    scorer: {
+      participantId: scorerId, subjectKey: 'assignment:' + scorerId,
+      personId: scorerId === 'scorer-1' ? 'person-1' : 'person-2', assignmentId: scorerId, context: {}
+    },
+    target: {
+      participantId: targetId, subjectKey: 'assignment:' + targetId,
+      personId: targetId === 'target-1' ? 'person-3' : 'person-4', assignmentId: targetId, context: {}
+    },
+    rule,
+    clause,
+    templates
+  });
+}
+
+records.forEach((record) => {
+  record.calculation_context_snapshot = calculationSnapshot(record.scorer_id, record.target_id);
+});
 
 const answerScores = {
   'record-1': 10,
@@ -94,7 +153,7 @@ const pool = {
         score: answerScores[record.id]
       }))];
     }
-    if (sql.startsWith('UPDATE score_records')) return [{ affectedRows: 0 }];
+    if (!/^\s*SELECT\b/i.test(sql)) throw new Error('结果读取不得写库: ' + sql);
     throw new Error('Unexpected SQL: ' + sql);
   }
 };
@@ -119,7 +178,8 @@ const { computeValidScoreMap } = require('../src/modules/scoring/utils/scoreCalc
 Module._load = originalLoad;
 
 (async () => {
-  const scores = await computeValidScoreMap('activity-1', 'org-1');
+  const calculation = await computeValidScoreMap('activity-1', 'org-1');
+  const scores = calculation.finalScoreMap;
   assert.strictEqual(scores.get('target-1').finalScore, 10);
   assert.strictEqual(scores.get('target-2').finalScore, 20);
   assert.strictEqual(

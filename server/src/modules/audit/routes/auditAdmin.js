@@ -335,7 +335,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       }
 
       await conn.commit();
-      res.json({ status: 'success', id: templateId, message: id ? '模板已更新' : '模板已创建' });
+      res.json({ status: 'success', id: templateId, message: id ? localeCopy.copy_c0182529aa : localeCopy.copy_e06667ae8f });
     } catch (err) {
       await conn.rollback();
       throw err;
@@ -705,7 +705,9 @@ router.post('/getAuditProgress', async (req, res) => {
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
     const files = await submissionFileModel.getBySubmissionId(submissionId);
-    const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
+    const currentFileIds = new Set(files.map(function(file) { return safeString(file.id); }));
+    const signatures = (await submissionSignatureModel.getBySubmissionId(submissionId))
+      .filter(function(signature) { return currentFileIds.has(safeString(signature.file_id)); });
     const events = await auditEventModel.getBySubmissionId(submissionId);
 
     // Load HR names
@@ -810,24 +812,24 @@ router.post('/getAuditProgress', async (req, res) => {
         const identName = identityMap[s.approver_identity_id] || '';
         const scopeType = (s.scope_type || '').trim();
         if (s.approver_type === 'specific_person') {
-          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
+          legacyApproverDesc = localeCopy.copy_d3028048b3 + (hrMap[s.approver_hr_id] || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
         } else if (identName) {
           if (!scopeType || scopeType === 'all') {
-            legacyApproverDesc = '由 全体 ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_9b774f950c + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_department') {
-            legacyApproverDesc = '由 同部门 ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_fc98ff863c + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_work_group') {
-            legacyApproverDesc = '由 同职能组 ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d0348010eb + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_department') {
             const dn = deptMap[s.scope_department_id] || s.scope_department_id || localeCopy.copy_b3604f443f;
-            legacyApproverDesc = '由 ' + dn + ' ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d3028048b3 + dn + ' ' + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_work_group') {
             const dn = deptMap[s.scope_department_id] || '';
             const wn = wgMap[s.scope_work_group_id] || '';
             const loc = [dn, wn].filter(Boolean).join('·') || localeCopy.copy_258347beac;
-            legacyApproverDesc = '由 ' + loc + ' ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d3028048b3 + loc + ' ' + identName + localeCopy.copy_7abed5378f;
           } else {
-            legacyApproverDesc = '由 ' + identName + localeCopy.copy_7abed5378f;
+            legacyApproverDesc = localeCopy.copy_d3028048b3 + identName + localeCopy.copy_7abed5378f;
           }
         }
         return {

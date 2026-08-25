@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ORG = 'org-1';
+let liveFlowDefinitionQueries = 0;
 const assignments = {
   'a-app': { assignmentId: 'a-app', legacyHrId: 'hr-app', personId: 'p-app', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'member' },
   'a-head': { assignmentId: 'a-head', legacyHrId: 'hr-head', personId: 'p-head', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'dept_head' },
@@ -82,6 +83,7 @@ const pool = {
       return [[{ total: 1 }]];
     }
     if (sql.indexOf('venue_approval_flows WHERE id') >= 0) {
+      liveFlowDefinitionQueries += 1;
       const id = String(params[0]);
       return [[[flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === id; }) || null]];
     }
@@ -173,12 +175,24 @@ function userActor(hrId, personId, assignmentId) {
 }
 
 function makeBooking(flowState) {
+  const flowList = Object.keys(flowState.flows || {}).map(function(flowId) {
+    return [flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === flowId; });
+  }).filter(Boolean);
+  const stepsByFlow = {};
+  flowList.forEach(function(flow) { stepsByFlow[flow.id] = flow.steps; });
   return {
     id: 'b1',
     approval_org_id: ORG,
     status: 'pending',
     user_hr_id: 'hr-app',
     approval_flow_state_json: JSON.stringify(flowState),
+    approval_flow_snapshot_json: JSON.stringify(engine.buildFlowDefinitionSnapshot(
+      flowList,
+      stepsByFlow,
+      flowState.selectedFlowId,
+      ORG,
+      toRuleProfile(assignments['a-app'])
+    )),
     approval_snapshots_json: '[]',
     approval_flow_id: flowState.selectedFlowId || null,
     approval_current_step: 0,
@@ -187,8 +201,21 @@ function makeBooking(flowState) {
 }
 
 async function run() {
+  const unsafeLegacy = makeBooking(engine.buildInitialFlowState([flowDept], null, null));
+  unsafeLegacy.approval_flow_snapshot_json = null;
+  const unsafeLegacyEligibility = await engine.evaluateActorEligibility(
+    unsafeLegacy,
+    userActor('hr-head'),
+    ORG
+  );
+  assert.strictEqual(unsafeLegacyEligibility.ok, false, '缺少不可变流程快照的旧在途记录必须失败关闭');
+  assert.strictEqual(unsafeLegacyEligibility.reason, engine.REASONS.FLOW_SNAPSHOT_MISSING);
+
   const legacyWithoutAssignment = makeBooking(engine.buildInitialFlowState([flowDept], null, null));
   legacyWithoutAssignment.id = 'legacy-no-assignment';
+  const legacyDefinition = JSON.parse(legacyWithoutAssignment.approval_flow_snapshot_json);
+  legacyDefinition.applicantRuleProfile = null;
+  legacyWithoutAssignment.approval_flow_snapshot_json = JSON.stringify(legacyDefinition);
   const legacyEligibility = await engine.evaluateActorEligibility(
     legacyWithoutAssignment,
     userActor('hr-head'),
@@ -257,10 +284,28 @@ async function run() {
   const adminAfter = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
   assert.strictEqual(adminAfter.ok, true, '管理员流程仍应可见');
 
-  // 4) 严格重匹配：负责人审批人身份事后不再满足该步条件 → 负责人流程停止推送
+  // 当前流程被改名、改规则、停用甚至从当前配置查询中消失后，在途授权仍只认借用快照。
+  const originalFlowName = flowDept.name;
+  const originalIdentity = flowDept.steps[1].rules[0].specific_identity_id;
+  flowDept.name = '已被管理员改名的当前流程';
+  flowDept.is_active = 0;
+  flowDept.steps[1].rules[0].specific_identity_id = 'nobody';
+  const afterCurrentRuleMutation = await engine.evaluateActorEligibility(
+    advancedBooking,
+    userActor('hr-chair'),
+    ORG
+  );
+  assert.strictEqual(afterCurrentRuleMutation.ok, true, '当前规则修改或停用不得改变在途审批授权');
+  assert.strictEqual(afterCurrentRuleMutation.summary.flowSummary[0].flowName, originalFlowName, '在途展示必须保留发起时流程名称');
+  assert.strictEqual(liveFlowDefinitionQueries, 0, '在途授权不得回查当前流程定义');
+  flowDept.name = originalFlowName;
+  flowDept.is_active = 1;
+  flowDept.steps[1].rules[0].specific_identity_id = originalIdentity;
+
+  // 4) 历史审批不可变：负责人事后调岗不得追溯推翻已完成步骤
   assignments['a-head'].identityCategoryId = 'member';
   const rematch = await engine.evaluateActorEligibility(advancedBooking, userActor('hr-chair'), ORG);
-  assert.strictEqual(rematch.ok, false, '历史步骤审批人不再满足条件时，流程应停止推送');
+  assert.strictEqual(rematch.ok, true, '历史步骤必须按审批时岗位快照继续有效');
   const adminStill = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
   assert.strictEqual(adminStill.ok, true, '其他流程不受影响');
   assignments['a-head'].identityCategoryId = 'dept_head';
@@ -314,6 +359,31 @@ async function run() {
   assert.match(approvalRouteSource, /req\.body\.nextApproverAssignmentId/);
   assert.match(pendingPageSource, /nextApproverAssignmentId:\s*action === 'approve'/);
   assert.doesNotMatch(pendingPageSource, /nextApproverHrId/, '前端不得再提交仅人员级的下一审批人');
+
+  const venueUserSource = fs.readFileSync(
+    path.resolve(__dirname, '../src/modules/venue/routes/venueUser.js'),
+    'utf8'
+  );
+  assert.match(venueUserSource, /approvalFlowId, approvalFlowState, approvalFlowSnapshot, approvalTotalSteps/,
+    '创建借用必须把流程定义快照写入记录');
+  assert.doesNotMatch(venueUserSource, /SELECT sort_order, name FROM venue_approval_flow_steps/,
+    '历史详情不得回查当前步骤定义');
+
+  const venueAdminSource = fs.readFileSync(
+    path.resolve(__dirname, '../src/modules/venue/routes/venueAdmin.js'),
+    'utf8'
+  );
+  assert.doesNotMatch(venueAdminSource, /SELECT \* FROM venue_approval_flow_steps WHERE flow_id/,
+    '管理端列表与历史不得回查当前流程定义');
+
+  const migrationSource = fs.readFileSync(
+    path.resolve(__dirname, '../db/deploy/20260826110000_venue_approval_flow_snapshot.sql'),
+    'utf8'
+  );
+  assert.match(migrationSource, /information_schema\.COLUMNS/);
+  assert.match(migrationSource, /approval_flow_snapshot_json MEDIUMTEXT/);
+  assert.doesNotMatch(migrationSource, /UPDATE\s+venue_bookings/i,
+    '无法证明来源的旧借用不得猜测回填当前流程');
 
   console.log('场地多审批流引擎测试通过');
 }

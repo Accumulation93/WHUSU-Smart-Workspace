@@ -176,6 +176,9 @@ mapRoutes('audit.templates', ['/listAuditFlowTemplates', '/saveAuditFlowTemplate
 mapRoutes('audit.stamps', ['/listStamps', '/saveStamp', '/deleteStamp', '/saveStampAssignments', '/listIdentityStamps']);
 mapRoutes('audit.submissions', ['/listAllAuditSubmissions', '/getAuditProgress']);
 mapRoutes('audit.submissions', ['/getSubmissionDetail'], { allowUserRole: true });
+mapRoutes('audit.submissions', [
+  '/getAuditFile', '/downloadAuditFile', '/getAuditFilePreview'
+], { allowUserRole: true });
 mapRoutes('audit.verification', ['/listVerificationPermissions', '/saveVerificationPermission', '/verifyAuditFile']);
 mapRoutes('audit.verification', ['/verifySignatureChain'], { allowUserRole: true });
 

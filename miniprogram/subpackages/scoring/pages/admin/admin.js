@@ -237,6 +237,8 @@ Page({
     detailHrJoinedAtText: '',
     detailHrLeftAtText: '',
     detailHrComparisonRows: [],
+    detailHrHistoricalFields: [],
+    detailHrReviewHistory: [],
     hrPermanentDeletionVisible: false,
     hrPermanentDeletionScope: 'membership',
     hrPermanentDeletionTarget: null,

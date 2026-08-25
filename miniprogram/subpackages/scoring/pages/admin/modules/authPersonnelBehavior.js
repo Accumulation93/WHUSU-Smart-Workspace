@@ -37,7 +37,8 @@ function decorateAccount(item) {
 function decorateGovernanceRow(item, selected) {
   const hasGovernance = Boolean(item && item.auth);
   const auth = Object.assign({}, item && item.auth || {});
-  const bindStatus = String(item && item.wxBindStatus || '');
+  const bindStatus = String(item && item.wxBindStatus
+    || (auth.hasActiveBinding ? 'bound' : 'unbound'));
   let accountState = 'unbound';
   let accountStateText = localeCopy.copy_ba9b0425fd;
   let accountStateClass = 'unbound-chip';
@@ -72,6 +73,7 @@ function decorateGovernanceRow(item, selected) {
       : localeCopy.copy_2f9c8ba49c;
   return Object.assign({}, item, {
     auth,
+    wxBindStatus: bindStatus,
     governanceAvailable: hasGovernance,
     selected: Boolean(selected),
     accountState,
@@ -165,6 +167,22 @@ function mapPolicy(policy) {
     claimEndsDate: ends.date,
     claimEndsTime: ends.time
   };
+}
+
+function freezeCredentialTargets(rows) {
+  return Object.freeze((rows || []).map(function(row) {
+    const auth = row && row.auth || {};
+    return Object.freeze({
+      hrId: String(row && row.id || ''),
+      personId: String(row && row.personId || ''),
+      accountId: String(row && row.accountId || ''),
+      organizationId: String(row && row.organizationId || ''),
+      name: String(row && row.name || localeCopy.copy_b04a71edad),
+      pendingClaimId: String(auth.pendingClaimId || ''),
+      hasActiveClaimCode: Boolean(auth.hasActiveClaimCode),
+      hasActiveInvite: Boolean(auth.hasActiveInvite)
+    });
+  }));
 }
 
 module.exports = Behavior({
@@ -506,50 +524,80 @@ module.exports = Behavior({
       }
     },
 
-    async revokeHrMemberVerificationCode(e) {
-      const hrId = String(e.currentTarget.dataset.hrId || '');
-      const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
-      if (!row || !row.personId || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'member-verify-revoke-' + hrId });
-      try {
-        const isClaimCode = Boolean(row.auth && row.auth.pendingClaimId && row.auth.hasActiveClaimCode);
-        const result = await callFunction({ name: 'admin/auth/claims', data: isClaimCode ? {
-          action: 'revoke_codes', claimIds: [row.auth.pendingClaimId]
-        } : {
-          action: 'revoke_invites', personIds: [row.personId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
-        } });
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
-        this.patchHrGovernance(row.personId, isClaimCode
-          ? { hasActiveClaimCode: false }
-          : { hasActiveInvite: false });
-        showShortToast(localeCopy.copy_8832186f8b, 'success');
-      } catch (error) {
-        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
-      } finally {
-        this.setData({ authActionLoadingKey: '' });
-      }
+    _openCredentialRevokeConfirm(kind, rows, isBatch) {
+      const isVerification = kind === 'verification';
+      if ((isVerification && !this.data.canVerifyIdentity)
+        || (!isVerification && !this.data.canGlobalAccountManage)) return;
+      const targets = freezeCredentialTargets(rows);
+      if (!targets.length || this.data.authActionLoadingKey) return;
+      this._authMemberConfirmPayload = Object.freeze({
+        action: isVerification ? 'verification-code-revoke' : 'recovery-code-revoke',
+        isBatch: Boolean(isBatch),
+        targets
+      });
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: this._authMemberConfirmPayload.action,
+        authMemberConfirmActionLabel: localeCopy.credentialRevokeAction,
+        authMemberConfirmTitle: isVerification
+          ? (isBatch ? localeCopy.verificationRevokeBatchTitle : localeCopy.verificationRevokeTitle)
+          : (isBatch ? localeCopy.recoveryRevokeBatchTitle : localeCopy.recoveryRevokeTitle),
+        authMemberConfirmMessage: isVerification
+          ? localeCopy.verificationRevokeMessage
+          : localeCopy.recoveryRevokeMessage,
+        authMemberConfirmPersonId: '',
+        authMemberConfirmHrId: '',
+        authMemberConfirmName: isBatch
+          ? localeCopy.credentialSelectedPrefix + targets.length + localeCopy.credentialSelectedSuffix
+          : targets[0].name,
+        authMemberConfirmFrozen: false,
+        authMemberConfirmSessionId: ''
+      });
     },
 
-    async revokeSelectedHrVerificationCodes() {
-      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canRevokeVerification);
-      if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_f250d102a5);
-      this.setData({ authActionLoadingKey: 'member-verify-revoke-batch' });
+    revokeHrMemberVerificationCode(e) {
+      if (!this.data.canVerifyIdentity) return;
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
+      if (!row || !row.personId || !row.canRevokeVerification || this.data.authActionLoadingKey) return;
+      this._openCredentialRevokeConfirm('verification', [row], false);
+    },
+
+    async _revokeHrVerificationTargets(targets, isBatch) {
+      if (!this.data.canVerifyIdentity || !targets || !targets.length || this.data.authActionLoadingKey) return;
+      const loadingKey = isBatch ? 'member-verify-revoke-batch' : 'member-verify-revoke-' + targets[0].hrId;
+      this.setData({ authActionLoadingKey: loadingKey });
       try {
-        const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId && item.auth.hasActiveClaimCode);
-        const inviteRows = rows.filter((item) => item.personId && item.auth && item.auth.hasActiveInvite);
+        if (!isBatch) {
+          const target = targets[0];
+          const isClaimCode = Boolean(target.pendingClaimId && target.hasActiveClaimCode);
+          const result = await callFunction({ name: 'admin/auth/claims', data: isClaimCode ? {
+            action: 'revoke_codes', claimIds: [target.pendingClaimId]
+          } : {
+            action: 'revoke_invites', personIds: [target.personId], organizationId: target.organizationId || wx.getStorageSync('activeOrgId') || ''
+          } });
+          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
+          this.patchHrGovernance(target.personId, isClaimCode
+            ? { hasActiveClaimCode: false }
+            : { hasActiveInvite: false });
+          showShortToast(localeCopy.copy_8832186f8b, 'success');
+          return;
+        }
+        const claimRows = targets.filter((item) => item.pendingClaimId && item.hasActiveClaimCode);
+        const inviteRows = targets.filter((item) => item.personId && item.hasActiveInvite);
         const results = [];
         const patches = [];
         if (claimRows.length) {
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'revoke_codes', idField: 'claimIds',
-            ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
+            ids: claimRows.map((item) => item.pendingClaimId), batchSize: 50,
             failureMessage: localeCopy.copy_e9798c95c0
           });
           results.push(result);
-          const byClaim = new Map(claimRows.map((item) => [String(item.auth.pendingClaimId), item]));
+          const byClaim = new Map(claimRows.map((item) => [String(item.pendingClaimId), item]));
           result.completedIds.forEach((claimId) => {
-            const row = byClaim.get(String(claimId));
-            if (row) patches.push({ personId: row.personId, patch: { hasActiveClaimCode: false } });
+            const target = byClaim.get(String(claimId));
+            if (target) patches.push({ personId: target.personId, patch: { hasActiveClaimCode: false } });
           });
         }
         if (inviteRows.length) {
@@ -562,8 +610,8 @@ module.exports = Behavior({
           results.push(result);
           const byPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
           result.completedIds.forEach((personId) => {
-            const row = byPerson.get(String(personId));
-            if (row) patches.push({ personId: row.personId, patch: { hasActiveInvite: false } });
+            const target = byPerson.get(String(personId));
+            if (target) patches.push({ personId: target.personId, patch: { hasActiveInvite: false } });
           });
         }
         this.patchHrGovernanceBatch(patches);
@@ -576,6 +624,13 @@ module.exports = Behavior({
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
+    },
+
+    revokeSelectedHrVerificationCodes() {
+      if (!this.data.canVerifyIdentity) return;
+      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canRevokeVerification);
+      if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_f250d102a5);
+      this._openCredentialRevokeConfirm('verification', rows, true);
     },
 
     async issueHrMemberRecoveryCode(e) {
@@ -601,40 +656,33 @@ module.exports = Behavior({
 
     async changeSelectedHrRecoveryCodes(revoke) {
       if (!this.data.canGlobalAccountManage) return;
+      if (revoke) return this.revokeSelectedHrRecoveryCodes();
       const rows = this.getSelectedHrGovernanceRows().filter((item) => (
-        revoke ? item.canRevokeRecovery : item.canIssueRecovery
+        item.canIssueRecovery
       ));
       if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_3947b0ede8);
-      this.setData({ authActionLoadingKey: revoke ? 'member-recovery-revoke' : 'member-recovery-batch' });
+      this.setData({ authActionLoadingKey: 'member-recovery-batch' });
       try {
         const result = await runBatchedAuthAction({
-          name: 'admin/auth/recoveries', action: revoke ? 'revoke_codes' : 'issue_codes', idField: 'accountIds',
+          name: 'admin/auth/recoveries', action: 'issue_codes', idField: 'accountIds',
           ids: rows.map((item) => item.accountId), batchSize: 100,
-          failureMessage: revoke ? localeCopy.copy_5254a703ec : localeCopy.copy_e5392c8b50,
+          failureMessage: localeCopy.copy_e5392c8b50,
           extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
         });
         const byAccount = new Map(rows.map((item) => [String(item.accountId), item]));
         const patches = [];
-        if (revoke) {
-          result.completedIds.forEach((id) => {
-            const row = byAccount.get(String(id));
-            if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: false } });
-          });
-          showShortToast(result.failures.length ? localeCopy.copy_5254a703ec : localeCopy.copy_42e9898395, result.failures.length ? 'none' : 'success');
-        } else {
-          const issued = flattenIssued(result).map((item) => {
-            const row = byAccount.get(String(item.accountId));
-            if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: true } });
-            return { key: item.accountId, personName: item.name || row && row.name || localeCopy.copy_6e1cafa10a, code: item.code };
-          });
-          if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
-          this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true });
-        }
+        const issued = flattenIssued(result).map((item) => {
+          const row = byAccount.get(String(item.accountId));
+          if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: true } });
+          return { key: item.accountId, personName: item.name || row && row.name || localeCopy.copy_6e1cafa10a, code: item.code };
+        });
+        if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
+        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true });
         this.patchHrGovernanceBatch(patches);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
       } catch (error) {
-        showShortToast(getErrorText(error, revoke ? localeCopy.copy_8351ecc192 : localeCopy.copy_9662ceba48));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -645,24 +693,53 @@ module.exports = Behavior({
     },
 
     revokeSelectedHrRecoveryCodes() {
-      return this.changeSelectedHrRecoveryCodes(true);
+      if (!this.data.canGlobalAccountManage) return;
+      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canRevokeRecovery);
+      if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_3947b0ede8);
+      this._openCredentialRevokeConfirm('recovery', rows, true);
     },
 
-    async revokeHrMemberRecoveryCode(e) {
+    revokeHrMemberRecoveryCode(e) {
       if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
-      if (!row || !row.accountId || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'member-recovery-revoke-' + hrId });
+      if (!row || !row.accountId || !row.canRevokeRecovery || this.data.authActionLoadingKey) return;
+      this._openCredentialRevokeConfirm('recovery', [row], false);
+    },
+
+    async _revokeHrRecoveryTargets(targets, isBatch) {
+      if (!this.data.canGlobalAccountManage || !targets || !targets.length || this.data.authActionLoadingKey) return;
+      const loadingKey = isBatch ? 'member-recovery-revoke' : 'member-recovery-revoke-' + targets[0].hrId;
+      this.setData({ authActionLoadingKey: loadingKey });
       try {
-        const result = await callFunction({ name: 'admin/auth/recoveries', data: {
-          action: 'revoke_codes',
-          accountIds: [row.accountId],
-          organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
-        } });
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
-        this.patchHrGovernance(row.personId, { hasRecoveryCode: false });
-        showShortToast(localeCopy.copy_42e9898395, 'success');
+        if (!isBatch) {
+          const target = targets[0];
+          const result = await callFunction({ name: 'admin/auth/recoveries', data: {
+            action: 'revoke_codes',
+            accountIds: [target.accountId],
+            organizationId: target.organizationId || wx.getStorageSync('activeOrgId') || ''
+          } });
+          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
+          this.patchHrGovernance(target.personId, { hasRecoveryCode: false });
+          showShortToast(localeCopy.copy_42e9898395, 'success');
+          return;
+        }
+        const result = await runBatchedAuthAction({
+          name: 'admin/auth/recoveries', action: 'revoke_codes', idField: 'accountIds',
+          ids: targets.map((item) => item.accountId), batchSize: 100,
+          failureMessage: localeCopy.copy_5254a703ec,
+          extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+        });
+        const byAccount = new Map(targets.map((item) => [String(item.accountId), item]));
+        const patches = [];
+        result.completedIds.forEach((id) => {
+          const target = byAccount.get(String(id));
+          if (target) patches.push({ personId: target.personId, patch: { hasRecoveryCode: false } });
+        });
+        this.patchHrGovernanceBatch(patches);
+        this.setData({ selectedHrMemberIds: [] });
+        this.refreshHrMemberSelection();
+        showShortToast(result.failures.length ? localeCopy.copy_5254a703ec : localeCopy.copy_42e9898395, result.failures.length ? 'none' : 'success');
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
@@ -1219,6 +1296,7 @@ module.exports = Behavior({
 
     closeAuthMemberConfirm() {
       if (this.data.authActionLoadingKey) return;
+      this._authMemberConfirmPayload = null;
       this.setData({
         authMemberConfirmVisible: false,
         authMemberConfirmAction: '',
@@ -1238,6 +1316,13 @@ module.exports = Behavior({
       const personId = this.data.authMemberConfirmPersonId;
       const hrId = this.data.authMemberConfirmHrId;
       if (!action || this.data.authActionLoadingKey) return;
+      const payload = this._authMemberConfirmPayload;
+      if (action === 'verification-code-revoke') {
+        if (!this.data.canVerifyIdentity || !payload || payload.action !== action) return;
+      } else if (action === 'recovery-code-revoke') {
+        if (!this.data.canGlobalAccountManage || !payload || payload.action !== action) return;
+      }
+      this._authMemberConfirmPayload = null;
       this.setData({ authMemberConfirmVisible: false });
       if (action === 'freeze') {
         this.toggleAuthAccountFrozen({
@@ -1249,6 +1334,10 @@ module.exports = Behavior({
         this.revokeMemberDevice(this.data.authMemberConfirmSessionId);
       } else if (action === 'passphrase-clear') {
         this.clearMemberPassphrase();
+      } else if (action === 'verification-code-revoke') {
+        this._revokeHrVerificationTargets(payload.targets, payload.isBatch);
+      } else if (action === 'recovery-code-revoke') {
+        this._revokeHrRecoveryTargets(payload.targets, payload.isBatch);
       }
     },
 

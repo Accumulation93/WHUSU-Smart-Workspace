@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS score_records (
   target_context_snapshot JSON DEFAULT NULL,
   target_subject_key VARCHAR(96) NOT NULL,
   template_config_signature TEXT,
+  calculation_context_snapshot JSON DEFAULT NULL,
   submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   INDEX idx_sr_activity (activity_id),
@@ -742,17 +743,21 @@ CREATE TABLE IF NOT EXISTS audit_submission_files (
   file_path VARCHAR(1000) NOT NULL,
   file_size INT DEFAULT NULL,
   file_hash VARCHAR(64) NOT NULL,
-  signing_key_private TEXT NULL COMMENT 'PDF电子签名私钥（仅服务端）',
+  signing_key_private TEXT NULL COMMENT 'PDF电子签名私钥（AES-256-GCM版本密文，仅服务端）',
+  signing_key_encryption_version VARCHAR(32) NULL COMMENT 'PDF签名私钥主密钥版本',
   signing_key_public TEXT NULL COMMENT 'PDF电子签名公钥',
   signing_cert TEXT NULL COMMENT 'PDF电子签名最近证书（PEM）',
   signing_cert_chain TEXT NULL COMMENT 'PDF电子签名中间证书链（PEM）',
   signing_trust_status VARCHAR(32) NOT NULL DEFAULT 'self_signed' COMMENT 'self_signed | certificate_configured | chain_configured',
   signing_algorithm VARCHAR(32) NOT NULL DEFAULT 'RSA-SHA256',
   signing_created_at DATETIME NULL,
+  revision_round INT NOT NULL DEFAULT 1,
+  is_current TINYINT(1) NOT NULL DEFAULT 1,
   sort_order INT NOT NULL DEFAULT 1,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_asf_submission (submission_id),
+  INDEX idx_asf_current_revision (submission_id, is_current, revision_round, sort_order),
   INDEX idx_asf_org (org_id),
   CONSTRAINT fk_asf_submission FOREIGN KEY (submission_id)
     REFERENCES audit_submissions(id) ON DELETE CASCADE
@@ -894,6 +899,7 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
   rule_type VARCHAR(16) NOT NULL DEFAULT 'admin',
   approver_identity_id VARCHAR(64) DEFAULT NULL,
   approver_hr_id VARCHAR(64) DEFAULT NULL,
+  approver_assignment_id VARCHAR(64) DEFAULT NULL,
   scope_department_id VARCHAR(64) DEFAULT NULL,
   scope_work_group_id VARCHAR(64) DEFAULT NULL,
   sort_order INT NOT NULL DEFAULT 1,
@@ -903,7 +909,25 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
   INDEX idx_vbr_venue (venue_id),
   INDEX idx_vbr_org (org_id),
   INDEX idx_vbr_active (is_active),
+  INDEX idx_vbr_approver_assignment (approver_assignment_id, org_id, is_active),
   CONSTRAINT fk_vbr_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS score_snapshot_backfill_audits (
+  activity_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL,
+  total_record_count BIGINT NOT NULL DEFAULT 0,
+  eligible_record_count BIGINT NOT NULL DEFAULT 0,
+  blocked_record_count BIGINT NOT NULL DEFAULT 0,
+  reasons_json JSON NOT NULL,
+  evidence_fingerprint CHAR(64) NOT NULL,
+  reconstructed_at DATETIME(3) NOT NULL,
+  applied_at DATETIME(3) DEFAULT NULL,
+  PRIMARY KEY (activity_id, org_id),
+  INDEX idx_score_snapshot_audit_status (status, reconstructed_at),
+  CONSTRAINT chk_score_snapshot_audit_status
+    CHECK (status IN ('ready', 'applied', 'isolated', 'already_applied'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS hr_profile_review_events (
@@ -1004,6 +1028,7 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   status VARCHAR(16) NOT NULL DEFAULT 'pending',
   approval_flow_id VARCHAR(64) DEFAULT NULL,
   approval_flow_state_json TEXT DEFAULT NULL,
+  approval_flow_snapshot_json MEDIUMTEXT DEFAULT NULL,
   approval_current_step INT NOT NULL DEFAULT 0,
   approval_total_steps INT NOT NULL DEFAULT 0,
   approval_reject_step INT DEFAULT NULL,
@@ -1194,6 +1219,29 @@ CREATE TABLE IF NOT EXISTS persons (
   INDEX idx_person_merged_into (merged_into_person_id),
   CONSTRAINT fk_person_merged_into FOREIGN KEY (merged_into_person_id)
     REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS security_rate_limit_buckets (
+  bucket_hash CHAR(64) NOT NULL PRIMARY KEY,
+  route_key VARCHAR(96) NOT NULL,
+  window_started_at DATETIME(3) NOT NULL,
+  request_count INT UNSIGNED NOT NULL DEFAULT 1,
+  expires_at DATETIME(3) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX idx_security_rate_limit_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_temp_uploads (
+  file_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  owner_hash CHAR(64) NOT NULL,
+  organization_id VARCHAR(64) NOT NULL,
+  temp_name VARCHAR(160) NOT NULL,
+  file_size BIGINT UNSIGNED NOT NULL,
+  expires_at DATETIME(3) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_audit_temp_upload_owner (owner_hash, expires_at),
+  INDEX idx_audit_temp_upload_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS organization_memberships (
@@ -1477,7 +1525,7 @@ CREATE TABLE IF NOT EXISTS auth_policy (
   claim_ends_at DATETIME DEFAULT NULL,
   allow_recovery_code TINYINT(1) NOT NULL DEFAULT 0,
   allow_passphrase TINYINT(1) NOT NULL DEFAULT 0,
-  passphrase_min_length INT NOT NULL DEFAULT 0,
+  passphrase_min_length INT NOT NULL DEFAULT 12,
   updated_by_person_id VARCHAR(64) DEFAULT NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -2,6 +2,7 @@ const assert = require('assert');
 const Module = require('module');
 
 process.env.JWT_SECRET = 'unified-context-catalog-test-secret';
+process.env.AUTH_IDENTITY_SECRET = 'unified-context-catalog-identity-secret-32';
 process.env.WECHAT_APPID = 'test-app';
 process.env.WECHAT_SECRET = 'test-secret';
 

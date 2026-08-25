@@ -42,12 +42,14 @@ Page({
   },
 
   _pollTimer: null,
+  _approvalSyncTimer: null,
   _isPageVisible: true,
 
   onShow() {
     this._isPageVisible = true;
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
+      this._clearApprovalSyncTimer();
       orgSession.invalidateRequests(this);
       this.setData({
         pending: [], lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
@@ -65,6 +67,7 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    this._clearApprovalSyncTimer();
     this.stopPolling();
     if (this._boundVenueChanged) {
       eventBus.off('venue:changed', this._boundVenueChanged);
@@ -73,6 +76,8 @@ Page({
   },
 
   onUnload() {
+    this._isPageVisible = false;
+    this._clearApprovalSyncTimer();
     this.stopPolling();
     if (this._boundVenueChanged) {
       eventBus.off('venue:changed', this._boundVenueChanged);
@@ -120,6 +125,22 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+  },
+
+  _clearApprovalSyncTimer() {
+    if (!this._approvalSyncTimer) return;
+    clearTimeout(this._approvalSyncTimer);
+    this._approvalSyncTimer = null;
+  },
+
+  _scheduleApprovalSync() {
+    this._clearApprovalSyncTimer();
+    const request = orgSession.beginRequest(this, 'pendingVenueApprovalSyncDelay');
+    this._approvalSyncTimer = setTimeout(() => {
+      this._approvalSyncTimer = null;
+      if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request)) return;
+      this.loadData();
+    }, 2000);
   },
 
   async checkForUpdates() {
@@ -341,7 +362,7 @@ Page({
         eventBus.emit('approval:done');
 
         // Background sync to ensure consistency
-        setTimeout(function() { that.loadData(); }, 2000);
+        that._scheduleApprovalSync();
       } else if (res.status === 'forbidden') {
         showWorkContextModal({
           content: res.message || localeCopy.requiredContextGeneric,

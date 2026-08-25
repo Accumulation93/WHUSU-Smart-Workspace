@@ -202,21 +202,21 @@
               <view class="field field-row">
                 <view class="field field-half">
                   <view class="field-label">{{localeCopy.copy_14be892ef9}}</view>
-                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'minValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="minValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].minValue !== undefined ? questionInputValues[index].minValue : item.minValue}}" placeholder="0" />
+                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'minValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="minValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].minValue !== undefined ? questionInputValues[index].minValue : item.minValue}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
                 </view>
                 <view class="field field-half">
                   <view class="field-label">{{localeCopy.copy_6cc2ee6bc8}}</view>
-                  <input class="field-input" data-index="{{index}}" data-field="startValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].startValue !== undefined ? questionInputValues[index].startValue : item.startValue}}" placeholder="0" />
+                  <input class="field-input" data-index="{{index}}" data-field="startValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].startValue !== undefined ? questionInputValues[index].startValue : item.startValue}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
                 </view>
               </view>
               <view class="field field-row">
                 <view class="field field-half">
                   <view class="field-label">{{localeCopy.copy_ee368e39ca}}</view>
-                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'maxValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="maxValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].maxValue !== undefined ? questionInputValues[index].maxValue : item.maxValue}}" placeholder="10" />
+                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'maxValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="maxValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].maxValue !== undefined ? questionInputValues[index].maxValue : item.maxValue}}" placeholder="{{localeCopy.numericTenPlaceholder}}" />
                 </view>
                 <view class="field field-half">
                   <view class="field-label">{{localeCopy.copy_a9da08c33e}}</view>
-                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'stepValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="stepValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].stepValue !== undefined ? questionInputValues[index].stepValue : item.stepValue}}" placeholder="0.5" />
+                  <input class="field-input {{questionValidationErrors[index] && questionValidationErrors[index].field === 'stepValue' ? 'field-error' : ''}}" data-index="{{index}}" data-field="stepValue" bindinput="onTemplateQuestionInput" bindblur="onTemplateQuestionBlur" value="{{questionInputValues[index] && questionInputValues[index].stepValue !== undefined ? questionInputValues[index].stepValue : item.stepValue}}" placeholder="{{localeCopy.numericHalfPlaceholder}}" />
                 </view>
               </view>
               </view>
@@ -460,7 +460,7 @@
                   <view class="field field-row">
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_30e235fb56}}</view>
-                      <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="1" />
+                      <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" />
                     </view>
                   </view>
                   <view class="field">
@@ -472,11 +472,11 @@
                   <view class="field field-row" wx:if="{{ruleForm.clauseCalculationMethod === 'trim_extremes'}}">
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_413624a39e}}</view>
-                      <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="0" type="number" />
+                      <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
                     </view>
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_061e85a1bb}}</view>
-                      <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="0" type="number" />
+                      <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
                     </view>
                   </view>
                   <view class="button-row compact-row">
@@ -499,7 +499,7 @@
             <view class="field field-row">
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_30e235fb56}}</view>
-                <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="1" />
+                <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" />
               </view>
             </view>
             <view class="field">
@@ -511,11 +511,11 @@
             <view class="field field-row" wx:if="{{ruleForm.clauseCalculationMethod === 'trim_extremes'}}">
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_413624a39e}}</view>
-                <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="0" type="number" />
+                <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
               </view>
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_061e85a1bb}}</view>
-                <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="0" type="number" />
+                <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
               </view>
             </view>
             <view class="button-row compact-row">
@@ -1148,9 +1148,9 @@
             <view class="auth-policy-head"><view><view class="list-title">{{localeCopy.copy_549147dd7b}}</view><view class="auth-group-note">{{localeCopy.copy_988a1cf6bc}}</view></view><switch color="#3b82f6" checked="{{authPolicy.initialClaimEnabled}}" data-field="initialClaimEnabled" bindchange="onAuthPolicySwitch" /></view>
             <view class="auth-policy-time-grid">
               <view class="field"><view class="field-label">{{localeCopy.copy_a97ad1165b}}</view><picker mode="date" value="{{authPolicy.claimStartsDate}}" data-field="claimStartsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsDate || localeCopy.copy_15e2eaec6c}}</view></picker></view>
-              <view class="field"><view class="field-label">{{localeCopy.copy_caa70e7c13}}</view><picker mode="time" value="{{authPolicy.claimStartsTime}}" data-field="claimStartsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsTime || '00:00'}}</view></picker></view>
+              <view class="field"><view class="field-label">{{localeCopy.copy_caa70e7c13}}</view><picker mode="time" value="{{authPolicy.claimStartsTime}}" data-field="claimStartsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsTime || localeCopy.authPolicyStartTimeDefault}}</view></picker></view>
               <view class="field"><view class="field-label">{{localeCopy.copy_1d7bd8535a}}</view><picker mode="date" value="{{authPolicy.claimEndsDate}}" data-field="claimEndsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsDate || localeCopy.copy_af065065d0}}</view></picker></view>
-              <view class="field"><view class="field-label">{{localeCopy.copy_218426a7c7}}</view><picker mode="time" value="{{authPolicy.claimEndsTime}}" data-field="claimEndsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsTime || '23:59'}}</view></picker></view>
+              <view class="field"><view class="field-label">{{localeCopy.copy_218426a7c7}}</view><picker mode="time" value="{{authPolicy.claimEndsTime}}" data-field="claimEndsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsTime || localeCopy.authPolicyEndTimeDefault}}</view></picker></view>
             </view>
             <view class="auth-policy-clear-row"><text class="link ui-motion-chip" data-prefix="claimStarts" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_f4f964a807}}</text><text class="link ui-motion-chip" data-prefix="claimEnds" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_e73eea6f61}}</text></view>
           </view>
@@ -1525,6 +1525,36 @@
             <view class="button-row compact-row">
               <button class="primary-btn ui-motion-button" wx:if="{{canReviewHrProfile && !detailHrReadOnly}}" catchtap="approveDetailHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bca0c5ed7}}</button>
               <button class="danger-btn ui-motion-button" wx:if="{{canReviewHrProfile && !detailHrReadOnly}}" catchtap="rejectDetailHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
+            </view>
+          </view>
+          <view class="detail-section" wx:if="{{detailHrHistoricalFields.length}}">
+            <view class="detail-section-title">{{localeCopy.hrHistoricalProfileFields}}</view>
+            <view class="field-hint">{{localeCopy.hrHistoricalProfileFieldsHint}}</view>
+            <view class="profile-comparison-list">
+              <view class="profile-comparison-card" wx:for="{{detailHrHistoricalFields}}" wx:key="id">
+                <view class="profile-comparison-label">{{item.label}}</view>
+                <view class="profile-comparison-text">{{item.valueText}}</view>
+                <view class="status-chip former-chip" wx:if="{{item.hasPendingValue}}">{{localeCopy.hrHistoricalPendingValue}}</view>
+              </view>
+            </view>
+          </view>
+          <view class="detail-section" wx:if="{{detailHrReviewHistory.length}}">
+            <view class="detail-section-title">{{localeCopy.hrProfileReviewHistory}}</view>
+            <view class="profile-comparison-list">
+              <view class="profile-comparison-card" wx:for="{{detailHrReviewHistory}}" wx:key="id">
+                <view class="profile-comparison-grid">
+                  <view class="profile-comparison-value">
+                    <view class="profile-comparison-caption">{{localeCopy.hrReviewAction}}</view>
+                    <view class="profile-comparison-text">{{item.actionText}}</view>
+                  </view>
+                  <view class="profile-comparison-value">
+                    <view class="profile-comparison-caption">{{localeCopy.hrReviewOperator}}</view>
+                    <view class="profile-comparison-text">{{item.reviewerName}}</view>
+                  </view>
+                </view>
+                <view class="field-hint" wx:if="{{item.createdAtText}}">{{item.createdAtText}}</view>
+                <view class="field-hint" wx:if="{{item.reason}}">{{localeCopy.hrReviewReason}} · {{item.reason}}</view>
+              </view>
             </view>
           </view>
           <view class="detail-section hr-danger-zone" wx:if="{{canManageHrPeople}}">
@@ -2209,8 +2239,8 @@
                 <!-- Expanded: editable fields -->
                 <view class="question-fields" wx:if="{{expandedGradeBandIndex === index}}">
                   <view class="field field-row">
-                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_b7eb36a897}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
-                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_2100c88988}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_b7eb36a897}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" /></view>
+                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_2100c88988}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="{{localeCopy.numericHundredPlaceholder}}" /></view>
                   </view>
                   <view class="field"><view class="field-label">{{localeCopy.copy_20033515d8}}</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="{{localeCopy.copy_811bde992e}}" /></view>
                   <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeClauseGradeBand" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b8139ca252}}</button></view>
@@ -2972,7 +3002,7 @@
         </view>
         <view class="field" wx:if="{{verificationMode === 'number'}}">
           <view class="field-label">{{localeCopy.copy_1ddd4c9b39}}</view>
-          <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="{{localeCopy.copy_2dfaff6e87}} {{localeCopy.copy_d2005b0c5b}} SUB-20260611-001)" />
+          <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="{{localeCopy.verificationNumberPlaceholder}}" />
         </view>
         <view class="field" wx:if="{{verificationMode === 'file'}}">
           <view class="field-label">{{localeCopy.copy_98aea69c53}}</view>

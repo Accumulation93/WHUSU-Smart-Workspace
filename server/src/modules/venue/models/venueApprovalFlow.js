@@ -10,9 +10,10 @@ async function getByVenueId(venueId) {
   return rows[0] || null;
 }
 
-async function listByVenueId(venueId) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+async function listByVenueId(venueId, orgIdOverride, conn) {
+  const orgId = String(orgIdOverride || '').trim() || await getCurrentOrgId();
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM venue_approval_flows WHERE venue_id = ? AND org_id = ? AND is_active = 1 ORDER BY created_at, id',
     [venueId, orgId]
   );

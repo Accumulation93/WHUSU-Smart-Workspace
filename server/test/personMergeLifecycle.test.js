@@ -4,6 +4,7 @@ const path = require('path');
 const Module = require('module');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'person-merge-lifecycle-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'person-merge-lifecycle-identity-secret';
 process.env.DB_USER = process.env.DB_USER || 'person_merge_test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'person_merge_test';
 

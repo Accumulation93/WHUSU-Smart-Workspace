@@ -292,7 +292,7 @@ router.post('/saveResultPublication', async (req, res) => {
         }
       });
     }
-    res.json({ status: 'success', publication: { id: existing.id, activityId, isPublished }, message: isPublished ? '结果已公示' : '公示已关闭' });
+    res.json({ status: 'success', publication: { id: existing.id, activityId, isPublished }, message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -729,11 +729,21 @@ router.post('/getPublicResults', async (req, res) => {
     // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
     // Cache auto-expires after 5 min; invalidated on score submission.
     let cached = await pubCache.get(activityId, orgId);
-    if (!cached) {
+    if (!cached || !cached.diagnostics) {
+      if (cached) await pubCache.invalidate(activityId, orgId);
       const { computeValidScoreMap } = require('../utils/scoreCalc');
       cached = await computeValidScoreMap(activityId, orgId, {});
-      await pubCache.set(activityId, orgId, cached);
     }
+    const { getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
+    const historicalFailure = getHistoricalSnapshotFailure(cached.diagnostics);
+    if (historicalFailure) {
+      return res.json(Object.assign({}, historicalFailure, {
+        message: historicalFailure.status === 'historical_snapshot_missing'
+          ? localeCopy.historicalSnapshotMissing
+          : localeCopy.historicalSnapshotInvalid
+      }));
+    }
+    await pubCache.set(activityId, orgId, cached);
     const fullScoreMap = (cached instanceof Map) ? cached : (cached && cached.finalScoreMap instanceof Map ? cached.finalScoreMap : new Map());
 
     // Filter cached full map to visible targets only (pure O(1) Map.get, no side effects)
@@ -1705,7 +1715,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const lookups = await fetchOrgLookups();
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     if (!meritRules.length) {
-      return res.json({ status: 'success', fileContent: '', fileName: '评优名单汇总', extension: 'xlsx', rowCount: 0 });
+      return res.json({ status: 'success', fileContent: '', fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: 0 });
     }
 
     // Batch-load ALL clauses for ALL rules in a single query
@@ -1804,7 +1814,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const buffer = await buildWorkbookBuffer('评优名单汇总', sheetData);
     const fileContent = buffer.toString('base64');
 
-    res.json({ status: 'success', fileContent, fileName: '评优名单汇总', extension: 'xlsx', rowCount: rows.length });
+    res.json({ status: 'success', fileContent, fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: rows.length });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 

@@ -1,3 +1,4 @@
+const { format: localeFormat } = require('../../locales/runtime');
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/org');
 const express = require('express');
 const router = express.Router();
@@ -248,8 +249,8 @@ router.post('/switchOrganization', async (req, res) => {
     res.json({
       status: 'success',
       message: switchResult.unchanged
-        ? '已是当前组织，无需切换'
-        : `已切换至组织「${targetOrgName}」`
+        ? localeCopy.copy_7fa30fc815
+        : localeFormat(localeCopy.copy_ab11e098b6, [targetOrgName])
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_53d5e0a0c8 });

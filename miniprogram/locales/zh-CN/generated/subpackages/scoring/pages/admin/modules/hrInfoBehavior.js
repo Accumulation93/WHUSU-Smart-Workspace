@@ -229,5 +229,17 @@ module.exports = Object.freeze({
   hrDeletionReferenceApprovalStep: '审批人指定',
   hrDeletionReferenceStarterCondition: '发起人条件',
   hrDeletionReferenceVenueApprover: '场地审批人',
-  hrDeletionStepOrder: '第{0}步'
+  hrDeletionStepOrder: '第{0}步',
+  hrHistoricalProfileFields: '历史资料字段',
+  hrHistoricalProfileFieldsHint: '这些字段已从当前资料模板移除，仅按历史记录展示。',
+  hrHistoricalPendingValue: '历史待审值',
+  hrProfileReviewHistory: '资料审核历史',
+  hrReviewAction: '处理结果',
+  hrReviewOperator: '处理人',
+  hrReviewReason: '处理说明',
+  hrReviewActionApproved: '审核通过',
+  hrReviewActionRejected: '审核驳回',
+  hrReviewActionMaintained: '管理员维护',
+  hrReviewActionUpdated: '资料更新',
+  hrReviewUnknownReviewer: '未记录处理人'
 });

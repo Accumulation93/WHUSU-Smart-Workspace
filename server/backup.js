@@ -2,6 +2,8 @@
 // Runs mysqldump hourly with --single-transaction for non-blocking backups.
 // Keeps the last 24 hourly backups, compressed with gzip.
 
+process.umask(0o077);
+
 const { spawn } = require('child_process');
 const { createGzip } = require('zlib');
 const fs = require('fs');
@@ -41,8 +43,17 @@ function log(msg) {
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
+  fs.chmodSync(dir, 0o700);
+  fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
+    if (!entry.isFile()) return;
+    fs.chmodSync(path.join(dir, entry.name), 0o600);
+  });
+}
+
+function secureBackupFile(filePath) {
+  fs.chmodSync(filePath, 0o600);
 }
 
 function cleanOldBackups() {
@@ -95,7 +106,9 @@ async function backupAuditUploads(timestamp) {
     await waitForProcess(tar).catch((error) => {
       throw new Error('attachment backup failed: ' + (stderr.trim() || error.message));
     });
+    secureBackupFile(temporaryPath);
     fs.renameSync(temporaryPath, finalPath);
+    secureBackupFile(finalPath);
     const sizeMB = (fs.statSync(finalPath).size / 1024 / 1024).toFixed(2);
     log(`Attachment backup complete - ${path.basename(finalPath)} (${sizeMB} MB)`);
   } catch (error) {
@@ -132,7 +145,7 @@ async function runBackup() {
   ], { stdio: ['ignore', 'pipe', 'pipe'], env });
 
   const gzip = createGzip();
-  const outStream = fs.createWriteStream(temporaryFile);
+  const outStream = fs.createWriteStream(temporaryFile, { mode: 0o600 });
   let stderr = '';
 
   mysqldump.stderr.on('data', (d) => { stderr += d.toString(); });
@@ -146,7 +159,9 @@ async function runBackup() {
     ]);
     const failure = outcomes.find((outcome) => outcome.status === 'rejected');
     if (failure) throw failure.reason;
+    secureBackupFile(temporaryFile);
     fs.renameSync(temporaryFile, outFile);
+    secureBackupFile(outFile);
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const sizeMB = (fs.statSync(outFile).size / 1024 / 1024).toFixed(2);
     log(`Database backup complete - ${path.basename(outFile)} (${sizeMB} MB, ${elapsed}s)`);

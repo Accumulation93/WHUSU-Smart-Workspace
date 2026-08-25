@@ -658,6 +658,85 @@ function removePersonFromStarterJson(value, targetHrIds, targetAssignmentIds) {
   return { value: JSON.stringify(next || []), changed, personCount, candidateCount };
 }
 
+function collectPersonCandidateGroups(value) {
+  let source;
+  try { source = typeof value === 'string' ? JSON.parse(value || '[]') : value; } catch (_) { return []; }
+  const groups = [];
+  const visit = (node) => {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    const conditionType = safeString(node.conditionType || node.condition_type || node.type);
+    const people = csvValues(node.personHrIds || node.person_hr_ids);
+    const assignments = csvValues(node.assignmentIds || node.assignment_ids);
+    if ((conditionType === 'person' || conditionType === 'specific_person') && people.length) {
+      groups.push({ people, assignments, requireAssignmentMatch: assignments.length > 0 });
+    }
+    Object.keys(node).forEach((key) => {
+      if (['personHrIds', 'person_hr_ids', 'assignmentIds', 'assignment_ids'].includes(key)) return;
+      visit(node[key]);
+    });
+  };
+  visit(source);
+  return groups;
+}
+
+async function hasActivePersonCandidate(connection, organizationId, people, assignments, lock) {
+  const personIds = uniqueStrings(people);
+  const assignmentIds = uniqueStrings(assignments);
+  if (!safeString(organizationId) || !personIds.length) return false;
+  const params = [safeString(organizationId), ...personIds];
+  let assignmentFilter = '';
+  if (assignmentIds.length) {
+    assignmentFilter = ` AND assignment_row.id IN (${placeholders(assignmentIds)})`;
+    params.push(...assignmentIds);
+  }
+  const [rows] = await connection.query(
+    `SELECT membership_row.id
+       FROM organization_memberships membership_row
+       JOIN membership_assignments assignment_row
+         ON assignment_row.membership_id = membership_row.id
+        AND assignment_row.org_id = membership_row.org_id
+        AND assignment_row.status = 'active'
+      WHERE membership_row.org_id = ? AND membership_row.status = 'active'
+        AND membership_row.legacy_hr_id IN (${placeholders(personIds)})${assignmentFilter}
+      LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
+    params
+  );
+  return Boolean(rows[0]);
+}
+
+async function hasActiveCandidateGroup(connection, organizationId, group, lock) {
+  const people = uniqueStrings(group && group.people);
+  const assignments = uniqueStrings(group && group.assignments);
+  if (group && group.requireAssignmentMatch && !assignments.length) return false;
+  return hasActivePersonCandidate(connection, organizationId, people, assignments, lock);
+}
+
+async function hasAnyActiveCandidateGroup(connection, organizationId, groups, lock) {
+  for (const group of Array.isArray(groups) ? groups : []) {
+    if (await hasActiveCandidateGroup(connection, organizationId, group, lock)) return true;
+  }
+  return false;
+}
+
+async function hasActiveAuditStepCandidate(connection, organizationId, stepId, directPeople, lock) {
+  if (await hasActivePersonCandidate(connection, organizationId, directPeople, [], lock)) return true;
+  const [conditionRows] = await connection.query(
+    `SELECT person_hr_ids, assignment_ids
+       FROM audit_flow_template_step_conditions
+      WHERE template_step_id = ? AND org_id = ? AND condition_type = 'person'${lock ? ' FOR UPDATE' : ''}`,
+    [safeString(stepId), safeString(organizationId)]
+  );
+  return hasAnyActiveCandidateGroup(connection, organizationId, conditionRows.map((row) => ({
+    people: csvValues(row.person_hr_ids),
+    assignments: csvValues(row.assignment_ids),
+    requireAssignmentMatch: true
+  })), lock);
+}
+
 async function cleanupAuditTemplateReferences(connection, target) {
   const orgId = safeString(target.organizationId);
   const targetHrIds = new Set(uniqueStrings(target.legacyHrIds));
@@ -719,15 +798,7 @@ async function cleanupAuditTemplateReferences(connection, target) {
       );
     }
     if (safeString(step.approver_type) !== 'person' || !affectedStepIds.has(safeString(step.id))) continue;
-    const [candidateRows] = await connection.query(
-      `SELECT COUNT(*) AS count
-         FROM audit_flow_template_step_conditions
-        WHERE template_step_id = ? AND org_id = ? AND condition_type = 'person'
-          AND NULLIF(TRIM(COALESCE(person_hr_ids, '')), '') IS NOT NULL
-          AND NULLIF(TRIM(COALESCE(assignment_ids, '')), '') IS NOT NULL`,
-      [step.id, orgId]
-    );
-    if (remaining.length || Number(candidateRows[0] && candidateRows[0].count || 0)) continue;
+    if (await hasActiveAuditStepCandidate(connection, orgId, step.id, remaining, true)) continue;
     await connection.query(
       'UPDATE audit_flow_templates SET is_active = 0, updated_at = NOW() WHERE id = ? AND org_id = ?',
       [step.template_id, orgId]
@@ -752,8 +823,14 @@ async function cleanupAuditTemplateReferences(connection, target) {
     );
     const changed = remaining.length !== currentPeople.length || jsonResult.changed;
     if (!changed) continue;
+    const hasActiveDirectCandidate = await hasActivePersonCandidate(
+      connection, orgId, remaining, [], true
+    );
+    const hasActiveJsonCandidate = await hasAnyActiveCandidateGroup(
+      connection, orgId, collectPersonCandidateGroups(jsonResult.value), true
+    );
     const mustDisable = safeString(template.starter_type) === 'specific_person'
-      && !remaining.length && jsonResult.candidateCount === 0;
+      && !hasActiveDirectCandidate && !hasActiveJsonCandidate;
     await connection.query(
       `UPDATE audit_flow_templates
           SET starter_hr_id = ?, starter_conditions_json = ?,
@@ -769,9 +846,10 @@ async function cleanupAuditTemplateReferences(connection, target) {
 async function cleanupVenueRuleReferences(connection, target) {
   const orgId = safeString(target.organizationId);
   const targetHrIds = new Set(uniqueStrings(target.legacyHrIds));
-  if (!orgId || !targetHrIds.size) return [];
+  const targetAssignmentIds = new Set(uniqueStrings(target.assignmentIds));
+  if (!orgId || (!targetHrIds.size && !targetAssignmentIds.size)) return [];
   const [rules] = await connection.query(
-    `SELECT id, rule_type, approver_hr_id
+    `SELECT id, rule_type, approver_hr_id, approver_assignment_id
        FROM venue_booking_rules
       WHERE org_id = ?
       FOR UPDATE`,
@@ -779,15 +857,25 @@ async function cleanupVenueRuleReferences(connection, target) {
   );
   const disabled = [];
   for (const rule of rules) {
-    const people = csvValues(rule.approver_hr_id);
-    const remaining = people.filter((id) => !targetHrIds.has(id));
-    if (remaining.length === people.length) continue;
-    const mustDisable = safeString(rule.rule_type) === 'person' && !remaining.length;
+    const filtered = removePairedReferences(
+      rule.approver_hr_id,
+      rule.approver_assignment_id,
+      targetHrIds,
+      targetAssignmentIds
+    );
+    const changed = filtered.people.join(',') !== csvValues(rule.approver_hr_id).join(',')
+      || filtered.assignments.join(',') !== csvValues(rule.approver_assignment_id).join(',');
+    if (!changed) continue;
+    const hasActiveCandidate = await hasActivePersonCandidate(connection, orgId,
+      filtered.people, filtered.assignments, true);
+    const mustDisable = safeString(rule.rule_type) === 'person' && !hasActiveCandidate;
     await connection.query(
       `UPDATE venue_booking_rules
-          SET approver_hr_id = ?, is_active = IF(?, 0, is_active), updated_at = NOW()
+          SET approver_hr_id = ?, approver_assignment_id = ?,
+              is_active = IF(?, 0, is_active), updated_at = NOW()
         WHERE id = ? AND org_id = ?`,
-      [remaining.join(',') || null, mustDisable ? 1 : 0, rule.id, orgId]
+      [filtered.people.join(',') || null, filtered.assignments.join(',') || null,
+        mustDisable ? 1 : 0, rule.id, orgId]
     );
     if (mustDisable) disabled.push({ type: 'venue_rule', id: safeString(rule.id) });
   }
@@ -815,7 +903,7 @@ async function scanRuleImpact(connection, target, lock) {
   );
   const conditionCandidatesByStep = new Map();
   const affectedConditionStepIds = new Set();
-  conditions.forEach((row) => {
+  for (const row of conditions) {
     const filtered = removePairedReferences(
       row.person_hr_ids,
       row.assignment_ids,
@@ -824,15 +912,14 @@ async function scanRuleImpact(connection, target, lock) {
     );
     const changed = filtered.people.join(',') !== csvValues(row.person_hr_ids).join(',')
       || filtered.assignments.join(',') !== csvValues(row.assignment_ids).join(',');
-    if (!changed) {
-      if (filtered.people.length && filtered.assignments.length) {
-        conditionCandidatesByStep.set(safeString(row.template_step_id), true);
-      }
-      return;
-    }
-    if (filtered.people.length && filtered.assignments.length) {
+    if (await hasActiveCandidateGroup(connection, orgId, {
+      people: filtered.people,
+      assignments: filtered.assignments,
+      requireAssignmentMatch: true
+    }, lock)) {
       conditionCandidatesByStep.set(safeString(row.template_step_id), true);
     }
+    if (!changed) continue;
     affectedConditionStepIds.add(safeString(row.template_step_id));
     impact.push({
       type: 'audit_template',
@@ -843,7 +930,7 @@ async function scanRuleImpact(connection, target, lock) {
       reference: 'step_condition',
       wouldDisable: false
     });
-  });
+  }
 
   const [steps] = await connection.query(
     `SELECT step_row.id, step_row.template_id, step_row.approver_type, step_row.approver_hr_id,
@@ -854,14 +941,17 @@ async function scanRuleImpact(connection, target, lock) {
       WHERE step_row.org_id = ?${lockSql}`,
     [orgId]
   );
-  steps.forEach((step) => {
+  for (const step of steps) {
     const currentPeople = csvValues(step.approver_hr_id);
     const remaining = currentPeople.filter((id) => !targetHrIds.has(id));
     const directlyAffected = remaining.length !== currentPeople.length;
     const conditionAffected = affectedConditionStepIds.has(safeString(step.id));
-    if (!directlyAffected && !conditionAffected) return;
+    if (!directlyAffected && !conditionAffected) continue;
+    const directCandidateActive = await hasActivePersonCandidate(
+      connection, orgId, remaining, [], lock
+    );
     const wouldDisable = safeString(step.approver_type) === 'person'
-      && !remaining.length
+      && !directCandidateActive
       && !conditionCandidatesByStep.get(safeString(step.id));
     impact.push({
       type: 'audit_template',
@@ -872,7 +962,7 @@ async function scanRuleImpact(connection, target, lock) {
       reference: 'approval_step',
       wouldDisable
     });
-  });
+  }
 
   const [templates] = await connection.query(
     `SELECT id, name, starter_type, starter_hr_id, starter_conditions_json
@@ -880,7 +970,7 @@ async function scanRuleImpact(connection, target, lock) {
       WHERE org_id = ?${lockSql}`,
     [orgId]
   );
-  templates.forEach((template) => {
+  for (const template of templates) {
     const currentPeople = csvValues(template.starter_hr_id);
     const remaining = currentPeople.filter((id) => !targetHrIds.has(id));
     const jsonResult = removePersonFromStarterJson(
@@ -888,38 +978,53 @@ async function scanRuleImpact(connection, target, lock) {
       targetHrIds,
       targetAssignmentIds
     );
-    if (remaining.length === currentPeople.length && !jsonResult.changed) return;
+    if (remaining.length === currentPeople.length && !jsonResult.changed) continue;
+    const directCandidateActive = await hasActivePersonCandidate(
+      connection, orgId, remaining, [], lock
+    );
+    const jsonCandidateActive = await hasAnyActiveCandidateGroup(
+      connection, orgId, collectPersonCandidateGroups(jsonResult.value), lock
+    );
     impact.push({
       type: 'audit_template',
       id: safeString(template.id),
       name: safeString(template.name),
       reference: 'starter_condition',
       wouldDisable: safeString(template.starter_type) === 'specific_person'
-        && !remaining.length && jsonResult.candidateCount === 0
+        && !directCandidateActive && !jsonCandidateActive
     });
-  });
+  }
 
   const [venueRules] = await connection.query(
     `SELECT rule_row.id, rule_row.rule_type, rule_row.approver_hr_id,
+            rule_row.approver_assignment_id,
             rule_row.sort_order, venue_row.name AS venue_name
        FROM venue_booking_rules rule_row
        JOIN venues venue_row ON venue_row.id = rule_row.venue_id
       WHERE rule_row.org_id = ?${lockSql}`,
     [orgId]
   );
-  venueRules.forEach((rule) => {
-    const people = csvValues(rule.approver_hr_id);
-    const remaining = people.filter((id) => !targetHrIds.has(id));
-    if (remaining.length === people.length) return;
+  for (const rule of venueRules) {
+    const filtered = removePairedReferences(
+      rule.approver_hr_id,
+      rule.approver_assignment_id,
+      targetHrIds,
+      targetAssignmentIds
+    );
+    const changed = filtered.people.join(',') !== csvValues(rule.approver_hr_id).join(',')
+      || filtered.assignments.join(',') !== csvValues(rule.approver_assignment_id).join(',');
+    if (!changed) continue;
+    const activeCandidate = await hasActivePersonCandidate(connection, orgId,
+      filtered.people, filtered.assignments, lock);
     impact.push({
       type: 'venue_rule',
       id: safeString(rule.id),
       name: safeString(rule.venue_name),
       stepOrder: Number(rule.sort_order || 0),
       reference: 'approver',
-      wouldDisable: safeString(rule.rule_type) === 'person' && !remaining.length
+      wouldDisable: safeString(rule.rule_type) === 'person' && !activeCandidate
     });
-  });
+  }
   return impact;
 }
 
@@ -1513,5 +1618,7 @@ module.exports = {
   acquireSuperAdminGovernanceLock,
   releaseDeletionLock,
   removePairedReferences,
-  removePersonFromStarterJson
+  removePersonFromStarterJson,
+  collectPersonCandidateGroups,
+  hasActivePersonCandidate
 };

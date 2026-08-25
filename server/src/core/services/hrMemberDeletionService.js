@@ -47,6 +47,17 @@ function assertActorAuthorization(actor, scope, organizationId) {
   }
 }
 
+function assertClientRequestId(data) {
+  const clientRequestId = safeString(data && data.clientRequestId).trim();
+  if (!clientRequestId) {
+    throw new HrMemberDeletionError('hr_member_deletion_client_request_id_required', 400);
+  }
+  if (clientRequestId.length > 96 || !/^[A-Za-z0-9._:-]+$/.test(clientRequestId)) {
+    throw new HrMemberDeletionError('hr_member_deletion_client_request_id_invalid', 400);
+  }
+  return clientRequestId;
+}
+
 function dateValue(value) {
   if (!value) return '';
   const date = value instanceof Date ? value : new Date(value);
@@ -291,15 +302,13 @@ async function evaluateSafety(connection, state, actor, lock) {
   if (safeString(state.person.person_id) === actorPersonId(actor)) {
     safetyBlocks.push({ category: 'current_operator', count: 1 });
   }
-  if (state.scope === PERSON_SCOPE) {
-    const superAdminState = await deletionModel.lockSuperAdminState(
-      connection,
-      state.person.person_id,
-      Boolean(lock)
-    );
-    if (superAdminState.targetIsSuperAdmin && superAdminState.activeCount <= 1) {
-      safetyBlocks.push({ category: 'last_effective_super_admin', count: 1 });
-    }
+  const superAdminState = await deletionModel.lockSuperAdminState(
+    connection,
+    state.person.person_id,
+    Boolean(lock)
+  );
+  if (superAdminState.targetIsSuperAdmin && superAdminState.activeCount <= 1) {
+    safetyBlocks.push({ category: 'last_effective_super_admin', count: 1 });
   }
   return safetyBlocks;
 }
@@ -389,6 +398,7 @@ async function acquireSuperAdminGovernanceLock(connection) {
 }
 
 async function executeWithIdempotency(data, actor, scope, operationType, callback, options) {
+  const clientRequestId = assertClientRequestId(data);
   assertActorAuthorization(actor, scope, data && data.organizationId);
   return pool.withTransaction(async (connection) => {
     const authorizedActor = options && typeof options.authorize === 'function'
@@ -405,16 +415,16 @@ async function executeWithIdempotency(data, actor, scope, operationType, callbac
     );
     let governanceLockKey = '';
     try {
-      if (scope === PERSON_SCOPE) {
-        governanceLockKey = await acquireSuperAdminGovernanceLock(connection);
-      }
+      // 组织成员删除同样可能移除管理员授权。所有永久删除必须先串行化
+      // 全局治理状态，再锁定目标人员并重新执行与预检相同的安全判断。
+      governanceLockKey = await acquireSuperAdminGovernanceLock(connection);
       let claim;
       try {
         claim = await requestDeduplication.claim(connection, {
           orgId: dedupOrgId,
           actorKey,
           operationType,
-          clientRequestId: data.clientRequestId,
+          clientRequestId,
           resourceId: requestedResourceId
         });
       } catch (error) {
@@ -578,6 +588,7 @@ module.exports = {
   PERSON_SCOPE,
   HrMemberDeletionError,
   buildPreviewVersion,
+  assertClientRequestId,
   previewHrMemberDeletion,
   deleteHrMembershipPermanently,
   deletePersonPermanently

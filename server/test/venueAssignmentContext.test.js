@@ -94,9 +94,7 @@ Module._load = originalLoad;
       assignmentId: 'assignment-leader', organizationId: 'org-1', departmentName: '历史部门名'
     })
   });
-  assert.strictEqual(partialSnapshot.departmentName, '历史部门名', '旧快照已有的展示值必须优先于当前岗位字典');
-  assert.strictEqual(partialSnapshot.departmentId, 'department-1', '旧快照缺失的规则字段可从岗位记录兼容补齐');
-  assert.strictEqual(partialSnapshot.historicalSnapshotComplete, false, '不完整快照不得伪装成完整历史岗位展示');
+  assert.strictEqual(partialSnapshot, null, '不完整历史快照必须失败关闭，不能使用当前岗位补齐授权条件');
 
   const legacy = await contextService.resolveBookingApplicantAssignment({
     id: 'booking-old', user_hr_id: 'hr-old', creator_org_id: 'org-1'

@@ -3,6 +3,7 @@ const assert = require('assert');
 process.env.DB_USER = process.env.DB_USER || 'test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-profile-template-library-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-profile-template-identity-test-secret';
 
 const library = require('../src/core/services/hrProfileTemplateLibrary');
 const { validateDefinition, isPotentiallyCompatible, validateMappedValue, normalizeActions } = library._test;

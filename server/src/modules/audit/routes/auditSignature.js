@@ -292,7 +292,7 @@ router.post('/verifySignatureChain', async (req, res) => {
           present: false,
           valid: null,
           signatures: [],
-          message: isPdf ? '文件缺失，无法验签' : '非 PDF 文件'
+          message: isPdf ? localeCopy.copy_6f376151a2 : localeCopy.copy_c6b6dad622
         };
       }
     }

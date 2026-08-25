@@ -135,19 +135,15 @@ async function invoke(dataType, extraBody) {
 
 async function run() {
   const targetRecords = await invoke('targetRecords', { targetId: 'target-1' });
-  assert.strictEqual(targetRecords.status, 'success', targetRecords.message);
-  assert.strictEqual(targetRecords.activity.name, activity.name);
+  assert.strictEqual(targetRecords.status, 'historical_snapshot_missing');
+  assert.strictEqual(targetRecords.missingSnapshotCount, 1);
 
   const recordList = await invoke('records');
-  assert.strictEqual(recordList.status, 'success', recordList.message);
-  assert.strictEqual(recordList.activity.name, activity.name);
-  assert.strictEqual(recordList.recordRows.length, 1);
-  assert.strictEqual(recordList.recordRows[0].activityName, activity.name);
-  assert.strictEqual(recordList.recordRows[0].historicalAssignmentUnavailable, true);
-  assert.strictEqual(recordList.recordRows[0].scorerHistoricalAssignmentUnavailable, true);
-  assert.strictEqual(recordList.recordRows[0].department, '', '缺快照时不得使用当前人员岗位展示历史结果');
+  assert.strictEqual(recordList.status, 'historical_snapshot_missing');
+  assert.strictEqual(recordList.missingSnapshotCount, 1);
+  assert.strictEqual(recordList.affectedRecordCount, 1);
 
-  console.log('历史组织评分结果活动变量回归测试通过');
+  console.log('历史评分缺少不可变快照时显式失败测试通过');
 }
 
 run().catch((error) => {

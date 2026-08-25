@@ -64,7 +64,7 @@ router.post('/parseTableFile', async (req, res) => {
     if (req.logger) req.logger.warn('Workbook parse rejected', { code: e.code || 'parse_failed', error: e.message });
     res.json({
       status: 'error',
-      message: e.code === 'invalid_workbook' ? safeString(e.message) : '请检查表格内容后重试'
+      message: e.code === 'invalid_workbook' ? safeString(e.message) : localeCopy.copy_27bb722d1e
     });
   }
 });

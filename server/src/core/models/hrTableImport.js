@@ -34,32 +34,32 @@ function normalizeEmptyValue(value) {
 function normalizeCell(value) {
   const text = safeString(value);
   if (text.length > MAX_CELL_LENGTH) {
-    throw new HrTableImportError('invalid_params', `请将单项内容控制在 ${MAX_CELL_LENGTH} 个字以内`);
+    throw new HrTableImportError('invalid_params', localeFormat(localeCopy.copy_d4523e4afe, [MAX_CELL_LENGTH]));
   }
   return text;
 }
 
 function normalizeHeaders(rawHeaders) {
   if (!Array.isArray(rawHeaders) || !rawHeaders.length) {
-    throw new HrTableImportError('invalid_params', '表格缺少表头');
+    throw new HrTableImportError('invalid_params', localeCopy.copy_ee68daf8e0);
   }
   if (rawHeaders.length > MAX_IMPORT_COLUMNS) {
-    throw new HrTableImportError('invalid_params', `请将表格控制在 ${MAX_IMPORT_COLUMNS} 列以内`);
+    throw new HrTableImportError('invalid_params', localeFormat(localeCopy.copy_fec9446baa, [MAX_IMPORT_COLUMNS]));
   }
   return rawHeaders.map(normalizeCell);
 }
 
 function normalizeRows(rawRows, columnCount) {
   if (!Array.isArray(rawRows)) {
-    throw new HrTableImportError('invalid_params', '请检查表格内容');
+    throw new HrTableImportError('invalid_params', localeCopy.copy_f6b34330ec);
   }
   if (rawRows.length > MAX_IMPORT_ROWS) {
-    throw new HrTableImportError('invalid_params', `请将本次导入控制在 ${MAX_IMPORT_ROWS} 行以内`);
+    throw new HrTableImportError('invalid_params', localeFormat(localeCopy.copy_96a60efa4b, [MAX_IMPORT_ROWS]));
   }
   const rows = [];
   rawRows.forEach((rawRow, index) => {
     if (!Array.isArray(rawRow)) {
-      throw new HrTableImportError('invalid_params', `请检查第 ${index + 2} 行内容`);
+      throw new HrTableImportError('invalid_params', localeFormat(localeCopy.copy_0cfe3a4ad3, [index + 2]));
     }
     const cells = [];
     for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
@@ -76,7 +76,7 @@ function normalizeColumnIndex(value, columnCount, label) {
   if (value === null || value === undefined || value === '') return null;
   const index = Number(value);
   if (!Number.isInteger(index) || index < 0 || index >= columnCount) {
-    throw new HrTableImportError('invalid_mapping', `请重新选择${label}所在列`);
+    throw new HrTableImportError('invalid_mapping', localeFormat(localeCopy.copy_b0e55e628e, [label]));
   }
   return index;
 }
@@ -89,7 +89,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
     const index = normalizeColumnIndex(source[field], columnCount, BASIC_FIELD_LABELS[field]);
     if (index === null) return;
     if (usedColumns.has(index)) {
-      throw new HrTableImportError('invalid_mapping', '请为每项资料选择不同的表格列');
+      throw new HrTableImportError('invalid_mapping', localeCopy.copy_3e29c1734d);
     }
     mapping[field] = index;
     usedColumns.add(index);
@@ -98,7 +98,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
   if (missing.length) {
     throw new HrTableImportError(
       'invalid_mapping',
-      `请选择以下资料所在列：${missing.map((field) => BASIC_FIELD_LABELS[field]).join('、')}`
+      localeFormat(localeCopy.copy_ce562f63a3, [missing.map((field) => BASIC_FIELD_LABELS[field]).join('、')])
     );
   }
   return { mapping, usedColumns };
@@ -107,7 +107,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
 function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
   if (!rawMapping) return [];
   if (!Array.isArray(rawMapping)) {
-    throw new HrTableImportError('invalid_mapping', '请重新选择补充资料所在列');
+    throw new HrTableImportError('invalid_mapping', localeCopy.copy_f7b06e42fa);
   }
   const usedFieldIds = new Set();
   return rawMapping.map((item) => {
@@ -118,13 +118,13 @@ function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
       '补充资料'
     );
     if (!fieldId || columnIndex === null) {
-      throw new HrTableImportError('invalid_mapping', '请选择补充资料所在列');
+      throw new HrTableImportError('invalid_mapping', localeCopy.copy_15cdffdfee);
     }
     if (usedColumns.has(columnIndex)) {
-      throw new HrTableImportError('invalid_mapping', '请为每项资料选择不同的表格列');
+      throw new HrTableImportError('invalid_mapping', localeCopy.copy_3e29c1734d);
     }
     if (usedFieldIds.has(fieldId)) {
-      throw new HrTableImportError('invalid_mapping', '请为每项补充资料选择一列表格内容');
+      throw new HrTableImportError('invalid_mapping', localeCopy.copy_87fa85fbcc);
     }
     usedColumns.add(columnIndex);
     usedFieldIds.add(fieldId);
@@ -247,7 +247,7 @@ async function loadImportContext(orgId, extensionMapping) {
     );
     template = templates[0] || null;
     if (!template) {
-      throw new HrTableImportError('missing_template', '请先在人事管理中选择人事模板');
+      throw new HrTableImportError('missing_template', localeCopy.copy_40260ac3f4);
     }
     const [fieldRows] = await pool.query(
       'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1 ORDER BY sort_order',
@@ -257,7 +257,7 @@ async function loadImportContext(orgId, extensionMapping) {
     const fieldIds = new Set(templateFields.map((field) => field.id));
     extensionMapping.forEach((mapping) => {
       if (!fieldIds.has(mapping.fieldId)) {
-        throw new HrTableImportError('invalid_mapping', '请重新选择当前组织的人事资料项');
+        throw new HrTableImportError('invalid_mapping', localeCopy.copy_bbdadecf66);
       }
     });
   }
@@ -506,6 +506,47 @@ async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc) {
   );
 }
 
+async function lockExistingImportSubjects(connection, rows, organizationId, existingHrRows) {
+  const normalizedStudentIds = Array.from(new Set((Array.isArray(rows) ? rows : [])
+    .map((row) => unifiedIdentityModel.normalizeStudentId(row && row.studentId))
+    .filter(Boolean))).sort();
+  if (!normalizedStudentIds.length) return [];
+
+  const targetStudentIds = new Set(normalizedStudentIds);
+  const knownMembershipSubjects = (Array.isArray(existingHrRows) ? existingHrRows : [])
+    .filter((row) => targetStudentIds.has(unifiedIdentityModel.normalizeStudentId(row && row.student_id)))
+    .map((row) => ({
+      legacyHrId: safeString(row.id),
+      organizationId: safeString(organizationId)
+    }))
+    .filter((row) => row.legacyHrId);
+  if (knownMembershipSubjects.length) {
+    await unifiedIdentityModel.lockActiveBusinessSubjects(connection, knownMembershipSubjects);
+  }
+
+  const placeholders = normalizedStudentIds.map(() => '?').join(', ');
+  const [subjects] = await connection.query(
+    `SELECT person_row.id AS person_id,
+            membership_row.legacy_hr_id,
+            membership_row.status AS membership_status
+       FROM persons person_row
+       LEFT JOIN organization_memberships membership_row
+         ON membership_row.person_id = person_row.id AND membership_row.org_id = ?
+      WHERE person_row.normalized_student_id IN (${placeholders})
+      ORDER BY person_row.id, membership_row.id`,
+    [safeString(organizationId), ...normalizedStudentIds]
+  );
+  if (!subjects.length) return knownMembershipSubjects;
+
+  const locked = await unifiedIdentityModel.lockActiveBusinessSubjects(connection, subjects.map((subject) => ({
+    personId: safeString(subject.person_id),
+    organizationId: safeString(organizationId),
+    legacyHrId: safeString(subject.legacy_hr_id),
+    requireMembership: safeString(subject.membership_status) === 'active'
+  })));
+  return knownMembershipSubjects.concat(locked);
+}
+
 async function importPreparedRows(prepared, orgId) {
   if (prepared.validationErrors.length && !prepared.skipInvalid) {
     return {
@@ -525,6 +566,7 @@ async function importPreparedRows(prepared, orgId) {
     const [identities] = await conn.query('SELECT * FROM identities WHERE org_id = ?', [orgId]);
     const [workGroups] = await conn.query('SELECT * FROM work_groups WHERE org_id = ?', [orgId]);
     const [hrRows] = await conn.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
+    await lockExistingImportSubjects(conn, prepared.parsedRows, orgId, hrRows);
     const departmentIds = new Map(departments.map((item) => [safeString(item.name), safeString(item.id)]));
     const identityIds = new Map(identities.map((item) => [safeString(item.name), safeString(item.id)]));
     const workGroupIds = new Map(workGroups.map((item) => [`${safeString(item.name)}::${safeString(item.department_id)}`, safeString(item.id)]));
@@ -627,5 +669,6 @@ module.exports = {
   normalizeEmptyValue,
   prepareHrTableImport,
   previewHrTableImport,
-  importHrTable
+  importHrTable,
+  lockExistingImportSubjects
 };

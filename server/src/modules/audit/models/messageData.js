@@ -7,8 +7,6 @@ async function getPendingVenueBookings(orgId) {
        JOIN venues v ON v.id = b.venue_id
       WHERE b.status = 'pending'
         AND b.approval_org_id = ?
-        AND b.approval_flow_id IS NOT NULL
-        AND b.approval_total_steps > 0
       ORDER BY b.created_at DESC`,
     [orgId]
   );

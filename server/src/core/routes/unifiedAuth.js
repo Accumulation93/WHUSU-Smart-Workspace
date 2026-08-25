@@ -47,19 +47,19 @@ function sendError(req, res, error) {
 
 function requireUnifiedSession(req) {
   if (!req.authSession || !req.authAccount || !req.authContext) {
-    throw new identityModel.IdentityError('client_upgrade_required', '请更新小程序后重新登录', 426);
+    throw new identityModel.IdentityError('client_upgrade_required', localeCopy.copy_cffa8244af, 426);
   }
 }
 
 async function requireAdminPermission(req, permissionKey) {
   requireUnifiedSession(req);
   if (req.authContext.role !== 'admin') {
-    throw new identityModel.IdentityError('admin_role_required', '请切换到管理员身份后重试', 403);
+    throw new identityModel.IdentityError('admin_role_required', localeCopy.copy_278fb8d3d0, 403);
   }
   const context = await unifiedAuth.decorateContext(req.authContext);
   const permissions = context.permissions || [];
   if (!permissions.includes('*') && !permissions.includes(permissionKey)) {
-    throw new identityModel.IdentityError('permission_denied', '当前身份没有执行此操作的权限', 403);
+    throw new identityModel.IdentityError('permission_denied', localeCopy.copy_79c2622548, 403);
   }
   return context;
 }
@@ -86,7 +86,7 @@ async function resolveMemberAccount(req, personId) {
     req.authContext.organizationId
   );
   if (!account) {
-    throw new identityModel.IdentityError('member_account_not_found', '未找到该成员的账号', 404);
+    throw new identityModel.IdentityError('member_account_not_found', localeCopy.copy_3b60b7e276, 404);
   }
   return account;
 }
@@ -346,7 +346,7 @@ router.post('/auth/security/recovery-credential', async (req, res) => {
     requireUnifiedSession(req);
     const method = safeString(req.body && req.body.method);
     if (!['recovery_code', 'passphrase'].includes(method)) {
-      throw new identityModel.IdentityError('invalid_params', '请选择恢复方式', 400);
+      throw new identityModel.IdentityError('invalid_params', localeCopy.copy_6267781771, 400);
     }
     const result = await identityModel.configureRecoveryCredential(
       req.authAccount.id,
@@ -380,7 +380,7 @@ router.post('/auth/security/sessions/revoke', async (req, res) => {
     );
     return res.json({
       status: revoked ? 'success' : 'not_found',
-      message: revoked ? '该设备已退出' : '该设备已退出'
+      message: revoked ? localeCopy.copy_c69999ba88 : localeCopy.copy_c69999ba88
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -419,7 +419,7 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
     const sessionId = safeString(req.body && req.body.sessionId);
     if (!sessionId) {
-      throw new identityModel.IdentityError('invalid_params', '请选择要退出的设备', 400);
+      throw new identityModel.IdentityError('invalid_params', localeCopy.copy_72b5b8b086, 400);
     }
     const revoked = await pool.withTransaction(async (connection) => {
       const changed = await identityModel.revokeSession(
@@ -533,7 +533,7 @@ router.post('/auth/recovery/complete', async (req, res) => {
     const bootstrapId = unifiedAuth.bootstrapIdFromRequest(req);
     const method = safeString(req.body && req.body.method);
     if (!['recovery_code', 'passphrase'].includes(method)) {
-      throw new identityModel.IdentityError('invalid_params', '请选择恢复方式', 400);
+      throw new identityModel.IdentityError('invalid_params', localeCopy.copy_6267781771, 400);
     }
     const account = await identityModel.completeRecoveryWithCredential(
       bootstrapId,
@@ -635,7 +635,7 @@ router.post('/admin/auth/claims', async (req, res) => {
       );
       return res.json({ status: 'success', revokedClaimIds });
     }
-    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
+    throw new identityModel.IdentityError('invalid_action', localeCopy.copy_e6669be1f4, 400);
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -711,7 +711,7 @@ router.post('/admin/auth/recoveries', async (req, res) => {
       );
       return res.json({ status: 'success', message: localeCopy.copy_cbea0ead4a });
     }
-    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
+    throw new identityModel.IdentityError('invalid_action', localeCopy.copy_e6669be1f4, 400);
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -756,7 +756,7 @@ router.post('/admin/auth/accounts', async (req, res) => {
         message: action === 'freeze' ? personnelCopy.accountFrozen : personnelCopy.accountUnfrozen
       });
     }
-    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
+    throw new identityModel.IdentityError('invalid_action', localeCopy.copy_e6669be1f4, 400);
   } catch (error) {
     return sendError(req, res, error);
   }

@@ -24,6 +24,7 @@ process.env.DB_USER = process.env.DEPLOY_TEST_DB_USER || 'root';
 process.env.DB_PASSWORD = process.env.DEPLOY_TEST_DB_PASSWORD || '';
 process.env.DB_NAME = databaseName;
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'unique-hr-profile-snapshot-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-profile-migration-identity-test-secret';
 
 function databaseConfig(database) {
   return {

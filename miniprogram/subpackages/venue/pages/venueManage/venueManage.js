@@ -18,9 +18,14 @@ const HOUR_HEIGHT = 64; // rpx per hour
 const BASE_MIN = 0;
 const HEADER_H = 58; // rpx — matches .tt-time-header height
 const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
+const BOOKING_PURPOSE_MAX_LENGTH = 200;
 
 // Synchronous scroll tracking (NOT in this.data — setData is async, can't rely on it)
 let _timetableScrollTop = 0;
+
+function unicodeLength(value) {
+  return Array.from(String(value || '')).length;
+}
 
 const ALL_MINUTES = [];
 for (let i = 0; i < 60; i++) {
@@ -1926,11 +1931,16 @@ Page({
 
   async savePurpose() {
     const { purposeEditId, purposeEditText } = this.data;
-    if (!purposeEditText.trim()) { showShortToast(localeCopy.copy_fdb45fb38f); return; }
+    const normalizedText = String(purposeEditText || '').trim();
+    if (!normalizedText) { showShortToast(localeCopy.copy_fdb45fb38f); return; }
+    if (unicodeLength(normalizedText) > BOOKING_PURPOSE_MAX_LENGTH) {
+      showShortToast(localeCopy.bookingPurposeTooLong);
+      return;
+    }
     try {
       const res = await callFunction({
         name: 'saveVenueBookingPurpose',
-        data: { id: purposeEditId, text: purposeEditText.trim() }
+        data: { id: purposeEditId, text: normalizedText }
       });
       if (res.status === 'success') {
         showShortToast(res.message);
@@ -1940,10 +1950,28 @@ Page({
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
   },
 
-  async deletePurpose(e) {
+  deletePurpose(e) {
     const id = e.currentTarget.dataset.id;
+    const purpose = (this.data.purposes || []).find((item) => String(item.id || '') === String(id || ''));
+    if (!purpose) return;
+    const target = Object.freeze({ id: String(purpose.id || ''), text: String(purpose.text || '') });
+    const that = this;
+    wx.showModal({
+      title: localeCopy.copy_7f31eec657,
+      content: localeCopy.bookingPurposeDeletePrefix + target.text + localeCopy.bookingPurposeDeleteSuffix,
+      confirmText: localeCopy.copy_acc985cabc,
+      cancelText: localeCopy.copy_06dbb49961,
+      success: function(modalResult) {
+        if (!modalResult.confirm) return;
+        that._deletePurposeTarget(target);
+      }
+    });
+  },
+
+  async _deletePurposeTarget(target) {
+    if (!target || !target.id) return;
     try {
-      const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id } });
+      const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id: target.id } });
       if (res.status === 'success') { showShortToast(localeCopy.copy_5398fec054); this.loadPurposes(); }
       else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }

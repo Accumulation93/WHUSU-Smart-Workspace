@@ -115,7 +115,86 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
   };
 }
 
+async function listGovernanceDirectory(organizationIds, connection = pool) {
+  const orgIds = uniqueIds(organizationIds);
+  if (!orgIds.length) return { memberships: [], assignments: [] };
+  const orgSql = placeholders(orgIds);
+  const [membershipResult, assignmentResult] = await Promise.all([
+    connection.query(
+      `SELECT om.legacy_hr_id AS id, om.org_id,
+              COALESCE(NULLIF(p.name, ''), h.name, '') AS name,
+              COALESCE(NULLIF(p.student_id, ''), h.student_id, '') AS student_id,
+              om.person_id, om.id AS membership_id, om.status AS membership_status,
+              om.created_at AS joined_at,
+              CASE WHEN om.status = 'left' THEN om.updated_at ELSE NULL END AS left_at,
+              o.name AS organization_name,
+              a.id AS account_id, a.status AS account_status, a.verified_at, a.recovery_required_at,
+              EXISTS (SELECT 1 FROM account_wechat_bindings b WHERE b.account_id = a.id AND b.status = 'active') AS has_active_binding,
+              EXISTS (SELECT 1 FROM account_wechat_bindings history_binding WHERE history_binding.account_id = a.id) AS has_binding_history,
+              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
+                AND c.method = 'recovery_code' AND c.status = 'active') AS has_recovery_code,
+              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
+                AND c.method = 'passphrase' AND c.status = 'active') AS has_passphrase,
+              (SELECT COUNT(*) FROM auth_sessions s WHERE s.account_id = a.id
+                AND s.status = 'active' AND s.expires_at > NOW()) AS active_session_count,
+              (SELECT claim.id FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
+                AND claim.requested_org_id = om.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()
+                ORDER BY claim.created_at DESC LIMIT 1) AS pending_claim_id,
+              EXISTS (SELECT 1 FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
+                AND claim.requested_org_id = om.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()) AS has_pending_claim,
+              EXISTS (SELECT 1 FROM identity_verification_tokens token
+                JOIN identity_claim_requests claim ON claim.id = token.claim_request_id
+                WHERE claim.person_id = om.person_id AND claim.requested_org_id = om.org_id
+                  AND claim.status = 'pending' AND claim.expires_at > NOW()
+                  AND token.status = 'active' AND token.expires_at > NOW()) AS has_active_claim_code,
+              EXISTS (SELECT 1 FROM identity_verification_invites invite WHERE invite.person_id = om.person_id
+                AND invite.org_id = om.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite,
+              (SELECT recovery.id FROM account_recovery_requests recovery
+                WHERE recovery.person_id = om.person_id AND recovery.status = 'pending' AND recovery.expires_at > NOW()
+                ORDER BY recovery.created_at DESC LIMIT 1) AS pending_recovery_id
+         FROM organization_memberships om
+         JOIN persons p ON p.id = om.person_id AND p.status = 'active'
+         JOIN organizations o ON o.id = om.org_id
+         LEFT JOIN hr_info h ON h.id = om.legacy_hr_id AND h.org_id = om.org_id
+         LEFT JOIN accounts a ON a.person_id = om.person_id
+        WHERE om.org_id IN (${orgSql}) AND om.status IN ('active', 'left')
+        ORDER BY om.org_id, p.name, om.legacy_hr_id`,
+      orgIds
+    ).then((result) => result[0]),
+    connection.query(
+      `SELECT assignment_row.id, assignment_row.membership_id,
+              assignment_row.assignment_kind, assignment_row.department_id,
+              assignment_row.identity_id, assignment_row.work_group_id,
+              membership_row.status AS membership_status,
+              department_row.name AS department_name,
+              identity_row.name AS identity_name,
+              work_group_row.name AS work_group_name
+         FROM membership_assignments assignment_row
+         JOIN organization_memberships membership_row
+           ON membership_row.id = assignment_row.membership_id
+          AND membership_row.org_id = assignment_row.org_id
+         LEFT JOIN departments department_row
+           ON department_row.id = assignment_row.department_id
+          AND department_row.org_id = assignment_row.org_id
+         LEFT JOIN identities identity_row
+           ON identity_row.id = assignment_row.identity_id
+          AND identity_row.org_id = assignment_row.org_id
+         LEFT JOIN work_groups work_group_row
+           ON work_group_row.id = assignment_row.work_group_id
+          AND work_group_row.org_id = assignment_row.org_id
+        WHERE assignment_row.org_id IN (${orgSql})
+          AND ((membership_row.status = 'active' AND assignment_row.status = 'active')
+            OR (membership_row.status = 'left' AND assignment_row.status = 'revoked'
+              AND assignment_row.revoked_by_departure_id = membership_row.departure_batch_id))
+        ORDER BY assignment_row.created_at, assignment_row.id`,
+      orgIds
+    ).then((result) => result[0])
+  ]);
+  return { memberships: membershipResult, assignments: assignmentResult };
+}
+
 module.exports = {
   resolvePersonByLegacyHrId,
-  listPersonIdentityData
+  listPersonIdentityData,
+  listGovernanceDirectory
 };

@@ -76,20 +76,23 @@ const source = fs.readFileSync(
   'utf8'
 );
 assert(
-  source.includes('Corrupt explicit conditions must fail closed')
-    && !/catch \(e\) \{\s*hasExplicitConditions = false/.test(source),
-  '显式审批条件 JSON 损坏时不得回退到更宽泛的模板或旧字段'
+  source.includes('Missing or corrupt historical snapshots fail closed')
+    && !source.includes('_batchLoadTemplateConditions'),
+  '步骤快照缺失或损坏时不得回退到更宽泛的当前模板或旧字段'
 );
 
 const routeSource = fs.readFileSync(
   path.resolve(__dirname, '../src/modules/audit/routes/auditUser.js'),
   'utf8'
 );
+const authorizationSource = routeSource.slice(
+  routeSource.indexOf('async function checkStepAuthorization'),
+  routeSource.indexOf('// approveStep')
+);
 assert(
-  routeSource.includes('Corrupt explicit conditions fail closed')
-    && !/catch \(_\) \{\s*hasExplicitConditions = false/.test(routeSource)
-    && !/catch \(_\) \{\s*stepHasExplicitConds = false/.test(routeSource),
-  '查看和执行审批时，损坏的显式条件都必须 fail closed'
+  routeSource.includes("status: 'historical_snapshot_missing'")
+    && !authorizationSource.includes('getTemplateStepConditions'),
+  '查看和执行审批时，损坏或缺失的显式条件都必须明确失败关闭'
 );
 
 console.log('审核审批条件 fail-closed 回归测试通过');

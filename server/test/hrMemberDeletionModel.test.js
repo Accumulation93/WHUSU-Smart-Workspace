@@ -1,5 +1,6 @@
 const assert = require('assert');
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-member-deletion-model-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-member-deletion-model-identity-secret';
 const model = require('../src/core/models/hrMemberDeletion');
 const { encryptOpenid } = require('../src/core/services/identityCrypto');
 
@@ -265,6 +266,71 @@ async function testLegacyOpenidIsResolvedOnlyForInternalBlockerMatching() {
   assert(/designated_by IN \(\?,\s*\?\)/.test(calls[0].sql));
 }
 
+function inactiveFallbackCandidateConnection(calls, preview) {
+  return {
+    async query(sql, params) {
+      const normalized = normalizeSql(sql);
+      calls.push({ sql: normalized, params });
+      if (normalized.startsWith('SELECT condition_row.id')) return [[]];
+      if (normalized.includes('FROM audit_flow_template_step_conditions')
+        && normalized.startsWith('SELECT person_hr_ids')) return [[]];
+      if (normalized.startsWith('SELECT id, template_id, approver_type')) {
+        return [[{
+          id: 'step-a', template_id: 'template-a', approver_type: 'person',
+          approver_hr_id: 'hr-active-a,hr-former-b'
+        }]];
+      }
+      if (normalized.startsWith('SELECT step_row.id')) {
+        return [[{
+          id: 'step-a', template_id: 'template-a', approver_type: 'person',
+          approver_hr_id: 'hr-active-a,hr-former-b', template_name: '审核模板',
+          step_name: '第一步', sort_order: 1
+        }]];
+      }
+      if (normalized.startsWith('SELECT id, starter_type')
+        || normalized.startsWith('SELECT id, name, starter_type')) return [[]];
+      if (normalized.startsWith('SELECT id, rule_type')) {
+        return [[{ id: 'venue-rule-a', rule_type: 'person', approver_hr_id: 'hr-active-a,hr-former-b' }]];
+      }
+      if (normalized.startsWith('SELECT rule_row.id')) {
+        return [[{
+          id: 'venue-rule-a', rule_type: 'person', approver_hr_id: 'hr-active-a,hr-former-b',
+          sort_order: 1, venue_name: '测试场地'
+        }]];
+      }
+      if (normalized.startsWith('SELECT membership_row.id')) return [[]];
+      if (normalized.startsWith('UPDATE')) return [{ affectedRows: 1 }];
+      throw new Error(`${preview ? '预检' : '执行'}测试遇到未处理 SQL：${normalized}`);
+    }
+  };
+}
+
+async function testInactiveFallbackCandidateDisablesRulesInPreviewAndExecution() {
+  const target = {
+    personId: 'person-a', organizationId: 'org-a',
+    legacyHrIds: ['hr-active-a'], assignmentIds: ['assignment-a']
+  };
+  const previewCalls = [];
+  const impact = await model.scanRuleImpact(
+    inactiveFallbackCandidateConnection(previewCalls, true), target, false
+  );
+  assert(impact.some((item) => item.type === 'audit_template' && item.wouldDisable));
+  assert(impact.some((item) => item.type === 'venue_rule' && item.wouldDisable));
+
+  const executionCalls = [];
+  const disabled = await model.cleanupRuleReferences(
+    inactiveFallbackCandidateConnection(executionCalls, false), target
+  );
+  assert(disabled.some((item) => item.type === 'audit_template' && item.id === 'template-a'));
+  assert(disabled.some((item) => item.type === 'venue_rule' && item.id === 'venue-rule-a'));
+  const candidateQueries = executionCalls.filter((item) => item.sql.startsWith('SELECT membership_row.id'));
+  assert(candidateQueries.length >= 2);
+  candidateQueries.forEach((item) => {
+    assert(item.sql.includes("membership_row.status = 'active'"));
+    assert(item.sql.includes("assignment_row.status = 'active'"));
+  });
+}
+
 (async () => {
   await testVenueScopeAndLegacyAdminBlockers();
   await testDistinctEffectiveSuperAdmins();
@@ -274,6 +340,7 @@ async function testLegacyOpenidIsResolvedOnlyForInternalBlockerMatching() {
   await testMembershipCleanupRevokesCredentialsPreservesAuditAndInvalidatesCache();
   await testPersonCleanupRedactsAdminAudit();
   await testLegacyOpenidIsResolvedOnlyForInternalBlockerMatching();
+  await testInactiveFallbackCandidateDisablesRulesInPreviewAndExecution();
   console.log('永久删除模型 SQL 与契约测试通过');
 })().catch((error) => {
   console.error(error);

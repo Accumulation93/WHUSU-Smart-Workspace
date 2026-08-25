@@ -4,6 +4,7 @@ const path = require('path');
 process.env.DB_USER = process.env.DB_USER || 'personnel_domain_test';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'personnel_domain_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'personnel-domain-test-secret';
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'personnel-domain-identity-test-secret';
 const unifiedIdentity = require('../src/core/models/unifiedIdentity');
 const { PERMISSION_DEFINITIONS } = require('../src/core/services/adminPermissions');
 

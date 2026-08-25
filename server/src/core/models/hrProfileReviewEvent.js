@@ -23,10 +23,14 @@ async function create(data, connection = pool) {
 
 async function listByRecordId(recordId, organizationId) {
   const [rows] = await pool.query(
-    `SELECT id, action, reason, reviewer_person_id, reviewer_context_id, created_at
-       FROM hr_profile_review_events
-      WHERE record_id = ? AND org_id = ?
-      ORDER BY created_at DESC, id DESC`,
+    `SELECT event_row.id, event_row.action, event_row.reason,
+            event_row.reviewer_person_id, event_row.reviewer_context_id,
+            event_row.effective_values_snapshot, event_row.pending_values_snapshot,
+            event_row.created_at, reviewer.name AS reviewer_name
+       FROM hr_profile_review_events event_row
+       LEFT JOIN persons reviewer ON reviewer.id = event_row.reviewer_person_id
+      WHERE event_row.record_id = ? AND event_row.org_id = ?
+      ORDER BY event_row.created_at DESC, event_row.id DESC`,
     [safeString(recordId), safeString(organizationId)]
   );
   return rows;

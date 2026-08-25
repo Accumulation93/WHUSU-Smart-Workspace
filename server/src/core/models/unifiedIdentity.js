@@ -1,9 +1,11 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/models/unifiedIdentity');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const securityCopy = require('../../locales/zh-CN/core/security');
 const pool = require('../../config/db');
 const { generateId, safeString } = require('../../utils/helpers');
 const {
   hmac,
+  legacyHmac,
   legacyHash,
   encryptOpenid,
   decryptOpenid,
@@ -21,6 +23,8 @@ const VERIFY_TOKEN_HOURS = 24;
 const RECOVERY_HOURS = 24;
 const MAX_VERIFY_ATTEMPTS = 8;
 const MAX_RECOVERY_ATTEMPTS = 8;
+const PASSPHRASE_MIN_CHARACTERS = 12;
+const PASSPHRASE_MAX_CHARACTERS = 128;
 // 管理端需要一次取得当前权限范围内的完整人员目录，再在本地完成即时筛选。
 // 该上限只对已通过管理员权限校验的接口开放，避免旧的 100/200 条截断。
 const MAX_AUTH_DIRECTORY_LIMIT = 2000;
@@ -55,7 +59,7 @@ function normalizePolicyDate(value, label) {
   if (!text) return null;
   const parsed = new Date(text.replace(' ', 'T'));
   if (Number.isNaN(parsed.getTime())) {
-    throw new IdentityError('invalid_policy_time', '请重新选择' + label, 400);
+    throw new IdentityError('invalid_policy_time', localeCopy.copy_014ac651ad + label, 400);
   }
   return text;
 }
@@ -73,6 +77,19 @@ function buildAssignmentLabel(row) {
     safeString(row.work_group_name)
   ].filter(Boolean);
   return parts.join(' · ') || personnelCopy.unassignedPosition;
+}
+
+function passphraseCharacterLength(value) {
+  return Array.from(String(value || '')).length;
+}
+
+function normalizePassphrase(value) {
+  return safeString(value);
+}
+
+function isPassphraseLengthValid(value) {
+  const length = passphraseCharacterLength(value);
+  return length >= PASSPHRASE_MIN_CHARACTERS && length <= PASSPHRASE_MAX_CHARACTERS;
 }
 
 async function lockActiveBusinessSubjects(connection, subjects) {
@@ -271,7 +288,7 @@ async function insertActiveWechatBinding(connection, accountId, openid) {
     );
   } catch (error) {
     if (error && error.code === 'ER_DUP_ENTRY') {
-      throw new IdentityError('wechat_conflict', '该微信或账号已存在有效绑定，请重新登录或使用账号恢复', 409);
+      throw new IdentityError('wechat_conflict', localeCopy.copy_7000bcfcbf, 409);
     }
     throw error;
   }
@@ -280,6 +297,7 @@ async function insertActiveWechatBinding(connection, accountId, openid) {
 async function findAccountByOpenid(openid, connection) {
   const executor = connection || pool;
   const openidHash = hmac(openid);
+  const oldHmacHash = legacyHmac(openid);
   const oldHash = legacyHash(openid);
   const [rows] = await executor.query(
     `SELECT a.*, b.id AS binding_id, b.openid_hash, b.hash_version, b.openid_ciphertext,
@@ -288,14 +306,18 @@ async function findAccountByOpenid(openid, connection) {
        JOIN accounts a ON a.id = b.account_id
        JOIN persons p ON p.id = a.person_id
       WHERE b.app_id = ? AND b.status = 'active'
-        AND (b.openid_hash = ? OR (b.hash_version = 'sha256_legacy' AND b.openid_hash = ?)
+        AND (b.openid_hash = ? OR (? <> '' AND b.openid_hash = ?)
+             OR (b.hash_version = 'sha256_legacy' AND b.openid_hash = ?)
              OR b.legacy_openid = ?)
         AND a.status IN ('verified', 'frozen') AND p.status = 'active'
       LIMIT 1`,
-    [APP_ID, openidHash, oldHash, safeString(openid)]
+    [APP_ID, openidHash, oldHmacHash, oldHmacHash, oldHash, safeString(openid)]
   );
   const account = rows[0] || null;
-  if (account && (account.hash_version !== 'hmac_sha256_v1' || !account.openid_ciphertext || account.legacy_openid)) {
+  if (account && (account.openid_hash !== openidHash
+    || account.hash_version !== 'hmac_sha256_v1'
+    || !account.openid_ciphertext
+    || account.legacy_openid)) {
     await executor.query(
       `UPDATE account_wechat_bindings
           SET openid_hash = ?, hash_version = 'hmac_sha256_v1',
@@ -324,7 +346,7 @@ async function upgradeLegacyWechatBindings() {
     for (const row of rows) {
       const openid = safeString(row.legacy_openid);
       if (!openid) {
-        throw new IdentityError('legacy_binding_invalid', '迁移期微信绑定缺少可转换凭据', 500);
+        throw new IdentityError('legacy_binding_invalid', localeCopy.copy_240050f1ca, 500);
       }
       await connection.query(
         `UPDATE account_wechat_bindings
@@ -364,7 +386,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
     const normalizedStudentId = normalizeStudentId(row.student_id);
     const name = normalizeName(row.name);
     if (!normalizedStudentId || !name) {
-      throw new IdentityError('invalid_person_identity', '姓名和学号不能为空', 400);
+      throw new IdentityError('invalid_person_identity', localeCopy.copy_f162fa8c06, 400);
     }
     const [membershipRows] = await connection.query(
       'SELECT * FROM organization_memberships WHERE legacy_hr_id = ? LIMIT 1 FOR UPDATE',
@@ -385,7 +407,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
       continue;
     }
     if (person && safeString(person.name) !== name) {
-      throw new IdentityError('student_id_name_conflict', '请确认姓名和学号后重试', 409);
+      throw new IdentityError('student_id_name_conflict', localeCopy.copy_71b59f6dd1, 409);
     }
     if (!person) {
       const personId = generateId();
@@ -406,7 +428,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
     }
     const membershipId = existingMembership ? existingMembership.id : generateId();
     if (existingMembership && existingMembership.person_id !== person.id) {
-      throw new IdentityError('membership_person_conflict', '请联系管理员核对人员资料', 409);
+      throw new IdentityError('membership_person_conflict', localeCopy.copy_9d94db0edc, 409);
     }
     await connection.query(
       `INSERT INTO organization_memberships
@@ -790,7 +812,7 @@ async function revokeMembershipAssignment(data, actor, authorize) {
       [assignmentId, organizationId]
     );
     const assignment = rows[0];
-    if (!assignment) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
+    if (!assignment) throw new IdentityError('assignment_not_found', localeCopy.copy_10d3269bb4, 404);
     await connection.query(
       `UPDATE membership_assignments
           SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
@@ -1006,7 +1028,7 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
   if (!personRows.length) {
     throw new IdentityError(
       'admin_person_missing',
-      '请先在人事信息中建立姓名和学号完全一致的成员，再授予管理员身份',
+      localeCopy.copy_2ade5fb1b3,
       409
     );
   }
@@ -1016,7 +1038,7 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
     [admin.id]
   );
   if (grantRows[0] && grantRows[0].person_id !== personId) {
-    throw new IdentityError('admin_grant_conflict', '请联系管理员核对人员资料', 409);
+    throw new IdentityError('admin_grant_conflict', localeCopy.copy_9d94db0edc, 409);
   }
   await connection.query(
     `INSERT INTO admin_grants
@@ -1102,7 +1124,7 @@ async function revokeLegacyAdminGrant(connection, legacyAdminId) {
         FOR UPDATE`
     );
     if (boundRows.length <= 1) {
-      throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
+      throw new IdentityError('last_bound_super_admin', localeCopy.copy_23d656758f, 409);
     }
   }
   await connection.query(
@@ -1282,7 +1304,7 @@ async function createSession(account, requestedSelection, metadata) {
       [APP_ID, safeString(account.id)]
     );
     const activeAccount = accountRows[0];
-    if (!activeAccount) throw new IdentityError('account_unavailable', '账号状态已变化，请重新登录', 401);
+    if (!activeAccount) throw new IdentityError('account_unavailable', localeCopy.copy_0995192dbd, 401);
     await syncLegacyBindings(
       connection,
       activeAccount.id,
@@ -1294,7 +1316,7 @@ async function createSession(account, requestedSelection, metadata) {
       connection
     );
     const activeContext = resolvedSelection.context;
-    if (!activeContext) throw new IdentityError('no_context', '当前账号暂无可用身份', 403);
+    if (!activeContext) throw new IdentityError('no_context', localeCopy.copy_13f29f572b, 403);
     const deviceId = safeString(metadata && metadata.deviceId).slice(0, 160);
     const deviceKeyHash = deviceId ? hmac('device|' + deviceId) : null;
     const devicePlatform = safeString(metadata && metadata.devicePlatform).slice(0, 24) || null;
@@ -1393,7 +1415,7 @@ async function activateSelection(sessionId, accountId, requestedSelection) {
       [safeString(sessionId), safeString(accountId)]
     );
     const session = rows[0];
-    if (!session) throw new IdentityError('session_expired', '登录已过期，请重新登录', 401);
+    if (!session) throw new IdentityError('session_expired', localeCopy.copy_c337bd9350, 401);
     const contexts = await listContexts(accountId, connection);
     const selection = requestedSelection && typeof requestedSelection === 'object'
       ? requestedSelection
@@ -1408,7 +1430,7 @@ async function activateSelection(sessionId, accountId, requestedSelection) {
         && item.authIdentityId === requestedIdentityId
       ));
     if (!activeContext) {
-      throw new IdentityError('context_forbidden', '该身份已失效，请刷新后重试', 403);
+      throw new IdentityError('context_forbidden', localeCopy.copy_8d32be8b00, 403);
     }
     await syncLegacyBindings(connection, accountId, decryptBindingOpenid.bind(null, connection, accountId));
     await connection.query(
@@ -1441,7 +1463,7 @@ async function decryptBindingOpenid(connection, accountId) {
       LIMIT 1 FOR UPDATE`,
     [accountId, APP_ID]
   );
-  if (!rows.length) throw new IdentityError('binding_missing', '微信绑定已失效', 401);
+  if (!rows.length) throw new IdentityError('binding_missing', localeCopy.copy_518fa5022c, 401);
   return rows[0].openid_ciphertext
     ? decryptOpenid(rows[0].openid_ciphertext)
     : safeString(rows[0].legacy_openid);
@@ -1451,7 +1473,7 @@ async function syncLegacyBindings(connection, accountId, openidOrLoader) {
   const openid = typeof openidOrLoader === 'function'
     ? await openidOrLoader()
     : safeString(openidOrLoader);
-  if (!openid) throw new IdentityError('binding_missing', '微信绑定已失效', 401);
+  if (!openid) throw new IdentityError('binding_missing', localeCopy.copy_518fa5022c, 401);
   const [membershipRows] = await connection.query(
     `SELECT om.id, om.org_id, om.legacy_hr_id
        FROM accounts a
@@ -1465,7 +1487,7 @@ async function syncLegacyBindings(connection, accountId, openidOrLoader) {
       [openid, membership.org_id]
     );
     if (existingRows.length && safeString(existingRows[0].hr_id) !== safeString(membership.legacy_hr_id)) {
-      throw new IdentityError('wechat_conflict', '该微信已绑定其他人员，请联系管理员处理', 409);
+      throw new IdentityError('wechat_conflict', localeCopy.copy_c445c4571a, 409);
     }
     await connection.query(
       `INSERT INTO user_info (id, openid, hr_id, org_id, created_at, updated_at)
@@ -1496,7 +1518,7 @@ async function createClaim(bootstrapId, data) {
   if (!studentId || !name || !orgId) return { claimId: publicClaimId, accepted: true };
   return pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
     const [personRows] = await connection.query(
       `SELECT p.id
          FROM persons p
@@ -1603,9 +1625,9 @@ async function issueVerificationCodeWithConnection(connection, claimId, actor, m
     [safeString(actor.organizationId), safeString(claimId)]
   );
   const claim = rows[0];
-  if (!claim) throw new IdentityError('claim_unavailable', '请刷新身份认证列表', 409);
+  if (!claim) throw new IdentityError('claim_unavailable', localeCopy.copy_3e9f5046ae, 409);
   if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
-    throw new IdentityError('claim_forbidden', '请联系所属组织管理员', 403);
+    throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
   }
   const code = randomCode(12);
   await connection.query(
@@ -1653,7 +1675,7 @@ async function issueVerificationCodes(claimIds, actor, metadata) {
     (Array.isArray(claimIds) ? claimIds : []).map(safeString).filter(Boolean)
   )).slice(0, 50);
   if (!normalizedIds.length) {
-    throw new IdentityError('invalid_params', '请选择身份认证申请', 400);
+    throw new IdentityError('invalid_params', localeCopy.copy_d0970707a8, 400);
   }
   return pool.withTransaction(async (connection) => {
     const issued = [];
@@ -1674,7 +1696,7 @@ async function revokeVerificationCodes(claimIds, actor, metadata) {
     (Array.isArray(claimIds) ? claimIds : []).map(safeString).filter(Boolean)
   )).slice(0, 50);
   if (!normalizedIds.length) {
-    throw new IdentityError('invalid_params', '请选择身份认证申请', 400);
+    throw new IdentityError('invalid_params', localeCopy.copy_d0970707a8, 400);
   }
   return pool.withTransaction(async (connection) => {
     const revokedClaimIds = [];
@@ -1690,9 +1712,9 @@ async function revokeVerificationCodes(claimIds, actor, metadata) {
         [safeString(actor.organizationId), claimId]
       );
       const claim = rows[0];
-      if (!claim) throw new IdentityError('claim_unavailable', '请刷新身份认证列表', 409);
+      if (!claim) throw new IdentityError('claim_unavailable', localeCopy.copy_3e9f5046ae, 409);
       if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
-        throw new IdentityError('claim_forbidden', '请联系所属组织管理员', 403);
+        throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
       }
       await connection.query(
         `UPDATE identity_verification_tokens
@@ -1719,14 +1741,14 @@ async function revokeVerificationCodes(claimIds, actor, metadata) {
 async function verifyClaim(bootstrapId, claimId, code, metadata) {
   const result = await pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
     const policy = await getPolicy(connection);
     const now = Date.now();
     if (!policy
       || !policy.initial_claim_enabled
       || (policy.claim_starts_at && new Date(policy.claim_starts_at).getTime() > now)
       || (policy.claim_ends_at && new Date(policy.claim_ends_at).getTime() < now)) {
-      throw new IdentityError('claim_paused', '当前认证活动未开放，请联系管理员', 403);
+      throw new IdentityError('claim_paused', localeCopy.copy_cd1cedd0b0, 403);
     }
     const [claimRows] = await connection.query(
       `SELECT r.*
@@ -1789,10 +1811,10 @@ async function verifyClaim(bootstrapId, claimId, code, metadata) {
     );
     let account = accountRows[0];
     if (account && account.status === 'frozen') {
-      throw new IdentityError('account_frozen', '账号已冻结，请联系管理员', 403);
+      throw new IdentityError('account_frozen', localeCopy.copy_d6a178f6ce, 403);
     }
     if (account && account.status === 'verified') {
-      throw new IdentityError('recovery_required', '该账号已认证，请使用账号恢复', 409);
+      throw new IdentityError('recovery_required', localeCopy.copy_3364144ea9, 409);
     }
     const accountId = account ? account.id : generateId();
     if (!account) {
@@ -1851,7 +1873,7 @@ async function verifyClaim(bootstrapId, claimId, code, metadata) {
     return freshRows[0];
   });
   if (result && result.authenticationFailure) {
-    throw new IdentityError('verification_failed', '请检查认证信息或重新获取认证码', 400);
+    throw new IdentityError('verification_failed', localeCopy.copy_ef2bb7ee30, 400);
   }
   return result;
 }
@@ -1866,7 +1888,7 @@ async function savePolicy(data, actor) {
   const claimStartsAt = normalizePolicyDate(data.claimStartsAt, '认证开始时间');
   const claimEndsAt = normalizePolicyDate(data.claimEndsAt, '认证截止时间');
   if (claimStartsAt && claimEndsAt && policyTimestamp(claimStartsAt) >= policyTimestamp(claimEndsAt)) {
-    throw new IdentityError('invalid_policy_time', '请将截止时间设在开始时间之后', 400);
+    throw new IdentityError('invalid_policy_time', localeCopy.copy_b0e6d46935, 400);
   }
   return pool.withTransaction(async (connection) => {
     const [policyRows] = await connection.query(
@@ -1879,7 +1901,7 @@ async function savePolicy(data, actor) {
     await connection.query(
       `UPDATE auth_policy
           SET initial_claim_enabled = ?, claim_starts_at = ?, claim_ends_at = ?,
-              allow_recovery_code = ?, allow_passphrase = ?, passphrase_min_length = 0,
+              allow_recovery_code = ?, allow_passphrase = ?, passphrase_min_length = 12,
               updated_by_person_id = ?, updated_at = NOW()
         WHERE id = 'default'`,
       [
@@ -1919,20 +1941,20 @@ async function savePolicy(data, actor) {
 async function configureRecoveryCredential(accountId, method, value, connection) {
   const executor = connection || pool;
   const policy = await getPolicy(executor);
-  if (!policy) throw new IdentityError('policy_unavailable', '请稍后刷新认证设置', 503);
+  if (!policy) throw new IdentityError('policy_unavailable', localeCopy.copy_485abf3ee5, 503);
   if (method === 'recovery_code' && !policy.allow_recovery_code) {
-    throw new IdentityError('method_disabled', '恢复码功能未开启', 403);
+    throw new IdentityError('method_disabled', localeCopy.copy_f07aa06bda, 403);
   }
   if (method === 'passphrase' && !policy.allow_passphrase) {
-    throw new IdentityError('method_disabled', '恢复口令功能未开启', 403);
+    throw new IdentityError('method_disabled', localeCopy.copy_329340742b, 403);
   }
-  let plaintext = safeString(value);
+  let plaintext = method === 'passphrase' ? normalizePassphrase(value) : safeString(value);
   if (method === 'recovery_code') plaintext = randomCode(20);
-  if (method === 'passphrase' && !plaintext) {
-    throw new IdentityError('invalid_params', '请输入登录口令', 400);
+  if (method === 'passphrase' && !isPassphraseLengthValid(plaintext)) {
+    throw new IdentityError('passphrase_length_invalid', securityCopy.passphraseLengthInvalid, 400);
   }
   if (method === 'passphrase' && /^(123456|password|qwerty|111111|abcdef)/i.test(plaintext)) {
-    throw new IdentityError('weak_passphrase', '恢复口令过于简单', 400);
+    throw new IdentityError('weak_passphrase', localeCopy.copy_a1708b8b9d, 400);
   }
   const credential = hashPassphrase(plaintext);
   await executor.query(
@@ -1955,7 +1977,7 @@ async function startRecovery(bootstrapId, data, metadata) {
   if (!studentId || !name || !orgId) return { recoveryRequestId: publicRequestId, accepted: true };
   return pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
     const [rows] = await connection.query(
       `SELECT p.id AS person_id, a.id AS account_id, a.status AS account_status
          FROM persons p
@@ -1998,7 +2020,7 @@ async function startRecovery(bootstrapId, data, metadata) {
 async function completeRecoveryWithCredential(bootstrapId, recoveryRequestId, method, credentialValue, metadata) {
   const result = await pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
     const [requestRows] = await connection.query(
       `SELECT r.*
          FROM account_recovery_requests r
@@ -2010,12 +2032,12 @@ async function completeRecoveryWithCredential(bootstrapId, recoveryRequestId, me
       [safeString(recoveryRequestId), bootstrap.openid_hash]
     );
     const request = requestRows[0];
-    if (!request) throw new IdentityError('recovery_failed', '请重新提交账号恢复申请', 400);
+    if (!request) throw new IdentityError('recovery_failed', localeCopy.copy_33dbab4037, 400);
     const policy = await getPolicy(connection);
     const allowed = method === 'recovery_code'
       ? Boolean(policy && policy.allow_recovery_code)
       : Boolean(policy && policy.allow_passphrase);
-    if (!allowed) throw new IdentityError('method_disabled', '该恢复方式未开启', 403);
+    if (!allowed) throw new IdentityError('method_disabled', localeCopy.copy_75c1e85105, 403);
     const [credentialRows] = await connection.query(
       `SELECT *
          FROM account_recovery_credentials
@@ -2056,7 +2078,7 @@ async function completeRecoveryWithCredential(bootstrapId, recoveryRequestId, me
     });
   });
   if (result && result.authenticationFailure) {
-    throw new IdentityError('recovery_failed', '请检查恢复信息或联系管理员', 400);
+    throw new IdentityError('recovery_failed', localeCopy.copy_f003820e19, 400);
   }
   return result;
 }
@@ -2070,12 +2092,12 @@ async function transferWechatBinding(connection, data) {
       LIMIT 1 FOR UPDATE`,
     [data.accountId, data.personId]
   );
-  if (!accountRowsForUpdate.length) throw new IdentityError('account_not_found', '请刷新账号列表', 404);
+  if (!accountRowsForUpdate.length) throw new IdentityError('account_not_found', localeCopy.copy_4cc5002771, 404);
   if (accountRowsForUpdate[0].person_status !== 'active') {
     throw new IdentityError('person_merged', personnelCopy.mergedPersonAuthenticationBlocked, 409);
   }
   if (accountRowsForUpdate[0].status === 'frozen') {
-    throw new IdentityError('account_frozen', '账号已冻结，请联系管理员', 403);
+    throw new IdentityError('account_frozen', localeCopy.copy_d6a178f6ce, 403);
   }
   const openid = decryptOpenid(data.bootstrap.openid_ciphertext);
   const newHash = hmac(openid);
@@ -2087,7 +2109,7 @@ async function transferWechatBinding(connection, data) {
       LIMIT 1 FOR UPDATE`,
     [APP_ID, newHash, legacyHash(openid), data.accountId]
   );
-  if (conflicts.length) throw new IdentityError('wechat_conflict', '该微信已绑定其他账号', 409);
+  if (conflicts.length) throw new IdentityError('wechat_conflict', localeCopy.copy_6d67001148, 409);
   await connection.query(
     `UPDATE account_wechat_bindings
         SET status = 'revoked', active_account_id = NULL,
@@ -2292,7 +2314,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
       [safeString(personId)]
     );
     const account = rows[0];
-    if (!account) throw new IdentityError('account_not_found', '请刷新账号列表', 404);
+    if (!account) throw new IdentityError('account_not_found', localeCopy.copy_4cc5002771, 404);
     if (actor.adminLevel !== 'super_admin') {
       const [membershipRows] = await connection.query(
         `SELECT 1 FROM organization_memberships
@@ -2301,11 +2323,11 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
         [account.person_id, actor.organizationId]
       );
       if (!membershipRows.length) {
-        throw new IdentityError('account_forbidden', '请切换到该成员所属组织', 403);
+        throw new IdentityError('account_forbidden', localeCopy.copy_eebad7c140, 403);
       }
     }
     if (account.person_id === actor.personId && frozen) {
-      throw new IdentityError('self_freeze_forbidden', '不能冻结自己的账号', 403);
+      throw new IdentityError('self_freeze_forbidden', localeCopy.copy_d959e00a3f, 403);
     }
     if (frozen && account.is_super_admin) {
       const [boundRows] = await connection.query(
@@ -2317,7 +2339,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
           FOR UPDATE`
       );
       if (boundRows.length <= 1) {
-        throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
+        throw new IdentityError('last_bound_super_admin', localeCopy.copy_23d656758f, 409);
       }
     }
     const nextStatus = frozen ? 'frozen' : (account.recovery_required_at ? 'recovery_required' : 'verified');
@@ -2356,7 +2378,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
 }
 
 async function approveRecovery(recoveryRequestId, actor, metadata) {
-  if (!actor || !actor.personId) throw new IdentityError('forbidden', '无权执行账号恢复', 403);
+  if (!actor || !actor.personId) throw new IdentityError('forbidden', localeCopy.copy_8acb6c346a, 403);
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query(
       `SELECT r.*, EXISTS (
@@ -2370,15 +2392,15 @@ async function approveRecovery(recoveryRequestId, actor, metadata) {
       [actor.organizationId, safeString(recoveryRequestId)]
     );
     const request = rows[0];
-    if (!request) throw new IdentityError('recovery_unavailable', '恢复申请已失效，请刷新列表', 409);
+    if (!request) throw new IdentityError('recovery_unavailable', localeCopy.copy_31a162f4e0, 409);
     if (request.person_id === actor.personId) {
-      throw new IdentityError('self_approval_forbidden', '不能审批自己的账号恢复', 403);
+      throw new IdentityError('self_approval_forbidden', localeCopy.copy_bf1b9a92c7, 403);
     }
     if (actor.adminLevel !== 'super_admin' && !Boolean(request.actor_org_matches)) {
-      throw new IdentityError('recovery_forbidden', '请切换到该成员所属组织', 403);
+      throw new IdentityError('recovery_forbidden', localeCopy.copy_eebad7c140, 403);
     }
     const bootstrap = await getBootstrapByHash(request.new_openid_hash, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '申请人的微信验证已过期', 409);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_59a2e8fe47, 409);
     await connection.query(
       `UPDATE account_recovery_requests
           SET approved_by_person_id = ?, approved_by_context_id = ?,
@@ -2424,7 +2446,7 @@ async function listSessions(accountId) {
 
 async function revokeSession(accountId, sessionId, currentSessionId, connection) {
   if (safeString(sessionId) === safeString(currentSessionId)) {
-    throw new IdentityError('current_session', '当前设备请使用退出登录', 400);
+    throw new IdentityError('current_session', localeCopy.copy_5d9019847e, 400);
   }
   const executor = connection || pool;
   const [result] = await executor.query(
@@ -2498,7 +2520,7 @@ async function resetAccountByLegacyHr(connection, legacyHrId, organizationId, ac
         FOR UPDATE`
     );
     if (boundSuperRows.length <= 1) {
-      throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
+      throw new IdentityError('last_bound_super_admin', localeCopy.copy_23d656758f, 409);
     }
   }
   await connection.query(
@@ -2652,7 +2674,7 @@ async function listEligibleInitialInvitePeople(organizationId, options) {
 async function issueInitialInvites(personIds, organizationId, actor, options) {
   const ids = Array.from(new Set((Array.isArray(personIds) ? personIds : []).map(safeString).filter(Boolean))).slice(0, 100);
   const orgId = safeString(organizationId);
-  if (!ids.length) throw new IdentityError('invalid_params', '请选择人员', 400);
+  if (!ids.length) throw new IdentityError('invalid_params', localeCopy.copy_e5d78a79f7, 400);
   const hours = Math.min(Math.max(Number(options && options.expiresInHours) || 24, 1), 168);
   return pool.withTransaction(async (connection) => {
     const results = [];
@@ -2709,14 +2731,14 @@ async function revokeInitialInvites(personIds, organizationId, actor, metadata) 
 async function redeemInitialInvite(bootstrapId, data, metadata) {
   const result = await pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
-    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', localeCopy.copy_ffadbecb8f, 401);
     const policy = await getPolicy(connection);
-    if (!policy || !policy.initial_claim_enabled) throw new IdentityError('claim_paused', '当前暂未开放认证', 403);
+    if (!policy || !policy.initial_claim_enabled) throw new IdentityError('claim_paused', localeCopy.copy_0ca681f988, 403);
     const studentId = normalizeStudentId(data.studentId);
     const name = normalizeName(data.name);
     const orgId = safeString(data.organizationId);
     const code = normalizeInviteCode(data.code);
-    if (!studentId || !name || !orgId || !code) throw new IdentityError('verification_failed', '请检查认证信息', 400);
+    if (!studentId || !name || !orgId || !code) throw new IdentityError('verification_failed', localeCopy.copy_65a9439851, 400);
     const [rows] = await connection.query(
       `SELECT inv.*, p.name, p.student_id
          FROM identity_verification_invites inv
@@ -2736,11 +2758,11 @@ async function redeemInitialInvite(bootstrapId, data, metadata) {
         locked_until = IF(failed_attempts + 1 >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until), updated_at = NOW() WHERE id = ?`, [MAX_VERIFY_ATTEMPTS, invite.id]);
       await connection.query(`UPDATE auth_bootstrap_sessions SET failed_attempts = failed_attempts + 1,
         locked_until = IF(failed_attempts + 1 >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until) WHERE id = ?`, [MAX_VERIFY_ATTEMPTS, bootstrap.id]);
-      throw new IdentityError('verification_failed', '请检查认证信息', 400);
+      throw new IdentityError('verification_failed', localeCopy.copy_65a9439851, 400);
     }
     const [existingBindings] = await connection.query(`SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id
       WHERE a.person_id = ? LIMIT 1 FOR UPDATE`, [invite.person_id]);
-    if (existingBindings.length) throw new IdentityError('already_verified', '该人员已完成认证', 409);
+    if (existingBindings.length) throw new IdentityError('already_verified', localeCopy.copy_e879ade127, 409);
     const [accounts] = await connection.query('SELECT * FROM accounts WHERE person_id = ? LIMIT 1 FOR UPDATE', [invite.person_id]);
     const account = accounts[0];
     const accountId = account ? account.id : generateId();
@@ -2770,9 +2792,9 @@ async function listEligibleRecoveryAccounts(organizationId, options) {
 
 async function issueAdminRecoveryCodes(accountIds, organizationId, actor, options) {
   const ids = Array.from(new Set((Array.isArray(accountIds) ? accountIds : []).map(safeString).filter(Boolean))).slice(0, 100);
-  if (!ids.length) throw new IdentityError('invalid_params', '请选择账号', 400);
+  if (!ids.length) throw new IdentityError('invalid_params', localeCopy.copy_06f6e6c619, 400);
   const policy = await getPolicy();
-  if (!policy || !policy.allow_recovery_code) throw new IdentityError('method_disabled', '恢复码功能未开启', 403);
+  if (!policy || !policy.allow_recovery_code) throw new IdentityError('method_disabled', localeCopy.copy_f07aa06bda, 403);
   return pool.withTransaction(async (connection) => {
     const result = [];
     for (const accountId of ids) {
@@ -2820,9 +2842,9 @@ async function revokeAdminRecoveryCodes(accountIds, organizationId, actor, metad
 
 async function authenticateWithPassphrase(studentId, passphrase) {
   const policy = await getPolicy();
-  if (!policy || !policy.allow_passphrase) throw new IdentityError('login_failed', '登录信息不正确', 401);
-  const normalized = normalizeStudentId(studentId); const value = safeString(passphrase);
-  if (!normalized || !value) throw new IdentityError('login_failed', '登录信息不正确', 401);
+  if (!policy || !policy.allow_passphrase) throw new IdentityError('login_failed', localeCopy.copy_b1957461c7, 401);
+  const normalized = normalizeStudentId(studentId); const value = normalizePassphrase(passphrase);
+  if (!normalized || !isPassphraseLengthValid(value)) throw new IdentityError('login_failed', localeCopy.copy_b1957461c7, 401);
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query(`SELECT a.*, p.name, p.student_id, b.openid_hash, c.id AS credential_id,
       c.credential_hash, c.salt, c.failed_attempts, c.locked_until
@@ -2839,7 +2861,7 @@ async function authenticateWithPassphrase(studentId, passphrase) {
         const attempts = Number(account.failed_attempts || 0) + 1;
         await connection.query(`UPDATE account_recovery_credentials SET failed_attempts = ?, locked_until = IF(? >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until), updated_at = NOW() WHERE id = ?`, [attempts, attempts, MAX_RECOVERY_ATTEMPTS, account.credential_id]);
       }
-      throw new IdentityError('login_failed', '登录信息不正确', 401);
+      throw new IdentityError('login_failed', localeCopy.copy_b1957461c7, 401);
     }
     await connection.query(`UPDATE account_recovery_credentials SET failed_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = ?`, [account.credential_id]);
     return account;
@@ -2849,6 +2871,10 @@ async function authenticateWithPassphrase(studentId, passphrase) {
 module.exports = {
   APP_ID,
   SESSION_MINUTES,
+  PASSPHRASE_MIN_CHARACTERS,
+  PASSPHRASE_MAX_CHARACTERS,
+  passphraseCharacterLength,
+  isPassphraseLengthValid,
   IdentityError,
   contextId,
   authIdentityId,
