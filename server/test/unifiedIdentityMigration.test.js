@@ -157,7 +157,12 @@ async function run() {
         ADD COLUMN device_key_hash CHAR(64) DEFAULT NULL,
         ADD COLUMN device_platform VARCHAR(24) DEFAULT NULL,
         ADD COLUMN device_model VARCHAR(96) DEFAULT NULL,
-        ADD INDEX idx_auth_session_device (account_id, device_key_hash, status)
+        ADD INDEX idx_auth_session_device (account_id, device_key_hash, status);
+      ALTER TABLE organization_memberships
+        ADD COLUMN departure_batch_id VARCHAR(64) DEFAULT NULL;
+      ALTER TABLE membership_assignments
+        ADD COLUMN revoked_by_departure_id VARCHAR(64) DEFAULT NULL,
+        ADD INDEX idx_assignment_departure (membership_id, status, revoked_by_departure_id)
     `);
 
     const [[counts]] = await database.query(`
