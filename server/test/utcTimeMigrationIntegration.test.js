@@ -174,9 +174,10 @@ async function run() {
       assert.strictEqual(await materializer.readCutoverStatus(database), 'review_pending');
 
       // 业务源记录被物理删除后，下一轮物化必须清除陈旧待核对项，避免保留可关联时间或阻断校验。
-      await database.query(
-        "DELETE FROM composite_time_sample WHERE tenant_id = 'tenant-a' AND sequence_no = 2"
+      const [deletedSource] = await database.query(
+        "DELETE FROM composite_time_sample WHERE tenant_id = 'org-a' AND sequence_no = 2"
       );
+      assert.strictEqual(Number(deletedSource.affectedRows), 1);
       const pruned = await materializer.materialize(database);
       const prunedVerified = await materializer.verify(database, true);
       assert.strictEqual(prunedVerified.records, pruned.records);
