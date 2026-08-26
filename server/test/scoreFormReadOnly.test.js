@@ -48,6 +48,7 @@ const target = {
 };
 let activeHistoricalRecord = {
   id: 'historical-record', rule_id: 'rule-1', submitted_at: '2026-08-01 00:00:00',
+  revision_number: 3,
   template_config_signature: 'v2:historical',
   calculation_context_snapshot: JSON.stringify(historicalCalculationSnapshot)
 };
@@ -133,8 +134,9 @@ assert(layer, '缺少 getScoreFormData 路由');
     json(value) { payload = value; return value; }
   });
   assert.strictEqual(payload.status, 'success');
-  assert.strictEqual(payload.readOnly, true);
+  assert.strictEqual(payload.readOnly, false, '完整历史快照必须允许重新修改');
   assert.strictEqual(payload.existingRecord.id, 'historical-record');
+  assert.strictEqual(payload.existingRecord.revisionNumber, 3);
   assert.strictEqual(payload.templateBundle.questions[0].question, '旧版问题');
   assert.strictEqual(payload.templateBundle.questions[0].score, '88');
   assert.strictEqual(answerReads, 1, '结构冲突时应按不可变历史题目快照映射历史答案');
@@ -151,7 +153,7 @@ assert(layer, '缺少 getScoreFormData 路由');
     json(value) { payload = value; return value; }
   });
   assert.strictEqual(payload.status, 'success');
-  assert.strictEqual(payload.readOnly, true);
+  assert.strictEqual(payload.readOnly, true, '缺少可验证题目范围的降级记录才允许只读');
   assert.strictEqual(payload.readOnlyReason, 'historical_snapshot_degraded');
   assert.strictEqual(payload.templateBundle.degraded, true);
   assert.strictEqual(payload.templateBundle.questions[0].question, '历史评分第 1 题');

@@ -345,13 +345,14 @@ function buildHistoricalTemplateBundle(record, answers, activityId) {
 async function buildHistoricalScoreForm(record, options) {
   const answers = await scoreAnswerModel.getByRecordId(record.id);
   const templateBundle = buildHistoricalTemplateBundle(record, answers, options.activity.id);
+  const readOnly = templateBundle.degraded === true;
   return {
     status: 'success',
-    readOnly: true,
-    readOnlyReason: templateBundle.degraded ? 'historical_snapshot_degraded' : 'historical_record',
-    readOnlyMessage: templateBundle.degraded
+    readOnly,
+    readOnlyReason: readOnly ? 'historical_snapshot_degraded' : '',
+    readOnlyMessage: readOnly
       ? localeCopy.historicalSnapshotDegraded
-      : localeCopy.historicalSnapshotRestored,
+      : localeCopy.historicalSnapshotEditable,
     scorer: historicalParticipant(record, 'scorer', options.scorer),
     target: historicalParticipant(record, 'target', options.target),
     currentActivity: {
@@ -365,6 +366,7 @@ async function buildHistoricalScoreForm(record, options) {
     existingRecord: {
       id: safeString(record.id),
       submittedAt: record.submitted_at || null,
+      revisionNumber: Math.max(1, Number(record.revision_number || 1)),
       templateConfigSignature: safeString(record.template_config_signature)
     },
     rule: {
@@ -738,6 +740,151 @@ function isStepAligned(score, startValue, stepValue) {
   return Math.abs(diff - Math.round(diff)) < 1e-8;
 }
 
+function validateSubmittedAnswers(answers, questions) {
+  const answerMap = new Map((Array.isArray(answers) ? answers : []).map((item) => [
+    String(item.questionIndex),
+    Number(item.score)
+  ]));
+  const normalizedAnswers = [];
+  for (let index = 0; index < questions.length; index++) {
+    const question = questions[index];
+    const score = answerMap.get(String(index + 1));
+    if (score == null || Number.isNaN(score)) {
+      return { ok: false, status: 'invalid_score', message: localeFormat(localeCopy.copy_57e36dc50b, [index + 1]) };
+    }
+    if (score < question.minValue || score > question.maxValue) {
+      return { ok: false, status: 'invalid_score', message: localeFormat(localeCopy.copy_45604d4257, [index + 1]) };
+    }
+    if (!isStepAligned(score, question.startValue, question.stepValue)) {
+      return { ok: false, status: 'invalid_score', message: localeFormat(localeCopy.copy_cc1ba72c8d, [index + 1]) };
+    }
+    normalizedAnswers.push({ questionIndex: index + 1, score });
+  }
+  return { ok: true, answers: normalizedAnswers };
+}
+
+async function reviseExistingScoreRecord(options) {
+  const {
+    req, res, record, activity, orgId, scorerRecord, targetRecord,
+    scorerSubjectKey, targetSubjectKey, answers, templateConfigSignature
+  } = options;
+  const currentAnswers = await scoreAnswerModel.getByRecordId(record.id);
+  const templateBundle = buildHistoricalTemplateBundle(record, currentAnswers, activity.id);
+  if (templateBundle.degraded) {
+    return res.json({
+      status: 'score_revision_unavailable',
+      readOnly: true,
+      message: localeCopy.historicalRevisionUnavailable
+    });
+  }
+  if (templateConfigSignature !== safeString(record.template_config_signature)) {
+    return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+  }
+  const validation = validateSubmittedAnswers(answers, templateBundle.questions);
+  if (!validation.ok) return res.json(validation);
+
+  const expectedRecordId = safeString(req.body.existingRecordId) || safeString(record.id);
+  const expectedRevision = Math.max(1, Number(req.body.existingRecordRevision || record.revision_number || 1));
+  if (expectedRecordId !== safeString(record.id)) {
+    return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+  }
+
+  const { withTransaction } = require('../../../config/db');
+  const dedup = require('../../../utils/requestDeduplication');
+  const nowUtc = nowMysqlUtc();
+  const clientRequestId = safeString(req.body.clientRequestId);
+  const stableScoreResourceId = dedup.stableResourceId('submit_score', [
+    orgId, activity.id, scorerSubjectKey, targetSubjectKey
+  ]);
+  let response = null;
+
+  await withTransaction(async (conn) => {
+    const claim = await dedup.claim(conn, {
+      orgId,
+      actorKey: 'score-subject:' + scorerSubjectKey,
+      operationType: 'submit_score',
+      clientRequestId,
+      resourceId: stableScoreResourceId
+    });
+    if (!claim.claimed) {
+      response = claim.response || { status: 'success', recordId: record.id, idempotent: true };
+      return;
+    }
+
+    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [scorerRecord, targetRecord].map((item) => ({
+      personId: safeString(item.person_id),
+      legacyHrId: safeString(item.legacy_hr_id || item.id),
+      organizationId: orgId,
+      assignmentId: safeString(item.assignment_id)
+    })));
+
+    const [lockedRows] = await conn.query(
+      `SELECT * FROM score_records
+        WHERE id = ? AND org_id = ?
+          AND activity_id = ? AND scorer_subject_key = ? AND target_subject_key = ?
+        FOR UPDATE`,
+      [record.id, orgId, activity.id, scorerSubjectKey, targetSubjectKey]
+    );
+    const lockedRecord = lockedRows[0] || null;
+    const lockedRevision = Math.max(1, Number(lockedRecord && lockedRecord.revision_number || 1));
+    if (!lockedRecord || lockedRevision !== expectedRevision) {
+      response = { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict };
+      await dedup.complete(conn, { ...claim, orgId, actorKey: 'score-subject:' + scorerSubjectKey,
+        operationType: 'submit_score', resourceId: stableScoreResourceId }, response);
+      return;
+    }
+
+    const [lockedAnswers] = await conn.query(
+      'SELECT question_index, score FROM score_answers WHERE record_id = ? AND org_id = ? ORDER BY question_index FOR UPDATE',
+      [record.id, orgId]
+    );
+    const nextRevision = lockedRevision + 1;
+    await conn.query(
+      `INSERT INTO score_record_revisions
+        (id, record_id, revision_number, record_snapshot, answers_snapshot, revised_at,
+         revised_by_person_id, revised_by_assignment_id, revised_by_context_snapshot, org_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        generateId(), record.id, lockedRevision, JSON.stringify(lockedRecord), JSON.stringify(lockedAnswers), nowUtc,
+        safeString(scorerRecord.person_id) || null,
+        safeString(scorerRecord.assignment_id) || null,
+        JSON.stringify(participantService.buildAssignmentSnapshot(scorerRecord, {
+          contextId: options.contextId
+        })),
+        orgId
+      ]
+    );
+    const [updateResult] = await conn.query(
+      'UPDATE score_records SET revision_number = ?, updated_at = ? WHERE id = ? AND org_id = ? AND revision_number = ?',
+      [nextRevision, nowUtc, record.id, orgId, lockedRevision]
+    );
+    if (Number(updateResult && updateResult.affectedRows || 0) !== 1) {
+      const conflictError = new Error('score_revision_conflict');
+      conflictError.code = 'SCORE_REVISION_CONFLICT';
+      throw conflictError;
+    }
+    await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [record.id, orgId]);
+    for (const answer of validation.answers) {
+      await conn.query(
+        'INSERT INTO score_answers (id, record_id, question_index, score, org_id) VALUES (?, ?, ?, ?, ?)',
+        [generateId(), record.id, answer.questionIndex, answer.score, orgId]
+      );
+    }
+    response = {
+      status: 'success',
+      recordId: record.id,
+      revised: true,
+      revisionNumber: nextRevision,
+      message: localeCopy.scoreRevisionSaved
+    };
+    await dedup.complete(conn, { ...claim, orgId, actorKey: 'score-subject:' + scorerSubjectKey,
+      operationType: 'submit_score', resourceId: stableScoreResourceId }, response);
+  });
+
+  await pubCache.invalidate(activity.id, orgId);
+  return res.json(response);
+}
+
 router.post('/submitScoreRecord', async (req, res) => {
   try {
     const targetId = safeString(req.body.targetId);
@@ -752,27 +899,9 @@ router.post('/submitScoreRecord', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_ba0ae586e3 });
     }
 
-    // Validate activity is not paused and within date range
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) {
       return res.json({ status: 'missing_activity', message: localeCopy.copy_4f0d449737 });
-    }
-    if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
-    }
-    let now = new Date();
-    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (activity.start_date) {
-      let startDate = new Date(activity.start_date);
-      if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: localeCopy.copy_2c6c18b79b });
-      }
-    }
-    if (activity.end_date) {
-      let endDate = new Date(activity.end_date);
-      if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: localeCopy.copy_725b89a6cd });
-      }
     }
 
     const actorResult = await resolveCurrentActor(req);
@@ -794,6 +923,42 @@ router.post('/submitScoreRecord', async (req, res) => {
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
     const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
+    const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activityId);
+    if (existingRecords.length) {
+      return reviseExistingScoreRecord({
+        req,
+        res,
+        record: existingRecords[0],
+        activity,
+        orgId,
+        scorerRecord,
+        targetRecord,
+        scorerSubjectKey,
+        targetSubjectKey,
+        answers,
+        templateConfigSignature,
+        contextId: actorResult.actor.contextId
+      });
+    }
+
+    // 首次评分遵循活动开放状态；已评分修订由上面的独立版本化链路处理。
+    if (activity.is_paused) {
+      return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
+    }
+    let now = new Date();
+    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (activity.start_date) {
+      let startDate = new Date(activity.start_date);
+      if (today < startDate) {
+        return res.json({ status: 'activity_not_started', message: localeCopy.copy_2c6c18b79b });
+      }
+    }
+    if (activity.end_date) {
+      let endDate = new Date(activity.end_date);
+      if (today > endDate) {
+        return res.json({ status: 'activity_ended', message: localeCopy.copy_725b89a6cd });
+      }
+    }
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
@@ -887,26 +1052,9 @@ router.post('/submitScoreRecord', async (req, res) => {
         || !participantService.isSameNaturalPerson(scorerRecord, record);
     });
 
-    // Validate answers
-    const answerMap = new Map(answers.map(a => [String(a.questionIndex), Number(a.score)]));
-    const normalizedAnswers = [];
-
-    for (let i = 0; i < questionBundle.length; i++) {
-      const question = questionBundle[i];
-      const score = answerMap.get(String(i + 1));
-
-      if (score == null || Number.isNaN(score)) {
-        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_57e36dc50b, [i + 1]) });
-      }
-      if (score < question.minValue || score > question.maxValue) {
-        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_45604d4257, [i + 1]) });
-      }
-      if (!isStepAligned(score, question.startValue, question.stepValue)) {
-        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_cc1ba72c8d, [i + 1]) });
-      }
-
-      normalizedAnswers.push({ questionIndex: i + 1, score });
-    }
+    const answerValidation = validateSubmittedAnswers(answers, questionBundle);
+    if (!answerValidation.ok) return res.json(answerValidation);
+    const normalizedAnswers = answerValidation.answers;
 
     // Save record — update existing or create new, then insert answers — all in a transaction
     const { withTransaction } = require('../../../config/db');
@@ -929,7 +1077,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     });
     let resultRecordId;
     let duplicateResponse = null;
-    let immutableConflictResponse = null;
+    let concurrentSubmissionResponse = null;
     const clientRequestId = safeString(req.body.clientRequestId);
 
     await withTransaction(async (conn) => {
@@ -967,12 +1115,11 @@ router.post('/submitScoreRecord', async (req, res) => {
         [orgId, activityId, scorerSubjectKey, targetSubjectKey]
       );
       if (existingRecords.length) {
-        immutableConflictResponse = {
-          status: 'score_already_submitted',
-          readOnly: true,
+        concurrentSubmissionResponse = {
+          status: 'score_revision_conflict',
           recordId: safeString(existingRecords[0].id),
           submittedAt: existingRecords[0].submitted_at || null,
-          message: localeCopy.scoreAlreadySubmitted
+          message: localeCopy.scoreRevisionConflict
         };
         await dedup.complete(conn, {
           ...claim,
@@ -980,7 +1127,7 @@ router.post('/submitScoreRecord', async (req, res) => {
           orgId,
           actorKey: 'score-subject:' + scorerSubjectKey,
           operationType: 'submit_score'
-        }, immutableConflictResponse);
+        }, concurrentSubmissionResponse);
         return;
       }
 
@@ -988,9 +1135,9 @@ router.post('/submitScoreRecord', async (req, res) => {
         `INSERT INTO score_records
           (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
            scorer_context_snapshot, scorer_subject_key, target_id, target_person_id, target_assignment_id,
-           target_context_snapshot, target_subject_key, template_config_signature, calculation_context_snapshot,
-           submitted_at, org_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            target_context_snapshot, target_subject_key, template_config_signature, calculation_context_snapshot,
+            submitted_at, revision_number, updated_at, org_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           candidateRecordId,
           activityId,
@@ -1009,6 +1156,8 @@ router.post('/submitScoreRecord', async (req, res) => {
           targetSubjectKey,
           templateConfigSignature,
           JSON.stringify(calculationContextSnapshot),
+          nowUtc,
+          1,
           nowUtc,
           orgId
         ]
@@ -1033,7 +1182,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       }, { status: 'success', recordId });
     });
 
-    if (immutableConflictResponse) return res.json(immutableConflictResponse);
+    if (concurrentSubmissionResponse) return res.json(concurrentSubmissionResponse);
 
     // Invalidate publication score cache so next viewer sees fresh results
     await pubCache.invalidate(activityId, orgId);
@@ -1044,7 +1193,10 @@ router.post('/submitScoreRecord', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_534935765f });
     }
     if (e && e.code === 'ER_DUP_ENTRY') {
-      return res.json({ status: 'score_already_submitted', readOnly: true, message: localeCopy.scoreAlreadySubmitted });
+      return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+    }
+    if (e && e.code === 'SCORE_REVISION_CONFLICT') {
+      return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
     }
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_fee6d129e3 });
   }

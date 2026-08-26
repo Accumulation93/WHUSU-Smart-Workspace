@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/mod
 const { format: localeFormat } = require('../../../locales/runtime');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 const CONDITION_COLUMNS = Object.freeze({
   activityId: 'activity_id',
   ruleId: 'rule_id',
@@ -131,29 +132,21 @@ async function create(id, data) {
     templateConfigSignature, submittedAt
   } = data;
   const orgId = await getCurrentOrgId();
+  const storedSubmittedAt = submittedAt || nowMysqlUtc();
   await pool.query(
     `INSERT INTO score_records
        (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
         scorer_context_snapshot, scorer_subject_key, target_id, target_person_id, target_assignment_id,
-        target_context_snapshot, target_subject_key, template_config_signature, submitted_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        target_context_snapshot, target_subject_key, template_config_signature,
+        submitted_at, revision_number, updated_at, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, activityId, ruleId, scorerId, scorerPersonId || null, scorerAssignmentId || null,
       scorerContextSnapshot ? JSON.stringify(scorerContextSnapshot) : null,
       scorerSubjectKey, targetId, targetPersonId || null, targetAssignmentId || null,
       targetContextSnapshot ? JSON.stringify(targetContextSnapshot) : null,
-      targetSubjectKey, templateConfigSignature || '', submittedAt || null, orgId
+      targetSubjectKey, templateConfigSignature || '', storedSubmittedAt, 1, storedSubmittedAt, orgId
     ]
-  );
-}
-
-async function update(id, data) {
-  const { activityId, ruleId, scorerId, targetId, templateConfigSignature, submittedAt } = data;
-  const orgId = await getCurrentOrgId();
-  await pool.query(
-    `UPDATE score_records SET activity_id = ?, rule_id = ?, scorer_id = ?, target_id = ?,
-     template_config_signature = ?, submitted_at = ? WHERE id = ? AND org_id = ?`,
-    [activityId, ruleId, scorerId, targetId, templateConfigSignature || '', submittedAt || null, id, orgId]
   );
 }
 
@@ -174,6 +167,5 @@ module.exports = {
   getByParticipantPair,
   query,
   create,
-  update,
   remove
 };

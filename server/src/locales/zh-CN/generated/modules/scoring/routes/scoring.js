@@ -59,6 +59,10 @@ module.exports = Object.freeze({
   historicalQuestionUnavailable: "历史评分第 {0} 题",
   historicalRecoveredTemplate: "历史评分",
   historicalSnapshotDegraded: "已恢复历史分数；部分早期题目文字未留存",
-  historicalSnapshotRestored: "已按提交时的题目和分数恢复历史评分，仅供查看",
-  scoreAlreadySubmitted: "该评分已提交并作为历史依据保存，不能覆盖；如需更正请联系管理员按审计流程处理"
+  historicalSnapshotEditable: "已载入上次评分，可修改后重新提交；旧版本将自动保留",
+  historicalSnapshotRestored: "已按提交时的题目和分数恢复历史评分",
+  historicalRevisionUnavailable: "该早期评分缺少完整题目规则，只能查看，不能安全修改",
+  scoreRevisionConflict: "该评分已在其他位置更新，请重新载入后再修改",
+  scoreRevisionSaved: "评分修改已保存，原版本已归档",
+  scoreAlreadySubmitted: "该评分已存在，请重新载入后修改"
 });

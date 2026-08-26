@@ -62,8 +62,12 @@
       <view class="existing-record-tip" wx:if="{{hasExistingRecord}}">{{existingRecordText}}</view>
     </view>
 
-    <view class="card">
-      <view class="section-title">{{localeCopy.copy_ad5ba99be4}}</view>
+    <view class="card question-section-card">
+      <view class="section-heading-row">
+        <view class="section-title section-title-flush">{{localeCopy.copy_ad5ba99be4}}</view>
+        <view class="readonly-chip" wx:if="{{readOnly}}">{{localeCopy.historicalReadOnlyShort}}</view>
+        <view class="editable-history-chip" wx:elif="{{existingRecordEditable}}">{{localeCopy.historicalEditableShort}}</view>
+      </view>
       <view class="empty-text" wx:if="{{readOnly && questionList.length === 0}}">{{localeCopy.historicalRecordEmpty}}</view>
       <block wx:for="{{questionList}}" wx:key="id">
         <view class="template-chip" wx:if="{{item.showTemplateHeader}}">
@@ -78,19 +82,23 @@
           hover-start-time="0"
           hover-stay-time="160"
          hover-stop-propagation="{{true}}">
-          <view class="question-title">{{index + 1}}. {{item.question}}（{{item.maxValue}}{{localeCopy.copy_89ac0b1b9d}}</view>
+          <view class="question-heading">
+            <view class="question-index">{{index + 1}}</view>
+            <view class="question-title">{{item.question}}</view>
+            <view class="question-max-chip">{{item.maxValue}}{{localeCopy.copy_717083eab1}}</view>
+          </view>
           <view class="question-meta" wx:if="{{item.scoreLabel}}">{{item.scoreLabel}}</view>
           <view class="question-meta">
             {{localeCopy.copy_c3ec61e536}}{{item.minValue}} - {{item.maxValue}} · {{localeCopy.copy_0e686e89bb}}{{item.startValue}} · {{localeCopy.copy_8e8047cbd6}}{{item.stepValue}}
           </view>
 
-          <view class="score-display ui-motion-chip" data-index="{{index}}" catchtap="focusQuestion" hover-class="{{readOnly ? 'none' : 'ui-press-chip'}}" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="score-display {{readOnly ? 'score-display-readonly' : ''}} ui-motion-chip" data-index="{{index}}" catchtap="focusQuestion" hover-class="{{readOnly ? 'none' : 'ui-press-chip'}}" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="score-display-value" wx:if="{{item.score !== ''}}">
               <text class="score-display-number">{{item.score}}</text>
               <text class="score-display-unit">{{localeCopy.copy_717083eab1}}</text>
             </view>
             <view class="score-display-placeholder" wx:else>{{readOnly ? localeCopy.historicalScoreUnavailable : localeCopy.copy_c30bcbbda9}}</view>
-            <view class="score-display-indicator" wx:if="{{!readOnly && !keyboardCollapsed && currentQuestionIndex === index}}">▼ {{localeCopy.copy_ea2892fd15}}</view>
+            <view class="score-display-indicator" wx:if="{{!readOnly && currentQuestionIndex === index}}">{{keyboardCollapsed ? localeCopy.copy_fa906e8178 : localeCopy.copy_ea2892fd15}}</view>
           </view>
 
           <view class="score-warning" wx:if="{{item.errorText}}">
@@ -100,7 +108,7 @@
 
           <view class="template-footer" wx:if="{{item.showTemplateFooter}}">
             <view class="template-footer-row">
-              <text class="template-footer-label">{{item.templateName}} {{localeCopy.copy_3e5a801039}}</text>
+              <text class="template-footer-label">{{localeCopy.copy_3e5a801039}}</text>
               <text class="template-footer-score">{{item.templateFooterScore}} / {{item.templateFooterMax}} {{localeCopy.copy_717083eab1}}</text>
             </view>
           </view>

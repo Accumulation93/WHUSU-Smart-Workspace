@@ -29,6 +29,8 @@ const REQUIRED_COLUMNS = [
   ,['score_records', 'target_assignment_id']
   ,['score_records', 'target_subject_key']
   ,['score_records', 'calculation_context_snapshot']
+  ,['score_records', 'revision_number']
+  ,['score_records', 'updated_at']
   ,['audit_events', 'operator_person_id']
   ,['audit_events', 'operator_assignment_id']
   ,['audit_events', 'operator_admin_grant_id']
@@ -103,11 +105,13 @@ const REQUIRED_TABLES = [
   ,'security_rate_limit_buckets'
   ,'audit_temp_uploads'
   ,'score_snapshot_backfill_audits'
+  ,'score_record_revisions'
 ];
 
 const REQUIRED_INDEXES = [
   ['score_records', 'uk_sr_business'],
   ['score_answers', 'uk_sa_record_question'],
+  ['score_record_revisions', 'uk_score_revision'],
   ['score_snapshot_backfill_audits', 'idx_score_snapshot_audit_status'],
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],
   ['notifications', 'uk_notification_event'],

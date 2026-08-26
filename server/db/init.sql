@@ -315,6 +315,8 @@ CREATE TABLE IF NOT EXISTS score_records (
   template_config_signature TEXT,
   calculation_context_snapshot JSON DEFAULT NULL,
   submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revision_number INT NOT NULL DEFAULT 1,
+  updated_at DATETIME(3) NOT NULL,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   INDEX idx_sr_activity (activity_id),
   INDEX idx_sr_rule (rule_id),
@@ -911,6 +913,24 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
   INDEX idx_vbr_active (is_active),
   INDEX idx_vbr_approver_assignment (approver_assignment_id, org_id, is_active),
   CONSTRAINT fk_vbr_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 已评分记录允许产生新修订；当前表保存生效值，旧值完整归档在修订表中。
+CREATE TABLE IF NOT EXISTS score_record_revisions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  record_id VARCHAR(64) NOT NULL,
+  revision_number INT NOT NULL,
+  record_snapshot JSON NOT NULL,
+  answers_snapshot JSON NOT NULL,
+  revised_at DATETIME(3) NOT NULL,
+  revised_by_person_id VARCHAR(64) DEFAULT NULL,
+  revised_by_assignment_id VARCHAR(64) DEFAULT NULL,
+  revised_by_context_snapshot JSON DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  UNIQUE INDEX uk_score_revision (record_id, revision_number),
+  INDEX idx_score_revision_org (org_id, revised_at),
+  CONSTRAINT fk_score_revision_record FOREIGN KEY (record_id)
+    REFERENCES score_records(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS score_snapshot_backfill_audits (

@@ -15,6 +15,7 @@ const NON_USER_VISIBLE_TABLES = new Set([
   'absolute_time_cutovers',
   'score_snapshot_backfill_audits',
   'score_snapshot_normalization_audits',
+  'score_record_revisions',
   'security_rate_limit_buckets',
   'audit_temp_uploads'
 ]);
@@ -38,6 +39,12 @@ const NATIVE_UTC_INTERNAL_COLUMNS = new Map([
   ])],
   ['score_snapshot_normalization_audits', new Set([
     'normalized_at'
+  ])],
+  ['score_records', new Set([
+    'updated_at'
+  ])],
+  ['score_record_revisions', new Set([
+    'revised_at'
   ])]
 ]);
 

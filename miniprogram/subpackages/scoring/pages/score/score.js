@@ -248,6 +248,9 @@ Page({
     keyboardMode: 'quick',
     submitting: false,
     hasExistingRecord: false,
+    existingRecordEditable: false,
+    existingRecordId: '',
+    existingRecordRevision: 0,
     existingRecordText: '',
     readOnly: false,
     templateSummaries: [],
@@ -258,8 +261,8 @@ Page({
     physicalKeyActive: ''
   },
 
-  syncCurrentQuestion: function () {
-    let idx = this.data.currentQuestionIndex;
+  syncCurrentQuestion: function (nextIndex) {
+    let idx = Number.isInteger(nextIndex) ? nextIndex : this.data.currentQuestionIndex;
     let list = this.data.questionList;
     let q = (list && idx >= 0 && list[idx]) || null;
     let rows = [];
@@ -280,6 +283,7 @@ Page({
       }
     }
     let updates = {
+      currentQuestionIndex: idx,
       currentQuestion: q,
       quickScoreRows: rows,
       keyboardCollapsed: q ? false : this.data.keyboardCollapsed
@@ -312,16 +316,7 @@ Page({
       if (idx < 0 || idx >= this.data.questionList.length) {
         idx = 0;
       }
-      let updates = {
-        currentQuestionIndex: idx,
-        keyboardCollapsed: false,
-        keyboardMode: 'quick'
-      };
-      if (this._physicalKeyboardEnabled) {
-        updates.physicalInputFocus = true;
-      }
-      this.setData(updates);
-      this.syncCurrentQuestion();
+      this.syncCurrentQuestion(idx);
     }
   },
 
@@ -490,6 +485,10 @@ Page({
 
         let hasExistingRecord = !!result.existingRecord;
         let readOnly = result.readOnly === true;
+        let existingRecordId = hasExistingRecord ? String(result.existingRecord.id || '') : '';
+        let existingRecordRevision = hasExistingRecord
+          ? Math.max(1, Number(result.existingRecord.revisionNumber || 1))
+          : 0;
         let existingRecordText = hasExistingRecord
           ? (result.readOnlyMessage || (readOnly ? localeCopy.historicalReadOnly : localeCopy.copy_b2c15dd48a))
           : '';
@@ -517,6 +516,9 @@ Page({
           questionList: questionList,
           currentQuestionIndex: initialIndex,
           hasExistingRecord: hasExistingRecord,
+          existingRecordEditable: hasExistingRecord && !readOnly,
+          existingRecordId: existingRecordId,
+          existingRecordRevision: existingRecordRevision,
           existingRecordText: existingRecordText,
           readOnly: readOnly,
           templateSummaries: summaries.templateSummaries,
@@ -584,11 +586,13 @@ Page({
   },
 
   focusQuestion: function (e) {
-    if (this.data.readOnly) return;
+    if (this.data.readOnly) {
+      showShortToast(localeCopy.historicalReadOnlyTap);
+      return;
+    }
     let index = Number(e.currentTarget.dataset.index);
     if (!Number.isInteger(index) || index < 0) return;
-    this.setData({ currentQuestionIndex: index, keyboardCollapsed: false });
-    this.syncCurrentQuestion();
+    this.syncCurrentQuestion(index);
     this.scrollToQuestion(index);
   },
 
@@ -818,8 +822,7 @@ Page({
     let index = this.data.currentQuestionIndex;
     if (index <= 0) return;
     let newIndex = index - 1;
-    this.setData({ currentQuestionIndex: newIndex, keyboardCollapsed: false });
-    this.syncCurrentQuestion();
+    this.syncCurrentQuestion(newIndex);
     this.scrollToQuestion(newIndex);
   },
 
@@ -830,8 +833,7 @@ Page({
       return;
     }
     let newIndex = index + 1;
-    this.setData({ currentQuestionIndex: newIndex, keyboardCollapsed: false });
-    this.syncCurrentQuestion();
+    this.syncCurrentQuestion(newIndex);
     this.scrollToQuestion(newIndex);
   },
 
@@ -913,11 +915,19 @@ Page({
         activityId: self.activityId,
         activityName: self.activityName,
         templateConfigSignature: self.templateConfigSignature,
-        answers: validation.answers
+        answers: validation.answers,
+        existingRecordId: self.data.existingRecordId || '',
+        existingRecordRevision: self.data.existingRecordRevision || 0
       },
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
+          if (result.status === 'score_revision_conflict') {
+            wx.showToast({ title: result.message || localeCopy.scoreRevisionConflict, icon: 'none' });
+            self.setData({ submitting: false });
+            self.loadScoreForm();
+            return;
+          }
           if (self._isWorkContextError(result.status)) {
             self.setData({ submitting: false });
             self._promptWorkContext(result.message);
@@ -927,7 +937,7 @@ Page({
           self.setData({ submitting: false });
           return;
         }
-        wx.showToast({ title: localeCopy.copy_69df1816f0, icon: 'success' });
+        wx.showToast({ title: result.revised ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
         self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
         }, 1200);
@@ -939,8 +949,12 @@ Page({
             data: { targetId: self.targetId },
             success: function (checkRes) {
               let checkResult = checkRes.result || {};
-              if (checkResult.status === 'success' && checkResult.existingRecord) {
-                wx.showToast({ title: localeCopy.copy_69df1816f0, icon: 'success' });
+              let checkedRevision = Number(checkResult.existingRecord && checkResult.existingRecord.revisionNumber || 0);
+              let revisionAdvanced = self.data.existingRecordRevision > 0
+                ? checkedRevision > self.data.existingRecordRevision
+                : checkedRevision >= 1;
+              if (checkResult.status === 'success' && checkResult.existingRecord && revisionAdvanced) {
+                wx.showToast({ title: self.data.existingRecordRevision > 0 ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
                 self._schedule(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });
                 }, 1200);
