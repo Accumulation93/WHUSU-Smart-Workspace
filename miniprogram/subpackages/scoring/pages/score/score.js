@@ -1,6 +1,7 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/score/score');
 const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 function assignmentNatureText(value) {
@@ -24,12 +25,6 @@ function decorateParticipant(item) {
     ? localeCopy.historicalAssignmentUnavailable
     : (row._showAssignmentChip ? parts.join(' · ') : '');
   return row;
-}
-
-function hasActiveAssignment() {
-  const profiles = wx.getStorageSync('roleProfiles') || {};
-  const role = wx.getStorageSync('activeRole') || 'user';
-  return role === 'user' && Boolean(String((profiles[role] && profiles[role].assignmentId) || '').trim());
 }
 
 function isStepAligned(value, startValue, stepValue) {
@@ -239,6 +234,7 @@ Page({
     localeCopy,
     loading: true,
     loadFailed: false,
+    loadErrorText: '',
     scorer: null,
     target: null,
     showStickyTarget: false,
@@ -253,6 +249,7 @@ Page({
     submitting: false,
     hasExistingRecord: false,
     existingRecordText: '',
+    readOnly: false,
     templateSummaries: [],
     pageTotalScore: 0,
     pageTotalMax: 0,
@@ -344,8 +341,12 @@ Page({
     this._shiftDown = false;
     this._keydownSupported = false;
     this.targetId = String((options && options.targetId) || '').trim();
-    if (!hasActiveAssignment()) {
-      this.setData({ loading: false, loadFailed: true });
+    if (!authContext.hasActiveUserAssignment()) {
+      this.setData({
+        loading: false,
+        loadFailed: true,
+        loadErrorText: localeCopy.currentAssignmentRequired
+      });
       this._promptWorkContext(localeCopy.currentAssignmentRequired);
       return;
     }
@@ -410,6 +411,7 @@ Page({
   _isWorkContextError: function (status) {
     return [
       'invalid_scorer',
+      'work_context_required',
       'context_mismatch',
       'organization_mismatch',
       'assignment_mismatch',
@@ -446,12 +448,15 @@ Page({
   loadScoreForm: function () {
     let self = this;
     if (!self.targetId) {
-      wx.showToast({ title: localeCopy.copy_bcbd468dfa, icon: 'none' });
-      self.redirectHome();
+      self.setData({
+        loading: false,
+        loadFailed: true,
+        loadErrorText: localeCopy.copy_bcbd468dfa
+      });
       return;
     }
 
-    self.setData({ loading: true, loadFailed: false });
+    self.setData({ loading: true, loadFailed: false, loadErrorText: '' });
 
     callFunction({
       name: 'getScoreFormData',
@@ -460,17 +465,22 @@ Page({
         let result = res.result || {};
         if (result.status !== 'success') {
           if (self._isWorkContextError(result.status)) {
-            self.setData({ loading: false, loadFailed: true });
+            self.setData({
+              loading: false,
+              loadFailed: true,
+              loadErrorText: result.message || localeCopy.currentAssignmentRequired
+            });
             self._promptWorkContext(result.message);
             return;
           }
-          wx.showToast({ title: result.message || localeCopy.copy_5a607382b0, icon: 'none' });
-          self.setData({ loading: false, loadFailed: true });
-          self._schedule(function () { self.redirectHome(); }, 1200);
+          let loadErrorText = result.status === 'historical_structure_conflict'
+            ? localeCopy.historicalDataRecovering
+            : (result.message || localeCopy.loadFailedDescription);
+          self.setData({ loading: false, loadFailed: true, loadErrorText: loadErrorText });
           return;
         }
 
-        let rawQuestionList = (result.templateBundle.questions || []).map(function (item) {
+        let rawQuestionList = ((result.templateBundle && result.templateBundle.questions) || []).map(function (item) {
           return normalizeQuestion(item);
         });
 
@@ -479,7 +489,10 @@ Page({
         self.templateConfigSignature = result.rule ? result.rule.templateConfigSignature : '';
 
         let hasExistingRecord = !!result.existingRecord;
-        let existingRecordText = hasExistingRecord ? localeCopy.copy_b2c15dd48a : '';
+        let readOnly = result.readOnly === true;
+        let existingRecordText = hasExistingRecord
+          ? (result.readOnlyMessage || (readOnly ? localeCopy.historicalReadOnly : localeCopy.copy_b2c15dd48a))
+          : '';
 
         let summaries = computeSummaries(rawQuestionList);
         let questionList = summaries.questionList;
@@ -505,13 +518,19 @@ Page({
           currentQuestionIndex: initialIndex,
           hasExistingRecord: hasExistingRecord,
           existingRecordText: existingRecordText,
+          readOnly: readOnly,
           templateSummaries: summaries.templateSummaries,
           pageTotalScore: summaries.pageTotalScore,
           pageTotalMax: summaries.pageTotalMax,
           loading: false,
-          loadFailed: false
+          loadFailed: false,
+          loadErrorText: ''
         });
-        self.syncCurrentQuestion();
+        if (readOnly) {
+          self.setData({ keyboardCollapsed: true, currentQuestion: null, physicalInputFocus: false });
+        } else {
+          self.syncCurrentQuestion();
+        }
         self._setupStickyObserver();
         self._schedule(function () {
           self._checkSticky();
@@ -520,10 +539,17 @@ Page({
         }, 350);
       },
       fail: function () {
-        wx.showToast({ title: localeCopy.copy_5a607382b0, icon: 'none' });
-        self.setData({ loading: false, loadFailed: true });
+        self.setData({
+          loading: false,
+          loadFailed: true,
+          loadErrorText: localeCopy.loadFailedDescription
+        });
       }
     });
+  },
+
+  retryLoadScoreForm: function () {
+    this.loadScoreForm();
   },
 
   updateQuestion: function (index, nextValues) {
@@ -558,6 +584,7 @@ Page({
   },
 
   focusQuestion: function (e) {
+    if (this.data.readOnly) return;
     let index = Number(e.currentTarget.dataset.index);
     if (!Number.isInteger(index) || index < 0) return;
     this.setData({ currentQuestionIndex: index, keyboardCollapsed: false });
@@ -861,6 +888,7 @@ Page({
 
   submitScore: function () {
     let self = this;
+    if (self.data.readOnly) return;
     let validation = self.validateAnswers();
     if (!validation.ok) {
       if (Number.isInteger(validation.firstInvalidIndex) && validation.firstInvalidIndex >= 0) {

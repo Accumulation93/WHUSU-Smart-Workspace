@@ -513,15 +513,13 @@
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{copy.designateMeritList}}</view><text class="popup-close ui-motion-chip" catchtap="closeUserDesignation" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-      <view class="list-title">{{copy.currentList}}（{{userDesigSelectedIds.length}}{{copy.personSuffix}}）</view>
+      <view class="list-title">{{copy.currentList}}（{{userDesigSelectedIds.length}}{{copy.positionSuffix}}）</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-        <view class="list-item desig-current-item" wx:for="{{userDesigSelectedList}}" wx:key="id">
+        <view class="list-item desig-current-item selection-option-card" wx:for="{{userDesigSelectedList}}" wx:key="id">
+          <view class="select-chip select-chip-active selection-card-toggle ui-motion-chip" data-assignment-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</view>
           <view class="list-main">
             <view class="list-name">{{item.name}}</view>
-            <view class="list-desc">{{item.department}} · {{item.studentId}}</view>
-          </view>
-          <view class="inline-actions list-actions-below card-actions">
-            <text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.remove}}</text>
+            <view class="list-desc">{{item.studentId}} · {{item.assignmentLabel}}</view>
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">{{copy.noCandidate}}</view>
@@ -548,13 +546,11 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">{{copy.noMatchingMembers}}</view>
-        <view class="list-item ui-motion-card" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <view class="list-item selection-option-card ui-motion-card" wx:for="{{userDesigFilteredList}}" wx:key="id" data-assignment-id="{{item.id}}" catchtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="select-chip selection-card-toggle {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? copy.cancel : copy.choose}}</view>
           <view class="list-main">
-            <view class="list-name">
-              <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? copy.selected : copy.choose}}</view>
-              {{item.name}}
-            </view>
-            <view class="list-desc">{{item.studentId}} · {{item.department}}</view>
+            <view class="list-name">{{item.name}}</view>
+            <view class="list-desc">{{item.studentId}} · {{item.assignmentLabel}}</view>
           </view>
         </view>
         <view class="scroll-tail-space"></view>
@@ -562,7 +558,7 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeUserDesignation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
-        <button class="primary-btn ui-motion-button" loading="{{userDesigSaving}}" catchtap="saveUserDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveList}}（{{copy.selected}}{{userDesigSelectedIds.length}}{{copy.personSuffix}}）</button>
+        <button class="primary-btn ui-motion-button" loading="{{userDesigSaving}}" catchtap="saveUserDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveList}}（{{copy.selected}}{{userDesigSelectedIds.length}}{{copy.positionSuffix}}）</button>
       </view>
     </view>
   </view>

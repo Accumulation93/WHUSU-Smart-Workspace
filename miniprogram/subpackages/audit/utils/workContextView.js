@@ -73,23 +73,39 @@ function normalizeCandidate(candidate, activeAssignmentId) {
   });
 }
 
-function candidateMatches(candidate, filters) {
+function filterCandidateAssignments(candidate, filters) {
   const item = candidate || {};
   const options = filters || {};
-  if (options.department && (item.eligibleDepartments || []).indexOf(options.department) < 0) return false;
-  if (options.identityCategory && (item.eligibleIdentityCategories || []).indexOf(options.identityCategory) < 0) return false;
-  if (options.workGroup && (item.eligibleWorkGroups || []).indexOf(options.workGroup) < 0) return false;
+  const assignments = Array.isArray(item.eligibleAssignments) ? item.eligibleAssignments : [];
+  const hasAssignmentFilters = Boolean(options.department || options.identityCategory || options.workGroup);
+  const matchingAssignments = assignments.filter(function(assignment) {
+    if (options.department && assignment.department !== options.department) return false;
+    if (options.identityCategory && assignment.identityCategory !== options.identityCategory) return false;
+    if (options.workGroup && assignment.workGroup !== options.workGroup) return false;
+    return true;
+  });
+  if (hasAssignmentFilters && !matchingAssignments.length) return null;
   const keyword = safeString(options.keyword).trim().toLowerCase();
-  if (!keyword) return true;
-  const searchable = [item.name, item.studentId]
-    .concat(item.eligibleAssignmentLabels || [])
-    .concat(item.eligibleDepartments || [])
-    .concat(item.eligibleIdentityCategories || [])
-    .concat(item.eligibleWorkGroups || [])
-    .map(safeString)
-    .join(' ')
-    .toLowerCase();
-  return searchable.indexOf(keyword) >= 0;
+  if (!keyword) return Object.assign({}, item, { eligibleAssignments: matchingAssignments });
+  const personSearchable = [item.name, item.studentId].map(safeString).join(' ').toLowerCase();
+  if (personSearchable.indexOf(keyword) >= 0) {
+    return Object.assign({}, item, { eligibleAssignments: matchingAssignments });
+  }
+  const keywordAssignments = matchingAssignments.filter(function(assignment) {
+    return [
+      assignment.assignmentLabel,
+      assignment.department,
+      assignment.identityCategory,
+      assignment.workGroup
+    ].map(safeString).join(' ').toLowerCase().indexOf(keyword) >= 0;
+  });
+  return keywordAssignments.length
+    ? Object.assign({}, item, { eligibleAssignments: keywordAssignments })
+    : null;
+}
+
+function candidateMatches(candidate, filters) {
+  return Boolean(filterCandidateAssignments(candidate, filters));
 }
 
 function selectedAssignmentViews(persons, selectedAssignmentIds, unavailableLabel) {
@@ -226,6 +242,7 @@ module.exports = {
   buildAssignmentLabel,
   normalizeAssignment,
   normalizeCandidate,
+  filterCandidateAssignments,
   candidateMatches,
   selectedAssignmentViews,
   decorateAssignmentSelection,

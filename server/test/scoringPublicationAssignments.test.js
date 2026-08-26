@@ -194,5 +194,14 @@ const homeSource = fs.readFileSync(
   'utf8'
 );
 assert.match(homeSource, /designationAssignmentIds:\s*uniqueAssignmentIds/);
+assert.doesNotMatch(homeSource, /designationHrIds/, '用户端指定名单不得把岗位 ID 伪装成人员 ID');
+
+const publicationBehaviorSource = fs.readFileSync(
+  path.resolve(__dirname, '../../miniprogram/subpackages/scoring/pages/admin/modules/publicationBehavior.js'),
+  'utf8'
+);
+assert.match(publicationBehaviorSource, /designationAssignmentIds:\s*assignmentIds/);
+assert.match(publicationBehaviorSource, /dataset\.assignmentId/);
+assert.doesNotMatch(publicationBehaviorSource, /designationHrIds/, '管理端指定名单必须按岗位提交');
 
 console.log('评分公示与评优活动岗位授权测试通过');

@@ -443,6 +443,113 @@ function scanControlSurfaceContracts(file) {
   return findings;
 }
 
+function scanSelectionCardContracts(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const stack = [];
+  const findings = [];
+  const informationClass = /(?:^|\s)(?:list-name|hr-member-name|eligible-assignment-chip|identity-chip|department-chip|work-group-chip|status-chip)(?:\s|$)/;
+
+  for (const token of tokenizeWxml(source)) {
+    const raw = token.raw;
+    if (raw.startsWith('<!--')) continue;
+    const close = raw.match(/^<\/([\w-]+)/);
+    if (close) {
+      for (let index = stack.length - 1; index >= 0; index -= 1) {
+        if (stack[index].tag === close[1]) {
+          stack.length = index;
+          break;
+        }
+      }
+      continue;
+    }
+
+    const start = raw.match(/^<([\w-]+)([\s\S]*?)\/?>(?:\s*)$/);
+    if (!start) continue;
+    const tag = start[1];
+    const attrs = start[2] || '';
+    const className = attrValue(attrs, 'class');
+    const parent = stack[stack.length - 1];
+    const selectionAncestor = [...stack].reverse().find(item => item.selectionCard);
+    const nameAncestor = [...stack].reverse().find(item => (
+      hasClass(item.className, 'list-name') ||
+      hasClass(item.className, 'hr-member-name')
+    ));
+
+    if (parent && parent.selectionCard) {
+      parent.directChildCount += 1;
+      if (parent.directChildCount === 1 && !hasClass(className, 'selection-card-toggle')) {
+        findings.push({
+          file: relative(file),
+          line: lineAt(source, token.index),
+          message: 'selection-option-card 的第一个可见子项必须是左上 selection-card-toggle'
+        });
+      }
+    }
+
+    const isSelectionControl = hasClass(className, 'select-chip') || hasClass(className, 'hr-member-select');
+    if (isSelectionControl && !hasClass(className, 'selection-card-toggle')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '卡片选择控件必须使用 selection-card-toggle，不能建立私有选择状态位置'
+      });
+    }
+    if (isSelectionControl && nameAncestor) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '选择/取消控件禁止嵌入姓名文字，必须独立位于卡片左上'
+      });
+    }
+    if (hasClass(className, 'selection-card-toggle') && !selectionAncestor) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: 'selection-card-toggle 必须属于 selection-option-card，禁止脱离卡片建立悬空选择控件'
+      });
+    }
+    if (hasClass(className, 'selection-card-toggle') && /copy_78564bdb46|已选/.test(raw)) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '选中态操作文案必须是“取消”，不能使用只描述状态的“已选”'
+      });
+    }
+    if (selectionAncestor && hasClass(className, 'card-actions')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '选择卡片禁止混入整行 card-actions/移除操作，取消必须复用左上选择控件'
+      });
+    }
+    if (selectionAncestor && informationClass.test(className) && INTERACTIVE_ATTR.test(attrs) && !hasClass(className, 'selection-card-toggle')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '姓名、身份、部门、职能组、岗位或状态气泡只表达信息，禁止承担选择事件'
+      });
+    }
+
+    const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
+    if (!selfClosing) {
+      stack.push({
+        tag,
+        className,
+        selectionCard: hasClass(className, 'selection-option-card'),
+        directChildCount: 0
+      });
+    }
+  }
+
+  if (/eligible-assignment-chip-selected|selectedAssignmentPrefix/.test(source)) {
+    findings.push({
+      file: relative(file),
+      message: '岗位信息气泡禁止保存或拼接选择状态；请使用左上 selection-card-toggle'
+    });
+  }
+  return findings;
+}
+
 function scanVisibleInternalIds(file) {
   const source = fs.readFileSync(file, 'utf8');
   const tokens = tokenizeWxml(source);
@@ -1212,6 +1319,7 @@ function scanWxss(file) {
 const wxmlFiles = walk(MINI_ROOT, '.wxml');
 const controls = wxmlFiles.flatMap(scanWxml);
 const controlSurfaceIssues = wxmlFiles.flatMap(scanControlSurfaceContracts);
+const selectionCardIssues = wxmlFiles.flatMap(scanSelectionCardContracts);
 const visibleInternalIds = wxmlFiles.flatMap(scanVisibleInternalIds);
 const staticInlineStyles = wxmlFiles.flatMap(scanStaticInlineStyles);
 const layoutContracts = wxmlFiles.map(scanLayoutContracts);
@@ -1368,6 +1476,15 @@ const missingTabSizeSystem = !(
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'styles', 'home.wxss'), 'utf8');
+if (!/\.selection-option-card\s*>\s*\.selection-card-toggle\s*\{[^}]*flex:\s*none;[^}]*align-self:\s*flex-start;[^}]*min-width:/s.test(homeStyle) ||
+    !/\.selection-option-card\s*>\s*\.list-main,[\s\S]*?\.selection-option-card\s*>\s*\.audit-person-info\s*\{[^}]*flex:\s*1;[^}]*min-width:\s*0;/s.test(homeStyle) ||
+    !/@media\s*\(min-width:\s*520px\)\s*and\s*\(max-width:\s*899px\)[\s\S]*?\.selection-option-card\s*>\s*\.selection-card-toggle\s*\{[^}]*min-width:\s*48px;/s.test(homeStyle) ||
+    !/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.selection-option-card\s*>\s*\.selection-card-toggle\s*\{[^}]*min-width:\s*44px;/s.test(homeStyle)) {
+  selectionCardIssues.push({
+    file: 'miniprogram/subpackages/main/styles/home.wxss',
+    message: '缺少卡片式选择器左上固定选择控件、可收缩正文或 Pad 独立宽度契约'
+  });
+}
 if (!/\.section-control-card\s*\{[\s\S]*?background:\s*linear-gradient/.test(homeStyle)) {
   controlSurfaceIssues.push({
     file: 'miniprogram/subpackages/main/styles/home.wxss',
@@ -1577,6 +1694,7 @@ const report = {
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
     signatureCoordinateIssues: signatureCoordinateIssues.length,
+    selectionCardIssues: selectionCardIssues.length,
     controlSurfaceIssues: controlSurfaceIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
@@ -1625,6 +1743,7 @@ const report = {
   compactVisualContractIssues,
   duplicateGlobalUiContracts,
   signatureCoordinateIssues,
+  selectionCardIssues,
   controlSurfaceIssues,
   styles
 };
@@ -1636,7 +1755,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...flattenedDialogSurfaces, ...duplicateDialogWrapperSurfaces, ...redundantDialogSingleSection, ...compactVisualContractIssues, ...duplicateGlobalUiContracts, ...controlSurfaceIssues]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...flattenedDialogSurfaces, ...duplicateDialogWrapperSurfaces, ...redundantDialogSingleSection, ...compactVisualContractIssues, ...duplicateGlobalUiContracts, ...selectionCardIssues, ...controlSurfaceIssues]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -1657,6 +1776,6 @@ if (process.argv.includes('--strict')) {
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.redundantDialogSingleSection || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.duplicateDialogWrapperSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts ||
-    report.summary.signatureCoordinateIssues || report.summary.controlSurfaceIssues;
+    report.summary.signatureCoordinateIssues || report.summary.selectionCardIssues || report.summary.controlSurfaceIssues;
   process.exitCode = failed ? 1 : 0;
 }

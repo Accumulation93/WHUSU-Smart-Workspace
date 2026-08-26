@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
@@ -463,34 +464,36 @@ Page({
     }
 
     const request = orgSession.beginRequest(this, 'userProfile');
-    callFunction({
-      name: 'activateOrganization',
-      data: { organizationId: activeOrgId, role: 'user' },
-      success: (res) => {
-        if (!orgSession.isRequestCurrent(this, request)) return;
-        const result = res.result || {};
+    authContext.refreshCatalog().then(() => {
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      const activeContext = authContext.getActiveWorkContext();
+      if (!activeContext || activeContext.organizationId !== activeOrgId || activeContext.role !== 'user') return;
+      const account = wx.getStorageSync('accountProfile') || {};
+      const currentProfiles = wx.getStorageSync(STORAGE_KEY) || {};
+      const profile = authContext.normalizeProfile(Object.assign(
+        {}, currentProfiles.user || {}, account, activeContext
+      ));
+      const storedProfile = this.updateStoredProfile('user', profile);
 
-        if (result.status !== 'success' || !result.user) {
-          return;
-        }
+      if (this.data.activeRole === 'user') {
+        this.setData({
+          user: storedProfile,
+          hasUser: true,
+          heroName: storedProfile.name || copy.text.welcome,
+          heroIdentity: getDisplayIdentity(storedProfile, 'user'),
+          heroSubtitle: this._subAppLabel || ''
+        });
 
-        this.updateStoredProfile('user', result.user);
-
-        if (this.data.activeRole === 'user') {
-          this.setData({
-            user: result.user,
-            hasUser: true,
-            heroName: result.user.name || copy.text.welcome,
-            heroIdentity: getDisplayIdentity(result.user, 'user'),
-            heroSubtitle: this._subAppLabel || ''
-          });
-
-          this.rebuildUserTabs();
-          this.fetchRateTargets('user');
-          this.loadUserHrProfile();
-          if (this._subApp === 'hr') this.loadAccountSecurity();
-        }
+        this.rebuildUserTabs();
+        this.fetchRateTargets('user');
+        this.loadUserHrProfile();
+        if (this._subApp === 'hr') this.loadAccountSecurity();
       }
+    }).catch(() => {
+      if (!orgSession.isRequestCurrent(this, request) || this.data.activeRole !== 'user') return;
+      this.fetchRateTargets('user');
+      this.loadUserHrProfile();
+      if (this._subApp === 'hr') this.loadAccountSecurity();
     });
   },
 
@@ -625,11 +628,9 @@ Page({
       return;
     }
 
-    if (result.scorer) {
-      this.updateStoredProfile('user', result.scorer);
-    }
-
-    const currentUser = result.scorer || this.data.user;
+    const currentUser = result.scorer
+      ? this.updateStoredProfile('user', result.scorer)
+      : this.data.user;
 
     const targets = (result.targets || []).map(decorateScoringTarget);
     const groupMap = {};
@@ -999,8 +1000,20 @@ Page({
 
   updateStoredProfile(role, profile) {
     const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    roleProfiles[role] = profile;
+    const snapshot = orgSession.getSnapshot();
+    const current = roleProfiles[role] || {};
+    const sameContext = current.contextId
+      && current.contextId === snapshot.contextId
+      && (!current.organizationId || current.organizationId === snapshot.orgId);
+    roleProfiles[role] = authContext.normalizeProfile(Object.assign(
+      {}, sameContext ? current : {}, profile || {}, {
+        contextId: snapshot.contextId,
+        organizationId: snapshot.orgId,
+        organizationName: wx.getStorageSync('activeOrgName') || ''
+      }
+    ));
     wx.setStorageSync(STORAGE_KEY, roleProfiles);
+    return roleProfiles[role];
   },
 
   selectTarget(e) {
@@ -1027,37 +1040,17 @@ Page({
     }
     this.setData({ selectedTargetId: id });
 
-    wx.showLoading({
-      title: copy.text.enteringScorePage
-    });
-
-    callFunction({
-      name: 'getScoreFormData',
-      data: {
-        targetId: id
-      },
-      success: (res) => {
-        const result = res.result || {};
-        if (result.status !== 'success') {
-          wx.showToast({
-            title: result.message || copy.text.enterScorePageFailed,
-            icon: 'none'
-          });
-          return;
-        }
-
-        navigateToTrustedRoute(`/subpackages/scoring/pages/score/score?targetId=${encodeURIComponent(id)}`);
-      },
-      fail: () => {
+    navigateToTrustedRoute(
+      `/subpackages/scoring/pages/score/score?targetId=${encodeURIComponent(id)}`,
+      {
+        fail: () => {
         wx.showToast({
           title: copy.format.reopenScorePage(name),
           icon: 'none'
         });
-      },
-      complete: () => {
-        wx.hideLoading();
       }
-    });
+      }
+    );
   },
 
   goLogin() {
@@ -1449,13 +1442,14 @@ Page({
   closeUserDesignation() { this.setData({ showUserDesigPopup: false }); },
 
   onUserDesigToggle(e) {
-    const hrId = e.currentTarget.dataset.hrId;
+    const assignmentId = e.currentTarget.dataset.assignmentId;
+    if (!assignmentId) return;
     const sel = [...this.data.userDesigSelectedIds];
-    const idx = sel.indexOf(hrId);
-    if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
+    const idx = sel.indexOf(assignmentId);
+    if (idx >= 0) sel.splice(idx, 1); else sel.push(assignmentId);
     const hrList = this.data.userDesigHrList.map(hr => ({
       ...hr,
-      isSelected: hr.id === hrId ? !hr.isSelected : hr.isSelected
+      isSelected: hr.id === assignmentId ? !hr.isSelected : hr.isSelected
     }));
     const selectedList = hrList.filter(hr => hr.isSelected);
     const filteredList = this.applyUserDesigFilters(hrList);
@@ -1465,17 +1459,21 @@ Page({
     });
   },
 
-  applyUserDesigFilters(list) {
+  applyUserDesigFilters(list, overrides) {
     let result = list || this.data.userDesigHrList;
-    if (this.data.userDesigFilterDept !== copy.text.all) {
-      result = result.filter(hr => hr.department === this.data.userDesigFilterDept);
+    const next = overrides || {};
+    const department = Object.prototype.hasOwnProperty.call(next, 'department') ? next.department : this.data.userDesigFilterDept;
+    const identity = Object.prototype.hasOwnProperty.call(next, 'identity') ? next.identity : this.data.userDesigFilterIdent;
+    const keyword = Object.prototype.hasOwnProperty.call(next, 'keyword') ? next.keyword : this.data.userDesigSearchKeyword;
+    if (department !== copy.text.all) {
+      result = result.filter(hr => hr.department === department);
     }
-    if (this.data.userDesigFilterIdent !== copy.text.all) {
-      result = result.filter(hr => hr.identity === this.data.userDesigFilterIdent);
+    if (identity !== copy.text.all) {
+      result = result.filter(hr => hr.identity === identity);
     }
-    if (this.data.userDesigSearchKeyword) {
-      const kw = this.data.userDesigSearchKeyword.toLowerCase();
-      result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw));
+    if (keyword) {
+      const kw = keyword.toLowerCase();
+      result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw) || (hr.assignmentLabel || '').toLowerCase().includes(kw));
     }
     // Rebuild groups from filtered list
     const groupMap = new Map();
@@ -1492,21 +1490,27 @@ Page({
     const field = e.currentTarget.dataset.field;
     const options = field === 'identity' ? this.data.userDesigFilterIdentOptions : this.data.userDesigFilterDeptOptions;
     const value = options[Number(e.detail.value)] || copy.text.all;
-    const patch = { userDesigFilteredList: this.applyUserDesigFilters() };
-    if (field === 'department') patch.userDesigFilterDept = value;
-    else patch.userDesigFilterIdent = value;
+    const patch = {};
+    if (field === 'department') {
+      patch.userDesigFilterDept = value;
+      patch.userDesigFilteredList = this.applyUserDesigFilters(null, { department: value });
+    } else {
+      patch.userDesigFilterIdent = value;
+      patch.userDesigFilteredList = this.applyUserDesigFilters(null, { identity: value });
+    }
     this.setData(patch);
   },
 
   onUserDesigSearchInput(e) {
-    this.setData({ userDesigSearchKeyword: e.detail.value, userDesigFilteredList: this.applyUserDesigFilters() });
+    const keyword = e.detail.value;
+    this.setData({ userDesigSearchKeyword: keyword, userDesigFilteredList: this.applyUserDesigFilters(null, { keyword }) });
   },
 
   async saveUserDesignations() {
     const clauses = this.data.userDesigClauses || [];
     if (!clauses.length) return;
     const clauseIds = clauses.map(c => c.id);
-    // 评优指定始终提交岗位 ID；旧参数同值保留一轮服务端兼容。
+    // 评优指定始终提交岗位 ID，人员 ID 不参与岗位授权。
     const uniqueAssignmentIds = [...new Set(this.data.userDesigSelectedIds)];
     this.setData({ userDesigSaving: true });
     try {
@@ -1516,8 +1520,7 @@ Page({
           clauseIds,
           clauseId: clauseIds[0],
           publicationId: this.data.userDesigPubId,
-          designationAssignmentIds: uniqueAssignmentIds,
-          designationHrIds: uniqueAssignmentIds
+          designationAssignmentIds: uniqueAssignmentIds
         },
         success: (res) => r(res.result || {}), fail: j
       }));

@@ -1378,12 +1378,44 @@ scroll-view {
   background: linear-gradient(135deg, rgba(239,246,255,0.98) 0%, rgba(219,234,254,0.90) 100%);
   color: #2563eb; border: 1rpx solid rgba(147,197,253,0.8);
 }
-.select-chip.select-chip-active,
-.select-chip.select-chip-inline.select-chip-active {
+.select-chip.select-chip-active {
   background: linear-gradient(135deg, rgba(220,252,231,0.98) 0%, rgba(187,247,208,0.9) 100%) !important;
   color: #15803d !important; border-color: rgba(134,239,172,0.6) !important;
 }
-.select-chip-inline { display: inline-flex; margin-right: 12rpx; vertical-align: middle; }
+
+/* 卡片式选择器：选择动作独占卡片左上起始位，信息气泡只表达信息。 */
+.selection-option-card {
+  align-items: flex-start !important;
+}
+.selection-option-card > .selection-card-toggle {
+  flex: none;
+  align-self: flex-start;
+  min-width: 76rpx;
+  margin: 0;
+  text-align: center;
+  box-sizing: border-box;
+}
+.selection-option-card > .list-main,
+.selection-option-card > .audit-person-info {
+  flex: 1;
+  min-width: 0;
+}
+.selection-option-card .eligible-assignment-chip {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 520px) and (max-width: 899px) {
+  .selection-option-card > .selection-card-toggle {
+    min-width: 48px;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .selection-option-card > .selection-card-toggle {
+    min-width: 44px;
+  }
+}
 
 .list-item { display: flex; justify-content: space-between; gap: 16rpx; padding: 18rpx 20rpx; margin-bottom: 8rpx; border-radius: 20rpx; background: linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(249,251,255,0.84) 100%); border: 1rpx solid rgba(226,237,247,0.96); box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.038), inset 0 1rpx 0 rgba(255,255,255,0.82); }
 .list-main { flex: 1; min-width: 0; }

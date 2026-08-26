@@ -14,6 +14,7 @@ const NON_USER_VISIBLE_TABLES = new Set([
   'absolute_time_migration_audit',
   'absolute_time_cutovers',
   'score_snapshot_backfill_audits',
+  'score_snapshot_normalization_audits',
   'security_rate_limit_buckets',
   'audit_temp_uploads'
 ]);
@@ -34,6 +35,9 @@ const NATIVE_UTC_INTERNAL_COLUMNS = new Map([
   ['score_snapshot_backfill_audits', new Set([
     'reconstructed_at',
     'applied_at'
+  ])],
+  ['score_snapshot_normalization_audits', new Set([
+    'normalized_at'
   ])]
 ]);
 

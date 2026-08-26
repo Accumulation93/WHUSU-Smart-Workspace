@@ -644,15 +644,13 @@
           </view>
           <view class="list-title">{{localeCopy.selectedAssignmentsTitle}}{{editPersonPickerSelectedIds.length}}{{localeCopy.selectedAssignmentsUnit}}</view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-            <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="selectionKey">
+            <view class="audit-person-item selection-option-card" wx:for="{{editPersonPickerSelectedList}}" wx:key="selectionKey">
+              <view class="select-chip select-chip-active selection-card-toggle ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</view>
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
                 <view class="audit-person-name">{{item.name}}</view>
                 <view class="audit-person-detail">{{item.studentId}}</view>
-                <view class="eligible-assignment-list"><view class="eligible-assignment-chip eligible-assignment-chip-current">{{item.assignmentLabel}}</view></view>
-              </view>
-              <view class="inline-actions list-actions-below card-actions">
-                <text class="audit-link-btn audit-link-danger ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
+                <view class="eligible-assignment-list"><view class="eligible-assignment-chip">{{item.assignmentLabel}}</view></view>
               </view>
             </view>
             <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
@@ -668,16 +666,17 @@
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
             <view wx:if="{{editPersonPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
             <view wx:elif="{{!editPersonPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
-            <view wx:if="{{!editPersonPickerLoading}}" class="audit-person-item" wx:for="{{editPersonPickerCandidates}}" wx:key="id">
-              <view class="audit-person-avatar">{{item.name[0]}}</view>
-              <view class="audit-person-info">
-                <view class="audit-person-name">{{item.name}}</view>
-                <view class="audit-person-detail">{{item.studentId}}</view>
-                <view class="eligible-assignment-list">
-                  <view class="eligible-assignment-chip ui-motion-chip {{assignment.isSelected ? 'eligible-assignment-chip-selected' : (assignment.isCurrent ? 'eligible-assignment-chip-current' : '')}}" wx:for="{{item.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId" data-assignment-id="{{assignment.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.selectedAssignmentPrefix : ''}}{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+            <block wx:if="{{!editPersonPickerLoading}}" wx:for="{{editPersonPickerCandidates}}" wx:for-item="person" wx:key="id">
+              <view class="audit-person-item selection-option-card" wx:for="{{person.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId">
+                <view class="select-chip selection-card-toggle ui-motion-chip {{assignment.isSelected ? 'select-chip-active' : ''}}" data-assignment-id="{{assignment.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.copy_06dbb49961 : localeCopy.copy_896f105132}}</view>
+                <view class="audit-person-avatar">{{person.name[0]}}</view>
+                <view class="audit-person-info">
+                  <view class="audit-person-name">{{person.name}}</view>
+                  <view class="audit-person-detail">{{person.studentId}}</view>
+                  <view class="eligible-assignment-list"><view class="eligible-assignment-chip {{assignment.isCurrent ? 'eligible-assignment-chip-current' : ''}}">{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view></view>
                 </view>
               </view>
-            </view>
+            </block>
             <view class="scroll-tail-space"></view>
           </scroll-view>
           <view class="field field-mt-8">
@@ -974,15 +973,13 @@
         <!-- Selected persons -->
         <view class="list-title">{{localeCopy.selectedAssignmentsTitle}}{{personPickerSelectedIds.length}}{{localeCopy.selectedAssignmentsUnit}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-          <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="selectionKey">
+          <view class="audit-person-item selection-option-card" wx:for="{{personPickerSelectedList}}" wx:key="selectionKey">
+            <view class="select-chip select-chip-active selection-card-toggle ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</view>
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
               <view class="audit-person-name">{{item.name}}</view>
               <view class="audit-person-detail">{{item.studentId}}</view>
-              <view class="eligible-assignment-list"><view class="eligible-assignment-chip eligible-assignment-chip-current">{{item.assignmentLabel}}</view></view>
-            </view>
-            <view class="inline-actions list-actions-below card-actions">
-              <text class="audit-link-btn audit-link-danger ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
+              <view class="eligible-assignment-list"><view class="eligible-assignment-chip">{{item.assignmentLabel}}</view></view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
@@ -1019,16 +1016,17 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
           <view wx:if="{{personPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
           <view wx:elif="{{!personPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
-          <view wx:if="{{!personPickerLoading}}" class="audit-person-item" wx:for="{{personPickerCandidates}}" wx:key="id">
-            <view class="audit-person-avatar">{{item.name[0]}}</view>
-            <view class="audit-person-info">
-              <view class="audit-person-name">{{item.name}}</view>
-              <view class="audit-person-detail">{{item.studentId}}</view>
-              <view class="eligible-assignment-list">
-                <view class="eligible-assignment-chip ui-motion-chip {{assignment.isSelected ? 'eligible-assignment-chip-selected' : (assignment.isCurrent ? 'eligible-assignment-chip-current' : '')}}" wx:for="{{item.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId" data-assignment-id="{{assignment.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.selectedAssignmentPrefix : ''}}{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+          <block wx:if="{{!personPickerLoading}}" wx:for="{{personPickerCandidates}}" wx:for-item="person" wx:key="id">
+            <view class="audit-person-item selection-option-card" wx:for="{{person.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId">
+              <view class="select-chip selection-card-toggle ui-motion-chip {{assignment.isSelected ? 'select-chip-active' : ''}}" data-assignment-id="{{assignment.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.copy_06dbb49961 : localeCopy.copy_896f105132}}</view>
+              <view class="audit-person-avatar">{{person.name[0]}}</view>
+              <view class="audit-person-info">
+                <view class="audit-person-name">{{person.name}}</view>
+                <view class="audit-person-detail">{{person.studentId}}</view>
+                <view class="eligible-assignment-list"><view class="eligible-assignment-chip {{assignment.isCurrent ? 'eligible-assignment-chip-current' : ''}}">{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view></view>
               </view>
             </view>
-          </view>
+          </block>
           <view class="scroll-tail-space"></view>
         </scroll-view>
 

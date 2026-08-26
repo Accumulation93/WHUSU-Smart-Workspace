@@ -48,6 +48,9 @@ function normalizeProfile(user) {
   return {
     id: source.id || source.hrId || '',
     hrId: source.hrId || '',
+    contextId: source.contextId || '',
+    organizationId: source.organizationId || source.orgId || '',
+    organizationName: source.organizationName || source.orgName || '',
     personId: source.personId || '',
     membershipId: source.membershipId || '',
     assignmentId: source.assignmentId || '',
@@ -219,6 +222,27 @@ function getWorkContexts() {
   if (Array.isArray(values)) return values;
   const legacyValues = wx.getStorageSync(IDENTITIES_KEY);
   return normalizeWorkContexts(Array.isArray(legacyValues) ? legacyValues : [], getContexts());
+}
+
+function getActiveWorkContext() {
+  const snapshot = orgSession.getSnapshot();
+  if (!snapshot.contextId) return null;
+  const matchesSnapshot = function(item) {
+    if (!item || stringValue(item.contextId) !== snapshot.contextId) return false;
+    if (snapshot.orgId && stringValue(item.organizationId) !== snapshot.orgId) return false;
+    if (snapshot.role && stringValue(item.role) !== snapshot.role) return false;
+    return true;
+  };
+  const context = getContexts().find(matchesSnapshot);
+  if (context) return context;
+  return getWorkContexts().find(matchesSnapshot) || null;
+}
+
+function hasActiveUserAssignment() {
+  const snapshot = orgSession.getSnapshot();
+  if (snapshot.role !== 'user') return false;
+  const context = getActiveWorkContext();
+  return Boolean(stringValue(context && context.assignmentId));
 }
 
 function getSelection() {
@@ -455,6 +479,8 @@ module.exports = {
   getContexts,
   getOrganizations,
   getWorkContexts,
+  getActiveWorkContext,
+  hasActiveUserAssignment,
   getIdentities,
   getSelection,
   resolveContextId,

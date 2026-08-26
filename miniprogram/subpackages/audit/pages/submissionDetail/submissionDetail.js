@@ -672,14 +672,14 @@ Page({
     const wg = this.data.personPickerWg;
     const kw = (this.data.personPickerKeyword || '').trim().toLowerCase();
 
-    list = list.filter(function(person) {
-      return workContextView.candidateMatches(person, {
+    list = list.map(function(person) {
+      return workContextView.filterCandidateAssignments(person, {
         department: dept === localeCopy.copy_31d4595959 ? '' : dept,
         identityCategory: ident === localeCopy.copy_31d4595959 ? '' : ident,
         workGroup: wg === localeCopy.copy_31d4595959 ? '' : wg,
         keyword: kw
       });
-    });
+    }).filter(Boolean);
 
     const selectedIds = this.data.personPickerSelectedIds;
     const candidates = this._decorateAssignmentSelection(list, selectedIds);
@@ -2974,14 +2974,14 @@ Page({
     let wg = this.data.editPersonPickerWg;
     let kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
 
-    list = list.filter(function(person) {
-      return workContextView.candidateMatches(person, {
+    list = list.map(function(person) {
+      return workContextView.filterCandidateAssignments(person, {
         department: dept === localeCopy.copy_31d4595959 ? '' : dept,
         identityCategory: ident === localeCopy.copy_31d4595959 ? '' : ident,
         workGroup: wg === localeCopy.copy_31d4595959 ? '' : wg,
         keyword: kw
       });
-    });
+    }).filter(Boolean);
 
     let selectedIds = this.data.editPersonPickerSelectedIds;
     let candidates = this._decorateAssignmentSelection(list, selectedIds);

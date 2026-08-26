@@ -6,6 +6,12 @@ const crypto = require('crypto');
 const { safeString, toNumber, roundScore } = require('../../../utils/helpers');
 const pool = require('../../../config/db');
 const { logger } = require('../../../utils/logger');
+const { validateCalculationPolicySignature } = require('./calculationSnapshotSignature');
+const {
+  CALCULATION_SNAPSHOT_VERSION,
+  isCanonicalCalculationSnapshot,
+  isSupportedCalculationSnapshotVersion
+} = require('./calculationSnapshotSchema');
 
 function applyCalcMethod(scores, weight, method, trimH, trimL) {
   if (!scores.length) return { averageScore: 0, contributionScore: 0 };
@@ -55,7 +61,13 @@ function buildAggregationPolicySignature(snapshot) {
 function validateCalculationSnapshot(record, activityId) {
   const snapshot = parseJsonObject(record.calculation_context_snapshot);
   if (!snapshot) return { ok: false, reason: 'missing_calculation_snapshot' };
-  if (Number(snapshot.version) !== 1) return { ok: false, reason: 'unsupported_snapshot_version' };
+  if (!isSupportedCalculationSnapshotVersion(snapshot.version)) {
+    return { ok: false, reason: 'unsupported_snapshot_version' };
+  }
+  if (Number(snapshot.version) === CALCULATION_SNAPSHOT_VERSION
+    && !isCanonicalCalculationSnapshot(snapshot)) {
+    return { ok: false, reason: 'non_canonical_snapshot' };
+  }
   if (safeString(snapshot.activityId) !== safeString(activityId)) {
     return { ok: false, reason: 'snapshot_activity_mismatch' };
   }
@@ -79,16 +91,15 @@ function validateCalculationSnapshot(record, activityId) {
   if (!Array.isArray(snapshot.templates) || !snapshot.templates.length) {
     return { ok: false, reason: 'missing_template_snapshot' };
   }
+  const signatureVersion = safeString(snapshot.calculationPolicySignature).split(':')[0];
+  if (signatureVersion !== 'v' + Number(snapshot.version)) {
+    return { ok: false, reason: 'snapshot_signature_version_mismatch' };
+  }
   const recordSignature = safeString(record.template_config_signature);
   if (!recordSignature || recordSignature !== safeString(snapshot.templateConfigSignature)) {
     return { ok: false, reason: 'template_signature_mismatch' };
   }
-  const expectedPolicySignature = 'v1:' + sha256Json({
-    rule: snapshot.rule,
-    clause: snapshot.clause,
-    templates: snapshot.templates
-  });
-  if (safeString(snapshot.calculationPolicySignature) !== expectedPolicySignature) {
+  if (!validateCalculationPolicySignature(snapshot, snapshot.calculationPolicySignature)) {
     return { ok: false, reason: 'calculation_policy_signature_mismatch' };
   }
 

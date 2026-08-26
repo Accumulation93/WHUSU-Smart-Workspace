@@ -21,6 +21,8 @@ const adminInfoModel = require('../../../core/models/adminInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const participantService = require('../services/participants');
+const scoreCalc = require('../utils/scoreCalc');
+const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapshotSchema');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 // ──────────────────────────── helpers ────────────────────────────
@@ -212,13 +214,11 @@ function buildCalculationContextSnapshot(options) {
     },
     templates
   };
-  return {
-    version: 1,
+  return canonicalizeCalculationSnapshot({
     capturedAt: options.capturedAt,
     activityId: safeString(options.activityId),
     participantGranularity: options.granularity,
     templateConfigSignature: options.templateConfigSignature,
-    calculationPolicySignature: 'v1:' + sha256Json(policy),
     scorer: {
       participantId: safeString(options.scorerRecord.assignment_id || options.scorerRecord.id),
       subjectKey: options.scorerSubjectKey,
@@ -238,6 +238,140 @@ function buildCalculationContextSnapshot(options) {
     rule: policy.rule,
     clause: policy.clause,
     templates: policy.templates
+  });
+}
+
+function historicalParticipant(record, side, fallback) {
+  const historical = participantService.resolveHistoricalParticipant(record, side, []);
+  const current = fallback || {};
+  return {
+    id: safeString(historical.assignmentId || current.id),
+    participantId: safeString(historical.assignmentId || current.id),
+    personId: safeString(historical.personId || current.personId),
+    assignmentId: safeString(historical.assignmentId || current.assignmentId),
+    assignmentNature: safeString(historical.assignmentNature || current.assignmentNature),
+    assignmentLabel: safeString(historical.assignmentLabel || current.assignmentLabel),
+    name: safeString(historical.name || current.name),
+    studentId: safeString(historical.studentId || current.studentId),
+    departmentId: safeString(historical.departmentId || current.departmentId),
+    department: safeString(historical.department || current.department),
+    identityCategoryId: safeString(historical.identityCategoryId || current.identityCategoryId || current.identityId),
+    identityCategory: safeString(historical.identityCategory || current.identityCategory || current.identity),
+    identityId: safeString(historical.identityCategoryId || current.identityCategoryId || current.identityId),
+    identity: safeString(historical.identityCategory || current.identityCategory || current.identity),
+    workGroupId: safeString(historical.workGroupId || current.workGroupId),
+    workGroup: safeString(historical.workGroup || current.workGroup),
+    historicalAssignmentUnavailable: historical.historicalAssignmentUnavailable === true
+  };
+}
+
+function historicalAnswerMap(answers) {
+  const rows = Array.isArray(answers) ? answers : [];
+  const hasZero = rows.some((item) => Number(item.question_index) === 0);
+  const values = new Map();
+  rows.forEach((item) => {
+    const index = Number(item.question_index) + (hasZero ? 1 : 0);
+    if (Number.isInteger(index) && index > 0) values.set(index, String(item.score));
+  });
+  return values;
+}
+
+function buildHistoricalTemplateBundle(record, answers, activityId) {
+  const validation = scoreCalc.validateCalculationSnapshot(record, activityId);
+  const answerMap = historicalAnswerMap(answers);
+  if (!validation.ok) {
+    const questions = Array.from(answerMap.entries())
+      .sort((left, right) => left[0] - right[0])
+      .map(([index, score]) => ({
+        id: 'historical-question-' + index,
+        templateId: 'historical-template',
+        templateName: localeCopy.historicalRecoveredTemplate,
+        templateWeight: 1,
+        templateSortOrder: 1,
+        questionIndex: index,
+        question: localeFormat(localeCopy.historicalQuestionUnavailable, [index]),
+        scoreLabel: localeCopy.historicalQuestionSnapshotUnavailable,
+        minValue: Number(score),
+        startValue: Number(score),
+        maxValue: Number(score),
+        stepValue: 1,
+        showTemplateHeader: index === 1,
+        score
+      }));
+    return {
+      degraded: true,
+      name: localeCopy.historicalRecoveredTemplate,
+      templates: [],
+      questions
+    };
+  }
+
+  const templates = validation.snapshot.templates
+    .slice()
+    .sort((left, right) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0));
+  const questions = [];
+  templates.forEach((template, templateIndex) => {
+    (template.questions || [])
+      .slice()
+      .sort((left, right) => Number(left.globalQuestionIndex) - Number(right.globalQuestionIndex))
+      .forEach((question, questionIndex) => {
+        const globalIndex = Number(question.globalQuestionIndex);
+        questions.push({
+          id: safeString(question.id) || safeString(template.templateId) + '-' + globalIndex,
+          templateId: safeString(template.templateId),
+          templateName: safeString(template.templateName),
+          templateWeight: toNumber(template.weight, 1),
+          templateSortOrder: Number(template.sortOrder || templateIndex + 1),
+          questionIndex: Number(question.questionIndex || questionIndex + 1),
+          question: safeString(question.question),
+          scoreLabel: safeString(question.scoreLabel),
+          minValue: toNumber(question.minValue, 0),
+          startValue: toNumber(question.startValue, 0),
+          maxValue: toNumber(question.maxValue, 0),
+          stepValue: toNumber(question.stepValue, 1),
+          showTemplateHeader: questionIndex === 0,
+          score: answerMap.has(globalIndex) ? answerMap.get(globalIndex) : ''
+        });
+      });
+  });
+  return {
+    degraded: false,
+    name: templates.map((item) => safeString(item.templateName)).filter(Boolean).join(' + '),
+    templates,
+    questions
+  };
+}
+
+async function buildHistoricalScoreForm(record, options) {
+  const answers = await scoreAnswerModel.getByRecordId(record.id);
+  const templateBundle = buildHistoricalTemplateBundle(record, answers, options.activity.id);
+  return {
+    status: 'success',
+    readOnly: true,
+    readOnlyReason: templateBundle.degraded ? 'historical_snapshot_degraded' : 'historical_record',
+    readOnlyMessage: templateBundle.degraded
+      ? localeCopy.historicalSnapshotDegraded
+      : localeCopy.historicalSnapshotRestored,
+    scorer: historicalParticipant(record, 'scorer', options.scorer),
+    target: historicalParticipant(record, 'target', options.target),
+    currentActivity: {
+      id: options.activity.id,
+      name: options.activity.name,
+      description: options.activity.description || '',
+      startDate: options.activity.start_date,
+      endDate: options.activity.end_date,
+      participantGranularity: options.granularity
+    },
+    existingRecord: {
+      id: safeString(record.id),
+      submittedAt: record.submitted_at || null,
+      templateConfigSignature: safeString(record.template_config_signature)
+    },
+    rule: {
+      id: safeString(record.rule_id),
+      templateConfigSignature: safeString(record.template_config_signature)
+    },
+    templateBundle
   };
 }
 
@@ -282,6 +416,8 @@ router.post('/getRateTargets', async (req, res) => {
       return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     }
     scorer = normalizeHrPerson(scorerRecord, lookups);
+    scorer.contextId = safeString(actorResult.actor.contextId);
+    scorer.organizationId = safeString(orgId);
 
     if (!scorer.departmentId || !scorer.identityId) {
       return res.json({ status: 'invalid_scorer', message: localeCopy.copy_d9159d48b5 });
@@ -441,6 +577,18 @@ router.post('/getScoreFormData', async (req, res) => {
     if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     if (!targetRecord) return res.json({ status: 'target_not_found', message: localeCopy.copy_245da65c1c });
     const scorer = normalizeHrPerson(scorerRecord, lookups);
+    scorer.contextId = safeString(actorResult.actor.contextId);
+    scorer.organizationId = safeString(orgId);
+    const targetPerson = normalizeHrPerson(targetRecord, lookups);
+    const historicalRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activity.id);
+    if (historicalRecords.length) {
+      return res.json(await buildHistoricalScoreForm(historicalRecords[0], {
+        activity,
+        granularity,
+        scorer,
+        target: targetPerson
+      }));
+    }
 
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: localeCopy.copy_5b46959129 });
@@ -470,7 +618,6 @@ router.post('/getScoreFormData', async (req, res) => {
     const ruleFull = await loadRuleFull(rule.id);
 
     // Find matching clauses for this target — load only the target record
-    const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const matchedClauseEntries = [];
 
     for (const clause of ruleFull.clauses) {
@@ -552,47 +699,13 @@ router.post('/getScoreFormData', async (req, res) => {
       configuredClauseEntry.clause.templateConfigs, templatesById
     );
 
-    // Check existing records
-    const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activity.id);
-    let existingRecord = null;
-    for (const record of existingRecords) {
-      if (safeString(record.template_config_signature) === templateConfigSignature) {
-        const answers = await scoreAnswerModel.getByRecordId(record.id);
-        existingRecord = { id: record.id, submittedAt: record.submitted_at || null, answers };
-        break;
-      }
-    }
-
-    if (existingRecords.length && !existingRecord) {
-      const historicalRecord = existingRecords[0];
-      return res.json({
-        status: 'historical_structure_conflict',
-        readOnly: true,
-        message: localeCopy.historicalStructureConflict,
-        historicalRecord: {
-          id: safeString(historicalRecord.id),
-          submittedAt: historicalRecord.submitted_at || null,
-          templateConfigSignature: safeString(historicalRecord.template_config_signature)
-        },
-        currentTemplateConfigSignature: templateConfigSignature
-      });
-    }
-
-    const answerMap = new Map();
-    if (existingRecord && existingRecord.answers) {
-      const hasZero = existingRecord.answers.some(a => a.question_index === 0);
-      existingRecord.answers.forEach(a => {
-        answerMap.set(String(hasZero ? a.question_index + 1 : a.question_index), a.score);
-      });
-    }
-
     res.json({
       status: 'success', scorer,
       target: configuredClauseEntry.person,
       currentActivity: { id: activity.id, name: activity.name, description: activity.description,
         startDate: activity.start_date, endDate: activity.end_date,
         participantGranularity: granularity },
-      existingRecord: existingRecord ? { id: existingRecord.id, submittedAt: existingRecord.submittedAt } : null,
+      existingRecord: null,
       rule: {
         id: rule.id, scorerDepartment: scorer.department, scorerIdentity: scorer.identity,
         clauseScopeType: configuredClauseEntry.clause.scopeType,
@@ -607,7 +720,7 @@ router.post('/getScoreFormData', async (req, res) => {
         questions: mergedQuestions.map((item, index, list) => ({
           ...item,
           showTemplateHeader: index === 0 || list[index - 1].templateId !== item.templateId,
-          score: answerMap.has(String(index + 1)) ? String(answerMap.get(String(index + 1))) : ''
+          score: ''
         }))
       }
     });

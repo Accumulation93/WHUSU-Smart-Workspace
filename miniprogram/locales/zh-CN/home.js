@@ -45,6 +45,7 @@ const text = Object.freeze({
   maxScore: '最高分',
   averageScore: '平均分',
   personSuffix: '人',
+  positionSuffix: '个岗位',
   groupSuffix: '个组别',
   search: '搜索',
   resultSearchPlaceholder: '搜索姓名或组织信息',

@@ -1,5 +1,6 @@
-<view class="page page-with-keyboard">
+<view class="page {{readOnly ? 'page-readonly' : 'page-with-keyboard'}}">
   <input
+    wx:if="{{!readOnly}}"
     class="physical-keyboard-capture"
     type="text"
     value="{{physicalInputValue}}"
@@ -22,6 +23,12 @@
 
   <view class="card" wx:if="{{loading}}">
     <view class="empty-text">{{localeCopy.copy_a017932da1}}</view>
+  </view>
+
+  <view class="card load-error-card" wx:if="{{!loading && loadFailed}}">
+    <view class="section-title">{{localeCopy.loadFailedTitle}}</view>
+    <view class="load-error-text">{{loadErrorText}}</view>
+    <button class="primary-btn load-error-action ui-motion-button" bindtap="retryLoadScoreForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.retryLoad}}</button>
   </view>
 
   <view class="score-workspace" wx:if="{{!loading && !loadFailed}}">
@@ -57,16 +64,17 @@
 
     <view class="card">
       <view class="section-title">{{localeCopy.copy_ad5ba99be4}}</view>
+      <view class="empty-text" wx:if="{{readOnly && questionList.length === 0}}">{{localeCopy.historicalRecordEmpty}}</view>
       <block wx:for="{{questionList}}" wx:key="id">
         <view class="template-chip" wx:if="{{item.showTemplateHeader}}">
           {{item.templateSortOrder}}. {{item.templateName}}
         </view>
         <view
-          class="question-card {{!keyboardCollapsed && currentQuestionIndex === index ? 'question-card-current' : ''}} ui-motion-card"
+          class="question-card {{!readOnly && !keyboardCollapsed && currentQuestionIndex === index ? 'question-card-current' : ''}} {{readOnly ? 'question-card-readonly' : ''}} ui-motion-card"
           id="question-{{index}}"
           data-index="{{index}}"
           bindtap="focusQuestion"
-          hover-class="ui-press-card"
+          hover-class="{{readOnly ? 'none' : 'ui-press-card'}}"
           hover-start-time="0"
           hover-stay-time="160"
          hover-stop-propagation="{{true}}">
@@ -76,13 +84,13 @@
             {{localeCopy.copy_c3ec61e536}}{{item.minValue}} - {{item.maxValue}} · {{localeCopy.copy_0e686e89bb}}{{item.startValue}} · {{localeCopy.copy_8e8047cbd6}}{{item.stepValue}}
           </view>
 
-          <view class="score-display ui-motion-chip" data-index="{{index}}" catchtap="focusQuestion" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="score-display ui-motion-chip" data-index="{{index}}" catchtap="focusQuestion" hover-class="{{readOnly ? 'none' : 'ui-press-chip'}}" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="score-display-value" wx:if="{{item.score !== ''}}">
               <text class="score-display-number">{{item.score}}</text>
               <text class="score-display-unit">{{localeCopy.copy_717083eab1}}</text>
             </view>
-            <view class="score-display-placeholder" wx:else>{{localeCopy.copy_c30bcbbda9}}</view>
-            <view class="score-display-indicator" wx:if="{{!keyboardCollapsed && currentQuestionIndex === index}}">▼ {{localeCopy.copy_ea2892fd15}}</view>
+            <view class="score-display-placeholder" wx:else>{{readOnly ? localeCopy.historicalScoreUnavailable : localeCopy.copy_c30bcbbda9}}</view>
+            <view class="score-display-indicator" wx:if="{{!readOnly && !keyboardCollapsed && currentQuestionIndex === index}}">▼ {{localeCopy.copy_ea2892fd15}}</view>
           </view>
 
           <view class="score-warning" wx:if="{{item.errorText}}">
@@ -114,7 +122,7 @@
       </view>
     </view>
 
-    <view class="page-submit-bar" wx:if="{{!loading && !loadFailed && questionList.length > 0}}">
+    <view class="page-submit-bar" wx:if="{{!readOnly && !loading && !loadFailed && questionList.length > 0}}">
       <button class="primary-btn page-submit-btn ui-motion-button" loading="{{submitting}}" bindtap="submitScore" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4d39b37cc5}}</button>
     </view>
   </view>
@@ -125,7 +133,7 @@
   </view>
 
   <!-- Keyboard: collapsed state -->
-  <view class="custom-keyboard custom-keyboard-collapsed" wx:if="{{!loading && !loadFailed && questionList.length > 0 && keyboardCollapsed}}">
+  <view class="custom-keyboard custom-keyboard-collapsed" wx:if="{{!readOnly && !loading && !loadFailed && questionList.length > 0 && keyboardCollapsed}}">
     <view class="kb-collapsed-bar ui-motion-chip" bindtap="expandKeyboard" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
       <text class="kb-collapsed-icon">⌨</text>
       <text class="kb-collapsed-text">{{localeCopy.copy_fa906e8178}}</text>
@@ -134,7 +142,7 @@
   </view>
 
   <!-- Keyboard: expanded state -->
-  <view class="custom-keyboard" wx:if="{{!loading && !loadFailed && questionList.length > 0 && currentQuestion && !keyboardCollapsed}}">
+  <view class="custom-keyboard" wx:if="{{!readOnly && !loading && !loadFailed && questionList.length > 0 && currentQuestion && !keyboardCollapsed}}">
     <view class="kb-nav-row">
       <view class="kb-nav-btn {{currentQuestionIndex === 0 ? 'kb-nav-btn-disabled' : ''}} {{physicalKeyActive === 'prev' ? 'kb-nav-btn-active' : ''}} ui-motion-chip" bindtap="goToPrevious" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <text class="kb-nav-arrow">◀</text>

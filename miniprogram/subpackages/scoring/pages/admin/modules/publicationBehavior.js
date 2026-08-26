@@ -530,26 +530,69 @@ module.exports = Behavior({
         const scopeType = clause.scopeType || 'all_people';
         const targetIdentityId = clause.targetIdentityId || '';
   
-        const currentIds = (this.data.designationList || []).filter(d => d.clauseId === clauseId).map(d => d.targetHrId);
         const hrResult = await this.callCloud('listHrInfo');
         if (hrResult.status !== 'success') { wx.showToast({ title: localeCopy.copy_23e27d9fb0, icon: 'none' }); return; }
-  
+
+        const assignmentCandidates = [];
+        (hrResult.list || []).forEach(function(hr) {
+          (hr.assignments || []).forEach(function(assignment) {
+            const assignmentId = assignment.assignmentId || assignment.id || '';
+            if (!assignmentId) return;
+            assignmentCandidates.push({
+              id: assignmentId,
+              assignmentId,
+              hrId: hr.id,
+              name: hr.name,
+              studentId: hr.studentId,
+              departmentId: assignment.departmentId || '',
+              department: assignment.department || '',
+              identityId: assignment.identityCategoryId || assignment.identityId || '',
+              identity: assignment.identityCategoryName || assignment.identity || '',
+              workGroupId: assignment.workGroupId || '',
+              workGroup: assignment.workGroup || '',
+              assignmentLabel: assignment.assignmentLabel || [
+                assignment.identityCategoryName || assignment.identity,
+                assignment.department,
+                assignment.workGroup
+              ].filter(Boolean).join(' · ')
+            });
+          });
+        });
+        const assignmentsByHrId = {};
+        assignmentCandidates.forEach(function(candidate) {
+          if (!assignmentsByHrId[candidate.hrId]) assignmentsByHrId[candidate.hrId] = [];
+          assignmentsByHrId[candidate.hrId].push(candidate.assignmentId);
+        });
+        const currentIds = [];
+        (this.data.designationList || []).filter(function(item) {
+          return item.clauseId === clauseId;
+        }).forEach(function(item) {
+          const assignmentId = item.targetAssignmentId || item.assignmentId || '';
+          if (assignmentId) {
+            currentIds.push(assignmentId);
+            return;
+          }
+          const legacyAssignments = assignmentsByHrId[item.targetHrId] || [];
+          if (legacyAssignments.length === 1) currentIds.push(legacyAssignments[0]);
+        });
         const currentIdSet = new Set(currentIds);
         let granteeWgId = '';
         if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') {
-          const granteeHr = (hrResult.list || []).find(hr => hr.departmentId === granteeDeptId);
-          granteeWgId = granteeHr ? (granteeHr.workGroupId || '') : '';
+          const granteeAssignment = assignmentCandidates.find(function(candidate) {
+            return candidate.departmentId === granteeDeptId;
+          });
+          granteeWgId = granteeAssignment ? granteeAssignment.workGroupId : '';
         }
-        const filtered = (hrResult.list || []).filter(hr => {
-          if (hr.identityId !== targetIdentityId) return false;
+        const filtered = assignmentCandidates.filter(candidate => {
+          if (candidate.identityId !== targetIdentityId) return false;
           if (scopeType === 'all_people' || scopeType === 'identity_only') return true;
-          if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') return hr.departmentId === granteeDeptId;
-          if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') return hr.departmentId === granteeDeptId && hr.workGroupId === granteeWgId;
+          if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') return candidate.departmentId === granteeDeptId;
+          if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') return candidate.departmentId === granteeDeptId && candidate.workGroupId === granteeWgId;
           return true;
-        }).map(hr => ({ ...hr, isSelected: currentIdSet.has(hr.id) }));
-        const depts = new Set(filtered.map(hr => hr.department).filter(Boolean));
-        const idents = new Set(filtered.map(hr => hr.identity).filter(Boolean));
-        const selectedList = filtered.filter(hr => hr.isSelected);
+        }).map(candidate => ({ ...candidate, isSelected: currentIdSet.has(candidate.assignmentId) }));
+        const depts = new Set(filtered.map(candidate => candidate.department).filter(Boolean));
+        const idents = new Set(filtered.map(candidate => candidate.identity).filter(Boolean));
+        const selectedList = filtered.filter(candidate => candidate.isSelected);
         this.setData({
           designationPickerHrList: filtered, designationPickerFilteredList: filtered,
           designationPickerSelectedIds: currentIds, designationPickerSelectedList: selectedList,
@@ -564,11 +607,12 @@ module.exports = Behavior({
     closeDesignationPicker() { this.setData({ showDesignationPicker: false }); },
 
     onDesignationPickerToggle(e) {
-      const hrId = e.currentTarget.dataset.hrId;
+      const assignmentId = e.currentTarget.dataset.assignmentId;
+      if (!assignmentId) return;
       const selected = [...this.data.designationPickerSelectedIds];
-      const idx = selected.indexOf(hrId);
-      if (idx >= 0) selected.splice(idx, 1); else selected.push(hrId);
-      const hrList = this.data.designationPickerHrList.map(hr => ({ ...hr, isSelected: hr.id === hrId ? !hr.isSelected : hr.isSelected }));
+      const idx = selected.indexOf(assignmentId);
+      if (idx >= 0) selected.splice(idx, 1); else selected.push(assignmentId);
+      const hrList = this.data.designationPickerHrList.map(candidate => ({ ...candidate, isSelected: candidate.assignmentId === assignmentId ? !candidate.isSelected : candidate.isSelected }));
       this.setData({
         designationPickerSelectedIds: selected, designationPickerHrList: hrList,
         designationPickerFilteredList: this.applyDesigFilters(hrList),
@@ -576,11 +620,15 @@ module.exports = Behavior({
       });
     },
 
-    applyDesigFilters(list) {
+    applyDesigFilters(list, overrides) {
       let result = list || this.data.designationPickerHrList;
-      if (this.data.desigFilterDept !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.department === this.data.desigFilterDept);
-      if (this.data.desigFilterIdent !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.identity === this.data.desigFilterIdent);
-      if (this.data.desigSearchKeyword) { const kw = this.data.desigSearchKeyword.toLowerCase(); result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw)); }
+      const next = overrides || {};
+      const department = Object.prototype.hasOwnProperty.call(next, 'department') ? next.department : this.data.desigFilterDept;
+      const identity = Object.prototype.hasOwnProperty.call(next, 'identity') ? next.identity : this.data.desigFilterIdent;
+      const keyword = Object.prototype.hasOwnProperty.call(next, 'keyword') ? next.keyword : this.data.desigSearchKeyword;
+      if (department !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.department === department);
+      if (identity !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.identity === identity);
+      if (keyword) { const kw = keyword.toLowerCase(); result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw) || (hr.assignmentLabel || '').toLowerCase().includes(kw)); }
       return result;
     },
 
@@ -588,20 +636,26 @@ module.exports = Behavior({
       const field = e.currentTarget.dataset.field;
       const options = field === 'identity' ? this.data.desigFilterIdentOptions : this.data.desigFilterDeptOptions;
       const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
-      const patch = { designationPickerFilteredList: this.applyDesigFilters() };
-      if (field === 'department') patch.desigFilterDept = value; else patch.desigFilterIdent = value;
+      const patch = {};
+      if (field === 'department') {
+        patch.desigFilterDept = value;
+        patch.designationPickerFilteredList = this.applyDesigFilters(null, { department: value });
+      } else {
+        patch.desigFilterIdent = value;
+        patch.designationPickerFilteredList = this.applyDesigFilters(null, { identity: value });
+      }
       this.setData(patch);
     },
 
-    onDesigSearchInput(e) { this.setData({ desigSearchKeyword: e.detail.value, designationPickerFilteredList: this.applyDesigFilters() }); },
+    onDesigSearchInput(e) { const keyword = e.detail.value; this.setData({ desigSearchKeyword: keyword, designationPickerFilteredList: this.applyDesigFilters(null, { keyword }) }); },
 
     async saveDesignations() {
       const clauseId = this.data.designationPickerClauseId;
       const pubId = this.data.designationPickerPubId;
-      const hrIds = this.data.designationPickerSelectedIds;
+      const assignmentIds = this.data.designationPickerSelectedIds;
       this.setLoading('saveDesignations', true);
       try {
-        const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationHrIds: hrIds });
+        const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationAssignmentIds: assignmentIds });
         if (result.status === 'success') { wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
         else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
       } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }

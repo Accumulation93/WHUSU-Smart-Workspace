@@ -82,6 +82,9 @@ function testDeploymentScriptContract() {
   assert.match(script, /materializeUtcTimeReviews\.js" --status/);
   assert.match(script, /backfillScoreCalculationSnapshots\.js" --require-all/);
   assert.match(script, /backfillScoreCalculationSnapshots\.js" --apply --require-all/);
+  assert.match(script, /normalizeScoreCalculationSnapshots\.js" --preflight/);
+  assert.match(script, /normalizeScoreCalculationSnapshots\.js" --apply/);
+  assert.match(script, /normalizeScoreCalculationSnapshots\.js" --verify/);
   assert.match(script, /record-id\+raw-value:v1/);
   assert.match(script, /mappedReviewCount !== unresolvedCount/);
   assert.match(script, /WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main/);

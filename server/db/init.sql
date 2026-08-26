@@ -930,6 +930,15 @@ CREATE TABLE IF NOT EXISTS score_snapshot_backfill_audits (
     CHECK (status IN ('ready', 'applied', 'isolated', 'already_applied'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS score_snapshot_normalization_audits (
+  snapshot_version TINYINT UNSIGNED NOT NULL,
+  total_record_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  normalized_record_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  evidence_fingerprint CHAR(64) NOT NULL,
+  normalized_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (snapshot_version)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS hr_profile_review_events (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   record_id VARCHAR(64) NOT NULL,
@@ -1564,6 +1573,19 @@ CREATE TABLE IF NOT EXISTS absolute_time_source_registry (
   PRIMARY KEY (table_name, column_name),
   INDEX idx_time_source_action (migration_action, source_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO absolute_time_source_registry
+  (table_name, column_name, source_type, migration_action, evidence, primary_key_json, user_visible)
+VALUES (
+  'score_snapshot_normalization_audits',
+  'normalized_at',
+  'post_cutover_native_utc',
+  'preserve',
+  '全新数据库在 UTC 会话中写入评分快照规范化内部审计时间',
+  JSON_ARRAY('snapshot_version'),
+  0
+)
+ON DUPLICATE KEY UPDATE table_name = VALUES(table_name);
 
 CREATE TABLE IF NOT EXISTS absolute_time_record_reviews (
   id VARCHAR(64) NOT NULL PRIMARY KEY,

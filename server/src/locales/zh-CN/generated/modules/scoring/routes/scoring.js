@@ -55,6 +55,10 @@ module.exports = Object.freeze({
   copy_fc13a82b49: "评分活动",
   copy_fee6d129e3: "评分未提交，请重试",
   copy_ff48e241fb: "当前暂无评分活动",
-  historicalStructureConflict: "该评分使用的历史题目结构与当前模板不同，为保护历史记录已切换为只读，请联系管理员查看历史评分详情",
+  historicalQuestionSnapshotUnavailable: "该题的历史文字未留存，仅展示已提交分数",
+  historicalQuestionUnavailable: "历史评分第 {0} 题",
+  historicalRecoveredTemplate: "历史评分",
+  historicalSnapshotDegraded: "已恢复历史分数；部分早期题目文字未留存",
+  historicalSnapshotRestored: "已按提交时的题目和分数恢复历史评分，仅供查看",
   scoreAlreadySubmitted: "该评分已提交并作为历史依据保存，不能覆盖；如需更正请联系管理员按审计流程处理"
 });

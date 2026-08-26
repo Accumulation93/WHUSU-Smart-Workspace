@@ -672,10 +672,6 @@ page {
   border: 1rpx solid rgba(147, 197, 253, 0.8);
 }
 
-.select-chip-inline {
-  margin-right: 8rpx; flex-shrink: 0;
-}
-
 .select-chip-active {
   background: linear-gradient(135deg, rgba(220, 252, 231, 0.98) 0%, rgba(187, 247, 208, 0.9) 100%);
   color: #15803d;

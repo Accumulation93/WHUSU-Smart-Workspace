@@ -354,7 +354,6 @@ module.exports = Object.freeze({
   copy_779363030e: "删除资料项",
   copy_779db553f1: "完成率导出",
   copy_7844b14771: '新增评优范围',
-  copy_78564bdb46: '已选',
   copy_7897981e63: '直接到驳回人',
   copy_79b2d9fea4: '暂无当前评分活动',
   copy_79b5b44e28: "暂无评优名单",

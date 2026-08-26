@@ -286,6 +286,11 @@ if [[ "$PLAN_JSON" == *"20260825234500_score_calculation_context_snapshot.sql"* 
   timeout --signal=TERM --kill-after=30s 600s \
     node "$NEW_RELEASE/server/scripts/backfillScoreCalculationSnapshots.js" --require-all
 fi
+if [[ "$PLAN_JSON" == *"20260826170000_score_snapshot_v2_normalization.sql"* ]]; then
+  log "执行评分计算快照 v2 全量规范化预检"
+  timeout --signal=TERM --kill-after=30s 600s \
+    node "$NEW_RELEASE/server/scripts/normalizeScoreCalculationSnapshots.js" --preflight
+fi
 if [[ "$PLAN_JSON" == *"20260823190000_utc_time_normalization.sql"* ]]; then
   log "执行生产时间来源只读预检"
   timeout --signal=TERM --kill-after=30s 300s node "$NEW_RELEASE/server/scripts/preflightUtcTimeMigration.js" --strict
@@ -322,6 +327,14 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     log "按活动回填或隔离旧评分记录不可变快照"
     timeout --signal=TERM --kill-after=30s 1200s \
       node "$NEW_RELEASE/server/scripts/backfillScoreCalculationSnapshots.js" --apply --require-all
+  fi
+  if [[ "$PLAN_JSON" == *"20260826170000_score_snapshot_v2_normalization.sql"* ]]; then
+    log "统一全部评分计算快照为固定 v2 字段结构"
+    timeout --signal=TERM --kill-after=30s 1200s \
+      node "$NEW_RELEASE/server/scripts/normalizeScoreCalculationSnapshots.js" --apply
+    log "逐条验证评分计算快照 v2 结构和签名"
+    timeout --signal=TERM --kill-after=30s 1200s \
+      node "$NEW_RELEASE/server/scripts/normalizeScoreCalculationSnapshots.js" --verify
   fi
   if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 || "$PENDING_COUNT" -gt 0 ]]; then
     log "物化逐记录历史时间待核对账本"

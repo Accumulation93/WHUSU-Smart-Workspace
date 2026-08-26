@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const path = require('path');
+const { buildCalculationPolicySignature } = require('../src/modules/scoring/utils/calculationSnapshotSignature');
 
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
@@ -356,7 +357,7 @@ function analyzeRecord(record, indexes, reconstructedAt) {
     activityId: text(record.activity_id),
     participantGranularity: 'assignment',
     templateConfigSignature: text(record.template_config_signature),
-    calculationPolicySignature: 'v1:' + sha256Json(policy),
+    calculationPolicySignature: buildCalculationPolicySignature(policy, 1),
     reconstruction: {
       version: 1,
       mode: 'legacy_exact_signature_timestamp_proven',
