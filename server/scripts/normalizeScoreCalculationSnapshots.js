@@ -14,6 +14,9 @@ const {
   stableJson
 } = require('../src/modules/scoring/utils/calculationSnapshotSchema');
 
+const DEFAULT_BATCH_SIZE = 200;
+const MAX_BATCH_SIZE = 1000;
+
 function parseSnapshot(value) {
   if (!value) return null;
   if (typeof value === 'object' && !Array.isArray(value)) return value;
@@ -33,9 +36,9 @@ function addReason(reasons, reason) {
   reasons[reason] = (reasons[reason] || 0) + 1;
 }
 
-function analyzeRows(rows) {
-  const summary = {
-    total: rows.length,
+function createSummary() {
+  return {
+    total: 0,
     valid: 0,
     invalid: 0,
     alreadyCanonicalV2: 0,
@@ -43,6 +46,29 @@ function analyzeRows(rows) {
     reasons: {},
     fingerprint: ''
   };
+}
+
+function resolveBatchSize() {
+  const parsed = Number.parseInt(process.env.SNAPSHOT_NORMALIZATION_BATCH_SIZE || '', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_BATCH_SIZE;
+  return Math.min(parsed, MAX_BATCH_SIZE);
+}
+
+function mergeAnalysis(target, analysis) {
+  const source = analysis.summary;
+  target.total += source.total;
+  target.valid += source.valid;
+  target.invalid += source.invalid;
+  target.alreadyCanonicalV2 += source.alreadyCanonicalV2;
+  target.toNormalize += source.toNormalize;
+  Object.keys(source.reasons).forEach((reason) => {
+    target.reasons[reason] = (target.reasons[reason] || 0) + source.reasons[reason];
+  });
+}
+
+function analyzeRows(rows) {
+  const summary = createSummary();
+  summary.total = rows.length;
   const entries = [];
   const evidence = [];
 
@@ -79,17 +105,43 @@ function analyzeRows(rows) {
   });
 
   summary.fingerprint = sha256(evidence.sort().join('\n'));
-  return { summary, entries };
+  return { summary, entries, evidence };
 }
 
-async function readRows(connection, lockRows) {
+async function readRowBatch(connection, lockRows, lastId, batchSize) {
   const suffix = lockRows ? ' FOR UPDATE' : '';
+  const cursorClause = lastId === null ? '' : ' WHERE id > ?';
+  const params = lastId === null ? [batchSize] : [lastId, batchSize];
   const [rows] = await connection.query(
     `SELECT id, activity_id, template_config_signature, calculation_context_snapshot
        FROM score_records
-      ORDER BY id${suffix}`
+       ${cursorClause}
+      ORDER BY id
+      LIMIT ?${suffix}`,
+    params
   );
   return rows;
+}
+
+async function scanRows(connection, lockRows, onBatch) {
+  const summary = createSummary();
+  const evidence = [];
+  const batchSize = resolveBatchSize();
+  let lastId = null;
+
+  while (true) {
+    const rows = await readRowBatch(connection, lockRows, lastId, batchSize);
+    if (rows.length === 0) break;
+    const analysis = analyzeRows(rows);
+    mergeAnalysis(summary, analysis);
+    evidence.push(...analysis.evidence);
+    if (onBatch) await onBatch(analysis);
+    lastId = rows[rows.length - 1].id;
+    if (rows.length < batchSize) break;
+  }
+
+  summary.fingerprint = sha256(evidence.sort().join('\n'));
+  return { summary };
 }
 
 function assertConvertible(summary) {
@@ -106,7 +158,7 @@ function assertCanonicalV2(summary) {
 }
 
 async function preflight() {
-  const analysis = analyzeRows(await readRows(pool, false));
+  const analysis = await scanRows(pool, false);
   assertConvertible(analysis.summary);
   process.stdout.write(JSON.stringify(analysis.summary) + '\n');
 }
@@ -115,15 +167,17 @@ async function apply() {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const analysis = analyzeRows(await readRows(connection, true));
+    const analysis = await scanRows(connection, true, async (batchAnalysis) => {
+      assertConvertible(batchAnalysis.summary);
+      for (const entry of batchAnalysis.entries) {
+        if (!entry.changed) continue;
+        await connection.query(
+          'UPDATE score_records SET calculation_context_snapshot = ? WHERE id = ?',
+          [JSON.stringify(entry.canonical), entry.id]
+        );
+      }
+    });
     assertConvertible(analysis.summary);
-    for (const entry of analysis.entries) {
-      if (!entry.changed) continue;
-      await connection.query(
-        'UPDATE score_records SET calculation_context_snapshot = ? WHERE id = ?',
-        [JSON.stringify(entry.canonical), entry.id]
-      );
-    }
     await connection.query(
       `INSERT INTO score_snapshot_normalization_audits
         (snapshot_version, total_record_count, normalized_record_count, evidence_fingerprint, normalized_at)
@@ -146,7 +200,7 @@ async function apply() {
 }
 
 async function verify() {
-  const analysis = analyzeRows(await readRows(pool, false));
+  const analysis = await scanRows(pool, false);
   assertCanonicalV2(analysis.summary);
   process.stdout.write(JSON.stringify(analysis.summary) + '\n');
 }
@@ -170,4 +224,13 @@ if (require.main === module) {
     });
 }
 
-module.exports = { analyzeRows, assertConvertible, assertCanonicalV2 };
+module.exports = {
+  analyzeRows,
+  assertConvertible,
+  assertCanonicalV2,
+  createSummary,
+  mergeAnalysis,
+  resolveBatchSize,
+  readRowBatch,
+  scanRows
+};

@@ -14,6 +14,7 @@ const {
   stableJson
 } = require('../src/modules/scoring/utils/calculationSnapshotSchema');
 const { validateCalculationSnapshot } = require('../src/modules/scoring/utils/scoreCalc');
+const { scanRows } = require('../scripts/normalizeScoreCalculationSnapshots');
 
 const policy = {
   rule: {
@@ -91,6 +92,7 @@ const migration = fs.readFileSync(
   'utf8'
 );
 const deploy = fs.readFileSync(path.join(root, 'scripts/deployProduction.sh'), 'utf8');
+const normalizer = fs.readFileSync(path.join(root, 'scripts/normalizeScoreCalculationSnapshots.js'), 'utf8');
 const scoringRoute = fs.readFileSync(path.join(root, 'src/modules/scoring/routes/scoring.js'), 'utf8');
 const snapshotBuilder = scoringRoute.slice(
   scoringRoute.indexOf('function buildCalculationContextSnapshot'),
@@ -102,5 +104,50 @@ assert(!snapshotBuilder.includes('version: 1'), '新评分提交不得继续写�
 assert(deploy.includes('normalizeScoreCalculationSnapshots.js" --preflight'));
 assert(deploy.includes('normalizeScoreCalculationSnapshots.js" --apply'));
 assert(deploy.includes('normalizeScoreCalculationSnapshots.js" --verify'));
+assert(normalizer.includes('SNAPSHOT_NORMALIZATION_BATCH_SIZE'));
+assert(normalizer.includes("cursorClause = lastId === null ? '' : ' WHERE id > ?'"));
+assert(normalizer.includes('LIMIT ?${suffix}'));
+assert(!normalizer.includes('FROM score_records\n      ORDER BY id${suffix}'), '生产验证不得再一次性全表读取快照');
 
-console.log('评分计算快照 v1 到固定 v2 结构规范化测试通过');
+async function testCursorPagination() {
+  const previousBatchSize = process.env.SNAPSHOT_NORMALIZATION_BATCH_SIZE;
+  process.env.SNAPSHOT_NORMALIZATION_BATCH_SIZE = '2';
+  const rows = Array.from({ length: 5 }, (_, index) => ({
+    id: String(index + 1).padStart(3, '0'),
+    activity_id: 'activity-1',
+    template_config_signature: 'v2:template-config',
+    calculation_context_snapshot: canonical
+  }));
+  const calls = [];
+  const connection = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      const hasCursor = sql.includes('WHERE id > ?');
+      const lastId = hasCursor ? params[0] : null;
+      const limit = hasCursor ? params[1] : params[0];
+      const batch = rows.filter((row) => lastId === null || row.id > lastId).slice(0, limit);
+      return [batch];
+    }
+  };
+
+  try {
+    const analysis = await scanRows(connection, false);
+    assert.strictEqual(analysis.summary.total, 5);
+    assert.strictEqual(analysis.summary.alreadyCanonicalV2, 5);
+    assert.strictEqual(analysis.summary.toNormalize, 0);
+    assert.strictEqual(calls.length, 3, '五条记录按每批两条应执行三次游标查询');
+    assert.strictEqual(calls[0].sql.includes('WHERE id > ?'), false);
+    assert.strictEqual(calls[1].sql.includes('WHERE id > ?'), true);
+    assert.strictEqual(calls[1].params[0], '002');
+  } finally {
+    if (previousBatchSize === undefined) delete process.env.SNAPSHOT_NORMALIZATION_BATCH_SIZE;
+    else process.env.SNAPSHOT_NORMALIZATION_BATCH_SIZE = previousBatchSize;
+  }
+}
+
+testCursorPagination()
+  .then(() => console.log('评分计算快照 v1 到固定 v2 结构规范化测试通过'))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
