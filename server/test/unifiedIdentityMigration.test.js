@@ -426,7 +426,7 @@ async function run() {
         },
         { requestId: 'request-batch-rollback', ip: '127.0.0.1' }
       ),
-      /请刷新身份认证列表/
+      /请刷新认证申请列表/
     );
     const [[rollbackState]] = await pool.query(
       `SELECT COUNT(*) AS count
