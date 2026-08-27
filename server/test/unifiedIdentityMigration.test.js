@@ -254,14 +254,14 @@ async function run() {
         organizationId: 'org-not-allowed',
         identityId: targetGlobalContext.authIdentityId
       }),
-      /该身份已失效/
+      /该工作角色已失效/
     );
     await assert.rejects(
       identityModel.activateSelection(session.id, account.id, {
         organizationId: 'org-b',
         identityId: 'idn-forged'
       }),
-      /该身份已失效/
+      /该工作角色已失效/
     );
     await identityModel.revokeMembershipAssignment({
       id: 'hr-a1',
