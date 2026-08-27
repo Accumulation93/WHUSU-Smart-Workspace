@@ -27,7 +27,7 @@ module.exports = Object.freeze({
   copy_0bc4f8819b: '按提前天数',
   copy_0c90eb0204: "驳回",
   copy_0cedad90e4: '点击选择身份类别',
-  copy_0de5656de5: "请切换到有场地管理权限的工作上下文",
+  copy_0de5656de5: "请切换到拥有场地管理权限的工作角色",
   copy_13293d504a: '每天',
   copy_1376e7cf03: '请输入步骤名称',
   copy_1557dfea5c: "限定审批人的部门范围",

@@ -2,14 +2,14 @@
 
 module.exports = Object.freeze({
   applicantAssignment: '借用岗位',
-  copy_0804df041f: "仅显示当前组织、当前工作上下文由你处理过的借用记录",
+  copy_0804df041f: "仅显示你以当前工作角色处理过的本组织借用记录",
   copy_100eaafa28: "查看借用详情与完整进展",
   copy_2220286f1c: '已完成',
   copy_2b8b8bf904: '当前组织',
-  copy_5825b0b531: '当前工作上下文',
+  copy_5825b0b531: '当前工作角色',
   copy_5d5af942c5: '已驳回',
   copy_638da8ae60: "武汉大学学生会",
-  copy_7c80a228a6: '当前组织 · 当前工作上下文',
+  copy_7c80a228a6: '当前组织 · 当前工作角色',
   copy_7d935d1225: "借用人：",
   copy_8650ae5bf6: "审批历史",
   copy_86accadcca: "暂无审批记录",

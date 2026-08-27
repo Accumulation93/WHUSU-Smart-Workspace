@@ -13,14 +13,14 @@ module.exports = Object.freeze({
   copy_62d2cac4df: "请重新打开借用记录",
   copy_65f251c459: "请重新选择审批人",
   copy_67f5f44b1e: "规则已删除",
-  copy_6ee33fb024: "审批流已创建",
+  copy_6ee33fb024: "审批流程已创建",
   copy_71ff2a4a29: "已审批通过",
   copy_72d2fe8b04: "步骤已删除",
-  copy_782bc123ee: "审批流已更新",
+  copy_782bc123ee: "审批流程已更新",
   copy_7b831c34ee: "」因借用时间已结束，已自动取消。",
   copy_890d7f4874: "场地审批流程",
   copy_8a21926f75: '审批完成，等待下一步审批',
-  copy_94e247d756: "审批流已删除",
+  copy_94e247d756: "审批流程已删除",
   copy_a56890077c: "请联系管理员补充审批设置",
   copy_a5f604a639: "请重新打开审批设置",
   copy_aa20a1e7b8: "审批时借用已结束，已自动取消",
@@ -33,7 +33,7 @@ module.exports = Object.freeze({
   copy_db3e12e237: "请刷新审批设置后重试",
   copy_dcd1184a46: "该时段已被其他借用占用",
   copy_e0725727f3: "请重新选择审批规则",
-  copy_f048be09ae: "请使用管理员身份",
+  copy_f048be09ae: "请切换到相应的管理权限",
   copy_f553985be3: "已被驳回",
-  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择"
+  copy_legacyApproverSelection: "请按岗位重新选择审批人"
 });

@@ -6,6 +6,6 @@ module.exports = Object.freeze({
   copy_8e15f97927: "表格未生成，请重试",
   copy_96b9b6d201: "仅支持 Excel 或 CSV 格式",
   copy_d16a0093f5: '导出行数超过限制',
-  copy_d864121fe4: "缺少表头定义",
-  copy_f048be09ae: "请使用管理员身份"
+  copy_d864121fe4: "缺少表格标题，请重试",
+  copy_f048be09ae: "请切换到管理权限"
 });

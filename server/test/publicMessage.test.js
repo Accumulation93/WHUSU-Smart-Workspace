@@ -1,8 +1,8 @@
 const assert = require('assert');
 const { fallbackForStatus, protectPublicMessage } = require('../src/utils/publicMessage');
 
-assert.strictEqual(fallbackForStatus('auth_failed'), '请重新微信登录');
-assert.strictEqual(fallbackForStatus('permission_denied'), '请重新选择组织或身份');
+assert.strictEqual(fallbackForStatus('auth_failed'), '请重新登录');
+assert.strictEqual(fallbackForStatus('permission_denied'), '请重新选择组织或工作角色');
 assert.strictEqual(fallbackForStatus('invalid_params'), '请重新打开页面后再试');
 assert.strictEqual(fallbackForStatus('not_found'), '请刷新后重试');
 assert.strictEqual(fallbackForStatus('request_timeout'), '请稍后重试');
@@ -15,7 +15,7 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(
   protectPublicMessage({ status: 'permission_denied', message: '当前上下文无权访问该接口' }),
-  { status: 'permission_denied', message: '请重新选择组织或身份' }
+  { status: 'permission_denied', message: '请重新选择组织或工作角色' }
 );
 assert.deepStrictEqual(
   protectPublicMessage({ status: 'error', message: '数据库连接失败' }),

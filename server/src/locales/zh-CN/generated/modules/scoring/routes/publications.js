@@ -47,7 +47,7 @@ module.exports = Object.freeze({
   copy_bba7f8b8ba: "请使用普通岗位身份",
   copy_bc011e4e3b: "部门",
   copy_be736f763d: "职能组",
-  copy_c20c4aad74: "当前岗位已失效，请重新选择工作上下文",
+  copy_c20c4aad74: "当前岗位已失效，请重新选择岗位",
   copy_c22a252e97: "请先登录",
   copy_c2ca4efbfa: "请刷新结果公示",
   copy_c390fbf5b7: "当前评分活动结果尚未公示",
@@ -64,5 +64,5 @@ module.exports = Object.freeze({
   copy_f60a08009f: "查看权限已更新",
   copy_ff90093cad: "评优指定权已删除",
   historicalSnapshotInvalid: "历史评分依据校验失败，结果暂不能公示，请联系管理员核对历史数据",
-  historicalSnapshotMissing: "部分历史评分缺少提交时的计算快照，结果暂不能公示，不能使用当前规则推断"
+  historicalSnapshotMissing: "部分历史评分缺少完整评分依据，暂时无法公示"
 });

@@ -53,16 +53,16 @@ storage.roleProfiles.admin = { name: '管理员甲', adminLevel: 'admin' };
 storage.authWorkContexts = [{
   contextId: 'context-admin',
   role: 'admin',
-  name: '人事管理工作上下文'
+  name: '人事管理权限'
 }];
 
 const adminView = refresh();
-assert.strictEqual(adminView.identityName, '人事管理工作上下文');
+assert.strictEqual(adminView.identityName, '人事管理权限');
 
 const localeCopy = require('../../locales/zh-CN/generated/components/workspace-hero/workspace-hero');
-assert.strictEqual(localeCopy.copy_0c1ba11af0, '工作上下文加载中');
+assert.strictEqual(localeCopy.copy_0c1ba11af0, '工作角色加载中');
 
 delete global.Component;
 delete global.wx;
 
-console.log('共享工作上下文 Hero 展示测试通过');
+console.log('共享工作角色 Hero 展示测试通过');

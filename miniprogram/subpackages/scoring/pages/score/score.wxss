@@ -208,8 +208,7 @@ page {
   margin-bottom: 0;
 }
 
-.readonly-chip,
-.editable-history-chip {
+.readonly-chip {
   flex-shrink: 0;
   padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
   border: 1rpx solid rgba(148, 163, 184, 0.48);
@@ -220,12 +219,6 @@ page {
   font-weight: 700;
   line-height: 1.35;
   white-space: nowrap;
-}
-
-.editable-history-chip {
-  border-color: rgba(110, 231, 183, 0.58);
-  background: linear-gradient(135deg, rgba(236, 253, 245, 0.96), rgba(209, 250, 229, 0.80));
-  color: #15803d;
 }
 
 .info-grid {
@@ -631,13 +624,13 @@ page {
     inset 0 1rpx 0 rgba(255, 255, 255, 0.24);
 }
 
-.existing-record-tip {
+.record-unavailable-tip {
   margin-top: 18rpx;
   padding: 16rpx 18rpx;
   border-radius: 18rpx;
-  background: linear-gradient(135deg, rgba(236, 253, 245, 0.96) 0%, rgba(209, 250, 229, 0.86) 100%);
-  border: 1rpx solid rgba(134, 239, 172, 0.7);
-  color: #15803d;
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.96) 0%, rgba(255, 237, 213, 0.84) 100%);
+  border: 1rpx solid rgba(253, 186, 116, 0.68);
+  color: #9a3412;
   font-size: var(--ui-type-control);
   line-height: 1.68;
 }
@@ -849,6 +842,10 @@ page {
 }
 
 .kb-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   flex: 1;
   min-width: 56rpx;
   min-height: 78rpx;
@@ -1295,10 +1292,20 @@ page {
     padding: 6px 8px;
   }
 
+  .kb-quick-row:first-child {
+    padding-top: 6px;
+  }
+
+  .kb-quick-row:last-child {
+    padding-bottom: 6px;
+  }
+
   .kb-quick-btn {
     min-width: 44px;
-    height: 48px;
-    line-height: 48px;
+    min-height: 44px;
+    height: auto;
+    padding: 10px 8px;
+    line-height: 1.35;
     border-radius: 14px;
     font-size: var(--ui-type-label);
   }
@@ -1398,5 +1405,28 @@ page {
 
   .page-with-keyboard > .custom-keyboard .kb-collapsed-bar {
     border-radius: 24px;
+  }
+
+  .kb-quick-row {
+    gap: 5px;
+    padding: 5px 6px;
+  }
+
+  .kb-quick-row:first-child {
+    padding-top: 5px;
+  }
+
+  .kb-quick-row:last-child {
+    padding-bottom: 5px;
+  }
+
+  .kb-quick-btn {
+    min-width: 40px;
+    min-height: 40px;
+    height: auto;
+    padding: 8px 6px;
+    border-radius: 12px;
+    font-size: var(--ui-type-label);
+    line-height: 1.35;
   }
 }

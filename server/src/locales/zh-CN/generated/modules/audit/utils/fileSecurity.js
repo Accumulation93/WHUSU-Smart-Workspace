@@ -9,7 +9,7 @@ module.exports = Object.freeze({
   copy_a0736fb41c: '单次最多上传20个文件',
   copy_a5b624ccc1: '上传文件不属于当前组织',
   copy_f1cdbd7be3: "没有文件访问权限",
-  uploadedFileIntegrityMismatch: "上传文件校验失败，请重新选择文件",
+  uploadedFileIntegrityMismatch: "文件内容读取异常，请重新选择文件",
   uploadFileNameTooLong: "文件名不能超过 500 个字符",
-  uploadTransactionUnavailable: "文件提交服务暂时不可用，请稍后再试"
+  uploadTransactionUnavailable: "文件暂时无法提交，请稍后再试"
 });

@@ -350,9 +350,7 @@ async function buildHistoricalScoreForm(record, options) {
     status: 'success',
     readOnly,
     readOnlyReason: readOnly ? 'historical_snapshot_degraded' : '',
-    readOnlyMessage: readOnly
-      ? localeCopy.historicalSnapshotDegraded
-      : localeCopy.historicalSnapshotEditable,
+    readOnlyMessage: readOnly ? localeCopy.historicalSnapshotDegraded : '',
     scorer: historicalParticipant(record, 'scorer', options.scorer),
     target: historicalParticipant(record, 'target', options.target),
     currentActivity: {
@@ -763,7 +761,7 @@ function validateSubmittedAnswers(answers, questions) {
   return { ok: true, answers: normalizedAnswers };
 }
 
-async function reviseExistingScoreRecord(options) {
+async function updateExistingScoreRecord(options) {
   const {
     req, res, record, activity, orgId, scorerRecord, targetRecord,
     scorerSubjectKey, targetSubjectKey, answers, templateConfigSignature
@@ -834,26 +832,7 @@ async function reviseExistingScoreRecord(options) {
       return;
     }
 
-    const [lockedAnswers] = await conn.query(
-      'SELECT question_index, score FROM score_answers WHERE record_id = ? AND org_id = ? ORDER BY question_index FOR UPDATE',
-      [record.id, orgId]
-    );
     const nextRevision = lockedRevision + 1;
-    await conn.query(
-      `INSERT INTO score_record_revisions
-        (id, record_id, revision_number, record_snapshot, answers_snapshot, revised_at,
-         revised_by_person_id, revised_by_assignment_id, revised_by_context_snapshot, org_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        generateId(), record.id, lockedRevision, JSON.stringify(lockedRecord), JSON.stringify(lockedAnswers), nowUtc,
-        safeString(scorerRecord.person_id) || null,
-        safeString(scorerRecord.assignment_id) || null,
-        JSON.stringify(participantService.buildAssignmentSnapshot(scorerRecord, {
-          contextId: options.contextId
-        })),
-        orgId
-      ]
-    );
     const [updateResult] = await conn.query(
       'UPDATE score_records SET revision_number = ?, updated_at = ? WHERE id = ? AND org_id = ? AND revision_number = ?',
       [nextRevision, nowUtc, record.id, orgId, lockedRevision]
@@ -873,9 +852,10 @@ async function reviseExistingScoreRecord(options) {
     response = {
       status: 'success',
       recordId: record.id,
+      updated: true,
       revised: true,
       revisionNumber: nextRevision,
-      message: localeCopy.scoreRevisionSaved
+      message: localeCopy.scoreUpdated
     };
     await dedup.complete(conn, { ...claim, orgId, actorKey: 'score-subject:' + scorerSubjectKey,
       operationType: 'submit_score', resourceId: stableScoreResourceId }, response);
@@ -925,7 +905,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
     const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activityId);
     if (existingRecords.length) {
-      return reviseExistingScoreRecord({
+      return updateExistingScoreRecord({
         req,
         res,
         record: existingRecords[0],
@@ -941,7 +921,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       });
     }
 
-    // 首次评分遵循活动开放状态；已评分修订由上面的独立版本化链路处理。
+    // 首次评分遵循活动开放状态；已有评分由上面的并发安全覆盖链路处理。
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
     }

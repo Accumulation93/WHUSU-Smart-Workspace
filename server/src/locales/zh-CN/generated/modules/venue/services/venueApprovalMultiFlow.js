@@ -1,6 +1,6 @@
 'use strict';
 
 module.exports = Object.freeze({
-  applicantSnapshotMissing: '借用发起岗位快照缺失，无法安全继续审批',
-  flowSnapshotMissing: '审批流程快照缺失，无法安全继续审批，请联系管理员处理该历史记录'
+  applicantSnapshotMissing: '这条借用未记录提交时的岗位，暂时无法继续审批',
+  flowSnapshotMissing: '这条借用缺少处理所需的历史岗位信息，暂时无法继续审批，请联系管理员'
 });

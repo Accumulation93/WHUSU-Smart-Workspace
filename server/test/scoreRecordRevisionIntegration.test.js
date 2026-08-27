@@ -56,7 +56,6 @@ const record = {
 const oldAnswers = [{ question_index: 1, score: 80 }];
 const operations = [];
 const insertedAnswers = [];
-let archivedRevision = null;
 let cacheInvalidated = false;
 
 const connection = {
@@ -66,14 +65,8 @@ const connection = {
       operations.push('lock-record');
       return [[Object.assign({}, record)]];
     }
-    if (/^SELECT question_index, score FROM score_answers/i.test(normalized)) {
-      operations.push('lock-answers');
-      return [[Object.assign({}, oldAnswers[0])]];
-    }
     if (/^INSERT INTO score_record_revisions/i.test(normalized)) {
-      operations.push('archive');
-      archivedRevision = { revisionNumber: params[2], record: JSON.parse(params[3]), answers: JSON.parse(params[4]) };
-      return [{ affectedRows: 1 }];
+      throw new Error('重新评分不得保存旧评分副本');
     }
     if (/^UPDATE score_records SET revision_number/i.test(normalized)) {
       operations.push('advance');
@@ -97,7 +90,7 @@ const emptyModel = {};
 const mocks = {
   '../../../config/db': {
     async withTransaction(callback) { return callback(connection); },
-    async query() { throw new Error('修订写入不得绕过事务连接'); }
+    async query() { throw new Error('评分覆盖不得绕过事务连接'); }
   },
   '../../../core/models/department': { async getAll() { return [{ id: 'department-1', name: '部门' }]; } },
   '../../../core/models/identity': { async getAll() { return [{ id: 'identity-scorer', name: '评分人' }, { id: 'identity-target', name: '被评人' }]; } },
@@ -106,9 +99,9 @@ const mocks = {
   '../models/scoreActivity': {
     async getById() { return { id: 'activity-1', name: '活动', is_paused: 1, participant_granularity: 'assignment' }; }
   },
-  '../models/scoreTemplate': { async getById() { throw new Error('修订不得读取当前模板'); } },
-  '../models/scoreQuestion': { async getByTemplateId() { throw new Error('修订不得读取当前题目'); } },
-  '../models/rateRule': { async getByKey() { throw new Error('修订不得套用当前规则'); } },
+  '../models/scoreTemplate': { async getById() { throw new Error('覆盖不得读取当前模板'); } },
+  '../models/scoreQuestion': { async getByTemplateId() { throw new Error('覆盖不得读取当前题目'); } },
+  '../models/rateRule': { async getByKey() { throw new Error('覆盖不得套用当前规则'); } },
   '../models/rateRuleClause': emptyModel,
   '../models/clauseTemplateConfig': emptyModel,
   '../models/scoreRecord': { async getByParticipantPair() { return [record]; } },
@@ -162,14 +155,14 @@ assert(layer, '缺少 submitScoreRecord 路由');
   });
 
   assert.strictEqual(payload.status, 'success', payload.message);
+  assert.strictEqual(payload.updated, true);
   assert.strictEqual(payload.revised, true);
   assert.strictEqual(payload.revisionNumber, 4);
   assert.deepStrictEqual(insertedAnswers, [{ questionIndex: 1, score: 90 }]);
-  assert.strictEqual(archivedRevision.revisionNumber, 3);
-  assert.strictEqual(Number(archivedRevision.answers[0].score), 80);
-  assert(operations.indexOf('archive') < operations.indexOf('delete-current-answers'));
+  assert.strictEqual(operations.includes('archive'), false);
+  assert(operations.indexOf('advance') < operations.indexOf('delete-current-answers'));
   assert.strictEqual(cacheInvalidated, true);
-  console.log('评分修订事务实际归档旧答案、保存新答案并刷新结果缓存测试通过');
+  console.log('评分覆盖事务替换当前答案、不保留旧副本并刷新结果缓存测试通过');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

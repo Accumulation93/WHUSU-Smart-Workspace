@@ -54,12 +54,12 @@ module.exports = Object.freeze({
   copy_e52119b17e: "请稍后刷新",
   copy_eb813c46d9: "场地使用已创建",
   copy_ecda79c975: '场地已创建',
-  copy_f048be09ae: "请使用管理员身份",
+  copy_f048be09ae: "请切换到相应的管理权限",
   copy_f450f21538: "请选择同一天的开始和结束时间",
   copy_f553985be3: "已被驳回",
   copy_f64d815664: "所选时段已有活动占用",
   copy_f95e1a0218: "事由已删除",
   copy_fdb45fb38f: "请输入事由内容",
-  historicalAssignmentMissing: "历史岗位未记录，不能按岗位规则处理该借用",
+  historicalAssignmentMissing: "这条借用未记录当时的岗位，暂时无法处理",
   invalidBookingRuleType: "请选择有效的借用审批规则类型"
 });

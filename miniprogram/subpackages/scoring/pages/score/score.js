@@ -247,8 +247,6 @@ Page({
     keyboardCollapsed: false,
     keyboardMode: 'quick',
     submitting: false,
-    hasExistingRecord: false,
-    existingRecordEditable: false,
     existingRecordId: '',
     existingRecordRevision: 0,
     existingRecordText: '',
@@ -489,8 +487,8 @@ Page({
         let existingRecordRevision = hasExistingRecord
           ? Math.max(1, Number(result.existingRecord.revisionNumber || 1))
           : 0;
-        let existingRecordText = hasExistingRecord
-          ? (result.readOnlyMessage || (readOnly ? localeCopy.historicalReadOnly : localeCopy.copy_b2c15dd48a))
+        let existingRecordText = readOnly
+          ? (result.readOnlyMessage || localeCopy.historicalReadOnly)
           : '';
 
         let summaries = computeSummaries(rawQuestionList);
@@ -515,8 +513,6 @@ Page({
           currentActivityText: result.currentActivity ? result.currentActivity.name : localeCopy.copy_400aa44fd7,
           questionList: questionList,
           currentQuestionIndex: initialIndex,
-          hasExistingRecord: hasExistingRecord,
-          existingRecordEditable: hasExistingRecord && !readOnly,
           existingRecordId: existingRecordId,
           existingRecordRevision: existingRecordRevision,
           existingRecordText: existingRecordText,
@@ -937,7 +933,7 @@ Page({
           self.setData({ submitting: false });
           return;
         }
-        wx.showToast({ title: result.revised ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
+        wx.showToast({ title: result.updated || result.revised ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
         self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
         }, 1200);

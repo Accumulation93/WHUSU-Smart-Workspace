@@ -59,14 +59,13 @@
           </view>
         </view>
       </view>
-      <view class="existing-record-tip" wx:if="{{hasExistingRecord}}">{{existingRecordText}}</view>
+      <view class="record-unavailable-tip" wx:if="{{readOnly && existingRecordText}}">{{existingRecordText}}</view>
     </view>
 
     <view class="card question-section-card">
       <view class="section-heading-row">
         <view class="section-title section-title-flush">{{localeCopy.copy_ad5ba99be4}}</view>
         <view class="readonly-chip" wx:if="{{readOnly}}">{{localeCopy.historicalReadOnlyShort}}</view>
-        <view class="editable-history-chip" wx:elif="{{existingRecordEditable}}">{{localeCopy.historicalEditableShort}}</view>
       </view>
       <view class="empty-text" wx:if="{{readOnly && questionList.length === 0}}">{{localeCopy.historicalRecordEmpty}}</view>
       <block wx:for="{{questionList}}" wx:key="id">

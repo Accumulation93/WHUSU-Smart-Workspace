@@ -51,5 +51,5 @@ module.exports = Object.freeze({
   copy_f15fa8cc75: "被评人身份",
   copy_fac1711a09: "评分问题",
   historicalSnapshotInvalid: "历史评分依据校验失败，结果已停止计算，请联系管理员核对历史数据",
-  historicalSnapshotMissing: "部分历史评分缺少提交时的计算快照，结果已停止计算，不能使用当前规则推断"
+  historicalSnapshotMissing: "部分历史评分缺少完整评分依据，暂时无法计算结果"
 });
