@@ -843,5 +843,6 @@ module.exports = Object.freeze({
   hrDeletionDisabledRules: '实际变更的规则',
   hrDeletionFinish: '完成',
   hrConfirmPermanentDeletion: '确认永久删除',
+  savePassphrase: '保存口令',
   navigationTitle: "考核评分 - WHUSU智慧工作台"
 });

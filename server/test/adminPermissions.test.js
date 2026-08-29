@@ -69,7 +69,7 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/previewPersonIdentityCorrection').anyOf, ['auth.accounts.global_manage']);
   assert.deepStrictEqual(ROUTE_RULES.get('/applyPersonIdentityCorrection').anyOf, ['auth.accounts.global_manage']);
   assert.deepStrictEqual(ROUTE_RULES.get('/mergePersons').anyOf, ['auth.accounts.global_manage']);
-  assert.deepStrictEqual(ROUTE_RULES.get('/admin/auth/security').anyOf, ['auth.accounts.recover']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/admin/auth/security').anyOf, ['auth.accounts.global_manage']);
   assert.deepStrictEqual(
     ROUTE_RULES.get('/admin/auth/security/sessions/revoke').anyOf,
     ['auth.accounts.global_manage']

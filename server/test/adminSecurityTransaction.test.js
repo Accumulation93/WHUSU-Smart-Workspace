@@ -39,6 +39,16 @@ const identityModel = {
   async getAccountByPersonInOrg() {
     return { account_id: 'account-target', person_id: 'person-target' };
   },
+  async ensureAccountForActiveMember(personId, organizationId, connection) {
+    assert.strictEqual(personId, 'person-target');
+    assert.strictEqual(organizationId, 'org-a');
+    assert.strictEqual(connection.id, 'transaction-connection');
+    return {
+      account_id: 'account-target',
+      person_id: 'person-target',
+      accountInitialized: Boolean(scenario.accountInitialized)
+    };
+  },
   async revokeSession(accountId, sessionId, currentSessionId, connection) {
     assert.strictEqual(connection.id, 'transaction-connection');
     transactionState.pendingMutation = Boolean(scenario.sessionChanged);
@@ -114,7 +124,8 @@ function resetScenario(values) {
   scenario = Object.assign({
     auditFailure: false,
     sessionChanged: true,
-    credentialChanged: true
+    credentialChanged: true,
+    accountInitialized: false
   }, values);
   transactionState = {
     started: 0,
@@ -135,6 +146,15 @@ async function run() {
   assert.strictEqual(transactionState.rolledBack, 1);
   assert.strictEqual(transactionState.persistedMutation, false, '审计失败时恢复口令写入必须回滚');
 
+  resetScenario({ accountInitialized: true });
+  const initialized = await invoke('/admin/auth/security/passphrase', { value: 'Strong-Passphrase-2026' });
+  assert.strictEqual(initialized.payload.status, 'success');
+  assert.strictEqual(initialized.payload.accountId, 'account-target');
+  assert.strictEqual(initialized.payload.accountInitialized, true);
+  assert.strictEqual(initialized.payload.passphraseSet, true);
+  assert.strictEqual(transactionState.committed, 1);
+  assert.strictEqual(transactionState.auditEvents[0].accountId, 'account-target');
+
   resetScenario({ sessionChanged: false });
   const missingSession = await invoke('/admin/auth/security/sessions/revoke', { sessionId: 'session-missing' });
   assert.strictEqual(missingSession.payload.status, 'not_found');
@@ -152,6 +172,7 @@ async function run() {
     'utf8'
   );
   assert(modelSource.includes('async function configureRecoveryCredential(accountId, method, value, connection)'));
+  assert(modelSource.includes('async function ensureAccountForActiveMember(personId, orgId, connection)'));
   assert(modelSource.includes('async function revokeSession(accountId, sessionId, currentSessionId, connection)'));
   assert(modelSource.includes('async function revokeRecoveryCredential(accountId, method, connection)'));
   console.log('管理员账号安全写入与审计事务测试通过');

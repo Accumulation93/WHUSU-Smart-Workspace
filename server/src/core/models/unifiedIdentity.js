@@ -2472,6 +2472,40 @@ async function getAccountByPersonInOrg(personId, orgId) {
   return rows[0] || null;
 }
 
+async function getMemberAccountSubjectByPersonInOrg(personId, orgId, connection, lock) {
+  const executor = connection || pool;
+  const [rows] = await executor.query(
+    `SELECT p.id AS person_id, p.name, p.student_id,
+            a.id AS account_id, a.status AS account_status
+       FROM organization_memberships om
+       JOIN persons p ON p.id = om.person_id AND p.status = 'active'
+       LEFT JOIN accounts a ON a.person_id = p.id
+      WHERE om.person_id = ? AND om.org_id = ? AND om.status = 'active'
+      LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
+    [safeString(personId), safeString(orgId)]
+  );
+  return rows[0] || null;
+}
+
+async function ensureAccountForActiveMember(personId, orgId, connection) {
+  const subject = await getMemberAccountSubjectByPersonInOrg(personId, orgId, connection, true);
+  if (!subject) return null;
+  if (subject.account_id) {
+    return Object.assign({}, subject, { accountInitialized: false });
+  }
+  const accountId = generateId();
+  await connection.query(
+    `INSERT INTO accounts (id, person_id, status, token_version, verified_at)
+     VALUES (?, ?, 'verified', 1, NOW())`,
+    [accountId, subject.person_id]
+  );
+  return Object.assign({}, subject, {
+    account_id: accountId,
+    account_status: 'verified',
+    accountInitialized: true
+  });
+}
+
 async function getPassphraseStatus(accountId) {
   const [rows] = await pool.query(
     `SELECT 1 FROM account_recovery_credentials
@@ -2849,9 +2883,9 @@ async function authenticateWithPassphrase(studentId, passphrase) {
     const [rows] = await connection.query(`SELECT a.*, p.name, p.student_id, b.openid_hash, c.id AS credential_id,
       c.credential_hash, c.salt, c.failed_attempts, c.locked_until
       FROM persons p JOIN accounts a ON a.person_id = p.id
-      JOIN account_wechat_bindings b ON b.account_id = a.id AND b.status = 'active'
+      LEFT JOIN account_wechat_bindings b ON b.account_id = a.id AND b.app_id = ? AND b.status = 'active'
       LEFT JOIN account_recovery_credentials c ON c.account_id = a.id AND c.method = 'passphrase' AND c.status = 'active'
-      WHERE p.normalized_student_id = ? AND p.status = 'active' LIMIT 1 FOR UPDATE`, [normalized]);
+      WHERE p.normalized_student_id = ? AND p.status = 'active' LIMIT 1 FOR UPDATE`, [APP_ID, normalized]);
     const account = rows[0];
     const valid = account && account.status === 'verified' && account.credential_id
       && (!account.locked_until || new Date(account.locked_until).getTime() <= Date.now())
@@ -2865,6 +2899,49 @@ async function authenticateWithPassphrase(studentId, passphrase) {
     }
     await connection.query(`UPDATE account_recovery_credentials SET failed_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = ?`, [account.credential_id]);
     return account;
+  });
+}
+
+async function bindWechatAfterPassphraseLogin(accountId, openid, metadata) {
+  const normalizedAccountId = safeString(accountId);
+  const normalizedOpenid = safeString(openid);
+  if (!normalizedAccountId || !normalizedOpenid) {
+    throw new IdentityError('invalid_wechat_code', localeCopy.copy_ffadbecb8f, 401);
+  }
+  return pool.withTransaction(async (connection) => {
+    const [rows] = await connection.query(
+      `SELECT a.*, p.name, p.student_id, b.id AS binding_id, b.openid_hash
+         FROM accounts a
+         JOIN persons p ON p.id = a.person_id AND p.status = 'active'
+         LEFT JOIN account_wechat_bindings b
+           ON b.account_id = a.id AND b.app_id = ? AND b.status = 'active'
+        WHERE a.id = ? AND a.status = 'verified'
+        LIMIT 1 FOR UPDATE`,
+      [APP_ID, normalizedAccountId]
+    );
+    const account = rows[0];
+    if (!account) {
+      throw new IdentityError('account_unavailable', localeCopy.copy_0995192dbd, 401);
+    }
+    if (account.binding_id) return account;
+
+    const boundAccount = await findAccountByOpenid(normalizedOpenid, connection);
+    if (boundAccount && safeString(boundAccount.id) !== normalizedAccountId) {
+      throw new IdentityError('wechat_conflict', localeCopy.copy_6d67001148, 409);
+    }
+    if (boundAccount) return boundAccount;
+
+    await insertActiveWechatBinding(connection, normalizedAccountId, normalizedOpenid);
+    await syncLegacyBindings(connection, normalizedAccountId, normalizedOpenid);
+    await appendAuditEvent({
+      connection,
+      eventType: 'password_wechat_binding_created',
+      targetPersonId: account.person_id,
+      accountId: normalizedAccountId,
+      requestId: metadata && metadata.requestId,
+      ip: metadata && metadata.ip
+    });
+    return Object.assign({}, account, { openid_hash: hmac(normalizedOpenid) });
   });
 }
 
@@ -2925,17 +3002,20 @@ module.exports = {
   listSessions,
   revokeSession,
   getAccountByPersonInOrg,
+  getMemberAccountSubjectByPersonInOrg,
+  ensureAccountForActiveMember,
   getPassphraseStatus,
   revokeRecoveryCredential,
   resetAccountByLegacyHr,
   appendAuditEvent,
-  listAuditEvents
-  ,listEligibleInitialInvitePeople
-  ,issueInitialInvites
-  ,revokeInitialInvites
-  ,redeemInitialInvite
-  ,listEligibleRecoveryAccounts
-  ,issueAdminRecoveryCodes
-  ,revokeAdminRecoveryCodes
-  ,authenticateWithPassphrase
+  listAuditEvents,
+  listEligibleInitialInvitePeople,
+  issueInitialInvites,
+  revokeInitialInvites,
+  redeemInitialInvite,
+  listEligibleRecoveryAccounts,
+  issueAdminRecoveryCodes,
+  revokeAdminRecoveryCodes,
+  authenticateWithPassphrase,
+  bindWechatAfterPassphraseLogin
 };

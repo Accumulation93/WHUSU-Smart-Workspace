@@ -35,9 +35,10 @@ function routeBody(routePath, nextRoutePath) {
 });
 
 const securityReadBody = routeBody('/admin/auth/security', '/admin/auth/security/sessions/revoke');
-assert(securityReadBody.includes("requireAdminPermission(req, 'auth.accounts.recover')"));
+assert(securityReadBody.includes("requireAdminPermission(req, 'auth.accounts.global_manage')"));
 assert(securityReadBody.includes('scopeAccountSessions('));
-assert(securityReadBody.includes("hasGrantedPermission(actor, 'auth.accounts.global_manage')"));
+assert(securityReadBody.includes('getMemberAccountSubjectByPersonInOrg('));
+assert(securityReadBody.includes('accountExists'));
 
 const recoveriesBody = routeBody('/admin/auth/recoveries', '/admin/auth/accounts');
 ['issue_codes', 'revoke_codes', 'approve'].forEach((action) => {

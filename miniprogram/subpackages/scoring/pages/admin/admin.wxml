@@ -1323,8 +1323,10 @@
               </view>
               <view class="hr-account-security-form" wx:if="{{showDetailPassphraseForm}}">
                 <input class="field-input" password="{{true}}" value="{{detailHrPassphraseInput}}" bindinput="onDetailPassphraseInput" placeholder="{{localeCopy.copy_10c21cf3bc}}" />
-                <button class="primary-btn compact-action ui-motion-button" loading="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_71db23a36b}}</button>
-                <button class="secondary-btn compact-action ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
+                <view class="button-row hr-account-security-form-actions">
+                  <button class="primary-btn ui-motion-button" loading="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.savePassphrase}}</button>
+                  <button class="secondary-btn ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
+                </view>
               </view>
             </view>
             <view class="hr-account-devices" wx:if="{{canGlobalAccountManage && detailHrSecurity && detailHrSecurity.sessions.length}}">

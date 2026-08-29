@@ -2668,8 +2668,7 @@ scroll-view {
   gap: 12rpx;
 }
 
-.hr-account-security-actions,
-.hr-account-security-form {
+.hr-account-security-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2677,14 +2676,16 @@ scroll-view {
   margin-top: 12rpx;
 }
 
-.hr-account-security-actions button,
-.hr-account-security-form button {
+.hr-account-security-actions button {
   margin: 0;
 }
 
-.hr-account-security-form .field-input {
-  flex: 1 1 260rpx;
-  min-width: 0;
+.hr-account-security-form {
+  margin-top: 12rpx;
+}
+
+.hr-account-security-form-actions {
+  margin: var(--ui-action-gap, 20rpx) 0 0;
 }
 
 .hr-account-devices {

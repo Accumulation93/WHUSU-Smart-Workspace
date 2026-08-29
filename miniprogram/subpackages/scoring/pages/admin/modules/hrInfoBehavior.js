@@ -1167,7 +1167,7 @@ module.exports = Behavior({
           detailHrAuditStatusText: '',
           loadingDetailHr: false
         });
-        if (this.data.canGlobalAccountManage && governance.personId && governance.accountId) {
+        if (this.data.canGlobalAccountManage && governance.personId) {
           this.loadDetailHrSecurity(governance.personId, detailRequestId);
         } else {
           this.setData({ detailHrSecurity: null });
@@ -1197,7 +1197,7 @@ module.exports = Behavior({
         detailHrGovernance: governance,
         loadingDetailHr: true
       });
-      if (this.data.canGlobalAccountManage && governance && governance.personId && governance.accountId) {
+      if (this.data.canGlobalAccountManage && governance && governance.personId) {
         this.loadDetailHrSecurity(governance.personId, detailRequestId);
       } else {
         this.setData({ detailHrSecurity: null });

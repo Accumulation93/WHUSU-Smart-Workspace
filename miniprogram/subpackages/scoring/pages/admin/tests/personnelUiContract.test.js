@@ -33,6 +33,19 @@ test('账号高危控件只由全局账号治理权限控制', () => {
   assert.match(hrBehavior, /async unbindHrWechat\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
 });
 
+test('无账号成员可初始化口令且保存表单使用标准详情按钮规格', () => {
+  assert.match(hrBehavior, /canGlobalAccountManage && governance\.personId/);
+  assert.doesNotMatch(hrBehavior, /canGlobalAccountManage && governance\.personId && governance\.accountId/);
+  const formStart = wxml.indexOf('class="hr-account-security-form"');
+  const formEnd = wxml.indexOf('</view>\n            </view>', formStart);
+  const form = wxml.slice(formStart, formEnd);
+  assert.match(form, /button-row hr-account-security-form-actions/);
+  assert.match(form, /localeCopy\.savePassphrase/);
+  assert.doesNotMatch(form, /compact-action/);
+  assert.match(authBehavior, /'detailHrSecurity\.accountExists': true/);
+  assert.match(authBehavior, /'detailHrGovernance\.accountId': String\(result\.accountId/);
+});
+
 test('认证码和恢复码撤销冻结目标并统一经过受控确认', () => {
   assert.match(wxml, /wx:if="\{\{authMemberConfirmVisible\}\}"/);
   assert.match(authBehavior, /function freezeCredentialTargets\(rows\)/);

@@ -9,6 +9,20 @@ function selectedOrganizationName(organizations, index) {
   return item ? item.name : '';
 }
 
+function requestWechatLoginCode() {
+  return new Promise(function(resolve, reject) {
+    wx.login({
+      success(result) {
+        if (result && result.code) resolve(result.code);
+        else reject(new Error(copy.messages.relogin));
+      },
+      fail() {
+        reject(new Error(copy.messages.relogin));
+      }
+    });
+  });
+}
+
 Page({
   data: {
     copy: copy.view,
@@ -110,11 +124,13 @@ Page({
     this.setData({ loading: true });
     try {
       const device = getDeviceIdentity();
+      const code = await requestWechatLoginCode();
       const result = await callFunction({
         name: 'auth/password/session',
         data: {
           studentId: this.data.passwordStudentId,
           passphrase: this.data.password,
+          code,
           deviceId: device.id,
           devicePlatform: device.platform,
           deviceModel: device.model,

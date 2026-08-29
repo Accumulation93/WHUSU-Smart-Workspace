@@ -1111,6 +1111,7 @@ module.exports = Behavior({
         this.setData({
           detailHrSecurity: {
             account: result.account || null,
+            accountExists: Boolean(result.accountExists),
             bindingStatus: result.bindingStatus || '',
             passphraseSet: Boolean(result.passphraseSet),
             sessions
@@ -1157,7 +1158,10 @@ module.exports = Behavior({
         this.setData({
           showDetailPassphraseForm: false,
           detailHrPassphraseInput: '',
-          'detailHrSecurity.passphraseSet': true
+          'detailHrSecurity.accountExists': true,
+          'detailHrSecurity.passphraseSet': true,
+          'detailHrGovernance.accountId': String(result.accountId || this.data.detailHrGovernance.accountId || ''),
+          'detailHrGovernance.auth.status': this.data.detailHrGovernance.auth.status || 'verified'
         });
         showShortToast(localeCopy.copy_cd01c4669c, 'success');
       } catch (error) {

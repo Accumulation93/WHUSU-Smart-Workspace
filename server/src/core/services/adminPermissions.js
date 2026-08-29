@@ -215,12 +215,12 @@ mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrg
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
 mapRoutes('auth.identity.verify', ['/admin/auth/claims']);
 mapRoutes('auth.accounts.recover', [
-  '/admin/auth/recoveries', '/admin/auth/accounts', '/admin/auth/security'
+  '/admin/auth/recoveries', '/admin/auth/accounts'
 ]);
 mapRoutes('auth.accounts.global_manage', [
   '/unbindHrWechat', '/adminUnbindUser',
   '/previewPersonIdentityCorrection', '/applyPersonIdentityCorrection', '/mergePersons',
-  '/admin/auth/security/sessions/revoke',
+  '/admin/auth/security', '/admin/auth/security/sessions/revoke',
   '/admin/auth/security/passphrase', '/admin/auth/security/passphrase/revoke'
 ]);
 mapRoutes('auth.accounts.audit', ['/admin/auth/audit']);

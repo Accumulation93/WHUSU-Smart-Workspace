@@ -7,7 +7,6 @@ const identityModel = require('../models/unifiedIdentity');
 const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
 const {
-  hasGrantedPermission,
   scopeAccountSessions
 } = require('../services/adminPermissions');
 
@@ -171,10 +170,17 @@ router.post('/auth/claims/redeem', async (req, res) => {
 
 router.post('/auth/password/session', async (req, res) => {
   try {
-    const account = await identityModel.authenticateWithPassphrase(
+    let account = await identityModel.authenticateWithPassphrase(
       req.body && req.body.studentId,
       req.body && req.body.passphrase
     );
+    if (!account.openid_hash) {
+      const openid = await unifiedAuth.exchangeWechatCode(
+        req.body && req.body.code,
+        req.body && req.body.openid
+      );
+      account = await identityModel.bindWechatAfterPassphraseLogin(account.id, openid, metadata(req));
+    }
     await identityModel.appendAuditEvent({ eventType: 'password_session_created', targetPersonId: account.person_id,
       accountId: account.id, requestId: req.requestId, ip: req.ip });
     return res.json(await withSystemTimezone(await unifiedAuth.createAuthenticatedSession(account, {
@@ -389,21 +395,29 @@ router.post('/auth/security/sessions/revoke', async (req, res) => {
 
 router.post('/admin/auth/security', async (req, res) => {
   try {
-    const actor = await requireAdminPermission(req, 'auth.accounts.recover');
-    const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    const canGlobalManage = hasGrantedPermission(actor, 'auth.accounts.global_manage');
-    const sessions = scopeAccountSessions(
+    const actor = await requireAdminPermission(req, 'auth.accounts.global_manage');
+    const account = await identityModel.getMemberAccountSubjectByPersonInOrg(
+      safeString(req.body && req.body.personId),
+      req.authContext.organizationId
+    );
+    if (!account) {
+      throw new identityModel.IdentityError('member_not_found', localeCopy.copy_3b60b7e276, 404);
+    }
+    const canGlobalManage = true;
+    const accountExists = Boolean(account.account_id);
+    const sessions = accountExists ? scopeAccountSessions(
       await identityModel.listSessions(account.account_id),
       actor.organizationId,
       canGlobalManage
-    );
-    const passphraseSet = canGlobalManage
+    ) : [];
+    const passphraseSet = canGlobalManage && accountExists
       ? await identityModel.getPassphraseStatus(account.account_id)
-      : null;
+      : false;
     return res.json(await withSystemTimezone({
       status: 'success',
       account: { name: account.name, studentId: account.student_id },
-      bindingStatus: safeString(account.account_status),
+      accountExists,
+      bindingStatus: accountExists ? safeString(account.account_status) : 'unbound',
       canGlobalManage,
       passphraseSet,
       sessions: sessions.map(mapSecuritySession)
@@ -452,8 +466,15 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
 router.post('/admin/auth/security/passphrase', async (req, res) => {
   try {
     await requireAdminPermission(req, 'auth.accounts.global_manage');
-    const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    await pool.withTransaction(async (connection) => {
+    const result = await pool.withTransaction(async (connection) => {
+      const account = await identityModel.ensureAccountForActiveMember(
+        safeString(req.body && req.body.personId),
+        req.authContext.organizationId,
+        connection
+      );
+      if (!account) {
+        throw new identityModel.IdentityError('member_not_found', localeCopy.copy_3b60b7e276, 404);
+      }
       await identityModel.configureRecoveryCredential(
         account.account_id,
         'passphrase',
@@ -472,8 +493,12 @@ router.post('/admin/auth/security/passphrase', async (req, res) => {
         ip: req.ip,
         detail: { method: 'passphrase' }
       });
+      return {
+        accountId: account.account_id,
+        accountInitialized: Boolean(account.accountInitialized)
+      };
     });
-    return res.json({ status: 'success' });
+    return res.json(Object.assign({ status: 'success', passphraseSet: true }, result));
   } catch (error) {
     return sendError(req, res, error);
   }
