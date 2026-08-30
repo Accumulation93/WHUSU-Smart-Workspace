@@ -95,7 +95,9 @@ function mapNotification(row, context) {
   const targetId = safeString(row.target_id);
   const routes = {
     submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
-    booking: '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
+    booking: targetId
+      ? '/subpackages/venue/pages/myVenueBookings/myVenueBookings?bookingId=' + encodeURIComponent(targetId)
+      : '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
     score_activity: '/subpackages/workspace/pages/home/home?subApp=scoring',
     result_publication: '/subpackages/workspace/pages/home/home?subApp=scoring',
     hr_profile: '/subpackages/workspace/pages/home/home?subApp=hr',

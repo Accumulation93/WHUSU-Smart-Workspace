@@ -2,6 +2,13 @@
 
 module.exports = Object.freeze({
   bookingAssignment: '提交岗位',
+  bookingDetailTitle: '借用详情',
+  bookingNotFound: '未找到这条借用记录，请刷新后重试',
+  cancelInUse: '借用已开始，请使用结束操作',
+  cancelUnavailable: '当前状态不能取消借用',
+  close: '关闭',
+  confirmEndContent: '结束时间将更新为现在，是否继续？',
+  confirmEndTitle: '确认结束使用',
   copy_059dd7bc2c: "取消借用",
   copy_10bd4c9a19: '确认取消',
   copy_28981b382e: "暂无借用记录",
@@ -21,5 +28,9 @@ module.exports = Object.freeze({
   copy_e52119b17e: '请稍后刷新',
   copy_e8d9493a44: "至",
   copy_fd4601c1f9: '已取消',
-  navigationTitle: "场地借用 - WHUSU智慧工作台"
+  endSuccess: '使用已结束',
+  endUnavailable: '当前状态不能结束使用',
+  endUse: '结束使用',
+  navigationTitle: "场地借用 - WHUSU智慧工作台",
+  operationFailed: '未完成，请重试'
 });

@@ -2,6 +2,15 @@ const notificationModel = require('../../audit/models/notification');
 const { createNotification } = require('../../audit/utils/notificationHelper');
 const { resolveBookingApplicantAssignment } = require('../services/venueAssignmentContext');
 
+const MY_VENUE_BOOKINGS_ROUTE = '/subpackages/venue/pages/myVenueBookings/myVenueBookings';
+
+function buildVenueBookingTargetUrl(bookingId) {
+  const normalizedBookingId = String(bookingId || '').trim();
+  return normalizedBookingId
+    ? MY_VENUE_BOOKINGS_ROUTE + '?bookingId=' + encodeURIComponent(normalizedBookingId)
+    : MY_VENUE_BOOKINGS_ROUTE;
+}
+
 /**
  * 待办改为实时按业务状态计算，不再为每个审批人持久化 pending_approval 通知。
  * 此兼容函数只清理旧记录，保留现有调用链而不制造重复消息。
@@ -23,11 +32,12 @@ async function createVenueBookingStatusNotification(booking, type, title, descri
     category: 'venue',
     targetType: 'booking',
     targetId: booking.id,
-    targetUrl: '/subpackages/venue/pages/myVenueBookings/myVenueBookings'
+    targetUrl: buildVenueBookingTargetUrl(booking.id)
   }, conn);
 }
 
 module.exports = {
+  buildVenueBookingTargetUrl,
   createVenueApprovalNotifications,
   createVenueBookingStatusNotification
 };

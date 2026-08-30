@@ -11,20 +11,38 @@
     <view class="section-title">{{localeCopy.copy_decce2c059}} ({{bookings.length}})</view>
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
       <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-text">{{localeCopy.copy_28981b382e}}</view></view>
-      <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
+      <view class="booking-item ui-motion-card" wx:for="{{bookings}}" wx:key="id" data-id="{{item.id}}" bindtap="openBookingDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="booking-header">
           <view class="booking-title">{{item.title || localeCopy.copy_9639901862}}</view>
-          <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
+          <text class="status-tag {{item.displayStatus}}">{{item._statusLabel}}</text>
         </view>
         <view class="booking-meta">{{item.venueName}} · {{item.venueLocation || '-'}}</view>
         <view class="booking-meta">{{item.timeStartText}} {{localeCopy.copy_e8d9493a44}} {{item.timeEndText}}</view>
         <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
         <view class="booking-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
-        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn ui-motion-chip" data-id="{{item.id}}" bindtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_059dd7bc2c}}</text>
+        <view class="booking-actions" wx:if="{{item._canCancel || item._canEnd}}">
+          <text wx:if="{{item._canCancel}}" class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_059dd7bc2c}}</text>
+          <text wx:if="{{item._canEnd}}" class="link ui-motion-chip" data-id="{{item.id}}" catchtap="endBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.endUse}}</text>
+        </view>
       </view>
     </scroll-view>
   </view>
+
+  <viewport-portal wx:if="{{bookingDetailVisible}}">
+    <view class="popup-mask ui-overlay" bindtap="closeBookingDetail">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+      <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-header ui-dialog-header">
+          <view class="popup-title">{{localeCopy.bookingDetailTitle}}</view>
+          <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.close}}</text>
+        </view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+          <venue-booking-detail booking="{{bookingDetail}}"></venue-booking-detail>
+        </scroll-view>
+      </view>
+    </view>
+  </viewport-portal>
 
   <view class="page-footer"><view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view><view class="footer-org">{{localeCopy.copy_638da8ae60}}</view></view>
 </view>

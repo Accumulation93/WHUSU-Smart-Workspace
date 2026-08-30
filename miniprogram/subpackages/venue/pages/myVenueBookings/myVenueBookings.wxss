@@ -46,21 +46,7 @@
 .booking-title { flex:1; min-width:0; font-size: var(--ui-type-value); font-weight:700; color:#0f172a; overflow-wrap:anywhere; }
 .booking-meta { font-size: var(--ui-type-meta); color:#64748b; line-height:1.7; }
 
-.booking-status {
-  flex-shrink: 0;
-  font-size: var(--ui-type-caption); font-weight:700; padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); white-space:nowrap;
-}
-.booking-status.pending { background:#fef3c7; color:#92400e; }
-.booking-status.approved { background:#d1fae5; color:#065f46; }
-.booking-status.rejected { background:#fee2e2; color:#991b1b; }
-.booking-status.cancelled { background:#f1f5f9; color:#94a3b8; }
-
-.cancel-btn {
-  display:inline-block; margin-top:10rpx;
-  font-size: var(--ui-type-caption); font-weight:600; color:#ef4444;
-  min-height:36rpx; padding:6rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx);
-  background:rgba(254,226,226,0.6); border:1rpx solid rgba(252,165,165,0.4);
-}
+.booking-actions { display: flex; justify-content: flex-end; gap: var(--ui-inline-gap, 10rpx); margin-top: var(--ui-inline-gap, 10rpx); }
 
 /* WHUSU Smart Workspace style polish for my venue bookings */
 page {
@@ -194,55 +180,6 @@ page {
   word-break: break-word;
 }
 
-.booking-status {
-  min-height: 38rpx;
-  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
-  border-radius: var(--ui-compact-radius, 18rpx);
-  font-size: var(--ui-type-caption);
-  font-weight: 800;
-  line-height: 1.35;
-  border: 1rpx solid transparent;
-}
-
-.booking-status.pending {
-  color: #c2410c;
-  background: rgba(255,237,213,0.78);
-  border-color: rgba(253,186,116,0.58);
-}
-
-.booking-status.approved {
-  color: #15803d;
-  background: rgba(209,250,229,0.78);
-  border-color: rgba(110,231,183,0.58);
-}
-
-.booking-status.rejected {
-  color: #64748b;
-  background: rgba(241,245,249,0.88);
-  border-color: rgba(203,213,225,0.58);
-}
-
-.booking-status.cancelled {
-  color: #64748b;
-  background: rgba(241,245,249,0.88);
-  border-color: rgba(203,213,225,0.58);
-}
-
-.cancel-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36rpx;
-  margin-top: var(--ui-inline-gap, 10rpx);
-  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
-  border-radius: var(--ui-compact-radius, 18rpx);
-  color: #dc2626;
-  font-size: var(--ui-type-meta);
-  font-weight: 800;
-  background: rgba(254,226,226,0.78);
-  border: 1rpx solid rgba(252,165,165,0.58);
-}
-
 .audit-empty-state {
   padding: 42rpx 24rpx;
   border-radius: 22rpx;
@@ -260,43 +197,14 @@ page {
   max-height: 780rpx;
 }
 
-/* Final status polish */
-.booking-status {
-  box-shadow:
-    0 6rpx 14rpx rgba(15,23,42,0.035),
-    inset 0 1rpx 0 rgba(255,255,255,0.56);
-}
-
-.booking-status.pending {
-  background: linear-gradient(135deg, rgba(255,247,237,0.96), rgba(254,215,170,0.84));
-}
-
-.booking-status.approved {
-  background: linear-gradient(135deg, rgba(220,252,231,0.96), rgba(167,243,208,0.84));
-}
-
-.booking-status.rejected,
-.booking-status.cancelled {
-  background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.84));
-}
-
-.cancel-btn {
-  background: linear-gradient(135deg, rgba(254,242,242,0.92), rgba(254,226,226,0.78));
-  box-shadow:
-    0 8rpx 18rpx rgba(239,68,68,0.06),
-    inset 0 1rpx 0 rgba(255,255,255,0.68);
-  transition: transform 0.14s ease, opacity 0.14s ease;
-}
-
-.cancel-btn:active {
-  transform: translateY(1rpx) scale(0.985);
-  opacity: 0.9;
-}
-
 /* Final local motion: booking rows are containers for child actions here. */
 .card:active,
 .section:active,
 .booking-item:active {
   transform: none !important;
   filter: none !important;
+}
+
+@media (min-width: 520px) {
+  .booking-actions { gap: 8px; margin-top: 8px; }
 }

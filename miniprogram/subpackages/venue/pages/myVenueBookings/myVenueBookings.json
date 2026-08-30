@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"","usingComponents":{}}
+{
+  "navigationBarTitleText": "",
+  "usingComponents": {
+    "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail"
+  }
+}
