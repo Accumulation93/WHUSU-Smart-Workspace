@@ -18,6 +18,14 @@ const CATEGORY_LABELS = {
   system: copy.categoryLabels.system
 };
 
+function isPartialBulkResult(result) {
+  return !!(result && (
+    result.partial
+    || (Array.isArray(result.failedOrganizations) && result.failedOrganizations.length)
+    || (Array.isArray(result.failures) && result.failures.length)
+  ));
+}
+
 const PORTAL_CARDS_USER = [
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
@@ -379,10 +387,13 @@ Page({
   async loadMoreTodos() {
     if (!this.data.todoNextCursor || this.data.todoLoadingMore) return;
     const request = orgSession.beginRequest(this, 'portalTodoMore');
+    const revision = this._messageRevision || 0;
     this.setData({ todoLoadingMore: true });
     try {
       const res = await callFunction({ name: 'listTodos', data: { limit: 20, cursor: this.data.todoNextCursor } });
-      if (!orgSession.isRequestCurrent(this, request) || res.status !== 'success') return;
+      if (!orgSession.isRequestCurrent(this, request)
+          || revision !== (this._messageRevision || 0)
+          || res.status !== 'success') return;
       this.setData({
         todos: this.data.todos.concat(this.formatMessageItems(res.items, false)),
         todoCount: res.total || 0,
@@ -397,10 +408,13 @@ Page({
   async loadMoreNotifications() {
     if (!this.data.notificationNextCursor || this.data.notificationLoadingMore) return;
     const request = orgSession.beginRequest(this, 'portalNotificationMore');
+    const revision = this._messageRevision || 0;
     this.setData({ notificationLoadingMore: true });
     try {
       const res = await callFunction({ name: 'listNotifications', data: { limit: 20, cursor: this.data.notificationNextCursor } });
-      if (!orgSession.isRequestCurrent(this, request) || res.status !== 'success') return;
+      if (!orgSession.isRequestCurrent(this, request)
+          || revision !== (this._messageRevision || 0)
+          || res.status !== 'success') return;
       this.setData({
         notifications: this.data.notifications.concat(this.formatMessageItems(res.items, true)),
         notificationCount: res.unreadCount || 0,
@@ -697,19 +711,27 @@ Page({
   async markAllNotificationsRead() {
     if (!this.data.notificationCount) return;
     this._messageRevision = (this._messageRevision || 0) + 1;
-    const previous = this.data.notifications;
+    const previous = {
+      notifications: this.data.notifications,
+      notificationCount: this.data.notificationCount,
+      messagePartial: this.data.messagePartial
+    };
     this.setData({
-      notifications: previous.map(function(item) { return Object.assign({}, item, { isRead: true }); }),
+      notifications: previous.notifications.map(function(item) { return Object.assign({}, item, { isRead: true }); }),
       notificationCount: 0
     });
     try {
       const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
       if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
-      if (result.partial) this.setData({ messagePartial: true });
+      if (isPartialBulkResult(result)) {
+        this.setData(previous);
+        await this.loadMessageOverview();
+        showShortToast(copy.messages.partialBulkAction);
+      }
     } catch (error) {
-      this.setData({ notifications: previous });
-      this.loadMessageOverview();
-      wx.showToast({ title: copy.messages.incomplete, icon: 'none' });
+      this.setData(previous);
+      await this.loadMessageOverview();
+      showShortToast(copy.messages.incomplete);
     }
   },
 

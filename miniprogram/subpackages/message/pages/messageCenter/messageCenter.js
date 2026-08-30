@@ -21,6 +21,14 @@ function queuePendingRead(organizationId, role, id) {
   }
 }
 
+function isPartialBulkResult(result) {
+  return !!(result && (
+    result.partial
+    || (Array.isArray(result.failedOrganizations) && result.failedOrganizations.length)
+    || (Array.isArray(result.failures) && result.failures.length)
+  ));
+}
+
 Page({
   data: {
     copy: copy.view,
@@ -123,7 +131,10 @@ Page({
   },
 
   async loadOverview(reset) {
-    if (this.data.loading || this.data.loadingMore) return;
+    if (this.data.loading || this.data.loadingMore) {
+      this._overviewReloadQueued = true;
+      return;
+    }
     const request = orgSession.beginRequest(this, 'messageOverview');
     const revision = this._messageRevision || 0;
     this.setData({ loading: true });
@@ -187,6 +198,10 @@ Page({
       if (!(error && error.silent)) showShortToast(copy.messages.refreshLater);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+      if (this._overviewReloadQueued && !this.data.loading && !this.data.loadingMore) {
+        this._overviewReloadQueued = false;
+        this.loadOverview(true);
+      }
     }
   },
 
@@ -242,12 +257,15 @@ Page({
     const cursor = isNotifications ? this.data.notificationCursor : this.data.todoCursor;
     if (!cursor) return;
     const request = orgSession.beginRequest(this, isNotifications ? 'messageNotificationsMore' : 'messageTodosMore');
+    const revision = this._messageRevision || 0;
     this.setData({ loadingMore: true });
     try {
       const name = isNotifications ? 'listNotifications' : 'listTodos';
       const data = Object.assign({ limit: 20, cursor }, this.selectedOrganizationData());
       const result = await callFunction({ name, data });
-      if (!orgSession.isRequestCurrent(this, request) || result.status !== 'success') return;
+      if (!orgSession.isRequestCurrent(this, request)
+          || revision !== (this._messageRevision || 0)
+          || result.status !== 'success') return;
       const items = this.formatItems(result.items);
       if (isNotifications) {
         this.setData({
@@ -269,6 +287,10 @@ Page({
       if (!(error && error.silent)) showShortToast(copy.messages.retryLater);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loadingMore: false });
+      if (this._overviewReloadQueued && !this.data.loading && !this.data.loadingMore) {
+        this._overviewReloadQueued = false;
+        this.loadOverview(true);
+      }
     }
   },
 
@@ -443,11 +465,16 @@ Page({
 
   async markAllRead() {
     if (!this.data.unreadCount) return;
-    const previous = this.data.notifications;
+    const previous = {
+      notifications: this.data.notifications,
+      notificationTotal: this.data.notificationTotal,
+      unreadCount: this.data.unreadCount,
+      partial: this.data.partial
+    };
     this._messageRevision = (this._messageRevision || 0) + 1;
     this.setData({
       unreadCount: 0,
-      notifications: previous.map(function(item) {
+      notifications: previous.notifications.map(function(item) {
         return Object.assign({}, item, { isRead: true });
       })
     });
@@ -457,10 +484,14 @@ Page({
         data: this.selectedOrganizationData()
       });
       if (result.status !== 'success') throw new Error(result.message || copy.messages.incomplete);
-      if (result.partial) this.setData({ partial: true });
+      if (isPartialBulkResult(result)) {
+        this.setData(previous);
+        await this.loadOverview(true);
+        showShortToast(copy.messages.partialBulkAction);
+      }
     } catch (_) {
-      this.setData({ notifications: previous });
-      this.loadOverview(true);
+      this.setData(previous);
+      await this.loadOverview(true);
       showShortToast(copy.messages.incomplete);
     }
   },
@@ -497,7 +528,12 @@ Page({
       confirmColor: '#dc2626',
       success: async (result) => {
         if (!result.confirm) return;
-        const previous = this.data.notifications;
+        const previous = {
+          notifications: this.data.notifications,
+          notificationTotal: this.data.notificationTotal,
+          unreadCount: this.data.unreadCount,
+          partial: this.data.partial
+        };
         this._messageRevision = (this._messageRevision || 0) + 1;
         this.setData({ notifications: [], notificationTotal: 0, unreadCount: 0 });
         try {
@@ -508,10 +544,14 @@ Page({
           if (response.status !== 'success') {
             throw new Error(response.message || copy.messages.clearFailed);
           }
-          if (response.partial) this.setData({ partial: true });
+          if (isPartialBulkResult(response)) {
+            this.setData(previous);
+            await this.loadOverview(true);
+            showShortToast(copy.messages.partialBulkAction);
+          }
         } catch (_) {
-          this.setData({ notifications: previous });
-          this.loadOverview(true);
+          this.setData(previous);
+          await this.loadOverview(true);
           showShortToast(copy.messages.clearFailed);
         }
       }
