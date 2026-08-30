@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/publications');
+const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
@@ -8,8 +9,6 @@ const { nowMysqlUtc } = require('../../../utils/dateTime');
 const { logger } = require('../../../utils/logger');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const publicationModel = require('../models/resultPublication');
-const viewPermModel = require('../models/resultViewPermission');
-const meritPermModel = require('../models/meritListPermission');
 const designationModel = require('../models/meritListDesignation');
 const pubGradeBandModel = require('../models/pubGradeBand');
 const departmentModel = require('../../../core/models/department');
@@ -26,8 +25,6 @@ const publicationAssignments = require('../services/publicationAssignments');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 
-const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
-const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
 const VALID_DISPLAY_MODES = ['score', 'grade'];
 
 /**
@@ -53,6 +50,13 @@ function applyGradeBands(score, bands) {
 }
 
 async function ensureAdmin(openid) { return adminInfoModel.getByOpenid(openid); }
+
+function rejectRetiredEndpoint(res) {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
+}
 
 // 部门、身份和职能组按组织缓存，禁止不同组织共享同一进程缓存。
 const _orgLookupsCache = new Map();
@@ -297,129 +301,23 @@ router.post('/saveResultPublication', async (req, res) => {
 });
 
 // ─── saveResultViewPermission ───
-router.post('/saveResultViewPermission', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id), publicationId = safeString(req.body.publicationId);
-    const granteeDeptId = safeString(req.body.granteeDepartmentId), granteeIdentId = safeString(req.body.granteeIdentityId);
-    const scopeType = safeString(req.body.scopeType), targetIdentityId = safeString(req.body.targetIdentityId || '');
-
-    if (!publicationId || !granteeDeptId || !granteeIdentId) return res.json({ status: 'invalid_params', message: localeCopy.copy_df60c34fc6 });
-    if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: localeCopy.copy_7126caee7e });
-    if (IDENTITY_REQUIRED_SCOPES.includes(scopeType) && !targetIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_5ece2c09c8 });
-
-    const pub = await publicationModel.getById(publicationId);
-    if (!pub) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
-
-    if (id) {
-      await viewPermModel.update(id, { granteeDepartmentId: granteeDeptId, granteeIdentityId: granteeIdentId, scopeType, targetIdentityId: targetIdentityId || null });
-      return res.json({ status: 'success', id, message: localeCopy.copy_f60a08009f });
-    }
-    const newId = generateId();
-    await viewPermModel.create(newId, { publicationId, granteeDepartmentId: granteeDeptId, granteeIdentityId: granteeIdentId, scopeType, targetIdentityId: targetIdentityId || null });
-    res.json({ status: 'success', id: newId, message: localeCopy.copy_b713e58b64 });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+router.post('/saveResultViewPermission', (req, res) => {
+  return rejectRetiredEndpoint(res);
 });
 
 // ─── deleteResultViewPermission ───
-router.post('/deleteResultViewPermission', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
-    await viewPermModel.remove(id);
-    res.json({ status: 'success', message: localeCopy.copy_a6a63b1fc4 });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+router.post('/deleteResultViewPermission', (req, res) => {
+  return rejectRetiredEndpoint(res);
 });
 
 // ─── saveMeritListPermission ───
-router.post('/saveMeritListPermission', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id), publicationId = safeString(req.body.publicationId);
-    const granteeDeptId = safeString(req.body.granteeDepartmentId), granteeIdentId = safeString(req.body.granteeIdentityId);
-    const targetIdentityId = safeString(req.body.targetIdentityId);
-    const scopeType = safeString(req.body.scopeType || 'all_people');
-    const quotaLimit = Math.max(0, parseInt(req.body.quotaLimit, 10) || 0);
-    const requireExactQuota = req.body.requireExactQuota === true || req.body.requireExactQuota === 1;
-
-    if (!publicationId || !granteeDeptId || !granteeIdentId || !targetIdentityId)
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_df60c34fc6 });
-    if (!VALID_SCOPES.includes(scopeType))
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_4f983cb64d });
-
-    const pub = await publicationModel.getById(publicationId);
-    if (!pub) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
-
-    const lookups = await fetchOrgLookups();
-
-    // Check grantee has view permission for this target
-    const orgId = await getCurrentOrgId();
-    const [viewRows] = await pool.query(
-      `SELECT * FROM result_view_permissions WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ?
-       AND (target_identity_id = ? OR scope_type IN ('all_people', 'same_department_all', 'same_work_group_all'))
-       AND org_id = ? LIMIT 1`,
-      [publicationId, granteeDeptId, granteeIdentId, targetIdentityId, orgId]
-    );
-    if (!viewRows.length) {
-      return res.json({ status: 'no_view_permission', message: localeCopy.copy_7a700bfd4b });
-    }
-
-    // Uniqueness check
-    const existing = await meritPermModel.getByPublicationAndTarget(publicationId, targetIdentityId);
-    if (existing && String(existing.id) !== id) {
-      return res.json({ status: 'duplicate_target', message: localeCopy.copy_5d7d52909c });
-    }
-
-    const { withTransaction } = require('../../../config/db');
-    let resultId;
-    await withTransaction(async (conn) => {
-      if (id) {
-        await conn.query(
-          `UPDATE merit_list_permissions SET grantee_department_id=?, grantee_identity_id=?, target_identity_id=?, scope_type=?, quota_limit=?, require_exact_quota=?, updated_at=NOW()
-           WHERE id=? AND org_id=?`,
-          [granteeDeptId, granteeIdentId, targetIdentityId, scopeType, quotaLimit, requireExactQuota ? 1 : 0, id, orgId]
-        );
-        resultId = id;
-      } else {
-        resultId = generateId();
-        await conn.query(
-          `INSERT INTO merit_list_permissions (id, publication_id, grantee_department_id, grantee_identity_id, target_identity_id, scope_type, quota_limit, require_exact_quota, org_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [resultId, publicationId, granteeDeptId, granteeIdentId, targetIdentityId, scopeType, quotaLimit, requireExactQuota ? 1 : 0, orgId]
-        );
-      }
-    });
-
-    res.json({ status: 'success', id: resultId, message: localeCopy.copy_8f467e6dad });
-  } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_target', message: localeCopy.copy_5d7d52909c });
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+router.post('/saveMeritListPermission', (req, res) => {
+  return rejectRetiredEndpoint(res);
 });
 
 // ─── deleteMeritListPermission ───
-router.post('/deleteMeritListPermission', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
-
-    const { withTransaction } = require('../../../config/db');
-    const orgId = await getCurrentOrgId();
-    await withTransaction(async (conn) => {
-      // Delete legacy designations by permission_id (old merit_list_permissions FK)
-      await conn.query('DELETE FROM merit_list_designations WHERE permission_id = ? AND org_id = ?', [id, orgId]);
-      // Also delete by clause_id in case records were already migrated
-      await conn.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [id, orgId]);
-      await conn.query('DELETE FROM merit_list_permissions WHERE id = ? AND org_id = ?', [id, orgId]);
-    });
-    res.json({ status: 'success', message: localeCopy.copy_ff90093cad });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+router.post('/deleteMeritListPermission', (req, res) => {
+  return rejectRetiredEndpoint(res);
 });
 
 // ─── saveMeritListDesignations ───

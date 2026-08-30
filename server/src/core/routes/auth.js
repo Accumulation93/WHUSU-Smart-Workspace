@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/auth');
+const retiredCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -8,7 +9,6 @@ const userInfoModel = require('../models/userInfo');
 const adminInfoModel = require('../models/adminInfo');
 const hrInfoModel = require('../models/hrInfo');
 const organizationModel = require('../models/organization');
-const authChallengeModel = require('../models/authChallenge');
 const pool = require('../../config/db');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const { loadEffectivePermissions } = require('../services/adminPermissions');
@@ -228,78 +228,12 @@ router.post('/admin/listMyOrganizations', async (req, res) => {
   }
 });
 
-// confirmAutoBind — 用户确认后，在目标组织创建 user_info 绑定
-router.post('/confirmAutoBind', async (req, res) => {
-  const conn = await pool.getConnection();
-  try {
-    const openid = req.openid;
-    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
-    await conn.beginTransaction();
-    const challenge = await authChallengeModel.lock(conn, req.body.autoBindChallenge, 'auto_bind', openid);
-    if (challenge.status !== 'success') {
-      await conn.rollback();
-      return res.json(challenge);
-    }
-    const payload = challenge.payload;
-    const [sourceRows] = await conn.query(
-      'SELECT id, name, student_id FROM hr_info WHERE id = ? AND org_id = ? FOR UPDATE',
-      [payload.sourceHrId, payload.sourceOrgId]
-    );
-    const [targetRows] = await conn.query(
-      'SELECT id, name, student_id FROM hr_info WHERE id = ? AND org_id = ? FOR UPDATE',
-      [payload.targetHrId, payload.targetOrgId]
-    );
-    const sourceHr = sourceRows[0];
-    const targetHr = targetRows[0];
-    if (!sourceHr || !targetHr || safeString(sourceHr.name) !== safeString(targetHr.name) || safeString(sourceHr.student_id) !== safeString(targetHr.student_id)) {
-      await conn.rollback();
-      return res.json({ status: 'conflict', message: localeCopy.copy_d0ec43dfe5 });
-    }
-    const [sourceBindings] = await conn.query(
-      'SELECT id FROM user_info WHERE openid = ? AND hr_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [openid, sourceHr.id, payload.sourceOrgId]
-    );
-    if (!sourceBindings.length) {
-      await conn.rollback();
-      return res.json({ status: 'conflict', message: localeCopy.copy_fe40320d45 });
-    }
-    const [conflicts] = await conn.query(
-      'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [targetHr.id, openid, payload.targetOrgId]
-    );
-    if (conflicts.length) {
-      await conn.rollback();
-      return res.json({ status: 'already_bound', message: localeCopy.copy_09ac775d8a });
-    }
-    const [existingRows] = await conn.query(
-      'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [openid, payload.targetOrgId]
-    );
-    if (existingRows.length) {
-      await conn.query('UPDATE user_info SET hr_id = ?, updated_at = NOW() WHERE id = ? AND org_id = ?', [targetHr.id, existingRows[0].id, payload.targetOrgId]);
-    } else {
-      await conn.query('INSERT INTO user_info (id, openid, hr_id, org_id) VALUES (?, ?, ?, ?)', [generateId(), openid, targetHr.id, payload.targetOrgId]);
-    }
-    if (!await authChallengeModel.consume(conn, challenge.id)) {
-      await conn.rollback();
-      return res.json({ status: 'challenge_expired', message: localeCopy.copy_b10d64a68c });
-    }
-    await conn.commit();
-    const targetOrganization = await organizationModel.getById(payload.targetOrgId);
-    res.json({
-      status: 'success',
-      message: localeCopy.copy_428c455ba9,
-      activeOrg: { id: payload.targetOrgId, name: targetOrganization ? targetOrganization.name : '' },
-      user: await buildUserProfileCrossOrg(targetHr, payload.targetOrgId),
-      availableOrgs: await buildAvailableOrgs(openid, null)
-    });
-  } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
-    req.logger.error('confirmAutoBind failed', { error: e.message });
-    res.json({ status: 'error', message: localeCopy.copy_13e7aea070, requestId: req.requestId || '' });
-  } finally {
-    conn.release();
-  }
+// 旧自动绑定确认协议已由统一账号认证取代；保留路径只为旧客户端明确失败。
+router.post('/confirmAutoBind', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // bindUserInfo - 普通用户绑定人事信息

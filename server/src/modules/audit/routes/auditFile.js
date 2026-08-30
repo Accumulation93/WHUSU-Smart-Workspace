@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditFile');
+const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -73,12 +74,6 @@ function runWithPdfRenderSlot(task, signal) {
     pdfRenderQueue.push(entry);
     runNext();
   });
-}
-
-function clampNumber(value, fallback, min, max) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
 }
 
 async function renderPdfPageWithPdftoppm(filePath, page) {
@@ -376,155 +371,11 @@ router.post('/getAuditFilePreview', async (req, res) => {
   }
 });
 
-router.post('/mergeSignaturesIntoFile', async (req, res) => {
-  try {
-    const fileId = safeString(req.body.fileId);
-    const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
-    if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
-    if (signatures.length > 20) return res.json({ status: 'invalid_params', message: localeCopy.copy_3b3ae2f786 });
-    let totalSignatureBytes = 0;
-    for (const signature of signatures) {
-      const imageData = safeString(signature && signature.imageData);
-      if (!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageData)) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_b152533537 });
-      }
-      const estimatedBytes = Math.ceil(imageData.length * 3 / 4);
-      if (estimatedBytes > 2 * 1024 * 1024) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_0137b35177 });
-      }
-      totalSignatureBytes += estimatedBytes;
-    }
-    if (totalSignatureBytes > 10 * 1024 * 1024) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_f66ff9f7b5 });
-    }
-
-    const auth = await getAuthorizedAuditFile(fileId, req);
-    if (auth.status !== 'success') return res.json(auth);
-    const file = auth.file;
-
-    if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: localeCopy.copy_208830216b });
-    }
-
-    const mimeType = file.mime_type;
-    const sharp = require('sharp');
-
-    if (mimeType && mimeType.startsWith('image/')) {
-      const image = sharp(file.file_path);
-      const metadata = await image.metadata();
-      const imgWidth = metadata.width || 800;
-      const imgHeight = metadata.height || 600;
-      if (imgWidth * imgHeight > 40 * 1000 * 1000) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_709e45d760 });
-      }
-      const composites = [];
-
-      for (const sig of signatures) {
-        if (!sig.imageData) continue;
-        const base64Data = sig.imageData.replace(/^data:image\/\w+;base64,/, '');
-        const sigBuffer = Buffer.from(base64Data, 'base64');
-        const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
-        const rotation = clampNumber(sig.rotation, 0, -180, 180);
-        const targetSigWidth = Math.max(48, Math.min(Math.round(imgWidth * 0.18 * size), Math.round(imgWidth * 0.55), 520));
-        let sigResized = await sharp(sigBuffer).resize({ width: targetSigWidth, fit: 'inside' }).png().toBuffer();
-        if (rotation) {
-          sigResized = await sharp(sigResized).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
-        }
-        const sigMeta = await sharp(sigResized).metadata();
-        const sigWidth = sigMeta.width || targetSigWidth;
-        const sigHeight = sigMeta.height || Math.round(targetSigWidth * 0.45);
-        const posX = Math.round((parseFloat(sig.positionX) || 0.5) * imgWidth);
-        const posY = Math.round((parseFloat(sig.positionY) || 0.5) * imgHeight);
-        composites.push({
-          input: sigResized,
-          top: Math.max(0, Math.min(imgHeight - sigHeight, posY - Math.round(sigHeight / 2))),
-          left: Math.max(0, Math.min(imgWidth - sigWidth, posX - Math.round(sigWidth / 2)))
-        });
-      }
-
-      if (composites.length) {
-        const merged = await image.composite(composites).png().toBuffer();
-        return res.json({ status: 'success', fileName: file.file_name, mimeType: 'image/png', data: merged.toString('base64'), merged: true });
-      }
-
-      return res.json({
-        status: 'success',
-        fileName: file.file_name,
-        mimeType,
-        data: fs.readFileSync(file.file_path).toString('base64'),
-        merged: false
-      });
-    }
-
-    if (mimeType === 'application/pdf') {
-      const { PDFDocument } = require('pdf-lib');
-      const pdfBytes = fs.readFileSync(file.file_path);
-      const pdfDoc = await PDFDocument.load(pdfBytes);
-      const pages = pdfDoc.getPages();
-      const totalPages = pages.length;
-      if (totalPages > 100) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_a3b626d8c1 });
-      }
-
-      for (const sig of signatures) {
-        if (!sig.imageData) continue;
-        const pageNum = parseInt(sig.page) || 1;
-        const pageIndex = Math.max(0, Math.min(pageNum - 1, totalPages - 1));
-        const page = pages[pageIndex];
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        const base64Data = sig.imageData.replace(/^data:image\/\w+;base64,/, '');
-        const sigBuffer = Buffer.from(base64Data, 'base64');
-        const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
-        const rotation = clampNumber(sig.rotation, 0, -180, 180);
-        const embedBuffer = rotation
-          ? await sharp(sigBuffer).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer()
-          : sigBuffer;
-
-        let pdfImage;
-        try {
-          pdfImage = await pdfDoc.embedPng(embedBuffer);
-        } catch (_) {
-          try {
-            const jpegBuffer = await sharp(embedBuffer).jpeg().toBuffer();
-            pdfImage = await pdfDoc.embedJpg(jpegBuffer);
-          } catch (__) {
-            continue;
-          }
-        }
-
-        const sigWidth = Math.max(48, Math.min(pageWidth * 0.18 * size, pageWidth * 0.55, 300));
-        const sigHeight = (pdfImage.height / pdfImage.width) * sigWidth;
-        const posX = (parseFloat(sig.positionX) || 0.5) * pageWidth;
-        const posY = (parseFloat(sig.positionY) || 0.5) * pageHeight;
-        page.drawImage(pdfImage, {
-          x: Math.max(0, posX - sigWidth / 2),
-          y: Math.max(0, pageHeight - posY - sigHeight / 2),
-          width: sigWidth,
-          height: sigHeight,
-          opacity: 0.85
-        });
-      }
-
-      const mergedPdfBytes = await pdfDoc.save();
-      return res.json({
-        status: 'success',
-        fileName: file.file_name,
-        mimeType: 'application/pdf',
-        data: Buffer.from(mergedPdfBytes).toString('base64'),
-        merged: signatures.length > 0
-      });
-    }
-
-    res.json({
-      status: 'success',
-      fileName: file.file_name,
-      mimeType,
-      data: fs.readFileSync(file.file_path).toString('base64'),
-      merged: false
-    });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+router.post('/mergeSignaturesIntoFile', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 module.exports = router;
