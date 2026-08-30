@@ -1095,6 +1095,32 @@ scroll-view {
   min-width: 0;
 }
 
+.audit-personnel-filter-row {
+  flex-wrap: wrap;
+}
+
+.audit-personnel-filter-field {
+  flex: 1 1 calc((100% - 32rpx) / 3);
+}
+
+.audit-personnel-search-field {
+  flex: 1 1 100%;
+}
+
+.audit-personnel-assignment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-top: 8rpx;
+}
+
+.audit-personnel-assignment-line {
+  color: #64748b;
+  font-size: var(--ui-type-caption);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .compact-picker-value {
   min-height: 70rpx;
   padding: 0 18rpx;
@@ -4051,6 +4077,15 @@ scroll-view {
 }
 
 @media (min-width: 520px) {
+  .audit-personnel-filter-row {
+    flex-wrap: nowrap;
+  }
+
+  .audit-personnel-filter-field,
+  .audit-personnel-search-field {
+    flex: 1 1 0;
+  }
+
   .admin-workbench .section-stack {
     min-width: 0;
   }

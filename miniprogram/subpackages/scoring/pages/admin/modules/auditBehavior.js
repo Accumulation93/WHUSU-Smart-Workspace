@@ -13,6 +13,11 @@ const {
   buildMatchVerificationParams
 } = require('../../../../../utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
+const {
+  ALL_FILTER_KEY,
+  buildAuditPersonnelFilterOptions,
+  filterAuditPersonnel
+} = require('./auditPersonnelView');
 const { showShortToast, getErrorText } = utils;
 
 const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
@@ -117,10 +122,12 @@ module.exports = Behavior({
     auditPersonnelPickerLabel: '',
     auditPersonnelPickerSelectedId: '',
     auditPersonnelSearchKeyword: '',
-    auditPersonnelFilterDept: localeCopy.copy_31d4595959,
-    auditPersonnelFilterIdent: localeCopy.copy_31d4595959,
-    auditPersonnelDeptOptions: [localeCopy.copy_31d4595959],
-    auditPersonnelIdentOptions: [localeCopy.copy_31d4595959],
+    auditPersonnelFilterDeptIndex: 0,
+    auditPersonnelFilterIdentIndex: 0,
+    auditPersonnelFilterWorkGroupIndex: 0,
+    auditPersonnelDeptOptions: [{ key: ALL_FILTER_KEY, label: localeCopy.copy_31d4595959 }],
+    auditPersonnelIdentOptions: [{ key: ALL_FILTER_KEY, label: localeCopy.copy_31d4595959 }],
+    auditPersonnelWorkGroupOptions: [{ key: ALL_FILTER_KEY, label: localeCopy.copy_31d4595959 }],
     auditPersonnelFilteredList: [],
 
     // ── Identity Picker (single / multi) ──
@@ -1883,16 +1890,19 @@ module.exports = Behavior({
       else if (target === 'stepHrId') selectedId = this.data.auditTemplateStepForm.approverHrId;
       else if (target === 'grantHrId') selectedId = this.data.verificationGrantHrId;
 
+      const filterOptions = buildAuditPersonnelFilterOptions(this._hrList || [], localeCopy.copy_31d4595959);
       this.setData({
         auditPersonnelPickerVisible: true,
         auditPersonnelPickerTarget: target,
         auditPersonnelPickerLabel: label,
         auditPersonnelPickerSelectedId: String(selectedId || ''),
         auditPersonnelSearchKeyword: '',
-        auditPersonnelFilterDept: localeCopy.copy_31d4595959,
-        auditPersonnelFilterIdent: localeCopy.copy_31d4595959,
-        auditPersonnelDeptOptions: this._auditBuildDeptOptions(),
-        auditPersonnelIdentOptions: this._auditBuildIdentOptions()
+        auditPersonnelFilterDeptIndex: 0,
+        auditPersonnelFilterIdentIndex: 0,
+        auditPersonnelFilterWorkGroupIndex: 0,
+        auditPersonnelDeptOptions: filterOptions.departments,
+        auditPersonnelIdentOptions: filterOptions.identities,
+        auditPersonnelWorkGroupOptions: filterOptions.workGroups
       });
       this._applyAuditPersonnelFilters();
     },
@@ -1907,41 +1917,34 @@ module.exports = Behavior({
     },
 
     onAuditPersonnelFilterDept(e) {
-      let idx = e.detail.value;
-      let options = this.data.auditPersonnelDeptOptions;
-      this.setData({ auditPersonnelFilterDept: options[idx] || localeCopy.copy_31d4595959 });
+      const idx = Number(e.detail.value) || 0;
+      this.setData({ auditPersonnelFilterDeptIndex: idx });
       this._applyAuditPersonnelFilters();
     },
 
     onAuditPersonnelFilterIdent(e) {
-      let idx = e.detail.value;
-      let options = this.data.auditPersonnelIdentOptions;
-      this.setData({ auditPersonnelFilterIdent: options[idx] || localeCopy.copy_31d4595959 });
+      const idx = Number(e.detail.value) || 0;
+      this.setData({ auditPersonnelFilterIdentIndex: idx });
+      this._applyAuditPersonnelFilters();
+    },
+
+    onAuditPersonnelFilterWorkGroup(e) {
+      const idx = Number(e.detail.value) || 0;
+      this.setData({ auditPersonnelFilterWorkGroupIndex: idx });
       this._applyAuditPersonnelFilters();
     },
 
     _applyAuditPersonnelFilters() {
-      let hrList = this._hrList || [];
-      let keyword = (this.data.auditPersonnelSearchKeyword || '').trim().toLowerCase();
-      let filterDept = this.data.auditPersonnelFilterDept;
-      let filterIdent = this.data.auditPersonnelFilterIdent;
-
-      let filtered = hrList;
-      if (filterDept !== localeCopy.copy_31d4595959) {
-        filtered = filtered.filter(function (item) { return item.department === filterDept; });
-      }
-      if (filterIdent !== localeCopy.copy_31d4595959) {
-        filtered = filtered.filter(function (item) { return item.identity === filterIdent; });
-      }
-      if (keyword) {
-        filtered = filtered.filter(function (item) {
-          return [item.name, item.studentId, item.department].some(function (v) {
-            return String(v || '').toLowerCase().indexOf(keyword) !== -1;
-          });
-        });
-      }
-
-      this.setData({ auditPersonnelFilteredList: filtered.slice(0, AUDIT_PERSONNEL_RENDER_LIMIT) });
+      const department = this.data.auditPersonnelDeptOptions[this.data.auditPersonnelFilterDeptIndex] || {};
+      const identity = this.data.auditPersonnelIdentOptions[this.data.auditPersonnelFilterIdentIndex] || {};
+      const workGroup = this.data.auditPersonnelWorkGroupOptions[this.data.auditPersonnelFilterWorkGroupIndex] || {};
+      this.setData({
+        auditPersonnelFilteredList: filterAuditPersonnel(this._hrList || [], {
+          departmentKey: department.key || ALL_FILTER_KEY,
+          identityKey: identity.key || ALL_FILTER_KEY,
+          workGroupKey: workGroup.key || ALL_FILTER_KEY
+        }, this.data.auditPersonnelSearchKeyword, AUDIT_PERSONNEL_RENDER_LIMIT)
+      });
     },
 
     onAuditPersonnelToggle(e) {
