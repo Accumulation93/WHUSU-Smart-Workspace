@@ -82,9 +82,14 @@ function cellText(cell) {
 async function parseWorkbookTables(buffer) {
   assertXlsxArchive(buffer);
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer, {
-    ignoreNodes: ['dataValidations', 'extLst', 'hyperlinks', 'pageMargins', 'pageSetup', 'headerFooter', 'printOptions', 'sheetProtection']
-  });
+  try {
+    await workbook.xlsx.load(buffer, {
+      ignoreNodes: ['dataValidations', 'extLst', 'hyperlinks', 'pageMargins', 'pageSetup', 'headerFooter', 'printOptions', 'sheetProtection']
+    });
+  } catch (error) {
+    if (error && error.code === 'invalid_workbook') throw error;
+    throw invalidWorkbook('仅支持有效的 XLSX 工作簿');
+  }
   if (!workbook.worksheets.length) throw invalidWorkbook('工作簿中没有工作表');
   if (workbook.worksheets.length > MAX_SHEETS) throw invalidWorkbook('工作表数量超过限制');
 

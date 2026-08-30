@@ -7,11 +7,19 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 const utils = require('./adminUtils');
 const { formatAuditTime } = require('../../../../../utils/api');
 const { openAuditFile } = require('../../../../../utils/filePreview');
+const {
+  verificationCopy,
+  presentVerificationResponse,
+  buildMatchVerificationParams
+} = require('../../../../../utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
 const { showShortToast, getErrorText } = utils;
 
+const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
+
 module.exports = Behavior({
   data: {
+    verificationCopy,
     // ── Audit Flow Templates ──
     auditFlowTemplates: [],
     auditTemplateForm: {
@@ -144,7 +152,7 @@ module.exports = Behavior({
     /** Derive display name from hrList by id — NEVER returns raw ID */
     _auditHrName(id) {
       if (!id) return '';
-      const found = (this.data.hrList || []).find(function (item) {
+      const found = (this._hrList || []).find(function (item) {
         return String(item.id) === String(id);
       });
       return found ? found.name : '';
@@ -153,7 +161,7 @@ module.exports = Behavior({
     /** 指定人员条件按具体在职岗位选择，禁止退化为人员级授权。 */
     _auditAssignmentOptions() {
       const options = [];
-      (this.data.hrList || []).forEach(function (person) {
+      (this._hrList || []).forEach(function (person) {
         (person.assignments || []).forEach(function (assignment) {
           const assignmentId = String(assignment.assignmentId || '').trim();
           if (!assignmentId) return;
@@ -1788,7 +1796,8 @@ module.exports = Behavior({
                 verificationFilePath: file.path,
                 verificationFileName: file.name,
                 verificationFileBase64: readRes.data,
-                verificationFileSize: file.size
+                verificationFileSize: file.size,
+                verificationResult: null
               });
             },
             fail: function() {
@@ -1800,20 +1809,21 @@ module.exports = Behavior({
     },
 
     onVerificationModeChange(e) {
-      let modes = ['number', 'file'];
-      this.setData({ verificationMode: modes[e.detail.value] || 'number' });
+      const modes = ['number', 'file'];
+      this.setData({ verificationMode: modes[e.detail.value] || 'number', verificationResult: null });
     },
 
     async verifySubmissionChain() {
-      let params = {};
-      let mode = this.data.verificationMode || 'number';
+      const request = orgSession.beginRequest(this, 'auditVerificationChain');
+      const params = {};
+      const mode = this.data.verificationMode || 'number';
 
       if (mode === 'number') {
-        let number = this.data.verificationInputNumber;
+        const number = this.data.verificationInputNumber;
         if (!number) { showShortToast(localeCopy.copy_93eb240494); return; }
         params.submissionNumber = number;
       } else if (mode === 'file') {
-        let fileB64 = this.data.verificationFileBase64;
+        const fileB64 = this.data.verificationFileBase64;
         if (!fileB64) { showShortToast(localeCopy.copy_cbf65b3559); return; }
         params.fileBase64 = fileB64;
       }
@@ -1821,15 +1831,41 @@ module.exports = Behavior({
       this.setLoading('verifyChain', true);
       try {
         const res = await this.callCloud('verifySignatureChain', params);
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
-          this.setData({ verificationResult: res });
+          this.setData({ verificationResult: presentVerificationResponse(res) });
         } else {
           showShortToast(res.message || localeCopy.copy_b791913c7a);
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         showShortToast(getErrorText(e, localeCopy.copy_b791913c7a));
       } finally {
-        this.setLoading('verifyChain', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('verifyChain', false);
+      }
+    },
+
+    async selectVerificationMatch(e) {
+      const submissionId = e.detail && e.detail.submissionId
+        ? e.detail.submissionId
+        : e.currentTarget.dataset.submissionId;
+      const params = buildMatchVerificationParams(this.data.verificationResult, submissionId);
+      if (!params || params.submissionId === String(this.data.verificationResult && this.data.verificationResult.submissionId || '')) return;
+      const request = orgSession.beginRequest(this, 'auditVerificationChain');
+      this.setLoading('verifyChain', true);
+      try {
+        const res = await this.callCloud('verifySignatureChain', params);
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (res.status === 'success') {
+          this.setData({ verificationResult: presentVerificationResponse(res) });
+        } else {
+          showShortToast(res.message || localeCopy.copy_b791913c7a);
+        }
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        showShortToast(getErrorText(error, localeCopy.copy_b791913c7a));
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('verifyChain', false);
       }
     },
 
@@ -1885,7 +1921,7 @@ module.exports = Behavior({
     },
 
     _applyAuditPersonnelFilters() {
-      let hrList = this.data.hrList || [];
+      let hrList = this._hrList || [];
       let keyword = (this.data.auditPersonnelSearchKeyword || '').trim().toLowerCase();
       let filterDept = this.data.auditPersonnelFilterDept;
       let filterIdent = this.data.auditPersonnelFilterIdent;
@@ -1905,7 +1941,7 @@ module.exports = Behavior({
         });
       }
 
-      this.setData({ auditPersonnelFilteredList: filtered });
+      this.setData({ auditPersonnelFilteredList: filtered.slice(0, AUDIT_PERSONNEL_RENDER_LIMIT) });
     },
 
     onAuditPersonnelToggle(e) {
@@ -1922,7 +1958,7 @@ module.exports = Behavior({
         return;
       }
 
-      let hrList = this.data.hrList || [];
+      let hrList = this._hrList || [];
       let person = hrList.find(function (item) { return String(item.id) === String(selectedId); });
       let hrId = String(selectedId);
       let hrName = person ? person.name : selectedId;

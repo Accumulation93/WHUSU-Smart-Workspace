@@ -6,14 +6,16 @@ const { emptyAdminForm } = utils;
 const { writeAndOpen } = require('../../../../../utils/filePreview');
 const orgSession = require('../../../../../utils/orgSession');
 
+const ADMIN_CANDIDATE_RENDER_LIMIT = 80;
+
 module.exports = Behavior({
   methods: {
     filterAdminCandidates(keyword) {
       const text = String(keyword || '').trim().toLowerCase();
-      const sourceList = this.data.hrList || [];
+      const sourceList = this._hrList || [];
   
       if (!text) {
-        return sourceList;
+        return sourceList.slice(0, ADMIN_CANDIDATE_RENDER_LIMIT);
       }
   
       return sourceList.filter((item) => {
@@ -26,7 +28,7 @@ module.exports = Behavior({
         ].map((value) => String(value || '').toLowerCase());
   
         return fields.some((value) => value.indexOf(text) !== -1);
-      });
+      }).slice(0, ADMIN_CANDIDATE_RENDER_LIMIT);
     },
 
     refreshAdminCandidates(keyword = this.data.adminCandidateKeyword) {

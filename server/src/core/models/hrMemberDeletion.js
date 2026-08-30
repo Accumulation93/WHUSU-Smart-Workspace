@@ -1,5 +1,6 @@
 const { generateId, safeString } = require('../../utils/helpers');
 const { decryptOpenid } = require('../services/identityCrypto');
+const { createHash } = require('crypto');
 
 function uniqueStrings(values) {
   return [...new Set((Array.isArray(values) ? values : []).map(safeString).filter(Boolean))];
@@ -1433,7 +1434,10 @@ async function lockSuperAdminState(connection, personId, lock) {
 }
 
 async function acquireDeletionLock(connection, personId, timeoutSeconds) {
-  const key = `hr-delete:${safeString(personId)}`;
+  // MySQL user-level lock names are limited to 64 characters. Person IDs can
+  // themselves be 64-character digests, so never concatenate the raw ID.
+  const digest = createHash('sha256').update(safeString(personId)).digest('hex');
+  const key = `hr-delete:${digest.slice(0, 54)}`;
   const timeout = Math.max(1, Math.min(Number.parseInt(timeoutSeconds, 10) || 10, 30));
   const [rows] = await connection.query('SELECT GET_LOCK(?, ?) AS acquired', [key, timeout]);
   return { key, acquired: Number(rows[0] && rows[0].acquired) === 1 };

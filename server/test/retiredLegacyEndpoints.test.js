@@ -99,7 +99,10 @@ async function run() {
     '/saveResultViewPermission',
     '/deleteResultViewPermission',
     '/saveMeritListPermission',
-    '/deleteMeritListPermission'
+    '/deleteMeritListPermission',
+    '/removeMeritListDesignation',
+    '/listPubViewRules',
+    '/listPubMeritRules'
   ];
   for (const routePath of publicationRoutes) {
     assertRetiredResponse(await invoke(publicationsRouter, routePath), routePath);
@@ -121,6 +124,123 @@ async function run() {
     }
   );
   assertRetiredResponse(await invoke(authRouter, '/confirmAutoBind'), '/confirmAutoBind');
+
+  const userRouter = loadRouter(
+    path.resolve(__dirname, '../src/core/routes/user.js'),
+    {}
+  );
+  assertRetiredResponse(await invoke(userRouter, '/listUserBindings'), '/listUserBindings');
+
+  const adminRouter = loadRouter(
+    path.resolve(__dirname, '../src/core/routes/admin.js'),
+    {
+      '../../utils/helpers': failDependency,
+      '../../utils/orgContext': failDependency,
+      '../models/adminInfo': failDependency,
+      '../../config/db': failDatabase,
+      '../models/unifiedIdentity': failDependency,
+      '../models/personIdentityOverview': failDependency,
+      '../services/adminOrganizationAccess': failDependency,
+      '../services/adminAuthorization': failDependency
+    }
+  );
+  assertRetiredResponse(await invoke(adminRouter, '/adminUnbindUser'), '/adminUnbindUser');
+
+  const hrRouter = loadRouter(
+    path.resolve(__dirname, '../src/core/routes/hr.js'),
+    {
+      '../../utils/helpers': failDependency,
+      '../../utils/orgContext': failDependency,
+      '../services/userBindingStatus': failDependency,
+      '../services/userBindingUnbind': failDependency,
+      '../../middleware/orgContext': failDependency,
+      '../models/unifiedIdentity': failDependency,
+      '../models/personIdentityOverview': failDependency,
+      '../models/personGovernance': failDependency,
+      '../services/hrMemberDeletionService': failDependency,
+      '../services/adminOrganizationAccess': failDependency,
+      '../models/hrInfo': failDependency,
+      '../models/department': failDependency,
+      '../models/identity': failDependency,
+      '../models/workGroup': failDependency,
+      '../models/adminInfo': failDependency,
+      '../models/hrTableImport': failDependency,
+      '../../config/db': failDatabase
+    }
+  );
+  assertRetiredResponse(
+    await invoke(hrRouter, '/listMembershipAssignments'),
+    '/listMembershipAssignments'
+  );
+  assertRetiredResponse(await invoke(hrRouter, '/importHrCsv'), '/importHrCsv');
+  assertRetiredResponse(await invoke(hrRouter, '/listFormerHrMembers'), '/listFormerHrMembers');
+
+  const hrProfileRouter = loadRouter(
+    path.resolve(__dirname, '../src/core/routes/hrProfile.js'),
+    {
+      '../../modules/audit/utils/notificationHelper': failDependency,
+      '../../utils/helpers': failDependency,
+      '../../utils/dateTime': failDependency,
+      '../../utils/orgContext': failDependency,
+      '../models/adminInfo': failDependency,
+      '../models/userInfo': failDependency,
+      '../models/hrInfo': failDependency,
+      '../models/department': failDependency,
+      '../models/identity': failDependency,
+      '../models/workGroup': failDependency,
+      '../models/hrProfileTemplate': failDependency,
+      '../models/hrProfileField': failDependency,
+      '../models/hrProfileRecord': failDependency,
+      '../models/hrProfileValue': failDependency,
+      '../models/hrProfileReviewEvent': failDependency,
+      '../models/personProfileValue': failDependency,
+      '../services/hrProfileTemplateLibrary': failDependency,
+      '../services/adminPermissions': failDependency,
+      '../services/userBindingStatus': failDependency,
+      '../models/unifiedIdentity': failDependency,
+      '../models/personIdentityOverview': failDependency,
+      '../../config/db': failDatabase
+    }
+  );
+  assertRetiredResponse(await invoke(hrProfileRouter, '/saveHrProfileTemplate'), '/saveHrProfileTemplate');
+
+  const venueApprovalAdminRouter = loadRouter(
+    path.resolve(__dirname, '../src/modules/venue/routes/venueApprovalAdmin.js'),
+    {
+      '../../../utils/helpers': failDependency,
+      '../../../utils/orgContext': failDependency,
+      '../../../config/db': failDatabase,
+      '../../../utils/dateTime': failDependency,
+      '../../../core/models/adminInfo': failDependency,
+      '../../../core/services/currentActor': failDependency,
+      '../../../core/models/unifiedIdentity': failDependency,
+      '../models/venueApprovalFlow': failDependency,
+      '../models/venueApprovalFlowStep': failDependency,
+      '../models/venueApprovalFlowStepRule': failDependency,
+      '../models/venueBookingPolicy': failDependency,
+      '../services/venueBookingWindow': failDependency,
+      '../models/venueBooking': failDependency,
+      '../models/venueBookingRule': failDependency,
+      '../utils/venueNotificationHelper': failDependency,
+      '../../audit/models/notification': failDependency,
+      '../utils/approvalFlowValidation': failDependency,
+      '../services/venueApprovalAuthorization': failDependency,
+      '../services/venueApprovalMultiFlow': failDependency,
+      '../services/venueEffectiveBookingTime': failDependency,
+      '../../../core/services/dictionaryUsage': failDependency
+    }
+  );
+  const retiredVenueFlowRoutes = [
+    '/getVenueApprovalFlow',
+    '/saveVenueApprovalFlow',
+    '/saveVenueApprovalStep',
+    '/deleteVenueApprovalStep',
+    '/saveVenueApprovalStepRule',
+    '/deleteVenueApprovalStepRule'
+  ];
+  for (const routePath of retiredVenueFlowRoutes) {
+    assertRetiredResponse(await invoke(venueApprovalAdminRouter, routePath), routePath);
+  }
 
   let moduleLoadFileChecks = 0;
   const auditFileRouter = loadRouter(

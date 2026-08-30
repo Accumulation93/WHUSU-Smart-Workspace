@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueApprovalAdmin');
+const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -42,22 +43,12 @@ async function ensureAdmin(openid) {
 // Approval Flow CRUD
 // ═══════════════════════════════════════════════════
 
-// getVenueApprovalFlow — returns the active flow with all steps and rules
-router.post('/getVenueApprovalFlow', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-
-    const flow = await flowModel.getByVenueId(venueId);
-    if (!flow) return res.json({ status: 'success', flow: null, steps: [] });
-
-    const steps = await stepModel.getByFlowId(flow.id, flow.org_id);
-    res.json({ status: 'success', flow, steps });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// 单流程读取已被多流程目录替代。
+router.post('/getVenueApprovalFlow', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // listVenueApprovalFlows — 返回场地全部审批流（含步骤与规则）
@@ -117,27 +108,12 @@ router.post('/saveVenueApprovalFlowMeta', async (req, res) => {
   }
 });
 
-// saveVenueApprovalFlow — create or update a flow (upsert)
-router.post('/saveVenueApprovalFlow', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const venueId = safeString(req.body.venueId);
-    const name = safeString(req.body.name);
-    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-
-    const existing = await flowModel.getByVenueId(venueId);
-    if (existing) {
-      await flowModel.update(existing.id, { name });
-      return res.json({ status: 'success', id: existing.id, message: localeCopy.copy_782bc123ee });
-    } else {
-      const id = generateId();
-      await flowModel.create(id, { venueId, name: name || localeCopy.copy_890d7f4874 });
-      return res.json({ status: 'success', id, message: localeCopy.copy_6ee33fb024 });
-    }
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// saveVenueApprovalFlow — 已退役；流程配置只允许通过原子保存接口修改。
+router.post('/saveVenueApprovalFlow', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // deleteVenueApprovalFlow
@@ -163,31 +139,12 @@ router.post('/deleteVenueApprovalFlow', async (req, res) => {
 // Approval Flow Steps CRUD
 // ═══════════════════════════════════════════════════
 
-// saveVenueApprovalStep
-router.post('/saveVenueApprovalStep', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const flowId = safeString(req.body.flowId);
-    const name = safeString(req.body.name);
-    const sortOrder = parseInt(req.body.sortOrder) || 1;
-    const approvalMode = safeString(req.body.approvalMode) === 'admin_any' ? 'admin_any' : 'hr_rule';
-    if (!flowId) return res.json({ status: 'invalid_params', message: localeCopy.copy_a5f604a639 });
-
-    const id = safeString(req.body.id) || generateId();
-    const flow = await flowModel.getById(flowId);
-    if (!flow) return res.json({ status: 'not_found', message: localeCopy.copy_db3e12e237 });
-    const existing = await stepModel.getById(id);
-    if (existing) {
-      if (existing.flow_id !== flowId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db3e12e237 });
-      await stepModel.update(id, { sortOrder, name, approvalMode });
-    } else {
-      await stepModel.create(id, { flowId, sortOrder, name, approvalMode });
-    }
-    res.json({ status: 'success', id, message: localeCopy.copy_4b77534e2a });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// saveVenueApprovalStep — 已退役；流程配置只允许通过原子保存接口修改。
+router.post('/saveVenueApprovalStep', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // saveVenueApprovalWholeFlow — save the entire flow with steps and rules atomically
@@ -305,81 +262,32 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
   }
 });
 
-// deleteVenueApprovalStep
-router.post('/deleteVenueApprovalStep', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_40d13b479c });
-    await stepModel.remove(id);
-    res.json({ status: 'success', message: localeCopy.copy_72d2fe8b04 });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// deleteVenueApprovalStep — 已退役；流程配置只允许通过原子保存接口修改。
+router.post('/deleteVenueApprovalStep', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // ═══════════════════════════════════════════════════
 // Approval Flow Step Rules CRUD
 // ═══════════════════════════════════════════════════
 
-// saveVenueApprovalStepRule
-router.post('/saveVenueApprovalStepRule', async (req, res) => {
-  const conn = await pool.getConnection();
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const stepId = safeString(req.body.stepId);
-    if (!stepId) return res.json({ status: 'invalid_params', message: localeCopy.copy_40d13b479c });
-    const step = await stepModel.getById(stepId);
-    if (!step) return res.json({ status: 'not_found', message: localeCopy.copy_b069f9d0fd });
-
-    const id = safeString(req.body.id) || generateId();
-    const normalized = normalizeRule(req.body);
-    const data = {
-      stepId,
-      sortOrder: parseInt(req.body.sortOrder) || 1,
-      ...normalized
-    };
-    const orgId = await getCurrentOrgId();
-    await conn.beginTransaction();
-    await dictionaryUsage.assertDictionaryReferences(Object.assign({
-      organizationId: orgId,
-      connection: conn
-    }, collectRuleDictionaryReferences(data)));
-
-    const existing = await ruleModel.getById(id);
-    if (existing) {
-      if (existing.step_id !== stepId) {
-        await conn.rollback();
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_b069f9d0fd });
-      }
-      await ruleModel.update(id, data, conn);
-    } else {
-      await ruleModel.create(id, data, conn);
-    }
-    await conn.commit();
-    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
-  } catch (e) {
-    await conn.rollback();
-    res.json({ status: 'error', message: safeString(e.message) });
-  } finally {
-    conn.release();
-  }
+// saveVenueApprovalStepRule — 已退役；流程配置只允许通过原子保存接口修改。
+router.post('/saveVenueApprovalStepRule', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
-// deleteVenueApprovalStepRule
-router.post('/deleteVenueApprovalStepRule', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_e0725727f3 });
-    await ruleModel.remove(id);
-    res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// deleteVenueApprovalStepRule — 已退役；流程配置只允许通过原子保存接口修改。
+router.post('/deleteVenueApprovalStepRule', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // ═══════════════════════════════════════════════════

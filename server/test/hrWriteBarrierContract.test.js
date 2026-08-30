@@ -36,9 +36,8 @@ const structuredBarrier = importModelSource.indexOf('lockExistingImportSubjects'
 const structuredWrite = importModelSource.indexOf('INSERT INTO departments', structuredTransaction);
 assert(structuredBarrier > structuredTransaction && structuredBarrier < structuredWrite);
 
-const csvTransaction = hrRouteSource.indexOf('await conn.beginTransaction()', hrRouteSource.indexOf("router.post('/importHrCsv'"));
-const csvBarrier = hrRouteSource.indexOf('lockExistingImportSubjects', csvTransaction);
-const csvWrite = hrRouteSource.indexOf('INSERT INTO departments', csvTransaction);
-assert(csvBarrier > csvTransaction && csvBarrier < csvWrite);
+const retiredCsvRoute = routeSegment(hrRouteSource, 'importHrCsv');
+assert(/res\.status\(410\)/.test(retiredCsvRoute), '旧 CSV 导入接口必须保持退役');
+assert(!/beginTransaction|lockExistingImportSubjects|INSERT\s+INTO/i.test(retiredCsvRoute), '退役 CSV 导入接口不得保留写入副作用');
 
 console.log('人员资料与导入事务屏障顺序契约测试通过');

@@ -70,19 +70,24 @@ async function create(id, data, conn) {
   const {
     submissionId, stepId, fileId, signatureType, imageData,
     positionX, positionY, size, rotation, page, signerHrId, round,
-    previousSignatureHash, documentHashAtSigning, signatureDataHash, signedAt
+    previousSignatureHash, documentHashAtSigning, signatureDataHash, signedAt,
+    materialImageHash, stampId, signerAssignmentId, signerContextSnapshot, hashVersion
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
     `INSERT INTO audit_submission_signatures
      (id, submission_id, step_id, file_id, signature_type, image_data, position_x, position_y, signature_size, rotation_degrees, page,
-      signer_hr_id, round, previous_signature_hash, document_hash_at_signing, signature_data_hash, signed_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      signer_hr_id, round, previous_signature_hash, document_hash_at_signing, signature_data_hash, signed_at,
+      material_image_hash, stamp_id, signer_assignment_id, signer_context_snapshot, hash_version, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, submissionId, stepId, fileId, signatureType || 'signature', imageData || null,
       positionX || 0, positionY || 0, size || 1, rotation || 0, page || 1, signerHrId, round || 1,
-      previousSignatureHash || null, documentHashAtSigning || '', signatureDataHash || '', signedAt || new Date(), orgId
+      previousSignatureHash || null, documentHashAtSigning || '', signatureDataHash || '', signedAt || new Date(),
+      materialImageHash || '', stampId || null, signerAssignmentId || null,
+      signerContextSnapshot ? JSON.stringify(signerContextSnapshot) : null,
+      Number(hashVersion) || 1, orgId
     ]
   );
 }

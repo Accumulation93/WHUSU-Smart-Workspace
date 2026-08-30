@@ -1632,7 +1632,9 @@ if (!/<canvas[^>]*id="sigExportCanvas"[^>]*class="sigpad-export-canvas"[^>]*><\/
 if (!/\.sigpad-export-canvas\s*\{[^}]*width:\s*1px;[^}]*height:\s*1px;[^}]*opacity:\s*0;/s.test(signaturePadStyle)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadStylePath), message: '导出 Canvas 必须保持 1px、透明且不可交互' });
 }
-if (/pageScrollTo\s*\(/.test(signaturePageSource)) {
+// 页面可以为了让审批卡、步骤编辑器等普通内容进入视口而滚动；签名坐标契约
+// 只禁止在打开签名板时把页面强制滚回顶部，借此掩盖坐标系混用。
+if (/pageScrollTo\s*\(\s*\{[^}]*scrollTop\s*:\s*0\s*(?:,|})/s.test(signaturePageSource)) {
   signatureCoordinateIssues.push({ file: relative(`${signaturePageBase}.js`), message: '签名坐标禁止通过强制页面滚动归零实现' });
 }
 

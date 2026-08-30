@@ -1,44 +1,43 @@
 require('dotenv').config();
-const crypto = require('crypto');
-const pool = require('../src/config/db');
-const { generateId, safeString } = require('../src/utils/helpers');
+
+const {
+  BootstrapError,
+  parseBootstrapConfig,
+  bootstrapSuperAdmin
+} = require('./bootstrapSuperAdminService');
 
 async function main() {
-  const expectedSecret = safeString(process.env.SUPER_ADMIN_BOOTSTRAP_SECRET);
-  const providedSecret = safeString(process.env.BOOTSTRAP_SECRET);
-  if (!expectedSecret || !providedSecret || expectedSecret.length !== providedSecret.length
-      || !crypto.timingSafeEqual(Buffer.from(expectedSecret), Buffer.from(providedSecret))) {
-    throw new Error('缺少或错误的本地初始化密钥');
+  const config = parseBootstrapConfig(process.argv.slice(2), process.env);
+  const pool = require('../src/config/db');
+  const identityCrypto = require('../src/core/services/identityCrypto');
+  const { generateId } = require('../src/utils/helpers');
+
+  try {
+    identityCrypto.validateIdentityCryptoConfig();
+    const result = await bootstrapSuperAdmin({
+      pool,
+      config,
+      generateId,
+      cryptoAdapter: {
+        hashOpenid: identityCrypto.hmac,
+        hashOpenidCandidates: identityCrypto.hmacCandidates,
+        encryptOpenid: identityCrypto.encryptOpenid,
+        decryptOpenid: identityCrypto.decryptOpenid
+      }
+    });
+    const actionText = result.changed ? '初始化完成' : '配置已经生效，无需重复写入';
+    console.log(`超级管理员${actionText}。未输出任何身份凭据。`);
+  } finally {
+    await pool.end();
   }
-  const name = safeString(process.env.BOOTSTRAP_NAME);
-  const studentId = safeString(process.env.BOOTSTRAP_STUDENT_ID);
-  if (!name || !studentId) throw new Error('必须设置 BOOTSTRAP_NAME 和 BOOTSTRAP_STUDENT_ID');
-
-  const [existing] = await pool.query(
-    "SELECT id FROM admin_info WHERE admin_level = 'super_admin' AND org_id = '' LIMIT 1"
-  );
-  if (existing.length) throw new Error('超级管理员已存在，拒绝重复初始化');
-
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let inviteCode = '';
-  for (let i = 0; i < 8; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
-  const inviteExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  await pool.query(
-    `INSERT INTO admin_info
-      (id, name, student_id, openid, admin_level, bind_status, invite_code,
-       invited_at, invite_expires_at, org_id)
-     VALUES (?, ?, ?, '', 'super_admin', 'invited', ?, NOW(), ?, '')`,
-    [generateId(), name, studentId, inviteCode, inviteExpiresAt]
-  );
-  console.log('超级管理员记录已创建。一次性邀请码：' + inviteCode + '（24小时内有效）');
 }
 
-main()
-  .catch((error) => {
-    console.error(error.message);
+if (require.main === module) {
+  main().catch((error) => {
+    const code = error instanceof BootstrapError ? error.code : 'unexpected_failure';
+    console.error(`超级管理员初始化失败（${code}）。请按离线初始化文档核对输入和数据状态。`);
     process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
   });
+}
+
+module.exports = { main };

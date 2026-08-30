@@ -134,6 +134,21 @@ async function resolveActorAssignment(actor, orgId, db) {
   return assignment;
 }
 
+async function resolveActorAssignmentForUpdate(actor, orgId, db) {
+  if (!actor || actor.type !== 'user' || !db) return null;
+  const assignmentId = safeString(actor.assignmentId);
+  if (!assignmentId) return null;
+  const [rows] = await db.query(
+    assignmentSelectSql(' AND ma.id = ?') + ' FOR UPDATE',
+    [safeString(orgId), assignmentId]
+  );
+  const assignment = mapAssignment(rows[0]);
+  if (!assignment) return null;
+  if (safeString(actor.id) !== assignment.hr_id) return null;
+  if (safeString(actor.personId) && safeString(actor.personId) !== assignment.person_id) return null;
+  return assignment;
+}
+
 async function getSubmissionSubmitterAssignments(submission, orgId, db) {
   if (!submission) return [];
   const snapshotAssignment = snapshotToAssignment(
@@ -206,6 +221,7 @@ module.exports = {
   snapshotToAssignment,
   listActiveAssignments,
   resolveActorAssignment,
+  resolveActorAssignmentForUpdate,
   getSubmissionSubmitterAssignments,
   groupEligibleCandidates
 };

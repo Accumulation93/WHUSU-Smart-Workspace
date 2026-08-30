@@ -387,9 +387,7 @@ module.exports = Behavior({
       this.setLoading('batchSaveRules', true);
       wx.showLoading({ title: localeCopy.copy_20c9187fe4, mask: true });
       try {
-        const savedRules = [];
-        for (const rule of selectedRules) {
-          const result = await this.callCloud('saveRateRule', {
+        const rules = selectedRules.map((rule) => ({
             id: rule.id,
             activityId: this.data.currentActivityId,
             activityName: currentActivity.name || '',
@@ -397,37 +395,18 @@ module.exports = Behavior({
             scorerIdentityId: rule.scorerIdentityId,
             clauses,
             mode: 'replace'
-          });
-  
-          if (result.status !== 'success') {
-            wx.hideLoading();
-            wx.showToast({
-              title: result.message || (localeFormat(localeCopy.copy_7acbc2acc0, [rule.scorerDepartment, rule.scorerIdentity])),
-              icon: 'none'
-            });
-            this.setLoading('batchSaveRules', false);
-            return;
-          }
-          savedRules.push({
-            id: result.id || rule.id,
-            activityId: this.data.currentActivityId,
-            activityName: currentActivity.name || '',
-            scorerDepartmentId: rule.scorerDepartmentId,
-            scorerDepartment: rule.scorerDepartment,
-            scorerIdentityId: rule.scorerIdentityId,
-            scorerIdentity: rule.scorerIdentity,
-            clauses
-          });
-        }
-  
-        savedRules.forEach((rule) => this.upsertRuleListItem(rule));
+          }));
+        const result = await this.callCloud('batchSaveRateRules', { rules });
         await this.loadRuleList({ silent: true });
         wx.hideLoading();
         wx.showToast({
-          title: localeCopy.copy_3bf6e80d99,
-          icon: 'success'
+          title: result.status === 'success'
+            ? localeCopy.copy_3bf6e80d99
+            : (result.message || localeCopy.copy_78ad9dc82c),
+          icon: result.status === 'success' ? 'success' : 'none'
         });
       } catch (error) {
+        await this.loadRuleList({ silent: true });
         wx.hideLoading();
         wx.showToast({
           title: localeCopy.copy_78ad9dc82c,

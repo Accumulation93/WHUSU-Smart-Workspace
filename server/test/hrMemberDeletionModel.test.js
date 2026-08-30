@@ -75,6 +75,21 @@ async function testGlobalSuperAdminGovernanceLock() {
   assert.strictEqual(calls[0].params[0], 'hr-delete:super-admin-governance');
 }
 
+async function testPersonDeletionLockFitsMysqlLimit() {
+  const calls = [];
+  const longPersonId = 'a'.repeat(64);
+  const result = await model.acquireDeletionLock({
+    async query(sql, params) {
+      calls.push({ sql: normalizeSql(sql), params });
+      return [[{ acquired: 1 }]];
+    }
+  }, longPersonId, 10);
+  assert.strictEqual(result.acquired, true);
+  assert.strictEqual(result.key.length, 64);
+  assert.strictEqual(calls[0].params[0], result.key);
+  assert(!result.key.includes(longPersonId), '锁名不得直接拼接完整人员 ID');
+}
+
 async function testAbsoluteTimeReviewCleanupIsExactAndBackwardCompatible() {
   const calls = [];
   const removed = await model.deleteAbsoluteTimeReviewsForRows({
@@ -335,6 +350,7 @@ async function testInactiveFallbackCandidateDisablesRulesInPreviewAndExecution()
   await testVenueScopeAndLegacyAdminBlockers();
   await testDistinctEffectiveSuperAdmins();
   await testGlobalSuperAdminGovernanceLock();
+  await testPersonDeletionLockFitsMysqlLimit();
   await testAbsoluteTimeReviewCleanupIsExactAndBackwardCompatible();
   await testCompleteCleanupImpactContract();
   await testMembershipCleanupRevokesCredentialsPreservesAuditAndInvalidatesCache();

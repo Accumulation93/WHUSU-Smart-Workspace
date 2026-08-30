@@ -34,6 +34,15 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/deleteMembershipAssignment').anyOf, ['hr.people']);
   assert.deepStrictEqual(ROUTE_RULES.get('/reactivateHrMembership').anyOf, ['hr.people']);
   assert(ROUTE_RULES.get('/saveScoreActivity').anyOf.includes('scoring.activities'));
+  assert.deepStrictEqual(ROUTE_RULES.get('/batchSaveRateRules').anyOf, ['scoring.rules']);
+  [
+    '/batchSavePubViewRules',
+    '/batchSavePubMeritRules',
+    '/batchDeletePubViewRules',
+    '/batchDeletePubMeritRules'
+  ].forEach((route) => {
+    assert.deepStrictEqual(ROUTE_RULES.get(route).anyOf, ['scoring.publications']);
+  });
   assert(ROUTE_RULES.get('/saveOrganization').anyOf.includes('system.organizations'));
   assert.deepStrictEqual(ROUTE_RULES.get('/admin/health').anyOf, ['system.settings']);
   assert.deepStrictEqual(ROUTE_RULES.get('/saveHrProfileTemplateDefinition').anyOf, ['hr.profile_templates.manage']);

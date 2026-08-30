@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/hrProfile');
+const retiredCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
@@ -474,17 +475,12 @@ router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
   }
 });
 
-// saveHrProfileTemplate — 旧客户端禁止修改快照结构
-router.post('/saveHrProfileTemplate', async (req, res) => {
-  try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-
-    return res.json({ status: 'client_upgrade_required', message: localeCopy.copy_b71a0c7ed7 });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// 旧快照写接口已被模板定义接口替代，必须明确退役，禁止返回可误判的业务状态。
+router.post('/saveHrProfileTemplate', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // listHrProfileAdminData

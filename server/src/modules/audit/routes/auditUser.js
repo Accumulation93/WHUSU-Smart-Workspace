@@ -23,17 +23,24 @@ const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const auditEventModel = require('../models/auditEvent');
 const stampAssignmentModel = require('../models/identityStampAssignment');
-const { hashFile, computeSignatureHash } = require('../utils/hashChain');
+const { hashFile } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
-const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
+const { overlaySignaturesOnBuffer } = require('../utils/signatureOverlay');
 const {
-  signPdfBuffer,
-  generateSigningKeyPair,
-  createSignerCertificate,
-  getConfiguredSigningIdentity,
-  getConfiguredParentSigningIdentity
-} = require('../utils/pdfSignature');
-const forge = require('node-forge');
+  AUDIT_APPROVAL_INTEGRITY_CODES,
+  AuditApprovalIntegrityError,
+  resolveApprovalMaterials,
+  groupApprovalMaterialsByFile,
+  buildApprovalFileProcessingPlan,
+  loadApprovalFileFacts,
+  createDigitalSignatureMaterial,
+  buildSignatureChainRecords,
+  signFinalPdfDocument
+} = require('../services/auditApprovalIntegrity');
+const {
+  AuditFileCommitError,
+  createAuditFileCommit
+} = require('../services/auditFileCommitCoordinator');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
@@ -42,6 +49,7 @@ const {
   assignmentSnapshot,
   listActiveAssignments,
   resolveActorAssignment,
+  resolveActorAssignmentForUpdate,
   getSubmissionSubmitterAssignments,
   groupEligibleCandidates,
   parseSnapshot
@@ -1286,7 +1294,7 @@ async function checkStepAuthorization(step, submission, approverAssignment, db) 
   }
 }
 
-// approveStep — Approve current step with optional signature/stamp
+// approveStep — 按步骤动作类型强制校验签字、授权印章或纯通过材料
 async function validateStepForAction(step, submission, submissionId, conn) {
   if (step.submission_id !== submissionId) {
     return { ok: false, status: 'invalid_params', message: localeCopy.copy_f4c0b882f5 };
@@ -1307,18 +1315,38 @@ async function validateStepForAction(step, submission, submissionId, conn) {
   return { ok: true };
 }
 
+function approvalIntegrityFailure(error) {
+  const messages = {
+    approval_action_invalid: localeCopy.approvalActionInvalid,
+    approval_material_invalid: localeCopy.approvalMaterialInvalid,
+    approval_material_file_invalid: localeCopy.approvalMaterialFileInvalid,
+    approval_material_not_allowed: localeCopy.approvalMaterialNotAllowed,
+    approval_signature_required: localeCopy.approvalSignatureRequired,
+    approval_signature_invalid: localeCopy.approvalSignatureInvalid,
+    approval_stamp_required: localeCopy.approvalStampRequired,
+    approval_stamp_not_authorized: localeCopy.approvalStampNotAuthorized,
+    approval_both_required: localeCopy.approvalBothRequired,
+    approval_final_pdf_unavailable: localeCopy.approvalFinalPdfUnavailable
+  };
+  return {
+    status: error.code || 'approval_material_invalid',
+    message: messages[error.code] || localeCopy.approvalMaterialInvalid
+  };
+}
+
 router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
-  const signedFileBackups = [];
+  let transactionStarted = false;
+  let transactionCommitted = false;
+  let commitAttempted = false;
+  let fileCommit = null;
   try {
-    const actorContext = await resolveAuditAssignmentActor(req, conn);
-    if (!actorContext.ok) {
-      const actorResult = actorContext.actorResult;
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const approverAssignment = actorContext.assignment;
-    const hrId = approverAssignment.hr_id;
-    const orgId = actorContext.orgId;
+    const actor = actorResult.actor;
+    const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
@@ -1336,7 +1364,19 @@ router.post('/approveStep', async (req, res) => {
     }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, approverAssignment, orgId);
+    transactionStarted = true;
+    await lockAuditActor(conn, {
+      person_id: actor.personId,
+      hr_id: actor.id,
+      assignment_id: actor.assignmentId
+    }, orgId);
+    const approverAssignment = await resolveActorAssignmentForUpdate(actor, orgId, conn);
+    if (!approverAssignment) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    }
+    const hrId = approverAssignment.hr_id;
     await lockAuditAssignmentIds(conn, designatedNextAssignmentIds, orgId);
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
@@ -1408,191 +1448,167 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: 'invalid_params', message: nextStep ? localeCopy.copy_97d569974c : localeCopy.copy_f75a962ed9 });
     }
 
-    // Update step status to approved
+    const lockedFiles = await submissionFileModel.getCurrentBySubmissionIdForUpdate(submissionId, conn);
+    const currentFiles = await loadApprovalFileFacts(lockedFiles, {
+      materials: signatures,
+      finalStep: !nextStep
+    });
+    let normalizedMaterials;
+    try {
+      normalizedMaterials = await resolveApprovalMaterials({
+        actionType: step.action_type,
+        materials: signatures,
+        currentFiles,
+        approverAssignment,
+        db: conn,
+        generateId
+      });
+    } catch (error) {
+      if (!(error instanceof AuditApprovalIntegrityError)) throw error;
+      await conn.rollback();
+      return res.json(approvalIntegrityFailure(error));
+    }
+    const signaturesByFile = groupApprovalMaterialsByFile(normalizedMaterials);
+    const filesToProcess = buildApprovalFileProcessingPlan(currentFiles, signaturesByFile, !nextStep);
+
+    const signerContextSnapshot = assignmentSnapshot(approverAssignment, req.authContext);
+
+    // 所有材料、当前岗位和授权都在同一事务中锁定并重读后，才允许改变步骤状态。
     await submissionStepModel.updateStatus(stepId, {
       status: 'approved',
       comment,
       processedAt: nowISO,
       processedPersonId: approverAssignment.person_id,
       processedAssignmentId: approverAssignment.assignment_id,
-      processedContextSnapshot: assignmentSnapshot(approverAssignment, req.authContext)
+      processedContextSnapshot: signerContextSnapshot
     }, conn);
 
-    // Record signatures/stamps and persist them onto the target files.
-    const signaturesByFile = new Map();
-    for (const sigData of signatures) {
-      const fileId = safeString(sigData.fileId);
-      const imageData = safeString(sigData.imageData);
-      if (!fileId || !imageData) continue;
-      const positionX = Math.max(0, Math.min(1, parseFloat(sigData.positionX) || 0));
-      const positionY = Math.max(0, Math.min(1, parseFloat(sigData.positionY) || 0));
-      const size = Math.max(0.5, Math.min(2.2, parseFloat(sigData.size) || 1));
-      const rotation = Math.max(-180, Math.min(180, parseFloat(sigData.rotation) || 0));
-      const normalized = {
-        id: generateId(),
+    const preparedFiles = [];
+    const pendingSignatureRecords = [];
+    for (const file of filesToProcess) {
+      const fileId = safeString(file.id);
+      const fileSignatures = signaturesByFile.get(fileId) || [];
+      if (!file.file_path || !Buffer.isBuffer(file.approval_source_buffer)) {
+        throw new AuditApprovalIntegrityError(
+          !nextStep && file.mime_type === 'application/pdf'
+            ? AUDIT_APPROVAL_INTEGRITY_CODES.FINAL_PDF_UNAVAILABLE
+            : AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID
+        );
+      }
+
+      let overlayResult = null;
+      let finalBuffer = file.approval_source_buffer;
+      let finalMimeType = file.mime_type;
+      if (fileSignatures.length) {
+        overlayResult = await overlaySignaturesOnBuffer(file, finalBuffer, fileSignatures);
+        if (!overlayResult) {
+          throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
+        }
+        finalBuffer = overlayResult.buffer;
+        finalMimeType = overlayResult.mimeType;
+      }
+
+      const previousSignature = await submissionSignatureModel.getLastSignature(fileId, currentRound, conn);
+
+      // 最后一步必须覆盖所有当前 PDF；即使本步只是“通过”且没有新增可见图层，
+      // 也要对最终字节执行 PKCS#7 签名。非 PDF 文件只保留原有图层合成行为。
+      if (!nextStep && finalMimeType === 'application/pdf') {
+        const latestPlacement = fileSignatures[fileSignatures.length - 1] || null;
+        const signaturePosition = latestPlacement ? {
+          x: latestPlacement.positionX,
+          y: latestPlacement.positionY,
+          page: latestPlacement.page || 1
+        } : null;
+        const signedDocument = await signFinalPdfDocument({
+          file,
+          buffer: finalBuffer,
+          mimeType: finalMimeType,
+          orgId,
+          approverAssignment,
+          signaturePosition,
+          db: conn
+        });
+        finalBuffer = signedDocument.buffer;
+        finalMimeType = signedDocument.mimeType;
+      }
+
+      const documentHash = hashFile(finalBuffer);
+      preparedFiles.push({
         fileId,
-        signatureType: safeString(sigData.signatureType) || 'signature',
-        imageData,
-        positionX,
-        positionY,
-        size,
-        rotation,
-        page: Math.max(1, parseInt(sigData.page, 10) || 1)
-      };
-      if (!signaturesByFile.has(fileId)) signaturesByFile.set(fileId, []);
-      signaturesByFile.get(fileId).push(normalized);
+        orgId,
+        oldPath: file.file_path,
+        buffer: finalBuffer,
+        mimeType: finalMimeType,
+        fileHash: documentHash
+      });
+
+      const chainMaterials = fileSignatures.slice()
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      if (!nextStep && finalMimeType === 'application/pdf') {
+        const latestPlacement = chainMaterials[chainMaterials.length - 1] || null;
+        chainMaterials.push(createDigitalSignatureMaterial({
+          generateId,
+          fileId,
+          signaturePosition: latestPlacement ? {
+            x: latestPlacement.positionX,
+            y: latestPlacement.positionY,
+            page: latestPlacement.page
+          } : null
+        }));
+      }
+      const chainRecords = buildSignatureChainRecords({
+        materials: chainMaterials,
+        previousSignatureHash: previousSignature ? previousSignature.signature_data_hash : null,
+        stepId,
+        signerHrId: hrId,
+        signerAssignmentId: approverAssignment.assignment_id,
+        signerContextSnapshot,
+        round: currentRound,
+        documentHash,
+        signedAt: now.toISOString()
+      });
+      chainRecords.forEach((record) => {
+        pendingSignatureRecords.push({
+          fileId,
+          record
+        });
+      });
     }
 
-    for (const [fileId, fileSignatures] of signaturesByFile) {
-      const file = await submissionFileModel.getCurrentById(fileId);
-      if (!file || file.submission_id !== submissionId) {
-        throw new Error(localeCopy.copy_6ae85136ce);
+    fileCommit = createAuditFileCommit(preparedFiles);
+    fileCommit.stage();
+    for (const preparedFile of preparedFiles) {
+      const metadata = fileCommit.metadataFor(preparedFile.fileId);
+      if (!metadata) {
+        throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
       }
-
-      if (file.file_path && fs.existsSync(file.file_path)) {
-        signedFileBackups.push({
-          filePath: file.file_path,
-          buffer: fs.readFileSync(file.file_path)
-        });
-      }
-      const overlayResult = await overlaySignaturesOnFile(file, fileSignatures);
-      let finalBuffer = file.file_path && fs.existsSync(file.file_path)
-        ? fs.readFileSync(file.file_path)
-        : null;
-      let finalMimeType = overlayResult ? overlayResult.mimeType : file.mime_type;
-
-      // 最终步骤：PDF 文件追加符合 PDF 规范的 PKCS#7 数字签名（私钥仅在服务端），
-      // 签名覆盖整份最终文档，Acrobat 等软件可识别“由 姓名（学号）签署”。
-      if (finalBuffer && finalMimeType === 'application/pdf' && !nextStep) {
-        const signerName = safeString(approverAssignment.name);
-        const studentId = safeString(approverAssignment.student_id);
-        const [orgRows] = await pool.query('SELECT name FROM organizations WHERE id = ?', [orgId]);
-        const orgName = orgRows[0] ? safeString(orgRows[0].name) : '';
-
-        const configuredIdentity = getConfiguredSigningIdentity();
-        const parentIdentity = configuredIdentity ? null : getConfiguredParentSigningIdentity();
-        let keyPair = null;
-        let certificateChainPem = '';
-        let trustStatus = parentIdentity ? 'parent_configured' : 'self_signed';
-        if (configuredIdentity) {
-          keyPair = {
-            privateKey: forge.pki.privateKeyFromPem(configuredIdentity.privateKeyPem),
-            publicKey: forge.pki.publicKeyFromPem(configuredIdentity.publicKeyPem),
-            privateKeyPem: configuredIdentity.privateKeyPem,
-            publicKeyPem: configuredIdentity.publicKeyPem
-          };
-          certificateChainPem = configuredIdentity.certificateChainPem;
-          trustStatus = configuredIdentity.trustStatus;
-        } else if (file.signing_key_private) {
-          keyPair = {
-            privateKey: forge.pki.privateKeyFromPem(file.signing_key_private),
-            publicKey: file.signing_key_public ? forge.pki.publicKeyFromPem(file.signing_key_public) : null,
-            privateKeyPem: file.signing_key_private,
-            publicKeyPem: file.signing_key_public || ''
-          };
-        } else {
-          keyPair = generateSigningKeyPair();
-          await submissionFileModel.saveSigningKey(fileId, {
-            privateKey: keyPair.privateKeyPem,
-            publicKey: keyPair.publicKeyPem,
-            cert: null,
-            algorithm: 'RSA-SHA256'
-          }, conn);
-        }
-
-        if (parentIdentity) {
-          certificateChainPem = [parentIdentity.certificatePem, parentIdentity.chainPem]
-            .filter(Boolean).join('\n');
-        }
-        const certPem = configuredIdentity
-          ? configuredIdentity.certificatePem
-          : createSignerCertificate(
-            keyPair.privateKey,
-            keyPair.publicKey,
-            signerName,
-            studentId,
-            orgName,
-            parentIdentity
-              ? { privateKeyPem: parentIdentity.privateKeyPem, certificatePem: parentIdentity.certificatePem }
-              : null
-          );
-        await submissionFileModel.saveSigningKey(fileId, {
-          // CA 组织证书的私钥只从服务端密钥配置读取，不复制到业务数据库。
-          privateKey: configuredIdentity ? null : keyPair.privateKeyPem,
-          publicKey: keyPair.publicKeyPem,
-          cert: certPem,
-          certificateChain: certificateChainPem,
-          trustStatus: trustStatus,
-          algorithm: 'RSA-SHA256'
-        }, conn);
-
-        const lastSigPosition = fileSignatures[fileSignatures.length - 1] || {};
-        const signedBuffer = await signPdfBuffer(finalBuffer, keyPair.privateKeyPem, certPem, {
-          signer: { name: signerName, studentId: studentId, orgName: orgName },
-          signaturePosition: {
-            x: lastSigPosition.positionX,
-            y: lastSigPosition.positionY,
-            page: lastSigPosition.page
-          },
-          certificateChainPem: certificateChainPem
-        });
-        fs.writeFileSync(file.file_path, signedBuffer);
-        finalBuffer = signedBuffer;
-        finalMimeType = 'application/pdf';
-      }
-
-      const documentHash = finalBuffer ? hashFile(finalBuffer) : (file.file_hash || '');
-      if (finalBuffer) {
-        await submissionFileModel.updateMetadata(fileId, {
-          filePath: file.file_path,
-          mimeType: finalMimeType,
-          fileSize: finalBuffer.length,
-          fileHash: documentHash
-        }, conn);
-      } else if (overlayResult) {
-        await submissionFileModel.updateMetadata(fileId, overlayResult, conn);
-      }
-
-      fileSignatures.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-      const lastSig = await submissionSignatureModel.getLastSignature(fileId, currentRound, conn);
-      let previousHash = lastSig ? lastSig.signature_data_hash : null;
-
-      for (const sigData of fileSignatures) {
-        const sigHash = computeSignatureHash({
-          id: sigData.id,
-          stepId,
-          signerHrId: hrId,
-          positionX: sigData.positionX,
-          positionY: sigData.positionY,
-          size: sigData.size,
-          rotation: sigData.rotation,
-          page: sigData.page,
-          round: currentRound,
-          previousSignatureHash: previousHash,
-          documentHash,
-          signedAt: now.toISOString()
-        });
-
-        await submissionSignatureModel.create(sigData.id, {
-          submissionId,
-          stepId,
-          fileId,
-          signatureType: sigData.signatureType,
-          imageData: sigData.imageData,
-          positionX: sigData.positionX,
-          positionY: sigData.positionY,
-          size: sigData.size,
-          rotation: sigData.rotation,
-          page: sigData.page,
-          signerHrId: hrId,
-          round: currentRound,
-          previousSignatureHash: previousHash,
-          documentHashAtSigning: documentHash,
-          signatureDataHash: sigHash,
-          signedAt: now
-        }, conn);
-        previousHash = sigHash;
-      }
+      await submissionFileModel.updateMetadata(preparedFile.fileId, metadata, conn);
+    }
+    for (const pending of pendingSignatureRecords) {
+      const sigData = pending.record.material;
+      await submissionSignatureModel.create(sigData.id, {
+        submissionId,
+        stepId,
+        fileId: pending.fileId,
+        signatureType: sigData.signatureType,
+        imageData: sigData.imageData,
+        positionX: sigData.positionX,
+        positionY: sigData.positionY,
+        size: sigData.size,
+        rotation: sigData.rotation,
+        page: sigData.page,
+        signerHrId: hrId,
+        round: currentRound,
+        previousSignatureHash: pending.record.previousSignatureHash,
+        documentHashAtSigning: preparedFiles.find((item) => item.fileId === pending.fileId).fileHash,
+        signatureDataHash: pending.record.signatureDataHash,
+        signedAt: now,
+        materialImageHash: pending.record.materialImageHash,
+        stampId: pending.record.stampId,
+        signerAssignmentId: pending.record.signerAssignmentId,
+        signerContextSnapshot: pending.record.signerContextSnapshot,
+        hashVersion: pending.record.hashVersion
+      }, conn);
     }
 
     // Check if there are more steps
@@ -1677,16 +1693,29 @@ router.post('/approveStep', async (req, res) => {
         targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
       }, conn);
     }
+    commitAttempted = true;
     await conn.commit();
+    transactionCommitted = true;
+    transactionStarted = false;
+    fileCommit.finalize();
     res.json({ status: 'success', message: localeCopy.copy_126a0e1f4c + (nextStep ? localeCopy.copy_1d9affae0d : localeCopy.copy_e34c2ce1d6) });
   } catch (e) {
-    await conn.rollback();
-    for (const backup of signedFileBackups.reverse()) {
-      try {
-        fs.writeFileSync(backup.filePath, backup.buffer);
-      } catch (restoreErr) {
-        console.error('[audit:approveStep] failed to restore signed file backup:', restoreErr);
-      }
+    if (transactionStarted && !transactionCommitted) {
+      try { await conn.rollback(); } catch (_) {}
+      transactionStarted = false;
+    }
+    // commit() 抛错时提交结果可能不确定，此时保留账本给启动恢复任务核对数据库；
+    // 只有确认尚未尝试提交时，才可以立即删除未被数据库引用的新版本。
+    if (fileCommit && !transactionCommitted && !commitAttempted) {
+      fileCommit.rollback();
+    }
+    if (e instanceof AuditApprovalIntegrityError) {
+      return res.json(approvalIntegrityFailure(e));
+    }
+    if (e instanceof AuditFileCommitError) {
+      return res.json(approvalIntegrityFailure(
+        new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID)
+      ));
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {

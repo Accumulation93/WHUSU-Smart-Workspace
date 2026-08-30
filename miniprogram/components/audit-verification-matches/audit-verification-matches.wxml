@@ -1,0 +1,21 @@
+<view class="verification-match-section" wx:if="{{matches.length}}">
+  <view class="verification-match-heading">
+    <view class="list-title">{{copy.matchSectionTitle}}</view>
+    <view class="list-desc">{{countText}}</view>
+  </view>
+  <view class="verification-match-card {{item.isSelected ? 'verification-match-card--active' : ''}}" wx:for="{{matches}}" wx:key="submissionId">
+    <view class="verification-match-main">
+      <view class="verification-match-title-row">
+        <view class="verification-match-title">{{item.titleText}}</view>
+        <view class="verification-match-status {{item.statusClass}}">{{item.statusText}}</view>
+      </view>
+      <view class="list-desc">{{numberLabel}} · {{item.submissionNumber}}</view>
+      <view class="verification-match-files" wx:if="{{item.matchingFiles.length}}">
+        <view class="list-desc verification-match-files-label">{{copy.matchingFiles}}</view>
+        <view class="verification-match-file" wx:for="{{item.matchingFiles}}" wx:for-item="matchedFile" wx:key="fileId">{{matchedFile.fileName}}</view>
+      </view>
+    </view>
+    <view class="verification-match-action verification-match-action--current" wx:if="{{item.isSelected}}">{{copy.currentResult}}</view>
+    <view class="verification-match-action verification-match-action--interactive" wx:else data-submission-id="{{item.submissionId}}" bindtap="onSelect" hover-class="verification-match-action--pressed" hover-start-time="0" hover-stay-time="160">{{copy.viewResult}}</view>
+  </view>
+</view>

@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditAdmin');
+const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -17,7 +18,6 @@ const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const auditEventModel = require('../models/auditEvent');
 const verificationPermModel = require('../models/verificationPermission');
-const { verifySignatureChain } = require('../utils/hashChain');
 const {
   resolveAndValidateBindings
 } = require('../services/auditPersonAssignmentCondition');
@@ -483,26 +483,11 @@ router.post('/saveStampAssignments', async (req, res) => {
 });
 
 // listIdentityStamps — Get stamps available for an identity
-router.post('/listIdentityStamps', async (req, res) => {
-  try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
-    const identityId = safeString(req.body.identityId);
-    if (!identityId) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
-    }
-
-    const assignments = await stampAssignmentModel.getByIdentityId(identityId);
-    const result = assignments.map((a) => ({
-      id: safeString(a.stamp_id),
-      name: safeString(a.stamp_name),
-      identityId: safeString(a.identity_id)
-    }));
-
-    res.json({ status: 'success', stamps: result });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+router.post('/listIdentityStamps', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // ═══════════════════════════════════════════════════
@@ -871,56 +856,11 @@ router.post('/getAuditProgress', async (req, res) => {
   }
 });
 
-// verifyAuditFile — Admin finds submissions containing a file by hash or base64 content
-router.post('/verifyAuditFile', async (req, res) => {
-  try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-
-    const fileHash = safeString(req.body.fileHash);
-    const fileBase64 = safeString(req.body.fileBase64);
-
-    let targetHash = fileHash;
-    if (!targetHash && fileBase64) {
-      const crypto = require('crypto');
-      const buffer = Buffer.from(fileBase64, 'base64');
-      targetHash = crypto.createHash('sha256').update(buffer).digest('hex');
-    }
-
-    if (!targetHash) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
-    }
-
-    const orgId = await getCurrentOrgId();
-    const [fileRows] = await pool.query(
-      `SELECT asf.*, asub.submission_number, asub.title, asub.status
-       FROM audit_submission_files asf
-       JOIN audit_submissions asub ON asub.id = asf.submission_id
-       WHERE asf.file_hash = ? AND asf.org_id = ?
-       ORDER BY asub.created_at DESC`,
-      [targetHash, orgId]
-    );
-
-    const submissions = fileRows.map((f) => ({
-      submissionId: safeString(f.submission_id),
-      submissionNumber: safeString(f.submission_number),
-      title: safeString(f.title),
-      status: safeString(f.status),
-      fileId: safeString(f.id),
-      fileName: safeString(f.file_name),
-      fileSize: f.file_size
-    }));
-
-    res.json({
-      status: 'success',
-      fileHash: targetHash,
-      matchCount: submissions.length,
-      submissions
-    });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+router.post('/verifyAuditFile', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 module.exports = router;

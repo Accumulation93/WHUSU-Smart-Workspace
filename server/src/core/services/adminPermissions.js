@@ -122,7 +122,9 @@ mapAny(['/getCurrentScoreActivity'], [
 mapRoutes('scoring.activities', ['/saveScoreActivity', '/deleteScoreActivity', '/setCurrentScoreActivity', '/toggleActivityPause']);
 mapAny(['/listScoreTemplates'], ['scoring.templates', 'scoring.rules']);
 mapRoutes('scoring.templates', ['/saveScoreTemplate', '/deleteScoreTemplate', '/duplicateScoreTemplate']);
-mapRoutes('scoring.rules', ['/listRateRules', '/saveRateRule', '/deleteRateRule', '/generateRateTargetRules']);
+mapRoutes('scoring.rules', [
+  '/listRateRules', '/saveRateRule', '/batchSaveRateRules', '/deleteRateRule', '/generateRateTargetRules'
+]);
 mapRoutes('scoring.results', ['/getScoreResults', '/getScorerTaskStatus']);
 mapRoutes('scoring.results_export', ['/exportScoreResults', '/exportScorerTaskStatus']);
 mapRoutes('scoring.results_revoke', ['/revokeScoreRecord']);
@@ -130,7 +132,9 @@ mapRoutes('scoring.publications', [
   '/getResultPublication', '/saveResultPublication', '/saveResultViewPermission', '/deleteResultViewPermission',
   '/saveMeritListPermission', '/deleteMeritListPermission', '/saveMeritListDesignations', '/removeMeritListDesignation',
   '/generatePubViewRules', '/generatePubMeritRules', '/savePubViewRule', '/listPubViewRules', '/deletePubViewRule',
-  '/savePubMeritRule', '/listPubMeritRules', '/deletePubMeritRule', '/getMeritListSummary', '/exportMeritListSummary'
+  '/batchSavePubViewRules', '/batchDeletePubViewRules',
+  '/savePubMeritRule', '/listPubMeritRules', '/deletePubMeritRule',
+  '/batchSavePubMeritRules', '/batchDeletePubMeritRules', '/getMeritListSummary', '/exportMeritListSummary'
 ]);
 
 mapAny(['/listHrInfo', '/listHrGovernance'], [

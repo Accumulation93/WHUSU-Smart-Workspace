@@ -23,6 +23,32 @@ async function getByIdentityId(identityId) {
   return rows;
 }
 
+async function getAuthorizedStampsForIdentityForUpdate(stampIds, identityId, conn) {
+  const normalizedStampIds = [...new Set((Array.isArray(stampIds) ? stampIds : [])
+    .map((id) => String(id || '').trim())
+    .filter(Boolean))];
+  if (!normalizedStampIds.length || !identityId || !conn) return [];
+  const orgId = await getCurrentOrgId();
+  const placeholders = normalizedStampIds.map(() => '?').join(', ');
+  const [rows] = await conn.query(
+    `SELECT s.id, s.name, s.image_data
+       FROM identity_stamp_assignments isa
+       JOIN stamps s
+         ON s.id = isa.stamp_id
+        AND s.org_id = isa.org_id
+       JOIN identities i
+         ON i.id = isa.identity_id
+        AND i.org_id = isa.org_id
+      WHERE isa.stamp_id IN (${placeholders})
+        AND isa.identity_id = ?
+        AND isa.org_id = ?
+      ORDER BY s.id
+      FOR UPDATE`,
+    [...normalizedStampIds, identityId, orgId]
+  );
+  return rows;
+}
+
 async function getAllGrouped() {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -79,4 +105,12 @@ async function replaceForIdentity(identityId, stampIds) {
   }
 }
 
-module.exports = { getByStampId, getByIdentityId, getAllGrouped, create, removeByStampAndIdentity, replaceForIdentity };
+module.exports = {
+  getByStampId,
+  getByIdentityId,
+  getAuthorizedStampsForIdentityForUpdate,
+  getAllGrouped,
+  create,
+  removeByStampAndIdentity,
+  replaceForIdentity
+};

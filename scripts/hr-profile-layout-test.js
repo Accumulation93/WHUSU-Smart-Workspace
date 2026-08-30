@@ -69,8 +69,10 @@ assert(
   '人事界面不得保留主要岗位概念'
 );
 assert(
-  /synchronizedRows\.map\(toHrProfileListRow\)/.test(hrInfoBehavior)
-    && /this\._hrProfileFilteredRows/.test(hrInfoBehavior),
+  /function buildHrProfileRenderState\([\s\S]*?source\.slice\(0, normalizedVisibleCount\)\.map\(toHrProfileListRow\)/.test(hrInfoBehavior)
+    && /this\._hrProfileRawRows/.test(hrInfoBehavior)
+    && /this\._hrProfileFilteredRows/.test(hrInfoBehavior)
+    && /buildHrProfileRenderState\(synchronizedRows\)/.test(hrInfoBehavior),
   '人事列表必须只向视图传递摘要字段，完整补充资料应留在逻辑层供筛选和导出'
 );
 const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{activeTab === 'hrInfo'[\s\S]*?<\/view>\s*<view class="edit-box hr-template-editor"/);

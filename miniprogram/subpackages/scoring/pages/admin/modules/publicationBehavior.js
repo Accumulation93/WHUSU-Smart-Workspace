@@ -381,7 +381,20 @@ module.exports = Behavior({
       const ids = Object.keys(this.data.pubViewRuleSelectedIds).filter(id => this.data.pubViewRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [ids.length]), icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          const result = await that.callCloud('batchDeletePubViewRules', { ruleIds: ids });
+          if (result.status === 'success') {
+            wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [result.count || ids.length]), icon: 'success' });
+          } else {
+            wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+          }
+        } catch (error) {
+          wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
+        }
+        await that.loadPublicationData(that.data.publicationForm.activityId);
+      } });
     },
   
     // ─── Merit Rule Category CRUD ───,
@@ -457,7 +470,20 @@ module.exports = Behavior({
       const ids = Object.keys(this.data.pubMeritRuleSelectedIds).filter(id => this.data.pubMeritRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [ids.length]), icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          const result = await that.callCloud('batchDeletePubMeritRules', { ruleIds: ids });
+          if (result.status === 'success') {
+            wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [result.count || ids.length]), icon: 'success' });
+          } else {
+            wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+          }
+        } catch (error) {
+          wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
+        }
+        await that.loadPublicationData(that.data.publicationForm.activityId);
+      } });
     },
   
     // ─── Generate default categories ───,
@@ -693,14 +719,21 @@ module.exports = Behavior({
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubViewRules', true);
-      let count = 0;
       try {
-        for (const item of selected) {
-          const res = await this.callCloud('savePubViewRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
-          if (res.status === 'success') count++;
+        const rules = selected.map(item => ({
+          id: item.id,
+          publicationId: pubId,
+          granteeDepartmentId: item.granteeDepartmentId,
+          granteeIdentityId: item.granteeIdentityId,
+          clauses: templateClauses
+        }));
+        const result = await this.callCloud('batchSavePubViewRules', { rules });
+        if (result.status === 'success') {
+          wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [result.count || selected.length]), icon: 'success' });
+        } else {
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
         }
-        wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [count]), icon: 'success' });
-        this.loadPublicationData(this.data.publicationForm.activityId);
+        await this.loadPublicationData(this.data.publicationForm.activityId);
       } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubViewRules', false);
@@ -719,15 +752,21 @@ module.exports = Behavior({
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubMeritRules', true);
-      let ok = 0, err = 0;
       try {
-        for (const item of selected) {
-          const res = await this.callCloud('savePubMeritRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
-          if (res.status === 'success') ok++; else err++;
+        const rules = selected.map(item => ({
+          id: item.id,
+          publicationId: pubId,
+          granteeDepartmentId: item.granteeDepartmentId,
+          granteeIdentityId: item.granteeIdentityId,
+          clauses: templateClauses
+        }));
+        const result = await this.callCloud('batchSavePubMeritRules', { rules });
+        if (result.status === 'success') {
+          wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [result.count || selected.length]), icon: 'success' });
+        } else {
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
         }
-        let msg = localeFormat(localeCopy.copy_61c8906682, [ok]); if (err > 0) msg += localeFormat(localeCopy.copy_1b631a5d63, [err]);
-        wx.showToast({ title: msg, icon: ok > 0 ? 'success' : 'none' });
-        this.loadPublicationData(this.data.publicationForm.activityId);
+        await this.loadPublicationData(this.data.publicationForm.activityId);
       } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubMeritRules', false);

@@ -10,6 +10,16 @@ const workContextView = require('../../utils/workContextView');
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+function normalizeApprovalActionTypeForView(value) {
+  return value === 'stamp' ? 'estamp' : (value || 'pass');
+}
+
+function normalizeApprovalStepForView(step) {
+  return Object.assign({}, step || {}, {
+    actionType: normalizeApprovalActionTypeForView(step && step.actionType)
+  });
+}
+
 Page({
   data: {
     localeCopy,
@@ -381,7 +391,7 @@ Page({
     try {
       let res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
       if (res.status === 'success') {
-        let steps = res.steps || [];
+        let steps = (res.steps || []).map(normalizeApprovalStepForView);
         // The submitter may only designate the first step when that step allows it.
         const previousOverrides = Array.isArray(existingOverrides) ? existingOverrides : [];
         let overrides = steps.filter(function(s) {
@@ -874,6 +884,7 @@ Page({
   },
 
   getActionLabel(actionType) {
+    actionType = normalizeApprovalActionTypeForView(actionType);
     if (actionType === 'pass') return localeCopy.copy_8e2f75159e;
     if (actionType === 'sign') return localeCopy.copy_49cbf30d6b;
     if (actionType === 'estamp') return localeCopy.copy_7e6630535d;
@@ -1113,7 +1124,7 @@ Page({
 
         // Build flow timeline from server events + steps
         let serverEvents = res.events || [];
-        let rawSteps = res.steps || [];
+        let rawSteps = (res.steps || []).map(normalizeApprovalStepForView);
         let flowTimeline = [];
 
         // 1. Build lifecycle nodes from ALL server events — no filtering
@@ -1639,11 +1650,12 @@ Page({
   openApprove(e) {
     const stepId = e.currentTarget.dataset.stepId;
     this.setData({
-      approvalVisible: true,
+      approvalVisible: false,
       approvalStepId: stepId,
-      approvalAction: 'approve',
-      approvalComment: '',
-      pendingSignatures: []
+      approvalAction: ''
+    });
+    wx.nextTick(function() {
+      wx.pageScrollTo({ selector: '#active-approval-card', duration: 300 });
     });
   },
 
@@ -1943,92 +1955,43 @@ Page({
     return result;
   },
 
-  // Legacy: open signature pad directly (used in old approval dialog)
-  openSignaturePad(e) {
-    const fileId = e.currentTarget.dataset.fileId;
-    this._showSignaturePad(fileId, false);
-  },
-
   closeSignaturePad() {
     this.setData({ signaturePadVisible: false });
   },
 
-  removePendingSignature(e) {
-    const idx = e.currentTarget.dataset.index;
-    const sigs = [...this.data.pendingSignatures];
-    sigs.splice(idx, 1);
-    this.setData({ pendingSignatures: sigs });
-  },
-
   async confirmApproval() {
     if (!this.ensureActiveAssignment()) return;
-    const { approvalAction, approvalStepId, approvalComment, rejectionReason, pendingSignatures, submissionId } = this.data;
+    const { approvalAction, approvalStepId, rejectionReason, submissionId } = this.data;
 
-    if (approvalAction === 'reject' && !rejectionReason) {
+    if (approvalAction !== 'reject') {
+      this.closeApproval();
+      wx.nextTick(function() {
+        wx.pageScrollTo({ selector: '#active-approval-card', duration: 300 });
+      });
+      return;
+    }
+    if (!rejectionReason) {
       showShortToast(localeCopy.copy_3764af0483);
       return;
     }
 
     this.setData({ loading: true });
     try {
-      let res;
-      if (approvalAction === 'approve') {
-        res = await callFunction({
-          name: 'approveStep',
-          data: { submissionId, stepId: approvalStepId, comment: approvalComment, signatures: pendingSignatures }
-        });
-      } else {
-        res = await callFunction({
-          name: 'rejectStep',
-          data: { submissionId, stepId: approvalStepId, rejectionReason }
-        });
-      }
+      const res = await callFunction({
+        name: 'rejectStep',
+        data: { submissionId, stepId: approvalStepId, rejectionReason }
+      });
 
       if (res.status === 'success') {
         showShortToast(res.message || localeCopy.copy_2220286f1c);
         this.closeApproval();
-
-        // Optimistic UI: update local state immediately, sync in background
-        if (approvalAction === 'approve') {
-          let timeline = (this.data.flowTimeline || []).slice();
-          let stepNode = timeline.find(function(s) { return s.type === 'step' && s.id === approvalStepId; });
-          if (stepNode) {
-            stepNode.flowNodeClass = 'flow-node-done';
-            stepNode.flowDotClass = 'flow-dot-done';
-            stepNode.flowIcon = 'check';
-            stepNode.flowStatusLabel = stepNode.actionType === 'pass' ? localeCopy.copy_8984f2dd04 : localeCopy.copy_db18a7c8cf;
-            stepNode.flowTagClass = 'flow-tag-done';
-          }
-          let stepCount = this.data.rawStepCount || (this.data.flowProgressPercent ? Math.round(100 / (100 - this.data.flowProgressPercent)) : 1);
-          let newPercent = Math.min(100, (this.data.flowProgressPercent || 0) + Math.round(100 / Math.max(stepCount, 1)));
-          this.setData({
-            flowTimeline: timeline,
-            flowProgressPercent: newPercent,
-            activeApprovalStepId: '',
-            activeApprovalStep: null,
-            approvalWarning: ''
-          });
-
-          // Notify portal to refresh notification badge
-          require('../../../../utils/eventBus').emit('approval:done');
-
-          // Background sync to ensure consistency
-          let self = this;
-          if (this._actionTimer) clearTimeout(this._actionTimer);
-          this._actionTimer = setTimeout(function() {
-            self._actionTimer = null;
-            if (self._pageActive) self.loadDetail();
-          }, 500);
-        } else {
-          // Reject: navigate back after short delay
-          let self2 = this;
-          require('../../../../utils/eventBus').emit('approval:done');
-          if (this._actionTimer) clearTimeout(this._actionTimer);
-          this._actionTimer = setTimeout(function() {
-            self2._actionTimer = null;
-            if (self2._pageActive) wx.navigateBack();
-          }, 800);
-        }
+        const self = this;
+        require('../../../../utils/eventBus').emit('approval:done');
+        if (this._actionTimer) clearTimeout(this._actionTimer);
+        this._actionTimer = setTimeout(function() {
+          self._actionTimer = null;
+          if (self._pageActive) wx.navigateBack();
+        }, 800);
       } else {
         if (!this.handleWorkContextFailure(res)) {
           showShortToast(res.message || localeCopy.copy_0531ed9e78);
@@ -2535,22 +2498,24 @@ Page({
     });
   },
 
+  _getApprovalMaterialWarning(actionType, signatures) {
+    const sigs = signatures || [];
+    const hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
+    const hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
+    if (actionType === 'sign' && !hasSignature) return localeCopy.copy_a6f8fa4809;
+    if ((actionType === 'estamp' || actionType === 'stamp') && !hasStamp) return localeCopy.copy_472d3dfdab;
+    if (actionType === 'both') {
+      if (!hasSignature && !hasStamp) return localeCopy.copy_448b029911;
+      if (!hasSignature) return localeCopy.copy_a6f8fa4809;
+      if (!hasStamp) return localeCopy.copy_472d3dfdab;
+    }
+    return '';
+  },
+
   // Check if signature/stamp requirements are met and set warning
   updateApprovalWarning() {
     let actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
-    let sigs = this.data.pendingSignatures || [];
-    let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
-    let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
-    let warning = '';
-    if (actionType === 'both') {
-      if (!hasSignature && !hasStamp) {
-        warning = localeCopy.copy_448b029911;
-      } else if (!hasSignature) {
-        warning = localeCopy.copy_a6f8fa4809;
-      } else if (!hasStamp) {
-        warning = localeCopy.copy_472d3dfdab;
-      }
-    }
+    let warning = this._getApprovalMaterialWarning(actionType, this.data.pendingSignatures || []);
     if (warning !== this.data.approvalWarning) {
       this.setData({ approvalWarning: warning });
     }
@@ -2598,22 +2563,13 @@ Page({
       return;
     }
 
-    // Check approval warning for sign+stamp steps
     if (action === 'approve') {
-      this.updateApprovalWarning();
-      let warn = this.data.approvalWarning;
-      if (warn && warn.indexOf(localeCopy.copy_6321f35418) < 0) {
-        // Only block if neither signature nor stamp was added to a "both" step
-        let actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
-        if (actionType === 'both') {
-          let sigs = this.data.pendingSignatures || [];
-          let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
-          let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
-          if (!hasSignature && !hasStamp) {
-            showShortToast(localeCopy.copy_448b029911);
-            return;
-          }
-        }
+      const actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
+      const warning = this._getApprovalMaterialWarning(actionType, this.data.pendingSignatures || []);
+      if (warning) {
+        this.setData({ approvalWarning: warning });
+        showShortToast(warning);
+        return;
       }
     }
 
@@ -2624,16 +2580,21 @@ Page({
         let designatedPersons = [...new Set((this.data.designatedNextPersons || []).map(function(p) { return p.id; }))];
         let designatedAssignments = (this.data.designatedNextPersons || []).map(function(p) { return p.assignmentId; });
         let sigs = (this.data.pendingSignatures || []).map(function(s) {
-          return {
+          const material = {
             fileId: s.fileId,
             signatureType: s.signatureType,
-            imageData: s.imageData,
             positionX: s.positionX,
             positionY: s.positionY,
             size: s.size || 1,
             rotation: s.rotation || 0,
             page: s.page || 1
           };
+          if (s.signatureType === 'stamp') {
+            material.stampId = s.stampId;
+          } else {
+            material.imageData = s.imageData;
+          }
+          return material;
         });
         res = await callFunction({
           name: 'approveStep',

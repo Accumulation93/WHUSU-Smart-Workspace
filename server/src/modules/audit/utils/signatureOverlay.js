@@ -32,8 +32,8 @@ async function buildSignaturePng(sig, targetWidth) {
     .toBuffer();
 }
 
-async function overlayOnImage(filePath, signatures) {
-  const image = sharp(filePath);
+async function overlayOnImageBuffer(sourceBuffer, signatures) {
+  const image = sharp(sourceBuffer);
   const metadata = await image.metadata();
   const imgWidth = metadata.width || 800;
   const imgHeight = metadata.height || 600;
@@ -66,9 +66,8 @@ async function overlayOnImage(filePath, signatures) {
   return image.composite(composites).png().toBuffer();
 }
 
-async function overlayOnPdf(filePath, signatures) {
-  const pdfBytes = fs.readFileSync(filePath);
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+async function overlayOnPdfBuffer(sourceBuffer, signatures) {
+  const pdfDoc = await PDFDocument.load(sourceBuffer);
   const pages = pdfDoc.getPages();
   if (!pages.length) return null;
 
@@ -77,8 +76,9 @@ async function overlayOnPdf(filePath, signatures) {
     const sigBuffer = getImageBuffer(sig.imageData);
     if (!sigBuffer) continue;
 
-    const pageNum = parseInt(sig.page, 10) || 1;
-    const pageIndex = Math.max(0, Math.min(pageNum - 1, pages.length - 1));
+    const pageNum = sig.page == null || sig.page === '' ? 1 : Number(sig.page);
+    if (!Number.isInteger(pageNum) || pageNum < 1 || pageNum > pages.length) return null;
+    const pageIndex = pageNum - 1;
     const page = pages[pageIndex];
     const pageSize = page.getSize();
     const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
@@ -120,24 +120,36 @@ async function overlaySignaturesOnFile(file, signatures) {
     return null;
   }
 
-  const mimeType = file.mime_type || '';
-  let buffer = null;
-  let outputMimeType = mimeType;
+  const sourceBuffer = fs.readFileSync(file.file_path);
+  const result = await overlaySignaturesOnBuffer(file, sourceBuffer, usable);
+  if (!result) return null;
 
-  if (mimeType.startsWith('image/')) {
-    buffer = await overlayOnImage(file.file_path, usable);
-    outputMimeType = 'image/png';
-  } else if (mimeType === 'application/pdf') {
-    buffer = await overlayOnPdf(file.file_path, usable);
-    outputMimeType = 'application/pdf';
-  }
-
-  if (!buffer) return null;
-
-  fs.writeFileSync(file.file_path, buffer);
+  fs.writeFileSync(file.file_path, result.buffer);
   return {
     filePath: file.file_path,
     fileName: file.file_name || path.basename(file.file_path),
+    mimeType: result.mimeType,
+    fileSize: result.buffer.length,
+    fileHash: result.fileHash
+  };
+}
+
+async function overlaySignaturesOnBuffer(file, sourceBuffer, signatures) {
+  const usable = (Array.isArray(signatures) ? signatures : []).filter((sig) => sig && sig.imageData);
+  if (!file || !Buffer.isBuffer(sourceBuffer) || !sourceBuffer.length || !usable.length) return null;
+  const mimeType = file.mime_type || '';
+  let buffer = null;
+  let outputMimeType = mimeType;
+  if (mimeType.startsWith('image/')) {
+    buffer = await overlayOnImageBuffer(sourceBuffer, usable);
+    outputMimeType = 'image/png';
+  } else if (mimeType === 'application/pdf') {
+    buffer = await overlayOnPdfBuffer(sourceBuffer, usable);
+    outputMimeType = 'application/pdf';
+  }
+  if (!buffer) return null;
+  return {
+    buffer,
     mimeType: outputMimeType,
     fileSize: buffer.length,
     fileHash: hashFile(buffer)
@@ -145,5 +157,7 @@ async function overlaySignaturesOnFile(file, signatures) {
 }
 
 module.exports = {
-  overlaySignaturesOnFile
+  overlayOnPdfBuffer,
+  overlaySignaturesOnFile,
+  overlaySignaturesOnBuffer
 };

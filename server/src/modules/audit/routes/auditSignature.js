@@ -1,5 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditSignature');
+const crypto = require('crypto');
 const express = require('express');
+const fs = require('fs');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
@@ -8,11 +10,13 @@ const userInfoModel = require('../../../core/models/userInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const signatureTemplateModel = require('../models/signatureTemplate');
 const submissionModel = require('../models/auditSubmission');
+const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
+const verificationMatchModel = require('../models/auditVerificationMatch');
 const verificationPermModel = require('../models/verificationPermission');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
-const { verifySignatureChain } = require('../utils/hashChain');
+const { hashFile, verifySignatureChain } = require('../utils/hashChain');
 const { verifyPdfSignature } = require('../utils/pdfSignature');
 
 /**
@@ -49,6 +53,66 @@ async function withLockedSignatureOwner(req, callback) {
 
 function signatureOwnerForbidden(res) {
   return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+}
+
+async function verifySubmissionFiles(submission) {
+  const signatures = await submissionSignatureModel.getChainForVerification(submission.id);
+  const files = await submissionFileModel.getBySubmissionId(submission.id);
+  const currentFileHashes = {};
+  const currentPdfFileIds = [];
+  for (const file of files) {
+    if (String(file.mime_type || '').toLowerCase() === 'application/pdf') {
+      currentPdfFileIds.push(String(file.id));
+    }
+    if (file.file_path && fs.existsSync(file.file_path)) {
+      currentFileHashes[file.id] = hashFile(fs.readFileSync(file.file_path));
+    }
+  }
+
+  const result = verifySignatureChain(signatures, currentFileHashes, {
+    requiredFileIds: currentPdfFileIds
+  });
+  for (const file of files) {
+    let fileResult = (result.files || []).find((item) => String(item.fileId) === String(file.id));
+    const isPdf = String(file.mime_type || '').toLowerCase() === 'application/pdf';
+    if (!fileResult && !isPdf) continue;
+    if (!fileResult) {
+      fileResult = {
+        fileId: String(file.id),
+        signatureId: null,
+        signedAt: null,
+        hashVerified: false,
+        missingSignatureRecord: true,
+        documentHashAtLastSigning: null,
+        currentHash: currentFileHashes[file.id] || null
+      };
+      result.files.push(fileResult);
+      result.valid = false;
+    }
+    fileResult.fileName = safeString(file.file_name);
+    if (isPdf && file.file_path && fs.existsSync(file.file_path)) {
+      try {
+        fileResult.pdfSignature = verifyPdfSignature(fs.readFileSync(file.file_path));
+      } catch (error) {
+        fileResult.pdfSignature = {
+          present: true,
+          valid: false,
+          signatures: [],
+          message: safeString(error.message)
+        };
+      }
+      if (!fileResult.pdfSignature.present || !fileResult.pdfSignature.valid) result.valid = false;
+    } else {
+      fileResult.pdfSignature = {
+        present: false,
+        valid: isPdf ? false : null,
+        signatures: [],
+        message: isPdf ? localeCopy.copy_6f376151a2 : localeCopy.copy_c6b6dad622
+      };
+      if (isPdf) result.valid = false;
+    }
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════════
@@ -222,86 +286,46 @@ router.post('/verifySignatureChain', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_4ca1fc6fb1 });
     }
 
-    // Resolve file hash from base64 if provided
     let resolvedFileHash = fileHash;
     if (!resolvedFileHash && fileBase64) {
-      const crypto = require('crypto');
       const buffer = Buffer.from(fileBase64, 'base64');
       resolvedFileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     }
 
-    // Find submission
     let submission;
-    if (submissionId) {
+    let matches = [];
+    if (resolvedFileHash) {
+      const matchRows = await verificationMatchModel.listFileHashMatches(resolvedFileHash);
+      matches = verificationMatchModel.groupFileHashMatches(matchRows);
+      if (!matches.length) {
+        return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+      }
+      const selectedMatch = submissionId
+        ? matches.find((item) => item.submissionId === submissionId)
+        : matches[0];
+      if (!selectedMatch) {
+        return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+      }
+      submission = await submissionModel.getById(selectedMatch.submissionId);
+    } else if (submissionId) {
       submission = await submissionModel.getById(submissionId);
     } else if (submissionNumber) {
       submission = await submissionModel.getByNumber(submissionNumber);
-    } else if (resolvedFileHash) {
-      // Find by file hash — lookup the submission containing this file
-      const orgId = await getCurrentOrgId();
-      const [fileRows] = await pool.query(
-        'SELECT submission_id FROM audit_submission_files WHERE file_hash = ? AND org_id = ? ORDER BY created_at DESC LIMIT 1',
-        [resolvedFileHash, orgId]
-      );
-      if (fileRows.length > 0) {
-        submission = await submissionModel.getById(fileRows[0].submission_id);
-      }
     }
 
     if (!submission) {
       return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
 
-    // Get signatures and files
-    const signatures = await submissionSignatureModel.getChainForVerification(submission.id);
-    const files = await require('../models/auditSubmissionFile').getBySubmissionId(submission.id);
-
-    // Build current file hash map (re-read files from disk)
-    const fs = require('fs');
-    const currentFileHashes = {};
-    for (const f of files) {
-      if (f.file_path && fs.existsSync(f.file_path)) {
-        const buffer = fs.readFileSync(f.file_path);
-        currentFileHashes[f.id] = require('../utils/hashChain').hashFile(buffer);
-      }
-    }
-
-    const result = verifySignatureChain(signatures, currentFileHashes);
-
-    // PDF 文件追加密码学验签：提取嵌入的 PKCS#7 数字签名并校验
-    for (const f of files) {
-      const fileResult = (result.files || []).find((item) => item.fileId === f.id);
-      if (!fileResult) continue;
-      const isPdf = String(f.mime_type || '').toLowerCase() === 'application/pdf';
-      if (isPdf && f.file_path && fs.existsSync(f.file_path)) {
-        try {
-          fileResult.pdfSignature = verifyPdfSignature(fs.readFileSync(f.file_path));
-        } catch (e) {
-          fileResult.pdfSignature = {
-            present: true,
-            valid: false,
-            signatures: [],
-            message: safeString(e.message)
-          };
-        }
-        if (fileResult.pdfSignature.present && !fileResult.pdfSignature.valid) {
-          result.valid = false;
-        }
-      } else {
-        fileResult.pdfSignature = {
-          present: false,
-          valid: null,
-          signatures: [],
-          message: isPdf ? localeCopy.copy_6f376151a2 : localeCopy.copy_c6b6dad622
-        };
-      }
-    }
+    const result = await verifySubmissionFiles(submission);
 
     res.json({
       status: 'success',
       submissionId: safeString(submission.id),
       submissionNumber: safeString(submission.submission_number),
       verifyByFileHash: resolvedFileHash || null,
+      matchCount: matches.length,
+      matches,
       ...result
     });
   } catch (e) {

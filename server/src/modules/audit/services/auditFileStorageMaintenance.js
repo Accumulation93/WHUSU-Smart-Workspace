@@ -5,6 +5,7 @@ const path = require('path');
 const pool = require('../../../config/db');
 const { logger } = require('../../../utils/logger');
 const { UPLOAD_DIR } = require('../utils/fileSecurity');
+const { recoverPendingAuditFileCommits } = require('./auditFileCommitCoordinator');
 
 const DEFAULT_ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -167,10 +168,19 @@ function createAuditFileStorageMaintenance(options) {
       expiredReservationsRemoved: 0,
       referencedFilesPreserved: 0,
       missingReferencedFiles: 0,
-      deletionErrors: 0
+      deletionErrors: 0,
+      commitJournalsScanned: 0,
+      commitJournalsRecovered: 0,
+      commitJournalsAmbiguous: 0,
+      commitJournalsInvalid: 0
     };
     const permissionReport = securePermissions();
     report.permissionsSecured = permissionReport.permissionsSecured;
+    const recovery = await recoverPendingAuditFileCommits({ database, uploadDir: rootDir });
+    report.commitJournalsScanned = recovery.scanned;
+    report.commitJournalsRecovered = recovery.committedRecovered + recovery.rolledBackRecovered;
+    report.commitJournalsAmbiguous = recovery.ambiguous;
+    report.commitJournalsInvalid = recovery.invalid;
 
     const [[referenceRows], [activeTempRows]] = await Promise.all([
       database.query(

@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/publications');
+const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
@@ -17,6 +18,7 @@ const workGroupModel = require('../../../core/models/workGroup');
 const activityModel = require('../models/scoreActivity');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const pool = require('../../../config/db');
+const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
@@ -26,6 +28,404 @@ const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 
 const VALID_DISPLAY_MODES = ['score', 'grade'];
+const VIEW_RULE_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
+const VIEW_IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
+const MERIT_RULE_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people', 'identity_only'];
+const MAX_BATCH_RULES = 200;
+
+class PublicationRuleRequestError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function rejectPublicationRule(status, message) {
+  throw new PublicationRuleRequestError(status, message);
+}
+
+function respondPublicationRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
+  return res.json({
+    status: error instanceof PublicationRuleRequestError ? error.status : 'error',
+    message: error instanceof PublicationRuleRequestError ? error.message : fallbackMessage
+  });
+}
+
+async function assertPublicationDictionaryReferences(connection, orgId, departmentId, identityIds) {
+  try {
+    await dictionaryUsage.assertDictionaryReferences({
+      organizationId: orgId,
+      departmentIds: [departmentId],
+      identityCategoryIds: identityIds,
+      workGroupIds: [],
+      connection
+    });
+  } catch (error) {
+    if (error && ['invalid_department_reference', 'invalid_identity_reference'].includes(error.code)) {
+      rejectPublicationRule('invalid_params', scoringCopy.publicationRuleReferenceInvalid);
+    }
+    throw error;
+  }
+}
+
+async function assertPublicationExists(connection, orgId, publicationId) {
+  const [rows] = await connection.query(
+    'SELECT id FROM result_publications WHERE id = ? AND org_id = ? FOR UPDATE',
+    [publicationId, orgId]
+  );
+  if (!rows[0]) rejectPublicationRule('invalid_params', localeCopy.copy_c2ca4efbfa);
+}
+
+async function normalizePubViewRuleInput(connection, orgId, body) {
+  const source = body || {};
+  const id = safeString(source.id);
+  const publicationId = safeString(source.publicationId);
+  const granteeDepartmentId = safeString(source.granteeDepartmentId);
+  const granteeIdentityId = safeString(source.granteeIdentityId);
+  const clauses = Array.isArray(source.clauses) ? source.clauses : [];
+  if (!publicationId || !granteeDepartmentId || !granteeIdentityId) {
+    rejectPublicationRule('invalid_params', localeCopy.copy_f076819918);
+  }
+  await assertPublicationExists(connection, orgId, publicationId);
+  if (id) {
+    const [rows] = await connection.query(
+      'SELECT id FROM pub_view_rules WHERE id = ? AND publication_id = ? AND org_id = ? FOR UPDATE',
+      [id, publicationId, orgId]
+    );
+    if (!rows[0]) rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+  }
+
+  const dedupedClauses = [];
+  const seen = new Set();
+  for (const clause of clauses) {
+    const scopeType = safeString(clause.scopeType);
+    if (!VIEW_RULE_SCOPES.includes(scopeType)) {
+      rejectPublicationRule('invalid_params', localeCopy.copy_7126caee7e);
+    }
+    const targetIdentityId = VIEW_IDENTITY_REQUIRED_SCOPES.includes(scopeType)
+      ? safeString(clause.targetIdentityId)
+      : '';
+    if (VIEW_IDENTITY_REQUIRED_SCOPES.includes(scopeType) && !targetIdentityId) {
+      rejectPublicationRule('invalid_params', localeCopy.copy_b1d535ef38);
+    }
+    const key = scopeType + '::' + targetIdentityId;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const displayMode = VALID_DISPLAY_MODES.includes(safeString(clause.displayMode))
+      ? safeString(clause.displayMode)
+      : 'score';
+    const gradeBands = [];
+    const rawGradeBands = Array.isArray(clause.gradeBands) ? clause.gradeBands : [];
+    if (displayMode === 'grade' && !rawGradeBands.length) {
+      rejectPublicationRule('invalid_params', localeCopy.copy_6937c46b0a);
+    }
+    for (let index = 0; index < rawGradeBands.length; index++) {
+      const gradeBand = rawGradeBands[index];
+      const minScore = Number(gradeBand.minScore);
+      const maxScore = Number(gradeBand.maxScore);
+      const gradeName = safeString(gradeBand.gradeName || gradeBand.grade_name);
+      if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) {
+        rejectPublicationRule('invalid_params', localeFormat(localeCopy.copy_caaa205301, [index + 1]));
+      }
+      if (minScore > maxScore) {
+        rejectPublicationRule('invalid_params', localeFormat(localeCopy.copy_36ab872bc9, [index + 1]));
+      }
+      if (!gradeName) {
+        rejectPublicationRule('invalid_params', localeFormat(localeCopy.copy_35fa8f1d08, [index + 1]));
+      }
+      gradeBands.push({ minScore, maxScore, gradeName });
+    }
+    dedupedClauses.push({ scopeType, targetIdentityId, displayMode, gradeBands });
+  }
+
+  await assertPublicationDictionaryReferences(
+    connection,
+    orgId,
+    granteeDepartmentId,
+    [granteeIdentityId].concat(dedupedClauses.map((clause) => clause.targetIdentityId))
+  );
+  return {
+    id,
+    publicationId,
+    granteeDepartmentId,
+    granteeIdentityId,
+    key: publicationId + '::' + granteeDepartmentId + '::' + granteeIdentityId,
+    clauses: dedupedClauses
+  };
+}
+
+async function savePubViewRuleWithConnection(connection, orgId, input) {
+  const now = nowMysqlUtc();
+  let ruleId = input.id;
+  if (input.id) {
+    const [rows] = await connection.query(
+      'SELECT id FROM pub_view_rules WHERE id = ? AND publication_id = ? AND org_id = ? FOR UPDATE',
+      [input.id, input.publicationId, orgId]
+    );
+    if (!rows[0]) rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+    const [conflicts] = await connection.query(
+      'SELECT id FROM pub_view_rules WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ? AND org_id = ? FOR UPDATE',
+      [input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId]
+    );
+    if (conflicts[0] && safeString(conflicts[0].id) !== input.id) {
+      rejectPublicationRule('duplicate_rule', scoringCopy.publicationRuleConflict);
+    }
+    await connection.query(
+      'UPDATE pub_view_rules SET grantee_department_id = ?, grantee_identity_id = ?, updated_at = ? WHERE id = ? AND publication_id = ? AND org_id = ?',
+      [input.granteeDepartmentId, input.granteeIdentityId, now, input.id, input.publicationId, orgId]
+    );
+  } else {
+    const [existingRows] = await connection.query(
+      'SELECT id FROM pub_view_rules WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ? AND org_id = ? FOR UPDATE',
+      [input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId]
+    );
+    if (existingRows[0]) {
+      ruleId = existingRows[0].id;
+      await connection.query(
+        'UPDATE pub_view_rules SET updated_at = ? WHERE id = ? AND publication_id = ? AND org_id = ?',
+        [now, ruleId, input.publicationId, orgId]
+      );
+    } else {
+      ruleId = generateId();
+      await connection.query(
+        'INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [ruleId, input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId, now, now]
+      );
+    }
+  }
+
+  await connection.query('DELETE FROM pub_view_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
+  for (let index = 0; index < input.clauses.length; index++) {
+    const clause = input.clauses[index];
+    const clauseId = generateId();
+    await connection.query(
+      'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, display_mode, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [clauseId, ruleId, clause.scopeType, clause.targetIdentityId, clause.displayMode, index + 1, orgId]
+    );
+    for (let bandIndex = 0; bandIndex < clause.gradeBands.length; bandIndex++) {
+      const gradeBand = clause.gradeBands[bandIndex];
+      await connection.query(
+        'INSERT INTO pub_grade_bands (id, clause_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), clauseId, gradeBand.minScore, gradeBand.maxScore, gradeBand.gradeName, bandIndex + 1, orgId]
+      );
+    }
+  }
+  return ruleId;
+}
+
+async function normalizePubMeritRuleInput(connection, orgId, body) {
+  const source = body || {};
+  const id = safeString(source.id);
+  const publicationId = safeString(source.publicationId);
+  const granteeDepartmentId = safeString(source.granteeDepartmentId);
+  const granteeIdentityId = safeString(source.granteeIdentityId);
+  const clauses = Array.isArray(source.clauses) ? source.clauses : [];
+  if (!publicationId || !granteeDepartmentId || !granteeIdentityId) {
+    rejectPublicationRule('invalid_params', localeCopy.copy_f076819918);
+  }
+  await assertPublicationExists(connection, orgId, publicationId);
+  if (id) {
+    const [rows] = await connection.query(
+      'SELECT id FROM pub_merit_rules WHERE id = ? AND publication_id = ? AND org_id = ? FOR UPDATE',
+      [id, publicationId, orgId]
+    );
+    if (!rows[0]) rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+  }
+
+  const [viewRules] = await connection.query(
+    'SELECT id FROM pub_view_rules WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ? AND org_id = ? FOR UPDATE',
+    [publicationId, granteeDepartmentId, granteeIdentityId, orgId]
+  );
+  if (!viewRules[0]) rejectPublicationRule('no_view_rule', localeCopy.copy_a7a80cb635);
+  const [viewClauses] = await connection.query(
+    'SELECT id FROM pub_view_rule_clauses WHERE rule_id = ? AND org_id = ? FOR UPDATE',
+    [viewRules[0].id, orgId]
+  );
+  if (!viewClauses.length) rejectPublicationRule('no_view_rule', localeCopy.copy_bb9abe11b7);
+
+  const dedupedClauses = [];
+  const seen = new Set();
+  for (const clause of clauses) {
+    const scopeType = safeString(clause.scopeType) || 'all_people';
+    if (!MERIT_RULE_SCOPES.includes(scopeType)) {
+      rejectPublicationRule('invalid_params', localeCopy.copy_4f983cb64d);
+    }
+    const targetIdentityId = safeString(clause.targetIdentityId);
+    if (!targetIdentityId) rejectPublicationRule('invalid_params', localeCopy.copy_b1d535ef38);
+    const key = scopeType + '::' + targetIdentityId;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedupedClauses.push({
+      scopeType,
+      targetIdentityId,
+      quotaLimit: Math.max(0, parseInt(String(clause.quotaLimit), 10) || 0),
+      requireExactQuota: clause.requireExactQuota === true
+    });
+  }
+
+  await assertPublicationDictionaryReferences(
+    connection,
+    orgId,
+    granteeDepartmentId,
+    [granteeIdentityId].concat(dedupedClauses.map((clause) => clause.targetIdentityId))
+  );
+  return {
+    id,
+    publicationId,
+    granteeDepartmentId,
+    granteeIdentityId,
+    key: publicationId + '::' + granteeDepartmentId + '::' + granteeIdentityId,
+    clauses: dedupedClauses
+  };
+}
+
+async function savePubMeritRuleWithConnection(connection, orgId, input) {
+  const now = nowMysqlUtc();
+  let ruleId = input.id;
+  if (input.id) {
+    const [rows] = await connection.query(
+      'SELECT id FROM pub_merit_rules WHERE id = ? AND publication_id = ? AND org_id = ? FOR UPDATE',
+      [input.id, input.publicationId, orgId]
+    );
+    if (!rows[0]) rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+    const [conflicts] = await connection.query(
+      'SELECT id FROM pub_merit_rules WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ? AND org_id = ? FOR UPDATE',
+      [input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId]
+    );
+    if (conflicts[0] && safeString(conflicts[0].id) !== input.id) {
+      rejectPublicationRule('duplicate_rule', scoringCopy.publicationRuleConflict);
+    }
+    await connection.query(
+      'UPDATE pub_merit_rules SET grantee_department_id = ?, grantee_identity_id = ?, updated_at = ? WHERE id = ? AND publication_id = ? AND org_id = ?',
+      [input.granteeDepartmentId, input.granteeIdentityId, now, input.id, input.publicationId, orgId]
+    );
+  } else {
+    const [existingRows] = await connection.query(
+      'SELECT id FROM pub_merit_rules WHERE publication_id = ? AND grantee_department_id = ? AND grantee_identity_id = ? AND org_id = ? FOR UPDATE',
+      [input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId]
+    );
+    if (existingRows[0]) {
+      ruleId = existingRows[0].id;
+      await connection.query(
+        'UPDATE pub_merit_rules SET updated_at = ? WHERE id = ? AND publication_id = ? AND org_id = ?',
+        [now, ruleId, input.publicationId, orgId]
+      );
+    } else {
+      ruleId = generateId();
+      await connection.query(
+        'INSERT INTO pub_merit_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [ruleId, input.publicationId, input.granteeDepartmentId, input.granteeIdentityId, orgId, now, now]
+      );
+    }
+  }
+
+  const [oldClauses] = await connection.query(
+    'SELECT id, scope_type, target_identity_id FROM pub_merit_rule_clauses WHERE rule_id = ? AND org_id = ? FOR UPDATE',
+    [ruleId, orgId]
+  );
+  const oldByKey = new Map();
+  oldClauses.forEach((clause) => {
+    oldByKey.set(safeString(clause.scope_type) + '::' + safeString(clause.target_identity_id), clause);
+  });
+  const keptClauseIds = new Set();
+  for (let index = 0; index < input.clauses.length; index++) {
+    const clause = input.clauses[index];
+    const key = clause.scopeType + '::' + clause.targetIdentityId;
+    const oldClause = oldByKey.get(key);
+    if (oldClause) {
+      keptClauseIds.add(oldClause.id);
+      await connection.query(
+        'UPDATE pub_merit_rule_clauses SET quota_limit = ?, require_exact_quota = ?, sort_order = ?, scope_type = ?, updated_at = ? WHERE id = ? AND rule_id = ? AND org_id = ?',
+        [clause.quotaLimit, clause.requireExactQuota ? 1 : 0, index + 1, clause.scopeType, now, oldClause.id, ruleId, orgId]
+      );
+    } else {
+      const clauseId = generateId();
+      keptClauseIds.add(clauseId);
+      await connection.query(
+        'INSERT INTO pub_merit_rule_clauses (id, rule_id, scope_type, target_identity_id, quota_limit, require_exact_quota, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [clauseId, ruleId, clause.scopeType, clause.targetIdentityId, clause.quotaLimit, clause.requireExactQuota ? 1 : 0, index + 1, orgId]
+      );
+    }
+  }
+  for (const oldClause of oldClauses) {
+    if (keptClauseIds.has(oldClause.id)) continue;
+    await connection.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [oldClause.id, orgId]);
+    await connection.query('DELETE FROM pub_merit_rule_clauses WHERE id = ? AND rule_id = ? AND org_id = ?', [oldClause.id, ruleId, orgId]);
+  }
+  return ruleId;
+}
+
+function assertUniquePublicationRuleBatch(items) {
+  const ids = new Set();
+  const keys = new Set();
+  for (const item of items) {
+    if ((item.id && ids.has(item.id)) || keys.has(item.key)) {
+      rejectPublicationRule('duplicate_batch_item', scoringCopy.batchDuplicateItem);
+    }
+    if (item.id) ids.add(item.id);
+    keys.add(item.key);
+  }
+}
+
+async function deletePubViewRuleWithConnection(connection, orgId, ruleId, options = {}) {
+  const [rows] = await connection.query(
+    'SELECT id FROM pub_view_rules WHERE id = ? AND org_id = ? FOR UPDATE',
+    [ruleId, orgId]
+  );
+  if (!rows[0]) {
+    if (options.requireExisting) {
+      rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+    }
+    return false;
+  }
+  await connection.query('DELETE FROM pub_view_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
+  await connection.query('DELETE FROM pub_view_rules WHERE id = ? AND org_id = ?', [ruleId, orgId]);
+  return true;
+}
+
+async function deletePubMeritRuleWithConnection(connection, orgId, ruleId, options = {}) {
+  const [rows] = await connection.query(
+    'SELECT id FROM pub_merit_rules WHERE id = ? AND org_id = ? FOR UPDATE',
+    [ruleId, orgId]
+  );
+  if (!rows[0]) {
+    if (options.requireExisting) {
+      rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
+    }
+    return false;
+  }
+  const [clauses] = await connection.query(
+    'SELECT id FROM pub_merit_rule_clauses WHERE rule_id = ? AND org_id = ? FOR UPDATE',
+    [ruleId, orgId]
+  );
+  for (const clause of clauses) {
+    await connection.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
+  }
+  await connection.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
+  await connection.query('DELETE FROM pub_merit_rules WHERE id = ? AND org_id = ?', [ruleId, orgId]);
+  return true;
+}
+
+function getPublicationRuleBatch(body) {
+  const rules = Array.isArray(body && body.rules) ? body.rules : [];
+  if (!rules.length) rejectPublicationRule('invalid_params', scoringCopy.batchItemsRequired);
+  if (rules.length > MAX_BATCH_RULES) {
+    rejectPublicationRule('batch_limit_exceeded', localeFormat(scoringCopy.batchLimitExceeded, [MAX_BATCH_RULES]));
+  }
+  return rules;
+}
+
+function getPublicationRuleIdBatch(body) {
+  const rawRuleIds = Array.isArray(body && body.ruleIds) ? body.ruleIds : [];
+  if (!rawRuleIds.length) rejectPublicationRule('invalid_params', scoringCopy.batchItemsRequired);
+  if (rawRuleIds.length > MAX_BATCH_RULES) {
+    rejectPublicationRule('batch_limit_exceeded', localeFormat(scoringCopy.batchLimitExceeded, [MAX_BATCH_RULES]));
+  }
+  const ruleIds = [...new Set(rawRuleIds.map(safeString).filter(Boolean))];
+  if (!ruleIds.length) rejectPublicationRule('invalid_params', scoringCopy.batchItemsRequired);
+  return ruleIds;
+}
 
 /**
  * Apply grade bands to a numeric score. Returns the first matching grade name,
@@ -505,15 +905,8 @@ router.post('/saveMeritListDesignations', async (req, res) => {
 });
 
 // ─── removeMeritListDesignation ───
-router.post('/removeMeritListDesignation', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_b2b03f8fa2 });
-    await designationModel.remove(id);
-    res.json({ status: 'success', message: localeCopy.copy_6268aa5c49 });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+router.post('/removeMeritListDesignation', (req, res) => {
+  return rejectRetiredEndpoint(res);
 });
 
 // ─── getPublicResults (user-facing) ───
@@ -1119,106 +1512,38 @@ router.post('/savePubViewRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    const publicationId = safeString(req.body.publicationId);
-    const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
-    const granteeIdentityId = safeString(req.body.granteeIdentityId);
-    const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_f076819918 });
-
     const orgId = await getCurrentOrgId();
-    const [[pub]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pub) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
-
-    const VIEW_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
-    const IDENTITY_REQUIRED = ['same_department_identity', 'same_work_group_identity'];
-    const dedupedClauses = [];
-    const seen = new Set();
-    for (const c of clauses) {
-      const st = safeString(c.scopeType);
-      if (!VIEW_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: localeCopy.copy_7126caee7e });
-      const tid = IDENTITY_REQUIRED.includes(st) ? safeString(c.targetIdentityId) : '';
-      if (IDENTITY_REQUIRED.includes(st) && !tid) return res.json({ status: 'invalid_params', message: localeCopy.copy_b1d535ef38 });
-      const key = st + '::' + tid;
-      if (seen.has(key)) continue; seen.add(key);
-      // Per-clause display mode and grade bands
-      const clauseDisplayMode = VALID_DISPLAY_MODES.includes(safeString(c.displayMode)) ? safeString(c.displayMode) : 'score';
-      const clauseGradeBands = Array.isArray(c.gradeBands) ? c.gradeBands : [];
-      // Validate grade bands if clause displayMode is 'grade'
-      if (clauseDisplayMode === 'grade') {
-        if (!clauseGradeBands.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_6937c46b0a });
-        for (let i = 0; i < clauseGradeBands.length; i++) {
-          const gb = clauseGradeBands[i];
-          const minScore = Number(gb.minScore);
-          const maxScore = Number(gb.maxScore);
-          const gradeName = safeString(gb.gradeName || gb.grade_name);
-          if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_caaa205301, [i + 1]) });
-          if (minScore > maxScore) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_36ab872bc9, [i + 1]) });
-          if (!gradeName) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_35fa8f1d08, [i + 1]) });
-        }
-      }
-      dedupedClauses.push({ scopeType: st, targetIdentityId: tid, displayMode: clauseDisplayMode, gradeBands: clauseGradeBands });
-    }
-
-    const now = nowMysqlUtc();
-    let ruleId = id;
-    const { withTransaction } = require('../../../config/db');
-    await withTransaction(async (conn) => {
-      await dictionaryUsage.assertDictionaryReferences({
-        organizationId: orgId,
-        departmentIds: [granteeDepartmentId],
-        identityCategoryIds: [granteeIdentityId].concat(
-          dedupedClauses.map((clause) => clause.targetIdentityId)
-        ),
-        workGroupIds: [],
-        connection: conn
-      });
-      if (id) {
-        await conn.query('UPDATE pub_view_rules SET grantee_department_id=?, grantee_identity_id=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, now, id, orgId]);
-        ruleId = id;
-      } else {
-        const [[existing]] = await conn.query('SELECT id FROM pub_view_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?', [publicationId, granteeDepartmentId, granteeIdentityId, orgId]);
-        if (existing) {
-          ruleId = existing.id;
-          await conn.query('UPDATE pub_view_rules SET updated_at=? WHERE id=?', [now, ruleId]);
-        } else {
-          ruleId = generateId();
-          await conn.query('INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)', [ruleId, publicationId, granteeDepartmentId, granteeIdentityId, orgId, now, now]);
-        }
-      }
-      // Delete old clauses (cascades to grade_bands via FK)
-      await conn.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
-      // Insert clauses with per-clause display_mode and grade bands
-      for (let i = 0; i < dedupedClauses.length; i++) {
-        const dc = dedupedClauses[i];
-        const clauseId = generateId();
-        await conn.query(
-          'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, display_mode, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
-          [clauseId, ruleId, dc.scopeType, dc.targetIdentityId, dc.displayMode, i + 1, orgId]
-        );
-        // Save per-clause grade bands
-        if (dc.gradeBands.length > 0) {
-          try {
-            for (let j = 0; j < dc.gradeBands.length; j++) {
-              const gb = dc.gradeBands[j];
-              await conn.query(
-                'INSERT INTO pub_grade_bands (id, clause_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
-                [generateId(), clauseId, Number(gb.minScore), Number(gb.maxScore), safeString(gb.gradeName || gb.grade_name), j + 1, orgId]
-              );
-            }
-          } catch (e) {
-            // Table may not exist yet — skip grade bands (but warn if grade mode)
-            if (dc.displayMode === 'grade') throw e;
-          }
-        }
-      }
+    const ruleId = await withTransaction(async (connection) => {
+      const input = await normalizePubViewRuleInput(connection, orgId, req.body);
+      return savePubViewRuleWithConnection(connection, orgId, input);
     });
     res.json({ status: 'success', id: ruleId });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e); }
+});
+
+// ─── batchSavePubViewRules ───
+router.post('/batchSavePubViewRules', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const rules = getPublicationRuleBatch(req.body);
+    const orgId = await getCurrentOrgId();
+    const ids = await withTransaction(async (connection) => {
+      const inputs = [];
+      for (const rule of rules) inputs.push(await normalizePubViewRuleInput(connection, orgId, rule));
+      assertUniquePublicationRuleBatch(inputs);
+      const savedIds = [];
+      for (const input of inputs) savedIds.push(await savePubViewRuleWithConnection(connection, orgId, input));
+      return savedIds;
+    });
+    res.json({ status: 'success', count: ids.length, ids });
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 // ─── listPubViewRules ───
 router.post('/listPubViewRules', async (req, res) => {
+  return rejectRetiredEndpoint(res);
+  /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
@@ -1298,10 +1623,27 @@ router.post('/deletePubViewRule', async (req, res) => {
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
-    await pool.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
-    await pool.query('DELETE FROM pub_view_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
+    await withTransaction((connection) => deletePubViewRuleWithConnection(connection, orgId, ruleId));
     res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e); }
+});
+
+// ─── batchDeletePubViewRules ───
+router.post('/batchDeletePubViewRules', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const ruleIds = getPublicationRuleIdBatch(req.body);
+    const orgId = await getCurrentOrgId();
+    const deletedIds = await withTransaction(async (connection) => {
+      const result = [];
+      for (const ruleId of ruleIds) {
+        if (await deletePubViewRuleWithConnection(connection, orgId, ruleId, { requireExisting: true })) result.push(ruleId);
+      }
+      return result;
+    });
+    res.json({ status: 'success', count: deletedIds.length, ids: deletedIds });
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 // ─── savePubMeritRule ───
@@ -1309,115 +1651,38 @@ router.post('/savePubMeritRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const id = safeString(req.body.id);
-    const publicationId = safeString(req.body.publicationId);
-    const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
-    const granteeIdentityId = safeString(req.body.granteeIdentityId);
-    const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_f076819918 });
-
     const orgId = await getCurrentOrgId();
-
-    // ═══ PREREQUISITE CHECK: grantee must have a view rule with at least one clause ═══
-    const [[viewRule]] = await pool.query(
-      'SELECT id FROM pub_view_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?',
-      [publicationId, granteeDepartmentId, granteeIdentityId, orgId]
-    );
-    if (!viewRule) return res.json({ status: 'no_view_rule', message: localeCopy.copy_a7a80cb635 });
-    const [[{cnt}]] = await pool.query(
-      'SELECT COUNT(*) as cnt FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?',
-      [viewRule.id, orgId]
-    );
-    if (cnt === 0) return res.json({ status: 'no_view_rule', message: localeCopy.copy_bb9abe11b7 });
-
-    const MERIT_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people', 'identity_only'];
-    const dedupedClauses = [];
-    const seen = new Set();
-    for (const c of clauses) {
-      const st = safeString(c.scopeType) || 'all_people';
-      if (!MERIT_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f983cb64d });
-      const tid = safeString(c.targetIdentityId);
-      if (!tid) return res.json({ status: 'invalid_params', message: localeCopy.copy_b1d535ef38 });
-      const quota = Math.max(0, parseInt(String(c.quotaLimit), 10) || 0);
-      const exact = c.requireExactQuota === true;
-      const key = st + '::' + tid;
-      if (seen.has(key)) continue; seen.add(key);
-      dedupedClauses.push({ scopeType: st, targetIdentityId: tid, quotaLimit: quota, requireExactQuota: exact });
-    }
-
-    const now = nowMysqlUtc();
-    let ruleId = id;
-    const { withTransaction } = require('../../../config/db');
-    await withTransaction(async (conn) => {
-      await dictionaryUsage.assertDictionaryReferences({
-        organizationId: orgId,
-        departmentIds: [granteeDepartmentId],
-        identityCategoryIds: [granteeIdentityId].concat(
-          dedupedClauses.map((clause) => clause.targetIdentityId)
-        ),
-        workGroupIds: [],
-        connection: conn
-      });
-      if (id) {
-        await conn.query('UPDATE pub_merit_rules SET grantee_department_id=?, grantee_identity_id=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, now, id, orgId]);
-        ruleId = id;
-      } else {
-        const [[existing]] = await conn.query('SELECT id FROM pub_merit_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?', [publicationId, granteeDepartmentId, granteeIdentityId, orgId]);
-        if (existing) {
-          ruleId = existing.id;
-          await conn.query('UPDATE pub_merit_rules SET updated_at=? WHERE id=?', [now, ruleId]);
-        } else {
-          ruleId = generateId();
-          await conn.query('INSERT INTO pub_merit_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)', [ruleId, publicationId, granteeDepartmentId, granteeIdentityId, orgId, now, now]);
-        }
-      }
-      // Merge old clauses with new: preserve IDs for clauses with same logical identity
-      const [oldClauses] = await conn.query(
-        'SELECT id, scope_type, target_identity_id FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?',
-        [ruleId, orgId]
-      );
-      const oldByKey = new Map();
-      for (const oc of oldClauses) {
-        oldByKey.set(safeString(oc.scope_type) + '::' + safeString(oc.target_identity_id), oc);
-      }
-      const keptClauseIds = new Set();
-      const seenNew = new Set();
-      for (let i = 0; i < dedupedClauses.length; i++) {
-        const c = dedupedClauses[i];
-        const key = c.scopeType + '::' + c.targetIdentityId;
-        if (seenNew.has(key)) continue; seenNew.add(key);
-        const old = oldByKey.get(key);
-        if (old) {
-          // Same logical clause — keep existing ID and update quota/sort_order
-          keptClauseIds.add(old.id);
-          await conn.query(
-            'UPDATE pub_merit_rule_clauses SET quota_limit=?, require_exact_quota=?, sort_order=?, scope_type=?, updated_at=NOW() WHERE id=? AND org_id=?',
-            [c.quotaLimit, c.requireExactQuota ? 1 : 0, i + 1, c.scopeType, old.id, orgId]
-          );
-        } else {
-          // New clause — insert
-          const cid = generateId();
-          keptClauseIds.add(cid);
-          await conn.query(
-            'INSERT INTO pub_merit_rule_clauses (id, rule_id, scope_type, target_identity_id, quota_limit, require_exact_quota, sort_order, org_id) VALUES (?,?,?,?,?,?,?,?)',
-            [cid, ruleId, c.scopeType, c.targetIdentityId, c.quotaLimit, c.requireExactQuota ? 1 : 0, i + 1, orgId]
-          );
-        }
-      }
-      // Remove clauses that no longer exist (and their designations)
-      for (const oc of oldClauses) {
-        if (!keptClauseIds.has(oc.id)) {
-          await conn.query('DELETE FROM merit_list_designations WHERE clause_id=? AND org_id=?', [oc.id, orgId]);
-          await conn.query('DELETE FROM pub_merit_rule_clauses WHERE id=? AND org_id=?', [oc.id, orgId]);
-        }
-      }
+    const ruleId = await withTransaction(async (connection) => {
+      const input = await normalizePubMeritRuleInput(connection, orgId, req.body);
+      return savePubMeritRuleWithConnection(connection, orgId, input);
     });
     res.json({ status: 'success', id: ruleId });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e); }
+});
+
+// ─── batchSavePubMeritRules ───
+router.post('/batchSavePubMeritRules', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const rules = getPublicationRuleBatch(req.body);
+    const orgId = await getCurrentOrgId();
+    const ids = await withTransaction(async (connection) => {
+      const inputs = [];
+      for (const rule of rules) inputs.push(await normalizePubMeritRuleInput(connection, orgId, rule));
+      assertUniquePublicationRuleBatch(inputs);
+      const savedIds = [];
+      for (const input of inputs) savedIds.push(await savePubMeritRuleWithConnection(connection, orgId, input));
+      return savedIds;
+    });
+    res.json({ status: 'success', count: ids.length, ids });
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 // ─── listPubMeritRules ───
 router.post('/listPubMeritRules', async (req, res) => {
+  return rejectRetiredEndpoint(res);
+  /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
@@ -1465,17 +1730,27 @@ router.post('/deletePubMeritRule', async (req, res) => {
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
-    const [clauses] = await pool.query(
-      'SELECT id FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?',
-      [ruleId, orgId]
-    );
-    for (const c of clauses) {
-      await pool.query('DELETE FROM merit_list_designations WHERE clause_id=? AND org_id=?', [c.id, orgId]);
-    }
-    await pool.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
-    await pool.query('DELETE FROM pub_merit_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
+    await withTransaction((connection) => deletePubMeritRuleWithConnection(connection, orgId, ruleId));
     res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e); }
+});
+
+// ─── batchDeletePubMeritRules ───
+router.post('/batchDeletePubMeritRules', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const ruleIds = getPublicationRuleIdBatch(req.body);
+    const orgId = await getCurrentOrgId();
+    const deletedIds = await withTransaction(async (connection) => {
+      const result = [];
+      for (const ruleId of ruleIds) {
+        if (await deletePubMeritRuleWithConnection(connection, orgId, ruleId, { requireExisting: true })) result.push(ruleId);
+      }
+      return result;
+    });
+    res.json({ status: 'success', count: deletedIds.length, ids: deletedIds });
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 // ─── getMeritListSummary (admin) ───

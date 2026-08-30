@@ -161,7 +161,7 @@ app.get('/api/health', async (req, res) => {
 const LARGE_JSON_ROUTES = new Set([
   '/api/uploadAuditFile',
   '/api/parseTableFile',
-  '/api/verifyAuditFile',
+  '/api/verifySignatureChain',
   '/api/verifyFileSignature'
 ]);
 

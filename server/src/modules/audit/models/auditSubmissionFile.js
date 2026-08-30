@@ -87,6 +87,18 @@ async function getCurrentById(id) {
   return rows[0] ? decryptSigningKeyRow(rows[0]) : null;
 }
 
+async function getCurrentBySubmissionIdForUpdate(submissionId, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await conn.query(
+    `SELECT * FROM audit_submission_files
+      WHERE submission_id = ? AND org_id = ? AND is_current = 1
+      ORDER BY sort_order, id
+      FOR UPDATE`,
+    [submissionId, orgId]
+  );
+  return rows.map(decryptSigningKeyRow);
+}
+
 async function create(id, data, conn) {
   const {
     submissionId, fileName, mimeType, filePath, fileSize, fileHash,
@@ -267,6 +279,7 @@ module.exports = {
   getAllBySubmissionId,
   getById,
   getCurrentById,
+  getCurrentBySubmissionIdForUpdate,
   create,
   markCurrentAsHistorical,
   setCurrentRevisionRound,

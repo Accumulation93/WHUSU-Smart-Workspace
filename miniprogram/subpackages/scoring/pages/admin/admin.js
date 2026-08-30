@@ -200,6 +200,9 @@ Page({
     hrProfileSearchFieldIndex: 0,
     hrProfileSortIndex: 0,
     hrProfileRows: [],
+    hrProfileResultCount: 0,
+    hrProfileVisibleCount: 0,
+    hrProfileHasMore: false,
     hrProfileFields: [],
     hrGovernanceUnavailable: false,
     hrProfileExportVisible: false,
@@ -413,6 +416,7 @@ Page({
       this._bootstrapPromise = null;
       this._hrProfileRawRows = [];
       this._hrProfileFilteredRows = [];
+      this._hrList = [];
       this.setData({
         activeTab: preservedTab,
         activityList: [],
@@ -440,6 +444,9 @@ Page({
         hrList: [],
         reactivatingHrId: '',
         hrProfileRows: [],
+        hrProfileResultCount: 0,
+        hrProfileVisibleCount: 0,
+        hrProfileHasMore: false,
         hrProfileFields: [],
         hrProfileTemplateList: [],
         activeHrProfileSnapshot: null,

@@ -1,6 +1,16 @@
 'use strict';
 
 module.exports = Object.freeze({
+  approvalActionInvalid: "当前审批动作设置不完整，请联系管理员",
+  approvalBothRequired: "请同时添加手写签名和授权印章",
+  approvalFinalPdfUnavailable: "最终 PDF 暂时无法签署，请稍后重试",
+  approvalMaterialFileInvalid: "请重新选择需要签署的附件",
+  approvalMaterialInvalid: "签署内容不完整，请重新添加",
+  approvalMaterialNotAllowed: "当前步骤不接受这类签署内容",
+  approvalSignatureInvalid: "手写签名内容不完整，请重新签名",
+  approvalSignatureRequired: "请先添加手写签名",
+  approvalStampNotAuthorized: "所选印章不可用，请重新选择",
+  approvalStampRequired: "请先选择授权印章",
   auditStepsRequired: "请至少保留一个审批步骤",
   concurrentStateChanged: "申请状态已变化，请刷新后重试",
   historicalApprovalSnapshotMissing: "这条历史审批缺少处理所需的岗位信息，暂时无法查看或操作，请联系管理员",

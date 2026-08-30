@@ -1,5 +1,10 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/verification/verification');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const {
+  verificationCopy,
+  presentVerificationResponse,
+  buildMatchVerificationParams
+} = require('../../../../utils/auditVerification');
 const orgSession = require('../../../../utils/orgSession');
 
 Page({
@@ -8,6 +13,7 @@ Page({
   },
   data: {
     localeCopy,
+    verificationCopy,
     verifyMode: 'number',       // 'number' | 'file'
     submissionNumber: '',
     fileName: '',
@@ -25,8 +31,8 @@ Page({
   },
 
   onVerifyModeChange(e) {
-    let modes = ['number', 'file'];
-    this.setData({ verifyMode: modes[e.detail.value] || 'number' });
+    const modes = ['number', 'file'];
+    this.setData({ verifyMode: modes[e.detail.value] || 'number', result: null });
   },
 
   onInputNumber(e) {
@@ -48,7 +54,8 @@ Page({
               filePath: file.path,
               fileName: file.name,
               fileBase64: readRes.data,
-              fileSize: file.size
+              fileSize: file.size,
+              result: null
             });
           },
           fail: function() {
@@ -79,7 +86,7 @@ Page({
       const res = await callFunction({ name: 'verifySignatureChain', data: params });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
-        this.setData({ result: res });
+        this.setData({ result: presentVerificationResponse(res) });
       } else if (res.status === 'forbidden') {
         showShortToast(localeCopy.copy_d1cbed9945);
       } else {
@@ -87,6 +94,30 @@ Page({
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_b791913c7a));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+    }
+  },
+
+  async selectVerificationMatch(e) {
+    const submissionId = e.detail && e.detail.submissionId
+      ? e.detail.submissionId
+      : e.currentTarget.dataset.submissionId;
+    const params = buildMatchVerificationParams(this.data.result, submissionId);
+    if (!params || params.submissionId === String(this.data.result && this.data.result.submissionId || '')) return;
+    const request = orgSession.beginRequest(this, 'auditVerification');
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({ name: 'verifySignatureChain', data: params });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (res.status === 'success') {
+        this.setData({ result: presentVerificationResponse(res) });
+      } else {
+        showShortToast(res.message || localeCopy.copy_b791913c7a);
+      }
+    } catch (error) {
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      showShortToast(getErrorText(error, localeCopy.copy_b791913c7a));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

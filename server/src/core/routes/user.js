@@ -1,26 +1,12 @@
-const localeCopy = require('../../locales/zh-CN/generated/core/routes/user');
+const retiredCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
-const { safeString } = require('../../utils/helpers');
-const userInfoModel = require('../models/userInfo');
-const adminInfoModel = require('../models/adminInfo');
 
-async function ensureAdmin(openid) {
-  const admin = await adminInfoModel.getByOpenid(openid);
-  return admin;
-}
-
-// listUserBindings — admin only
-router.post('/listUserBindings', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-
-    const data = await userInfoModel.getAll();
-    res.json({ status: 'success', data });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+router.post('/listUserBindings', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 module.exports = router;

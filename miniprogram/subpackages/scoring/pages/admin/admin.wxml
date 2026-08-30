@@ -1094,8 +1094,8 @@
       />
 
       <view class="list-card hr-directory-results" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
-        <view class="list-card-header"><view class="field-hint">{{localeCopy.hrDirectoryResultCount}} · {{hrProfileRows.length}}</view></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">
+        <view class="list-card-header"><view class="field-hint">{{localeCopy.hrDirectoryResultCount}} · {{hrProfileResultCount}}</view></view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreHrProfileRows">
           <view class="card-loading-overlay" wx:if="{{loadingMap.profile}}">
             <view class="card-loading-spinner"></view>
           </view>
@@ -3004,12 +3004,19 @@
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b49d7af0bd}}</button>
         </view>
         <view wx:if="{{verificationResult}}" class="audit-verify-result-card">
+          <audit-verification-matches
+            matches="{{verificationResult.matches}}"
+            count-text="{{verificationResult.matchCountText}}"
+            copy="{{verificationCopy.text}}"
+            number-label="{{localeCopy.copy_1ddd4c9b39}}"
+            bindselect="selectVerificationMatch"
+          />
           <view class="audit-verify-result-badge {{verificationResult.valid ? 'audit-verify-valid' : 'audit-verify-invalid'}}">
             {{verificationResult.valid ? localeCopy.copy_3e081d0fa1 : localeCopy.copy_73b11affc2}}
           </view>
           <view class="list-desc" wx:if="{{verificationResult.totalSignatures > 0}}">{{localeCopy.copy_b4c3e73028}} {{verificationResult.totalSignatures}} {{localeCopy.copy_309860972e}}</view>
           <view class="verification-file-result" wx:for="{{verificationResult.files}}" wx:key="fileId">
-            <view class="list-desc">{{localeCopy.copy_514b4a69ae}}{{item.fileHash === null ? localeCopy.copy_93331f8a70 : (item.hashVerified ? localeCopy.copy_6a48578660 : localeCopy.copy_f236827e3f)}}</view>
+            <view class="list-desc">{{localeCopy.copy_514b4a69ae}}{{item.hashVerified === null ? localeCopy.copy_93331f8a70 : (item.hashVerified ? localeCopy.copy_6a48578660 : localeCopy.copy_f236827e3f)}}</view>
           </view>
         </view>
       </view>

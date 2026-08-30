@@ -9,6 +9,8 @@ const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../
 const orgSession = require('../../../../../utils/orgSession');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
 
+const HR_PROFILE_RENDER_BATCH_SIZE = 50;
+
 function toHrProfileListRow(item) {
   return {
     id: item.id,
@@ -44,6 +46,20 @@ function toHrProfileListRow(item) {
     joinedAtText: item.joinedAtText || '',
     leftAtText: item.leftAtText || '',
     isComplete: Boolean(item.isComplete)
+  };
+}
+
+function buildHrProfileRenderState(rows, visibleCount = HR_PROFILE_RENDER_BATCH_SIZE) {
+  const source = Array.isArray(rows) ? rows : [];
+  const normalizedVisibleCount = Math.min(
+    source.length,
+    Math.max(0, Number(visibleCount) || HR_PROFILE_RENDER_BATCH_SIZE)
+  );
+  return {
+    hrProfileRows: source.slice(0, normalizedVisibleCount).map(toHrProfileListRow),
+    hrProfileResultCount: source.length,
+    hrProfileVisibleCount: normalizedVisibleCount,
+    hrProfileHasMore: normalizedVisibleCount < source.length
   };
 }
 
@@ -222,7 +238,9 @@ module.exports = Behavior({
         const result = await this.callCloud('listHrInfo');
         if (!orgSession.isRequestCurrent(this, request)) return;
         const hrList = result.list || [];
-        this.setData({ hrList });
+        // 完整人员数据只保留在逻辑层；它同时供模板条件和管理员候选检索使用，
+        // 直接放入 data 会把上千人的完整岗位对象无意义地传给视图层。
+        this._hrList = hrList;
         this.refreshAdminCandidates(this.data.adminCandidateKeyword);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
@@ -510,9 +528,8 @@ module.exports = Behavior({
           hrProfileSearchFieldIndex: Math.max(0, rawFilterOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
           hrProfileSortIndex: Math.max(0, rawFilterOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
           hrProfileActiveFilterChips: buildActiveFilterChips(rawFilterOptions, this.data.hrProfileFilters),
-          hrProfileRows: synchronizedRows.map(toHrProfileListRow),
           hrGovernanceUnavailable: governanceUnavailable
-        }, actionState));
+        }, actionState, buildHrProfileRenderState(synchronizedRows)));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('[HR] Member directory load failed', error);
@@ -564,9 +581,8 @@ module.exports = Behavior({
           hrProfileSearchFieldIndex: Math.max(0, rawOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
           hrProfileSortIndex: Math.max(0, rawOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
           hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, this.data.hrProfileFilters),
-          hrProfileRows: synchronizedRows.map(toHrProfileListRow),
           hrGovernanceUnavailable: false
-        }, actionState));
+        }, actionState, buildHrProfileRenderState(synchronizedRows)));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || error && error.silent) return;
         wx.showToast({ title: localeCopy.copy_e58fa637eb, icon: 'none' });
@@ -878,8 +894,24 @@ module.exports = Behavior({
       this.setData(Object.assign({}, actionState, {
         hrProfileFilterOptions: decorateFilterOptions(rawOptions, nextFilters),
         hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, nextFilters),
-        hrProfileRows: this._hrProfileFilteredRows.map(toHrProfileListRow)
-      }));
+      }, buildHrProfileRenderState(this._hrProfileFilteredRows)));
+    },
+
+    loadMoreHrProfileRows() {
+      if (!this.data.hrProfileHasMore) return;
+      const rows = this._hrProfileFilteredRows || [];
+      const start = Math.max(0, Number(this.data.hrProfileVisibleCount) || 0);
+      const end = Math.min(rows.length, start + HR_PROFILE_RENDER_BATCH_SIZE);
+      if (end <= start) return;
+      const updates = {
+        hrProfileVisibleCount: end,
+        hrProfileResultCount: rows.length,
+        hrProfileHasMore: end < rows.length
+      };
+      rows.slice(start, end).map(toHrProfileListRow).forEach((row, index) => {
+        updates['hrProfileRows[' + (start + index) + ']'] = row;
+      });
+      this.setData(updates);
     },
 
     onHrProfileFilterGroupChange(e) {

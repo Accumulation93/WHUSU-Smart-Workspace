@@ -1,11 +1,10 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/hr');
+const retiredCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
-const { nowMysqlUtc } = require('../../utils/dateTime');
-const { parseCsv } = require('../../utils/csv');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const { unbindUserAcrossOrganizations } = require('../services/userBindingUnbind');
@@ -20,23 +19,12 @@ const {
   requireAdminOrganizationPermission
 } = require('../services/adminOrganizationAccess');
 
-const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
-
-function normalizeEmptyValue(value) {
-  const v = String(value == null ? '' : value).trim();
-  if (!v) return '';
-  if (EMPTY_VALUE_ALIASES.includes(v)) return '';
-  return v;
-}
 const hrInfoModel = require('../models/hrInfo');
 
 const departmentModel = require('../models/department');
 const identityModel = require('../models/identity');
 const workGroupModel = require('../models/workGroup');
 const adminInfoModel = require('../models/adminInfo');
-const profileTemplateModel = require('../models/hrProfileTemplate');
-const profileFieldModel = require('../models/hrProfileField');
-const personProfileValueModel = require('../models/personProfileValue');
 const hrTableImportModel = require('../models/hrTableImport');
 const pool = require('../../config/db');
 
@@ -49,63 +37,6 @@ function authenticationStatus(row) {
   }
   return { value: 'pending_verification', label: localeCopy.copy_5342fa4b24 };
 }
-
-function tryParseDate(rawValue) {
-  const value = (rawValue == null ? '' : String(rawValue)).trim();
-  if (!value) return null;
-  let match = value.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (match) {
-    let year = parseInt(match[1], 10);
-    let month = parseInt(match[2], 10);
-    let day = parseInt(match[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1) {
-      let daysInMonth = new Date(year, month, 0).getDate();
-      if (day <= daysInMonth) {
-        return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-      }
-    }
-    return null;
-  }
-  let d = new Date(value);
-  if (isNaN(d.getTime())) {
-    d = new Date(value.replace(' ', 'T'));
-  }
-  if (!isNaN(d.getTime()) && d.getUTCFullYear() > 1900) {
-    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
-  }
-  return null;
-}
-
-function validateFieldValue(field, rawValue) {
-  const value = normalizeEmptyValue(rawValue);
-  if (!value) return '';
-  if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_bff02f531d, [field.label, field.minLength]);
-    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_1364ec67c8, [field.label, field.maxLength]);
-    return '';
-  }
-  if (field.type === 'number') {
-    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return localeFormat(localeCopy.copy_25da4c9917, [field.label]);
-    const num = Number(value);
-    if (!Number.isFinite(num)) return localeFormat(localeCopy.copy_803a916bfb, [field.label]);
-    if (field.numberRule === 'length_range') {
-      const nlen = String(value).replace(/^[+-]/, '').replace('.', '').length;
-      if (field.minDigits != null && nlen < field.minDigits) return localeFormat(localeCopy.copy_2cf6664a49, [field.label, field.minDigits]);
-      if (field.maxDigits != null && nlen > field.maxDigits) return localeFormat(localeCopy.copy_503bd17961, [field.label, field.maxDigits]);
-    } else {
-      if (field.minValue != null && num < field.minValue) return localeFormat(localeCopy.copy_946df9f612, [field.label, field.minValue]);
-      if (field.maxValue != null && num > field.maxValue) return localeFormat(localeCopy.copy_d8d00225f1, [field.label, field.maxValue]);
-    }
-    return '';
-  }
-  if (field.type === 'sequence') { if (field.options.length && field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_02808711c5, [field.label]); return ''; }
-  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
-  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_e840878ac4, [field.label]);
-  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_f117197c23, [field.label]);
-  return '';
-}
-
-const TEMPLATE_KEY = 'default_hr_profile_template';
 
 // listHrInfo
 router.post('/listHrInfo', async (req, res) => {
@@ -280,34 +211,11 @@ router.post('/listHrGovernance', async (req, res) => {
   }
 });
 
-router.post('/listMembershipAssignments', async (req, res) => {
-  try {
-    const legacyHrId = safeString(req.body.hrId);
-    if (!legacyHrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
-    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
-    await requireAdminOrganizationPermission(req, orgId, ['hr.people']);
-    const rows = await unifiedIdentityModel.listMembershipAssignments(legacyHrId, orgId);
-    return res.json({
-      status: 'success',
-      list: rows.map((item) => ({
-        id: safeString(item.id),
-        assignmentKind: safeString(item.assignment_kind),
-        assignmentNature: safeString(item.assignment_kind),
-        assignmentLabel: unifiedIdentityModel.buildAssignmentLabel(item),
-        title: '',
-        departmentId: safeString(item.department_id),
-        department: safeString(item.department_name),
-        identityId: safeString(item.identity_id),
-        identity: safeString(item.identity_name),
-        identityCategoryId: safeString(item.identity_id),
-        identityCategoryName: safeString(item.identity_name),
-        workGroupId: safeString(item.work_group_id),
-        workGroup: safeString(item.work_group_name)
-      }))
-    });
-  } catch (error) {
-    return res.json({ status: 'error', message: safeString(error.message) || localeCopy.copy_8c36023a05 });
-  }
+router.post('/listMembershipAssignments', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 router.post('/listPersonIdentities', async (req, res) => {
@@ -567,29 +475,11 @@ router.post('/deleteHrInfo', async (req, res) => {
   }
 });
 
-router.post('/listFormerHrMembers', async (req, res) => {
-  try {
-    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
-    await requireAdminOrganizationPermission(req, orgId, ['hr.people']);
-    const rows = await unifiedIdentityModel.listFormerMemberships(orgId);
-    return res.json({
-      status: 'success',
-      list: rows.map((row) => ({
-        membershipId: safeString(row.membership_id),
-        personId: safeString(row.person_id),
-        hrId: safeString(row.legacy_hr_id),
-        name: safeString(row.name),
-        studentId: safeString(row.student_id),
-        leftAt: row.left_at
-      }))
-    });
-  } catch (error) {
-    const isExpected = error instanceof AdminOrganizationAccessError;
-    return res.status(isExpected ? (error.httpStatus || 403) : 500).json({
-      status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : safeString(error.message)
-    });
-  }
+router.post('/listFormerHrMembers', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 router.post('/reactivateHrMembership', async (req, res) => {
@@ -788,15 +678,6 @@ router.post('/mergePersons', async (req, res) => {
   }
 });
 
-// importHrCsv
-function firstValue(row, fields) {
-  for (const field of fields) {
-    const value = safeString(row[field]);
-    if (value) return value;
-  }
-  return '';
-}
-
 async function handleStructuredHrImport(req, res, previewOnly) {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
@@ -832,374 +713,11 @@ router.post('/importHrTable', async (req, res) => {
   await handleStructuredHrImport(req, res, false);
 });
 
-router.post('/importHrCsv', async (req, res) => {
-  try {
-    const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-
-    const csvContent = safeString(req.body.csvContent);
-    const rows = parseCsv(csvContent);
-    if (rows.length < 2) return res.json({ status: 'invalid_params', message: localeCopy.copy_2a53101dd0 });
-
-    const headers = rows[0].map(item => safeString(item));
-    const startIndex = Math.max(1, Number(req.body.startIndex || 1));
-    const batchSize = Math.max(1, Math.min(Number(req.body.batchSize || 50), 100));
-    const endIndex = Math.min(rows.length, startIndex + batchSize);
-
-    const columnMapping = req.body.columnMapping && typeof req.body.columnMapping === 'object' ? req.body.columnMapping : null;
-    const extensionFields = req.body.extensionFields && typeof req.body.extensionFields === 'object' ? req.body.extensionFields : null;
-    const skipInvalid = !!req.body.skipInvalid;
-
-    function resolveField(doc, fieldName) {
-      if (columnMapping) {
-        const mappingAliases = {
-          name: ['name'],
-          studentId: ['studentId'],
-          departmentName: ['departmentName', 'department'],
-          identityName: ['identityName', 'identity'],
-          workGroupName: ['workGroupName', 'workGroup']
-        };
-        const aliases = mappingAliases[fieldName] || [fieldName];
-        for (const alias of aliases) {
-          if (columnMapping[alias]) return safeString(doc[columnMapping[alias]]);
-        }
-        return '';
-      }
-      const fallbackMap = {
-        name: ['name', '姓名'],
-        studentId: ['studentId', '学号'],
-        departmentName: ['departmentName', 'department', '所属部门', '部门', '学院'],
-        identityName: ['identityName', 'identity', '身份', '身份类别'],
-        workGroupName: ['workGroupName', 'workGroup', '工作分工（职能组）', '工作分工', '职能组']
-      };
-      const fields = fallbackMap[fieldName] || [];
-      return firstValue(doc, fields);
-    }
-
-    function resolveExtensionValues(doc) {
-      if (!extensionFields) return {};
-      const data = {};
-      Object.keys(extensionFields).forEach(csvColumn => {
-        const value = safeString(doc[csvColumn]);
-        if (value) data[extensionFields[csvColumn]] = value;
-      });
-      return data;
-    }
-
-    // Load template fields
-    let templateFields = [];
-    let template = null;
-    if (extensionFields && Object.keys(extensionFields).length) {
-      template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-      if (!template) return res.json({ status: 'missing_template', message: localeCopy.copy_ff3a771974 });
-      const allFields = await profileFieldModel.getByTemplateId(template.id);
-      templateFields = allFields.map(f => ({
-        id: f.id, label: f.label, type: f.type, required: !!f.required,
-        minLength: f.min_length, maxLength: f.max_length,
-        numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
-        minDigits: f.min_digits, maxDigits: f.max_digits,
-        minValue: f.min_value, maxValue: f.max_value,
-        options: f.options_json ? JSON.parse(f.options_json) : []
-      }));
-      const fieldLabelSet = new Set(templateFields.map(f => f.label));
-      // Validate all extension field names match existing template fields
-      const extNames = Object.entries(extensionFields).map(([csvCol, fieldName]) => fieldName);
-      for (const name of extNames) {
-        if (!fieldLabelSet.has(name)) {
-          return res.json({ status: 'invalid_mapping', message: localeFormat(localeCopy.copy_b691796f85, [name]) });
-        }
-      }
-    }
-
-    // Preload all lookup data
-    const [allDepts, allIdentities, allWorkGroups, allHrInfo] = await Promise.all([
-      departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll(), hrInfoModel.getAll()
-    ]);
-
-    const deptMap = new Map(); allDepts.forEach(d => deptMap.set(d.name, d.id));
-    const identityMap = new Map(); allIdentities.forEach(d => identityMap.set(d.name, d.id));
-    const workGroupMap = new Map(); allWorkGroups.forEach(w => workGroupMap.set(`${w.name}::${w.department_id}`, w.id));
-    const hrInfoMap = new Map(); allHrInfo.forEach(h => hrInfoMap.set(h.student_id, h.id));
-    const hrInfoRecMap = new Map(); allHrInfo.forEach(h => hrInfoRecMap.set(h.id, h));
-
-    const targetRows = rows.slice(startIndex, endIndex);
-    const parsedRows = [];
-    let skippedNoStudentId = 0;
-
-    for (const row of targetRows) {
-      const doc = {};
-      headers.forEach((header, index) => { if (header) doc[header] = safeString(row[index]); });
-
-      const name = resolveField(doc, 'name');
-      const studentId = resolveField(doc, 'studentId');
-      if (!studentId) {
-        skippedNoStudentId++;
-        continue;
-      }
-
-      const departmentName = resolveField(doc, 'departmentName');
-      const identityName = resolveField(doc, 'identityName');
-      const workGroupName = resolveField(doc, 'workGroupName');
-      const extValues = resolveExtensionValues(doc);
-
-      parsedRows.push({ name, studentId, departmentName, identityName, workGroupName, extValues });
-    }
-
-    let validationErrors = [];
-
-    // --- VALIDATE all extension values BEFORE any writes ---
-    if (extensionFields && Object.keys(extensionFields).length && templateFields.length) {
-      const fieldByLabel = new Map(templateFields.map(f => [f.label, f]));
-      for (const row of parsedRows) {
-        const rowErrors = [];
-        for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
-          const fieldDef = fieldByLabel.get(fieldName);
-          if (fieldDef) {
-            const err = validateFieldValue(fieldDef, fieldValue);
-            if (err) {
-              rowErrors.push({ field: fieldName, value: fieldValue, error: err, fieldType: fieldDef.type });
-            }
-          }
-        }
-        if (rowErrors.length) {
-          validationErrors.push({
-            studentId: row.studentId,
-            name: row.name,
-            errors: rowErrors
-          });
-        }
-      }
-      if (validationErrors.length) {
-        if (!skipInvalid) {
-          return res.json({
-            status: 'validation_errors',
-            message: localeFormat(localeCopy.copy_120171d734, [validationErrors.length]),
-            errors: validationErrors,
-            count: 0,
-            nextIndex: endIndex,
-            hasMore: endIndex < rows.length,
-            skippedNoStudentId: skippedNoStudentId
-          });
-        }
-        // Strip invalid fields from parsedRows so they won't be written
-        const invalidByStudentId = new Map();
-        for (const ve of validationErrors) {
-          const fieldNames = new Set(ve.errors.map(function(e) { return e.field; }));
-          invalidByStudentId.set(ve.studentId, fieldNames);
-        }
-        for (const row of parsedRows) {
-          const invalidFields = invalidByStudentId.get(row.studentId);
-          if (invalidFields) {
-            for (const fieldName of invalidFields) {
-              delete row.extValues[fieldName];
-            }
-          }
-        }
-      }
-    }
-
-    // Find new departments / identities / workGroups to create
-    const newDeptNames = new Set();
-    const newIdentityNames = new Set();
-    for (const row of parsedRows) {
-      if (row.departmentName && !deptMap.has(row.departmentName)) newDeptNames.add(row.departmentName);
-      if (row.identityName && !identityMap.has(row.identityName)) newIdentityNames.add(row.identityName);
-    }
-
-    const newWorkGroupKeys = new Set();
-    for (const name of newDeptNames) { deptMap.set(name, generateId()); }
-    for (const row of parsedRows) {
-      if (row.workGroupName && row.departmentName) {
-        const deptId = deptMap.get(row.departmentName);
-        if (deptId) {
-          const key = `${row.workGroupName}::${deptId}`;
-          if (!workGroupMap.has(key)) newWorkGroupKeys.add(key);
-        }
-      }
-    }
-
-    // --- Execute all writes in a transaction ---
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      const nowUtc = nowMysqlUtc();
-      const orgId = await getCurrentOrgId();
-      await hrTableImportModel.lockExistingImportSubjects(
-        conn,
-        parsedRows,
-        orgId,
-        Array.from(hrInfoRecMap.values())
-      );
-
-      for (const name of newDeptNames) {
-        const newId = deptMap.get(name);
-        await conn.query('INSERT INTO departments (id, name, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [newId, name, orgId, nowUtc, nowUtc]);
-      }
-      for (const name of newIdentityNames) {
-        const newId = generateId();
-        identityMap.set(name, newId);
-        await conn.query('INSERT INTO identities (id, name, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [newId, name, orgId, nowUtc, nowUtc]);
-      }
-      for (const key of newWorkGroupKeys) {
-        const [wgName, deptId] = key.split('::');
-        const newId = generateId();
-        workGroupMap.set(key, newId);
-        await conn.query('INSERT INTO work_groups (id, name, department_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [newId, wgName, deptId, orgId, nowUtc, nowUtc]);
-      }
-
-      const fieldByLabel = templateFields.length ? new Map(templateFields.map(f => [f.label, f])) : new Map();
-      const effectiveProfileUpdates = [];
-
-      // Normalize date values before storage
-      for (const row of parsedRows) {
-        for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
-          const fieldDef = fieldByLabel.get(fieldName);
-          if (fieldDef && fieldDef.type === 'date') {
-            const normalized = tryParseDate(fieldValue);
-            if (normalized) row.extValues[fieldName] = normalized;
-          }
-        }
-      }
-
-      for (const row of parsedRows) {
-        let hrId;
-        const existingId = hrInfoMap.get(row.studentId);
-        const previous = existingId ? hrInfoRecMap.get(existingId) : null;
-        const effectiveName = row.name || safeString(previous && previous.name);
-        const departmentId = row.departmentName
-          ? deptMap.get(row.departmentName) || ''
-          : safeString(previous && previous.department_id);
-        const identityId = row.identityName
-          ? identityMap.get(row.identityName) || ''
-          : safeString(previous && previous.identity_id);
-        let workGroupId = safeString(previous && previous.work_group_id);
-        if (row.workGroupName && departmentId) {
-          workGroupId = workGroupMap.get(`${row.workGroupName}::${departmentId}`) || '';
-        }
-        if (existingId) {
-          hrId = existingId;
-          await conn.query(
-            `UPDATE hr_info SET name=?, student_id=?, department_id=?, identity_id=?, work_group_id=?, updated_at=? WHERE id=? AND org_id=?`,
-            [effectiveName, row.studentId, departmentId, identityId, workGroupId, nowUtc, hrId, orgId]
-          );
-        } else {
-          hrId = generateId();
-          await conn.query(
-            `INSERT INTO hr_info (id, name, student_id, department_id, identity_id, work_group_id, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-            [hrId, effectiveName, row.studentId, departmentId, identityId, workGroupId, orgId, nowUtc, nowUtc]
-          );
-          hrInfoMap.set(row.studentId, hrId);
-        }
-
-        // Store extension values via profile records
-        if (Object.keys(row.extValues).length && fieldByLabel.size) {
-          if (!template) {
-            throw new Error(localeCopy.copy_c8029d1c2a);
-          }
-          let record = null;
-          let effectiveRecordId = '';
-          const [recRows] = await conn.query('SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1', [hrId, orgId]);
-          if (recRows.length) record = recRows[0];
-
-          if (record) {
-            effectiveRecordId = record.id;
-            // Remove existing approved values for fields we're setting, then rewrite
-            const fieldIds = [];
-            for (const [fieldName] of Object.entries(row.extValues)) {
-              const fieldDef = fieldByLabel.get(fieldName);
-              if (fieldDef) fieldIds.push(fieldDef.id);
-            }
-            if (fieldIds.length) {
-              await conn.query(`DELETE FROM hr_profile_record_values WHERE record_id = ? AND is_pending = 0 AND field_id IN (${fieldIds.map(() => '?').join(',')}) AND org_id = ?`, [record.id, ...fieldIds, orgId]);
-            }
-            // Re-set approved values
-            for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
-              const fieldDef = fieldByLabel.get(fieldName);
-              if (!fieldDef) continue;
-              await conn.query(
-                'INSERT INTO hr_profile_record_values (id, record_id, is_pending, field_id, field_value, org_id) VALUES (?, ?, 0, ?, ?, ?)',
-                [generateId(), record.id, fieldDef.id, fieldValue, orgId]
-              );
-            }
-            await conn.query(
-              'UPDATE hr_profile_records SET audit_status = ?, reviewed_at = ?, updated_at = ? WHERE id = ? AND org_id = ?',
-              ['approved', nowUtc, nowUtc, record.id, orgId]
-            );
-          } else {
-            const recordId = generateId();
-            effectiveRecordId = recordId;
-            // Insert with 'pending' initially; update after values are written
-            await conn.query(
-              `INSERT INTO hr_profile_records (id, hr_id, name, openid, template_snapshot_id, audit_status, reviewed_at, org_id, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [recordId, hrId, effectiveName, '', template.id, 'pending', nowUtc, orgId, nowUtc, nowUtc]
-            );
-            for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
-              const fieldDef = fieldByLabel.get(fieldName);
-              if (!fieldDef) continue;
-              await conn.query(
-                'INSERT INTO hr_profile_record_values (id, record_id, is_pending, field_id, field_value, org_id) VALUES (?, ?, 0, ?, ?, ?)',
-                [generateId(), recordId, fieldDef.id, fieldValue, orgId]
-              );
-            }
-            await conn.query(
-              'UPDATE hr_profile_records SET audit_status = ? WHERE id = ? AND org_id = ?',
-              ['approved', recordId, orgId]
-            );
-          }
-          const normalizedValues = {};
-          for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
-            const fieldDef = fieldByLabel.get(fieldName);
-            if (fieldDef) normalizedValues[fieldDef.id] = fieldValue;
-          }
-          effectiveProfileUpdates.push({ hrId, recordId: effectiveRecordId, values: normalizedValues });
-        }
-      }
-
-      await unifiedIdentityModel.syncLegacyHrRecords(
-        conn,
-        parsedRows.map((row) => hrInfoMap.get(row.studentId)).filter(Boolean)
-      );
-      for (const update of effectiveProfileUpdates) {
-        const [personRows] = await conn.query(
-          `SELECT person_id FROM organization_memberships
-            WHERE legacy_hr_id = ? AND org_id = ? AND status = 'active' LIMIT 1`,
-          [update.hrId, orgId]
-        );
-        if (!personRows.length) continue;
-        await personProfileValueModel.upsertEffectiveValues(
-          personRows[0].person_id,
-          orgId,
-          update.recordId,
-          templateFields,
-          update.values,
-          nowUtc,
-          conn
-        );
-      }
-      await conn.commit();
-      const result = {
-        status: 'success',
-        count: parsedRows.length,
-        totalRows: rows.length - 1,
-        nextIndex: endIndex,
-        hasMore: endIndex < rows.length,
-        skippedNoStudentId: skippedNoStudentId
-      };
-      if (skipInvalid && validationErrors.length) {
-        result.errors = validationErrors;
-      }
-      res.json(result);
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
-    }
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_5840966982 });
-  }
+router.post('/importHrCsv', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: retiredCopy.copy_0429e2ed3a
+  });
 });
 
 // batchMaintainFromHrInfo

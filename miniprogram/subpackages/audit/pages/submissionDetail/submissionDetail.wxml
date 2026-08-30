@@ -222,7 +222,7 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
+      <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
         <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
           {{activeApprovalStep.stepName || (localeCopy.copy_93c50c01c0 + activeApprovalStep.sortOrder + localeCopy.copy_493a127a99)}} · {{activeApprovalStep.actionLabel}}
@@ -270,8 +270,8 @@
             </view>
           </view>
 
-          <!-- Warning for incomplete sign+stamp -->
-          <view wx:if="{{activeApprovalStep.actionType === 'both' && approvalWarning}}"
+          <!-- 审批必需材料提示 -->
+          <view wx:if="{{approvalWarning}}"
                 class="approval-warning">
             {{approvalWarning}}
           </view>
@@ -454,7 +454,7 @@
       <view class="card" wx:if="{{signatures.length}}">
         <view class="section-title">{{localeCopy.copy_6a200ce590}} ({{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
-          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : localeCopy.copy_ed981b1744}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
+          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
           <view class="list-desc"><text wx:if="{{item.signerStudentId}}">{{item.signerStudentId}} · </text>{{item.signedAtText}}</view>
         </view>
       </view>
@@ -837,32 +837,12 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">{{approvalAction === 'approve' ? localeCopy.copy_126a0e1f4c : localeCopy.copy_b4432643e3}}</view>
+        <view class="popup-title">{{localeCopy.copy_b4432643e3}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
-          <!-- Signature section (only for approve) -->
-          <view wx:if="{{approvalAction === 'approve'}}">
-            <view class="list-title">{{localeCopy.copy_23590ac13f}}</view>
-            <view class="sign-file-card" wx:for="{{pendingSignatures}}" wx:key="index">
-              <view class="sign-file-main">
-                <view class="sign-file-name">{{localeCopy.copy_76dac19a0a}}{{index + 1}}</view>
-                <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="sign-file-preview" />
-              </view>
-              <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
-            </view>
-            <view class="button-row compact-row">
-              <button class="secondary-btn ui-motion-button" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" catchtap="openSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e012d6739e}} {{item.fileName}}</button>
-            </view>
-            <view class="field approval-dialog-field-mt">
-              <view class="field-label">{{localeCopy.copy_41c20cc066}}</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_7aeee7513d}}" />
-            </view>
-          </view>
-
-          <!-- Reject reason -->
-          <view wx:if="{{approvalAction === 'reject'}}">
+          <view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_47a12cc974}}</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_a2d2583699}}" />
@@ -872,7 +852,7 @@
         </view>
       </scroll-view>
       <view class="audit-btn-bar ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{approvalAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cd42af3f87}}</button>
       </view>
     </view>
   </view>

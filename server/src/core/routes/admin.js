@@ -4,11 +4,9 @@ const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminInfoModel = require('../models/adminInfo');
-const userInfoModel = require('../models/userInfo');
 const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
-const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const {
   AdminOrganizationAccessError,
   requireAdminOrganizationPermission
@@ -49,12 +47,6 @@ function hasAccountRead(req, operator) {
   return hasAccountWrite(req, operator) || Boolean(req.adminPermissions
     && req.adminPermissions.permissions
     && req.adminPermissions.permissions['system.admin_accounts.read']);
-}
-
-function hasGlobalAccountManage(req, operator) {
-  return isSuperAdmin(operator) || Boolean(req.adminPermissions
-    && req.adminPermissions.permissions
-    && req.adminPermissions.permissions['auth.accounts.global_manage']);
 }
 
 function creatableLevels(operator, canWrite) {
@@ -303,53 +295,11 @@ router.post('/bootstrapSuperAdmin', async (req, res) => {
   res.status(404).json({ status: 'not_found', message: localeCopy.copy_3391cecb3d });
 });
 
-router.post('/adminUnbindUser', async (req, res) => {
-  try {
-    const operator = await ensureAdmin(req);
-    if (!operator || !hasGlobalAccountManage(req, operator)) {
-      return res.status(403).json({
-        status: 'permission_denied',
-        message: personnelCopy.globalAccountManageRequired
-      });
-    }
-    const userId = safeString(req.body.userId);
-    if (!userId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
-    const targetUser = await userInfoModel.getById(userId);
-    if (!targetUser) return res.json({ status: 'not_found', message: localeCopy.copy_dfd5f185c9 });
-    if (req.authSession && targetUser.hr_id) {
-      const orgId = await getCurrentOrgId();
-      const unifiedResult = await pool.withTransaction((connection) => (
-        unifiedIdentityModel.resetAccountByLegacyHr(
-          connection,
-          targetUser.hr_id,
-          orgId,
-          {
-            personId: req.authAccount && req.authAccount.personId,
-            contextId: req.authContext && req.authContext.contextId
-          },
-          'administrator_account_reset'
-        )
-      ));
-      if (unifiedResult) {
-        return res.json({
-          status: 'success',
-          message: localeCopy.copy_4c4f7957b4,
-          recoveryRequired: true
-        });
-      }
-    }
-    const targetAdmin = await adminInfoModel.getByOpenidAny(safeString(targetUser.openid));
-    if (targetAdmin) {
-      const orgId = await getCurrentOrgId();
-      if (!canManageTarget(operator, targetAdmin, orgId)) {
-        return res.json({ status: 'forbidden', message: localeCopy.copy_c535df75ca });
-      }
-    }
-    await userInfoModel.remove(userId);
-    res.json({ status: 'success', message: localeCopy.copy_cc29051f62 });
-  } catch (error) {
-    res.json({ status: 'error', message: safeString(error.message) });
-  }
+router.post('/adminUnbindUser', (req, res) => {
+  return res.status(410).json({
+    status: 'legacy_api_retired',
+    message: localeCopy.copy_0429e2ed3a
+  });
 });
 
 router.post('/exportAdmins', async (req, res) => {

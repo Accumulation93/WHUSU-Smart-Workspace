@@ -33,6 +33,14 @@
     <view class="card" wx:if="{{result}}">
       <view class="section-title">{{localeCopy.copy_33935075c0}}</view>
 
+      <audit-verification-matches
+        matches="{{result.matches}}"
+        count-text="{{result.matchCountText}}"
+        copy="{{verificationCopy.text}}"
+        number-label="{{localeCopy.copy_1ddd4c9b39}}"
+        bindselect="selectVerificationMatch"
+      />
+
       <!-- Overall result -->
       <view class="audit-verify-result verify-overall">
         <view class="audit-verify-icon"><ui-icon name="{{result.valid ? 'check' : 'x'}}" tone="{{result.valid ? 'primary' : 'danger'}}" size="56" ariaLabel="{{result.valid ? localeCopy.copy_3e081d0fa1 : localeCopy.copy_73b11affc2}}" /></view>

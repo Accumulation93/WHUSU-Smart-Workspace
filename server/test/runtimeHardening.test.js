@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { randomUUID } = require('crypto');
+const JSZip = require('jszip');
 const { normalizeRoutePath, createRateLimiter } = require('../src/middleware/rateLimiter');
 const { buildWorkbookBuffer, parseWorkbookTables, decodeWorkbookBase64, LIMITS } = require('../src/utils/excelFile');
 const { verifySchemaContract, REQUIRED_COLUMNS, REQUIRED_TABLES, REQUIRED_INDEXES } = require('../src/utils/schemaContract');
@@ -19,6 +20,16 @@ async function testExcel() {
   ]);
   assert.throws(() => decodeWorkbookBase64('%%%'), /编码无效/);
   assert(LIMITS.maxFileBytes <= 8 * 1024 * 1024);
+
+  const malformedWorkbook = new JSZip();
+  malformedWorkbook.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>');
+  malformedWorkbook.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+  malformedWorkbook.file('xl/workbook.xml', '<workbook><broken>');
+  const malformedBuffer = await malformedWorkbook.generateAsync({ type: 'nodebuffer' });
+  await assert.rejects(
+    () => parseWorkbookTables(malformedBuffer),
+    (error) => error && error.code === 'invalid_workbook' && /有效的 XLSX/.test(error.message)
+  );
 }
 
 function testRateLimiter() {

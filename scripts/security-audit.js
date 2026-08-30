@@ -7,7 +7,16 @@ const ROOT = path.resolve(__dirname, '..');
 const TARGETS = ['miniprogram', 'server'];
 const RULES = [
   { id: 'dynamic-code', severity: 'critical', pattern: /\b(?:eval|Function)\s*\(/g },
-  { id: 'insecure-http', severity: 'high', pattern: /["']http:\/\//g, allow: match => match.input.slice(match.index, match.index + 80).includes('http://www.w3.org/') },
+  {
+    id: 'insecure-http',
+    severity: 'high',
+    pattern: /["']http:\/\//g,
+    allow: match => {
+      const candidate = match.input.slice(match.index, match.index + 120);
+      return candidate.includes('http://www.w3.org/')
+        || candidate.includes('http://schemas.openxmlformats.org/');
+    }
+  },
   { id: 'token-log', severity: 'high', pattern: /console\.(?:log|info|warn)\([^\n]*\b(?:token|authorization)\b/gi },
   { id: 'unsafe-temp-path', severity: 'high', pattern: /USER_DATA_PATH[^\n]+(?:fileId|fileName)/g },
   {
@@ -257,7 +266,9 @@ requireSourceContract('server/src/core/services/hrProfileTemplateLibrary.js', [
 requireSourceContract('server/src/core/routes/hrProfile.js', [
   {
     rule: 'hr-template-legacy-save-disabled',
-    test: source => source.includes("status: 'client_upgrade_required'")
+    test: source => source.includes("router.post('/saveHrProfileTemplate', (req, res) =>")
+      && source.includes('return res.status(410).json({')
+      && source.includes("status: 'legacy_api_retired'")
       && !source.includes('INSERT INTO hr_profile_templates (id, template_key')
   }
 ]);
