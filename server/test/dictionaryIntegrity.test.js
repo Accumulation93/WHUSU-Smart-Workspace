@@ -101,6 +101,33 @@ async function testOptionalLegacyPermissionTablesRequireCompatibleColumns() {
   assert.ok(!sqlLog.some((entry) => entry.sql.includes('FROM merit_list_permissions') && !entry.sql.includes('information_schema')));
 }
 
+async function testOptionalLegacyAuditScopeColumnsMayBeAbsent() {
+  const sqlLog = [];
+  const connection = createConnection(async (sql, params) => {
+    sqlLog.push({ sql, params });
+    if (sql.includes('FROM information_schema.tables')) return [[{ present: 1 }]];
+    if (sql.includes('FROM information_schema.columns')) {
+      const table = params[0];
+      if (table === 'audit_submission_steps') {
+        return [[{ column_name: 'org_id' }]];
+      }
+      return [[]];
+    }
+    if (sql.includes('FROM audit_submission_steps') && sql.includes('scope_department_id')) {
+      throw new Error('缺少旧范围列时不得查询 scope_department_id');
+    }
+    if (sql.startsWith('SELECT COUNT(*) AS total FROM')) return [[{ total: 0 }]];
+    if (sql.startsWith('SELECT id,') || sql.includes(' AS condition_json FROM')) return [[]];
+    throw new Error(`未处理 SQL: ${sql}`);
+  });
+  const usages = await dictionaryUsage.countUsage('department', 'department-1', 'org-1', connection);
+  assert.deepStrictEqual(usages, []);
+  assert.ok(sqlLog.some((entry) => entry.sql.includes('information_schema.columns')
+    && entry.params[0] === 'audit_submission_steps'));
+  assert.ok(!sqlLog.some((entry) => entry.sql.includes('FROM audit_submission_steps')
+    && entry.sql.includes('scope_department_id')));
+}
+
 async function testDictionaryDeleteLocksAndDeletesInOneTransaction() {
   const sqlLog = [];
   const connection = createConnection(async (sql) => {
@@ -221,6 +248,7 @@ function testPersonnelMigrationContract() {
 async function run() {
   testConditionJsonUsesExactDictionaryTokens();
   await testOptionalLegacyPermissionTablesRequireCompatibleColumns();
+  await testOptionalLegacyAuditScopeColumnsMayBeAbsent();
   await testReferencedWorkGroupCannotChangeDepartment();
   await testDictionaryDeleteLocksAndDeletesInOneTransaction();
   await testReferencedDictionaryRollsBackWithoutDeleting();

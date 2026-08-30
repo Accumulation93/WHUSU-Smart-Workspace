@@ -14,7 +14,6 @@ const DIRECT_USAGE = {
     ['pub_view_rules', 'grantee_department_id', 'publication_rules'],
     ['pub_merit_rules', 'grantee_department_id', 'publication_rules'],
     ['audit_flow_template_step_conditions', 'specific_department_id', 'audit_templates'],
-    ['audit_submission_steps', 'scope_department_id', 'audit_history'],
     ['venue_booking_rules', 'scope_department_id', 'venue_rules']
   ],
   identity: [
@@ -35,7 +34,6 @@ const DIRECT_USAGE = {
   work_group: [
     ['hr_info', 'work_group_id', 'legacy_people'], ['membership_assignments', 'work_group_id', 'positions'],
     ['audit_flow_template_step_conditions', 'specific_work_group_id', 'audit_templates'],
-    ['audit_submission_steps', 'scope_work_group_id', 'audit_history'],
     ['venue_booking_rules', 'scope_work_group_id', 'venue_rules']
   ]
 };
@@ -48,6 +46,8 @@ const CSV_USAGE = {
 
 const OPTIONAL_DIRECT_USAGE = {
   department: [
+    // 新版审核步骤将范围写入 step_conditions_json；以下列只存在于部分旧库。
+    ['audit_submission_steps', 'scope_department_id', 'audit_history'],
     ['result_view_permissions', 'grantee_department_id', 'publication_rules'],
     ['merit_list_permissions', 'grantee_department_id', 'publication_rules']
   ],
@@ -57,7 +57,10 @@ const OPTIONAL_DIRECT_USAGE = {
     ['merit_list_permissions', 'grantee_identity_id', 'publication_rules'],
     ['merit_list_permissions', 'target_identity_id', 'publication_rules']
   ],
-  work_group: []
+  work_group: [
+    // 与 scope_department_id 相同，仅兼容仍保留旧范围列的数据库。
+    ['audit_submission_steps', 'scope_work_group_id', 'audit_history']
+  ]
 };
 
 const JSON_USAGE = {
