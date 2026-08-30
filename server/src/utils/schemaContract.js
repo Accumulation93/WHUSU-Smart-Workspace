@@ -225,7 +225,13 @@ async function verifySchemaContract(pool) {
           FROM accounts a
           LEFT JOIN account_wechat_bindings b
             ON b.account_id = a.id AND b.status = 'active'
-         WHERE a.status = 'verified' AND b.id IS NULL) AS verified_accounts_without_binding,
+          LEFT JOIN account_recovery_credentials c
+            ON c.account_id = a.id
+           AND c.method = 'passphrase'
+           AND c.status = 'active'
+         WHERE a.status = 'verified'
+           AND b.id IS NULL
+           AND c.id IS NULL) AS verified_accounts_without_login_method,
        (SELECT COUNT(*)
           FROM account_wechat_bindings b
          WHERE b.status = 'active'
@@ -251,7 +257,7 @@ async function verifySchemaContract(pool) {
   );
   const identityIntegrity = identityIntegrityRows[0] || {};
   if (Number(identityIntegrity.persons_without_membership)
-    || Number(identityIntegrity.verified_accounts_without_binding)
+    || Number(identityIntegrity.verified_accounts_without_login_method)
     || Number(identityIntegrity.account_multi_binding)
     || Number(identityIntegrity.insecure_active_bindings)
     || Number(identityIntegrity.unmapped_hr_records)

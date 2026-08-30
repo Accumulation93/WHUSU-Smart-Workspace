@@ -57,8 +57,10 @@ async function testSchemaContract() {
   const tableRows = REQUIRED_TABLES.map((TABLE_NAME) => ({ TABLE_NAME }));
   const indexRows = REQUIRED_INDEXES.map(([TABLE_NAME, INDEX_NAME]) => ({ TABLE_NAME, INDEX_NAME }));
   let call = 0;
+  const inspectedQueries = [];
   const pool = {
-    async query() {
+    async query(sql) {
+      inspectedQueries.push(String(sql || ''));
       call += 1;
       if (call === 1) return [columnRows];
       if (call === 2) return [tableRows];
@@ -68,6 +70,13 @@ async function testSchemaContract() {
   };
   const result = await verifySchemaContract(pool);
   assert.strictEqual(result.status, 'ok');
+  const identityIntegrityQuery = inspectedQueries.find((sql) => sql.includes('verified_accounts_without_login_method')) || '';
+  assert(identityIntegrityQuery.includes('account_recovery_credentials'),
+    '已验证但未绑定微信的账号必须允许通过有效口令完成首次登录');
+  assert(identityIntegrityQuery.includes("c.method = 'passphrase'")
+    && identityIntegrityQuery.includes("c.status = 'active'")
+    && identityIntegrityQuery.includes('AND c.id IS NULL'),
+  '账号完整性检查只能阻止既无微信绑定、也无有效口令的已验证账号');
 
   call = 0;
   const incompletePool = {
