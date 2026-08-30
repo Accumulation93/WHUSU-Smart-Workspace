@@ -19,8 +19,12 @@ const homeWxml = hydrateLocale(
   'copy'
 );
 const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/styles/home.wxss'), 'utf8');
+const adminWxmlSource = fs.readFileSync(
+  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'),
+  'utf8'
+);
 const adminWxml = hydrateLocale(
-  fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8'),
+  adminWxmlSource,
   adminCopy,
   'localeCopy'
 );
@@ -90,8 +94,12 @@ assert(/activeTab === 'hrInfo' && hrInfoMode === 'profiles'/.test(adminWxml)
 const memberCard = adminWxml.match(/<view class="hr-member-card[\s\S]*?<\/view>\s*<view class="empty-inline"/);
 assert(memberCard, '应保留成员资料卡片');
 assert(/accountStateText/.test(memberCard[0]), '成员外卡只需展示合并账号状态');
+assert(/item\.isFormer \? localeCopy\.hrViewDetail/.test(adminWxmlSource),
+  '已离开成员的外卡操作必须显示“查看”，不得暗示仍可编辑');
 assert(!/冻结账号|解绑微信|生成认证码|生成恢复码/.test(memberCard[0]),
   '单人账号操作不得暴露在成员外卡');
+assert(/governance\.membershipStatus !== 'left'/.test(hrInfoBehavior),
+  '已离开成员详情不得请求仅面向在职成员的账号治理接口');
 const detailAccountSection = adminWxml.match(/<view class="detail-section hr-account-detail-section[\s\S]*?<view class="identity-overview-section/);
 assert(detailAccountSection, '成员详情必须包含账号与认证分区');
 assert(!/>当前状态</.test(detailAccountSection[0])

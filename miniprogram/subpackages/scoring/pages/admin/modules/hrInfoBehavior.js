@@ -1199,7 +1199,7 @@ module.exports = Behavior({
           detailHrAuditStatusText: '',
           loadingDetailHr: false
         });
-        if (this.data.canGlobalAccountManage && governance.personId) {
+        if (this.data.canGlobalAccountManage && governance.personId && !isFormer) {
           this.loadDetailHrSecurity(governance.personId, detailRequestId);
         } else {
           this.setData({ detailHrSecurity: null });
@@ -1227,12 +1227,13 @@ module.exports = Behavior({
         showHrPersonDetail: true,
         detailHrId: hrId,
         detailHrGovernance: governance,
+        detailHrSecurity: null,
         loadingDetailHr: true
       });
-      if (this.data.canGlobalAccountManage && governance && governance.personId) {
+      if (this.data.canGlobalAccountManage
+        && governance && governance.personId
+        && governance.membershipStatus !== 'left') {
         this.loadDetailHrSecurity(governance.personId, detailRequestId);
-      } else {
-        this.setData({ detailHrSecurity: null });
       }
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
