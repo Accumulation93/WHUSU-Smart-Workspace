@@ -20,6 +20,31 @@ const HEADER_H = 58; // rpx — matches .tt-time-header height
 const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
 const BOOKING_PURPOSE_MAX_LENGTH = 200;
 
+function isFlowApprovalTarget(record) {
+  const target = record && typeof record === 'object' ? record : {};
+  const progress = target.approvalProgress && typeof target.approvalProgress === 'object'
+    ? target.approvalProgress
+    : target;
+  const flowId = progress.flowId === undefined ? target.approvalFlowId : progress.flowId;
+  const currentStep = progress.currentStep === undefined
+    ? target.approvalCurrentStep
+    : progress.currentStep;
+  const stepText = currentStep === null || currentStep === undefined ? '' : String(currentStep).trim();
+  const stepIndex = Number(currentStep);
+  return Boolean(String(flowId || '').trim())
+    && Boolean(stepText)
+    && Number.isInteger(stepIndex)
+    && stepIndex >= 0;
+}
+
+function resolveVenueApprovalEndpoint(record, action) {
+  const flowManaged = isFlowApprovalTarget(record);
+  if (action === 'approve') {
+    return flowManaged ? 'approveVenueBookingStep' : 'approveVenueBooking';
+  }
+  return flowManaged ? 'rejectVenueBookingStep' : 'rejectVenueBooking';
+}
+
 // Synchronous scroll tracking (NOT in this.data — setData is async, can't rely on it)
 let _timetableScrollTop = 0;
 
@@ -1384,10 +1409,14 @@ Page({
   },
 
   async submitApprovalAction() {
-    const { approvalPopupId, approvalPopupAction, approvalPopupComment } = this.data;
+    const { approvalPopupId, approvalPopupAction, approvalPopupComment, approvalPopupTarget } = this.data;
     if (!approvalPopupId || !approvalPopupAction) return;
 
-    const endpoint = approvalPopupAction === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    const target = approvalPopupTarget
+      || this.data.bookings.find(function(booking) { return booking.id === approvalPopupId; });
+    if (!target) return;
+
+    const endpoint = resolveVenueApprovalEndpoint(target, approvalPopupAction);
     const label = approvalPopupAction === 'approve' ? localeCopy.copy_ce171a2581 : localeCopy.copy_5d5af942c5;
 
     this.setData({ loading: true });

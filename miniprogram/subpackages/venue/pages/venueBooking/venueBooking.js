@@ -29,6 +29,31 @@ const TOTAL_MIN = 24 * 60;
 const SNAP = 10;
 const MINUTE_OPTS = [0,10,20,30,40,50];
 
+function isFlowApprovalTarget(record) {
+  const target = record && typeof record === 'object' ? record : {};
+  const progress = target.approvalProgress && typeof target.approvalProgress === 'object'
+    ? target.approvalProgress
+    : target;
+  const flowId = progress.flowId === undefined ? target.approvalFlowId : progress.flowId;
+  const currentStep = progress.currentStep === undefined
+    ? target.approvalCurrentStep
+    : progress.currentStep;
+  const stepText = currentStep === null || currentStep === undefined ? '' : String(currentStep).trim();
+  const stepIndex = Number(currentStep);
+  return Boolean(String(flowId || '').trim())
+    && Boolean(stepText)
+    && Number.isInteger(stepIndex)
+    && stepIndex >= 0;
+}
+
+function resolveVenueApprovalEndpoint(record, action) {
+  const flowManaged = isFlowApprovalTarget(record);
+  if (action === 'approve') {
+    return flowManaged ? 'approveVenueBookingStep' : 'approveVenueBooking';
+  }
+  return flowManaged ? 'rejectVenueBookingStep' : 'rejectVenueBooking';
+}
+
 function timeToMin(t) { if (!t) return 0; const p = String(t).split(':'); return (parseInt(p[0])||0)*60 + (parseInt(p[1])||0); }
 function formatActivityCycleLabel(type, values) {
   let parsed = values;
@@ -1968,7 +1993,7 @@ Page({
     let comment = this.data.approvalComment;
     if (!target || !action || !this._guardApprovalContext(target)) return;
 
-    let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    let endpoint = resolveVenueApprovalEndpoint(target, action);
     let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     this.setData({ approvalSubmitting: true });

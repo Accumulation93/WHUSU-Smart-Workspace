@@ -11,6 +11,31 @@ const {
   showWorkContextModal
 } = require('../../utils/workContextPresentation');
 
+function isFlowApprovalTarget(record) {
+  const target = record && typeof record === 'object' ? record : {};
+  const progress = target.approvalProgress && typeof target.approvalProgress === 'object'
+    ? target.approvalProgress
+    : target;
+  const flowId = progress.flowId === undefined ? target.approvalFlowId : progress.flowId;
+  const currentStep = progress.currentStep === undefined
+    ? target.approvalCurrentStep
+    : progress.currentStep;
+  const stepText = currentStep === null || currentStep === undefined ? '' : String(currentStep).trim();
+  const stepIndex = Number(currentStep);
+  return Boolean(String(flowId || '').trim())
+    && Boolean(stepText)
+    && Number.isInteger(stepIndex)
+    && stepIndex >= 0;
+}
+
+function resolveVenueApprovalEndpoint(record, action) {
+  const flowManaged = isFlowApprovalTarget(record);
+  if (action === 'approve') {
+    return flowManaged ? 'approveVenueBookingStep' : 'approveVenueBooking';
+  }
+  return flowManaged ? 'rejectVenueBookingStep' : 'rejectVenueBooking';
+}
+
 Page({
   onLoad() {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
@@ -297,7 +322,7 @@ Page({
 
     if (!target || !action || !this._guardApprovalContext(target)) return;
 
-    let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    let endpoint = resolveVenueApprovalEndpoint(target, action);
     let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     this.setData({ approvalSubmitting: true });
