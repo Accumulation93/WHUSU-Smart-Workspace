@@ -3131,8 +3131,13 @@ Page({
         });
       }
 
-      // All files to send (existing + new)
-      let allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
+      const retainedFileIds = (this.data.editFiles || []).map(function(file) {
+        return file.id || file.fileId || '';
+      }).filter(Boolean);
+      if (retainedFileIds.length + serverNewFiles.length < 1) {
+        showShortToast(localeCopy.copy_88218650ba);
+        return;
+      }
       const stepOverrides = this.data.editType === 'template'
         ? (this.data.templateStepOverrides || []).filter(function(item) {
           return Array.isArray(item.personHrIds) && item.personHrIds.length
@@ -3153,7 +3158,8 @@ Page({
           resubmitMode: this.data.editResubmitMode,
           stepOverrides: stepOverrides,
           steps: stepsData,
-          files: allFiles
+          files: serverNewFiles,
+          retainedFileIds: retainedFileIds
         }
       });
 

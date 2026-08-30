@@ -373,6 +373,7 @@ Page({
     auditPendingCount: 0,
     auditMyCount: 0,
     auditApprovalHistoryCount: 0,
+    auditCanVerify: false,
   },
 
   noop() {},
@@ -452,7 +453,10 @@ Page({
     }
     this.setData({ userTabs: tabs, activeTab });
     // Load audit badge counts
-    if (this.data.hasUser) this.loadAuditBadgeCounts();
+    if (this.data.hasUser && allowed.indexOf('audit') !== -1) {
+      this.loadAuditBadgeCounts();
+      this.loadAuditVerificationAccess();
+    }
   },
 
   refreshUserFromCloud() {
@@ -527,6 +531,7 @@ Page({
       scoringStats: { total: 0, scored: 0, pending: 0 },
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
       hrProfile: emptyHrProfileState(),
+      auditCanVerify: false,
       organizationName: wx.getStorageSync('activeOrgName') || this.data.organizationName
     });
 
@@ -559,6 +564,7 @@ Page({
     }
     if (tab === 'audit') {
       this.loadAuditBadgeCounts();
+      this.loadAuditVerificationAccess();
     }
     if (tab === 'results' || tab === 'meritList') {
       this.checkPublication();
@@ -1080,6 +1086,23 @@ Page({
 
   goMyApprovalHistory() {
     navigateToTrustedRoute('/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
+  },
+
+  goAuditVerification() {
+    navigateToTrustedRoute('/subpackages/audit/pages/verification/verification');
+  },
+
+  async loadAuditVerificationAccess() {
+    const request = orgSession.beginRequest(this, 'auditVerificationAccess');
+    try {
+      const res = await callFunction({ name: 'getAuditVerificationAccess', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({ auditCanVerify: res.status === 'success' && res.canVerify === true });
+    } catch (_) {
+      if (orgSession.isRequestCurrent(this, request)) {
+        this.setData({ auditCanVerify: false });
+      }
+    }
   },
 
   async loadAuditBadgeCounts() {

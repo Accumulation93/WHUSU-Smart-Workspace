@@ -2027,8 +2027,8 @@ Page({
           patch.selectedFlowName = selected.name || '';
           patch.approvalFlowSteps = selected.steps || [];
           patch.allowUserSelectFlow = Number(selected.allow_user_select) === 1;
-          patch.allowDesignateFirstFlow = Number(selected.allow_designate_first) === 1 || Number(selected.allow_designate_next) === 1;
-          patch.allowDesignateNextFlow = Number(selected.allow_designate_first) === 1 || Number(selected.allow_designate_next) === 1;
+          patch.allowDesignateFirstFlow = Number(selected.allow_designate_first) === 1;
+          patch.allowDesignateNextFlow = Number(selected.allow_designate_next) === 1;
         } else {
           patch.selectedFlowId = '';
           patch.selectedFlowName = '';
@@ -2112,10 +2112,17 @@ Page({
     const field = String(e.currentTarget.dataset.field || '');
     const value = Boolean(e.detail.value);
     const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
-    if (!flow || !field) return;
-    const designateOn = field === 'allow_designate'
+    const supportedFields = ['allow_user_select', 'allow_designate_first', 'allow_designate_next'];
+    if (!flow || supportedFields.indexOf(field) < 0) return;
+    const allowUserSelect = field === 'allow_user_select'
       ? value
-      : (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1);
+      : Number(flow.allow_user_select) === 1;
+    const allowDesignateFirst = field === 'allow_designate_first'
+      ? value
+      : Number(flow.allow_designate_first) === 1;
+    const allowDesignateNext = field === 'allow_designate_next'
+      ? value
+      : Number(flow.allow_designate_next) === 1;
     try {
       const res = await callFunction({
         name: 'saveVenueApprovalFlowMeta',
@@ -2123,31 +2130,25 @@ Page({
           venueId: this.data.rulesVenueId,
           flowId: id,
           name: flow.name || localeCopy.copy_890d7f4874,
-          allowUserSelect: field === 'allow_user_select' ? value : Number(flow.allow_user_select) === 1,
-          allowDesignateFirst: designateOn,
-          allowDesignateNext: designateOn
+          allowUserSelect,
+          allowDesignateFirst,
+          allowDesignateNext
         }
       });
       if (res.status === 'success') {
         const flows = (this.data.approvalFlows || []).map(function(item) {
           if (item.id !== id) return item;
           const next = Object.assign({}, item);
-          if (field === 'allow_designate') {
-            next.allow_designate_first = value ? 1 : 0;
-            next.allow_designate_next = value ? 1 : 0;
-          } else {
-            next[field] = value ? 1 : 0;
-          }
+          next[field] = value ? 1 : 0;
           return next;
         });
-        this.setData({ approvalFlows: flows });
+        const patch = { approvalFlows: flows };
         if (id === this.data.selectedFlowId) {
-          if (field === 'allow_designate') {
-            this.setData({ allowDesignateFirstFlow: value, allowDesignateNextFlow: value });
-          } else {
-            this.setData({ allowUserSelectFlow: value });
-          }
+          if (field === 'allow_designate_first') patch.allowDesignateFirstFlow = value;
+          if (field === 'allow_designate_next') patch.allowDesignateNextFlow = value;
+          if (field === 'allow_user_select') patch.allowUserSelectFlow = value;
         }
+        this.setData(patch);
       } else showShortToast(res.message || localeCopy.copy_bff49f783f);
     } catch (err) { showShortToast(getErrorText(err, localeCopy.copy_bff49f783f)); }
   },
@@ -2195,8 +2196,8 @@ Page({
       selectedFlowName: flow.name || '',
       approvalFlowSteps: flow.steps || [],
       allowUserSelectFlow: Number(flow.allow_user_select) === 1,
-      allowDesignateFirstFlow: Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1,
-      allowDesignateNextFlow: Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1,
+      allowDesignateFirstFlow: Number(flow.allow_designate_first) === 1,
+      allowDesignateNextFlow: Number(flow.allow_designate_next) === 1,
       ruleEditorVisible: true,
       ruleEditId: '__flow__',
       ruleEditorType: 'booking',

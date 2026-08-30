@@ -32,15 +32,20 @@ async function create(id, data) {
 async function update(id, data) {
   const { name, imageData } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const [result] = await pool.query(
     'UPDATE stamps SET name = ?, image_data = ? WHERE id = ? AND org_id = ?',
     [name || '', imageData || null, id, orgId]
   );
+  return Boolean(result && result.affectedRows > 0);
 }
 
 async function remove(id) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM stamps WHERE id = ? AND org_id = ?', [id, orgId]);
+  const [result] = await pool.query(
+    'DELETE FROM stamps WHERE id = ? AND org_id = ?',
+    [id, orgId]
+  );
+  return Boolean(result && result.affectedRows > 0);
 }
 
 module.exports = { getAll, getById, create, update, remove };

@@ -24,9 +24,41 @@ const REASONS = Object.freeze({
   RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
   ALREADY_APPROVED: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤',
   DESIGNATED_ONLY: '该步骤已指定审批人，只有指定人员可以审批',
-  DESIGNATE_NOT_ALLOWED: '该审批流程不允许指定审批人',
+  DESIGNATE_FIRST_NOT_ALLOWED: localeCopy.firstDesignationNotAllowed,
+  DESIGNATE_NEXT_NOT_ALLOWED: localeCopy.nextDesignationNotAllowed,
   DESIGNATE_INVALID: '请选择符合条件的审批人'
 });
+
+function normalizeFlag(value) {
+  return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0;
+}
+
+function readFlowFlag(source, snakeKey, camelKey) {
+  const item = source || {};
+  if (Object.prototype.hasOwnProperty.call(item, snakeKey)) {
+    return normalizeFlag(item[snakeKey]);
+  }
+  if (Object.prototype.hasOwnProperty.call(item, camelKey)) {
+    return normalizeFlag(item[camelKey]);
+  }
+  return 0;
+}
+
+function assertDesignationAllowed(flow, phase, designation) {
+  if (!safeString(designation && designation.assignmentId)) return false;
+  const isFirst = phase === 'first';
+  const allowed = flow
+    ? readFlowFlag(
+      flow,
+      isFirst ? 'allow_designate_first' : 'allow_designate_next',
+      isFirst ? 'allowDesignateFirst' : 'allowDesignateNext'
+    ) === 1
+    : false;
+  if (!allowed) {
+    throw new Error(isFirst ? REASONS.DESIGNATE_FIRST_NOT_ALLOWED : REASONS.DESIGNATE_NEXT_NOT_ALLOWED);
+  }
+  return true;
+}
 
 function parseSnapshots(raw) {
   try {
@@ -79,9 +111,9 @@ function immutableFlow(flow, steps) {
   return {
     id: safeString(source.id),
     name: safeString(source.name),
-    allow_user_select: Number(source.allow_user_select || source.allowUserSelect) === 1 ? 1 : 0,
-    allow_designate_first: Number(source.allow_designate_first || source.allowDesignateFirst) === 1 ? 1 : 0,
-    allow_designate_next: Number(source.allow_designate_next || source.allowDesignateNext) === 1 ? 1 : 0,
+    allow_user_select: readFlowFlag(source, 'allow_user_select', 'allowUserSelect'),
+    allow_designate_first: readFlowFlag(source, 'allow_designate_first', 'allowDesignateFirst'),
+    allow_designate_next: readFlowFlag(source, 'allow_designate_next', 'allowDesignateNext'),
     steps: (Array.isArray(steps) ? steps : []).map(immutableStep)
   };
 }
@@ -220,6 +252,7 @@ function buildInitialFlowState(flows, selectedFlowId, firstDesignation) {
   const selected = list.find(function(flow) {
     return String(flow.id) === String(selectedFlowId);
   });
+  const designationFlow = selected || (list.length === 1 ? list[0] : null);
   const chosen = selected ? [selected] : list;
   const state = {
     selectedFlowId: selected ? String(selected.id) : null,
@@ -235,8 +268,9 @@ function buildInitialFlowState(flows, selectedFlowId, firstDesignation) {
       designated: {}
     };
   }
-  if (selected && firstDesignation && firstDesignation.assignmentId) {
-    state.flows[String(selected.id)].designated['0'] = {
+  if (firstDesignation && firstDesignation.assignmentId) {
+    assertDesignationAllowed(designationFlow, 'first', firstDesignation);
+    state.flows[String(designationFlow.id)].designated['0'] = {
       personId: safeString(firstDesignation.personId),
       legacyHrId: safeString(firstDesignation.legacyHrId || firstDesignation.hrId),
       assignmentId: safeString(firstDesignation.assignmentId),
@@ -378,8 +412,8 @@ function summarizeState(state, flowsMap) {
         flowId: flowId,
         flowName: (flow && flow.name) || '',
         allowUserSelect: Boolean(flow && Number(flow.allow_user_select) === 1),
-        allowDesignateFirst: Boolean(flow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)),
-        allowDesignateNext: Boolean(flow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)),
+        allowDesignateFirst: Boolean(flow && Number(flow.allow_designate_first) === 1),
+        allowDesignateNext: Boolean(flow && Number(flow.allow_designate_next) === 1),
         stepIndex: Number(st.stepIndex),
         stepName: step ? step.name : '',
         totalSteps: flow ? flow.steps.length : 0,
@@ -496,6 +530,26 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
 
   const singleFlow = isSingleFlowState(state);
   let completedFlowId = null;
+  let validatedNextDesignation = null;
+
+  if (safeString(nextDesignation && nextDesignation.assignmentId)) {
+    if (!singleFlow || matched.length !== 1) {
+      throw new Error(REASONS.DESIGNATE_NEXT_NOT_ALLOWED);
+    }
+    const matchedFlow = matched[0].flow;
+    const matchedState = matched[0].st;
+    assertDesignationAllowed(matchedFlow, 'next', nextDesignation);
+    const nextStep = matchedFlow.steps[Number(matchedState.stepIndex) + 1];
+    if (!nextStep) {
+      throw new Error(REASONS.DESIGNATE_INVALID);
+    }
+    validatedNextDesignation = await validateDesignation(
+      orgId,
+      nextDesignation.assignmentId,
+      nextStep,
+      applicantHrInfo
+    );
+  }
 
   for (const item of matched) {
     const st = item.st;
@@ -533,12 +587,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       if (!completedFlowId) completedFlowId = item.flowId;
       continue;
     }
-    const nextStep = flow.steps[Number(st.stepIndex)];
-    if (singleFlow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)
-      && nextStep && safeString(nextStep.approval_mode) !== 'admin_any'
-      && nextDesignation && nextDesignation.assignmentId) {
-      const designation = await validateDesignation(orgId, nextDesignation.assignmentId, nextStep, applicantHrInfo);
-      st.designated[String(st.stepIndex)] = designation;
+    if (validatedNextDesignation) {
+      st.designated[String(st.stepIndex)] = validatedNextDesignation;
     }
   }
 
@@ -642,6 +692,7 @@ module.exports = {
   parseFlowDefinitionSnapshot,
   getSnapshotFlowSteps,
   isSingleFlowState,
+  assertDesignationAllowed,
   validateDesignation,
   evaluateActorEligibility,
   evaluateWorkContextEligibility,

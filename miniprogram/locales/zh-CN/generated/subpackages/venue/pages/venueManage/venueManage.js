@@ -321,6 +321,8 @@ module.exports = Object.freeze({
   copy_fd4601c1f9: '已取消',
   copy_fdb45fb38f: '请输入事由内容',
   copy_fe59d1afcd: '不设置',
+  allowDesignateFirstApprover: '允许指定第一步审批人',
+  allowDesignateNextApprover: '允许指定下一步审批人',
   numericZeroPlaceholder: '0',
   venueStartTimePlaceholder: '09:00',
   venueEndTimePlaceholder: '18:00',

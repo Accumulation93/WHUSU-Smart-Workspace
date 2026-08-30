@@ -64,6 +64,19 @@ assert(!updateRoute.includes("SET status = 'superseded'"),
 assert(updateRoute.includes('preserveHistoricalEvidence ? 0 : 1')
   && updateRoute.includes('submissionFileModel.setCurrentRevisionRound'),
   '编辑上传的新附件必须先作为未绑定正式轮次的草稿修订保存');
+assert(updateRoute.includes('retainedFileIds')
+  && updateRoute.includes('markUnretainedCurrentAsHistorical')
+  && updateRoute.includes('sortOrderOffset: (retainedFileIds || []).length'),
+  '编辑必须提交完整附件集合，只把明确移除的旧附件转为历史，并将新附件接在保留附件之后');
+assert(updateRoute.includes('retainedFileIds !== null || (uploadedFiles && uploadedFiles.length)'),
+  '旧客户端提交空 files 数组时必须保持附件不变');
+assert(updateRoute.includes('currentIds.has(fileId)')
+  && updateRoute.includes('desiredCount < 1')
+  && updateRoute.includes('desiredCount > 20'),
+  '编辑附件必须拒绝跨申请伪造、空附件集合和超出数量上限');
+assert(fileModelSource.includes('SET sort_order = CASE id')
+  && fileModelSource.includes('AND id NOT IN'),
+  '保留附件必须按客户端完整集合重新编号，避免删除后与新附件产生重复顺序');
 
 const resubmitTransaction = resubmitRoute.indexOf('await conn.beginTransaction()');
 const resubmitRowLock = resubmitRoute.indexOf('submissionModel.getByIdForUpdate(submissionId, conn)');

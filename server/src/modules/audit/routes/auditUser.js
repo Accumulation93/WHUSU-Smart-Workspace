@@ -1880,6 +1880,9 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
     const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
+    const retainedFileIds = Array.isArray(req.body.retainedFileIds)
+      ? Array.from(new Set(req.body.retainedFileIds.map(safeString).filter(Boolean)))
+      : null;
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_b99e01d38c });
@@ -2078,11 +2081,48 @@ router.post('/updateAuditSubmission', async (req, res) => {
       await submissionModel.update(submissionId, { currentStepIndex: 1, previousRejectStepIndex: null }, conn);
     }
 
-    // 新附件形成不可变修订；旧附件退出当前集合，但继续供历史签名和验签按 file_id 读取。
-    if (uploadedFiles && uploadedFiles.length) {
-      await submissionFileModel.getAllBySubmissionId(submissionId, conn, true);
-      await submissionFileModel.markCurrentAsHistorical(submissionId, conn);
-      await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
+    // 编辑端提交“保留的旧附件 ID + 新上传附件”的完整目标集合。被移除的旧附件只退出
+    // 当前集合，仍保留在历史中供签名链和验签读取；保留项不得由客户端跨申请伪造。
+    // 兼容旧客户端：旧版本会固定提交 files: [] 表示“附件不变”，只有存在
+    // 新附件时才沿用其“整组替换”语义；新客户端则通过 retainedFileIds
+    // 明确提交完整目标集合。
+    if (retainedFileIds !== null || (uploadedFiles && uploadedFiles.length)) {
+      const allFiles = await submissionFileModel.getAllBySubmissionId(submissionId, conn, true);
+      const currentFiles = allFiles.filter(function(file) { return Number(file.is_current) === 1; });
+      const currentIds = new Set(currentFiles.map(function(file) { return safeString(file.id); }));
+      if ((retainedFileIds || []).some(function(fileId) { return !currentIds.has(fileId); })) {
+        const invalidFileError = new Error(localeCopy.submissionFileInvalid);
+        invalidFileError.status = 'invalid_params';
+        throw invalidFileError;
+      }
+      const desiredCount = (retainedFileIds || []).length + (uploadedFiles || []).length;
+      if (desiredCount < 1) {
+        const missingFileError = new Error(localeCopy.copy_e472aa139d);
+        missingFileError.status = 'invalid_params';
+        throw missingFileError;
+      }
+      if (desiredCount > 20) {
+        const fileLimitError = new Error(localeCopy.submissionFileLimitExceeded);
+        fileLimitError.status = 'invalid_params';
+        throw fileLimitError;
+      }
+      const retentionChanged = currentFiles.length !== (retainedFileIds || []).length;
+      if (retentionChanged || (uploadedFiles || []).length) {
+        await submissionFileModel.markUnretainedCurrentAsHistorical(
+          submissionId,
+          retainedFileIds || [],
+          conn
+        );
+        if ((uploadedFiles || []).length) {
+          await attachUploadedFiles({
+            uploadedFiles,
+            submissionId,
+            openid,
+            conn,
+            sortOrderOffset: (retainedFileIds || []).length
+          });
+        }
+      }
       await submissionFileModel.setCurrentRevisionRound(
         submissionId,
         preserveHistoricalEvidence ? 0 : 1,
@@ -2106,7 +2146,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_8e809d8090 });
   } catch (e) {
     await conn.rollback();
-    res.json({ status: 'error', message: safeString(e.message) });
+    res.json({ status: safeString(e.status) || 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
   }

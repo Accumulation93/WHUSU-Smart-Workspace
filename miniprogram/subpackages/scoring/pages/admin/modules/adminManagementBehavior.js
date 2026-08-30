@@ -5,30 +5,21 @@ const utils = require('./adminUtils');
 const { emptyAdminForm } = utils;
 const { writeAndOpen } = require('../../../../../utils/filePreview');
 const orgSession = require('../../../../../utils/orgSession');
+const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const { filterAdminCandidates } = require('./adminCandidateView');
 
 const ADMIN_CANDIDATE_RENDER_LIMIT = 80;
 
 module.exports = Behavior({
   methods: {
     filterAdminCandidates(keyword) {
-      const text = String(keyword || '').trim().toLowerCase();
       const sourceList = this._hrList || [];
-  
-      if (!text) {
-        return sourceList.slice(0, ADMIN_CANDIDATE_RENDER_LIMIT);
-      }
-  
-      return sourceList.filter((item) => {
-        const fields = [
-          item.name,
-          item.studentId,
-          item.department,
-          item.identity,
-          item.workGroup
-        ].map((value) => String(value || '').toLowerCase());
-  
-        return fields.some((value) => value.indexOf(text) !== -1);
-      }).slice(0, ADMIN_CANDIDATE_RENDER_LIMIT);
+      return filterAdminCandidates(
+        sourceList,
+        keyword,
+        ADMIN_CANDIDATE_RENDER_LIMIT,
+        personnelCopy
+      );
     },
 
     refreshAdminCandidates(keyword = this.data.adminCandidateKeyword) {
@@ -97,7 +88,11 @@ module.exports = Behavior({
     },
 
     pickAdminCandidate(e) {
-      const index = Number(e.currentTarget.dataset.index);
+      const detailIndex = e && e.detail ? e.detail.index : undefined;
+      const datasetIndex = e && e.currentTarget && e.currentTarget.dataset
+        ? e.currentTarget.dataset.index
+        : undefined;
+      const index = Number(detailIndex !== undefined ? detailIndex : datasetIndex);
       const item = this.data.adminCandidateList[index];
       if (!item) {
         return;

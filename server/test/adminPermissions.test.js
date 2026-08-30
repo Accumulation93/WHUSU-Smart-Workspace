@@ -49,6 +49,19 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/applyHrProfileTemplateSwitch').anyOf, ['hr.profile_templates.select']);
   assert.strictEqual(ROUTE_RULES.get('/reviewHrProfileChange').anyOf.includes('hr.profile_review'), true);
   assert.deepStrictEqual(
+    ROUTE_RULES.get('/listHrInfo').anyOf,
+    [
+      'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
+      'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
+    ]
+  );
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/listHrGovernance').anyOf,
+    ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage']
+  );
+  assert.strictEqual(ROUTE_RULES.get('/listHrInfo').anyOf.includes('auth.policy.manage'), false);
+  assert.strictEqual(ROUTE_RULES.get('/listHrGovernance').anyOf.includes('auth.policy.manage'), false);
+  assert.deepStrictEqual(
     ROUTE_RULES.get('/listHrProfileAdminData').anyOf,
     ['hr.people', 'hr.profile_review']
   );

@@ -35,6 +35,17 @@ test('认证治理目录以成员关系和完整岗位元组为事实来源', ()
   assert.match(source, /historical:/);
   assert.match(source, /wxBindStatus: Boolean\(item\.has_active_binding\) \? 'bound' : 'unbound'/);
   assert.doesNotMatch(identityOverviewModelSource, /LEFT JOIN departments d ON d\.id = h\.department_id/);
+  assert.doesNotMatch(source, /auth\.policy\.manage/);
+  assert.match(source, /HR_GOVERNANCE_DIRECTORY_PERMISSIONS/);
+});
+
+test('人事字典完整性检查只读取岗位事实源', () => {
+  const start = routeSource.indexOf("router.post('/batchMaintainFromHrInfo'");
+  const end = routeSource.indexOf("router.post('/unbindHrWechat'", start);
+  const source = routeSource.slice(start, end);
+  assert.match(source, /assignmentDictionaryIntegrity\.checkOrganization\(orgId\)/);
+  assert.doesNotMatch(source, /hrInfoModel\.getAll/);
+  assert.doesNotMatch(source, /departmentModel\.getAll/);
 });
 
 test('成员详情返回已移除字段和可展示的审核历史', () => {

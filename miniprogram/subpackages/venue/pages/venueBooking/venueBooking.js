@@ -696,12 +696,14 @@ Page({
     try {
       const res = await callFunction({ name: 'getVenueApprovalFlowOptions', data: { venueId } });
       if (res.status === 'success') {
+        const options = res.flows || [];
+        const fixedSingleFlow = !res.allowUserSelect && options.length === 1 ? options[0] : null;
         this.setData({
-          approvalFlowOptions: res.flows || [],
+          approvalFlowOptions: options,
           allowUserSelectFlow: Boolean(res.allowUserSelect),
-          selectedFlowId: '',
-          selectedFlowName: '',
-          selectedFlowAllowDesignateFirst: false,
+          selectedFlowId: fixedSingleFlow ? fixedSingleFlow.id : '',
+          selectedFlowName: fixedSingleFlow ? (fixedSingleFlow.name || '') : '',
+          selectedFlowAllowDesignateFirst: Boolean(fixedSingleFlow && fixedSingleFlow.allowDesignateFirst),
           firstApproverAssignmentId: '',
           firstApproverName: ''
         });
@@ -1930,7 +1932,7 @@ Page({
     const flows = item.flowSummary || [];
     const canDesignateNext = flows.length === 1
       && flows[0].allowDesignateNext
-      && Number(flows[0].stepIndex) < Number(flows[0].totalSteps);
+      && Number(flows[0].stepIndex) + 1 < Number(flows[0].totalSteps);
     this.setData({
       approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '',
       canDesignateNext: Boolean(canDesignateNext),

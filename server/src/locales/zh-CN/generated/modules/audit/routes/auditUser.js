@@ -14,6 +14,8 @@ module.exports = Object.freeze({
   auditStepsRequired: "请至少保留一个审批步骤",
   concurrentStateChanged: "申请状态已变化，请刷新后重试",
   historicalApprovalSnapshotMissing: "这条历史审批缺少处理所需的岗位信息，暂时无法查看或操作，请联系管理员",
+  submissionFileInvalid: "请重新打开申请后再选择附件",
+  submissionFileLimitExceeded: "一份申请最多上传20个文件",
   copy_0114ea3d7b: "该审批已处理，请刷新页面",
   copy_0172f60994: "请选择审核流程",
   copy_071cea6fa1: "」已通过全部审核",

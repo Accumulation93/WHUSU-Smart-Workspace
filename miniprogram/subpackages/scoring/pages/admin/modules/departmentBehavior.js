@@ -4,6 +4,7 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 const utils = require('./adminUtils');
 const { emptyDepartmentForm } = utils;
 const orgSession = require('../../../../../utils/orgSession');
+const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 
 module.exports = Behavior({
   methods: {
@@ -14,21 +15,28 @@ module.exports = Behavior({
         const result = await this.callCloud('listDepartments');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || localeCopy.copy_3ab009e9ad);
+          const failure = new Error('department_list_failed');
+          failure.userMessage = result.message || personnelCopy.dictionaryLoadFailed.departments.description;
+          throw failure;
         }
         this.setData({
           departmentList: result.departments || []
         });
+        this.setDictionaryLoadSuccess('departments');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error(localeCopy.copy_59591bcd20, error);
-        // 不再显示错误提示，因为空数据库是正常情况
-        this.setData({
-          departmentList: []
-        });
+        this.setDictionaryLoadFailure(
+          'departments',
+          error && error.userMessage || personnelCopy.dictionaryLoadFailed.departments.description
+        );
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('departments', false);
       }
+    },
+
+    retryDepartmentList() {
+      return this.loadDepartmentList();
     },
 
     onDepartmentFieldInput(e) {
@@ -116,6 +124,7 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
+      const target = (this.data.departmentList || []).find((item) => String(item.id) === String(id));
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
@@ -135,6 +144,10 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('deleteDepartment', { id });
         if (result.status !== 'success') {
+          if (result.status === 'in_use' && this.openDictionaryUsageDialog(
+            target && target.name,
+            result.usages
+          )) return;
           wx.showToast({
             title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'

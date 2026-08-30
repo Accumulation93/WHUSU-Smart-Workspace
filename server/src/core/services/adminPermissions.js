@@ -99,6 +99,15 @@ PERMISSION_GROUPS.forEach((group) => {
 
 const ROUTE_RULES = new Map();
 
+const HR_DIRECTORY_PERMISSIONS = Object.freeze([
+  'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
+  'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
+]);
+
+const HR_GOVERNANCE_DIRECTORY_PERMISSIONS = Object.freeze([
+  'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'
+]);
+
 function mapRoutes(permissionKey, routes, options = {}) {
   routes.forEach((route) => ROUTE_RULES.set(route, {
     anyOf: [permissionKey],
@@ -137,11 +146,8 @@ mapRoutes('scoring.publications', [
   '/batchSavePubMeritRules', '/batchDeletePubMeritRules', '/getMeritListSummary', '/exportMeritListSummary'
 ]);
 
-mapAny(['/listHrInfo', '/listHrGovernance'], [
-  'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
-  'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification',
-  'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'
-]);
+mapAny(['/listHrInfo'], HR_DIRECTORY_PERMISSIONS);
+mapAny(['/listHrGovernance'], HR_GOVERNANCE_DIRECTORY_PERMISSIONS);
 mapRoutes('hr.people', [
   '/saveHrInfo',
   '/deleteHrInfo',
@@ -184,7 +190,7 @@ mapRoutes('audit.submissions', [
   '/getAuditFile', '/downloadAuditFile', '/getAuditFilePreview'
 ], { allowUserRole: true });
 mapRoutes('audit.verification', ['/listVerificationPermissions', '/saveVerificationPermission', '/verifyAuditFile']);
-mapRoutes('audit.verification', ['/verifySignatureChain'], { allowUserRole: true });
+mapRoutes('audit.verification', ['/getAuditVerificationAccess', '/verifySignatureChain'], { allowUserRole: true });
 
 mapAny(['/listVenues'], ['venue.resources', 'venue.bookings', 'venue.approvals']);
 mapRoutes('venue.resources', [
@@ -346,6 +352,8 @@ module.exports = {
   PERMISSION_GROUPS,
   PERMISSION_DEFINITIONS,
   ROUTE_RULES,
+  HR_DIRECTORY_PERMISSIONS,
+  HR_GOVERNANCE_DIRECTORY_PERMISSIONS,
   listPermissionKeys,
   defaultGranted,
   isApplicable,

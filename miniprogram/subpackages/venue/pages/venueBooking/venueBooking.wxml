@@ -335,7 +335,7 @@ module.exports = { hour: hour, min: min };
               <view class="picker-display {{selectedFlowId ? 'picker-has-value' : ''}}">{{selectedFlowId ? selectedFlowName : localeCopy.copy_29ea17e75c}}</view>
             </picker>
           </view>
-          <view class="field" wx:if="{{allowUserSelectFlow && selectedFlowId && selectedFlowAllowDesignateFirst}}">
+          <view class="field" wx:if="{{selectedFlowId && selectedFlowAllowDesignateFirst}}">
             <view class="field-label">{{localeCopy.copy_66a92fc57e}}</view>
             <view class="pick-row" catchtap="openFirstApproverPicker">
               <text class="picker-display {{firstApproverAssignmentId ? 'picker-has-value' : ''}}">{{firstApproverName || localeCopy.copy_6986f4a5fd}}</text>

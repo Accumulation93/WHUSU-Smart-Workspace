@@ -20,6 +20,24 @@ async function listByVenueId(venueId, orgIdOverride, conn) {
   return rows;
 }
 
+async function listUsableByVenueId(venueId, orgIdOverride, conn) {
+  const orgId = String(orgIdOverride || '').trim() || await getCurrentOrgId();
+  const db = conn || pool;
+  const [rows] = await db.query(
+    `SELECT flow.*
+       FROM venue_approval_flows flow
+      WHERE flow.venue_id = ? AND flow.org_id = ? AND flow.is_active = 1
+        AND EXISTS (
+          SELECT 1
+            FROM venue_approval_flow_steps step
+           WHERE step.flow_id = flow.id AND step.org_id = flow.org_id
+        )
+      ORDER BY flow.created_at, flow.id`,
+    [venueId, orgId]
+  );
+  return rows;
+}
+
 async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -68,4 +86,4 @@ async function remove(id, conn) {
   await db.query('DELETE FROM venue_approval_flows WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByVenueId, listByVenueId, getById, create, update, remove };
+module.exports = { getByVenueId, listByVenueId, listUsableByVenueId, getById, create, update, remove };

@@ -245,7 +245,7 @@ Page({
     const flows = item.flowSummary || [];
     const canDesignateNext = flows.length === 1
       && flows[0].allowDesignateNext
-      && Number(flows[0].stepIndex) < Number(flows[0].totalSteps);
+      && Number(flows[0].stepIndex) + 1 < Number(flows[0].totalSteps);
     this.setData({
       approvalVisible: true,
       approvalTarget: item,

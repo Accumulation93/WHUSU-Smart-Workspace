@@ -1,0 +1,43 @@
+.dictionary-load-failure {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap, 14rpx);
+  margin-bottom: var(--ui-list-gap, 14rpx);
+  padding: var(--ui-list-padding-y, 18rpx) var(--ui-list-padding-x, 20rpx);
+  border: 1rpx solid rgba(147, 197, 253, 0.68);
+  border-radius: var(--ui-list-radius, 22rpx);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.86));
+  box-shadow:
+    0 12rpx 24rpx rgba(37, 99, 235, 0.07),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.88);
+}
+
+.dictionary-load-failure-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.dictionary-load-failure-title {
+  color: #1e3a8a;
+  font-size: var(--ui-type-emphasis);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.dictionary-load-failure-description {
+  margin-top: var(--ui-label-gap, 8rpx);
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.dictionary-retry-button {
+  flex: none;
+  min-height: var(--ui-compact-height, 56rpx);
+  margin: 0;
+  padding: var(--ui-compact-padding-y, 8rpx) var(--ui-compact-padding-x, 16rpx);
+  font-size: var(--ui-type-control);
+  line-height: 1.35;
+}

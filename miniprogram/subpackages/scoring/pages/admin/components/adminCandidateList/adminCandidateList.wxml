@@ -1,0 +1,25 @@
+<view class="list-card nested-card">
+  <view class="list-title">{{title}}</view>
+  <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+    <view class="list-item list-item-stacked admin-candidate-card" wx:for="{{candidates}}" wx:key="id">
+      <view class="list-main">
+        <view class="list-name">{{item.name}}</view>
+        <view class="list-desc">{{item.studentId}}</view>
+        <view class="admin-candidate-assignments" wx:if="{{item.assignments.length}}">
+          <view class="admin-candidate-assignment" wx:for="{{item.assignments}}" wx:key="assignmentId" wx:for-item="assignmentItem" wx:for-index="assignmentIndex">
+            <view class="admin-candidate-assignment-head">
+              <view class="admin-candidate-assignment-index">{{positionPrefix}} {{assignmentIndex + 1}}</view>
+              <view class="status-chip admin-candidate-nature-chip" wx:if="{{assignmentItem.assignmentNatureLabel}}">{{assignmentItem.assignmentNatureLabel}}</view>
+            </view>
+            <view class="admin-candidate-assignment-label">{{assignmentItem.assignmentLabel}}</view>
+          </view>
+        </view>
+        <view class="status-chip no-position-chip admin-candidate-no-position" wx:else>{{noPositionText}}</view>
+        <view class="inline-actions list-actions-below card-actions">
+          <text class="link ui-motion-chip" data-index="{{index}}" bindtap="selectCandidate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{actionText}}</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+  <view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+</view>

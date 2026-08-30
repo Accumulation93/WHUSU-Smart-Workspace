@@ -432,7 +432,10 @@ router.post('/saveStamp', async (req, res) => {
     }
 
     if (id) {
-      await stampModel.update(id, { name, imageData });
+      const updated = await stampModel.update(id, { name, imageData });
+      if (!updated) {
+        return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
+      }
       res.json({ status: 'success', message: localeCopy.copy_161855b67c });
     } else {
       const newId = generateId();
@@ -454,7 +457,10 @@ router.post('/deleteStamp', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_fc971e88db });
 
-    await stampModel.remove(id);
+    const removed = await stampModel.remove(id);
+    if (!removed) {
+      return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
+    }
     res.json({ status: 'success', message: localeCopy.copy_a5d4679cf0 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -475,7 +481,13 @@ router.post('/saveStampAssignments', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_d1856227b6 });
     }
 
-    await stampAssignmentModel.replaceForIdentity(identityId, stampIds);
+    const result = await stampAssignmentModel.replaceForIdentity(identityId, stampIds);
+    if (result.status === 'identity_not_found') {
+      return res.json({ status: 'not_found', message: localeCopy.copy_d1856227b6 });
+    }
+    if (result.status === 'stamp_not_found') {
+      return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
+    }
     res.json({ status: 'success', message: localeCopy.copy_cb20eb18bc });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -502,20 +514,10 @@ router.post('/listVerificationPermissions', async (req, res) => {
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const perms = await verificationPermModel.getAll();
-    // Load HR names
-    const hrIds = perms.map((p) => p.grantee_hr_id);
-    const hrMap = {};
-    if (hrIds.length) {
-      const hrRows = await hrInfoModel.getByIds(hrIds);
-      for (const hr of hrRows) {
-        hrMap[hr.id] = safeString(hr.name);
-      }
-    }
-
     const result = perms.map((p) => ({
       id: safeString(p.id),
       granteeHrId: safeString(p.grantee_hr_id),
-      granteeName: hrMap[p.grantee_hr_id] || localeCopy.copy_8d3451355b,
+      granteeName: safeString(p.grantee_name) || localeCopy.copy_8d3451355b,
       grantedBy: safeString(p.granted_by),
       createdAt: p.created_at
     }));
@@ -541,16 +543,20 @@ router.post('/saveVerificationPermission', async (req, res) => {
     }
 
     if (action === 'revoke') {
-      await verificationPermModel.removeByGrantee(granteeHrId);
+      const removed = await verificationPermModel.removeByGrantee(granteeHrId);
+      if (!removed) {
+        return res.json({ status: 'not_found', message: localeCopy.copy_7d1a305d97 });
+      }
       res.json({ status: 'success', message: localeCopy.copy_c2eabcfd63 });
     } else {
-      // Check if already exists
-      const existing = await verificationPermModel.getByGrantee(granteeHrId);
-      if (existing) {
+      const newId = generateId();
+      const result = await verificationPermModel.create(newId, { granteeHrId, grantedBy: admin.id });
+      if (result.status === 'grantee_not_found') {
+        return res.json({ status: 'not_found', message: localeCopy.copy_7d1a305d97 });
+      }
+      if (result.status === 'duplicate') {
         return res.json({ status: 'duplicate', message: localeCopy.copy_dcc2e39631 });
       }
-      const newId = generateId();
-      await verificationPermModel.create(newId, { granteeHrId, grantedBy: admin.id });
       res.json({ status: 'success', message: localeCopy.copy_31f5d1514b });
     }
   } catch (e) {

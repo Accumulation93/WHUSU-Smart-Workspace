@@ -4,6 +4,7 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 const utils = require('./adminUtils');
 const { emptyWorkGroupForm } = utils;
 const orgSession = require('../../../../../utils/orgSession');
+const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 
 module.exports = Behavior({
   methods: {
@@ -14,7 +15,9 @@ module.exports = Behavior({
         const result = await this.callCloud('listWorkGroups');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || localeCopy.copy_5778bc8da0);
+          const failure = new Error('work_group_list_failed');
+          failure.userMessage = result.message || personnelCopy.dictionaryLoadFailed.workGroups.description;
+          throw failure;
         }
         const workGroups = (result.workGroups || []).map((item) => {
           const department = this.data.departmentList.find(d => (
@@ -29,16 +32,21 @@ module.exports = Behavior({
         this.setData({
           workGroupList: workGroups
         });
+        this.setDictionaryLoadSuccess('workGroups');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error(localeCopy.copy_7093ebdf5f, error);
-        // 不再显示错误提示，因为空数据库是正常情况
-        this.setData({
-          workGroupList: []
-        });
+        this.setDictionaryLoadFailure(
+          'workGroups',
+          error && error.userMessage || personnelCopy.dictionaryLoadFailed.workGroups.description
+        );
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('workGroups', false);
       }
+    },
+
+    retryWorkGroupList() {
+      return this.loadWorkGroupList();
     },
 
     onWorkGroupFieldInput(e) {
@@ -147,6 +155,7 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
+      const target = (this.data.workGroupList || []).find((item) => String(item.id) === String(id));
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
@@ -166,6 +175,10 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('deleteWorkGroup', { id });
         if (result.status !== 'success') {
+          if (result.status === 'in_use' && this.openDictionaryUsageDialog(
+            target && target.name,
+            result.usages
+          )) return;
           wx.showToast({
             title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'

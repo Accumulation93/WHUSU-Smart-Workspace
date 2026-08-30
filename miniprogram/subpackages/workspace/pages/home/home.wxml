@@ -493,6 +493,15 @@
           </view>
           <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" /></view>
         </view>
+        <!-- 文件验签 -->
+        <view class="audit-home-card ui-motion-card" wx:if="{{auditCanVerify}}" bindtap="goAuditVerification" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="audit-home-card-icon"><ui-icon name="shield" tone="primary" sizeRole="feature-leading" ariaLabel="{{copy.auditVerification}}" /></view>
+          <view class="audit-home-card-content">
+            <view class="audit-home-card-title">{{copy.auditVerification}}</view>
+            <view class="audit-home-card-desc">{{copy.auditVerificationDescription}}</view>
+          </view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" /></view>
+        </view>
       </view>
     </view>
   </view>

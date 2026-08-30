@@ -134,6 +134,40 @@ function checkWxss(file) {
     }
     match = importPattern.exec(source);
   }
+
+  const componentConfig = file.replace(/\.wxss$/, '.json');
+  if (!fs.existsSync(componentConfig)) return;
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(componentConfig, 'utf8'));
+  } catch (_) {
+    return;
+  }
+  if (!config || config.component !== true) return;
+
+  const styleSource = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  const selectorPattern = /([^{}]+)\{/g;
+  const nativeTagPattern = /(^|[\s>+~])(?:button|view|text|input|textarea|picker|scroll-view|image|canvas)(?=[:.#\[\s>+~]|$)/;
+  let selectorMatch = selectorPattern.exec(styleSource);
+  while (selectorMatch) {
+    const selectorBlock = selectorMatch[1].trim();
+    if (selectorBlock && !selectorBlock.startsWith('@')
+      && selectorBlock !== 'from' && selectorBlock !== 'to'
+      && !/^\d+(?:\.\d+)?%$/.test(selectorBlock)) {
+      selectorBlock.split(',').map(function(item) { return item.trim(); }).filter(Boolean).forEach(function(selector) {
+        if (/(^|[\s>+~])#[\w-]+/.test(selector)) {
+          report(file, '自定义组件 WXSS 不支持 ID 选择器: ' + selector);
+        }
+        if (/\[[^\]]+\]/.test(selector)) {
+          report(file, '自定义组件 WXSS 不支持属性选择器: ' + selector);
+        }
+        if (nativeTagPattern.test(selector)) {
+          report(file, '自定义组件 WXSS 不支持标签选择器，请改用组件语义类: ' + selector);
+        }
+      });
+    }
+    selectorMatch = selectorPattern.exec(styleSource);
+  }
 }
 
 function checkJson(file) {

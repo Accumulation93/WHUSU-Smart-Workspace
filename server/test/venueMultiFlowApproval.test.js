@@ -311,6 +311,7 @@ async function run() {
   assignments['a-head'].identityCategoryId = 'dept_head';
 
   // 5) 指定第一步审批人：只有被指定者可见
+  flowDept.allow_designate_first = 1;
   const designatedState = engine.buildInitialFlowState([flowDept], 'flow-dept', {
     hrId: 'hr-head', legacyHrId: 'hr-head', personId: 'p-head', assignmentId: 'a-head'
   });
@@ -335,14 +336,69 @@ async function run() {
     '指定岗位本身必须满足目标步骤规则'
   );
 
-  // 6) 候选人缺失：下一步无人匹配 → candidateMissing 标记且不自动完成
+  // 6) 第一步与下一步指定权限必须完全独立，缺失字段不得扩大授权。
+  flowDept.allow_designate_first = 1;
+  flowDept.allow_designate_next = 0;
+  const firstOnlyState = engine.buildInitialFlowState([flowDept], 'flow-dept', {
+    hrId: 'hr-head', legacyHrId: 'hr-head', personId: 'p-head', assignmentId: 'a-head'
+  });
+  assert.strictEqual(firstOnlyState.flows['flow-dept'].designated['0'].assignmentId, 'a-head');
+  const fixedFirstOnlyState = engine.buildInitialFlowState([flowDept], null, {
+    hrId: 'hr-head', legacyHrId: 'hr-head', personId: 'p-head', assignmentId: 'a-head'
+  });
+  assert.strictEqual(fixedFirstOnlyState.flows['flow-dept'].designated['0'].assignmentId, 'a-head',
+    '固定单流程无需用户选择流程，也必须支持已授权的第一步指定');
+  const firstOnlyBooking = makeBooking(engine.buildInitialFlowState([flowDept], 'flow-dept', null));
+  await assert.rejects(
+    engine.prepareApproval(firstOnlyBooking, userActor('hr-head'), '同意', { assignmentId: 'a-chair' }, ORG),
+    /不允许指定下一步审批人/,
+    '仅允许指定第一步时，服务端必须拒绝下一步指定'
+  );
+
+  flowDept.allow_designate_first = 0;
+  flowDept.allow_designate_next = 1;
+  assert.throws(
+    function() {
+      engine.buildInitialFlowState([flowDept], 'flow-dept', {
+        hrId: 'hr-head', legacyHrId: 'hr-head', personId: 'p-head', assignmentId: 'a-head'
+      });
+    },
+    /不允许指定第一步审批人/,
+    '仅允许指定下一步时，服务端必须拒绝第一步指定'
+  );
+  const nextOnlyBooking = makeBooking(engine.buildInitialFlowState([flowDept], 'flow-dept', null));
+  const nextOnlyApproval = await engine.prepareApproval(
+    nextOnlyBooking,
+    userActor('hr-head'),
+    '同意',
+    { assignmentId: 'a-chair' },
+    ORG
+  );
+  assert.strictEqual(nextOnlyApproval.state.flows['flow-dept'].designated['1'].assignmentId, 'a-chair');
+  assert.strictEqual(nextOnlyApproval.summary.flowSummary[0].allowDesignateFirst, false);
+  assert.strictEqual(nextOnlyApproval.summary.flowSummary[0].allowDesignateNext, true);
+
+  const failClosedSnapshot = engine.buildFlowDefinitionSnapshot([
+    Object.assign({}, flowDept, {
+      allow_designate_first: 0,
+      allowDesignateFirst: 1,
+      allow_designate_next: undefined,
+      allowDesignateNext: 1
+    })
+  ], { 'flow-dept': flowDept.steps }, 'flow-dept', ORG, toRuleProfile(assignments['a-app']));
+  assert.strictEqual(failClosedSnapshot.flows[0].allow_designate_first, 0, '显式关闭值不得被兼容字段覆盖');
+  assert.strictEqual(failClosedSnapshot.flows[0].allow_designate_next, 0, '缺失的新字段必须默认关闭');
+  flowDept.allow_designate_first = 0;
+  flowDept.allow_designate_next = 0;
+
+  // 7) 候选人缺失：下一步无人匹配 → candidateMissing 标记且不自动完成
   const missingBooking = makeBooking(engine.buildInitialFlowState([noChairFlow], null, null));
   const missingApproval = await engine.prepareApproval(missingBooking, userActor('hr-head'), '同意', null, ORG);
   assert.strictEqual(missingApproval.ok, true);
   assert.strictEqual(missingApproval.completed, false);
   assert.strictEqual(missingApproval.candidateMissing, true, '下一步无候选人应标记 candidateMissing');
 
-  // 7) 旧列派生：并行模式取最小活动步，通过时取总步数
+  // 8) 旧列派生：并行模式取最小活动步，通过时取总步数
   const legacyPending = engine.legacyColumnsFromState(headApproval.state, headApproval.totalSteps, 'pending');
   assert.strictEqual(legacyPending.currentStep, 0);
   const legacyApproved = engine.legacyColumnsFromState(adminApproval.state, adminApproval.totalSteps, 'approved');
@@ -366,8 +422,41 @@ async function run() {
   );
   assert.match(venueUserSource, /approvalFlowId, approvalFlowState, approvalFlowSnapshot, approvalTotalSteps/,
     '创建借用必须把流程定义快照写入记录');
+  assert.match(venueUserSource, /assertDesignationAllowed\(singleSelected, 'first'/,
+    '创建借用时必须由服务端校验第一步指定开关');
+  assert.match(venueUserSource, /listUsableByVenueId\(venueId/);
+  assert.match(venueUserSource, /visibleFlows = allowUserSelect[\s\S]*allow_user_select\) === 1/,
+    '发起页只应返回有步骤的流程；存在可选流程时不得把不可选流程放入选择器');
   assert.doesNotMatch(venueUserSource, /SELECT sort_order, name FROM venue_approval_flow_steps/,
     '历史详情不得回查当前步骤定义');
+
+  const venueManageSource = fs.readFileSync(
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManage.js'),
+    'utf8'
+  );
+  const venueManageTemplate = fs.readFileSync(
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManage.wxml'),
+    'utf8'
+  );
+  const venueBookingSource = fs.readFileSync(
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueBooking/venueBooking.js'),
+    'utf8'
+  );
+  const venueBookingTemplate = fs.readFileSync(
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueBooking/venueBooking.wxml'),
+    'utf8'
+  );
+  assert.match(venueManageTemplate, /data-field="allow_designate_first"/);
+  assert.match(venueManageTemplate, /data-field="allow_designate_next"/);
+  assert.doesNotMatch(venueManageTemplate, /allow_designate_first === 1 \|\| item\.allow_designate_next === 1/,
+    '管理界面不得再合并两个指定开关');
+  assert.doesNotMatch(venueManageSource, /allow_designate_first\) === 1 \|\| Number\([^\n]*allow_designate_next/,
+    '加载和编辑必须保持两个字段独立');
+  assert.match(venueBookingSource, /fixedSingleFlow = !res\.allowUserSelect && options\.length === 1/,
+    '固定单流程必须自动识别第一步指定能力');
+  assert.match(venueBookingTemplate, /wx:if="\{\{selectedFlowId && selectedFlowAllowDesignateFirst\}\}"/);
+  assert.doesNotMatch(venueBookingTemplate, /allowUserSelectFlow && selectedFlowId && selectedFlowAllowDesignateFirst/,
+    '固定单流程的第一步指定入口不得依赖用户选流程开关');
 
   const venueAdminSource = fs.readFileSync(
     path.resolve(__dirname, '../src/modules/venue/routes/venueAdmin.js'),

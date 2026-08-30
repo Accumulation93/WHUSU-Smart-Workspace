@@ -110,6 +110,8 @@ const text = Object.freeze({
   pendingApprovals: '待我审批',
   approvalHistory: '审批记录',
   myApprovalHistory: '我的审批记录',
+  auditVerification: '文件验签',
+  auditVerificationDescription: '核对审核文件与签名',
   enter: common.actions.enter,
   noIdentity: '暂无可用工作角色',
   backToPortal: '返回应用服务',

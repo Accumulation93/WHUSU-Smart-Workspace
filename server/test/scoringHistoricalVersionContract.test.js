@@ -30,12 +30,18 @@ assert.deepStrictEqual(clauseConfigWriters.sort(), ['activities.js', 'rules.js']
 assert(!/UPDATE clause_template_configs/i.test(rulesSource),
   'clause/config 不允许脱离父规则版本写入原地修改');
 
-const templateUpdate = templatesSource.indexOf('templateModel.update(id, { name, description, updatedBy: admin.id, updatedAt: nowUtc })');
-const questionRemoval = templatesSource.indexOf('questionModel.removeByTemplateId(id)');
+const templateUpdate = templatesSource.indexOf('templateModel.update(id, orgId');
+const questionRemoval = templatesSource.indexOf('questionModel.removeByTemplateId(id, connection)');
 assert(templateUpdate >= 0 && questionRemoval > templateUpdate,
-  '已有模板的问题结构改变前必须先更新模板 updated_at，供历史版本预检证明');
-assert(templatesSource.includes('function buildQuestionStructureSignature')
-  && templatesSource.includes('oldSig !== newSig'),
-'模板题目范围、起始值、上限和步长变化必须被结构签名识别');
+  '已有模板必须在同一事务中先更新时间版本，再替换后续评分使用的问题结构');
+assert(templatesSource.includes('pool.withTransaction(async (connection) => {'),
+  '模板保存、复制和删除必须使用事务，禁止留下部分写入');
+assert(!/scoreRecordModel|scoreAnswerModel|DELETE FROM score_records|DELETE FROM score_answers/.test(templatesSource),
+  '编辑模板绝不能删除历史评分或答案；历史记录由不可变计算快照解释');
+assert(templatesSource.includes("removedRecordCount: 0"),
+  '兼容响应必须明确表示模板编辑不会移除评分记录');
+assert(templatesSource.includes('templateModel.getAll(orgId)')
+  && templatesSource.includes('WHERE t.org_id = ?'),
+'模板和题目目录必须按当前组织隔离');
 
 console.log('评分父规则、子配置和模板历史版本时间契约测试通过');

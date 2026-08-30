@@ -13,6 +13,10 @@ const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const personGovernanceModel = require('../models/personGovernance');
 const hrMemberDeletionService = require('../services/hrMemberDeletionService');
+const assignmentDictionaryIntegrity = require('../services/assignmentDictionaryIntegrity');
+const {
+  HR_GOVERNANCE_DIRECTORY_PERMISSIONS
+} = require('../services/adminPermissions');
 const {
   AdminOrganizationAccessError,
   listAdminOrganizationAccess,
@@ -21,9 +25,6 @@ const {
 
 const hrInfoModel = require('../models/hrInfo');
 
-const departmentModel = require('../models/department');
-const identityModel = require('../models/identity');
-const workGroupModel = require('../models/workGroup');
 const adminInfoModel = require('../models/adminInfo');
 const hrTableImportModel = require('../models/hrTableImport');
 const pool = require('../../config/db');
@@ -102,10 +103,8 @@ router.post('/listHrGovernance', async (req, res) => {
   try {
     const accessList = await listAdminOrganizationAccess(req);
     const readable = accessList.filter((item) => (
-      item.canReadAssignments || item.canReadPeople
-       || item.permissionKeys && item.permissionKeys.some((key) => [
-         'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'
-      ].indexOf(key) >= 0)
+      Array.isArray(item.permissionKeys)
+      && item.permissionKeys.some((key) => HR_GOVERNANCE_DIRECTORY_PERMISSIONS.indexOf(key) >= 0)
     ));
     if (!readable.length) return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_828e7e4bfb });
     const requestedOrgId = safeString(req.body && req.body.organizationId);
@@ -727,52 +726,8 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
     const admin = await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
-    const [hrRows, departmentRows, identityRows, workGroupRows] = await Promise.all([
-      hrInfoModel.getAll(), departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
-    ]);
-
-    const departmentIds = new Set(departmentRows.map(d => d.id));
-    const identityIds = new Set(identityRows.map(d => d.id));
-    const workGroupIds = new Set(workGroupRows.map(w => w.id));
-    const workGroupsById = new Map(workGroupRows.map(w => [w.id, w]));
-
-    const stats = {
-      checkedMembers: hrRows.length,
-      referencedDepartments: 0,
-      referencedIdentities: 0,
-      referencedWorkGroups: 0,
-      missingDepartments: 0,
-      missingIdentities: 0,
-      missingWorkGroups: 0,
-      wrongDepartmentWorkGroups: 0
-    };
-
-    const seenDepartments = new Set();
-    const seenIdentities = new Set();
-    const seenWorkGroups = new Set();
-
-    for (const item of hrRows) {
-      const deptId = safeString(item.department_id);
-      const identId = safeString(item.identity_id);
-      const wgId = safeString(item.work_group_id);
-
-      if (deptId) seenDepartments.add(deptId);
-      if (identId) seenIdentities.add(identId);
-      if (wgId) seenWorkGroups.add(wgId);
-
-      if (deptId && !departmentIds.has(deptId)) stats.missingDepartments += 1;
-      if (identId && !identityIds.has(identId)) stats.missingIdentities += 1;
-      if (wgId && !workGroupIds.has(wgId)) {
-        stats.missingWorkGroups += 1;
-      } else if (wgId) {
-        const wg = workGroupsById.get(wgId);
-        if (safeString(wg && wg.department_id) !== deptId) stats.wrongDepartmentWorkGroups += 1;
-      }
-    }
-
-    stats.referencedDepartments = seenDepartments.size;
-    stats.referencedIdentities = seenIdentities.size;
-    stats.referencedWorkGroups = seenWorkGroups.size;
+    const orgId = await getCurrentOrgId();
+    const stats = await assignmentDictionaryIntegrity.checkOrganization(orgId);
 
     if (stats.missingDepartments || stats.missingIdentities || stats.missingWorkGroups || stats.wrongDepartmentWorkGroups) {
       return res.json({

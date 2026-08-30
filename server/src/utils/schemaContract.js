@@ -22,6 +22,7 @@ const REQUIRED_COLUMNS = [
   ['auth_sessions', 'device_platform'],
   ['auth_sessions', 'device_model']
   ,['score_activities', 'participant_granularity']
+  ,['score_question_templates', 'org_id']
   ,['score_records', 'scorer_person_id']
   ,['score_records', 'scorer_assignment_id']
   ,['score_records', 'scorer_subject_key']
@@ -112,6 +113,7 @@ const REQUIRED_TABLES = [
 
 const REQUIRED_INDEXES = [
   ['score_records', 'uk_sr_business'],
+  ['score_question_templates', 'idx_sqt_org'],
   ['score_answers', 'uk_sa_record_question'],
   ['score_snapshot_backfill_audits', 'idx_score_snapshot_audit_status'],
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],

@@ -91,13 +91,17 @@ async function fetchOrgLookups(explicitOrgId) {
   if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) {
     return cached.value;
   }
-  const [departments, identities, workGroups, templates, questions] = await Promise.all([
+  const [departments, identities, workGroups, templates] = await Promise.all([
     departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll(),
-    templateModel.getAll(), pool.query('SELECT * FROM score_questions ORDER BY template_id, sort_order')
+    templateModel.getAll(orgId)
   ]);
+  const templateIds = templates.map((item) => safeString(item.id)).filter(Boolean);
+  const scopedQuestions = templateIds.length
+    ? await questionModel.getByTemplateIds(templateIds)
+    : [];
   const templatesById = new Map();
   const questionsByTemplate = new Map();
-  questions[0].forEach((q) => {
+  scopedQuestions.forEach((q) => {
     if (!questionsByTemplate.has(q.template_id)) questionsByTemplate.set(q.template_id, []);
     questionsByTemplate.get(q.template_id).push(q);
   });

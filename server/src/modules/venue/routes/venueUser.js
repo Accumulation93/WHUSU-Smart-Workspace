@@ -525,8 +525,14 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
   try {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    const flows = await venueApprovalFlowModel.listByVenueId(venueId);
-    const options = flows.map(function(flow) {
+    const flows = await venueApprovalFlowModel.listUsableByVenueId(venueId);
+    const allowUserSelect = flows.some(function(flow) {
+      return Number(flow.allow_user_select) === 1;
+    });
+    const visibleFlows = allowUserSelect
+      ? flows.filter(function(flow) { return Number(flow.allow_user_select) === 1; })
+      : flows;
+    const options = visibleFlows.map(function(flow) {
       return {
         id: flow.id,
         name: flow.name || localeCopy.copy_890d7f4874,
@@ -535,7 +541,6 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
         allowDesignateNext: Number(flow.allow_designate_next) === 1
       };
     });
-    const allowUserSelect = options.some(function(option) { return option.allowUserSelect; });
     res.json({ status: 'success', allowUserSelect, flows: options });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -689,6 +694,20 @@ router.post('/createVenueBooking', async (req, res) => {
     //   3. admin rule or no rules → admin approval (default)
     const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
     const hasDirect = bookingRules.some(r => r.rule_type === 'direct');
+    const requestedFirstApproverAssignmentId = safeString(req.body.firstApproverAssignmentId);
+    const requestedFirstApproverHrId = safeString(req.body.firstApproverHrId);
+
+    if (requestedFirstApproverHrId && !requestedFirstApproverAssignmentId) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_legacyApproverSelection });
+    }
+    if (hasDirect && requestedFirstApproverAssignmentId) {
+      await conn.rollback();
+      return res.json({
+        status: 'invalid_params',
+        message: venueApprovalMultiFlow.REASONS.DESIGNATE_FIRST_NOT_ALLOWED
+      });
+    }
 
     let autoApprove = false;
     let approvalFlowId = null;
@@ -701,7 +720,14 @@ router.post('/createVenueBooking', async (req, res) => {
       autoApprove = true;
     } else {
       // 多审批流：允许用户选择时必选；否则全部流程并行
-      const approvalFlows = await venueApprovalFlowModel.listByVenueId(venueId, orgId, conn);
+      const approvalFlows = await venueApprovalFlowModel.listUsableByVenueId(venueId, orgId, conn);
+      if (requestedFirstApproverAssignmentId && !approvalFlows.length) {
+        await conn.rollback();
+        return res.json({
+          status: 'invalid_params',
+          message: venueApprovalMultiFlow.REASONS.DESIGNATE_FIRST_NOT_ALLOWED
+        });
+      }
       if (approvalFlows.length) {
         const allowUserSelect = approvalFlows.some(function(flow) { return Number(flow.allow_user_select) === 1; });
         let selectedFlowId = null;
@@ -723,9 +749,7 @@ router.post('/createVenueBooking', async (req, res) => {
             conn
           );
         }
-        const activeFlows = approvalFlows.filter(function(flow) {
-          return (stepsByFlow[flow.id] || []).length > 0;
-        });
+        const activeFlows = approvalFlows;
         if (activeFlows.length) {
           const applicantHrInfo = toRuleProfile(applicantAssignment);
           if (selectedFlowId && !activeFlows.some(function(flow) { return safeString(flow.id) === selectedFlowId; })) {
@@ -736,34 +760,45 @@ router.post('/createVenueBooking', async (req, res) => {
             ? approvalFlows.find(function(flow) { return String(flow.id) === selectedFlowId; })
             : (activeFlows.length === 1 ? activeFlows[0] : null);
           let firstDesignation = null;
-          if (singleSelected && Number(singleSelected.allow_designate_first) === 1) {
-            const firstStep = (stepsByFlow[singleSelected.id] || [])[0];
-            if (req.body.firstApproverHrId && !req.body.firstApproverAssignmentId) {
-              await conn.rollback();
-              return res.json({ status: 'invalid_params', message: localeCopy.copy_legacyApproverSelection });
-            }
-            if (firstStep && safeString(firstStep.approval_mode) !== 'admin_any' && req.body.firstApproverAssignmentId) {
-              const validatedDesignation = await venueApprovalMultiFlow.validateDesignation(
+          if (requestedFirstApproverAssignmentId) {
+            try {
+              venueApprovalMultiFlow.assertDesignationAllowed(singleSelected, 'first', {
+                assignmentId: requestedFirstApproverAssignmentId
+              });
+              const firstStep = (stepsByFlow[singleSelected.id] || [])[0];
+              firstDesignation = await venueApprovalMultiFlow.validateDesignation(
                 orgId,
-                req.body.firstApproverAssignmentId,
+                requestedFirstApproverAssignmentId,
                 firstStep,
                 applicantHrInfo
               );
-              firstDesignation = validatedDesignation;
+            } catch (error) {
+              await conn.rollback();
+              return res.json({
+                status: 'invalid_params',
+                message: safeString(error.message) || venueApprovalMultiFlow.REASONS.DESIGNATE_INVALID
+              });
             }
           }
-          approvalFlowState = venueApprovalMultiFlow.buildInitialFlowState(activeFlows, selectedFlowId, firstDesignation);
+          const effectiveFlowId = selectedFlowId || (activeFlows.length === 1 ? safeString(activeFlows[0].id) : null);
+          approvalFlowState = venueApprovalMultiFlow.buildInitialFlowState(activeFlows, effectiveFlowId, firstDesignation);
           approvalFlowSnapshot = venueApprovalMultiFlow.buildFlowDefinitionSnapshot(
             activeFlows,
             stepsByFlow,
-            selectedFlowId,
+            effectiveFlowId,
             orgId,
             applicantHrInfo
           );
-          approvalFlowId = selectedFlowId || activeFlows[0].id;
-          approvalTotalSteps = selectedFlowId
-            ? (stepsByFlow[selectedFlowId] || []).length
+          approvalFlowId = effectiveFlowId || activeFlows[0].id;
+          approvalTotalSteps = effectiveFlowId
+            ? (stepsByFlow[effectiveFlowId] || []).length
             : Math.max.apply(null, activeFlows.map(function(flow) { return (stepsByFlow[flow.id] || []).length; }));
+        } else if (requestedFirstApproverAssignmentId) {
+          await conn.rollback();
+          return res.json({
+            status: 'invalid_params',
+            message: venueApprovalMultiFlow.REASONS.DESIGNATE_FIRST_NOT_ALLOWED
+          });
         }
       }
     }

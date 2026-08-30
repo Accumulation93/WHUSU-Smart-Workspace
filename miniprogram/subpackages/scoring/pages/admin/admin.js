@@ -1,4 +1,6 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const generatedLocaleCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const personnelLocaleCopy = require('../../../../locales/zh-CN/adminPersonnel');
+const localeCopy = Object.freeze(Object.assign({}, generatedLocaleCopy, personnelLocaleCopy));
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
@@ -22,10 +24,12 @@ const settingsBehavior = require('./modules/settingsBehavior');
 const publicationBehavior = require('./modules/publicationBehavior');
 const auditBehavior = require('./modules/auditBehavior');
 const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
+const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
 
 Page({
   behaviors: [
     sharedApi,
+    dictionaryFeedbackBehavior,
     activityBehavior,
     templateBehavior,
     ruleBehavior,
@@ -470,6 +474,16 @@ Page({
         adminList: [],
         adminCandidateKeyword: '',
         adminCandidateList: [],
+        dictionaryLoadState: {
+          departments: { status: 'idle', message: '' },
+          identities: { status: 'idle', message: '' },
+          workGroups: { status: 'idle', message: '' }
+        },
+        dictionaryUsageDialog: {
+          visible: false,
+          targetName: '',
+          usages: []
+        },
         resultFilters: emptyResultFilters(),
         resultSearchText: '',
         resultPage: 1,

@@ -32,6 +32,17 @@ async function resolveHrId(openid) {
   return rows[0] ? rows[0].hr_id : null;
 }
 
+async function resolveVerificationAccess(req) {
+  const selectedRole = safeString(
+    (req.authContext && req.authContext.role) || req.get('X-Role')
+  ).toLowerCase();
+  const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(req.openid) : null;
+  const hrId = selectedRole === 'user' ? await resolveHrId(req.openid) : null;
+  const canVerify = Boolean(admin)
+    || (Boolean(hrId) && await verificationPermModel.checkPermission(hrId));
+  return { canVerify, selectedRole, hrId };
+}
+
 async function withLockedSignatureOwner(req, callback) {
   return pool.withTransaction(async (connection) => {
     const orgId = await getCurrentOrgId();
@@ -263,26 +274,26 @@ router.post('/setDefaultSignature', async (req, res) => {
 // Chain Verification
 // ═══════════════════════════════════════════════════
 
+// getAuditVerificationAccess — 只返回当前组织下的验签权限。
+router.post('/getAuditVerificationAccess', async (req, res) => {
+  try {
+    const access = await resolveVerificationAccess(req);
+    return res.json({ status: 'success', canVerify: access.canVerify });
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // verifySignatureChain — Verify hash chain of a submission
 router.post('/verifySignatureChain', async (req, res) => {
   try {
-    const openid = req.openid;
-    const selectedRole = safeString(req.get('X-Role')).toLowerCase();
     const submissionNumber = safeString(req.body.submissionNumber);
     const submissionId = safeString(req.body.submissionId);
     const fileHash = safeString(req.body.fileHash);
     const fileBase64 = safeString(req.body.fileBase64);
 
-    // Check permissions: must be admin or have verification permission
-    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
-    const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null;
-    let hasPermission = !!admin;
-
-    if (!hasPermission && hrId) {
-      hasPermission = await verificationPermModel.checkPermission(hrId);
-    }
-
-    if (!hasPermission) {
+    const access = await resolveVerificationAccess(req);
+    if (!access.canVerify) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_4ca1fc6fb1 });
     }
 

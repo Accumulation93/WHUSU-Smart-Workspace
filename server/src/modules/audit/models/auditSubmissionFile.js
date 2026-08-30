@@ -130,6 +130,31 @@ async function markCurrentAsHistorical(submissionId, conn) {
   );
 }
 
+async function markUnretainedCurrentAsHistorical(submissionId, retainedFileIds, conn) {
+  const orgId = await getCurrentOrgId();
+  const ids = Array.from(new Set((retainedFileIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return markCurrentAsHistorical(submissionId, conn);
+  await conn.query(
+    `UPDATE audit_submission_files
+        SET is_current = 0
+      WHERE submission_id = ? AND org_id = ? AND is_current = 1
+        AND id NOT IN (${ids.map(() => '?').join(', ')})`,
+    [submissionId, orgId, ...ids]
+  );
+  const orderCases = ids.map(() => 'WHEN ? THEN ?').join(' ');
+  const orderParams = [];
+  ids.forEach(function(id, index) {
+    orderParams.push(id, index + 1);
+  });
+  await conn.query(
+    `UPDATE audit_submission_files
+        SET sort_order = CASE id ${orderCases} ELSE sort_order END
+      WHERE submission_id = ? AND org_id = ? AND is_current = 1
+        AND id IN (${ids.map(() => '?').join(', ')})`,
+    [...orderParams, submissionId, orgId, ...ids]
+  );
+}
+
 async function setCurrentRevisionRound(submissionId, revisionRound, conn) {
   const orgId = await getCurrentOrgId();
   await conn.query(
@@ -282,6 +307,7 @@ module.exports = {
   getCurrentBySubmissionIdForUpdate,
   create,
   markCurrentAsHistorical,
+  markUnretainedCurrentAsHistorical,
   setCurrentRevisionRound,
   remove,
   removeBySubmissionId,

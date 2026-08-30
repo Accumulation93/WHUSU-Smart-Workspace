@@ -134,8 +134,8 @@ async function normalizeRateRuleInput(connection, orgId, body) {
       if (!templateId) continue;
       await loadRateRuleReference(
         connection,
-        'SELECT id FROM score_question_templates WHERE id = ? FOR UPDATE',
-        [templateId],
+        'SELECT id FROM score_question_templates WHERE id = ? AND org_id = ? FOR UPDATE',
+        [templateId, orgId],
         localeCopy.copy_785b6d700c
       );
       const weight = Number(item.weight);
@@ -307,9 +307,9 @@ async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
 }
 
-async function fetchOrgLookups() {
+async function fetchOrgLookups(orgId) {
   const [departments, identities, templates, activities] = await Promise.all([
-    departmentModel.getAll(), identityModel.getAll(), templateModel.getAll(), activityModel.getAll()
+    departmentModel.getAll(), identityModel.getAll(), templateModel.getAll(orgId), activityModel.getAll()
   ]);
   return {
     departmentsById: buildNameMap(departments),
@@ -358,7 +358,8 @@ router.post('/listRateRules', async (req, res) => {
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
-    const lookups = await fetchOrgLookups();
+    const orgId = await getCurrentOrgId();
+    const lookups = await fetchOrgLookups(orgId);
 
     const rules = activityId
       ? await rateRuleModel.getByActivity(activityId)

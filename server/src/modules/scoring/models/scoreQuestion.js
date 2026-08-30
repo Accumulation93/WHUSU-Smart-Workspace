@@ -1,26 +1,26 @@
 const pool = require('../../../config/db');
 
-async function getByTemplateId(templateId) {
-  const [rows] = await pool.query(
+async function getByTemplateId(templateId, connection = pool) {
+  const [rows] = await connection.query(
     'SELECT * FROM score_questions WHERE template_id = ? ORDER BY sort_order',
     [templateId]
   );
   return rows;
 }
 
-async function getByTemplateIds(templateIds) {
+async function getByTemplateIds(templateIds, connection = pool) {
   if (!templateIds.length) return [];
   const placeholders = templateIds.map(() => '?').join(',');
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT * FROM score_questions WHERE template_id IN (${placeholders}) ORDER BY template_id, sort_order`,
     templateIds
   );
   return rows;
 }
 
-async function create(id, templateId, sortOrder, data) {
+async function create(id, templateId, sortOrder, data, connection = pool) {
   const { question, scoreLabel, minValue, startValue, maxValue, stepValue } = data;
-  await pool.query(
+  await connection.query(
     `INSERT INTO score_questions (id, template_id, sort_order, question, score_label, min_value, start_value, max_value, step_value)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, templateId, sortOrder, question || '', scoreLabel || '',
@@ -29,8 +29,8 @@ async function create(id, templateId, sortOrder, data) {
   );
 }
 
-async function removeByTemplateId(templateId) {
-  await pool.query('DELETE FROM score_questions WHERE template_id = ?', [templateId]);
+async function removeByTemplateId(templateId, connection = pool) {
+  await connection.query('DELETE FROM score_questions WHERE template_id = ?', [templateId]);
 }
 
 module.exports = { getByTemplateId, getByTemplateIds, create, removeByTemplateId };

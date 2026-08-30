@@ -1,0 +1,7 @@
+<view class="dictionary-load-failure" wx:if="{{visible}}">
+  <view class="dictionary-load-failure-copy">
+    <view class="dictionary-load-failure-title">{{title}}</view>
+    <view class="dictionary-load-failure-description">{{message}}</view>
+  </view>
+  <button class="secondary-btn dictionary-retry-button ui-motion-button" bindtap="emitRetry" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{retryText}}</button>
+</view>

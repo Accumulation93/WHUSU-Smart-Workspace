@@ -1,0 +1,29 @@
+<viewport-portal wx:if="{{visible}}">
+  <view class="modal-mask ui-overlay" wx:if="{{visible}}" bindtap="emitClose">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="modal-card dictionary-usage-dialog ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-header ui-dialog-header">
+        <view class="modal-title">{{title}}</view>
+        <text class="modal-close ui-motion-chip" catchtap="emitClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{headerCloseText}}</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill dictionary-usage-body" scroll-y>
+        <view class="ui-dialog-stack">
+          <view class="dictionary-usage-description">{{description}}</view>
+          <view class="dictionary-usage-target">
+            <view class="dictionary-usage-target-label">{{targetLabel}}</view>
+            <view class="dictionary-usage-target-name">{{targetName}}</view>
+          </view>
+          <view class="dictionary-usage-list">
+            <view class="dictionary-usage-item" wx:for="{{usages}}" wx:key="category">
+              <view class="dictionary-usage-category">{{item.label}}</view>
+              <view class="status-chip pending-chip dictionary-usage-count">{{item.countText}}</view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="ui-dialog-footer dictionary-usage-actions">
+        <button class="primary-btn dictionary-usage-close-button ui-motion-button" catchtap="emitClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{closeText}}</button>
+      </view>
+    </view>
+  </view>
+</viewport-portal>

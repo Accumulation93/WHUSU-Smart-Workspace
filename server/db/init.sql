@@ -201,9 +201,13 @@ CREATE TABLE IF NOT EXISTS score_question_templates (
   description TEXT,
   created_by VARCHAR(64) DEFAULT NULL,
   updated_by VARCHAR(64) DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE INDEX idx_sqt_name (name)
+  INDEX idx_sqt_org (org_id),
+  UNIQUE INDEX idx_sqt_name (name, org_id),
+  CONSTRAINT fk_sqt_org FOREIGN KEY (org_id)
+    REFERENCES organizations(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 从 templates.questions JSON 拆出，有顺序

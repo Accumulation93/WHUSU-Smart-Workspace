@@ -101,6 +101,22 @@ async function invokeVerification(body) {
   return response;
 }
 
+async function invokeVerificationAccess() {
+  let response = null;
+  await findRoute('/getAuditVerificationAccess')({
+    body: {},
+    openid: 'openid-verifier',
+    authContext: { role: 'user', organizationId: 'org-current' },
+    get() { return ''; }
+  }, {
+    json(payload) {
+      response = payload;
+      return payload;
+    }
+  });
+  return response;
+}
+
 function loadRetiredAdminRouter() {
   let dependencyCalls = 0;
   const failOnCall = function() {
@@ -165,9 +181,15 @@ async function invokeRetiredAdminRoute(router, routePath) {
   assert.strictEqual(grouped[0].matchingFiles.length, 2, '匹配文件必须完整保留');
 
   verificationAllowed = false;
+  let access = await invokeVerificationAccess();
+  assert.deepStrictEqual(access, { status: 'success', canVerify: false },
+    '普通成员入口必须按当前组织验签授权失败关闭');
   const forbidden = await invokeVerification({ fileHash: 'same-hash' });
   assert.strictEqual(forbidden.status, 'forbidden', '未授予验证权限的普通成员不得看到匹配记录');
   verificationAllowed = true;
+  access = await invokeVerificationAccess();
+  assert.deepStrictEqual(access, { status: 'success', canVerify: true },
+    '当前组织已授权成员必须获得可见验签入口');
 
   const first = await invokeVerification({ fileBase64: Buffer.from('same-file').toString('base64') });
   assert.strictEqual(first.status, 'success');

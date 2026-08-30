@@ -13,6 +13,10 @@ const mocks = {
   '../core/services/adminPermissions': {
     ROUTE_RULES: new Map([
       ['/saveScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: false }],
+      ['/listHrInfo', { anyOf: ['hr.people'], allowUserRole: false }],
+      ['/listHrGovernance', { anyOf: [
+        'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'
+      ], allowUserRole: false }],
       ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }],
       ['/listPendingVenueApprovals', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/listVenueApprovalHistory', { anyOf: ['venue.approvals'], allowUserRole: true }],
@@ -64,6 +68,22 @@ async function invoke(path, role) {
   effective = { isSuper: false, permissions: { 'scoring.activities': true } };
   const allowed = await invoke('/api/saveScoreActivity', 'admin');
   assert.strictEqual(allowed.nextCalled, true);
+
+  effective = { isSuper: false, permissions: { 'auth.policy.manage': true } };
+  const policyHrDirectoryDenied = await invoke('/api/listHrInfo', 'admin');
+  const policyGovernanceDenied = await invoke('/api/listHrGovernance', 'admin');
+  assert.strictEqual(policyHrDirectoryDenied.nextCalled, false);
+  assert.strictEqual(policyHrDirectoryDenied.statusCode, 403);
+  assert.strictEqual(policyGovernanceDenied.nextCalled, false);
+  assert.strictEqual(policyGovernanceDenied.statusCode, 403);
+
+  effective = { isSuper: false, permissions: { 'auth.identity.verify': true } };
+  assert.strictEqual((await invoke('/api/listHrGovernance', 'admin')).nextCalled, true);
+  assert.strictEqual((await invoke('/api/listHrInfo', 'admin')).nextCalled, false);
+
+  effective = { isSuper: false, permissions: { 'hr.people': true } };
+  assert.strictEqual((await invoke('/api/listHrInfo', 'admin')).nextCalled, true);
+  assert.strictEqual((await invoke('/api/listHrGovernance', 'admin')).nextCalled, false);
 
   effective = { isSuper: true, permissions: {} };
   const superAllowed = await invoke('/api/saveScoreActivity', 'admin');

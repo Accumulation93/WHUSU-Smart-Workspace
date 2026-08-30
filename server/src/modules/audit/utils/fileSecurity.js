@@ -280,7 +280,7 @@ async function resolveUploadedFile(uploadedFile, openid) {
   };
 }
 
-async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }) {
+async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn, sortOrderOffset }) {
   if (!Array.isArray(uploadedFiles) || uploadedFiles.length > MAX_FILES_PER_SUBMISSION) {
     const err = new Error(localeCopy.copy_a0736fb41c);
     err.status = 'invalid_params';
@@ -322,7 +322,7 @@ async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }
         filePath: destPath,
         fileSize: meta.fileSize,
         fileHash: meta.fileHash,
-        sortOrder: i + 1
+        sortOrder: Math.max(0, Number(sortOrderOffset) || 0) + i + 1
       }, conn);
       await auditTempUploadModel.remove(meta.fileId, conn);
     }

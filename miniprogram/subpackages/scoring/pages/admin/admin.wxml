@@ -1904,20 +1904,14 @@
           <input class="field-input" bindinput="onAdminCandidateKeyword" bindconfirm="onAdminCandidateConfirm" confirm-type="search" value="{{adminCandidateKeyword}}" placeholder="{{localeCopy.copy_634a8d035c}}" />
         </view>
 
-        <view class="list-card nested-card">
-          <view class="list-title">{{localeCopy.copy_809f3d3dd3}}</view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
-            <view class="list-item list-item-stacked" wx:for="{{adminCandidateList}}" wx:key="id">
-              <view class="list-main">
-                <view class="list-name">{{item.name}} - {{item.identity}}</view>
-                <view class="list-desc">{{item.studentId}} {{item.department}} {{item.workGroup}}</view>
-                <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-index="{{index}}" bindtap="pickAdminCandidate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_56eeb3e076}}</text>
-                </view>
-              </view>
-            </view>
-          </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        </view>
+        <admin-candidate-list
+          candidates="{{adminCandidateList}}"
+          title="{{localeCopy.copy_809f3d3dd3}}"
+          no-position-text="{{localeCopy.adminCandidateNoPosition}}"
+          position-prefix="{{localeCopy.adminCandidatePositionPrefix}}"
+          action-text="{{localeCopy.copy_56eeb3e076}}"
+          bindselect="pickAdminCandidate"
+        />
         <view class="button-row compact-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? localeCopy.copy_cc7425f62e : localeCopy.copy_cc6356670c}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6888d59833}}</button>
@@ -2015,7 +2009,14 @@
 
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_ca89208b18}}</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+        <dictionary-load-failure
+          visible="{{!loadingMap.departments && dictionaryLoadState.departments.status === 'error'}}"
+          title="{{localeCopy.dictionaryLoadFailed.departments.title}}"
+          message="{{dictionaryLoadState.departments.message}}"
+          retry-text="{{localeCopy.dictionaryRetry}}"
+          bindretry="retryDepartmentList"
+        />
+        <scroll-view wx:if="{{dictionaryLoadState.departments.status !== 'error' || departmentList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.departments}}">
             <view class="card-loading-spinner"></view>
           </view>
@@ -2032,7 +2033,7 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.departments && !departmentList.length}}">{{localeCopy.copy_5dd52b59e7}}</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.departments && dictionaryLoadState.departments.status === 'ready' && !departmentList.length}}">{{localeCopy.copy_5dd52b59e7}}</view>
       </view>
     </view>
 
@@ -2064,7 +2065,14 @@
 
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_26fc004670}}</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+        <dictionary-load-failure
+          visible="{{!loadingMap.workGroups && dictionaryLoadState.workGroups.status === 'error'}}"
+          title="{{localeCopy.dictionaryLoadFailed.workGroups.title}}"
+          message="{{dictionaryLoadState.workGroups.message}}"
+          retry-text="{{localeCopy.dictionaryRetry}}"
+          bindretry="retryWorkGroupList"
+        />
+        <scroll-view wx:if="{{dictionaryLoadState.workGroups.status !== 'error' || workGroupList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.workGroups}}">
             <view class="card-loading-spinner"></view>
           </view>
@@ -2082,7 +2090,7 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.workGroups && !workGroupList.length}}">{{localeCopy.copy_52daff6e5d}}</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.workGroups && dictionaryLoadState.workGroups.status === 'ready' && !workGroupList.length}}">{{localeCopy.copy_52daff6e5d}}</view>
       </view>
     </view>
 
@@ -2108,7 +2116,14 @@
 
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_88898b98bf}}</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+        <dictionary-load-failure
+          visible="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'error'}}"
+          title="{{localeCopy.dictionaryLoadFailed.identities.title}}"
+          message="{{dictionaryLoadState.identities.message}}"
+          retry-text="{{localeCopy.dictionaryRetry}}"
+          bindretry="retryIdentityList"
+        />
+        <scroll-view wx:if="{{dictionaryLoadState.identities.status !== 'error' || identityList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.identities}}">
             <view class="card-loading-spinner"></view>
           </view>
@@ -2125,7 +2140,7 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.identities && !identityList.length}}">{{localeCopy.copy_177c107dbc}}</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'ready' && !identityList.length}}">{{localeCopy.copy_177c107dbc}}</view>
       </view>
     </view>
 
@@ -3292,5 +3307,17 @@
     </view>
   </view>
     </viewport-portal>
+
+    <dictionary-usage-dialog
+      visible="{{dictionaryUsageDialog.visible}}"
+      title="{{localeCopy.dictionaryUsageDialogTitle}}"
+      header-close-text="{{localeCopy.copy_09614cef6c}}"
+      description="{{localeCopy.dictionaryUsageDialogDescription}}"
+      target-label="{{localeCopy.dictionaryUsageTargetLabel}}"
+      target-name="{{dictionaryUsageDialog.targetName}}"
+      usages="{{dictionaryUsageDialog.usages}}"
+      close-text="{{localeCopy.dictionaryUsageClose}}"
+      bindclose="closeDictionaryUsageDialog"
+    />
 
 </view>

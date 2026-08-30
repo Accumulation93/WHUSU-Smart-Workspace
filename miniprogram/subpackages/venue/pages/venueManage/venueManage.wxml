@@ -228,7 +228,8 @@
                 <view class="list-desc">{{item.steps.length}} {{localeCopy.copy_310413445b}}</view>
                 <view class="flow-switch-row" catchtap="noop">
                   <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_c70f4ff52a}}</text><switch checked="{{item.allow_designate_first === 1 || item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateFirstApprover}}</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateNextApprover}}</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
                 </view>
               </view>
               <view class="inline-actions list-actions-below card-actions">

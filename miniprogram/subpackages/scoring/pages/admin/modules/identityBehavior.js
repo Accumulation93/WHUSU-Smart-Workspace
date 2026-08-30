@@ -4,6 +4,7 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 const utils = require('./adminUtils');
 const { emptyIdentityForm } = utils;
 const orgSession = require('../../../../../utils/orgSession');
+const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 
 module.exports = Behavior({
   methods: {
@@ -14,21 +15,28 @@ module.exports = Behavior({
         const result = await this.callCloud('listIdentities');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || localeCopy.copy_f878df1668);
+          const failure = new Error('identity_list_failed');
+          failure.userMessage = result.message || personnelCopy.dictionaryLoadFailed.identities.description;
+          throw failure;
         }
         this.setData({
           identityList: result.identities || []
         });
+        this.setDictionaryLoadSuccess('identities');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error(localeCopy.copy_b538d2281a, error);
-        // 不再显示错误提示，因为空数据库是正常情况
-        this.setData({
-          identityList: []
-        });
+        this.setDictionaryLoadFailure(
+          'identities',
+          error && error.userMessage || personnelCopy.dictionaryLoadFailed.identities.description
+        );
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('identities', false);
       }
+    },
+
+    retryIdentityList() {
+      return this.loadIdentityList();
     },
 
     onIdentityFieldInput(e) {
@@ -114,6 +122,7 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
+      const target = (this.data.identityList || []).find((item) => String(item.id) === String(id));
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
@@ -133,6 +142,10 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('deleteIdentity', { id });
         if (result.status !== 'success') {
+          if (result.status === 'in_use' && this.openDictionaryUsageDialog(
+            target && target.name,
+            result.usages
+          )) return;
           wx.showToast({
             title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'
