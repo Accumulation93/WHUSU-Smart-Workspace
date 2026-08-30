@@ -51,7 +51,7 @@ const {
   assert.deepStrictEqual(
     ROUTE_RULES.get('/listHrInfo').anyOf,
     [
-      'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
+      'hr.people', 'hr.import', 'hr.profile_review', 'scoring.publications', 'venue.resources',
       'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
     ]
   );

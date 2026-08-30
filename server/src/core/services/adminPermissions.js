@@ -100,7 +100,7 @@ PERMISSION_GROUPS.forEach((group) => {
 const ROUTE_RULES = new Map();
 
 const HR_DIRECTORY_PERMISSIONS = Object.freeze([
-  'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
+  'hr.people', 'hr.import', 'hr.profile_review', 'scoring.publications', 'venue.resources',
   'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
 ]);
 

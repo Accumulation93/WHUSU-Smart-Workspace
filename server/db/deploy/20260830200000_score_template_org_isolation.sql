@@ -10,7 +10,6 @@ BEGIN
   DECLARE name_index_exists INT DEFAULT 0;
   DECLARE org_index_exists INT DEFAULT 0;
   DECLARE org_fk_exists INT DEFAULT 0;
-  DECLARE fallback_org_id VARCHAR(64) DEFAULT NULL;
 
   SELECT COUNT(*) INTO column_exists
     FROM information_schema.COLUMNS
@@ -63,21 +62,6 @@ BEGIN
      SET template_row.org_id = ownership.org_id
    WHERE template_row.org_id IS NULL OR template_row.org_id = '';
 
-  SELECT current_organization INTO fallback_org_id
-    FROM system_config
-   WHERE id = 'default'
-   LIMIT 1;
-
-  IF fallback_org_id IS NULL OR fallback_org_id = '' THEN
-    SELECT MIN(id) INTO fallback_org_id FROM organizations;
-  END IF;
-
-  IF fallback_org_id IS NOT NULL AND fallback_org_id <> '' THEN
-    UPDATE score_question_templates
-       SET org_id = fallback_org_id
-     WHERE org_id IS NULL OR org_id = '';
-  END IF;
-
   SELECT COUNT(*) INTO unresolved_templates
     FROM score_question_templates template_row
     LEFT JOIN organizations organization_row ON organization_row.id = template_row.org_id
@@ -87,7 +71,7 @@ BEGIN
 
   IF unresolved_templates > 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = '存在无法证明组织归属的评分模板，迁移已停止';
+      SET MESSAGE_TEXT = '存在无法证明组织归属的评分模板，禁止分配默认组织；迁移已停止';
   END IF;
 
   ALTER TABLE score_question_templates

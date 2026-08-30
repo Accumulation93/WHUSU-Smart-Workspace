@@ -38,5 +38,9 @@ assert(migrationSql.includes('HAVING COUNT(DISTINCT ref.org_id) > 1')
   && migrationSql.includes('禁止猜测归属')
   && migrationSql.includes('ADD UNIQUE INDEX idx_sqt_name (name, org_id)'),
 '历史迁移必须阻止多组织歧义并建立组织唯一约束');
+assert(!migrationSql.includes('current_organization')
+  && !migrationSql.includes('MIN(id) INTO fallback_org_id')
+  && migrationSql.includes('禁止分配默认组织'),
+'无法证明归属的模板必须阻断迁移，禁止静默归入默认或最小组织');
 
 console.log('评分模板组织隔离、历史评分保留与迁移失败关闭测试通过');

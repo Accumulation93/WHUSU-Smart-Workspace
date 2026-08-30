@@ -13,7 +13,7 @@ const mocks = {
   '../core/services/adminPermissions': {
     ROUTE_RULES: new Map([
       ['/saveScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: false }],
-      ['/listHrInfo', { anyOf: ['hr.people'], allowUserRole: false }],
+      ['/listHrInfo', { anyOf: ['hr.people', 'scoring.publications'], allowUserRole: false }],
       ['/listHrGovernance', { anyOf: [
         'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'
       ], allowUserRole: false }],
@@ -82,6 +82,10 @@ async function invoke(path, role) {
   assert.strictEqual((await invoke('/api/listHrInfo', 'admin')).nextCalled, false);
 
   effective = { isSuper: false, permissions: { 'hr.people': true } };
+  assert.strictEqual((await invoke('/api/listHrInfo', 'admin')).nextCalled, true);
+  assert.strictEqual((await invoke('/api/listHrGovernance', 'admin')).nextCalled, false);
+
+  effective = { isSuper: false, permissions: { 'scoring.publications': true } };
   assert.strictEqual((await invoke('/api/listHrInfo', 'admin')).nextCalled, true);
   assert.strictEqual((await invoke('/api/listHrGovernance', 'admin')).nextCalled, false);
 
