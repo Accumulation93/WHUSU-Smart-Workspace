@@ -218,10 +218,6 @@ async function verifySchemaContract(pool) {
   const [identityIntegrityRows] = await pool.query(
     `SELECT
        (SELECT COUNT(*)
-          FROM persons p
-          LEFT JOIN organization_memberships om ON om.person_id = p.id
-         WHERE p.status = 'active' AND om.id IS NULL) AS persons_without_membership,
-       (SELECT COUNT(*)
           FROM accounts a
           LEFT JOIN account_wechat_bindings b
             ON b.account_id = a.id AND b.status = 'active'
@@ -256,8 +252,9 @@ async function verifySchemaContract(pool) {
          WHERE ag.id IS NULL) AS unmapped_admin_records`
   );
   const identityIntegrity = identityIntegrityRows[0] || {};
-  if (Number(identityIntegrity.persons_without_membership)
-    || Number(identityIntegrity.verified_accounts_without_login_method)
+  // 自然人是跨组织主体。永久删除最后一条组织成员关系后，仍需保留自然人和
+  // 全局账号，因此“暂不属于任何组织”是合法状态，不能阻止服务启动。
+  if (Number(identityIntegrity.verified_accounts_without_login_method)
     || Number(identityIntegrity.account_multi_binding)
     || Number(identityIntegrity.insecure_active_bindings)
     || Number(identityIntegrity.unmapped_hr_records)

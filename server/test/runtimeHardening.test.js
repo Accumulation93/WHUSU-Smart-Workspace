@@ -71,6 +71,8 @@ async function testSchemaContract() {
   const result = await verifySchemaContract(pool);
   assert.strictEqual(result.status, 'ok');
   const identityIntegrityQuery = inspectedQueries.find((sql) => sql.includes('verified_accounts_without_login_method')) || '';
+  assert(!identityIntegrityQuery.includes('persons_without_membership'),
+    '自然人可以暂时不属于任何组织，删除最后一条成员关系后不得阻止服务启动');
   assert(identityIntegrityQuery.includes('account_recovery_credentials'),
     '已验证但未绑定微信的账号必须允许通过有效口令完成首次登录');
   assert(identityIntegrityQuery.includes("c.method = 'passphrase'")
