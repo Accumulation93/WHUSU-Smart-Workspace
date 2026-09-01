@@ -3,6 +3,11 @@ const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const { getDeviceIdentity } = require('../../../../utils/deviceIdentity');
 const { login: copy } = require('../../../../locales/zh-CN/main');
+const { getPasswordRequiredMessage } = require('./loginValidation');
+
+const WECHAT_LOGIN_TIMEOUT_MS = 10000;
+const PORTAL_NAVIGATION_TIMEOUT_MS = 8000;
+const PORTAL_ROUTE = '/subpackages/main/pages/portal/portal';
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -11,13 +16,25 @@ function selectedOrganizationName(organizations, index) {
 
 function requestWechatLoginCode() {
   return new Promise(function(resolve, reject) {
+    let settled = false;
+    const timer = setTimeout(function() {
+      if (settled) return;
+      settled = true;
+      reject(new Error(copy.messages.loginUnavailable));
+    }, WECHAT_LOGIN_TIMEOUT_MS);
+    const finish = function(callback, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
     wx.login({
       success(result) {
-        if (result && result.code) resolve(result.code);
-        else reject(new Error(copy.messages.relogin));
+        if (result && result.code) finish(resolve, result.code);
+        else finish(reject, new Error(copy.messages.relogin));
       },
       fail() {
-        reject(new Error(copy.messages.relogin));
+        finish(reject, new Error(copy.messages.relogin));
       }
     });
   });
@@ -47,8 +64,7 @@ Page({
     claimAvailable: true,
     authNotice: '',
     passwordStudentId: '',
-    password: '',
-    leavingPortal: false
+    password: ''
   },
 
   onLoad() {
@@ -74,24 +90,30 @@ Page({
       recoveryRequestId: '',
       verificationCode: '',
       recoveryCredential: '',
-      rotatedRecoveryCode: '',
-      leavingPortal: true
-    }, () => {
-      const navigate = () => {
-        wx.redirectTo({
-          url: '/subpackages/main/pages/portal/portal',
-          success: () => {
-            this._portalNavigating = false;
-          },
-          fail: () => {
-            this._portalNavigating = false;
-            this.setData({ leavingPortal: false });
-            showShortToast(copy.messages.pageOpenFailed);
-          }
-        });
-      };
-      if (typeof wx.nextTick === 'function') wx.nextTick(navigate);
-      else navigate();
+      rotatedRecoveryCode: ''
+    });
+
+    let settled = false;
+    const finish = (success) => {
+      if (settled) return;
+      settled = true;
+      if (this._portalNavigationTimer) {
+        clearTimeout(this._portalNavigationTimer);
+        this._portalNavigationTimer = null;
+      }
+      this._portalNavigating = false;
+      if (!success) showShortToast(copy.messages.pageOpenFailed);
+    };
+    this._portalNavigationTimer = setTimeout(() => {
+      finish(false);
+    }, PORTAL_NAVIGATION_TIMEOUT_MS);
+
+    // 登录成功后直接重建页面栈。路由不得依赖隐藏根节点后的 setData 渲染回调，
+    // OpenHarmony 真机可能在根节点不可见后不再执行该回调，导致会话已建立却停在登录页。
+    wx.reLaunch({
+      url: PORTAL_ROUTE,
+      success: () => finish(true),
+      fail: () => finish(false)
     });
   },
 
@@ -117,8 +139,13 @@ Page({
 
   async onPasswordLogin() {
     if (this.data.loading) return;
-    if (!this.data.passwordStudentId || !this.data.password) {
-      showShortToast(copy.messages.passwordRequired);
+    const validationMessage = getPasswordRequiredMessage(
+      this.data.passwordStudentId,
+      this.data.password,
+      copy.messages
+    );
+    if (validationMessage) {
+      showShortToast(validationMessage);
       return;
     }
     this.setData({ loading: true });
@@ -150,8 +177,14 @@ Page({
   },
 
   onShow() {
-    this._portalNavigating = false;
-    if (this.data.leavingPortal) this.setData({ leavingPortal: false });
+    if (!this._portalNavigationTimer) this._portalNavigating = false;
+  },
+
+  onUnload() {
+    if (this._portalNavigationTimer) {
+      clearTimeout(this._portalNavigationTimer);
+      this._portalNavigationTimer = null;
+    }
   },
 
   onVerificationCode(e) {
@@ -194,41 +227,33 @@ Page({
     });
   },
 
-  onLogin() {
+  async onLogin() {
     if (this._loginSubmitting || this.data.loading) return;
     this._loginSubmitting = true;
     this.setData({ loading: true, authNotice: '' });
     const device = getDeviceIdentity();
-    wx.login({
-      success: async (loginResult) => {
-        try {
-          const result = await callFunction({
-            name: 'auth/wechat/session',
-            data: {
-              code: loginResult.code,
-              deviceId: device.id,
-              devicePlatform: device.platform,
-              deviceModel: device.model,
-              preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
-              preferredContextId: wx.getStorageSync('lastContextId') || '',
-              preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
-            }
-          });
-          this.handleWechatSession(result);
-        } catch (error) {
-          const message = getErrorText(error, copy.messages.relogin);
-          if (message) showShortToast(message);
-        } finally {
-          this._loginSubmitting = false;
-          this.setData({ loading: false });
+    try {
+      const code = await requestWechatLoginCode();
+      const result = await callFunction({
+        name: 'auth/wechat/session',
+        data: {
+          code,
+          deviceId: device.id,
+          devicePlatform: device.platform,
+          deviceModel: device.model,
+          preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+          preferredContextId: wx.getStorageSync('lastContextId') || '',
+          preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
         }
-      },
-      fail: () => {
-        this._loginSubmitting = false;
-        this.setData({ loading: false });
-        showShortToast(copy.messages.relogin);
-      }
-    });
+      });
+      this.handleWechatSession(result);
+    } catch (error) {
+      const message = getErrorText(error, copy.messages.relogin);
+      if (message) showShortToast(message);
+    } finally {
+      this._loginSubmitting = false;
+      this.setData({ loading: false });
+    }
   },
 
   handleWechatSession(result) {

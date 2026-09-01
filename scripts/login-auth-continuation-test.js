@@ -4,7 +4,7 @@ const storage = {};
 const requests = [];
 const toasts = [];
 const navigations = [];
-const redirects = [];
+const relaunches = [];
 let pageDefinition = null;
 
 global.getApp = function() { return null; };
@@ -19,8 +19,8 @@ global.wx = {
     navigations.push(options.url);
     if (typeof options.success === 'function') options.success();
   },
-  redirectTo(options) {
-    redirects.push(options.url);
+  reLaunch(options) {
+    relaunches.push(options.url);
     if (typeof options.success === 'function') options.success();
   },
   request(options) {
@@ -103,7 +103,7 @@ async function run() {
   assert.strictEqual(storage.activeRole, 'user');
   assert.strictEqual(storage.activeOrgId, 'org-44');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(redirects.includes('/subpackages/main/pages/portal/portal'));
+  assert(relaunches.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
   assert.strictEqual(page._portalNavigating, false, '门户导航完成后必须释放导航锁');
 

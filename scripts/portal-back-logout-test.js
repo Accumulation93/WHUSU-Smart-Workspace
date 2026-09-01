@@ -57,10 +57,10 @@ assert.match(
 );
 assert.match(
   loginSource,
-  /wx\.redirectTo\(\{[\s\S]*?url: '\/subpackages\/main\/pages\/portal\/portal'/,
-  '登录成功必须替换旧登录渲染层，避免旧页面覆盖门户'
+  /wx\.reLaunch\(\{[\s\S]*?url: PORTAL_ROUTE/,
+  '登录成功必须重建页面栈，避免真机依赖旧页面渲染回调'
 );
-assert.match(loginSource, /leavingPortal:\s*true/, '跳转门户前必须先隐藏旧登录渲染层');
+assert.doesNotMatch(loginSource, /leavingPortal/, '登录跳转不得先隐藏根节点再等待渲染回调');
 assert.match(
   fs.readFileSync(path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'login', 'login.wxss'), 'utf8'),
   /\.page::before,\s*\.page::after\s*\{[^}]*position:\s*absolute/,

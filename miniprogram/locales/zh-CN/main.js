@@ -8,6 +8,8 @@ const login = Object.freeze({
   messages: Object.freeze({
     pageOpenFailed: '页面未打开，请重试',
     passwordRequired: '请输入学号和口令',
+    passwordStudentIdRequired: '请输入学号',
+    passwordPassphraseRequired: '请输入口令',
     loginInvalid: '登录信息不正确',
     relogin: '请重新微信登录',
     loginUnavailable: '暂时无法登录',

@@ -2,13 +2,6 @@ page {
   min-height: 100%;
 }
 
-/* 路由切换前主动卸下旧登录视图，避免 WebKit 合成层滞留遮住门户。 */
-.page.page-leaving {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
 .page::before,
 .page::after {
   content: "";
