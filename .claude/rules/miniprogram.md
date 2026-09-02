@@ -289,6 +289,7 @@ Page({
 - 主包启动壳统一放在 `miniprogram/subpackages/main/pages/**`，但必须注册在 `app.json.pages` 顶层；`subpackages/main` 不得注册为 `app.json.subPackages`，否则会从主包变成分包。
 - 消息中心、工作台组合页及所有业务页面必须位于 `subpackages/<模块名>/pages/**` 并在 `app.json.subPackages` 注册；不能因为目录位于 `subpackages` 就误判为分包。
 - 页面迁移必须同步更新可信导航、上下文守卫、服务端通知/待办目标 URL、测试路径和 WXSS 导入；迁移后不得留下旧主包业务路由。
+- 使用 `node:*`、`require.cache` 等 Node 专用能力的回归测试必须放在仓库 `scripts/` 或服务端测试目录，禁止放入 `miniprogram/**` 运行目录，避免被微信开发者工具打包或触发代码保护错误。
 - 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等中文常量必须放进 locale；完成前运行 `node scripts/user-visible-copy-audit.js --strict-guidance`。
 
 ## 11. 人事领域、工作角色与内部上下文硬规范

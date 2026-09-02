@@ -66,6 +66,7 @@ jobs:
       - name: Unit and integration tests
         run: |
           node scripts/org-session-test.js
+          node scripts/auth-context-activation-test.js
           node scripts/context-route-guard-test.js
           node scripts/portal-back-logout-test.js
           node scripts/native-navigation-test.js

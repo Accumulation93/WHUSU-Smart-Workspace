@@ -16,7 +16,7 @@ global.wx = {
   }
 };
 
-const apiPath = path.resolve(__dirname, '..', 'api.js');
+const apiPath = path.resolve(__dirname, '..', 'miniprogram', 'utils', 'api.js');
 require.cache[apiPath] = {
   id: apiPath,
   filename: apiPath,
@@ -29,7 +29,7 @@ require.cache[apiPath] = {
   }
 };
 
-const eventBusPath = path.resolve(__dirname, '..', 'eventBus.js');
+const eventBusPath = path.resolve(__dirname, '..', 'miniprogram', 'utils', 'eventBus.js');
 require.cache[eventBusPath] = {
   id: eventBusPath,
   filename: eventBusPath,
@@ -39,8 +39,8 @@ require.cache[eventBusPath] = {
   }
 };
 
-const authContext = require('../authContext');
-const orgSession = require('../orgSession');
+const authContext = require('../miniprogram/utils/authContext');
+const orgSession = require('../miniprogram/utils/orgSession');
 
 const userContext = {
   contextId: 'ctx-user-existing',
