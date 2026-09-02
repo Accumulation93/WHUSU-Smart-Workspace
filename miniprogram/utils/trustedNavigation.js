@@ -26,6 +26,7 @@ const TRUSTED_ROUTES = new Set([
   '/subpackages/org/pages/accountSecurity/accountSecurity',
   '/subpackages/org/pages/authManagement/authManagement'
 ]);
+const NAVIGATION_TIMEOUT_MS = 3000;
 
 function isTrustedRoute(rawUrl) {
   const url = String(rawUrl || '').trim();
@@ -50,20 +51,6 @@ function isCurrentRoute(url) {
   return !!current && current.route === routePath(url);
 }
 
-function navigateToTrustedRouteFallback(url, callbacks, finishFailure) {
-  if (!isTrustedRoute(url) || typeof wx.redirectTo !== 'function') {
-    finishFailure({ errMsg: 'redirectTo:fail unavailable' });
-    return;
-  }
-  wx.redirectTo({
-    url: url,
-    success: function(result) {
-      if (typeof callbacks.success === 'function') callbacks.success(result);
-    },
-    fail: finishFailure
-  });
-}
-
 function navigateToTrustedRoute(rawUrl, handlers) {
   const url = String(rawUrl || '').trim();
   const callbacks = handlers || {};
@@ -71,23 +58,65 @@ function navigateToTrustedRoute(rawUrl, handlers) {
     wx.showToast({ title: localeCopy.copy_9aad91c741, icon: 'none' });
     return false;
   }
+  let finished = false;
+  let fallbackStarted = false;
+  let timer = null;
+  const clearTimer = function() {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+  };
+  const finishSuccess = function(result) {
+    if (finished) return;
+    finished = true;
+    clearTimer();
+    if (typeof callbacks.success === 'function') callbacks.success(result);
+  };
   const finishFailure = function(error) {
+    if (finished) return;
+    finished = true;
+    clearTimer();
     if (typeof callbacks.fail === 'function') callbacks.fail(error);
     else wx.showToast({ title: localeCopy.copy_4becb061c6, icon: 'none' });
   };
+  const rebuildRoute = function(originalError) {
+    if (typeof wx.reLaunch !== 'function') {
+      finishFailure(originalError || { errMsg: 'reLaunch:fail unavailable' });
+      return;
+    }
+    wx.reLaunch({
+      url: url,
+      success: finishSuccess,
+      fail: finishFailure
+    });
+  };
+  const replaceRoute = function(originalError) {
+    if (finished || fallbackStarted) return;
+    if (isCurrentRoute(url)) {
+      finishSuccess({ errMsg: 'navigateTo:ok route active' });
+      return;
+    }
+    fallbackStarted = true;
+    if (typeof wx.redirectTo !== 'function') {
+      rebuildRoute(originalError);
+      return;
+    }
+    wx.redirectTo({
+      url: url,
+      success: finishSuccess,
+      fail: function() { rebuildRoute(originalError); }
+    });
+  };
+
+  // 部分真机会在加载分包时丢失 navigateTo 回调。进入功能优先：正常压栈失败
+  // 或超时后替换当前页，再失败才重建页面栈，不让已登录用户停在工作台。
+  timer = setTimeout(function() {
+    replaceRoute({ errMsg: 'navigateTo:fail timeout' });
+  }, NAVIGATION_TIMEOUT_MS);
   wx.navigateTo({
     url: url,
-    success: function(result) {
-      if (typeof callbacks.success === 'function') callbacks.success(result);
-    },
-    fail: function(error) {
-      const timedOut = /timeout/i.test(String(error && error.errMsg || ''));
-      if (!timedOut || !isCurrentRoute(url)) {
-        finishFailure(error);
-        return;
-      }
-      navigateToTrustedRouteFallback(url, callbacks, finishFailure);
-    }
+    success: finishSuccess,
+    fail: replaceRoute
   });
   return true;
 }

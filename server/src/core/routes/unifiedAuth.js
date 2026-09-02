@@ -23,10 +23,7 @@ async function withSystemTimezone(payload) {
 function metadata(req) {
   return {
     requestId: safeString(req.requestId),
-    ip: safeString(req.ip),
-    deviceId: safeString(req.body && req.body.deviceId),
-    devicePlatform: safeString(req.body && req.body.devicePlatform),
-    deviceModel: safeString(req.body && req.body.deviceModel)
+    ip: safeString(req.ip)
   };
 }
 

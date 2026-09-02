@@ -1317,25 +1317,12 @@ async function createSession(account, requestedSelection, metadata) {
     );
     const activeContext = resolvedSelection.context;
     if (!activeContext) throw new IdentityError('no_context', localeCopy.copy_13f29f572b, 403);
-    const deviceId = safeString(metadata && metadata.deviceId).slice(0, 160);
-    const deviceKeyHash = deviceId ? hmac('device|' + deviceId) : null;
-    const devicePlatform = safeString(metadata && metadata.devicePlatform).slice(0, 24) || null;
-    const deviceModel = safeString(metadata && metadata.deviceModel).slice(0, 96) || null;
-    if (deviceKeyHash) {
-      await connection.query(
-        `UPDATE auth_sessions
-            SET status = 'revoked', revoked_at = NOW()
-          WHERE account_id = ? AND device_key_hash = ? AND status = 'active'`,
-        [activeAccount.id, deviceKeyHash]
-      );
-    }
     const id = generateId();
     await connection.query(
       `INSERT INTO auth_sessions
          (id, account_id, openid_hash, context_id, context_type, context_subject_id,
-          organization_id, role, token_version, device_key_hash, device_platform,
-          device_model, status, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+          organization_id, role, token_version, status, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
       [
         id,
         activeAccount.id,
@@ -1346,9 +1333,6 @@ async function createSession(account, requestedSelection, metadata) {
         activeContext.organizationId,
         activeContext.role,
         Number(activeAccount.token_version || 1),
-        deviceKeyHash,
-        devicePlatform,
-        deviceModel,
         SESSION_MINUTES
       ]
     );
@@ -1369,8 +1353,8 @@ async function createSession(account, requestedSelection, metadata) {
       context: activeContext,
       tokenVersion: Number(activeAccount.token_version || 1),
       expiresInSeconds: SESSION_MINUTES * 60,
-      deviceRecognized: Boolean(deviceKeyHash),
-      deviceKeyHash,
+      deviceRecognized: false,
+      deviceKeyHash: null,
       selectionFallback: resolvedSelection.fallback,
       selectionFallbackReason: resolvedSelection.reason
     };

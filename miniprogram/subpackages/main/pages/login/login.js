@@ -1,7 +1,6 @@
 const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
-const { getDeviceIdentity } = require('../../../../utils/deviceIdentity');
 const { login: copy } = require('../../../../locales/zh-CN/main');
 const { getPasswordRequiredMessage } = require('./loginValidation');
 
@@ -150,24 +149,17 @@ Page({
     }
     this.setData({ loading: true });
     try {
-      const device = getDeviceIdentity();
       const code = await requestWechatLoginCode();
       const result = await callFunction({
         name: 'auth/password/session',
         data: {
           studentId: this.data.passwordStudentId,
           passphrase: this.data.password,
-          code,
-          deviceId: device.id,
-          devicePlatform: device.platform,
-          deviceModel: device.model,
-          preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
-          preferredContextId: wx.getStorageSync('lastContextId') || '',
-          preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+          code
         }
       });
       if (!result || result.status !== 'login_success') throw new Error(copy.messages.loginInvalid);
-      authContext.applyAuthenticatedResult(result);
+      await authContext.applyAuthenticatedResultAsync(result);
       this.openPortal();
     } catch (error) {
       showShortToast(getErrorText(error, copy.messages.loginInvalid));
@@ -231,22 +223,18 @@ Page({
     if (this._loginSubmitting || this.data.loading) return;
     this._loginSubmitting = true;
     this.setData({ loading: true, authNotice: '' });
-    const device = getDeviceIdentity();
     try {
       const code = await requestWechatLoginCode();
       const result = await callFunction({
         name: 'auth/wechat/session',
         data: {
-          code,
-          deviceId: device.id,
-          devicePlatform: device.platform,
-          deviceModel: device.model,
-          preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
-          preferredContextId: wx.getStorageSync('lastContextId') || '',
-          preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+          code
         }
       });
-      this.handleWechatSession(result);
+      // 服务端已经返回后立即结束按钮忙碌态；后续本地状态落盘有独立超时，
+      // 不允许存储或页面切换异常让用户看到无限旋转。
+      this.setData({ loading: false });
+      await this.handleWechatSession(result);
     } catch (error) {
       const message = getErrorText(error, copy.messages.relogin);
       if (message) showShortToast(message);
@@ -256,14 +244,14 @@ Page({
     }
   },
 
-  handleWechatSession(result) {
+  async handleWechatSession(result) {
     if (!result || !result.status) {
       showShortToast(copy.messages.relogin);
       return;
     }
     if (result.status === 'login_success') {
       try {
-        authContext.applyAuthenticatedResult(result);
+        await authContext.applyAuthenticatedResultAsync(result);
         this.openPortal();
       } catch (_) {
         showShortToast(copy.messages.relogin);
@@ -366,7 +354,6 @@ Page({
     }
     this.setData({ loading: true });
     try {
-      const device = getDeviceIdentity();
       const organization = this.data.organizations[this.data.organizationIndex];
       try {
         const inviteResult = await callFunction({
@@ -375,14 +362,11 @@ Page({
             organizationId: organization && organization.id,
             name: this.data.name,
             studentId: this.data.studentId,
-            code: this.data.verificationCode,
-            deviceId: device.id,
-            devicePlatform: device.platform,
-            deviceModel: device.model
+            code: this.data.verificationCode
           }
         });
         if (inviteResult && inviteResult.status === 'login_success') {
-          authContext.applyAuthenticatedResult(inviteResult);
+          await authContext.applyAuthenticatedResultAsync(inviteResult);
           this.openPortal();
           return;
         }
@@ -393,17 +377,14 @@ Page({
         name: 'auth/claims/verify',
         data: {
           claimId: this.data.claimId,
-          verificationCode: this.data.verificationCode,
-          deviceId: device.id,
-          devicePlatform: device.platform,
-          deviceModel: device.model
+          verificationCode: this.data.verificationCode
         }
       });
       if (!result || result.status !== 'login_success') {
         showShortToast((result && result.message) || copy.messages.verificationInvalid);
         return;
       }
-      authContext.applyAuthenticatedResult(result);
+      await authContext.applyAuthenticatedResultAsync(result);
       this.openPortal();
     } catch (error) {
       const message = getErrorText(error, copy.messages.verificationInvalid);
@@ -455,23 +436,19 @@ Page({
     }
     this.setData({ loading: true });
     try {
-      const device = getDeviceIdentity();
       const result = await callFunction({
         name: 'auth/recovery/complete',
         data: {
           recoveryRequestId: this.data.recoveryRequestId,
           method: this.data.recoveryMethod,
-          credential: this.data.recoveryCredential,
-          deviceId: device.id,
-          devicePlatform: device.platform,
-          deviceModel: device.model
+          credential: this.data.recoveryCredential
         }
       });
       if (!result || result.status !== 'login_success') {
         showShortToast((result && result.message) || copy.messages.recoveryInvalid);
         return;
       }
-      authContext.applyAuthenticatedResult(result);
+      await authContext.applyAuthenticatedResultAsync(result);
       if (result.recoveryCode) {
         this.setData({
           stage: 'recoveryRotated',

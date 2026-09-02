@@ -13,6 +13,18 @@ global.wx = {
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
+  setStorage(options) {
+    storage[options.key] = options.data;
+    if (typeof options.success === 'function') options.success();
+  },
+  batchSetStorage(options) {
+    (options.kvList || []).forEach(function(item) { storage[item.key] = item.value; });
+    if (typeof options.success === 'function') options.success();
+  },
+  removeStorage(options) {
+    delete storage[options.key];
+    if (typeof options.success === 'function') options.success();
+  },
   showToast(options) { toasts.push(options || {}); },
   nextTick(callback) { callback(); },
   navigateTo(options) {
@@ -57,7 +69,7 @@ async function run() {
   assert.strictEqual(page.data.authNotice, '登录已过期，请重新登录');
   assert.strictEqual(storage.authLoginNotice, undefined, '登录提示读取后应立即清除');
 
-  page.handleWechatSession({
+  await page.handleWechatSession({
     status: 'need_claim',
     bootstrapToken: 'bootstrap-token',
     claimAvailable: true,
@@ -80,7 +92,7 @@ async function run() {
   assert.strictEqual(request.header['X-Role'], '');
   assert.strictEqual(request.header['X-Active-Org'], '');
 
-  page.handleWechatSession({
+  await page.handleWechatSession({
     status: 'login_success',
     token: 'access-token',
     context: {

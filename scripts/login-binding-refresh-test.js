@@ -52,6 +52,18 @@ global.wx = {
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
+  setStorage(options) {
+    storage[options.key] = options.data;
+    if (typeof options.success === 'function') options.success();
+  },
+  batchSetStorage(options) {
+    (options.kvList || []).forEach(function(item) { storage[item.key] = item.value; });
+    if (typeof options.success === 'function') options.success();
+  },
+  removeStorage(options) {
+    delete storage[options.key];
+    if (typeof options.success === 'function') options.success();
+  },
   login(options) { options.success({ code: 'fresh-wx-code' }); },
   showToast(options) { toasts.push(options); },
   nextTick(callback) { callback(); },
@@ -68,6 +80,9 @@ global.Page = function(definition) { pageDefinition = definition; };
 
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
+  if (request === '../../../../utils/deviceIdentity') {
+    throw new Error('登录流程不得加载设备标识模块');
+  }
   if (request === '../../../../utils/api') {
     return {
       callFunction,
@@ -95,10 +110,14 @@ async function run() {
 
   const page = createPage();
   page.onLoad();
+  const loginPromise = page.onLogin();
   page.onLogin();
-  page.onLogin();
-  await new Promise((resolve) => setImmediate(resolve));
+  await loginPromise;
   assert.strictEqual(calls.filter((item) => item.name === 'auth/wechat/session').length, 1);
+  const wechatLoginCall = calls.find((item) => item.name === 'auth/wechat/session');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(wechatLoginCall.data, 'deviceId'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(wechatLoginCall.data, 'devicePlatform'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(wechatLoginCall.data, 'deviceModel'), false);
   assert.strictEqual(page.data.stage, 'claim');
 
   page.setData({ name: '测试用户', studentId: '20260001' });

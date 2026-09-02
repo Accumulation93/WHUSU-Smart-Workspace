@@ -2,7 +2,6 @@ const localeCopy = require('../locales/zh-CN/generated/utils/api');
 const API_BASE = 'https://accumulation93.com/api';
 const CLIENT_VERSION = '1.2.0-security';
 const orgSession = require('./orgSession');
-const { getDeviceIdentity } = require('./deviceIdentity');
 const dateTime = require('./dateTime');
 const IDEMPOTENT_WRITE_APIS = {
   submitScoreRecord: true,
@@ -141,20 +140,13 @@ function getFreshWechatCode() {
 
 function requestWechatSession(code) {
   return new Promise(function(resolve, reject) {
-    const device = getDeviceIdentity();
     wx.request({
       url: API_BASE + '/auth/wechat/session',
       method: 'POST',
       timeout: 15000,
       header: createRequestHeaders(createRequestId()),
       data: {
-        code: code,
-        deviceId: device.id,
-        devicePlatform: device.platform,
-        deviceModel: device.model,
-        preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
-        preferredContextId: wx.getStorageSync('lastContextId') || '',
-        preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+        code: code
       },
       success: function(res) {
         const result = res.data || {};
@@ -183,7 +175,11 @@ function refreshAuthentication() {
     .then(requestWechatSession)
     .then(function(result) {
       // 延迟加载可避免 api.js 与 authContext.js 在初始化阶段互相引用。
-      require('./authContext').applyAuthenticatedResult(result);
+      return require('./authContext').applyAuthenticatedResultAsync(result).then(function() {
+        return result;
+      });
+    })
+    .then(function(result) {
       authenticationRefreshPromise = null;
       authenticationRedirecting = false;
       return result;
@@ -236,7 +232,11 @@ function hasSameSelection(left, right) {
 }
 
 function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
-  const organizationSnapshot = orgSession.getSnapshot();
+  // 登录、认领与恢复属于会话入口，此时客户端本就可能没有可比较的组织会话。
+  // 真机收到响应后不得再执行一轮同步存储读取，否则部分 OpenHarmony 设备会
+  // 卡在请求已返回、Promise 尚未完成的状态。
+  const isAuthEntry = Boolean(AUTH_ENTRY_APIS[name]);
+  const organizationSnapshot = isAuthEntry ? null : orgSession.getSnapshot();
   return new Promise(function(resolve, reject) {
     wx.request({
       url: API_BASE + '/' + name,
@@ -245,7 +245,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
       header: createRequestHeaders(requestId),
       data: data,
       success: function(res) {
-        if (!orgSession.isCurrent(organizationSnapshot)) {
+        if (!isAuthEntry && !orgSession.isCurrent(organizationSnapshot)) {
           const currentSnapshot = orgSession.getSnapshot();
           if (allowAuthenticationRefresh
             && hasSameSelection(organizationSnapshot, currentSnapshot)
@@ -290,7 +290,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
         reject(responseError);
       },
       fail: function(err) {
-        if (!orgSession.isCurrent(organizationSnapshot)) {
+        if (!isAuthEntry && !orgSession.isCurrent(organizationSnapshot)) {
           reject(cancelledError(requestId));
           return;
         }

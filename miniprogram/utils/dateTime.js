@@ -51,7 +51,9 @@ function setSystemTimezoneConfig(systemTimezoneOffset, configVersion, reviewRequ
     || cachedConfig.reviewRequired !== nextConfig.reviewRequired
     || cachedConfig.reviewVersion !== nextConfig.reviewVersion;
   cachedConfig = nextConfig;
-  if (typeof wx !== 'undefined' && typeof wx.setStorageSync === 'function') {
+  if (changed && typeof wx !== 'undefined' && typeof wx.setStorage === 'function') {
+    wx.setStorage({ key: STORAGE_KEY, data: cachedConfig });
+  } else if (changed && typeof wx !== 'undefined' && typeof wx.setStorageSync === 'function') {
     wx.setStorageSync(STORAGE_KEY, cachedConfig);
   }
   if (changed) eventBus.emit('time:configChanged', Object.assign({}, cachedConfig));
