@@ -9,6 +9,7 @@ const toasts = [];
 const navigations = [];
 const relaunches = [];
 const synchronousWrites = [];
+const asynchronousWrites = [];
 
 async function callFunction(options) {
   calls.push({ name: options.name, data: Object.assign({}, options.data || {}) });
@@ -57,6 +58,7 @@ global.wx = {
   },
   removeStorageSync(key) { delete storage[key]; },
   setStorage(options) {
+    asynchronousWrites.push(options.key);
     storage[options.key] = options.data;
     if (typeof options.success === 'function') options.success();
   },
@@ -193,10 +195,13 @@ async function run() {
   assert.strictEqual(orgSession.getSnapshot().contextId, 'assignment:one:org-44');
   assert.strictEqual(
     synchronousWrites.length - writesBeforeLoginCommit,
-    1,
-    '登录成功临界路径只允许写入一次紧凑会话'
+    0,
+    '认领成功后的登录临界路径不得同步落盘'
   );
-  assert.strictEqual(synchronousWrites[synchronousWrites.length - 1], 'authSession');
+  assert(
+    !synchronousWrites.slice(writesBeforeLoginCommit).includes('authSession'),
+    '登录临界路径不得同步写入紧凑会话'
+  );
   assert(relaunches.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
 
@@ -221,8 +226,8 @@ async function run() {
   assert.strictEqual(directPage.data.loading, false, '微信登录响应后必须立即解除按钮加载态');
   assert.strictEqual(directPage._loginSubmitting, false, '微信登录完成后必须释放防重复提交锁');
   assert.strictEqual(orgSession.getSnapshot().token, 'direct-access-token');
-  assert.strictEqual(synchronousWrites.length - directWritesBefore, 1, '微信登录只允许一次紧凑同步落盘');
-  assert.strictEqual(synchronousWrites[synchronousWrites.length - 1], 'authSession');
+  assert.strictEqual(synchronousWrites.length - directWritesBefore, 0, '微信登录不得同步落盘');
+  assert(asynchronousWrites.includes('authSession'), '紧凑会话必须异步投递');
   assert.strictEqual(relaunches[relaunches.length - 1], '/subpackages/main/pages/portal/portal');
 
   console.log('统一登录、认领与默认人工恢复流程测试通过');

@@ -458,8 +458,8 @@ function applyAuthenticatedResult(result) {
 }
 
 function applyAuthenticatedResultAsync(result) {
-  // 旧版鸿蒙微信基础库可能不触发 batchSetStorage/setStorage 的完成回调。
-  // 登录临界路径使用经过真机验证的同步完整提交，提交完成后立即进入门户。
+  // 登录临界路径先建立 AppService 内存会话并立即进入门户；持久化由
+  // commitFastContext 和 persistAuthenticatedStateLater 异步投递且不等待回调。
   return Promise.resolve().then(function() {
     return applyAuthenticatedResult(result);
   });

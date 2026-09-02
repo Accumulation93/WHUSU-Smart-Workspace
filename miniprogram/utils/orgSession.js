@@ -171,7 +171,7 @@ function commitContext(context) {
 function commitFastContext(context) {
   const next = context || {};
   // 登录入口不得先读取散落的旧会话键。以当前绝对时间作为单调性足够的
-  // 页面会话版本，整个临界路径只跨原生存储桥一次。
+  // 页面会话版本，登录临界路径只更新 AppService 内存，不等待原生存储桥。
   const version = Date.now();
   runtimeSnapshot = {
     token: String(next.token || ''),
@@ -182,13 +182,18 @@ function commitFastContext(context) {
     identityId: '',
     version: version
   };
-  // 登录临界路径只做一次紧凑同步写入。旧版鸿蒙的 JS/API 桥在连续数十次
-  // setStorageSync 或等待异步 storage 回调时可能长期阻塞；单对象快照既保证
-  // 页面切换后可恢复，又不把完整目录拆成多次桥调用。
+  // OpenHarmony 真机可能在 setStorageSync 序列化或跨 JSBridge 时长期阻塞，
+  // 即使服务端已经返回 200 也会让登录按钮持续转圈。紧凑快照只异步投递，
+  // 不等待 success/complete；当前门户和业务分包直接读取上面的内存快照。
   try {
-    wx.setStorageSync(COMPACT_SESSION_KEY, Object.assign({}, runtimeSnapshot, {
+    const compact = Object.assign({}, runtimeSnapshot, {
       authState: next.authState && typeof next.authState === 'object' ? next.authState : null
-    }));
+    });
+    if (typeof wx.setStorage === 'function') {
+      wx.setStorage({ key: COMPACT_SESSION_KEY, data: compact });
+    } else {
+      wx.setStorageSync(COMPACT_SESSION_KEY, compact);
+    }
   } catch (_) {}
   messageScope.resetScope();
   return {
