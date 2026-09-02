@@ -159,7 +159,7 @@ Page({
         }
       });
       if (!result || result.status !== 'login_success') throw new Error(copy.messages.loginInvalid);
-      await authContext.applyAuthenticatedResultAsync(result);
+      authContext.applyAuthenticatedResult(result);
       this.openPortal();
     } catch (error) {
       showShortToast(getErrorText(error, copy.messages.loginInvalid));
@@ -231,10 +231,10 @@ Page({
           code
         }
       });
-      // 服务端已经返回后立即结束按钮忙碌态；后续本地状态落盘有独立超时，
-      // 不允许存储或页面切换异常让用户看到无限旋转。
+      // 服务端返回后立即结束按钮忙碌态；完整登录状态同步提交后直接进入门户，
+      // 不等待旧版鸿蒙基础库中不可靠的异步存储回调。
       this.setData({ loading: false });
-      await this.handleWechatSession(result);
+      this.handleWechatSession(result);
     } catch (error) {
       const message = getErrorText(error, copy.messages.relogin);
       if (message) showShortToast(message);
@@ -244,14 +244,14 @@ Page({
     }
   },
 
-  async handleWechatSession(result) {
+  handleWechatSession(result) {
     if (!result || !result.status) {
       showShortToast(copy.messages.relogin);
       return;
     }
     if (result.status === 'login_success') {
       try {
-        await authContext.applyAuthenticatedResultAsync(result);
+        authContext.applyAuthenticatedResult(result);
         this.openPortal();
       } catch (_) {
         showShortToast(copy.messages.relogin);
@@ -366,7 +366,7 @@ Page({
           }
         });
         if (inviteResult && inviteResult.status === 'login_success') {
-          await authContext.applyAuthenticatedResultAsync(inviteResult);
+          authContext.applyAuthenticatedResult(inviteResult);
           this.openPortal();
           return;
         }
@@ -384,7 +384,7 @@ Page({
         showShortToast((result && result.message) || copy.messages.verificationInvalid);
         return;
       }
-      await authContext.applyAuthenticatedResultAsync(result);
+      authContext.applyAuthenticatedResult(result);
       this.openPortal();
     } catch (error) {
       const message = getErrorText(error, copy.messages.verificationInvalid);
@@ -448,7 +448,7 @@ Page({
         showShortToast((result && result.message) || copy.messages.recoveryInvalid);
         return;
       }
-      await authContext.applyAuthenticatedResultAsync(result);
+      authContext.applyAuthenticatedResult(result);
       if (result.recoveryCode) {
         this.setData({
           stage: 'recoveryRotated',

@@ -81,6 +81,14 @@ function captureSystemTimezone(result) {
   );
 }
 
+function applyResponseSideEffects(result) {
+  // 时区缓存、升级提示和岗位提示都不是请求成功的前置条件。部分鸿蒙基础库
+  // 会在这些可选能力中抛出同步异常；必须隔离，不能让已收到的响应永久 pending。
+  try { captureSystemTimezone(result); } catch (_) {}
+  try { notifyUpgrade(result); } catch (_) {}
+  try { notifyOrgContextRequired(result); } catch (_) {}
+}
+
 let orgPromptVisible = false;
 function notifyOrgContextRequired(result) {
   if (!result || result.status !== 'org_context_required' || orgPromptVisible) return;
@@ -258,15 +266,12 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
           return;
         }
         if (res.statusCode === 200) {
-          captureSystemTimezone(res.data);
-          notifyUpgrade(res.data);
-          notifyOrgContextRequired(res.data);
           resolve(res.data);
+          applyResponseSideEffects(res.data);
           return;
         }
         const responseData = res.data || {};
-        notifyUpgrade(responseData);
-        notifyOrgContextRequired(responseData);
+        applyResponseSideEffects(responseData);
         const responseError = createResponseError(res);
         if (responseData.status === 'org_context_required') responseError.silent = true;
         if (contextActivationDepth > 0

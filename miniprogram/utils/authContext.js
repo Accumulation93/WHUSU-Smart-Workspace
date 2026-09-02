@@ -15,7 +15,6 @@ const IDENTITIES_KEY = 'authIdentities';
 const SELECTION_KEY = 'authSelection';
 const ACCOUNT_KEY = 'accountProfile';
 const PROFILE_KEY = 'roleProfiles';
-const AUTH_STORAGE_TIMEOUT_MS = 8000;
 
 function stringValue(value) {
   return value === undefined || value === null ? '' : String(value);
@@ -344,137 +343,12 @@ function applyAuthenticatedResult(result) {
   return committed;
 }
 
-function setStorageValueAsync(key, value) {
-  return new Promise(function(resolve, reject) {
-    if (typeof wx.setStorage !== 'function') {
-      try {
-        wx.setStorageSync(key, value);
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-      return;
-    }
-    wx.setStorage({
-      key: key,
-      data: value,
-      success: resolve,
-      fail: reject
-    });
-  });
-}
-
-function setStorageValuesAsync(entries) {
-  if (typeof wx.batchSetStorage === 'function') {
-    return new Promise(function(resolve, reject) {
-      wx.batchSetStorage({
-        kvList: entries.map(function(entry) {
-          return { key: entry[0], value: entry[1] };
-        }),
-        success: resolve,
-        fail: reject
-      });
-    });
-  }
-
-  // 低版本基础库缺少 batchSetStorage 时并行提交，避免鸿蒙真机逐项等待
-  // 二十余次异步存储回调而错过登录跳转。
-  return Promise.all(entries.map(function(entry) {
-    return setStorageValueAsync(entry[0], entry[1]);
-  }));
-}
-
-function persistAuthenticatedResultAsync(result) {
-  const context = result && result.context ? result.context : null;
-  if (!context || !result.token) return Promise.reject(new Error(localeCopy.relogin));
-
-  const contextValues = Array.isArray(result.contexts)
-    ? result.contexts
-    : (Array.isArray(result.workContexts) ? result.workContexts : []);
-  const contexts = contextValues;
-  const catalogOrganizations = Array.isArray(result.organizations) && result.organizations.length
-    ? result.organizations
-    : organizationsFromContexts(contexts);
-  const legacyIdentities = Array.isArray(result.identities) ? result.identities : [];
-  const workContextValues = Array.isArray(result.workContexts) && result.workContexts.length
-    ? result.workContexts
-    : (legacyIdentities.length ? legacyIdentities : contexts);
-  const workContexts = normalizeWorkContexts(workContextValues, contexts);
-  const selection = normalizeSelection(result.selection, context, contexts);
-  const profile = normalizeProfile(Object.assign({}, result.account || {}, context, result.user || {}));
-  const roleProfiles = {};
-  roleProfiles[context.role] = profile;
-  const availableOrganizations = Array.isArray(result.availableOrgs) && result.availableOrgs.length
-    ? result.availableOrgs
-    : catalogOrganizations;
-  const contextId = stringValue(context.contextId || selection.contextId || context.id);
-  const organizationId = stringValue(context.organizationId || selection.organizationId);
-  const version = Date.now();
-  const writes = [
-    [CONTEXTS_KEY, contexts],
-    [WORK_CONTEXTS_KEY, workContexts],
-    [ORGANIZATIONS_KEY, catalogOrganizations],
-    [IDENTITIES_KEY, legacyIdentities],
-    [SELECTION_KEY, selection],
-    [PROFILE_KEY, roleProfiles],
-    ['availableOrgs', availableOrganizations],
-    ['availableOrgs:user', availableOrganizations.filter(function(item) {
-      return !item.roles || item.roles.indexOf('user') >= 0;
-    })],
-    ['availableOrgs:admin', availableOrganizations.filter(function(item) {
-      return !item.roles || item.roles.indexOf('admin') >= 0;
-    })],
-    ['lastOrganizationId', selection.organizationId || organizationId],
-    ['lastContextId', selection.contextId || contextId],
-    ['token', result.token],
-    ['activeRole', stringValue(context.role)],
-    ['activeContextId', contextId],
-    ['activeOrgId', organizationId],
-    ['activeOrgName', stringValue(context.organizationName)],
-    ['activeOrgVersion', version],
-    [ACCOUNT_KEY, result.account || {}],
-    ['authSelectionNotice', result.selectionNotice || ''],
-    ['lastIdentityId', ''],
-    ['activeIdentityId', '']
-  ];
-
-  // 登录临界路径只提交一次批量存储事务。避免多次同步读写阻塞渲染，也避免
-  // 鸿蒙微信异步存储队列逐项等待时迟迟不能进入工作台。
-  return setStorageValuesAsync(writes).then(function() {
-    require('./messageScope').resetScope();
-    markAuthenticationReady();
-    return {
-      changed: true,
-      version: version,
-      snapshot: {
-        token: String(result.token),
-        contextId: contextId,
-        role: stringValue(context.role),
-        orgId: organizationId,
-        identityId: '',
-        version: version
-      }
-    };
-  });
-}
-
 function applyAuthenticatedResultAsync(result) {
-  let timer = null;
-  const timeout = new Promise(function(resolve, reject) {
-    timer = setTimeout(function() {
-      reject(new Error(localeCopy.relogin));
-    }, AUTH_STORAGE_TIMEOUT_MS);
+  // 旧版鸿蒙微信基础库可能不触发 batchSetStorage/setStorage 的完成回调。
+  // 登录临界路径使用经过真机验证的同步完整提交，提交完成后立即进入门户。
+  return Promise.resolve().then(function() {
+    return applyAuthenticatedResult(result);
   });
-  return Promise.race([persistAuthenticatedResultAsync(result), timeout]).then(
-    function(value) {
-      if (timer) clearTimeout(timer);
-      return value;
-    },
-    function(error) {
-      if (timer) clearTimeout(timer);
-      throw error;
-    }
-  );
 }
 
 async function refreshCatalog() {
