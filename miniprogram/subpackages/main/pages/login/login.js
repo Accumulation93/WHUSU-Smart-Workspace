@@ -155,7 +155,7 @@ Page({
         data: {
           studentId: this.data.passwordStudentId,
           passphrase: this.data.password,
-          code
+          code,
         }
       });
       if (!result || result.status !== 'login_success') throw new Error(copy.messages.loginInvalid);
