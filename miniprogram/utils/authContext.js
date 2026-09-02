@@ -367,6 +367,35 @@ function buildAuthenticatedState(result) {
   };
 }
 
+function compactAuthenticatedState(state) {
+  return {
+    context: state.context,
+    contexts: state.contexts,
+    organizations: state.organizations,
+    identities: state.identities,
+    workContexts: state.workContexts,
+    selection: state.selection,
+    profile: state.profile,
+    availableOrganizations: state.availableOrganizations
+  };
+}
+
+function buildActivatedState(result) {
+  const previous = getAuthenticatedState() || {};
+  const previousResult = previous.result && typeof previous.result === 'object'
+    ? previous.result
+    : {};
+  const source = Object.assign({}, previousResult, result || {}, {
+    account: (result && result.account) || previousResult.account || {},
+    availableOrgs: (result && result.availableOrgs)
+      || (result && result.organizations)
+      || previous.availableOrganizations
+      || previousResult.availableOrgs
+      || []
+  });
+  return buildAuthenticatedState(source);
+}
+
 function persistAuthenticatedStateLater(state) {
   const generation = ++persistenceGeneration;
   const roleProfiles = {};
@@ -434,23 +463,13 @@ function updateRuntimeProfile(role, profile) {
 function applyAuthenticatedResult(result) {
   const state = buildAuthenticatedState(result);
   runtimeAuthenticatedState = state;
-  const compactAuthState = {
-    context: state.context,
-    contexts: state.contexts,
-    organizations: state.organizations,
-    identities: state.identities,
-    workContexts: state.workContexts,
-    selection: state.selection,
-    profile: state.profile,
-    availableOrganizations: state.availableOrganizations
-  };
   const committed = orgSession.commitFastContext({
     token: state.result.token,
     contextId: state.context.contextId || state.selection.contextId || state.context.id || '',
     role: state.context.role,
     orgId: state.context.organizationId || state.selection.organizationId,
     orgName: state.context.organizationName,
-    authState: compactAuthState
+    authState: compactAuthenticatedState(state)
   });
   markAuthenticationReady();
   persistAuthenticatedStateLater(state);
@@ -481,24 +500,23 @@ async function refreshContexts() {
 }
 
 function applyActivatedResult(result) {
-  const context = result.context;
-  const selection = normalizeSelection(result.selection, context);
   const before = orgSession.getSnapshot();
-  const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
-  const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
-  roleProfiles[context.role] = profile;
-  wx.setStorageSync(PROFILE_KEY, roleProfiles);
-  wx.setStorageSync(SELECTION_KEY, selection);
-  wx.setStorageSync('lastOrganizationId', selection.organizationId || '');
-  wx.setStorageSync('lastContextId', selection.contextId || '');
-  wx.removeStorageSync('lastIdentityId');
-  const committed = orgSession.commitContext({
-    token: result.token,
+  const state = buildActivatedState(result);
+  const context = state.context;
+  const selection = state.selection;
+  const profile = state.profile;
+  runtimeAuthenticatedState = state;
+  const committed = orgSession.commitFastContext({
+    token: state.result.token,
     contextId: context.contextId || selection.contextId || context.id || '',
     role: context.role,
-    orgId: context.organizationId,
-    orgName: context.organizationName
+    orgId: context.organizationId || selection.organizationId,
+    orgName: context.organizationName,
+    authState: compactAuthenticatedState(state)
   });
+  // 切换必须产生新的持久化代次，使登录或上一次切换遗留的延迟任务失效。
+  // 页面立即读取上面的完整内存状态，兼容旧页面的分散键随后后台落盘。
+  persistAuthenticatedStateLater(state);
   const payload = {
     organizationId: context.organizationId,
     organizationName: context.organizationName,
