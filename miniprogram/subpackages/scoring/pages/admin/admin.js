@@ -5,6 +5,7 @@ const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const utils = require('./modules/adminUtils');
@@ -675,8 +676,10 @@ Page({
     const activeSession = orgSession.getSnapshot();
     const activeRole = activeSession.role || '';
 
-    if (!adminProfile && activeRole === 'admin') {
+    if (activeRole === 'admin') {
       try {
+        // 管理子应用每次新建页面都按服务端当前会话重建角色资料。不能相信
+        // 其他分包留下的 profile，即使它非空，也可能仍属于切换前的组织。
         await authContext.refreshCatalog();
       } catch (error) {
         console.error('[admin] restore current user failed:', error.message || error);

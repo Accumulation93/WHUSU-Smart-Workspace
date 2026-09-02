@@ -8,9 +8,32 @@ const LEGACY_IDENTITY_KEY = 'activeIdentityId';
 const AUTH_CONTEXTS_KEY = 'authContexts';
 const AUTH_SELECTION_KEY = 'authSelection';
 const COMPACT_SESSION_KEY = 'authSession';
+const APP_SESSION_KEY = '__authSessionSnapshot';
 const messageScope = require('./messageScope');
 
 let runtimeSnapshot = null;
+
+function getAppSession() {
+  if (typeof getApp !== 'function') return null;
+  try {
+    const app = getApp();
+    const value = app && app.globalData && app.globalData[APP_SESSION_KEY];
+    return value && typeof value === 'object' ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setAppSession(value) {
+  if (typeof getApp !== 'function') return;
+  try {
+    const app = getApp();
+    if (!app) return;
+    if (!app.globalData || typeof app.globalData !== 'object') app.globalData = {};
+    if (value && typeof value === 'object') app.globalData[APP_SESSION_KEY] = value;
+    else delete app.globalData[APP_SESSION_KEY];
+  } catch (_) {}
+}
 
 function removeStorageValue(key) {
   if (typeof wx.removeStorageSync === 'function') {
@@ -100,6 +123,10 @@ function normalizeCompactSnapshot(value) {
 }
 
 function getAuthenticatedState() {
+  const appSession = getAppSession();
+  if (appSession && appSession.authState && typeof appSession.authState === 'object') {
+    return appSession.authState;
+  }
   let compact = null;
   try { compact = wx.getStorageSync(COMPACT_SESSION_KEY); } catch (_) {}
   return compact && compact.authState && typeof compact.authState === 'object'
@@ -112,6 +139,7 @@ function updateAuthenticatedState(authState) {
   const compact = Object.assign({}, snapshot, {
     authState: authState && typeof authState === 'object' ? authState : null
   });
+  setAppSession(compact);
   try {
     if (typeof wx.setStorage === 'function') wx.setStorage({ key: COMPACT_SESSION_KEY, data: compact });
     else wx.setStorageSync(COMPACT_SESSION_KEY, compact);
@@ -120,6 +148,13 @@ function updateAuthenticatedState(authState) {
 }
 
 function getSnapshot() {
+  // 分包模块实例可能仍缓存切换前的 runtimeSnapshot；App 级共享会话才是
+  // 当前运行中的唯一事实来源，必须优先于任何分包自己的模块内存。
+  const appSession = normalizeCompactSnapshot(getAppSession());
+  if (appSession) {
+    runtimeSnapshot = appSession;
+    return Object.assign({}, appSession);
+  }
   if (runtimeSnapshot) return Object.assign({}, runtimeSnapshot);
   const compact = normalizeCompactSnapshot(wx.getStorageSync(COMPACT_SESSION_KEY));
   if (compact) {
@@ -172,6 +207,7 @@ function commitContext(context) {
   }
   const version = changed ? markChanged() : afterWrite.version;
   runtimeSnapshot = Object.assign({}, afterWrite, { version: version });
+  setAppSession(runtimeSnapshot);
   try { wx.setStorageSync(COMPACT_SESSION_KEY, runtimeSnapshot); } catch (_) {}
   return {
     changed,
@@ -201,7 +237,15 @@ function commitFastContext(context) {
     const compact = Object.assign({}, runtimeSnapshot, {
       authState: next.authState && typeof next.authState === 'object' ? next.authState : null
     });
-    if (typeof wx.setStorage === 'function') {
+    // App 实例跨主包、分包共享。先同步更新内存桥，后续分包无需等待
+    // 鸿蒙设备的异步存储桥落盘即可读取同一份当前角色与权限资料。
+    setAppSession(compact);
+    // 显式切换角色后马上会销毁页面栈并进入其他分包。此时只同步落一份
+    // 紧凑会话，确保已经加载过、仍保有旧模块实例的分包也不会读到旧角色。
+    // 登录临界路径不传该标记，继续走鸿蒙友好的异步存储。
+    if (next.persistForNavigation && typeof wx.setStorageSync === 'function') {
+      wx.setStorageSync(COMPACT_SESSION_KEY, compact);
+    } else if (typeof wx.setStorage === 'function') {
       wx.setStorage({ key: COMPACT_SESSION_KEY, data: compact });
     } else {
       wx.setStorageSync(COMPACT_SESSION_KEY, compact);
@@ -224,6 +268,7 @@ function clearAuthentication(nextRole) {
     orgName: ''
   });
   runtimeSnapshot = null;
+  setAppSession(null);
   removeStorageValue(COMPACT_SESSION_KEY);
   return committed;
 }

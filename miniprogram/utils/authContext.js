@@ -20,15 +20,15 @@ let runtimeAuthenticatedState = null;
 let persistenceGeneration = 0;
 
 function getAuthenticatedState() {
-  if (runtimeAuthenticatedState) return runtimeAuthenticatedState;
   const compact = typeof orgSession.getAuthenticatedState === 'function'
     ? orgSession.getAuthenticatedState()
     : null;
   if (compact && typeof compact === 'object') {
+    // App 级会话跨分包共享；它必须覆盖当前分包可能缓存的旧角色资料。
     runtimeAuthenticatedState = compact;
     return compact;
   }
-  return null;
+  return runtimeAuthenticatedState;
 }
 
 function stringValue(value) {
@@ -512,9 +512,19 @@ async function refreshCatalog() {
     staleError.status = 'stale_context';
     throw staleError;
   }
-  if (!getAuthenticatedState() && result.context && result.user && expectedSnapshot.token) {
-    const hydrated = buildAuthenticatedState(Object.assign({}, result, {
-      token: expectedSnapshot.token
+  if (result.context && result.user && expectedSnapshot.token) {
+    // 分包可能各自持有一份模块内存。切换完成后，旧分包的延迟写入可能留下
+    // “外层 contextId 已更新、内层 profile 仍属于上一角色”的紧凑快照。
+    // 目录接口已经由服务端按当前会话解析，因而每次刷新都必须用它重建
+    // 当前角色资料，不能只在本地资料完全缺失时才恢复。
+    const previous = getAuthenticatedState() || {};
+    const previousResult = previous.result && typeof previous.result === 'object'
+      ? previous.result
+      : {};
+    const hydrated = buildAuthenticatedState(Object.assign({}, previousResult, result, {
+      token: expectedSnapshot.token,
+      account: previousResult.account || {},
+      availableOrgs: result.organizations || previous.availableOrganizations || []
     }));
     runtimeAuthenticatedState = hydrated;
     if (typeof orgSession.updateAuthenticatedState === 'function') {
@@ -542,7 +552,8 @@ function applyActivatedResult(result) {
     role: context.role,
     orgId: context.organizationId || selection.organizationId,
     orgName: context.organizationName,
-    authState: compactAuthenticatedState(state)
+    authState: compactAuthenticatedState(state),
+    persistForNavigation: true
   });
   // 切换必须产生新的持久化代次，使登录或上一次切换遗留的延迟任务失效。
   // 页面立即读取上面的完整内存状态，兼容旧页面的分散键随后后台落盘。
