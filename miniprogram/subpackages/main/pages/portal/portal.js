@@ -117,7 +117,7 @@ Page({
       orgSession.invalidateRequests(this);
       this._messageRevision = (this._messageRevision || 0) + 1;
       this.setData({
-        organizationName: wx.getStorageSync('activeOrgName') || '',
+        organizationName: activeSession.orgName || '',
         todoCount: 0,
         todos: [],
         notificationCount: 0,
@@ -143,6 +143,11 @@ Page({
       this.loadMessageOverview();
     }
     this.startPolling();
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.refreshTimeConfig === 'function') {
+      if (this._timeConfigRefreshTimer) clearTimeout(this._timeConfigRefreshTimer);
+      this._timeConfigRefreshTimer = setTimeout(function() { app.refreshTimeConfig(false); }, 500);
+    }
     if (!this._boundOnApprovalDone) {
       this._boundOnApprovalDone = this._onApprovalDone.bind(this);
       eventBus.on('approval:done', this._boundOnApprovalDone);
@@ -159,6 +164,10 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    if (this._timeConfigRefreshTimer) {
+      clearTimeout(this._timeConfigRefreshTimer);
+      this._timeConfigRefreshTimer = null;
+    }
     this.stopPolling();
     if (this._boundOnApprovalDone) {
       eventBus.off('approval:done', this._boundOnApprovalDone);
@@ -177,6 +186,10 @@ Page({
   onUnload() {
     const returningToLogin = shouldClearAuthenticationOnPortalExit(getCurrentPages(), this);
     this.stopPolling();
+    if (this._timeConfigRefreshTimer) {
+      clearTimeout(this._timeConfigRefreshTimer);
+      this._timeConfigRefreshTimer = null;
+    }
     if (this._boundOnApprovalDone) {
       eventBus.off('approval:done', this._boundOnApprovalDone);
       this._boundOnApprovalDone = null;
@@ -194,24 +207,29 @@ Page({
   },
 
   refreshCurrentUser() {
-    const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    let activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
+    const storedProfiles = wx.getStorageSync(STORAGE_KEY);
+    const roleProfiles = storedProfiles && typeof storedProfiles === 'object' && !Array.isArray(storedProfiles)
+      ? storedProfiles : {};
+    const activeSession = orgSession.getSnapshot();
+    let activeRole = activeSession.role || wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
     const roleKeys = Object.keys(roleProfiles);
+    let runtimeUser = authContext.getRuntimeProfile(activeRole);
 
-    if (!activeRole || roleKeys.indexOf(activeRole) === -1) {
+    if (!activeRole || (!runtimeUser && roleKeys.indexOf(activeRole) === -1)) {
       if (roleKeys.length) {
         activeRole = roleKeys[0];
       } else {
         activeRole = '';
       }
       orgSession.commitContext({ role: activeRole });
+      runtimeUser = authContext.getRuntimeProfile(activeRole);
     }
 
-    let user = activeRole ? (roleProfiles[activeRole] || null) : null;
+    let user = runtimeUser || (activeRole ? (roleProfiles[activeRole] || null) : null);
     if (!user && activeRole) {
       const account = wx.getStorageSync('accountProfile') || {};
-      const contexts = wx.getStorageSync('authContexts') || [];
-      const activeContextId = wx.getStorageSync('activeContextId') || '';
+      const contexts = authContext.getContexts();
+      const activeContextId = activeSession.contextId || '';
       const activeContext = Array.isArray(contexts)
         ? (contexts.find(function(item) { return item.contextId === activeContextId; }) || {})
         : {};
@@ -254,7 +272,7 @@ Page({
   loadOrganizationName() {
     const request = orgSession.beginRequest(this, 'portalOrganization');
     // 优先读取用户选择的活跃组织，其次回退 API 获取系统默认组织
-    const storedName = wx.getStorageSync('activeOrgName') || '';
+    const storedName = orgSession.getSnapshot().orgName || '';
     if (storedName) {
       this.setData({ organizationName: storedName });
       return;
@@ -432,7 +450,7 @@ Page({
   },
 
   pendingReadStorageKey(organizationId) {
-    return 'pendingNotificationReads:' + (organizationId || wx.getStorageSync('activeOrgId') || '') +
+    return 'pendingNotificationReads:' + (organizationId || orgSession.getSnapshot().orgId || '') +
       ':' + (this.data.activeRole || '');
   },
 
@@ -445,7 +463,7 @@ Page({
       try {
         const result = await callFunction({
           name: 'markNotificationRead',
-          data: { id: id, organizationId: wx.getStorageSync('activeOrgId') || '' }
+          data: { id: id, organizationId: orgSession.getSnapshot().orgId || '' }
         });
         if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
       }
@@ -511,7 +529,7 @@ Page({
   messageSwitchKind(item) {
     if (!item) return '';
     if (item.organizationId
-      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
+      && item.organizationId !== String(orgSession.getSnapshot().orgId || '')) {
       return 'organization';
     }
     const targetContextId = String(item.contextId || '') || authContext.resolveContextId(
@@ -529,7 +547,7 @@ Page({
 
   openMessageSwitchDialog(item, type) {
     this._pendingMessageNavigation = { item: item, type: type };
-    const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
+    const sameOrganization = item.organizationId === String(orgSession.getSnapshot().orgId || '');
     this.setData({
       showMessageSwitchDialog: true,
       messageSwitchTitle: sameOrganization ? copy.messages.switchWorkContext : copy.messages.switchOrganizationAndWorkContext,

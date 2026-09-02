@@ -49,6 +49,7 @@ global.Page = function(definition) {
 };
 
 const api = require('../miniprogram/utils/api');
+const orgSession = require('../miniprogram/utils/orgSession');
 require('../miniprogram/subpackages/main/pages/login/login');
 
 function createPage() {
@@ -111,10 +112,10 @@ async function run() {
     account: { id: 'account-1', name: '测试用户' }
   });
 
-  assert.strictEqual(storage.token, 'access-token');
-  assert.strictEqual(storage.activeRole, 'user');
-  assert.strictEqual(storage.activeOrgId, 'org-44');
-  assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
+  assert.strictEqual(orgSession.getSnapshot().token, 'access-token');
+  assert.strictEqual(orgSession.getSnapshot().role, 'user');
+  assert.strictEqual(orgSession.getSnapshot().orgId, 'org-44');
+  assert.strictEqual(orgSession.getSnapshot().contextId, 'assignment:one:org-44');
   assert(relaunches.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
   assert.strictEqual(page._portalNavigating, false, '门户导航完成后必须释放导航锁');

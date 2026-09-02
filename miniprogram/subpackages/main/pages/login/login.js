@@ -1,10 +1,18 @@
-const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
+const {
+  API_BASE,
+  CLIENT_VERSION,
+  callFunction,
+  createRequestId,
+  showShortToast,
+  getErrorText
+} = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const { login: copy } = require('../../../../locales/zh-CN/main');
 const { getPasswordRequiredMessage } = require('./loginValidation');
 
 const WECHAT_LOGIN_TIMEOUT_MS = 10000;
+const WECHAT_SESSION_TIMEOUT_MS = 18000;
 const PORTAL_NAVIGATION_TIMEOUT_MS = 8000;
 const PORTAL_ROUTE = '/subpackages/main/pages/portal/portal';
 
@@ -37,6 +45,83 @@ function requestWechatLoginCode() {
       }
     });
   });
+}
+
+function requestWechatSessionDirect(callbacks) {
+  const handlers = callbacks || {};
+  let settled = false;
+  let requestTask = null;
+  const finish = function(type, value) {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    if (type === 'success') {
+      if (typeof handlers.success === 'function') handlers.success(value);
+    } else if (typeof handlers.fail === 'function') {
+      handlers.fail(value);
+    }
+    if (typeof handlers.complete === 'function') handlers.complete();
+  };
+  let timer = setTimeout(function() {
+    if (requestTask && typeof requestTask.abort === 'function') {
+      try { requestTask.abort(); } catch (_) {}
+    }
+    finish('fail', new Error(copy.messages.loginUnavailable));
+  }, WECHAT_SESSION_TIMEOUT_MS);
+
+  if (typeof wx.login !== 'function' || typeof wx.request !== 'function') {
+    finish('fail', new Error(copy.messages.loginUnavailable));
+    return;
+  }
+  try {
+    wx.login({
+    success: function(loginResult) {
+      const code = String((loginResult && loginResult.code) || '');
+      if (!code) {
+        finish('fail', new Error(copy.messages.relogin));
+        return;
+      }
+      try {
+        requestTask = wx.request({
+          url: API_BASE + '/auth/wechat/session',
+          method: 'POST',
+          timeout: 15000,
+          dataType: 'text',
+          responseType: 'text',
+          header: {
+            'Content-Type': 'application/json',
+            'X-Client-Version': CLIENT_VERSION,
+            'X-Request-Id': createRequestId()
+          },
+          data: { code: code },
+          success: function(response) {
+            let result = (response && response.data) || {};
+            if (typeof result === 'string') {
+              try { result = JSON.parse(result); } catch (_) { result = {}; }
+            }
+            if (Number(response && response.statusCode) === 200) {
+              finish('success', result);
+              return;
+            }
+            const error = new Error(result.message || copy.messages.loginUnavailable);
+            error.status = result.status || '';
+            finish('fail', error);
+          },
+          fail: function(error) {
+            finish('fail', error || new Error(copy.messages.loginUnavailable));
+          }
+        });
+      } catch (error) {
+        finish('fail', error);
+      }
+    },
+    fail: function(error) {
+      finish('fail', error || new Error(copy.messages.relogin));
+    }
+    });
+  } catch (error) {
+    finish('fail', error);
+  }
 }
 
 Page({
@@ -92,27 +177,35 @@ Page({
       rotatedRecoveryCode: ''
     });
 
+    const page = this;
     let settled = false;
-    const finish = (success) => {
+    const finish = function(success) {
       if (settled) return;
       settled = true;
-      if (this._portalNavigationTimer) {
-        clearTimeout(this._portalNavigationTimer);
-        this._portalNavigationTimer = null;
+      if (page._portalNavigationTimer) {
+        clearTimeout(page._portalNavigationTimer);
+        page._portalNavigationTimer = null;
       }
-      this._portalNavigating = false;
+      page._portalNavigating = false;
       if (!success) showShortToast(copy.messages.pageOpenFailed);
     };
-    this._portalNavigationTimer = setTimeout(() => {
+    this._portalNavigationTimer = setTimeout(function() {
+      page._portalNavigationTimer = null;
+      // 超时只解除按钮忙碌状态，绝不再次发起另一种导航。旧版鸿蒙运行时
+      // 处理主包切页较慢时，重入 redirectTo/reLaunch 会互相中断。
       finish(false);
     }, PORTAL_NAVIGATION_TIMEOUT_MS);
 
-    // 登录成功后直接重建页面栈。路由不得依赖隐藏根节点后的 setData 渲染回调，
-    // OpenHarmony 真机可能在根节点不可见后不再执行该回调，导致会话已建立却停在登录页。
+    // 登录成功后只允许一次 reLaunch。它同时清理登录页和历史页面栈，
+    // 避免旧版鸿蒙运行时中多次导航竞争导致页面停留在登录态。
+    if (typeof wx.reLaunch !== 'function') {
+      finish(false);
+      return;
+    }
     wx.reLaunch({
       url: PORTAL_ROUTE,
-      success: () => finish(true),
-      fail: () => finish(false)
+      success: function() { finish(true); },
+      fail: function() { finish(false); }
     });
   },
 
@@ -219,29 +312,27 @@ Page({
     });
   },
 
-  async onLogin() {
+  onLogin() {
     if (this._loginSubmitting || this.data.loading) return;
     this._loginSubmitting = true;
     this.setData({ loading: true, authNotice: '' });
-    try {
-      const code = await requestWechatLoginCode();
-      const result = await callFunction({
-        name: 'auth/wechat/session',
-        data: {
-          code
+    const page = this;
+    requestWechatSessionDirect({
+      success: function(result) {
+        page.setData({ loading: false });
+        try { page.handleWechatSession(result); } catch (error) {
+          showShortToast(getErrorText(error, copy.messages.relogin));
         }
-      });
-      // 服务端返回后立即结束按钮忙碌态；完整登录状态同步提交后直接进入门户，
-      // 不等待旧版鸿蒙基础库中不可靠的异步存储回调。
-      this.setData({ loading: false });
-      this.handleWechatSession(result);
-    } catch (error) {
-      const message = getErrorText(error, copy.messages.relogin);
-      if (message) showShortToast(message);
-    } finally {
-      this._loginSubmitting = false;
-      this.setData({ loading: false });
-    }
+      },
+      fail: function(error) {
+        const message = getErrorText(error, copy.messages.relogin);
+        if (message) showShortToast(message);
+      },
+      complete: function() {
+        page._loginSubmitting = false;
+        page.setData({ loading: false });
+      }
+    });
   },
 
   handleWechatSession(result) {

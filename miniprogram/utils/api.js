@@ -32,11 +32,12 @@ function createRequestId() {
 }
 
 function createRequestHeaders(requestId) {
+  const session = orgSession.getSnapshot();
   return {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + (wx.getStorageSync('token') || ''),
-    'X-Active-Org': wx.getStorageSync('activeOrgId') || '',
-    'X-Role': wx.getStorageSync('activeRole') || '',
+    'Authorization': 'Bearer ' + (session.token || ''),
+    'X-Active-Org': session.orgId || '',
+    'X-Role': session.role || '',
     'X-Client-Version': CLIENT_VERSION,
     'X-Request-Id': requestId || createRequestId()
   };
@@ -87,6 +88,14 @@ function applyResponseSideEffects(result) {
   try { captureSystemTimezone(result); } catch (_) {}
   try { notifyUpgrade(result); } catch (_) {}
   try { notifyOrgContextRequired(result); } catch (_) {}
+}
+
+function scheduleResponseSideEffects(result) {
+  // Promise 的续接要等当前 wx.request 回调返回后才会执行，因此不能只把
+  // resolve 写在副作用之前；必须把副作用移到下一轮任务，先让登录继续。
+  setTimeout(function() {
+    applyResponseSideEffects(result);
+  }, 0);
 }
 
 let orgPromptVisible = false;
@@ -267,7 +276,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
         }
         if (res.statusCode === 200) {
           resolve(res.data);
-          applyResponseSideEffects(res.data);
+          scheduleResponseSideEffects(res.data);
           return;
         }
         const responseData = res.data || {};

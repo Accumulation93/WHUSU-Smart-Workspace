@@ -37,9 +37,11 @@ Page({
           const views = (item.mySteps || []).map(function(step) {
             return workContextView.normalizeSnapshot(step.operatorContextSnapshot);
           });
-          const labels = Array.from(new Set(views.filter(function(view) {
+          const labels = views.filter(function(view) {
             return view.hasSnapshot;
-          }).map(function(view) { return view.assignmentLabel; })));
+          }).map(function(view) { return view.assignmentLabel; }).filter(function(value, index, source) {
+            return source.indexOf(value) === index;
+          });
           return Object.assign({}, item, {
             createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
             updatedAtText: formatAuditTime(item.updatedAt, item.updatedAtReviewStatus),

@@ -3,8 +3,7 @@ const assert = require('assert');
 const toasts = [];
 const redirects = [];
 const relaunches = [];
-let navigateMode = 'timeout';
-let redirectMode = 'success';
+let navigateMode = 'success';
 
 global.getCurrentPages = function() {
   return [{ route: 'subpackages/main/pages/login/login' }, { route: 'subpackages/main/pages/portal/portal' }];
@@ -39,19 +38,15 @@ let successCount = 0;
 navigateToTrustedRoute('/subpackages/main/pages/portal/portal', {
   success() { successCount += 1; }
 });
-assert.deepStrictEqual(redirects, [], '目标页已经打开时不得重复跳转');
-assert.strictEqual(successCount, 1, '目标页已经打开时必须按导航成功处理');
-assert.strictEqual(toasts.length, 0, '页面重建成功时不得误报页面打开失败');
+assert.deepStrictEqual(redirects, [], '正常导航不得启动第二种跳转');
+assert.strictEqual(successCount, 1, '正常导航必须按成功处理');
+assert.strictEqual(toasts.length, 0, '正常导航不得误报页面打开失败');
 
 navigateMode = 'failure';
 navigateToTrustedRoute('/subpackages/message/pages/messageCenter/messageCenter');
-assert.deepStrictEqual(redirects, ['/subpackages/message/pages/messageCenter/messageCenter'], '普通导航失败时必须替换当前页继续进入功能');
-assert.strictEqual(toasts.length, 0, '替换页面成功时不得误报页面打开失败');
-
-redirectMode = 'failure';
-navigateToTrustedRoute('/subpackages/workspace/pages/home/home?subApp=scoring');
-assert.deepStrictEqual(relaunches, ['/subpackages/workspace/pages/home/home?subApp=scoring'], '替换页面失败时必须重建页面栈');
-assert.strictEqual(toasts.length, 0, '重建页面栈成功时不得误报页面打开失败');
+assert.deepStrictEqual(redirects, [], '分包失败时不得用 redirectTo 竞争原导航');
+assert.deepStrictEqual(relaunches, [], '分包失败时不得用 reLaunch 破坏页面栈');
+assert.strictEqual(toasts.length, 1, '明确失败时必须释放状态并提示');
 
 navigateMode = 'success';
 navigateToTrustedRoute('/subpackages/message/pages/messageCenter/messageCenter');
@@ -66,20 +61,13 @@ global.setTimeout = function(callback) {
 };
 global.clearTimeout = function() {};
 navigateMode = 'silent';
-redirectMode = 'success';
 navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
-assert.strictEqual(typeof navigationTimeout, 'function', '跳转无回调时必须注册独立恢复超时');
+assert.strictEqual(typeof navigationTimeout, 'function', '跳转无回调时必须注册独立超时');
 navigationTimeout();
-assert.deepStrictEqual(
-  redirects,
-  [
-    '/subpackages/message/pages/messageCenter/messageCenter',
-    '/subpackages/workspace/pages/home/home?subApp=scoring',
-    '/subpackages/org/pages/identitySwitch/identitySwitch'
-  ],
-  '跳转回调丢失时必须主动替换当前页进入目标功能'
-);
+assert.deepStrictEqual(redirects, [], '跳转回调丢失时也不得发起第二种导航');
+assert.deepStrictEqual(relaunches, [], '跳转回调丢失时不得重建整个页面栈');
+assert.strictEqual(toasts.length, 2, '超时必须释放状态并提示用户重试');
 global.setTimeout = nativeSetTimeout;
 global.clearTimeout = nativeClearTimeout;
 
-console.log('小程序页面跳转超时恢复测试通过');
+console.log('小程序页面单航道跳转兼容测试通过');

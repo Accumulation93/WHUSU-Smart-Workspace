@@ -134,7 +134,7 @@ Page({
     const current = workContextView.normalizeCurrentWorkContext(
       authContext.getWorkContexts(),
       authContext.getSelection(),
-      profiles[snapshot.role] || profiles.user || {}
+      authContext.getRuntimeProfile(snapshot.role) || profiles[snapshot.role] || profiles.user || {}
     );
     this.setData({ activeWorkContext: current, hasActiveAssignment: current.hasAssignment });
   },

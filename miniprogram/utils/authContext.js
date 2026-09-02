@@ -16,6 +16,21 @@ const SELECTION_KEY = 'authSelection';
 const ACCOUNT_KEY = 'accountProfile';
 const PROFILE_KEY = 'roleProfiles';
 
+let runtimeAuthenticatedState = null;
+let persistenceGeneration = 0;
+
+function getAuthenticatedState() {
+  if (runtimeAuthenticatedState) return runtimeAuthenticatedState;
+  const compact = typeof orgSession.getAuthenticatedState === 'function'
+    ? orgSession.getAuthenticatedState()
+    : null;
+  if (compact && typeof compact === 'object') {
+    runtimeAuthenticatedState = compact;
+    return compact;
+  }
+  return null;
+}
+
 function stringValue(value) {
   return value === undefined || value === null ? '' : String(value);
 }
@@ -154,11 +169,14 @@ function normalizeWorkContexts(values, contexts) {
 
 function saveContexts(contexts) {
   const list = Array.isArray(contexts) ? contexts : [];
+  if (runtimeAuthenticatedState) runtimeAuthenticatedState.contexts = list;
   wx.setStorageSync(CONTEXTS_KEY, list);
   return list;
 }
 
 function getContexts() {
+  const runtime = getAuthenticatedState();
+  if (runtime) return runtime.contexts || [];
   const list = wx.getStorageSync(CONTEXTS_KEY);
   return Array.isArray(list) ? list : [];
 }
@@ -199,11 +217,15 @@ function saveCatalog(result) {
 }
 
 function getOrganizations() {
+  const runtime = getAuthenticatedState();
+  if (runtime) return runtime.organizations || [];
   const values = wx.getStorageSync(ORGANIZATIONS_KEY);
   return Array.isArray(values) ? values : organizationsFromContexts(getContexts());
 }
 
 function getIdentities() {
+  const runtime = getAuthenticatedState();
+  if (runtime) return runtime.identities || [];
   const values = wx.getStorageSync(IDENTITIES_KEY);
   if (Array.isArray(values) && values.length) return values;
   return getWorkContexts().map(function(item) {
@@ -222,6 +244,8 @@ function getIdentities() {
 }
 
 function getWorkContexts() {
+  const runtime = getAuthenticatedState();
+  if (runtime) return runtime.workContexts || [];
   const values = wx.getStorageSync(WORK_CONTEXTS_KEY);
   if (Array.isArray(values)) return values;
   const legacyValues = wx.getStorageSync(IDENTITIES_KEY);
@@ -250,6 +274,8 @@ function hasActiveUserAssignment() {
 }
 
 function getSelection() {
+  const runtime = getAuthenticatedState();
+  if (runtime) return withLegacySelectionAlias(runtime.selection);
   const value = wx.getStorageSync(SELECTION_KEY);
   if (value && typeof value === 'object') return withLegacySelectionAlias(value);
   const snapshot = orgSession.getSnapshot();
@@ -308,38 +334,126 @@ function saveOrganizationsFromContexts(contexts) {
   return organizations;
 }
 
-function applyAuthenticatedResult(result) {
-  const context = result && result.context ? result.context : null;
-  if (!context || !result.token) throw new Error(localeCopy.relogin);
-  const catalog = saveCatalog(result);
-  if (result.account) wx.setStorageSync(ACCOUNT_KEY, result.account);
-  const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
-  const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
-  roleProfiles[context.role] = profile;
-  wx.setStorageSync(PROFILE_KEY, roleProfiles);
-  const organizations = Array.isArray(result.availableOrgs) && result.availableOrgs.length
-    ? result.availableOrgs
-    : catalog.organizations;
-  wx.setStorageSync('availableOrgs', organizations);
-  wx.setStorageSync('availableOrgs:user', organizations.filter(function(item) {
+function buildAuthenticatedState(result) {
+  const source = result || {};
+  const context = source.context || null;
+  if (!context || !source.token) throw new Error(localeCopy.relogin);
+  const contexts = Array.isArray(source.contexts)
+    ? source.contexts
+    : (Array.isArray(source.workContexts) ? source.workContexts : []);
+  const organizations = Array.isArray(source.organizations) && source.organizations.length
+    ? source.organizations
+    : organizationsFromContexts(contexts);
+  const identities = Array.isArray(source.identities) ? source.identities : [];
+  const workContextValues = Array.isArray(source.workContexts) && source.workContexts.length
+    ? source.workContexts
+    : (identities.length ? identities : contexts);
+  const workContexts = normalizeWorkContexts(workContextValues, contexts);
+  const selection = normalizeSelection(source.selection, context, contexts);
+  const profile = normalizeProfile(Object.assign({}, source.account || {}, context, source.user || {}));
+  const availableOrganizations = Array.isArray(source.availableOrgs) && source.availableOrgs.length
+    ? source.availableOrgs
+    : organizations;
+  return {
+    result: source,
+    context,
+    contexts,
+    organizations,
+    identities,
+    workContexts,
+    selection,
+    profile,
+    availableOrganizations
+  };
+}
+
+function persistAuthenticatedStateLater(state) {
+  const generation = ++persistenceGeneration;
+  const roleProfiles = {};
+  roleProfiles[state.context.role] = state.profile;
+  const userOrganizations = state.availableOrganizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('user') >= 0;
-  }));
-  wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
+  });
+  const adminOrganizations = state.availableOrganizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('admin') >= 0;
-  }));
-  const selection = normalizeSelection(result.selection || catalog.selection, context);
-  if (selection.organizationId) wx.setStorageSync('lastOrganizationId', selection.organizationId);
-  if (selection.contextId) wx.setStorageSync('lastContextId', selection.contextId);
-  wx.removeStorageSync('lastIdentityId');
-  if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
-  const committed = orgSession.commitContext({
-    token: result.token,
-    contextId: context.contextId || selection.contextId || context.id || '',
-    role: context.role,
-    orgId: context.organizationId,
-    orgName: context.organizationName
+  });
+  const writes = [
+    [CONTEXTS_KEY, state.contexts],
+    [WORK_CONTEXTS_KEY, state.workContexts],
+    [ORGANIZATIONS_KEY, state.organizations],
+    [IDENTITIES_KEY, state.identities],
+    [SELECTION_KEY, state.selection],
+    [ACCOUNT_KEY, state.result.account || {}],
+    [PROFILE_KEY, roleProfiles],
+    ['availableOrgs', state.availableOrganizations],
+    ['availableOrgs:user', userOrganizations],
+    ['availableOrgs:admin', adminOrganizations],
+    ['lastOrganizationId', state.selection.organizationId || state.context.organizationId || ''],
+    ['lastContextId', state.selection.contextId || state.context.contextId || ''],
+    ['token', state.result.token],
+    ['activeRole', state.context.role || ''],
+    ['activeContextId', state.context.contextId || state.selection.contextId || ''],
+    ['activeOrgId', state.context.organizationId || state.selection.organizationId || ''],
+    ['activeOrgName', state.context.organizationName || ''],
+    ['authSelectionNotice', state.result.selectionNotice || ''],
+    ['lastIdentityId', ''],
+    ['activeIdentityId', '']
+  ];
+  // 门户已经拿到内存及紧凑会话后，再一次性发出兼容旧页面的后台写入。
+  // 不等待旧版鸿蒙可能丢失的完成回调；退出或再次登录后旧任务立即失效。
+  setTimeout(function() {
+    if (generation !== persistenceGeneration) return;
+    writes.forEach(function(entry) {
+      try {
+        if (typeof wx.setStorage === 'function') {
+          wx.setStorage({ key: entry[0], data: entry[1] });
+        } else {
+          wx.setStorageSync(entry[0], entry[1]);
+        }
+      } catch (_) {}
+    });
+  }, 800);
+}
+
+function getRuntimeProfile(role) {
+  const runtime = getAuthenticatedState();
+  if (!runtime) return null;
+  if (role && String((runtime.context && runtime.context.role) || '') !== String(role)) return null;
+  return runtime.profile || null;
+}
+
+function updateRuntimeProfile(role, profile) {
+  const runtime = getAuthenticatedState();
+  if (!runtime || !profile) return profile || null;
+  if (role && String((runtime.context && runtime.context.role) || '') !== String(role)) return profile;
+  runtime.profile = normalizeProfile(profile);
+  runtimeAuthenticatedState = runtime;
+  return runtime.profile;
+}
+
+function applyAuthenticatedResult(result) {
+  const state = buildAuthenticatedState(result);
+  runtimeAuthenticatedState = state;
+  const compactAuthState = {
+    context: state.context,
+    contexts: state.contexts,
+    organizations: state.organizations,
+    identities: state.identities,
+    workContexts: state.workContexts,
+    selection: state.selection,
+    profile: state.profile,
+    availableOrganizations: state.availableOrganizations
+  };
+  const committed = orgSession.commitFastContext({
+    token: state.result.token,
+    contextId: state.context.contextId || state.selection.contextId || state.context.id || '',
+    role: state.context.role,
+    orgId: state.context.organizationId || state.selection.organizationId,
+    orgName: state.context.organizationName,
+    authState: compactAuthState
   });
   markAuthenticationReady();
+  persistAuthenticatedStateLater(state);
   return committed;
 }
 
@@ -471,6 +585,8 @@ async function activateOrganizationContext(organizationId, preferredRole) {
 }
 
 function clearUnifiedAuthentication() {
+  persistenceGeneration += 1;
+  runtimeAuthenticatedState = null;
   wx.removeStorageSync(CONTEXTS_KEY);
   wx.removeStorageSync(WORK_CONTEXTS_KEY);
   wx.removeStorageSync(ORGANIZATIONS_KEY);
@@ -486,6 +602,8 @@ function clearUnifiedAuthentication() {
 
 module.exports = {
   normalizeProfile,
+  getRuntimeProfile,
+  updateRuntimeProfile,
   saveCatalog,
   saveContexts,
   getContexts,

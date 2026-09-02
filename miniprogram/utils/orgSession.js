@@ -7,7 +7,10 @@ const CONTEXT_KEY = 'activeContextId';
 const LEGACY_IDENTITY_KEY = 'activeIdentityId';
 const AUTH_CONTEXTS_KEY = 'authContexts';
 const AUTH_SELECTION_KEY = 'authSelection';
+const COMPACT_SESSION_KEY = 'authSession';
 const messageScope = require('./messageScope');
+
+let runtimeSnapshot = null;
 
 function removeStorageValue(key) {
   if (typeof wx.removeStorageSync === 'function') {
@@ -63,11 +66,12 @@ function markChanged() {
   return version;
 }
 
-function getSnapshot() {
+function readLegacySnapshot() {
   const orgId = String(wx.getStorageSync(ORG_KEY) || '');
   const role = String(wx.getStorageSync(ROLE_KEY) || '');
   return {
     orgId,
+    orgName: String(wx.getStorageSync(ORG_NAME_KEY) || ''),
     role,
     contextId: getStoredContextId(orgId, role),
     // 仅保留旧快照形状；该字段不再存值，也不参与任何上下文判断。
@@ -75,6 +79,42 @@ function getSnapshot() {
     token: String(wx.getStorageSync(TOKEN_KEY) || ''),
     version: getVersion()
   };
+}
+
+function normalizeCompactSnapshot(value) {
+  if (!value || typeof value !== 'object') return null;
+  const token = String(value.token || '');
+  const role = String(value.role || '');
+  const contextId = String(value.contextId || '');
+  const orgId = String(value.orgId || '');
+  if (!token && !role && !contextId && !orgId) return null;
+  return {
+    orgId,
+    orgName: String(value.orgName || ''),
+    role,
+    contextId,
+    identityId: '',
+    token,
+    version: Number(value.version || 0)
+  };
+}
+
+function getAuthenticatedState() {
+  let compact = null;
+  try { compact = wx.getStorageSync(COMPACT_SESSION_KEY); } catch (_) {}
+  return compact && compact.authState && typeof compact.authState === 'object'
+    ? compact.authState
+    : null;
+}
+
+function getSnapshot() {
+  if (runtimeSnapshot) return Object.assign({}, runtimeSnapshot);
+  const compact = normalizeCompactSnapshot(wx.getStorageSync(COMPACT_SESSION_KEY));
+  if (compact) {
+    runtimeSnapshot = compact;
+    return Object.assign({}, compact);
+  }
+  return readLegacySnapshot();
 }
 
 function isSameSnapshot(left, right) {
@@ -107,7 +147,8 @@ function commitContext(context) {
   if (has.call(next, 'orgName')) writeStorageValue(ORG_NAME_KEY, next.orgName);
   removeStorageValue(LEGACY_IDENTITY_KEY);
 
-  const afterWrite = getSnapshot();
+  runtimeSnapshot = null;
+  const afterWrite = readLegacySnapshot();
   const changed = before.orgId !== afterWrite.orgId
     || before.role !== afterWrite.role
     || before.contextId !== afterWrite.contextId
@@ -118,6 +159,8 @@ function commitContext(context) {
     messageScope.resetScope();
   }
   const version = changed ? markChanged() : afterWrite.version;
+  runtimeSnapshot = Object.assign({}, afterWrite, { version: version });
+  try { wx.setStorageSync(COMPACT_SESSION_KEY, runtimeSnapshot); } catch (_) {}
   return {
     changed,
     version,
@@ -125,14 +168,47 @@ function commitContext(context) {
   };
 }
 
+function commitFastContext(context) {
+  const next = context || {};
+  // 登录入口不得先读取散落的旧会话键。以当前绝对时间作为单调性足够的
+  // 页面会话版本，整个临界路径只跨原生存储桥一次。
+  const version = Date.now();
+  runtimeSnapshot = {
+    token: String(next.token || ''),
+    role: String(next.role || ''),
+    contextId: String(next.contextId || ''),
+    orgId: String(next.orgId || ''),
+    orgName: String(next.orgName || ''),
+    identityId: '',
+    version: version
+  };
+  // 登录临界路径只做一次紧凑同步写入。旧版鸿蒙的 JS/API 桥在连续数十次
+  // setStorageSync 或等待异步 storage 回调时可能长期阻塞；单对象快照既保证
+  // 页面切换后可恢复，又不把完整目录拆成多次桥调用。
+  try {
+    wx.setStorageSync(COMPACT_SESSION_KEY, Object.assign({}, runtimeSnapshot, {
+      authState: next.authState && typeof next.authState === 'object' ? next.authState : null
+    }));
+  } catch (_) {}
+  messageScope.resetScope();
+  return {
+    changed: true,
+    version: version,
+    snapshot: Object.assign({}, runtimeSnapshot)
+  };
+}
+
 function clearAuthentication(nextRole) {
-  return commitContext({
+  const committed = commitContext({
     token: '',
     role: nextRole || '',
     contextId: '',
     orgId: '',
     orgName: ''
   });
+  runtimeSnapshot = null;
+  removeStorageValue(COMPACT_SESSION_KEY);
+  return committed;
 }
 
 function isCurrent(snapshot) {
@@ -179,10 +255,12 @@ function invalidateRequests(page) {
 module.exports = {
   getVersion,
   getSnapshot,
+  getAuthenticatedState,
   isCurrent,
   consume,
   markChanged,
   commitContext,
+  commitFastContext,
   clearAuthentication,
   hasChanged,
   beginRequest,

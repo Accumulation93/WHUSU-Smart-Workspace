@@ -15,8 +15,9 @@ function saveRoleProfile(role, user) {
 }
 
 async function activateOrganization(organizationId) {
-  const role = wx.getStorageSync('activeRole') === 'admin' ? 'admin' : 'user';
-  if (wx.getStorageSync('activeContextId')) {
+  const session = orgSession.getSnapshot();
+  const role = session.role === 'admin' ? 'admin' : 'user';
+  if (session.contextId) {
     const activated = await authContext.activateOrganizationContext(organizationId, role);
     return {
       activeOrg: {

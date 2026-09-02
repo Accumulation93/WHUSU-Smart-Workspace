@@ -4,6 +4,7 @@ const { computeDisplayStatus, prepareVenueBookingDetail } = require('../../utils
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const {
   getSystemDate,
@@ -331,7 +332,7 @@ Page({
   _loadUserInfo() {
     try {
       let roleProfiles = wx.getStorageSync('roleProfiles');
-      let user = roleProfiles && roleProfiles.user;
+      let user = authContext.getRuntimeProfile('user') || (roleProfiles && roleProfiles.user);
       if (user) {
         this.setData({
           heroName: user.name || localeCopy.copy_592351d93c,

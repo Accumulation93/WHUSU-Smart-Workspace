@@ -83,12 +83,13 @@ global.wx = {
 };
 
 const api = require('../miniprogram/utils/api');
+const orgSession = require('../miniprogram/utils/orgSession');
 
 async function run() {
   const recovered = await api.callFunction({ name: 'getCurrentOrganization', data: {} });
   assert.strictEqual(recovered.status, 'success');
   assert.strictEqual(recovered.value, 44);
-  assert.strictEqual(storage.token, 'renewed-token');
+  assert.strictEqual(orgSession.getSnapshot().token, 'renewed-token');
   assert.strictEqual(relaunches.length, 0, '可恢复的登录不得打断当前操作');
   assert.strictEqual(
     requests.filter((item) => item.url.endsWith('/getCurrentOrganization')).length,

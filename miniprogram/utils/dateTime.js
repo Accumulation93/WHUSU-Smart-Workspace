@@ -14,17 +14,31 @@ let cachedConfig = {
   reviewRequired: false,
   reviewVersion: ''
 };
+let storedConfigRead = false;
+
+function isFiniteNumber(value) {
+  return typeof value === 'number' && isFinite(value);
+}
+
+function padText(value, width, append) {
+  let text = String(value);
+  const target = Number(width || 0);
+  while (text.length < target) text = append ? text + '0' : '0' + text;
+  return text;
+}
 
 function normalizeSystemTimezoneOffset(value, fallback) {
   const resolvedFallback = fallback === undefined ? DEFAULT_SYSTEM_TIMEZONE_OFFSET : fallback;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < MIN_TIMEZONE_OFFSET || parsed > MAX_TIMEZONE_OFFSET) {
+  if (!isFiniteNumber(parsed) || parsed < MIN_TIMEZONE_OFFSET || parsed > MAX_TIMEZONE_OFFSET) {
     return resolvedFallback;
   }
   return parsed;
 }
 
 function readStoredConfig() {
+  if (storedConfigRead) return cachedConfig;
+  storedConfigRead = true;
   if (typeof wx === 'undefined' || typeof wx.getStorageSync !== 'function') return cachedConfig;
   const stored = wx.getStorageSync(STORAGE_KEY);
   if (!stored || typeof stored !== 'object') return cachedConfig;
@@ -51,11 +65,7 @@ function setSystemTimezoneConfig(systemTimezoneOffset, configVersion, reviewRequ
     || cachedConfig.reviewRequired !== nextConfig.reviewRequired
     || cachedConfig.reviewVersion !== nextConfig.reviewVersion;
   cachedConfig = nextConfig;
-  if (changed && typeof wx !== 'undefined' && typeof wx.setStorage === 'function') {
-    wx.setStorage({ key: STORAGE_KEY, data: cachedConfig });
-  } else if (changed && typeof wx !== 'undefined' && typeof wx.setStorageSync === 'function') {
-    wx.setStorageSync(STORAGE_KEY, cachedConfig);
-  }
+  storedConfigRead = true;
   if (changed) eventBus.emit('time:configChanged', Object.assign({}, cachedConfig));
   return Object.assign({}, cachedConfig);
 }
@@ -72,6 +82,7 @@ function clearSystemTimezoneConfig() {
     reviewRequired: false,
     reviewVersion: ''
   };
+  storedConfigRead = true;
   if (typeof wx !== 'undefined' && typeof wx.removeStorageSync === 'function') {
     wx.removeStorageSync(STORAGE_KEY);
   }
@@ -80,9 +91,9 @@ function clearSystemTimezoneConfig() {
 function parseAbsoluteTime(value) {
   if (value instanceof Date) {
     const timestamp = value.getTime();
-    return Number.isFinite(timestamp) ? timestamp : null;
+    return isFiniteNumber(timestamp) ? timestamp : null;
   }
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'number') return isFiniteNumber(value) ? value : null;
   if (typeof value !== 'string') return null;
 
   const text = value.trim();
@@ -92,18 +103,18 @@ function parseAbsoluteTime(value) {
   if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/.test(text)) {
     // API/数据库绝对时间的无后缀兼容形式统一解释为 UTC，禁止前端按设备或显示时区猜测。
     const match = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/);
-    const milliseconds = Number(String(match[7] || '0').padEnd(3, '0'));
+    const milliseconds = Number(padText(match[7] || '0', 3, true));
     return Date.UTC(
       Number(match[1]), Number(match[2]) - 1, Number(match[3]),
       Number(match[4]), Number(match[5]), Number(match[6]), milliseconds
     );
   }
   const timestamp = Date.parse(text);
-  return Number.isFinite(timestamp) ? timestamp : null;
+  return isFiniteNumber(timestamp) ? timestamp : null;
 }
 
 function pad(value, width) {
-  return String(value).padStart(width || 2, '0');
+  return padText(value, width || 2, false);
 }
 
 function getShiftedUtcParts(value, systemTimezoneOffset) {
@@ -235,7 +246,7 @@ function formatSystemClock(value, includeSeconds, systemTimezoneOffset) {
 
 function addDateDays(dateValue, amount) {
   const date = formatDateOnly(String(dateValue || ''));
-  if (!date || !Number.isFinite(Number(amount))) return '';
+  if (!date || !isFiniteNumber(Number(amount))) return '';
   const parts = date.split('-').map(Number);
   const carrier = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + Number(amount)));
   return `${pad(carrier.getUTCFullYear(), 4)}-${pad(carrier.getUTCMonth() + 1)}-${pad(carrier.getUTCDate())}`;
@@ -258,7 +269,7 @@ function systemDateTimeToTimestamp(dateValue, timeValue, systemTimezoneOffset) {
   const iso = systemDateTimeToIsoUtc(dateValue, timeValue, systemTimezoneOffset);
   if (!iso) return null;
   const timestamp = Date.parse(iso);
-  return Number.isFinite(timestamp) ? timestamp : null;
+  return isFiniteNumber(timestamp) ? timestamp : null;
 }
 
 module.exports = {

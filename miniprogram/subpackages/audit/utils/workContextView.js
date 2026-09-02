@@ -56,7 +56,11 @@ function normalizeCandidate(candidate, activeAssignmentId) {
   const values = function(key) {
     return assignments.map(function(assignment) { return assignment[key]; }).filter(Boolean);
   };
-  const unique = function(list) { return Array.from(new Set(list)); };
+  const unique = function(list) {
+    return (list || []).filter(function(value, index, source) {
+      return source.indexOf(value) === index;
+    });
+  };
   return Object.assign({}, item, {
     id: safeString(item.id || item.hrId),
     studentId: safeString(item.studentId),
@@ -109,12 +113,12 @@ function candidateMatches(candidate, filters) {
 }
 
 function selectedAssignmentViews(persons, selectedAssignmentIds, unavailableLabel) {
-  const selected = new Set((Array.isArray(selectedAssignmentIds) ? selectedAssignmentIds : []).map(safeString));
+  const selected = (Array.isArray(selectedAssignmentIds) ? selectedAssignmentIds : []).map(safeString);
   const views = [];
   (Array.isArray(persons) ? persons : []).forEach(function(person) {
     (person.eligibleAssignments || []).forEach(function(assignment) {
       const assignmentId = safeString(assignment.assignmentId);
-      if (!assignmentId || !selected.has(assignmentId)) return;
+      if (!assignmentId || selected.indexOf(assignmentId) < 0) return;
       views.push({
         selectionKey: assignmentId,
         id: safeString(person.id),
@@ -137,11 +141,11 @@ function selectedAssignmentViews(persons, selectedAssignmentIds, unavailableLabe
 }
 
 function decorateAssignmentSelection(persons, selectedAssignmentIds) {
-  const selected = new Set((Array.isArray(selectedAssignmentIds) ? selectedAssignmentIds : []).map(safeString));
+  const selected = (Array.isArray(selectedAssignmentIds) ? selectedAssignmentIds : []).map(safeString);
   return (Array.isArray(persons) ? persons : []).map(function(person) {
     const assignments = (person.eligibleAssignments || []).map(function(assignment) {
       return Object.assign({}, assignment, {
-        isSelected: selected.has(safeString(assignment.assignmentId))
+        isSelected: selected.indexOf(safeString(assignment.assignmentId)) >= 0
       });
     });
     return Object.assign({}, person, {
@@ -200,7 +204,8 @@ function normalizeCurrentWorkContext(workContexts, selection, profile) {
 function contextLabels(source) {
   const item = source || {};
   const contexts = item.requiredWorkContexts || item.eligibleWorkContexts || item.workContexts || item.eligibleAssignments || [];
-  return Array.from(new Set((Array.isArray(contexts) ? contexts : []).map(buildAssignmentLabel).filter(Boolean)));
+  return (Array.isArray(contexts) ? contexts : []).map(buildAssignmentLabel).filter(Boolean)
+    .filter(function(value, index, source) { return source.indexOf(value) === index; });
 }
 
 function normalizePendingItem(source, currentContext) {

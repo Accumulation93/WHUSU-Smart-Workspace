@@ -301,8 +301,9 @@ Page({
 
   contextSwitchKind(item) {
     if (!item) return '';
+    const activeSession = orgSession.getSnapshot();
     if (item.organizationId
-      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
+      && item.organizationId !== String(activeSession.orgId || '')) {
       return 'organization';
     }
     const targetContextId = String(item.contextId || '') || authContext.resolveContextId(
@@ -320,7 +321,7 @@ Page({
 
   openSwitchDialog(item, type) {
     this._pendingNavigation = { item, type };
-    const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
+    const sameOrganization = item.organizationId === String(orgSession.getSnapshot().orgId || '');
     this.setData({
       showSwitchDialog: true,
       switchDialogTitle: sameOrganization
@@ -377,7 +378,7 @@ Page({
       try {
         await this.markNotificationRead(item);
       } catch (_) {
-        const role = wx.getStorageSync('activeRole') || '';
+        const role = orgSession.getSnapshot().role || '';
         queuePendingRead(item.organizationId, role, item.id);
       }
     }
@@ -559,8 +560,9 @@ Page({
   },
 
   async retryPendingNotificationReads() {
-    const orgId = wx.getStorageSync('activeOrgId') || '';
-    const role = wx.getStorageSync('activeRole') || '';
+    const activeSession = orgSession.getSnapshot();
+    const orgId = activeSession.orgId || '';
+    const role = activeSession.role || '';
     const key = pendingReadStorageKey(orgId, role);
     const ids = wx.getStorageSync(key) || [];
     if (!Array.isArray(ids) || !ids.length) return;

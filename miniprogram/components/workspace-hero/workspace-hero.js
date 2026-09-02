@@ -1,10 +1,12 @@
 const localeCopy = require('../../locales/zh-CN/generated/components/workspace-hero/workspace-hero');
 const eventBus = require('../../utils/eventBus');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
+const orgSession = require('../../utils/orgSession');
+const authContext = require('../../utils/authContext');
 
 function getActiveWorkContext() {
-  const activeContextId = String(wx.getStorageSync('activeContextId') || '');
-  const workContexts = wx.getStorageSync('authWorkContexts');
+  const activeContextId = String(orgSession.getSnapshot().contextId || '');
+  const workContexts = authContext.getWorkContexts();
   if (!activeContextId || !Array.isArray(workContexts)) return {};
   return workContexts.find(function(item) {
     return String(item && item.contextId || '') === activeContextId;
@@ -22,16 +24,17 @@ function getWorkContextName(profile, role, workContext) {
 }
 
 function getProfile() {
-  const role = String(wx.getStorageSync('activeRole') || '');
+  const session = orgSession.getSnapshot();
+  const role = String(session.role || '');
   const profiles = wx.getStorageSync('roleProfiles') || {};
   const account = wx.getStorageSync('accountProfile') || {};
-  const profile = profiles[role] || {};
+  const profile = authContext.getRuntimeProfile(role) || profiles[role] || {};
   const workContext = getActiveWorkContext();
   return {
     role: role,
     name: profile.name || account.name || '',
     workContextName: getWorkContextName(profile, role, workContext),
-    organizationName: String(wx.getStorageSync('activeOrgName') || '')
+    organizationName: String(session.orgName || '')
   };
 }
 

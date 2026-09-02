@@ -460,8 +460,9 @@ Page({
   },
 
   refreshUserFromCloud() {
-    const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
-    const activeOrgId = wx.getStorageSync('activeOrgId') || '';
+    const activeSession = orgSession.getSnapshot();
+    const activeRole = activeSession.role || '';
+    const activeOrgId = activeSession.orgId || '';
 
     if (activeRole !== 'user' || !activeOrgId) {
       return;
@@ -505,15 +506,18 @@ Page({
     this.applySubAppFilter();
     const subAppLabel = this._subAppLabel || '';
     const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    let activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
+    const activeSession = orgSession.getSnapshot();
+    let activeRole = activeSession.role || '';
+    let runtimeProfile = authContext.getRuntimeProfile(activeRole);
 
-    if (!roleProfiles[activeRole]) {
+    if (!runtimeProfile && !roleProfiles[activeRole]) {
       const roleList = Object.keys(roleProfiles);
       activeRole = roleList.length ? roleList[0] : '';
       orgSession.commitContext({ role: activeRole });
+      runtimeProfile = authContext.getRuntimeProfile(activeRole);
     }
 
-    const currentUser = activeRole ? roleProfiles[activeRole] : null;
+    const currentUser = activeRole ? (runtimeProfile || roleProfiles[activeRole] || null) : null;
     const isAdminRole = activeRole === 'admin';
 
     this.setData({
@@ -532,7 +536,7 @@ Page({
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
       hrProfile: emptyHrProfileState(),
       auditCanVerify: false,
-      organizationName: wx.getStorageSync('activeOrgName') || this.data.organizationName
+      organizationName: activeSession.orgName || this.data.organizationName
     });
 
     if (currentUser && activeRole === 'user') {
@@ -599,7 +603,7 @@ Page({
   },
 
   loadOrganizationName() {
-    const storedName = wx.getStorageSync('activeOrgName') || '';
+    const storedName = orgSession.getSnapshot().orgName || '';
     if (storedName) {
       this.setData({ organizationName: storedName });
       return;
@@ -1015,7 +1019,7 @@ Page({
       {}, sameContext ? current : {}, profile || {}, {
         contextId: snapshot.contextId,
         organizationId: snapshot.orgId,
-        organizationName: wx.getStorageSync('activeOrgName') || ''
+        organizationName: snapshot.orgName || ''
       }
     ));
     wx.setStorageSync(STORAGE_KEY, roleProfiles);
@@ -1125,7 +1129,7 @@ Page({
   },
 
   async checkPublication() {
-    const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
+    const activeRole = orgSession.getSnapshot().role || '';
     if (activeRole !== 'user') return;
     const activityId = this.data.currentActivity ? this.data.currentActivity.id : '';
     const request = orgSession.beginRequest(this, 'publication');

@@ -184,7 +184,7 @@ Page({
   refreshActiveWorkContext() {
     const snapshot = orgSession.getSnapshot();
     const profiles = wx.getStorageSync('roleProfiles') || {};
-    const profile = profiles[snapshot.role] || profiles.user || {};
+    const profile = authContext.getRuntimeProfile(snapshot.role) || profiles[snapshot.role] || profiles.user || {};
     const current = workContextView.normalizeCurrentWorkContext(
       authContext.getWorkContexts(),
       authContext.getSelection(),

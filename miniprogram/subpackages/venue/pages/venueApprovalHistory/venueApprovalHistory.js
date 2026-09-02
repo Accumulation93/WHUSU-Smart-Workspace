@@ -1,6 +1,7 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { formatAssignmentLabel } = require('../../utils/workContextPresentation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
@@ -27,10 +28,10 @@ Page({
 
   onShow() {
     const organizationState = orgSession.consume(this);
-    const role = wx.getStorageSync('activeRole') === 'admin' ? 'admin' : 'user';
+    const role = organizationState.snapshot.role === 'admin' ? 'admin' : 'user';
     const profiles = wx.getStorageSync('roleProfiles') || {};
-    const profile = profiles[role] || {};
-    const organizationName = wx.getStorageSync('activeOrgName') || localeCopy.copy_2b8b8bf904;
+    const profile = authContext.getRuntimeProfile(role) || profiles[role] || {};
+    const organizationName = organizationState.snapshot.orgName || localeCopy.copy_2b8b8bf904;
     const workContextName = profile.assignmentLabel || localeCopy.copy_5825b0b531;
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);

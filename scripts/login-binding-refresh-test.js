@@ -8,6 +8,7 @@ const storage = {};
 const toasts = [];
 const navigations = [];
 const relaunches = [];
+const synchronousWrites = [];
 
 async function callFunction(options) {
   calls.push({ name: options.name, data: Object.assign({}, options.data || {}) });
@@ -50,7 +51,10 @@ async function callFunction(options) {
 global.wx = {
   setNavigationBarTitle() {},
   getStorageSync(key) { return storage[key]; },
-  setStorageSync(key, value) { storage[key] = value; },
+  setStorageSync(key, value) {
+    synchronousWrites.push(key);
+    storage[key] = value;
+  },
   removeStorageSync(key) { delete storage[key]; },
   setStorage(options) {
     storage[options.key] = options.data;
@@ -65,6 +69,49 @@ global.wx = {
     if (typeof options.success === 'function') options.success();
   },
   login(options) { options.success({ code: 'fresh-wx-code' }); },
+  request(options) {
+    if (!options.url.endsWith('/auth/wechat/session')) {
+      throw new Error('未预期的原生请求：' + options.url);
+    }
+    calls.push({ name: 'auth/wechat/session', data: Object.assign({}, options.data || {}) });
+    setTimeout(function() {
+      if (scenario === 'directLogin') {
+        options.success({
+          statusCode: 200,
+          data: JSON.stringify({
+            status: 'login_success',
+            token: 'direct-access-token',
+            context: {
+              contextId: 'assignment:direct:org-44',
+              role: 'user',
+              organizationId: 'org-44',
+              organizationName: '第四十四届',
+              assignmentId: 'assignment:direct'
+            },
+            contexts: [{
+              contextId: 'assignment:direct:org-44',
+              role: 'user',
+              organizationId: 'org-44',
+              organizationName: '第四十四届',
+              assignmentId: 'assignment:direct'
+            }],
+            user: { id: 'hr-direct', name: '真机测试用户' }
+          })
+        });
+        return;
+      }
+      options.success({
+        statusCode: 200,
+        data: {
+          status: 'need_claim',
+          bootstrapToken: 'bootstrap-token',
+          organizations: [{ id: 'org-44', name: '第四十四届' }],
+          recoveryMethods: { recoveryCode: false, passphrase: false }
+        }
+      });
+    }, 0);
+    return { abort() {} };
+  },
   showToast(options) { toasts.push(options); },
   nextTick(callback) { callback(); },
   navigateTo(options) {
@@ -85,7 +132,10 @@ Module._load = function(request, parent, isMain) {
   }
   if (request === '../../../../utils/api') {
     return {
+      API_BASE: 'https://example.test/api',
+      CLIENT_VERSION: 'test-client',
       callFunction,
+      createRequestId() { return 'test-request-id'; },
       showShortToast(title, icon) { toasts.push({ title, icon: icon || 'none' }); },
       getErrorText(error, fallback) { return error && error.message ? error.message : fallback; }
     };
@@ -94,6 +144,7 @@ Module._load = function(request, parent, isMain) {
 };
 require('../miniprogram/subpackages/main/pages/login/login');
 Module._load = originalLoad;
+const orgSession = require('../miniprogram/utils/orgSession');
 
 function createPage(overrides) {
   const page = Object.assign({}, pageDefinition);
@@ -110,9 +161,9 @@ async function run() {
 
   const page = createPage();
   page.onLoad();
-  const loginPromise = page.onLogin();
   page.onLogin();
-  await loginPromise;
+  page.onLogin();
+  await new Promise(function(resolve) { setTimeout(resolve, 0); });
   assert.strictEqual(calls.filter((item) => item.name === 'auth/wechat/session').length, 1);
   const wechatLoginCall = calls.find((item) => item.name === 'auth/wechat/session');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(wechatLoginCall.data, 'deviceId'), false);
@@ -126,9 +177,16 @@ async function run() {
   assert.strictEqual(page.data.claimId, 'claim-1');
 
   page.setData({ verificationCode: 'ABCD1234' });
+  const writesBeforeLoginCommit = synchronousWrites.length;
   await page.verifyClaim();
-  assert.strictEqual(storage.token, 'access-token');
-  assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
+  assert.strictEqual(orgSession.getSnapshot().token, 'access-token');
+  assert.strictEqual(orgSession.getSnapshot().contextId, 'assignment:one:org-44');
+  assert.strictEqual(
+    synchronousWrites.length - writesBeforeLoginCommit,
+    1,
+    '登录成功临界路径只允许写入一次紧凑会话'
+  );
+  assert.strictEqual(synchronousWrites[synchronousWrites.length - 1], 'authSession');
   assert(relaunches.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
 
@@ -143,6 +201,19 @@ async function run() {
   await recoveryPage.startRecovery();
   assert.strictEqual(recoveryPage.data.stage, 'recoveryPending');
   assert.strictEqual(recoveryPage.data.recoveryRequestId, 'recovery-1');
+
+  scenario = 'directLogin';
+  const directPage = createPage();
+  directPage.onLoad();
+  const directWritesBefore = synchronousWrites.length;
+  directPage.onLogin();
+  await new Promise(function(resolve) { setTimeout(resolve, 0); });
+  assert.strictEqual(directPage.data.loading, false, '微信登录响应后必须立即解除按钮加载态');
+  assert.strictEqual(directPage._loginSubmitting, false, '微信登录完成后必须释放防重复提交锁');
+  assert.strictEqual(orgSession.getSnapshot().token, 'direct-access-token');
+  assert.strictEqual(synchronousWrites.length - directWritesBefore, 1, '微信登录只允许一次紧凑同步落盘');
+  assert.strictEqual(synchronousWrites[synchronousWrites.length - 1], 'authSession');
+  assert.strictEqual(relaunches[relaunches.length - 1], '/subpackages/main/pages/portal/portal');
 
   console.log('统一登录、认领与默认人工恢复流程测试通过');
 }

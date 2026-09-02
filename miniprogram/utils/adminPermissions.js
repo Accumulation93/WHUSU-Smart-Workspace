@@ -40,7 +40,8 @@ const PORTAL_PERMISSION_MAP = {
 
 function getAdminProfile() {
   const profiles = wx.getStorageSync(STORAGE_KEY) || {};
-  return profiles.admin || null;
+  const runtimeProfile = require('./authContext').getRuntimeProfile('admin');
+  return runtimeProfile || profiles.admin || null;
 }
 
 function hasAny(profile, keys) {
@@ -62,13 +63,15 @@ function canAccessPermissionSystem(profile) {
 
 function savePermissionState(result) {
   const profiles = wx.getStorageSync(STORAGE_KEY) || {};
-  if (!profiles.admin) return null;
-  profiles.admin = Object.assign({}, profiles.admin, {
-    adminLevel: result.adminLevel || profiles.admin.adminLevel,
+  const current = require('./authContext').getRuntimeProfile('admin') || profiles.admin;
+  if (!current) return null;
+  profiles.admin = Object.assign({}, current, {
+    adminLevel: result.adminLevel || current.adminLevel,
     permissions: result.permissions || {},
     permissionKeys: result.permissionKeys || [],
     canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem)
   });
+  profiles.admin = require('./authContext').updateRuntimeProfile('admin', profiles.admin);
   wx.setStorageSync(STORAGE_KEY, profiles);
   return profiles.admin;
 }

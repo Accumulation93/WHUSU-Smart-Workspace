@@ -1,4 +1,4 @@
-require('./utils/tableFile');
+require('./utils/runtimeCompat');
 const copy = require('./locales/zh-CN/app');
 const { callFunction } = require('./utils/api');
 const eventBus = require('./utils/eventBus');
@@ -11,7 +11,6 @@ App({
     const that = this;
     this._timeConfigChangedHandler = function(config) { that._notifyTimeConfigChanged(config); };
     eventBus.on('time:configChanged', this._timeConfigChangedHandler);
-    this.refreshTimeConfig(true);
     if (!wx.getUpdateManager) return;
     const updateManager = wx.getUpdateManager();
     this._updateManager = updateManager;
@@ -32,7 +31,11 @@ App({
   },
 
   onShow: function () {
-    this.refreshTimeConfig(false);
+    // 登录页保持最小原生桥并发。只有已有会话时才刷新非关键时区配置，
+    // 避免鸿蒙真机启动阶段先发配置请求、再与微信认证争用请求/存储桥。
+    let hasSession = false;
+    try { hasSession = Boolean(require('./utils/orgSession').getSnapshot().token); } catch (_) {}
+    if (hasSession) this.refreshTimeConfig(false);
   },
 
   refreshTimeConfig: function (force) {
@@ -98,15 +101,16 @@ App({
   notifyUpgradeRequired: function (message) {
     if (this._upgradePromptVisible) return;
     this._upgradePromptVisible = true;
+    const app = this;
     const updateManager = this._updateManager;
     wx.showModal({
       title: copy.upgradeRequiredTitle,
       content: message || copy.upgradeRequiredDescription,
       showCancel: false,
       confirmText: copy.restartToUpdate,
-      complete: () => {
-        this._upgradePromptVisible = false;
-        if (updateManager && this._updateReady) {
+      complete: function() {
+        app._upgradePromptVisible = false;
+        if (updateManager && app._updateReady) {
           updateManager.applyUpdate();
         } else {
           wx.showToast({ title: copy.reopenProgram, icon: 'none' });

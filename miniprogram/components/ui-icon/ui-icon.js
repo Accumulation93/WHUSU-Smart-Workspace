@@ -1,10 +1,10 @@
 'use strict';
 
-const ICON_NAMES = new Set([
+const ICON_NAMES = [
   'bell', 'calendar', 'check', 'chevron-right', 'clock', 'edit', 'file',
   'grid', 'home', 'list', 'plus', 'search', 'shield', 'signature', 'trash',
   'user', 'venue', 'x'
-]);
+];
 
 Component({
   properties: {
@@ -35,8 +35,8 @@ Component({
   },
 
   observers: {
-    name(name) {
-      const safeName = ICON_NAMES.has(name) ? name : 'home';
+    name: function(name) {
+      const safeName = ICON_NAMES.indexOf(name) >= 0 ? name : 'home';
       this.setData({ src: `/assets/icons/${safeName}.svg` });
     }
   }

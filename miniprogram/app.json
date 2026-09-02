@@ -75,6 +75,5 @@
     "viewport-portal": "/components/viewport-portal/viewport-portal"
   },
   "style": "v2",
-  "componentFramework": "glass-easel",
   "lazyCodeLoading": "requiredComponents"
 }

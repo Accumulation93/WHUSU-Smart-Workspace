@@ -1,5 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
 const { formatListTime } = require('../../../utils/dateTime');
+const orgSession = require('../../../utils/orgSession');
+const authContext = require('../../../utils/authContext');
 
 function safeText(value) {
   return value === undefined || value === null ? '' : String(value).trim();
@@ -116,8 +118,8 @@ function decorateApproverCandidates(candidates) {
 
 function activeUserHasAssignment() {
   const profiles = wx.getStorageSync('roleProfiles') || {};
-  const activeRole = wx.getStorageSync('activeRole') || 'user';
-  const profile = profiles[activeRole] || {};
+  const activeRole = orgSession.getSnapshot().role || 'user';
+  const profile = authContext.getRuntimeProfile(activeRole) || profiles[activeRole] || {};
   return activeRole === 'user' && Boolean(safeText(profile.assignmentId));
 }
 

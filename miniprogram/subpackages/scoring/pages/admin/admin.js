@@ -672,8 +672,9 @@ Page({
 
   async bootstrapPage() {
     let roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    let adminProfile = roleProfiles.admin;
-    const activeRole = wx.getStorageSync('activeRole') || '';
+    let adminProfile = authContext.getRuntimeProfile('admin') || roleProfiles.admin;
+    const activeSession = orgSession.getSnapshot();
+    const activeRole = activeSession.role || '';
     const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
 
     if (!adminProfile || activeRole !== 'admin') {
@@ -703,7 +704,7 @@ Page({
     ]);
     const canWriteAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts.write']);
     const canBrowseHrInfo = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
-    const activeOrgId = wx.getStorageSync('activeOrgId') || '';
+    const activeOrgId = activeSession.orgId || '';
     const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || '', (adminProfile.permissionKeys || []).slice().sort().join(',')].join('::');
 
     if (this._bootstrapKey === bootstrapKey && (this._bootstrapComplete || this._bootstrapPromise)) {
@@ -713,7 +714,7 @@ Page({
     this._bootstrapComplete = false;
 
     // 读取当前活跃组织名称
-    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+    const activeOrgName = activeSession.orgName || '';
 
     this.setData({
       user: adminProfile,
