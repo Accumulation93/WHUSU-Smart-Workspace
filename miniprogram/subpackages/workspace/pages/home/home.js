@@ -5,7 +5,6 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
 const STORAGE_KEY = 'roleProfiles';
-const ACTIVE_ROLE_KEY = 'activeRole';
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
@@ -380,7 +379,12 @@ Page({
 
   onShow() {
     const organizationState = orgSession.consume(this);
-    const organizationChanged = organizationState.changed;
+    const snapshot = organizationState.snapshot;
+    const contextKey = [snapshot.role, snapshot.orgId, snapshot.contextId].join('::');
+    const firstEntry = !this._homeContextKey;
+    const organizationChanged = organizationState.changed
+      || (!!this._homeContextKey && this._homeContextKey !== contextKey);
+    this._homeContextKey = contextKey;
     this._orgContextSnapshot = organizationState.snapshot;
     const preservedTab = this.data.activeTab;
     if (organizationChanged) {
@@ -394,9 +398,22 @@ Page({
         activityPaused: false
       });
     }
-    this.refreshCurrentUser();
-    this.refreshUserFromCloud();
-    this.loadCurrentActivity();
+    this.refreshCurrentUser({ resetPageState: firstEntry || organizationChanged });
+    if (snapshot.role === 'user') {
+      if (this._subApp === 'scoring') {
+        this.fetchRateTargets('user', {
+          preserveExisting: !organizationChanged && this.data.targetList.length > 0
+        });
+        if (firstEntry || organizationChanged || !this.data.currentActivity) {
+          this.loadCurrentActivity({ discoverPublication: true });
+        }
+      }
+      if (firstEntry || organizationChanged) this.refreshUserFromCloud();
+      if (this._subApp === 'hr') {
+        this.loadUserHrProfile();
+        this.loadAccountSecurity();
+      }
+    }
     this.loadOrganizationName();
   },
 
@@ -490,37 +507,19 @@ Page({
         });
 
         this.rebuildUserTabs();
-        this.fetchRateTargets('user');
-        this.loadUserHrProfile();
-        if (this._subApp === 'hr') this.loadAccountSecurity();
       }
-    }).catch(() => {
-      if (!orgSession.isRequestCurrent(this, request) || this.data.activeRole !== 'user') return;
-      this.fetchRateTargets('user');
-      this.loadUserHrProfile();
-      if (this._subApp === 'hr') this.loadAccountSecurity();
-    });
+    }).catch(() => {});
   },
 
-  refreshCurrentUser() {
+  refreshCurrentUser(options) {
+    const settings = options || {};
     this.applySubAppFilter();
     const subAppLabel = this._subAppLabel || '';
-    const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     const activeSession = orgSession.getSnapshot();
-    let activeRole = activeSession.role || '';
-    let runtimeProfile = authContext.getRuntimeProfile(activeRole);
-
-    if (!runtimeProfile && !roleProfiles[activeRole]) {
-      const roleList = Object.keys(roleProfiles);
-      activeRole = roleList.length ? roleList[0] : '';
-      orgSession.commitContext({ role: activeRole });
-      runtimeProfile = authContext.getRuntimeProfile(activeRole);
-    }
-
-    const currentUser = activeRole ? (runtimeProfile || roleProfiles[activeRole] || null) : null;
+    const activeRole = activeSession.role || '';
+    const currentUser = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
     const isAdminRole = activeRole === 'admin';
-
-    this.setData({
+    const patch = {
       activeRole,
       user: currentUser,
       hasUser: !!currentUser,
@@ -528,16 +527,22 @@ Page({
       heroName: currentUser ? currentUser.name : copy.text.welcome,
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
       heroSubtitle: currentUser ? subAppLabel : copy.text.signInWithWechat,
-      targetList: [],
-      selectedTargetId: '',
-      targetsEmptyText: copy.text.loadingDots,
-      targetsLoading: false,
-      scoringStats: { total: 0, scored: 0, pending: 0 },
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
-      hrProfile: emptyHrProfileState(),
-      auditCanVerify: false,
       organizationName: activeSession.orgName || this.data.organizationName
-    });
+    };
+    if (settings.resetPageState) {
+      Object.assign(patch, {
+        targetList: [],
+        targetGroups: [],
+        selectedTargetId: '',
+        targetsEmptyText: copy.text.loadingDots,
+        targetsLoading: false,
+        scoringStats: { total: 0, scored: 0, pending: 0 },
+        hrProfile: emptyHrProfileState(),
+        auditCanVerify: false
+      });
+    }
+    this.setData(patch);
 
     if (currentUser && activeRole === 'user') {
       // 用户信息现在以 checkLogin 云端合并结果为准，
@@ -575,7 +580,8 @@ Page({
     }
   },
 
-  loadCurrentActivity() {
+  loadCurrentActivity(options) {
+    const settings = options || {};
     const request = orgSession.beginRequest(this, 'currentActivity');
     callFunction({
       name: 'getCurrentScoreActivity',
@@ -583,12 +589,17 @@ Page({
         if (!orgSession.isRequestCurrent(this, request)) return;
         const result = res.result || {};
         const activity = result.activity || null;
+        const previousActivityId = this.data.currentActivity ? this.data.currentActivity.id : '';
+        const nextActivityId = activity ? activity.id : '';
         this.setData({
           currentActivity: activity,
           currentActivityText: activity ? activity.name : copy.text.noActivity,
           activityPaused: activity ? !!activity.isPaused : false
         });
-        this.checkPublication();
+        if (settings.discoverPublication || previousActivityId !== nextActivityId
+          || this.data.activeTab === 'results' || this.data.activeTab === 'meritList') {
+          this.checkPublication();
+        }
       },
       fail: () => {
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -597,7 +608,7 @@ Page({
           currentActivityText: copy.text.noActivity,
           activityPaused: false
         });
-        this.checkPublication();
+        if (settings.discoverPublication) this.checkPublication();
       }
     });
   },
@@ -627,8 +638,10 @@ Page({
     navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
-  processRateTargetsResult(result) {
+  processRateTargetsResult(result, options) {
+    const settings = options || {};
     if (result.status !== 'success') {
+      if (settings.preserveExisting && this.data.targetList.length) return;
       this.setData({
         targetList: [],
         targetGroups: [],
@@ -671,32 +684,40 @@ Page({
     });
   },
 
-  fetchRateTargets(role) {
+  fetchRateTargets(role, options) {
+    const settings = options || {};
     const request = orgSession.beginRequest(this, 'rateTargets');
-    this.setData({
+    const loadingPatch = {
       targetsLoading: true,
-      targetList: [],
-      targetGroups: [],
       selectedTargetId: '',
-      targetsEmptyText: copy.text.loadingTargets,
-      scoringStats: { total: 0, scored: 0, pending: 0 }
-    });
+      targetsEmptyText: this.data.targetList.length ? this.data.targetsEmptyText : copy.text.loadingTargets
+    };
+    if (!settings.preserveExisting) {
+      Object.assign(loadingPatch, {
+        targetList: [],
+        targetGroups: [],
+        scoringStats: { total: 0, scored: 0, pending: 0 }
+      });
+    }
+    this.setData(loadingPatch);
 
     callFunction({
       name: 'getRateTargets',
       data: { role },
       success: (res) => {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        this.processRateTargetsResult(res.result || {});
+        this.processRateTargetsResult(res.result || {}, settings);
       },
       fail: () => {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        this.setData({
-          targetList: [],
-          targetGroups: [],
-          targetsEmptyText: copy.text.refreshTargetsLater,
-          scoringStats: { total: 0, scored: 0, pending: 0 }
-        });
+        if (!settings.preserveExisting || !this.data.targetList.length) {
+          this.setData({
+            targetList: [],
+            targetGroups: [],
+            targetsEmptyText: copy.text.refreshTargetsLater,
+            scoringStats: { total: 0, scored: 0, pending: 0 }
+          });
+        }
       },
       complete: () => {
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -1022,6 +1043,7 @@ Page({
         organizationName: snapshot.orgName || ''
       }
     ));
+    roleProfiles[role] = authContext.updateRuntimeProfile(role, roleProfiles[role]) || roleProfiles[role];
     wx.setStorageSync(STORAGE_KEY, roleProfiles);
     return roleProfiles[role];
   },
@@ -1138,10 +1160,17 @@ Page({
       this.rebuildUserTabs(true);
       return;
     }
+    // 两项权限互不依赖并行加载；任一临时失败都保留上次已确认状态，
+    // 不再把网络波动伪装成“没有权限”并删除页签。
+    const resultRequest = new Promise((resolve, reject) => {
+      callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
+    }).catch((error) => ({ __requestFailed: true, error }));
+    const meritRequest = new Promise((resolve, reject) => {
+      callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
+    }).catch((error) => ({ __requestFailed: true, error }));
     try {
-      const res = await new Promise((resolve, reject) => {
-        callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
-      });
+      const res = await resultRequest;
+      if (res.__requestFailed) throw res.error;
       if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
@@ -1212,30 +1241,39 @@ Page({
           resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
         this.applyResultFilters();
       } else if (res.status === 'no_permission') {
-        this.setData({ ...emptyPublicationState(), hasPublication: true, hasViewPerm: false });
-      } else {
+        this.setData({
+          publishedResults: [],
+          publishedGroups: [],
+          filteredResults: [],
+          filteredGroups: [],
+          hasPublication: true,
+          hasViewPerm: false
+        });
+      } else if (res.status === 'not_published') {
         this.setData(emptyPublicationState());
       }
     } catch (e) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      console.error('checkPublication error:', e);
-      this.setData(emptyPublicationState());
     }
 
     if (!orgSession.isRequestCurrent(this, request)) return;
     try {
-      const mlRes = await new Promise((resolve, reject) => {
-        callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
-      });
+      const mlRes = await meritRequest;
+      if (mlRes.__requestFailed) throw mlRes.error;
       if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
       if (mlRes.status === 'success') {
         const canDes = mlRes.canDesignate === true;
+        const canViewMeritList = mlRes.canViewMeritList === true || canDes;
         const list = mlRes.meritList || [];
-        // Group by identity
+        // 规则与名单均按稳定身份类别 ID 归组，名称只负责展示。
         const groupMap = new Map();
         list.forEach(m => {
-          const key = m.identity || copy.text.unclassified;
-          if (!groupMap.has(key)) groupMap.set(key, { identity: key, identityId: '', members: [] });
+          const key = m.identityCategoryId || m.identityId || m.identity || copy.text.unclassified;
+          if (!groupMap.has(key)) groupMap.set(key, {
+            identity: m.identity || copy.text.unclassified,
+            identityId: m.identityCategoryId || m.identityId || '',
+            members: []
+          });
           groupMap.get(key).members.push(m);
         });
         const deptSet = new Set(list.map(m => m.department).filter(Boolean));
@@ -1244,10 +1282,11 @@ Page({
         const userClauses = mlRes.clauses || [];
         const ruleGroupMap = new Map();
         for (const c of userClauses) {
-          const key = c.targetIdentity || copy.text.unclassified;
+          const key = c.targetIdentityId || c.targetIdentity || copy.text.unclassified;
           if (!ruleGroupMap.has(key)) {
             ruleGroupMap.set(key, { targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
           }
+          ruleGroupMap.get(key).targetIdentity = c.targetIdentity || copy.text.unclassified;
           ruleGroupMap.get(key).clauses.push(c);
         }
         for (const [key, group] of ruleGroupMap) {
@@ -1260,12 +1299,14 @@ Page({
           } else {
             group.quotaInfo = copy.text.unlimitedPeople;
           }
-          group.designatedMembers = list.filter(m => (m.identity || copy.text.unclassified) === key);
+          group.designatedMembers = list.filter(m => (
+            m.identityCategoryId || m.identityId || m.identity || copy.text.unclassified
+          ) === key);
         }
         const meritRuleGroups = Array.from(ruleGroupMap.values());
 
-        this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canDes, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
-      } else {
+        this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canViewMeritList, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
+      } else if (mlRes.status === 'not_published') {
         this.setData({
           publishedMeritList: [],
           publishedMeritGroups: [],
@@ -1279,19 +1320,12 @@ Page({
       }
     } catch (e) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      this.setData({
-        publishedMeritList: [],
-        publishedMeritGroups: [],
-        meritRuleGroups: [],
-        meritDeptCount: 0,
-        hasMeritPerm: false,
-        userMeritClauses: [],
-        userDesigCandidates: [],
-        userDesigPubId: ''
-      });
     }
 
-    if (orgSession.isRequestCurrent(this, request)) this.rebuildUserTabs(true);
+    if (orgSession.isRequestCurrent(this, request)) {
+      this._publicationLoadedFor = [orgSession.getSnapshot().contextId, activityId].join('::');
+      this.rebuildUserTabs(true);
+    }
   },
 
   applyResultFilters() {

@@ -39,9 +39,9 @@ const PORTAL_PERMISSION_MAP = {
 };
 
 function getAdminProfile() {
-  const profiles = wx.getStorageSync(STORAGE_KEY) || {};
-  const runtimeProfile = require('./authContext').getRuntimeProfile('admin');
-  return runtimeProfile || profiles.admin || null;
+  // 权限判断只认当前已激活会话。roleProfiles 仅保留给尚未迁移页面展示，
+  // 不能在组织切换后反向覆盖当前管理员角色。
+  return require('./authContext').getRuntimeProfile('admin');
 }
 
 function hasAny(profile, keys) {
@@ -61,9 +61,14 @@ function canAccessPermissionSystem(profile) {
       || (profile.permissions && profile.permissions['permissions.manage_regular_admins']));
 }
 
-function savePermissionState(result) {
+function savePermissionState(result, expectedSnapshot) {
+  const orgSession = require('./orgSession');
+  const snapshot = orgSession.getSnapshot();
+  if (expectedSnapshot && !orgSession.isCurrent(expectedSnapshot)) return null;
+  if (snapshot.role !== 'admin') return null;
+  if (result.organizationId && String(result.organizationId) !== String(snapshot.orgId || '')) return null;
   const profiles = wx.getStorageSync(STORAGE_KEY) || {};
-  const current = require('./authContext').getRuntimeProfile('admin') || profiles.admin;
+  const current = require('./authContext').getRuntimeProfile('admin');
   if (!current) return null;
   profiles.admin = Object.assign({}, current, {
     adminLevel: result.adminLevel || current.adminLevel,
@@ -77,13 +82,14 @@ function savePermissionState(result) {
 }
 
 async function refreshMyPermissions() {
+  const expectedSnapshot = require('./orgSession').getSnapshot();
   const result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
   if (result.status !== 'success') {
     const error = new Error(result.message || localeCopy.copy_e52119b17e);
     error.status = result.status;
     throw error;
   }
-  return savePermissionState(result);
+  return savePermissionState(result, expectedSnapshot);
 }
 
 function filterTabs(tabs, profile, map) {

@@ -196,6 +196,16 @@ function saveCatalog(result) {
     : (legacyIdentities.length ? legacyIdentities : contexts);
   const workContexts = normalizeWorkContexts(workContextValues, contexts);
   const selection = normalizeSelection(source.selection, source.context);
+  const runtime = getAuthenticatedState();
+  if (runtime) {
+    runtimeAuthenticatedState = Object.assign({}, runtime, {
+      contexts,
+      organizations,
+      workContexts,
+      identities: legacyIdentities,
+      selection
+    });
+  }
   wx.setStorageSync(ORGANIZATIONS_KEY, organizations);
   wx.setStorageSync(WORK_CONTEXTS_KEY, workContexts);
   wx.setStorageSync(IDENTITIES_KEY, legacyIdentities);
@@ -485,11 +495,18 @@ function applyAuthenticatedResultAsync(result) {
 }
 
 async function refreshCatalog() {
+  const expectedSnapshot = orgSession.getSnapshot();
   const result = await callFunction({ name: 'auth/contexts', data: {} });
   if (!result || result.status !== 'success') {
     const error = new Error((result && result.message) || localeCopy.reopenWorkContext);
     error.status = result && result.status;
     throw error;
+  }
+  if (!orgSession.isCurrent(expectedSnapshot)
+    || (result.currentContextId && stringValue(result.currentContextId) !== expectedSnapshot.contextId)) {
+    const staleError = new Error(localeCopy.reopenWorkContext);
+    staleError.status = 'stale_context';
+    throw staleError;
   }
   return saveCatalog(result);
 }

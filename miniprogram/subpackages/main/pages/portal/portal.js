@@ -7,8 +7,6 @@ const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/por
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { portal: copy } = require('../../../../locales/zh-CN/main');
-const STORAGE_KEY = 'roleProfiles';
-const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const CATEGORY_LABELS = {
   audit: copy.categoryLabels.audit,
@@ -207,39 +205,9 @@ Page({
   },
 
   refreshCurrentUser() {
-    const storedProfiles = wx.getStorageSync(STORAGE_KEY);
-    const roleProfiles = storedProfiles && typeof storedProfiles === 'object' && !Array.isArray(storedProfiles)
-      ? storedProfiles : {};
     const activeSession = orgSession.getSnapshot();
-    let activeRole = activeSession.role || wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
-    const roleKeys = Object.keys(roleProfiles);
-    let runtimeUser = authContext.getRuntimeProfile(activeRole);
-
-    if (!activeRole || (!runtimeUser && roleKeys.indexOf(activeRole) === -1)) {
-      if (roleKeys.length) {
-        activeRole = roleKeys[0];
-      } else {
-        activeRole = '';
-      }
-      orgSession.commitContext({ role: activeRole });
-      runtimeUser = authContext.getRuntimeProfile(activeRole);
-    }
-
-    let user = runtimeUser || (activeRole ? (roleProfiles[activeRole] || null) : null);
-    if (!user && activeRole) {
-      const account = wx.getStorageSync('accountProfile') || {};
-      const contexts = authContext.getContexts();
-      const activeContextId = activeSession.contextId || '';
-      const activeContext = Array.isArray(contexts)
-        ? (contexts.find(function(item) { return item.contextId === activeContextId; }) || {})
-        : {};
-      const fallback = authContext.normalizeProfile(Object.assign({}, account, activeContext));
-      if (fallback.name) {
-        user = fallback;
-        roleProfiles[activeRole] = fallback;
-        wx.setStorageSync(STORAGE_KEY, roleProfiles);
-      }
-    }
+    const activeRole = activeSession.role || '';
+    const user = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
     const isAdminRole = activeRole === 'admin';
     const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER;
 

@@ -1208,7 +1208,10 @@ router.post('/getPublicMeritList', async (req, res) => {
         name: presentation.name,
         studentId: presentation.studentId,
         department: presentation.department,
+        departmentId: presentation.departmentId,
         identity: presentation.identity,
+        identityId: presentation.identityId,
+        identityCategoryId: presentation.identityCategoryId,
         workGroup: presentation.workGroup,
         assignmentNature: presentation.assignmentNature,
         assignmentLabel: presentation.assignmentLabel,
@@ -1260,6 +1263,7 @@ router.post('/getPublicMeritList', async (req, res) => {
       status: 'success',
       meritList: result,
       canDesignate,
+      canViewMeritList: canDesignate,
       clauses: userClauses,
       designationCandidates,
       needsAssignmentDisambiguation,
@@ -1272,7 +1276,7 @@ router.post('/getPublicMeritList', async (req, res) => {
 router.post('/submitMeritListDesignations', async (req, res) => {
   try {
     const openid = req.openid;
-    const permissionId = safeString(req.body.permissionId), publicationId = safeString(req.body.publicationId);
+    const publicationId = safeString(req.body.publicationId);
     const clauseIds = Array.isArray(req.body.clauseIds) && req.body.clauseIds.length
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
@@ -1331,7 +1335,10 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
         if (cl.require_exact_quota) hasExactQuota = true;
       }
-      selectedClauses = quotaRows;
+      const clauseOrder = new Map(clauseIds.map((id, index) => [id, index]));
+      selectedClauses = quotaRows.slice().sort((left, right) => (
+        clauseOrder.get(left.id) - clauseOrder.get(right.id)
+      ));
     } else {
       aggregatedQuotaLimit = clause.quota_limit || 0;
       hasExactQuota = !!(clause.require_exact_quota);
@@ -1389,8 +1396,12 @@ router.post('/submitMeritListDesignations', async (req, res) => {
           [pubId, orgId, ...assignmentIds, ...legacyHrIds]
         );
       }
-      // Insert all under the primary clause (dedup already done above)
+      // 每个岗位写入其实际匹配的条款；同一岗位匹配多条时按前端条款顺序稳定选择。
       for (const targetAssignment of designationTargets) {
+        const matchedClause = selectedClauses.find((selectedClause) => (
+          publicationAssignments.matchesMeritClause(targetAssignment, selectedClause, viewerAssignment)
+        ));
+        if (!matchedClause) throw new Error(localeCopy.copy_45ccfd7d80);
         const targetSnapshot = participantService.buildAssignmentSnapshot(targetAssignment);
         await conn.query(
           `INSERT INTO merit_list_designations
@@ -1399,7 +1410,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
              designated_by_context_snapshot, org_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            generateId(), pubId, primaryClauseId,
+            generateId(), pubId, matchedClause.id,
             publicationAssignments.legacyHrIdOf(targetAssignment),
             publicationAssignments.assignmentIdOf(targetAssignment),
             JSON.stringify(targetSnapshot), openid,
@@ -1411,11 +1422,15 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       }
     });
 
-    const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [primaryClauseId, orgId]);
+    const savedClausePlaceholders = clauseIds.map(() => '?').join(',');
+    const [designations] = await pool.query(
+      `SELECT * FROM merit_list_designations WHERE clause_id IN (${savedClausePlaceholders}) AND org_id = ?`,
+      [...clauseIds, orgId]
+    );
     const presentations = buildDesignationPresentations(designations, await fetchOrgLookups());
     const result = presentations.map((item) => ({
       ...item,
-      clauseId: primaryClauseId,
+      clauseId: item.clauseId,
       targetName: item.name,
       targetStudentId: item.studentId
     }));

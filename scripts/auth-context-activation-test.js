@@ -5,6 +5,7 @@ const test = require('node:test');
 const storage = {};
 const events = [];
 let activationResult = null;
+let callFunctionHandler = function() { return Promise.resolve(activationResult); };
 
 global.wx = {
   getStorageSync(key) { return storage[key]; },
@@ -22,7 +23,7 @@ require.cache[apiPath] = {
   filename: apiPath,
   loaded: true,
   exports: {
-    callFunction() { return Promise.resolve(activationResult); },
+    callFunction(options) { return callFunctionHandler(options); },
     markAuthenticationReady() {},
     beginContextActivation() {},
     endContextActivation() {}
@@ -120,4 +121,95 @@ test('切换到新组织超级管理员后原子替换运行时权限并阻止�
   assert.equal(storage.authSession.authState.context.contextId, 'ctx-admin-test');
   assert(events.some(function(item) { return item.name === 'auth:contextChanged'; }));
   assert(events.some(function(item) { return item.name === 'org:changed'; }));
+});
+
+test('旧组织权限响应不得覆盖刚切换的新组织超级管理员', async () => {
+  const adminPermissions = require('../miniprogram/utils/adminPermissions');
+  let resolveOldPermissionRequest;
+  callFunctionHandler = function(options) {
+    if (options.name === 'getMyAdminPermissions') {
+      return new Promise(function(resolve) { resolveOldPermissionRequest = resolve; });
+    }
+    return Promise.resolve(activationResult);
+  };
+  const oldRequest = adminPermissions.refreshMyPermissions();
+
+  const nextAdminContext = Object.assign({}, adminContext, {
+    contextId: 'ctx-admin-43',
+    organizationId: 'org-43',
+    organizationName: '第四十三届学生会'
+  });
+  activationResult = {
+    status: 'success',
+    token: 'token-admin-43',
+    context: nextAdminContext,
+    contexts: [nextAdminContext],
+    workContexts: [nextAdminContext],
+    organizations: [{ id: 'org-43', name: '第四十三届学生会', roles: ['admin'] }],
+    identities: [],
+    selection: { organizationId: 'org-43', contextId: 'ctx-admin-43' },
+    user: {
+      id: 'admin-1',
+      name: '测试管理员',
+      adminLevel: 'super_admin',
+      permissions: ['*']
+    }
+  };
+  callFunctionHandler = function() { return Promise.resolve(activationResult); };
+  await authContext.activateContext('ctx-admin-43');
+  resolveOldPermissionRequest({
+    status: 'success',
+    organizationId: 'org-test',
+    adminLevel: 'admin',
+    permissions: {},
+    permissionKeys: []
+  });
+
+  assert.equal(await oldRequest, null);
+  assert.equal(authContext.getRuntimeProfile('admin').adminLevel, 'super_admin');
+  assert.equal(authContext.getRuntimeProfile('admin').permissions['*'], true);
+  assert.equal(orgSession.getSnapshot().orgId, 'org-43');
+});
+
+test('旧岗位目录响应不得覆盖当前组织目录', async () => {
+  let resolveOldCatalog;
+  callFunctionHandler = function(options) {
+    if (options.name === 'auth/contexts') {
+      return new Promise(function(resolve) { resolveOldCatalog = resolve; });
+    }
+    return Promise.resolve(activationResult);
+  };
+  const oldCatalogRequest = authContext.refreshCatalog();
+
+  const finalContext = Object.assign({}, adminContext, {
+    contextId: 'ctx-admin-final',
+    organizationId: 'org-final',
+    organizationName: '当前组织'
+  });
+  activationResult = {
+    status: 'success',
+    token: 'token-admin-final',
+    context: finalContext,
+    contexts: [finalContext],
+    workContexts: [finalContext],
+    organizations: [{ id: 'org-final', name: '当前组织', roles: ['admin'] }],
+    identities: [],
+    selection: { organizationId: 'org-final', contextId: 'ctx-admin-final' },
+    user: { id: 'admin-1', name: '测试管理员', adminLevel: 'super_admin', permissions: ['*'] }
+  };
+  callFunctionHandler = function() { return Promise.resolve(activationResult); };
+  await authContext.activateContext('ctx-admin-final');
+  resolveOldCatalog({
+    status: 'success',
+    currentContextId: 'ctx-admin-43',
+    contexts: [],
+    workContexts: [],
+    organizations: [],
+    identities: [],
+    selection: { organizationId: 'org-43', contextId: 'ctx-admin-43' }
+  });
+
+  await assert.rejects(oldCatalogRequest, function(error) { return error.status === 'stale_context'; });
+  assert.equal(authContext.getContexts()[0].contextId, 'ctx-admin-final');
+  assert.equal(orgSession.getSnapshot().orgId, 'org-final');
 });

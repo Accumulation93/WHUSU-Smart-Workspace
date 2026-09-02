@@ -83,6 +83,7 @@ jobs:
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
           node scripts/scoring-work-context-test.js
+          node scripts/scoring-home-lifecycle-test.js
           find miniprogram -type f -name '*.test.js' -print0 | sort -z | xargs -0 -n1 node
           for test_file in server/test/*.test.js; do node "$test_file"; done
           bash -n server/scripts/deployProduction.sh

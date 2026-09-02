@@ -13,8 +13,8 @@ async function getByPublication(publicationId) {
 async function getByPermission(permissionId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM merit_list_designations WHERE (permission_id = ? OR clause_id = ?) AND org_id = ?',
-    [permissionId, permissionId, orgId]
+    'SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?',
+    [permissionId, orgId]
   );
   return rows;
 }
@@ -59,7 +59,7 @@ async function remove(id) {
 
 async function removeByPermission(permissionId) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM merit_list_designations WHERE (permission_id = ? OR clause_id = ?) AND org_id = ?', [permissionId, permissionId, orgId]);
+  await pool.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [permissionId, orgId]);
 }
 
 module.exports = { getByPublication, getByPermission, getById, create, remove, removeByPermission };

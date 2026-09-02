@@ -8,7 +8,7 @@ const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const utils = require('./modules/adminUtils');
-const { STORAGE_KEY, TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
+const { TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
 const sharedApi = require('./modules/sharedApi');
 const activityBehavior = require('./modules/activityBehavior');
@@ -671,11 +671,9 @@ Page({
   },
 
   async bootstrapPage() {
-    let roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    let adminProfile = authContext.getRuntimeProfile('admin') || roleProfiles.admin;
+    let adminProfile = authContext.getRuntimeProfile('admin');
     const activeSession = orgSession.getSnapshot();
     const activeRole = activeSession.role || '';
-    const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
 
     if (!adminProfile || activeRole !== 'admin') {
       this._visibleTabs = [];
@@ -692,10 +690,12 @@ Page({
 
     try {
       adminProfile = await adminPermissions.refreshMyPermissions() || adminProfile;
-      roleProfiles = wx.getStorageSync(STORAGE_KEY) || roleProfiles;
     } catch (error) {
       console.error('[admin] refresh permissions failed:', error.message || error);
     }
+    if (!orgSession.isCurrent(activeSession)) return;
+    adminProfile = authContext.getRuntimeProfile('admin') || adminProfile;
+    const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
     this.applySubAppFilter(adminProfile);
 
     const canReadAdmins = adminPermissions.hasAny(adminProfile, [

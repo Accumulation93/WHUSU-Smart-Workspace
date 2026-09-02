@@ -187,6 +187,9 @@ assert.match(submitSource, /validateDesignationTargets/);
 assert.match(submitSource, /target_assignment_id/);
 assert.match(submitSource, /target_context_snapshot/);
 assert.match(submitSource, /designated_by_assignment_id/);
+assert.match(submitSource, /matchesMeritClause\(targetAssignment, selectedClause, viewerAssignment\)/,
+  '多条款保存必须把岗位写入实际匹配条款');
+assert.doesNotMatch(designationModelSource, /permission_id\s*=\s*\?/, '运行时代码不得查询新表中不存在的旧字段');
 assert.doesNotMatch(submitSource, /viewerHr|hrInfoModel|getByOpenid/, '提交评优名单不得回退任意 legacy 岗位');
 
 const homeSource = fs.readFileSync(
