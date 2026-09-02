@@ -14,6 +14,11 @@ const lifecycleExempt = new Set([
   'subpackages/org/pages/switch/switch',
   'subpackages/venue/pages/venueBookings/venueBookings'
 ]);
+const rawNetworkExempt = new Set([
+  // 鸿蒙旧版运行时的微信登录必须使用最小原生回调链，避免通用请求层的
+  // Promise、会话恢复和响应副作用阻塞登录页。该例外只允许认证入口使用。
+  'subpackages/main/pages/login/login.js'
+]);
 const issues = [];
 
 function add(rule, file, message) {
@@ -44,8 +49,14 @@ for (const file of walk(miniRoot, '.js')) {
   const relativeFile = path.relative(miniRoot, file).replace(/\\/g, '/');
   if (relativeFile === 'utils/api.js' || relativeFile === 'utils/filePreview.js') continue;
   const source = fs.readFileSync(file, 'utf8');
-  if (/wx\.(?:request|downloadFile|uploadFile)\s*\(/.test(source)) {
+  if (/wx\.(?:request|downloadFile|uploadFile)\s*\(/.test(source) && !rawNetworkExempt.has(relativeFile)) {
     add('raw-network-call', relativeFile, '页面绕过统一请求客户端');
+  }
+  if (rawNetworkExempt.has(relativeFile)) {
+    const directRequests = source.match(/wx\.request\s*\(/g) || [];
+    if (directRequests.length !== 1 || !source.includes("API_BASE + '/auth/wechat/session'")) {
+      add('invalid-raw-network-exemption', relativeFile, '登录页原生请求例外只能用于微信会话接口');
+    }
   }
   if (relativeFile !== 'utils/orgSession.js'
       && /(?:setStorageSync|removeStorageSync)\(\s*['"](?:activeOrgId|activeRole|token)['"]/.test(source)) {

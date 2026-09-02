@@ -23,7 +23,7 @@ const RULES = [
     id: 'dynamic-navigation',
     severity: 'medium',
     pattern: /wx\.(?:navigateTo|redirectTo)\(\{\s*url\s*:\s*[A-Za-z_$][\w$]*/g,
-    allow: match => match.input.slice(Math.max(0, match.index - 700), match.index).includes('function navigateToTrustedRoute')
+    allow: (_match, relativeFile) => relativeFile === 'miniprogram/utils/trustedNavigation.js'
   }
 ];
 
@@ -54,7 +54,7 @@ for (const target of TARGETS) {
       rule.pattern.lastIndex = 0;
       let match;
       while ((match = rule.pattern.exec(source))) {
-        if (rule.allow && rule.allow(match)) continue;
+        if (rule.allow && rule.allow(match, relativeFile, source)) continue;
         findings.push({
           severity: rule.severity,
           rule: rule.id,
@@ -249,8 +249,8 @@ requireSourceContract('server/src/modules/scoring/routes/scoring.js', [
 requireSourceContract('miniprogram/utils/trustedNavigation.js', [
   {
     rule: 'trusted-navigation-allowlist',
-    test: source => source.includes('const TRUSTED_ROUTES = new Set')
-      && source.includes('TRUSTED_ROUTES.has(pathname)')
+    test: source => source.includes('const TRUSTED_ROUTES = {')
+      && source.includes('TRUSTED_ROUTES[pathname] === true')
   }
 ]);
 requireSourceContract('server/src/core/services/hrProfileTemplateLibrary.js', [

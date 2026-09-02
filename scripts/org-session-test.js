@@ -20,6 +20,7 @@ const initial = orgSession.consume(page);
 assert.strictEqual(initial.changed, false);
 assert.deepStrictEqual(initial.snapshot, {
   orgId: 'org-43',
+  orgName: '',
   role: 'user',
   contextId: '',
   identityId: '',
@@ -35,6 +36,7 @@ const switched = orgSession.consume(page);
 assert.strictEqual(switched.changed, true);
 assert.deepStrictEqual(switched.snapshot, {
   orgId: 'org-44',
+  orgName: '第四十四届',
   role: 'user',
   contextId: '',
   identityId: '',
