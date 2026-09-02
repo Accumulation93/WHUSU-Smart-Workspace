@@ -29,8 +29,7 @@ Page({
   onShow() {
     const organizationState = orgSession.consume(this);
     const role = organizationState.snapshot.role === 'admin' ? 'admin' : 'user';
-    const profiles = wx.getStorageSync('roleProfiles') || {};
-    const profile = authContext.getRuntimeProfile(role) || profiles[role] || {};
+    const profile = authContext.getRuntimeProfile(role) || {};
     const organizationName = organizationState.snapshot.orgName || localeCopy.copy_2b8b8bf904;
     const workContextName = profile.assignmentLabel || localeCopy.copy_5825b0b531;
     if (organizationState.changed) {

@@ -36,7 +36,7 @@ Page({
   onLoad() {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._active = true;
-    this.setData({ organizationName: wx.getStorageSync('activeOrgName') || '' });
+    this.setData({ organizationName: orgSession.getSnapshot().orgName || '' });
   },
 
   onShow() {
@@ -44,7 +44,7 @@ Page({
     if (state.changed) {
       orgSession.invalidateRequests(this);
       this.setData({
-        organizationName: wx.getStorageSync('activeOrgName') || '',
+        organizationName: state.snapshot.orgName || '',
         admins: [],
         filteredAdmins: [],
         selectedAdmin: null,

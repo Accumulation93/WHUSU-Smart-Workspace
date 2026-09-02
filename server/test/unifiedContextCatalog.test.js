@@ -101,6 +101,8 @@ assert.deepStrictEqual(catalog.selection, {
   identityId: 'idn-super'
 });
 assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-super-b').isCurrent, true);
+assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-super-a').organizationId, 'org-a');
+assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-super-b').organizationId, 'org-b');
 assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-assignment-a').assignmentId, 'assignment-a');
 
 const globalIdentities = catalog.identities.filter((item) => item.scope === 'global');

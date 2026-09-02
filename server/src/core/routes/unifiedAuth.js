@@ -202,6 +202,8 @@ router.get('/auth/contexts', async (req, res) => {
     return res.json(await withSystemTimezone({
       status: 'success',
       currentContextId: req.authContext.contextId,
+      context: currentContext,
+      user: unifiedAuth.profileFromContext(currentContext),
       contexts,
       workContexts: catalog.workContexts,
       selection: catalog.selection,
@@ -225,6 +227,8 @@ router.post('/auth/contexts', async (req, res) => {
     return res.json(await withSystemTimezone({
       status: 'success',
       currentContextId: req.authContext.contextId,
+      context: currentContext,
+      user: unifiedAuth.profileFromContext(currentContext),
       contexts,
       workContexts: catalog.workContexts,
       selection: catalog.selection,

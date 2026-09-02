@@ -1,16 +1,14 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/adminPermissions');
 const { callFunction } = require('./api');
 
-const STORAGE_KEY = 'roleProfiles';
-
 const TAB_PERMISSION_MAP = {
   activities: ['scoring.activities'],
   templates: ['scoring.templates'],
   rules: ['scoring.rules'],
   results: ['scoring.results'],
   publications: ['scoring.publications'],
-  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
-  hrAccounts: ['auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
+  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
+  hrAccounts: ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   hrTemplates: ['hr.profile_templates.manage', 'hr.profile_templates.select'],
   departments: ['hr.departments'],
   workGroups: ['hr.work_groups'],
@@ -32,7 +30,7 @@ const VENUE_TAB_PERMISSION_MAP = {
 
 const PORTAL_PERMISSION_MAP = {
   scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
-  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
+  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
   audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
   venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes'],
@@ -67,18 +65,15 @@ function savePermissionState(result, expectedSnapshot) {
   if (expectedSnapshot && !orgSession.isCurrent(expectedSnapshot)) return null;
   if (snapshot.role !== 'admin') return null;
   if (result.organizationId && String(result.organizationId) !== String(snapshot.orgId || '')) return null;
-  const profiles = wx.getStorageSync(STORAGE_KEY) || {};
   const current = require('./authContext').getRuntimeProfile('admin');
   if (!current) return null;
-  profiles.admin = Object.assign({}, current, {
+  const profile = Object.assign({}, current, {
     adminLevel: result.adminLevel || current.adminLevel,
     permissions: result.permissions || {},
     permissionKeys: result.permissionKeys || [],
     canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem)
   });
-  profiles.admin = require('./authContext').updateRuntimeProfile('admin', profiles.admin);
-  wx.setStorageSync(STORAGE_KEY, profiles);
-  return profiles.admin;
+  return require('./authContext').updateRuntimeProfile('admin', profile);
 }
 
 async function refreshMyPermissions() {

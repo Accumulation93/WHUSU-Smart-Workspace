@@ -26,13 +26,11 @@ function getWorkContextName(profile, role, workContext) {
 function getProfile() {
   const session = orgSession.getSnapshot();
   const role = String(session.role || '');
-  const profiles = wx.getStorageSync('roleProfiles') || {};
-  const account = wx.getStorageSync('accountProfile') || {};
-  const profile = authContext.getRuntimeProfile(role) || profiles[role] || {};
+  const profile = authContext.getRuntimeProfile(role) || {};
   const workContext = getActiveWorkContext();
   return {
     role: role,
-    name: profile.name || account.name || '',
+    name: profile.name || '',
     workContextName: getWorkContextName(profile, role, workContext),
     organizationName: String(session.orgName || '')
   };

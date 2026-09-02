@@ -41,6 +41,7 @@ function lineNumber(text, index) {
 function scanFile(relativePath) {
   if (relativePath.replace(/\\/g, '/') === 'scripts/secret-audit.js') return [];
   const absolutePath = path.join(ROOT, relativePath);
+  if (!fs.existsSync(absolutePath)) return [];
   const extension = path.extname(relativePath).toLowerCase();
   if (SKIP_SUFFIXES.has(extension)) return [];
   const stat = fs.statSync(absolutePath);

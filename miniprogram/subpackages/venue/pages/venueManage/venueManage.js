@@ -468,7 +468,7 @@ Page({
       activeTab: activeTab,
       hasPermission: visibleTabs.length > 0,
       canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals']),
-      currentOrganizationName: wx.getStorageSync('activeOrgName') || '',
+      currentOrganizationName: orgSession.getSnapshot().orgName || '',
       adminDisplayName: profile && profile.name ? profile.name : localeCopy.copy_c01a9aef59,
       adminLevelLabel: profile && profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_fd31650797
     });

@@ -4,7 +4,6 @@ const { format: localeFormat } = require('../../../../../locales/runtime');
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
 
-const STORAGE_KEY = 'roleProfiles';
 const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
 const TIMEZONE_OPTIONS = [
   { value: -12, label: localeCopy.copy_f9cadda36d },
@@ -1373,7 +1372,6 @@ function buildCsvColumnMapping(headers, samples, templateFields) {
 
 
 module.exports = {
-  STORAGE_KEY,
   TAB_LIST,
   TIMEZONE_OPTIONS,
   RULE_SCOPE_OPTIONS,

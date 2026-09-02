@@ -331,8 +331,7 @@ Page({
 
   _loadUserInfo() {
     try {
-      let roleProfiles = wx.getStorageSync('roleProfiles');
-      let user = authContext.getRuntimeProfile('user') || (roleProfiles && roleProfiles.user);
+      const user = authContext.getRuntimeProfile('user');
       if (user) {
         this.setData({
           heroName: user.name || localeCopy.copy_592351d93c,

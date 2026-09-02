@@ -67,7 +67,9 @@ jobs:
         run: |
           node scripts/org-session-test.js
           node scripts/auth-context-activation-test.js
+          node scripts/auth-context-recovery-test.js
           node scripts/context-route-guard-test.js
+          node scripts/workspace-hero-test.js
           node scripts/portal-back-logout-test.js
           node scripts/native-navigation-test.js
           node scripts/trusted-navigation-recovery-test.js

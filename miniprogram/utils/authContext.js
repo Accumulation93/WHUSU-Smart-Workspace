@@ -148,6 +148,7 @@ function normalizeWorkContexts(values, contexts) {
       organizationId: stringValue(row.organizationId || matched.organizationId),
       organizationName: stringValue(row.organizationName || matched.organizationName),
       role: stringValue(row.role || matched.role),
+      adminLevel: stringValue(row.adminLevel || matched.adminLevel),
       type: stringValue(row.type || row.identityType || matched.identityType),
       scope: stringValue(row.scope || row.identityScope || matched.identityScope),
       name: stringValue(row.assignmentLabel || row.workContextName || row.label || row.name || matched.assignmentLabel || matched.identityName),
@@ -467,6 +468,9 @@ function updateRuntimeProfile(role, profile) {
   if (role && String((runtime.context && runtime.context.role) || '') !== String(role)) return profile;
   runtime.profile = normalizeProfile(profile);
   runtimeAuthenticatedState = runtime;
+  if (typeof orgSession.updateAuthenticatedState === 'function') {
+    orgSession.updateAuthenticatedState(compactAuthenticatedState(runtime));
+  }
   return runtime.profile;
 }
 
@@ -507,6 +511,15 @@ async function refreshCatalog() {
     const staleError = new Error(localeCopy.reopenWorkContext);
     staleError.status = 'stale_context';
     throw staleError;
+  }
+  if (!getAuthenticatedState() && result.context && result.user && expectedSnapshot.token) {
+    const hydrated = buildAuthenticatedState(Object.assign({}, result, {
+      token: expectedSnapshot.token
+    }));
+    runtimeAuthenticatedState = hydrated;
+    if (typeof orgSession.updateAuthenticatedState === 'function') {
+      orgSession.updateAuthenticatedState(compactAuthenticatedState(hydrated));
+    }
   }
   return saveCatalog(result);
 }

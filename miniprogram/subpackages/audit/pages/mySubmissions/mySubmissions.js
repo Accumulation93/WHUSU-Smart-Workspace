@@ -34,11 +34,10 @@ Page({
 
   refreshActiveWorkContext() {
     const snapshot = orgSession.getSnapshot();
-    const profiles = wx.getStorageSync('roleProfiles') || {};
     const current = workContextView.normalizeCurrentWorkContext(
       authContext.getWorkContexts(),
       authContext.getSelection(),
-      authContext.getRuntimeProfile(snapshot.role) || profiles[snapshot.role] || profiles.user || {}
+      authContext.getRuntimeProfile(snapshot.role) || {}
     );
     this.setData({ activeWorkContext: current, hasActiveAssignment: current.hasAssignment });
   },

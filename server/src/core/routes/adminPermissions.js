@@ -5,9 +5,9 @@ const router = express.Router();
 const pool = require('../../config/db');
 const { safeString } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
-const adminInfoModel = require('../models/adminInfo');
 const adminPermissionModel = require('../models/adminPermission');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
+const { resolveCurrentAdmin } = require('../services/adminRequestContext');
 const {
   PERMISSION_DEFINITIONS,
   loadEffectivePermissions,
@@ -18,8 +18,7 @@ const {
 } = require('../services/adminPermissions');
 
 async function resolveOperator(req) {
-  if (req.get('X-Role') !== 'admin') return null;
-  return adminInfoModel.getByOpenid(req.openid);
+  return resolveCurrentAdmin(req);
 }
 
 async function resolvePermissionManager(req) {

@@ -1,14 +1,14 @@
 const localeCopy = require('../locales/zh-CN/generated/middleware/adminPermission');
-const adminInfoModel = require('../core/models/adminInfo');
 const { getCurrentOrgId } = require('../utils/orgContext');
 const { ROUTE_RULES, loadEffectivePermissions, hasAnyPermission } = require('../core/services/adminPermissions');
+const { resolveCurrentAdmin } = require('../core/services/adminRequestContext');
 
 async function adminPermissionMiddleware(req, res, next) {
   const routePath = req.path.startsWith('/api/') ? req.path.slice(4) : req.path;
   const rule = ROUTE_RULES.get(routePath);
   if (!rule) return next();
 
-  const selectedRole = String(req.get('X-Role') || '').toLowerCase();
+  const selectedRole = String(req.authContext && req.authContext.role || '').toLowerCase();
   if (selectedRole !== 'admin') {
     if (selectedRole === 'user' && rule.allowUserRole) return next();
     return res.status(403).json({
@@ -18,7 +18,7 @@ async function adminPermissionMiddleware(req, res, next) {
   }
 
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveCurrentAdmin(req);
     if (!admin) {
       return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_b0eb464235 });
     }

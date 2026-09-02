@@ -33,6 +33,12 @@ const VIEW_IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_gr
 const MERIT_RULE_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people', 'identity_only'];
 const MAX_BATCH_RULES = 200;
 
+async function resolveAdmin(req) {
+  // 生产请求由统一权限中间件注入当前管理角色；legacy 查询只供无中间件的
+  // 独立测试夹具兼容，不能覆盖已经验证的当前角色。
+  return req.admin || adminInfoModel.getByOpenid(req.openid);
+}
+
 class PublicationRuleRequestError extends Error {
   constructor(status, message) {
     super(message);
@@ -1444,7 +1450,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 // ─── generatePubViewRules ───
 router.post('/generatePubViewRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
@@ -1485,7 +1491,7 @@ router.post('/generatePubViewRules', async (req, res) => {
 // ─── generatePubMeritRules ───
 router.post('/generatePubMeritRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
@@ -1525,7 +1531,7 @@ router.post('/generatePubMeritRules', async (req, res) => {
 // ─── savePubViewRule ───
 router.post('/savePubViewRule', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
@@ -1539,7 +1545,7 @@ router.post('/savePubViewRule', async (req, res) => {
 // ─── batchSavePubViewRules ───
 router.post('/batchSavePubViewRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
@@ -1560,7 +1566,7 @@ router.post('/listPubViewRules', async (req, res) => {
   return rejectRetiredEndpoint(res);
   /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
@@ -1633,7 +1639,7 @@ router.post('/listPubViewRules', async (req, res) => {
 // ─── deletePubViewRule ───
 router.post('/deletePubViewRule', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
@@ -1646,7 +1652,7 @@ router.post('/deletePubViewRule', async (req, res) => {
 // ─── batchDeletePubViewRules ───
 router.post('/batchDeletePubViewRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();
@@ -1664,7 +1670,7 @@ router.post('/batchDeletePubViewRules', async (req, res) => {
 // ─── savePubMeritRule ───
 router.post('/savePubMeritRule', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
@@ -1678,7 +1684,7 @@ router.post('/savePubMeritRule', async (req, res) => {
 // ─── batchSavePubMeritRules ───
 router.post('/batchSavePubMeritRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
@@ -1699,7 +1705,7 @@ router.post('/listPubMeritRules', async (req, res) => {
   return rejectRetiredEndpoint(res);
   /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
@@ -1740,7 +1746,7 @@ router.post('/listPubMeritRules', async (req, res) => {
 // ─── deletePubMeritRule ───
 router.post('/deletePubMeritRule', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
@@ -1753,7 +1759,7 @@ router.post('/deletePubMeritRule', async (req, res) => {
 // ─── batchDeletePubMeritRules ───
 router.post('/batchDeletePubMeritRules', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();

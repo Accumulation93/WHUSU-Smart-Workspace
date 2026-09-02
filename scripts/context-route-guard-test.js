@@ -1,110 +1,32 @@
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 
-let pageStack = [];
 const navigationCalls = [];
 global.wx = {
-  getStorageSync: function() { return ''; },
   navigateBack: function() { navigationCalls.push({ type: 'back' }); },
   reLaunch: function(options) { navigationCalls.push({ type: 'portal', url: options.url }); }
 };
-global.getCurrentPages = function() { return pageStack; };
 
 const guard = require('../miniprogram/utils/contextRouteGuard');
 
-function activated(role, permissions, adminLevel) {
-  return {
-    context: { role: role },
-    user: {
-      adminLevel: adminLevel || '',
-      permissions: permissions || {}
-    }
-  };
-}
+assert.strictEqual(guard.finishSwitch(), 'portal');
+assert.deepStrictEqual(navigationCalls, [{
+  type: 'portal',
+  url: '/subpackages/main/pages/portal/portal'
+}]);
+assert.strictEqual(navigationCalls.some(function(item) { return item.type === 'back'; }), false);
 
-assert.strictEqual(
-  guard.isPageSupported({ route: 'subpackages/workspace/pages/home/home', _subApp: 'hr' }, activated('user')),
-  true,
-  '普通岗位应继续停留在普通用户子应用'
+const root = path.resolve(__dirname, '..');
+const portalWxml = fs.readFileSync(
+  path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.wxml'),
+  'utf8'
 );
-assert.strictEqual(
-  guard.isPageSupported({ route: 'subpackages/workspace/pages/home/home', _subApp: 'hr' }, activated('admin', { 'hr.people': true })),
-  false,
-  '切换到管理身份后不应留在普通用户子应用'
+const heroSource = fs.readFileSync(
+  path.join(root, 'miniprogram/components/workspace-hero/workspace-hero.js'),
+  'utf8'
 );
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
-    activated('admin', { 'hr.people': true })
-  ),
-  true,
-  '具备人事权限的管理员应继续停留在人事管理页'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
-    activated('admin', { 'auth.identity.verify': true })
-  ),
-  true,
-  '具备人员认证权限的管理员应从人事信息进入账号与认证'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
-    activated('admin', { 'scoring.activities': true })
-  ),
-  false,
-  '不具备人事权限的管理员应返回门户'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'scoring' },
-    activated('user')
-  ),
-  false,
-  '切换到普通岗位后不应留在管理子应用'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/venue/pages/venueManage/venueManage' },
-    activated('admin', {}, 'super_admin')
-  ),
-  true,
-  '超级管理员应继续使用场地管理'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' },
-    activated('admin', { 'venue.approvals': true })
-  ),
-  true,
-  '具备审批权限的管理员应继续使用场地待审批页'
-);
-assert.strictEqual(
-  guard.isPageSupported(
-    { route: 'subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' },
-    activated('admin', { 'venue.resources': true })
-  ),
-  false,
-  '缺少审批权限的管理员应返回门户'
-);
-assert.strictEqual(
-  guard.isPageSupported({ route: 'subpackages/message/pages/messageCenter/messageCenter' }, activated('user')),
-  true,
-  '消息中心应支持所有已登录身份'
-);
+assert.match(portalWxml, /tone="\{\{isAdminRole \? 'admin' : 'blue'\}\}"/);
+assert.doesNotMatch(heroSource, /roleProfiles|accountProfile/);
 
-pageStack = [
-  { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
-  { route: 'subpackages/org/pages/identitySwitch/identitySwitch' }
-];
-assert.strictEqual(guard.finishSwitch(activated('user')), 'portal');
-assert.deepStrictEqual(navigationCalls.pop(), { type: 'portal', url: '/subpackages/main/pages/portal/portal' });
-
-pageStack = [
-  { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
-  { route: 'subpackages/org/pages/identitySwitch/identitySwitch' }
-];
-assert.strictEqual(guard.finishSwitch(activated('admin', { 'hr.people': true })), 'back');
-assert.deepStrictEqual(navigationCalls.pop(), { type: 'back' });
-
-console.log('context route guard tests passed');
+console.log('工作角色切换重建页面栈测试通过');

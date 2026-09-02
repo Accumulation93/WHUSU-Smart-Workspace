@@ -4,8 +4,8 @@ const Module = require('module');
 let activeAdmin = null;
 let effective = null;
 const mocks = {
-  '../core/models/adminInfo': {
-    async getByOpenid() { return activeAdmin; }
+  '../core/services/adminRequestContext': {
+    async resolveCurrentAdmin() { return activeAdmin; }
   },
   '../utils/orgContext': {
     async getCurrentOrgId() { return 'org-44'; }
@@ -45,6 +45,8 @@ async function invoke(path, role) {
   const req = {
     path,
     openid: 'openid-test',
+    authAccount: role ? { id: 'account-test' } : null,
+    authContext: role ? { role } : null,
     get(name) { return name === 'X-Role' ? role : ''; },
     logger: { error() {} }
   };

@@ -36,7 +36,9 @@ async function resolveVerificationAccess(req) {
   const selectedRole = safeString(
     (req.authContext && req.authContext.role) || req.get('X-Role')
   ).toLowerCase();
-  const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(req.openid) : null;
+  const admin = selectedRole === 'admin'
+    ? (req.admin || await adminInfoModel.getByOpenid(req.openid))
+    : null;
   const hrId = selectedRole === 'user' ? await resolveHrId(req.openid) : null;
   const canVerify = Boolean(admin)
     || (Boolean(hrId) && await verificationPermModel.checkPermission(hrId));

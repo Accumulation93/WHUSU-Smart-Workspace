@@ -208,10 +208,10 @@ Page({
     }
     this.setData({ switchingContextId: contextId, errorText: '' });
     try {
-      const activated = await authContext.activateContext(contextId);
+      await authContext.activateContext(contextId);
       orgSession.invalidateRequests(this);
       this._active = false;
-      contextRouteGuard.finishSwitch(activated);
+      contextRouteGuard.finishSwitch();
     } catch (error) {
       const errorText = getErrorText(error, localeCopy.copy_53d5e0a0c8);
       this.setData({ errorText });

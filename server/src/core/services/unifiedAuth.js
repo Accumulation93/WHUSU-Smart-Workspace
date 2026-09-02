@@ -134,9 +134,12 @@ function buildContextCatalog(contexts, currentContext) {
       type: safeString(context.identityType),
       label: safeString(context.assignmentLabel || context.identityName),
       scope: isGlobal ? 'global' : 'organization',
-      organizationId: isGlobal ? null : safeString(context.organizationId),
+      // 全局表示授权范围，不表示当前工作组织为空。超级管理员仍按目标组织
+      // 拥有独立上下文，前端才能把角色稳定归入所选组织。
+      organizationId: safeString(context.organizationId),
       organizationName: safeString(context.organizationName),
       role: safeString(context.role),
+      adminLevel: safeString(context.adminLevel),
       assignmentId: safeString(context.assignmentId),
       assignmentNature: safeString(context.assignmentNature),
       assignmentLabel: safeString(context.assignmentLabel),
@@ -157,6 +160,7 @@ function buildContextCatalog(contexts, currentContext) {
       scope: isGlobal ? 'global' : 'organization',
       organizationId: isGlobal ? null : context.organizationId,
       role: context.role,
+      adminLevel: safeString(context.adminLevel),
       isCurrent: Boolean(
         currentContext
         && currentContext.authIdentityId === identityId

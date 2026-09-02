@@ -77,7 +77,7 @@ function loadPage(relativePath, responseQueues) {
       normalizeProfile(value) { return value; },
       resolveContextId() { return ''; }
     },
-    '../../../../utils/trustedNavigation': { navigateToTrustedRoute() {} },
+    '../../../../utils/trustedNavigation': { navigateToTrustedRoute() {}, reLaunchTrustedRoute() {} },
     '../../../../utils/eventBus': { on() {}, off() {} },
     '../../../../utils/adminPermissions': {
       filterPortalCards(cards) { return cards; },

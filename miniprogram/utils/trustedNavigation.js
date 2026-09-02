@@ -99,4 +99,26 @@ function navigateToTrustedRoute(rawUrl, handlers) {
   return true;
 }
 
-module.exports = { isTrustedRoute, navigateToTrustedRoute, isCurrentRoute };
+function reLaunchTrustedRoute(rawUrl, handlers) {
+  const url = String(rawUrl || '').trim();
+  const callbacks = handlers || {};
+  if (!isTrustedRoute(url)) {
+    wx.showToast({ title: localeCopy.copy_9aad91c741, icon: 'none' });
+    return false;
+  }
+  if (typeof wx.reLaunch !== 'function') {
+    if (typeof callbacks.fail === 'function') callbacks.fail({ errMsg: 'reLaunch:fail unavailable' });
+    else wx.showToast({ title: localeCopy.copy_4becb061c6, icon: 'none' });
+    return false;
+  }
+  wx.reLaunch({
+    url,
+    success: callbacks.success,
+    fail: callbacks.fail || function() {
+      wx.showToast({ title: localeCopy.copy_4becb061c6, icon: 'none' });
+    }
+  });
+  return true;
+}
+
+module.exports = { isTrustedRoute, navigateToTrustedRoute, reLaunchTrustedRoute, isCurrentRoute };

@@ -107,6 +107,18 @@ function getAuthenticatedState() {
     : null;
 }
 
+function updateAuthenticatedState(authState) {
+  const snapshot = getSnapshot();
+  const compact = Object.assign({}, snapshot, {
+    authState: authState && typeof authState === 'object' ? authState : null
+  });
+  try {
+    if (typeof wx.setStorage === 'function') wx.setStorage({ key: COMPACT_SESSION_KEY, data: compact });
+    else wx.setStorageSync(COMPACT_SESSION_KEY, compact);
+  } catch (_) {}
+  return compact.authState;
+}
+
 function getSnapshot() {
   if (runtimeSnapshot) return Object.assign({}, runtimeSnapshot);
   const compact = normalizeCompactSnapshot(wx.getStorageSync(COMPACT_SESSION_KEY));
@@ -261,6 +273,7 @@ module.exports = {
   getVersion,
   getSnapshot,
   getAuthenticatedState,
+  updateAuthenticatedState,
   isCurrent,
   consume,
   markChanged,

@@ -524,8 +524,8 @@ Page({
       });
       this.clearScoreResultsState();
     }
-    // 刷新组织名称（从 storage 读取）
-    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+    // 组织名称必须与本轮统一会话一致，兼容 storage 可能仍在异步落盘。
+    const activeOrgName = consumed.snapshot.orgName || '';
     if (activeOrgName && activeOrgName !== this.data.currentOrganizationName) {
       this.setData({ currentOrganizationName: activeOrgName });
     }
@@ -675,6 +675,16 @@ Page({
     const activeSession = orgSession.getSnapshot();
     const activeRole = activeSession.role || '';
 
+    if (!adminProfile && activeRole === 'admin') {
+      try {
+        await authContext.refreshCatalog();
+      } catch (error) {
+        console.error('[admin] restore current user failed:', error.message || error);
+      }
+      if (!orgSession.isCurrent(activeSession)) return;
+      adminProfile = authContext.getRuntimeProfile('admin');
+    }
+
     if (!adminProfile || activeRole !== 'admin') {
       this._visibleTabs = [];
       this.setData({
@@ -705,7 +715,15 @@ Page({
     const canWriteAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts.write']);
     const canBrowseHrInfo = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
     const activeOrgId = activeSession.orgId || '';
-    const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || '', (adminProfile.permissionKeys || []).slice().sort().join(',')].join('::');
+    const bootstrapKey = [
+      this._subApp || 'scoring',
+      activeOrgId,
+      activeSession.contextId || '',
+      activeSession.version || 0,
+      adminProfile.id || '',
+      adminProfile.adminLevel || '',
+      (adminProfile.permissionKeys || []).slice().sort().join(',')
+    ].join('::');
 
     if (this._bootstrapKey === bootstrapKey && (this._bootstrapComplete || this._bootstrapPromise)) {
       return this._bootstrapPromise;

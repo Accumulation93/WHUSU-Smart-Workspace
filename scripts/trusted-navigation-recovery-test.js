@@ -25,14 +25,14 @@ global.wx = {
   },
   reLaunch(options) {
     relaunches.push(options.url);
-    options.success({ errMsg: 'reLaunch:ok' });
+    if (typeof options.success === 'function') options.success({ errMsg: 'reLaunch:ok' });
   },
   showToast(options) {
     toasts.push(options || {});
   }
 };
 
-const { navigateToTrustedRoute } = require('../miniprogram/utils/trustedNavigation');
+const { navigateToTrustedRoute, reLaunchTrustedRoute } = require('../miniprogram/utils/trustedNavigation');
 
 let successCount = 0;
 navigateToTrustedRoute('/subpackages/main/pages/portal/portal', {
@@ -69,5 +69,12 @@ assert.deepStrictEqual(relaunches, [], '跳转回调丢失时不得重建整个�
 assert.strictEqual(toasts.length, 2, '超时必须释放状态并提示用户重试');
 global.setTimeout = nativeSetTimeout;
 global.clearTimeout = nativeClearTimeout;
+
+reLaunchTrustedRoute('/subpackages/scoring/pages/admin/admin?subApp=scoring');
+assert.deepStrictEqual(
+  relaunches,
+  ['/subpackages/scoring/pages/admin/admin?subApp=scoring'],
+  '切换角色后的可信目标必须使用单次 reLaunch 重建页面栈'
+);
 
 console.log('小程序页面单航道跳转兼容测试通过');

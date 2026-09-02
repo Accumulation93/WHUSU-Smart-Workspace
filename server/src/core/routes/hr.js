@@ -43,7 +43,7 @@ function authenticationStatus(row) {
 router.post('/listHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = req.admin || await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
@@ -406,7 +406,7 @@ router.post('/deleteMembershipAssignment', async (req, res) => {
 router.post('/saveHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = req.admin || await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const name = safeString(req.body.name);
@@ -679,7 +679,7 @@ router.post('/mergePersons', async (req, res) => {
 
 async function handleStructuredHrImport(req, res, previewOnly) {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
+    const admin = req.admin || await adminInfoModel.getByOpenid(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const result = previewOnly
@@ -723,7 +723,7 @@ router.post('/importHrCsv', (req, res) => {
 router.post('/batchMaintainFromHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = req.admin || await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
@@ -748,7 +748,7 @@ router.post('/unbindHrWechat', async (req, res) => {
   let connection;
   try {
     const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = req.admin || await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const canGlobalAccountManage = Boolean(req.adminPermissions
       && req.adminPermissions.permissions

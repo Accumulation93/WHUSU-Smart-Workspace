@@ -4,7 +4,6 @@ const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
-const STORAGE_KEY = 'roleProfiles';
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
@@ -490,11 +489,8 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)) return;
       const activeContext = authContext.getActiveWorkContext();
       if (!activeContext || activeContext.organizationId !== activeOrgId || activeContext.role !== 'user') return;
-      const account = wx.getStorageSync('accountProfile') || {};
-      const currentProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-      const profile = authContext.normalizeProfile(Object.assign(
-        {}, currentProfiles.user || {}, account, activeContext
-      ));
+      const profile = authContext.getRuntimeProfile('user')
+        || authContext.normalizeProfile(activeContext);
       const storedProfile = this.updateStoredProfile('user', profile);
 
       if (this.data.activeRole === 'user') {
@@ -1030,22 +1026,19 @@ Page({
   },
 
   updateStoredProfile(role, profile) {
-    const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     const snapshot = orgSession.getSnapshot();
-    const current = roleProfiles[role] || {};
+    const current = authContext.getRuntimeProfile(role) || {};
     const sameContext = current.contextId
       && current.contextId === snapshot.contextId
       && (!current.organizationId || current.organizationId === snapshot.orgId);
-    roleProfiles[role] = authContext.normalizeProfile(Object.assign(
+    const nextProfile = authContext.normalizeProfile(Object.assign(
       {}, sameContext ? current : {}, profile || {}, {
         contextId: snapshot.contextId,
         organizationId: snapshot.orgId,
         organizationName: snapshot.orgName || ''
       }
     ));
-    roleProfiles[role] = authContext.updateRuntimeProfile(role, roleProfiles[role]) || roleProfiles[role];
-    wx.setStorageSync(STORAGE_KEY, roleProfiles);
-    return roleProfiles[role];
+    return authContext.updateRuntimeProfile(role, nextProfile) || nextProfile;
   },
 
   selectTarget(e) {

@@ -15,8 +15,9 @@ const adminSource = fs.readFileSync(
 );
 
 assert(
-  /roleProfiles\[role\]\s*=\s*Object\.assign\(\{\},\s*user\)/.test(activationSource),
-  '切换组织后必须整体替换角色资料，禁止合并上一组织缓存'
+  /authContext\.activateOrganizationContext\(organizationId, role\)/.test(activationSource)
+    && !/roleProfiles|getStorageSync|commitContext/.test(activationSource),
+  '切换组织必须复用统一上下文激活，禁止维护平行角色缓存'
 );
 assert(
   /onUnload\(\)\s*\{[\s\S]*?eventBus\.off\('org:changed'/.test(adminSource),

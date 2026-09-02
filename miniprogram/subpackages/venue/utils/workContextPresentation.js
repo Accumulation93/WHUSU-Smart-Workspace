@@ -117,9 +117,8 @@ function decorateApproverCandidates(candidates) {
 }
 
 function activeUserHasAssignment() {
-  const profiles = wx.getStorageSync('roleProfiles') || {};
   const activeRole = orgSession.getSnapshot().role || 'user';
-  const profile = authContext.getRuntimeProfile(activeRole) || profiles[activeRole] || {};
+  const profile = authContext.getRuntimeProfile(activeRole) || {};
   return activeRole === 'user' && Boolean(safeText(profile.assignmentId));
 }
 

@@ -1,6 +1,25 @@
 const assert = require('assert');
 
-let storage = {};
+let storage = {
+  authSession: {
+    token: 'token-user',
+    role: 'user',
+    contextId: 'context-user',
+    orgId: 'org-1',
+    orgName: '测试组织',
+    version: 1,
+    authState: {
+      context: { contextId: 'context-user', role: 'user', organizationId: 'org-1' },
+      contexts: [],
+      organizations: [],
+      identities: [],
+      workContexts: [],
+      selection: { organizationId: 'org-1', contextId: 'context-user' },
+      profile: { assignmentId: '' },
+      availableOrganizations: []
+    }
+  }
+};
 global.wx = {
   getStorageSync(key) {
     return storage[key];
@@ -57,12 +76,8 @@ assert.strictEqual(approverCandidates[0].assignmentId, 'assignment-leader');
 assert.strictEqual(approverCandidates[0]._selectionText, '测试成员 · 部门负责人 · 组织部');
 assert.ok(approverCandidates[1]._searchText.indexOf('委员 · 组织部') >= 0);
 
-storage = {
-  activeRole: 'user',
-  roleProfiles: { user: { assignmentId: '' } }
-};
 assert.strictEqual(presentation.activeUserHasAssignment(), false);
-storage.roleProfiles.user.assignmentId = 'assignment-3';
+storage.authSession.authState.profile.assignmentId = 'assignment-3';
 assert.strictEqual(presentation.activeUserHasAssignment(), true);
 
 console.log('venue work context presentation tests passed');

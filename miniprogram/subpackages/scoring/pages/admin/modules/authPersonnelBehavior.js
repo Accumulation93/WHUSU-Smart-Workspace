@@ -244,8 +244,9 @@ module.exports = Behavior({
       const tabs = [];
       if (this.data.canManageAuthPolicy) tabs.push({ key: 'policy', label: localeCopy.copy_aef40f4a64 });
       const organizations = authContext.getOrganizations();
-      const activeOrgId = wx.getStorageSync('activeOrgId') || '';
-      const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+      const activeSession = orgSession.getSnapshot();
+      const activeOrgId = activeSession.orgId || '';
+      const activeOrgName = activeSession.orgName || '';
       const scopeOptions = this.data.isSuperAdmin
         ? [{ id: '', name: localeCopy.copy_d337157f74 }].concat(organizations)
         : [{ id: activeOrgId, name: activeOrgName || localeCopy.copy_2b8b8bf904 }];
@@ -269,7 +270,7 @@ module.exports = Behavior({
 
     async loadHrGovernanceRows() {
       if (!this.data.canVerifyIdentity && !this.data.canRecoverAccounts && !this.data.canGlobalAccountManage) return new Map();
-      const organizationId = wx.getStorageSync('activeOrgId') || '';
+      const organizationId = orgSession.getSnapshot().orgId || '';
       const result = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
       if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
       const selected = new Set(this.data.selectedHrMemberIds || []);
@@ -457,7 +458,7 @@ module.exports = Behavior({
           this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
         } else {
           const result = await callFunction({ name: 'admin/auth/claims', data: {
-            action: 'issue_invites', personIds: [row.personId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
+            action: 'issue_invites', personIds: [row.personId], organizationId: row.organizationId || orgSession.getSnapshot().orgId || ''
           } });
           const item = result.status === 'success' && result.issued && result.issued[0];
           if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
@@ -502,7 +503,7 @@ module.exports = Behavior({
             name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
             failureMessage: localeCopy.copy_d7ceb7b422,
-            extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+            extraData: { organizationId: orgSession.getSnapshot().orgId || '' }
           });
           const rowsByPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
           flattenIssued(result).forEach((item) => {
@@ -574,7 +575,7 @@ module.exports = Behavior({
           const result = await callFunction({ name: 'admin/auth/claims', data: isClaimCode ? {
             action: 'revoke_codes', claimIds: [target.pendingClaimId]
           } : {
-            action: 'revoke_invites', personIds: [target.personId], organizationId: target.organizationId || wx.getStorageSync('activeOrgId') || ''
+            action: 'revoke_invites', personIds: [target.personId], organizationId: target.organizationId || orgSession.getSnapshot().orgId || ''
           } });
           if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
           this.patchHrGovernance(target.personId, isClaimCode
@@ -605,7 +606,7 @@ module.exports = Behavior({
             name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
             failureMessage: localeCopy.copy_e9798c95c0,
-            extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+            extraData: { organizationId: orgSession.getSnapshot().orgId || '' }
           });
           results.push(result);
           const byPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
@@ -641,7 +642,7 @@ module.exports = Behavior({
       this.setData({ authActionLoadingKey: 'member-recovery-' + hrId });
       try {
         const result = await callFunction({ name: 'admin/auth/recoveries', data: {
-          action: 'issue_codes', accountIds: [row.accountId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
+          action: 'issue_codes', accountIds: [row.accountId], organizationId: row.organizationId || orgSession.getSnapshot().orgId || ''
         } });
         const item = result.status === 'success' && result.issued && result.issued[0];
         if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
@@ -667,7 +668,7 @@ module.exports = Behavior({
           name: 'admin/auth/recoveries', action: 'issue_codes', idField: 'accountIds',
           ids: rows.map((item) => item.accountId), batchSize: 100,
           failureMessage: localeCopy.copy_e5392c8b50,
-          extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+          extraData: { organizationId: orgSession.getSnapshot().orgId || '' }
         });
         const byAccount = new Map(rows.map((item) => [String(item.accountId), item]));
         const patches = [];
@@ -717,7 +718,7 @@ module.exports = Behavior({
           const result = await callFunction({ name: 'admin/auth/recoveries', data: {
             action: 'revoke_codes',
             accountIds: [target.accountId],
-            organizationId: target.organizationId || wx.getStorageSync('activeOrgId') || ''
+            organizationId: target.organizationId || orgSession.getSnapshot().orgId || ''
           } });
           if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
           this.patchHrGovernance(target.personId, { hasRecoveryCode: false });
@@ -728,7 +729,7 @@ module.exports = Behavior({
           name: 'admin/auth/recoveries', action: 'revoke_codes', idField: 'accountIds',
           ids: targets.map((item) => item.accountId), batchSize: 100,
           failureMessage: localeCopy.copy_5254a703ec,
-          extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+          extraData: { organizationId: orgSession.getSnapshot().orgId || '' }
         });
         const byAccount = new Map(targets.map((item) => [String(item.accountId), item]));
         const patches = [];

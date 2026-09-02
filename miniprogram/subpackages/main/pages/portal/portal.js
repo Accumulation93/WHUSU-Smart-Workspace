@@ -5,7 +5,7 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
-const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { navigateToTrustedRoute, reLaunchTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { portal: copy } = require('../../../../locales/zh-CN/main');
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const CATEGORY_LABELS = {
@@ -134,6 +134,7 @@ Page({
       this.setData({ appViewMode: savedView });
     }
     const currentUserState = this.refreshCurrentUser();
+    if (!currentUserState.hasUser) this.restoreCurrentUser(activeSession);
     if (currentUserState.isAdminRole) this.refreshAdminPermissionState();
     this.loadOrganizationName();
     if (currentUserState.hasUser) {
@@ -225,6 +226,23 @@ Page({
     });
     this._applyAppFilter(portalCards);
     return { user, activeRole, isAdminRole, hasUser: !!user, portalCards };
+  },
+
+  async restoreCurrentUser(expectedSession) {
+    try {
+      await authContext.refreshCatalog();
+      if (!orgSession.isCurrent(expectedSession)) return;
+      const restored = this.refreshCurrentUser();
+      if (restored.isAdminRole) await this.refreshAdminPermissionState();
+      if (restored.hasUser) {
+        this.retryPendingNotificationReads();
+        this.loadMessageOverview();
+      }
+    } catch (error) {
+      if (orgSession.isCurrent(expectedSession)) {
+        console.error('[portal] restore current user failed:', error.message || error);
+      }
+    }
   },
 
   async refreshAdminPermissionState() {
@@ -559,7 +577,7 @@ Page({
           wx.setStorageSync(key, queued);
         }
       }
-      navigateToTrustedRoute(item.targetUrl);
+      reLaunchTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
       showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
@@ -597,7 +615,7 @@ Page({
         messageSwitchOrganizationName: '',
         messageSwitchLoading: false
       });
-      navigateToTrustedRoute(pending.item.targetUrl);
+      reLaunchTrustedRoute(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
       wx.showToast({ title: denied ? copy.messages.selectOrganization : copy.messages.switchFailed, icon: 'none' });

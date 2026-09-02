@@ -1,21 +1,19 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/currentActor');
 const { safeString } = require('../../utils/helpers');
 const hrInfoModel = require('../models/hrInfo');
-const adminInfoModel = require('../models/adminInfo');
+const { resolveCurrentAdmin } = require('./adminRequestContext');
 
 const ACTIVE_ROLES = new Set(['user', 'admin']);
 
 /**
- * 按当前请求明确选择的身份解析业务主体。
- * X-Role 只用于选择身份类型，真正的账号与权限始终重新查询数据库。
+ * 按认证中间件验证过的当前工作角色解析业务主体。
+ * 请求头只保留兼容用途，不参与主体或权限判断。
  */
 async function resolveCurrentActor(req) {
   if (req.authContext && req.authAccount) {
     const context = req.authContext;
     if (context.role === 'admin') {
-      const admin = context.legacyAdminId
-        ? await adminInfoModel.getByIdGlobal(context.legacyAdminId)
-        : null;
+      const admin = await resolveCurrentAdmin(req);
       if (!admin) {
         return { ok: false, status: 'forbidden', message: localeCopy.copy_8dd829b03b };
       }
