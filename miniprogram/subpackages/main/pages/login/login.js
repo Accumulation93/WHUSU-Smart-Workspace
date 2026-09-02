@@ -86,8 +86,6 @@ function requestWechatSessionDirect(callbacks) {
           url: API_BASE + '/auth/wechat/session',
           method: 'POST',
           timeout: 15000,
-          dataType: 'text',
-          responseType: 'text',
           header: {
             'Content-Type': 'application/json',
             'X-Client-Version': CLIENT_VERSION,

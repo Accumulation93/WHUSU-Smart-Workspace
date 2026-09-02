@@ -73,6 +73,16 @@ global.wx = {
     if (!options.url.endsWith('/auth/wechat/session')) {
       throw new Error('未预期的原生请求：' + options.url);
     }
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(options, 'dataType'),
+      false,
+      '鸿蒙微信登录必须沿用原生默认 JSON 解析'
+    );
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(options, 'responseType'),
+      false,
+      '鸿蒙微信登录不得强制 text 响应模式'
+    );
     calls.push({ name: 'auth/wechat/session', data: Object.assign({}, options.data || {}) });
     setTimeout(function() {
       if (scenario === 'directLogin') {
