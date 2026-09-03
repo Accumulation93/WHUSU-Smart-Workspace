@@ -60,6 +60,9 @@ require.cache[apiPath] = {
       if (options.name === 'getCurrentScoreActivity') {
         return respond(options, { status: 'success', activity: { id: 'activity-1', name: '年度考核', isPaused: false } });
       }
+      if (options.name === 'getLatestPublishedScoreActivity') {
+        return respond(options, { status: 'success', activity: { id: 'activity-1', name: '年度考核' } });
+      }
       if (options.name === 'getPublicResults') {
         if (failPublication) {
           if (typeof options.fail === 'function') options.fail(new Error('temporary'));
