@@ -5,10 +5,12 @@ const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
 const { nowMysqlUtc } = require('../../../utils/dateTime');
+
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
 const pubCache = require('../utils/pubCache');
+const sharedCache = require('../utils/sharedCache');
 const scoreActivityModel = require('../models/scoreActivity');
 const scoreTemplateModel = require('../models/scoreTemplate');
 const scoreQuestionModel = require('../models/scoreQuestion');
@@ -24,6 +26,13 @@ const participantService = require('../services/participants');
 const scoreCalc = require('../utils/scoreCalc');
 const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapshotSchema');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+
+async function invalidateScoreResultCaches(activityId, orgId) {
+  await Promise.all([
+    pubCache.invalidate(activityId, orgId),
+    sharedCache.invalidatePrefix('overview_' + orgId + '_' + activityId + '_')
+  ]);
+}
 
 // ──────────────────────────── helpers ────────────────────────────
 
@@ -861,7 +870,7 @@ async function updateExistingScoreRecord(options) {
       operationType: 'submit_score', resourceId: stableScoreResourceId }, response);
   });
 
-  await pubCache.invalidate(activity.id, orgId);
+  await invalidateScoreResultCaches(activity.id, orgId);
   return res.json(response);
 }
 
@@ -1165,7 +1174,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     if (concurrentSubmissionResponse) return res.json(concurrentSubmissionResponse);
 
     // Invalidate publication score cache so next viewer sees fresh results
-    await pubCache.invalidate(activityId, orgId);
+    await invalidateScoreResultCaches(activityId, orgId);
 
     res.json(duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {

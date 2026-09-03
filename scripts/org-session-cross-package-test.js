@@ -2,7 +2,7 @@ const assert = require('assert');
 const path = require('path');
 
 const app = { globalData: {} };
-let synchronouslyPersistedSession = null;
+let asynchronouslyPersistedSession = null;
 const staleStorageSession = {
   token: 'token-current',
   role: 'user',
@@ -23,8 +23,9 @@ global.wx = {
     if (key === 'activeOrgVersion') return 1;
     return '';
   },
-  setStorage() {
-    // 模拟旧版鸿蒙存储桥尚未完成落盘：跨分包只能依赖 App 级共享内存。
+  setStorage(options) {
+    // 鸿蒙登录临界路径不等待存储桥，但仍应投递完整的紧凑会话用于下次冷启动。
+    if (options && options.key === 'authSession') asynchronouslyPersistedSession = options.data;
   },
   setStorageSync(key, value) {
     if (key === 'authSession') synchronouslyPersistedSession = value;
@@ -68,8 +69,8 @@ assert.strictEqual(snapshot.orgId, 'org-43');
 assert.strictEqual(authenticatedState.profile.adminLevel, 'super_admin');
 assert.strictEqual(alreadyLoadedSnapshot.role, 'admin');
 assert.strictEqual(alreadyLoadedSnapshot.contextId, 'admin:super');
-assert.strictEqual(synchronouslyPersistedSession.role, 'admin');
-assert.strictEqual(synchronouslyPersistedSession.contextId, 'admin:super');
+assert.strictEqual(asynchronouslyPersistedSession.role, 'admin');
+assert.strictEqual(asynchronouslyPersistedSession.contextId, 'admin:super');
 
 secondPackageSession.clearAuthentication('user');
 assert.strictEqual(app.globalData.__authSessionSnapshot, undefined);

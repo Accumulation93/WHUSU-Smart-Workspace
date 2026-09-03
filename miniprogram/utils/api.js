@@ -248,7 +248,7 @@ function hasSameSelection(left, right) {
     && left.identityId === right.identityId;
 }
 
-function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
+function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutMs) {
   // 登录、认领与恢复属于会话入口，此时客户端本就可能没有可比较的组织会话。
   // 真机收到响应后不得再执行一轮同步存储读取，否则部分 OpenHarmony 设备会
   // 卡在请求已返回、Promise 尚未完成的状态。
@@ -258,7 +258,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
     wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
-      timeout: 15000,
+      timeout: Math.max(1000, Number(timeoutMs) || 15000),
       header: createRequestHeaders(requestId),
       data: data,
       success: function(res) {
@@ -268,7 +268,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
             && hasSameSelection(organizationSnapshot, currentSnapshot)
             && currentSnapshot.token
             && currentSnapshot.token !== organizationSnapshot.token) {
-            requestOnce(name, data, requestId, false).then(resolve, reject);
+            requestOnce(name, data, requestId, false, timeoutMs).then(resolve, reject);
             return;
           }
           reject(cancelledError(requestId));
@@ -293,7 +293,7 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
           && !AUTH_ENTRY_APIS[name]
           && isAuthenticationFailure(res.statusCode, responseData)) {
           refreshAuthentication().then(function() {
-            return requestOnce(name, data, requestId, false);
+            return requestOnce(name, data, requestId, false, timeoutMs);
           }).then(resolve, function(error) {
             redirectToLogin(error);
             error.silent = true;
@@ -335,7 +335,7 @@ function callFunction(options) {
 
   const requestId = createRequestId();
   if (IDEMPOTENT_WRITE_APIS[name] && !data.clientRequestId) data.clientRequestId = requestId;
-  const promise = requestOnce(name, data, requestId, true);
+  const promise = requestOnce(name, data, requestId, true, options.timeout);
 
   // Backward compatibility: wire up callbacks if provided
   if (success || fail || complete) {

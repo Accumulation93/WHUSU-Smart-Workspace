@@ -586,7 +586,7 @@ Page({
       await this.loadActivityList();
     }
     const loaders = {
-      results: () => this.loadScoreResults({ nocache: true }),
+      results: () => this.loadScoreResults(),
       hrInfo: () => {
         const loads = [];
         if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
@@ -899,7 +899,7 @@ Page({
           }
         });
       } else {
-        this.loadScoreResults();
+        this.loadScoreResults({ reuseExisting: true });
       }
     }
     if (tab === 'hrInfo') {

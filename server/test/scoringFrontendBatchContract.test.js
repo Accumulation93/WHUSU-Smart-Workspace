@@ -21,6 +21,9 @@ function assertSingleAtomicCall(source, methodName, endpointName) {
 const ruleBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/ruleBehavior.js');
 const publicationBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/publicationBehavior.js');
 const hrInfoBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js');
+const resultBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/resultBehavior.js');
+const sharedApi = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/sharedApi.js');
+const adminPage = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/admin.js');
 const adminWxml = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/admin.wxml');
 
 assertSingleAtomicCall(ruleBehavior, 'applyClausesToSelectedRules', 'batchSaveRateRules');
@@ -33,5 +36,9 @@ assert(hrInfoBehavior.includes('const HR_PROFILE_RENDER_BATCH_SIZE = 50;'), '千
 assert(hrInfoBehavior.includes("updates['hrProfileRows[' + (start + index) + ']'] = row;"), '加载更多必须增量传输新卡片');
 assert(!hrInfoBehavior.includes('hrProfileRows: this._hrProfileFilteredRows.map(toHrProfileListRow)'), '筛选后不得把完整千人目录传给视图层');
 assert(adminWxml.includes('bindscrolltolower="loadMoreHrProfileRows"'), '成员目录滚动到底必须加载下一批成员');
+assert(adminPage.includes("loadScoreResults({ reuseExisting: true })"), '重复进入结果页必须优先复用本页已加载结果');
+assert(resultBehavior.includes('preserveExistingResult'), '结果刷新失败时必须保留已成功加载的数据');
+assert(resultBehavior.includes("{ timeout: 30000 }"), '大规模评分结果请求必须使用独立的长请求时限');
+assert(sharedApi.includes('requestOptions.timeout'), '评分管理请求封装必须透传独立请求时限');
 
 console.log('评分前端批量接口与千人目录增量渲染契约通过');

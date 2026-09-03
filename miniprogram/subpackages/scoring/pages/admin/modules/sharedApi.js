@@ -5,9 +5,9 @@ const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
-    callCloud(name, data = {}) {
+    callCloud(name, data = {}, requestOptions = {}) {
       const organizationSnapshot = orgSession.getSnapshot();
-      return callFunction({ name, data }).then((result) => {
+      return callFunction({ name, data, timeout: requestOptions.timeout }).then((result) => {
         if (!orgSession.isCurrent(organizationSnapshot)) {
           return Promise.reject({ status: 'request_cancelled', silent: true });
         }

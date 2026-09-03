@@ -67,7 +67,7 @@ const ORG_LOOKUPS_CACHE_TTL = 60000;
 
 // ─── Overview result cache (avoids recomputing scores on every page request) ───
 // Uses MySQL-backed shared cache so all PM2 instances see the same state.
-const OVERVIEW_CACHE_TTL = 60000; // 60 seconds
+const OVERVIEW_CACHE_TTL = 30 * 60 * 1000; // 30 minutes; score writes invalidate this cache immediately
 
 function getOverviewCacheKey(orgId, activityId, dataType, filters) {
   const dept = safeString(filters && filters.department);
@@ -1934,6 +1934,12 @@ router.post('/revokeScoreRecord', async (req, res) => {
       await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
       await conn.query('DELETE FROM score_records WHERE id = ? AND org_id = ?', [recordId, orgId]);
     });
+
+    const pubCache = require('../utils/pubCache');
+    await Promise.all([
+      pubCache.invalidate(record.activity_id, orgId),
+      sharedCache.invalidatePrefix('overview_' + orgId + '_' + record.activity_id + '_')
+    ]);
 
     res.json({ status: 'success', message: localeCopy.copy_d08849e510 });
   } catch (e) {

@@ -13,6 +13,8 @@ module.exports = Behavior({
     clearScoreResultsState(extraState) {
       this._resultLoadSeq = Number(this._resultLoadSeq || 0) + 1;
       this.resultLoadToken = this._resultLoadSeq;
+      this._scoreResultsLoadedKey = '';
+      this._scoreResultsLoadedAt = 0;
       this.targetRecordLoadToken = '';
       this.recordDetailLoadToken = '';
       this.departmentScorerToken = '';
@@ -54,6 +56,8 @@ module.exports = Behavior({
     },
 
     reloadScoreResults() {
+      this._scoreResultsLoadedKey = '';
+      this._scoreResultsLoadedAt = 0;
       this.resetCurrentResultRows();
       this.loadScoreResults({ nocache: true });
     },
@@ -66,6 +70,23 @@ module.exports = Behavior({
       this.resultLoadToken = loadToken;
       const activityId = this.data.currentActivityId;
       const requestSnapshot = orgSession.getSnapshot();
+      const resultRequestKey = JSON.stringify([
+        requestSnapshot.orgId || '',
+        requestSnapshot.contextId || '',
+        activityId || '',
+        viewMode,
+        this.data.resultFilters.department || '',
+        this.data.resultFilters.identity || '',
+        this.data.resultFilters.workGroup || ''
+      ]);
+      const hasMatchingResult = this._scoreResultsLoadedKey === resultRequestKey;
+      const loadedRecently = hasMatchingResult
+        && Date.now() - Number(this._scoreResultsLoadedAt || 0) < 60000;
+      if (options.reuseExisting === true && loadedRecently) {
+        this.setLoading('results', false);
+        return;
+      }
+      const preserveExistingResult = options.reuseExisting === true && hasMatchingResult;
       const requestIsCurrent = () => this.resultLoadToken === loadToken
         && this.data.currentActivityId === activityId
         && orgSession.isCurrent(requestSnapshot);
@@ -76,7 +97,7 @@ module.exports = Behavior({
         return;
       }
   
-      this.setLoading('results', true);
+      this.setLoading('results', !preserveExistingResult);
   
       const mergedRows = {
         overviewRows: [],
@@ -105,12 +126,12 @@ module.exports = Behavior({
               identity: this.data.resultFilters.identity,
               workGroup: this.data.resultFilters.workGroup
             }
-          });
+          }, { timeout: 30000 });
   
           if (!requestIsCurrent()) return;
   
           if (result.status !== 'success') {
-            this.clearScoreResultsState();
+            if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
               wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
@@ -129,6 +150,8 @@ module.exports = Behavior({
             }
           });
           this.applyScoreResultFilters();
+          this._scoreResultsLoadedKey = resultRequestKey;
+          this._scoreResultsLoadedAt = Date.now();
           this.setLoading('results', false);
           return;
         }
@@ -143,14 +166,14 @@ module.exports = Behavior({
               identity: this.data.resultFilters.identity,
               workGroup: this.data.resultFilters.workGroup
             }
-          });
+          }, { timeout: 30000 });
   
           if (!requestIsCurrent()) {
             return;
           }
   
           if (result.status !== 'success') {
-            this.clearScoreResultsState();
+            if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
               wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
@@ -168,6 +191,8 @@ module.exports = Behavior({
             }
           });
           this.applyScoreResultFilters();
+          this._scoreResultsLoadedKey = resultRequestKey;
+          this._scoreResultsLoadedAt = Date.now();
           return;
         }
   
@@ -182,14 +207,14 @@ module.exports = Behavior({
               identity: this.data.resultFilters.identity,
               workGroup: this.data.resultFilters.workGroup
             }
-          });
+          }, { timeout: 30000 });
   
           if (!requestIsCurrent()) {
             return;
           }
   
           if (result.status !== 'success') {
-            this.clearScoreResultsState();
+            if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
               wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
@@ -279,14 +304,18 @@ module.exports = Behavior({
             }
           }
         });
+        this._scoreResultsLoadedKey = resultRequestKey;
+        this._scoreResultsLoadedAt = Date.now();
       } catch (error) {
         if (!requestIsCurrent()) return;
-        this.clearScoreResultsState();
+        if (!preserveExistingResult) this.clearScoreResultsState();
         console.error(localeCopy.copy_bd06e9a531, error);
-        wx.showToast({
-          title: getErrorText(error, localeCopy.copy_c59ab1ce4a),
-          icon: 'none'
-        });
+        if (!preserveExistingResult) {
+          wx.showToast({
+            title: getErrorText(error, localeCopy.copy_c59ab1ce4a),
+            icon: 'none'
+          });
+        }
       } finally {
         if (this.resultLoadToken === loadToken) {
           this.setLoading('results', false);

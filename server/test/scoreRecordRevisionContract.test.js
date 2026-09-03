@@ -27,7 +27,7 @@ assert(updateSource.includes('revision_number = ?') && updateSource.includes('AN
 assert(updateSource.includes('score_revision_conflict'), '并发修改必须失败重载，禁止最后写入静默覆盖');
 assert(updateSource.includes('buildHistoricalTemplateBundle(record'),
   '重新评分必须继续使用该记录自己的题目依据，禁止套用当前模板');
-assert(updateSource.includes('pubCache.invalidate'), '评分更新成功后必须失效公示结果缓存');
+assert(updateSource.includes('invalidateScoreResultCaches'), '评分更新成功后必须同时失效公示与管理端结果缓存');
 
 assert.match(initSql, /revision_number INT NOT NULL DEFAULT 1/i);
 assert.doesNotMatch(initSql, /CREATE TABLE IF NOT EXISTS score_record_revisions/i);
