@@ -3,6 +3,7 @@ const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { createScoreSignature, isScoreDraftDirty } = require('./scoreDraftGuard');
 
 function assignmentNatureText(value) {
   if (value === 'staff') return localeCopy.assignmentNatureStaff;
@@ -333,6 +334,11 @@ Page({
     this._physicalBuffer = '';
     this._shiftDown = false;
     this._keydownSupported = false;
+    this._scoreBaselineSignature = '';
+    this._draftGuardEnabled = false;
+    // 微信开发者工具可能把上一评分页的原生离页提醒残留到新页面。
+    // 新页面必须主动清理一次，不能只依赖上一实例的 onUnload。
+    this._disableDraftGuard();
     this.targetId = String((options && options.targetId) || '').trim();
     if (!authContext.hasActiveUserAssignment()) {
       this.setData({
@@ -377,6 +383,33 @@ Page({
       this._stickyObserver.disconnect();
       this._stickyObserver = null;
     }
+    this._disableDraftGuard();
+  },
+
+  _enableDraftGuard: function () {
+    if (this._draftGuardEnabled || typeof wx.enableAlertBeforeUnload !== 'function') return;
+    wx.enableAlertBeforeUnload({ message: localeCopy.unsavedScoreLeaveWarning });
+    this._draftGuardEnabled = true;
+  },
+
+  _disableDraftGuard: function () {
+    if (typeof wx.disableAlertBeforeUnload === 'function') {
+      wx.disableAlertBeforeUnload();
+    }
+    this._draftGuardEnabled = false;
+  },
+
+  _syncDraftGuard: function (questionList) {
+    if (this.data.readOnly || !isScoreDraftDirty(questionList, this._scoreBaselineSignature)) {
+      this._disableDraftGuard();
+      return;
+    }
+    this._enableDraftGuard();
+  },
+
+  _commitCurrentDraft: function () {
+    this._scoreBaselineSignature = createScoreSignature(this.data.questionList);
+    this._disableDraftGuard();
   },
 
   _schedule: function (callback, delay) {
@@ -493,6 +526,8 @@ Page({
 
         let summaries = computeSummaries(rawQuestionList);
         let questionList = summaries.questionList;
+        self._scoreBaselineSignature = createScoreSignature(questionList);
+        self._disableDraftGuard();
 
         let initialIndex = 0;
         if (questionList.length) {
@@ -579,6 +614,7 @@ Page({
       data.currentQuestion = summaries.questionList[index];
     }
     this.setData(data);
+    this._syncDraftGuard(summaries.questionList);
   },
 
   focusQuestion: function (e) {
@@ -933,6 +969,7 @@ Page({
           self.setData({ submitting: false });
           return;
         }
+        self._commitCurrentDraft();
         wx.showToast({ title: result.updated || result.revised ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
         self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
@@ -950,6 +987,7 @@ Page({
                 ? checkedRevision > self.data.existingRecordRevision
                 : checkedRevision >= 1;
               if (checkResult.status === 'success' && checkResult.existingRecord && revisionAdvanced) {
+                self._commitCurrentDraft();
                 wx.showToast({ title: self.data.existingRecordRevision > 0 ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
                 self._schedule(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });

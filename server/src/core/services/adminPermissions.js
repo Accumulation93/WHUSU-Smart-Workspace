@@ -128,6 +128,9 @@ mapAny(['/listScoreActivities'], [
 mapAny(['/getCurrentScoreActivity'], [
   'scoring.activities', 'scoring.rules', 'scoring.results', 'scoring.publications'
 ], { allowUserRole: true });
+mapAny(['/getLatestPublishedScoreActivity'], [
+  'scoring.activities', 'scoring.rules', 'scoring.results', 'scoring.publications'
+], { allowUserRole: true });
 mapRoutes('scoring.activities', ['/saveScoreActivity', '/deleteScoreActivity', '/setCurrentScoreActivity', '/toggleActivityPause']);
 mapAny(['/listScoreTemplates'], ['scoring.templates', 'scoring.rules']);
 mapRoutes('scoring.templates', ['/saveScoreTemplate', '/deleteScoreTemplate', '/duplicateScoreTemplate']);

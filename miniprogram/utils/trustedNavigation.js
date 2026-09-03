@@ -121,4 +121,21 @@ function reLaunchTrustedRoute(rawUrl, handlers) {
   return true;
 }
 
-module.exports = { isTrustedRoute, navigateToTrustedRoute, reLaunchTrustedRoute, isCurrentRoute };
+function reLaunchPortalThenNavigate(rawUrl, handlers) {
+  const targetUrl = String(rawUrl || '').trim();
+  const callbacks = handlers || {};
+  if (!isTrustedRoute(targetUrl)) {
+    wx.showToast({ title: localeCopy.copy_9aad91c741, icon: 'none' });
+    return false;
+  }
+  const portalUrl = '/subpackages/main/pages/portal/portal?next=' + encodeURIComponent(targetUrl);
+  return reLaunchTrustedRoute(portalUrl, callbacks);
+}
+
+module.exports = {
+  isTrustedRoute,
+  navigateToTrustedRoute,
+  reLaunchTrustedRoute,
+  reLaunchPortalThenNavigate,
+  isCurrentRoute
+};

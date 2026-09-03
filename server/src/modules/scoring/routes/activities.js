@@ -235,6 +235,23 @@ router.post('/getCurrentScoreActivity', async (req, res) => {
   }
 });
 
+// 用户查看结果时使用最近一次已发布活动。它与“当前评分活动”相互独立，
+// 避免活动结束后历史结果和评优名单入口随 is_current 一起消失。
+router.post('/getLatestPublishedScoreActivity', async (req, res) => {
+  try {
+    const item = await activityModel.getLatestPublished();
+    res.json({
+      status: 'success',
+      activity: item ? {
+        id: item.id,
+        name: item.name || ''
+      } : null
+    });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // toggleActivityPause
 router.post('/toggleActivityPause', async (req, res) => {
   try {

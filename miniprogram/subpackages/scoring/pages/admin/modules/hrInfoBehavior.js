@@ -292,7 +292,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('reactivateHrMembership', {
           hrId,
-          organizationId: this.data.currentOrganizationId || orgSession.getSnapshot().orgId || ''
+          organizationId: orgSession.getSnapshot().orgId || this.data.currentOrganizationId || ''
         });
         if (!result || result.status !== 'success') {
           wx.showToast({ title: result && result.message || localeCopy.membershipReactivateFailed, icon: 'none' });
@@ -319,7 +319,7 @@ module.exports = Behavior({
         scope,
         hrId: String(this.data.detailHrId || ''),
         personId: String(governance.personId || ''),
-        organizationId: String(this.data.currentOrganizationId || orgSession.getSnapshot().orgId || ''),
+        organizationId: String(orgSession.getSnapshot().orgId || this.data.currentOrganizationId || ''),
         name: String(this.data.detailHrValues && this.data.detailHrValues._name || governance.name || ''),
         studentId: String(this.data.detailHrValues && this.data.detailHrValues._studentId || governance.studentId || '')
       };
@@ -1762,7 +1762,7 @@ module.exports = Behavior({
         try {
           const previewResult = await this.callCloud('previewPersonIdentityCorrection', {
             hrId,
-            organizationId: this.data.currentOrganizationId || orgSession.getSnapshot().orgId || '',
+            organizationId: orgSession.getSnapshot().orgId || this.data.currentOrganizationId || '',
             name,
             studentId
           });
@@ -1866,7 +1866,7 @@ module.exports = Behavior({
       }
       this.setData({ savingDetailHr: true });
       try {
-        const organizationId = this.data.currentOrganizationId || orgSession.getSnapshot().orgId || '';
+        const organizationId = orgSession.getSnapshot().orgId || this.data.currentOrganizationId || '';
         if (preview.mergeRequired) {
           const profileSaved = await this._saveCorrectionProfileBeforeMerge(preview);
           if (!profileSaved) return;

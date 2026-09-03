@@ -156,7 +156,11 @@
       </view>
       <view class="field">
         <view class="field-label">{{localeCopy.copy_a97eb08acb}}</view>
-        <view class="input-row purpose-input-row"><input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
+        <view class="input-row purpose-input-row">
+          <input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/>
+          <button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button>
+          <button wx:if="{{purposeEditId}}" class="secondary-btn purpose-cancel-btn ui-motion-button" bindtap="cancelPurposeEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+        </view>
       </view>
       <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
       <block wx:if="{{purposes.length}}">

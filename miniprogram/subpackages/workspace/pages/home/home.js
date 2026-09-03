@@ -93,6 +93,7 @@ function emptyPublicationState() {
     publishedMeritGroups: [],
     meritRuleGroups: [],
     meritDeptCount: 0,
+    publicationAccessLoading: false,
     hasPublication: false,
     hasViewPerm: false,
     hasMeritPerm: false,
@@ -311,6 +312,7 @@ Page({
     heroSubtitle: copy.text.signInWithWechat,
     organizationName: '',
     currentActivity: null,
+    publicationActivity: null,
     currentActivityText: copy.text.loadingDots,
     activityPaused: false,
     targetList: [],
@@ -332,6 +334,7 @@ Page({
     publishedMeritList: [],
     publishedMeritGroups: [],
     meritRuleGroups: [],
+    publicationAccessLoading: false,
     hasPublication: false,
     hasViewPerm: false,
     hasMeritPerm: false,
@@ -393,6 +396,7 @@ Page({
         ...emptyPublicationState(),
         activeTab: preservedTab,
         currentActivity: null,
+        publicationActivity: null,
         currentActivityText: copy.text.loadingDots,
         activityPaused: false
       });
@@ -441,10 +445,10 @@ Page({
     const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
     const tabs = [];
     if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: copy.text.scoring });
-    if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) {
+    if (allowed.indexOf('results') !== -1 && (this.data.hasViewPerm || this.data.publicationAccessLoading)) {
       tabs.push({ key: 'results', label: copy.text.results });
     }
-    if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) {
+    if (allowed.indexOf('meritList') !== -1 && (this.data.hasMeritPerm || this.data.publicationAccessLoading)) {
       tabs.push({ key: 'meritList', label: copy.text.meritList });
     }
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: copy.text.hr });
@@ -572,7 +576,8 @@ Page({
       this.loadAuditVerificationAccess();
     }
     if (tab === 'results' || tab === 'meritList') {
-      this.checkPublication();
+      if (this.data.publicationActivity) this.checkPublication();
+      else this.loadLatestPublishedActivity();
     }
   },
 
@@ -594,7 +599,7 @@ Page({
         });
         if (settings.discoverPublication || previousActivityId !== nextActivityId
           || this.data.activeTab === 'results' || this.data.activeTab === 'meritList') {
-          this.checkPublication();
+          this.loadLatestPublishedActivity();
         }
       },
       fail: () => {
@@ -604,9 +609,50 @@ Page({
           currentActivityText: copy.text.noActivity,
           activityPaused: false
         });
-        if (settings.discoverPublication) this.checkPublication();
+        if (settings.discoverPublication) this.loadLatestPublishedActivity();
       }
     });
+  },
+
+  loadLatestPublishedActivity() {
+    const request = orgSession.beginRequest(this, 'publicationActivity');
+    callFunction({
+      name: 'getLatestPublishedScoreActivity',
+      success: (res) => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const result = res.result || {};
+        if (result.status !== 'success') {
+          this.useCurrentActivityAsPublicationFallback();
+          return;
+        }
+        const activity = result.activity || null;
+        this.setData({ publicationActivity: activity });
+        if (activity) {
+          this.checkPublication();
+        } else {
+          this.setData(emptyPublicationState());
+          this.rebuildUserTabs(true);
+        }
+      },
+      fail: () => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        // 临时网络失败时保留已经确认过的公示入口，避免页签闪烁或消失。
+        if (this.data.publicationActivity) {
+          this.checkPublication();
+          return;
+        }
+        // 新接口与小程序可能分批发布。服务端尚未支持历史公示发现时，
+        // 继续用当前活动读取公示，避免已上线的结果/评优入口短暂消失。
+        this.useCurrentActivityAsPublicationFallback();
+      }
+    });
+  },
+
+  useCurrentActivityAsPublicationFallback() {
+    const activity = this.data.currentActivity || null;
+    if (!activity) return;
+    this.setData({ publicationActivity: activity });
+    this.checkPublication();
   },
 
   loadOrganizationName() {
@@ -1146,13 +1192,15 @@ Page({
   async checkPublication() {
     const activeRole = orgSession.getSnapshot().role || '';
     if (activeRole !== 'user') return;
-    const activityId = this.data.currentActivity ? this.data.currentActivity.id : '';
+    const activityId = this.data.publicationActivity ? this.data.publicationActivity.id : '';
     const request = orgSession.beginRequest(this, 'publication');
     if (!activityId) {
       this.setData(emptyPublicationState());
       this.rebuildUserTabs(true);
       return;
     }
+    this.setData({ publicationAccessLoading: true });
+    this.rebuildUserTabs();
     // 两项权限互不依赖并行加载；任一临时失败都保留上次已确认状态，
     // 不再把网络波动伪装成“没有权限”并删除页签。
     const resultRequest = new Promise((resolve, reject) => {
@@ -1164,7 +1212,7 @@ Page({
     try {
       const res = await resultRequest;
       if (res.__requestFailed) throw res.error;
-      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
+      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.publicationActivity || {}).id || '')) return;
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';
@@ -1253,7 +1301,7 @@ Page({
     try {
       const mlRes = await meritRequest;
       if (mlRes.__requestFailed) throw mlRes.error;
-      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
+      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.publicationActivity || {}).id || '')) return;
       if (mlRes.status === 'success') {
         const canDes = mlRes.canDesignate === true;
         const canViewMeritList = mlRes.canViewMeritList === true || canDes;
@@ -1317,6 +1365,7 @@ Page({
 
     if (orgSession.isRequestCurrent(this, request)) {
       this._publicationLoadedFor = [orgSession.getSnapshot().contextId, activityId].join('::');
+      this.setData({ publicationAccessLoading: false });
       this.rebuildUserTabs(true);
     }
   },

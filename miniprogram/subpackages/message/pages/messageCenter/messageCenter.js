@@ -3,7 +3,10 @@ const orgSession = require('../../../../utils/orgSession');
 const messageScope = require('../../../../utils/messageScope');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const authContext = require('../../../../utils/authContext');
-const { navigateToTrustedRoute, reLaunchTrustedRoute } = require('../../../../utils/trustedNavigation');
+const {
+  navigateToTrustedRoute,
+  reLaunchPortalThenNavigate
+} = require('../../../../utils/trustedNavigation');
 const { messageCenter: copy } = require('../../../../locales/zh-CN/main');
 
 const CATEGORY_LABELS = copy.categoryLabels;
@@ -422,7 +425,7 @@ Page({
           );
         }
       }
-      reLaunchTrustedRoute(item.targetUrl);
+      reLaunchPortalThenNavigate(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
       showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
@@ -450,7 +453,7 @@ Page({
         }
       }
       this._pendingNavigation = null;
-      reLaunchTrustedRoute(pending.item.targetUrl);
+      reLaunchPortalThenNavigate(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
       showShortToast(denied ? copy.messages.selectOrganization : copy.messages.switchFailed);

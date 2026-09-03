@@ -11,6 +11,7 @@ module.exports = Object.freeze({
   historicalReadOnlyTap: '这条评分暂时无法修改，请联系管理员',
   scoreRevisionConflict: '该评分已更新，正在重新载入',
   scoreUpdated: '评分已更新',
+  unsavedScoreLeaveWarning: '当前评分尚未提交，离开后修改不会保留。是否继续离开？',
   historicalScoreUnavailable: '历史分数未留存',
   historicalRecordEmpty: '该早期记录未留存题目与分数，但提交记录仍可查看',
   historicalDataRecovering: '历史评分数据正在统一恢复，请稍后重试',

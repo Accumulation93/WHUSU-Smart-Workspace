@@ -7,6 +7,7 @@ const adminInfoModel = require('../models/adminInfo');
 const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const { resolveCurrentAdmin } = require('../services/adminRequestContext');
 const {
   AdminOrganizationAccessError,
   requireAdminOrganizationPermission
@@ -20,7 +21,12 @@ const {
 } = require('../services/adminAuthorization');
 
 async function ensureAdmin(req) {
-  return req.admin || adminInfoModel.getByOpenid(req.openid);
+  const current = await resolveCurrentAdmin(req);
+  return current || req.admin || adminInfoModel.getByOpenid(req.openid);
+}
+
+async function getRequestOrganizationId(req) {
+  return safeString(req.authContext && req.authContext.organizationId) || getCurrentOrgId();
 }
 
 function getAdminLevelLabel(adminLevel) {
@@ -99,7 +105,7 @@ router.post('/listAdmins', async (req, res) => {
     if (!operator || !hasAccountRead(req, operator)) {
       return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     }
-    const orgId = await getCurrentOrgId();
+    const orgId = await getRequestOrganizationId(req);
     const canWrite = hasAccountWrite(req, operator);
     const rows = await adminInfoModel.listVisible(operator, orgId);
     const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(
@@ -144,7 +150,7 @@ router.post('/saveAdmin', async (req, res) => {
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
     const requestedLevel = safeString(req.body.adminLevel || 'admin');
-    const currentOrgId = await getCurrentOrgId();
+    const currentOrgId = await getRequestOrganizationId(req);
     const requestedOrgId = safeString(req.body.organizationId) || currentOrgId;
     connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -223,7 +229,7 @@ router.post('/deleteAdmin', async (req, res) => {
   try {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_97111cbe62 });
-    const currentOrgId = await getCurrentOrgId();
+    const currentOrgId = await getRequestOrganizationId(req);
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const target = await adminInfoModel.getByIdGlobal(id, connection, true);
@@ -308,7 +314,8 @@ router.post('/exportAdmins', async (req, res) => {
     if (!operator || !hasAccountRead(req, operator)) {
       return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     }
-    const data = await adminInfoModel.getAll(operator);
+    const orgId = await getRequestOrganizationId(req);
+    const data = await adminInfoModel.listVisible(operator, orgId);
     const csvRows = ['姓名,学号,管理员级别,绑定状态'];
     data.forEach((item) => {
       csvRows.push([item.name, item.student_id, getAdminLevelLabel(item.admin_level), item.bind_status].join(','));

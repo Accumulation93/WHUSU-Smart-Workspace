@@ -28,6 +28,11 @@ test('两个事由删除入口共用一次确认且取消不请求', () => {
   assert.match(manageJs.slice(executorStart), /name: 'deleteVenueBookingPurpose'/);
 });
 
+test('常用事由编辑态提供明确取消并恢复新增表单', () => {
+  assert.match(manageWxml, /wx:if="\{\{purposeEditId\}\}"[\s\S]*?bindtap="cancelPurposeEdit"/);
+  assert.match(manageJs, /cancelPurposeEdit\(\) \{\s+this\.setData\(\{ purposeEditId: '', purposeEditText: '' \}\);\s+\}/);
+});
+
 for (const [name, source, loadMethod, channel] of [
   ['场地借用页', bookingJs, 'loadPendingData', 'venueApprovalSyncDelay'],
   ['独立待审批页', pendingJs, 'loadData', 'pendingVenueApprovalSyncDelay']

@@ -422,6 +422,17 @@ page {
   border: none;
 }
 
+.purpose-cancel-btn {
+  flex: 0 0 auto;
+  min-width: 104rpx;
+  width: auto;
+  min-height: 72rpx;
+  height: auto;
+  line-height: var(--ui-leading-control, 1.35);
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
+  font-size: var(--ui-type-label);
+}
+
 /* ═══ Purpose input row ═══ */
 .purpose-input-row {
   display: flex;

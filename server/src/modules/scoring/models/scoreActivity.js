@@ -19,6 +19,23 @@ async function getCurrent() {
   return rows[0] || null;
 }
 
+async function getLatestPublished() {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT activity.*
+       FROM result_publications publication
+       INNER JOIN score_activities activity
+         ON activity.id = publication.activity_id
+        AND activity.org_id = publication.org_id
+      WHERE publication.is_published = 1
+        AND publication.org_id = ?
+      ORDER BY publication.published_at DESC, publication.updated_at DESC, activity.created_at DESC
+      LIMIT 1`,
+    [orgId]
+  );
+  return rows[0] || null;
+}
+
 async function create(id, data) {
   const { name, description, startDate, endDate, isCurrent, isPaused, participantGranularity, createdBy } = data;
   const orgId = await getCurrentOrgId();
@@ -70,4 +87,4 @@ async function togglePause(id, isPaused) {
   );
 }
 
-module.exports = { getAll, getById, getCurrent, create, update, remove, clearAllCurrent, togglePause };
+module.exports = { getAll, getById, getCurrent, getLatestPublished, create, update, remove, clearAllCurrent, togglePause };

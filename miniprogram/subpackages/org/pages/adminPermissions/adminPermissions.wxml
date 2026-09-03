@@ -15,7 +15,7 @@
     </view>
 
     <view class="permission-loading" wx:if="{{loading}}">{{localeCopy.copy_d576d9e120}}</view>
-    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">{{localeCopy.copy_6214a926a3}}</view>
+    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">{{keyword ? localeCopy.searchEmpty : localeCopy.copy_6214a926a3}}</view>
     <view class="permission-admin-list" wx:else>
       <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
         <view class="permission-role-mark" aria-label="{{localeCopy.copy_72d3c6f7c2}}">

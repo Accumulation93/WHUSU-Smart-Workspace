@@ -2,6 +2,7 @@
 
 module.exports = Object.freeze({
   navigationTitle: '管理员权限 - WHUSU智慧工作台',
+  searchEmpty: '没有符合条件的管理员',
   copy_0278c19d5a: "的权限",
   copy_06dbb49961: "取消",
   copy_06e8d3a970: '未命名管理员',

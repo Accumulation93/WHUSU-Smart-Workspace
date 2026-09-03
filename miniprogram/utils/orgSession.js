@@ -240,12 +240,10 @@ function commitFastContext(context) {
     // App 实例跨主包、分包共享。先同步更新内存桥，后续分包无需等待
     // 鸿蒙设备的异步存储桥落盘即可读取同一份当前角色与权限资料。
     setAppSession(compact);
-    // 显式切换角色后马上会销毁页面栈并进入其他分包。此时只同步落一份
-    // 紧凑会话，确保已经加载过、仍保有旧模块实例的分包也不会读到旧角色。
-    // 登录临界路径不传该标记，继续走鸿蒙友好的异步存储。
-    if (next.persistForNavigation && typeof wx.setStorageSync === 'function') {
-      wx.setStorageSync(COMPACT_SESSION_KEY, compact);
-    } else if (typeof wx.setStorage === 'function') {
+    // App 内存会话是当前进程内跨主包、分包的唯一事实来源。切换岗位和登录
+    // 都只异步持久化紧凑快照，避免 OpenHarmony 真机在同步存储桥上长时间
+    // 阻塞；新页面会先从 getApp().globalData 读取刚提交的完整会话。
+    if (typeof wx.setStorage === 'function') {
       wx.setStorage({ key: COMPACT_SESSION_KEY, data: compact });
     } else {
       wx.setStorageSync(COMPACT_SESSION_KEY, compact);

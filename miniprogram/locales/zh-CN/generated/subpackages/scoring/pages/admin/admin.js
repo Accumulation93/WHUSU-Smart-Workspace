@@ -662,7 +662,7 @@ module.exports = Object.freeze({
   copy_e5f5be43de: "，请修正后重新导入",
   copy_e68b797796: "验证文件签名",
   copy_e73eea6f61: "清除截止时间",
-  copy_e74c96dd07: "当前组织",
+  copy_e74c96dd07: "系统默认组织",
   copy_e7c1936709: "搜索人事成员",
   copy_e8b001bfef: "选择身份类别",
   copy_e8ca7f8024: "部门范围",

@@ -9,8 +9,8 @@ module.exports = Behavior({
   methods: {
     applySystemDefaultOrganization(organizationId, organizationName) {
       this.setData({
-        currentOrganizationId: organizationId,
-        currentOrganizationName: organizationName
+        systemDefaultOrganizationId: organizationId,
+        systemDefaultOrganizationName: organizationName
       });
     },
 
@@ -28,7 +28,7 @@ module.exports = Behavior({
           this.setData({
             systemConfig: { timezone: timezone },
             timezoneIndex: timezoneIndex >= 0 ? timezoneIndex : 20,
-            currentOrganizationId: result.config.currentOrganization || null
+            systemDefaultOrganizationId: result.config.currentOrganization || null
           });
           this.resolveCurrentOrganizationName();
         }
@@ -86,13 +86,13 @@ module.exports = Behavior({
     },
 
     resolveCurrentOrganizationName() {
-      const orgId = this.data.currentOrganizationId;
+      const orgId = this.data.systemDefaultOrganizationId;
       if (!orgId) {
-        this.setData({ currentOrganizationName: '' });
+        this.setData({ systemDefaultOrganizationName: '' });
         return;
       }
       const org = this.data.organizationList.find(function (o) { return o.id === orgId; });
-      this.setData({ currentOrganizationName: org ? org.name : '' });
+      this.setData({ systemDefaultOrganizationName: org ? org.name : '' });
     },
 
     openOrgForm(e) {

@@ -73,6 +73,8 @@ Page({
     organizationList: [],
     currentOrganizationId: null,
     currentOrganizationName: '',
+    systemDefaultOrganizationId: null,
+    systemDefaultOrganizationName: '',
     orgFormVisible: false,
     contextSwitchGuardVisible: false,
     orgFormData: { name: '' },
@@ -526,9 +528,14 @@ Page({
       this.clearScoreResultsState();
     }
     // 组织名称必须与本轮统一会话一致，兼容 storage 可能仍在异步落盘。
+    const activeOrgId = consumed.snapshot.orgId || '';
     const activeOrgName = consumed.snapshot.orgName || '';
-    if (activeOrgName && activeOrgName !== this.data.currentOrganizationName) {
-      this.setData({ currentOrganizationName: activeOrgName });
+    if (activeOrgId !== this.data.currentOrganizationId
+      || (activeOrgName && activeOrgName !== this.data.currentOrganizationName)) {
+      this.setData({
+        currentOrganizationId: activeOrgId,
+        currentOrganizationName: activeOrgName
+      });
     }
     // 监听组织切换事件（匹配 portal 页模式）
     if (!this._boundOnOrgChanged) {
@@ -756,6 +763,7 @@ Page({
       canRecoverAccounts: adminPermissions.hasAny(adminProfile, ['auth.accounts.recover']),
       canGlobalAccountManage: adminPermissions.hasAny(adminProfile, ['auth.accounts.global_manage']),
       canManageAuthPolicy: adminPermissions.hasAny(adminProfile, ['auth.policy.manage']),
+      currentOrganizationId: activeOrgId,
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
         { value: 'overview', label: localeCopy.copy_a6f7e5f124 },

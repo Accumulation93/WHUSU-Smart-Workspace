@@ -87,7 +87,11 @@
   </view>
 
   <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
-    <view class="card empty-state-card" wx:if="{{!hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
+      <view class="empty-title">{{copy.loadingDots}}</view>
+    </view>
+    <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
       <view class="empty-title">{{copy.noPublication}}</view>
     </view>
@@ -216,7 +220,11 @@
   </view>
 
   <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
-    <view class="card empty-state-card" wx:if="{{!hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
+      <view class="empty-title">{{copy.loadingDots}}</view>
+    </view>
+    <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
       <view class="empty-title">{{copy.noMeritList}}</view>
     </view>

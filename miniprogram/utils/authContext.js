@@ -552,8 +552,7 @@ function applyActivatedResult(result) {
     role: context.role,
     orgId: context.organizationId || selection.organizationId,
     orgName: context.organizationName,
-    authState: compactAuthenticatedState(state),
-    persistForNavigation: true
+    authState: compactAuthenticatedState(state)
   });
   // 切换必须产生新的持久化代次，使登录或上一次切换遗留的延迟任务失效。
   // 页面立即读取上面的完整内存状态，兼容旧页面的分散键随后后台落盘。

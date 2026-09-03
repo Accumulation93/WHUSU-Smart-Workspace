@@ -5,7 +5,11 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
-const { navigateToTrustedRoute, reLaunchTrustedRoute } = require('../../../../utils/trustedNavigation');
+const {
+  isTrustedRoute,
+  navigateToTrustedRoute,
+  reLaunchPortalThenNavigate
+} = require('../../../../utils/trustedNavigation');
 const { portal: copy } = require('../../../../locales/zh-CN/main');
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const CATEGORY_LABELS = {
@@ -93,8 +97,15 @@ Page({
   _messageOverviewLoading: false,
   _messageOverviewQueued: false,
 
-  onLoad() {
+  onLoad(options) {
     wx.setNavigationBarTitle({ title: copy.navigationTitle });
+    let pendingRoute = String((options && options.next) || '').trim();
+    try { pendingRoute = decodeURIComponent(pendingRoute); } catch (_) { pendingRoute = ''; }
+    this._pendingTrustedRoute = isTrustedRoute(pendingRoute)
+      && pendingRoute.indexOf('/subpackages/main/pages/portal/portal') !== 0
+      && pendingRoute.indexOf('/subpackages/main/pages/login/login') !== 0
+      ? pendingRoute
+      : '';
   },
 
   onShow() {
@@ -159,6 +170,14 @@ Page({
       this._boundOnOrgChanged = this._onOrgChanged.bind(this);
       eventBus.on('org:changed', this._boundOnOrgChanged);
     }
+    this.openPendingTrustedRoute();
+  },
+
+  openPendingTrustedRoute() {
+    const targetUrl = this._pendingTrustedRoute;
+    if (!targetUrl) return;
+    this._pendingTrustedRoute = '';
+    navigateToTrustedRoute(targetUrl);
   },
 
   onHide() {
@@ -577,7 +596,7 @@ Page({
           wx.setStorageSync(key, queued);
         }
       }
-      reLaunchTrustedRoute(item.targetUrl);
+      reLaunchPortalThenNavigate(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
       showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
@@ -615,7 +634,7 @@ Page({
         messageSwitchOrganizationName: '',
         messageSwitchLoading: false
       });
-      reLaunchTrustedRoute(pending.item.targetUrl);
+      reLaunchPortalThenNavigate(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
       wx.showToast({ title: denied ? copy.messages.selectOrganization : copy.messages.switchFailed, icon: 'none' });

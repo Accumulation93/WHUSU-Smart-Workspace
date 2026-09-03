@@ -2156,9 +2156,9 @@
 
       <view class="edit-box" wx:if="{{isSuperAdmin}}">
         <view class="list-title">{{localeCopy.copy_dfe3ef46ab}}</view>
-        <view class="field" wx:if="{{currentOrganizationId}}">
+        <view class="field" wx:if="{{systemDefaultOrganizationId}}">
           <view class="field-label">{{localeCopy.copy_e74c96dd07}}</view>
-          <view class="field-value">{{currentOrganizationName}}</view>
+          <view class="field-value">{{systemDefaultOrganizationName}}</view>
         </view>
         <view class="button-row compact-row">
           <button class="secondary-btn ui-motion-button" bindtap="openOrgForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6a843c55ad}}</button>
@@ -2170,12 +2170,12 @@
               <view class="list-main">
                 <view class="list-name">{{item.name}}</view>
                 <view class="chip-row">
-                  <view class="status-chip current-chip" wx:if="{{item.id === currentOrganizationId}}">{{localeCopy.copy_e74c96dd07}}</view>
+                  <view class="status-chip current-chip" wx:if="{{item.id === systemDefaultOrganizationId}}">{{localeCopy.copy_e74c96dd07}}</view>
                 </view>
                 <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fda919de66}}</text>
+                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fda919de66}}</text>
                   <text class="link ui-motion-chip" bindtap="openOrgForm" data-id="{{item.id}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>

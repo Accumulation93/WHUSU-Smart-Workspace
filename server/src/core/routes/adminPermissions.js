@@ -4,7 +4,6 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../../config/db');
 const { safeString } = require('../../utils/helpers');
-const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminPermissionModel = require('../models/adminPermission');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const { resolveCurrentAdmin } = require('../services/adminRequestContext');
@@ -24,7 +23,10 @@ async function resolveOperator(req) {
 async function resolvePermissionManager(req) {
   const operator = await resolveOperator(req);
   if (!operator) return { operator: null, effective: null, orgId: '' };
-  const orgId = await getCurrentOrgId();
+  // 管理权限必须跟随本次统一会话中已经选定的组织。system_config 中的
+  // 默认组织只影响新会话默认值，不能覆盖用户已经切换到的工作角色。
+  const orgId = safeString(req.authContext && req.authContext.organizationId);
+  if (!orgId) return { operator: null, effective: null, orgId: '' };
   const effective = await loadEffectivePermissions(operator, orgId);
   return { operator, effective, orgId };
 }

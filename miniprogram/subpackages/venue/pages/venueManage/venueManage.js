@@ -1958,6 +1958,10 @@ Page({
     if (p) this.setData({ purposeEditId: p.id, purposeEditText: p.text });
   },
 
+  cancelPurposeEdit() {
+    this.setData({ purposeEditId: '', purposeEditText: '' });
+  },
+
   async savePurpose() {
     const { purposeEditId, purposeEditText } = this.data;
     const normalizedText = String(purposeEditText || '').trim();

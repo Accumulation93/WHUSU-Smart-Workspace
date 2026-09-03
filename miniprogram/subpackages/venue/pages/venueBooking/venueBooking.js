@@ -30,6 +30,11 @@ const TOTAL_MIN = 24 * 60;
 const SNAP = 10;
 const MINUTE_OPTS = [0,10,20,30,40,50];
 
+function sameRecordId(left, right) {
+  if (left === null || left === undefined || right === null || right === undefined) return false;
+  return String(left) === String(right);
+}
+
 function isFlowApprovalTarget(record) {
   const target = record && typeof record === 'object' ? record : {};
   const progress = target.approvalProgress && typeof target.approvalProgress === 'object'
@@ -458,7 +463,7 @@ Page({
   // ═══ Timetable ═══
   async openSchedule(e) {
     let id = e.currentTarget.dataset.id;
-    let v = this.data.venues.find(function(v){return v.id===id;});
+    let v = this.data.venues.find(function(v){return sameRecordId(v.id, id);});
     this.setData({ scheduleVisible:true, scheduleVenueId:id, scheduleVenueName:v?v.name:'', timetableColumns:[] });
     await this.loadTimetable();
   },
@@ -481,7 +486,7 @@ Page({
   _buildTimetable(dailySchedules) {
     let labels = [localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100];
     let columns = [];
-    let venue = this.data.venues.find(function(item) { return item.id === this.data.scheduleVenueId; }.bind(this));
+    let venue = this.data.venues.find(function(item) { return sameRecordId(item.id, this.data.scheduleVenueId); }.bind(this));
     this._timetableDayData = dailySchedules || [];
     for(let i=0;i<7;i++) {
       const dateStr = addDateDays(this.data.scheduleWeekStart, i);
@@ -594,7 +599,7 @@ Page({
 
   viewMyBookingDetail(e) {
     let id = e.currentTarget.dataset.id;
-    let item = this.data.myBookings.find(function(b){return b.id===id;});
+    let item = this.data.myBookings.find(function(b){return sameRecordId(b.id, id);});
     if (!item) return;
     this.setData({ bookingDetailVisible: true, bookingDetail: prepareVenueBookingDetail(item), expandedNodeKey: '' });
   },
@@ -625,7 +630,7 @@ Page({
 
   _getVenueBookingWindow(venueId) {
     const id = venueId || this.data.scheduleVenueId || this.data.bookingVenueId;
-    const venue = (this.data.venues || []).find(function(item) { return item.id === id; });
+    const venue = (this.data.venues || []).find(function(item) { return sameRecordId(item.id, id); });
     return venue ? venue.bookingWindow : null;
   },
 
@@ -673,7 +678,7 @@ Page({
   openBooking(e) {
     if (!this._guardActiveAssignment()) return;
     let id = e.currentTarget.dataset.id;
-    let v = this.data.venues.find(function(x){return x.id===id;});
+    let v = this.data.venues.find(function(x){return sameRecordId(x.id, id);});
     let today = this.data.bookingStartDate;
     this.setData({
       bookingVisible: true, bookingVenueId: id, bookingVenueName: v ? v.name : '',
@@ -1758,7 +1763,7 @@ Page({
   async cancelMyBooking(e) {
     let id = e.currentTarget.dataset.id;
     let that = this;
-    let booking = this.data.myBookings.find(function(b){return b.id===id;});
+    let booking = this.data.myBookings.find(function(b){return sameRecordId(b.id, id);});
     if (!booking) return;
     if (booking.displayStatus === 'inUse') { showShortToast(localeCopy.copy_a22e0c994a); return; }
     if (booking.displayStatus === 'completed') { showShortToast(localeCopy.copy_7d2ebd6d78); return; }
@@ -1771,7 +1776,7 @@ Page({
           if(res.status==='success'){
             showShortToast(res.message || localeCopy.copy_fd4601c1f9);
             let bookings = that.data.myBookings.map(function(b) {
-              return b.id === id ? Object.assign({}, b, { status: 'cancelled', displayStatus: 'cancelled' }) : b;
+              return sameRecordId(b.id, id) ? Object.assign({}, b, { status: 'cancelled', displayStatus: 'cancelled' }) : b;
             });
             that.setData({ myBookings: bookings });
             that.loadMyBookings();
@@ -1926,7 +1931,7 @@ Page({
 
   openApprove(e) {
     let id = e.currentTarget.dataset.id;
-    let item = this.data.pending.find(function(p) { return p.id === id; });
+    let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (!item) return;
     if (!this._guardApprovalContext(item)) return;
     const flows = item.flowSummary || [];
@@ -1942,7 +1947,7 @@ Page({
 
   openReject(e) {
     let id = e.currentTarget.dataset.id;
-    let item = this.data.pending.find(function(p) { return p.id === id; });
+    let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (!item) return;
     if (!this._guardApprovalContext(item)) return;
     this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: 'reject', approvalComment: '' });
@@ -2012,11 +2017,11 @@ Page({
 
         if (action === 'approve' && res.approvalProgress) {
           if (res.approvalProgress.isApproved) {
-            pending = pending.filter(function(p) { return p.id !== targetId; });
+            pending = pending.filter(function(p) { return !sameRecordId(p.id, targetId); });
           } else {
             let idx = -1;
             for (let pi = 0; pi < pending.length; pi++) {
-              if (pending[pi].id === targetId) { idx = pi; break; }
+              if (sameRecordId(pending[pi].id, targetId)) { idx = pi; break; }
             }
             if (idx >= 0) {
               let updated = Object.assign({}, pending[idx], {
@@ -2036,7 +2041,7 @@ Page({
             }
           }
         } else {
-          pending = pending.filter(function(p) { return p.id !== targetId; });
+          pending = pending.filter(function(p) { return !sameRecordId(p.id, targetId); });
         }
 
         that.setData({
@@ -2067,7 +2072,7 @@ Page({
 
   viewApprovalDetail(e) {
     let id = e.currentTarget.dataset.id;
-    let item = this.data.pending.find(function(p) { return p.id === id; });
+    let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (item) {
       this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: '', approvalComment: '' });
     }
