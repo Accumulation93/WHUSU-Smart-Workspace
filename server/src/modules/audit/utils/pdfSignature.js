@@ -557,6 +557,38 @@ function verifyCmsDer(cmsDer, contentBytes) {
   }
 }
 
+function readDerPayloadLength(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 2) return 0;
+  const firstLengthByte = buffer[1];
+  if ((firstLengthByte & 0x80) === 0) return 2 + firstLengthByte;
+  const lengthByteCount = firstLengthByte & 0x7f;
+  if (!lengthByteCount || lengthByteCount > 6 || buffer.length < 2 + lengthByteCount) return 0;
+  let payloadLength = 0;
+  for (let index = 0; index < lengthByteCount; index += 1) {
+    payloadLength = payloadLength * 256 + buffer[2 + index];
+  }
+  const totalLength = 2 + lengthByteCount + payloadLength;
+  return Number.isSafeInteger(totalLength) ? totalLength : 0;
+}
+
+function extractCmsDerFromPdfContents(pdfBuffer, byteRange) {
+  if (!Buffer.isBuffer(pdfBuffer) || !Array.isArray(byteRange) || byteRange.length !== 4) return null;
+  const contentsStart = Number(byteRange[0]) + Number(byteRange[1]);
+  const contentsEnd = Number(byteRange[2]);
+  if (!Number.isSafeInteger(contentsStart) || !Number.isSafeInteger(contentsEnd)
+    || contentsStart < 0 || contentsEnd <= contentsStart || contentsEnd > pdfBuffer.length) return null;
+  const rawContents = pdfBuffer.slice(contentsStart, contentsEnd).toString('ascii');
+  const openIndex = rawContents.indexOf('<');
+  const closeIndex = rawContents.lastIndexOf('>');
+  if (openIndex < 0 || closeIndex <= openIndex) return null;
+  const signatureHex = rawContents.slice(openIndex + 1, closeIndex).replace(/\s+/g, '');
+  if (!signatureHex || signatureHex.length % 2 !== 0 || /[^0-9a-f]/i.test(signatureHex)) return null;
+  const paddedDer = Buffer.from(signatureHex, 'hex');
+  const derLength = readDerPayloadLength(paddedDer);
+  if (!derLength || derLength > paddedDer.length) return null;
+  return paddedDer.subarray(0, derLength);
+}
+
 function verifyPdfSignature(pdfBuffer) {
   const signatures = [];
   let index = 1;
@@ -568,7 +600,8 @@ function verifyPdfSignature(pdfBuffer) {
       break;
     }
     index += 1;
-    const cmsDer = Buffer.from(extracted.signature, 'binary');
+    const cmsDer = extractCmsDerFromPdfContents(pdfBuffer, extracted.ByteRange)
+      || Buffer.from(extracted.signature, 'binary');
     const result = verifyCmsDer(cmsDer, extracted.signedData);
     signatures.push({
       ok: result.ok,
@@ -598,5 +631,6 @@ module.exports = {
   verifyPdfSignature,
   pemDecode,
   getConfiguredSigningIdentity,
-  getConfiguredParentSigningIdentity
+  getConfiguredParentSigningIdentity,
+  extractCmsDerFromPdfContents
 };

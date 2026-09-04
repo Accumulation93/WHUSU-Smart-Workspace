@@ -29,7 +29,8 @@ const {
   generateSigningKeyPair,
   createSignerCertificate,
   signPdfBuffer,
-  verifyPdfSignature
+  verifyPdfSignature,
+  extractCmsDerFromPdfContents
 } = require('../src/modules/audit/utils/pdfSignature');
 
 const VALID_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X5W2GQAAAABJRU5ErkJggg==';
@@ -79,6 +80,14 @@ async function expectCode(promise, code, message) {
 }
 
 (async () => {
+  const terminalZeroDer = Buffer.from('3003040100', 'hex');
+  const terminalZeroContents = Buffer.from('<3003040100000000>TAIL', 'ascii');
+  assert.deepStrictEqual(
+    extractCmsDerFromPdfContents(terminalZeroContents, [0, 0, 18, 4]),
+    terminalZeroDer,
+    'CMS 提取必须按 DER 声明长度保留签名末尾的合法 00 字节'
+  );
+
   assert.deepStrictEqual(await resolve('pass', []), [], '纯通过步骤不应要求可见签署材料');
   await expectCode(
     resolve('pass', [material('signature')]),
@@ -175,7 +184,11 @@ async function expectCode(promise, code, message) {
   assert.strictEqual(savedKeys.length, 1, '最终 PDF 签名身份必须持久化一次');
   const verification = verifyPdfSignature(signed.buffer);
   assert.strictEqual(verification.present, true, '最终 PDF 应包含 PKCS#7 签名');
-  assert.strictEqual(verification.valid, true, '最终 PDF 的 PKCS#7 签名必须有效');
+  assert.strictEqual(
+    verification.valid,
+    true,
+    `最终 PDF 的 PKCS#7 签名必须有效：${JSON.stringify(verification.signatures)}`
+  );
 
   const finalDocumentHash = hashFile(signed.buffer);
   const signerSnapshot = {
