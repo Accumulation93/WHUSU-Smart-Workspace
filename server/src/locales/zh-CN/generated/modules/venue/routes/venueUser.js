@@ -51,5 +51,7 @@ module.exports = Object.freeze({
   copy_f65527e76d: "该借用已被取消",
   copy_fd193b8d0b: '借用申请已提交，等待 ',
   copy_legacyApproverSelection: "请按岗位重新选择审批人",
-  historicalAssignmentMissing: "未记录当时的岗位"
+  historicalAssignmentMissing: "未记录当时的岗位",
+  noFirstStepCandidate: "当前审批流程没有可处理第一步的人员，请联系管理员调整规则",
+  approvalFlowConfigInvalid: "当前审批流程设置不完整，请联系管理员检查步骤和条件"
 });

@@ -5,6 +5,7 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
+const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
 const {
   isTrustedRoute,
   navigateToTrustedRoute,
@@ -177,7 +178,12 @@ Page({
     const targetUrl = this._pendingTrustedRoute;
     if (!targetUrl) return;
     this._pendingTrustedRoute = '';
-    navigateToTrustedRoute(targetUrl);
+    const receipt = notificationReceipt.take(targetUrl, orgSession.getSnapshot());
+    navigateToTrustedRoute(targetUrl, {
+      success: () => {
+        if (receipt) this.confirmNotificationOpened(receipt);
+      }
+    });
   },
 
   onHide() {
@@ -477,6 +483,44 @@ Page({
     if (failed.length) wx.setStorageSync(key, failed); else wx.removeStorageSync(key);
   },
 
+  queuePendingNotificationRead(item) {
+    try {
+      const key = this.pendingReadStorageKey(item.organizationId);
+      const queued = wx.getStorageSync(key) || [];
+      if (Array.isArray(queued) && queued.indexOf(item.id) === -1) {
+        queued.push(item.id);
+        wx.setStorageSync(key, queued);
+      }
+    } catch (_) {}
+  },
+
+  async confirmNotificationOpened(item) {
+    if (!item || !item.id) return;
+    const current = (this.data.notifications || []).find(function(row) {
+      return row.id === item.id;
+    });
+    if (current && !current.isRead) {
+      this._messageRevision = (this._messageRevision || 0) + 1;
+      this.setData({
+        notifications: this.data.notifications.map(function(row) {
+          return row.id === item.id
+            ? Object.assign({}, row, { isRead: true, _showDelete: false })
+            : row;
+        }),
+        notificationCount: Math.max(0, this.data.notificationCount - 1)
+      });
+    }
+    try {
+      const result = await callFunction({
+        name: 'markNotificationRead',
+        data: { id: item.id, organizationId: item.organizationId }
+      });
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
+    } catch (_) {
+      this.queuePendingNotificationRead(item);
+    }
+  },
+
   async onTodoTap(e) {
     const id = e.currentTarget.dataset.id;
     const item = (this.data.todos || []).find(function(row) { return row.id === id; });
@@ -508,24 +552,9 @@ Page({
       return;
     }
     if (id && current && !current.isRead) {
-      this._messageRevision = (this._messageRevision || 0) + 1;
-      const notifications = this.data.notifications.map(function(item) {
-        return item.id === id ? Object.assign({}, item, { isRead: true, _showDelete: false }) : item;
+      navigateToTrustedRoute(current.targetUrl, {
+        success: () => { this.confirmNotificationOpened(current); }
       });
-      this.setData({ notifications: notifications, notificationCount: Math.max(0, this.data.notificationCount - 1) });
-      if (current.targetUrl) navigateToTrustedRoute(current.targetUrl);
-      try {
-        const result = await callFunction({
-          name: 'markNotificationRead',
-          data: { id: id, organizationId: current.organizationId }
-        });
-        if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
-      } catch (error) {
-        const key = this.pendingReadStorageKey(current.organizationId);
-        const queued = wx.getStorageSync(key) || [];
-        if (queued.indexOf(id) === -1) queued.push(id);
-        wx.setStorageSync(key, queued);
-      }
       return;
     }
     if (current.targetUrl) navigateToTrustedRoute(current.targetUrl);
@@ -583,20 +612,12 @@ Page({
       await this.activateMessageContext(item);
       this._activeOrgSnapshot = orgSession.getSnapshot();
       if (type === 'notification' && !item.isRead) {
-        try {
-          const result = await callFunction({
-            name: 'markNotificationRead',
-            data: { id: item.id, organizationId: item.organizationId }
-          });
-          if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
-        } catch (_) {
-          const key = this.pendingReadStorageKey(item.organizationId);
-          const queued = wx.getStorageSync(key) || [];
-          if (queued.indexOf(item.id) === -1) queued.push(item.id);
-          wx.setStorageSync(key, queued);
-        }
+        notificationReceipt.stage(item, orgSession.getSnapshot());
       }
-      reLaunchPortalThenNavigate(item.targetUrl);
+      const launched = reLaunchPortalThenNavigate(item.targetUrl, {
+        fail: function() { notificationReceipt.clear(item.id); }
+      });
+      if (!launched) notificationReceipt.clear(item.id);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
       showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
@@ -612,21 +633,7 @@ Page({
       await this.activateMessageContext(pending.item);
       this._activeOrgSnapshot = orgSession.getSnapshot();
       if (pending.type === 'notification' && !pending.item.isRead) {
-        try {
-          const result = await callFunction({
-            name: 'markNotificationRead',
-            data: {
-              id: pending.item.id,
-              organizationId: pending.item.organizationId
-            }
-          });
-          if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
-        } catch (_) {
-          const key = this.pendingReadStorageKey(pending.item.organizationId);
-          const queued = wx.getStorageSync(key) || [];
-          if (queued.indexOf(pending.item.id) === -1) queued.push(pending.item.id);
-          wx.setStorageSync(key, queued);
-        }
+        notificationReceipt.stage(pending.item, orgSession.getSnapshot());
       }
       this._pendingMessageNavigation = null;
       this.setData({
@@ -634,7 +641,10 @@ Page({
         messageSwitchOrganizationName: '',
         messageSwitchLoading: false
       });
-      reLaunchPortalThenNavigate(pending.item.targetUrl);
+      const launched = reLaunchPortalThenNavigate(pending.item.targetUrl, {
+        fail: function() { notificationReceipt.clear(pending.item.id); }
+      });
+      if (!launched) notificationReceipt.clear(pending.item.id);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
       wx.showToast({ title: denied ? copy.messages.selectOrganization : copy.messages.switchFailed, icon: 'none' });

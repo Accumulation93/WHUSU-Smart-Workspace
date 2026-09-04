@@ -25,12 +25,23 @@ async function forEachConcurrent(items, concurrency, worker) {
 }
 
 function parsePayload(raw) {
-  if (!raw) return {};
-  if (typeof raw === 'object') return raw;
-  try { return JSON.parse(raw); } catch (_) { return {}; }
+  if (!raw) throw new Error('notification_payload_missing');
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('notification_payload_invalid');
+    }
+    return parsed;
+  } catch (_) {
+    throw new Error('notification_payload_invalid');
+  }
 }
 
 async function createForRecipient(job, recipientType, recipientId, payload) {
+  if (recipientType !== 'user' && recipientType !== 'admin') {
+    throw new Error('notification_recipient_invalid');
+  }
   const eventKey = job.event_key + ':' + recipientType + ':' + recipientId;
   await notificationModel.create(generateId(), {
     orgId: job.org_id,

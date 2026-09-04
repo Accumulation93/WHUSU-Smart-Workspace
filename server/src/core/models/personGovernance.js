@@ -140,6 +140,49 @@ async function mergeMembershipProfile(connection, sourceMembership, targetMember
   );
 }
 
+async function revokeDuplicateAssignmentsBeforeMembershipMerge(
+  connection,
+  sourceMembershipId,
+  targetMembershipId,
+  organizationId
+) {
+  const [duplicates] = await connection.query(
+    `SELECT source_assignment.id
+       FROM membership_assignments source_assignment
+       JOIN membership_assignments target_assignment
+         ON target_assignment.membership_id = ?
+        AND target_assignment.org_id = source_assignment.org_id
+        AND target_assignment.status = 'active'
+        AND target_assignment.assignment_kind = source_assignment.assignment_kind
+        AND target_assignment.department_id <=> source_assignment.department_id
+        AND target_assignment.identity_id <=> source_assignment.identity_id
+        AND target_assignment.work_group_id <=> source_assignment.work_group_id
+      WHERE source_assignment.membership_id = ?
+        AND source_assignment.org_id = ?
+        AND source_assignment.status = 'active'
+      ORDER BY source_assignment.id
+      FOR UPDATE`,
+    [safeString(targetMembershipId), safeString(sourceMembershipId), safeString(organizationId)]
+  );
+  const duplicateIds = Array.from(new Set(
+    duplicates.map((item) => safeString(item.id)).filter(Boolean)
+  ));
+  if (!duplicateIds.length) return 0;
+  await connection.query(
+    `UPDATE membership_assignments
+        SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
+      WHERE id IN (?) AND membership_id = ? AND org_id = ? AND status = 'active'`,
+    [duplicateIds, safeString(sourceMembershipId), safeString(organizationId)]
+  );
+  await connection.query(
+    `UPDATE auth_sessions
+        SET status = 'revoked', revoked_at = NOW()
+      WHERE context_type = 'assignment' AND context_subject_id IN (?) AND status = 'active'`,
+    [duplicateIds]
+  );
+  return duplicateIds.length;
+}
+
 async function listPersonMembershipImpact(personId, connection = pool) {
   const [memberships] = await connection.query(
     `SELECT om.id, om.org_id, om.legacy_hr_id, om.status, o.name AS organization_name,
@@ -371,6 +414,13 @@ async function applyCorrection(data, actor) {
         WHERE ag.person_id = ? AND ai.org_id = ag.org_id`,
       [nextName, nextStudentId, impact.person.id]
     );
+    await connection.query(
+      `UPDATE hr_profile_records profile
+       JOIN organization_memberships membership ON membership.legacy_hr_id = profile.hr_id
+          SET profile.name = ?, profile.updated_at = NOW()
+        WHERE membership.person_id = ? AND profile.org_id = membership.org_id`,
+      [nextName, impact.person.id]
+    );
     await unifiedIdentityModel.appendAuditEvent({
       connection,
       eventType: 'person_identity_corrected',
@@ -393,7 +443,8 @@ async function applyCorrection(data, actor) {
 async function mergePersons(data, actor) {
   const sourcePersonId = safeString(data.sourcePersonId);
   const targetPersonId = safeString(data.targetPersonId);
-  if (!sourcePersonId || !targetPersonId || sourcePersonId === targetPersonId) {
+  const organizationId = safeString(data.organizationId);
+  if (!sourcePersonId || !targetPersonId || sourcePersonId === targetPersonId || !organizationId) {
     throw new unifiedIdentityModel.IdentityError('invalid_params', personnelCopy.personCorrectionConflict, 400);
   }
   return pool.withTransaction(async (connection) => {
@@ -405,6 +456,16 @@ async function mergePersons(data, actor) {
     );
     const source = people.find((item) => safeString(item.id) === sourcePersonId);
     const target = people.find((item) => safeString(item.id) === targetPersonId);
+    const [sourceMembershipsInOrganization] = await connection.query(
+      `SELECT id
+         FROM organization_memberships
+        WHERE person_id = ? AND org_id = ?
+        LIMIT 1 FOR UPDATE`,
+      [sourcePersonId, organizationId]
+    );
+    if (!sourceMembershipsInOrganization.length) {
+      throw new unifiedIdentityModel.IdentityError('person_not_found', personnelCopy.formerMemberNotFound, 404);
+    }
     const alreadyMerged = source && source.status === 'merged'
       && safeString(source.merged_into_person_id) === targetPersonId
       && target && target.status === 'active';
@@ -474,6 +535,12 @@ async function mergePersons(data, actor) {
       if (targetMemberships.length) {
         const targetMembership = targetMemberships[0];
         await mergeMembershipProfile(connection, membership, targetMembership, target);
+        await revokeDuplicateAssignmentsBeforeMembershipMerge(
+          connection,
+          membership.id,
+          targetMembership.id,
+          membership.org_id
+        );
         await connection.query(
           `UPDATE membership_assignments
               SET membership_id = ?, updated_at = NOW()
@@ -588,7 +655,7 @@ async function mergePersons(data, actor) {
       eventType: 'persons_merged',
       actorPersonId: actor && actor.personId,
       targetPersonId,
-      organizationId: safeString(data.organizationId),
+      organizationId,
       contextId: actor && actor.contextId,
       detail: { sourcePersonId, targetPersonId, memberships: sourceMemberships.length }
     });

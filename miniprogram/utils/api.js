@@ -1,4 +1,5 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/api');
+const { authContext: authContextCopy } = require('../locales/zh-CN/main');
 const API_BASE = 'https://accumulation93.com/api';
 const CLIENT_VERSION = '1.2.0-security';
 const orgSession = require('./orgSession');
@@ -155,7 +156,8 @@ function getFreshWechatCode() {
   });
 }
 
-function requestWechatSession(code) {
+function requestWechatSession(code, preferredSnapshot) {
+  const preferred = preferredSnapshot || {};
   return new Promise(function(resolve, reject) {
     wx.request({
       url: API_BASE + '/auth/wechat/session',
@@ -163,7 +165,9 @@ function requestWechatSession(code) {
       timeout: 15000,
       header: createRequestHeaders(createRequestId()),
       data: {
-        code: code
+        code: code,
+        preferredContextId: preferred.contextId || '',
+        preferredOrganizationId: preferred.orgId || ''
       },
       success: function(res) {
         const result = res.data || {};
@@ -188,8 +192,9 @@ function requestWechatSession(code) {
 
 function refreshAuthentication() {
   if (authenticationRefreshPromise) return authenticationRefreshPromise;
+  const expectedSnapshot = orgSession.getSnapshot();
   authenticationRefreshPromise = getFreshWechatCode()
-    .then(requestWechatSession)
+    .then(function(code) { return requestWechatSession(code, expectedSnapshot); })
     .then(function(result) {
       // 延迟加载可避免 api.js 与 authContext.js 在初始化阶段互相引用。
       return require('./authContext').applyAuthenticatedResultAsync(result).then(function() {
@@ -223,9 +228,33 @@ function redirectToLogin(error) {
   } catch (_) {
     orgSession.clearAuthentication('');
   }
-  wx.setStorageSync('authLoginNotice', message);
+  try {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app) {
+      if (!app.globalData || typeof app.globalData !== 'object') app.globalData = {};
+      app.globalData.__authLoginNotice = message;
+    }
+  } catch (_) {}
+  try {
+    if (typeof wx.setStorage === 'function') {
+      wx.setStorage({ key: 'authLoginNotice', data: message });
+    } else if (typeof wx.setStorageSync === 'function') {
+      wx.setStorageSync('authLoginNotice', message);
+    }
+  } catch (_) {}
   wx.showToast({ title: message, icon: 'none', duration: 1800 });
   wx.reLaunch({ url: '/subpackages/main/pages/login/login?reason=expired' });
+}
+
+function redirectToPortalAfterContextFallback() {
+  if (authenticationRedirecting) return;
+  authenticationRedirecting = true;
+  wx.showToast({ title: authContextCopy.reopenWorkContext, icon: 'none', duration: 1800 });
+  wx.reLaunch({
+    url: '/subpackages/main/pages/portal/portal',
+    success: function() { authenticationRedirecting = false; },
+    fail: function() { authenticationRedirecting = false; }
+  });
 }
 
 function markAuthenticationReady() {
@@ -293,6 +322,11 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
           && !AUTH_ENTRY_APIS[name]
           && isAuthenticationFailure(res.statusCode, responseData)) {
           refreshAuthentication().then(function() {
+            const refreshedSnapshot = orgSession.getSnapshot();
+            if (!hasSameSelection(organizationSnapshot, refreshedSnapshot)) {
+              redirectToPortalAfterContextFallback();
+              throw cancelledError(requestId);
+            }
             return requestOnce(name, data, requestId, false, timeoutMs);
           }).then(resolve, function(error) {
             redirectToLogin(error);

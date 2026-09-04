@@ -1,5 +1,6 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { nowMysqlUtc } = require('../../../utils/dateTime');
 
 async function getByActivity(activityId) {
   const orgId = await getCurrentOrgId();
@@ -31,9 +32,10 @@ async function create(id, data) {
 async function update(id, data) {
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `UPDATE result_publications SET is_published = ?, published_at = ?, published_by = ?, updated_at = NOW()
+    `UPDATE result_publications SET is_published = ?, published_at = ?, published_by = ?, updated_at = ?
      WHERE id = ? AND org_id = ?`,
-    [data.isPublished ? 1 : 0, data.publishedAt || null, data.publishedBy || null, id, orgId]
+    [data.isPublished ? 1 : 0, data.publishedAt || null, data.publishedBy || null,
+      nowMysqlUtc(), id, orgId]
   );
 }
 

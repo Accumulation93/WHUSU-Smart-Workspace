@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  workflowConfigurationInvalid: "审批流程设置不完整，请检查后重试",
   copy_03d69a9d28: "请重新选择文件",
   copy_10d3269bb4: "请重新选择工作角色",
   copy_161855b67c: "印章已更新",
@@ -44,5 +45,9 @@ module.exports = Object.freeze({
   copy_f6152889c8: "该审核类型已有申请记录，可停用后保留",
   copy_fa1dcca5ac: "请重新打开申请",
   copy_fc971e88db: "请重新选择印章",
-  copy_fc98ff863c: '由 同部门 '
+  copy_fc98ff863c: '由 同部门 ',
+  stampImageInvalid: "请使用支持的印章图片",
+  stampImageTooLarge: "印章图片不能超过 2MB",
+  stampNameTooLong: "印章名称不能超过 200 个字符",
+  stampOperationFailed: "印章暂时无法处理，请稍后再试"
 });

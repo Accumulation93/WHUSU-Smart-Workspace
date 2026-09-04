@@ -213,6 +213,8 @@ function openAuditFile(options) {
         toast(localeCopy.copy_2f0c925c1b);
       } else if (res.statusCode === 404) {
         toast(localeCopy.copy_9f1e38ec09);
+      } else if (res.statusCode === 409) {
+        toast(localeCopy.fileIntegrityFailure);
       } else {
         // Non-200 status — try fallback
         console.warn('[filePreview] downloadFile returned ' + res.statusCode + ', trying fallback');

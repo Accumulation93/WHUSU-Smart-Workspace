@@ -3,10 +3,11 @@ const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 const RETENTION_DAYS = 30;
+const RECIPIENT_TYPES = new Set(['user', 'admin']);
 
 function normalizeRecipient(data) {
-  const recipientType = data.recipientType || (data.hrId ? 'user' : '');
-  const recipientId = data.recipientId || data.hrId || '';
+  const recipientType = String(data.recipientType || (data.hrId ? 'user' : '')).trim().toLowerCase();
+  const recipientId = String(data.recipientId || data.hrId || '').trim();
   return { recipientType, recipientId };
 }
 
@@ -14,7 +15,7 @@ async function create(id, data, conn) {
   const db = conn || pool;
   const orgId = data.orgId || await getCurrentOrgId();
   const recipient = normalizeRecipient(data);
-  if (!orgId || !recipient.recipientType || !recipient.recipientId) {
+  if (!orgId || !RECIPIENT_TYPES.has(recipient.recipientType) || !recipient.recipientId) {
     throw new Error(localeCopy.copy_30212ef2fb);
   }
   const [result] = await db.query(

@@ -335,6 +335,27 @@ function checkProjectConfig() {
       report(item.file, '必须关闭 compileHotReLoad，避免开发者工具热重载漏注入 Babel helper 的递归依赖');
     }
   }
+
+  const ignored = (config.packOptions && config.packOptions.ignore || []).map(function(item) {
+    return {
+      type: String(item && item.type || ''),
+      value: String(item && item.value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+    };
+  }).filter(function(item) { return item.value; });
+  const isIgnoredTestFile = function(relativePath) {
+    return ignored.some(function(item) {
+      return item.type === 'folder'
+        ? (relativePath === item.value || relativePath.startsWith(item.value + '/'))
+        : relativePath === item.value;
+    });
+  };
+  for (const file of files) {
+    const relativePath = path.relative(MINI_ROOT, file).replace(/\\/g, '/');
+    if (!/(?:^|\/)tests\//.test(relativePath) && !/\.test\.js$/.test(relativePath)) continue;
+    if (!isIgnoredTestFile(relativePath)) {
+      report(PROJECT_CONFIG, '测试代码必须加入 packOptions.ignore，避免真机代码保护编译失败: ' + relativePath);
+    }
+  }
 }
 
 const files = walk(MINI_ROOT);

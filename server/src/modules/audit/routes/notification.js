@@ -93,6 +93,8 @@ function withoutIdentityPriority(item) {
 
 function mapNotification(row, context) {
   const targetId = safeString(row.target_id);
+  const isAdminContext = safeString(context && context.role) === 'admin'
+    || safeString(context && context.actor && context.actor.type) === 'admin';
   const routes = {
     submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
     booking: targetId
@@ -100,7 +102,9 @@ function mapNotification(row, context) {
       : '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
     score_activity: '/subpackages/workspace/pages/home/home?subApp=scoring',
     result_publication: '/subpackages/workspace/pages/home/home?subApp=scoring',
-    hr_profile: '/subpackages/workspace/pages/home/home?subApp=hr',
+    hr_profile: isAdminContext
+      ? '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo'
+      : '/subpackages/workspace/pages/home/home?subApp=hr',
     account: '/subpackages/main/pages/portal/portal',
     account_security: '/subpackages/org/pages/accountSecurity/accountSecurity'
   };
@@ -450,6 +454,13 @@ router.post('/markNotificationRead', async (req, res) => {
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
+    const failures = collectFailures(attempts);
+    if (!result.found && failures.length) {
+      return res.json(Object.assign(
+        { status: 'error', message: localeCopy.copy_6c3f2c0f17 },
+        scopeMetadata(scope, failures)
+      ));
+    }
     if (!result.found) return res.json({ status: 'not_found', message: localeCopy.copy_3d25d623ad });
     res.json({ status: 'success', changed: result.changed, unreadCount: result.unreadCount });
   } catch (error) {
@@ -511,6 +522,13 @@ router.post('/deleteNotification', async (req, res) => {
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
+    const failures = collectFailures(attempts);
+    if (!result.found && failures.length) {
+      return res.json(Object.assign(
+        { status: 'error', message: localeCopy.copy_076bb5d383 },
+        scopeMetadata(scope, failures)
+      ));
+    }
     if (!result.found) return res.json({ status: 'not_found', message: localeCopy.copy_3d25d623ad });
     res.json({ status: 'success', unreadCount: result.unreadCount });
   } catch (error) {

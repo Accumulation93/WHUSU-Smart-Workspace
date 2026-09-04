@@ -11,6 +11,13 @@ global.getApp = function() { return null; };
 global.wx = {
   setNavigationBarTitle() {},
   getStorageSync(key) { return storage[key]; },
+  getStorage(options) {
+    if (Object.prototype.hasOwnProperty.call(storage, options.key)) {
+      options.success({ data: storage[options.key] });
+    } else if (options.fail) {
+      options.fail({ errMsg: 'getStorage:fail data not found' });
+    }
+  },
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
   setStorage(options) {
@@ -67,6 +74,7 @@ async function run() {
   const page = createPage();
   storage.authLoginNotice = '登录已过期，请重新登录';
   page.onLoad();
+  await new Promise(function(resolve) { setImmediate(resolve); });
   assert.strictEqual(page.data.authNotice, '登录已过期，请重新登录');
   assert.strictEqual(storage.authLoginNotice, undefined, '登录提示读取后应立即清除');
 

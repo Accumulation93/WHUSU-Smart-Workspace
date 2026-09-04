@@ -122,6 +122,13 @@ Page({
         item.approvalCurrentStep,
         item.approvalTotalSteps,
         item.currentStepName,
+        item.currentFlowId,
+        item.canProcessInCurrentContext === true ? '1' : '0',
+        item.candidateMissing === true ? '1' : '0',
+        (item.flowSummary || []).map(function(flow) {
+          return [flow.flowId, flow.stepIndex, flow.active ? 1 : 0, flow.completed ? 1 : 0,
+            flow.superseded ? 1 : 0, Object.keys(flow.designated || {}).join(',')].join(',');
+        }).join(';'),
         item.createdAt
       ].join(':');
     }).sort().join('|');
@@ -207,6 +214,7 @@ Page({
             isApproved: item.approvalCurrentStep >= item.approvalTotalSteps,
             isRejected: false,
             rejectStep: -1,
+            flowId: item.currentFlowId,
             flowSteps: item.flowSteps || [],
             snapshots: item.snapshots || []
           });
@@ -242,10 +250,12 @@ Page({
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
     if (!this._guardApprovalContext(item)) return;
-    const flows = item.flowSummary || [];
-    const canDesignateNext = flows.length === 1
-      && flows[0].allowDesignateNext
-      && Number(flows[0].stepIndex) + 1 < Number(flows[0].totalSteps);
+    const flow = (item.flowSummary || []).find(function(current) {
+      return current.flowId === item.currentFlowId;
+    });
+    const canDesignateNext = flow
+      && flow.allowDesignateNext
+      && Number(flow.stepIndex) + 1 < Number(flow.totalSteps);
     this.setData({
       approvalVisible: true,
       approvalTarget: item,
@@ -284,7 +294,12 @@ Page({
 
   async openNextApproverPicker() {
     try {
-      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      const target = this.data.approvalTarget;
+      if (!target) return;
+      const res = await callFunction({
+        name: 'listVenueApproverCandidates',
+        data: { bookingId: target.id, flowId: target.currentFlowId }
+      });
       if (res.status === 'success') {
         this.setData({
           nextApproverPickerVisible: true,
@@ -332,6 +347,7 @@ Page({
         data: {
           id: target.id,
           comment: comment,
+          flowId: target.currentFlowId,
           nextApproverAssignmentId: action === 'approve' ? this.data.nextApproverAssignmentId : ''
         }
       });
@@ -339,43 +355,8 @@ Page({
         showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
         that.closeApproval();
 
-        // Optimistic UI: update local state immediately, sync in background
-        let targetId = target.id;
-        let pending = that.data.pending.slice();
-
-        if (action === 'approve' && res.approvalProgress) {
-          if (res.approvalProgress.isApproved) {
-            // Last step approved → remove from list
-            pending = pending.filter(function(p) { return p.id !== targetId; });
-          } else {
-            // Middle step → update step info in place
-            let idx = -1;
-            for (let pi = 0; pi < pending.length; pi++) {
-              if (pending[pi].id === targetId) { idx = pi; break; }
-            }
-            if (idx >= 0) {
-              let updated = Object.assign({}, pending[idx], {
-                approvalCurrentStep: res.approvalProgress.currentStep,
-                _approvalPercent: Math.round(res.approvalProgress.currentStep / pending[idx].approvalTotalSteps * 100)
-              });
-              // Rebuild flow timeline
-              updated._flowTimeline = buildFlowTimeline({
-                totalSteps: updated.approvalTotalSteps,
-                currentStep: res.approvalProgress.currentStep,
-                isApproved: false,
-                isRejected: false,
-                rejectStep: -1,
-                flowSteps: updated.flowSteps || [],
-                snapshots: updated.snapshots || []
-              });
-              pending[idx] = updated;
-            }
-          }
-        } else {
-          // Reject → remove from list
-          pending = pending.filter(function(p) { return p.id !== targetId; });
-        }
-
+        const targetId = target.id;
+        const pending = that.data.pending.filter(function(item) { return item.id !== targetId; });
         that.setData({
           pending: pending,
           lastPendingCount: pending.length,
@@ -386,8 +367,8 @@ Page({
         eventBus.emit('venue:changed', { reason: action, bookingId: targetId });
         eventBus.emit('approval:done');
 
-        // Background sync to ensure consistency
-        that._scheduleApprovalSync();
+        // 自动通过可能跨越多步；只接受服务端重新计算后的权威待办，禁止手工猜测下一步。
+        await that.loadData();
       } else if (res.status === 'forbidden') {
         showWorkContextModal({
           content: res.message || localeCopy.requiredContextGeneric,
@@ -419,7 +400,7 @@ Page({
   },
 
   _guardApprovalContext(item) {
-    if (item && item.canProcessInCurrentContext !== false) return true;
+    if (item && item.canProcessInCurrentContext === true) return true;
     const required = item && item._requiredContextText;
     showWorkContextModal({
       content: required

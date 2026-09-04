@@ -175,7 +175,7 @@ async function run() {
   page.onLoad();
   page.onLogin();
   page.onLogin();
-  await new Promise(function(resolve) { setTimeout(resolve, 0); });
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
   assert.strictEqual(calls.filter((item) => item.name === 'auth/wechat/session').length, 1);
   const wechatLoginCall = calls.find((item) => item.name === 'auth/wechat/session');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(wechatLoginCall.data, 'deviceId'), false);
@@ -222,7 +222,7 @@ async function run() {
   directPage.onLoad();
   const directWritesBefore = synchronousWrites.length;
   directPage.onLogin();
-  await new Promise(function(resolve) { setTimeout(resolve, 0); });
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
   assert.strictEqual(directPage.data.loading, false, '微信登录响应后必须立即解除按钮加载态');
   assert.strictEqual(directPage._loginSubmitting, false, '微信登录完成后必须释放防重复提交锁');
   assert.strictEqual(orgSession.getSnapshot().token, 'direct-access-token');

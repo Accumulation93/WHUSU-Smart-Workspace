@@ -1,15 +1,11 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/activities');
+const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
-const { nowMysqlUtc } = require('../../../utils/dateTime');
+const { nowMysqlUtc, formatDateOnly } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const activityModel = require('../models/scoreActivity');
-const rateRuleModel = require('../models/rateRule');
-const rateRuleClauseModel = require('../models/rateRuleClause');
-const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
-const scoreRecordModel = require('../models/scoreRecord');
-const scoreAnswerModel = require('../models/scoreAnswer');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
@@ -80,6 +76,9 @@ router.post('/saveScoreActivity', async (req, res) => {
     const participantGranularity = 'assignment';
 
     if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_e394895492 });
+    if ((startDate && !formatDateOnly(startDate)) || (endDate && !formatDateOnly(endDate))) {
+      return res.json({ status: 'invalid_params', message: scoringCopy.activityDateInvalid });
+    }
     if (startDate && endDate && startDate > endDate) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
@@ -88,8 +87,15 @@ router.post('/saveScoreActivity', async (req, res) => {
       const nowUtc = nowMysqlUtc();
       const current = await activityModel.getById(id);
       if (!current) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+      const orgId = await getCurrentOrgId();
+      const [duplicates] = await pool.query(
+        'SELECT id FROM score_activities WHERE name = ? AND org_id = ? AND id <> ? LIMIT 1',
+        [name, orgId, id]
+      );
+      if (duplicates.length) {
+        return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
+      }
       if (current && current.participant_granularity !== participantGranularity) {
-        const orgId = await getCurrentOrgId();
         const [recordRows] = await pool.query(
           'SELECT 1 FROM score_records WHERE activity_id = ? AND org_id = ? LIMIT 1',
           [id, orgId]
@@ -138,30 +144,57 @@ router.post('/deleteScoreActivity', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
 
-    // Wrap all cascading deletes in a transaction for atomicity
-    const { withTransaction } = require('../../../config/db');
-    await withTransaction(async (conn) => {
-      // Clean up associated rules and records
-      const [rules] = await conn.query('SELECT * FROM rate_target_rules WHERE activity_id = ? AND org_id = ?', [id, orgId]);
-      for (const rule of rules) {
-        const [clauses] = await conn.query('SELECT * FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [rule.id, orgId]);
-        for (const clause of clauses) {
-          await conn.query('DELETE FROM clause_template_configs WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
-        }
-        await conn.query('DELETE FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [rule.id, orgId]);
-      }
-      await conn.query('DELETE FROM rate_target_rules WHERE activity_id = ? AND org_id = ?', [id, orgId]);
+    const outcome = await pool.withTransaction(async (conn) => {
+      const [activityRows] = await conn.query(
+        'SELECT id FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
+        [id, orgId]
+      );
+      if (!activityRows[0]) return { status: 'not_found' };
 
-      // Clean up score records
-      const [records] = await conn.query('SELECT * FROM score_records WHERE activity_id = ? AND org_id = ?', [id, orgId]);
-      for (const record of records) {
-        await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [record.id, orgId]);
+      const [referenceRows] = await conn.query(
+        `SELECT
+           (SELECT COUNT(*) FROM score_records WHERE activity_id = ? AND org_id = ?) AS score_count,
+           (SELECT COUNT(*) FROM result_publications WHERE activity_id = ? AND org_id = ?) AS publication_count`,
+        [id, orgId, id, orgId]
+      );
+      const references = referenceRows[0] || {};
+      if (Number(references.score_count || 0) > 0 || Number(references.publication_count || 0) > 0) {
+        return { status: 'conflict' };
       }
-      await conn.query('DELETE FROM score_records WHERE activity_id = ? AND org_id = ?', [id, orgId]);
 
+      await conn.query(
+        `DELETE FROM clause_template_configs
+          WHERE org_id = ? AND clause_id IN (
+            SELECT clause_row.id FROM rate_rule_clauses clause_row
+            INNER JOIN rate_target_rules rule_row ON rule_row.id = clause_row.rule_id
+            WHERE rule_row.activity_id = ? AND rule_row.org_id = ? AND clause_row.org_id = ?
+          )`,
+        [orgId, id, orgId, orgId]
+      );
+      await conn.query(
+        `DELETE clause_row FROM rate_rule_clauses clause_row
+          INNER JOIN rate_target_rules rule_row ON rule_row.id = clause_row.rule_id
+         WHERE rule_row.activity_id = ? AND rule_row.org_id = ? AND clause_row.org_id = ?`,
+        [id, orgId, orgId]
+      );
+      await conn.query(
+        'DELETE FROM rate_target_rules WHERE activity_id = ? AND org_id = ?',
+        [id, orgId]
+      );
+      await conn.query('DELETE FROM score_template_order WHERE activity_id = ?', [id]);
       await conn.query('DELETE FROM score_activities WHERE id = ? AND org_id = ?', [id, orgId]);
+      return { status: 'success' };
     });
 
+    if (outcome.status === 'not_found') {
+      return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    }
+    if (outcome.status === 'conflict') {
+      return res.json({ status: 'conflict', message: scoringCopy.activityHasHistoricalData });
+    }
+
+    await pubCache.invalidate(id, orgId);
+    await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -177,20 +210,26 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
-    const target = await activityModel.getById(id);
-    if (!target) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-
-    await activityModel.clearAllCurrent();
     const nowUtc = nowMysqlUtc();
-    await activityModel.update(id, {
-      name: target.name,
-      description: target.description,
-      startDate: target.start_date,
-      endDate: target.end_date,
-      isCurrent: true,
-      participantGranularity: 'assignment',
-      updatedBy: admin.id, updatedAt: nowUtc
+    const orgId = await getCurrentOrgId();
+    const found = await pool.withTransaction(async (conn) => {
+      const [allActivities] = await conn.query(
+        'SELECT id FROM score_activities WHERE org_id = ? ORDER BY id FOR UPDATE',
+        [orgId]
+      );
+      if (!allActivities.some((item) => safeString(item.id) === id)) return false;
+      await conn.query(
+        `UPDATE score_activities
+            SET is_current = CASE WHEN id = ? THEN 1 ELSE 0 END,
+                updated_by = CASE WHEN id = ? THEN ? ELSE updated_by END,
+                updated_at = CASE WHEN id = ? THEN ? ELSE updated_at END
+          WHERE org_id = ?`,
+        [id, id, admin.id, id, nowUtc, orgId]
+      );
+      return true;
     });
+    if (!found) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -263,6 +302,8 @@ router.post('/toggleActivityPause', async (req, res) => {
 
     const newPaused = activity.is_paused ? 0 : 1;
     await activityModel.togglePause(id, newPaused);
+    const orgId = await getCurrentOrgId();
+    await sharedCache.invalidatePrefix('overview_' + orgId + '_');
 
     res.json({
       status: 'success',

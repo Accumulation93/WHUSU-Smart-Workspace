@@ -1,5 +1,5 @@
 <view class="page">
-  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
   <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
     <view
@@ -279,7 +279,7 @@
     <view class="card profile-card">
       <view class="info-head">
         <view class="section-title">{{copy.hr}}</view>
-        <view class="mode-chip {{hrProfile.template && hrProfile.template.editMode === 'audit' ? 'mode-chip-audit' : ''}} {{hrProfile.template && hrProfile.template.editMode === 'readonly' ? 'mode-chip-readonly' : ''}}">
+        <view class="mode-chip {{hrProfile.template && hrProfile.template.editMode === 'audit' ? 'mode-chip-audit' : ''}} {{hrProfile.template && hrProfile.template.editMode === 'readonly' ? 'mode-chip-readonly' : ''}}" wx:if="{{hrProfile.loaded && !hrProfile.errorText}}">
           {{hrProfile.template ? hrProfile.template.modeText : copy.noTemplate}}
         </view>
       </view>
@@ -288,7 +288,7 @@
         {{hrProfile.template.description}}
       </view>
 
-      <view class="profile-status" wx:if="{{hrProfile.loaded}}">
+      <view class="profile-status" wx:if="{{hrProfile.loaded && !hrProfile.errorText}}">
         <view class="status-title">{{hrProfile.statusText}}</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">{{copy.profilePending}}</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'rejected' && hrProfile.rejectionReason}}">{{copy.rejectionReasonPrefix}}{{hrProfile.rejectionReason}}</view>
@@ -320,7 +320,11 @@
       <view class="readonly-tip">{{copy.profileManagedByAdmin}}</view>
 
       <view class="target-state" wx:if="{{hrProfile.loading}}">{{copy.loadingProfile}}</view>
-      <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && (!hrProfile.template || !hrProfile.template.fields.length)}}">
+      <view class="profile-load-error" wx:if="{{!hrProfile.loading && hrProfile.errorText}}">
+        <view class="profile-load-error-text">{{hrProfile.errorText}}</view>
+        <button class="secondary-btn profile-retry-btn ui-motion-button" bindtap="retryUserHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
+      </view>
+      <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && !hrProfile.errorText && (!hrProfile.template || !hrProfile.template.fields.length)}}">
         <view class="empty-title">{{copy.noExtraProfile}}</view>
       </view>
 
@@ -338,6 +342,7 @@
             value="{{item.valueIndex}}"
             bindchange="onHrProfileOptionChange"
             data-index="{{index}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           >
             <view class="picker-value">{{item.value || copy.select}}</view>
           </picker>
@@ -350,7 +355,7 @@
             bindinput="onHrProfileInput"
             value="{{item.value}}"
             placeholder="{{copy.inputNumber}}"
-            disabled="{{hrProfile.template.editMode === 'readonly'}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
           <picker
@@ -359,7 +364,7 @@
             value="{{item.value}}"
             bindchange="onHrProfileDateChange"
             data-index="{{index}}"
-            disabled="{{hrProfile.template.editMode === 'readonly'}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           >
             <view class="picker-value">{{item.value || copy.selectDate}}</view>
           </picker>
@@ -373,7 +378,7 @@
             bindinput="onHrProfileInput"
             value="{{item.value}}"
             placeholder="{{copy.inputPhone}}"
-            disabled="{{hrProfile.template.editMode === 'readonly'}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
           <input
@@ -383,7 +388,7 @@
             bindinput="onHrProfileInput"
             value="{{item.value}}"
             placeholder="{{copy.inputEmail}}"
-            disabled="{{hrProfile.template.editMode === 'readonly'}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
           <input
@@ -393,7 +398,7 @@
             bindinput="onHrProfileInput"
             value="{{item.value}}"
             placeholder="{{copy.inputPrefix}}{{item.label}}"
-            disabled="{{hrProfile.template.editMode === 'readonly'}}"
+            disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
           <view class="field-hint" wx:if="{{item.hintText}}">{{item.hintText}}</view>
@@ -404,7 +409,7 @@
           class="primary-btn profile-submit-btn {{hrProfile.template.editMode === 'audit' ? 'profile-submit-btn-audit' : ''}} ui-motion-button"
           bindtap="submitHrProfile"
           loading="{{hrProfile.saving}}"
-          disabled="{{hrProfile.template.editMode === 'readonly'}}"
+          disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
          hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           {{hrProfile.template.editMode === 'audit' ? copy.submitReview : copy.saveProfile}}
         </button>

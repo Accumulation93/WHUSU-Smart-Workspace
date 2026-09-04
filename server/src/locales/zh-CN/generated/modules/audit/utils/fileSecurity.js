@@ -10,6 +10,8 @@ module.exports = Object.freeze({
   copy_a5b624ccc1: '上传文件不属于当前组织',
   copy_f1cdbd7be3: "没有文件访问权限",
   uploadedFileIntegrityMismatch: "文件内容读取异常，请重新选择文件",
+  storedFileUnavailable: "文件已过期，请重新上传",
+  storedFileIntegrityMismatch: "文件内容校验失败，暂时无法打开",
   uploadFileNameTooLong: "文件名不能超过 500 个字符",
   uploadTransactionUnavailable: "文件暂时无法提交，请稍后再试"
 });

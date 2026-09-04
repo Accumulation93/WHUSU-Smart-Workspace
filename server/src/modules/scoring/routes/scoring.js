@@ -1,14 +1,16 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/scoring');
+const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const { format: localeFormat } = require('../../../locales/runtime');
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
-const { nowMysqlUtc } = require('../../../utils/dateTime');
+const { nowMysqlUtc, getSystemDate, formatDateOnly } = require('../../../utils/dateTime');
 
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
+const systemConfigModel = require('../../../core/models/systemConfig');
 const pubCache = require('../utils/pubCache');
 const sharedCache = require('../utils/sharedCache');
 const scoreActivityModel = require('../models/scoreActivity');
@@ -26,6 +28,24 @@ const participantService = require('../services/participants');
 const scoreCalc = require('../utils/scoreCalc');
 const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapshotSchema');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+
+function normalizeActivityDate(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  return formatDateOnly(safeString(value).slice(0, 10));
+}
+
+async function getActivityWindowState(activity, now = Date.now()) {
+  const config = await systemConfigModel.get();
+  const today = getSystemDate(now, config && config.timezone);
+  const startDate = normalizeActivityDate(activity && activity.start_date);
+  const endDate = normalizeActivityDate(activity && activity.end_date);
+  if (startDate && today < startDate) return 'activity_not_started';
+  if (endDate && today > endDate) return 'activity_ended';
+  return 'open';
+}
 
 async function ensureAdmin(req) {
   if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
@@ -255,26 +275,25 @@ function buildCalculationContextSnapshot(options) {
   });
 }
 
-function historicalParticipant(record, side, fallback) {
+function historicalParticipant(record, side) {
   const historical = participantService.resolveHistoricalParticipant(record, side, []);
-  const current = fallback || {};
   return {
-    id: safeString(historical.assignmentId || current.id),
-    participantId: safeString(historical.assignmentId || current.id),
-    personId: safeString(historical.personId || current.personId),
-    assignmentId: safeString(historical.assignmentId || current.assignmentId),
-    assignmentNature: safeString(historical.assignmentNature || current.assignmentNature),
-    assignmentLabel: safeString(historical.assignmentLabel || current.assignmentLabel),
-    name: safeString(historical.name || current.name),
-    studentId: safeString(historical.studentId || current.studentId),
-    departmentId: safeString(historical.departmentId || current.departmentId),
-    department: safeString(historical.department || current.department),
-    identityCategoryId: safeString(historical.identityCategoryId || current.identityCategoryId || current.identityId),
-    identityCategory: safeString(historical.identityCategory || current.identityCategory || current.identity),
-    identityId: safeString(historical.identityCategoryId || current.identityCategoryId || current.identityId),
-    identity: safeString(historical.identityCategory || current.identityCategory || current.identity),
-    workGroupId: safeString(historical.workGroupId || current.workGroupId),
-    workGroup: safeString(historical.workGroup || current.workGroup),
+    id: safeString(historical.assignmentId),
+    participantId: safeString(historical.assignmentId),
+    personId: safeString(historical.personId),
+    assignmentId: safeString(historical.assignmentId),
+    assignmentNature: safeString(historical.assignmentNature),
+    assignmentLabel: safeString(historical.assignmentLabel),
+    name: safeString(historical.name),
+    studentId: safeString(historical.studentId),
+    departmentId: safeString(historical.departmentId),
+    department: safeString(historical.department),
+    identityCategoryId: safeString(historical.identityCategoryId),
+    identityCategory: safeString(historical.identityCategory),
+    identityId: safeString(historical.identityCategoryId),
+    identity: safeString(historical.identityCategory),
+    workGroupId: safeString(historical.workGroupId),
+    workGroup: safeString(historical.workGroup),
     historicalAssignmentUnavailable: historical.historicalAssignmentUnavailable === true
   };
 }
@@ -365,8 +384,8 @@ async function buildHistoricalScoreForm(record, options) {
     readOnly,
     readOnlyReason: readOnly ? 'historical_snapshot_degraded' : '',
     readOnlyMessage: readOnly ? localeCopy.historicalSnapshotDegraded : '',
-    scorer: historicalParticipant(record, 'scorer', options.scorer),
-    target: historicalParticipant(record, 'target', options.target),
+    scorer: historicalParticipant(record, 'scorer'),
+    target: historicalParticipant(record, 'target'),
     currentActivity: {
       id: options.activity.id,
       name: options.activity.name,
@@ -393,34 +412,32 @@ async function buildHistoricalScoreForm(record, options) {
 
 router.post('/getRateTargets', async (req, res) => {
   try {
-    const openid = req.openid;
-    const role = safeString(req.get('X-Role')).toLowerCase();
-    if (role !== 'admin' && role !== 'user') {
-      return res.json({ status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
-    }
-
     const lookups = await fetchOrgLookups();
     let scorer = null;
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
 
-    if (role === 'admin') {
-      const admin = await ensureAdmin(req);
-      if (!admin) return res.json({ status: 'need_bind', message: localeCopy.copy_f048be09ae });
+    if (actorResult.actor.type === 'admin') {
+      const admin = actorResult.actor;
       scorer = {
-        id: admin.id, name: admin.name, studentId: admin.student_id || '',
+        id: admin.id, name: admin.name, studentId: admin.studentId || admin.student_id || '',
         departmentId: '', department: '', identityId: '', identity: '',
         workGroupId: '', workGroup: '',
-        adminLevel: admin.admin_level
+        adminLevel: admin.adminLevel || admin.admin_level
       };
-      const identityLabel = admin.admin_level === 'super_admin' ? '超级管理员' : '普通管理员';
+      const identityLabel = scorer.adminLevel === 'super_admin'
+        ? scoringCopy.adminRoleSuper
+        : scoringCopy.adminRoleRegular;
       scorer.identity = identityLabel;
       return res.json({ status: 'success', scorer, targets: [] });
     }
+    if (actorResult.actor.type !== 'user') {
+      return res.json({ status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
+    }
 
     const currentActivity = await scoreActivityModel.getCurrent();
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || localeCopy.copy_4e84385ce1 });
-    }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(
       currentActivity && currentActivity.participant_granularity
@@ -452,32 +469,17 @@ router.post('/getRateTargets', async (req, res) => {
       });
     }
 
-    // Validate current date is within activity date range
-    let now = new Date();
-    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (currentActivity.start_date) {
-      let startDate = new Date(currentActivity.start_date);
-      if (today < startDate) {
-        return res.json({
-          status: 'activity_not_started',
-          message: localeCopy.copy_d6213b5668,
-          scorer,
-          currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
-          targets: []
-        });
-      }
-    }
-    if (currentActivity.end_date) {
-      let endDate = new Date(currentActivity.end_date);
-      if (today > endDate) {
-        return res.json({
-          status: 'activity_ended',
-          message: localeCopy.copy_e4bebdb4ea,
-          scorer,
-          currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
-          targets: []
-        });
-      }
+    const activityWindowState = await getActivityWindowState(currentActivity);
+    if (activityWindowState !== 'open') {
+      return res.json({
+        status: activityWindowState,
+        message: activityWindowState === 'activity_not_started'
+          ? localeCopy.copy_d6213b5668
+          : localeCopy.copy_e4bebdb4ea,
+        scorer,
+        currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
+        targets: []
+      });
     }
 
     // Find matching rule
@@ -531,7 +533,7 @@ router.post('/getRateTargets', async (req, res) => {
             ...person,
             isScored,
             scoreStatus: isScored ? 'scored' : 'pending',
-            scoreStatusText: isScored ? '已评分' : '待评分'
+            scoreStatusText: isScored ? scoringCopy.scoreStatusScored : scoringCopy.scoreStatusPending
           });
         }
       });
@@ -562,12 +564,12 @@ router.post('/getRateTargets', async (req, res) => {
 // ──────────────────── getScoreFormData ────────────────────
 
 const RULE_SCOPE_LABEL_MAP = {
-  same_department_identity: '同一部门内的指定身份成员',
-  same_department_all: '同一部门内的所有成员',
-  same_work_group_identity: '同一部门同一职能组内的指定身份成员',
-  same_work_group_all: '同一部门同一职能组内的所有成员',
-  identity_only: '全体成员中的指定身份',
-  all_people: '全体成员'
+  same_department_identity: scoringCopy.scopeSameDepartmentIdentity,
+  same_department_all: scoringCopy.scopeSameDepartmentAll,
+  same_work_group_identity: scoringCopy.scopeSameWorkGroupIdentity,
+  same_work_group_all: scoringCopy.scopeSameWorkGroupAll,
+  identity_only: scoringCopy.scopeIdentityOnly,
+  all_people: scoringCopy.scopeAllPeople
 };
 
 router.post('/getScoreFormData', async (req, res) => {
@@ -608,19 +610,14 @@ router.post('/getScoreFormData', async (req, res) => {
       return res.json({ status: 'activity_paused', message: localeCopy.copy_5b46959129 });
     }
 
-    let now = new Date();
-    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (activity.start_date) {
-      let startDate = new Date(activity.start_date);
-      if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: localeCopy.copy_d6213b5668 });
-      }
-    }
-    if (activity.end_date) {
-      let endDate = new Date(activity.end_date);
-      if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: localeCopy.copy_e4bebdb4ea });
-      }
+    const activityWindowState = await getActivityWindowState(activity);
+    if (activityWindowState !== 'open') {
+      return res.json({
+        status: activityWindowState,
+        message: activityWindowState === 'activity_not_started'
+          ? localeCopy.copy_d6213b5668
+          : localeCopy.copy_e4bebdb4ea
+      });
     }
 
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
@@ -669,7 +666,7 @@ router.post('/getScoreFormData', async (req, res) => {
 
     // Load templates and questions
     const templateIds = configuredClauseEntry.clause.templateConfigs.map(c => c.templateId);
-    const templateDocs = await Promise.all(templateIds.map(id => scoreTemplateModel.getById(id)));
+    const templateDocs = await Promise.all(templateIds.map(id => scoreTemplateModel.getById(id, orgId)));
     const questionsByTemplate = await Promise.all(templateIds.map(id => scoreQuestionModel.getByTemplateId(id)));
 
     const templatesById = new Map();
@@ -753,15 +750,25 @@ function isStepAligned(score, startValue, stepValue) {
 }
 
 function validateSubmittedAnswers(answers, questions) {
-  const answerMap = new Map((Array.isArray(answers) ? answers : []).map((item) => [
-    String(item.questionIndex),
-    Number(item.score)
-  ]));
+  const answerRows = Array.isArray(answers) ? answers : [];
+  if (answerRows.length !== questions.length) {
+    return { ok: false, status: 'invalid_score', message: scoringCopy.scoreAnswersInvalid };
+  }
+  const answerMap = new Map();
+  for (const item of answerRows) {
+    const questionIndex = Number(item && item.questionIndex);
+    const score = Number(item && item.score);
+    if (!Number.isInteger(questionIndex) || questionIndex < 1 || questionIndex > questions.length
+      || !Number.isFinite(score) || answerMap.has(questionIndex)) {
+      return { ok: false, status: 'invalid_score', message: scoringCopy.scoreAnswersInvalid };
+    }
+    answerMap.set(questionIndex, score);
+  }
   const normalizedAnswers = [];
   for (let index = 0; index < questions.length; index++) {
     const question = questions[index];
-    const score = answerMap.get(String(index + 1));
-    if (score == null || Number.isNaN(score)) {
+    const score = answerMap.get(index + 1);
+    if (score == null || !Number.isFinite(score)) {
       return { ok: false, status: 'invalid_score', message: localeFormat(localeCopy.copy_57e36dc50b, [index + 1]) };
     }
     if (score < question.minValue || score > question.maxValue) {
@@ -867,7 +874,6 @@ async function updateExistingScoreRecord(options) {
       status: 'success',
       recordId: record.id,
       updated: true,
-      revised: true,
       revisionNumber: nextRevision,
       message: localeCopy.scoreUpdated
     };
@@ -939,19 +945,14 @@ router.post('/submitScoreRecord', async (req, res) => {
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
     }
-    let now = new Date();
-    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (activity.start_date) {
-      let startDate = new Date(activity.start_date);
-      if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: localeCopy.copy_2c6c18b79b });
-      }
-    }
-    if (activity.end_date) {
-      let endDate = new Date(activity.end_date);
-      if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: localeCopy.copy_725b89a6cd });
-      }
+    const activityWindowState = await getActivityWindowState(activity);
+    if (activityWindowState !== 'open') {
+      return res.json({
+        status: activityWindowState,
+        message: activityWindowState === 'activity_not_started'
+          ? localeCopy.copy_2c6c18b79b
+          : localeCopy.copy_725b89a6cd
+      });
     }
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
 
@@ -1002,7 +1003,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     const templateResults = await Promise.all(
       matchedClause.templateConfigs.map(config => Promise.all([
-        scoreTemplateModel.getById(config.templateId),
+        scoreTemplateModel.getById(config.templateId, orgId),
         scoreQuestionModel.getByTemplateId(config.templateId)
       ]))
     );
@@ -1397,7 +1398,7 @@ function buildTaskExportReport(activityName, reportType, rows) {
   if (reportType === 'detail') {
     return {
       fileName: activityName + localeCopy.copy_6edf0fb992,
-      sheetName: '未完成评分明细',
+      sheetName: scoringCopy.exportUnfinishedDetail,
       headers: [
         { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
         { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 },
@@ -1426,7 +1427,7 @@ function buildTaskExportReport(activityName, reportType, rows) {
 
   return {
     fileName: activityName + localeCopy.copy_f539673f88,
-    sheetName: '未完成评分概览',
+    sheetName: scoringCopy.exportUnfinishedOverview,
     headers: [
       { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
       { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 },

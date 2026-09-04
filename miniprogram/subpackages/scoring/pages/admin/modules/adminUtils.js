@@ -806,13 +806,12 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
     const assignments = Array.isArray(item.assignments) ? item.assignments : [];
     const tupleMatchesFilters = (assignment) => {
       const tuple = normalizeAssignmentFilterTuple(assignment);
-      const includesTupleValue = (key, value, legacyName) => !selected(key).length
-        || selected(key).includes(value)
-        || selected(key).includes(legacyName);
+      const includesTupleValue = (key, value) => !selected(key).length
+        || selected(key).includes(value);
       return includesSelected('assignmentNatures', tuple.assignmentNature)
-        && includesTupleValue('departments', tuple.departmentValue, tuple.department)
-        && includesTupleValue('identities', tuple.identityValue, tuple.identity)
-        && includesTupleValue('workGroups', tuple.workGroupValue, tuple.workGroup);
+        && includesTupleValue('departments', tuple.departmentValue)
+        && includesTupleValue('identities', tuple.identityValue)
+        && includesTupleValue('workGroups', tuple.workGroupValue);
     };
     const matchingAssignments = assignmentFiltersActive
       ? assignments.filter(tupleMatchesFilters)
@@ -972,10 +971,11 @@ function validateProfileField(field = {}, rawValue) {
   }
 
   if (field.type === 'text') {
-    if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
+    const characterCount = Array.from(value).length;
+    if (field.minLength != null && field.minLength !== '' && characterCount < field.minLength) {
       return localeFormat(localeCopy.copy_245abb6cb3, [field.label, field.minLength]);
     }
-    if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
+    if (field.maxLength != null && field.maxLength !== '' && characterCount > field.maxLength) {
       return localeFormat(localeCopy.copy_0d42479c01, [field.label, field.maxLength]);
     }
   }
@@ -1029,8 +1029,7 @@ function tryParseDateValue(value) {
   let v = String(value || '').trim();
   if (!v) return null;
 
-  // YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD with optional time
-  let m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  let m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
   if (m1) {
     let year = Number(m1[1]);
     let month = Number(m1[2]);
@@ -1043,29 +1042,6 @@ function tryParseDateValue(value) {
     }
   }
 
-  // DD/MM/YYYY or DD-MM-YYYY
-  let m2 = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m2) {
-    let d = Number(m2[1]);
-    let mo = Number(m2[2]);
-    let y = Number(m2[3]);
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      let dt2 = new Date(Date.UTC(y, mo - 1, d));
-      if (dt2.getUTCFullYear() === y && dt2.getUTCMonth() + 1 === mo && dt2.getUTCDate() === d) {
-        return { year: y, month: mo, day: d };
-      }
-    }
-  }
-
-  // Fallback to native Date
-  let d3 = new Date(v);
-  if (!isNaN(d3.getTime()) && d3.getUTCFullYear() > 1900) {
-    return { year: d3.getUTCFullYear(), month: d3.getUTCMonth() + 1, day: d3.getUTCDate() };
-  }
-  let d4 = new Date(v.replace(' ', 'T'));
-  if (!isNaN(d4.getTime()) && d4.getUTCFullYear() > 1900) {
-    return { year: d4.getUTCFullYear(), month: d4.getUTCMonth() + 1, day: d4.getUTCDate() };
-  }
   return null;
 }
 

@@ -515,7 +515,7 @@ Page({
   },
 
   _guardApprovalContext(item) {
-    if (item && item.canProcessInCurrentContext !== false) return true;
+    if (item && item.canProcessInCurrentContext === true) return true;
     const required = item && item._requiredContextText;
     showWorkContextModal({
       content: required
@@ -731,7 +731,10 @@ Page({
 
   async openFirstApproverPicker() {
     try {
-      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      const res = await callFunction({
+        name: 'listVenueApproverCandidates',
+        data: { venueId: this.data.bookingVenueId, flowId: this.data.selectedFlowId }
+      });
       if (res.status === 'success') {
         this.setData({
           firstApproverPickerVisible: true,
@@ -1814,7 +1817,14 @@ Page({
     return (pending || []).map(function(item) {
       return [
         item.id, item.status, item.approvalCurrentStep,
-        item.approvalTotalSteps, item.currentStepName, item.createdAt
+        item.approvalTotalSteps, item.currentStepName, item.currentFlowId,
+        item.canProcessInCurrentContext === true ? '1' : '0',
+        item.candidateMissing === true ? '1' : '0',
+        (item.flowSummary || []).map(function(flow) {
+          return [flow.flowId, flow.stepIndex, flow.active ? 1 : 0, flow.completed ? 1 : 0,
+            flow.superseded ? 1 : 0, Object.keys(flow.designated || {}).join(',')].join(',');
+        }).join(';'),
+        item.createdAt
       ].join(':');
     }).sort().join('|');
   },
@@ -1843,6 +1853,7 @@ Page({
             isApproved: item.approvalCurrentStep >= item.approvalTotalSteps,
             isRejected: false,
             rejectStep: -1,
+            flowId: item.currentFlowId,
             flowSteps: item.flowSteps || [],
             snapshots: item.snapshots || []
           });
@@ -1934,10 +1945,12 @@ Page({
     let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (!item) return;
     if (!this._guardApprovalContext(item)) return;
-    const flows = item.flowSummary || [];
-    const canDesignateNext = flows.length === 1
-      && flows[0].allowDesignateNext
-      && Number(flows[0].stepIndex) + 1 < Number(flows[0].totalSteps);
+    const flow = (item.flowSummary || []).find(function(current) {
+      return current.flowId === item.currentFlowId;
+    });
+    const canDesignateNext = flow
+      && flow.allowDesignateNext
+      && Number(flow.stepIndex) + 1 < Number(flow.totalSteps);
     this.setData({
       approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '',
       canDesignateNext: Boolean(canDesignateNext),
@@ -1963,7 +1976,12 @@ Page({
 
   async openNextApproverPicker() {
     try {
-      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      const target = this.data.approvalTarget;
+      if (!target) return;
+      const res = await callFunction({
+        name: 'listVenueApproverCandidates',
+        data: { bookingId: target.id, flowId: target.currentFlowId }
+      });
       if (res.status === 'success') {
         this.setData({
           nextApproverPickerVisible: true,
@@ -2005,44 +2023,17 @@ Page({
 
     this.setData({ approvalSubmitting: true });
     try {
-      let data = { id: target.id, comment: comment };
+      let data = { id: target.id, comment: comment, flowId: target.currentFlowId };
       if (action === 'approve' && this.data.nextApproverAssignmentId) data.nextApproverAssignmentId = this.data.nextApproverAssignmentId;
       let res = await callFunction({ name: endpoint, data: data });
       if (res.status === 'success') {
         showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
         that.closeApproval();
 
-        let targetId = target.id;
-        let pending = that.data.pending.slice();
-
-        if (action === 'approve' && res.approvalProgress) {
-          if (res.approvalProgress.isApproved) {
-            pending = pending.filter(function(p) { return !sameRecordId(p.id, targetId); });
-          } else {
-            let idx = -1;
-            for (let pi = 0; pi < pending.length; pi++) {
-              if (sameRecordId(pending[pi].id, targetId)) { idx = pi; break; }
-            }
-            if (idx >= 0) {
-              let updated = Object.assign({}, pending[idx], {
-                approvalCurrentStep: res.approvalProgress.currentStep,
-                _approvalPercent: Math.round(res.approvalProgress.currentStep / pending[idx].approvalTotalSteps * 100)
-              });
-              updated._flowTimeline = buildFlowTimeline({
-                totalSteps: updated.approvalTotalSteps,
-                currentStep: res.approvalProgress.currentStep,
-                isApproved: false,
-                isRejected: false,
-                rejectStep: -1,
-                flowSteps: updated.flowSteps || [],
-                snapshots: updated.snapshots || []
-              });
-              pending[idx] = updated;
-            }
-          }
-        } else {
-          pending = pending.filter(function(p) { return !sameRecordId(p.id, targetId); });
-        }
+        const targetId = target.id;
+        const pending = that.data.pending.filter(function(item) {
+          return !sameRecordId(item.id, targetId);
+        });
 
         that.setData({
           pending: pending,
@@ -2054,7 +2045,7 @@ Page({
 
         that._emitVenueChanged(action, targetId);
 
-        that._scheduleApprovalSync();
+        await that.loadPendingData();
       } else if (res.status === 'forbidden') {
         showWorkContextModal({
           content: res.message || localeCopy.requiredContextGeneric,

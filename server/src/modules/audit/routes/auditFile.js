@@ -14,7 +14,10 @@ const {
   MAX_FILE_SIZE,
   assertAllowedFile,
   createTempUpload,
-  getAuthorizedAuditFile
+  getAuthorizedAuditFile,
+  ensurePrivateDirectory,
+  ensurePrivateFile,
+  readStoredAuditFile
 } = require('../utils/fileSecurity');
 
 const execFileAsync = promisify(execFile);
@@ -24,9 +27,7 @@ const MAX_PDF_RENDER_CONCURRENCY = 2;
 let activePdfRenders = 0;
 const pdfRenderQueue = [];
 
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+ensurePrivateDirectory(UPLOAD_DIR);
 
 async function getPdfPageCount(filePath) {
   const { PDFDocument } = require('pdf-lib');
@@ -169,27 +170,24 @@ function renderPdfPage(filePath, page, signal) {
   return runWithPdfRenderSlot(() => renderPdfPageUnqueued(filePath, page), signal);
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const tmpDir = path.join(UPLOAD_DIR, '_tmp');
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    cb(null, tmpDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '';
-    cb(null, generateId() + ext);
-  }
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE }
 });
 
 router.post('/uploadAuditFile', function(req, res, next) {
   const contentType = req.get('content-type') || '';
   if (contentType.indexOf('multipart/form-data') !== -1) {
-    return upload.single('file')(req, res, next);
+    return upload.single('file')(req, res, function(error) {
+      if (!error) return next();
+      console.error('[audit:file:multipart] failed:', error);
+      return res.json({
+        status: 'invalid_params',
+        message: error.code === 'LIMIT_FILE_SIZE'
+          ? localeCopy.copy_9288d54fa0
+          : localeCopy.operationFailed
+      });
+    });
   }
   next();
 }, async (req, res) => {
@@ -201,8 +199,7 @@ router.post('/uploadAuditFile', function(req, res, next) {
     if (req.file) {
       fileName = safeString(req.file.originalname);
       mimeType = safeString(req.file.mimetype);
-      buffer = fs.readFileSync(req.file.path);
-      try { fs.unlinkSync(req.file.path); } catch (_) { /* ignore */ }
+      buffer = req.file.buffer;
     } else if (req.body.fileBase64) {
       fileName = safeString(req.body.fileName);
       mimeType = safeString(req.body.mimeType);
@@ -225,10 +222,11 @@ router.post('/uploadAuditFile', function(req, res, next) {
 
     res.json({ status: 'success', ...uploadInfo });
   } catch (e) {
-    if (req.file && req.file.path) {
-      try { fs.unlinkSync(req.file.path); } catch (_) { /* ignore */ }
-    }
-    res.json({ status: e.status || 'error', message: safeString(e.message) });
+    console.error('[audit:file:upload] failed:', e);
+    res.json({
+      status: e.status || 'error',
+      message: e.status ? safeString(e.message) : localeCopy.operationFailed
+    });
   }
 });
 
@@ -241,11 +239,9 @@ router.post('/getAuditFile', async (req, res) => {
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
-    if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
-    }
-
-    const buffer = fs.readFileSync(file.file_path);
+    const stored = readStoredAuditFile(file);
+    if (stored.status !== 'success') return res.json(stored);
+    const buffer = stored.buffer;
     res.json({
       status: 'success',
       fileName: file.file_name,
@@ -255,7 +251,8 @@ router.post('/getAuditFile', async (req, res) => {
       data: buffer.toString('base64')
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:file:read] failed:', e);
+    res.json({ status: 'error', message: localeCopy.operationFailed });
   }
 });
 
@@ -273,27 +270,22 @@ router.get('/downloadAuditFile', async (req, res) => {
     }
     const file = auth.file;
 
-    if (!fs.existsSync(file.file_path)) {
-      return res.status(404).json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
+    const stored = readStoredAuditFile(file);
+    if (stored.status !== 'success') {
+      return res.status(stored.status === 'integrity_error' ? 409 : 404).json(stored);
     }
 
     const mime = file.mime_type || 'application/octet-stream';
     const encodedName = encodeURIComponent(file.file_name);
     res.setHeader('Content-Type', mime);
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedName}`);
-    res.setHeader('Content-Length', String(file.file_size));
+    res.setHeader('Content-Length', String(stored.buffer.length));
     res.setHeader('Cache-Control', 'private, max-age=3600');
-
-    const readStream = fs.createReadStream(file.file_path);
-    readStream.on('error', (streamErr) => {
-      if (!res.headersSent) {
-        res.status(500).json({ status: 'error', message: safeString(streamErr.message) });
-      }
-    });
-    readStream.pipe(res);
+    res.end(stored.buffer);
   } catch (e) {
+    console.error('[audit:file:download] failed:', e);
     if (!res.headersSent) {
-      res.status(500).json({ status: 'error', message: safeString(e.message) });
+      res.status(500).json({ status: 'error', message: localeCopy.operationFailed });
     }
   }
 });
@@ -308,9 +300,8 @@ router.post('/getAuditFilePreview', async (req, res) => {
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
-    if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
-    }
+    const stored = readStoredAuditFile(file);
+    if (stored.status !== 'success') return res.json(stored);
 
     const mimeType = file.mime_type;
     if (mimeType && mimeType.startsWith('image/')) {
@@ -321,15 +312,21 @@ router.post('/getAuditFilePreview', async (req, res) => {
         previewMime: mimeType,
         totalPages: 1,
         page: 1,
-        data: fs.readFileSync(file.file_path).toString('base64')
+        data: stored.buffer.toString('base64')
       });
     }
 
     if (mimeType === 'application/pdf') {
+      const previewDirectory = path.join(UPLOAD_DIR, '_tmp');
+      ensurePrivateDirectory(previewDirectory);
+      const verifiedPreviewPath = path.join(previewDirectory, 'preview-' + generateId() + '.pdf');
+      fs.writeFileSync(verifiedPreviewPath, stored.buffer, { mode: 0o600 });
+      ensurePrivateFile(verifiedPreviewPath);
+      let totalPages = 1;
       try {
-        const totalPages = await getPdfPageCount(file.file_path);
+        totalPages = await getPdfPageCount(verifiedPreviewPath);
         const targetPage = Math.max(1, Math.min(page, totalPages));
-        const rendered = await renderPdfPage(file.file_path, targetPage, req.signal);
+        const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal);
         return res.json({
           status: 'success',
           fileName: file.file_name,
@@ -346,13 +343,15 @@ router.post('/getAuditFilePreview', async (req, res) => {
           fileName: file.file_name,
           mimeType: 'application/pdf',
           previewMime: 'application/pdf',
-          totalPages: await getPdfPageCount(file.file_path).catch(() => 1),
+          totalPages,
           page: page,
           data: null,
           fallback: true,
           message: localeCopy.copy_3f63b19ec7,
           requestId: req.requestId || ''
         });
+      } finally {
+        try { fs.unlinkSync(verifiedPreviewPath); } catch (_) { /* 维护任务会清理意外残留的预览副本。 */ }
       }
     }
 
@@ -367,7 +366,8 @@ router.post('/getAuditFilePreview', async (req, res) => {
       fallback: true
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:file:preview] failed:', e);
+    res.json({ status: 'error', message: localeCopy.operationFailed });
   }
 });
 

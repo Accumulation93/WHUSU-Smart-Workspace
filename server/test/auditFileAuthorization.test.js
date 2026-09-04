@@ -7,13 +7,20 @@ process.env.JWT_SECRET = 'audit-file-authorization-test-secret';
 process.env.AUTH_IDENTITY_SECRET = 'audit-file-identity-test-secret-32-bytes';
 
 let actor = { type: 'admin' };
+let activeAssignmentId = 'assignment-owner';
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === '../../../config/db') {
     return {
       async query(sql) {
         if (sql.includes('FROM audit_submission_files')) {
-          return [[{ id: 'file-1', submission_id: 'submission-1', submitted_by: 'hr-owner' }]];
+          return [[{
+            id: 'file-1',
+            submission_id: 'submission-1',
+            submitted_by: 'hr-owner',
+            submitted_assignment_id: 'assignment-owner',
+            submitted_context_snapshot: JSON.stringify({ assignmentId: 'assignment-owner' })
+          }]];
         }
         return [[]];
       }
@@ -37,7 +44,11 @@ Module._load = function(request, parent, isMain) {
     return { async reserve() { return { expiredRows: [] }; }, async findActive() { return null; }, async remove() {} };
   }
   if (request === '../services/auditAssignmentContext') {
-    return { async resolveActorAssignment() { return { hr_id: 'hr-owner' }; } };
+    return {
+      async resolveActorAssignment() {
+        return { hr_id: 'hr-owner', assignment_id: activeAssignmentId };
+      }
+    };
   }
   if (request === '../../../middleware/auth') return { JWT_SECRET: process.env.JWT_SECRET };
   return originalLoad.call(this, request, parent, isMain);
@@ -57,8 +68,13 @@ Module._load = originalLoad;
   assert.strictEqual(result.status, 'success', '有审核记录权限的管理员可以读取附件');
 
   actor = { type: 'user', id: 'hr-owner', personId: 'person-owner' };
+  activeAssignmentId = 'assignment-other';
   result = await getAuthorizedAuditFile('file-1', { adminPermissions: null });
-  assert.strictEqual(result.status, 'success', '普通用户继续由资源关系授权，不依赖管理员权限');
+  assert.strictEqual(result.status, 'forbidden', '同一人员切换到其他岗位后不得继承原岗位附件权限');
+
+  activeAssignmentId = 'assignment-owner';
+  result = await getAuthorizedAuditFile('file-1', { adminPermissions: null });
+  assert.strictEqual(result.status, 'success', '原岗位提交人可以读取自己的审批附件');
 
   console.log('审核附件管理员细权限与用户资源授权测试通过');
 })().catch((error) => {

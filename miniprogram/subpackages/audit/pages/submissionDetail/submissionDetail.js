@@ -6,6 +6,7 @@ const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const workContextView = require('../../utils/workContextView');
+const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -1108,12 +1109,14 @@ Page({
   // ═══════════════════════════════════════════════
 
   async loadDetail() {
+    const request = orgSession.beginRequest(this, 'submissionDetail');
     this.setData({ loading: true });
     try {
       const res = await callFunction({
         name: 'getSubmissionDetail',
         data: { submissionId: this.data.submissionId }
       });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         const submissionView = Object.assign({}, res.submission, {
           submittedAssignmentView: workContextView.normalizeSnapshot(res.submission.submittedContextSnapshot)
@@ -1489,30 +1492,18 @@ Page({
         }
 
         // ── Compute flow progress ──
-        // Use unique sortOrders (steps per round), not total row count across all rounds
-        let sortOrderSet = new Set();
-        for (let spi = 0; spi < rawSteps.length; spi++) {
-          sortOrderSet.add(rawSteps[spi].sortOrder);
-        }
-        let stepsPerRound = sortOrderSet.size || 1;
-        // Count approved steps from the latest round only
-        let maxRound = 0;
-        for (let sri = 0; sri < rawSteps.length; sri++) {
-          maxRound = Math.max(maxRound, rawSteps[sri].round || 1);
-        }
-        let currentRoundApproved = 0;
-        for (let sri2 = 0; sri2 < rawSteps.length; sri2++) {
-          if ((rawSteps[sri2].round || 1) === maxRound && rawSteps[sri2].status === 'approved') {
-            currentRoundApproved++;
-          }
-        }
+        // “从驳回步骤继续”不会复制前面已通过的步骤；按每个步骤序号的最新
+        // 有效记录合并进度，避免重提后把已完成步骤错误清零。
+        const progressState = calculateWorkflowProgress(rawSteps);
+        let stepsPerRound = progressState.stepsPerRound;
+        let currentRoundApproved = progressState.approvedCount;
         let flowProgressPercent, flowProgressText;
 
         if (submissionStatus === 'approved') {
           flowProgressPercent = 100;
           flowProgressText = localeCopy.copy_73ad4b84ff + stepsPerRound + localeCopy.copy_d2dbf88099;
         } else if (submissionStatus === 'rejected') {
-          const rejectedStep = rawSteps.find(s => s.status === 'rejected');
+          const rejectedStep = progressState.rejectedStep;
           flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
           flowProgressText = rejectedStep ? localeCopy.copy_93c50c01c0 + rejectedStep.sortOrder + '/' + stepsPerRound + localeCopy.copy_39bf6116f7 : localeCopy.copy_5d5af942c5;
         } else if (submissionStatus === 'pending') {
@@ -1595,6 +1586,7 @@ Page({
           }
         }
 
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           submission: submissionView,
           flowTimeline: flowTimeline,
@@ -1623,14 +1615,11 @@ Page({
           expandedNodeKey: ''
         });
 
-        // Mark as read — awaited to ensure the cursor is updated before the user navigates back
-        try {
-          const markRes = await callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } });
-          if (markRes.status !== 'success') {
-            console.warn('[audit] markSubmissionRead returned:', markRes.status, markRes.message);
-          }
-        } catch (e) {
-          console.warn('[audit] markSubmissionRead network error:', e);
+        // 阅读游标只属于当前岗位发起的申请；审批人和管理员查看详情时不写入。
+        if (res.userIsSubmitter && orgSession.isRequestCurrent(this, request)) {
+          try {
+            await callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } });
+          } catch (_) {}
         }
       } else {
         showShortToast(res.message || localeCopy.copy_e52119b17e);
@@ -1638,7 +1627,7 @@ Page({
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

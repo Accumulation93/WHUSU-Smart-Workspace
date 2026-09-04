@@ -75,6 +75,8 @@ const text = Object.freeze({
   workDivision: '工作分工（职能组）',
   profileManagedByAdmin: '基础信息由管理员维护，如需修改请联系管理员。',
   loadingProfile: '正在加载人事信息…',
+  profileLoadFailed: '人事信息暂时无法加载',
+  reloadProfile: '重新加载',
   noExtraProfile: '暂无补充资料',
   select: '请选择',
   inputNumber: '请输入数字',

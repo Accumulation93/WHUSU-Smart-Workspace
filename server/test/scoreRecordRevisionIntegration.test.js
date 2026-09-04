@@ -156,12 +156,33 @@ assert(layer, '缺少 submitScoreRecord 路由');
 
   assert.strictEqual(payload.status, 'success', payload.message);
   assert.strictEqual(payload.updated, true);
-  assert.strictEqual(payload.revised, true);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(payload, 'revised'), false);
   assert.strictEqual(payload.revisionNumber, 4);
   assert.deepStrictEqual(insertedAnswers, [{ questionIndex: 1, score: 90 }]);
   assert.strictEqual(operations.includes('archive'), false);
   assert(operations.indexOf('advance') < operations.indexOf('delete-current-answers'));
   assert.strictEqual(cacheInvalidated, true);
+
+  payload = null;
+  await layer.route.stack[0].handle({
+    openid: 'openid-1',
+    body: {
+      targetId: target.id,
+      activityId: 'activity-1',
+      templateConfigSignature: 'v2:historical',
+      existingRecordId: 'record-1',
+      existingRecordRevision: 4,
+      clientRequestId: 'revision-request-duplicate-answer',
+      answers: [
+        { questionIndex: 1, score: 90 },
+        { questionIndex: 1, score: 95 }
+      ]
+    }
+  }, {
+    json(value) { payload = value; return value; }
+  });
+  assert.strictEqual(payload.status, 'invalid_score');
+  assert.match(payload.message, /重复题目|不完整/);
   console.log('评分覆盖事务替换当前答案、不保留旧副本并刷新结果缓存测试通过');
 })().catch((error) => {
   console.error(error);

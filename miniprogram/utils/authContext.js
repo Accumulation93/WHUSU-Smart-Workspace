@@ -18,6 +18,7 @@ const PROFILE_KEY = 'roleProfiles';
 
 let runtimeAuthenticatedState = null;
 let persistenceGeneration = 0;
+let catalogPersistenceGeneration = 0;
 
 function getAuthenticatedState() {
   const compact = typeof orgSession.getAuthenticatedState === 'function'
@@ -171,8 +172,23 @@ function normalizeWorkContexts(values, contexts) {
 function saveContexts(contexts) {
   const list = Array.isArray(contexts) ? contexts : [];
   if (runtimeAuthenticatedState) runtimeAuthenticatedState.contexts = list;
-  wx.setStorageSync(CONTEXTS_KEY, list);
   return list;
+}
+
+function persistCatalogLater(entries) {
+  const generation = ++catalogPersistenceGeneration;
+  setTimeout(function() {
+    if (generation !== catalogPersistenceGeneration) return;
+    entries.forEach(function(entry) {
+      try {
+        if (typeof wx.setStorage === 'function') {
+          wx.setStorage({ key: entry[0], data: entry[1] });
+        } else {
+          wx.setStorageSync(entry[0], entry[1]);
+        }
+      } catch (_) {}
+    });
+  }, 0);
 }
 
 function getContexts() {
@@ -206,18 +222,26 @@ function saveCatalog(result) {
       identities: legacyIdentities,
       selection
     });
+    if (typeof orgSession.updateAuthenticatedState === 'function') {
+      orgSession.updateAuthenticatedState(compactAuthenticatedState(runtimeAuthenticatedState));
+    }
   }
-  wx.setStorageSync(ORGANIZATIONS_KEY, organizations);
-  wx.setStorageSync(WORK_CONTEXTS_KEY, workContexts);
-  wx.setStorageSync(IDENTITIES_KEY, legacyIdentities);
-  wx.setStorageSync(SELECTION_KEY, selection);
-  wx.setStorageSync('availableOrgs', organizations);
-  wx.setStorageSync('availableOrgs:user', organizations.filter(function(item) {
+  const userOrganizations = organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('user') >= 0;
-  }));
-  wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
+  });
+  const adminOrganizations = organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('admin') >= 0;
-  }));
+  });
+  persistCatalogLater([
+    [CONTEXTS_KEY, contexts],
+    [ORGANIZATIONS_KEY, organizations],
+    [WORK_CONTEXTS_KEY, workContexts],
+    [IDENTITIES_KEY, legacyIdentities],
+    [SELECTION_KEY, selection],
+    ['availableOrgs', organizations],
+    ['availableOrgs:user', userOrganizations],
+    ['availableOrgs:admin', adminOrganizations]
+  ]);
   return {
     contexts,
     organizations,
@@ -644,6 +668,7 @@ async function activateOrganizationContext(organizationId, preferredRole) {
 
 function clearUnifiedAuthentication() {
   persistenceGeneration += 1;
+  catalogPersistenceGeneration += 1;
   runtimeAuthenticatedState = null;
   wx.removeStorageSync(CONTEXTS_KEY);
   wx.removeStorageSync(WORK_CONTEXTS_KEY);

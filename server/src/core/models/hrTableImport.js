@@ -4,14 +4,16 @@ const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
 const { nowMysqlUtc } = require('../../utils/dateTime');
 const unifiedIdentityModel = require('./unifiedIdentity');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const { countUserCharacters } = require('../services/hrDomainPolicy');
 
 const REQUIRED_BASIC_FIELDS = ['name', 'studentId', 'department', 'identity'];
 const BASIC_FIELD_LABELS = {
-  name: '姓名',
-  studentId: '学号',
-  department: '所属部门',
-  identity: '身份',
-  workGroup: '职能组'
+  name: personnelCopy.nameLabel,
+  studentId: personnelCopy.studentIdLabel,
+  department: personnelCopy.departmentFieldLabel,
+  identity: personnelCopy.identityCategoryLabel,
+  workGroup: personnelCopy.workGroupLabel
 };
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 const MAX_IMPORT_ROWS = 5000;
@@ -33,7 +35,7 @@ function normalizeEmptyValue(value) {
 
 function normalizeCell(value) {
   const text = safeString(value);
-  if (text.length > MAX_CELL_LENGTH) {
+  if (countUserCharacters(text) > MAX_CELL_LENGTH) {
     throw new HrTableImportError('invalid_params', localeFormat(localeCopy.copy_d4523e4afe, [MAX_CELL_LENGTH]));
   }
   return text;
@@ -115,7 +117,7 @@ function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
     const columnIndex = normalizeColumnIndex(
       item && item.columnIndex,
       columnCount,
-      '补充资料'
+      personnelCopy.profileLabel
     );
     if (!fieldId || columnIndex === null) {
       throw new HrTableImportError('invalid_mapping', localeCopy.copy_15cdffdfee);
@@ -135,23 +137,17 @@ function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
 function tryParseDate(rawValue) {
   const value = String(rawValue == null ? '' : rawValue).trim();
   if (!value) return null;
-  let match = value.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  const match = value.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
   if (match) {
     const year = parseInt(match[1], 10);
     const month = parseInt(match[2], 10);
     const day = parseInt(match[3], 10);
     if (month >= 1 && month <= 12 && day >= 1) {
-      const daysInMonth = new Date(year, month, 0).getDate();
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
       if (day <= daysInMonth) {
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
-    return null;
-  }
-  let parsed = new Date(value);
-  if (isNaN(parsed.getTime())) parsed = new Date(value.replace(' ', 'T'));
-  if (!isNaN(parsed.getTime()) && parsed.getUTCFullYear() > 1900) {
-    return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
   }
   return null;
 }
@@ -160,8 +156,9 @@ function validateFieldValue(field, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_22320e55f6, [field.label, field.minLength]);
-    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_04952ae5de, [field.label, field.maxLength]);
+    const characterCount = countUserCharacters(value);
+    if (field.minLength != null && characterCount < field.minLength) return localeFormat(localeCopy.copy_22320e55f6, [field.label, field.minLength]);
+    if (field.maxLength != null && characterCount > field.maxLength) return localeFormat(localeCopy.copy_04952ae5de, [field.label, field.maxLength]);
     return '';
   }
   if (field.type === 'number') {
@@ -231,7 +228,15 @@ async function loadImportContext(orgId, extensionMapping) {
     pool.query('SELECT * FROM departments WHERE org_id = ? ORDER BY name', [orgId]),
     pool.query('SELECT * FROM identities WHERE org_id = ? ORDER BY name', [orgId]),
     pool.query('SELECT * FROM work_groups WHERE org_id = ? ORDER BY name', [orgId]),
-    pool.query('SELECT * FROM hr_info WHERE org_id = ? ORDER BY name', [orgId])
+    pool.query(
+      `SELECT h.*, om.status AS membership_status
+         FROM hr_info h
+         LEFT JOIN organization_memberships om
+           ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
+        WHERE h.org_id = ?
+        ORDER BY h.name`,
+      [orgId]
+    )
   ]);
   const departments = departmentsResult[0];
   const identities = identitiesResult[0];
@@ -333,11 +338,21 @@ async function prepareHrTableImport(payload, orgId) {
     const rowErrors = [];
 
     if (!studentId) {
-      rowErrors.push(buildError('学号', '', '请填写学号'));
+      rowErrors.push(buildError(personnelCopy.studentIdLabel, '', personnelCopy.requiredStudentId));
     } else if (seenStudentIds.has(studentId)) {
-      rowErrors.push(buildError('学号', studentId, '请删除重复的学号'));
+      rowErrors.push(buildError(personnelCopy.studentIdLabel, studentId, personnelCopy.duplicateStudentId));
     } else {
       seenStudentIds.add(studentId);
+    }
+    const membershipStatus = safeString(existing && existing.membership_status);
+    if (existing && membershipStatus && membershipStatus !== 'active') {
+      rowErrors.push(buildError(
+        personnelCopy.studentIdLabel,
+        studentId,
+        membershipStatus === 'left'
+          ? personnelCopy.formerMemberImportRequiresReactivation
+          : personnelCopy.inactiveMemberImportBlocked
+      ));
     }
 
     const mappedName = getMappedValue(cells, basicResult.mapping, 'name');
@@ -349,9 +364,9 @@ async function prepareHrTableImport(payload, orgId) {
     const identityName = mappedIdentity || names.identityNameById.get(safeString(existing && existing.identity_id)) || '';
     const workGroupName = mappedWorkGroup || names.workGroupNameById.get(safeString(existing && existing.work_group_id)) || '';
 
-    if (!name) rowErrors.push(buildError('姓名', '', '请填写姓名'));
-    if (!departmentName) rowErrors.push(buildError('所属部门', '', '请选择所属部门'));
-    if (!identityName) rowErrors.push(buildError('身份', '', '请选择身份'));
+    if (!name) rowErrors.push(buildError(personnelCopy.nameLabel, '', personnelCopy.requiredName));
+    if (!departmentName) rowErrors.push(buildError(personnelCopy.departmentFieldLabel, '', personnelCopy.selectDepartment));
+    if (!identityName) rowErrors.push(buildError(personnelCopy.identityCategoryLabel, '', personnelCopy.selectIdentityCategory));
 
     if (existing) {
       ['name', 'department', 'identity', 'workGroup'].forEach((field) => {
@@ -372,7 +387,7 @@ async function prepareHrTableImport(payload, orgId) {
         }
         return;
       }
-      const error = field ? validateFieldValue(field, value) : '该资料项已删除，请重新选择';
+      const error = field ? validateFieldValue(field, value) : personnelCopy.removedProfileField;
       if (error) {
         rowErrors.push(buildError(field ? field.label : localeCopy.copy_9ec66981b8, value, error, field ? field.type : 'text'));
         return;
@@ -380,7 +395,7 @@ async function prepareHrTableImport(payload, orgId) {
       extensionValues[mapping.fieldId] = field && field.type === 'date' ? tryParseDate(value) : value;
     });
 
-    const basicErrorCount = rowErrors.filter((error) => error.fieldType === '基本资料').length;
+    const basicErrorCount = rowErrors.filter((error) => error.fieldType === personnelCopy.basicProfileLabel).length;
     if (!rowErrors.length || (skipInvalid && basicErrorCount === 0)) {
       parsedRows.push({
         rowNumber: tableRow.rowNumber,

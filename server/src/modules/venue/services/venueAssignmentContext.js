@@ -110,7 +110,7 @@ const ASSIGNMENT_SELECT = `SELECT ma.id AS assignment_id, ma.membership_id, ma.o
   LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
   LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id`;
 
-async function loadAssignmentById(assignmentId, orgId, activeOnly) {
+async function loadAssignmentById(assignmentId, orgId, activeOnly, conn) {
   const id = safeString(assignmentId);
   if (!id) return null;
   const params = [id];
@@ -122,7 +122,8 @@ async function loadAssignmentById(assignmentId, orgId, activeOnly) {
   if (activeOnly !== false) {
     where += " AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'";
   }
-  const [rows] = await pool.query(ASSIGNMENT_SELECT + where + ' LIMIT 1', params);
+  const db = conn || pool;
+  const [rows] = await db.query(ASSIGNMENT_SELECT + where + ' LIMIT 1', params);
   return rows[0] ? normalizeAssignment(rows[0]) : null;
 }
 
@@ -137,19 +138,21 @@ async function listActiveAssignmentsByPerson(personId, orgId) {
   return rows.map(normalizeAssignment);
 }
 
-async function listActiveAssignmentsByLegacyHrId(legacyHrId, orgId) {
+async function listActiveAssignmentsByLegacyHrId(legacyHrId, orgId, conn) {
   const params = [safeString(legacyHrId)];
   let where = " WHERE om.legacy_hr_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'";
   if (safeString(orgId)) {
     where += ' AND ma.org_id = ?';
     params.push(safeString(orgId));
   }
-  const [rows] = await pool.query(ASSIGNMENT_SELECT + where + ' ORDER BY ma.created_at, ma.id', params);
+  const db = conn || pool;
+  const [rows] = await db.query(ASSIGNMENT_SELECT + where + ' ORDER BY ma.created_at, ma.id', params);
   return rows.map(normalizeAssignment);
 }
 
-async function listActiveAssignmentsByOrg(orgId) {
-  const [rows] = await pool.query(
+async function listActiveAssignmentsByOrg(orgId, conn) {
+  const db = conn || pool;
+  const [rows] = await db.query(
     ASSIGNMENT_SELECT
       + " WHERE ma.org_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'"
       + ' ORDER BY p.name, ma.created_at, ma.id',

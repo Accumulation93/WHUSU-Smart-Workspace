@@ -1,9 +1,12 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
+
+const SAME_FILE_HASH = crypto.createHash('sha256').update(Buffer.from('same-file')).digest('hex');
 
 process.env.JWT_SECRET = 'audit-verification-test-secret';
 process.env.AUTH_IDENTITY_SECRET = 'audit-verification-identity-test-secret-32-bytes';
@@ -70,8 +73,39 @@ Module._load = function(request, parent, isMain) {
   if (request === '../models/auditSubmissionFile') return { async getBySubmissionId() { return []; } };
   if (request === '../models/auditSubmissionSignature') return { async getChainForVerification() { return []; } };
   if (request === '../models/verificationPermission') return { async checkPermission() { return verificationAllowed; } };
+  if (request === '../utils/fileSecurity') {
+    return {
+      MAX_FILE_SIZE: 20 * 1024 * 1024,
+      async readStoredAuditFile() { return Buffer.alloc(0); }
+    };
+  }
   if (request === '../../../core/models/adminInfo') return { async getByOpenid() { return null; } };
   if (request === '../../../core/models/unifiedIdentity') return {};
+  if (request === '../../../core/services/currentActor') {
+    return {
+      async resolveCurrentActor() {
+        return {
+          ok: true,
+          actor: {
+            type: 'user',
+            id: 'hr-verifier',
+            personId: 'person-verifier',
+            assignmentId: 'assignment-verifier'
+          }
+        };
+      }
+    };
+  }
+  if (request === '../services/auditAssignmentContext') {
+    return {
+      async resolveActorAssignment() {
+        return { hr_id: 'hr-verifier', assignment_id: 'assignment-verifier' };
+      },
+      async resolveActorAssignmentForUpdate() {
+        return { hr_id: 'hr-verifier', assignment_id: 'assignment-verifier' };
+      }
+    };
+  }
   return originalLoad.call(this, request, parent, isMain);
 };
 
@@ -142,6 +176,7 @@ function loadRetiredAdminRouter() {
     '../models/auditEvent': failDependency,
     '../models/verificationPermission': failDependency,
     '../services/auditPersonAssignmentCondition': failDependency,
+    '../services/auditWorkflowPolicy': failDependency,
     '../../../core/services/dictionaryUsage': failDependency
   };
   const modulePath = require.resolve('../src/modules/audit/routes/auditAdmin');
@@ -200,12 +235,12 @@ async function invokeRetiredAdminRoute(router, routePath) {
   assert.strictEqual(verificationQuery.params[1], 'org-current');
   assert(!verificationQuery.sql.includes('LIMIT 1'), '文件哈希查询不得只取最新一条');
 
-  const selected = await invokeVerification({ fileHash: 'same-hash', submissionId: 'submission-old' });
+  const selected = await invokeVerification({ fileHash: SAME_FILE_HASH, submissionId: 'submission-old' });
   assert.strictEqual(selected.status, 'success');
   assert.strictEqual(selected.submissionId, 'submission-old', '用户必须能切换查看任意匹配记录的签名链');
   assert.strictEqual(selected.matchCount, 2);
 
-  const escaped = await invokeVerification({ fileHash: 'same-hash', submissionId: 'submission-other' });
+  const escaped = await invokeVerification({ fileHash: SAME_FILE_HASH, submissionId: 'submission-other' });
   assert.strictEqual(escaped.status, 'not_found', '记录 ID 不属于当前文件哈希匹配集时必须失败关闭');
 
   const statusPresentation = presentVerificationResponse({

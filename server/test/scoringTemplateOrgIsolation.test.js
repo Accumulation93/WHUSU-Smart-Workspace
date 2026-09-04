@@ -7,6 +7,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const templateModel = fs.readFileSync(path.join(root, 'src/modules/scoring/models/scoreTemplate.js'), 'utf8');
 const templateRoutes = fs.readFileSync(path.join(root, 'src/modules/scoring/routes/templates.js'), 'utf8');
+const scoringRoutes = fs.readFileSync(path.join(root, 'src/modules/scoring/routes/scoring.js'), 'utf8');
 const ruleRoutes = fs.readFileSync(path.join(root, 'src/modules/scoring/routes/rules.js'), 'utf8');
 const resultsRoutes = fs.readFileSync(path.join(root, 'src/modules/scoring/routes/results.js'), 'utf8');
 const initSql = fs.readFileSync(path.join(root, 'db/init.sql'), 'utf8');
@@ -28,6 +29,9 @@ assert(templateRoutes.includes('FROM score_template_order template_order')
 '删除模板必须同时检查当前组织的规则引用和活动排序引用');
 assert(ruleRoutes.includes('score_question_templates WHERE id = ? AND org_id = ? FOR UPDATE'),
   '保存评分规则时必须拒绝引用其他组织模板');
+assert(scoringRoutes.includes('scoreTemplateModel.getById(id, orgId)')
+  && scoringRoutes.includes('scoreTemplateModel.getById(config.templateId, orgId)'),
+'评分表单和首次提交必须按当前组织读取模板，不能把组织参数遗漏成 undefined');
 assert(resultsRoutes.includes('templateModel.getAll(orgId)')
   && resultsRoutes.includes('questionModel.getByTemplateIds(templateIds)'),
 '评分结果解释目录不得加载其他组织模板和题目');

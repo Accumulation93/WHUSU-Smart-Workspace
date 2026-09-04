@@ -127,9 +127,12 @@ async function assertPendingPageRoute(pagePath, methodName, target, action, expe
 
   await context[methodName]();
 
-  assert.strictEqual(loaded.calls.length, 1, pagePath + ' 应只提交一次审批请求');
-  assert.strictEqual(loaded.calls[0].name, expectedEndpoint, pagePath + ' 应按记录类型选择接口');
-  assert.strictEqual(loaded.calls[0].data.id, target.id);
+  const approvalCalls = loaded.calls.filter(function(call) { return call.name === expectedEndpoint; });
+  assert.strictEqual(approvalCalls.length, 1, pagePath + ' 应只提交一次审批请求');
+  assert.strictEqual(approvalCalls[0].name, expectedEndpoint, pagePath + ' 应按记录类型选择接口');
+  assert.strictEqual(approvalCalls[0].data.id, target.id);
+  assert.ok(loaded.calls.some(function(call) { return call.name === 'listPendingVenueApprovals'; }),
+    pagePath + ' 审批成功后必须重新读取权威待办');
   assert.strictEqual(context.data.approvalSubmitting, false, pagePath + ' 完成后必须复位提交状态');
 }
 

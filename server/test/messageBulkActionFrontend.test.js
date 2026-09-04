@@ -31,7 +31,8 @@ function createOverview(notificationItems, options) {
   };
 }
 
-function loadPage(relativePath, responseQueues) {
+function loadPage(relativePath, responseQueues, runtimeOptions) {
+  const runtime = runtimeOptions || {};
   const source = fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
   const calls = [];
   const toasts = [];
@@ -58,7 +59,7 @@ function loadPage(relativePath, responseQueues) {
   const orgSession = {
     beginRequest() { return {}; },
     isRequestCurrent() { return true; },
-    getSnapshot() { return { contextId: '', role: 'user' }; },
+    getSnapshot() { return { orgId: 'org-a', contextId: '', role: 'user' }; },
     consume() { return { changed: false }; },
     invalidateRequests() {},
     commitContext() {}
@@ -77,7 +78,20 @@ function loadPage(relativePath, responseQueues) {
       normalizeProfile(value) { return value; },
       resolveContextId() { return ''; }
     },
-    '../../../../utils/trustedNavigation': { navigateToTrustedRoute() {}, reLaunchTrustedRoute() {} },
+    '../../../../utils/notificationNavigationReceipt': { stage() { return true; }, clear() {}, take() { return null; } },
+    '../../../../utils/trustedNavigation': {
+      navigateToTrustedRoute(url, handlers) {
+        if (runtime.navigationSucceeds === false) {
+          if (handlers && handlers.fail) handlers.fail({ errMsg: 'navigateTo:fail' });
+          return false;
+        }
+        if (handlers && handlers.success) handlers.success({ errMsg: 'navigateTo:ok' });
+        return true;
+      },
+      reLaunchPortalThenNavigate() { return true; },
+      reLaunchTrustedRoute() { return true; },
+      isTrustedRoute() { return true; }
+    },
     '../../../../utils/eventBus': { on() {}, off() {} },
     '../../../../utils/adminPermissions': {
       filterPortalCards(cards) { return cards; },
@@ -87,8 +101,14 @@ function loadPage(relativePath, responseQueues) {
     '../../../../locales/zh-CN/main': locale
   };
   const wx = {
-    getStorageSync(key) { return storage.get(key) || ''; },
-    setStorageSync(key, value) { storage.set(key, value); },
+    getStorageSync(key) {
+      if (runtime.storageThrows) throw new Error('storage unavailable');
+      return storage.get(key) || '';
+    },
+    setStorageSync(key, value) {
+      if (runtime.storageThrows) throw new Error('storage unavailable');
+      storage.set(key, value);
+    },
     removeStorageSync(key) { storage.delete(key); },
     setNavigationBarTitle() {},
     showModal(options) { modals.push(options); },
@@ -238,6 +258,116 @@ async function testMessageCenterClearFailureRollsBackAndRefreshes() {
   assert.deepStrictEqual(harness.toasts, [locale.messageCenter.messages.clearFailed]);
 }
 
+async function testMessageCenterSingleDeleteFailureRestoresCompleteState() {
+  const harness = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    {
+      deleteNotification: [{ status: 'error', message: 'failed' }],
+      getMessageOverview: [createOverview(
+        [{ id: 'notice-authoritative', isRead: false }],
+        { total: 3, unreadCount: 2, partial: true, failedOrganizations: [{ organizationId: 'org-b' }] }
+      )]
+    }
+  );
+  seedNotifications(harness.page);
+
+  await harness.page.deleteNotification({ currentTarget: { dataset: { id: 'notice-before' } } });
+
+  assert.deepStrictEqual(harness.calls, ['deleteNotification', 'getMessageOverview']);
+  assert.strictEqual(harness.page.data.notifications[0].id, 'notice-authoritative');
+  assert.strictEqual(harness.page.data.notificationTotal, 3);
+  assert.strictEqual(harness.page.data.unreadCount, 2);
+  assert.strictEqual(harness.page.data.partial, true);
+  assert.deepStrictEqual(harness.toasts, [locale.messageCenter.messages.deleteFailed]);
+}
+
+async function testMessageCenterPaginationAndReadCacheFailuresRemainRecoverable() {
+  const paginationHarness = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    { listNotifications: [{ status: 'error', message: 'failed' }] }
+  );
+  paginationHarness.page.data.activeTab = 'notifications';
+  paginationHarness.page.data.notificationCursor = 'next-page';
+  await paginationHarness.page.loadMore();
+  assert.deepStrictEqual(paginationHarness.calls, ['listNotifications']);
+  assert.deepStrictEqual(paginationHarness.toasts, [locale.messageCenter.messages.retryLater]);
+  assert.strictEqual(paginationHarness.page.data.loadingMore, false);
+
+  const storageHarness = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    {},
+    { storageThrows: true }
+  );
+  await storageHarness.page.retryPendingNotificationReads();
+  assert.deepStrictEqual(storageHarness.calls, [], '本地缓存不可用时不得阻断消息中心或发出错误请求');
+}
+
+async function testNotificationReadWaitsForNavigationSuccess() {
+  const failedNavigation = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    {},
+    { navigationSucceeds: false }
+  );
+  failedNavigation.page.data.notifications = [{
+    id: 'notice-navigation-failed',
+    organizationId: 'org-a',
+    contextId: '',
+    targetUrl: '/subpackages/workspace/pages/home/home',
+    isRead: false
+  }];
+  failedNavigation.page.data.unreadCount = 1;
+  await failedNavigation.page.onNotificationTap({
+    currentTarget: { dataset: { id: 'notice-navigation-failed' } }
+  });
+  await new Promise(function(resolve) { setImmediate(resolve); });
+  assert.deepStrictEqual(failedNavigation.calls, [], '目标页未打开时不得提交已读');
+  assert.strictEqual(failedNavigation.page.data.notifications[0].isRead, false);
+  assert.strictEqual(failedNavigation.page.data.unreadCount, 1);
+
+  const successfulNavigation = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    { markNotificationRead: [{ status: 'success' }] },
+    { navigationSucceeds: true }
+  );
+  successfulNavigation.page.data.notifications = [{
+    id: 'notice-navigation-success',
+    organizationId: 'org-a',
+    contextId: '',
+    targetUrl: '/subpackages/workspace/pages/home/home',
+    isRead: false
+  }];
+  successfulNavigation.page.data.unreadCount = 1;
+  await successfulNavigation.page.onNotificationTap({
+    currentTarget: { dataset: { id: 'notice-navigation-success' } }
+  });
+  await new Promise(function(resolve) { setImmediate(resolve); });
+  assert.deepStrictEqual(successfulNavigation.calls, ['markNotificationRead']);
+  assert.strictEqual(successfulNavigation.page.data.notifications[0].isRead, true);
+  assert.strictEqual(successfulNavigation.page.data.unreadCount, 0);
+
+  const writeFailure = loadPage(
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js',
+    { markNotificationRead: [{ status: 'error', message: 'failed' }] },
+    { navigationSucceeds: true }
+  );
+  writeFailure.page.data.notifications = [{
+    id: 'notice-write-failed',
+    organizationId: 'org-a',
+    contextId: '',
+    targetUrl: '/subpackages/workspace/pages/home/home',
+    isRead: false
+  }];
+  writeFailure.page.data.unreadCount = 1;
+  await writeFailure.page.onNotificationTap({
+    currentTarget: { dataset: { id: 'notice-write-failed' } }
+  });
+  await new Promise(function(resolve) { setImmediate(resolve); });
+  assert.deepStrictEqual(writeFailure.calls, ['markNotificationRead']);
+  assert.strictEqual(writeFailure.page.data.notifications[0].isRead, false,
+    '服务端未确认已读时界面必须保持未读');
+  assert.strictEqual(writeFailure.page.data.unreadCount, 1);
+}
+
 async function testPortalMarkAllPartialAndFailureRefreshTruth() {
   const partialHarness = loadPage(
     'miniprogram/subpackages/main/pages/portal/portal.js',
@@ -303,6 +433,9 @@ function testRegistrationAndServerContract() {
   await testMessageCenterClearPartialRefreshesTruth();
   await testMessageCenterClearSuccessKeepsOptimisticResult();
   await testMessageCenterClearFailureRollsBackAndRefreshes();
+  await testMessageCenterSingleDeleteFailureRestoresCompleteState();
+  await testMessageCenterPaginationAndReadCacheFailuresRemainRecoverable();
+  await testNotificationReadWaitsForNavigationSuccess();
   await testPortalMarkAllPartialAndFailureRefreshTruth();
   console.log('跨组织通知批量操作前端一致性测试通过');
 })().catch((error) => {

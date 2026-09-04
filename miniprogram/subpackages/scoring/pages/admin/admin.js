@@ -370,6 +370,7 @@ Page({
 
     // Designation picker (now uses clauseId)
     designationList: [],
+    publicationAssignmentCandidates: [],
     showDesignationPicker: false,
     designationPickerClauseId: '',
     designationPickerPubId: '',
@@ -429,17 +430,23 @@ Page({
         activityList: [],
         currentActivityId: '',
         currentActivityName: '',
+        activityForm: emptyActivityForm(),
+        templateList: [],
+        templateForm: emptyTemplateForm(),
         ruleList: [],
         ruleListView: [],
         selectedRuleIds: [],
         selectedRuleIdMap: {},
         ruleFilters: emptyRuleFilters(),
+        ruleForm: emptyRuleForm(),
         publicationList: [],
+        publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
         pubViewRuleList: [],
         pubViewRuleListView: [],
         pubMeritRuleList: [],
         pubMeritRuleListView: [],
         designationList: [],
+        publicationAssignmentCandidates: [],
         pubViewRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
         pubMeritRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
         desigSearchKeyword: '',
@@ -543,8 +550,10 @@ Page({
       eventBus.on('org:changed', this._boundOnOrgChanged);
     }
     this.bootstrapPage().then(() => {
-      if (organizationChanged && orgSession.isCurrent(consumed.snapshot)) {
-        return this._refreshActiveOrganizationTab(preservedTab);
+      if (!orgSession.isCurrent(consumed.snapshot)) return null;
+      const activeTab = organizationChanged ? preservedTab : this.data.activeTab;
+      if (this._subApp === 'scoring' && ['results', 'publications'].indexOf(activeTab) >= 0) {
+        return this._refreshActiveOrganizationTab(activeTab);
       }
       return null;
     });
@@ -602,19 +611,36 @@ Page({
       templates: () => this.loadTemplateList(),
       admins: () => this.loadAdminList(),
       settings: () => Promise.all([this.loadSystemConfig(), this.loadOrganizations()]),
-      publications: () => this.data.currentActivityId
-        ? this.loadPublicationData(this.data.currentActivityId)
-        : this.setData({
+      publications: () => {
+        const selectedActivityId = String((this.data.publicationForm && this.data.publicationForm.activityId) || '');
+        const selectedActivity = (this.data.activityList || []).find((item) => String(item.id || '') === selectedActivityId);
+        const activityId = selectedActivity ? selectedActivityId : String(this.data.currentActivityId || '');
+        const activityName = selectedActivity ? selectedActivity.name : this.data.currentActivityName;
+        if (activityId) {
+          this.setData({
+            publicationForm: {
+              id: '',
+              activityId,
+              activityName: activityName || '',
+              isPublished: false
+            }
+          });
+          return this.loadPublicationData(activityId);
+        }
+        return this.setData({
+          publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
           publicationList: [],
           pubViewRuleList: [],
           pubViewRuleListView: [],
           pubMeritRuleList: [],
           pubMeritRuleListView: [],
           designationList: [],
+          publicationAssignmentCandidates: [],
           meritSummaryGroups: [],
           meritSummaryFilteredGroups: [],
           publicationsLoading: false
-        })
+        });
+      }
     };
     if (loaders[tab]) return Promise.resolve(loaders[tab]());
     return Promise.resolve();
@@ -946,15 +972,32 @@ Page({
       if (!this.data.identityList.length) this.loadIdentityList();
       this.setData({ publicationsLoading: true });
       this.loadActivityList().then(async () => {
-        const currentActivityId = this.data.currentActivityId;
-        if (currentActivityId) {
-          if (!this.data.publicationForm.activityId) {
+        const selectedActivityId = String((this.data.publicationForm && this.data.publicationForm.activityId) || '');
+        const selectedActivity = (this.data.activityList || []).find((item) => String(item.id || '') === selectedActivityId);
+        const activityId = selectedActivity ? selectedActivityId : String(this.data.currentActivityId || '');
+        const activityName = selectedActivity ? selectedActivity.name : this.data.currentActivityName;
+        if (activityId) {
+          if (String(this.data.publicationForm.activityId || '') !== activityId) {
             this.setData({
-              'publicationForm.activityId': currentActivityId,
-              'publicationForm.activityName': this.data.currentActivityName
+              publicationForm: {
+                id: '',
+                activityId,
+                activityName: activityName || '',
+                isPublished: false
+              },
+              pubViewRuleList: [],
+              pubViewRuleListView: [],
+              pubMeritRuleList: [],
+              pubMeritRuleListView: [],
+              designationList: [],
+              publicationAssignmentCandidates: [],
+              meritSummaryGroups: [],
+              meritSummaryFilteredGroups: [],
+              meritSummaryLoaded: false,
+              meritSummaryLoadFailed: false
             });
           }
-          await this.loadPublicationData(currentActivityId);
+          await this.loadPublicationData(activityId);
         }
         this.setData({ publicationsLoading: false });
       }).catch(() => { this.setData({ publicationsLoading: false }); });

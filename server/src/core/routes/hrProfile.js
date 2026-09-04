@@ -23,6 +23,7 @@ const personProfileValueModel = require('../models/personProfileValue');
 const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
+const { countUserCharacters } = require('../services/hrDomainPolicy');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const pool = require('../../config/db');
@@ -38,6 +39,21 @@ const PROFILE_STATUS_TEXT = {
   rejected: personnelCopy.profileStatusRejected,
   approved: personnelCopy.profileStatusApproved
 };
+
+function sendHrProfileFailure(req, res, error) {
+  if (req.logger) {
+    req.logger.error('HR profile operation failed', {
+      event: 'hr.profile.operation_failed',
+      endpoint: safeString(req.path),
+      code: safeString(error && error.code),
+      error: safeString(error && error.message)
+    });
+  }
+  return res.status(500).json({
+    status: 'error',
+    message: personnelCopy.hrProfileOperationFailed
+  });
+}
 
 function parseJsonObject(value) {
   if (!value) return {};
@@ -113,25 +129,17 @@ function normalizeTemplateField(field) {
 function tryParseDate(rawValue) {
   const value = (rawValue == null ? '' : String(rawValue)).trim();
   if (!value) return null;
-  let match = value.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  const match = value.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
   if (match) {
-    let year = parseInt(match[1], 10);
-    let month = parseInt(match[2], 10);
-    let day = parseInt(match[3], 10);
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
     if (month >= 1 && month <= 12 && day >= 1) {
-      let daysInMonth = new Date(year, month, 0).getDate();
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
       if (day <= daysInMonth) {
         return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
       }
     }
-    return null;
-  }
-  let d = new Date(value);
-  if (isNaN(d.getTime())) {
-    d = new Date(value.replace(' ', 'T'));
-  }
-  if (!isNaN(d.getTime()) && d.getUTCFullYear() > 1900) {
-    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
   }
   return null;
 }
@@ -141,8 +149,9 @@ function validateFieldValue(field, rawValue, isAdmin) {
   if (field.required && !value && !isAdmin) return localeFormat(localeCopy.copy_377d9cc43d, [field.label]);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_245abb6cb3, [field.label, field.minLength]);
-    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_0d42479c01, [field.label, field.maxLength]);
+    const characterCount = countUserCharacters(value);
+    if (field.minLength != null && characterCount < field.minLength) return localeFormat(localeCopy.copy_245abb6cb3, [field.label, field.minLength]);
+    if (field.maxLength != null && characterCount > field.maxLength) return localeFormat(localeCopy.copy_0d42479c01, [field.label, field.maxLength]);
     return '';
   }
   if (field.type === 'number') {
@@ -274,7 +283,7 @@ router.post('/getUserHrProfile', async (req, res) => {
       statusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_ede4536b9a
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -375,7 +384,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
       message: editMode === 'audit' ? personnelCopy.profileSubmitted : personnelCopy.profileSaved
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -393,7 +402,7 @@ router.post('/listHrProfileTemplates', async (req, res) => {
       canSelect: hasAnyPermission(context.effective, ['hr.profile_templates.select'])
     });
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -403,7 +412,7 @@ router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -413,7 +422,7 @@ router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -423,7 +432,7 @@ router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -434,7 +443,7 @@ router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
     const result = await templateLibrary.getSwitchContext(context.orgId, safeString(req.body.targetTemplateId));
     return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: localeCopy.copy_53d06945ab });
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -446,7 +455,7 @@ router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions
     ));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -459,7 +468,7 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
       safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
     ));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -471,7 +480,7 @@ router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
       context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin
     ));
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -643,7 +652,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -654,18 +663,21 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
+    const hrId = safeString(req.body.hrId);
     const studentId = safeString(req.body.studentId);
     const action = safeString(req.body.action);
     const reason = safeString(req.body.reason);
 
-    if (!studentId || ['approve', 'reject'].indexOf(action) === -1) {
+    if ((!hrId && !studentId) || ['approve', 'reject'].indexOf(action) === -1) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
     }
     if (action === 'reject' && !reason) {
       return res.json({ status: 'invalid_params', message: personnelCopy.rejectReasonRequired });
     }
 
-    const hrRecord = await hrInfoModel.getByStudentId(studentId);
+    const hrRecord = hrId
+      ? await hrInfoModel.getById(hrId)
+      : await hrInfoModel.getByStudentId(studentId);
     if (!hrRecord) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
 
     const orgId = await getCurrentOrgId();
@@ -767,7 +779,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
 
     res.json({ status: 'success' });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -896,7 +908,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       leftAt: hr.left_at || null
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 
@@ -1023,7 +1035,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
 
     res.json({ status: 'success', message: localeCopy.copy_3c00278e45 });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrProfileFailure(req, res, e);
   }
 });
 

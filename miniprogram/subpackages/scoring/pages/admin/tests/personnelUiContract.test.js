@@ -94,6 +94,13 @@ test('资料驳回必须通过受控原因弹窗提交非空原因', () => {
   assert.match(wxml, /bindinput="onProfileRejectReasonInput"/);
   assert.match(hrBehavior, /const reason = String\(this\.data\.profileRejectReason \|\| ''\)\.trim\(\);/);
   assert.match(hrBehavior, /action: 'reject', reason/);
+  assert.match(hrBehavior, /profileRejectHrId/);
+  assert.match(hrBehavior, /\{ hrId, studentId, action: 'reject', reason \}/);
+});
+
+test('资料审核与账号状态使用稳定的人事事实源', () => {
+  assert.match(hrBehavior, /\{ hrId, studentId, action: 'approve' \}/);
+  assert.match(authBehavior, /auth\.hasActiveBinding \|\| Boolean\(item && item\.accountId\)/);
 });
 
 test('离任成员并入成员资料目录且详情只读并可重新加入', () => {
@@ -141,6 +148,9 @@ test('永久删除必须经过引用预检且彻底删除要求学号确认', ()
   assert.match(hrBehavior, /callCloud\('previewHrMemberDeletion'/);
   assert.match(hrBehavior, /scope === 'person' \? 'deletePersonPermanently' : 'deleteHrMembershipPermanently'/);
   assert.match(hrBehavior, /expectedVersion: preview\.version/);
+  assert.match(hrBehavior, /clientRequestId: this\._hrPermanentDeletionClientRequestId/);
+  assert.match(hrBehavior, /this\._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId\(\)/);
+  assert.match(hrBehavior, /closePermanentHrDeletion\(\)[\s\S]*this\._hrPermanentDeletionClientRequestId = ''/);
   assert.match(hrBehavior, /acceptCleanup: !cleanupRequired \|\| this\.data\.hrPermanentDeletionCleanupAccepted/);
   assert.match(hrBehavior, /result\.result && typeof result\.result === 'object'/);
   assert.match(hrBehavior, /deletionResult\.cleanupCounts/);

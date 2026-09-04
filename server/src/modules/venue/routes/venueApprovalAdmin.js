@@ -24,6 +24,7 @@ const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
+const { toAssignmentSnapshot } = require('../services/venueAssignmentContext');
 const { effectiveBookingStart } = require('../services/venueEffectiveBookingTime');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 
@@ -73,6 +74,8 @@ router.post('/listVenueApprovalFlows', async (req, res) => {
 
 // saveVenueApprovalFlowMeta — 创建/更新审批流元信息（名称与三个开关）
 router.post('/saveVenueApprovalFlowMeta', async (req, res) => {
+  const conn = await pool.getConnection();
+  let transactionStarted = false;
   try {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
@@ -84,15 +87,25 @@ router.post('/saveVenueApprovalFlowMeta', async (req, res) => {
     const allowDesignateNext = req.body.allowDesignateNext === true || req.body.allowDesignateNext === 'true' || req.body.allowDesignateNext === 1;
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
 
+    await conn.beginTransaction();
+    transactionStarted = true;
+    const venue = await venueModel.getByIdForUpdate(venueId, conn);
+    if (!venue) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    }
     let flow = null;
     if (flowId) {
-      flow = await flowModel.getById(flowId);
+      flow = await flowModel.getById(flowId, conn, true);
       if (flow && flow.venue_id !== venueId) {
+        await conn.rollback();
+        transactionStarted = false;
         return res.json({ status: 'invalid_params', message: localeCopy.copy_00853d1d28 });
       }
     }
     if (flow) {
-      await flowModel.update(flow.id, { name, allowUserSelect, allowDesignateFirst, allowDesignateNext });
+      await flowModel.update(flow.id, { name, allowUserSelect, allowDesignateFirst, allowDesignateNext }, conn);
     } else {
       flow = { id: generateId() };
       await flowModel.create(flow.id, {
@@ -101,11 +114,18 @@ router.post('/saveVenueApprovalFlowMeta', async (req, res) => {
         allowUserSelect,
         allowDesignateFirst,
         allowDesignateNext
-      });
+      }, conn);
     }
+    await conn.commit();
+    transactionStarted = false;
     res.json({ status: 'success', flowId: flow.id, message: localeCopy.copy_d185bef128 });
   } catch (e) {
+    if (transactionStarted) {
+      try { await conn.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 
@@ -119,20 +139,52 @@ router.post('/saveVenueApprovalFlow', (req, res) => {
 
 // deleteVenueApprovalFlow
 router.post('/deleteVenueApprovalFlow', async (req, res) => {
+  const conn = await pool.getConnection();
+  let transactionStarted = false;
   try {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     const flowId = safeString(req.body.flowId);
     if (!venueId && !flowId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    let resolvedVenueId = venueId;
+    if (!resolvedVenueId && flowId) {
+      const existing = await flowModel.getById(flowId);
+      resolvedVenueId = safeString(existing && existing.venue_id);
+    }
+    if (!resolvedVenueId) return res.json({ status: 'not_found', message: localeCopy.copy_db3e12e237 });
+    await conn.beginTransaction();
+    transactionStarted = true;
+    const venue = await venueModel.getByIdForUpdate(resolvedVenueId, conn);
+    if (!venue) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'not_found', message: localeCopy.copy_db3e12e237 });
+    }
     const flow = flowId
-      ? await flowModel.getById(flowId)
-      : await flowModel.getByVenueId(venueId);
-    if (!flow) return res.json({ status: 'not_found', message: localeCopy.copy_db3e12e237 });
-    await flowModel.remove(flow.id);
+      ? await flowModel.getById(flowId, conn, true)
+      : await flowModel.getByVenueId(resolvedVenueId, conn, true);
+    if (!flow) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'not_found', message: localeCopy.copy_db3e12e237 });
+    }
+    if (safeString(flow.venue_id) !== resolvedVenueId) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_00853d1d28 });
+    }
+    await flowModel.remove(flow.id, conn);
+    await conn.commit();
+    transactionStarted = false;
     res.json({ status: 'success', message: localeCopy.copy_94e247d756 });
   } catch (e) {
+    if (transactionStarted) {
+      try { await conn.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 
@@ -374,7 +426,8 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         actor,
         comment,
         nextDesignation,
-        orgId
+        orgId,
+        safeString(req.body.flowId)
       );
     } catch (e) {
       await conn.rollback();
@@ -458,8 +511,10 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
     await conn.commit();
 
-    // Clear old pending_approval notifications for this booking (true DELETE, not markRead)
-    await notificationModel.deleteByTarget('booking', id);
+    // 事务已经提交；通知清理失败只能记录并重试，不能把已成功审批响应成失败。
+    await notificationModel.deleteByTarget('booking', id).catch(function(error) {
+      console.error('[venueApprovalAdmin] pending notification cleanup failed:', error.message);
+    });
 
     // 下一步骤待办由业务状态实时计算。
     if (!completed) {
@@ -532,8 +587,41 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     const approvalActor = eligibility.actor || actor;
     const approverActorId = approvalActor.id;
     const totalSteps = Number(booking.approval_total_steps) || 0;
-    const rejectStepItem = eligibility.summary.flowSummary.find(function(item) { return item.active && !item.completed; });
-    const rejectStep = rejectStepItem ? Number(rejectStepItem.stepIndex) : Number(booking.approval_current_step) || 0;
+    const matchedFlow = venueApprovalMultiFlow.selectMatchedFlow(eligibility, safeString(req.body.flowId));
+    if (!matchedFlow) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
+    }
+    const rejectStep = Number(matchedFlow.st.stepIndex);
+    const rejectedAt = new Date().toISOString();
+    eligibility.state.selectedFlowId = matchedFlow.flowId;
+    eligibility.state.rejection = {
+      flowId: matchedFlow.flowId,
+      flowName: safeString(matchedFlow.flow && matchedFlow.flow.name),
+      stepIndex: rejectStep,
+      stepName: safeString(matchedFlow.step && matchedFlow.step.name),
+      rejectedAt,
+      comment: comment || localeCopy.copy_b4432643e3,
+      approverHrId: safeString(approvalActor.id),
+      approverPersonId: safeString(approvalActor.personId),
+      approverAssignmentId: safeString(approvalActor.assignmentId),
+      approverAdminGrantId: safeString(approvalActor.adminGrantId),
+      approverContextId: safeString(approvalActor.contextId),
+      approverIdentityType: safeString(approvalActor.type),
+      approverName: safeString(approvalActor.name),
+      approverAssignmentSnapshot: approvalActor.assignment
+        ? toAssignmentSnapshot(approvalActor.assignment)
+        : null
+    };
+    for (const flowId of Object.keys(eligibility.state.flows)) {
+      const flowState = eligibility.state.flows[flowId];
+      flowState.active = false;
+      if (flowId === matchedFlow.flowId) {
+        flowState.rejected = true;
+      } else {
+        flowState.superseded = true;
+      }
+    }
 
     // Reject: set step to -1, update status atomically within transaction
     await venueBookingModel.updateStatus(
@@ -565,8 +653,10 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
 
     await conn.commit();
 
-    // Clear old pending_approval notifications for this booking (true DELETE)
-    await notificationModel.deleteByTarget('booking', id);
+    // 事务已经提交；通知清理失败不能反向改变业务结果。
+    await notificationModel.deleteByTarget('booking', id).catch(function(error) {
+      console.error('[venueApprovalAdmin] pending notification cleanup failed:', error.message);
+    });
 
     res.json({ status: 'success', message: localeCopy.copy_c7b826b0c0 });
   } catch (e) {

@@ -54,7 +54,7 @@ function decorateGovernanceRow(item, selected) {
     accountState = 'bound';
     accountStateText = localeCopy.copy_171e9799a7;
     accountStateClass = 'current-chip';
-  } else if (bindStatus === 'pending_activation' || auth.hasActiveBinding) {
+  } else if (bindStatus === 'pending_activation' || auth.hasActiveBinding || Boolean(item && item.accountId)) {
     accountState = 'pending_activation';
     accountStateText = localeCopy.copy_1ceaebed03;
     accountStateClass = 'activation-chip';

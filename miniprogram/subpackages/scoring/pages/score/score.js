@@ -922,7 +922,7 @@ Page({
 
   submitScore: function () {
     let self = this;
-    if (self.data.readOnly) return;
+    if (self.data.readOnly || self.data.submitting) return;
     let validation = self.validateAnswers();
     if (!validation.ok) {
       if (Number.isInteger(validation.firstInvalidIndex) && validation.firstInvalidIndex >= 0) {

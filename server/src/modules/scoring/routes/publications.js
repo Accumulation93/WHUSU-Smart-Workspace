@@ -11,11 +11,11 @@ const { logger } = require('../../../utils/logger');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const publicationModel = require('../models/resultPublication');
 const designationModel = require('../models/meritListDesignation');
-const pubGradeBandModel = require('../models/pubGradeBand');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
 const activityModel = require('../models/scoreActivity');
+const scoreRecordModel = require('../models/scoreRecord');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const pool = require('../../../config/db');
 const { withTransaction } = pool;
@@ -397,7 +397,8 @@ function assertUniquePublicationRuleBatch(items) {
 
 async function deletePubViewRuleWithConnection(connection, orgId, ruleId, options = {}) {
   const [rows] = await connection.query(
-    'SELECT id FROM pub_view_rules WHERE id = ? AND org_id = ? FOR UPDATE',
+    `SELECT id, publication_id, grantee_department_id, grantee_identity_id
+       FROM pub_view_rules WHERE id = ? AND org_id = ? FOR UPDATE`,
     [ruleId, orgId]
   );
   if (!rows[0]) {
@@ -405,6 +406,17 @@ async function deletePubViewRuleWithConnection(connection, orgId, ruleId, option
       rejectPublicationRule('rule_not_found', scoringCopy.publicationRuleNotFound);
     }
     return false;
+  }
+  const rule = rows[0];
+  const [dependentMeritRules] = await connection.query(
+    `SELECT id FROM pub_merit_rules
+      WHERE publication_id = ? AND grantee_department_id = ?
+        AND grantee_identity_id = ? AND org_id = ?
+      LIMIT 1 FOR UPDATE`,
+    [rule.publication_id, rule.grantee_department_id, rule.grantee_identity_id, orgId]
+  );
+  if (dependentMeritRules[0]) {
+    rejectPublicationRule('rule_in_use', scoringCopy.publicationViewRuleHasMeritRule);
   }
   await connection.query('DELETE FROM pub_view_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
   await connection.query('DELETE FROM pub_view_rules WHERE id = ? AND org_id = ?', [ruleId, orgId]);
@@ -505,6 +517,32 @@ function getDesignationTargetIds(body) {
   return [...new Set(source.map(safeString).filter(Boolean))];
 }
 
+async function assertDesignationTargetsAvailable(connection, orgId, publicationId, clauseIds, targets) {
+  const assignments = Array.isArray(targets) ? targets : [];
+  if (!assignments.length) return;
+  const excludedClauseIds = [...new Set((clauseIds || []).map(safeString).filter(Boolean))];
+  const assignmentIds = assignments.map(publicationAssignments.assignmentIdOf).filter(Boolean);
+  const legacyHrIds = [...new Set(assignments.map(publicationAssignments.legacyHrIdOf).filter(Boolean))];
+  const assignmentPlaceholders = assignmentIds.map(() => '?').join(',');
+  const legacyCondition = legacyHrIds.length
+    ? ` OR (target_assignment_id IS NULL AND target_hr_id IN (${legacyHrIds.map(() => '?').join(',')}))`
+    : '';
+  const clauseCondition = excludedClauseIds.length
+    ? ` AND clause_id NOT IN (${excludedClauseIds.map(() => '?').join(',')})`
+    : '';
+  const [rows] = await connection.query(
+    `SELECT id FROM merit_list_designations
+      WHERE publication_id = ? AND org_id = ?
+        AND (target_assignment_id IN (${assignmentPlaceholders})${legacyCondition})
+        ${clauseCondition}
+      LIMIT 1 FOR UPDATE`,
+    [publicationId, orgId, ...assignmentIds, ...legacyHrIds, ...excludedClauseIds]
+  );
+  if (rows[0]) {
+    rejectPublicationRule('designation_conflict', scoringCopy.designationAlreadyAssigned);
+  }
+}
+
 function buildDesignationPresentations(designations, lookups) {
   const rows = Array.isArray(designations) ? designations : [];
   return rows.map((designation) => publicationAssignments.buildDesignationPresentation(
@@ -587,13 +625,18 @@ router.post('/getResultPublication', async (req, res) => {
       });
     }
 
-    const lookups = await fetchOrgLookups();
+    const [lookups, activeAssignments] = await Promise.all([
+      fetchOrgLookups(),
+      participantService.listParticipants(orgId, 'assignment')
+    ]);
     const scopeLabelMap = {
-      own_results: '仅查看自己的评分结果',
-      same_department_identity: '查看同部门内指定身份的成员结果', same_department_all: '查看同部门内所有成员的结果',
-      same_work_group_identity: '查看同职能组内指定身份的成员结果', same_work_group_all: '查看同职能组内所有成员的结果',
-      all_people: '查看全部成员的结果',
-      identity_only: '指定身份成员（不限部门）'
+      own_results: scoringCopy.scopeOwnResults,
+      same_department_identity: scoringCopy.scopeViewSameDepartmentIdentity,
+      same_department_all: scoringCopy.scopeViewSameDepartmentAll,
+      same_work_group_identity: scoringCopy.scopeViewSameWorkGroupIdentity,
+      same_work_group_all: scoringCopy.scopeViewSameWorkGroupAll,
+      all_people: scoringCopy.scopeViewAllPeople,
+      identity_only: scoringCopy.scopeViewIdentityOnly
     };
 
     // Load grade bands for all view clauses in one batch (per-clause level)
@@ -671,11 +714,27 @@ router.post('/getResultPublication', async (req, res) => {
       targetStudentId: item.studentId,
       designatedBy: designationRows[index].designated_by
     }));
+    const assignmentCandidates = activeAssignments.map((assignment) => ({
+      id: publicationAssignments.assignmentIdOf(assignment),
+      assignmentId: publicationAssignments.assignmentIdOf(assignment),
+      targetHrId: publicationAssignments.legacyHrIdOf(assignment),
+      personId: safeString(assignment.person_id),
+      name: safeString(assignment.name),
+      studentId: safeString(assignment.student_id),
+      departmentId: safeString(assignment.department_id),
+      department: lookups.departmentsById.get(safeString(assignment.department_id)) || '',
+      identityId: safeString(assignment.identity_id),
+      identity: lookups.identitiesById.get(safeString(assignment.identity_id)) || '',
+      workGroupId: safeString(assignment.work_group_id),
+      workGroup: lookups.workGroupsById.get(safeString(assignment.work_group_id)) || '',
+      assignmentLabel: publicationAssignments.buildAssignmentLabel(assignment, lookups)
+    })).filter((assignment) => assignment.assignmentId);
 
     res.json({
       status: 'success',
       publication: { id: pubId, activityId: publication.activity_id, isPublished: !!publication.is_published, publishedAt: publication.published_at, publishedBy: publication.published_by },
-      viewRules: enrichedViewRules, meritRules: enrichedMeritRules, meritListDesignations: enrichedDesignations
+      viewRules: enrichedViewRules, meritRules: enrichedMeritRules,
+      meritListDesignations: enrichedDesignations, assignmentCandidates
     });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
@@ -689,37 +748,66 @@ router.post('/saveResultPublication', async (req, res) => {
     const isPublished = req.body.isPublished === true || req.body.isPublished === 1;
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
-    const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-
     const now = nowMysqlUtc();
-    let existing = await publicationModel.getByActivity(activityId);
-    const wasPublished = !!(existing && existing.is_published);
-
-    if (existing) {
-      await publicationModel.update(existing.id, { isPublished, publishedAt: isPublished ? now : existing.published_at, publishedBy: admin.id });
-    } else {
-      const newId = generateId();
-      await publicationModel.create(newId, { activityId, isPublished, publishedAt: isPublished ? now : null, publishedBy: admin.id });
-      existing = { id: newId };
-    }
-    if (isPublished && !wasPublished) {
-      await notificationOutboxModel.enqueue({
-        eventType: 'score_results_published',
-        eventKey: 'score-results-published:' + existing.id + ':' + now,
-        payload: {
-          type: 'score_results_published',
-          title: localeCopy.copy_a2fd08aa5b,
-          description: '「' + safeString(activity.name || localeCopy.copy_d8026f6068) + localeCopy.copy_9e7a5b00ee,
-          category: 'scoring',
-          targetType: 'result_publication',
-          targetId: existing.id,
-          targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
-          publicationId: existing.id
-        }
-      });
-    }
-    res.json({ status: 'success', publication: { id: existing.id, activityId, isPublished }, message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1 });
+    const orgId = await getCurrentOrgId();
+    const outcome = await withTransaction(async (connection) => {
+      const [activityRows] = await connection.query(
+        'SELECT id, name FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
+        [activityId, orgId]
+      );
+      const activity = activityRows[0];
+      if (!activity) return null;
+      const [publicationRows] = await connection.query(
+        'SELECT * FROM result_publications WHERE activity_id = ? AND org_id = ? FOR UPDATE',
+        [activityId, orgId]
+      );
+      const existing = publicationRows[0] || null;
+      const wasPublished = !!(existing && existing.is_published);
+      const publicationId = existing ? existing.id : generateId();
+      if (existing) {
+        await connection.query(
+          `UPDATE result_publications
+              SET is_published = ?, published_at = ?, published_by = ?, updated_at = ?
+            WHERE id = ? AND org_id = ?`,
+          [isPublished ? 1 : 0, isPublished ? now : existing.published_at,
+            admin.id, now, publicationId, orgId]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO result_publications
+            (id, activity_id, is_published, published_at, published_by, org_id)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [publicationId, activityId, isPublished ? 1 : 0,
+            isPublished ? now : null, admin.id, orgId]
+        );
+      }
+      if (isPublished && !wasPublished) {
+        await notificationOutboxModel.enqueue({
+          orgId,
+          eventType: 'score_results_published',
+          eventKey: 'score-results-published:' + publicationId + ':' + now,
+          payload: {
+            type: 'score_results_published',
+            title: localeCopy.copy_a2fd08aa5b,
+            description: localeFormat(scoringCopy.publicationNotificationDescription, [
+              safeString(activity.name || localeCopy.copy_d8026f6068)
+            ]),
+            category: 'scoring',
+            targetType: 'result_publication',
+            targetId: publicationId,
+            targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
+            publicationId
+          }
+        }, connection);
+      }
+      return { id: publicationId };
+    });
+    if (!outcome) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    res.json({
+      status: 'success',
+      publication: { id: outcome.id, activityId, isPublished },
+      message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1
+    });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -867,25 +955,10 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         });
       }
       await unifiedIdentityModel.lockActiveBusinessSubjects(conn, subjects);
+      await assertDesignationTargetsAvailable(conn, orgId, pubId, clauseIds, designationTargets);
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
-      // 同一岗位在同一公示中只允许出现一次；同时清理能唯一归属的旧 HR 记录。
-      if (designationTargets.length > 0) {
-        const assignmentIds = designationTargets.map(publicationAssignments.assignmentIdOf);
-        const legacyHrIds = [...new Set(designationTargets.map(publicationAssignments.legacyHrIdOf).filter(Boolean))];
-        const assignmentPh = assignmentIds.map(() => '?').join(',');
-        const legacyCondition = legacyHrIds.length
-          ? ` OR (target_assignment_id IS NULL AND target_hr_id IN (${legacyHrIds.map(() => '?').join(',')}))`
-          : '';
-        await conn.query(
-          `DELETE FROM merit_list_designations
-            WHERE publication_id = ? AND org_id = ?
-              AND (target_assignment_id IN (${assignmentPh})
-                ${legacyCondition})`,
-          [pubId, orgId, ...assignmentIds, ...legacyHrIds]
-        );
-      }
       // Insert all under the primary clause (dedup already done above)
       for (const targetAssignment of designationTargets) {
         const targetSnapshot = participantService.buildAssignmentSnapshot(targetAssignment);
@@ -951,10 +1024,11 @@ router.post('/getPublicResults', async (req, res) => {
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return res.json({ status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const [viewerRecord, participantRows, lookups] = await Promise.all([
+    const [viewerRecord, participantRows, lookups, scoreRecords] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
       participantService.listParticipants(orgId, granularity),
-      fetchOrgLookups()
+      fetchOrgLookups(),
+      scoreRecordModel.getByActivity(activityId)
     ]);
     if (!viewerRecord) return res.json({ status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
     const viewer = {
@@ -1013,7 +1087,28 @@ router.post('/getPublicResults', async (req, res) => {
       identity: lookups.identitiesById.get(safeString(m.identity_id)) || '',
       workGroup: lookups.workGroupsById.get(safeString(m.work_group_id)) || ''
     }));
-    const memberPresentation = participantService.decorateAssignmentDisambiguation(normalizedMembers);
+    const membersByAssignmentId = new Map(normalizedMembers.map((member) => [member.assignmentId, member]));
+    scoreRecords.forEach((record) => {
+      const historical = participantService.resolveHistoricalParticipant(record, 'target', []);
+      if (!historical.assignmentId || historical.historicalAssignmentUnavailable) return;
+      membersByAssignmentId.set(historical.assignmentId, {
+        id: historical.assignmentId,
+        assignmentId: historical.assignmentId,
+        assignmentKind: historical.assignmentNature,
+        name: historical.name,
+        studentId: historical.studentId,
+        personId: historical.personId,
+        departmentId: historical.departmentId,
+        identityId: historical.identityCategoryId,
+        workGroupId: historical.workGroupId,
+        department: historical.department,
+        identity: historical.identityCategory,
+        workGroup: historical.workGroup,
+        assignmentLabel: historical.assignmentLabel,
+        historicalOnly: !normalizedMembers.some((member) => member.assignmentId === historical.assignmentId)
+      });
+    });
+    const memberPresentation = participantService.decorateAssignmentDisambiguation(Array.from(membersByAssignmentId.values()));
     const allMembers = memberPresentation.rows;
 
     function matchScope(target, clause) {
@@ -1075,12 +1170,12 @@ router.post('/getPublicResults', async (req, res) => {
 
     // Build scope label lookup
     const scopeLabelMap = {
-      own_results: '我的结果',
-      same_department_identity: '同部门',
-      same_department_all: '同部门全部',
-      same_work_group_identity: '同职能组',
-      same_work_group_all: '同职能组全部',
-      all_people: '全部成员'
+      own_results: scoringCopy.scopeShortOwnResults,
+      same_department_identity: scoringCopy.scopeShortSameDepartment,
+      same_department_all: scoringCopy.scopeShortSameDepartmentAll,
+      same_work_group_identity: scoringCopy.scopeShortSameWorkGroup,
+      same_work_group_all: scoringCopy.scopeShortSameWorkGroupAll,
+      all_people: scoringCopy.scopeShortAllPeople
     };
 
     // Build per-clause groups
@@ -1112,9 +1207,9 @@ router.post('/getPublicResults', async (req, res) => {
           assignmentId: member.assignmentId,
           personId: member.personId,
           name: member.name,
-          department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || localeCopy.copy_25e27df7c6,
-          identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || localeCopy.copy_25e27df7c6,
-          workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || localeCopy.copy_25e27df7c6,
+          department: safeString(member.department) || lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || localeCopy.copy_25e27df7c6,
+          identity: safeString(member.identity) || lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || localeCopy.copy_25e27df7c6,
+          workGroup: safeString(member.workGroup) || lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || localeCopy.copy_25e27df7c6,
           sortScore: rawScore,
           finalScore: Number(rawScore).toFixed(3)
         };
@@ -1400,25 +1495,10 @@ router.post('/submitMeritListDesignations', async (req, res) => {
           organizationId: orgId,
           assignmentId: publicationAssignments.assignmentIdOf(assignment)
         })));
+      await assertDesignationTargetsAvailable(conn, orgId, pubId, clauseIds, designationTargets);
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
-      // 同一岗位在同一公示中只允许出现一次；旧 HR 记录仅作为兼容清理。
-      if (designationTargets.length > 0) {
-        const assignmentIds = designationTargets.map(publicationAssignments.assignmentIdOf);
-        const legacyHrIds = [...new Set(designationTargets.map(publicationAssignments.legacyHrIdOf).filter(Boolean))];
-        const assignmentPh = assignmentIds.map(() => '?').join(',');
-        const legacyCondition = legacyHrIds.length
-          ? ` OR (target_assignment_id IS NULL AND target_hr_id IN (${legacyHrIds.map(() => '?').join(',')}))`
-          : '';
-        await conn.query(
-          `DELETE FROM merit_list_designations
-            WHERE publication_id = ? AND org_id = ?
-              AND (target_assignment_id IN (${assignmentPh})
-                ${legacyCondition})`,
-          [pubId, orgId, ...assignmentIds, ...legacyHrIds]
-        );
-      }
       // 每个岗位写入其实际匹配的条款；同一岗位匹配多条时按前端条款顺序稳定选择。
       for (const targetAssignment of designationTargets) {
         const matchedClause = selectedClauses.find((selectedClause) => (
@@ -2022,7 +2102,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const headerLabels = headers.map(h => h.label);
     const dataRows = rows.map(row => headers.map(h => row[h.key]));
     const sheetData = [headerLabels, ...dataRows];
-    const buffer = await buildWorkbookBuffer('评优名单汇总', sheetData);
+    const buffer = await buildWorkbookBuffer(scoringCopy.exportMeritListSummary, sheetData);
     const fileContent = buffer.toString('base64');
 
     res.json({ status: 'success', fileContent, fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: rows.length });

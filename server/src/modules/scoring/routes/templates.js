@@ -1,4 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/templates');
+const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
+const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, generateId } = require('../../../utils/helpers');
@@ -15,14 +17,32 @@ async function ensureAdmin(req) {
 }
 
 function normalizeQuestion(item) {
+  const source = item || {};
+  function numberValue(key, fallback) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return fallback;
+    if (source[key] === null || String(source[key]).trim() === '') return Number.NaN;
+    return Number(source[key]);
+  }
   return {
-    question: safeString(item.question),
-    scoreLabel: safeString(item.scoreLabel),
-    minValue: toNumber(item.minValue, 0),
-    startValue: toNumber(item.startValue, 0),
-    maxValue: toNumber(item.maxValue, 0),
-    stepValue: toNumber(item.stepValue, 0.5)
+    question: safeString(source.question),
+    scoreLabel: safeString(source.scoreLabel),
+    minValue: numberValue('minValue', 0),
+    startValue: numberValue('startValue', 0),
+    maxValue: numberValue('maxValue', 0),
+    stepValue: numberValue('stepValue', 0.5)
   };
+}
+
+function isValidQuestion(item) {
+  return !!item.question
+    && Number.isFinite(item.minValue)
+    && Number.isFinite(item.startValue)
+    && Number.isFinite(item.maxValue)
+    && Number.isFinite(item.stepValue)
+    && item.stepValue > 0
+    && item.minValue <= item.maxValue
+    && item.startValue >= item.minValue
+    && item.startValue <= item.maxValue;
 }
 
 function buildTemplateConfigSignature(questions) {
@@ -97,15 +117,10 @@ router.post('/saveScoreTemplate', async (req, res) => {
 
     if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_9a51765619 });
 
-    const normalizedQs = questions.map(normalizeQuestion).filter((item) => item.question);
-    const validQs = normalizedQs.filter((item) =>
-      item.question && !Number.isNaN(item.minValue) && !Number.isNaN(item.startValue) &&
-      !Number.isNaN(item.maxValue) && !Number.isNaN(item.stepValue) &&
-      item.stepValue > 0 && item.minValue <= item.maxValue &&
-      item.startValue >= item.minValue && item.startValue <= item.maxValue
-    );
-
-    if (!validQs.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_d976fb44d6 });
+    const normalizedQs = questions.map(normalizeQuestion);
+    if (!normalizedQs.length || normalizedQs.some((item) => !isValidQuestion(item))) {
+      return res.json({ status: 'invalid_params', message: scoringCopy.templateQuestionsInvalid });
+    }
 
     const nowUtc = nowMysqlUtc();
     const targetTemplateId = await pool.withTransaction(async (connection) => {
@@ -140,8 +155,8 @@ router.post('/saveScoreTemplate', async (req, res) => {
         }, connection);
       }
 
-      for (let i = 0; i < validQs.length; i++) {
-        const q = validQs[i];
+      for (let i = 0; i < normalizedQs.length; i++) {
+        const q = normalizedQs[i];
         await questionModel.create(generateId(), templateId, i + 1, {
           question: q.question, scoreLabel: q.scoreLabel,
           minValue: q.minValue, startValue: q.startValue,
@@ -175,33 +190,35 @@ router.post('/deleteScoreTemplate', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_53b7c35c3f });
 
-    // 评分规则和活动排序都属于有效引用。任何一种引用存在时均不得删除模板，
-    // 否则活动配置会留下无法展示的问题 ID。
-    const [currentRefs] = await pool.query(
-      `SELECT
-         (SELECT COUNT(*) FROM clause_template_configs
-           WHERE template_id = ? AND org_id = ?)
-         +
-         (SELECT COUNT(*) FROM score_template_order template_order
-           INNER JOIN score_activities activity ON activity.id = template_order.activity_id
-          WHERE template_order.template_id = ? AND activity.org_id = ?) AS cnt`,
-      [id, orgId, id, orgId]
-    );
-
-    if (currentRefs[0].cnt > 0) {
-      return res.json({
-        status: 'forbidden',
-        message: localeCopy.copy_1680976116
-      });
-    }
-
-    const removed = await pool.withTransaction(async (connection) => {
-      const template = await templateModel.getById(id, orgId, connection);
-      if (!template) return 0;
+    const outcome = await pool.withTransaction(async (connection) => {
+      const [templateRows] = await connection.query(
+        'SELECT id FROM score_question_templates WHERE id = ? AND org_id = ? FOR UPDATE',
+        [id, orgId]
+      );
+      if (!templateRows[0]) return { status: 'not_found' };
+      const [currentRefs] = await connection.query(
+        `SELECT
+           (SELECT COUNT(*) FROM clause_template_configs
+             WHERE template_id = ? AND org_id = ?)
+           +
+           (SELECT COUNT(*) FROM score_template_order template_order
+             INNER JOIN score_activities activity ON activity.id = template_order.activity_id
+            WHERE template_order.template_id = ? AND activity.org_id = ?) AS cnt`,
+        [id, orgId, id, orgId]
+      );
+      if (Number(currentRefs[0] && currentRefs[0].cnt || 0) > 0) {
+        return { status: 'referenced' };
+      }
       await questionModel.removeByTemplateId(id, connection);
-      return templateModel.remove(id, orgId, connection);
+      const removed = await templateModel.remove(id, orgId, connection);
+      return { status: removed ? 'success' : 'not_found' };
     });
-    if (!removed) return res.json({ status: 'not_found', message: localeCopy.copy_785b6d700c });
+    if (outcome.status === 'referenced') {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_1680976116 });
+    }
+    if (outcome.status === 'not_found') {
+      return res.json({ status: 'not_found', message: localeCopy.copy_785b6d700c });
+    }
     res.json({ status: 'success' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -227,7 +244,8 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
       }
       const questions = await questionModel.getByTemplateId(id, connection);
 
-      let name = `${template.name || localeCopy.copy_222c27a765} 副本`;
+      const sourceName = template.name || localeCopy.copy_222c27a765;
+      let name = localeFormat(scoringCopy.templateDuplicateName, [sourceName]);
       let counter = 2;
       while (true) {
         const [existing] = await connection.query(
@@ -235,7 +253,7 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
           [orgId, name]
         );
         if (!existing.length) break;
-        name = `${template.name || localeCopy.copy_222c27a765} 副本${counter}`;
+        name = localeFormat(scoringCopy.templateDuplicateNumberedName, [sourceName, counter]);
         counter += 1;
       }
 

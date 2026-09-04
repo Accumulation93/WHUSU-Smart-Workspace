@@ -21,7 +21,13 @@ const verificationPermModel = require('../models/verificationPermission');
 const {
   resolveAndValidateBindings
 } = require('../services/auditPersonAssignmentCondition');
+const {
+  validateConditionShape,
+  validateStepShape,
+  isValidResubmitMode
+} = require('../services/auditWorkflowPolicy');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+const { inspectAuditImageData } = require('../utils/auditImageData');
 
 function collectDictionaryReferences(condition) {
   const item = condition || {};
@@ -144,6 +150,13 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     if (starterType === 'specific_person') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
     }
+    if (!['conditions', 'self', 'identity'].includes(starterType)
+      || !isValidResubmitMode(resubmitMode)
+      || (starterType === 'conditions' && !starterConditions.length)
+      || (starterType !== 'conditions' && starterConditions.length)
+      || (starterType === 'identity' && !starterIdentityId)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
+    }
 
     for (let si = 0; si < starterConditions.length; si++) {
       const starterCondition = starterConditions[si];
@@ -158,6 +171,9 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       }
       starterCondition.personHrIds = binding.condition.personHrIds;
       starterCondition.assignmentIds = binding.condition.assignmentIds;
+    }
+    if (starterConditions.some(function(condition) { return !validateConditionShape(condition).ok; })) {
+      return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
     }
 
     // Validate each step has at least one valid condition with proper IDs
@@ -236,6 +252,26 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           allConditions.push({ specificIdentityId: step.approverIdentityId });
         }
       }
+      let validationConditions = vconditions;
+      if (!validationConditions.length && safeString(vstep.approverType) === 'specific_person') {
+        validationConditions = [{
+          conditionType: 'person',
+          personHrIds: vstep.approverHrId,
+          assignmentIds: vstep.approverAssignmentIds || vstep.assignmentIds
+        }];
+      } else if (!validationConditions.length && safeString(vstep.approverType) === 'identity'
+        && safeString(vstep.approverIdentityId)) {
+        validationConditions = [{
+          conditionType: 'identity_scope',
+          departmentScope: 'all',
+          workGroupScope: 'all',
+          identityScope: 'specific',
+          specificIdentityId: vstep.approverIdentityId
+        }];
+      }
+      if (!validateStepShape({ actionType: vstep.actionType, conditions: validationConditions }).ok) {
+        return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
+      }
       await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
       for (const condition of allConditions) {
         await dictionaryUsage.assertDictionaryReferences(Object.assign({
@@ -247,6 +283,12 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       let templateId;
       if (id) {
         templateId = id;
+        const lockedTemplate = await flowTemplateModel.getByIdForUpdate(id, conn);
+        if (!lockedTemplate) {
+          const notFoundError = new Error(localeCopy.workflowConfigurationInvalid);
+          notFoundError.status = 'not_found';
+          throw notFoundError;
+        }
         await flowTemplateModel.update(id, {
           name, description, starterType,
           starterIdentityId: starterIdentityId || null,
@@ -343,7 +385,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       conn.release();
     }
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    res.json({ status: safeString(e.status) || 'error', message: safeString(e.message) });
   }
 });
 
@@ -370,7 +412,8 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
     await flowTemplateModel.remove(id);
     res.json({ status: 'success', message: localeCopy.copy_efc8493bdc });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:stamp:list] failed:', e);
+    res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
 });
 
@@ -409,7 +452,8 @@ router.post('/listStamps', async (req, res) => {
 
     res.json({ status: 'success', stamps: result });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:stamp:list] failed:', e);
+    res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
 });
 
@@ -430,6 +474,18 @@ router.post('/saveStamp', async (req, res) => {
     if (!imageData) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_9c1d248076 });
     }
+    if (Array.from(name).length > 200) {
+      return res.json({ status: 'invalid_params', message: localeCopy.stampNameTooLong });
+    }
+    const imageInspection = inspectAuditImageData(imageData);
+    if (!imageInspection.ok) {
+      return res.json({
+        status: 'invalid_params',
+        message: imageInspection.reason === 'too_large'
+          ? localeCopy.stampImageTooLarge
+          : localeCopy.stampImageInvalid
+      });
+    }
 
     if (id) {
       const updated = await stampModel.update(id, { name, imageData });
@@ -443,7 +499,8 @@ router.post('/saveStamp', async (req, res) => {
       res.json({ status: 'success', id: newId, message: localeCopy.copy_8e51c9c0df });
     }
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:stamp:save] failed:', e);
+    res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
 });
 
@@ -463,7 +520,8 @@ router.post('/deleteStamp', async (req, res) => {
     }
     res.json({ status: 'success', message: localeCopy.copy_a5d4679cf0 });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:stamp:delete] failed:', e);
+    res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
 });
 
@@ -490,7 +548,8 @@ router.post('/saveStampAssignments', async (req, res) => {
     }
     res.json({ status: 'success', message: localeCopy.copy_cb20eb18bc });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:stamp:assignment] failed:', e);
+    res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
 });
 

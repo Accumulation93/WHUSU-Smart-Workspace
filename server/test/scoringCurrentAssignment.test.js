@@ -51,6 +51,7 @@ const mocks = {
     }
   },
   '../../../core/models/workGroup': { async getAll() { return []; } },
+  '../../../core/models/systemConfig': { async get() { return { timezone: 8 }; } },
   '../utils/pubCache': { async invalidate() {} },
   '../models/scoreActivity': {
     async getCurrent() {

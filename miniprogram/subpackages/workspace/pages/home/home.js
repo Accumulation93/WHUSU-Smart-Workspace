@@ -26,7 +26,8 @@ function emptyHrProfileState() {
     pendingValues: {},
     auditStatus: 'none',
     statusText: copy.text.profileNotSubmitted,
-    rejectionReason: ''
+    rejectionReason: '',
+    errorText: ''
   };
 }
 
@@ -247,10 +248,11 @@ function validateProfileField(field = {}, rawValue) {
   }
 
   if (field.type === 'text') {
-    if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
+    const characterCount = Array.from(value).length;
+    if (field.minLength != null && field.minLength !== '' && characterCount < field.minLength) {
       return copy.format.minimumCharacters(field.label, field.minLength);
     }
-    if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
+    if (field.maxLength != null && field.maxLength !== '' && characterCount > field.maxLength) {
       return copy.format.maximumCharacters(field.label, field.maxLength);
     }
   }
@@ -774,10 +776,12 @@ Page({
   processHrProfileResult(result) {
     if (result.status !== 'success') {
       this.setData({
-        hrProfile: {
-          ...emptyHrProfileState(),
-          loaded: true
-        }
+        hrProfile: Object.assign({}, this.data.hrProfile || emptyHrProfileState(), {
+          loading: false,
+          saving: false,
+          loaded: true,
+          errorText: getErrorText(result, copy.text.profileLoadFailed)
+        })
       });
       return;
     }
@@ -802,7 +806,8 @@ Page({
         pendingValues,
         auditStatus: result.auditStatus || 'none',
         statusText: result.statusText || copy.text.profileNotSubmitted,
-        rejectionReason: result.rejectionReason || ''
+        rejectionReason: result.rejectionReason || '',
+        errorText: ''
       }
     });
   },
@@ -814,7 +819,8 @@ Page({
 
     const request = orgSession.beginRequest(this, 'hrProfile');
     this.setData({
-      'hrProfile.loading': true
+      'hrProfile.loading': true,
+      'hrProfile.errorText': ''
     });
 
     callFunction({
@@ -823,16 +829,23 @@ Page({
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.processHrProfileResult(res.result || {});
       },
-      fail: () => {
+      fail: (error) => {
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
-          hrProfile: {
-            ...emptyHrProfileState(),
-            loaded: true
-          }
+          hrProfile: Object.assign({}, this.data.hrProfile || emptyHrProfileState(), {
+            loading: false,
+            saving: false,
+            loaded: true,
+            errorText: getErrorText(error, copy.text.profileLoadFailed)
+          })
         });
       }
     });
+  },
+
+  retryUserHrProfile() {
+    if (this.data.hrProfile && this.data.hrProfile.loading) return;
+    this.loadUserHrProfile();
   },
 
   async loadAccountSecurity() {
@@ -1054,7 +1067,7 @@ Page({
       success: (res) => {
         const result = res.result || {};
         if (result.status !== 'success') {
-          showShortToast(copy.text.updateFailed);
+          showShortToast(getErrorText(result, copy.text.updateFailed));
           return;
         }
 

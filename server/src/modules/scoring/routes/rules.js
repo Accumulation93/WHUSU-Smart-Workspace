@@ -3,7 +3,7 @@ const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
-const { safeString, toNumber, generateId, buildNameMap, makeOrgRuleKey } = require('../../../utils/helpers');
+const { safeString, generateId, buildNameMap } = require('../../../utils/helpers');
 const { nowMysqlUtc } = require('../../../utils/dateTime');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const rateRuleModel = require('../models/rateRule');
@@ -21,16 +21,17 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 
 const RULE_SCOPE_LABEL_MAP = {
-  same_department_identity: '同一部门内的指定身份成员',
-  same_department_all: '同一部门内的所有成员',
-  same_work_group_identity: '同一部门同一职能组内的指定身份成员',
-  same_work_group_all: '同一部门同一职能组内的所有成员',
-  identity_only: '全体成员中的指定身份',
-  all_people: '全体成员'
+  same_department_identity: scoringCopy.scopeSameDepartmentIdentity,
+  same_department_all: scoringCopy.scopeSameDepartmentAll,
+  same_work_group_identity: scoringCopy.scopeSameWorkGroupIdentity,
+  same_work_group_all: scoringCopy.scopeSameWorkGroupAll,
+  identity_only: scoringCopy.scopeIdentityOnly,
+  all_people: scoringCopy.scopeAllPeople
 };
 
 const VALID_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'identity_only', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity', 'identity_only'];
+const VALID_CALCULATION_METHODS = ['weighted_average', 'trim_extremes'];
 const MAX_BATCH_RULES = 200;
 
 class RateRuleRequestError extends Error {
@@ -63,12 +64,18 @@ async function normalizeRateRuleInput(connection, orgId, body) {
   const activityId = safeString(source.activityId);
   const scorerDepartmentId = safeString(source.scorerDepartmentId);
   const scorerIdentityId = safeString(source.scorerIdentityId);
-  const allowSelfAssessment = source.allowSelfAssessment !== false;
+  const allowSelfAssessment = !Object.prototype.hasOwnProperty.call(source, 'allowSelfAssessment')
+    || source.allowSelfAssessment === true
+    || source.allowSelfAssessment === 1
+    || source.allowSelfAssessment === '1';
   const clauses = Array.isArray(source.clauses) ? source.clauses : [];
   const mode = safeString(source.mode) === 'replace' ? 'replace' : 'strict';
 
   if (!activityId || !scorerDepartmentId || !scorerIdentityId) {
     rejectRateRule('invalid_params', localeCopy.copy_aee0e7df2d);
+  }
+  if (!clauses.length) {
+    rejectRateRule('invalid_params', scoringCopy.scoringRuleConfigInvalid);
   }
 
   const activity = await loadRateRuleReference(
@@ -89,14 +96,25 @@ async function normalizeRateRuleInput(connection, orgId, body) {
     [scorerIdentityId, orgId],
     localeCopy.copy_c66dd9a783
   );
+  let existingRule = null;
   if (id) {
-    await loadRateRuleReference(
+    existingRule = await loadRateRuleReference(
       connection,
-      'SELECT id FROM rate_target_rules WHERE id = ? AND org_id = ? FOR UPDATE',
+      `SELECT rule_row.*,
+         (SELECT COUNT(*) FROM score_records record_row
+           WHERE record_row.rule_id = rule_row.id AND record_row.org_id = rule_row.org_id) AS score_count
+         FROM rate_target_rules rule_row
+        WHERE rule_row.id = ? AND rule_row.org_id = ? FOR UPDATE`,
       [id, orgId],
       scoringCopy.scoringRuleNotFound,
       'rule_not_found'
     );
+    if (Number(existingRule.score_count || 0) > 0
+      && (safeString(existingRule.activity_id) !== activityId
+        || safeString(existingRule.scorer_department_id) !== scorerDepartmentId
+        || safeString(existingRule.scorer_identity_id) !== scorerIdentityId)) {
+      rejectRateRule('rule_identity_locked', scoringCopy.scoringRuleIdentityLocked);
+    }
   }
 
   const normalizedClauses = [];
@@ -129,9 +147,16 @@ async function normalizeRateRuleInput(connection, orgId, body) {
       : (clause.templateId
         ? [{ templateId: clause.templateId, weight: clause.weight || 1, sortOrder: clause.sortOrder || 1 }]
         : []);
+    if (!rawConfigs.length) {
+      rejectRateRule('invalid_params', scoringCopy.scoringRuleConfigInvalid);
+    }
+    const templateIdsInClause = new Set();
     for (const item of rawConfigs) {
       const templateId = safeString(item.templateId);
-      if (!templateId) continue;
+      if (!templateId || templateIdsInClause.has(templateId)) {
+        rejectRateRule('invalid_params', scoringCopy.scoringRuleConfigInvalid);
+      }
+      templateIdsInClause.add(templateId);
       await loadRateRuleReference(
         connection,
         'SELECT id FROM score_question_templates WHERE id = ? AND org_id = ? FOR UPDATE',
@@ -140,16 +165,23 @@ async function normalizeRateRuleInput(connection, orgId, body) {
       );
       const weight = Number(item.weight);
       const sortOrder = Number(item.sortOrder);
-      if (!Number.isFinite(weight) || weight <= 0 || !Number.isInteger(sortOrder) || sortOrder <= 0) {
+      const calculationMethod = safeString(item.calculationMethod) || 'weighted_average';
+      const trimHighCount = Number(item.trimHighCount || 0);
+      const trimLowCount = Number(item.trimLowCount || 0);
+      if (!Number.isFinite(weight) || weight <= 0 || !Number.isInteger(sortOrder) || sortOrder <= 0
+        || !VALID_CALCULATION_METHODS.includes(calculationMethod)
+        || !Number.isInteger(trimHighCount) || trimHighCount < 0
+        || !Number.isInteger(trimLowCount) || trimLowCount < 0
+        || (calculationMethod === 'weighted_average' && (trimHighCount !== 0 || trimLowCount !== 0))) {
         rejectRateRule('invalid_params', localeCopy.copy_cd5cb36ed6);
       }
       templateConfigs.push({
         templateId,
         weight,
         sortOrder,
-        calculationMethod: safeString(item.calculationMethod) || 'weighted_average',
-        trimHighCount: Number(item.trimHighCount || 0),
-        trimLowCount: Number(item.trimLowCount || 0)
+        calculationMethod,
+        trimHighCount,
+        trimLowCount
       });
     }
     templateConfigs.sort((left, right) => left.sortOrder - right.sortOrder);
@@ -182,6 +214,17 @@ async function normalizeRateRuleInput(connection, orgId, body) {
     workGroupIds: [],
     connection
   });
+
+  const [duplicateRows] = await connection.query(
+    `SELECT id FROM rate_target_rules
+      WHERE activity_id = ? AND scorer_key = ? AND org_id = ?
+        AND (? = '' OR id <> ?)
+      LIMIT 1 FOR UPDATE`,
+    [activityId, scorerDepartmentId + '::' + scorerIdentityId, orgId, id, id]
+  );
+  if (duplicateRows[0] && (id || mode !== 'replace')) {
+    rejectRateRule('duplicate_category', localeCopy.copy_b92191d8ca);
+  }
 
   return {
     id,
@@ -343,11 +386,19 @@ function normalizeClause(clause, lookups) {
 }
 
 function buildClauseText(clause) {
-  const identityText = clause.targetIdentity ? '，被评分人身份：' + clause.targetIdentity : '';
-  const completeText = clause.requireAllComplete ? '，要求全评后计入核算' : '，不要求全评';
+  const identityText = clause.targetIdentity
+    ? localeFormat(scoringCopy.ruleClauseTargetIdentity, [clause.targetIdentity])
+    : '';
+  const completeText = clause.requireAllComplete
+    ? scoringCopy.ruleClauseRequireAll
+    : scoringCopy.ruleClauseAllowPartial;
   const questionText = clause.templateConfigs.length
-    ? clause.templateConfigs.map((cfg) => (cfg.templateName || localeCopy.copy_a3c996a525) + localeCopy.copy_de6991a9f2 + cfg.weight + localeCopy.copy_97abe52b9d + cfg.sortOrder + '）').join('、')
-    : '暂未选择评分问题';
+    ? clause.templateConfigs.map((cfg) => localeFormat(scoringCopy.ruleClauseTemplateItem, [
+      cfg.templateName || localeCopy.copy_a3c996a525,
+      cfg.weight,
+      cfg.sortOrder
+    ])).join('、')
+    : scoringCopy.ruleClauseNoTemplate;
   return (clause.scopeLabel || localeCopy.copy_f8d4dcaa31) + identityText + completeText + ' [' + questionText + ']';
 }
 
@@ -406,7 +457,7 @@ router.post('/listRateRules', async (req, res) => {
         scorerIdentity: safeString(lookups.identitiesById.get(item.scorer_identity_id)),
         allowSelfAssessment: item.allow_self_assessment !== 0,
         clauses,
-        clausesText: clauses.length ? clauses.map((c) => buildClauseText(c)).join(' | ') : '暂无被评分人范围'
+        clausesText: clauses.length ? clauses.map((c) => buildClauseText(c)).join(' | ') : scoringCopy.ruleClauseNoScope
       };
     }).sort((a, b) => {
       if (a.scorerDepartment !== b.scorerDepartment) return a.scorerDepartment.localeCompare(b.scorerDepartment, 'zh-CN');
@@ -415,7 +466,7 @@ router.post('/listRateRules', async (req, res) => {
 
     res.json({ status: 'success', rules: result });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    respondRateRuleError(res, e);
   }
 });
 
@@ -466,22 +517,32 @@ router.post('/deleteRateRule', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params' });
 
-    // Delete child-first for FK constraints within a transaction:
-    // clause_template_configs → rate_rule_clauses → rate_target_rules
-    const { withTransaction } = require('../../../config/db');
     const orgId = await getCurrentOrgId();
-    await withTransaction(async (conn) => {
-      const [clauses] = await conn.query('SELECT * FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [id, orgId]);
-      for (const c of clauses) {
-        await conn.query('DELETE FROM clause_template_configs WHERE clause_id = ? AND org_id = ?', [c.id, orgId]);
-      }
-      await conn.query('DELETE FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [id, orgId]);
-      await conn.query('DELETE FROM rate_target_rules WHERE id = ? AND org_id = ?', [id, orgId]);
+    const outcome = await withTransaction(async (connection) => {
+      const [ruleRows] = await connection.query(
+        'SELECT id FROM rate_target_rules WHERE id = ? AND org_id = ? FOR UPDATE',
+        [id, orgId]
+      );
+      if (!ruleRows[0]) return 'not_found';
+      const [recordRows] = await connection.query(
+        'SELECT 1 FROM score_records WHERE rule_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+        [id, orgId]
+      );
+      if (recordRows[0]) return 'referenced';
+      await clearRateRuleClauses(connection, orgId, id);
+      await connection.query('DELETE FROM rate_target_rules WHERE id = ? AND org_id = ?', [id, orgId]);
+      return 'success';
     });
 
+    if (outcome === 'not_found') {
+      return res.json({ status: 'rule_not_found', message: scoringCopy.scoringRuleNotFound });
+    }
+    if (outcome === 'referenced') {
+      return res.json({ status: 'conflict', message: scoringCopy.scoringRuleHasRecords });
+    }
     res.json({ status: 'success' });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    respondRateRuleError(res, e);
   }
 });
 
@@ -497,9 +558,8 @@ router.post('/generateRateTargetRules', async (req, res) => {
     if (!activity) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f0d449737 });
 
     const orgId = await getCurrentOrgId();
-    const [assignmentRows, existingRules, departments, identities] = await Promise.all([
+    const [assignmentRows, departments, identities] = await Promise.all([
       participantService.listParticipants(orgId, 'assignment'),
-      rateRuleModel.getByActivity(activityId),
       departmentModel.getAll(),
       identityModel.getAll()
     ]);
@@ -518,46 +578,99 @@ router.post('/generateRateTargetRules', async (req, res) => {
       }
     });
 
-    const existingRuleMap = new Map();
-    const duplicateRuleIds = [];
-    existingRules.forEach((item) => {
-      const key = safeString(item.scorer_key);
-      if (!key) { duplicateRuleIds.push(item.id); return; }
-      if (!existingRuleMap.has(key)) existingRuleMap.set(key, item);
-      else duplicateRuleIds.push(item.id);
+    const outcome = await withTransaction(async (connection) => {
+      await loadRateRuleReference(
+        connection,
+        'SELECT id FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
+        [activityId, orgId],
+        localeCopy.copy_4f0d449737
+      );
+      const [existingRules] = await connection.query(
+        `SELECT * FROM rate_target_rules
+          WHERE activity_id = ? AND org_id = ?
+          ORDER BY created_at, id FOR UPDATE`,
+        [activityId, orgId]
+      );
+      const ruleIds = existingRules.map((item) => safeString(item.id)).filter(Boolean);
+      const referencedRuleIds = new Set();
+      if (ruleIds.length) {
+        const [scoreRows] = await connection.query(
+          'SELECT id, rule_id FROM score_records WHERE rule_id IN (?) AND org_id = ? FOR UPDATE',
+          [ruleIds, orgId]
+        );
+        scoreRows.forEach((row) => referencedRuleIds.add(safeString(row.rule_id)));
+      }
+
+      const rulesByKey = new Map();
+      const unkeyedRules = [];
+      existingRules.forEach((item) => {
+        const key = safeString(item.scorer_key);
+        if (!key) {
+          unkeyedRules.push(item);
+          return;
+        }
+        if (!rulesByKey.has(key)) rulesByKey.set(key, []);
+        rulesByKey.get(key).push(item);
+      });
+
+      const survivorByKey = new Map();
+      const removableRules = [];
+      for (const [key, rows] of rulesByKey.entries()) {
+        const referenced = rows.filter((item) => referencedRuleIds.has(safeString(item.id)));
+        if (referenced.length > 1) {
+          rejectRateRule('duplicate_rules_have_records', scoringCopy.scoringRuleDuplicatesHaveRecords);
+        }
+        const survivor = referenced[0] || rows[0];
+        survivorByKey.set(key, survivor);
+        rows.forEach((item) => {
+          if (item !== survivor) removableRules.push(item);
+        });
+      }
+      unkeyedRules.forEach((item) => {
+        if (!referencedRuleIds.has(safeString(item.id))) removableRules.push(item);
+      });
+
+      for (const item of removableRules) {
+        await clearRateRuleClauses(connection, orgId, item.id);
+        await connection.query(
+          'DELETE FROM rate_target_rules WHERE id = ? AND org_id = ?',
+          [item.id, orgId]
+        );
+      }
+
+      const rulesToAdd = [];
+      for (const rule of categories.values()) {
+        if (!survivorByKey.has(rule.scorerKey)) rulesToAdd.push(rule);
+      }
+      const nowUtc = nowMysqlUtc();
+      for (const rule of rulesToAdd) {
+        await connection.query(
+          `INSERT INTO rate_target_rules
+            (id, activity_id, scorer_department_id, scorer_identity_id, scorer_key,
+             is_active, allow_self_assessment, org_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 1, 1, ?, ?, ?)`,
+          [generateId(), activityId, rule.scorerDepartmentId, rule.scorerIdentityId,
+            rule.scorerKey, orgId, nowUtc, nowUtc]
+        );
+      }
+      return {
+        createdCount: rulesToAdd.length,
+        removedDuplicateCount: removableRules.length
+      };
     });
-
-    const rulesToAdd = [];
-    for (const rule of categories.values()) {
-      if (!existingRuleMap.has(rule.scorerKey)) rulesToAdd.push(rule);
-    }
-
-    // Remove duplicates
-    for (const dupId of duplicateRuleIds) {
-      const clauses = await rateRuleClauseModel.getByRuleId(dupId);
-      for (const c of clauses) await clauseTemplateConfigModel.removeByClauseId(c.id);
-      await rateRuleClauseModel.removeByRuleId(dupId);
-      await rateRuleModel.remove(dupId);
-    }
-
-    // Create new rules
-    for (const rule of rulesToAdd) {
-      const newId = generateId();
-      await rateRuleModel.create(newId, { ...rule, allowSelfAssessment: true });
-    }
 
     res.json({
       status: 'success',
       collectionName: 'rate_target_rules',
       ruleCount: categories.size,
-      createdCount: rulesToAdd.length,
-      keptCount: categories.size - rulesToAdd.length,
-      removedDuplicateCount: duplicateRuleIds.length,
+      createdCount: outcome.createdCount,
+      keptCount: categories.size - outcome.createdCount,
+      removedDuplicateCount: outcome.removedDuplicateCount,
       departmentsResolved: Array.from(categories.values()).filter((r) => deptMap.has(r.scorerDepartmentId)).length,
       identitiesResolved: Array.from(categories.values()).filter((r) => identityMap.has(r.scorerIdentityId)).length
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    respondRateRuleError(res, e);
   }
 });
 

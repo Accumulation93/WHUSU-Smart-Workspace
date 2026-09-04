@@ -18,5 +18,6 @@ module.exports = Object.freeze({
   copy_b6d7510119: '\n大小：',
   copy_b8ede9c6ec: '缺少文件路径或数据',
   copy_fc99c4cc7b: '加载中...',
-  copy_fee4566726: '文件信息'
+  copy_fee4566726: '文件信息',
+  fileIntegrityFailure: '文件内容校验失败，暂时无法打开'
 });

@@ -5,6 +5,7 @@ const permissionByAdminId = {
   'super-1': { isSuper: true, permissions: {} },
   'hr-only': { isSuper: false, permissions: { 'hr.people': true } },
   'profile-reviewer': { isSuper: false, permissions: { 'hr.profile_review': true } },
+  'account-governor': { isSuper: false, permissions: { 'auth.accounts.global_manage': true } },
   'admin-reader': { isSuper: false, permissions: { 'system.admin_accounts.read': true } },
   'admin-writer': { isSuper: false, permissions: { 'system.admin_accounts.write': true } }
 };
@@ -25,6 +26,7 @@ const mocks = {
         { organizationId: 'org-43', organizationName: '第四十三届', actor: { profile: { id: 'hr-only' } } },
         { organizationId: 'org-college', organizationName: '学院学生会', actor: { profile: { id: 'admin-reader' } } },
         { organizationId: 'org-review', organizationName: '资料审核组织', actor: { profile: { id: 'profile-reviewer' } } }
+        ,{ organizationId: 'org-account', organizationName: '账号治理组织', actor: { profile: { id: 'account-governor' } } }
       ];
     }
   },
@@ -56,7 +58,7 @@ Module._load = originalLoad;
     authContext: { organizationId: 'org-44' }
   };
   const access = await listAdminOrganizationAccess(req);
-  assert.deepStrictEqual(access.map((item) => item.organizationId), ['org-44', 'org-43', 'org-college', 'org-review']);
+  assert.deepStrictEqual(access.map((item) => item.organizationId), ['org-44', 'org-43', 'org-college', 'org-review', 'org-account']);
   assert.strictEqual(access[0].canEditAdmins, true);
   assert.strictEqual(access[0].canReadAssignments, false);
   assert.strictEqual(access[1].canReadAssignments, true);
@@ -67,6 +69,9 @@ Module._load = originalLoad;
   assert.strictEqual(access[3].canReadAssignments, true);
   assert.strictEqual(access[3].canEditAssignments, false);
   assert.strictEqual(access[3].canReadAdmins, false);
+  assert.strictEqual(access[4].canReadPeople, true);
+  assert.strictEqual(access[4].canReadAssignments, false);
+  assert.strictEqual(access[4].canEditAssignments, false);
 
   const connection = { marker: 'transaction' };
   const allowed = await requireAdminOrganizationPermission(

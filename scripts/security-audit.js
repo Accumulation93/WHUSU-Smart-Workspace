@@ -199,18 +199,21 @@ requireSourceContract('server/src/modules/scoring/models/scoreRecord.js', [
 requireSourceContract('server/src/modules/audit/routes/auditSignature.js', [
   {
     rule: 'audit-signature-role-confusion',
-    test: source => source.includes("const admin = selectedRole === 'admin'")
-      && source.includes("const hrId = selectedRole === 'user'")
+    test: source => source.includes('const actorResult = await resolveCurrentActor(req)')
+      && source.includes("actorResult.actor.type === 'admin'")
+      && source.includes("actorResult.actor.type !== 'user'")
+      && !source.includes("req.get('X-Role')")
+      && !source.includes("req.headers['x-role']")
   }
 ]);
 requireSourceContract('server/src/modules/audit/routes/auditUser.js', [
   {
     rule: 'audit-detail-role-confusion',
-    test: source => (
-      source.includes("const detailActorResult = selectedRole === 'user' ? await resolveCurrentActor(req) : null")
-      || source.includes("const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null")
-    )
-      && source.includes("const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null")
+    test: source => source.includes('const detailActorResult = await resolveCurrentActor(req)')
+      && source.includes("const detailActor = currentActor.type === 'user'")
+      && source.includes("const admin = currentActor.type === 'admin'")
+      && !source.includes("req.get('X-Role')")
+      && !source.includes("req.headers['x-role']")
   },
   {
     rule: 'audit-detail-diagnostic-leak',
@@ -242,8 +245,13 @@ requireSourceContract('server/src/modules/audit/models/auditSubmissionStep.js', 
 requireSourceContract('server/src/modules/scoring/routes/scoring.js', [
   {
     rule: 'scoring-role-from-body',
-    test: source => source.includes("const role = safeString(req.get('X-Role')).toLowerCase()")
-      && !source.includes("const role = safeString(req.body.role")
+    test: source => source.includes("router.post('/getRateTargets'")
+      && source.includes('const actorResult = await resolveCurrentActor(req)')
+      && source.includes("actorResult.actor.type === 'admin'")
+      && source.includes("actorResult.actor.type !== 'user'")
+      && !source.includes("req.get('X-Role')")
+      && !source.includes("req.headers['x-role']")
+      && !source.includes('req.body.role')
   }
 ]);
 requireSourceContract('miniprogram/utils/trustedNavigation.js', [

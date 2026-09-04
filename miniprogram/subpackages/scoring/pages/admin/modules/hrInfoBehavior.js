@@ -11,6 +11,14 @@ const { formatListTime, formatDetailTime } = require('../../../../../utils/dateT
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 
+function createPermanentDeletionClientRequestId() {
+  return [
+    'hr-delete',
+    Date.now().toString(36),
+    Math.random().toString(36).slice(2, 12)
+  ].join(':');
+}
+
 function toHrProfileListRow(item) {
   return {
     id: item.id,
@@ -326,6 +334,7 @@ module.exports = Behavior({
       if (!target.hrId || (scope === 'person' && !target.personId)) return;
       const requestSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
       this._hrPermanentDeletionPreviewSeq = requestSeq;
+      this._hrPermanentDeletionClientRequestId = '';
       this.setData({
         hrPermanentDeletionLoading: true,
         hrPermanentDeletionScope: scope,
@@ -364,6 +373,9 @@ module.exports = Behavior({
           hrPermanentDeletionCleanupAccepted: false,
           hrPermanentDeletionConfirmation: ''
         });
+        // 每次权威预检对应一次新的受控确认。执行失败后的网络重试复用该值；
+        // 换人、关闭弹窗或重新预检时会废弃，避免两个目标共享幂等结果。
+        this._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId();
       } catch (error) {
         if (this._hrPermanentDeletionPreviewSeq !== requestSeq) return;
         wx.showToast({ title: error && error.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
@@ -377,6 +389,7 @@ module.exports = Behavior({
     closePermanentHrDeletion() {
       if (this.data.hrPermanentDeletionLoading) return;
       this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      this._hrPermanentDeletionClientRequestId = '';
       const deletionCompleted = Boolean(this.data.hrPermanentDeletionResult);
       this.setData({
         hrPermanentDeletionVisible: false,
@@ -412,6 +425,9 @@ module.exports = Behavior({
         wx.showToast({ title: localeCopy.hrDeletionStudentIdMismatch, icon: 'none' });
         return;
       }
+      if (!this._hrPermanentDeletionClientRequestId) {
+        this._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId();
+      }
       this.setData({ hrPermanentDeletionLoading: true });
       try {
         const result = await this.callCloud(
@@ -421,6 +437,7 @@ module.exports = Behavior({
             personId: target.personId,
             organizationId: target.organizationId,
             expectedVersion: preview.version,
+            clientRequestId: this._hrPermanentDeletionClientRequestId,
             acceptCleanup: !cleanupRequired || this.data.hrPermanentDeletionCleanupAccepted,
             confirmStudentId: scope === 'person' ? this.data.hrPermanentDeletionConfirmation : ''
           }
@@ -1681,6 +1698,7 @@ module.exports = Behavior({
         hrPermanentDeletionConfirmation: '',
         hrPermanentDeletionLoading: false,
         profileRejectVisible: false,
+        profileRejectHrId: '',
         profileRejectStudentId: '',
         profileRejectReason: '',
         personCorrectionVisible: false,
@@ -1921,9 +1939,10 @@ module.exports = Behavior({
       if (!this.data.canReviewHrProfile) return;
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
-      if (!studentId) return;
+      const hrId = String(this.data.detailHrId || '').trim();
+      if (!hrId && !studentId) return;
       try {
-        const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'approve' });
+        const result = await this.callCloud('reviewHrProfileChange', { hrId, studentId, action: 'approve' });
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
@@ -1939,14 +1958,16 @@ module.exports = Behavior({
     rejectDetailHrProfile() {
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
-      if (!studentId) return;
-      this.openProfileRejectDialog(studentId);
+      const hrId = String(this.data.detailHrId || '').trim();
+      if (!hrId && !studentId) return;
+      this.openProfileRejectDialog(studentId, hrId);
     },
 
-    openProfileRejectDialog(studentId) {
+    openProfileRejectDialog(studentId, hrId) {
       if (!this.data.canReviewHrProfile) return;
       this.setData({
         profileRejectVisible: true,
+        profileRejectHrId: String(hrId || '').trim(),
         profileRejectStudentId: String(studentId || '').trim(),
         profileRejectReason: ''
       });
@@ -1954,7 +1975,7 @@ module.exports = Behavior({
 
     closeProfileRejectDialog() {
       if (this.data.loadingMap.reviewHrProfile) return;
-      this.setData({ profileRejectVisible: false, profileRejectStudentId: '', profileRejectReason: '' });
+      this.setData({ profileRejectVisible: false, profileRejectHrId: '', profileRejectStudentId: '', profileRejectReason: '' });
     },
 
     onProfileRejectReasonInput(e) {
@@ -1964,20 +1985,21 @@ module.exports = Behavior({
     async confirmProfileRejection() {
       if (!this.data.canReviewHrProfile) return;
       const studentId = String(this.data.profileRejectStudentId || '').trim();
+      const hrId = String(this.data.profileRejectHrId || this.data.detailHrId || '').trim();
       const reason = String(this.data.profileRejectReason || '').trim();
-      if (!studentId || !reason) {
+      if ((!hrId && !studentId) || !reason) {
         wx.showToast({ title: localeCopy.rejectionReasonRequired, icon: 'none' });
         return;
       }
       this.setLoading('reviewHrProfile', true);
       try {
-        const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject', reason });
+        const result = await this.callCloud('reviewHrProfileChange', { hrId, studentId, action: 'reject', reason });
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
         }
         wx.showToast({ title: localeCopy.copy_5d5af942c5, icon: 'success' });
-        this.setData({ profileRejectVisible: false, profileRejectStudentId: '', profileRejectReason: '' });
+        this.setData({ profileRejectVisible: false, profileRejectHrId: '', profileRejectStudentId: '', profileRejectReason: '' });
         if (this.data.showHrPersonDetail) this.closeHrPersonDetail();
         await this.loadHrProfileAdminData();
       } catch (err) {
@@ -2237,8 +2259,9 @@ module.exports = Behavior({
     },
 
     approveHrProfileChange(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || e.currentTarget.dataset.id || '').trim();
       const studentId = String(e.currentTarget.dataset.studentId || '').trim();
-      if (!studentId) {
+      if (!hrId && !studentId) {
         return;
       }
   
@@ -2252,6 +2275,7 @@ module.exports = Behavior({
   
           try {
             const result = await this.callCloud('reviewHrProfileChange', {
+              hrId,
               studentId,
               action: 'approve'
             });
@@ -2278,8 +2302,9 @@ module.exports = Behavior({
     },
 
     rejectHrProfileChange(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || e.currentTarget.dataset.id || '').trim();
       const studentId = String(e.currentTarget.dataset.studentId || '').trim();
-      if (studentId) this.openProfileRejectDialog(studentId);
+      if (hrId || studentId) this.openProfileRejectDialog(studentId, hrId);
     },
 
     onHrFieldInput(e) {

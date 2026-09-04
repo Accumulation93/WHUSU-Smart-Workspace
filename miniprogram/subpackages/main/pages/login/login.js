@@ -14,6 +14,7 @@ const { getPasswordRequiredMessage } = require('./loginValidation');
 const WECHAT_LOGIN_TIMEOUT_MS = 10000;
 const WECHAT_SESSION_TIMEOUT_MS = 18000;
 const PORTAL_NAVIGATION_TIMEOUT_MS = 8000;
+const LOGIN_PREFERENCE_WAIT_MS = 250;
 const PORTAL_ROUTE = '/subpackages/main/pages/portal/portal';
 
 function selectedOrganizationName(organizations, index) {
@@ -47,8 +48,75 @@ function requestWechatLoginCode() {
   });
 }
 
-function requestWechatSessionDirect(callbacks) {
+function readStorageValue(key) {
+  return new Promise(function(resolve) {
+    if (typeof wx.getStorage !== 'function') {
+      try {
+        resolve(typeof wx.getStorageSync === 'function' ? String(wx.getStorageSync(key) || '') : '');
+      } catch (_) {
+        resolve('');
+      }
+      return;
+    }
+    let settled = false;
+    const timer = setTimeout(function() {
+      if (settled) return;
+      settled = true;
+      resolve('');
+    }, LOGIN_PREFERENCE_WAIT_MS);
+    try {
+      wx.getStorage({
+        key: key,
+        success: function(result) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(result && result.data ? String(result.data) : '');
+        },
+        fail: function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve('');
+        }
+      });
+    } catch (_) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve('');
+    }
+  });
+}
+
+function loadPreferredSelection() {
+  return Promise.all([
+    readStorageValue('lastContextId'),
+    readStorageValue('lastOrganizationId')
+  ]).then(function(values) {
+    return {
+      contextId: String(values[0] || ''),
+      organizationId: String(values[1] || '')
+    };
+  });
+}
+
+function consumeRuntimeLoginNotice() {
+  try {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const notice = app && app.globalData
+      ? String(app.globalData.__authLoginNotice || '')
+      : '';
+    if (notice) delete app.globalData.__authLoginNotice;
+    return notice;
+  } catch (_) {
+    return '';
+  }
+}
+
+function requestWechatSessionDirect(callbacks, preferredSelection) {
   const handlers = callbacks || {};
+  const preferred = preferredSelection || {};
   let settled = false;
   let requestTask = null;
   const finish = function(type, value) {
@@ -91,7 +159,11 @@ function requestWechatSessionDirect(callbacks) {
             'X-Client-Version': CLIENT_VERSION,
             'X-Request-Id': createRequestId()
           },
-          data: { code: code },
+          data: {
+            code: code,
+            preferredContextId: preferred.contextId || '',
+            preferredOrganizationId: preferred.organizationId || ''
+          },
           success: function(response) {
             let result = (response && response.data) || {};
             if (typeof result === 'string') {
@@ -151,13 +223,25 @@ Page({
 
   onLoad() {
     wx.setNavigationBarTitle({ title: copy.navigationTitle });
+    this._active = true;
     this._loginSubmitting = false;
     this._portalNavigating = false;
-    const authNotice = String(wx.getStorageSync('authLoginNotice') || '');
+    this._preferredSelection = {};
+    this._preferredSelectionPromise = loadPreferredSelection().then((selection) => {
+      this._preferredSelection = selection;
+      return selection;
+    });
+    const authNotice = consumeRuntimeLoginNotice();
     if (authNotice) {
-      wx.removeStorageSync('authLoginNotice');
       this.setData({ authNotice: authNotice });
     }
+    readStorageValue('authLoginNotice').then((storedNotice) => {
+      if (!this._active || !storedNotice) return;
+      if (!this.data.authNotice) this.setData({ authNotice: storedNotice });
+      try {
+        if (typeof wx.removeStorage === 'function') wx.removeStorage({ key: 'authLoginNotice' });
+      } catch (_) {}
+    });
   },
 
   openPortal() {
@@ -264,6 +348,7 @@ Page({
   },
 
   onUnload() {
+    this._active = false;
     if (this._portalNavigationTimer) {
       clearTimeout(this._portalNavigationTimer);
       this._portalNavigationTimer = null;
@@ -315,7 +400,9 @@ Page({
     this._loginSubmitting = true;
     this.setData({ loading: true, authNotice: '' });
     const page = this;
-    requestWechatSessionDirect({
+    const startLogin = function() {
+      if (page._active === false) return;
+      requestWechatSessionDirect({
       success: function(result) {
         page.setData({ loading: false });
         try { page.handleWechatSession(result); } catch (error) {
@@ -330,7 +417,10 @@ Page({
         page._loginSubmitting = false;
         page.setData({ loading: false });
       }
-    });
+      }, page._preferredSelection);
+    };
+    const preferenceReady = this._preferredSelectionPromise || Promise.resolve();
+    preferenceReady.then(startLogin, startLogin);
   },
 
   handleWechatSession(result) {

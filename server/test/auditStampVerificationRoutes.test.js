@@ -85,10 +85,12 @@ async function invoke(routePath, body) {
 }
 
 (async () => {
+  const validPngData = 'data:image/png;base64,'
+    + Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
   let response = await invoke('/saveStamp', {
     id: 'stamp-foreign',
     name: '其他组织印章',
-    imageData: 'data:image/png;base64,AA=='
+    imageData: validPngData
   });
   assert.strictEqual(response.status, 'not_found', '跨组织印章不得伪装成更新成功');
 

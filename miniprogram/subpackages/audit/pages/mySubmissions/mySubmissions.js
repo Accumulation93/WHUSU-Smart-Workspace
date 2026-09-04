@@ -29,6 +29,10 @@ Page({
       this.setData({ submissions: [], statusFilter: '', loading: false });
     }
     this.refreshActiveWorkContext();
+    if (!this.data.hasActiveAssignment) {
+      this.setData({ submissions: [], loading: false });
+      return;
+    }
     this.loadData();
   },
 
@@ -90,6 +94,7 @@ Page({
   },
 
   async markAllRead() {
+    if (!this.data.hasActiveAssignment) return;
     wx.showLoading({ title: localeCopy.copy_00a471585c });
     try {
       const res = await callFunction({ name: 'markAllSubmissionsRead', data: {} });

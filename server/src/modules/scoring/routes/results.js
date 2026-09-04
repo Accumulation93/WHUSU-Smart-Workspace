@@ -1878,10 +1878,10 @@ router.post('/exportScoreResults', async (req, res) => {
           });
         }
       });
-      fileName = `${activityName}_评分明细`;
+      fileName = `${activityName}_${scoringCopy.exportScoreDetail}`;
     } else {
       rows = taskData.scorerTaskRows;
-      fileName = `${activityName}_评分人完成率`;
+      fileName = `${activityName}_${scoringCopy.exportScorerCompletion}`;
       headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'department', label: localeCopy.copy_62f8e70200 }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'expectedCount', label: localeCopy.copy_6c33883f9b }, { key: 'submittedCount', label: localeCopy.copy_4430825ac4 }, { key: 'pendingCount', label: localeCopy.copy_4e5e7abce7 }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     }
 
@@ -1902,7 +1902,11 @@ router.post('/exportScoreResults', async (req, res) => {
     }
 
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
-    const sheetNames = { overview: '总分速览', detail: '评分明细', completion: '评分人完成率' };
+    const sheetNames = {
+      overview: scoringCopy.exportScoreOverview,
+      detail: scoringCopy.exportScoreDetail,
+      completion: scoringCopy.exportScorerCompletion
+    };
     const fileContent = await buildXlsxBase64(sheetNames[reportType] || localeCopy.copy_47aa0b0bde, headers, filteredRows);
     const extension = 'xlsx';
 

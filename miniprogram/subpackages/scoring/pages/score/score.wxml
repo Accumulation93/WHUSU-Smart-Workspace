@@ -130,7 +130,7 @@
     </view>
 
     <view class="page-submit-bar" wx:if="{{!readOnly && !loading && !loadFailed && questionList.length > 0}}">
-      <button class="primary-btn page-submit-btn ui-motion-button" loading="{{submitting}}" bindtap="submitScore" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4d39b37cc5}}</button>
+      <button class="primary-btn page-submit-btn ui-motion-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submitScore" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4d39b37cc5}}</button>
     </view>
   </view>
 
@@ -181,7 +181,7 @@
       </view>
       <view wx:else></view>
 
-      <view class="kb-nav-btn kb-nav-btn-submit {{physicalKeyActive === 'submit' ? 'kb-nav-btn-submit-active' : ''}} ui-motion-chip" bindtap="submitScore" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+      <view class="kb-nav-btn kb-nav-btn-submit {{submitting ? 'kb-nav-btn-disabled' : ''}} {{physicalKeyActive === 'submit' ? 'kb-nav-btn-submit-active' : ''}} ui-motion-chip" bindtap="submitScore" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="kb-submit-inner" wx:if="{{submitting}}">
           <text class="kb-submit-spinner"></text>
         </view>

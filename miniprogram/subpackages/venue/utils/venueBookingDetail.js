@@ -29,8 +29,10 @@ function computeDisplayStatus(item) {
 
 function getSnapshotCompletedSteps(progress) {
   const snapshots = Array.isArray(progress && progress.snapshots) ? progress.snapshots : [];
+  const flowId = String(progress && (progress.flowId || progress.currentFlowId) || '');
   const stepIndexes = snapshots
-    .filter(item => item && item.stepIndex !== undefined && item.stepIndex !== null)
+    .filter(item => item && item.stepIndex !== undefined && item.stepIndex !== null
+      && (!flowId || String(item.flowId || item.flow_id || '') === flowId))
     .map(item => Number(item.stepIndex))
     .filter(index => Number.isFinite(index) && index >= 0);
   return stepIndexes.length ? Math.max.apply(null, stepIndexes) + 1 : 0;

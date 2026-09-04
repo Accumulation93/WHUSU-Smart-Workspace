@@ -24,9 +24,11 @@ const contexts = [
 ];
 
 let failTodoOrgId = '';
+let targetedMutationMode = '';
 const todoCalls = [];
 const notificationCalls = [];
 const markAllCalls = [];
+let notificationTargetType = 'account';
 const testOrgStorage = new AsyncLocalStorage();
 
 const todoService = {
@@ -58,8 +60,9 @@ const notificationModel = {
         type: 'system',
         title: isSecondOrg ? '乙通知' : '甲通知',
         category: 'system',
-        target_type: 'account',
+        target_type: notificationTargetType,
         target_id: '',
+        target_url: 'https://untrusted.example/should-never-be-used',
         is_read: isSecondOrg ? 0 : 1,
         created_at: isSecondOrg ? '2026-07-26 10:00:00' : '2026-07-25 10:00:00'
       }],
@@ -71,10 +74,18 @@ const notificationModel = {
     markAllCalls.push(actor.id);
     return { changedCount: 1, unreadCount: 0 };
   },
-  async markRead() {
+  async markRead(id, actor) {
+    if (targetedMutationMode === 'partial') {
+      if (actor.id === 'hr-secondary') throw new Error('模拟岗位查询失败');
+      return { found: false, changed: false, unreadCount: 1 };
+    }
     return { found: true, changed: true, unreadCount: 0 };
   },
-  async deleteById() {
+  async deleteById(id, actor) {
+    if (targetedMutationMode === 'partial') {
+      if (actor.id === 'hr-secondary') throw new Error('模拟岗位查询失败');
+      return { found: false, unreadCount: 1 };
+    }
     return { found: true, unreadCount: 0 };
   }
 };
@@ -125,13 +136,13 @@ function getHandler(path) {
   return layer.route.stack[layer.route.stack.length - 1].handle;
 }
 
-async function invoke(path, body) {
+async function invoke(path, body, role) {
   let payload = null;
   await getHandler(path)(
     {
       body: body || {},
       openid: 'openid-1',
-      headers: { 'x-role': 'user' }
+      headers: { 'x-role': role || 'user' }
     },
     {
       json(value) {
@@ -191,6 +202,11 @@ async function testNotificationOrderAndCounts() {
   assert.deepStrictEqual(result.items.map((item) => item.id), ['notice-b', 'notice-a']);
   assert.deepStrictEqual(notificationCalls.sort(), ['hr-a', 'hr-b']);
   assert.strictEqual(result.items[0].organizationId, 'org-b');
+  assert.strictEqual(
+    result.items[0].targetUrl,
+    '/subpackages/main/pages/portal/portal',
+    '消息跳转必须由服务端白名单映射，不能采用数据库中保存的任意地址'
+  );
 }
 
 async function testMarkAllScope() {
@@ -204,12 +220,72 @@ async function testMarkAllScope() {
   assert.deepStrictEqual(markAllCalls.sort(), ['hr-a', 'hr-b']);
 }
 
+async function testHrProfileNotificationUsesAdminPage() {
+  const originalContexts = contexts.slice();
+  notificationTargetType = 'hr_profile';
+  contexts.splice(0, contexts.length, {
+    organizationId: 'org-a',
+    organizationName: '甲组织',
+    isCurrentOrganization: true,
+    actor: { type: 'admin', id: 'admin-a', openid: 'openid-1', profile: { id: 'admin-a' } }
+  });
+  try {
+    const result = await invoke('/listNotifications', { limit: 20 }, 'admin');
+    assert.strictEqual(result.status, 'success');
+    assert.strictEqual(
+      result.items[0].targetUrl,
+      '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo'
+    );
+  } finally {
+    notificationTargetType = 'account';
+    contexts.splice(0, contexts.length, ...originalContexts);
+  }
+}
+
+async function testTargetedMutationDoesNotMisreportNotFoundOnPartialFailure() {
+  const originalContexts = contexts.slice();
+  contexts.splice(0, contexts.length,
+    {
+      organizationId: 'org-a',
+      organizationName: '甲组织',
+      isCurrentOrganization: true,
+      actor: { type: 'user', id: 'hr-a', openid: 'openid-1', profile: { id: 'hr-a' } }
+    },
+    {
+      organizationId: 'org-a',
+      organizationName: '甲组织',
+      isCurrentOrganization: true,
+      actor: { type: 'user', id: 'hr-secondary', openid: 'openid-1', profile: { id: 'hr-secondary' } }
+    }
+  );
+  targetedMutationMode = 'partial';
+  try {
+    const marked = await invoke('/markNotificationRead', { id: 'notice-unknown' });
+    assert.strictEqual(marked.status, 'error');
+    assert.strictEqual(marked.partial, true);
+    assert.deepStrictEqual(marked.failedOrganizations, [{
+      organizationId: 'org-a',
+      organizationName: '甲组织'
+    }]);
+
+    const deleted = await invoke('/deleteNotification', { id: 'notice-unknown' });
+    assert.strictEqual(deleted.status, 'error');
+    assert.strictEqual(deleted.partial, true);
+    assert.notStrictEqual(deleted.status, 'not_found');
+  } finally {
+    targetedMutationMode = '';
+    contexts.splice(0, contexts.length, ...originalContexts);
+  }
+}
+
 (async function run() {
   await testGlobalTodoAggregationAndMetadata();
   await testOrganizationFilterAndDenial();
   await testPartialFailure();
   await testNotificationOrderAndCounts();
   await testMarkAllScope();
+  await testHrProfileNotificationUsesAdminPage();
+  await testTargetedMutationDoesNotMisreportNotFoundOnPartialFailure();
   console.log('跨组织消息路由聚合、筛选、部分失败与写入作用域测试通过');
 })().catch((error) => {
   console.error(error);

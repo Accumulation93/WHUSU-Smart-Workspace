@@ -13,5 +13,13 @@ module.exports = Object.freeze({
   copy_a35b383a47: "请提供签名图片",
   copy_c6b6dad622: '非 PDF 文件',
   copy_ce2b164f35: "已设为默认签名",
-  copy_e6677fcefe: "请选择自己的签名"
+  copy_e6677fcefe: "请选择自己的签名",
+  pdfVerificationFailed: "文件签名暂时无法验证",
+  signatureImageInvalid: "请使用支持的签名图片",
+  signatureImageTooLarge: "签名图片不能超过 2MB",
+  signatureNameTooLong: "签名名称不能超过 100 个字符",
+  signatureOperationFailed: "签名暂时无法处理，请稍后再试",
+  verificationFailed: "文件签名暂时无法验证，请稍后再试",
+  verificationFileInvalid: "请选择不超过 10MB 的有效文件",
+  verificationInputInvalid: "请输入有效的文件校验值"
 });

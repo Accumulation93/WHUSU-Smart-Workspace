@@ -5,16 +5,9 @@ const fs = require('fs');
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
-const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
 
-// Format current time in local timezone (UTC+8 / China Standard Time)
-function nowLocal() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
 const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
 const submissionModel = require('../models/auditSubmission');
@@ -63,6 +56,14 @@ const {
   submissionMatchesSubmitterAssignment,
   assignmentSqlExpression
 } = require('../services/auditHistoryScope');
+const {
+  validateConditionShape,
+  validateStepShape,
+  isValidResubmitMode,
+  stripDesignationOverrides,
+  applyDesignationOverride,
+  effectiveConditionsForAuthorization
+} = require('../services/auditWorkflowPolicy');
 
 const { matchesAnyCondition } = submissionStepModel;
 
@@ -76,19 +77,6 @@ function inCsv(csv, value) {
   let valStr = String(value).trim();
   if (!csvStr || !valStr) return false;
   return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
-}
-
-/**
- * Resolve the current user's HR ID from openid.
- */
-async function resolveHrId(openid) {
-  if (!openid) return null;
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
-    [openid, orgId]
-  );
-  return rows[0] ? rows[0].hr_id : null;
 }
 
 function normalizeStepOverrides(rawOverrides) {
@@ -122,6 +110,13 @@ async function narrowTemplateStepConditions(conditions, personHrIds, assignmentI
     throw missingBindingError;
   }
 
+  const originalConditions = stripDesignationOverrides(conditions);
+  if (!originalConditions.length) {
+    const missingConditionsError = new Error(localeCopy.copy_e6048310d4);
+    missingConditionsError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
+    throw missingConditionsError;
+  }
+
   const assignments = await listActiveAssignments(orgId, { hrIds: requestedIds }, db);
   const binding = validateBindings({
     personHrIds: requestedIds,
@@ -138,7 +133,7 @@ async function narrowTemplateStepConditions(conditions, personHrIds, assignmentI
     return selectedAssignmentSet.has(safeString(assignment.assignment_id));
   });
   const eligibleAssignments = selectedAssignments.filter(function(assignment) {
-    return !conditions.length || matchesAnyCondition(conditions, assignment, submitterInfo);
+    return matchesAnyCondition(originalConditions, assignment, submitterInfo);
   });
   if (eligibleAssignments.length !== requestedAssignmentIds.length) {
     throw new Error(localeCopy.copy_db47f6c08b);
@@ -167,7 +162,7 @@ async function narrowTemplateStepConditions(conditions, personHrIds, assignmentI
       specificIdentityId: null
     });
   }
-  return narrowedConditions;
+  return applyDesignationOverride(originalConditions, narrowedConditions);
 }
 
 function buildTemplateConditionMap(allConditions) {
@@ -198,6 +193,20 @@ function parseConditionsJson(raw) {
   } catch (_) {
     return [];
   }
+}
+
+function assertValidWorkflowStep(step) {
+  const result = validateStepShape(step);
+  if (result.ok) return;
+  const error = new Error(
+    result.reason === 'step_action_invalid'
+      ? localeCopy.approvalActionInvalid
+      : localeCopy.copy_e6048310d4
+  );
+  error.code = result.reason === 'step_action_invalid'
+    ? 'approval_action_invalid'
+    : 'AUDIT_STEP_CONDITIONS_REQUIRED';
+  throw error;
 }
 
 async function normalizePersonConditionsForPersistence(conditions, orgId, db) {
@@ -280,6 +289,15 @@ async function resolveAuditAssignmentActor(req, db) {
   return { ok: true, actor: actorResult.actor, assignment, orgId };
 }
 
+async function lockAndRefreshAuditActor(connection, actorContext) {
+  await lockAuditActor(connection, actorContext.assignment, actorContext.orgId);
+  return resolveActorAssignmentForUpdate(
+    actorContext.actor,
+    actorContext.orgId,
+    connection
+  );
+}
+
 function matchesStarter(template, starterConditions, assignment) {
   if (starterConditions.length) {
     return matchesAnyCondition(starterConditions, assignment, assignment);
@@ -300,12 +318,16 @@ function matchesStarter(template, starterConditions, assignment) {
 // listMySubmissions
 router.post('/listMySubmissions', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const hrId = actorContext.assignment.hr_id;
 
     const filters = {
       submittedBy: hrId,
+      submittedAssignmentId: actorContext.assignment.assignment_id,
       status: safeString(req.body.status) || null,
       limit: Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50)),
       offset: Math.max(0, parseInt(req.body.offset, 10) || 0)
@@ -423,7 +445,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const submitterFull = actorContext.assignment;
+    let submitterFull = actorContext.assignment;
     const hrId = submitterFull.hr_id;
     const orgId = await getCurrentOrgId();
     if (orgId !== actorContext.orgId) {
@@ -447,12 +469,15 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     // Load template
-    const template = await flowTemplateModel.getById(templateId);
+    let template = await flowTemplateModel.getById(templateId);
     if (!template) {
       return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
     }
     if (!template.is_active) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_479f3dbce7 });
+    }
+    if (!isValidResubmitMode(safeString(template.resubmit_mode))) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
     }
 
     // Parse starter conditions
@@ -466,7 +491,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
     }
 
-    const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
+    let templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     if (!templateSteps.length) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
     }
@@ -490,7 +515,25 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, submitterFull, orgId);
+    submitterFull = await lockAndRefreshAuditActor(conn, actorContext);
+    template = await flowTemplateModel.getByIdForUpdate(templateId, conn);
+    starterConditions = [];
+    if (template && template.starter_conditions_json) {
+      try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) { starterConditions = []; }
+    }
+    if (!Array.isArray(starterConditions)) starterConditions = [];
+    templateSteps = template ? await flowTemplateStepModel.getByTemplateId(templateId, conn) : [];
+    if (!submitterFull || !template || !template.is_active
+      || !isValidResubmitMode(safeString(template.resubmit_mode))
+      || !templateSteps.length
+      || !matchesStarter(template, starterConditions, submitterFull)) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
+    }
+    if (requestedOverrides.length && Number(templateSteps[0].allow_approver_designation) !== 1) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
+    }
     await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
       return item.assignmentIds;
     }), orgId);
@@ -528,8 +571,8 @@ router.post('/startAuditSubmission', async (req, res) => {
 
     await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
 
-    // Load conditions for all template steps
-    const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
+    // Load conditions for all template steps from the same locked template snapshot.
+    const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId, conn);
 
     const stepConditionMap = {};
     for (const c of allConditions) {
@@ -579,13 +622,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         narrowed.forEach(function(condition) { conditions.push(condition); });
       }
 
-      // Fallback: if no conditions resolved from template step, use template starter conditions
-      // This ensures steps always have approvers — prevents orphan steps with no approver
-      if (conditions.length === 0 && starterConditions.length > 0) {
-        for (let sci = 0; sci < starterConditions.length; sci++) {
-          conditions.push(Object.assign({}, starterConditions[sci]));
-        }
-      }
+      assertValidWorkflowStep({ actionType: ts.action_type, conditions });
 
       conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
 
@@ -675,7 +712,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const submitterAssignment = actorContext.assignment;
+    let submitterAssignment = actorContext.assignment;
     const hrId = submitterAssignment.hr_id;
     const orgId = actorContext.orgId;
 
@@ -688,9 +725,16 @@ router.post('/startAdHocAudit', async (req, res) => {
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_625e93775b });
     if (!steps.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_72870ab41e });
     if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
+    if (!isValidResubmitMode(resubmitMode)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
+    }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, submitterAssignment, orgId);
+    submitterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
+    if (!submitterAssignment) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    }
     await lockAuditAssignmentIds(conn, steps.flatMap(function(step) {
       const conditions = Array.isArray(step && step.conditions) ? step.conditions : [];
       return conditions.flatMap(function(condition) {
@@ -767,6 +811,8 @@ router.post('/startAdHocAudit', async (req, res) => {
           conditions.push(cond);
         }
       }
+
+      assertValidWorkflowStep({ actionType: s.actionType, conditions });
 
       conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
 
@@ -872,6 +918,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
   } catch (_) { return { displayParts, approverDesc }; }
 
   if (!Array.isArray(conditions) || !conditions.length) return { displayParts, approverDesc };
+  conditions = effectiveConditionsForAuthorization(conditions);
 
   for (const cond of conditions) {
     let part = '';
@@ -930,14 +977,16 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
 // getSubmissionDetail
 router.post('/getSubmissionDetail', async (req, res) => {
   try {
-    const openid = req.openid;
-    const selectedRole = safeString(req.get('X-Role')).toLowerCase();
-    const detailActorResult = selectedRole === 'user' ? await resolveCurrentActor(req) : null;
-    const detailActor = detailActorResult && detailActorResult.ok && detailActorResult.actor.type === 'user'
-      ? detailActorResult.actor
+    const detailActorResult = await resolveCurrentActor(req);
+    if (!detailActorResult.ok) {
+      return res.json({ status: detailActorResult.status || 'forbidden', message: detailActorResult.message || localeCopy.copy_c22a252e97 });
+    }
+    const currentActor = detailActorResult.actor;
+    const detailActor = currentActor.type === 'user'
+      ? currentActor
       : null;
     const hrId = detailActor ? detailActor.id : null;
-    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
+    const admin = currentActor.type === 'admin' ? currentActor.profile : null;
     const orgId = await getCurrentOrgId();
     const detailAssignment = detailActor
       ? await resolveActorAssignment(detailActor, orgId)
@@ -974,23 +1023,21 @@ router.post('/getSubmissionDetail', async (req, res) => {
     // Also runs for admins so they get properly identified as approvers when their identity matches
     if (!isApprover && detailAssignment) {
       const approverInfo = detailAssignment;
-      if (approverInfo) {
-        const submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
-        // Only check CURRENT pending steps (at current_step_index).
-        // Don't match against already-approved or future steps — the user
-        // must match the step that is actually waiting for approval.
-        for (const s of steps) {
-          if (s.status !== 'pending') continue;
-          if (s.sort_order !== submission.current_step_index) continue;
-          if (!s.step_conditions_json) continue;
-          try {
-            const conds = JSON.parse(s.step_conditions_json);
-            if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
-              isApprover = true; break;
-            }
-          } catch (_) {
-            // 历史步骤只使用不可变快照；缺失或损坏时失败关闭。
+      const submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
+      // Only check CURRENT pending steps (at current_step_index).
+      // Don't match against already-approved or future steps — the user
+      // must match the step that is actually waiting for approval.
+      for (const s of submitterInfo.length ? steps : []) {
+        if (s.status !== 'pending') continue;
+        if (s.sort_order !== submission.current_step_index) continue;
+        if (!s.step_conditions_json) continue;
+        try {
+          const conds = JSON.parse(s.step_conditions_json);
+          if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
+            isApprover = true; break;
           }
+        } catch (_) {
+          // 历史步骤只使用不可变快照；缺失或损坏时失败关闭。
         }
       }
     }
@@ -1279,10 +1326,14 @@ async function checkStepAuthorization(step, submission, approverAssignment, db) 
   if (!approverAssignment) return { authorized: false, snapshotValid: true };
   const currentApprover = approverAssignment;
   const submitters = await getSubmissionSubmitterAssignments(submission, orgId, db);
+  if (!Array.isArray(submitters) || !submitters.length) {
+    return { authorized: false, snapshotValid: false };
+  }
   if (!step.step_conditions_json) return { authorized: false, snapshotValid: false };
   try {
     const conditions = JSON.parse(step.step_conditions_json);
-    if (!Array.isArray(conditions) || !conditions.length) {
+    if (!Array.isArray(conditions) || !conditions.length
+      || conditions.some(function(condition) { return !validateConditionShape(condition).ok; })) {
       return { authorized: false, snapshotValid: false };
     }
     return {
@@ -1431,7 +1482,6 @@ router.post('/approveStep', async (req, res) => {
     }
 
     const now = new Date();
-    const nowISO = nowLocal();
     const currentRound = step.round;
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
     const currentSteps = allSteps
@@ -1477,7 +1527,7 @@ router.post('/approveStep', async (req, res) => {
     await submissionStepModel.updateStatus(stepId, {
       status: 'approved',
       comment,
-      processedAt: nowISO,
+      processedAt: now,
       processedPersonId: approverAssignment.person_id,
       processedAssignmentId: approverAssignment.assignment_id,
       processedContextSnapshot: signerContextSnapshot
@@ -1678,6 +1728,7 @@ router.post('/approveStep', async (req, res) => {
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
+        eventKey: ['audit', submissionId, currentRound, step.sort_order, 'approved'].join(':'),
         targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
       }, conn);
     } else {
@@ -1690,6 +1741,7 @@ router.post('/approveStep', async (req, res) => {
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
+        eventKey: ['audit', submissionId, currentRound, step.sort_order, 'progress'].join(':'),
         targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
       }, conn);
     }
@@ -1732,7 +1784,7 @@ router.post('/rejectStep', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const rejecterAssignment = actorContext.assignment;
+    let rejecterAssignment = actorContext.assignment;
     const hrId = rejecterAssignment.hr_id;
     const orgId = actorContext.orgId;
 
@@ -1748,7 +1800,11 @@ router.post('/rejectStep', async (req, res) => {
     }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, rejecterAssignment, orgId);
+    rejecterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
+    if (!rejecterAssignment) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    }
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
@@ -1795,13 +1851,13 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
-    const nowISO = nowLocal();
+    const processedAt = new Date();
 
     // Update step to rejected
     await submissionStepModel.updateStatus(stepId, {
       status: 'rejected',
       rejectionReason,
-      processedAt: nowISO,
+      processedAt,
       processedPersonId: rejecterAssignment.person_id,
       processedAssignmentId: rejecterAssignment.assignment_id,
       processedContextSnapshot: assignmentSnapshot(rejecterAssignment, req.authContext)
@@ -1833,6 +1889,7 @@ router.post('/rejectStep', async (req, res) => {
       category: 'audit',
       targetType: 'submission',
       targetId: submissionId,
+      eventKey: ['audit', submissionId, step.round || 1, step.sort_order, 'rejected'].join(':'),
       targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
     }, conn);
     await conn.commit();
@@ -1855,7 +1912,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const editorAssignment = actorContext.assignment;
+    let editorAssignment = actorContext.assignment;
     const hrId = editorAssignment.hr_id;
     const orgId = actorContext.orgId;
 
@@ -1864,7 +1921,10 @@ router.post('/updateAuditSubmission', async (req, res) => {
 
     let submission = await submissionModel.getById(submissionId);
     if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
-    if (submission.submitted_by !== hrId) {
+    if (submission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      submission,
+      editorAssignment.assignment_id
+    )) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
     }
 
@@ -1877,7 +1937,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const description = safeString(req.body.description);
     const newType = safeString(req.body.type) || submission.type;
     const newTemplateId = safeString(req.body.templateId) || null;
-    const newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
+    let newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
     const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
     const retainedFileIds = Array.isArray(req.body.retainedFileIds)
@@ -1886,6 +1946,9 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_b99e01d38c });
+    if (!['template', 'ad_hoc'].includes(newType) || !isValidResubmitMode(newResubmitMode)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
+    }
 
     const requestedOverrides = stepOverrides.filter(function(item) {
       return item.personHrIds.length > 0 || item.assignmentIds.length > 0;
@@ -1905,8 +1968,25 @@ router.post('/updateAuditSubmission', async (req, res) => {
     let templateStepsForEdit = [];
     let templateConditionsForEdit = {};
     let submitterForEdit = null;
+    let templateForEdit = null;
     if (newType === 'template') {
       if (!newTemplateId) return res.json({ status: 'invalid_params', message: localeCopy.copy_85cf825c00 });
+      templateForEdit = await flowTemplateModel.getById(newTemplateId);
+      if (!templateForEdit || !templateForEdit.is_active) {
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_479f3dbce7 });
+      }
+      let starterConditionsForEdit = [];
+      if (templateForEdit.starter_conditions_json) {
+        try { starterConditionsForEdit = JSON.parse(templateForEdit.starter_conditions_json); } catch (_) { starterConditionsForEdit = []; }
+      }
+      if (!Array.isArray(starterConditionsForEdit)
+        || !matchesStarter(templateForEdit, starterConditionsForEdit, editorAssignment)) {
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
+      }
+      if (!isValidResubmitMode(safeString(templateForEdit.resubmit_mode))) {
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
+      }
+      newResubmitMode = templateForEdit.resubmit_mode;
       templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId);
       if (!templateStepsForEdit.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_f9f6b991ba });
       templateConditionsForEdit = buildTemplateConditionMap(
@@ -1919,7 +1999,39 @@ router.post('/updateAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, editorAssignment, orgId);
+    editorAssignment = await lockAndRefreshAuditActor(conn, actorContext);
+    if (!editorAssignment) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
+    }
+    if (newType === 'template') {
+      templateForEdit = await flowTemplateModel.getByIdForUpdate(newTemplateId, conn);
+      let starterConditionsForEdit = [];
+      if (templateForEdit && templateForEdit.starter_conditions_json) {
+        try { starterConditionsForEdit = JSON.parse(templateForEdit.starter_conditions_json); } catch (_) { starterConditionsForEdit = []; }
+      }
+      if (!templateForEdit || !templateForEdit.is_active
+        || !isValidResubmitMode(safeString(templateForEdit.resubmit_mode))
+        || !Array.isArray(starterConditionsForEdit)
+        || !matchesStarter(templateForEdit, starterConditionsForEdit, editorAssignment)) {
+        await conn.rollback();
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
+      }
+      newResubmitMode = templateForEdit.resubmit_mode;
+      templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId, conn);
+      if (!templateStepsForEdit.length) {
+        await conn.rollback();
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_f9f6b991ba });
+      }
+      templateConditionsForEdit = buildTemplateConditionMap(
+        await flowTemplateStepConditionModel.getByTemplateId(newTemplateId, conn)
+      );
+      if (requestedOverrides.length && Number(templateStepsForEdit[0].allow_approver_designation) !== 1) {
+        await conn.rollback();
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
+      }
+      submitterForEdit = editorAssignment;
+    }
     await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
       return item.assignmentIds;
     }), orgId);
@@ -1929,7 +2041,10 @@ router.post('/updateAuditSubmission', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
-    if (lockedSubmission.submitted_by !== hrId) {
+    if (lockedSubmission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      lockedSubmission,
+      editorAssignment.assignment_id
+    )) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
     }
@@ -2050,6 +2165,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
       for (let i = 0; i < stepsToCreate.length; i++) {
         const s = stepsToCreate[i];
         const stepId = generateId();
+        assertValidWorkflowStep({ actionType: s.actionType, conditions: s.conditions });
         const normalizedConditions = await normalizePersonConditionsForPersistence(
           s.conditions,
           orgId,
@@ -2162,7 +2278,7 @@ router.post('/resubmitAudit', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const resubmitterAssignment = actorContext.assignment;
+    let resubmitterAssignment = actorContext.assignment;
     const hrId = resubmitterAssignment.hr_id;
     const orgId = actorContext.orgId;
 
@@ -2171,7 +2287,10 @@ router.post('/resubmitAudit', async (req, res) => {
 
     let submission = await submissionModel.getById(submissionId);
     if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
-    if (submission.submitted_by !== hrId) {
+    if (submission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      submission,
+      resubmitterAssignment.assignment_id
+    )) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
     }
     if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
@@ -2195,7 +2314,11 @@ router.post('/resubmitAudit', async (req, res) => {
     }
 
     await conn.beginTransaction();
-    await lockAuditActor(conn, resubmitterAssignment, orgId);
+    resubmitterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
+    if (!resubmitterAssignment) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
+    }
     await lockAuditAssignmentIds(conn, requestedOverrides.flatMap(function(item) {
       return item.assignmentIds;
     }), orgId);
@@ -2205,7 +2328,10 @@ router.post('/resubmitAudit', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
-    if (lockedSubmission.submitted_by !== hrId) {
+    if (lockedSubmission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      lockedSubmission,
+      resubmitterAssignment.assignment_id
+    )) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
     }
@@ -2253,6 +2379,12 @@ router.post('/resubmitAudit', async (req, res) => {
     // pending 也必须创建独立新轮次；禁止把旧步骤全部 superseded 后直接置为进行中。
     const resubmitMode = (isWithdrawn || isPending) ? 'fresh' : submission.resubmit_mode;
     const rejectStepIndex = (isWithdrawn || isPending) ? 1 : (submission.previous_reject_step_index || 1);
+    if (!isValidResubmitMode(resubmitMode)) {
+      throw new Error(localeCopy.copy_f428da1450);
+    }
+    if (requestedOverrides.length && resubmitMode === 'from_rejector' && Number(rejectStepIndex) !== 1) {
+      throw new Error(localeCopy.copy_670f4a48f1);
+    }
     // Use MAX round across ALL steps (not just the first one) to ensure
     // round numbers only ever increase, never decrease or repeat.
     let maxExistingRound = 1;
@@ -2298,7 +2430,7 @@ router.post('/resubmitAudit', async (req, res) => {
       for (let rsi = 0; rsi < remainingSteps.length; rsi++) {
         let rs = remainingSteps[rsi];
         let stepId = generateId();
-        let conditions = parseConditionsJson(rs.step_conditions_json);
+        let conditions = stripDesignationOverrides(parseConditionsJson(rs.step_conditions_json));
         if (!conditions.length) throw new Error(localeCopy.historicalApprovalSnapshotMissing);
         if (requestedOverrides.length && Number(rs.sort_order) === 1) {
           conditions = await narrowTemplateStepConditions(
@@ -2310,6 +2442,7 @@ router.post('/resubmitAudit', async (req, res) => {
             conn
           );
         }
+        assertValidWorkflowStep({ actionType: rs.action_type, conditions });
         conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
         await submissionStepModel.create(stepId, {
           submissionId,
@@ -2330,7 +2463,7 @@ router.post('/resubmitAudit', async (req, res) => {
       const templateSteps = canonicalSteps;
       for (const ts of templateSteps) {
         const stepId = generateId();
-        let conditions = parseConditionsJson(ts.step_conditions_json);
+        let conditions = stripDesignationOverrides(parseConditionsJson(ts.step_conditions_json));
         if (!conditions.length) throw new Error(localeCopy.historicalApprovalSnapshotMissing);
         if (requestedOverrides.length && Number(ts.sort_order) === 1) {
           conditions = await narrowTemplateStepConditions(
@@ -2342,6 +2475,7 @@ router.post('/resubmitAudit', async (req, res) => {
             conn
           );
         }
+        assertValidWorkflowStep({ actionType: ts.action_type, conditions });
         conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
         await submissionStepModel.create(stepId, {
           submissionId,
@@ -2436,40 +2570,69 @@ router.post('/resubmitAudit', async (req, res) => {
 
 // withdrawSubmission — Withdraw own submission
 router.post('/withdrawSubmission', async (req, res) => {
+  const conn = await pool.getConnection();
+  let transactionStarted = false;
   try {
-    const actorContext = await resolveAuditAssignmentActor(req);
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
     if (!actorContext.ok) {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const withdrawerAssignment = actorContext.assignment;
+    let withdrawerAssignment = actorContext.assignment;
     const hrId = withdrawerAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
-    const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
-    if (submission.submitted_by !== hrId) {
+    await conn.beginTransaction();
+    transactionStarted = true;
+    withdrawerAssignment = await lockAndRefreshAuditActor(conn, actorContext);
+    if (!withdrawerAssignment) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'forbidden', message: localeCopy.copy_d494e57d86 });
+    }
+
+    const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!submission) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+    }
+    if (submission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      submission,
+      withdrawerAssignment.assignment_id
+    )) {
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'forbidden', message: localeCopy.copy_d494e57d86 });
     }
     if (submission.status === 'approved') {
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'invalid_state', message: localeCopy.copy_842db5ba24 });
     }
     if (submission.status === 'withdrawn') {
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'invalid_state', message: localeCopy.copy_1a9ab24765 });
     }
     if (submission.status === 'draft') {
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'invalid_state', message: localeCopy.copy_f2b0cea827 });
     }
     if (submission.status === 'pending') {
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'invalid_state', message: localeCopy.copy_8e458850a9 });
     }
 
-    await submissionModel.update(submissionId, { status: 'withdrawn' });
+    await submissionModel.update(submissionId, { status: 'withdrawn' }, conn);
 
     // Insert withdraw event with actual current round (not hardcoded 1)
-    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    const allSteps = await submissionStepModel.getBySubmissionIdForUpdate(submissionId, conn);
     let currentRound = 1;
     for (let wi = 0; wi < allSteps.length; wi++) {
       currentRound = Math.max(currentRound, allSteps[wi].round || 1);
@@ -2483,11 +2646,18 @@ router.post('/withdrawSubmission', async (req, res) => {
       operatorHrId: hrId,
       operatorName: withdrawerAssignment.name,
       comment: null
-    });
+    }, conn);
 
+    await conn.commit();
+    transactionStarted = false;
     res.json({ status: 'success', message: localeCopy.copy_372eb38048 });
   } catch (e) {
+    if (transactionStarted) {
+      try { await conn.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 
@@ -2516,6 +2686,22 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       if (!matchesStarter(t, starterConditions, submitterFull)) continue;
 
       const steps = await flowTemplateStepModel.getByTemplateId(t.id);
+      if (!steps.length || steps.some(function(step) {
+        const conditions = (step.conditions || []).map(function(condition) {
+          return {
+            conditionType: condition.condition_type,
+            personHrIds: condition.person_hr_ids,
+            assignmentIds: condition.assignment_ids,
+            departmentScope: condition.department_scope,
+            specificDepartmentId: condition.specific_department_id,
+            workGroupScope: condition.work_group_scope,
+            specificWorkGroupId: condition.specific_work_group_id,
+            identityScope: condition.identity_scope,
+            specificIdentityId: condition.specific_identity_id
+          };
+        });
+        return !validateStepShape({ actionType: step.action_type, conditions }).ok || !conditions.length;
+      })) continue;
       result.push({
         id: safeString(t.id),
         name: safeString(t.name),
@@ -2533,17 +2719,31 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
 // previewTemplateSteps — Returns template steps with resolved condition display info
 router.post('/previewTemplateSteps', async (req, res) => {
   try {
-    const openid = req.openid;
-    if (!openid) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
 
     const templateId = safeString(req.body.templateId);
     if (!templateId) return res.json({ status: 'invalid_params', message: localeCopy.copy_319cc04882 });
 
     const template = await flowTemplateModel.getById(templateId);
-    if (!template) return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
+    if (!template || !template.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
+
+    let starterConditions = [];
+    if (template.starter_conditions_json) {
+      try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) { starterConditions = []; }
+    }
+    if (!Array.isArray(starterConditions) || !matchesStarter(template, starterConditions, actorContext.assignment)) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
+    }
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
+    if (!templateSteps.length) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f9f6b991ba });
+    }
 
     // Group conditions by template_step_id
     const stepConditionMap = {};
@@ -2561,6 +2761,15 @@ router.post('/previewTemplateSteps', async (req, res) => {
         identityScope: c.identity_scope,
         specificIdentityId: c.specific_identity_id
       });
+    }
+    if (templateSteps.some(function(step) {
+      const conditions = stepConditionMap[step.id] || [];
+      return !conditions.length || !validateStepShape({
+        actionType: step.action_type,
+        conditions
+      }).ok;
+    })) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
     }
 
     // Collect IDs to resolve names
@@ -2694,7 +2903,11 @@ router.post('/getUnreadCounts', async (req, res) => {
 
   // ── My submissions unread count ──
   try {
-    const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 200 });
+    const mySubs = await submissionModel.getAll({
+      submittedBy: hrId,
+      submittedAssignmentId: actorContext.assignment.assignment_id,
+      limit: 200
+    });
     const mySubmissionIds = mySubs.map(s => s.id);
 
     if (mySubmissionIds.length) {
@@ -2725,9 +2938,12 @@ router.post('/getUnreadCounts', async (req, res) => {
 // markSubmissionRead — mark a single submission as read (upsert cursor)
 router.post('/markSubmissionRead', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const hrId = actorContext.assignment.hr_id;
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
@@ -2735,6 +2951,12 @@ router.post('/markSubmissionRead', async (req, res) => {
     // Get current submission state
     const sub = await submissionModel.getById(submissionId);
     if (!sub) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+    if (sub.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+      sub,
+      actorContext.assignment.assignment_id
+    )) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
+    }
     const orgId = await getCurrentOrgId();
 
     await pool.query(
@@ -2753,12 +2975,19 @@ router.post('/markSubmissionRead', async (req, res) => {
 // markAllSubmissionsRead — batch mark all user's submissions as read
 router.post('/markAllSubmissionsRead', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const hrId = actorContext.assignment.hr_id;
 
     // Only mark "my submissions" as read — approval history no longer uses read/unread
-    const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 500 });
+    const mySubs = await submissionModel.getAll({
+      submittedBy: hrId,
+      submittedAssignmentId: actorContext.assignment.assignment_id,
+      limit: 500
+    });
     const orgId = await getCurrentOrgId();
     for (const s of mySubs) {
       await pool.query(
@@ -2906,7 +3135,10 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
     if (editSubmissionId) {
       const editSubmission = await submissionModel.getById(editSubmissionId);
-      if (!editSubmission || editSubmission.submitted_by !== hrId) {
+      if (!editSubmission || editSubmission.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
+        editSubmission,
+        actorContext.assignment.assignment_id
+      )) {
         return res.json({ status: 'forbidden', message: localeCopy.copy_1eb23101ee });
       }
       if (!['draft', 'pending', 'rejected', 'withdrawn'].includes(editSubmission.status)) {
@@ -2985,6 +3217,12 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
       // Load submitter for 'own' scope resolution
       submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
+      if (!submitterInfo.length) {
+        return res.json({
+          status: 'historical_snapshot_missing',
+          message: localeCopy.historicalApprovalSnapshotMissing
+        });
+      }
     } else if (templateId && stepIndex > 0) {
       // Create mode: resolve template step conditions
       if (stepIndex !== 1) {
@@ -3032,12 +3270,24 @@ router.post('/listEligibleApprovers', async (req, res) => {
       return res.json({ status: 'success', approvers: [] });
     }
 
-    // 候选范围始终从当前组织的有效岗位目录计算。
     if (!conditions.length) {
-      const allAssignments = await listActiveAssignments(orgId);
-      return res.json({ status: 'success', approvers: groupEligibleCandidates(allAssignments) });
+      return res.json({
+        status: submissionId ? 'historical_snapshot_missing' : 'invalid_params',
+        message: submissionId
+          ? localeCopy.historicalApprovalSnapshotMissing
+          : localeCopy.copy_e6048310d4
+      });
+    }
+    if (conditions.some(function(condition) { return !validateConditionShape(condition).ok; })) {
+      return res.json({
+        status: submissionId ? 'historical_snapshot_missing' : 'invalid_params',
+        message: submissionId
+          ? localeCopy.historicalApprovalSnapshotMissing
+          : localeCopy.copy_e6048310d4
+      });
     }
 
+    // 候选范围始终从当前组织的有效岗位目录计算。
     // Check if all conditions are effectively "all" (identity_scope with all scopes = 'all')
     const allAreOpen = conditions.every(function(c) {
       if (c.conditionType === 'person') return false;

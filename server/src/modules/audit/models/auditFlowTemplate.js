@@ -10,9 +10,10 @@ async function getAll() {
   return rows;
 }
 
-async function getById(id) {
+async function getById(id, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM audit_flow_templates WHERE id = ? AND org_id = ?',
     [id, orgId]
   );
@@ -56,4 +57,13 @@ async function remove(id, conn) {
   await db.query('DELETE FROM audit_flow_templates WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getAll, getById, getActive, create, update, remove };
+async function getByIdForUpdate(id, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await conn.query(
+    'SELECT * FROM audit_flow_templates WHERE id = ? AND org_id = ? FOR UPDATE',
+    [id, orgId]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { getAll, getById, getByIdForUpdate, getActive, create, update, remove };

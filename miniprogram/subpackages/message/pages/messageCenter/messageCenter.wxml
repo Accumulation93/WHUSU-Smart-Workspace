@@ -1,5 +1,5 @@
 <view class="page message-page">
-  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
   <view class="message-tabs">
     <view class="message-tab {{activeTab === 'todos' ? 'message-tab-active' : ''}} ui-motion-chip" data-tab="todos" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">

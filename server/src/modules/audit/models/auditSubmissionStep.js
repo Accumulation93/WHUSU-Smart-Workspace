@@ -5,6 +5,10 @@ const {
   resolveActorAssignment,
   getSubmissionSubmitterAssignments
 } = require('../services/auditAssignmentContext');
+const {
+  effectiveConditionsForAuthorization,
+  validateConditionShape
+} = require('../services/auditWorkflowPolicy');
 
 async function getBySubmissionId(submissionId, conn) {
   const orgId = await getCurrentOrgId();
@@ -119,6 +123,7 @@ async function getPendingByApprover(actor, approverOverride) {
       );
     }
     const submitters = submitterMap.get(row.submission_id);
+    if (!Array.isArray(submitters) || !submitters.length) continue;
 
     if (!row.step_conditions_json) continue;
     try {
@@ -163,10 +168,9 @@ function inCsv(csv, value) {
 /**
  * Check whether the approver matches ANY condition in the conditions array.
  *
- * IMPORTANT: If ANY person-type conditions exist, they represent a narrowed scope
- * (someone explicitly designated specific approvers). In that case, ONLY person
- * conditions are checked — identity_scope conditions are stale and MUST be ignored.
- * If no person conditions exist, identity_scope conditions apply as usual.
+ * 运行时指定会以 designationOverride 标记附加到原始条件之后。存在该标记时，
+ * 只检查本轮指定岗位；原始条件继续保留，供驳回重提恢复。没有本轮指定时，
+ * 严格按模板原始条件的 OR 关系判断。
  *
  * @param {Array} conditions - Parsed JSON array of approver conditions
  * @param {object} approver - Candidate approver HR info
@@ -175,18 +179,10 @@ function inCsv(csv, value) {
  */
 function matchesAnyCondition(conditions, approver, submitter) {
   if (!Array.isArray(conditions) || !conditions.length) return false;
+  const effectiveConditions = effectiveConditionsForAuthorization(conditions);
 
-  // If any person-type condition exists, the scope has been narrowed.
-  // ONLY check person conditions; ignore identity_scope conditions.
-  let hasPersonCondition = false;
-  for (let ci = 0; ci < conditions.length; ci++) {
-    if (conditions[ci].conditionType === 'person') {
-      hasPersonCondition = true;
-      break;
-    }
-  }
-
-  for (const cond of conditions) {
+  for (const cond of effectiveConditions) {
+    if (!validateConditionShape(cond).ok) return false;
     if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
       let personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
@@ -198,12 +194,10 @@ function matchesAnyCondition(conditions, approver, submitter) {
       const assignmentMatch = assignmentIds.length > 0 &&
         assignmentIds.includes(String(approver.assignment_id || ''));
       if (personMatch && assignmentMatch) return true;
-    } else if (!hasPersonCondition) {
-      // Only check identity_scope when scope has NOT been narrowed
+    } else {
       let identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
       if (identMatch) return true;
     }
-    // else: hasPersonCondition is true but this isn't a person condition → SKIP
   }
 
   return false;
@@ -218,6 +212,7 @@ function matchesAnyCondition(conditions, approver, submitter) {
  * @returns {boolean}
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
+  if (!validateConditionShape(cond).ok || cond.conditionType !== 'identity_scope') return false;
   const submitters = Array.isArray(submitter) ? submitter.filter(Boolean) : (submitter ? [submitter] : []);
   // Department check
   let deptScope = cond.departmentScope || 'all';

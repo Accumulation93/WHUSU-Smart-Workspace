@@ -2,9 +2,10 @@ const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const conditionModel = require('./auditFlowTemplateStepCondition');
 
-async function getByTemplateId(templateId) {
+async function getByTemplateId(templateId, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM audit_flow_template_steps WHERE template_id = ? AND org_id = ? ORDER BY sort_order',
     [templateId, orgId]
   );
@@ -12,7 +13,7 @@ async function getByTemplateId(templateId) {
   // Batch-load conditions for all steps
   if (rows.length > 0) {
     const stepIds = rows.map((r) => r.id);
-    const [allConditions] = await pool.query(
+    const [allConditions] = await db.query(
       'SELECT * FROM audit_flow_template_step_conditions WHERE template_step_id IN (?) AND org_id = ? ORDER BY sort_order',
       [stepIds, orgId]
     );

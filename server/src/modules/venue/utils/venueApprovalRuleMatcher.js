@@ -6,6 +6,19 @@ function parseCsvIds(value) {
 function matchesRule(rule, approverHrInfo, applicantHrInfo) {
   if (!rule || !approverHrInfo) return false;
 
+  const validScopes = ['all', 'same', 'specific'];
+  if (!validScopes.includes(rule.department_scope)
+    || !validScopes.includes(rule.work_group_scope)
+    || !validScopes.includes(rule.identity_scope)) return false;
+
+  if (rule.assignment_id) {
+    if (String(rule.assignment_id) !== String(approverHrInfo.assignment_id || '')) return false;
+    if (rule.legacy_hr_id
+      && String(rule.legacy_hr_id) !== String(approverHrInfo.id || approverHrInfo.legacy_hr_id || '')) return false;
+  } else if (rule.legacy_hr_id) {
+    return false;
+  }
+
   if (rule.department_scope === 'specific') {
     const departmentIds = parseCsvIds(rule.specific_department_id);
     if (!departmentIds.length || !departmentIds.includes(approverHrInfo.department_id)) return false;

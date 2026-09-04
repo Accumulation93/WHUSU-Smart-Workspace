@@ -16,31 +16,39 @@ function buildFlowTimeline(prog) {
   let rejectStep = prog.isRejected ? (prog.rejectStep >= 0 ? prog.rejectStep : 0) : -1;
   let flowSteps = prog.flowSteps || [];
   let snapshots = prog.snapshots || [];
+  let flowId = String(prog.flowId || prog.currentFlowId || '');
 
-  // Build snapshot lookup by stepIndex
+  // 并行流程的步骤序号会重复，必须同时使用流程 ID 与步骤序号关联。
   let snapMap = {};
   snapshots.forEach(function(s) {
     let idx = s.stepIndex != null ? s.stepIndex : s.step_index;
-    if (idx != null) snapMap[idx] = s;
+    let snapshotFlowId = String(s.flowId || s.flow_id || '');
+    if (idx != null && (!flowId || snapshotFlowId === flowId)) {
+      snapMap[(flowId || snapshotFlowId) + ':' + idx] = s;
+    }
   });
 
   let timeline = [];
   for (let si = 0; si < totalSteps; si++) {
     let state, icon, label;
-    let stepName = (flowSteps[si] && flowSteps[si].name) || (localeCopy.copy_93c50c01c0 + (si + 1) + localeCopy.copy_493a127a99);
-    let snap = snapMap[si] || null;
+    let snap = snapMap[flowId + ':' + si] || null;
+    let stepName = (flowSteps[si] && flowSteps[si].name) || (snap && snap.stepName)
+      || (localeCopy.copy_93c50c01c0 + (si + 1) + localeCopy.copy_493a127a99);
 
     if (prog.isRejected) {
       if (si < rejectStep)           { state = 'done';     icon = '✓';     label = localeCopy.copy_2d8cba342c; }
       else if (si === rejectStep)    { state = 'rejected'; icon = '✗';     label = localeCopy.copy_70d7f7f742; }
       else                           { state = 'pending';  icon = String(si + 1); label = localeCopy.copy_9baefe7c49; }
     } else if (prog.isApproved) {
-      state = 'done'; icon = '✓'; label = localeCopy.copy_2d8cba342c;
+      state = 'done'; icon = '✓'; label = snap && snap.automatic
+        ? localeCopy.automaticApproved
+        : localeCopy.copy_2d8cba342c;
     } else {
       if (si < currentStep)          { state = 'done';     icon = '✓';     label = localeCopy.copy_2d8cba342c; }
       else if (si === currentStep)   { state = 'active';   icon = String(si + 1); label = localeCopy.copy_532a477356; }
       else                           { state = 'pending';  icon = String(si + 1); label = localeCopy.copy_9baefe7c49; }
     }
+    if (state === 'done' && snap && snap.automatic) label = localeCopy.automaticApproved;
 
     // Description line for collapsed view
     let meta = '';
@@ -74,7 +82,7 @@ function buildFlowTimeline(prog) {
     }
 
     timeline.push({
-      _key: 'step-' + si,   // unique key for expand toggle tracking
+      _key: 'step-' + (flowId || 'legacy') + '-' + si,
       state: state,
       nodeClass: 'flow-node flow-node-' + state,
       dotClass: 'flow-dot flow-dot-' + state,
@@ -86,6 +94,7 @@ function buildFlowTimeline(prog) {
       approverName: approverName,
       approverAssignmentText: approverAssignmentText,
       approvedAtText: approvedAtText,
+      isAutomatic: Boolean(snap && snap.automatic),
       isLast: si === totalSteps - 1
     });
   }

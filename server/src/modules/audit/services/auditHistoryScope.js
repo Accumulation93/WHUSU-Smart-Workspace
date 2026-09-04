@@ -1,7 +1,17 @@
 'use strict';
 
 const { safeString } = require('../../../utils/helpers');
-const { parseSnapshot } = require('./auditAssignmentContext');
+
+function parseSnapshot(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    const value = JSON.parse(raw);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch (_) {
+    return {};
+  }
+}
 
 function snapshotAssignmentId(raw) {
   const snapshot = parseSnapshot(raw);

@@ -131,6 +131,21 @@ async function remove(id) {
   ));
 }
 
+async function getByStudentIdIncludingFormer(studentId) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT h.*, om.status AS membership_status
+       FROM hr_info h
+       LEFT JOIN organization_memberships om
+         ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
+      WHERE h.student_id = ? AND h.org_id = ?
+      ORDER BY om.status = 'active' DESC, om.updated_at DESC
+      LIMIT 1`,
+    [studentId, orgId]
+  );
+  return rows[0] || null;
+}
+
 async function getByIdIncludingFormer(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -240,6 +255,7 @@ module.exports = {
   getByIdInOrg,
   getByIds,
   getByStudentId,
+  getByStudentIdIncludingFormer,
   getByStudentIdGlobal,
   getByStudentIdInOrg,
   getByScopes,

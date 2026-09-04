@@ -29,6 +29,17 @@ async function getAll(filters = {}) {
     sql += ' AND submitted_by = ?';
     params.push(filters.submittedBy);
   }
+  if (filters.submittedAssignmentId) {
+    sql += ` AND COALESCE(
+      NULLIF(submitted_assignment_id, ''),
+      CASE
+        WHEN JSON_VALID(submitted_context_snapshot) THEN
+          NULLIF(JSON_UNQUOTE(JSON_EXTRACT(submitted_context_snapshot, '$.assignmentId')), '')
+        ELSE NULL
+      END
+    ) = ?`;
+    params.push(filters.submittedAssignmentId);
+  }
   sql += ' ORDER BY created_at DESC';
 
   if (filters.limit) {

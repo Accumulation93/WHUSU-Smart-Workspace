@@ -14,5 +14,6 @@ module.exports = Object.freeze({
   copy_a3b626d8c1: "PDF页数超过100页限制",
   copy_b152533537: "请重新选择签名图片",
   copy_e21f279212: 'PDF 页数超过限制',
-  copy_f66ff9f7b5: "签名图片总量过大"
+  copy_f66ff9f7b5: "签名图片总量过大",
+  operationFailed: "文件暂时无法处理，请稍后再试"
 });

@@ -5,6 +5,7 @@ const { format: localeFormat } = require('../../../../../locales/runtime');
 const utils = require('./adminUtils');
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
+const designationCandidateView = require('./designationCandidateView');
 
 function emptyMeritSummaryState() {
   return {
@@ -32,8 +33,11 @@ module.exports = Behavior({
         this.setData({
           publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
           pubViewRuleList: [],
+          pubViewRuleListView: [],
           pubMeritRuleList: [],
+          pubMeritRuleListView: [],
           designationList: [],
+          publicationAssignmentCandidates: [],
           ...emptyMeritSummaryState()
         });
         return;
@@ -53,15 +57,37 @@ module.exports = Behavior({
             pubViewRuleList: viewRules, pubViewRuleListView: viewRules,
             pubMeritRuleList: meritRules, pubMeritRuleListView: meritRules,
             designationList: result.meritListDesignations || [],
+            publicationAssignmentCandidates: result.assignmentCandidates || [],
             pubViewRuleSelectedIds: {}, pubViewRuleAllSelected: false,
             pubMeritRuleSelectedIds: {}, pubMeritRuleAllSelected: false
           });
           this.rebuildPubViewRuleFilters(viewRules);
           this.rebuildPubMeritRuleFilters(meritRules);
           if (pub) await this.loadMeritListSummary(activityId);
+        } else {
+          this.setData({
+            pubViewRuleList: [],
+            pubViewRuleListView: [],
+            pubMeritRuleList: [],
+            pubMeritRuleListView: [],
+            designationList: [],
+            publicationAssignmentCandidates: [],
+            ...emptyMeritSummaryState()
+          });
         }
       } catch (e) {
-        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) console.error('loadPublicationData error:', e);
+        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
+          console.error('loadPublicationData error:', e);
+          this.setData({
+            pubViewRuleList: [],
+            pubViewRuleListView: [],
+            pubMeritRuleList: [],
+            pubMeritRuleListView: [],
+            designationList: [],
+            publicationAssignmentCandidates: [],
+            ...emptyMeritSummaryState()
+          });
+        }
       }
       if (orgSession.isRequestCurrent(this, request)) this.setLoading('publications', false);
     },
@@ -193,7 +219,16 @@ module.exports = Behavior({
       if (activity) {
         const activityId = activity.id || '';
         // 重置整个 publicationForm（含 id），避免残留上一个活动的旧数据
-        this.setData({ publicationForm: { id: '', activityId, activityName: activity.name || '', isPublished: false } });
+        this.setData({
+          publicationForm: { id: '', activityId, activityName: activity.name || '', isPublished: false },
+          pubViewRuleList: [],
+          pubViewRuleListView: [],
+          pubMeritRuleList: [],
+          pubMeritRuleListView: [],
+          designationList: [],
+          publicationAssignmentCandidates: [],
+          ...emptyMeritSummaryState()
+        });
         // 切换活动只读取现有配置；新配置必须由管理员明确保存。
         await this.loadPublicationData(activityId);
       }
@@ -541,43 +576,23 @@ module.exports = Behavior({
         const allClauses = [];
         for (const rule of this.data.pubMeritRuleList) {
           for (const c of (rule.clauses || [])) {
-            allClauses.push({ ...c, granteeDepartmentId: rule.granteeDepartmentId });
+            allClauses.push({
+              ...c,
+              granteeDepartmentId: rule.granteeDepartmentId,
+              granteeIdentityId: rule.granteeIdentityId
+            });
           }
         }
         const clause = allClauses.find(c => c.id === clauseId);
         if (!clause) { wx.showToast({ title: localeCopy.copy_02e1583d4a, icon: 'none' }); this.setData({ showDesignationPicker: false }); return; }
   
         const granteeDeptId = clause.granteeDepartmentId || '';
+        const granteeIdentityId = clause.granteeIdentityId || '';
         const scopeType = clause.scopeType || 'all_people';
         const targetIdentityId = clause.targetIdentityId || '';
   
-        const hrResult = await this.callCloud('listHrInfo');
-        if (hrResult.status !== 'success') { wx.showToast({ title: localeCopy.copy_23e27d9fb0, icon: 'none' }); return; }
-
-        const assignmentCandidates = [];
-        (hrResult.list || []).forEach(function(hr) {
-          (hr.assignments || []).forEach(function(assignment) {
-            const assignmentId = assignment.assignmentId || assignment.id || '';
-            if (!assignmentId) return;
-            assignmentCandidates.push({
-              id: assignmentId,
-              assignmentId,
-              hrId: hr.id,
-              name: hr.name,
-              studentId: hr.studentId,
-              departmentId: assignment.departmentId || '',
-              department: assignment.department || '',
-              identityId: assignment.identityCategoryId || assignment.identityId || '',
-              identity: assignment.identityCategoryName || assignment.identity || '',
-              workGroupId: assignment.workGroupId || '',
-              workGroup: assignment.workGroup || '',
-              assignmentLabel: assignment.assignmentLabel || [
-                assignment.identityCategoryName || assignment.identity,
-                assignment.department,
-                assignment.workGroup
-              ].filter(Boolean).join(' · ')
-            });
-          });
+        const assignmentCandidates = (this.data.publicationAssignmentCandidates || []).map(function(candidate) {
+          return { ...candidate, hrId: candidate.targetHrId || '' };
         });
         const assignmentsByHrId = {};
         assignmentCandidates.forEach(function(candidate) {
@@ -597,19 +612,11 @@ module.exports = Behavior({
           if (legacyAssignments.length === 1) currentIds.push(legacyAssignments[0]);
         });
         const currentIdSet = new Set(currentIds);
-        let granteeWgId = '';
-        if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') {
-          const granteeAssignment = assignmentCandidates.find(function(candidate) {
-            return candidate.departmentId === granteeDeptId;
-          });
-          granteeWgId = granteeAssignment ? granteeAssignment.workGroupId : '';
-        }
-        const filtered = assignmentCandidates.filter(candidate => {
-          if (candidate.identityId !== targetIdentityId) return false;
-          if (scopeType === 'all_people' || scopeType === 'identity_only') return true;
-          if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') return candidate.departmentId === granteeDeptId;
-          if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') return candidate.departmentId === granteeDeptId && candidate.workGroupId === granteeWgId;
-          return true;
+        const filtered = designationCandidateView.filterCandidatesForClause(assignmentCandidates, {
+          scopeType,
+          granteeDepartmentId: granteeDeptId,
+          granteeIdentityId,
+          targetIdentityId
         }).map(candidate => ({ ...candidate, isSelected: currentIdSet.has(candidate.assignmentId) }));
         const depts = new Set(filtered.map(candidate => candidate.department).filter(Boolean));
         const idents = new Set(filtered.map(candidate => candidate.identity).filter(Boolean));

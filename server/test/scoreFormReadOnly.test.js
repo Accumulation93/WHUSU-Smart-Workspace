@@ -53,6 +53,7 @@ let activeHistoricalRecord = {
   calculation_context_snapshot: JSON.stringify(historicalCalculationSnapshot)
 };
 let currentTemplateReads = 0;
+let historicalParticipantAvailable = true;
 
 const emptyModel = {};
 const mocks = {
@@ -99,6 +100,19 @@ const mocks = {
     buildAssignmentSnapshot(record) { return { assignmentId: record.assignment_id, personId: record.person_id }; },
     resolveHistoricalParticipant(record, side) {
       const source = side === 'scorer' ? scorer : target;
+      if (!historicalParticipantAvailable) {
+        return {
+          assignmentId: source.assignment_id,
+          personId: source.person_id,
+          name: '',
+          studentId: '',
+          departmentId: '',
+          department: '',
+          identityCategoryId: '',
+          identityCategory: '',
+          historicalAssignmentUnavailable: true
+        };
+      }
       return {
         assignmentId: source.assignment_id,
         personId: source.person_id,
@@ -159,6 +173,16 @@ assert(layer, '缺少 getScoreFormData 路由');
   assert.strictEqual(payload.templateBundle.questions[0].question, '历史评分第 1 题');
   assert.strictEqual(payload.templateBundle.questions[0].score, '88');
   assert.strictEqual(currentTemplateReads, 0, '验签失败的旧记录也不得套用当前模板');
+
+  historicalParticipantAvailable = false;
+  payload = null;
+  await layer.route.stack[0].handle({ body: { targetId: target.id } }, {
+    json(value) { payload = value; return value; }
+  });
+  assert.strictEqual(payload.scorer.historicalAssignmentUnavailable, true);
+  assert.strictEqual(payload.scorer.name, '', '缺少历史岗位快照时不得回填当前评分人资料');
+  assert.strictEqual(payload.scorer.department, '', '缺少历史岗位快照时不得把当前部门伪装为历史部门');
+  assert.strictEqual(payload.target.name, '', '缺少历史岗位快照时不得回填当前被评分人资料');
 
   const source = fs.readFileSync(path.resolve(__dirname, '../src/modules/scoring/routes/scoring.js'), 'utf8');
   const formRoute = source.slice(

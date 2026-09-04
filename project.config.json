@@ -88,6 +88,10 @@
         "type": "file"
       },
       {
+        "value": "subpackages/workspace/pages/home/tests",
+        "type": "folder"
+      },
+      {
         "value": "subpackages/venue/pages/venueManage/venueManageSafety.test.js",
         "type": "file"
       },

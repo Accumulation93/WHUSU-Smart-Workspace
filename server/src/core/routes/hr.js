@@ -39,6 +39,23 @@ function authenticationStatus(row) {
   return { value: 'pending_verification', label: localeCopy.copy_5342fa4b24 };
 }
 
+function sendHrRouteFailure(req, res, error, fallbackMessage) {
+  const expected = error instanceof AdminOrganizationAccessError
+    || error instanceof unifiedIdentityModel.IdentityError;
+  if (!expected && req.logger) {
+    req.logger.error('HR operation failed', {
+      event: 'hr.operation_failed',
+      endpoint: safeString(req.path),
+      code: safeString(error && error.code),
+      error: safeString(error && error.message)
+    });
+  }
+  return res.status(expected ? (error.httpStatus || 400) : 500).json({
+    status: expected ? safeString(error.code) : 'error',
+    message: expected ? safeString(error.message) : (fallbackMessage || personnelCopy.hrOperationFailed)
+  });
+}
+
 // listHrInfo
 router.post('/listHrInfo', async (req, res) => {
   try {
@@ -94,7 +111,7 @@ router.post('/listHrInfo', async (req, res) => {
     });
     res.json({ status: 'success', list });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrRouteFailure(req, res, e);
   }
 });
 
@@ -431,6 +448,22 @@ router.post('/saveHrInfo', async (req, res) => {
       return res.json({ status: 'success', id: existingId, message: localeCopy.copy_339e79984b });
     }
 
+    const existingMember = await hrInfoModel.getByStudentIdIncludingFormer(studentId);
+    if (existingMember) {
+      const membershipStatus = safeString(existingMember.membership_status);
+      const isFormer = membershipStatus === 'left';
+      const isActive = membershipStatus === 'active';
+      return res.status(409).json({
+        status: isFormer
+          ? 'member_reactivation_required'
+          : (isActive ? 'member_already_exists' : 'member_record_unavailable'),
+        message: isFormer
+          ? personnelCopy.formerMemberRequiresReactivation
+          : (isActive ? personnelCopy.activeMemberAlreadyExists : personnelCopy.memberRecordUnavailable),
+        id: safeString(existingMember.id)
+      });
+    }
+
     const newId = generateId();
     await hrInfoModel.create(newId, {
       name,
@@ -441,7 +474,7 @@ router.post('/saveHrInfo', async (req, res) => {
     });
     res.json({ status: 'success', id: newId, message: localeCopy.copy_339e79984b });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrRouteFailure(req, res, e);
   }
 });
 
@@ -499,12 +532,7 @@ router.post('/reactivateHrMembership', async (req, res) => {
         : personnelCopy.memberAlreadyActive
     });
   } catch (error) {
-    const isExpected = error instanceof AdminOrganizationAccessError
-      || error instanceof unifiedIdentityModel.IdentityError;
-    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
-      status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : safeString(error.message)
-    });
+    return sendHrRouteFailure(req, res, error);
   }
 });
 
@@ -612,6 +640,7 @@ router.post('/deletePersonPermanently', async (req, res) => {
 router.post('/previewPersonIdentityCorrection', async (req, res) => {
   try {
     const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    await requireAdminOrganizationPermission(req, orgId, ['auth.accounts.global_manage']);
     const result = await personGovernanceModel.previewCorrection({
       legacyHrId: safeString(req.body.hrId),
       organizationId: orgId,
@@ -621,17 +650,14 @@ router.post('/previewPersonIdentityCorrection', async (req, res) => {
     if (!result) return res.status(404).json({ status: 'not_found', message: personnelCopy.formerMemberNotFound });
     return res.json({ status: 'success', preview: result });
   } catch (error) {
-    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
-    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
-      status: isExpected ? error.code : 'error',
-      message: safeString(error.message)
-    });
+    return sendHrRouteFailure(req, res, error);
   }
 });
 
 router.post('/applyPersonIdentityCorrection', async (req, res) => {
   try {
     const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    await requireAdminOrganizationPermission(req, orgId, ['auth.accounts.global_manage']);
     const result = await personGovernanceModel.applyCorrection({
       legacyHrId: safeString(req.body.hrId),
       organizationId: orgId,
@@ -644,11 +670,7 @@ router.post('/applyPersonIdentityCorrection', async (req, res) => {
     });
     return res.json({ status: 'success', result, message: personnelCopy.personCorrectionChanged });
   } catch (error) {
-    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
-    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
-      status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : safeString(error.message)
-    });
+    return sendHrRouteFailure(req, res, error);
   }
 });
 
@@ -657,23 +679,21 @@ router.post('/mergePersons', async (req, res) => {
     if (req.body.confirmed !== true) {
       return res.status(400).json({ status: 'confirmation_required', message: personnelCopy.personMergeConfirmationRequired });
     }
+    const organizationId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    await requireAdminOrganizationPermission(req, organizationId, ['auth.accounts.global_manage']);
     const result = await personGovernanceModel.mergePersons({
       sourcePersonId: safeString(req.body.sourcePersonId),
       targetPersonId: safeString(req.body.targetPersonId),
       sourceVersion: safeString(req.body.sourceVersion),
       targetVersion: safeString(req.body.targetVersion),
-      organizationId: safeString(req.body.organizationId) || await getCurrentOrgId()
+      organizationId
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
     });
     return res.json({ status: 'success', result, message: personnelCopy.personMergeCompleted });
   } catch (error) {
-    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
-    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
-      status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : safeString(error.message)
-    });
+    return sendHrRouteFailure(req, res, error);
   }
 });
 
@@ -739,7 +759,7 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
 
     res.json({ status: 'success', message: localeCopy.copy_c2a4637e57, stats });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrRouteFailure(req, res, e);
   }
 });
 
@@ -810,7 +830,7 @@ router.post('/unbindHrWechat', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
-    res.json({ status: 'error', message: safeString(e.message) });
+    return sendHrRouteFailure(req, res, e);
   } finally {
     if (connection) connection.release();
   }

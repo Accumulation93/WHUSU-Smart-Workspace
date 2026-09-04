@@ -1,66 +1,81 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditSignature');
 const crypto = require('crypto');
 const express = require('express');
-const fs = require('fs');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
-const userInfoModel = require('../../../core/models/userInfo');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const signatureTemplateModel = require('../models/signatureTemplate');
 const submissionModel = require('../models/auditSubmission');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const verificationMatchModel = require('../models/auditVerificationMatch');
 const verificationPermModel = require('../models/verificationPermission');
-const adminInfoModel = require('../../../core/models/adminInfo');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const {
+  resolveActorAssignment,
+  resolveActorAssignmentForUpdate
+} = require('../services/auditAssignmentContext');
 const { hashFile, verifySignatureChain } = require('../utils/hashChain');
 const { verifyPdfSignature } = require('../utils/pdfSignature');
+const { MAX_FILE_SIZE, readStoredAuditFile } = require('../utils/fileSecurity');
+const { inspectAuditImageData } = require('../utils/auditImageData');
 
-/**
- * Resolve the current user's HR ID from openid.
- */
-async function resolveHrId(openid) {
-  if (!openid) return null;
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
-    [openid, orgId]
-  );
-  return rows[0] ? rows[0].hr_id : null;
+const MAX_SIGNATURE_NAME_CHARS = 100;
+
+function validateSignatureTemplateInput(name, imageData) {
+  if (Array.from(name).length > MAX_SIGNATURE_NAME_CHARS) {
+    return { status: 'invalid_params', message: localeCopy.signatureNameTooLong };
+  }
+  const inspected = inspectAuditImageData(imageData);
+  if (!inspected.ok) {
+    return {
+      status: 'invalid_params',
+      message: inspected.reason === 'too_large'
+        ? localeCopy.signatureImageTooLarge
+        : localeCopy.signatureImageInvalid
+    };
+  }
+  return null;
+}
+
+function decodeVerificationFile(fileBase64) {
+  const encoded = safeString(fileBase64).replace(/[\r\n]/g, '');
+  const encodedLimit = Math.ceil(MAX_FILE_SIZE * 4 / 3) + 8;
+  if (!encoded || encoded.length > encodedLimit || encoded.length % 4 === 1
+    || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) return null;
+  const buffer = Buffer.from(encoded, 'base64');
+  return buffer.length && buffer.length <= MAX_FILE_SIZE ? buffer : null;
 }
 
 async function resolveVerificationAccess(req) {
-  const selectedRole = safeString(
-    (req.authContext && req.authContext.role) || req.get('X-Role')
-  ).toLowerCase();
-  const admin = selectedRole === 'admin'
-    ? (req.admin || await adminInfoModel.getByOpenid(req.openid))
-    : null;
-  const hrId = selectedRole === 'user' ? await resolveHrId(req.openid) : null;
-  const canVerify = Boolean(admin)
-    || (Boolean(hrId) && await verificationPermModel.checkPermission(hrId));
-  return { canVerify, selectedRole, hrId };
+  const actorResult = await resolveCurrentActor(req);
+  if (!actorResult.ok) return { canVerify: false, actorResult };
+  if (actorResult.actor.type === 'admin') {
+    return { canVerify: true, selectedRole: 'admin', hrId: null };
+  }
+  const orgId = await getCurrentOrgId();
+  const assignment = await resolveActorAssignment(actorResult.actor, orgId);
+  const hrId = assignment ? assignment.hr_id : null;
+  const canVerify = Boolean(hrId) && await verificationPermModel.checkPermission(hrId);
+  return { canVerify, selectedRole: 'user', hrId };
 }
 
 async function withLockedSignatureOwner(req, callback) {
+  const actorResult = await resolveCurrentActor(req);
+  if (!actorResult.ok || actorResult.actor.type !== 'user') return { forbidden: true };
   return pool.withTransaction(async (connection) => {
     const orgId = await getCurrentOrgId();
-    const [rows] = await connection.query(
-      'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1',
-      [safeString(req.openid), orgId]
-    );
-    const hrId = safeString(rows[0] && rows[0].hr_id);
-    if (!hrId) return { forbidden: true };
     await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
-      personId: safeString(req.authContext && req.authContext.personId),
-      legacyHrId: hrId,
+      personId: safeString(actorResult.actor.personId),
+      legacyHrId: safeString(actorResult.actor.id),
       organizationId: orgId,
-      assignmentId: safeString(req.authContext && req.authContext.assignmentId)
+      assignmentId: safeString(actorResult.actor.assignmentId)
     }]);
-    return callback(connection, { hrId, orgId });
+    const assignment = await resolveActorAssignmentForUpdate(actorResult.actor, orgId, connection);
+    if (!assignment) return { forbidden: true };
+    return callback(connection, { hrId: assignment.hr_id, orgId });
   });
 }
 
@@ -73,12 +88,15 @@ async function verifySubmissionFiles(submission) {
   const files = await submissionFileModel.getBySubmissionId(submission.id);
   const currentFileHashes = {};
   const currentPdfFileIds = [];
+  const currentFiles = new Map();
   for (const file of files) {
     if (String(file.mime_type || '').toLowerCase() === 'application/pdf') {
       currentPdfFileIds.push(String(file.id));
     }
-    if (file.file_path && fs.existsSync(file.file_path)) {
-      currentFileHashes[file.id] = hashFile(fs.readFileSync(file.file_path));
+    const stored = readStoredAuditFile(file, { requireIntegrity: false });
+    if (stored.status === 'success') {
+      currentFileHashes[file.id] = hashFile(stored.buffer);
+      currentFiles.set(String(file.id), stored);
     }
   }
 
@@ -103,15 +121,17 @@ async function verifySubmissionFiles(submission) {
       result.valid = false;
     }
     fileResult.fileName = safeString(file.file_name);
-    if (isPdf && file.file_path && fs.existsSync(file.file_path)) {
+    const stored = currentFiles.get(String(file.id));
+    if (isPdf && stored) {
       try {
-        fileResult.pdfSignature = verifyPdfSignature(fs.readFileSync(file.file_path));
+        fileResult.pdfSignature = verifyPdfSignature(stored.buffer);
       } catch (error) {
+        console.error('[audit:signature:pdfVerify] failed:', error);
         fileResult.pdfSignature = {
           present: true,
           valid: false,
           signatures: [],
-          message: safeString(error.message)
+          message: localeCopy.pdfVerificationFailed
         };
       }
       if (!fileResult.pdfSignature.present || !fileResult.pdfSignature.valid) result.valid = false;
@@ -135,9 +155,13 @@ async function verifySubmissionFiles(submission) {
 // listMySignatures
 router.post('/listMySignatures', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    }
+    const assignment = await resolveActorAssignment(actorResult.actor, await getCurrentOrgId());
+    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const hrId = assignment.hr_id;
 
     const signatures = await signatureTemplateModel.getByHrId(hrId);
     const result = signatures.map((s) => ({
@@ -150,7 +174,8 @@ router.post('/listMySignatures', async (req, res) => {
 
     res.json({ status: 'success', signatures: result });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:list] failed:', e);
+    res.json({ status: 'error', message: localeCopy.signatureOperationFailed });
   }
 });
 
@@ -165,6 +190,8 @@ router.post('/saveSignature', async (req, res) => {
     if (!imageData) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_a35b383a47 });
     }
+    const validationError = validateSignatureTemplateInput(name, imageData);
+    if (validationError) return res.json(validationError);
 
     const result = await withLockedSignatureOwner(req, async (connection, owner) => {
       if (id) {
@@ -208,7 +235,8 @@ router.post('/saveSignature', async (req, res) => {
     }
     return res.json(result);
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:save] failed:', e);
+    return res.json({ status: 'error', message: localeCopy.signatureOperationFailed });
   }
 });
 
@@ -236,7 +264,8 @@ router.post('/deleteSignature', async (req, res) => {
     }
     return res.json(result);
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:delete] failed:', e);
+    return res.json({ status: 'error', message: localeCopy.signatureOperationFailed });
   }
 });
 
@@ -268,7 +297,8 @@ router.post('/setDefaultSignature', async (req, res) => {
     }
     return res.json(result);
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:default] failed:', e);
+    return res.json({ status: 'error', message: localeCopy.signatureOperationFailed });
   }
 });
 
@@ -282,7 +312,8 @@ router.post('/getAuditVerificationAccess', async (req, res) => {
     const access = await resolveVerificationAccess(req);
     return res.json({ status: 'success', canVerify: access.canVerify });
   } catch (e) {
-    return res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:access] failed:', e);
+    return res.json({ status: 'error', message: localeCopy.verificationFailed });
   }
 });
 
@@ -299,9 +330,16 @@ router.post('/verifySignatureChain', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_4ca1fc6fb1 });
     }
 
-    let resolvedFileHash = fileHash;
+    if (fileHash && !/^[a-fA-F0-9]{64}$/.test(fileHash)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.verificationInputInvalid });
+    }
+
+    let resolvedFileHash = fileHash.toLowerCase();
     if (!resolvedFileHash && fileBase64) {
-      const buffer = Buffer.from(fileBase64, 'base64');
+      const buffer = decodeVerificationFile(fileBase64);
+      if (!buffer) {
+        return res.json({ status: 'invalid_params', message: localeCopy.verificationFileInvalid });
+      }
       resolvedFileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     }
 
@@ -342,7 +380,8 @@ router.post('/verifySignatureChain', async (req, res) => {
       ...result
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[audit:signature:verify] failed:', e);
+    res.json({ status: 'error', message: localeCopy.verificationFailed });
   }
 });
 

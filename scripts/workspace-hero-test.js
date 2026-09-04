@@ -2,6 +2,8 @@
 
 const assert = require('assert');
 const Module = require('module');
+const fs = require('fs');
+const path = require('path');
 
 let session = {
   role: 'user',
@@ -59,6 +61,20 @@ const adminView = refresh();
 assert.strictEqual(adminView.personName, '管理员甲');
 assert.strictEqual(adminView.identityName, '超级管理员');
 assert.strictEqual(adminView.organizationName, '第四十三届学生会');
+
+const projectRoot = path.resolve(__dirname, '..');
+const workspaceTemplate = fs.readFileSync(
+  path.join(projectRoot, 'miniprogram/subpackages/workspace/pages/home/home.wxml'),
+  'utf8'
+);
+const messageTemplate = fs.readFileSync(
+  path.join(projectRoot, 'miniprogram/subpackages/message/pages/messageCenter/messageCenter.wxml'),
+  'utf8'
+);
+assert.match(workspaceTemplate, /tone="\{\{isAdminRole \? 'admin' : 'blue'\}\}"/,
+  '业务工作台 Hero 必须按当前角色切换主题');
+assert.match(messageTemplate, /tone="\{\{isAdminRole \? 'admin' : 'blue'\}\}"/,
+  '消息中心 Hero 必须按当前角色切换主题');
 
 delete global.Component;
 delete global.wx;

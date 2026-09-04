@@ -1,18 +1,20 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-async function getByTemplateStepId(templateStepId) {
+async function getByTemplateStepId(templateStepId, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM audit_flow_template_step_conditions WHERE template_step_id = ? AND org_id = ? ORDER BY sort_order',
     [templateStepId, orgId]
   );
   return rows;
 }
 
-async function getByTemplateId(templateId) {
+async function getByTemplateId(templateId, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     `SELECT c.* FROM audit_flow_template_step_conditions c
      JOIN audit_flow_template_steps s ON s.id = c.template_step_id
      WHERE s.template_id = ? AND c.org_id = ?

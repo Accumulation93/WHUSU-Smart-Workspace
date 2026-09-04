@@ -3,6 +3,7 @@ const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const securityCopy = require('../../locales/zh-CN/core/security');
 const pool = require('../../config/db');
 const { generateId, safeString } = require('../../utils/helpers');
+const { normalizeAssignmentNature } = require('../services/hrDomainPolicy');
 const {
   hmac,
   legacyHmac,
@@ -472,23 +473,46 @@ async function syncLegacyHrRecords(connection, hrIds) {
     }
     const assignmentId = safeString(row.id);
     if (departmentValid && identityValid) {
-      await connection.query(
-        `INSERT INTO membership_assignments
-           (id, membership_id, org_id, assignment_kind, department_id, identity_id,
-            work_group_id, status)
-          VALUES (?, ?, ?, 'staff', ?, ?, ?, 'active')
-          ON DUPLICATE KEY UPDATE membership_id = VALUES(membership_id), org_id = VALUES(org_id), department_id = VALUES(department_id),
-            identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
-            status = 'active', revoked_by_departure_id = NULL, updated_at = NOW()`,
-        [
-          assignmentId,
-          membershipId,
-          row.org_id,
-          departmentId,
-          identityId,
-          workGroupId || null
-        ]
+      const [duplicateAssignments] = await connection.query(
+        `SELECT id FROM membership_assignments
+          WHERE membership_id = ? AND org_id = ? AND status = 'active'
+            AND assignment_kind = 'staff' AND department_id = ? AND identity_id = ?
+            AND COALESCE(work_group_id, '') = ? AND id <> ?
+          LIMIT 1 FOR UPDATE`,
+        [membershipId, row.org_id, departmentId, identityId, workGroupId, assignmentId]
       );
+      if (duplicateAssignments.length) {
+        await connection.query(
+          `UPDATE membership_assignments
+              SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
+            WHERE id = ? AND membership_id = ? AND org_id = ? AND status = 'active'`,
+          [assignmentId, membershipId, row.org_id]
+        );
+        await connection.query(
+          `UPDATE auth_sessions
+              SET status = 'revoked', revoked_at = NOW()
+            WHERE context_type = 'assignment' AND context_subject_id = ? AND status = 'active'`,
+          [assignmentId]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO membership_assignments
+             (id, membership_id, org_id, assignment_kind, department_id, identity_id,
+              work_group_id, status)
+            VALUES (?, ?, ?, 'staff', ?, ?, ?, 'active')
+            ON DUPLICATE KEY UPDATE membership_id = VALUES(membership_id), org_id = VALUES(org_id), department_id = VALUES(department_id),
+              identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
+              status = 'active', revoked_by_departure_id = NULL, updated_at = NOW()`,
+          [
+            assignmentId,
+            membershipId,
+            row.org_id,
+            departmentId,
+            identityId,
+            workGroupId || null
+          ]
+        );
+      }
     } else {
       await connection.query(
         `UPDATE membership_assignments
@@ -598,9 +622,9 @@ async function validateAssignmentReferences(connection, organizationId, data) {
     );
   }
   const checks = [
-    ['departments', data.departmentId, '部门'],
-    ['identities', data.identityId, '身份'],
-    ['work_groups', data.workGroupId, '职能组']
+    ['departments', data.departmentId, personnelCopy.departmentLabel],
+    ['identities', data.identityId, personnelCopy.identityCategoryLabel],
+    ['work_groups', data.workGroupId, personnelCopy.workGroupLabel]
   ];
   for (const [table, id, label] of checks) {
     if (!safeString(id)) continue;
@@ -722,11 +746,12 @@ async function saveMembershipAssignment(data, actor, authorize) {
   const organizationId = safeString(data.organizationId);
   const legacyHrId = safeString(data.legacyHrId);
   const assignmentId = safeString(data.id);
-  const assignmentKind = ['staff', 'liaison', 'other'].includes(data.assignmentKind)
-    ? data.assignmentKind
-    : 'staff';
+  const assignmentKind = normalizeAssignmentNature(data.assignmentKind);
   if (!organizationId || !legacyHrId) {
     throw new IdentityError('invalid_params', personnelCopy.missingMemberOrOrganization, 400);
+  }
+  if (!assignmentKind) {
+    throw new IdentityError('assignment_nature_invalid', personnelCopy.assignmentNatureInvalid, 400);
   }
   return pool.withTransaction(async (connection) => {
     if (authorize) await authorize(connection);
@@ -752,6 +777,21 @@ async function saveMembershipAssignment(data, actor, authorize) {
       if (!existing) throw new IdentityError('assignment_not_found', personnelCopy.assignmentNotFound, 404);
     }
 
+    const departmentId = safeString(data.departmentId);
+    const identityId = safeString(data.identityId);
+    const workGroupId = safeString(data.workGroupId);
+    const [duplicateRows] = await connection.query(
+      `SELECT id FROM membership_assignments
+        WHERE membership_id = ? AND org_id = ? AND status = 'active'
+          AND assignment_kind = ? AND department_id = ? AND identity_id = ?
+          AND COALESCE(work_group_id, '') = ? AND id <> ?
+        LIMIT 1 FOR UPDATE`,
+      [membership.id, organizationId, assignmentKind, departmentId, identityId, workGroupId, assignmentId]
+    );
+    if (duplicateRows.length) {
+      throw new IdentityError('duplicate_assignment', personnelCopy.duplicateAssignment, 409);
+    }
+
     const nextId = existing ? existing.id : generateId();
     if (existing) {
       await connection.query(
@@ -761,9 +801,9 @@ async function saveMembershipAssignment(data, actor, authorize) {
           WHERE id = ?`,
         [
           assignmentKind,
-          safeString(data.departmentId) || null,
-          safeString(data.identityId) || null,
-          safeString(data.workGroupId) || null,
+          departmentId || null,
+          identityId || null,
+          workGroupId || null,
           nextId
         ]
       );
@@ -778,9 +818,9 @@ async function saveMembershipAssignment(data, actor, authorize) {
           membership.id,
           organizationId,
           assignmentKind,
-          safeString(data.departmentId) || null,
-          safeString(data.identityId) || null,
-          safeString(data.workGroupId) || null
+          departmentId || null,
+          identityId || null,
+          workGroupId || null
         ]
       );
     }
@@ -898,7 +938,7 @@ async function revokeOrganizationAdminAccessForDeparture(connection, personId, o
 
 async function removeLegacyHrRecord(connection, legacyHrId, organizationId, actor) {
   const [rows] = await connection.query(
-    `SELECT om.id, om.person_id
+    `SELECT om.id, om.person_id, om.legacy_hr_id, om.org_id
        FROM organization_memberships om
       WHERE om.legacy_hr_id = ? AND om.org_id = ? AND om.status = 'active'
       LIMIT 1 FOR UPDATE`,
@@ -913,6 +953,9 @@ async function removeLegacyHrRecord(connection, legacyHrId, organizationId, acto
       WHERE membership_id = ? AND org_id = ? AND status = 'active'`,
     [departureBatchId, membership.id, safeString(organizationId)]
   );
+  // 当前岗位兼容快照只反映在职岗位。离任历史由 departure_batch_id 关联的
+  // 已撤销岗位读取，不能把旧部门/身份继续暴露给重新加入后的无岗位成员。
+  await refreshLegacyHrCompatibilitySnapshot(connection, membership);
   await connection.query(
     `UPDATE organization_memberships
         SET status = 'left', departure_batch_id = ?, updated_at = NOW()
@@ -994,6 +1037,9 @@ async function reactivateMembership(data, actor, authorize) {
         WHERE id = ? AND org_id = ?`,
       [membership.id, organizationId]
     );
+    // 兼容历史数据可能仍保留离任前岗位字段；重新加入必须防御性清空，
+    // 且不会恢复任何 membership_assignments。
+    await refreshLegacyHrCompatibilitySnapshot(connection, membership);
     await appendAuditEvent({
       connection,
       eventType: 'organization_membership_reactivated',

@@ -8,6 +8,7 @@ const {
   computeMaterialImageHash,
   computeSignatureHashV2
 } = require('../utils/hashChain');
+const { isValidAuditImageData } = require('../utils/auditImageData');
 const {
   signPdfBuffer,
   generateSigningKeyPair,
@@ -17,7 +18,6 @@ const {
 } = require('../utils/pdfSignature');
 
 const MAX_APPROVAL_MATERIALS = 100;
-const ALLOWED_IMAGE_MIME_TYPES = new Set(['png', 'jpeg', 'jpg', 'webp']);
 const AUDIT_APPROVAL_INTEGRITY_CODES = Object.freeze({
   FINAL_PDF_UNAVAILABLE: 'approval_final_pdf_unavailable',
   MATERIAL_FILE_INVALID: 'approval_material_file_invalid'
@@ -52,16 +52,7 @@ function normalizeMaterialType(value) {
 }
 
 function isValidImageData(value) {
-  if (typeof value !== 'string') return false;
-  const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\r\n]+)$/.exec(value.trim());
-  if (!match || !ALLOWED_IMAGE_MIME_TYPES.has(match[1].toLowerCase())) return false;
-  const encoded = match[2].replace(/[\r\n]/g, '');
-  if (!encoded || encoded.length % 4 === 1) return false;
-  try {
-    return Buffer.from(encoded, 'base64').length > 0;
-  } catch (_) {
-    return false;
-  }
+  return isValidAuditImageData(value);
 }
 
 function normalizePlacement(raw, file) {

@@ -37,4 +37,12 @@ assert(hrRouteSource.includes('listMembershipAssignmentSummaries')
   && hrRouteSource.includes('assignments: assignmentSummary.assignments'),
 '管理端人员目录必须一人一卡返回完整在职岗位数组，不能只暴露 hr_info 单岗位快照');
 
+const unifiedIdentitySource = fs.readFileSync(
+  path.resolve(__dirname, '../src/core/models/unifiedIdentity.js'),
+  'utf8'
+);
+assert.match(unifiedIdentitySource, /COALESCE\(work_group_id, ''\) = \? AND id <> \?/);
+assert.match(unifiedIdentitySource, /throw new IdentityError\('duplicate_assignment'/);
+assert.match(unifiedIdentitySource, /if \(duplicateAssignments\.length\)[\s\S]*context_subject_id = \?/);
+
 console.log('人事领域岗位名称与全局账号治理权限测试通过');

@@ -91,6 +91,7 @@ const authorizationSource = routeSource.slice(
 );
 assert(
   routeSource.includes("status: 'historical_snapshot_missing'")
+    && authorizationSource.includes('!submitters.length')
     && !authorizationSource.includes('getTemplateStepConditions'),
   '查看和执行审批时，损坏或缺失的显式条件都必须明确失败关闭'
 );

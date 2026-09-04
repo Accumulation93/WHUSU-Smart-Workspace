@@ -97,6 +97,23 @@ const consecutiveChairFlow = {
     }
   ]
 };
+const widenedResponsibilityFlow = {
+  id: 'flow-widened-responsibility',
+  venue_id: 'v1',
+  org_id: ORG,
+  name: '责任范围变化流程',
+  allow_user_select: 0,
+  allow_designate_first: 0,
+  allow_designate_next: 0,
+  steps: [
+    consecutiveChairFlow.steps[0],
+    {
+      id: 's-all-member', flow_id: 'flow-widened-responsibility', sort_order: 2, name: '全体成员复核',
+      approval_mode: 'hr_rule', org_id: ORG,
+      rules: [{ id: 'r-all-member', step_id: 's-all-member', department_scope: 'all', work_group_scope: 'all', identity_scope: 'all' }]
+    }
+  ]
+};
 
 const pool = {
   async query(sql, params) {
@@ -106,7 +123,7 @@ const pool = {
     if (sql.indexOf('venue_approval_flows WHERE id') >= 0) {
       liveFlowDefinitionQueries += 1;
       const id = String(params[0]);
-      return [[[flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === id; }) || null]];
+      return [[[flowDept, flowAdmin, noChairFlow, consecutiveChairFlow, widenedResponsibilityFlow].find(function(flow) { return flow.id === id; }) || null]];
     }
     if (sql.indexOf('admin_grants') >= 0 && sql.indexOf('status = \'active\'') >= 0) {
       return [[{ ok: 1 }]];
@@ -159,7 +176,7 @@ const assignmentContext = {
 const stepModel = {
   async getByFlowId(flowId, orgId) {
     assert.strictEqual(orgId, ORG, '跨组织待办加载步骤时必须显式使用借用审批组织');
-    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === flowId; }).steps;
+    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow, widenedResponsibilityFlow].find(function(flow) { return flow.id === flowId; }).steps;
   }
 };
 
@@ -197,7 +214,7 @@ function userActor(hrId, personId, assignmentId) {
 
 function makeBooking(flowState) {
   const flowList = Object.keys(flowState.flows || {}).map(function(flowId) {
-    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === flowId; });
+    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow, widenedResponsibilityFlow].find(function(flow) { return flow.id === flowId; });
   }).filter(Boolean);
   const stepsByFlow = {};
   flowList.forEach(function(flow) { stepsByFlow[flow.id] = flow.steps; });
@@ -284,18 +301,21 @@ async function run() {
   assert.strictEqual(adminApproval.snapshots.length, 1);
   assert.strictEqual(adminApproval.snapshots[0].flowId, 'flow-admin');
 
-  // 3) 负责人审批第1步 → 仅推进负责人流程，管理员流程仍在等待
+  // 3) 负责人审批第1步 → 确定负责人路线，其他替代路线终止但不得伪装成完成
   const freshBooking = makeBooking(engine.buildInitialFlowState([flowDept, flowAdmin], null, null));
   const headApproval = await engine.prepareApproval(freshBooking, userActor('hr-head'), '同意', null, ORG);
   assert.strictEqual(headApproval.ok, true);
   assert.strictEqual(headApproval.completed, false);
   assert.strictEqual(headApproval.state.flows['flow-dept'].stepIndex, 1, '负责人流程应推进到主席团');
   assert.strictEqual(headApproval.state.flows['flow-admin'].stepIndex, 0, '管理员流程不受影响');
+  assert.strictEqual(headApproval.state.flows['flow-admin'].active, false, '首个审批动作应确定唯一替代路线');
+  assert.strictEqual(headApproval.state.flows['flow-admin'].completed, false, '未走的替代路线不得标成完成');
+  assert.strictEqual(headApproval.state.flows['flow-admin'].superseded, true, '未走路线应标记为被替代');
   assert.strictEqual(headApproval.candidateMissing, false, '主席团有人，不应标记候选人缺失');
   assert.strictEqual(headApproval.snapshots[0].approverAssignmentId, 'a-head');
   assert.strictEqual(headApproval.snapshots[0].approverAssignmentSnapshot.identityCategoryId, 'dept_head', '审批快照必须固化实际岗位');
 
-  // 推进后主席团可见，管理员仍可见
+  // 推进后只有已选择路线的主席团可见
   const advancedBooking = Object.assign({}, freshBooking, {
     approval_flow_state_json: JSON.stringify(headApproval.state),
     approval_snapshots_json: JSON.stringify(headApproval.snapshots)
@@ -303,7 +323,7 @@ async function run() {
   const chairmanAfter = await engine.evaluateActorEligibility(advancedBooking, userActor('hr-chair'), ORG);
   assert.strictEqual(chairmanAfter.ok, true, '第2步主席团应可见');
   const adminAfter = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
-  assert.strictEqual(adminAfter.ok, true, '管理员流程仍应可见');
+  assert.strictEqual(adminAfter.ok, false, '被替代的管理员路线不得继续处理');
 
   // 连续步骤由同一当前岗位负责时，一次人工审批应自动完成后续连续步骤。
   const consecutiveBooking = makeBooking(engine.buildInitialFlowState([consecutiveChairFlow], null, null));
@@ -323,6 +343,51 @@ async function run() {
   assert.strictEqual(consecutiveApproval.snapshots[1].automatic, true);
   assert.strictEqual(consecutiveApproval.snapshots[1].approverAssignmentId, 'a-chair');
   assert.strictEqual(consecutiveApproval.snapshots[1].stepName, '主席团复核');
+
+  // 当前岗位即使也符合下一步，只要审批责任范围发生变化，就必须停下等待下一次人工确认。
+  const widenedBooking = makeBooking(engine.buildInitialFlowState([widenedResponsibilityFlow], null, null));
+  const widenedApproval = await engine.prepareApproval(
+    widenedBooking,
+    userActor('hr-chair'),
+    '同意',
+    null,
+    ORG
+  );
+  assert.strictEqual(widenedApproval.ok, true);
+  assert.strictEqual(widenedApproval.completed, false, '主席团到全体成员不是同一审批责任，不得自动完成');
+  assert.strictEqual(widenedApproval.processedStepCount, 1);
+  assert.strictEqual(widenedApproval.autoApprovedStepCount, 0);
+  assert.strictEqual(widenedApproval.state.flows[widenedResponsibilityFlow.id].stepIndex, 1);
+
+  // 损坏快照和未知范围枚举必须失败关闭，不能被解释为“全部”。
+  const malformedSnapshotsBooking = Object.assign({}, widenedBooking, { approval_snapshots_json: '{broken' });
+  const malformedEligibility = await engine.evaluateActorEligibility(
+    malformedSnapshotsBooking,
+    userActor('hr-chair'),
+    ORG
+  );
+  assert.strictEqual(malformedEligibility.ok, false);
+  assert.strictEqual(malformedEligibility.reason, engine.REASONS.FLOW_SNAPSHOT_MISSING);
+
+  const unknownScopeBooking = Object.assign({}, widenedBooking);
+  const unknownScopeDefinition = JSON.parse(unknownScopeBooking.approval_flow_snapshot_json);
+  unknownScopeDefinition.flows[0].steps[0].rules[0].department_scope = 'specfic';
+  unknownScopeBooking.approval_flow_snapshot_json = JSON.stringify(unknownScopeDefinition);
+  const unknownScopeEligibility = await engine.evaluateActorEligibility(
+    unknownScopeBooking,
+    userActor('hr-chair'),
+    ORG
+  );
+  assert.strictEqual(unknownScopeEligibility.ok, false);
+
+  const syntheticPersonFlows = engine.buildSyntheticFlowsFromBookingRules([{
+    id: 'legacy-person-rule',
+    rule_type: 'person',
+    approver_hr_id: 'hr-chair',
+    approver_assignment_id: 'a-chair'
+  }]);
+  assert.strictEqual(syntheticPersonFlows.length, 1);
+  assert.strictEqual(syntheticPersonFlows[0].steps[0].rules[0].assignment_id, 'a-chair');
 
   // 已在旧版本完成第一步的在途记录，升级后同一人仍应能继续处理第二步。
   const resumedState = engine.buildInitialFlowState([consecutiveChairFlow], null, null);
@@ -371,7 +436,7 @@ async function run() {
   const rematch = await engine.evaluateActorEligibility(advancedBooking, userActor('hr-chair'), ORG);
   assert.strictEqual(rematch.ok, true, '历史步骤必须按审批时岗位快照继续有效');
   const adminStill = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
-  assert.strictEqual(adminStill.ok, true, '其他流程不受影响');
+  assert.strictEqual(adminStill.ok, false, '已被替代的其他路线不得因历史岗位变化重新激活');
   assignments['a-head'].identityCategoryId = 'dept_head';
 
   // 5) 指定第一步审批人：只有被指定者可见
@@ -462,9 +527,9 @@ async function run() {
   assert.strictEqual(missingApproval.completed, false);
   assert.strictEqual(missingApproval.candidateMissing, true, '下一步无候选人应标记 candidateMissing');
 
-  // 8) 旧列派生：并行模式取最小活动步，通过时取总步数
+  // 8) 旧列派生：路线确定后只取当前活动路线，通过时取总步数
   const legacyPending = engine.legacyColumnsFromState(headApproval.state, headApproval.totalSteps, 'pending');
-  assert.strictEqual(legacyPending.currentStep, 0);
+  assert.strictEqual(legacyPending.currentStep, 1);
   const legacyApproved = engine.legacyColumnsFromState(adminApproval.state, adminApproval.totalSteps, 'approved');
   assert.strictEqual(legacyApproved.currentStep, adminApproval.totalSteps);
 

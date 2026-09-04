@@ -46,7 +46,9 @@ const SERVER_VISIBLE_PROPERTIES = new Set([
   'statusText', 'reason', 'fileName', 'emptyText', 'hintText', 'note'
 ]);
 const EXEMPTIONS = [
-  { file: 'server/src/index.js', pattern: /数据库不可用/ }
+  { file: 'server/src/index.js', pattern: /数据库不可用/ },
+  // 通知 worker 的结构校验码只进入重试/死信日志，不会作为接口 message 返回。
+  { file: 'server/src/modules/audit/services/notificationOutboxService.js', pattern: /^notification_(?:payload_missing|payload_invalid|recipient_invalid)$/ }
 ];
 
 function walk(dir, extensions, output = []) {

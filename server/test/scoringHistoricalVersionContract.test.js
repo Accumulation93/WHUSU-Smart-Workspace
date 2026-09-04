@@ -16,7 +16,7 @@ assert(firstParentVersionWrite >= 0 && childConfigInsert > firstParentVersionWri
   '评分 clause/config 写入前必须在同一规则保存事务中更新父规则 updated_at');
 assert(rulesSource.includes('allow_self_assessment = ?, updated_at = ?')
   && rulesSource.includes('const nowUtc = nowMysqlUtc();')
-  && rulesSource.includes('await withTransaction(async (conn) => {'),
+  && /await withTransaction\(async \((?:conn|connection)\) => \{/.test(rulesSource),
 '父规则及其 clause/config 必须在同一事务、使用同一版本时间保存');
 
 const routeFiles = fs.readdirSync(path.join(scoringRoot, 'routes'))

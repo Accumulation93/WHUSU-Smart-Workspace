@@ -29,6 +29,19 @@ async function testSameOrganizationMergePreservesLegacyHistory() {
         ]];
       }
       if (normalized.startsWith('SELECT id, person_id, status FROM accounts')) return [[]];
+      if (normalized.includes('FROM organization_memberships')
+        && normalized.includes('WHERE person_id = ? AND org_id = ?')
+        && normalized.includes('LIMIT 1 FOR UPDATE')) {
+        return params[0] === 'person-source'
+          ? [[{
+            id: 'membership-source', person_id: 'person-source', org_id: 'org-a',
+            legacy_hr_id: 'hr-source', status: 'active'
+          }]]
+          : [[{
+            id: 'membership-target', person_id: 'person-target', org_id: 'org-a',
+            legacy_hr_id: 'hr-target', status: 'active'
+          }]];
+      }
       if (normalized.includes('FROM organization_memberships om WHERE om.person_id = ? ORDER BY om.org_id')) {
         return [[{
           id: 'membership-source', person_id: 'person-source', org_id: 'org-a',
@@ -72,6 +85,7 @@ async function testSameOrganizationMergePreservesLegacyHistory() {
           }
         ]];
       }
+      if (normalized.startsWith('SELECT source_assignment.id FROM membership_assignments')) return [[]];
       if (normalized.includes('FROM admin_grants ag WHERE ag.person_id = ?')) return [[]];
       if (normalized === 'SELECT * FROM person_profile_values WHERE person_id = ? FOR UPDATE') return [[]];
       return [{ affectedRows: 1 }];

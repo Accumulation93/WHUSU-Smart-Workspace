@@ -55,6 +55,9 @@ const connection = {
     if (normalized.startsWith('SELECT id FROM result_publications')) {
       return [state.publications.filter((row) => row.id === params[0] && row.org_id === params[1])];
     }
+    if (normalized.startsWith('SELECT id, publication_id, grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE id =')) {
+      return [state.viewRules.filter((row) => row.id === params[0] && row.org_id === params[1])];
+    }
     if (normalized.startsWith('SELECT id FROM pub_view_rules WHERE id =')) {
       return [state.viewRules.filter((row) => row.id === params[0]
         && (!normalized.includes('publication_id = ?') || row.publication_id === params[1])
@@ -366,6 +369,12 @@ function meritRule(departmentId, overrides = {}) {
   result = await invoke('/batchDeletePubViewRules', { ruleIds: [firstView.ids[0], 'view-rule-other-org'] });
   assert.strictEqual(result.status, 'rule_not_found');
   assert(state.viewRules.some((row) => row.id === firstView.ids[0]), '跨组织 ID 必须回滚已删除的查看规则');
+
+  result = await invoke('/batchDeletePubViewRules', { ruleIds: [firstView.ids[1]] });
+  assert.strictEqual(result.status, 'rule_in_use', '评优规则仍依赖授权类别时不得删除查看规则');
+  assert(state.viewRules.some((row) => row.id === firstView.ids[1]), '依赖检查失败后必须保留查看规则');
+  result = await invoke('/batchDeletePubMeritRules', { ruleIds: [firstMerit.ids[1]] });
+  assert.strictEqual(result.status, 'success');
 
   failDeleteViewId = firstView.ids[1];
   result = await invoke('/batchDeletePubViewRules', { ruleIds: firstView.ids });

@@ -13,6 +13,10 @@ const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const { hasAnyPermission } = require('../../../core/services/adminPermissions');
 const auditTempUploadModel = require('../../../core/models/auditTempUpload');
 const { resolveActorAssignment } = require('../services/auditAssignmentContext');
+const {
+  assignmentSqlExpression,
+  submissionMatchesSubmitterAssignment
+} = require('../services/auditHistoryScope');
 const { JWT_SECRET } = require('../../../middleware/auth');
 const { hmac: identityHash } = require('../../../core/services/identityCrypto');
 const { hashFile } = require('./hashChain');
@@ -34,6 +38,56 @@ function ensurePrivateDirectory(directoryPath) {
 
 function ensurePrivateFile(filePath) {
   fs.chmodSync(filePath, 0o600);
+}
+
+function resolveStoredAuditFilePath(file) {
+  const storedPath = safeString(file && file.file_path);
+  if (!storedPath) return null;
+  const resolvedPath = path.resolve(storedPath);
+  const rootPrefix = UPLOAD_DIR.endsWith(path.sep) ? UPLOAD_DIR : UPLOAD_DIR + path.sep;
+  if (resolvedPath === UPLOAD_DIR || !resolvedPath.startsWith(rootPrefix)) return null;
+  return resolvedPath;
+}
+
+function isPathInsideUploadRoot(filePath) {
+  const realRoot = fs.realpathSync(UPLOAD_DIR);
+  const realFilePath = fs.realpathSync(filePath);
+  const rootPrefix = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
+  return realFilePath !== realRoot && realFilePath.startsWith(rootPrefix)
+    ? realFilePath
+    : null;
+}
+
+function readStoredAuditFile(file, options) {
+  const settings = options || {};
+  const candidatePath = resolveStoredAuditFilePath(file);
+  if (!candidatePath || !fs.existsSync(candidatePath)) {
+    return { status: 'not_found', message: localeCopy.storedFileUnavailable };
+  }
+  let filePath;
+  try {
+    filePath = isPathInsideUploadRoot(candidatePath);
+  } catch (_) {
+    filePath = null;
+  }
+  if (!filePath) return { status: 'not_found', message: localeCopy.storedFileUnavailable };
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) {
+    return { status: 'not_found', message: localeCopy.storedFileUnavailable };
+  }
+  const buffer = fs.readFileSync(filePath);
+  const actualHash = hashFile(buffer);
+  const expectedSize = Number(file && file.file_size);
+  const expectedHash = safeString(file && file.file_hash).toLowerCase();
+  const integrityVerified = Number.isFinite(expectedSize)
+    && expectedSize >= 0
+    && expectedSize === buffer.length
+    && /^[a-f0-9]{64}$/.test(expectedHash)
+    && expectedHash === actualHash;
+  if (settings.requireIntegrity !== false && !integrityVerified) {
+    return { status: 'integrity_error', message: localeCopy.storedFileIntegrityMismatch };
+  }
+  return { status: 'success', filePath, buffer, actualHash, integrityVerified };
 }
 
 function normalizeUploadFileName(fileName, mimeType) {
@@ -76,8 +130,13 @@ function extForMime(mimeType) {
 
 function assertAllowedFile(buffer, declaredMime) {
   const detectedMime = detectMime(buffer);
-  const mimeType = detectedMime || normalizeMime(declaredMime);
-  if (!ALLOWED_MIMES.includes(mimeType)) {
+  const declaredType = normalizeMime(declaredMime);
+  if (!detectedMime || !ALLOWED_MIMES.includes(detectedMime)) {
+    const err = new Error(localeCopy.copy_1e8b224ee3);
+    err.status = 'invalid_params';
+    throw err;
+  }
+  if (declaredType && ALLOWED_MIMES.includes(declaredType) && declaredType !== detectedMime) {
     const err = new Error(localeCopy.copy_1e8b224ee3);
     err.status = 'invalid_params';
     throw err;
@@ -87,7 +146,7 @@ function assertAllowedFile(buffer, declaredMime) {
     err.status = 'invalid_params';
     throw err;
   }
-  return mimeType;
+  return detectedMime;
 }
 
 function signUploadToken(payload) {
@@ -348,7 +407,7 @@ async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn, 
 async function getAuthorizedAuditFile(fileId, req) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    `SELECT f.*, s.submitted_by
+    `SELECT f.*, s.submitted_by, s.submitted_assignment_id, s.submitted_context_snapshot
      FROM audit_submission_files f
      JOIN audit_submissions s ON s.id = f.submission_id AND s.org_id = f.org_id
      WHERE f.id = ? AND f.org_id = ?`,
@@ -370,20 +429,29 @@ async function getAuthorizedAuditFile(fileId, req) {
   const assignment = await resolveActorAssignment(actor, orgId);
   if (!assignment) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
   const hrId = assignment.hr_id;
-  if (file.submitted_by === hrId) return { status: 'success', file };
+  if (file.submitted_by === hrId && submissionMatchesSubmitterAssignment(
+    file,
+    assignment.assignment_id
+  )) return { status: 'success', file };
 
   const pendingSteps = await submissionStepModel.getPendingByApprover(actor, assignment);
   if (pendingSteps.some(function(step) { return step.submission_id === file.submission_id; })) {
     return { status: 'success', file };
   }
 
+  const handledAssignmentSql = assignmentSqlExpression('e', 'handled_step');
   const [eventRows] = await pool.query(
-    `SELECT id FROM audit_events
-      WHERE submission_id = ? AND org_id = ?
-        AND ((? <> '' AND operator_person_id = ?)
-          OR ((operator_person_id IS NULL OR operator_person_id = '') AND operator_hr_id = ?))
+    `SELECT e.id FROM audit_events e
+      LEFT JOIN audit_submission_steps handled_step
+        ON handled_step.submission_id = e.submission_id
+       AND handled_step.sort_order = e.step_index
+       AND handled_step.round = e.round
+       AND handled_step.org_id = e.org_id
+      WHERE e.submission_id = ? AND e.org_id = ?
+        AND e.event_type IN ('approve', 'reject')
+        AND ${handledAssignmentSql} = ?
       LIMIT 1`,
-    [file.submission_id, orgId, safeString(actor.personId), safeString(actor.personId), hrId]
+    [file.submission_id, orgId, assignment.assignment_id]
   );
   if (eventRows.length) return { status: 'success', file };
 
@@ -400,6 +468,8 @@ module.exports = {
   normalizeUploadFileName,
   ensurePrivateDirectory,
   ensurePrivateFile,
+  resolveStoredAuditFilePath,
+  readStoredAuditFile,
   uploadOwnerHash,
   resolveUploadOwnerHash,
   createTempUpload,

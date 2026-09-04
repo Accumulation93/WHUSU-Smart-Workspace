@@ -26,7 +26,8 @@ let state = {
   templates: [{ id: 'template-1' }],
   rules: [],
   clauses: [],
-  configs: []
+  configs: [],
+  records: []
 };
 
 function cloneState(source) {
@@ -43,6 +44,9 @@ const connection = {
     if (normalized.startsWith('SELECT id, name FROM score_activities')) {
       return [state.activities.filter((row) => row.id === params[0] && row.org_id === params[1])];
     }
+    if (normalized.startsWith('SELECT id FROM score_activities')) {
+      return [state.activities.filter((row) => row.id === params[0] && row.org_id === params[1]).map((row) => ({ id: row.id }))];
+    }
     if (normalized.startsWith('SELECT id, name FROM departments')) {
       return [state.departments.filter((row) => row.id === params[0] && row.org_id === params[1])];
     }
@@ -55,20 +59,43 @@ const connection = {
     if (normalized.startsWith('SELECT id FROM score_question_templates')) {
       return [state.templates.filter((row) => row.id === params[0])];
     }
+    if (normalized.startsWith('SELECT rule_row.*')) {
+      return [state.rules
+        .filter((row) => row.id === params[0] && row.org_id === params[1])
+        .map((row) => Object.assign({}, row, {
+          score_count: state.records.filter((record) => record.rule_id === row.id && record.org_id === row.org_id).length
+        }))];
+    }
     if (normalized.startsWith('SELECT id FROM rate_target_rules WHERE id')) {
       return [state.rules.filter((row) => row.id === params[0] && row.org_id === params[1]).map((row) => ({ id: row.id }))];
     }
     if (normalized.startsWith('SELECT id FROM rate_target_rules WHERE activity_id')) {
-      return [state.rules.filter((row) => row.activity_id === params[0] && row.scorer_key === params[1] && row.org_id === params[2]).map((row) => ({ id: row.id }))];
+      return [state.rules.filter((row) => row.activity_id === params[0]
+        && row.scorer_key === params[1]
+        && row.org_id === params[2]
+        && (!params[4] || row.id !== params[4])).map((row) => ({ id: row.id }))];
     }
     if (normalized.startsWith('SELECT id FROM rate_rule_clauses')) {
       return [state.clauses.filter((row) => row.rule_id === params[0] && row.org_id === params[1]).map((row) => ({ id: row.id }))];
     }
+    if (normalized.startsWith('SELECT 1 FROM score_records')) {
+      return [state.records.filter((row) => row.rule_id === params[0] && row.org_id === params[1]).map(() => ({ present: 1 }))];
+    }
+    if (normalized.startsWith('SELECT * FROM rate_target_rules WHERE activity_id')) {
+      return [state.rules.filter((row) => row.activity_id === params[0] && row.org_id === params[1])];
+    }
+    if (normalized.startsWith('SELECT id, rule_id FROM score_records')) {
+      const ids = Array.isArray(params[0]) ? params[0] : [params[0]];
+      return [state.records.filter((row) => ids.includes(row.rule_id) && row.org_id === params[1])];
+    }
     if (normalized.startsWith('INSERT INTO rate_target_rules')) {
       if (params[2] === failOnDepartment) throw new Error('模拟第二条写入失败');
+      const generated = normalized.includes('VALUES (?, ?, ?, ?, ?, 1, 1, ?, ?, ?)');
       state.rules.push({
         id: params[0], activity_id: params[1], scorer_department_id: params[2],
-        scorer_identity_id: params[3], scorer_key: params[4], allow_self_assessment: params[5], org_id: params[6]
+        scorer_identity_id: params[3], scorer_key: params[4],
+        allow_self_assessment: generated ? 1 : params[5],
+        org_id: generated ? params[5] : params[6]
       });
       return [{ affectedRows: 1 }];
     }
@@ -91,6 +118,10 @@ const connection = {
     }
     if (normalized.startsWith('DELETE FROM rate_rule_clauses')) {
       state.clauses = state.clauses.filter((row) => row.rule_id !== params[0] || row.org_id !== params[1]);
+      return [{ affectedRows: 1 }];
+    }
+    if (normalized.startsWith('DELETE FROM rate_target_rules')) {
+      state.rules = state.rules.filter((row) => row.id !== params[0] || row.org_id !== params[1]);
       return [{ affectedRows: 1 }];
     }
     if (normalized.startsWith('INSERT INTO rate_rule_clauses')) {
@@ -129,12 +160,16 @@ const mocks = {
   '../models/rateRule': {},
   '../models/rateRuleClause': {},
   '../models/clauseTemplateConfig': {},
-  '../../../core/models/department': {},
-  '../../../core/models/identity': {},
-  '../models/scoreActivity': {},
+  '../../../core/models/department': { async getAll() { return state.departments.filter((row) => row.org_id === 'org-1'); } },
+  '../../../core/models/identity': { async getAll() { return state.identities.filter((row) => row.org_id === 'org-1'); } },
+  '../models/scoreActivity': { async getById(id) { return state.activities.find((row) => row.id === id && row.org_id === 'org-1') || null; } },
   '../models/scoreTemplate': {},
   '../models/scoreQuestion': {},
-  '../services/participants': {},
+  '../services/participants': {
+    async listParticipants() {
+      return [{ department_id: 'department-1', identity_id: 'identity-scorer' }];
+    }
+  },
   '../../../config/db': database,
   '../../../utils/orgContext': { async getCurrentOrgId() { return 'org-1'; } },
   '../../../core/services/dictionaryUsage': {
@@ -212,6 +247,19 @@ function rateRule(departmentId, overrides = {}) {
   assert.strictEqual(result.status, 'invalid_params');
   assert.strictEqual(state.rules.length, 0, '跨组织活动不得产生规则');
 
+  result = await invoke('/saveRateRule', rateRule('department-1', {
+    clauses: [{
+      scopeType: 'identity_only',
+      targetIdentityId: 'identity-target',
+      templateConfigs: [{
+        templateId: 'template-1', weight: 1, sortOrder: 1,
+        calculationMethod: 'unknown_method', trimHighCount: 0, trimLowCount: 0
+      }]
+    }]
+  }));
+  assert.strictEqual(result.status, 'invalid_params');
+  assert.strictEqual(state.rules.length, 0, '非法计算方式不得进入评分规则');
+
   failOnDepartment = 'department-2';
   result = await invoke('/batchSaveRateRules', { rules: [rateRule('department-1'), rateRule('department-2')] });
   assert.strictEqual(result.status, 'error');
@@ -240,6 +288,40 @@ function rateRule(departmentId, overrides = {}) {
   assert.strictEqual(single.rule.scorerDepartmentId, 'department-1');
   assert.strictEqual(single.rule.scorerIdentityId, 'identity-scorer');
   assert(Array.isArray(single.rule.clauses));
+
+  state.records.push({ id: 'record-1', rule_id: first.ids[0], org_id: 'org-1' });
+  const locked = await invoke('/saveRateRule', rateRule('department-2', {
+    id: first.ids[0]
+  }));
+  assert.strictEqual(locked.status, 'rule_identity_locked');
+
+  const blockedDelete = await invoke('/deleteRateRule', { id: first.ids[0] });
+  assert.strictEqual(blockedDelete.status, 'conflict');
+  assert(state.rules.some((row) => row.id === first.ids[0]), '有评分记录的规则不得删除');
+
+  state.records = [];
+  const deleted = await invoke('/deleteRateRule', { id: first.ids[0] });
+  assert.strictEqual(deleted.status, 'success');
+  assert(!state.rules.some((row) => row.id === first.ids[0]));
+
+  state.rules = [
+    { id: 'duplicate-a', activity_id: 'activity-1', scorer_department_id: 'department-1', scorer_identity_id: 'identity-scorer', scorer_key: 'department-1::identity-scorer', org_id: 'org-1' },
+    { id: 'duplicate-b', activity_id: 'activity-1', scorer_department_id: 'department-1', scorer_identity_id: 'identity-scorer', scorer_key: 'department-1::identity-scorer', org_id: 'org-1' }
+  ];
+  state.clauses = [];
+  state.configs = [];
+  state.records = [
+    { id: 'record-a', rule_id: 'duplicate-a', org_id: 'org-1' },
+    { id: 'record-b', rule_id: 'duplicate-b', org_id: 'org-1' }
+  ];
+  const duplicateConflict = await invoke('/generateRateTargetRules', { activityId: 'activity-1' });
+  assert.strictEqual(duplicateConflict.status, 'duplicate_rules_have_records');
+  assert.strictEqual(state.rules.length, 2, '两条重复规则均有历史评分时不得猜测保留哪一条');
+
+  state.records = [{ id: 'record-a', rule_id: 'duplicate-a', org_id: 'org-1' }];
+  const duplicateRepaired = await invoke('/generateRateTargetRules', { activityId: 'activity-1' });
+  assert.strictEqual(duplicateRepaired.status, 'success');
+  assert.deepStrictEqual(state.rules.map((row) => row.id), ['duplicate-a'], '必须保留已有历史评分的规则并删除无引用重复项');
 
   console.log('评分规则批量保存原子性、组织隔离、上限、重复项与幂等测试通过');
 })().catch((error) => {

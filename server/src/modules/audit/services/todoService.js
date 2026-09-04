@@ -11,6 +11,7 @@ const {
   toRuleProfile
 } = require('../../venue/services/venueAssignmentContext');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
+const { loadEffectivePermissions } = require('../../../core/services/adminPermissions');
 
 function groupBy(items, keyName) {
   const map = new Map();
@@ -131,6 +132,8 @@ async function listScoringItems(actor) {
 
 async function listHrProfileItems(actor, orgId) {
   if (actor.type !== 'admin') return [];
+  const effective = await loadEffectivePermissions(actor.profile, orgId);
+  if (!effective.permissions || effective.permissions['hr.profile_review'] !== true) return [];
   const records = await messageDataModel.getPendingHrProfiles(orgId);
   return records.map((record) => ({
     id: 'hr-profile:' + safeString(record.id),

@@ -48,6 +48,7 @@ Page({
 
   onUnload() {
     this.stopPolling();
+    orgSession.invalidateRequests(this);
   },
 
   // Pull-to-refresh handler
@@ -77,9 +78,10 @@ Page({
   },
 
   async checkForUpdates() {
+    const request = orgSession.beginRequest(this, 'pendingApprovalCount');
     try {
       let res = await callFunction({ name: 'checkPendingCount', data: {} });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         if (res.count !== this.data.lastPendingCount) {
           // Count changed — full reload
           this.loadData();

@@ -261,7 +261,11 @@ async function run() {
         MAX_FILE_SIZE: 10 * 1024 * 1024,
         assertAllowedFile: failOnCall,
         createTempUpload: failOnCall,
-        getAuthorizedAuditFile: failOnCall
+        getAuthorizedAuditFile: failOnCall,
+        ensurePrivateDirectory() {
+          moduleLoadFileChecks += 1;
+        },
+        readStoredAuditFile: failOnCall
       }
     }
   );

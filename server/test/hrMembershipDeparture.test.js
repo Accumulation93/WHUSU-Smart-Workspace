@@ -57,6 +57,11 @@ async function testDepartureUsesOneExplicitBatch() {
   assert.strictEqual(assignmentUpdate.params[0], membershipUpdate.params[0]);
   assert.strictEqual(assignmentUpdate.params[1], 'membership-1');
   assert.strictEqual(membershipUpdate.params[1], 'membership-1');
+  const snapshotClear = executed.find((item) => (
+    item.sql.startsWith('UPDATE hr_info')
+    && item.params[0] === null && item.params[1] === null && item.params[2] === null
+  ));
+  assert(snapshotClear, '离任必须清空当前岗位兼容快照，历史岗位只能从离任批次读取');
   assert(executed[0].sql.includes("om.status = 'active'"), '重复离任不得重写离任边界');
   const sessionUpdate = executed.find((item) => item.sql.startsWith('UPDATE auth_sessions'));
   const adminSessionUpdate = executed.find((item) => (
@@ -120,6 +125,11 @@ async function testReactivationDoesNotRestoreAssignments() {
     false,
     '重新加入只能恢复成员关系，不能恢复任何已撤销岗位'
   );
+  const snapshotClear = executed.find((item) => (
+    item.sql.startsWith('UPDATE hr_info')
+    && item.params[0] === null && item.params[1] === null && item.params[2] === null
+  ));
+  assert(snapshotClear, '重新加入必须防御性清空旧版本遗留的岗位兼容快照');
 }
 
 async function testFormerAssignmentsRequireMatchingDepartureBatch() {

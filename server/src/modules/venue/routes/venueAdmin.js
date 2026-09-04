@@ -24,6 +24,7 @@ const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const { createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
+const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
@@ -372,16 +373,14 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     const approverIdentityId = ruleType === 'identity' ? safeString(req.body.approverIdentityId) : '';
     const approverHrId = ruleType === 'person' ? safeString(req.body.approverHrId) : '';
     const approverAssignmentId = ruleType === 'person' ? safeString(req.body.approverAssignmentId) : '';
+    const scopeDepartmentId = safeString(req.body.scopeDepartmentId);
+    const scopeWorkGroupId = safeString(req.body.scopeWorkGroupId);
     if (ruleType === 'identity' && !approverIdentityId) {
       return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleIdentityRequired });
     }
     if (ruleType === 'person') {
       if (!approverHrId || !approverAssignmentId) {
         return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleAssignmentRequired });
-      }
-      const activeAssignments = await listActiveAssignmentsByLegacyHrId(approverHrId, orgId);
-      if (!activeAssignments.some(function(item) { return safeString(item.assignmentId) === approverAssignmentId; })) {
-        return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleAssignmentInvalid });
       }
     }
 
@@ -392,6 +391,22 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       await conn.rollback();
       transactionStarted = false;
       return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    }
+
+    await dictionaryUsage.assertDictionaryReferences({
+      organizationId: orgId,
+      departmentIds: scopeDepartmentId ? [scopeDepartmentId] : [],
+      identityCategoryIds: approverIdentityId ? [approverIdentityId] : [],
+      workGroupIds: scopeWorkGroupId ? [scopeWorkGroupId] : [],
+      connection: conn
+    });
+    if (ruleType === 'person') {
+      const activeAssignments = await listActiveAssignmentsByLegacyHrId(approverHrId, orgId, conn);
+      if (!activeAssignments.some(function(item) { return safeString(item.assignmentId) === approverAssignmentId; })) {
+        await conn.rollback();
+        transactionStarted = false;
+        return res.json({ status: 'invalid_params', message: localeCopy.bookingRuleAssignmentInvalid });
+      }
     }
 
     // 同一场地的规则切换由场地行串行化，避免并发写入产生“直接通过 + 审批流”混合状态。
@@ -420,8 +435,8 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       approverIdentityId,
       approverHrId,
       approverAssignmentId,
-      scopeDepartmentId: safeString(req.body.scopeDepartmentId),
-      scopeWorkGroupId: safeString(req.body.scopeWorkGroupId),
+      scopeDepartmentId,
+      scopeWorkGroupId,
       sortOrder: parseInt(req.body.sortOrder) || 1
     };
     if (existing && ruleType !== 'direct') {
@@ -451,15 +466,36 @@ router.post('/saveVenueBookingRule', async (req, res) => {
 
 // deleteVenueBookingRule
 router.post('/deleteVenueBookingRule', async (req, res) => {
+  let conn = null;
+  let transactionStarted = false;
   try {
+    conn = await pool.getConnection();
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_0a29a31b8e });
-    await venueBookingRuleModel.remove(id);
+    const existing = await venueBookingRuleModel.getById(id);
+    if (!existing) return res.json({ status: 'not_found', message: localeCopy.copy_0a29a31b8e });
+    await conn.beginTransaction();
+    transactionStarted = true;
+    const venue = await venueModel.getByIdForUpdate(existing.venue_id, conn);
+    const lockedRule = await venueBookingRuleModel.getById(id, conn, true);
+    if (!venue || !lockedRule || safeString(lockedRule.venue_id) !== safeString(existing.venue_id)) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'not_found', message: localeCopy.copy_0a29a31b8e });
+    }
+    await venueBookingRuleModel.remove(id, conn);
+    await conn.commit();
+    transactionStarted = false;
     res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
+    if (transactionStarted) {
+      try { await conn.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
@@ -863,7 +899,9 @@ router.post('/approveVenueBooking', async (req, res) => {
     await conn.commit();
 
     // Clear old pending_approval notifications + notify submitter
-    await notificationModel.deleteByTarget('booking', id);
+    await notificationModel.deleteByTarget('booking', id).catch(function(error) {
+      console.error('[venueAdmin] pending notification cleanup failed:', error.message);
+    });
     res.json({ status: 'success', message: localeCopy.copy_a453f693a6 });
   } catch (e) {
     await conn.rollback();
@@ -920,7 +958,9 @@ router.post('/rejectVenueBooking', async (req, res) => {
     await conn.commit();
 
     // Clear old pending_approval notifications + notify submitter
-    await notificationModel.deleteByTarget('booking', id);
+    await notificationModel.deleteByTarget('booking', id).catch(function(error) {
+      console.error('[venueAdmin] pending notification cleanup failed:', error.message);
+    });
     res.json({ status: 'success', message: localeCopy.copy_c7b826b0c0 });
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
