@@ -13,6 +13,7 @@ const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
 const venueBookingPolicyModel = require('../models/venueBookingPolicy');
+const venueModel = require('../models/venue');
 const { normalizeBookingWindow } = require('../services/venueBookingWindow');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingRuleModel = require('../models/venueBookingRule');
@@ -166,6 +167,11 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
 
     await conn.beginTransaction();
     const orgId = await getCurrentOrgId();
+    const venue = await venueModel.getByIdForUpdate(venueId, conn);
+    if (!venue) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    }
     await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
     for (const step of stepsData) {
       for (const rule of step.rules) {
@@ -178,7 +184,7 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
 
     // Clean up conflicting 'direct' booking rules when saving a flow
     // (user is explicitly choosing flow-based approval over direct)
-    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId, conn, true);
     for (const rule of bookingRules) {
       if (rule.rule_type === 'direct') {
         await venueBookingRuleModel.remove(rule.id, conn);
@@ -188,13 +194,13 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
     // Upsert flow（多流程：flowId 优先，无 flowId 时兼容旧的单流程场地）
     let flow = null;
     if (flowIdParam) {
-      flow = await flowModel.getById(flowIdParam);
+      flow = await flowModel.getById(flowIdParam, conn, true);
       if (flow && flow.venue_id !== venueId) {
         await conn.rollback();
         return res.json({ status: 'invalid_params', message: localeCopy.copy_00853d1d28 });
       }
     }
-    if (!flow) flow = await flowModel.getByVenueId(venueId);
+    if (!flow) flow = await flowModel.getByVenueId(venueId, conn, true);
     if (flow) {
       await flowModel.update(flow.id, {
         name: flowName,
@@ -472,6 +478,8 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         isRejected: false
       },
       completed: completed,
+      processedStepCount: Number(prepared.processedStepCount) || 1,
+      autoApprovedStepCount: Number(prepared.autoApprovedStepCount) || 0,
       activeFlowIds: prepared.summary.activeFlowIds,
       flowSummary: prepared.summary.flowSummary,
       candidateMissing: Boolean(prepared.candidateMissing)

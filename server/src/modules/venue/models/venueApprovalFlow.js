@@ -1,10 +1,11 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-async function getByVenueId(venueId) {
+async function getByVenueId(venueId, conn, forUpdate) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT * FROM venue_approval_flows WHERE venue_id = ? AND org_id = ? AND is_active = 1',
+  const db = conn || pool;
+  const [rows] = await db.query(
+    'SELECT * FROM venue_approval_flows WHERE venue_id = ? AND org_id = ? AND is_active = 1' + (forUpdate ? ' FOR UPDATE' : ''),
     [venueId, orgId]
   );
   return rows[0] || null;
@@ -38,10 +39,11 @@ async function listUsableByVenueId(venueId, orgIdOverride, conn) {
   return rows;
 }
 
-async function getById(id) {
+async function getById(id, conn, forUpdate) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT * FROM venue_approval_flows WHERE id = ? AND org_id = ?',
+  const db = conn || pool;
+  const [rows] = await db.query(
+    'SELECT * FROM venue_approval_flows WHERE id = ? AND org_id = ?' + (forUpdate ? ' FOR UPDATE' : ''),
     [id, orgId]
   );
   return rows[0] || null;
@@ -86,4 +88,10 @@ async function remove(id, conn) {
   await db.query('DELETE FROM venue_approval_flows WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByVenueId, listByVenueId, listUsableByVenueId, getById, create, update, remove };
+async function removeByVenueId(venueId, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query('DELETE FROM venue_approval_flows WHERE venue_id = ? AND org_id = ?', [venueId, orgId]);
+}
+
+module.exports = { getByVenueId, listByVenueId, listUsableByVenueId, getById, create, update, remove, removeByVenueId };

@@ -22,7 +22,6 @@ const REASONS = Object.freeze({
   INVALID_HR: localeCopy.applicantSnapshotMissing,
   FLOW_SNAPSHOT_MISSING: localeCopy.flowSnapshotMissing,
   RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
-  ALREADY_APPROVED: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤',
   DESIGNATED_ONLY: '该步骤已指定审批人，只有指定人员可以审批',
   DESIGNATE_FIRST_NOT_ALLOWED: localeCopy.firstDesignationNotAllowed,
   DESIGNATE_NEXT_NOT_ALLOWED: localeCopy.nextDesignationNotAllowed,
@@ -476,18 +475,6 @@ async function evaluateActorEligibility(booking, actor, orgId) {
   }
   await recomputeActiveFlows(state, flowsMap);
 
-  const actorPersonId = safeString(effectiveActor && effectiveActor.personId);
-  const actorLegacyId = safeString(effectiveActor && effectiveActor.id);
-  const snapshots = parseSnapshots(booking && booking.approval_snapshots_json);
-  const alreadyApproved = snapshots.some(function(snapshot) {
-    const snapshotPersonId = safeString(snapshot.approverPersonId);
-    if (actorPersonId && snapshotPersonId) return snapshotPersonId === actorPersonId;
-    return actorLegacyId && safeString(snapshot.approverHrId) === actorLegacyId;
-  });
-  if (alreadyApproved) {
-    return { ok: false, reason: REASONS.ALREADY_APPROVED, state, flowsMap, candidateMissing: false };
-  }
-
   const matchedFlows = [];
   for (const flowId of Object.keys(state.flows)) {
     const st = state.flows[flowId];
@@ -531,6 +518,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
   const singleFlow = isSingleFlowState(state);
   let completedFlowId = null;
   let validatedNextDesignation = null;
+  let processedStepCount = 0;
+  let autoApprovedStepCount = 0;
 
   if (safeString(nextDesignation && nextDesignation.assignmentId)) {
     if (!singleFlow || matched.length !== 1) {
@@ -551,10 +540,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     );
   }
 
-  for (const item of matched) {
+  function recordApproval(item, step, automatic) {
     const st = item.st;
-    const flow = item.flow;
-    const step = item.step;
     snapshots.push({
       flowId: item.flowId,
       stepIndex: Number(st.stepIndex),
@@ -567,7 +554,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       approverContextId: safeString(effectiveActor.contextId),
       approverIdentityType: safeString(effectiveActor.type),
       approverName: effectiveActor.name || (effectiveActor.type === 'admin' ? '管理员' : ''),
-      comment: comment || '',
+      comment: automatic ? '' : (comment || ''),
+      automatic: Boolean(automatic),
       approvedAt: now
     });
     st.approvedSteps.push({
@@ -576,10 +564,19 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       approverPersonId: safeString(effectiveActor.personId),
       approverAssignmentId: safeString(effectiveActor.assignmentId),
       approverAdminGrantId: safeString(effectiveActor.adminGrantId),
-      approverType: safeString(effectiveActor.type)
+      approverType: safeString(effectiveActor.type),
+      automatic: Boolean(automatic)
     });
     delete st.designated[String(st.stepIndex)];
     st.stepIndex = Number(st.stepIndex) + 1;
+    processedStepCount += 1;
+    if (automatic) autoApprovedStepCount += 1;
+  }
+
+  for (const item of matched) {
+    const st = item.st;
+    const flow = item.flow;
+    recordApproval(item, item.step, false);
 
     if (st.stepIndex >= flow.steps.length) {
       st.completed = true;
@@ -589,6 +586,19 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     }
     if (validatedNextDesignation) {
       st.designated[String(st.stepIndex)] = validatedNextDesignation;
+    }
+
+    // 同一次人工审批后，连续步骤仍由同一当前岗位审批时自动推进。
+    // 每个自动步骤都写入独立不可变快照，保证历史顺序和岗位事实完整。
+    while (st.active && !st.completed && st.stepIndex < flow.steps.length) {
+      if (!await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) break;
+      const automaticStep = flow.steps[Number(st.stepIndex)];
+      recordApproval(item, automaticStep, true);
+      if (st.stepIndex >= flow.steps.length) {
+        st.completed = true;
+        st.active = false;
+        if (!completedFlowId) completedFlowId = item.flowId;
+      }
     }
   }
 
@@ -607,6 +617,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       state,
       snapshots,
       actor: effectiveActor,
+      processedStepCount,
+      autoApprovedStepCount,
       totalSteps: completedFlow ? completedFlow.steps.length : Number(booking.approval_total_steps || 0),
       summary: summarizeState(state, flowsMap)
     };
@@ -640,6 +652,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     state,
     snapshots,
     actor: effectiveActor,
+    processedStepCount,
+    autoApprovedStepCount,
     totalSteps: flowLengths.length ? Math.max.apply(null, flowLengths) : Number(booking.approval_total_steps || 0),
     candidateMissing,
     summary: summarizeState(state, flowsMap)

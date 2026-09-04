@@ -76,6 +76,27 @@ const noChairFlow = {
     }
   ]
 };
+const consecutiveChairFlow = {
+  id: 'flow-consecutive-chair',
+  venue_id: 'v1',
+  org_id: ORG,
+  name: '主席团连续审批',
+  allow_user_select: 0,
+  allow_designate_first: 0,
+  allow_designate_next: 0,
+  steps: [
+    {
+      id: 's-chair-1', flow_id: 'flow-consecutive-chair', sort_order: 1, name: '主席团初审',
+      approval_mode: 'hr_rule', org_id: ORG,
+      rules: [{ id: 'r-chair-1', step_id: 's-chair-1', department_scope: 'all', work_group_scope: 'all', identity_scope: 'specific', specific_identity_id: 'chairman' }]
+    },
+    {
+      id: 's-chair-2', flow_id: 'flow-consecutive-chair', sort_order: 2, name: '主席团复核',
+      approval_mode: 'hr_rule', org_id: ORG,
+      rules: [{ id: 'r-chair-2', step_id: 's-chair-2', department_scope: 'all', work_group_scope: 'all', identity_scope: 'specific', specific_identity_id: 'chairman' }]
+    }
+  ]
+};
 
 const pool = {
   async query(sql, params) {
@@ -85,7 +106,7 @@ const pool = {
     if (sql.indexOf('venue_approval_flows WHERE id') >= 0) {
       liveFlowDefinitionQueries += 1;
       const id = String(params[0]);
-      return [[[flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === id; }) || null]];
+      return [[[flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === id; }) || null]];
     }
     if (sql.indexOf('admin_grants') >= 0 && sql.indexOf('status = \'active\'') >= 0) {
       return [[{ ok: 1 }]];
@@ -138,7 +159,7 @@ const assignmentContext = {
 const stepModel = {
   async getByFlowId(flowId, orgId) {
     assert.strictEqual(orgId, ORG, '跨组织待办加载步骤时必须显式使用借用审批组织');
-    return [flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === flowId; }).steps;
+    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === flowId; }).steps;
   }
 };
 
@@ -176,7 +197,7 @@ function userActor(hrId, personId, assignmentId) {
 
 function makeBooking(flowState) {
   const flowList = Object.keys(flowState.flows || {}).map(function(flowId) {
-    return [flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === flowId; });
+    return [flowDept, flowAdmin, noChairFlow, consecutiveChairFlow].find(function(flow) { return flow.id === flowId; });
   }).filter(Boolean);
   const stepsByFlow = {};
   flowList.forEach(function(flow) { stepsByFlow[flow.id] = flow.steps; });
@@ -283,6 +304,49 @@ async function run() {
   assert.strictEqual(chairmanAfter.ok, true, '第2步主席团应可见');
   const adminAfter = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
   assert.strictEqual(adminAfter.ok, true, '管理员流程仍应可见');
+
+  // 连续步骤由同一当前岗位负责时，一次人工审批应自动完成后续连续步骤。
+  const consecutiveBooking = makeBooking(engine.buildInitialFlowState([consecutiveChairFlow], null, null));
+  const consecutiveApproval = await engine.prepareApproval(
+    consecutiveBooking,
+    userActor('hr-chair'),
+    '同意',
+    null,
+    ORG
+  );
+  assert.strictEqual(consecutiveApproval.ok, true);
+  assert.strictEqual(consecutiveApproval.completed, true, '同一审批人连续命中后续步骤时应自动完成流程');
+  assert.strictEqual(consecutiveApproval.processedStepCount, 2);
+  assert.strictEqual(consecutiveApproval.autoApprovedStepCount, 1);
+  assert.strictEqual(consecutiveApproval.snapshots.length, 2, '人工步骤和自动步骤都必须保留独立审批快照');
+  assert.strictEqual(consecutiveApproval.snapshots[0].automatic, false);
+  assert.strictEqual(consecutiveApproval.snapshots[1].automatic, true);
+  assert.strictEqual(consecutiveApproval.snapshots[1].approverAssignmentId, 'a-chair');
+  assert.strictEqual(consecutiveApproval.snapshots[1].stepName, '主席团复核');
+
+  // 已在旧版本完成第一步的在途记录，升级后同一人仍应能继续处理第二步。
+  const resumedState = engine.buildInitialFlowState([consecutiveChairFlow], null, null);
+  resumedState.flows['flow-consecutive-chair'].stepIndex = 1;
+  resumedState.flows['flow-consecutive-chair'].approvedSteps.push({
+    stepIndex: 0,
+    approverHrId: 'hr-chair',
+    approverPersonId: 'p-chair',
+    approverAssignmentId: 'a-chair',
+    approverType: 'user'
+  });
+  const resumedBooking = makeBooking(resumedState);
+  resumedBooking.approval_snapshots_json = JSON.stringify([{
+    flowId: 'flow-consecutive-chair',
+    stepIndex: 0,
+    approverHrId: 'hr-chair',
+    approverPersonId: 'p-chair',
+    approverAssignmentId: 'a-chair'
+  }]);
+  const resumedEligibility = await engine.evaluateActorEligibility(resumedBooking, userActor('hr-chair'), ORG);
+  assert.strictEqual(resumedEligibility.ok, true, '历史第一步审批人不得被错误排除在当前步骤之外');
+  const resumedApproval = await engine.prepareApproval(resumedBooking, userActor('hr-chair'), '同意', null, ORG);
+  assert.strictEqual(resumedApproval.completed, true);
+  assert.strictEqual(resumedApproval.snapshots.length, 2);
 
   // 当前流程被改名、改规则、停用甚至从当前配置查询中消失后，在途授权仍只认借用快照。
   const originalFlowName = flowDept.name;

@@ -21,6 +21,14 @@ async function getById(id) {
   return rows[0] || null;
 }
 
+async function getByIdForUpdate(id, conn) {
+  const [rows] = await conn.query(
+    'SELECT * FROM venues WHERE id = ? FOR UPDATE',
+    [id]
+  );
+  return rows[0] || null;
+}
+
 async function create(id, data, conn) {
   const { name, location, description, imageUrl } = data;
   const db = conn || pool;
@@ -51,4 +59,4 @@ async function remove(id, conn) {
   await db.query('UPDATE venues SET is_active = 0 WHERE id = ?', [id]);
 }
 
-module.exports = { getAll, getAllByOrg, getById, create, update, remove };
+module.exports = { getAll, getAllByOrg, getById, getByIdForUpdate, create, update, remove };

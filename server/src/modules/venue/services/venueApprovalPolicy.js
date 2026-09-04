@@ -10,8 +10,7 @@ const REASONS = Object.freeze({
   USER_ROLE_REQUIRED: '当前步骤需切换到普通用户身份审批',
   NO_RULES: '请联系管理员设置审批条件',
   INVALID_HR: '绑定的人事信息不存在',
-  RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
-  ALREADY_APPROVED: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤'
+  RULE_MISMATCH: '您不符合当前审批步骤的审批条件'
 });
 
 function parseSnapshots(raw) {
@@ -40,18 +39,6 @@ function evaluateVenueApprovalStep({ booking, actor, steps, applicantHrInfo }) {
   }
 
   const step = flowSteps[currentStep];
-  const actorPersonId = safeString(actor && actor.personId);
-  const actorLegacyId = safeString(actor && actor.id);
-  const alreadyApproved = parseSnapshots(booking.approval_snapshots_json)
-    .some((snapshot) => {
-      const snapshotPersonId = safeString(snapshot.approverPersonId);
-      if (actorPersonId && snapshotPersonId) return snapshotPersonId === actorPersonId;
-      return actorLegacyId && safeString(snapshot.approverHrId) === actorLegacyId;
-    });
-  if (alreadyApproved) {
-    return { ok: false, reason: REASONS.ALREADY_APPROVED, step };
-  }
-
   const approvalMode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
   if (approvalMode === 'admin_any') {
     return actor && actor.type === 'admin'

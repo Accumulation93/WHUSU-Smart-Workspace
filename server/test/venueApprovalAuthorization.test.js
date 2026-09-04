@@ -101,14 +101,15 @@ assert.strictEqual(mismatchedIdentity.reason, REASONS.RULE_MISMATCH);
 
 const alreadyApproved = evaluateVenueApprovalStep({
   booking: booking({
+    approval_current_step: 1,
+    approval_total_steps: 2,
     approval_snapshots_json: JSON.stringify([{ approverHrId: chairman.id }])
   }),
   actor: userActor(),
-  steps: [hrStep],
+  steps: [hrStep, { ...hrStep, id: 'step-2', name: '主席团复核' }],
   applicantHrInfo: applicant
 });
-assert.strictEqual(alreadyApproved.ok, false);
-assert.strictEqual(alreadyApproved.reason, REASONS.ALREADY_APPROVED);
+assert.strictEqual(alreadyApproved.ok, true, '同一岗位满足连续步骤时不得因处理过前置步骤而失去资格');
 
 const invalidBinding = evaluateVenueApprovalStep({
   booking: booking(),

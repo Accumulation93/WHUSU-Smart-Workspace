@@ -355,7 +355,10 @@ router.post('/saveVenueBookingWindow', async (req, res) => {
 
 // saveVenueBookingRule
 router.post('/saveVenueBookingRule', async (req, res) => {
+  let conn = null;
+  let transactionStarted = false;
   try {
+    conn = await pool.getConnection();
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
@@ -382,21 +385,32 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       }
     }
 
-    // Mutual exclusion + auto-cleanup
-    const allRules = await venueBookingRuleModel.getByVenueId(venueId);
+    await conn.beginTransaction();
+    transactionStarted = true;
+    const venue = await venueModel.getByIdForUpdate(venueId, conn);
+    if (!venue) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    }
+
+    // 同一场地的规则切换由场地行串行化，避免并发写入产生“直接通过 + 审批流”混合状态。
+    const existing = await venueBookingRuleModel.getById(id, conn, true);
+    if (existing && safeString(existing.venue_id) !== venueId) {
+      await conn.rollback();
+      transactionStarted = false;
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    }
+    const allRules = await venueBookingRuleModel.getByVenueId(venueId, conn, true);
     const otherRules = allRules.filter(r => r.id !== id);
 
     if (ruleType === 'direct') {
-      // User chose direct — auto-delete other rules and any existing flow
-      for (const r of otherRules) {
-        await venueBookingRuleModel.remove(r.id);
-      }
-      const existingFlow = await venueApprovalFlowModel.getByVenueId(venueId);
-      if (existingFlow) {
-        await venueApprovalFlowModel.remove(existingFlow.id);
-      }
+      // 直接通过与其他规则、全部审批流互斥，必须在同一事务内完成切换。
+      await venueBookingRuleModel.removeByVenueId(venueId, conn);
+      await venueApprovalFlowModel.removeByVenueId(venueId, conn);
     } else if (otherRules.some(r => r.rule_type === 'direct')) {
-      // Adding a new non-direct rule alongside an existing direct rule — blocked
+      await conn.rollback();
+      transactionStarted = false;
       return res.json({ status: 'invalid_params', message: localeCopy.copy_5a1d00f140 });
     }
 
@@ -410,22 +424,28 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       scopeWorkGroupId: safeString(req.body.scopeWorkGroupId),
       sortOrder: parseInt(req.body.sortOrder) || 1
     };
-    const existing = await venueBookingRuleModel.getById(id);
-    if (existing) {
-      await venueBookingRuleModel.update(id, data);
+    if (existing && ruleType !== 'direct') {
+      await venueBookingRuleModel.update(id, data, conn);
     } else {
-      await venueBookingRuleModel.create(id, data);
+      await venueBookingRuleModel.create(id, data, conn);
     }
     if (req.body.bookingWindow !== undefined) {
       const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
       const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
         id: currentPolicy ? currentPolicy.id : generateId()
       }));
-      await venueBookingPolicyModel.upsert(venueId, bookingWindow);
+      await venueBookingPolicyModel.upsert(venueId, bookingWindow, conn);
     }
+    await conn.commit();
+    transactionStarted = false;
     res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
+    if (transactionStarted) {
+      try { await conn.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
