@@ -3,7 +3,8 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS preserve_merit_designation_history$$
 CREATE PROCEDURE preserve_merit_designation_history()
 BEGIN
-  DECLARE delete_rule VARCHAR(20) DEFAULT NULL;
+  DECLARE legacy_delete_rule VARCHAR(20) DEFAULT NULL;
+  DECLARE restrict_delete_rule VARCHAR(20) DEFAULT NULL;
   DECLARE orphan_count BIGINT DEFAULT 0;
 
   SELECT COUNT(*) INTO orphan_count
@@ -18,21 +19,33 @@ BEGIN
       SET MESSAGE_TEXT = '评优名单存在无法关联的规则条款，停止迁移并等待人工核对';
   END IF;
 
-  SELECT DELETE_RULE INTO delete_rule
+  SELECT DELETE_RULE INTO legacy_delete_rule
     FROM information_schema.REFERENTIAL_CONSTRAINTS
    WHERE CONSTRAINT_SCHEMA = DATABASE()
      AND TABLE_NAME = 'merit_list_designations'
      AND CONSTRAINT_NAME = 'fk_mld_clause'
    LIMIT 1;
 
-  IF delete_rule IS NOT NULL AND delete_rule <> 'RESTRICT' THEN
-    ALTER TABLE merit_list_designations DROP FOREIGN KEY fk_mld_clause;
-    SET delete_rule = NULL;
+  SELECT DELETE_RULE INTO restrict_delete_rule
+    FROM information_schema.REFERENTIAL_CONSTRAINTS
+   WHERE CONSTRAINT_SCHEMA = DATABASE()
+     AND TABLE_NAME = 'merit_list_designations'
+     AND CONSTRAINT_NAME = 'fk_mld_clause_restrict'
+   LIMIT 1;
+
+  IF restrict_delete_rule IS NOT NULL AND restrict_delete_rule <> 'RESTRICT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = '评优名单保护外键规则异常，停止迁移并等待人工核对';
   END IF;
 
-  IF delete_rule IS NULL THEN
+  IF legacy_delete_rule IS NOT NULL AND legacy_delete_rule <> 'RESTRICT' THEN
+    ALTER TABLE merit_list_designations DROP FOREIGN KEY fk_mld_clause;
+    SET legacy_delete_rule = NULL;
+  END IF;
+
+  IF legacy_delete_rule IS NULL AND restrict_delete_rule IS NULL THEN
     ALTER TABLE merit_list_designations
-      ADD CONSTRAINT fk_mld_clause
+      ADD CONSTRAINT fk_mld_clause_restrict
       FOREIGN KEY (clause_id) REFERENCES pub_merit_rule_clauses(id)
       ON DELETE RESTRICT;
   END IF;

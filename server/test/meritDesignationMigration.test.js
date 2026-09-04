@@ -99,11 +99,17 @@ async function run() {
       );
       assert.strictEqual(Number(audit.total), 0, '全部唯一映射时不得产生待人工核对项');
       const [[constraint]] = await verify.query(
-        `SELECT DELETE_RULE AS deleteRule
-           FROM information_schema.REFERENTIAL_CONSTRAINTS
-          WHERE CONSTRAINT_SCHEMA = DATABASE()
-            AND TABLE_NAME = 'merit_list_designations'
-            AND CONSTRAINT_NAME = 'fk_mld_clause'`
+        `SELECT constraint_row.DELETE_RULE AS deleteRule
+           FROM information_schema.REFERENTIAL_CONSTRAINTS constraint_row
+           JOIN information_schema.KEY_COLUMN_USAGE column_row
+             ON column_row.CONSTRAINT_SCHEMA = constraint_row.CONSTRAINT_SCHEMA
+            AND column_row.TABLE_NAME = constraint_row.TABLE_NAME
+            AND column_row.CONSTRAINT_NAME = constraint_row.CONSTRAINT_NAME
+          WHERE constraint_row.CONSTRAINT_SCHEMA = DATABASE()
+            AND constraint_row.TABLE_NAME = 'merit_list_designations'
+            AND column_row.COLUMN_NAME = 'clause_id'
+            AND column_row.REFERENCED_TABLE_NAME = 'pub_merit_rule_clauses'
+          LIMIT 1`
       );
       assert.strictEqual(constraint.deleteRule, 'RESTRICT', '评优名单外键必须阻止规则条款级联删除');
       await assert.rejects(
