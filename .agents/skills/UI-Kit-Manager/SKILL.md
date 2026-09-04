@@ -173,6 +173,8 @@ For documentation-only work, verify file existence, link/read order consistency,
 - 全局 UI 审计必须把裸露 `section-title`、`section-stack` 直属标题/页签/按钮组、未迁移的 `list-actions` 和审核模板绝对定位操作视为失败；手机、Pad 竖屏、Pad 横屏均须核对长标题、按钮换行、展开与收起。
 - 同一视觉行中的日期/时间选择器、筛选按钮、清除/重置按钮必须由 `.ui-inline-control-row` 统一 `align-items:center`，可交互子项统一使用 `.ui-inline-control` 和 `--ui-inline-control-height`。带标签的筛选字段列使用 `.ui-inline-field-row` 对齐字段底边，并让其 `.compact-picker-value` / `.field-input` 共享同一最终高度；原生 `input` 仍须 `display:block`。禁止任何子项以私有 `margin-top/bottom`、不同 `min-height` 或固定行高偏离共同基线；换行后每一行仍按同一高度对齐。
 - 标题旁的宫格/列表等二态视图切换属于 `.ui-compact-segmented`，子项使用 `.ui-compact-segmented-item` 和 `--ui-compact-height`；不得复用整行主页签的 `--ui-tab-min-height`、整行均分或 Pad 横屏 `50px` 规则，避免挤压标题。
+- 管理工作台的顶层页签必须保持全部可达：不超过五项时在同一玻璃分段控件中单行等宽排列，子项可收缩但文字不得拆字；禁止末项换到孤立第二行、被裁切或因权限刷新看似消失。超过五项时采用明确的横向滚动，并让当前项自动进入可视区；三档设备都要实际点击首末页签验收。
+- 详情页返回已有列表时采用“内容常驻、后台刷新”：已有卡片不得被刷新中的整页 loading 遮住。仅首次进入、查询口径变化或工作角色切换使旧数据失效时允许清空并展示首屏加载；现场验收必须包含“进入详情再返回”的连续操作。
 - 全局审计发现既有同行控件时必须检查父级 `align-items`、子项最终物理高度、上下 margin 和设备覆盖顺序；不能只看源码中是否写了 `align-items:center`，还要排除共享同名选择器造成的级联偏移。
 
 ## 硬规范：卡片式选择器

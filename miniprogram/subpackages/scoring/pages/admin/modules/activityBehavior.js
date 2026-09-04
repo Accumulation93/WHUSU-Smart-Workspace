@@ -13,6 +13,11 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('listScoreActivities');
         if (!orgSession.isRequestCurrent(this, request)) return;
+        if (!result || result.status !== 'success') {
+          const error = new Error(result && result.message ? result.message : localeCopy.copy_8b63ce8619);
+          error.status = result && result.status ? result.status : 'error';
+          throw error;
+        }
         const currentActivity = (result.list || []).find((item) => item.id === (result.currentActivityId || '')) || {};
         this.setData({
           activityList: result.list || [],

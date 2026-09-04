@@ -175,7 +175,7 @@ async function flush() {
   pendingTargets = {};
   page.onShow();
   assert.equal(page.data.targetList.length, 1, '从评分页返回时必须保留已有名单');
-  assert.equal(page.data.targetsLoading, true, '返回后允许后台刷新状态');
+  assert.equal(page.data.targetsLoading, false, '返回后后台刷新不得用加载态遮住已有名单');
   assert.equal(calls.filter((name) => name === 'getCurrentScoreActivity').length, firstActivityCalls,
     '同一岗位返回时不得重复加载活动');
   assert.equal(calls.filter((name) => name === 'getPublicResults').length, firstPublicationCalls,

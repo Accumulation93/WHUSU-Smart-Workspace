@@ -36,7 +36,8 @@ const MAX_BATCH_RULES = 200;
 async function resolveAdmin(req) {
   // 生产请求由统一权限中间件注入当前管理角色；legacy 查询只供无中间件的
   // 独立测试夹具兼容，不能覆盖已经验证的当前角色。
-  return req.admin || adminInfoModel.getByOpenid(req.openid);
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
 }
 
 class PublicationRuleRequestError extends Error {
@@ -354,12 +355,32 @@ async function savePubMeritRuleWithConnection(connection, orgId, input) {
       );
     }
   }
-  for (const oldClause of oldClauses) {
-    if (keptClauseIds.has(oldClause.id)) continue;
-    await connection.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [oldClause.id, orgId]);
-    await connection.query('DELETE FROM pub_merit_rule_clauses WHERE id = ? AND rule_id = ? AND org_id = ?', [oldClause.id, ruleId, orgId]);
+  const removedClauseIds = oldClauses
+    .filter((oldClause) => !keptClauseIds.has(oldClause.id))
+    .map((oldClause) => oldClause.id);
+  await assertMeritClausesHaveNoDesignations(connection, orgId, removedClauseIds);
+  for (const oldClauseId of removedClauseIds) {
+    await connection.query(
+      'DELETE FROM pub_merit_rule_clauses WHERE id = ? AND rule_id = ? AND org_id = ?',
+      [oldClauseId, ruleId, orgId]
+    );
   }
   return ruleId;
+}
+
+async function assertMeritClausesHaveNoDesignations(connection, orgId, clauseIds) {
+  const ids = [...new Set((clauseIds || []).map(safeString).filter(Boolean))];
+  if (!ids.length) return;
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await connection.query(
+    `SELECT id FROM merit_list_designations
+      WHERE clause_id IN (${placeholders}) AND org_id = ?
+      LIMIT 1 FOR UPDATE`,
+    [...ids, orgId]
+  );
+  if (rows[0]) {
+    rejectPublicationRule('rule_has_designations', scoringCopy.publicationRuleHasDesignations);
+  }
 }
 
 function assertUniquePublicationRuleBatch(items) {
@@ -405,9 +426,7 @@ async function deletePubMeritRuleWithConnection(connection, orgId, ruleId, optio
     'SELECT id FROM pub_merit_rule_clauses WHERE rule_id = ? AND org_id = ? FOR UPDATE',
     [ruleId, orgId]
   );
-  for (const clause of clauses) {
-    await connection.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
-  }
+  await assertMeritClausesHaveNoDesignations(connection, orgId, clauses.map((clause) => clause.id));
   await connection.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
   await connection.query('DELETE FROM pub_merit_rules WHERE id = ? AND org_id = ?', [ruleId, orgId]);
   return true;
@@ -454,8 +473,6 @@ function applyGradeBands(score, bands) {
   logger.debug('No grade band matched', { numScore, bandCount: bands.length });
   return localeCopy.copy_201bb379be;
 }
-
-async function ensureAdmin(openid) { return adminInfoModel.getByOpenid(openid); }
 
 function rejectRetiredEndpoint(res) {
   return res.status(410).json({
@@ -517,7 +534,7 @@ function buildDesignatorSnapshot(req, actor, assignment) {
 // ─── getResultPublication ───
 router.post('/getResultPublication', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
@@ -666,7 +683,7 @@ router.post('/getResultPublication', async (req, res) => {
 // ─── saveResultPublication ───
 router.post('/saveResultPublication', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     const isPublished = req.body.isPublished === true || req.body.isPublished === 1;
@@ -729,7 +746,7 @@ router.post('/deleteMeritListPermission', (req, res) => {
 // ─── saveMeritListDesignations ───
 router.post('/saveMeritListDesignations', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const clauseIds = Array.isArray(req.body.clauseIds) && req.body.clauseIds.length
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
@@ -1777,7 +1794,7 @@ router.post('/batchDeletePubMeritRules', async (req, res) => {
 // ─── getMeritListSummary (admin) ───
 router.post('/getMeritListSummary', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
@@ -1893,7 +1910,7 @@ router.post('/getMeritListSummary', async (req, res) => {
 // ─── exportMeritListSummary (admin) ───
 router.post('/exportMeritListSummary', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await resolveAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });

@@ -27,6 +27,11 @@ const scoreCalc = require('../utils/scoreCalc');
 const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapshotSchema');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
+async function ensureAdmin(req) {
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
+}
+
 async function invalidateScoreResultCaches(activityId, orgId) {
   await Promise.all([
     pubCache.invalidate(activityId, orgId),
@@ -398,7 +403,7 @@ router.post('/getRateTargets', async (req, res) => {
     let scorer = null;
 
     if (role === 'admin') {
-      const admin = await adminInfoModel.getByOpenid(openid);
+      const admin = await ensureAdmin(req);
       if (!admin) return res.json({ status: 'need_bind', message: localeCopy.copy_f048be09ae });
       scorer = {
         id: admin.id, name: admin.name, studentId: admin.student_id || '',
@@ -1195,8 +1200,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
 router.post('/getScorerTaskStatus', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
@@ -1440,8 +1444,7 @@ function buildTaskExportReport(activityName, reportType, rows) {
 
 router.post('/exportScorerTaskStatus', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);

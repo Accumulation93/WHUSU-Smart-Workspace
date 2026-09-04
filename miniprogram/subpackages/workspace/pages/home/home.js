@@ -729,12 +729,13 @@ Page({
   fetchRateTargets(role, options) {
     const settings = options || {};
     const request = orgSession.beginRequest(this, 'rateTargets');
+    const preserveVisibleTargets = settings.preserveExisting && this.data.targetList.length > 0;
     const loadingPatch = {
-      targetsLoading: true,
+      targetsLoading: !preserveVisibleTargets,
       selectedTargetId: '',
       targetsEmptyText: this.data.targetList.length ? this.data.targetsEmptyText : copy.text.loadingTargets
     };
-    if (!settings.preserveExisting) {
+    if (!preserveVisibleTargets) {
       Object.assign(loadingPatch, {
         targetList: [],
         targetGroups: [],
@@ -1291,7 +1292,15 @@ Page({
           hasViewPerm: false
         });
       } else if (res.status === 'not_published') {
-        this.setData(emptyPublicationState());
+        this.setData({
+          publishedResults: [],
+          publishedGroups: [],
+          filteredResults: [],
+          filteredGroups: [],
+          hasPublication: false,
+          hasViewPerm: false,
+          statsData: { count: 0, maxScore: '--', avgScore: '--' }
+        });
       }
     } catch (e) {
       if (!orgSession.isRequestCurrent(this, request)) return;
@@ -1347,7 +1356,7 @@ Page({
         const meritRuleGroups = Array.from(ruleGroupMap.values());
 
         this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canViewMeritList, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
-      } else if (mlRes.status === 'not_published') {
+      } else if (mlRes.status === 'not_published' || mlRes.status === 'no_permission') {
         this.setData({
           publishedMeritList: [],
           publishedMeritGroups: [],

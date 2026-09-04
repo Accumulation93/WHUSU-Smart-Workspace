@@ -303,8 +303,9 @@ function getRateRuleBatch(body) {
   return rules;
 }
 
-async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenid(openid);
+async function ensureAdmin(req) {
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
 }
 
 async function fetchOrgLookups(orgId) {
@@ -353,8 +354,7 @@ function buildClauseText(clause) {
 // listRateRules
 router.post('/listRateRules', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
@@ -422,7 +422,7 @@ router.post('/listRateRules', async (req, res) => {
 // saveRateRule
 router.post('/saveRateRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const result = await withTransaction(async (connection) => {
@@ -438,7 +438,7 @@ router.post('/saveRateRule', async (req, res) => {
 // batchSaveRateRules
 router.post('/batchSaveRateRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getRateRuleBatch(req.body);
 
@@ -460,8 +460,7 @@ router.post('/batchSaveRateRules', async (req, res) => {
 // deleteRateRule
 router.post('/deleteRateRule', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden' });
 
     const id = safeString(req.body.id);
@@ -489,8 +488,7 @@ router.post('/deleteRateRule', async (req, res) => {
 // generateRateTargetRules
 router.post('/generateRateTargetRules', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);

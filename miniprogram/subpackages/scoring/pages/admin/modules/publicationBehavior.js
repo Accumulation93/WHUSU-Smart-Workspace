@@ -27,6 +27,7 @@ module.exports = Behavior({
   methods: {
     async loadPublicationData(activityId) {
       const request = orgSession.beginRequest(this, 'publicationData');
+      const selectedActivityId = String(activityId || '');
       if (!activityId) {
         this.setData({
           publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
@@ -41,7 +42,8 @@ module.exports = Behavior({
       this.setLoading('publications', true);
       try {
         const result = await this.callCloud('getResultPublication', { activityId });
-        if (!orgSession.isRequestCurrent(this, request) || this.data.currentActivityId !== activityId) return;
+        if (!orgSession.isRequestCurrent(this, request)
+          || String((this.data.publicationForm && this.data.publicationForm.activityId) || '') !== selectedActivityId) return;
         if (result.status === 'success') {
           const pub = result.publication;
           const viewRules = result.viewRules || [];
@@ -192,31 +194,24 @@ module.exports = Behavior({
         const activityId = activity.id || '';
         // 重置整个 publicationForm（含 id），避免残留上一个活动的旧数据
         this.setData({ publicationForm: { id: '', activityId, activityName: activity.name || '', isPublished: false } });
-        // 先加载服务端状态，再决定是否需要静默创建（避免 savePublication 覆盖已发布状态）
+        // 切换活动只读取现有配置；新配置必须由管理员明确保存。
         await this.loadPublicationData(activityId);
-        if (!this.data.publicationForm.id && activityId) {
-          await this.savePublication(true);
-        }
       }
     },
 
     onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },
 
-    async savePublication(silent) {
+    async savePublication() {
       const form = this.data.publicationForm;
-      // 区分 bindtap 事件对象（用户点击按钮）和布尔 true（代码静默调用）
-      const isSilent = silent === true;
-      if (!form.activityId) { if (!isSilent) wx.showToast({ title: localeCopy.copy_21368b3e76, icon: 'none' }); return; }
-      // 静默模式下，如果 publication 已存在则跳过（避免覆盖 isPublished 等已有字段）
-      if (isSilent && form.id) return;
+      if (!form.activityId) { wx.showToast({ title: localeCopy.copy_21368b3e76, icon: 'none' }); return; }
       this.setLoading('savePublication', true);
       try {
         const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
         if (result.status === 'success') {
-          if (!isSilent) wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' });
+          wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' });
           this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
-        } else { if (!isSilent) wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
-      } catch (e) { if (!isSilent) wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
+        } else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('savePublication', false);
     },
   

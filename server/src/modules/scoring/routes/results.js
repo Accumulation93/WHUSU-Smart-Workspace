@@ -47,8 +47,9 @@ async function buildXlsxBase64(sheetName, headers, rows) {
   return buffer.toString('base64');
 }
 
-async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenid(openid);
+async function ensureAdmin(req) {
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
 }
 
 function getLookupName(map, id) {
@@ -1132,7 +1133,6 @@ function applyCalcMethod(scores, weight, method, trimH, trimL) {
 // getScoreResults
 router.post('/getScoreResults', async (req, res) => {
   try {
-    const openid = req.openid;
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
     const offset = Math.max(0, Math.floor(toNumber(req.body.offset, 0)));
@@ -1146,7 +1146,7 @@ router.post('/getScoreResults', async (req, res) => {
     const scorerKey = safeString(req.body.scorerKey);
 
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     // 活动归属必须在任何缓存读取之前验证，避免旧组织活动 ID 命中共享缓存。
@@ -1762,14 +1762,13 @@ function buildCompletionBoard(rows, field, lean) {
 // exportScoreResults
 router.post('/exportScoreResults', async (req, res) => {
   try {
-    const openid = req.openid;
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'completion';
     const format = safeString(req.body.format) || 'csv';
     const filters = req.body.filters || {};
 
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activity = await activityModel.getById(activityId);
@@ -1916,8 +1915,7 @@ router.post('/exportScoreResults', async (req, res) => {
 // revokeScoreRecord
 router.post('/revokeScoreRecord', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const recordId = safeString(req.body.recordId);

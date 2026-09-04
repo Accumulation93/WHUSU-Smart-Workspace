@@ -58,6 +58,46 @@
       {
         "value": "images",
         "type": "folder"
+      },
+      {
+        "value": "subpackages/scoring/pages/admin/tests",
+        "type": "folder"
+      },
+      {
+        "value": "subpackages/scoring/pages/score/tests",
+        "type": "folder"
+      },
+      {
+        "value": "subpackages/org/pages/identitySwitch/tests",
+        "type": "folder"
+      },
+      {
+        "value": "subpackages/audit/tests",
+        "type": "folder"
+      },
+      {
+        "value": "subpackages/venue/tests",
+        "type": "folder"
+      },
+      {
+        "value": "subpackages/workspace/pages/home/homeAuditVerificationEntry.test.js",
+        "type": "file"
+      },
+      {
+        "value": "subpackages/workspace/pages/home/homeAccountSecurityUi.test.js",
+        "type": "file"
+      },
+      {
+        "value": "subpackages/venue/pages/venueManage/venueManageSafety.test.js",
+        "type": "file"
+      },
+      {
+        "value": "subpackages/venue/pages/myVenueBookings/myVenueBookings.test.js",
+        "type": "file"
+      },
+      {
+        "value": "subpackages/main/pages/login/loginValidation.test.js",
+        "type": "file"
       }
     ],
     "include": []

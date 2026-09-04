@@ -149,9 +149,13 @@ const connection = {
       if (row) row.quota_limit = params[0];
       return [{ affectedRows: row ? 1 : 0 }];
     }
-    if (normalized.startsWith('DELETE FROM merit_list_designations')) {
-      state.designations = state.designations.filter((row) => row.clause_id !== params[0] || row.org_id !== params[1]);
-      return [{ affectedRows: 1 }];
+    if (normalized.startsWith('SELECT id FROM merit_list_designations')) {
+      const orgId = params[params.length - 1];
+      const clauseIds = params.slice(0, -1);
+      return [state.designations
+        .filter((row) => clauseIds.includes(row.clause_id) && row.org_id === orgId)
+        .slice(0, 1)
+        .map((row) => ({ id: row.id }))];
     }
     if (normalized.startsWith('DELETE FROM pub_merit_rule_clauses WHERE id')) {
       state.meritClauses = state.meritClauses.filter((row) => row.id !== params[0] || row.rule_id !== params[1] || row.org_id !== params[2]);
@@ -335,6 +339,16 @@ function meritRule(departmentId, overrides = {}) {
   assert.strictEqual(result.status, 'error');
   assert.strictEqual(state.meritRules.filter((row) => row.org_id === 'org-1').length, 2, '评优规则第二条删除失败后必须恢复第一条');
   failDeleteMeritId = '';
+
+  const protectedRuleId = firstMerit.ids[0];
+  const protectedClause = state.meritClauses.find((row) => row.rule_id === protectedRuleId);
+  state.designations.push({ id: 'designation-protected', clause_id: protectedClause.id, org_id: 'org-1' });
+  result = await invoke('/batchDeletePubMeritRules', { ruleIds: [protectedRuleId] });
+  assert.strictEqual(result.status, 'rule_has_designations');
+  assert(state.meritRules.some((row) => row.id === protectedRuleId), '已有评优名单时必须保留规则');
+  assert(state.meritClauses.some((row) => row.id === protectedClause.id), '已有评优名单时必须保留规则条款');
+  assert(state.designations.some((row) => row.id === 'designation-protected'), '规则操作不得删除历史评优名单');
+  state.designations = [];
 
   result = await invoke('/batchDeletePubMeritRules', { ruleIds: [firstMerit.ids[0], firstMerit.ids[0]] });
   assert.strictEqual(result.status, 'success');

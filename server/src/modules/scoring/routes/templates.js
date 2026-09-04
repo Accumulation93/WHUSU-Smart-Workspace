@@ -9,8 +9,9 @@ const templateModel = require('../models/scoreTemplate');
 const questionModel = require('../models/scoreQuestion');
 const pool = require('../../../config/db');
 
-async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenid(openid);
+async function ensureAdmin(req) {
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
 }
 
 function normalizeQuestion(item) {
@@ -34,8 +35,7 @@ function buildTemplateConfigSignature(questions) {
 // listScoreTemplates
 router.post('/listScoreTemplates', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
 
@@ -86,8 +86,7 @@ router.post('/listScoreTemplates', async (req, res) => {
 // saveScoreTemplate
 router.post('/saveScoreTemplate', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
 
@@ -169,8 +168,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
 // deleteScoreTemplate
 router.post('/deleteScoreTemplate', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
 
@@ -213,8 +211,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
 // duplicateScoreTemplate
 router.post('/duplicateScoreTemplate', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
 

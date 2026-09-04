@@ -15,15 +15,15 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
 const sharedCache = require('../utils/sharedCache');
 
-async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenid(openid);
+async function ensureAdmin(req) {
+  if (req && Object.prototype.hasOwnProperty.call(req, 'admin')) return req.admin || null;
+  return req && req.openid ? adminInfoModel.getByOpenid(req.openid) : null;
 }
 
 // listScoreActivities
 router.post('/listScoreActivities', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     function fmtDate(v) {
@@ -67,8 +67,7 @@ router.post('/listScoreActivities', async (req, res) => {
 // saveScoreActivity
 router.post('/saveScoreActivity', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
@@ -131,8 +130,7 @@ router.post('/saveScoreActivity', async (req, res) => {
 // deleteScoreActivity
 router.post('/deleteScoreActivity', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
@@ -173,8 +171,7 @@ router.post('/deleteScoreActivity', async (req, res) => {
 // setCurrentScoreActivity
 router.post('/setCurrentScoreActivity', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
@@ -255,8 +252,7 @@ router.post('/getLatestPublishedScoreActivity', async (req, res) => {
 // toggleActivityPause
 router.post('/toggleActivityPause', async (req, res) => {
   try {
-    const openid = req.openid;
-    const admin = await ensureAdmin(openid);
+    const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);

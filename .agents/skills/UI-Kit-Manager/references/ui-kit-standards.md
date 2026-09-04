@@ -23,6 +23,8 @@
 6. `scripts/ui-audit.js --strict` 必须检查裸露标题/分区控件和遗留卡片操作组。修改后在手机、Pad 竖屏、Pad 横屏核对长文案、操作换行、收起和展开状态。
 7. 同一视觉行中的日期/时间选择器、筛选按钮、清除/重置按钮使用 `.ui-inline-control-row` + `.ui-inline-control`，高度只能来自 `--ui-inline-control-height`；带标签的并列筛选字段使用 `.ui-inline-field-row` 对齐字段底边，并统一内部 `.compact-picker-value` / `.field-input` 的最终高度。原生 `input` 必须保持 `display:block`。所有子项上下 margin 必须归零，必须审计最终级联样式，防止共享 `.filter-clear` 等同名规则重新加入 margin。
 8. 标题旁的宫格/列表等二态切换使用 `.ui-compact-segmented` + `.ui-compact-segmented-item`，高度来自 `--ui-compact-height`，不得进入整行主页签的均分、宽度或 `--ui-tab-min-height` 规则。
+9. 同一管理工作台的顶层页签不得换行形成孤立第二行、被裁切或在权限刷新时产生视觉消失。可见项不超过五项时使用单行等宽分段布局，页签允许 `min-width: 0` 收缩但标签不得拆字；超过五项时使用明确的横向滚动容器，并在切换后确保当前项可见。手机、Pad 竖屏、Pad 横屏都必须实际点击首项、末项并确认内容切换。
+10. 从详情返回已有卡片列表时必须保留现有内容并后台刷新，禁止用整页加载态隐藏仍然有效的列表。只有首次进入、筛选口径变化或工作角色切换使原数据无效时才允许清空；验收需连续执行“打开详情 → 返回 → 立即继续操作列表”。
 
 ## 卡片式选择器契约（不可破坏）
 

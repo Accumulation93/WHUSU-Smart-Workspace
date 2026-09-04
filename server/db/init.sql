@@ -627,7 +627,7 @@ CREATE TABLE IF NOT EXISTS merit_list_designations (
   CONSTRAINT fk_mld_publication FOREIGN KEY (publication_id)
     REFERENCES result_publications(id) ON DELETE CASCADE,
   CONSTRAINT fk_mld_clause FOREIGN KEY (clause_id)
-    REFERENCES pub_merit_rule_clauses(id) ON DELETE CASCADE
+    REFERENCES pub_merit_rule_clauses(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

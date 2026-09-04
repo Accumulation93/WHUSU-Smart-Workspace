@@ -955,9 +955,6 @@ Page({
             });
           }
           await this.loadPublicationData(currentActivityId);
-          if (!this.data.publicationForm.id && currentActivityId) {
-            await this.savePublication(true);
-          }
         }
         this.setData({ publicationsLoading: false });
       }).catch(() => { this.setData({ publicationsLoading: false }); });

@@ -74,6 +74,10 @@ async function run() {
       path.resolve(__dirname, '../db/deploy/20260902223000_restore_merit_designation_history.sql'),
       path.join(migrationDirectory, '20260902223000_restore_merit_designation_history.sql')
     );
+    fs.copyFileSync(
+      path.resolve(__dirname, '../db/deploy/20260904122000_preserve_merit_designation_history.sql'),
+      path.join(migrationDirectory, '20260904122000_preserve_merit_designation_history.sql')
+    );
     await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '4'.repeat(40) });
 
     const verify = await mysql.createConnection(config(databaseName));
@@ -94,6 +98,23 @@ async function run() {
         "SELECT COUNT(*) AS total FROM personnel_migration_audit WHERE migration_key='20260902223000'"
       );
       assert.strictEqual(Number(audit.total), 0, '全部唯一映射时不得产生待人工核对项');
+      const [[constraint]] = await verify.query(
+        `SELECT DELETE_RULE AS deleteRule
+           FROM information_schema.REFERENTIAL_CONSTRAINTS
+          WHERE CONSTRAINT_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'merit_list_designations'
+            AND CONSTRAINT_NAME = 'fk_mld_clause'`
+      );
+      assert.strictEqual(constraint.deleteRule, 'RESTRICT', '评优名单外键必须阻止规则条款级联删除');
+      await assert.rejects(
+        verify.query("DELETE FROM pub_merit_rule_clauses WHERE id = 'clause-new'"),
+        /foreign key constraint fails/i,
+        '已有评优名单的条款不得被数据库级联删除'
+      );
+      const [[designationCount]] = await verify.query(
+        "SELECT COUNT(*) AS total FROM merit_list_designations WHERE id = 'designation-1'"
+      );
+      assert.strictEqual(Number(designationCount.total), 1, '受保护规则删除失败后名单必须保留');
     } finally {
       await verify.end();
     }

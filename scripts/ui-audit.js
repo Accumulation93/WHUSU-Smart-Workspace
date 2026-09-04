@@ -1477,7 +1477,9 @@ const missingTabSizeSystem = !(
   /--ui-tab-min-height:\s*40px/.test(GLOBAL_STYLE) &&
   /--ui-tab-min-height:\s*50px/.test(GLOBAL_STYLE) &&
   /--ui-tab-sidebar-min-height:\s*40px/.test(GLOBAL_STYLE) &&
-  /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
+  /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE) &&
+  /\.tabs\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;/s.test(adminStyle) &&
+  /\.tab\s*\{[^}]*flex:\s*1 1 0;[^}]*min-width:\s*0;[^}]*white-space:\s*nowrap;/s.test(adminStyle)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'styles', 'home.wxss'), 'utf8');
 if (!/\.selection-option-card\s*>\s*\.selection-card-toggle\s*\{[^}]*flex:\s*none;[^}]*align-self:\s*flex-start;[^}]*min-width:/s.test(homeStyle) ||
