@@ -224,6 +224,16 @@ async function run() {
     assert.strictEqual(targetLogin.statusCode, 426);
     assert.strictEqual(targetLogin.payload.status, 'client_upgrade_required');
 
+    await assert.rejects(governance.mergePersons({
+      sourcePersonId: 'person-source',
+      targetPersonId: 'person-target',
+      sourceVersion: '',
+      targetVersion: '',
+      organizationId: 'org-target'
+    }, { personId: 'person-target', contextId: 'context-target' }), (error) => (
+      error && error.code === 'person_not_found'
+    ));
+
     const retryResult = await governance.mergePersons({
       sourcePersonId: 'person-source',
       targetPersonId: 'person-target',

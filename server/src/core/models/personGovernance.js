@@ -468,19 +468,17 @@ async function mergePersons(data, actor) {
     );
     let sourceOrganizationAuthorized = sourceMembershipsInOrganization.length > 0;
     if (alreadyMerged && !sourceOrganizationAuthorized) {
-      const [transferredSourceMemberships] = await connection.query(
-        `SELECT membership.id
-           FROM organization_memberships membership
-           JOIN hr_info legacy_member
-             ON legacy_member.id = membership.legacy_hr_id
-            AND legacy_member.org_id = membership.org_id
-          WHERE membership.person_id = ?
-            AND membership.org_id = ?
-            AND LOWER(TRIM(legacy_member.student_id)) = ?
+      const [mergeAuditEvents] = await connection.query(
+        `SELECT id
+           FROM auth_audit_events
+          WHERE event_type = 'persons_merged'
+            AND target_person_id = ?
+            AND organization_id = ?
+            AND JSON_UNQUOTE(JSON_EXTRACT(detail_json, '$.sourcePersonId')) = ?
           LIMIT 1 FOR UPDATE`,
-        [targetPersonId, organizationId, safeString(source.normalized_student_id)]
+        [targetPersonId, organizationId, sourcePersonId]
       );
-      sourceOrganizationAuthorized = transferredSourceMemberships.length > 0;
+      sourceOrganizationAuthorized = mergeAuditEvents.length > 0;
     }
     if (!sourceOrganizationAuthorized) {
       throw new unifiedIdentityModel.IdentityError('person_not_found', personnelCopy.formerMemberNotFound, 404);
