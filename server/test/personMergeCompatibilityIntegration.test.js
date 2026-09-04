@@ -161,12 +161,22 @@ async function run() {
       }
     ]);
 
-    await governance.mergePersons({
+    await assert.rejects(governance.mergePersons({
       sourcePersonId: 'person-source',
       targetPersonId: 'person-target',
       sourceVersion: versionOf('2026-08-22 09:00:00'),
       targetVersion: versionOf('2026-08-22 09:30:00'),
       organizationId: 'org-target'
+    }, { personId: 'person-target', contextId: 'context-target' }), (error) => (
+      error && error.code === 'person_not_found'
+    ));
+
+    await governance.mergePersons({
+      sourcePersonId: 'person-source',
+      targetPersonId: 'person-target',
+      sourceVersion: versionOf('2026-08-22 09:00:00'),
+      targetVersion: versionOf('2026-08-22 09:30:00'),
+      organizationId: 'org-source'
     }, { personId: 'person-target', contextId: 'context-target' });
 
     const [sourceStates] = await fixture.query(`
@@ -219,7 +229,7 @@ async function run() {
       targetPersonId: 'person-target',
       sourceVersion: '',
       targetVersion: '',
-      organizationId: 'org-target'
+      organizationId: 'org-source'
     }, { personId: 'person-target', contextId: 'context-target' });
     assert.strictEqual(retryResult.idempotent, true);
     assert.deepStrictEqual(await adminInfo.getByOpenidAcrossOrgs('openid-source'), []);

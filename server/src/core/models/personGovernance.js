@@ -456,6 +456,9 @@ async function mergePersons(data, actor) {
     );
     const source = people.find((item) => safeString(item.id) === sourcePersonId);
     const target = people.find((item) => safeString(item.id) === targetPersonId);
+    const alreadyMerged = source && source.status === 'merged'
+      && safeString(source.merged_into_person_id) === targetPersonId
+      && target && target.status === 'active';
     const [sourceMembershipsInOrganization] = await connection.query(
       `SELECT id
          FROM organization_memberships
@@ -463,12 +466,25 @@ async function mergePersons(data, actor) {
         LIMIT 1 FOR UPDATE`,
       [sourcePersonId, organizationId]
     );
-    if (!sourceMembershipsInOrganization.length) {
+    let sourceOrganizationAuthorized = sourceMembershipsInOrganization.length > 0;
+    if (alreadyMerged && !sourceOrganizationAuthorized) {
+      const [transferredSourceMemberships] = await connection.query(
+        `SELECT membership.id
+           FROM organization_memberships membership
+           JOIN hr_info legacy_member
+             ON legacy_member.id = membership.legacy_hr_id
+            AND legacy_member.org_id = membership.org_id
+          WHERE membership.person_id = ?
+            AND membership.org_id = ?
+            AND LOWER(TRIM(legacy_member.student_id)) = ?
+          LIMIT 1 FOR UPDATE`,
+        [targetPersonId, organizationId, safeString(source.normalized_student_id)]
+      );
+      sourceOrganizationAuthorized = transferredSourceMemberships.length > 0;
+    }
+    if (!sourceOrganizationAuthorized) {
       throw new unifiedIdentityModel.IdentityError('person_not_found', personnelCopy.formerMemberNotFound, 404);
     }
-    const alreadyMerged = source && source.status === 'merged'
-      && safeString(source.merged_into_person_id) === targetPersonId
-      && target && target.status === 'active';
     if (!alreadyMerged && (!source || !target || source.status !== 'active' || target.status !== 'active')) {
       throw new unifiedIdentityModel.IdentityError('person_not_found', personnelCopy.formerMemberNotFound, 404);
     }
