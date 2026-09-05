@@ -1383,6 +1383,8 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   organization_id VARCHAR(64) DEFAULT NULL,
   role VARCHAR(16) DEFAULT NULL,
   token_version INT NOT NULL,
+  binding_mode VARCHAR(24) NOT NULL DEFAULT 'bound',
+  openid_ciphertext TEXT DEFAULT NULL,
   device_key_hash CHAR(64) DEFAULT NULL,
   device_platform VARCHAR(24) DEFAULT NULL,
   device_model VARCHAR(96) DEFAULT NULL,
