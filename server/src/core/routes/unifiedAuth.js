@@ -193,9 +193,10 @@ router.post('/auth/password/session', async (req, res) => {
       organizationId: req.body && req.body.preferredOrganizationId,
       identityId: req.body && req.body.preferredIdentityId
     }, metadata(req), temporaryOptions);
-    if (temporary && !currentBound) {
+    if (temporary) {
       payload.bindingOffer = {
-        available: true,
+        available: !currentBound,
+        currentWechatBound: Boolean(currentBound),
         accountId: safeString(account.id),
         personId: safeString(account.person_id),
         name: safeString(account.name)

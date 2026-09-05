@@ -111,6 +111,7 @@ async function run() {
     '未绑定账号应先建立临时口令会话，再提示用户选择是否绑定当前微信'
   );
   assert.strictEqual(firstLogin.payload.bindingOffer.available, true);
+  assert.strictEqual(firstLogin.payload.bindingOffer.currentWechatBound, false);
 
   scenario = { bound: true, conflict: false, currentBound: null, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
   const legacyClient = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026' });
@@ -121,11 +122,13 @@ async function run() {
     '已有绑定的账号必须兼容未提交 code 的旧客户端'
   );
 
-  scenario = { bound: false, conflict: true, currentBound: null, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
-  const conflict = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026', code: 'fresh-code' });
-  assert.strictEqual(conflict.statusCode, 200);
-  assert.strictEqual(conflict.payload.status, 'login_success');
-  assert.strictEqual(scenario.sessionCalls, 1, '临时口令登录不因当前微信绑定冲突而阻止登录');
+  scenario = { bound: false, conflict: false, currentBound: { id: 'account-other' }, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
+  const blockedBinding = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026', code: 'fresh-code' });
+  assert.strictEqual(blockedBinding.statusCode, 200);
+  assert.strictEqual(blockedBinding.payload.status, 'login_success');
+  assert.strictEqual(blockedBinding.payload.bindingOffer.available, false);
+  assert.strictEqual(blockedBinding.payload.bindingOffer.currentWechatBound, true);
+  assert.strictEqual(scenario.sessionCalls, 1, '临时口令登录不因当前微信已绑定其他账号而阻止登录');
 
   const modelSource = fs.readFileSync(
     path.resolve(__dirname, '../src/core/models/unifiedIdentity.js'),
