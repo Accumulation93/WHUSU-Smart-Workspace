@@ -73,12 +73,10 @@ async function testSchemaContract() {
   const identityIntegrityQuery = inspectedQueries.find((sql) => sql.includes('verified_accounts_without_login_method')) || '';
   assert(!identityIntegrityQuery.includes('persons_without_membership'),
     '自然人可以暂时不属于任何组织，删除最后一条成员关系后不得阻止服务启动');
-  assert(identityIntegrityQuery.includes('account_recovery_credentials'),
-    '已验证但未绑定微信的账号必须允许通过有效口令完成首次登录');
-  assert(identityIntegrityQuery.includes("c.method = 'passphrase'")
-    && identityIntegrityQuery.includes("c.status = 'active'")
-    && identityIntegrityQuery.includes('AND c.id IS NULL'),
-  '账号完整性检查只能阻止既无微信绑定、也无有效口令的已验证账号');
+  assert(identityIntegrityQuery.includes('(SELECT 0) AS verified_accounts_without_login_method'),
+    '解绑后的未绑定账号即使暂未设置口令，也不得被旧的 verified 无登录方式检查阻止');
+  assert(!identityIntegrityQuery.includes('account_recovery_credentials'),
+    '未绑定状态不应再依赖口令凭据是否配置');
 
   call = 0;
   const incompletePool = {
