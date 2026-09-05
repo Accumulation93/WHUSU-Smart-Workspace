@@ -34,6 +34,65 @@ const { fromRow, validateBookingWindow } = require('../services/venueBookingWind
 const { findMyVenueApproval, matchesApprovalContext } = require('../services/venueApprovalHistory');
 const { getActivitySlots: buildActivitySlots } = require('../services/venueActivitySchedule');
 const { evaluateBookingRuleWorkContexts } = require('../services/venueBookingRuleAuthorization');
+const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
+
+function applicantMatchesAllFlowSteps(flow, applicantHrInfo) {
+  if (!flow || !Array.isArray(flow.steps) || !flow.steps.length) return false;
+  return flow.steps.every(function(step) {
+    return safeString(step && step.approval_mode) === 'hr_rule'
+      && matchesAnyRule((step && step.rules) || [], applicantHrInfo, applicantHrInfo);
+  });
+}
+
+function buildApplicantAutoApproval(flow, flowId, applicantAssignment, approvedAt) {
+  const assignmentSnapshot = toAssignmentSnapshot(applicantAssignment);
+  const snapshots = [];
+  const approvedSteps = [];
+  (flow.steps || []).forEach(function(step, index) {
+    const approval = {
+      stepIndex: index,
+      approverHrId: safeString(applicantAssignment.legacyHrId),
+      approverPersonId: safeString(applicantAssignment.personId),
+      approverAssignmentId: safeString(applicantAssignment.assignmentId),
+      approverAdminGrantId: '',
+      approverType: 'user',
+      automatic: true
+    };
+    snapshots.push({
+      flowId: safeString(flowId),
+      stepIndex: index,
+      stepName: safeString(step && step.name),
+      approverHrId: approval.approverHrId,
+      approverPersonId: approval.approverPersonId,
+      approverAssignmentId: approval.approverAssignmentId,
+      approverAssignmentSnapshot: assignmentSnapshot,
+      approverAdminGrantId: '',
+      approverContextId: '',
+      approverIdentityType: 'user',
+      approverName: safeString(applicantAssignment.personName),
+      comment: '',
+      automatic: true,
+      approvedAt
+    });
+    approvedSteps.push(approval);
+  });
+  return {
+    state: {
+      selectedFlowId: safeString(flowId),
+      candidateMissing: false,
+      flows: {
+        [safeString(flowId)]: {
+          stepIndex: (flow.steps || []).length,
+          active: false,
+          completed: true,
+          approvedSteps,
+          designated: {}
+        }
+      }
+    },
+    snapshots
+  };
+}
 
 function assignmentDisplay(assignment) {
   const hasHistoricalSnapshot = Boolean(assignment && assignment.historicalSnapshotComplete);
@@ -760,6 +819,7 @@ router.post('/createVenueBooking', async (req, res) => {
     let approvalTotalSteps = 0;
     let approvalFlowState = null;
     let approvalFlowSnapshot = null;
+    let autoApprovedSnapshotsJson = null;
 
     if (hasDirect) {
       // Direct: no approval needed at all
@@ -846,6 +906,25 @@ router.post('/createVenueBooking', async (req, res) => {
           approvalTotalSteps = effectiveFlowId
             ? (stepsByFlow[effectiveFlowId] || []).length
             : Math.max.apply(null, activeFlows.map(function(flow) { return (stepsByFlow[flow.id] || []).length; }));
+
+          if (effectiveFlowId && !firstDesignation) {
+            const selectedFlow = activeFlows.find(function(flow) {
+              return safeString(flow.id) === safeString(effectiveFlowId);
+            });
+            const selectedSteps = stepsByFlow[effectiveFlowId] || [];
+            const flowForAutoApproval = Object.assign({}, selectedFlow, { steps: selectedSteps });
+            if (applicantMatchesAllFlowSteps(flowForAutoApproval, applicantHrInfo)) {
+              const autoApproval = buildApplicantAutoApproval(
+                flowForAutoApproval,
+                effectiveFlowId,
+                applicantAssignment,
+                new Date().toISOString()
+              );
+              autoApprove = true;
+              approvalFlowState = autoApproval.state;
+              autoApprovedSnapshotsJson = JSON.stringify(autoApproval.snapshots);
+            }
+          }
 
           let hasFirstStepCandidate = false;
           for (const flow of activeFlows) {
@@ -942,6 +1021,14 @@ router.post('/createVenueBooking', async (req, res) => {
       approvalFlowId, approvalFlowState, approvalFlowSnapshot, approvalTotalSteps
     }, conn);
 
+    if (autoApprove && autoApprovedSnapshotsJson) {
+      await venueBookingModel.updateApprovalFlowState(id, {
+        currentStep: approvalTotalSteps,
+        totalSteps: approvalTotalSteps,
+        snapshotsJson: autoApprovedSnapshotsJson
+      }, conn);
+    }
+
     const response = {
       status: 'success', id, bookingStatus: status,
       message: autoApprove ? localeCopy.copy_a453f693a6
@@ -957,7 +1044,7 @@ router.post('/createVenueBooking', async (req, res) => {
     await conn.commit();
 
     // Fire-and-forget: notify step 1 approvers
-    if (approvalFlowId && approvalTotalSteps > 0) {
+    if (approvalFlowId && approvalTotalSteps > 0 && !autoApprove) {
       createVenueApprovalNotifications(id, 0).catch(e =>
         console.error('[venueUser] notification creation failed:', e.message));
     }
