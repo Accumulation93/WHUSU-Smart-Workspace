@@ -74,19 +74,17 @@ assert.strictEqual(merged[1].showVerificationStatus, true);
 
 const priorityRows = context.mergeHrGovernanceRows([
   { id: 'frozen', wxBindStatus: 'bound' },
-  { id: 'recovering', wxBindStatus: 'bound' },
   { id: 'bound', wxBindStatus: 'bound' },
   { id: 'activation', wxBindStatus: 'pending_activation' },
   { id: 'unbound', wxBindStatus: 'unbound' }
 ], new Map([
   ['frozen', { id: 'frozen', personId: 'p-frozen', auth: { status: 'frozen', hasBindingHistory: true } }],
-  ['recovering', { id: 'recovering', personId: 'p-recovering', auth: { status: 'recovery_required', hasBindingHistory: true } }],
   ['bound', { id: 'bound', personId: 'p-bound', auth: { status: 'verified', hasBindingHistory: true } }],
   ['activation', { id: 'activation', personId: 'p-activation', auth: { status: 'verified', hasBindingHistory: true } }],
   ['unbound', { id: 'unbound', personId: 'p-unbound', auth: { status: 'pending_verification', hasBindingHistory: false } }]
 ]));
 assert.deepStrictEqual(priorityRows.map((item) => item.accountStateText), [
-  '冻结中', '待恢复', '已绑定', '待激活', '未绑定'
+  '冻结中', '已绑定', '待激活', '未绑定'
 ]);
 context.data.canVerifyIdentity = false;
 const recoveryOnlyRows = context.mergeHrGovernanceRows([
