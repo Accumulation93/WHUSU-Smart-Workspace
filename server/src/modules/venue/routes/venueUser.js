@@ -926,25 +926,27 @@ router.post('/createVenueBooking', async (req, res) => {
             }
           }
 
-          let hasFirstStepCandidate = false;
-          for (const flow of activeFlows) {
-            const flowState = approvalFlowState.flows[safeString(flow.id)];
-            if (!flowState || !flowState.active) continue;
-            const candidateCount = await venueApprovalMultiFlow.countStepCandidates(
-              Object.assign({}, flow, { steps: stepsByFlow[flow.id] || [] }),
-              flowState,
-              applicantHrInfo,
-              orgId,
-              conn
-            );
-            if (candidateCount > 0) {
-              hasFirstStepCandidate = true;
-              break;
+          if (!autoApprove) {
+            let hasFirstStepCandidate = false;
+            for (const flow of activeFlows) {
+              const flowState = approvalFlowState.flows[safeString(flow.id)];
+              if (!flowState || !flowState.active) continue;
+              const candidateCount = await venueApprovalMultiFlow.countStepCandidates(
+                Object.assign({}, flow, { steps: stepsByFlow[flow.id] || [] }),
+                flowState,
+                applicantHrInfo,
+                orgId,
+                conn
+              );
+              if (candidateCount > 0) {
+                hasFirstStepCandidate = true;
+                break;
+              }
             }
-          }
-          if (!hasFirstStepCandidate) {
-            await conn.rollback();
-            return res.json({ status: 'invalid_state', message: localeCopy.noFirstStepCandidate });
+            if (!hasFirstStepCandidate) {
+              await conn.rollback();
+              return res.json({ status: 'invalid_state', message: localeCopy.noFirstStepCandidate });
+            }
           }
         } else if (requestedFirstApproverAssignmentId) {
           await conn.rollback();

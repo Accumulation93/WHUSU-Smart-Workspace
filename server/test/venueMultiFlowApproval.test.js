@@ -556,6 +556,10 @@ async function run() {
   assert.match(venueUserSource, /listUsableByVenueId\(venueId/);
   assert.match(venueUserSource, /visibleFlows = allowUserSelect[\s\S]*allow_user_select\) === 1/,
     '发起页只应返回有步骤的流程；存在可选流程时不得把不可选流程放入选择器');
+  assert.match(venueUserSource, /if \(!autoApprove\) \{[\s\S]*hasFirstStepCandidate/,
+    '自动通过时不得继续执行第一步候选人检查');
+  assert.match(venueUserSource, /applicantMatchesAllFlowSteps\(flowForAutoApproval, applicantHrInfo\)/,
+    '自动通过必须验证申请人命中全部步骤');
   assert.doesNotMatch(venueUserSource, /SELECT sort_order, name FROM venue_approval_flow_steps/,
     '历史详情不得回查当前步骤定义');
 
