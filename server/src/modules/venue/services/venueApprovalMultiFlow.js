@@ -830,8 +830,7 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId, 
     while (st.active && !st.completed && st.stepIndex < flow.steps.length) {
       const automaticStep = flow.steps[Number(st.stepIndex)];
       const nextIsDesignated = Boolean(st.designated && st.designated[String(st.stepIndex)]);
-      if (validatedNextDesignation || previousWasDesignated || nextIsDesignated
-        || !stepsHaveEquivalentApprovalContract(previousStep, automaticStep)
+      if (validatedNextDesignation
         || !await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) break;
       recordApproval(item, automaticStep, true);
       previousStep = automaticStep;

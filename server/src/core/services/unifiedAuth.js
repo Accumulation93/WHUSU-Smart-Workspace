@@ -222,7 +222,11 @@ function profileFromContext(context) {
 }
 
 async function buildAuthenticatedPayload(account, session) {
-  const rawContexts = await identityModel.listContexts(account.id);
+  const rawContexts = await identityModel.listContexts(
+    account.id,
+    null,
+    { allowUnverified: safeString(session && session.bindingMode) === 'temporary' }
+  );
   const contexts = await decorateContexts(rawContexts);
   const currentContext = contexts.find((item) => item.contextId === session.context.contextId)
     || await decorateContext(session.context);
@@ -261,8 +265,8 @@ async function buildAuthenticatedPayload(account, session) {
   };
 }
 
-async function createAuthenticatedSession(account, requestedSelection, metadata) {
-  const session = await identityModel.createSession(account, requestedSelection, metadata);
+async function createAuthenticatedSession(account, requestedSelection, metadata, options) {
+  const session = await identityModel.createSession(account, requestedSelection, metadata, options);
   return buildAuthenticatedPayload(account, session);
 }
 

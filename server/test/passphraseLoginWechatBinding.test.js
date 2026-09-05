@@ -32,6 +32,14 @@ const identityModel = {
     if (scenario.conflict) throw new IdentityError('wechat_conflict', '该微信已绑定其他账号', 409);
     return { id: 'account-1', person_id: 'person-1', openid_hash: 'new-hash' };
   },
+  async findAccountByOpenid(openid) {
+    return scenario.currentBound || null;
+  },
+  temporaryPasswordSessionOptions(openid) {
+    scenario.temporaryOptionsCalls += 1;
+    assert.strictEqual(openid, 'wechat-openid');
+    return { temporary: true, openidHash: 'temp-hash', openidCiphertext: 'temp-cipher' };
+  },
   async appendAuditEvent() {
     scenario.auditCalls += 1;
   }
@@ -40,12 +48,13 @@ const identityModel = {
 const unifiedAuth = {
   async exchangeWechatCode(code) {
     scenario.exchangeCalls += 1;
-    assert.strictEqual(code, 'fresh-code');
+    if (code !== undefined) assert.strictEqual(code, 'fresh-code');
     return 'wechat-openid';
   },
-  async createAuthenticatedSession(account) {
+  async createAuthenticatedSession(account, selection, metadata, options) {
     scenario.sessionCalls += 1;
-    assert(account.openid_hash);
+    scenario.lastSessionOptions = options;
+    assert(account.openid_hash || (options && options.temporary));
     return { status: 'login_success' };
   }
 };
@@ -93,29 +102,30 @@ async function invoke(body) {
 }
 
 async function run() {
-  scenario = { bound: false, conflict: false, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0 };
+  scenario = { bound: false, conflict: false, currentBound: null, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
   const firstLogin = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026', code: 'fresh-code' });
   assert.strictEqual(firstLogin.payload.status, 'login_success');
   assert.deepStrictEqual(
-    [scenario.exchangeCalls, scenario.bindCalls, scenario.auditCalls, scenario.sessionCalls],
-    [1, 1, 1, 1],
-    '未绑定账号必须先补充微信绑定再建立会话'
+    [scenario.exchangeCalls, scenario.bindCalls, scenario.auditCalls, scenario.sessionCalls, scenario.temporaryOptionsCalls],
+    [1, 0, 1, 1, 1],
+    '未绑定账号应先建立临时口令会话，再提示用户选择是否绑定当前微信'
   );
+  assert.strictEqual(firstLogin.payload.bindingOffer.available, true);
 
-  scenario = { bound: true, conflict: false, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0 };
+  scenario = { bound: true, conflict: false, currentBound: null, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
   const legacyClient = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026' });
   assert.strictEqual(legacyClient.payload.status, 'login_success');
   assert.deepStrictEqual(
-    [scenario.exchangeCalls, scenario.bindCalls, scenario.auditCalls, scenario.sessionCalls],
-    [0, 0, 1, 1],
+    [scenario.exchangeCalls, scenario.bindCalls, scenario.auditCalls, scenario.sessionCalls, scenario.temporaryOptionsCalls],
+    [0, 0, 1, 1, 0],
     '已有绑定的账号必须兼容未提交 code 的旧客户端'
   );
 
-  scenario = { bound: false, conflict: true, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0 };
+  scenario = { bound: false, conflict: true, currentBound: null, exchangeCalls: 0, bindCalls: 0, auditCalls: 0, sessionCalls: 0, temporaryOptionsCalls: 0 };
   const conflict = await invoke({ studentId: '20260001', passphrase: 'Strong-Passphrase-2026', code: 'fresh-code' });
-  assert.strictEqual(conflict.statusCode, 409);
-  assert.strictEqual(conflict.payload.status, 'wechat_conflict');
-  assert.strictEqual(scenario.sessionCalls, 0, '微信绑定冲突时不得创建会话');
+  assert.strictEqual(conflict.statusCode, 200);
+  assert.strictEqual(conflict.payload.status, 'login_success');
+  assert.strictEqual(scenario.sessionCalls, 1, '临时口令登录不因当前微信绑定冲突而阻止登录');
 
   const modelSource = fs.readFileSync(
     path.resolve(__dirname, '../src/core/models/unifiedIdentity.js'),

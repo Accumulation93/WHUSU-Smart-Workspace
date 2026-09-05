@@ -46,15 +46,11 @@ function decorateGovernanceRow(item, selected) {
     accountState = 'frozen';
     accountStateText = localeCopy.copy_f6eb285e87;
     accountStateClass = 'frozen-chip';
-  } else if (auth.status === 'recovery_required') {
-    accountState = 'recovery_required';
-    accountStateText = localeCopy.copy_16399ef078;
-    accountStateClass = 'pending-chip';
   } else if (bindStatus === 'bound') {
     accountState = 'bound';
     accountStateText = localeCopy.copy_171e9799a7;
     accountStateClass = 'current-chip';
-  } else if (bindStatus === 'pending_activation' || auth.hasActiveBinding || Boolean(item && item.accountId)) {
+  } else if (bindStatus === 'pending_activation') {
     accountState = 'pending_activation';
     accountStateText = localeCopy.copy_1ceaebed03;
     accountStateClass = 'activation-chip';

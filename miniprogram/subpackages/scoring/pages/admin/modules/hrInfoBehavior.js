@@ -2417,7 +2417,7 @@ module.exports = Behavior({
           return;
         }
         this.patchHrGovernance(row.personId, {
-          status: 'recovery_required',
+          status: 'verified',
           hasActiveBinding: false,
           activeSessionCount: 0,
           pendingRecoveryId: ''

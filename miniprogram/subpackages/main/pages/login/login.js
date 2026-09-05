@@ -215,6 +215,7 @@ Page({
     recoveryMethodValues: [],
     recoveryCredential: '',
     rotatedRecoveryCode: '',
+    bindingOffer: null,
     claimAvailable: true,
     authNotice: '',
     passwordStudentId: '',
@@ -256,7 +257,8 @@ Page({
       recoveryRequestId: '',
       verificationCode: '',
       recoveryCredential: '',
-      rotatedRecoveryCode: ''
+      rotatedRecoveryCode: '',
+      bindingOffer: null
     });
 
     const page = this;
@@ -308,7 +310,13 @@ Page({
   },
 
   openPasswordLogin() {
-    this.setData({ sheetClass: 'sheet sheet-show', stage: 'password', passwordStudentId: '', password: '' });
+    this.setData({
+      sheetClass: 'sheet sheet-show',
+      stage: 'password',
+      passwordStudentId: '',
+      password: '',
+      bindingOffer: null
+    });
   },
 
   async onPasswordLogin() {
@@ -335,7 +343,14 @@ Page({
       });
       if (!result || result.status !== 'login_success') throw new Error(copy.messages.loginInvalid);
       authContext.applyAuthenticatedResult(result);
-      this.openPortal();
+      if (result.bindingOffer) {
+        this.setData({
+          stage: 'passwordBinding',
+          bindingOffer: result.bindingOffer
+        });
+      } else {
+        this.openPortal();
+      }
     } catch (error) {
       showShortToast(getErrorText(error, copy.messages.loginInvalid));
     } finally {
@@ -391,7 +406,8 @@ Page({
       claimId: '',
       recoveryRequestId: '',
       verificationCode: '',
-      recoveryCredential: ''
+      recoveryCredential: '',
+      bindingOffer: null
     });
   },
 
@@ -651,6 +667,29 @@ Page({
   },
 
   finishRecoveredLogin() {
+    this.openPortal();
+  },
+
+  async bindPasswordWechat() {
+    if (this.data.loading) return;
+    this.setData({ loading: true });
+    try {
+      const result = await callFunction({
+        name: 'auth/security/bind-current-wechat',
+        data: {}
+      });
+      if (!result || result.status !== 'success') {
+        throw new Error(copy.messages.pageOpenFailed);
+      }
+      this.openPortal();
+    } catch (error) {
+      showShortToast(getErrorText(error, copy.messages.pageOpenFailed));
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  skipPasswordBinding() {
     this.openPortal();
   }
 });

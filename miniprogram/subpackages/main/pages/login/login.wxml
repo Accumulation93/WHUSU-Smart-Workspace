@@ -29,7 +29,7 @@
     <view class="sheet-mask ui-overlay-blocker" bindtap="closeSheet" catchtouchmove="noop"></view>
     <view class="sheet-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="sheet-header">
-        <view class="sheet-title">{{stage === 'password' ? copy.passwordLogin : (stage === 'verify' ? copy.titleVerify : (stage === 'recoveryVerify' ? copy.titleRecoveryVerify : (stage === 'recoveryRotated' ? copy.titleRecoveryRotated : (stage === 'recoveryPending' ? copy.titleRecoveryPending : (stage === 'recovery' ? copy.titleRecovery : copy.titleClaim)))))}}</view>
+        <view class="sheet-title">{{stage === 'password' ? copy.passwordLogin : (stage === 'passwordBinding' ? copy.titlePasswordBinding : (stage === 'verify' ? copy.titleVerify : (stage === 'recoveryVerify' ? copy.titleRecoveryVerify : (stage === 'recoveryRotated' ? copy.titleRecoveryRotated : (stage === 'recoveryPending' ? copy.titleRecoveryPending : (stage === 'recovery' ? copy.titleRecovery : copy.titleClaim))))))}}</view>
         <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.closeWithIcon}}</view>
       </view>
 
@@ -67,6 +67,11 @@
           <view class="field"><view class="field-label">{{copy.passphrase}}</view><input class="field-input" password="{{true}}" placeholder="{{copy.passphrasePlaceholder}}" bindinput="onPasswordInput" value="{{password}}" /></view>
           <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.loginAction}}</button>
           <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToWechat}}</view>
+        </view>
+        <view wx:elif="{{stage === 'passwordBinding'}}">
+          <view class="sheet-note">{{copy.passwordBindingNote}}</view>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="bindPasswordWechat" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.bindPasswordWechat}}</button>
+          <view class="sheet-link ui-motion-chip" bindtap="skipPasswordBinding" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.skipPasswordBinding}}</view>
         </view>
         <view wx:elif="{{stage === 'verify'}}">
         <view class="sheet-note">{{copy.verificationNote}}</view>

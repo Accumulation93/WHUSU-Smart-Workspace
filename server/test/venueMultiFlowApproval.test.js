@@ -344,7 +344,7 @@ async function run() {
   assert.strictEqual(consecutiveApproval.snapshots[1].approverAssignmentId, 'a-chair');
   assert.strictEqual(consecutiveApproval.snapshots[1].stepName, '主席团复核');
 
-  // 当前岗位即使也符合下一步，只要审批责任范围发生变化，就必须停下等待下一次人工确认。
+  // 当前岗位只要仍符合下一步，就按新规则自动推进，不再要求前后审批契约完全一致。
   const widenedBooking = makeBooking(engine.buildInitialFlowState([widenedResponsibilityFlow], null, null));
   const widenedApproval = await engine.prepareApproval(
     widenedBooking,
@@ -354,10 +354,10 @@ async function run() {
     ORG
   );
   assert.strictEqual(widenedApproval.ok, true);
-  assert.strictEqual(widenedApproval.completed, false, '主席团到全体成员不是同一审批责任，不得自动完成');
-  assert.strictEqual(widenedApproval.processedStepCount, 1);
-  assert.strictEqual(widenedApproval.autoApprovedStepCount, 0);
-  assert.strictEqual(widenedApproval.state.flows[widenedResponsibilityFlow.id].stepIndex, 1);
+  assert.strictEqual(widenedApproval.completed, true, '当前审批人仍命中下一步时应自动完成');
+  assert.strictEqual(widenedApproval.processedStepCount, 2);
+  assert.strictEqual(widenedApproval.autoApprovedStepCount, 1);
+  assert.strictEqual(widenedApproval.state.flows[widenedResponsibilityFlow.id].stepIndex, 2);
 
   // 损坏快照和未知范围枚举必须失败关闭，不能被解释为“全部”。
   const malformedSnapshotsBooking = Object.assign({}, widenedBooking, { approval_snapshots_json: '{broken' });

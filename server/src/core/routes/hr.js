@@ -800,8 +800,9 @@ router.post('/unbindHrWechat', async (req, res) => {
       await connection.commit();
       return res.json({
         status: 'success',
-        message: localeCopy.copy_4c4f7957b4,
-        recoveryRequired: true
+        message: localeCopy.copy_806092b494,
+        recoveryRequired: false,
+        unbound: true
       });
     }
     const result = await unbindUserAcrossOrganizations({

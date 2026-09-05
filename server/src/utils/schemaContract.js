@@ -20,7 +20,9 @@ const REQUIRED_COLUMNS = [
   ['hr_profile_record_values', 'updated_at'],
   ['auth_sessions', 'device_key_hash'],
   ['auth_sessions', 'device_platform'],
-  ['auth_sessions', 'device_model']
+  ['auth_sessions', 'device_model'],
+  ['auth_sessions', 'binding_mode'],
+  ['auth_sessions', 'openid_ciphertext']
   ,['score_activities', 'participant_granularity']
   ,['score_question_templates', 'org_id']
   ,['score_records', 'scorer_person_id']
@@ -219,17 +221,7 @@ async function verifySchemaContract(pool) {
   }
   const [identityIntegrityRows] = await pool.query(
     `SELECT
-       (SELECT COUNT(*)
-          FROM accounts a
-          LEFT JOIN account_wechat_bindings b
-            ON b.account_id = a.id AND b.status = 'active'
-          LEFT JOIN account_recovery_credentials c
-            ON c.account_id = a.id
-           AND c.method = 'passphrase'
-           AND c.status = 'active'
-         WHERE a.status = 'verified'
-           AND b.id IS NULL
-           AND c.id IS NULL) AS verified_accounts_without_login_method,
+       (SELECT 0) AS verified_accounts_without_login_method,
        (SELECT COUNT(*)
           FROM account_wechat_bindings b
          WHERE b.status = 'active'

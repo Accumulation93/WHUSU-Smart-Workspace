@@ -167,24 +167,54 @@ router.post('/auth/claims/redeem', async (req, res) => {
 
 router.post('/auth/password/session', async (req, res) => {
   try {
-    let account = await identityModel.authenticateWithPassphrase(
+    const account = await identityModel.authenticateWithPassphrase(
       req.body && req.body.studentId,
       req.body && req.body.passphrase
     );
-    if (!account.openid_hash) {
-      const openid = await unifiedAuth.exchangeWechatCode(
+    const hasWechatCode = Boolean(req.body && (req.body.code || req.body.openid));
+    const openid = hasWechatCode
+      ? await unifiedAuth.exchangeWechatCode(
         req.body && req.body.code,
         req.body && req.body.openid
-      );
-      account = await identityModel.bindWechatAfterPassphraseLogin(account.id, openid, metadata(req));
+      )
+      : '';
+    const currentBound = openid ? await identityModel.findAccountByOpenid(openid) : null;
+    const temporary = !account.openid_hash;
+    if (temporary && !openid) {
+      throw new identityModel.IdentityError('invalid_wechat_code', localeCopy.copy_ffadbecb8f, 401);
     }
+    const temporaryOptions = temporary
+      ? identityModel.temporaryPasswordSessionOptions(openid)
+      : null;
     await identityModel.appendAuditEvent({ eventType: 'password_session_created', targetPersonId: account.person_id,
       accountId: account.id, requestId: req.requestId, ip: req.ip });
-    return res.json(await withSystemTimezone(await unifiedAuth.createAuthenticatedSession(account, {
+    const payload = await unifiedAuth.createAuthenticatedSession(account, {
       contextId: req.body && req.body.preferredContextId,
       organizationId: req.body && req.body.preferredOrganizationId,
       identityId: req.body && req.body.preferredIdentityId
-    }, metadata(req))));
+    }, metadata(req), temporaryOptions);
+    if (temporary && !currentBound) {
+      payload.bindingOffer = {
+        available: true,
+        accountId: safeString(account.id),
+        personId: safeString(account.person_id),
+        name: safeString(account.name)
+      };
+    }
+    return res.json(await withSystemTimezone(payload));
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/auth/security/bind-current-wechat', async (req, res) => {
+  try {
+    requireUnifiedSession(req);
+    await identityModel.bindTemporaryPasswordSessionOpenid(
+      req.authAccount.id,
+      req.authSession
+    );
+    return res.json({ status: 'success' });
   } catch (error) {
     return sendError(req, res, error);
   }
