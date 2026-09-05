@@ -1850,7 +1850,7 @@ async function verifyClaim(bootstrapId, claimId, code, metadata) {
       [safeString(claimId)]
     );
     const claim = claimRows[0];
-    if (!claim || claim.openid_hash !== bootstrap.openid_hash) {
+    if (!claim) {
       await connection.query(
         `UPDATE auth_bootstrap_sessions
             SET failed_attempts = failed_attempts + 1,
@@ -2895,7 +2895,7 @@ async function redeemInitialInvite(bootstrapId, data, metadata) {
       throw new IdentityError('verification_failed', localeCopy.copy_65a9439851, 400);
     }
     const [existingBindings] = await connection.query(`SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id
-      WHERE a.person_id = ? LIMIT 1 FOR UPDATE`, [invite.person_id]);
+      WHERE a.person_id = ? AND b.status = 'active' LIMIT 1 FOR UPDATE`, [invite.person_id]);
     if (existingBindings.length) throw new IdentityError('already_verified', localeCopy.copy_e879ade127, 409);
     const [accounts] = await connection.query('SELECT * FROM accounts WHERE person_id = ? LIMIT 1 FOR UPDATE', [invite.person_id]);
     const account = accounts[0];
