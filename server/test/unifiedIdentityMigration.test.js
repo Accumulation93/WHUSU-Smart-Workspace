@@ -157,6 +157,8 @@ async function run() {
         ADD COLUMN device_key_hash CHAR(64) DEFAULT NULL,
         ADD COLUMN device_platform VARCHAR(24) DEFAULT NULL,
         ADD COLUMN device_model VARCHAR(96) DEFAULT NULL,
+        ADD COLUMN binding_mode VARCHAR(24) NOT NULL DEFAULT 'bound' AFTER token_version,
+        ADD COLUMN openid_ciphertext TEXT NULL AFTER binding_mode,
         ADD INDEX idx_auth_session_device (account_id, device_key_hash, status);
       ALTER TABLE organization_memberships
         ADD COLUMN departure_batch_id VARCHAR(64) DEFAULT NULL;
