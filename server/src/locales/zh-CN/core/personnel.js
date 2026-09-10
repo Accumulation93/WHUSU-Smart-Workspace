@@ -56,6 +56,7 @@ module.exports = {
   regularAdministrator: '普通管理员',
   superAdministrator: '超级管理员',
   dictionaryInUse: '该项目已被业务或历史记录引用，不能删除',
+  dictionaryUnavailable: '该项目已不存在或不属于当前组织，请重新加载列表后选择',
   personCorrectionConflict: '学号已属于其他成员，请先合并人员资料',
   personCorrectionRequired: '姓名或学号请通过人员资料纠错修改',
   personCorrectionChanged: '人员资料已统一修正',

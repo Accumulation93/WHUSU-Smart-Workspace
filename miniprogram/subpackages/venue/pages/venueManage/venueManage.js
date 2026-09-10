@@ -132,6 +132,10 @@ function buildWeeklyChecked(cycleValues) {
   return arr;
 }
 
+function minToTime(minutes) {
+  return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+}
+
 function buildMonthlyChecked(cycleValues) {
   const arr = Array(31).fill(false);
   const values = Array.isArray(cycleValues) ? cycleValues : ((cycleValues && cycleValues.values) || []);

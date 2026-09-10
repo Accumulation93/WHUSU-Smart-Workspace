@@ -80,6 +80,7 @@ const options = {
     assert.equal((await call('listAuditFlowTemplates', {})).templates.find(item => item.id === ids[1]).steps.length, 4);
     for (const id of ids) assert.equal((await call('deleteAuditFlowTemplate', { id })).status, 'success');
     assert.equal((await call('listAuditFlowTemplates', {})).templates.length, 0);
+    await require('./helpers/submissionCrudMatrix')(orgStorage);
     console.log('审核模板前端真实传参→真实路由→MySQL：连续新增、分别编辑、回读、跨组织拒绝、非法步骤不覆盖、删除通过');
   } finally {
     if (pool) await pool.end();

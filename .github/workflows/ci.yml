@@ -54,6 +54,9 @@ jobs:
           node scripts/security-audit.js --strict
           node scripts/secret-audit.js --strict
           node scripts/tenant-sql-audit.js
+          node scripts/submission-reference-audit.js
+          node scripts/submission-reference-audit.js --self-test
+          node scripts/submission-reference-audit.js --inventory
           node scripts/time-system-audit.js --strict
           node server/scripts/preflightUtcTimeMigration.js --schema server/db/init.sql --strict
           node scripts/admin-route-permission-audit.js --strict
@@ -88,6 +91,7 @@ jobs:
           node scripts/miniprogram-page-registration-test.js
           node scripts/hr-profile-export-test.js
           node scripts/personnel-picker-test.js
+          node scripts/submission-runtime-test.js
           node scripts/venue-rule-display-test.js
           node scripts/scoring-work-context-test.js
           node scripts/scoring-home-lifecycle-test.js

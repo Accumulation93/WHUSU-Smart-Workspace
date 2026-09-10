@@ -220,6 +220,8 @@ function requestWechatSessionDirect(callbacks, preferredSelection) {
 }
 
 Page({
+  // 遮罩的触摸阻断事件必须有真实处理函数，避免运行时反复报告缺失事件。
+  noop() {},
   data: {
     copy: copy.view,
     loading: false,

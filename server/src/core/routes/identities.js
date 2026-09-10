@@ -51,7 +51,8 @@ router.post('/saveIdentity', async (req, res) => {
 
     if (id) {
       const nowUtc = nowMysqlUtc();
-      await identityModel.update(id, name, description, nowUtc);
+      const updated = await identityModel.update(id, name, description, nowUtc);
+      if (!updated) return res.json({ status: 'not_found', message: personnelCopy.dictionaryUnavailable });
       res.json({ status: 'success', message: localeCopy.copy_4fb370f421 });
     } else {
       const newId = generateId();

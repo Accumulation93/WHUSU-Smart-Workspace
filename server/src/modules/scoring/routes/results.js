@@ -1589,7 +1589,7 @@ router.post('/getScoreResults', async (req, res) => {
       const scorerIdentityId = safeString(record.scorerIdentityId);
       const scorerCategoryKey = `${scorerDepartmentId}::${scorerIdentityId}`;
       const historicalRuleUnavailable = false;
-      const sigStale = false;
+      const signatureStale = false;
 
       const scorerDepartment = safeString(record.scorerDepartment);
       const scorerIdentity = safeString(record.scorerIdentityCategory || record.scorerIdentity);

@@ -143,7 +143,27 @@ async function run() {
   assert.strictEqual(recordList.missingSnapshotCount, 1);
   assert.strictEqual(recordList.affectedRecordCount, 1);
 
-  console.log('历史评分缺少不可变快照时显式失败测试通过');
+  const rule = { id: 'rule-1', scorerDepartmentId: 'department-test', scorerIdentityCategoryId: 'identity-test', allowSelfAssessment: true };
+  const target = { participantId: 'target-1', subjectKey: 'assignment:target-1', personId: 'person-target-1', assignmentId: 'target-1', context: {} };
+  const scorer = { participantId: 'scorer-1', subjectKey: 'assignment:scorer-1', personId: 'person-scorer-1', assignmentId: 'scorer-1', context: {} };
+  const clause = { id: 'clause-1', scopeType: 'all_people', targetIdentityCategoryId: '', requireAllComplete: false, requiredTargets: [target] };
+  const templates = [{ templateId: 'template-1', templateName: '保留的题目', weight: 1, sortOrder: 1,
+    calculationMethod: 'weighted_average', trimHighCount: 0, trimLowCount: 0,
+    questions: [{ id: 'q1', questionIndex: 1, globalQuestionIndex: 1, question: '问题', scoreLabel: '', minValue: 0, startValue: 0, maxValue: 100, stepValue: 1 }] }];
+  const snapshot = { version: 1, activityId: activity.id, participantGranularity: 'assignment', templateConfigSignature: 'v2:test',
+    calculationPolicySignature: require('../src/modules/scoring/utils/calculationSnapshotSignature').buildCalculationPolicySignature({ rule, clause, templates }, 1),
+    scorer, target, rule, clause, templates };
+  records[0].template_config_signature = snapshot.templateConfigSignature;
+  records[0].scorer_assignment_id = 'scorer-1';
+  records[0].target_assignment_id = 'target-1';
+  records[0].calculation_context_snapshot = JSON.stringify(snapshot);
+  mocks['../models/scoreAnswer'].getByRecordIds = async () => [{ record_id: 'record-1', question_index: 1, score: 80 }];
+  const detail = await invoke('detail');
+  assert.strictEqual(detail.status, 'success', detail.message);
+  assert.strictEqual(detail.detailRows.length, 1, '完整历史依据必须实际进入明细生成分支');
+  assert.strictEqual(detail.detailRows[0].signatureStale, false);
+
+  console.log('历史评分缺少依据显式失败、完整依据明细分支测试通过');
 }
 
 run().catch((error) => {

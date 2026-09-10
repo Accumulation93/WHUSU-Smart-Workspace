@@ -1,4 +1,5 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/tableFile');
+const { encodeBinaryBase64, decodeBinaryBase64 } = require('./binaryBase64');
 /**
  * Table file utility — unified CSV / Excel import & export helpers.
  * Works identically in both legacy cloud and current server implementations.
@@ -130,14 +131,14 @@ function stringToBase64(str) {
     let chunk = utf8Bytes.slice(j, Math.min(j + chunkSize, utf8Bytes.length));
     binary += String.fromCharCode.apply(null, chunk);
   }
-  return btoa(binary);
+  return encodeBinaryBase64(binary);
 }
 
 /**
  * Decode a base64 string to UTF-8 text (inverse of stringToBase64).
  */
 function base64ToUtf8(base64) {
-  let binary = atob(base64);
+  let binary = decodeBinaryBase64(base64);
   let bytes = [];
   for (let i = 0; i < binary.length; i++) {
     bytes.push(binary.charCodeAt(i) & 0xFF);
@@ -248,7 +249,7 @@ function arrayBufferToBase64(buffer) {
     let chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
     binary += String.fromCharCode.apply(null, chunk);
   }
-  return btoa(binary);
+  return encodeBinaryBase64(binary);
 }
 
 /**

@@ -24,10 +24,11 @@ async function create(id, name, description = '') {
 
 async function update(id, name, description, updatedAt) {
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const [result] = await pool.query(
     'UPDATE identities SET name = ?, description = ?, updated_at = ? WHERE id = ? AND org_id = ?',
     [name, description || '', updatedAt || null, id, orgId]
   );
+  return result.affectedRows > 0;
 }
 
 async function remove(id) {
