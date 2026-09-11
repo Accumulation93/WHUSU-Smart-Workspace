@@ -1,5 +1,6 @@
 # UI 组件清单
 
+
 当前项目使用原生微信小程序组件和项目自有 WXSS，不依赖第三方 UI provider。公共组件路径均以仓库根目录 `miniprogram/` 为前缀；公共 WXSS 源位于 `miniprogram/subpackages/main/styles/**`，不得从业务分包互相引用。
 
 本清单及其控件高度、白色窗口、灰色遮罩/阴影和视口层级约束覆盖 `miniprogram/**` 全部页面与组件。场地、审核、评分、人事、工作台和以后新增分包不得复制或缩减这些基础原语。
@@ -15,6 +16,8 @@
 | `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 审核签名输入 | 普通 View 实时笔迹；隐藏 Canvas 仅按 1:1 尺寸导出；保留专用触摸锁 |
 
 ## 全局样式原语
+
+全局完整显示原语：`ui-field-control-host` 禁止纵向收缩；完整选择表面为 `view.picker-display.ui-field-control`，长值自然增高。`.ui-action-summary` 在操作栏独占语义行，数量不得进入确认按钮。所有模块执行，不允许私有裁切覆盖。时间条轨道与手柄分层，管理端由 `venue/utils/adminTimeSelection.js` 统一滑块、原生选框、默认区间和占用校验。
 
 人员选择器按“紧凑已选摘要 + 标准高度筛选 + 主要候选列表”组织视觉层级：已选标题/数量用弹窗元数据字号，详情按需展开且不改变选择；部门、身份类别、职能组使用完整字段高度与下拉箭头，候选列表按内容自然生长并受视口上限约束。此布局由共享组件持有，全仓调用方不得另行缩小筛选、放大已选计数或压缩候选区。
 

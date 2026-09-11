@@ -6,6 +6,8 @@ const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const flowManagementCopy = require('../../../../locales/zh-CN/venueFlowManagement');
+const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
+const adminTimeSelection = require('../../utils/adminTimeSelection');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 const {
@@ -243,6 +245,7 @@ function bookingWindowMinutes(item) {
 
 Page({
   data: {
+    controlLayoutCopy,
     localeCopy,
     flowManagementCopy,
     // ── Main tab ──
@@ -379,6 +382,8 @@ Page({
     adminBookingDesc: '',
     adminTimelineBlocks: [],
     adminTimelineSelection: null,
+    adminStartHandlePercent: '0',
+    adminEndHandlePercent: '100',
     adminBookingTimeStart: '',
     adminBookingTimeEnd: '',
     adminDailySlots: [],
@@ -435,6 +440,17 @@ Page({
 
   onShow() {
     this.preparePermissionsAndLoad();
+  },
+
+  onHide() {
+    this._adminTimelineDrag = null;
+    this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
+    orgSession.invalidateRequests(this);
+    wx.hideLoading();
+  },
+
+  onUnload() {
+    this.onHide();
   },
 
   async preparePermissionsAndLoad() {
@@ -1608,31 +1624,9 @@ Page({
     this._loadAdminAvailability(date, time);
   },
 
-  onTimetableOpenTap(e) {
-    const date = e.currentTarget.dataset.date;
-    // e.detail.y is column-relative. Its unit varies by device — use it directly,
-    // same as how data-date uses the raw string without conversion.
-    // The time labels are spaced HOUR_HEIGHT apart; the header is ~HEADER_H.
-    // Divide raw tapY by half-hour height, round, then back out hour:min.
-    const halfH = HOUR_HEIGHT / 2;
-    const rawIdx = Math.round((e.detail.y - HEADER_H) / halfH);
-    const idx = Math.min(Math.max(rawIdx, 0), 47);
-    const h = Math.floor(idx / 2);
-    const m = (idx % 2) * 30;
-    const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    this.setData({
-      adminBookingVisible: true,
-      adminBookingStartDate: date,
-      adminBookingStartDateDisplay: date,
-      adminBookingEndDate: date,
-      adminBookingEndDateDisplay: date,
-      adminBookingTimeStart: time,
-      adminBookingTimeEnd: '',
-      adminBookingTitle: '',
-      adminBookingDesc: '',
-      adminDailySlots: []
-    });
-    this._loadAdminAvailability(date, time);
+  onTimetableOpenTap() {
+    // 开放时段已有携带明确日期/时刻的点击单元；空白与表头不猜测时间。
+    showShortToast(controlLayoutCopy.timeRangeUnavailable);
   },
 
   closeBookingDetail() { this.setData({ bookingDetailVisible: false, expandedNodeKey: '' }); },
@@ -1660,7 +1654,12 @@ Page({
   },
 
   // ── Admin Quick Booking ──
-  closeAdminBooking() { this.setData({ adminBookingVisible: false }); },
+  closeAdminBooking() {
+    this._adminTimelineDrag = null;
+    this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
+    wx.hideLoading();
+    this.setData({ adminBookingVisible: false });
+  },
 
   onAdminStartDateChange(e) {
     const d = e.detail.value;
@@ -1677,84 +1676,43 @@ Page({
 
   async _loadAdminAvailability(dateStr, presetTime) {
     if (!dateStr) return;
+    this._adminTimelineDrag = null;
+    const generation = (this._adminAvailabilityGeneration || 0) + 1;
+    this._adminAvailabilityGeneration = generation;
+    const request = orgSession.beginRequest(this, 'adminAvailability');
+    this.setData({ adminTimelineBlocks: [], adminTimelineSelection: null, _adminDayData: null, adminStartHours: [], adminEndHours: [] });
     wx.showLoading({ title: localeCopy.copy_96eaa4c0be });
     try {
-      const res = await callFunction({
-        name: 'getVenueSchedule',
-        data: { venueId: this.data.scheduleVenueId, dateFrom: dateStr, dateTo: dateStr }
-      });
-      if (res.status === 'success') {
-        const dayData = (res.dailySchedules || [])[0];
-        if (dayData) {
-          const openSlots = dayData.openSlots || [];
-          const openHourSet = new Set();
-          for (const o of openSlots) {
-            const os = timeToMin(o.timeStart);
-            const oe = timeToMin(o.timeEnd);
-            for (let h = Math.floor(os / 60); h < Math.ceil(oe / 60); h++) {
-              if (h >= 0 && h < 24) openHourSet.add(h);
-            }
-          }
-          const sortedHours = Array.from(openHourSet).sort((a, b) => a - b);
-          const startHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
-          const endHoursAll = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
-          // Use presetTime (passed directly) or existing value
-          const useTime = presetTime || this.data.adminBookingTimeStart || '';
-          const parts = useTime.split(':');
-          const useH = parseInt(parts[0]) || 0;
-          const useM = parseInt(parts[1]) || 0;
-          const sHi = Math.max(0, startHours.findIndex(h => h.value === useH));
-          const sMi = Math.max(0, ALL_MINUTES.findIndex(m => m.value === useM));
-          const setData = {
-            adminStartHours: startHours, adminStartHourIdx: sHi, adminStartMinIdx: sMi,
-            adminEndHours: endHoursAll, adminEndHourIdx: 0, adminEndMinIdx: 0,
-            _adminDayData: dayData,
-            adminTimelineBlocks: this._buildAdminTimeline(dayData)
-          };
-          if (presetTime) setData.adminBookingTimeStart = presetTime;
-          this.setData(setData);
-        } else {
-          this.setData({
-            adminStartHours: [], adminEndHours: [],
-            _adminDayData: null
-          });
-        }
-      } else {
-        showShortToast(res.message || localeCopy.copy_e52119b17e);
-      }
-    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e52119b17e)); }
-    finally { wx.hideLoading(); }
+      const res = await callFunction({ name: 'getVenueSchedule',
+        data: { venueId: this.data.scheduleVenueId, dateFrom: dateStr, dateTo: dateStr } });
+      if (generation !== this._adminAvailabilityGeneration || !this.data.adminBookingVisible || !orgSession.isRequestCurrent(this, request)) return;
+      if (res.status !== 'success') { showShortToast(res.message || localeCopy.copy_e52119b17e); return; }
+      const dayData = (res.dailySchedules || [])[0];
+      const first = adminTimeSelection.freeRanges(dayData)[0];
+      const start = presetTime || this.data.adminBookingTimeStart || (first ? adminTimeSelection.time(first[0]) : '');
+      const chosen = adminTimeSelection.choose(dayData, start, this.data.adminBookingTimeEnd, true);
+      this.setData(Object.assign(adminTimeSelection.patch(dayData, start, chosen ? chosen.end : ''), {
+        _adminDayData: dayData || null, adminTimelineBlocks: dayData ? this._buildAdminTimeline(dayData) : []
+      }));
+    } catch (e) {
+      if (generation === this._adminAvailabilityGeneration && orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+    } finally {
+      if (generation === this._adminAvailabilityGeneration) wx.hideLoading();
+    }
   },
 
-  onAdminStartHourChange(e) {
-    const idx = parseInt(e.detail.value);
-    const hour = this.data.adminStartHours[idx] ? this.data.adminStartHours[idx].value : 0;
-    const min = ALL_MINUTES[this.data.adminStartMinIdx] ? ALL_MINUTES[this.data.adminStartMinIdx].value : 0;
-    this.setData({ adminStartHourIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
-    this._adminRefreshEndHours();
-    this._syncAdminTimelineSelection();
-  },
-  onAdminStartMinChange(e) {
-    const idx = parseInt(e.detail.value);
-    const min = ALL_MINUTES[idx] ? ALL_MINUTES[idx].value : 0;
-    const hour = this.data.adminStartHours[this.data.adminStartHourIdx] ? this.data.adminStartHours[this.data.adminStartHourIdx].value : 0;
-    this.setData({ adminStartMinIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
-    this._adminRefreshEndHours();
-    this._syncAdminTimelineSelection();
-  },
-  onAdminEndHourChange(e) {
-    const idx = parseInt(e.detail.value);
-    const hour = this.data.adminEndHours[idx] ? this.data.adminEndHours[idx].value : 0;
-    const min = ALL_MINUTES[this.data.adminEndMinIdx] ? ALL_MINUTES[this.data.adminEndMinIdx].value : 0;
-    this.setData({ adminEndHourIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
-    this._syncAdminTimelineSelection();
-  },
-  onAdminEndMinChange(e) {
-    const idx = parseInt(e.detail.value);
-    const min = ALL_MINUTES[idx] ? ALL_MINUTES[idx].value : 0;
-    const hour = this.data.adminEndHours[this.data.adminEndHourIdx] ? this.data.adminEndHours[this.data.adminEndHourIdx].value : 0;
-    this.setData({ adminEndMinIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
-    this._syncAdminTimelineSelection();
+  onAdminStartHourChange(e) { this._onAdminTimePicker('start', 'hour', e); },
+  onAdminStartMinChange(e) { this._onAdminTimePicker('start', 'minute', e); },
+  onAdminEndHourChange(e) { this._onAdminTimePicker('end', 'hour', e); },
+  onAdminEndMinChange(e) { this._onAdminTimePicker('end', 'minute', e); },
+
+  _onAdminTimePicker(handle, field, e) {
+    const prefix = handle === 'start' ? 'adminStart' : 'adminEnd';
+    const index = Number(e.detail.value);
+    const hour = this.data[prefix + 'Hours'][field === 'hour' ? index : this.data[prefix + 'HourIdx']];
+    const minute = field === 'minute' ? index : this.data[prefix + 'MinIdx'];
+    if (!hour || !Number.isInteger(minute) || minute < 0 || minute > 59) return;
+    this._applyAdminTime(handle, adminTimeSelection.time(hour.value * 60 + minute), false);
   },
 
   _buildAdminTimeline(dayData) {
@@ -1771,66 +1729,69 @@ Page({
   },
 
   _syncAdminTimelineSelection() {
-    const start = timeToMin(this.data.adminBookingTimeStart);
-    const end = timeToMin(this.data.adminBookingTimeEnd);
-    this.setData({
-      adminTimelineSelection: start >= 0 && end > start
-        ? { left: (start / 1440 * 100).toFixed(2), end: (end / 1440 * 100).toFixed(2), width: ((end - start) / 1440 * 100).toFixed(2) }
-        : null
-    });
+    this.setData(adminTimeSelection.patch(this.data._adminDayData, this.data.adminBookingTimeStart, this.data.adminBookingTimeEnd));
+  },
+
+  _applyAdminTime(handle, value, dragging) {
+    const start = handle === 'start' ? value : this.data.adminBookingTimeStart;
+    const end = handle === 'end' ? value : this.data.adminBookingTimeEnd;
+    // 拖动不可跨过另一端；原生选择框修改开始时才自动建议结束时间。
+    const chosen = adminTimeSelection.choose(this.data._adminDayData, start, end, handle === 'start' && !dragging);
+    if (!chosen) {
+      if (!dragging) { this._syncAdminTimelineSelection(); showShortToast(controlLayoutCopy.timeRangeUnavailable); }
+      return;
+    }
+    if (chosen.start === this.data.adminBookingTimeStart && chosen.end === this.data.adminBookingTimeEnd) return;
+    this.setData(adminTimeSelection.patch(this.data._adminDayData, chosen.start, chosen.end));
   },
 
   onAdminTimelineStart(e) {
+    const touch = e.touches && e.touches[0];
     const handle = e.currentTarget.dataset.handle;
-    wx.createSelectorQuery().select('.admin-timeline-drag').boundingClientRect((rect) => {
-      if (!rect) return;
-      this._adminTimelineDrag = { handle, left: rect.left, width: rect.width };
-      this.onAdminTimelineMove(e);
+    if (!touch || (handle !== 'start' && handle !== 'end')) return;
+    const value = handle === 'start' ? this.data.adminBookingTimeStart : this.data.adminBookingTimeEnd;
+    const initial = adminTimeSelection.minutes(value);
+    if (initial === null) return;
+    const drag = { handle, initial, originX: touch.clientX, width: 0, latestX: touch.clientX };
+    this._adminTimelineDrag = drag;
+    wx.createSelectorQuery().select('.admin-timeline-drag .timeline-bar').boundingClientRect((rect) => {
+      if (this._adminTimelineDrag !== drag || !this.data.adminBookingVisible) return;
+      if (!rect || !(rect.width > 0)) { this._adminTimelineDrag = null; return; }
+      drag.width = rect.width;
+      // 使用触点位移，按住标签边缘不改变时间。
+      this._flushAdminTimelineDrag(drag);
+      if (drag.ended && this._adminTimelineDrag === drag) this._adminTimelineDrag = null;
     }).exec();
+  },
+
+  _flushAdminTimelineDrag(drag) {
+    if (this._adminTimelineDrag !== drag || !drag.width || drag.latestX === drag.originX) return;
+    const minute = adminTimeSelection.dragMinute(drag.initial, drag.latestX - drag.originX, drag.width);
+    if (minute !== null) this._applyAdminTime(drag.handle, adminTimeSelection.time(minute), true);
   },
 
   onAdminTimelineMove(e) {
     const drag = this._adminTimelineDrag;
     const touch = e.touches && e.touches[0];
-    if (!drag || !touch || !drag.width) return;
-    const raw = Math.max(0, Math.min(1440, (touch.clientX - drag.left) / drag.width * 1440));
-    const minute = Math.round(raw / 15) * 15;
-    const value = minToTime(Math.min(minute, 1439));
-    const update = drag.handle === 'start' ? { adminBookingTimeStart: value } : { adminBookingTimeEnd: value };
-    this.setData(update);
-    this._syncAdminTimelineSelection();
+    if (!drag || !touch) return;
+    drag.latestX = touch.clientX;
+    if (drag.queued) return;
+    drag.queued = true;
+    wx.nextTick(() => { drag.queued = false; this._flushAdminTimelineDrag(drag); });
   },
 
-  onAdminTimelineEnd() {
+  onAdminTimelineEnd(e) {
+    const drag = this._adminTimelineDrag;
+    if (e && e.type === 'touchcancel') { this._adminTimelineDrag = null; return; }
+    if (drag) {
+      const touch = e && e.changedTouches && e.changedTouches[0];
+      if (touch) drag.latestX = touch.clientX;
+      // 快速松手可能早于异步测量；保留终点，测量完成后只结算本次手势。
+      drag.ended = true;
+      if (!drag.width) return;
+      this._flushAdminTimelineDrag(drag);
+    }
     this._adminTimelineDrag = null;
-    this._syncAdminTimelineSelection();
-  },
-
-  _adminRefreshEndHours() {
-    const dayData = this.data._adminDayData;
-    if (!dayData) return;
-    const openSlots = dayData.openSlots || [];
-    const startMin = timeToMin(this.data.adminBookingTimeStart);
-    const endHourSet = new Set();
-    for (const o of openSlots) {
-      const os = timeToMin(o.timeStart);
-      const oe = timeToMin(o.timeEnd);
-      for (let h = Math.floor(Math.max(os, startMin + 1) / 60); h < Math.ceil(oe / 60); h++) {
-        if (h >= 0 && h < 24) endHourSet.add(h);
-      }
-      if (oe > startMin && Math.floor(oe / 60) < 24) endHourSet.add(Math.floor(oe / 60));
-    }
-    const sortedHours = Array.from(endHourSet).sort((a, b) => a - b);
-    const endHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
-    let endHourIdx = 0;
-    const curEndHour = this.data.adminEndHours[this.data.adminEndHourIdx];
-    if (curEndHour && endHourSet.has(curEndHour.value)) {
-      endHourIdx = endHours.findIndex(h => h.value === curEndHour.value);
-      if (endHourIdx < 0) endHourIdx = 0;
-    }
-    const eh = endHours[endHourIdx] ? endHours[endHourIdx].value : 0;
-    const em = ALL_MINUTES[this.data.adminEndMinIdx] ? ALL_MINUTES[this.data.adminEndMinIdx].value : 0;
-    this.setData({ adminEndHours: endHours, adminEndHourIdx: endHourIdx, adminBookingTimeEnd: String(eh).padStart(2,'0')+':'+String(em).padStart(2,'0') });
   },
 
   onAdminSelectPurpose(e) {

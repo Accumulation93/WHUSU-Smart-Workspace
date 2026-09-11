@@ -2635,8 +2635,8 @@ scroll-view {
 .profile-recovery-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10rpx;
-  margin-top: 14rpx;
+  gap: var(--ui-inline-gap);
+  margin-top: var(--ui-action-gap);
 }
 
 .profile-passphrase-row {

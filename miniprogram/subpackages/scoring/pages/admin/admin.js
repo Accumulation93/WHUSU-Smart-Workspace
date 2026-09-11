@@ -1,5 +1,6 @@
 const generatedLocaleCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const personnelLocaleCopy = require('../../../../locales/zh-CN/adminPersonnel');
+const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const localeCopy = Object.freeze(Object.assign({}, generatedLocaleCopy, personnelLocaleCopy));
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
@@ -48,6 +49,7 @@ Page({
     authPersonnelBehavior,
   ],
   data: {
+    controlLayoutCopy,
     localeCopy,
     user: null,
     hasPermission: false,

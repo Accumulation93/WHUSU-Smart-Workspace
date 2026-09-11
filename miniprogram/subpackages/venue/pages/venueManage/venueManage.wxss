@@ -444,14 +444,33 @@ page {
   flex: 1; min-width: 0;
 }
 
-.admin-timeline-drag { margin: 14rpx 0 8rpx; }
-.admin-timeline-drag .timeline-bar { position: relative; height: 54rpx; overflow: visible; border-radius: 16rpx; background: linear-gradient(135deg, rgba(226,232,240,.92), rgba(241,245,249,.82)); border: 1rpx solid rgba(203,213,225,.78); }
+.admin-timeline-drag { position: relative; height: 190rpx; margin: 14rpx 54rpx 8rpx; flex-shrink: 0; }
+.admin-timeline-drag .timeline-bar { position: absolute; left: 0; right: 0; top: 72rpx; height: 44rpx; overflow: hidden; border-radius: 16rpx; background: linear-gradient(135deg, rgba(226,232,240,.92), rgba(241,245,249,.82)); border: 1rpx solid rgba(203,213,225,.78); }
 .admin-timeline-drag .timeline-block { position: absolute; top: 0; height: 100%; min-width: 3rpx; }
 .admin-timeline-drag .tl-free { background: linear-gradient(180deg, #86efac, #4ade80); }
 .admin-timeline-drag .tl-booked { background: linear-gradient(180deg, #fdba74, #fb923c); }
 .admin-timeline-drag .tl-activity { background: linear-gradient(180deg, #93c5fd, #60a5fa); }
 .admin-timeline-drag .timeline-selection { position: absolute; top: 0; bottom: 0; background: rgba(37,99,235,.38); border: 2rpx solid #2563eb; box-sizing: border-box; }
-.admin-timeline-drag .timeline-handle { position: absolute; top: 50%; z-index: 4; width: 34rpx; height: 34rpx; margin: -17rpx 0 0 -17rpx; border-radius: 999rpx; background: linear-gradient(135deg, #2563eb, #3b82f6); border: 4rpx solid #fff; box-shadow: 0 8rpx 18rpx rgba(37,99,235,.28); }
+.admin-time-handle { position: absolute; z-index: 4; width: 108rpx; min-height: 72rpx; margin-left: -54rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; }
+.admin-time-handle-start { top: 0; color: #2563eb; }
+.admin-time-handle-end { top: 116rpx; color: #059669; }
+.admin-time-tag { padding: 4rpx 8rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-dialog-meta-size, var(--ui-type-caption)); font-weight: 700; line-height: 1.5; white-space: nowrap; background: linear-gradient(135deg, rgba(219,234,254,.94), rgba(239,246,255,.94)); }
+.admin-time-handle-end .admin-time-tag { background: linear-gradient(135deg, rgba(209,250,229,.94), rgba(236,253,245,.94)); }
+.admin-time-arrow { font-size: var(--ui-type-value); line-height: 1; }
+.timeline-ticks.admin-time-ticks { margin-left: 54rpx; margin-right: 54rpx; }
+@media (min-width: 520px) {
+  .admin-timeline-drag { height: 116px; margin: 10px 38px 6px; }
+  .admin-timeline-drag .timeline-bar { top: 44px; height: 28px; }
+  .admin-time-handle { width: 76px; min-height: 44px; margin-left: -38px; }
+  .admin-time-handle-end { top: 72px; }
+  .admin-time-tag { padding: 3px 6px; }
+  .timeline-ticks.admin-time-ticks { margin-left: 38px; margin-right: 38px; }
+}
+@media (min-width: 900px) {
+  .admin-timeline-drag { height: 112px; }
+  .admin-timeline-drag .timeline-bar { height: 24px; }
+  .admin-time-handle-end { top: 68px; }
+}
 .timeline-hint { color: #64748b; font-size: var(--ui-type-meta); line-height: 1.5; }
 .timeline-ticks { display: flex; justify-content: space-between; margin-top: 7rpx; color: #94a3b8; font-size: var(--ui-type-caption); }
 

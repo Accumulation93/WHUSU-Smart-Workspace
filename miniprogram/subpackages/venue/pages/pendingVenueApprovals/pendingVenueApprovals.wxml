@@ -106,8 +106,8 @@
           <view wx:if="{{approvalAction}}" class="approval-action-area">
             <view class="field" wx:if="{{approvalAction === 'approve' && canDesignateNext}}">
               <view class="field-label">{{localeCopy.copy_3fc6899daa}}</view>
-              <view class="pick-row" catchtap="openNextApproverPicker">
-                <text class="picker-display {{nextApproverAssignmentIds.length ? 'picker-has-value' : ''}}">{{nextApproverName || localeCopy.copy_6986f4a5fd}}</text>
+              <view class="pick-row ui-field-control-host" catchtap="openNextApproverPicker">
+                <view class="picker-display ui-field-control {{nextApproverAssignmentIds.length ? 'picker-has-value' : ''}}">{{nextApproverName || localeCopy.copy_6986f4a5fd}}</view>
               </view>
             </view>
             <view class="field field--approval-comment">

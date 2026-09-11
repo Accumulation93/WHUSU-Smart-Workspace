@@ -702,13 +702,15 @@
               <view class="timeline-bar">
                 <view wx:for="{{adminTimelineBlocks}}" wx:key="left" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
                 <view wx:if="{{adminTimelineSelection}}" class="timeline-selection" style="left:{{adminTimelineSelection.left}}%;width:{{adminTimelineSelection.width}}%;"></view>
-                <block wx:if="{{adminTimelineSelection}}">
-                  <view class="timeline-handle start" style="left:{{adminTimelineSelection.left}}%;" data-handle="start" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd"></view>
-                  <view class="timeline-handle end" style="left:{{adminTimelineSelection.end}}%;" data-handle="end" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd"></view>
-                </block>
               </view>
-              <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
+              <view class="admin-time-handle admin-time-handle-start" style="left:{{adminStartHandlePercent}}%;" data-handle="start" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd" catchtouchcancel="onAdminTimelineEnd">
+                <view class="admin-time-tag">{{adminBookingTimeStart}} {{controlLayoutCopy.start}}</view><text class="admin-time-arrow">▼</text>
+              </view>
+              <view class="admin-time-handle admin-time-handle-end" style="left:{{adminEndHandlePercent}}%;" data-handle="end" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd" catchtouchcancel="onAdminTimelineEnd">
+                <text class="admin-time-arrow">▲</text><view class="admin-time-tag">{{adminBookingTimeEnd}} {{controlLayoutCopy.end}}</view>
+              </view>
             </view>
+            <view class="timeline-ticks admin-time-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
           </view>
           <view class="field"><view class="field-label">{{localeCopy.copy_deb776d2af}}</view>
             <view wx:if="{{adminStartHours.length}}" class="time-picker-row">
@@ -809,7 +811,8 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn ui-motion-button" catchtap="confirmCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_35d04fd49e}}{{condMultiPickerSelectedCount}}{{localeCopy.copy_9882d5696d}}</button>
+        <button class="primary-btn ui-motion-button" catchtap="confirmCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{controlLayoutCopy.confirmSelection}}</button>
+        <view class="ui-action-summary">{{controlLayoutCopy.selected}} {{condMultiPickerSelectedCount}} {{controlLayoutCopy.items}}</view>
       </view>
     </view>
   </view>

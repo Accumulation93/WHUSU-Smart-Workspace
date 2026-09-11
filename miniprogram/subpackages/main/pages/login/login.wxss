@@ -175,9 +175,22 @@ page {
 }
 
 .login-card .primary-btn {
+  flex: none;
+  box-sizing: border-box;
+  margin: 0;
   width: 100%;
+  min-width: 100%;
+  max-width: 100%;
   min-height: var(--ui-control-height);
   font-size: var(--ui-type-body);
+}
+
+/* 两种登录方式属于同一操作组，间距不随 Pad 视口放大。 */
+.login-entry-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-inline-gap);
 }
 
 .sheet {
@@ -234,9 +247,16 @@ page {
 }
 
 .login-secondary-link {
-  margin: 16rpx auto 0;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
   width: fit-content;
-  padding: 8rpx 14rpx;
+  max-width: 100%;
+  min-height: var(--ui-compact-height);
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
   color: #2563eb;
   font-size: var(--ui-type-label);
   line-height: 1.4;
@@ -377,6 +397,15 @@ page {
 }
 
 @media (min-width: 900px) {
+  .sheet-link {
+    margin: var(--ui-inline-gap) auto 0;
+    min-height: var(--ui-compact-height);
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .page {
     display: block;
     max-width: 820px;

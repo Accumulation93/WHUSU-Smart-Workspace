@@ -761,6 +761,9 @@ function scanLayoutContracts(file) {
       for (let index = stack.length - 1; index >= 0; index -= 1) {
         if (stack[index].tag !== close[1]) continue;
         const item = stack[index];
+        if (item.tag === 'button' && /\{\{[^}]*\b\w*(?:SelectedCount|selectedCount|SelectionCount)\b[^}]*\}\}/.test(source.slice(item.contentStart, token.index))) {
+          dataLayoutIssues.push({ file: relative(file), line: item.line, message: '确认按钮不得拼接动态已选数量；数量必须放在独立摘要中，保持动作短文案稳定' });
+        }
         if (item.contentSurface && !item.contentSurface.isStack &&
           item.contentSurface.directElementChildren === 1 &&
           item.contentSurface.directSections === 1) {
@@ -822,6 +825,17 @@ function scanLayoutContracts(file) {
     const dialogAncestor = [...stack].reverse().find(item => item.dialog);
     const overlayAncestor = [...stack].reverse().find(item => item.overlay);
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
+
+    if (tag === 'text' && classes.has('picker-display')) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '完整选择框必须使用块级 view 承载白色表面，不得使用行内 text' });
+    }
+    if (classes.has('pick-row') && !classes.has('ui-field-control-host')) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '完整选择入口缺少 ui-field-control-host，可能被父级压缩' });
+    }
+    if ((classes.has('timeline-handle') || classes.has('admin-time-handle') || classes.has('tl-handle-wrap')) &&
+        stack.some(item => item.classes && item.classes.has('timeline-bar'))) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '时间手柄必须位于裁切条之外，禁止被时间条裁切' });
+    }
 
     if (directParent?.contentSurface) {
       directParent.contentSurface.directElementChildren += 1;
@@ -952,7 +966,7 @@ function scanLayoutContracts(file) {
     }
 
     const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
-    if (!selfClosing) stack.push({ tag, dialog, overlay, contentSurface, conditional: /\bwx:if="\{\{[^}]+\}\}"/.test(raw) });
+    if (!selfClosing) stack.push({ tag, classes, line, contentStart: token.index + raw.length, dialog, overlay, contentSurface, conditional: /\bwx:if="\{\{[^}]+\}\}"/.test(raw) });
   }
 
   return { dialogs, overlays, dialogIssues, dataLayoutIssues, scrollContractIssues, redundantDialogSingleSection };
@@ -1535,7 +1549,10 @@ if (!/--ui-field-control-height:\s*82rpx/.test(GLOBAL_STYLE) ||
     !/@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-field-control-height:\s*44px/.test(GLOBAL_STYLE) ||
     !/\.field-input,[\s\S]*?\.compact-picker-value\s*\{[^}]*min-height:\s*var\(--ui-field-control-height/s.test(GLOBAL_STYLE) ||
     !/\.ui-field-control-host\s*\{[^}]*display:\s*block;[^}]*width:\s*100%/s.test(GLOBAL_STYLE) ||
-    !/\.ui-field-control\s*\{[^}]*min-height:\s*var\(--ui-field-control-height/s.test(GLOBAL_STYLE)) {
+    !/\.ui-field-control\s*\{[^}]*min-height:\s*var\(--ui-field-control-height/s.test(GLOBAL_STYLE) ||
+    !/\.ui-field-control-host\s*\{[^}]*flex-shrink:\s*0/s.test(GLOBAL_STYLE) ||
+    !/\.ui-field-control\s*\{[^}]*flex-shrink:\s*0/s.test(GLOBAL_STYLE) ||
+    !/\.ui-field-control-host > \.picker-display\.ui-field-control\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*none/s.test(GLOBAL_STYLE)) {
   controlSurfaceIssues.push({
     file: 'miniprogram/app.wxss',
     message: '缺少完整表单字段统一高度令牌或 ui-field-control/host 几何契约'
@@ -1608,7 +1625,7 @@ if (!/sizeRole="message-leading"/.test(messageCenterWxml) ||
 if (!/--ui-page-action-gap:\s*20rpx/.test(GLOBAL_STYLE) ||
     !/--ui-footer-gap:\s*32rpx/.test(GLOBAL_STYLE) ||
     !/@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-page-action-gap:\s*14px[\s\S]*?--ui-footer-gap:\s*24px/.test(GLOBAL_STYLE) ||
-    !/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-page-action-gap:\s*12px[\s\S]*?--ui-footer-gap:\s*20px/.test(GLOBAL_STYLE)) {
+    !/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-page-action-gap:\s*10px[\s\S]*?--ui-footer-gap:\s*16px/.test(GLOBAL_STYLE)) {
   controlSurfaceIssues.push({
     file: 'miniprogram/app.wxss',
     message: '缺少页面主操作和品牌页脚的三设备专用间距令牌'

@@ -92,6 +92,9 @@ jobs:
           node scripts/hr-profile-export-test.js
           node scripts/personnel-picker-test.js
           node scripts/submission-runtime-test.js
+          node scripts/login-layout-test.js
+          node scripts/ui-control-completeness-test.js
+          node scripts/venue-admin-time-selection-test.js
           node scripts/venue-rule-display-test.js
           node scripts/scoring-work-context-test.js
           node scripts/scoring-home-lifecycle-test.js

@@ -1,0 +1,21 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const root = path.join(__dirname, '../miniprogram/subpackages/main/pages/login');
+const markup = fs.readFileSync(path.join(root, 'login.wxml'), 'utf8');
+const styles = fs.readFileSync(path.join(root, 'login.wxss'), 'utf8');
+const group = styles.match(/\.login-entry-actions\s*\{([^}]+)\}/)[1];
+const link = styles.match(/\.login-secondary-link\s*\{([^}]+)\}/)[1];
+const button = styles.match(/\.login-card \.primary-btn\s*\{([^}]+)\}/)[1];
+assert.match(markup, /class="login-entry-actions">\s*<button[^>]*bindtap="onLogin"[\s\S]*?bindtap="openPasswordLogin"/);
+assert.match(group, /gap:\s*var\(--ui-inline-gap\)/);
+assert.match(group, /flex-direction:\s*column/);
+assert.match(link, /margin:\s*0\s*;/);
+assert.match(link, /min-height:\s*var\(--ui-compact-height\)/);
+assert.doesNotMatch(link, /\d+rpx/);
+assert.match(button, /flex:\s*none/);
+assert.match(button, /margin:\s*0\s*;/);
+assert.match(button, /min-width:\s*100%/);
+console.log('登录入口布局回归通过：统一间距、无视口放大、主按钮不参与纵向拉伸。');

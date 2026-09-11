@@ -3087,7 +3087,8 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn ui-motion-button" catchtap="confirmAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_35d04fd49e}}{{auditMultiPickerSelectedCount}}{{localeCopy.copy_9882d5696d}}</button>
+        <button class="primary-btn ui-motion-button" catchtap="confirmAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{controlLayoutCopy.confirmSelection}}</button>
+        <view class="ui-action-summary">{{controlLayoutCopy.selected}} {{auditMultiPickerSelectedCount}} {{controlLayoutCopy.items}}</view>
       </view>
     </view>
   </view>
@@ -3115,7 +3116,8 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn ui-motion-button" catchtap="confirmAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7a62b752fe}}<text wx:if="{{auditIdentityPickerMulti}}">{{localeCopy.copy_c38fbdddf0}}{{auditIdentityPickerSelectedCount}}{{localeCopy.copy_1a2083394a}}</text></button>
+        <button class="primary-btn ui-motion-button" catchtap="confirmAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{controlLayoutCopy.confirmSelection}}</button>
+        <view wx:if="{{auditIdentityPickerMulti}}" class="ui-action-summary">{{controlLayoutCopy.selected}} {{auditIdentityPickerSelectedCount}} {{controlLayoutCopy.items}}</view>
       </view>
     </view>
   </view>

@@ -1087,6 +1087,7 @@ button[disabled],
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .ui-field-control {
@@ -1094,6 +1095,37 @@ button[disabled],
   min-width: 0;
   min-height: var(--ui-field-control-height, 82rpx) !important;
   box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* 完整字段不得被纵向布局压扁；长选择值由白色表面自然增高。 */
+.pick-row.ui-field-control-host {
+  display: block;
+}
+.ui-field-control-host > .picker-display.ui-field-control {
+  display: block;
+  height: auto;
+  max-height: none;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.55;
+}
+.ui-dialog-stack > .field,
+.ui-dialog-stack > .approval-action-area {
+  flex-shrink: 0;
+  min-width: 0;
+}
+/* 数量是摘要，不拼进动作按钮；摘要独占一行，不参与按钮均分。 */
+.button-row > .ui-action-summary {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  color: #64748b;
+  font-size: var(--ui-dialog-meta-size, var(--ui-type-meta));
+  line-height: 1.55;
+  text-align: center;
 }
 
 /* 选择列表尾部留白：放在滚动内容末尾，保证最后一张卡片能完整翻出并可再翻一小段 */
@@ -2062,12 +2094,13 @@ button:active,
     --ui-field-gap: 8px;
     --ui-label-gap: 4px;
     --ui-inline-gap: 6px;
-    --ui-action-gap: 12px;
-    --ui-page-action-gap: 12px;
-    --ui-footer-gap: 20px;
+    /* 横屏关联操作适度收紧，只改间距，不压缩触控高度与安全区。 */
+    --ui-action-gap: 10px;
+    --ui-page-action-gap: 10px;
+    --ui-footer-gap: 16px;
     --ui-card-action-min-width: 48px;
-    --ui-card-action-gap: 8px;
-    --ui-card-action-divider-gap: 10px;
+    --ui-card-action-gap: 6px;
+    --ui-card-action-divider-gap: 8px;
     --ui-compact-padding-y: 4px;
     --ui-compact-padding-x: 10px;
     --ui-control-radius: 12px;

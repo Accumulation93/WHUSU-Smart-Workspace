@@ -32,17 +32,19 @@ assert.equal(vm.runInNewContext('arrayBufferToBase64(bytes)', tableContext), 'AI
 const venuePath = path.resolve(__dirname, '../miniprogram/subpackages/venue/pages/venueManage/venueManage.js');
 let page;
 vm.runInNewContext(fs.readFileSync(venuePath, 'utf8'), {
-  require() { return {}; }, Page(value) { page = value; }
+  require(name) { return name.includes('adminTimeSelection') ? require('../miniprogram/subpackages/venue/utils/adminTimeSelection') : {}; },
+  wx: { nextTick(callback) { callback(); } }, Page(value) { page = value; }
 }, { filename: venuePath });
 const instance = {
   data: { adminBookingTimeStart: '08:00', adminBookingTimeEnd: '10:00' },
-  _adminTimelineDrag: { handle: 'start', left: 0, width: 1440 },
+  _adminTimelineDrag: { handle: 'start', initial: 480, originX: 480, width: 1440 },
   setData(patch) { Object.assign(this.data, patch); },
-  _syncAdminTimelineSelection: page._syncAdminTimelineSelection
+  _flushAdminTimelineDrag: page._flushAdminTimelineDrag,
+  _applyAdminTime(handle, value) { this.data[handle === 'start' ? 'adminBookingTimeStart' : 'adminBookingTimeEnd'] = value; }
 };
 page.onAdminTimelineMove.call(instance, { touches: [{ clientX: 555 }] });
-assert.equal(instance.data.adminBookingTimeStart, '09:15');
-instance._adminTimelineDrag.handle = 'end';
+assert.equal(instance.data.adminBookingTimeStart, '09:20');
+instance._adminTimelineDrag = { handle: 'end', initial: 600, originX: 600, width: 1440 };
 page.onAdminTimelineMove.call(instance, { touches: [{ clientX: 1440 }] });
 assert.equal(instance.data.adminBookingTimeEnd, '23:59');
 page.onAdminTimelineEnd.call(instance);
