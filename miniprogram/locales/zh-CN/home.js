@@ -136,6 +136,7 @@ const text = Object.freeze({
   currentDevice: '当前设备',
   signedInDevice: '已登录设备',
   unrecognizedDevice: '无法识别的设备',
+  deviceModelUnavailable: '暂未获取设备型号',
   miniProgram: '微信小程序',
   numberType: '数字',
   sequenceType: '序列选择',

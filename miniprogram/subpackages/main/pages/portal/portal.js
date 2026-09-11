@@ -4,6 +4,7 @@ const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const passwordBindingOffer = require('../../../../utils/passwordBindingOffer');
+const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
@@ -168,6 +169,7 @@ Page({
     }
     this.openPendingTrustedRoute();
     passwordBindingOffer.start(this);
+    deviceMetadataReport.start(this);
   },
 
   openPendingTrustedRoute() {
@@ -183,6 +185,7 @@ Page({
   },
 
   onHide() {
+    deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
     passwordBindingOffer.cancel(this);
     if (this._timeConfigRefreshTimer) {
@@ -205,6 +208,7 @@ Page({
   },
 
   onUnload() {
+    deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
     passwordBindingOffer.cancel(this);
     const returningToLogin = shouldClearAuthenticationOnPortalExit(getCurrentPages(), this);

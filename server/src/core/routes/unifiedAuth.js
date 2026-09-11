@@ -4,6 +4,7 @@ const express = require('express');
 const { safeString } = require('../../utils/helpers');
 const pool = require('../../config/db');
 const identityModel = require('../models/unifiedIdentity');
+const sessionDeviceModel = require('../models/sessionDevice');
 const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
 const {
@@ -356,6 +357,22 @@ router.post('/auth/contexts/activate', async (req, res) => {
   } catch (error) {
     return sendError(req, res, error);
   }
+});
+
+router.post('/auth/security/device', async (req, res) => {
+  try {
+    requireUnifiedSession(req);
+    const device = req.body && req.body.device;
+    if (!device || typeof device !== 'object' || Array.isArray(device)
+      || typeof device.persistent !== 'boolean'
+      || !['id', 'platform', 'model'].every(key => typeof device[key] === 'string')
+      || device.id.length > 128 || device.platform.length > 24 || device.model.length > 96
+      || (device.persistent && !/^[A-Za-z0-9_-]{16,128}$/.test(device.id))) {
+      throw new identityModel.IdentityError('invalid_params', localeCopy.copy_6267781771, 400);
+    }
+    const updated = await sessionDeviceModel.updateCurrentSession(req.authAccount.id, req.authSession.id, device);
+    return res.json({ status: updated ? 'success' : 'not_found' });
+  } catch (error) { return sendError(req, res, error); }
 });
 
 router.all('/auth/security', async (req, res) => {

@@ -1,6 +1,7 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
+const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
@@ -53,8 +54,8 @@ function decorateAccountSessions(sessions) {
       lastSeenText: formatAuditTime(String(item.lastSeenAt || ''), item.lastSeenAtReviewStatus),
       deviceTitle: item.currentDevice || item.current
         ? copy.text.currentDevice
-        : (item.recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
-      deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ') || copy.text.miniProgram,
+        : copy.text.signedInDevice,
+      deviceMeta: [item.platform, item.model || copy.text.deviceModelUnavailable].filter(Boolean).join(' · '),
       sessionMeta: [
         item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
         item.organizationName || ''
@@ -382,6 +383,7 @@ Page({
   noop() {},
 
   onShow() {
+    this._isPageVisible = true;
     const organizationState = orgSession.consume(this);
     const snapshot = organizationState.snapshot;
     const contextKey = [snapshot.role, snapshot.orgId, snapshot.contextId].join('::');
@@ -417,6 +419,7 @@ Page({
       if (this._subApp === 'hr') {
         this.loadUserHrProfile();
         this.loadAccountSecurity();
+        deviceMetadataReport.start(this, () => this.loadAccountSecurity());
       }
     }
     this.loadOrganizationName();
@@ -511,6 +514,16 @@ Page({
         this.rebuildUserTabs();
       }
     }).catch(() => {});
+  },
+
+  onHide() {
+    this._isPageVisible = false;
+    deviceMetadataReport.cancel(this);
+    orgSession.invalidateRequests(this);
+  },
+
+  onUnload() {
+    this.onHide();
   },
 
   refreshCurrentUser(options) {

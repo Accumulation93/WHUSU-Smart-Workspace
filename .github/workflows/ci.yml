@@ -87,6 +87,8 @@ jobs:
           node scripts/password-binding-offer-test.js
           node scripts/login-auth-continuation-test.js
           node scripts/wechat-login-timing-test.js
+          node scripts/device-metadata-regression-test.js
+          node scripts/session-device-report-test.js
           node scripts/stamp-grant-ui-test.js
           node scripts/miniprogram-page-registration-test.js
           node scripts/hr-profile-export-test.js
