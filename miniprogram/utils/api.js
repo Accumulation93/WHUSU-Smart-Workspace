@@ -284,6 +284,28 @@ function requestOptionalWechatBinding(options) {
     fail
   });
 }
+// 登录后设备展示专用：统一请求头与会话边界，但绝不恢复认证、重放或执行响应副作用。
+function requestOptionalDeviceMetadata(options) {
+  const expected = options.session || {};
+  const requestId = createRequestId();
+  const current = function() {
+    const now = orgSession.getSnapshot();
+    return expected.token && now.token === expected.token && now.orgId === expected.orgId
+      && now.contextId === expected.contextId;
+  };
+  const fail = function(error) { if (options.fail) options.fail(error || cancelledError(requestId)); };
+  if (!current()) { fail(); return null; }
+  return wx.request({
+    url: API_BASE + '/auth/security/device', method: 'POST', timeout: 5000,
+    header: createRequestHeaders(requestId), data: { device: options.device },
+    success(response) {
+      if (!current()) return fail();
+      if (options.success) options.success(response);
+    },
+    fail
+  });
+}
+
 function callFunction(options) {
   const name = options.name || '';
   const data = Object.assign({}, options.data || {});
@@ -352,6 +374,7 @@ module.exports = {
   CLIENT_VERSION: CLIENT_VERSION,
   callFunction: callFunction,
   requestOptionalWechatBinding: requestOptionalWechatBinding,
+  requestOptionalDeviceMetadata: requestOptionalDeviceMetadata,
   createRequestId: createRequestId,
   createRequestHeaders: createRequestHeaders,
   markAuthenticationReady: markAuthenticationReady,

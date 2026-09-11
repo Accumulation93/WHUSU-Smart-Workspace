@@ -24,7 +24,7 @@ async function main() {
   let token = 'first'; let timer; let request; let calls = 0; let aborted = 0;
   const report = load('miniprogram/utils/deviceMetadataReport.js', {
     './orgSession': { getSnapshot: () => ({ token }) },
-    './api': { API_BASE: 'https://example.invalid/api', CLIENT_VERSION: 'test', createRequestId: () => 'request-test' },
+    './api': { requestOptionalDeviceMetadata: options => { calls += 1; request = options; return { abort: () => { aborted += 1; } }; } },
     './deviceIdentity': { getDeviceIdentity: () => ({ id: '', persistent: false, model: 'API model', platform: 'ohos' }) }
   }, {
     setTimeout: callback => { timer = callback; return 1; }, clearTimeout: () => { timer = null; },
@@ -32,7 +32,7 @@ async function main() {
   });
   const page = { _isPageVisible: true };
   report.start(page); assert.strictEqual(calls, 0); timer();
-  assert.strictEqual(calls, 1); assert.strictEqual(request.header.Authorization, 'Bearer first');
+  assert.strictEqual(calls, 1); assert.strictEqual(request.session.token, 'first');
   request.success({ statusCode: 401, data: {} });
   report.cancel(page); assert.strictEqual(aborted, 1);
   report.start(page); token = 'second'; timer(); assert.strictEqual(calls, 1);
@@ -65,6 +65,30 @@ async function main() {
   delete req.authSession;
   await handlers['/auth/security/device'](req, res);
   assert.strictEqual(status, 426); assert.strictEqual(saved, null);
+  const authState = { token: 'api-token', orgId: 'org-a', contextId: 'ctx-a', role: 'user' };
+  const apiRequests = [];
+  let apiSuccess = 0; let apiFailure = 0;
+  const api = load('miniprogram/utils/api.js', {
+    './orgSession': { getSnapshot: () => Object.assign({}, authState) },
+    './dateTime': {}, '../locales/zh-CN/generated/utils/api': {}
+  }, { wx: { request: options => { apiRequests.push(options); return { abort() {} }; } } });
+  const optional = { name: 'deletePersonPermanently', session: Object.assign({}, authState),
+    device: { id: '', persistent: false, platform: 'ohos', model: 'model' },
+    success: () => { apiSuccess += 1; }, fail: () => { apiFailure += 1; } };
+  api.requestOptionalDeviceMetadata(optional);
+  assert.strictEqual(apiRequests[0].url.endsWith('/auth/security/device'), true);
+  assert.strictEqual(apiRequests[0].header.Authorization, 'Bearer api-token');
+  assert.strictEqual(apiRequests[0].header['X-Active-Org'], 'org-a');
+  assert.strictEqual(apiRequests[0].header['X-Role'], 'user');
+  assert.strictEqual(apiRequests[0].timeout, 5000);
+  apiRequests[0].success({ statusCode: 401, data: {} });
+  assert.strictEqual(apiRequests.length, 1); assert.strictEqual(apiSuccess, 1);
+  assert.strictEqual(authState.token, 'api-token');
+  authState.contextId = 'ctx-b';
+  apiRequests[0].success({ statusCode: 200, data: {} });
+  api.requestOptionalDeviceMetadata(optional);
+  assert.strictEqual(apiRequests.length, 1); assert.strictEqual(apiSuccess, 1); assert.strictEqual(apiFailure, 2);
+  assert(!fs.readFileSync(path.join(root, 'miniprogram/utils/deviceMetadataReport.js'), 'utf8').includes('wx.request'));
   console.log('session-device-report-test passed: scoped SQL, delayed report, 401 isolation, account change, hide cancellation');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

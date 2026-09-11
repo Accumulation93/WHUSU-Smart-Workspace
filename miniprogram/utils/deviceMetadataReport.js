@@ -1,5 +1,5 @@
 const orgSession = require('./orgSession');
-const { API_BASE, CLIENT_VERSION, createRequestId } = require('./api');
+const { requestOptionalDeviceMetadata } = require('./api');
 const { getDeviceIdentity } = require('./deviceIdentity');
 let lastReportedToken = '';
 let lastReportedAt = 0;
@@ -16,13 +16,9 @@ function start(page, onReported) {
     try { device = getDeviceIdentity(); } catch (_) { return; }
     if (orgSession.getSnapshot().token !== snapshot.token) return;
     try {
-      page._deviceMetadataTask = wx.request({
-        url: API_BASE + '/auth/security/device', method: 'POST', timeout: 5000,
-        header: {
-          'Content-Type': 'application/json', 'Authorization': 'Bearer ' + snapshot.token,
-          'X-Client-Version': CLIENT_VERSION, 'X-Request-Id': createRequestId()
-        },
-        data: { device: device },
+      page._deviceMetadataTask = requestOptionalDeviceMetadata({
+        session: snapshot,
+        device: device,
         success: function(response) {
           if (orgSession.getSnapshot().token === snapshot.token && response.statusCode === 200
             && response.data && response.data.status === 'success') {

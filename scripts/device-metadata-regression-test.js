@@ -148,7 +148,11 @@ function reportFixture() {
     Date: { now() { return now; } },
     require(name) {
       if (name === './orgSession') return { getSnapshot() { return { token }; } };
-      if (name === './api') return { API_BASE: 'https://example.invalid/api', CLIENT_VERSION: 'test', createRequestId() { return 'test-id'; } };
+      if (name === './api') return { requestOptionalDeviceMetadata(options) {
+        const task = { aborted: false, abort() { this.aborted = true; } };
+        requests.push({ options, task });
+        return task;
+      } };
       if (name === './deviceIdentity') return { getDeviceIdentity() { collected += 1; return { id: 'test-install-12345', persistent: true, platform: 'ohos', model: 'MatePad Pro' }; } };
       throw new Error('意外依赖：' + name);
     },
@@ -183,7 +187,7 @@ test('上报在登录后的延迟任务执行，未登录不采集', () => {
   f.flush();
   assert.equal(f.collected(), 1);
   assert.equal(f.requests.length, 1);
-  assert.equal(f.requests[0].options.header.Authorization, 'Bearer session-a');
+  assert.equal(f.requests[0].options.session.token, 'session-a');
 });
 
 test('采集前账号或角色切换使旧任务失效', () => {
@@ -218,7 +222,7 @@ test('旧账号迟到成功不抑制新账号上报', () => {
   f.report.start(page);
   f.flush();
   assert.equal(f.requests.length, 2);
-  assert.equal(f.requests[1].options.header.Authorization, 'Bearer session-b');
+  assert.equal(f.requests[1].options.session.token, 'session-b');
 });
 
 test('可选上报 401 和网络失败不重放或改变登录状态', () => {
