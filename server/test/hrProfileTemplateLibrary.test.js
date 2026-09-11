@@ -31,6 +31,10 @@ assert.strictEqual(validateMappedValue(numberTarget, '42.5'), '请填写整数')
 assert.strictEqual(validateMappedValue(numberTarget, '101'), '请填写不大于100的数字');
 assert.strictEqual(validateMappedValue(sequenceTarget, '本科'), '');
 assert.strictEqual(validateMappedValue(sequenceTarget, '博士'), '请选择已有选项');
+assert.deepStrictEqual(library.serializeField({ type: 'sequence', options_json: ['本科', '硕士'] }).options, ['本科', '硕士']);
+assert.deepStrictEqual(library.serializeField(sequenceTarget).options, ['本科', '硕士']);
+assert.deepStrictEqual(library.serializeField({ type: 'sequence', options_json: '{broken' }).options, []);
+assert.strictEqual(validateMappedValue({ type: 'sequence', options_json: ['本科', '硕士'] }, '本科'), '');
 
 const sources = [
   { id: 'old-a', label: '学院', type: 'text' },

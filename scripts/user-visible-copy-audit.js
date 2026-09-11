@@ -46,6 +46,8 @@ const SERVER_VISIBLE_PROPERTIES = new Set([
   'statusText', 'reason', 'fileName', 'emptyText', 'hintText', 'note'
 ]);
 const EXEMPTIONS = [
+  // 仅用于列标题匹配的输入字典，不是展示文案；限定纯匹配模块和已登记的完整词条。
+  { file: 'miniprogram/utils/hrFieldMatching.js', pattern: /^(?:手机号|手机号码|联系电话|邮箱|电子邮箱|电子邮件|身份|职位|身份类别)$/ },
   { file: 'server/src/index.js', pattern: /数据库不可用/ },
   // 通知 worker 的结构校验码只进入重试/死信日志，不会作为接口 message 返回。
   { file: 'server/src/modules/audit/services/notificationOutboxService.js', pattern: /^notification_(?:payload_missing|payload_invalid|recipient_invalid)$/ }

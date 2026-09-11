@@ -92,6 +92,8 @@ jobs:
           node scripts/stamp-grant-ui-test.js
           node scripts/miniprogram-page-registration-test.js
           node scripts/hr-profile-export-test.js
+          node scripts/hr-template-switch-suggestion-test.js
+          node scripts/hr-template-save-continuation-test.js
           node scripts/personnel-picker-test.js
           node scripts/submission-runtime-test.js
           node scripts/login-layout-test.js

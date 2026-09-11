@@ -1,10 +1,12 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
 const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const personnelViewModel = require('./personnelViewModel');
+const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
@@ -612,9 +614,11 @@ module.exports = Behavior({
 
     async loadHrProfileTemplates() {
       if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
+      const request = orgSession.beginRequest(this, 'hrTemplateCatalog');
       this.setLoading('hrProfileTemplates', true);
       try {
         const result = await this.callCloud('listHrProfileTemplates');
+        if (this._pageVisible === false || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           showShortToast(localeCopy.copy_e52119b17e);
           return;
@@ -649,9 +653,9 @@ module.exports = Behavior({
           canSelectHrProfileTemplate: result.canSelect === true
         });
       } catch (_) {
-        showShortToast(localeCopy.copy_e52119b17e);
+        if (this._pageVisible !== false && orgSession.isRequestCurrent(this, request)) showShortToast(localeCopy.copy_e52119b17e);
       } finally {
-        this.setLoading('hrProfileTemplates', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hrProfileTemplates', false);
       }
     },
 
@@ -726,25 +730,15 @@ module.exports = Behavior({
     async startHrProfileTemplateSwitch(e) {
       const targetTemplateId = String(e.currentTarget.dataset.id || '');
       if (!targetTemplateId) return;
+      const request = orgSession.beginRequest(this, 'hrTemplateSwitchContext');
       this.setLoading('hrTemplateSwitch', true);
       try {
         const result = await this.callCloud('getHrProfileTemplateSwitchContext', { targetTemplateId });
+        if (this._pageVisible === false || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') return showShortToast(localeCopy.copy_e52119b17e);
         const targetFields = (result.targetTemplate && result.targetTemplate.fields) || [];
-        const sources = (result.sourceFields || []).map((source) => {
-          const targetOptions = [{ id: '', label: localeCopy.copy_e6b5e03497 }]
-            .concat(targetFields.filter((target) => (source.compatibleTargetIds || []).indexOf(target.id) >= 0));
-          return Object.assign({}, source, {
-            action: 'hide',
-            actionIndex: 0,
-            targetTemplateFieldId: '',
-            targetIndex: 0,
-            targetOptions,
-            suggestionText: source.suggestedTargetId
-              ? localeFormat(localeCopy.copy_209c97537d, [(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''])
-              : ''
-          });
-        });
+        const sources = buildSwitchSources(result.sourceFields || [], targetFields,
+          localeCopy.copy_e6b5e03497, (label) => localeFormat(localeCopy.copy_209c97537d, [label]));
         this.setData({
           hrTemplateSwitchVisible: true,
           hrTemplateSwitchTarget: result.targetTemplate,
@@ -753,13 +747,14 @@ module.exports = Behavior({
           hrTemplateSwitchSummary: null
         });
       } catch (_) {
-        showShortToast(localeCopy.copy_e52119b17e);
+        if (this._pageVisible !== false && orgSession.isRequestCurrent(this, request)) showShortToast(localeCopy.copy_e52119b17e);
       } finally {
-        this.setLoading('hrTemplateSwitch', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hrTemplateSwitch', false);
       }
     },
 
     closeHrProfileTemplateSwitch() {
+      orgSession.beginRequest(this, 'hrTemplateSwitchContext');
       this.setData({
         hrTemplateSwitchVisible: false,
         hrTemplateSwitchTarget: null,
@@ -2195,7 +2190,21 @@ module.exports = Behavior({
       });
     },
 
+    cancelHrTemplateSaveContinuation() {
+      orgSession.beginRequest(this, 'hrTemplateSave');
+      orgSession.beginRequest(this, 'hrTemplateCatalog');
+      orgSession.beginRequest(this, 'hrTemplateSwitchContext');
+      if (this._hrTemplateSaveRequest) wx.hideLoading();
+      this._hrTemplateSaveRequest = null;
+      this.setData({ loadingMap: Object.assign({}, this.data.loadingMap, {
+        saveProfileTemplate: false,
+        hrProfileTemplates: false,
+        hrTemplateSwitch: false
+      }) });
+    },
+
     async saveHrProfileTemplate() {
+      if (this._hrTemplateSaveRequest && orgSession.isRequestCurrent(this, this._hrTemplateSaveRequest)) return;
       const form = this.data.hrProfileTemplateForm || emptyHrProfileTemplateForm();
       const templateName = String(form.name || '').trim();
       const fields = (form.fields || []).map((item) => ({
@@ -2230,6 +2239,9 @@ module.exports = Behavior({
         return;
       }
   
+      const request = orgSession.beginRequest(this, 'hrTemplateSave');
+      this._hrTemplateSaveRequest = request;
+      const isCurrent = () => this._pageVisible !== false && orgSession.isRequestCurrent(this, request);
       this.setLoading('saveProfileTemplate', true);
       wx.showLoading({
         title: localeCopy.copy_74e7385966,
@@ -2244,19 +2256,41 @@ module.exports = Behavior({
           fields
         });
   
-        if (result.status !== 'success') {
-          showShortToast(localeCopy.copy_89be75a701);
+        if (!isCurrent()) return;
+        wx.hideLoading();
+        if (!result || result.status !== 'success') {
+          wx.showModal({ title: templateSaveCopy.failureTitle,
+            content: result && typeof result.message === 'string' && result.message.trim() || templateSaveCopy.failureMessage,
+            showCancel: false });
           return;
         }
   
         this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
         await this.loadHrProfileTemplates();
-        showShortToast(localeCopy.copy_a751bbfc34, 'success');
+        if (!isCurrent()) return;
+        const savedTemplateId = String(result.id || form.id || '');
+        const mayApply = this.data.canSelectHrProfileTemplate === true && Boolean(savedTemplateId);
+        wx.showModal({
+          title: templateSaveCopy.savedTitle,
+          content: mayApply ? templateSaveCopy.applyQuestion : templateSaveCopy.savedOnly,
+          showCancel: mayApply,
+          confirmText: mayApply ? templateSaveCopy.applyAction : undefined,
+          cancelText: mayApply ? templateSaveCopy.laterAction : undefined,
+          success: (answer) => {
+            if (!isCurrent() || !mayApply || !answer.confirm || this.data.canSelectHrProfileTemplate !== true) return;
+            this.startHrProfileTemplateSwitch({ currentTarget: { dataset: { id: savedTemplateId } } });
+          }
+        });
       } catch (error) {
-        showShortToast(localeCopy.copy_89be75a701);
+        if (isCurrent() && !(error && error.silent)) {
+          wx.hideLoading();
+          wx.showModal({ title: templateSaveCopy.failureTitle, content: templateSaveCopy.failureMessage, showCancel: false });
+        }
       } finally {
-        wx.hideLoading();
-        this.setLoading('saveProfileTemplate', false);
+        if (this._hrTemplateSaveRequest === request) {
+          this._hrTemplateSaveRequest = null;
+          if (isCurrent()) { wx.hideLoading(); this.setLoading('saveProfileTemplate', false); }
+        }
       }
     },
 

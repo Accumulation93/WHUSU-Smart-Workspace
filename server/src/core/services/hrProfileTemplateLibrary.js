@@ -5,6 +5,7 @@ const pool = require('../../config/db');
 const { JWT_SECRET } = require('../../middleware/auth');
 const { generateId, safeString, normalizeEmptyValue } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
+const { suggestFields } = require('./hrProfileFieldSuggestions');
 
 const EDIT_MODES = ['direct', 'audit', 'readonly'];
 const FIELD_TYPES = ['text', 'number', 'sequence', 'date', 'phone', 'email'];
@@ -15,7 +16,7 @@ const TOKEN_TTL_MS = 10 * 60 * 1000;
 function parseOptions(value) {
   if (!value) return [];
   try {
-    const result = JSON.parse(value);
+    const result = Array.isArray(value) ? value : JSON.parse(value);
     return Array.isArray(result) ? result.map((item) => safeString(item)).filter(Boolean) : [];
   } catch (_) {
     return [];
@@ -252,6 +253,7 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
     [orgId]
   );
   const serializedTargets = targetFields.map(serializeField);
+  const suggestions = suggestFields(sourceFields.map(serializeField), serializedTargets);
   return {
     activeSnapshot,
     targetTemplate: {
@@ -262,21 +264,19 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
       updatedAt: targetTemplate.updated_at,
       fields: serializedTargets
     },
-    sourceFields: sourceFields.map((field) => {
+    sourceFields: sourceFields.map((field, index) => {
       const serialized = serializeField(field);
       const compatibleTargetIds = serializedTargets
         .filter((target) => isPotentiallyCompatible(serialized.type, target.type))
         .map((target) => target.id);
-      const suggested = serializedTargets.find((target) =>
-        target.label.toLocaleLowerCase('zh-CN') === serialized.label.toLocaleLowerCase('zh-CN')
-        && compatibleTargetIds.includes(target.id));
       return Object.assign(serialized, {
         snapshotId: field.snapshot_id,
         isActive: Boolean(field.is_active),
         currentValueCount: Number(field.current_value_count || 0),
         pendingValueCount: Number(field.pending_value_count || 0),
         compatibleTargetIds,
-        suggestedTargetId: suggested ? suggested.id : ''
+        suggestedTargetId: suggestions[index].id,
+        suggestedDefault: suggestions[index].confident
       });
     })
   };

@@ -1237,8 +1237,8 @@
               </view>
               <view class="field field-half" wx:if="{{item.action === 'map'}}">
                 <view class="field-label">{{localeCopy.copy_0cdd721407}}</view>
-                <picker range="{{item.targetOptions}}" range-key="label" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
-                  <view class="picker-value">{{item.targetOptions[item.targetIndex].label}}</view>
+                <picker range="{{item.targetOptions}}" range-key="displayLabel" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
+                  <view class="picker-value">{{item.targetOptions[item.targetIndex].displayLabel}}</view>
                 </picker>
               </view>
             </view>

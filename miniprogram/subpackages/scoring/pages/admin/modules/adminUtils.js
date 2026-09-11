@@ -1,5 +1,6 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
 const { format: localeFormat } = require('../../../../../locales/runtime');
+const fieldMatching = require('../../../../../utils/hrFieldMatching');
 // Auto-extracted pure utilities and constants from admin.js
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
@@ -1172,21 +1173,7 @@ function validateCsvValueAgainstField(value, fieldDef) {
 }
 
 function jaccardCharSimilarity(a, b) {
-  let sa = String(a || '').trim().toLowerCase();
-  let sb = String(b || '').trim().toLowerCase();
-  if (!sa || !sb) return 0;
-  let setA = {}, setB = {};
-  for (let i = 0; i < sa.length; i++) { setA[sa[i]] = true; }
-  for (let i = 0; i < sb.length; i++) { setB[sb[i]] = true; }
-  let intersection = 0, union = 0;
-  let seen = {};
-  for (let k in setA) { seen[k] = true; }
-  for (let k in setB) { seen[k] = true; }
-  for (let k in seen) {
-    if (setA[k] && setB[k]) intersection++;
-    union++;
-  }
-  return union === 0 ? 0 : intersection / union;
+  return fieldMatching.jaccardCharSimilarity(a, b);
 }
 
 function autoMapCsvColumn(headerName, templateFields) {
@@ -1210,14 +1197,7 @@ function autoMapCsvColumn(headerName, templateFields) {
       for (let j = 0; j < aliases.length; j++) {
         let alias = String(aliases[j] || '').trim().toLowerCase();
         if (!alias) continue;
-        let score = 0;
-        if (h === alias) {
-          score = 1.0;
-        } else if (h.indexOf(alias) >= 0 || alias.indexOf(h) >= 0) {
-          score = 0.75;
-        } else {
-          score = jaccardCharSimilarity(h, alias);
-        }
+        const score = fieldMatching.scoreFieldLabels(h, alias).score;
         if (score >= MIN_SIMILARITY) {
           if (!best || score > best.score) {
             best = { target: cand.target || cand.id, score: score, source: source };
