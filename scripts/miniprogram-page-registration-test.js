@@ -16,7 +16,7 @@ const missingHandlers = new Set();
 });
 
 // 逐字符读取标签与引号，不能把 Mustache 中的 > 误认为标签结束。
-function boundHandlers(source) {
+function boundHandlers(source, onAttribute) {
   const handlers = [];
   let i = 0;
   while (i < source.length) {
@@ -41,6 +41,7 @@ function boundHandlers(source) {
       const valueStart = ++i;
       while (i < source.length && source[i] !== quote) i++;
       const value = source.slice(valueStart, i++);
+      if (onAttribute) onAttribute(tag, key, value);
       if (/^(capture-)?(bind|catch):?[\w-]+$/.test(key) && /^[A-Za-z_$][\w$]*$/.test(value)) handlers.push(value);
     }
     i++;
@@ -50,15 +51,23 @@ function boundHandlers(source) {
 }
 function checkHandlers(base, definition) {
   const methods = new Set();
+  const initialData = {};
   function collect(item) {
     if (!item || typeof item !== 'object') return;
     (item.behaviors || []).forEach(collect);
+    Object.assign(initialData, item.data || {});
     for (const [key, value] of Object.entries(item)) if (typeof value === 'function') methods.add(key);
     for (const [key, value] of Object.entries(item.methods || {})) if (typeof value === 'function') methods.add(key);
   }
   collect(definition);
   function check(file) {
     const markup = fs.readFileSync(file, 'utf8');
+    boundHandlers(markup, function(tag, key, expression) {
+      if (tag !== 'personnel-picker' || (key !== 'value' && key !== 'options')) return;
+      const binding = /^\{\{\s*([A-Za-z_$][\w$]*)\s*\}\}$/.exec(expression);
+      assert.ok(binding, file + ' 人员选择器数组必须绑定显式状态字段');
+      assert.ok(Array.isArray(initialData[binding[1]]), file + ' 人员选择器初始数组缺失：' + binding[1]);
+    });
     for (const handler of boundHandlers(markup)) if (!methods.has(handler)) missingHandlers.add(path.relative(root, file) + ' 绑定未定义事件：' + handler);
   }
   check(base + '.wxml');

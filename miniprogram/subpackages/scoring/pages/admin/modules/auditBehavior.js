@@ -116,6 +116,8 @@ module.exports = Behavior({
 
     // ── Personnel Picker (unified, single-select) ──
     auditPersonnelPickerVisible: false,
+    auditPersonnelPickerOptions: [],
+    auditPersonnelPickerValue: [],
     auditPersonnelPickerTarget: '',
     auditPersonnelPickerLabel: '',
     auditPersonnelPickerSelectedId: '',
