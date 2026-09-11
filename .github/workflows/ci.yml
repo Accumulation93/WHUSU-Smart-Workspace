@@ -77,6 +77,7 @@ jobs:
           node scripts/native-navigation-test.js
           node scripts/trusted-navigation-recovery-test.js
           node scripts/hr-profile-layout-test.js
+          node scripts/button-alignment-test.js
           node scripts/hr-governance-integration-test.js
           node scripts/api-cancellation-test.js
           node scripts/api-auth-recovery-test.js

@@ -826,6 +826,18 @@ function scanLayoutContracts(file) {
     const overlayAncestor = [...stack].reverse().find(item => item.overlay);
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
 
+    // 正文之外只允许有界结构；业务字段、长说明和工具栏不能挤占列表高度。
+    if (directParent?.dialog && directParent.dialog.classes.has('ui-dialog-shell--complex')) {
+      const fixedRoles = ['ui-dialog-header', 'ui-dialog-body', 'ui-dialog-footer', 'scroll-hint', 'rules-tabs', 'rule-editor-viewport-limit', 'detail-loading'];
+      const isLoadingBody = classes.has('modal-body') && /wx:if="\{\{loadingDetailHr\}\}"/.test(raw);
+      if (!fixedRoles.some(name => classes.has(name)) && !isLoadingBody && tag !== 'wxs') {
+        dataLayoutIssues.push({ file: relative(file), line, message: '复杂弹窗的业务字段、工具栏和可增长说明必须放入滚动正文，不能作为外壳的额外固定子项' });
+      }
+    }
+    if (classes.has('hr-import-preview-source') && stack.some(item => item.classes?.has('ui-dialog-header'))) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '长文件名与工作表名必须放滚动正文，不能撑高固定标题挤掉控件' });
+    }
+
     if (tag === 'text' && classes.has('picker-display')) {
       dataLayoutIssues.push({ file: relative(file), line, message: '完整选择框必须使用块级 view 承载白色表面，不得使用行内 text' });
     }
@@ -1082,8 +1094,8 @@ function scanWxss(file) {
         selector: selector.trim().replace(/\s+/g, ' ')
       });
     }
-    if (/text-overflow\s*:\s*ellipsis\b/i.test(declarations) &&
-      /(button|\bbtn\b|picker|action|\btab\b|title|name|result-group-label|app-grid-label|primary-btn|secondary-btn|danger-btn|ui-data-cell--primary|ui-data-cell--action|csv-mapping-primary-text|csv-mapping-picker-value)/i.test(selector)) {
+    if (/(?:text-overflow\s*:\s*ellipsis\b|-webkit-line-clamp\s*:\s*[1-9])/i.test(declarations) &&
+      /(button|\bbtn\b|picker|action|\btab\b|title|name|column-label|field-label|option-label|result-group-label|app-grid-label|primary-btn|secondary-btn|danger-btn|ui-data-cell--primary|ui-data-cell--action|csv-mapping-primary-text|csv-mapping-picker-value)/i.test(selector)) {
       unsafeControlEllipsis.push({
         file: relative(file),
         line: lineAt(source, ruleMatch.index),

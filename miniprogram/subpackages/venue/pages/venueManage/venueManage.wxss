@@ -914,6 +914,7 @@ page {
 /* ═══ Rules tabs — underline style ═══ */
 .rules-tabs {
   display: flex;
+  flex: none;
   border-bottom: 1rpx solid rgba(226, 232, 240, 0.8);
   margin: 0 0 18rpx;
 }

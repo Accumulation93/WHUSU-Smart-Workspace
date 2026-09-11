@@ -1,5 +1,12 @@
 # UI 组件清单
 
+## 全局动作按钮接入契约
+
+- 原生 `button` 和模拟动作按钮的 `view/text` 都遵循 [UI Kit](ui-kit.md) 的双轴居中契约：真实点击表面为 flex/inline-flex，`align-items:center; justify-content:center; text-align:center`。`.primary-btn`、`.secondary-btn`、`.danger-btn` 与紧凑操作均适用；按钮组的排列对齐不能替代按钮内部对齐。
+- 复用标准/紧凑控件令牌，以自然高度、最小高度、对称 padding、无单位语义行高构成盒模型。加载圈与文字整体居中，禁用不改几何；长文案自然增高。禁止 `height = line-height` 配共享 padding、绝对位移顶字或为居中裁掉文字。
+- 保持语义边界：输入框仍为 block；人员岗位选择卡、左对齐选择值及带说明业务卡仍按信息层级排版，不属于整卡文字居中的动作按钮。卡内独立操作按钮才执行本契约，并隔离事件。
+- 组件验收执行 `node scripts/button-alignment-test.js` 和严格 UI 审计；现场分别覆盖手机、Pad 竖屏、Pad 横屏，核对短/长文案、loading、disabled 与切换前后。必须检查最终级联及实际边界，未完成现场项单独记录，不宣称所有组件已通过。
+
 
 当前项目使用原生微信小程序组件和项目自有 WXSS，不依赖第三方 UI provider。公共组件路径均以仓库根目录 `miniprogram/` 为前缀；公共 WXSS 源位于 `miniprogram/subpackages/main/styles/**`，不得从业务分包互相引用。
 
@@ -41,6 +48,7 @@
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
 | `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
 | `.ui-dialog-header` / `.ui-dialog-body` / `.ui-dialog-footer` | 固定标题、可滚动正文、固定操作区 | 长表单、人员选择、审批步骤和详情 |
+| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；保持 viewport 定位、自然高度和动态安全上限 |
 | `.ui-dialog-inset` | 使用弹窗令牌的对称水平留白 | 弹窗内独立字段、提示和操作行 |
 | `.ui-dialog-content` | 普通弹窗的统一正文玻璃表面和边缘留白 | 详情、表单、选择器、长列表 |
 | `.ui-dialog-content--stack` | 多个独立分区共同存在时使用的透明正文滚动层 | 人事详情、权限分组等多分区窗口 |
@@ -52,6 +60,8 @@
 | `.flow-info` / `.flow-info-expanded` / `.flow-expand-detail` | 审批步骤收起卡、展开白色玻璃卡和卡内详情 | 审核详情、场地借用详情、审批历史详情 |
 
 ## 状态表达
+
+三段式 Grid 变体由 `app.wxss` 维护 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。禁止组件自行设固定正文高度或复制定位；第四段、嵌套滚动和专业工作区须单审。接入后同时检查宿主与原生滚动视口的实际尺寸、短内容收缩、末项和底栏可达性。本次人事导出窗口已有末字段及 Excel/CSV 操作现场证据，但不能据此宣布所有组件或三档设备均通过。
 
 - 蓝色：当前选择、主要动作、处理中。
 - 绿色：已完成、已绑定、可用。

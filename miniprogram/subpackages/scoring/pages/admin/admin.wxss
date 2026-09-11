@@ -2923,11 +2923,12 @@ scroll-view {
 
 .hr-profile-export-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 18rpx;
-  margin-bottom: 14rpx;
-  padding: 14rpx 16rpx;
+  gap: var(--ui-inline-gap);
+  margin-bottom: var(--ui-field-gap);
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   border-radius: 20rpx;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.88), rgba(248, 251, 255, 0.76));
   border: 1rpx solid rgba(191, 219, 254, 0.7);
@@ -2951,13 +2952,20 @@ scroll-view {
   max-height: none;
 }
 
+.hr-profile-export-content {
+  display: block;
+  min-width: 0;
+  padding-bottom: var(--ui-field-gap);
+  box-sizing: border-box;
+}
+
 .hr-profile-export-column {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  min-height: 76rpx;
-  margin-bottom: 10rpx;
-  padding: 12rpx 16rpx;
+  gap: var(--ui-inline-gap);
+  min-height: var(--ui-field-control-height);
+  margin-bottom: var(--ui-field-gap);
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   border-radius: 20rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(246, 249, 255, 0.84));
   border: 1rpx solid rgba(226, 237, 247, 0.96);
@@ -2972,25 +2980,32 @@ scroll-view {
 .hr-profile-export-column-text {
   display: flex;
   flex: 1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14rpx;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ui-label-gap);
   min-width: 0;
 }
 
 .hr-profile-export-column-label {
-  overflow: hidden;
+  display: block;
+  max-width: 100%;
   color: #1e293b;
   font-size: var(--ui-type-body);
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
 }
 
 .hr-profile-export-column-group {
   flex-shrink: 0;
-  padding: 5rpx 12rpx;
-  border-radius: 999rpx;
+  box-sizing: border-box;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border-radius: var(--ui-compact-radius);
   color: #2563eb;
   font-size: var(--ui-type-micro);
   font-weight: 700;
@@ -3001,8 +3016,8 @@ scroll-view {
 .hr-profile-export-format {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12rpx;
-  margin-top: 16rpx;
+  gap: var(--ui-inline-gap);
+  margin-top: var(--ui-action-gap);
 }
 
 .hr-profile-export-format-option {
@@ -3212,10 +3227,10 @@ scroll-view {
   flex: 1 1 0;
   min-width: 0;
   min-height: 76rpx;
-  height: 76rpx;
+  height: auto;
   margin: 0;
-  padding: 0 18rpx;
-  line-height: 76rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-leading-control);
   font-size: var(--ui-type-control);
   box-sizing: border-box;
 }
@@ -3861,8 +3876,10 @@ scroll-view {
 .actions button {
   position: relative;
   overflow: hidden;
-  height: 94rpx;
-  line-height: 94rpx;
+  height: auto;
+  min-height: var(--ui-control-height);
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-leading-control);
   margin-bottom: 20rpx;
   border: none;
   border-radius: var(--ui-control-radius, 28rpx);
@@ -4358,9 +4375,9 @@ scroll-view {
 
   .csv-mapping-footer button {
     min-height: 46px;
-    height: 46px;
-    padding: 0 18px;
-    line-height: 46px;
+    height: auto;
+    padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+    line-height: var(--ui-leading-control);
     font-size: var(--ui-type-label);
   }
 
@@ -4428,29 +4445,34 @@ scroll-view {
 
 .hr-template-editor-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14rpx;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-action-gap);
   width: 100%;
 }
 
-.hr-template-editor-btn {
-  display: block;
+.hr-template-editor .hr-template-editor-actions > .hr-template-editor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
   box-sizing: border-box;
   width: 100%;
-  min-width: 0;
-  min-height: 74rpx;
-  height: 74rpx;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: var(--ui-control-height) !important;
+  height: auto !important;
   margin: 0;
-  padding: 0 12rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x) !important;
   border-radius: var(--ui-control-radius, 28rpx);
-  font-size: var(--ui-type-meta);
-  line-height: 74rpx;
-  white-space: nowrap;
-  overflow: hidden;
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-control) !important;
+  text-align: center;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
 }
 
 .hr-template-editor-save {
-  grid-column: auto;
+  grid-column: 1 / -1;
 }
 
 .hr-template-editor-btn.template-save-btn::before {
@@ -4520,22 +4542,25 @@ scroll-view {
 }
 
 .hr-template-action {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   min-height: 74rpx;
-  height: 74rpx;
-  padding: 0 16rpx;
+  height: auto;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   margin: 0;
   border: 1rpx solid rgba(147, 197, 253, 0.72);
   border-radius: var(--ui-control-radius, 28rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 700;
-  line-height: 74rpx;
-  white-space: nowrap;
+  line-height: var(--ui-leading-control);
+  white-space: normal;
+  overflow-wrap: anywhere;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.90));
   box-shadow:
     0 12rpx 24rpx rgba(37, 99, 235, 0.09),
@@ -4659,19 +4684,21 @@ scroll-view {
 }
 
 .hr-template-add-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   box-sizing: border-box;
   width: auto;
   min-width: 176rpx;
   min-height: 72rpx;
-  height: 72rpx;
+  height: auto;
   margin: 0;
-  padding: 0 22rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-meta);
-  line-height: 72rpx;
-  white-space: nowrap;
+  line-height: var(--ui-leading-control);
+  white-space: normal;
 }
 
 .hr-template-library-header,
@@ -4685,13 +4712,13 @@ scroll-view {
   width: auto;
   min-width: 220rpx;
   min-height: 72rpx;
-  height: 72rpx;
+  height: auto;
   margin: 0 0 0 auto;
-  padding: 0 22rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-label);
-  line-height: 72rpx;
-  white-space: nowrap;
+  line-height: var(--ui-leading-control);
+  white-space: normal;
   justify-self: end;
 }
 
@@ -4785,16 +4812,7 @@ scroll-view {
   .hr-template-actions { gap: 8px; }
   .hr-template-editor-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .hr-template-editor-btn {
-    min-height: 44px;
-    height: 44px;
-    padding: 0 14px;
-    border-radius: 14px;
-    font-size: var(--ui-type-label);
-    line-height: 44px;
+    gap: var(--ui-action-gap);
   }
 
   .hr-template-editor-save {
@@ -4807,11 +4825,11 @@ scroll-view {
 
   .hr-template-action {
     min-height: 44px;
-    height: 44px;
-    padding: 0 12px;
+    height: auto;
+    padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
     border-radius: 14px;
     font-size: var(--ui-type-meta);
-    line-height: 44px;
+    line-height: var(--ui-leading-control);
   }
 
   .hr-snapshot-fields {
@@ -4830,11 +4848,11 @@ scroll-view {
   .hr-profile-export-btn {
     min-width: 136px;
     min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    height: auto;
+    padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
     border-radius: 14px;
     font-size: var(--ui-type-label);
-    line-height: 44px;
+    line-height: var(--ui-leading-control);
   }
 
   .hr-member-profile-summary {
@@ -5228,18 +5246,16 @@ scroll-view {
     border-radius: 12px;
   }
 
-  .hr-template-actions,
-  .hr-template-editor-actions { gap: 7px; }
+  .hr-template-actions { gap: 7px; }
 
   .hr-template-action,
-  .hr-template-editor-btn,
   .hr-template-add-btn,
   .hr-profile-export-btn {
     min-height: 36px !important;
-    height: 36px !important;
-    padding: 0 12px !important;
+    height: auto !important;
+    padding: var(--ui-control-padding-y) var(--ui-control-padding-x) !important;
     border-radius: 14px !important;
-    line-height: 36px !important;
+    line-height: var(--ui-leading-control) !important;
   }
 
   .hr-snapshot-fields { margin: 12px 0 14px; padding: 10px; border-radius: 10px; }

@@ -39,6 +39,47 @@ const hrDirectoryControlsWxml = hydrateLocale(
   'localeCopy'
 );
 const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
+// 人事模板三个操作不能继承双列按钮 flex-basis 或恢复 Pad 固定行高。
+const templateActionRules = Array.from(adminWxss.matchAll(/\.hr-template-editor-actions\s*\{([^}]+)\}/g));
+assert.strictEqual(templateActionRules.length, 2, '人事模板操作组应仅有手机基础规则和 Pad 覆盖');
+assert(/display:\s*grid;/.test(templateActionRules[0][1])
+    && /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/.test(templateActionRules[0][1]),
+  '手机人事模板操作组必须为两列网格');
+assert(/grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/.test(templateActionRules[1][1]),
+  'Pad 人事模板操作组必须为三列网格');
+const templatePadContext = adminWxss.slice(adminWxss.lastIndexOf('@media', templateActionRules[1].index), templateActionRules[1].index);
+assert(/^@media\s*\(min-width:\s*520px\)\s*\{/.test(templatePadContext),
+  '三列操作覆盖必须从 Pad 竖屏断点开始，并继续适用于横屏');
+assert(templateActionRules.every(rule => /gap:\s*var\(--ui-action-gap\);/.test(rule[1])),
+  '三个操作的间距必须统一采用操作组令牌');
+const templateSaveRules = Array.from(adminWxss.matchAll(/\.hr-template-editor-save\s*\{([^}]+)\}/g));
+assert.strictEqual(templateSaveRules.length, 2);
+assert(/grid-column:\s*1\s*\/\s*-1;/.test(templateSaveRules[0][1])
+    && /grid-column:\s*auto;/.test(templateSaveRules[1][1]),
+  '保存按钮手机跨整行，Pad 必须恢复单列');
+const templateButtonRule = adminWxss.match(/\.hr-template-editor\s+\.hr-template-editor-actions\s*>\s*\.hr-template-editor-btn\s*\{([^}]+)\}/);
+assert(templateButtonRule, '按钮必须使用编辑器内的高优先级直接子级规则');
+const templateButtonStyle = templateButtonRule[1];
+for (const declaration of [
+  /display:\s*flex;/, /align-items:\s*center;/, /justify-content:\s*center;/,
+  /flex:\s*none;/, /box-sizing:\s*border-box;/, /(?:^|;)\s*width:\s*100%;/,
+  /min-width:\s*0\s*!important;/, /max-width:\s*100%\s*!important;/,
+  /min-height:\s*var\(--ui-control-height\)\s*!important;/,
+  /(?:^|;)\s*height:\s*auto\s*!important;/,
+  /padding:\s*var\(--ui-control-padding-y\)\s+var\(--ui-control-padding-x\)\s*!important;/,
+  /line-height:\s*var\(--ui-leading-control\)\s*!important;/,
+  /white-space:\s*normal\s*!important;/, /overflow-wrap:\s*anywhere;/
+]) assert(declaration.test(templateButtonStyle), '人事模板按钮缺少完整显示声明：' + declaration);
+for (const rule of adminWxss.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  if (!/\.hr-template-editor-btn\b/.test(rule[1]) || /::/.test(rule[1])) continue;
+  assert(!/(?:^|;)\s*(?:height|line-height):\s*\d+(?:\.\d+)?(?:r?px)\b/.test(rule[2])
+      && !/white-space:\s*nowrap|text-overflow:\s*ellipsis|-webkit-line-clamp:/.test(rule[2]),
+    '任何断点均不得恢复人事模板按钮固定高度、固定行高或截断：' + rule[1].trim());
+}
+for (const action of ['addHrProfileField', 'importTableFields', 'saveHrProfileTemplate']) {
+  assert(new RegExp('class="[^"]*hr-template-editor-btn[^"\\n]*"[^\\n]*bindtap="' + action + '"').test(adminWxmlSource),
+    '三个真实按钮均必须接入模板操作控件规则：' + action);
+}
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
 const authPersonnelBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');
 const authManagementJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/authManagement/authManagement.js'), 'utf8');

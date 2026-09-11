@@ -300,7 +300,6 @@
               </picker>
             </view>
           </view>
-        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="csv-skip-invalid-row">
           <view class="csv-skip-invalid-label">
             <text>{{localeCopy.copy_c1f37f0512}}</text>
@@ -308,6 +307,7 @@
           </view>
           <switch checked="{{templateCsvReplaceMode}}" bindchange="toggleTemplateCsvReplaceMode" color="#2563eb"/>
         </view>
+        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           <button class="primary-btn ui-motion-button" catchtap="confirmTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b35531a5fd}}</button>
@@ -1162,7 +1162,7 @@
     <viewport-portal wx:if="{{hrProfileExportVisible}}">
     <view class="modal-mask ui-overlay" wx:if="{{hrProfileExportVisible}}" bindtap="closeHrProfileExport">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-      <view class="modal-card hr-profile-export-modal ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-card hr-profile-export-modal ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
             <view class="modal-title">{{localeCopy.copy_b26bdbb604}}</view>
@@ -1170,6 +1170,8 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileExport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="hr-profile-export-content">
         <view class="hr-profile-export-toolbar">
           <text class="hr-profile-export-count">{{localeCopy.copy_801a88e4a1}} {{hrProfileExportSelectedCount}} {{localeCopy.copy_4a8754e628}}</text>
           <view class="hr-profile-export-quick-actions">
@@ -1177,7 +1179,6 @@
             <text class="link ui-motion-chip" catchtap="clearHrProfileExportColumns" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6888d59833}}</text>
           </view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <checkbox-group bindchange="onHrProfileExportColumnChange">
             <label class="hr-profile-export-column" wx:for="{{hrProfileExportColumns}}" wx:key="key">
               <checkbox value="{{item.key}}" checked="{{item.checked}}" color="#2563eb" />
@@ -1187,7 +1188,6 @@
               </view>
             </label>
           </checkbox-group>
-        </scroll-view>
         <view class="hr-profile-export-format">
           <view class="hr-profile-export-format-option {{hrProfileExportFormat === 'xlsx' ? 'is-active' : ''}} ui-motion-button" data-format="xlsx" catchtap="onHrProfileExportFormatChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <text class="hr-profile-export-format-title">Excel</text>
@@ -1198,6 +1198,8 @@
             <text class="hr-profile-export-format-ext">.csv</text>
           </view>
         </view>
+        </view>
+        </scroll-view>
         <view class="button-row hr-profile-export-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.exportHrProfiles}}" disabled="{{!hrProfileExportSelectedCount}}" catchtap="confirmHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8bad1e0cda}}</button>
@@ -1732,7 +1734,6 @@
               </picker>
             </view>
           </view>
-        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="csv-skip-invalid-row">
           <view class="csv-skip-invalid-label">
             <text>{{localeCopy.copy_34a7aa4018}}</text>
@@ -1740,6 +1741,7 @@
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
+        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_72a40b3f52}}</button>
@@ -1756,11 +1758,11 @@
         <view class="modal-header ui-dialog-header">
           <view>
             <view class="modal-title">{{localeCopy.copy_0802c1f456}}</view>
-            <view class="hr-import-preview-source">{{hrImportPreview.fileName}} · {{hrImportPreview.sheetName}}</view>
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrImportPreview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+          <view class="hr-import-preview-source">{{hrImportPreview.fileName}} · {{hrImportPreview.sheetName}}</view>
           <view class="hr-import-preview-stats">
             <view class="hr-import-preview-stat"><text>{{localeCopy.copy_0e17db0f53}}</text><text class="hr-import-preview-stat-value">{{hrImportPreview.totalRows}}</text></view>
             <view class="hr-import-preview-stat is-success"><text>{{localeCopy.copy_aa81275ca1}}</text><text class="hr-import-preview-stat-value">{{hrImportPreview.validRows}}</text></view>
@@ -1837,8 +1839,8 @@
           <view class="modal-title">{{localeCopy.copy_a36ffa9141}}</view>
           <view class="modal-close ui-motion-chip" catchtap="closeValidationErrors" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <view class="validation-errors-summary">{{validationErrorSummary}}{{localeCopy.copy_e5f5be43de}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+          <view class="validation-errors-summary">{{validationErrorSummary}}{{localeCopy.copy_e5f5be43de}}</view>
           <view class="validation-error-card" wx:for="{{validationErrorCards}}" wx:key="studentId">
             <view class="ve-card-top">
               <view class="ve-card-name">{{item.name || '—'}}</view>

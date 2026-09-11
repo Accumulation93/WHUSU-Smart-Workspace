@@ -187,6 +187,7 @@ button {
   overflow: visible;
   text-overflow: clip;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 button::after {
@@ -496,6 +497,10 @@ page .picker-value {
 .purpose-save-btn,
 .dialog-btn,
 .sigpad-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   position: relative;
   min-height: 82rpx;
   min-height: var(--ui-control-height, 82rpx);
@@ -3282,6 +3287,12 @@ page .pending-refresh-btn {
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
   height: auto !important;
+}
+
+/* 三段式长列表使用确定的网格轨道，避免原生滚动视口仍保留 Flex 收缩前高度。 */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
