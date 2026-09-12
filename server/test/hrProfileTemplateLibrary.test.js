@@ -6,7 +6,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-profile-template-library-
 process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-profile-template-identity-test-secret';
 
 const library = require('../src/core/services/hrProfileTemplateLibrary');
-const { validateDefinition, isPotentiallyCompatible, validateMappedValue, normalizeActions } = library._test;
+const { validateDefinition, isPotentiallyCompatible, coerceMappedValue, validateMappedValue, normalizeActions } = library._test;
 
 const numberTarget = {
   type: 'number', number_rule: 'value_range', allow_decimal: false,
@@ -25,12 +25,21 @@ assert.strictEqual(validateDefinition('学生资料', 'direct', [
 
 assert.strictEqual(isPotentiallyCompatible('sequence', 'text'), true);
 assert.strictEqual(isPotentiallyCompatible('text', 'number'), true);
-assert.strictEqual(isPotentiallyCompatible('text', 'date'), false);
+assert.strictEqual(isPotentiallyCompatible('text', 'date'), true);
+assert.strictEqual(isPotentiallyCompatible('text', 'phone'), true);
+assert.strictEqual(isPotentiallyCompatible('text', 'email'), true);
 assert.strictEqual(validateMappedValue(numberTarget, '42'), '');
 assert.strictEqual(validateMappedValue(numberTarget, '42.5'), '请填写整数');
 assert.strictEqual(validateMappedValue(numberTarget, '101'), '请填写不大于100的数字');
 assert.strictEqual(validateMappedValue(sequenceTarget, '本科'), '');
 assert.strictEqual(validateMappedValue(sequenceTarget, '博士'), '请选择已有选项');
+assert.deepStrictEqual(coerceMappedValue({ type: 'date' }, '2026-09-12T23:59:59+08:00'), { value: '2026-09-12' });
+assert.deepStrictEqual(coerceMappedValue({ type: 'date' }, '2026/9/2 08:00:00'), { value: '2026-09-02' });
+assert.deepStrictEqual(coerceMappedValue({ type: 'phone' }, '+86 138-0000-0000'), { value: '13800000000' });
+assert.deepStrictEqual(coerceMappedValue({ type: 'email' }, ' A@B.COM '), { value: 'A@B.COM' });
+assert.strictEqual(validateMappedValue({ type: 'date' }, '2026-09-12T23:59:59+08:00'), '');
+assert.strictEqual(validateMappedValue({ type: 'phone' }, '+86 138-0000-0000'), '');
+assert.strictEqual(validateMappedValue({ type: 'email' }, ' A@B.COM '), '');
 assert.deepStrictEqual(library.serializeField({ type: 'sequence', options_json: ['本科', '硕士'] }).options, ['本科', '硕士']);
 assert.deepStrictEqual(library.serializeField(sequenceTarget).options, ['本科', '硕士']);
 assert.deepStrictEqual(library.serializeField({ type: 'sequence', options_json: '{broken' }).options, []);

@@ -1,6 +1,10 @@
 'use strict';
 
 module.exports = Object.freeze({
+  excelFormatTitle: 'Excel',
+  excelFormatExtension: '.xlsx',
+  csvFormatTitle: 'CSV',
+  csvFormatExtension: '.csv',
   dictionaryRetry: '重新加载',
   dictionaryLoadFailed: Object.freeze({
     departments: Object.freeze({

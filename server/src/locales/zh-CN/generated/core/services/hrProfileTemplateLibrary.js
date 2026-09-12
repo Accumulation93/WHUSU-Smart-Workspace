@@ -29,11 +29,15 @@ module.exports = Object.freeze({
   copy_b419a118ee: "请重新选择{0}的保存位置",
   copy_b559e020b7: "请填写资料项名称",
   copy_b5f5bd64a7: "请填写人事模板名称",
+  copy_cf9e4a58b2: "请填写正确的邮箱",
   copy_c38d4ca5a6: "请为{0}添加选项",
   copy_c482d16146: "所选内容已变化，请重新确认",
+  copy_def1b0de8c: "请填写正确的手机号",
   copy_defd7b1cf3: "请检查{0}的长度限制",
   copy_e4aa7ba39c: "请检查{0}的数值限制",
   copy_ee7c5a64c4: "人事模板名称重复",
+  copy_ee70060b25: "请按年-月-日填写日期",
+  copy_f561364d9f: "请选择已有选项",
   copy_fd1e62ce41: "请选择资料类型",
   copy_ff3132c386: "请控制在{0}个字以内"
 });

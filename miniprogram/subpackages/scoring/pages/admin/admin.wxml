@@ -1229,12 +1229,12 @@
           </checkbox-group>
         <view class="hr-profile-export-format">
           <view class="hr-profile-export-format-option {{hrProfileExportFormat === 'xlsx' ? 'is-active' : ''}} ui-motion-button" data-format="xlsx" catchtap="onHrProfileExportFormatChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <text class="hr-profile-export-format-title">Excel</text>
-            <text class="hr-profile-export-format-ext">.xlsx</text>
+            <text class="hr-profile-export-format-title">{{localeCopy.excelFormatTitle}}</text>
+            <text class="hr-profile-export-format-ext">{{localeCopy.excelFormatExtension}}</text>
           </view>
           <view class="hr-profile-export-format-option {{hrProfileExportFormat === 'csv' ? 'is-active' : ''}} ui-motion-button" data-format="csv" catchtap="onHrProfileExportFormatChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <text class="hr-profile-export-format-title">CSV</text>
-            <text class="hr-profile-export-format-ext">.csv</text>
+            <text class="hr-profile-export-format-title">{{localeCopy.csvFormatTitle}}</text>
+            <text class="hr-profile-export-format-ext">{{localeCopy.csvFormatExtension}}</text>
           </view>
         </view>
         </view>
@@ -1266,7 +1266,7 @@
                 <view class="hr-template-card-name">{{item.label}}</view>
                 <view class="hr-template-meta">{{item.isActive ? localeCopy.copy_8abd0d1512 : localeCopy.copy_ef1232fbde}} · {{localeCopy.copy_0180a9817b}} {{item.currentValueCount}} / {{localeCopy.copy_310d71700e}} {{item.pendingValueCount}}</view>
               </view>
-              <view class="status-chip none-chip">{{item.type}}</view>
+              <view class="status-chip none-chip">{{item.typeLabel}}</view>
             </view>
             <view class="hr-switch-suggestion" wx:if="{{item.suggestionText}}">{{item.suggestionText}}</view>
             <view class="field-row">

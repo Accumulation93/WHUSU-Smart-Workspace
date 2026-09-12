@@ -50,6 +50,7 @@ assert.equal(draft[0].actionIndex, 1);
 assert.equal(draft[0].targetTemplateFieldId, 'new-phone');
 assert.equal(draft[0].targetIndex, 1);
 assert.equal(draft[0].suggestionText, '联系电话');
+assert.equal(draft[0].typeLabel, '手机号');
 assert.equal(buildSwitchSources(sources, [], '', String)[0].action, 'hide');
 assert.equal(buildSwitchSources([Object.assign({}, sources[0], { compatibleTargetIds: [] })], [target], '', String)[0].action, 'hide');
 assert.equal(buildSwitchSources([Object.assign({}, sources[0], { type: 'text' })], [target], '', String)[0].action, 'hide');

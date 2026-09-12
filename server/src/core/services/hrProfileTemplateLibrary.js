@@ -23,6 +23,72 @@ function parseOptions(value) {
   }
 }
 
+function padDatePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+function normalizeDateValue(value) {
+  const raw = normalizeEmptyValue(value);
+  if (!raw) return '';
+  const separatorMatch = raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$/);
+  const chineseMatch = raw.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日(?:.*)?$/);
+  const match = separatorMatch || chineseMatch;
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return '';
+  return `${year}-${padDatePart(month)}-${padDatePart(day)}`;
+}
+
+function normalizePhoneValue(value) {
+  const raw = normalizeEmptyValue(value);
+  if (!raw) return '';
+  const compact = raw.replace(/[\s()-]/g, '').replace(/^(?:\+?86|0086)/, '');
+  return /^1[3-9]\d{9}$/.test(compact) ? compact : '';
+}
+
+function normalizeEmailValue(value) {
+  const raw = normalizeEmptyValue(value);
+  if (!raw) return '';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : '';
+}
+
+function normalizeNumberValue(value) {
+  const raw = normalizeEmptyValue(value);
+  if (!raw) return '';
+  const compact = raw.replace(/[,，\s]/g, '').replace(/[¥￥$]/g, '');
+  return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(compact) ? compact : '';
+}
+
+function coerceMappedValue(targetField, rawValue) {
+  const value = normalizeEmptyValue(rawValue);
+  if (!value) return { value: '' };
+  const type = safeString(targetField && targetField.type);
+  if (type === 'text') return { value };
+  if (type === 'number') {
+    const normalized = normalizeNumberValue(value);
+    return normalized ? { value: normalized } : { error: localeCopy.copy_53fc596039 };
+  }
+  if (type === 'sequence') {
+    return parseOptions(targetField.options_json).includes(value) ? { value } : { error: localeCopy.copy_f561364d9f };
+  }
+  if (type === 'date') {
+    const normalized = normalizeDateValue(value);
+    return normalized ? { value: normalized } : { error: localeCopy.copy_ee70060b25 };
+  }
+  if (type === 'phone') {
+    const normalized = normalizePhoneValue(value);
+    return normalized ? { value: normalized } : { error: localeCopy.copy_def1b0de8c };
+  }
+  if (type === 'email') {
+    const normalized = normalizeEmailValue(value);
+    return normalized ? { value: normalized } : { error: localeCopy.copy_cf9e4a58b2 };
+  }
+  return { error: localeCopy.copy_114e62ddbf };
+}
+
 function serializeField(field) {
   return {
     id: safeString(field.id),
@@ -285,11 +351,14 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
 function isPotentiallyCompatible(sourceType, targetType) {
   if (targetType === 'text') return true;
   if (targetType === 'number' || targetType === 'sequence') return true;
+  if (sourceType === 'text' && ['date', 'phone', 'email'].includes(targetType)) return true;
   return sourceType === targetType;
 }
 
 function validateMappedValue(targetField, rawValue) {
-  const value = normalizeEmptyValue(rawValue);
+  const mapped = coerceMappedValue(targetField, rawValue);
+  if (mapped.error) return mapped.error;
+  const value = mapped.value;
   if (!value) return '';
   if (targetField.type === 'text') {
     if (targetField.min_length != null && value.length < Number(targetField.min_length)) return localeFormat(localeCopy.copy_8ca7d2480d, [targetField.min_length]);
@@ -310,10 +379,8 @@ function validateMappedValue(targetField, rawValue) {
     }
     return '';
   }
-  if (targetField.type === 'sequence') return parseOptions(targetField.options_json).includes(value) ? '' : '请选择已有选项';
-  if (targetField.type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? '' : '请按年-月-日填写日期';
-  if (targetField.type === 'phone') return /^1[3-9]\d{9}$/.test(value) ? '' : '请填写正确的手机号';
-  if (targetField.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : '请填写正确的邮箱';
+  if (targetField.type === 'sequence' || targetField.type === 'date'
+    || targetField.type === 'phone' || targetField.type === 'email') return '';
   return localeCopy.copy_114e62ddbf;
 }
 
@@ -472,7 +539,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     for (const action of actions.filter((item) => item.action === 'map')) {
       const target = targetMap.get(action.targetTemplateFieldId);
       const [values] = await connection.query(
-        'SELECT field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ? FOR UPDATE',
+        'SELECT id, field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ? FOR UPDATE',
         [orgId, action.sourceSnapshotFieldId]
       );
       if (values.some((row) => validateMappedValue({
@@ -539,10 +606,30 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       let targetSnapshotFieldId = null;
       if (action.action === 'map') {
         targetSnapshotFieldId = snapshotFieldIds.get(action.targetTemplateFieldId);
-        await connection.query(
-          'UPDATE hr_profile_record_values SET field_id = ? WHERE org_id = ? AND field_id = ?',
-          [targetSnapshotFieldId, orgId, action.sourceSnapshotFieldId]
+        const target = targetMap.get(action.targetTemplateFieldId);
+        const [values] = await connection.query(
+          'SELECT id, field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ? FOR UPDATE',
+          [orgId, action.sourceSnapshotFieldId]
         );
+        for (const row of values) {
+          const mapped = coerceMappedValue({
+            type: target.type,
+            min_length: target.minLength,
+            max_length: target.maxLength,
+            number_rule: target.numberRule,
+            allow_decimal: target.allowDecimal,
+            min_digits: target.minDigits,
+            max_digits: target.maxDigits,
+            min_value: target.minValue,
+            max_value: target.maxValue,
+            options_json: JSON.stringify(target.options || [])
+          }, row.field_value);
+          if (mapped.error) return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
+          await connection.query(
+            'UPDATE hr_profile_record_values SET field_id = ?, field_value = ? WHERE org_id = ? AND id = ?',
+            [targetSnapshotFieldId, mapped.value, orgId, row.id]
+          );
+        }
         movedValueCount += total;
       } else if (action.action === 'delete') {
         await connection.query('DELETE FROM hr_profile_record_values WHERE org_id = ? AND field_id = ?', [orgId, action.sourceSnapshotFieldId]);
@@ -607,6 +694,7 @@ module.exports = {
   _test: {
     validateDefinition,
     isPotentiallyCompatible,
+    coerceMappedValue,
     validateMappedValue,
     normalizeActions,
     hashActions

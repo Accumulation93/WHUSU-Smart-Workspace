@@ -25,6 +25,7 @@ function buildSwitchSources(sourceFields, targetFields, emptyLabel, formatSugges
     const targetIndex = suggestedIndex > 0 && canDefault
       && claims.get(source.suggestedTargetId) === 1 ? suggestedIndex : 0;
     return Object.assign({}, source, {
+      typeLabel: displayCopy.types[source.type] || displayCopy.unknownType,
       action: targetIndex ? 'map' : 'hide',
       actionIndex: targetIndex ? 1 : 0,
       targetTemplateFieldId: targetOptions[targetIndex].id,
