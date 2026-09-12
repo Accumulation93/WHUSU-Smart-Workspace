@@ -242,6 +242,7 @@ function decorateDeletionRules(rows) {
 }
 
 module.exports = Behavior({
+  data: { hrTemplateCopy: templateSaveCopy, hrTemplatePreviewId: '', hrTemplateExpandedField: -1 },
   methods: {
     async loadHrList() {
       const request = orgSession.beginRequest(this, 'hrList');
@@ -647,7 +648,9 @@ module.exports = Behavior({
           });
         }
         this.setData({
-          hrProfileTemplateList: result.list || [],
+          hrProfileTemplateList: (result.list || []).map((template) => Object.assign({}, template, {
+            fields: (template.fields || []).map((field) => Object.assign({}, field, normalizeHrProfileFieldForForm(field)))
+          })),
           activeHrProfileSnapshot: active,
           canManageHrProfileTemplates: result.canManage === true,
           canSelectHrProfileTemplate: result.canSelect === true
@@ -660,13 +663,23 @@ module.exports = Behavior({
     },
 
     startCreateHrProfileTemplate() {
+      if (this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
       this.setData({
         hrProfileTemplateForm: emptyHrProfileTemplateForm(),
+        hrTemplatePreviewId: '',
+        hrTemplateExpandedField: 0,
         showHrTemplateEditor: true
-      });
+      }, () => this.focusHrTemplateEditor(true));
+    },
+
+    focusHrTemplateEditor(showHeading) {
+      if (this._pageVisible === false || !this.data.showHrTemplateEditor || typeof wx.pageScrollTo !== 'function') return;
+      const index = this.data.hrTemplateExpandedField;
+      wx.pageScrollTo({ selector: !showHeading && index >= 0 ? '#hr-template-field-' + index : '.hr-template-editor', duration: 0 });
     },
 
     editHrProfileTemplate(e) {
+      if (!this.data.canManageHrProfileTemplates || this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
       const id = String(e.currentTarget.dataset.id || '');
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
@@ -678,14 +691,31 @@ module.exports = Behavior({
           description: template.description || '',
           editMode: modeOption.value,
           editModeLabel: modeOption.label,
+          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(modeOption),
           fields: (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field))
         },
+        hrTemplatePreviewId: id,
+        hrTemplateExpandedField: e.currentTarget.dataset.index == null ? -1 : Number(e.currentTarget.dataset.index),
         showHrTemplateEditor: true
-      });
+      }, () => this.focusHrTemplateEditor());
     },
 
     cancelHrProfileTemplateEditor() {
+      if (this.data.loadingMap.saveProfileTemplate) return;
       this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
+    },
+
+    toggleHrTemplatePreview(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      this.setData({ hrTemplatePreviewId: this.data.hrTemplatePreviewId === id ? '' : id });
+    },
+
+    toggleHrTemplateFieldEditor(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const expanded = this.data.hrTemplateExpandedField !== index;
+      this.setData({ hrTemplateExpandedField: expanded ? index : -1 }, () => {
+        if (expanded) this.focusHrTemplateEditor();
+      });
     },
 
     async duplicateHrProfileTemplate(e) {
@@ -2066,7 +2096,8 @@ module.exports = Behavior({
         hrProfileTemplateForm: {
           ...this.data.hrProfileTemplateForm,
           editMode: option.value,
-          editModeLabel: option.label
+          editModeLabel: option.label,
+          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(option)
         }
       });
     },
@@ -2082,7 +2113,8 @@ module.exports = Behavior({
       fields[index] = {
         ...fields[index],
         type: option.value,
-        typeLabel: option.label
+        typeLabel: option.label,
+        typeIndex: PROFILE_FIELD_TYPE_OPTIONS.indexOf(option)
       };
   
       this.setData({
@@ -2101,7 +2133,8 @@ module.exports = Behavior({
       fields[index] = {
         ...fields[index],
         numberRule: option.value,
-        numberRuleLabel: option.label
+        numberRuleLabel: option.label,
+        numberRuleIndex: NUMBER_RULE_OPTIONS.indexOf(option)
       };
   
       this.setData({
@@ -2128,11 +2161,12 @@ module.exports = Behavior({
 
     addHrProfileField() {
       this.setData({
+        hrTemplateExpandedField: (this.data.hrProfileTemplateForm.fields || []).length,
         'hrProfileTemplateForm.fields': [
           ...(this.data.hrProfileTemplateForm.fields || []),
           createEmptyProfileField()
         ]
-      });
+      }, () => this.focusHrTemplateEditor());
     },
 
     importTableFields() {
@@ -2186,6 +2220,7 @@ module.exports = Behavior({
   
       fields.splice(index, 1);
       this.setData({
+        hrTemplateExpandedField: fields.length ? -1 : 0,
         'hrProfileTemplateForm.fields': fields.length ? fields : [createEmptyProfileField()]
       });
     },

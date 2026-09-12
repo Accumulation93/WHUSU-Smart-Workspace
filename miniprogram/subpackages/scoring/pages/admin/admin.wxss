@@ -4450,6 +4450,50 @@ scroll-view {
   width: 100%;
 }
 
+/* 字段预览与编辑共处当前模板，不另建嵌套滚动列表。 */
+.hr-template-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-field-gap);
+  margin-top: var(--ui-field-gap);
+  min-width: 0;
+}
+.hr-template-field-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-inline-gap);
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  border: 1rpx solid rgba(147,197,253,0.35);
+  border-radius: var(--ui-field-radius);
+  background: linear-gradient(135deg,rgba(255,255,255,0.96),rgba(239,246,255,0.72));
+}
+.hr-template-field-caption {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hr-template-field-name {
+  color: #0f172a;
+  font-size: var(--ui-type-emphasis);
+  line-height: 1.5;
+}
+.hr-template-field-summary .hr-template-field-toggle {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  max-width: 45%;
+  min-height: var(--ui-compact-height);
+  height: auto;
+  margin: 0;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: var(--ui-leading-control);
+}
+.hr-template-field-settings { margin-top: var(--ui-field-gap); }
+
 .hr-template-editor .hr-template-editor-actions > .hr-template-editor-btn {
   display: flex;
   align-items: center;
@@ -4808,6 +4852,22 @@ scroll-view {
   .hr-template-description,
   .hr-switch-suggestion,
   .hr-switch-delete-warning { font-size: var(--ui-type-meta); }
+
+  .hr-template-field-list {
+    gap: var(--ui-field-gap);
+    margin-top: var(--ui-field-gap);
+  }
+  .hr-template-field-summary {
+    gap: var(--ui-inline-gap);
+    padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+    border: 1px solid rgba(147,197,253,0.35);
+    border-radius: var(--ui-field-radius);
+  }
+  .hr-template-field-summary .hr-template-field-toggle {
+    min-height: var(--ui-compact-height);
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  }
+  .hr-template-field-settings { margin-top: var(--ui-field-gap); }
 
   .hr-template-actions { gap: 8px; }
   .hr-template-editor-actions {

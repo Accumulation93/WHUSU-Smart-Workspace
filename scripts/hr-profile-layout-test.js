@@ -125,7 +125,7 @@ assert(
     && /buildHrProfileRenderState\(synchronizedRows\)/.test(hrInfoBehavior),
   '人事列表必须只向视图传递摘要字段，完整补充资料应留在逻辑层供筛选和导出'
 );
-const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{activeTab === 'hrInfo'[\s\S]*?<\/view>\s*<view class="edit-box hr-template-editor"/);
+const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{activeTab === 'hrInfo'[\s\S]*?<\/view>\s*<template name="hr-template-inline-editor"/);
 assert(createMemberForm, '应保留新增成员表单');
 assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '新增成员表单只能填写人员基础信息');
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');

@@ -885,7 +885,8 @@
         </view>
       </view>
 
-      <view class="edit-box hr-template-editor" wx:if="{{activeTab === 'hrTemplates' && showHrTemplateEditor && canManageHrProfileTemplates}}">
+      <template name="hr-template-inline-editor">
+      <view class="hr-template-editor">
         <view class="edit-box-header">
         <view class="list-title">{{hrProfileTemplateForm.id ? localeCopy.copy_fcb584d9c6 : localeCopy.copy_cef74d5df5}}</view>
           <text class="link ui-motion-chip" bindtap="cancelHrProfileTemplateEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</text>
@@ -900,22 +901,29 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_1037d0aa5f}}</view>
-          <picker range="{{profileEditModeOptions}}" range-key="label" bindchange="onHrProfileEditModeChange">
+          <picker range="{{profileEditModeOptions}}" value="{{hrProfileTemplateForm.editModeIndex || 0}}" range-key="label" bindchange="onHrProfileEditModeChange">
             <view class="picker-value">{{hrProfileTemplateForm.editModeLabel}}</view>
           </picker>
         </view>
-        <view class="list-card nested-card">
+        <view class="hr-template-fields">
           <view class="list-title">{{localeCopy.copy_f6f826bc55}}</view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">
-            <view class="question-card" wx:for="{{hrProfileTemplateForm.fields}}" wx:key="id">
-              <view class="question-title">{{localeCopy.copy_da2843df2e}} {{index + 1}}</view>
+          <view class="hr-template-field-list">
+            <view class="hr-template-field-item" id="hr-template-field-{{index}}" wx:for="{{hrProfileTemplateForm.fields}}" wx:key="id">
+              <view class="hr-template-field-summary">
+                <view class="hr-template-field-caption">
+                  <view class="hr-template-field-name">{{index + 1}}. {{item.label || hrTemplateCopy.unnamedField}}</view>
+                  <view class="hr-snapshot-type-tag">{{item.typeLabel}}</view>
+                </view>
+                <button class="secondary-btn hr-template-field-toggle ui-motion-button" data-index="{{index}}" bindtap="toggleHrTemplateFieldEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplateExpandedField === index ? hrTemplateCopy.collapseFieldAction : hrTemplateCopy.editFieldAction}}</button>
+              </view>
+              <view class="hr-template-field-settings" wx:if="{{hrTemplateExpandedField === index}}">
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_93ab263567}}</view>
                 <input class="field-input" data-index="{{index}}" data-field="label" bindinput="onHrProfileFieldInput" value="{{item.label}}" placeholder="{{localeCopy.copy_a4cbcb25b9}}" />
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_54d366a2c5}}</view>
-                <picker range="{{profileFieldTypeOptions}}" range-key="label" bindchange="onHrProfileFieldTypeChange" data-index="{{index}}">
+                <picker range="{{profileFieldTypeOptions}}" value="{{item.typeIndex || 0}}" range-key="label" bindchange="onHrProfileFieldTypeChange" data-index="{{index}}">
                   <view class="picker-value">{{item.typeLabel}}</view>
                 </picker>
               </view>
@@ -936,7 +944,7 @@
               <view wx:if="{{item.type === 'number'}}">
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_069296c265}}</view>
-                  <picker range="{{numberRuleOptions}}" range-key="label" bindchange="onHrProfileNumberRuleChange" data-index="{{index}}">
+                  <picker range="{{numberRuleOptions}}" value="{{item.numberRuleIndex || 0}}" range-key="label" bindchange="onHrProfileNumberRuleChange" data-index="{{index}}">
                     <view class="picker-value">{{item.numberRuleLabel}}</view>
                   </picker>
                 </view>
@@ -972,8 +980,9 @@
               <view class="button-row compact-row">
                 <button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_779363030e}}</button>
               </view>
+              </view>
             </view>
-          </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+          </view>
         </view>
         <view class="button-row hr-template-editor-actions">
           <button class="secondary-btn hr-template-editor-btn ui-motion-button" bindtap="addHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e0e7db5698}}</button>
@@ -981,6 +990,7 @@
           <button class="primary-btn template-save-btn hr-template-editor-btn hr-template-editor-save ui-motion-button" loading="{{loadingMap.saveProfileTemplate}}" bindtap="saveHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_41e8060a1f}}</button>
         </view>
       </view>
+      </template>
 
       <view class="hr-template-workspace" wx:if="{{activeTab === 'hrTemplates'}}">
         <view class="list-card hr-template-current-card">
@@ -1029,8 +1039,10 @@
             <view>
                <view class="list-title">{{localeCopy.copy_a0d495faa0}}</view>
             </view>
-            <button class="primary-btn hr-template-add-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" bindtap="startCreateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_96187d380e}}</button>
+            <button class="primary-btn hr-template-add-btn ui-motion-button" disabled="{{showHrTemplateEditor}}" wx:if="{{canManageHrProfileTemplates}}" bindtap="startCreateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_96187d380e}}</button>
           </view>
+          <view class="hr-template-meta">{{hrTemplateCopy.libraryNote}}</view>
+          <template wx:if="{{showHrTemplateEditor && !hrProfileTemplateForm.id && canManageHrProfileTemplates}}" is="hr-template-inline-editor" data="{{hrProfileTemplateForm, localeCopy, hrTemplateCopy, profileEditModeOptions, profileFieldTypeOptions, numberRuleOptions, loadingMap, hrTemplateExpandedField}}" />
           <view class="hr-template-card" wx:for="{{hrProfileTemplateList}}" wx:key="id">
             <view class="hr-template-card-head">
               <view>
@@ -1039,11 +1051,23 @@
               </view>
             </view>
             <view class="hr-template-description">{{item.description || localeCopy.copy_83bd4d9da0}}</view>
-            <view class="hr-template-actions">
+            <view class="hr-template-actions" wx:if="{{!showHrTemplateEditor || hrProfileTemplateForm.id !== item.id}}">
+              <button class="secondary-btn hr-template-action ui-motion-button" data-id="{{item.id}}" bindtap="toggleHrTemplatePreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplatePreviewId === item.id ? hrTemplateCopy.collapseAction : hrTemplateCopy.previewAction}}</button>
               <button class="primary-btn hr-template-action hr-template-action-primary ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" loading="{{loadingMap.hrTemplateSwitch}}" bindtap="startHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_adabb47646}}</button>
-              <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_e040ae3016}}</button>
+              <button class="secondary-btn hr-template-action ui-motion-button" disabled="{{showHrTemplateEditor}}" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_e040ae3016}}</button>
               <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="duplicateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_fbf1856932}}</button>
               <button class="danger-btn hr-template-action hr-template-action-danger ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="deleteHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_acc985cabc}}</button>
+            </view>
+            <template wx:if="{{showHrTemplateEditor && hrProfileTemplateForm.id === item.id && canManageHrProfileTemplates}}" is="hr-template-inline-editor" data="{{hrProfileTemplateForm, localeCopy, hrTemplateCopy, profileEditModeOptions, profileFieldTypeOptions, numberRuleOptions, loadingMap, hrTemplateExpandedField}}" />
+            <view class="hr-template-field-list" wx:elif="{{hrTemplatePreviewId === item.id}}">
+              <view class="hr-template-field-summary" wx:for="{{item.fields}}" wx:for-item="field" wx:for-index="fieldIndex" wx:key="id">
+                <view class="hr-template-field-caption">
+                  <view class="hr-template-field-name">{{fieldIndex + 1}}. {{field.label}}</view>
+                  <view class="hr-snapshot-type-tag">{{field.typeLabel}}</view>
+                  <view class="hr-template-meta" wx:if="{{field.type === 'sequence'}}">{{field.optionsText}}</view>
+                </view>
+                <button wx:if="{{canManageHrProfileTemplates}}" disabled="{{showHrTemplateEditor}}" class="secondary-btn hr-template-field-toggle ui-motion-button" data-id="{{item.id}}" data-index="{{fieldIndex}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplateCopy.editFieldAction}}</button>
+              </view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!loadingMap.hrProfileTemplates && !hrProfileTemplateList.length}}">{{localeCopy.copy_1105556893}}</view>

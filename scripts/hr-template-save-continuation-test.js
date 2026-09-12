@@ -39,7 +39,16 @@ function fixture(options = {}) {
       hrProfileTemplateForm: { id: 'template-a', name: 'fixture', description: '', editMode: 'direct',
         fields: [{ label: 'fixture-field', type: 'sequence', optionsText: 'one\ntwo', minLength: '', maxLength: '',
           minDigits: '', maxDigits: '', minValue: '', maxValue: '' }] } },
-    setData(patch) { this._setDataCount = (this._setDataCount || 0) + 1; Object.assign(this.data, patch); },
+    setData(patch, callback) {
+      this._setDataCount = (this._setDataCount || 0) + 1;
+      Object.keys(patch).forEach(key => {
+        const segments = key.split('.');
+        let target = this.data;
+        segments.slice(0, -1).forEach(part => { target = target[part]; });
+        target[segments[segments.length - 1]] = patch[key];
+      });
+      if (callback) callback();
+    },
     setLoading(name, value) { this.setData({ loadingMap: Object.assign({}, this.data.loadingMap, { [name]: value }) }); },
     async callCloud(name, data) {
       calls.push({ name, data });
@@ -63,6 +72,37 @@ function turn() { return new Promise(resolve => setImmediate(resolve)); }
 
 async function main() {
   let f = fixture();
+  const utils = localRequire('./adminUtils');
+  for (let index = 0; index < utils.PROFILE_FIELD_TYPE_OPTIONS.length; index += 1) {
+    const option = utils.PROFILE_FIELD_TYPE_OPTIONS[index];
+    const normalized = utils.normalizeHrProfileFieldForForm({ id: 'field', label: '测试字段', type: option.value, options: ['一', '二'] });
+    assert.equal(normalized.typeLabel, option.label);
+    assert.equal(normalized.typeIndex, index, '重新打开选择器必须定位已保存类型，不能回落文本');
+  }
+  f.page.data.showHrTemplateEditor = false;
+  f.page.data.hrProfileTemplateList = [{ id: 'template-a', name: 'fixture', editMode: 'audit', fields: [
+    { id: 'field-a', label: '测试字段', type: 'sequence', options: ['一', '二'] }
+  ] }];
+  f.page.editHrProfileTemplate({ currentTarget: { dataset: { id: 'template-a', index: 0 } } });
+  assert.equal(f.page.data.hrTemplateExpandedField, 0);
+  assert.equal(f.page.data.hrProfileTemplateForm.editModeIndex, 1, '填写方式选择器必须按已保存枚举下标定位');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].typeIndex, 2);
+  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { index: 0 } } });
+  assert.equal(f.page.data.hrTemplateExpandedField, -1);
+  f.page.onHrProfileFieldTypeChange({ currentTarget: { dataset: { index: 0 } }, detail: { value: 1 } });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].type, 'number');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].typeIndex, 1);
+  f.page.onHrProfileEditModeChange({ detail: { value: 2 } });
+  assert.equal(f.page.data.hrProfileTemplateForm.editMode, 'readonly');
+  assert.equal(f.page.data.hrProfileTemplateForm.editModeIndex, 2);
+  f.page.cancelHrProfileTemplateEditor();
+  assert.equal(f.calls.length, 0, '展开、收起、编辑和取消均不得持久化');
+  assert.equal(f.page.data.hrProfileTemplateList[0].fields[0].type, 'sequence', '草稿不得污染库中预览');
+  const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8');
+  assert(wxml.includes('value="{{item.typeIndex || 0}}"'));
+  assert(wxml.includes('template name="hr-template-inline-editor"'));
+  assert(!wxml.includes('class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">\n            <view class="question-card"'));
+  f = fixture();
   await f.page.saveHrProfileTemplate();
   assert.equal(f.modals[0].title, '模板库已保存');
   assert.equal(f.modals[0].showCancel, true);
