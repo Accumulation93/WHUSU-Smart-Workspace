@@ -8,7 +8,7 @@ const { format: localeFormat } = require('../../../../../locales/runtime');
 const utils = require('./adminUtils');
 const personnelViewModel = require('./personnelViewModel');
 const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
-const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
+const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, getErrorText, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
@@ -894,8 +894,8 @@ module.exports = Behavior({
             if (modalResult.confirm) this.applyHrProfileTemplateSwitch(hasDelete);
           }
         });
-      } catch (_) {
-        showShortToast(localeCopy.copy_e58fa637eb);
+      } catch (error) {
+        showShortToast(getErrorText(error, '') || (error && error.errMsg) || localeCopy.copy_e58fa637eb);
       } finally {
         this.setLoading('previewHrTemplateSwitch', false);
       }
@@ -921,8 +921,8 @@ module.exports = Behavior({
         this.closeHrProfileTemplateSwitch();
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
         showShortToast(localeCopy.copy_75349a79ee, 'success');
-      } catch (_) {
-        showShortToast(localeCopy.copy_c45d6ea9d1);
+      } catch (error) {
+        showShortToast(getErrorText(error, '') || (error && error.errMsg) || localeCopy.copy_c45d6ea9d1);
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }

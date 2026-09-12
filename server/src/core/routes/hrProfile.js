@@ -436,9 +436,17 @@ router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
-    return res.json(await templateLibrary.preflightSwitch(
+    const result = await templateLibrary.preflightSwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions
-    ));
+    );
+    if (result && result.status !== 'success') {
+      req.logger.warn('HR template switch preview rejected', {
+        status: result.status,
+        message: result.message,
+        blockerCount: result.blockers ? result.blockers.length : 0
+      });
+    }
+    return res.json(result);
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
   }
@@ -448,10 +456,17 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
-    return res.json(await templateLibrary.applySwitch(
+    const result = await templateLibrary.applySwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
       safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
-    ));
+    );
+    if (result && result.status !== 'success') {
+      req.logger.warn('HR template switch apply rejected', {
+        status: result.status,
+        message: result.message
+      });
+    }
+    return res.json(result);
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
   }
