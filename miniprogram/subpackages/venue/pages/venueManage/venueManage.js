@@ -712,6 +712,7 @@ Page({
           bookingWindowForm: bookingWindowFromRow(res.bookingWindow),
           bookingRules: buildBookingRuleDisplayList(res.rules)
         });
+      }
     } catch (_) {}
   },
 
