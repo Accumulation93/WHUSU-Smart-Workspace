@@ -268,7 +268,6 @@ Page({
       }
     } catch (error) {
       if (orgSession.isCurrent(expectedSession)) {
-        console.error('[portal] restore current user failed:', error.message || error);
       }
     }
   },
@@ -279,7 +278,6 @@ Page({
       await adminPermissions.refreshMyPermissions();
       if (orgSession.isRequestCurrent(this, request)) this.refreshCurrentUser();
     } catch (error) {
-      if (orgSession.isRequestCurrent(this, request)) console.error('[portal] refresh permissions failed:', error.message || error);
     }
   },
 
@@ -402,7 +400,6 @@ Page({
         messagePartial: !!res.partial
       });
     } catch (error) {
-      if (!(error && error.silent)) console.error('[portal] message overview failed:', error);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) {
         this.setData({ todoLoading: false, notificationLoading: false });
@@ -738,7 +735,6 @@ Page({
       });
       if (result.status !== 'success') throw new Error(result.message || copy.messages.deleteFailed);
     } catch (err) {
-      console.error('[portal] deleteNotification failed:', err);
       this.setData({ notifications: previous });
       this.loadMessageOverview();
     }

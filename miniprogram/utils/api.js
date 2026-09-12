@@ -250,7 +250,6 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
           reject(cancelledError(requestId));
           return;
         }
-        console.error('[API] Request failed:', name, JSON.stringify(err));
         const requestError = err || { errMsg: 'request:fail unknown' };
         if (/timeout/i.test(requestError.errMsg || '')) requestError.timedOut = true;
         reject(requestError);
