@@ -19,7 +19,7 @@ function off(event, callback) {
 function emit(event, data) {
   if (!events[event]) return;
   events[event].forEach(function(cb) {
-    try { cb(data); } catch (e) { console.error('[eventBus]', event, e); }
+    try { cb(data); } catch (_) {}
   });
 }
 

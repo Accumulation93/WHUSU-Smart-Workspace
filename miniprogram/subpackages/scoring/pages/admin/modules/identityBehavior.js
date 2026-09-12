@@ -25,7 +25,6 @@ module.exports = Behavior({
         this.setDictionaryLoadSuccess('identities');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error(localeCopy.copy_b538d2281a, error);
         this.setDictionaryLoadFailure(
           'identities',
           error && error.userMessage || personnelCopy.dictionaryLoadFailed.identities.description

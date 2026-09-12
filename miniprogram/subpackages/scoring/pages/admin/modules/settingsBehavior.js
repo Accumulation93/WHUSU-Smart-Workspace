@@ -34,7 +34,6 @@ module.exports = Behavior({
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('loadSystemConfig error:', e);
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('settings', false);
       }
@@ -81,7 +80,6 @@ module.exports = Behavior({
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('loadOrganizations error:', e);
       }
     },
 

@@ -309,7 +309,6 @@ module.exports = Behavior({
       } catch (error) {
         if (!requestIsCurrent()) return;
         if (!preserveExistingResult) this.clearScoreResultsState();
-        console.error(localeCopy.copy_bd06e9a531, error);
         if (!preserveExistingResult) {
           wx.showToast({
             title: getErrorText(error, localeCopy.copy_c59ab1ce4a),

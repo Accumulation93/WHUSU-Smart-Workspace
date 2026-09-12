@@ -35,7 +35,6 @@ module.exports = Behavior({
         this.setDictionaryLoadSuccess('workGroups');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error(localeCopy.copy_7093ebdf5f, error);
         this.setDictionaryLoadFailure(
           'workGroups',
           error && error.userMessage || personnelCopy.dictionaryLoadFailed.workGroups.description

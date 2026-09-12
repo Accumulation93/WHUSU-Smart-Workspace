@@ -5,6 +5,15 @@ module.exports = Object.freeze({
   excelFormatExtension: '.xlsx',
   csvFormatTitle: 'CSV',
   csvFormatExtension: '.csv',
+  hrTemplateSwitchMoveField: '移入新资料项',
+  hrTemplateSwitchDeleteField: '删除已有资料',
+  hrTemplateSwitchCancelDeleteField: '取消删除',
+  hrTemplateSwitchIncompatibleReportTitle: '部分资料无法移入',
+  hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选新资料项格式不匹配，无法直接移入：',
+  hrTemplateSwitchIncompatibleReportHint: '可取消勾选“移入新资料项”以隐藏保留，或选择删除；调整后重新预检。',
+  hrTemplateSwitchIncompatibleRow(count, field, target) {
+    return `${field} → ${target}：${count} 条资料不符合格式`;
+  },
   dictionaryRetry: '重新加载',
   dictionaryLoadFailed: Object.freeze({
     departments: Object.freeze({

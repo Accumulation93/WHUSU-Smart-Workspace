@@ -257,11 +257,9 @@ module.exports = Behavior({
           });
           this.setData({ auditFlowTemplates: templates });
         } else {
-          console.error('[audit] listAuditFlowTemplates failed:', res.message);
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('[audit] loadAuditFlowTemplates error:', e);
         this.setData({ auditFlowTemplates: [] });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditTemplates', false);
@@ -1299,7 +1297,6 @@ module.exports = Behavior({
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('[audit] loadStamps error:', e);
         this.setData({ stampLoadError: getErrorText(e, stampCopy.loadingFailed) });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditStamps', false);
@@ -1420,11 +1417,9 @@ module.exports = Behavior({
             createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus)
           })) });
         } else {
-          console.error('[audit] listAllAuditSubmissions failed:', res.message);
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('[audit] loadAuditSubmissions error:', e);
         this.setData({ auditSubmissions: [] });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditSubmissions', false);
@@ -1682,11 +1677,9 @@ module.exports = Behavior({
         if (res.status === 'success') {
           this.setData({ verificationPermissions: res.permissions || [] });
         } else {
-          console.error('[audit] listVerificationPermissions failed:', res.message);
         }
       } catch (e) {
         if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        console.error('[audit] loadVerificationPermissions error:', e);
         this.setData({ verificationPermissions: [] });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditVerification', false);

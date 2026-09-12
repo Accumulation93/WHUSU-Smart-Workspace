@@ -25,7 +25,6 @@ module.exports = Behavior({
         this.setDictionaryLoadSuccess('departments');
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error(localeCopy.copy_59591bcd20, error);
         this.setDictionaryLoadFailure(
           'departments',
           error && error.userMessage || personnelCopy.dictionaryLoadFailed.departments.description

@@ -1209,10 +1209,8 @@ Page({
           auditApprovalHistoryCount: res.myApprovalHistoryUnread || 0
         });
       } else {
-        console.warn('[home] getUnreadCounts returned:', res.status, res.message);
       }
     } catch (e) {
-      console.error('[home] getUnreadCounts failed:', e);
     }
   },
 
@@ -1571,7 +1569,6 @@ Page({
         userDesigSearchKeyword: ''
       });
     } catch (e) {
-      console.error(e);
       wx.showToast({ title: copy.text.refreshLater, icon: 'none' });
     }
     this.setData({ userDesigLoading: false });

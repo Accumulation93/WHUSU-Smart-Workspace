@@ -1269,21 +1269,24 @@
               <view class="status-chip none-chip">{{item.typeLabel}}</view>
             </view>
             <view class="hr-switch-suggestion" wx:if="{{item.suggestionText}}">{{item.suggestionText}}</view>
-            <view class="field-row">
-              <view class="field field-half">
-                <view class="field-label">{{localeCopy.copy_a025c4351f}}</view>
-                <picker range="{{hrTemplateSwitchActionOptions}}" value="{{item.actionIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchActionChange">
-                  <view class="picker-value">{{hrTemplateSwitchActionOptions[item.actionIndex]}}</view>
-                </picker>
+            <view class="hr-template-switch-mode">
+              <view class="hr-template-switch-move">
+                <checkbox-group data-index="{{index}}" bindchange="toggleHrTemplateSwitchMove">
+                  <label class="hr-template-switch-move-label">
+                    <checkbox value="move" checked="{{item.moveToNew}}" disabled="{{item.incompatible || item.markForDelete}}" color="#2563eb" />
+                    <text>{{localeCopy.hrTemplateSwitchMoveField}}</text>
+                  </label>
+                </checkbox-group>
               </view>
-              <view class="field field-half" wx:if="{{item.action === 'map'}}">
-                <view class="field-label">{{localeCopy.copy_0cdd721407}}</view>
-                <picker range="{{item.targetOptions}}" range-key="displayLabel" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
-                  <view class="picker-value">{{item.targetOptions[item.targetIndex].displayLabel}}</view>
-                </picker>
-              </view>
+              <text class="link danger hr-template-switch-delete ui-motion-chip" data-index="{{index}}" bindtap="toggleHrTemplateSwitchDelete" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.markForDelete ? localeCopy.hrTemplateSwitchCancelDeleteField : localeCopy.hrTemplateSwitchDeleteField}}</text>
             </view>
-            <view class="hr-switch-delete-warning" wx:if="{{item.action === 'delete'}}">{{localeCopy.copy_165ed9ab37}}</view>
+            <view class="field" wx:if="{{item.moveToNew && !item.markForDelete}}">
+              <view class="field-label">{{localeCopy.copy_0cdd721407}}</view>
+              <picker range="{{item.targetOptions}}" range-key="displayLabel" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
+                <view class="picker-value">{{item.targetOptions[item.targetIndex].displayLabel}}</view>
+              </picker>
+            </view>
+            <view class="hr-switch-delete-warning" wx:if="{{item.markForDelete}}">{{localeCopy.copy_165ed9ab37}}</view>
           </view>
           <view class="scroll-tail-space"></view>
         </scroll-view>

@@ -77,7 +77,6 @@ module.exports = Behavior({
         }
       } catch (e) {
         if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
-          console.error('loadPublicationData error:', e);
           this.setData({
             pubViewRuleList: [],
             pubViewRuleListView: [],
@@ -132,7 +131,6 @@ module.exports = Behavior({
         }
       } catch (e) {
         if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
-          console.error('loadMeritListSummary error:', e);
           this.setData({ meritSummaryLoadFailed: true });
         }
       } finally {
@@ -629,7 +627,7 @@ module.exports = Behavior({
           desigFilterIdentOptions: [localeCopy.copy_31d4595959, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
           desigSearchKeyword: ''
         });
-      } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: localeCopy.copy_e52119b17e, icon: 'none' }); }
+      } catch (_) { wx.showToast({ title: localeCopy.copy_e52119b17e, icon: 'none' }); }
     },
 
     closeDesignationPicker() { this.setData({ showDesignationPicker: false }); },

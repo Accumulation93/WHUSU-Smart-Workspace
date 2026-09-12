@@ -450,7 +450,6 @@ Page({
       trace: function(entry) {
         const records = page._wechatLoginTrace || [];
         page._wechatLoginTrace = records.concat([entry]).slice(-24);
-        console.info('[auth:wechat:timing]', JSON.stringify(entry));
       },
       success: function(result) {
         if (page._active === false) return;

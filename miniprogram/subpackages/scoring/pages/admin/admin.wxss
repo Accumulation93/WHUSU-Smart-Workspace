@@ -4807,6 +4807,36 @@ scroll-view {
   color: #2563eb;
 }
 
+.hr-template-switch-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  margin-top: 14rpx;
+}
+.hr-template-switch-move {
+  flex: 1;
+  min-width: 0;
+}
+.hr-template-switch-move-label {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  min-height: var(--ui-compact-height);
+}
+.hr-template-switch-move-label checkbox {
+  flex: 0 0 auto;
+}
+.hr-template-switch-move-label text {
+  color: #0f172a;
+  font-size: var(--ui-type-label);
+  line-height: var(--ui-leading-control);
+}
+.hr-template-switch-delete {
+  flex: 0 0 auto;
+  min-height: var(--ui-compact-height);
+}
+
 .hr-switch-delete-warning {
   padding: 14rpx 18rpx;
   margin-top: 12rpx;

@@ -727,7 +727,6 @@ Page({
         // 其他分包留下的 profile，即使它非空，也可能仍属于切换前的组织。
         await authContext.refreshCatalog();
       } catch (error) {
-        console.error('[admin] restore current user failed:', error.message || error);
       }
       if (!orgSession.isCurrent(activeSession)) return;
       adminProfile = authContext.getRuntimeProfile('admin');
@@ -749,7 +748,6 @@ Page({
     try {
       adminProfile = await adminPermissions.refreshMyPermissions() || adminProfile;
     } catch (error) {
-      console.error('[admin] refresh permissions failed:', error.message || error);
     }
     if (!orgSession.isCurrent(activeSession)) return;
     adminProfile = authContext.getRuntimeProfile('admin') || adminProfile;

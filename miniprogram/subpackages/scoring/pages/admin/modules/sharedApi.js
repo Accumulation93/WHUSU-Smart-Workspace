@@ -12,11 +12,9 @@ module.exports = Behavior({
           return Promise.reject({ status: 'request_cancelled', silent: true });
         }
         if (result.status === 'error' && result.message) {
-          console.error('[callCloud] API error:', name, 'message:', result.message);
         }
         return result;
       }).catch((err) => {
-        if (!err || !err.silent) console.error('[callCloud] Request failed:', name, JSON.stringify(err));
         return Promise.reject(err);
       });
     }

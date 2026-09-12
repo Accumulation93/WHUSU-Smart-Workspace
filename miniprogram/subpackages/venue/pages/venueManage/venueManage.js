@@ -474,7 +474,6 @@ Page({
     try {
       profile = await adminPermissions.refreshMyPermissions() || profile;
     } catch (error) {
-      console.error('[venueManage] refresh permissions failed:', error.message || error);
     }
     const allTabs = [
       { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
@@ -713,8 +712,7 @@ Page({
           bookingWindowForm: bookingWindowFromRow(res.bookingWindow),
           bookingRules: buildBookingRuleDisplayList(res.rules)
         });
-      } else console.warn('[loadBookingRules] failed:', res.message);
-    } catch (e) { console.error('[loadBookingRules] error:', e); }
+    } catch (_) {}
   },
 
   // ── Rule Editor ──

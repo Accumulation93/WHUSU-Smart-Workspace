@@ -414,7 +414,6 @@ Page({
         });
       }
     } catch (e) {
-      console.error('[audit] loadTemplatePreview failed:', e);
       showShortToast(localeCopy.copy_3a89b81529);
     }
   },
@@ -463,7 +462,6 @@ Page({
         this.handleWorkContextFailure(res);
       }
     } catch (err) {
-      console.error('[audit] listEligibleApprovers (template) failed:', err);
     }
     this._updatePersonPickerOptions(eligibleList);
 
@@ -638,7 +636,6 @@ Page({
         this.handleWorkContextFailure(res);
       }
     } catch (error) {
-      console.error('[audit] listEligibleApprovers (ad hoc) failed:', error);
     }
     this._updatePersonPickerOptions(eligibleList);
     this.setData({
@@ -1003,7 +1000,6 @@ Page({
       } catch (e) {
         errorCount++;
         if (!firstError) firstError = getErrorText(e, localeCopy.copy_03d69a9d28);
-        console.error(localeCopy.copy_e4882ec81b, tf.name, e);
       }
     }
 
@@ -1708,7 +1704,6 @@ Page({
         this.setData({ mySignatures: res.signatures || [] });
       }
     } catch (e) {
-      console.error('[audit] loadMySignatures failed:', e);
       this.setData({ mySignatures: [] });
     }
   },
@@ -1942,7 +1937,6 @@ Page({
         try {
           item.previewSrc = await this._dataUrlToTempFile(item.imageData, 'audit_sign_preview');
         } catch (e) {
-          console.error('[audit] prepare signature preview failed:', e);
           item.previewSrc = item.imageData;
         }
       }
@@ -2033,7 +2027,6 @@ Page({
         this.handleWorkContextFailure(res);
       }
     } catch (err) {
-      console.error('[audit] listEligibleApprovers (submission) failed:', err);
     }
     this._updatePersonPickerOptions(eligibleList);
 
@@ -2086,7 +2079,6 @@ Page({
         this.setData({ availableStamps: res.stamps || [] });
       }
     } catch (e) {
-      console.error('[audit] loadAvailableStamps failed:', e);
     }
   },
 
@@ -2168,7 +2160,6 @@ Page({
           try {
             updateData.placementFileImage = await that._dataUrlToTempFile(previewDataUrl, 'audit_file_preview');
           } catch (writeErr) {
-            console.error('[audit] write preview temp file failed:', writeErr);
             updateData.placementFileImage = previewDataUrl;
           }
         } else if (res.fallback) {
@@ -2180,7 +2171,6 @@ Page({
         that.setData({ placementLoading: false });
       }
     } catch (e) {
-      console.error('[audit] loadFilePreview failed:', e);
       // Fall back to old method for images
       try {
         let fallbackRes = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
@@ -2190,7 +2180,6 @@ Page({
           try {
             fallbackSrc = await that._dataUrlToTempFile(fallbackDataUrl, 'audit_file_preview');
           } catch (writeErr) {
-            console.error('[audit] write fallback preview temp file failed:', writeErr);
           }
           that.setData({
             placementFileImage: fallbackSrc,
@@ -2892,7 +2881,6 @@ Page({
         this.handleWorkContextFailure(res);
       }
     } catch (error) {
-      console.error('[audit] listEligibleApprovers (edit) failed:', error);
     }
     this._updatePersonPickerOptions(persons);
     this.setData({ allHrPersons: persons, editPersonPickerLoading: false });
@@ -3057,7 +3045,6 @@ Page({
         });
       } catch (e) {
         if (!firstError) firstError = getErrorText(e, localeCopy.copy_03d69a9d28);
-        console.error(localeCopy.copy_e4882ec81b, tf.name, e);
       }
     }
     if (firstError && newFiles.length === this.data.editNewFiles.length) {

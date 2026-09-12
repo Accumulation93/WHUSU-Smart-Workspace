@@ -554,7 +554,6 @@ module.exports = Behavior({
         }, actionState, buildHrProfileRenderState(synchronizedRows)));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error('[HR] Member directory load failed', error);
         wx.showToast({
           title: localeCopy.copy_530e6c15c0,
           icon: 'none'
@@ -800,11 +799,54 @@ module.exports = Behavior({
       const action = ['hide', 'map', 'delete'][actionIndex] || 'hide';
       const sources = [...(this.data.hrTemplateSwitchSources || [])];
       if (!sources[index]) return;
+      const recommendedIndex = Number(sources[index].recommendedIndex || 0);
       sources[index] = Object.assign({}, sources[index], {
         action,
         actionIndex,
-        targetTemplateFieldId: action === 'map' ? sources[index].targetTemplateFieldId : '',
-        targetIndex: action === 'map' ? sources[index].targetIndex : 0
+        moveToNew: action === 'map',
+        markForDelete: action === 'delete',
+        targetTemplateFieldId: action === 'map' ? sources[index].targetOptions[recommendedIndex].id : '',
+        targetIndex: action === 'map' ? recommendedIndex : 0
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    toggleHrTemplateSwitchMove(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      const source = sources[index];
+      if (!source || source.incompatible) return;
+      const moveToNew = !source.moveToNew;
+      const recommendedIndex = Number(source.recommendedIndex || 0);
+      sources[index] = Object.assign({}, source, {
+        moveToNew,
+        markForDelete: false,
+        action: moveToNew ? 'map' : 'hide',
+        actionIndex: moveToNew ? 1 : 0,
+        targetTemplateFieldId: moveToNew && recommendedIndex > 0 ? source.targetOptions[recommendedIndex].id : '',
+        targetIndex: moveToNew && recommendedIndex > 0 ? recommendedIndex : 0
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    toggleHrTemplateSwitchDelete(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      const source = sources[index];
+      if (!source) return;
+      const deleteRequested = !source.markForDelete;
+      const restoreMove = !source.incompatible
+        && (source.moveToNewBeforeDelete === true || Number(source.recommendedIndex || 0) > 0);
+      const recommendedIndex = Number(source.recommendedIndex || 0);
+      sources[index] = Object.assign({}, source, {
+        moveToNew: deleteRequested ? false : restoreMove,
+        moveToNewBeforeDelete: deleteRequested ? source.moveToNew : restoreMove,
+        markForDelete: deleteRequested,
+        action: deleteRequested ? 'delete' : (restoreMove ? 'map' : 'hide'),
+        actionIndex: deleteRequested ? 2 : (restoreMove ? 1 : 0),
+        targetTemplateFieldId: !deleteRequested && restoreMove && recommendedIndex > 0
+          ? source.targetOptions[recommendedIndex].id : '',
+        targetIndex: !deleteRequested && restoreMove && recommendedIndex > 0 ? recommendedIndex : 0
       });
       this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
     },
@@ -817,17 +859,24 @@ module.exports = Behavior({
       const target = sources[index].targetOptions[targetIndex] || sources[index].targetOptions[0];
       sources[index] = Object.assign({}, sources[index], {
         targetIndex,
-        targetTemplateFieldId: target.id || ''
+        targetTemplateFieldId: target.id || '',
+        moveToNew: Boolean(target.id),
+        markForDelete: false,
+        action: target.id ? 'map' : 'hide',
+        actionIndex: target.id ? 1 : 0
       });
       this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
     },
 
     buildHrTemplateSwitchActions() {
-      return (this.data.hrTemplateSwitchSources || []).map((source) => ({
-        sourceSnapshotFieldId: source.id,
-        action: source.action || 'hide',
-        targetTemplateFieldId: source.action === 'map' ? source.targetTemplateFieldId : ''
-      }));
+      return (this.data.hrTemplateSwitchSources || []).map((source) => {
+        const action = source.markForDelete ? 'delete' : (source.moveToNew ? 'map' : 'hide');
+        return {
+          sourceSnapshotFieldId: source.id,
+          action,
+          targetTemplateFieldId: action === 'map' ? source.targetTemplateFieldId : ''
+        };
+      });
     },
 
     async previewHrProfileTemplateSwitch() {
@@ -844,8 +893,25 @@ module.exports = Behavior({
           fieldActions: actions
         });
         if (result.status === 'mapping_blocked') {
-          const invalidCount = (result.blockers || []).reduce((sum, item) => sum + Number(item.invalidCount || 0), 0);
-          wx.showModal({ title: localeCopy.copy_028fbc8a93, content: localeFormat(localeCopy.copy_3cfda2ecef, [invalidCount]), showCancel: false });
+          const sourceMap = new Map((this.data.hrTemplateSwitchSources || []).map((source) => [source.id, source]));
+          const reportRows = (result.blockers || []).map((blocker) => {
+            const source = sourceMap.get(blocker.sourceSnapshotFieldId);
+            const target = source && (source.targetOptions || []).find((item) => item.id === blocker.targetTemplateFieldId);
+            return localeCopy.hrTemplateSwitchIncompatibleRow(
+              Number(blocker.invalidCount || 0),
+              source ? source.label : blocker.sourceSnapshotFieldId,
+              target ? target.displayLabel : blocker.targetTemplateFieldId
+            );
+          });
+          const content = [localeCopy.hrTemplateSwitchIncompatibleReportIntro]
+            .concat(reportRows)
+            .concat([localeCopy.hrTemplateSwitchIncompatibleReportHint])
+            .join('\n');
+          wx.showModal({
+            title: localeCopy.hrTemplateSwitchIncompatibleReportTitle,
+            content,
+            showCancel: false
+          });
           return;
         }
         if (result.status !== 'success') return showShortToast(localeCopy.copy_e58fa637eb);
@@ -2532,7 +2598,6 @@ module.exports = Behavior({
         });
         self._csvImportActive = false;
       }).catch(function (err) {
-        console.error('Table file parse error:', err);
         wx.showToast({ title: localeCopy.copy_cc78fc735e, icon: 'none' });
         self._csvImportActive = false;
       });

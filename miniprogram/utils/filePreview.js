@@ -82,7 +82,6 @@ function openLocalFile(filePath, fileName) {
       filePath: filePath,
       showMenu: true,
       fail: function(err) {
-        console.error('[filePreview] openDocument failed:', err);
         wx.showModal({
           title: localeCopy.copy_53de6ca47b,
           content: localeCopy.copy_3bc4a9b5be + (fileName || localeCopy.copy_0c28c344e7),
@@ -144,7 +143,6 @@ function fallbackDownload(fileId, fileName, callback) {
         encoding: 'base64',
         success: onWritten,
         fail: function(writeErr) {
-          console.error('[filePreview] async writeFile failed:', writeErr);
           // Last resort: sync write
           try {
             const altPath = wx.env.USER_DATA_PATH + '/af_fb_' + Date.now() + '_' + fileToken + '.' + ext;
@@ -152,7 +150,6 @@ function fallbackDownload(fileId, fileName, callback) {
             openLocalFile(altPath, result.fileName || fileName);
             if (callback) callback(null);
           } catch (syncErr) {
-            console.error('[filePreview] sync writeFile also failed:', syncErr);
             wx.showModal({
               title: localeCopy.copy_fee4566726,
               content: localeCopy.copy_883987ec9c + (result.fileName || localeCopy.copy_0c28c344e7) +
@@ -217,7 +214,6 @@ function openAuditFile(options) {
         toast(localeCopy.fileIntegrityFailure);
       } else {
         // Non-200 status — try fallback
-        console.warn('[filePreview] downloadFile returned ' + res.statusCode + ', trying fallback');
         fallbackDownload(fileId, fileName);
       }
     },
@@ -226,7 +222,6 @@ function openAuditFile(options) {
         hideLoading();
         return;
       }
-      console.warn('[filePreview] downloadFile failed, trying fallback:', err.errMsg || err);
       // Try fallback via base64 API
       fallbackDownload(fileId, fileName);
     }
@@ -276,7 +271,6 @@ function writeAndOpen(options) {
       });
     },
     fail: function(err) {
-      console.error('[filePreview] writeAndOpen async failed:', err);
       // Sync fallback
       try {
         fs.writeFileSync(filePath, data, encoding);
@@ -289,7 +283,6 @@ function writeAndOpen(options) {
           }
         });
       } catch (syncErr) {
-        console.error('[filePreview] writeAndOpen sync also failed:', syncErr);
         wx.showToast({ title: localeCopy.copy_8807a41511, icon: 'none' });
       }
     }
