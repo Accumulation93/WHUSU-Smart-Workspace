@@ -458,7 +458,8 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     const result = await templateLibrary.applySwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
-      safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
+      safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin,
+      req.body.ignoreInvalid === true
     );
     if (result && result.status !== 'success') {
       req.logger.warn('HR template switch apply rejected', {

@@ -790,7 +790,16 @@ module.exports = Behavior({
         hrTemplateSwitchTarget: null,
         hrTemplateSwitchSources: [],
         hrTemplateSwitchToken: '',
-        hrTemplateSwitchSummary: null
+        hrTemplateSwitchSummary: null,
+        hrTemplateSwitchBlockVisible: false,
+        hrTemplateSwitchBlockReport: null
+      });
+    },
+
+    closeHrTemplateSwitchBlock() {
+      this.setData({
+        hrTemplateSwitchBlockVisible: false,
+        hrTemplateSwitchBlockReport: null
       });
     },
 
@@ -861,23 +870,33 @@ module.exports = Behavior({
         });
         if (result.status === 'mapping_blocked') {
           const sourceMap = new Map((this.data.hrTemplateSwitchSources || []).map((source) => [source.id, source]));
-          const reportRows = (result.blockers || []).map((blocker) => {
+          const rows = [];
+          (result.blockers || []).forEach((blocker) => {
             const source = sourceMap.get(blocker.sourceSnapshotFieldId);
             const target = source && (source.targetOptions || []).find((item) => item.id === blocker.targetTemplateFieldId);
-            return personnelSwitchCopy.hrTemplateSwitchIncompatibleRow(
-              Number(blocker.invalidCount || 0),
-              source ? source.label : blocker.sourceSnapshotFieldId,
-              target ? target.displayLabel : blocker.targetTemplateFieldId
-            );
+            const fieldLabel = source ? source.label : blocker.sourceSnapshotFieldId;
+            const targetLabel = target ? target.displayLabel : blocker.targetTemplateFieldId;
+            (blocker.invalidItems || []).forEach((item, itemIndex) => {
+              rows.push({
+                key: `${blocker.sourceSnapshotFieldId}:${itemIndex}`,
+                memberName: item.memberName || personnelSwitchCopy.hrTemplateSwitchIncompatibleUnnamedMember,
+                fieldLabel,
+                targetLabel,
+                rawValue: item.rawValue || personnelSwitchCopy.hrTemplateSwitchIncompatibleEmptyValue,
+                error: item.error,
+                pendingText: item.isPending ? personnelSwitchCopy.hrTemplateSwitchIncompatiblePending : ''
+              });
+            });
           });
-          const content = [personnelSwitchCopy.hrTemplateSwitchIncompatibleReportIntro]
-            .concat(reportRows)
-            .concat([personnelSwitchCopy.hrTemplateSwitchIncompatibleReportHint])
-            .join('\n');
-          wx.showModal({
-            title: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportTitle,
-            content,
-            showCancel: false
+          this.setData({
+            hrTemplateSwitchToken: result.switchToken,
+            hrTemplateSwitchSummary: result.summary,
+            hrTemplateSwitchBlockVisible: true,
+            hrTemplateSwitchBlockReport: {
+              title: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportTitle,
+              intro: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportDetailIntro,
+              rows
+            }
           });
           return;
         }
@@ -901,7 +920,7 @@ module.exports = Behavior({
       }
     },
 
-    async applyHrProfileTemplateSwitch(confirmDelete) {
+    async applyHrProfileTemplateSwitch(confirmDelete, ignoreInvalid) {
       const target = this.data.hrTemplateSwitchTarget;
       if (!target || !this.data.hrTemplateSwitchToken) return;
       this.setLoading('applyHrTemplateSwitch', true);
@@ -910,7 +929,8 @@ module.exports = Behavior({
           targetTemplateId: target.id,
           fieldActions: this.buildHrTemplateSwitchActions(),
           switchToken: this.data.hrTemplateSwitchToken,
-          confirmDelete: confirmDelete === true
+          confirmDelete: confirmDelete === true,
+          ignoreInvalid: ignoreInvalid === true
         });
         if (result.status !== 'success') {
           showShortToast(result.status === 'stale_switch'
@@ -926,6 +946,11 @@ module.exports = Behavior({
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }
+    },
+
+    async applyHrTemplateSwitchIgnoringInvalid() {
+      const summary = this.data.hrTemplateSwitchSummary || {};
+      await this.applyHrProfileTemplateSwitch(summary.hasDelete === true, true);
     },
 
     onActiveHrProfileSettingInput(e) {

@@ -12,6 +12,13 @@ module.exports = Object.freeze({
   hrTemplateSwitchIncompatibleReportTitle: '部分资料无法移入',
   hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选移入字段格式不匹配，无法直接移入：',
   hrTemplateSwitchIncompatibleReportHint: '可将该字段改为“隐藏保存”保留原资料，或选择“删除现有资料”；调整后重新预检。',
+  hrTemplateSwitchIncompatibleReportDetailIntro: '以下资料内容无法转换为新字段类型，可返回修改后重新应用，或忽略不兼容直接应用（不兼容内容将清空）。',
+  hrTemplateSwitchIncompatibleBackToEdit: '返回修改',
+  hrTemplateSwitchIncompatibleApplyAnyway: '忽略不兼容并应用',
+  hrTemplateSwitchIncompatibleUnnamedMember: '未命名成员',
+  hrTemplateSwitchIncompatibleOriginalValue: '原值',
+  hrTemplateSwitchIncompatibleEmptyValue: '（空）',
+  hrTemplateSwitchIncompatiblePending: '待审核',
   hrTemplateSwitchIncompatibleRow(count, field, target) {
     return `${field} → ${target}：${count} 条资料不符合格式`;
   },

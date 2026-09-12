@@ -461,25 +461,47 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
   const blockers = [];
   for (const action of actions.filter((item) => item.action === 'map')) {
     const target = targetFields.get(action.targetTemplateFieldId);
-    const [values] = await pool.query(
-      'SELECT field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ?',
+    const [rows] = await pool.query(
+      `SELECT value_row.id, value_row.field_value, value_row.is_pending, record_row.name
+         FROM hr_profile_record_values value_row
+         JOIN hr_profile_records record_row ON record_row.id = value_row.record_id
+        WHERE value_row.org_id = ? AND value_row.field_id = ?
+        ORDER BY record_row.name, value_row.is_pending, value_row.id
+        LIMIT 1000`,
       [orgId, action.sourceSnapshotFieldId]
     );
-    const invalidCount = values.reduce((count, row) => count + (validateMappedValue({
-      type: target.type,
-      min_length: target.minLength,
-      max_length: target.maxLength,
-      number_rule: target.numberRule,
-      allow_decimal: target.allowDecimal,
-      min_digits: target.minDigits,
-      max_digits: target.maxDigits,
-      min_value: target.minValue,
-      max_value: target.maxValue,
-      options_json: JSON.stringify(target.options || [])
-    }, row.field_value) ? 1 : 0), 0);
-    if (invalidCount) blockers.push({ sourceSnapshotFieldId: action.sourceSnapshotFieldId, targetTemplateFieldId: target.id, invalidCount });
+    const invalidItems = [];
+    for (const row of rows) {
+      const error = validateMappedValue({
+        type: target.type,
+        min_length: target.minLength,
+        max_length: target.maxLength,
+        number_rule: target.numberRule,
+        allow_decimal: target.allowDecimal,
+        min_digits: target.minDigits,
+        max_digits: target.maxDigits,
+        min_value: target.minValue,
+        max_value: target.maxValue,
+        options_json: JSON.stringify(target.options || [])
+      }, row.field_value);
+      if (error) {
+        invalidItems.push({
+          memberName: safeString(row.name),
+          rawValue: row.field_value == null ? '' : String(row.field_value),
+          isPending: Boolean(row.is_pending),
+          error
+        });
+      }
+    }
+    if (invalidItems.length) {
+      blockers.push({
+        sourceSnapshotFieldId: action.sourceSnapshotFieldId,
+        targetTemplateFieldId: target.id,
+        invalidCount: invalidItems.length,
+        invalidItems
+      });
+    }
   }
-  if (blockers.length) return { status: 'mapping_blocked', message: localeCopy.copy_8f0da4cc00, blockers };
   const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
   const summary = actions.reduce((result, action) => {
     const source = sourceMap.get(action.sourceSnapshotFieldId);
@@ -497,10 +519,20 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
     valueStateHash: await getOrgValueStateHash(orgId),
     expiresAt: Date.now() + TOKEN_TTL_MS
   };
-  return { status: 'success', switchToken: encodeToken(payload), summary, actions };
+  const result = {
+    status: blockers.length ? 'mapping_blocked' : 'success',
+    switchToken: encodeToken(payload),
+    summary,
+    actions
+  };
+  if (blockers.length) {
+    result.message = localeCopy.copy_8f0da4cc00;
+    result.blockers = blockers;
+  }
+  return result;
 }
 
-async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, confirmDelete, operator) {
+async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, confirmDelete, operator, ignoreInvalid) {
   let tokenPayload;
   try {
     tokenPayload = decodeToken(switchToken);
@@ -542,13 +574,16 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
         'SELECT id, field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ? FOR UPDATE',
         [orgId, action.sourceSnapshotFieldId]
       );
-      if (values.some((row) => validateMappedValue({
+      const hasInvalidValue = values.some((row) => validateMappedValue({
         type: target.type, min_length: target.minLength, max_length: target.maxLength,
         number_rule: target.numberRule, allow_decimal: target.allowDecimal,
         min_digits: target.minDigits, max_digits: target.maxDigits,
         min_value: target.minValue, max_value: target.maxValue,
         options_json: JSON.stringify(target.options || [])
-      }, row.field_value))) return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
+      }, row.field_value));
+      if (hasInvalidValue && ignoreInvalid !== true) {
+        return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
+      }
     }
     const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
     const hasDelete = actions.some((action) => action.action === 'delete'
@@ -612,7 +647,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
           [orgId, action.sourceSnapshotFieldId]
         );
         for (const row of values) {
-          const mapped = coerceMappedValue({
+          let mapped = coerceMappedValue({
             type: target.type,
             min_length: target.minLength,
             max_length: target.maxLength,
@@ -624,7 +659,10 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
             max_value: target.maxValue,
             options_json: JSON.stringify(target.options || [])
           }, row.field_value);
-          if (mapped.error) return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
+          if (mapped.error) {
+            if (ignoreInvalid !== true) return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
+            mapped = { value: '' };
+          }
           await connection.query(
             'UPDATE hr_profile_record_values SET field_id = ?, field_value = ? WHERE org_id = ? AND id = ?',
             [targetSnapshotFieldId, mapped.value, orgId, row.id]
