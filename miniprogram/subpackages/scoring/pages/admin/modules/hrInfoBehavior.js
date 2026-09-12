@@ -864,18 +864,18 @@ module.exports = Behavior({
           const reportRows = (result.blockers || []).map((blocker) => {
             const source = sourceMap.get(blocker.sourceSnapshotFieldId);
             const target = source && (source.targetOptions || []).find((item) => item.id === blocker.targetTemplateFieldId);
-            return localeCopy.hrTemplateSwitchIncompatibleRow(
+            return personnelSwitchCopy.hrTemplateSwitchIncompatibleRow(
               Number(blocker.invalidCount || 0),
               source ? source.label : blocker.sourceSnapshotFieldId,
               target ? target.displayLabel : blocker.targetTemplateFieldId
             );
           });
-          const content = [localeCopy.hrTemplateSwitchIncompatibleReportIntro]
+          const content = [personnelSwitchCopy.hrTemplateSwitchIncompatibleReportIntro]
             .concat(reportRows)
-            .concat([localeCopy.hrTemplateSwitchIncompatibleReportHint])
+            .concat([personnelSwitchCopy.hrTemplateSwitchIncompatibleReportHint])
             .join('\n');
           wx.showModal({
-            title: localeCopy.hrTemplateSwitchIncompatibleReportTitle,
+            title: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportTitle,
             content,
             showCancel: false
           });
