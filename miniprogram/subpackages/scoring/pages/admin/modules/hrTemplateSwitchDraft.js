@@ -12,6 +12,7 @@ function buildSwitchSources(sourceFields, targetFields, emptyLabel, formatSugges
       (source.compatibleTargetIds || []).indexOf(target.id) >= 0).map((target) => Object.assign({}, target, {
       displayLabel: displayCopy.targetLabel(target.label, displayCopy.types[target.type] || displayCopy.unknownType)
     })));
+    const incompatible = targetOptions.length === 1;
     const sameNameTargets = targetFields.filter((target) => String(target.label || '').trim().toLowerCase()
       === String(source.label || '').trim().toLowerCase());
     const changedTarget = sameNameTargets.length === 1 && sameNameTargets[0].type !== source.type
@@ -26,14 +27,17 @@ function buildSwitchSources(sourceFields, targetFields, emptyLabel, formatSugges
       && claims.get(source.suggestedTargetId) === 1 ? suggestedIndex : 0;
     return Object.assign({}, source, {
       typeLabel: displayCopy.types[source.type] || displayCopy.unknownType,
+      incompatible,
       action: targetIndex ? 'map' : 'hide',
       actionIndex: targetIndex ? 1 : 0,
       targetTemplateFieldId: targetOptions[targetIndex].id,
       targetIndex,
       targetOptions,
-      suggestionText: changedTarget && !targetIndex
+      suggestionText: incompatible
+        ? displayCopy.noCompatibleTarget
+        : (changedTarget && !targetIndex
         ? displayCopy.typeChanged(changedTarget.label, displayCopy.types[changedTarget.type] || displayCopy.unknownType)
-        : (suggestedIndex > 0 ? formatSuggestion(targetOptions[suggestedIndex].label) : '')
+        : (suggestedIndex > 0 ? formatSuggestion(targetOptions[suggestedIndex].label) : ''))
     });
   });
 }

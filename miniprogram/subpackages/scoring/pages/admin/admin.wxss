@@ -4787,13 +4787,12 @@ scroll-view {
 .hr-template-switch-modal {
   width: calc(100vw - 48rpx);
   max-width: 1080rpx;
-  max-height: 1200rpx;
 }
 
 .hr-template-switch-body {
   flex: 1;
   min-height: 0;
-  padding: 8rpx 0 12rpx;
+  padding: 0;
 }
 
 .hr-switch-source {

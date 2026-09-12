@@ -1250,7 +1250,7 @@
     <viewport-portal wx:if="{{hrTemplateSwitchVisible}}">
     <view class="modal-mask ui-overlay" wx:if="{{hrTemplateSwitchVisible}}" bindtap="closeHrProfileTemplateSwitch">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-      <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
             <view class="modal-title">{{localeCopy.copy_c6a717f074}}{{hrTemplateSwitchTarget.name}}」</view>
@@ -1285,6 +1285,7 @@
             </view>
             <view class="hr-switch-delete-warning" wx:if="{{item.action === 'delete'}}">{{localeCopy.copy_165ed9ab37}}</view>
           </view>
+          <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="button-row hr-template-switch-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" bindtap="closeHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
