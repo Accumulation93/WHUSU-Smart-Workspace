@@ -101,6 +101,10 @@ async function main() {
   const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8');
   assert(wxml.includes('value="{{item.typeIndex || 0}}"'));
   assert(wxml.includes('template name="hr-template-inline-editor"'));
+  assert(wxml.includes('hr-template-options-textarea'));
+  assert(wxml.includes('hrTemplateCopy.viewEditAction'));
+  assert(wxml.includes('hr-snapshot-fields hr-template-preview-fields'));
+  assert(!wxml.includes('class="hr-template-field-summary"'));
   assert(!wxml.includes('class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">\n            <view class="question-card"'));
   f = fixture();
   await f.page.saveHrProfileTemplate();

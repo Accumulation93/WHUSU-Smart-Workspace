@@ -1,6 +1,7 @@
 module.exports = {
   previewAction: '查看字段',
   collapseAction: '收起字段',
+  viewEditAction: '查看/编辑',
   editFieldAction: '展开编辑',
   collapseFieldAction: '收起编辑',
   unnamedField: '未命名字段',

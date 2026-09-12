@@ -906,14 +906,23 @@
           </picker>
         </view>
         <view class="hr-template-fields">
-          <view class="list-title">{{localeCopy.copy_f6f826bc55}}</view>
-          <view class="hr-template-field-list">
+          <view class="hr-snapshot-fields hr-template-editor-fields">
+            <view class="hr-snapshot-fields-head">
+              <view class="hr-snapshot-fields-title">{{localeCopy.copy_f6f826bc55}}</view>
+            </view>
             <view class="hr-template-field-item" id="hr-template-field-{{index}}" wx:for="{{hrProfileTemplateForm.fields}}" wx:key="id">
-              <view class="hr-template-field-summary">
-                <view class="hr-template-field-caption">
-                  <view class="hr-template-field-name">{{index + 1}}. {{item.label || hrTemplateCopy.unnamedField}}</view>
-                  <view class="hr-snapshot-type-tag">{{item.typeLabel}}</view>
+              <view class="hr-snapshot-field">
+                <view class="hr-snapshot-field-order">{{index + 1}}</view>
+                <view class="hr-snapshot-field-main">
+                  <view class="hr-snapshot-field-name">{{item.label || hrTemplateCopy.unnamedField}}</view>
+                  <view class="hr-snapshot-field-rule" wx:if="{{item.type === 'sequence' && item.optionsText}}">{{item.optionsText}}</view>
                 </view>
+                <view class="hr-snapshot-field-tags">
+                  <view class="hr-snapshot-type-tag">{{item.typeLabel}}</view>
+                  <view class="hr-snapshot-required-tag" wx:if="{{item.required}}">{{localeCopy.copy_df05b9bf5d}}</view>
+                </view>
+              </view>
+              <view class="hr-template-field-toggle-row">
                 <button class="secondary-btn hr-template-field-toggle ui-motion-button" data-index="{{index}}" bindtap="toggleHrTemplateFieldEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplateExpandedField === index ? hrTemplateCopy.collapseFieldAction : hrTemplateCopy.editFieldAction}}</button>
               </view>
               <view class="hr-template-field-settings" wx:if="{{hrTemplateExpandedField === index}}">
@@ -975,7 +984,7 @@
               </view>
               <view class="field" wx:if="{{item.type === 'sequence'}}">
                 <view class="field-label">{{localeCopy.copy_1016162deb}}</view>
-                <textarea class="field-textarea question-textarea" auto-height maxlength="-1" data-index="{{index}}" data-field="optionsText" bindinput="onHrProfileFieldInput" value="{{item.optionsText}}" placeholder="{{localeCopy.copy_c3f8ea9aaa}}" />
+                <textarea class="field-textarea question-textarea hr-template-options-textarea" auto-height maxlength="-1" data-index="{{index}}" data-field="optionsText" bindinput="onHrProfileFieldInput" value="{{item.optionsText}}" placeholder="{{localeCopy.copy_c3f8ea9aaa}}" />
               </view>
               <view class="button-row compact-row">
                 <button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_779363030e}}</button>
@@ -1052,21 +1061,27 @@
             </view>
             <view class="hr-template-description">{{item.description || localeCopy.copy_83bd4d9da0}}</view>
             <view class="hr-template-actions" wx:if="{{!showHrTemplateEditor || hrProfileTemplateForm.id !== item.id}}">
-              <button class="secondary-btn hr-template-action ui-motion-button" data-id="{{item.id}}" bindtap="toggleHrTemplatePreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplatePreviewId === item.id ? hrTemplateCopy.collapseAction : hrTemplateCopy.previewAction}}</button>
+              <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" disabled="{{showHrTemplateEditor}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{hrTemplateCopy.viewEditAction}}</button>
+              <button class="secondary-btn hr-template-action ui-motion-button" wx:elif="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" bindtap="toggleHrTemplatePreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplatePreviewId === item.id ? hrTemplateCopy.collapseAction : hrTemplateCopy.previewAction}}</button>
               <button class="primary-btn hr-template-action hr-template-action-primary ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" loading="{{loadingMap.hrTemplateSwitch}}" bindtap="startHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_adabb47646}}</button>
-              <button class="secondary-btn hr-template-action ui-motion-button" disabled="{{showHrTemplateEditor}}" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_e040ae3016}}</button>
               <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="duplicateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_fbf1856932}}</button>
               <button class="danger-btn hr-template-action hr-template-action-danger ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="deleteHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_acc985cabc}}</button>
             </view>
             <template wx:if="{{showHrTemplateEditor && hrProfileTemplateForm.id === item.id && canManageHrProfileTemplates}}" is="hr-template-inline-editor" data="{{hrProfileTemplateForm, localeCopy, hrTemplateCopy, profileEditModeOptions, profileFieldTypeOptions, numberRuleOptions, loadingMap, hrTemplateExpandedField}}" />
-            <view class="hr-template-field-list" wx:elif="{{hrTemplatePreviewId === item.id}}">
-              <view class="hr-template-field-summary" wx:for="{{item.fields}}" wx:for-item="field" wx:for-index="fieldIndex" wx:key="id">
-                <view class="hr-template-field-caption">
-                  <view class="hr-template-field-name">{{fieldIndex + 1}}. {{field.label}}</view>
-                  <view class="hr-snapshot-type-tag">{{field.typeLabel}}</view>
-                  <view class="hr-template-meta" wx:if="{{field.type === 'sequence'}}">{{field.optionsText}}</view>
+            <view class="hr-snapshot-fields hr-template-preview-fields" wx:elif="{{hrTemplatePreviewId === item.id}}">
+              <view class="hr-snapshot-fields-head">
+                <view class="hr-snapshot-fields-title">{{localeCopy.copy_f6f826bc55}}</view>
+              </view>
+              <view class="hr-snapshot-field" wx:for="{{item.fields}}" wx:for-item="field" wx:for-index="fieldIndex" wx:key="id">
+                <view class="hr-snapshot-field-order">{{fieldIndex + 1}}</view>
+                <view class="hr-snapshot-field-main">
+                  <view class="hr-snapshot-field-name">{{field.label}}</view>
+                  <view class="hr-snapshot-field-rule" wx:if="{{field.type === 'sequence' && field.optionsText}}">{{field.optionsText}}</view>
                 </view>
-                <button wx:if="{{canManageHrProfileTemplates}}" disabled="{{showHrTemplateEditor}}" class="secondary-btn hr-template-field-toggle ui-motion-button" data-id="{{item.id}}" data-index="{{fieldIndex}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplateCopy.editFieldAction}}</button>
+                <view class="hr-snapshot-field-tags">
+                  <view class="hr-snapshot-type-tag">{{field.typeLabel}}</view>
+                  <view class="hr-snapshot-required-tag" wx:if="{{field.required}}">{{localeCopy.copy_df05b9bf5d}}</view>
+                </view>
               </view>
             </view>
           </view>
