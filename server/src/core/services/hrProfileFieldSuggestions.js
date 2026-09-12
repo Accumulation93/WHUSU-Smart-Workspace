@@ -17,7 +17,10 @@ function suggestFields(sources, targets) {
   const claims = new Map();
   proposed.forEach((item) => { if (item.id) claims.set(item.id, (claims.get(item.id) || 0) + 1); });
   // 多个历史字段争用同一目标时不按先后顺序猜测，应由用户明确选择。
-  return proposed.map((item) => ({ id: item.id, confident: Boolean(item.id && item.confident && claims.get(item.id) === 1) }));
+  return proposed.map((item) => {
+    const confident = Boolean(item.id && item.confident && claims.get(item.id) === 1);
+    return { id: confident ? item.id : '', confident };
+  });
 }
 
 function suggestFieldTargets(sources, targets) {

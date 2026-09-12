@@ -11,6 +11,19 @@ function aliasesForLabel(value) {
   const group = GROUPS.find((items) => items.indexOf(key) >= 0);
   return group ? group.slice() : [key];
 }
+function baseLabel(value) {
+  let current = normalizeLabel(value);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next = current.replace(/[（(][^（()）]*[)）]\s*$/g, '').trim();
+    if (next && next !== current) {
+      current = next;
+      changed = true;
+    }
+  }
+  return current;
+}
 function jaccardCharSimilarity(a, b) {
   const left = new Set(normalizeLabel(a).split(''));
   const right = new Set(normalizeLabel(b).split(''));
@@ -25,6 +38,7 @@ function scoreFieldLabels(a, b) {
   if (!left || !right) return { score: 0, confident: false };
   if (left === right) return { score: 1, confident: true };
   if (aliasesForLabel(left).indexOf(right) >= 0) return { score: 0.95, confident: true };
+  if (baseLabel(left) === baseLabel(right)) return { score: 0.5, confident: false };
   if (left.indexOf(right) >= 0 || right.indexOf(left) >= 0) return { score: 0.75, confident: false };
   return { score: jaccardCharSimilarity(left, right), confident: false };
 }
