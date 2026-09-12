@@ -5,12 +5,12 @@ module.exports = Object.freeze({
   excelFormatExtension: '.xlsx',
   csvFormatTitle: 'CSV',
   csvFormatExtension: '.csv',
-  hrTemplateSwitchMoveField: '移入新资料项',
-  hrTemplateSwitchDeleteField: '删除已有资料',
-  hrTemplateSwitchCancelDeleteField: '取消删除',
+  hrTemplateSwitchActionMove: '移入现有资料',
+  hrTemplateSwitchActionHide: '隐藏保存',
+  hrTemplateSwitchActionDelete: '删除现有资料',
   hrTemplateSwitchIncompatibleReportTitle: '部分资料无法移入',
-  hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选新资料项格式不匹配，无法直接移入：',
-  hrTemplateSwitchIncompatibleReportHint: '可取消勾选“移入新资料项”以隐藏保留，或选择删除；调整后重新预检。',
+  hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选移入字段格式不匹配，无法直接移入：',
+  hrTemplateSwitchIncompatibleReportHint: '可将该字段改为“隐藏保存”保留原资料，或选择“删除现有资料”；调整后重新预检。',
   hrTemplateSwitchIncompatibleRow(count, field, target) {
     return `${field} → ${target}：${count} 条资料不符合格式`;
   },

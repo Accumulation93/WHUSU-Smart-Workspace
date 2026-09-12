@@ -226,7 +226,6 @@ Page({
     hrTemplateSwitchVisible: false,
     hrTemplateSwitchTarget: null,
     hrTemplateSwitchSources: [],
-    hrTemplateSwitchActionOptions: [localeCopy.copy_44b682f101, localeCopy.copy_ca0f4c277a, localeCopy.copy_de101441cb],
     hrTemplateSwitchToken: '',
     hrTemplateSwitchSummary: null,
     _hrInfoKeywordInput: '',

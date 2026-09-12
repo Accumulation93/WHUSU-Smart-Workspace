@@ -811,46 +811,6 @@ module.exports = Behavior({
       this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
     },
 
-    toggleHrTemplateSwitchMove(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const sources = [...(this.data.hrTemplateSwitchSources || [])];
-      const source = sources[index];
-      if (!source || source.incompatible) return;
-      const moveToNew = !source.moveToNew;
-      const recommendedIndex = Number(source.recommendedIndex || 0);
-      sources[index] = Object.assign({}, source, {
-        moveToNew,
-        markForDelete: false,
-        action: moveToNew ? 'map' : 'hide',
-        actionIndex: moveToNew ? 1 : 0,
-        targetTemplateFieldId: moveToNew && recommendedIndex > 0 ? source.targetOptions[recommendedIndex].id : '',
-        targetIndex: moveToNew && recommendedIndex > 0 ? recommendedIndex : 0
-      });
-      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
-    },
-
-    toggleHrTemplateSwitchDelete(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const sources = [...(this.data.hrTemplateSwitchSources || [])];
-      const source = sources[index];
-      if (!source) return;
-      const deleteRequested = !source.markForDelete;
-      const restoreMove = !source.incompatible
-        && (source.moveToNewBeforeDelete === true || Number(source.recommendedIndex || 0) > 0);
-      const recommendedIndex = Number(source.recommendedIndex || 0);
-      sources[index] = Object.assign({}, source, {
-        moveToNew: deleteRequested ? false : restoreMove,
-        moveToNewBeforeDelete: deleteRequested ? source.moveToNew : restoreMove,
-        markForDelete: deleteRequested,
-        action: deleteRequested ? 'delete' : (restoreMove ? 'map' : 'hide'),
-        actionIndex: deleteRequested ? 2 : (restoreMove ? 1 : 0),
-        targetTemplateFieldId: !deleteRequested && restoreMove && recommendedIndex > 0
-          ? source.targetOptions[recommendedIndex].id : '',
-        targetIndex: !deleteRequested && restoreMove && recommendedIndex > 0 ? recommendedIndex : 0
-      });
-      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
-    },
-
     onHrTemplateSwitchTargetChange(e) {
       const index = Number(e.currentTarget.dataset.index);
       const targetIndex = Number(e.detail.value);
