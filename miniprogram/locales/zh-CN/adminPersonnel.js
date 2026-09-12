@@ -8,6 +8,7 @@ module.exports = Object.freeze({
   hrTemplateSwitchActionMove: '移入现有资料',
   hrTemplateSwitchActionHide: '隐藏保存',
   hrTemplateSwitchActionDelete: '删除现有资料',
+  hrTemplateSwitchDuplicateTarget: '请为每项资料选择不同的保存位置',
   hrTemplateSwitchIncompatibleReportTitle: '部分资料无法移入',
   hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选移入字段格式不匹配，无法直接移入：',
   hrTemplateSwitchIncompatibleReportHint: '可将该字段改为“隐藏保存”保留原资料，或选择“删除现有资料”；调整后重新预检。',

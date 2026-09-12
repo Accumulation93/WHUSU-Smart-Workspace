@@ -1,6 +1,7 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
 const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
+const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
@@ -846,6 +847,12 @@ module.exports = Behavior({
       if (actions.some((action) => action.action === 'map' && !action.targetTemplateFieldId)) {
         return showShortToast(localeCopy.copy_deff18cd29);
       }
+      const mappedTargets = actions
+        .filter((action) => action.action === 'map')
+        .map((action) => action.targetTemplateFieldId);
+      if (new Set(mappedTargets).size !== mappedTargets.length) {
+        return showShortToast(personnelSwitchCopy.hrTemplateSwitchDuplicateTarget);
+      }
       this.setLoading('previewHrTemplateSwitch', true);
       try {
         const result = await this.callCloud('previewHrProfileTemplateSwitch', {
@@ -874,7 +881,7 @@ module.exports = Behavior({
           });
           return;
         }
-        if (result.status !== 'success') return showShortToast(localeCopy.copy_e58fa637eb);
+        if (result.status !== 'success') return showShortToast(result.message || localeCopy.copy_e58fa637eb);
         this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
         const summary = result.summary || {};
         const hasDelete = summary.hasDelete === true;
@@ -906,7 +913,9 @@ module.exports = Behavior({
           confirmDelete: confirmDelete === true
         });
         if (result.status !== 'success') {
-          showShortToast(result.status === 'stale_switch' ? localeCopy.copy_7582cffe69 : localeCopy.copy_c45d6ea9d1);
+          showShortToast(result.status === 'stale_switch'
+            ? localeCopy.copy_7582cffe69
+            : (result.message || localeCopy.copy_c45d6ea9d1));
           return;
         }
         this.closeHrProfileTemplateSwitch();
