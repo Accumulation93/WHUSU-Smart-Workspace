@@ -1,4 +1,5 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+<wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
 <page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
@@ -323,11 +324,11 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_2c2a412327}}</view>
-          <picker range="{{departmentList}}" range-key="name" bindchange="onRuleScorerDepartmentChange"><view class="picker-value">{{ruleForm.scorerDepartment || localeCopy.copy_eada426deb}}</view></picker>
+          <picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, ruleForm.scorerDepartmentId)}}" bindchange="onRuleScorerDepartmentChange"><view class="picker-value">{{ruleForm.scorerDepartment || localeCopy.copy_eada426deb}}</view></picker>
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_bf4cf396ad}}</view>
-          <picker range="{{identityList}}" range-key="name" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.scorerIdentity || localeCopy.copy_d1856227b6}}</view></picker>
+          <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.scorerIdentityId)}}" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.scorerIdentity || localeCopy.copy_d1856227b6}}</view></picker>
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_04d8c1a10d}}</button>
@@ -389,13 +390,13 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_4a52d5ce73}}</view>
-          <picker range="{{scopeOptions}}" range-key="label" bindchange="onClauseScopeChange">
+          <picker range="{{scopeOptions}}" range-key="label" value="{{pk.idx(scopeOptions, ruleForm.clauseScope)}}" bindchange="onClauseScopeChange">
             <view class="picker-value">{{ruleForm.clauseScopeLabel}}</view>
           </picker>
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_ca92a29121}}</view>
-          <picker range="{{identityList}}" range-key="name" bindchange="onRuleTargetIdentityChange"><view class="picker-value">{{ruleForm.clauseTargetIdentity || localeCopy.copy_6de6e1f11f}}</view></picker>
+          <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.clauseTargetIdentityId)}}" bindchange="onRuleTargetIdentityChange"><view class="picker-value">{{ruleForm.clauseTargetIdentity || localeCopy.copy_6de6e1f11f}}</view></picker>
         </view>
         <view class="rule-switch-row">
           <view>
@@ -453,7 +454,7 @@
                 <view class="template-config-inline-edit" wx:if="{{clauseTemplateInlineEditIndex === index}}">
                   <view class="field">
                     <view class="field-label">{{localeCopy.copy_5a49161fd7}}</view>
-                    <picker range="{{templateList}}" range-key="name" bindchange="onRuleTemplateChange">
+                    <picker range="{{templateList}}" range-key="name" value="{{pk.idx(templateList, ruleForm.clauseTemplateId)}}" bindchange="onRuleTemplateChange">
                       <view class="picker-value">{{ruleForm.clauseTemplateName || localeCopy.copy_961b3afe6a}}</view>
                     </picker>
                   </view>
@@ -465,7 +466,7 @@
                   </view>
                   <view class="field">
                     <view class="field-label">{{localeCopy.copy_02151fbb6a}}</view>
-                    <picker range="{{[localeCopy.copy_cd3540aaf7, localeCopy.copy_7cf822347d]}}" bindchange="onCalculationMethodChange">
+                    <picker range="{{[localeCopy.copy_cd3540aaf7, localeCopy.copy_7cf822347d]}}" value="{{ruleForm.clauseCalculationMethod === 'trim_extremes' ? 1 : 0}}" bindchange="onCalculationMethodChange">
                       <view class="picker-value">{{ruleForm.clauseCalculationMethod === 'trim_extremes' ? localeCopy.copy_7cf822347d : localeCopy.copy_cd3540aaf7}}</view>
                     </picker>
                   </view>
@@ -492,7 +493,7 @@
           <view class="template-config-inline-edit" wx:if="{{clauseTemplateInlineEditIndex >= 0 && clauseTemplateInlineEditIndex === ruleForm.clauseTemplateConfigs.length}}">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_5a49161fd7}}</view>
-              <picker range="{{templateList}}" range-key="name" bindchange="onRuleTemplateChange">
+              <picker range="{{templateList}}" range-key="name" value="{{pk.idx(templateList, ruleForm.clauseTemplateId)}}" bindchange="onRuleTemplateChange">
                 <view class="picker-value">{{ruleForm.clauseTemplateName || localeCopy.copy_961b3afe6a}}</view>
               </picker>
             </view>
@@ -504,7 +505,7 @@
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_02151fbb6a}}</view>
-              <picker range="{{[localeCopy.copy_cd3540aaf7, localeCopy.copy_7cf822347d]}}" bindchange="onCalculationMethodChange">
+              <picker range="{{[localeCopy.copy_cd3540aaf7, localeCopy.copy_7cf822347d]}}" value="{{ruleForm.clauseCalculationMethod === 'trim_extremes' ? 1 : 0}}" bindchange="onCalculationMethodChange">
                 <view class="picker-value">{{ruleForm.clauseCalculationMethod === 'trim_extremes' ? localeCopy.copy_7cf822347d : localeCopy.copy_cd3540aaf7}}</view>
               </picker>
             </view>
@@ -541,13 +542,13 @@
         <view class="rule-filter-row ui-inline-field-row">
           <view class="rule-filter-field">
             <view class="field-label">{{localeCopy.copy_1a978b0d52}}</view>
-            <picker range="{{ruleFilterOptions.departments}}" bindchange="onRuleFilterChange" data-field="department">
+            <picker range="{{ruleFilterOptions.departments}}" value="{{pk.idx(ruleFilterOptions.departments, ruleFilters.department)}}" bindchange="onRuleFilterChange" data-field="department">
               <view class="picker-value compact-picker-value">{{ruleFilters.department}}</view>
             </picker>
           </view>
           <view class="rule-filter-field">
             <view class="field-label">{{localeCopy.copy_12367d56b7}}</view>
-            <picker range="{{ruleFilterOptions.identities}}" bindchange="onRuleFilterChange" data-field="identity">
+            <picker range="{{ruleFilterOptions.identities}}" value="{{pk.idx(ruleFilterOptions.identities, ruleFilters.identity)}}" bindchange="onRuleFilterChange" data-field="identity">
               <view class="picker-value compact-picker-value">{{ruleFilters.identity}}</view>
             </picker>
           </view>
@@ -621,13 +622,13 @@
         <view class="field field-row">
           <view class="field field-half">
             <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
-            <picker range="{{resultFilterOptions.departments}}" bindchange="onResultFilterChange" data-field="department">
+            <picker range="{{resultFilterOptions.departments}}" value="{{pk.idx(resultFilterOptions.departments, resultFilters.department)}}" bindchange="onResultFilterChange" data-field="department">
               <view class="picker-value">{{resultFilters.department}}</view>
             </picker>
           </view>
           <view class="field field-half">
             <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
-            <picker range="{{resultFilterOptions.identities}}" bindchange="onResultFilterChange" data-field="identity">
+            <picker range="{{resultFilterOptions.identities}}" value="{{pk.idx(resultFilterOptions.identities, resultFilters.identity)}}" bindchange="onResultFilterChange" data-field="identity">
               <view class="picker-value">{{resultFilters.identity}}</view>
             </picker>
           </view>
@@ -635,20 +636,20 @@
         <view class="field field-row">
           <view class="field field-half">
             <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
-            <picker range="{{resultFilterOptions.workGroups}}" bindchange="onResultFilterChange" data-field="workGroup">
+            <picker range="{{resultFilterOptions.workGroups}}" value="{{pk.idx(resultFilterOptions.workGroups, resultFilters.workGroup)}}" bindchange="onResultFilterChange" data-field="workGroup">
               <view class="picker-value">{{resultFilters.workGroup}}</view>
             </picker>
           </view>
           <view class="field field-half">
             <view class="field-label">{{localeCopy.copy_27d5123777}}</view>
-            <picker range="{{resultViewOptions}}" range-key="label" bindchange="onResultFilterChange" data-field="viewMode">
+            <picker range="{{resultViewOptions}}" range-key="label" value="{{pk.idx(resultViewOptions, resultFilters.viewMode)}}" bindchange="onResultFilterChange" data-field="viewMode">
               <view class="picker-value">{{resultViewLabel}}</view>
             </picker>
           </view>
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_caeab5d89c}}</view>
-          <picker range="{{resultSortOptions}}" range-key="label" bindchange="onResultFilterChange" data-field="sortMode">
+          <picker range="{{resultSortOptions}}" range-key="label" value="{{pk.idx(resultSortOptions, resultFilters.sortMode)}}" bindchange="onResultFilterChange" data-field="sortMode">
             <view class="picker-value">{{resultSortLabel}}</view>
           </picker>
         </view>
@@ -1035,7 +1036,7 @@
             </view>
             <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
               <view class="field-label">{{localeCopy.copy_1037d0aa5f}}</view>
-              <picker range="{{profileEditModeOptions}}" range-key="label" bindchange="onActiveHrProfileModeChange">
+              <picker range="{{profileEditModeOptions}}" range-key="label" value="{{pk.idx(profileEditModeOptions, activeHrProfileSnapshot.editMode)}}" bindchange="onActiveHrProfileModeChange">
                 <view class="picker-value">{{activeHrProfileSnapshot.editMode === 'audit' ? localeCopy.copy_98dc7c613a : activeHrProfileSnapshot.editMode === 'readonly' ? localeCopy.copy_a1399ed0a2 : localeCopy.copy_42143afbe4}}</view>
               </picker>
             </view>
@@ -2168,7 +2169,7 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
-          <picker range="{{departmentList}}" range-key="name" bindchange="onWorkGroupDepartmentChange">
+          <picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, workGroupForm.departmentId)}}" bindchange="onWorkGroupDepartmentChange">
             <view class="picker-value">{{workGroupForm.departmentName || localeCopy.copy_eada426deb}}</view>
           </picker>
         </view>
@@ -2323,7 +2324,7 @@
       </view>
       <view class="rule-panel">
         <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_2e6a7d24f3}}</view></view>
-        <view class="field"><view class="field-label">{{localeCopy.copy_5aa4cb13ec}}</view><picker range="{{activityList}}" range-key="name" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || localeCopy.copy_6d3911624a}}</view></picker></view>
+        <view class="field"><view class="field-label">{{localeCopy.copy_5aa4cb13ec}}</view><picker range="{{activityList}}" range-key="name" value="{{pk.idx(activityList, publicationForm.activityId)}}" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || localeCopy.copy_6d3911624a}}</view></picker></view>
         <view wx:if="{{publicationForm.activityId}}">
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_e5c0e22c49}}</view></view><switch checked="{{!!publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
           <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePublication}}" bindtap="savePublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a7cce01d43}}</button></view>
@@ -2334,8 +2335,8 @@
         <!-- ═══ 结果查看权限 ─── 类别 + 条款 ─── -->
         <view class="rule-panel">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_a8bca898cb}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubViewRuleForm.granteeDepartmentId)}}" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
           <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
         </view>
 
@@ -2351,9 +2352,9 @@
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId && pubViewRuleForm.isClauseEditorVisible}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_9e2afcd01b}}</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_247f66ca71}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_dee3b2111f}}</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
-          <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">{{localeCopy.copy_c8eafec97e}}</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_41f0769610}}</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? localeCopy.copy_23eefbcaad : localeCopy.copy_8a8b68c027}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_dee3b2111f}}</view><picker range="{{viewScopeOptions}}" range-key="label" value="{{pk.idx(viewScopeOptions, pubViewRuleForm.clauseScopeType)}}" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
+          <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">{{localeCopy.copy_c8eafec97e}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.clauseTargetIdentityId)}}" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_41f0769610}}</view><picker range="{{displayModeOptions}}" range-key="label" value="{{pk.idx(displayModeOptions, pubViewRuleForm.clauseDisplayMode)}}" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? localeCopy.copy_23eefbcaad : localeCopy.copy_8a8b68c027}}</view></picker></view>
           <!-- 等第区间编辑器（仅等第模式，每条条款独立配置） -->
           <view wx:if="{{pubViewRuleForm.clauseDisplayMode === 'grade'}}">
             <view class="list-card nested-card">
@@ -2390,7 +2391,7 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_17903d1b98}}</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
-          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
+          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" value="{{pk.idx(pubViewRuleFilterOptions.departments, pubViewRuleFilters.department)}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" value="{{pk.idx(pubViewRuleFilterOptions.identities, pubViewRuleFilters.identity)}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_e1d94e445d}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3b7c76c871}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubViewRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection" aria-role="checkbox" aria-checked="{{!!pubViewRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubViewRuleListView}}" wx:key="id">
@@ -2404,8 +2405,8 @@
         <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
         <view class="rule-panel rule-panel--spaced">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_09bf239b61}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_10eaadc5f1}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubMeritRuleForm.granteeDepartmentId)}}" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
           <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
         </view>
 
@@ -2421,8 +2422,8 @@
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId && pubMeritRuleForm.isClauseEditorVisible}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_efa712e243}}</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_7844b14771}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_c95c079dfd}}</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_c95c079dfd}}</view><picker range="{{viewScopeOptions}}" range-key="label" value="{{pk.idx(viewScopeOptions, pubMeritRuleForm.clauseScopeType)}}" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.clauseTargetIdentityId)}}" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_f1dc48a65c}}</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="{{localeCopy.copy_cd42443afc}}"/></view>
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_fa66c182e7}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_063079dbec}}</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubMeritClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_31b3c65645 : localeCopy.copy_0bc13740e4}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubMeritClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_02a9c01344}}</button></view>
@@ -2430,7 +2431,7 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_09bf239b61}}</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
-          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
+          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" value="{{pk.idx(pubMeritRuleFilterOptions.departments, pubMeritRuleFilters.department)}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" value="{{pk.idx(pubMeritRuleFilterOptions.identities, pubMeritRuleFilters.identity)}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_034e4a532e}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba3a4b8440}}</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b5c6b6df78}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubMeritRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubMeritRuleSelection" aria-role="checkbox" aria-checked="{{!!pubMeritRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubMeritRuleListView}}" wx:key="id">
@@ -2462,19 +2463,19 @@
         <view class="merit-summary-filter-bar" wx:if="{{meritSummaryGroups.length}}">
           <view class="merit-summary-filter-field">
             <text class="merit-summary-filter-label">{{localeCopy.copy_02419589be}}</text>
-            <picker range="{{meritSummaryDeptOptions}}" bindchange="onMeritSummaryFilterChange" data-field="department">
+            <picker range="{{meritSummaryDeptOptions}}" value="{{pk.idx(meritSummaryDeptOptions, meritSummaryFilterDept)}}" bindchange="onMeritSummaryFilterChange" data-field="department">
               <view class="merit-summary-filter-value">{{meritSummaryFilterDept}}</view>
             </picker>
           </view>
           <view class="merit-summary-filter-field">
             <text class="merit-summary-filter-label">{{localeCopy.copy_c1965e0690}}</text>
-            <picker range="{{meritSummaryIdentOptions}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
+            <picker range="{{meritSummaryIdentOptions}}" value="{{pk.idx(meritSummaryIdentOptions, meritSummaryFilterIdent)}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
               <view class="merit-summary-filter-value">{{meritSummaryFilterIdent}}</view>
             </picker>
           </view>
           <view class="merit-summary-filter-field">
             <text class="merit-summary-filter-label">{{localeCopy.copy_303b7a8611}}</text>
-            <picker range="{{meritSummaryWgOptions}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
+            <picker range="{{meritSummaryWgOptions}}" value="{{pk.idx(meritSummaryWgOptions, meritSummaryFilterWg)}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
               <view class="merit-summary-filter-value">{{meritSummaryFilterWg}}</view>
             </picker>
           </view>
@@ -2551,7 +2552,7 @@
         <view class="field field-row">
         <view class="field field-half">
           <view class="field-label">{{localeCopy.copy_a8c395216d}}</view>
-          <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" bindchange="onResubmitModeChange">
+          <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" value="{{auditTemplateForm.resubmitMode === 'fresh' ? 0 : 1}}" bindchange="onResubmitModeChange">
             <view class="picker-value">{{auditTemplateForm.resubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
           </picker>
         </view>
@@ -2783,7 +2784,7 @@
             <!-- Action type -->
             <view class="field ui-dialog-inset">
               <view class="field-label">{{localeCopy.copy_6ce8bf8393}}</view>
-              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onStepActionTypeChange">
+              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{auditTemplateStepForm.actionType === 'pass' ? 0 : (auditTemplateStepForm.actionType === 'sign' ? 1 : (auditTemplateStepForm.actionType === 'estamp' ? 2 : 3))}}" bindchange="onStepActionTypeChange">
                 <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (auditTemplateStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (auditTemplateStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
               </picker>
             </view>
@@ -2802,7 +2803,7 @@
               <view class="list-title">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_dc2056bbc9 : localeCopy.copy_4d3b682ec9}}</view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
-                <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" bindchange="onConditionTypeChange">
+                <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" value="{{auditStepConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onConditionTypeChange">
                   <view class="picker-value">{{auditStepConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : localeCopy.copy_05970eea73}}</view>
                 </picker>
               </view>
@@ -2820,7 +2821,7 @@
               <block wx:else>
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_e8ca7f8024}}</view>
-                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" data-field="departmentScope" bindchange="onConditionScopeChange">
+                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" value="{{auditStepConditionForm.departmentScope === 'all' ? 0 : (auditStepConditionForm.departmentScope === 'specific' ? 1 : 2)}}" data-field="departmentScope" bindchange="onConditionScopeChange">
                     <view class="picker-value">{{auditStepConditionForm.departmentScope === 'all' ? localeCopy.copy_31d4595959 : (auditStepConditionForm.departmentScope === 'specific' ? localeCopy.copy_2aad29e5cf : localeCopy.copy_4b405169cb)}}</view>
                   </picker>
                 </view>
@@ -2831,7 +2832,7 @@
 
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_3393048ea3}}</view>
-                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" data-field="workGroupScope" bindchange="onConditionScopeChange">
+                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" value="{{auditStepConditionForm.workGroupScope === 'all' ? 0 : (auditStepConditionForm.workGroupScope === 'specific' ? 1 : 2)}}" data-field="workGroupScope" bindchange="onConditionScopeChange">
                     <view class="picker-value">{{auditStepConditionForm.workGroupScope === 'all' ? localeCopy.copy_31d4595959 : (auditStepConditionForm.workGroupScope === 'specific' ? localeCopy.copy_2aad29e5cf : localeCopy.copy_4b405169cb)}}</view>
                   </picker>
                 </view>
@@ -2842,7 +2843,7 @@
 
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_4990ecbcc4}}</view>
-                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" data-field="identityScope" bindchange="onConditionScopeChange">
+                  <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" value="{{auditStepConditionForm.identityScope === 'all' ? 0 : (auditStepConditionForm.identityScope === 'specific' ? 1 : 2)}}" data-field="identityScope" bindchange="onConditionScopeChange">
                     <view class="picker-value">{{auditStepConditionForm.identityScope === 'all' ? localeCopy.copy_31d4595959 : (auditStepConditionForm.identityScope === 'specific' ? localeCopy.copy_2aad29e5cf : localeCopy.copy_4b405169cb)}}</view>
                   </picker>
                 </view>
@@ -2875,7 +2876,7 @@
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
-              <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" bindchange="onStarterConditionTypeChange">
+              <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" value="{{auditStarterConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onStarterConditionTypeChange">
                 <view class="picker-value">{{auditStarterConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : localeCopy.copy_05970eea73}}</view>
               </picker>
             </view>
@@ -2889,7 +2890,7 @@
             <block wx:else>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_e8ca7f8024}}</view>
-                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">
+                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" value="{{auditStarterConditionForm.departmentScope === 'all' ? 0 : 1}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">
                   <view class="picker-value">{{auditStarterConditionForm.departmentScope === 'all' ? localeCopy.copy_31d4595959 : localeCopy.copy_2aad29e5cf}}</view>
                 </picker>
               </view>
@@ -2900,7 +2901,7 @@
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_3393048ea3}}</view>
-                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" data-field="workGroupScope" bindchange="onStarterConditionScopeChange">
+                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" value="{{auditStarterConditionForm.workGroupScope === 'all' ? 0 : 1}}" data-field="workGroupScope" bindchange="onStarterConditionScopeChange">
                   <view class="picker-value">{{auditStarterConditionForm.workGroupScope === 'all' ? localeCopy.copy_31d4595959 : localeCopy.copy_2aad29e5cf}}</view>
                 </picker>
               </view>
@@ -2911,7 +2912,7 @@
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_4990ecbcc4}}</view>
-                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" data-field="identityScope" bindchange="onStarterConditionScopeChange">
+                <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" value="{{auditStarterConditionForm.identityScope === 'all' ? 0 : 1}}" data-field="identityScope" bindchange="onStarterConditionScopeChange">
                   <view class="picker-value">{{auditStarterConditionForm.identityScope === 'all' ? localeCopy.copy_31d4595959 : localeCopy.copy_2aad29e5cf}}</view>
                 </picker>
               </view>
@@ -2988,7 +2989,7 @@
         <view class="section-title">{{localeCopy.copy_be547ba4c7}}</view>
         <view class="audit-filter-bar">
           <text class="audit-filter-label">{{localeCopy.copy_bff094c480}}</text>
-          <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" bindchange="onAuditSubmissionStatusFilter">
+          <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" value="{{auditSubmissionFilters.status === '' ? 0 : (auditSubmissionFilters.status === 'draft' ? 1 : (auditSubmissionFilters.status === 'pending' ? 2 : (auditSubmissionFilters.status === 'in_progress' ? 3 : (auditSubmissionFilters.status === 'rejected' ? 4 : (auditSubmissionFilters.status === 'approved' ? 5 : 6)))))}}" bindchange="onAuditSubmissionStatusFilter">
             <view class="picker-value compact-status-picker">{{auditSubmissionFilters.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionFilters.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionFilters.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionFilters.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionFilters.status === 'approved' ? localeCopy.copy_2220286f1c : (auditSubmissionFilters.status === 'withdrawn' ? localeCopy.copy_282e15e226 : localeCopy.copy_31d4595959)))))}}</view>
           </picker>
         </view>
@@ -3130,7 +3131,7 @@
         <view class="list-title">{{localeCopy.copy_e68b797796}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_2592864779}}</view>
-          <picker range="{{[localeCopy.copy_5d41fef45a,localeCopy.copy_3eb9b187ef]}}" bindchange="onVerificationModeChange">
+          <picker range="{{[localeCopy.copy_5d41fef45a,localeCopy.copy_3eb9b187ef]}}" value="{{verificationMode === 'number' ? 0 : 1}}" bindchange="onVerificationModeChange">
             <view class="picker-value">{{verificationMode === 'number' ? localeCopy.copy_5d41fef45a : localeCopy.copy_3eb9b187ef}}</view>
           </picker>
         </view>
@@ -3177,8 +3178,8 @@
       </view>
       <!-- Filters (only for personnel picker) -->
       <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
-        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{auditMultiPickerDeptOptions}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
-        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{auditMultiPickerIdentOptions}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
+        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{auditMultiPickerDeptOptions}}" value="{{pk.idx(auditMultiPickerDeptOptions, auditMultiPickerFilterDept)}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
+        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{auditMultiPickerIdentOptions}}" value="{{pk.idx(auditMultiPickerIdentOptions, auditMultiPickerFilterIdent)}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{auditMultiPickerDeptTabs.length}}">

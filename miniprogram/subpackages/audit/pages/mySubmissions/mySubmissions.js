@@ -15,6 +15,7 @@ Page({
     localeCopy,
     submissions: [],
     statusFilter: '',
+    statusFilterIndex: 0,
     loading: false,
     activeWorkContext: null,
     hasActiveAssignment: false,
@@ -26,7 +27,7 @@ Page({
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
-      this.setData({ submissions: [], statusFilter: '', loading: false });
+      this.setData({ submissions: [], statusFilter: '', statusFilterIndex: 0, loading: false });
     }
     this.refreshActiveWorkContext();
     if (!this.data.hasActiveAssignment) {
@@ -68,7 +69,7 @@ Page({
 
   onStatusFilterChange(e) {
     const idx = parseInt(e.detail.value);
-    this.setData({ statusFilter: this.data.statusValues[idx] || '' });
+    this.setData({ statusFilter: this.data.statusValues[idx] || '', statusFilterIndex: idx });
     this.loadData();
   },
 

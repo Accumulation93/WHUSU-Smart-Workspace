@@ -12,8 +12,8 @@
       </view>
       <view class="field">
         <view class="field-label">{{localeCopy.copy_bff094c480}}</view>
-        <picker range="{{statusOptions}}" bindchange="onStatusFilterChange">
-          <view class="picker-value">{{statusOptions[0]}}</view>
+        <picker range="{{statusOptions}}" value="{{statusFilterIndex}}" bindchange="onStatusFilterChange">
+          <view class="picker-value">{{statusOptions[statusFilterIndex]}}</view>
         </picker>
       </view>
       <view class="audit-btn-bar">

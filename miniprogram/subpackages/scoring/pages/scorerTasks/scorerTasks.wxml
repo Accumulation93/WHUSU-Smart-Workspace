@@ -25,20 +25,20 @@
       <view class="field field-row">
         <view class="field field-half">
           <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
-          <picker range="{{filterOptions.departments}}" bindchange="onFilterChange" data-field="department">
+          <picker range="{{filterOptions.departments}}" value="{{pk.idx(filterOptions.departments, filters.department)}}" bindchange="onFilterChange" data-field="department">
             <view class="picker-value">{{filters.department}}</view>
           </picker>
         </view>
         <view class="field field-half">
           <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
-          <picker range="{{filterOptions.identities}}" bindchange="onFilterChange" data-field="identity">
+          <picker range="{{filterOptions.identities}}" value="{{pk.idx(filterOptions.identities, filters.identity)}}" bindchange="onFilterChange" data-field="identity">
             <view class="picker-value">{{filters.identity}}</view>
           </picker>
         </view>
       </view>
       <view class="field scorer-filter-last-field">
         <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
-        <picker range="{{filterOptions.workGroups}}" bindchange="onFilterChange" data-field="workGroup">
+        <picker range="{{filterOptions.workGroups}}" value="{{pk.idx(filterOptions.workGroups, filters.workGroup)}}" bindchange="onFilterChange" data-field="workGroup">
           <view class="picker-value">{{filters.workGroup}}</view>
         </picker>
       </view>
@@ -132,3 +132,4 @@
   </view>
   </viewport-portal>
 </view>
+<wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
