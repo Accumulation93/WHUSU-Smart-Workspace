@@ -53,12 +53,6 @@ async function run() {
     removeByRecordIdAndPendingFields: async (id, pending) => events.push(['remove-values', pending]),
     create: async (id, recordId, pending, fieldId, value) => events.push(['value', pending, fieldId, value])
   };
-  const sharedModel = {
-    key: (label, type) => label + ':' + type,
-    mapRows: () => ({}),
-    listForPerson: async (id) => { events.push(['shared-read', id]); return []; },
-    upsertEffectiveValues: async (id, orgId) => events.push(['shared-write', id, orgId])
-  };
   const unifiedIdentity = {
     lockActiveBusinessSubjects: async (conn, subjects) => {
       assert.strictEqual(conn, connection);
@@ -82,7 +76,6 @@ async function run() {
     '../models/hrProfileField': fieldModel,
     '../models/hrProfileRecord': recordModel,
     '../models/hrProfileValue': valueModel,
-    '../models/personProfileValue': sharedModel,
     '../models/hrProfileReviewEvent': {},
     '../models/personIdentityOverview': {},
     '../models/unifiedIdentity': unifiedIdentity,
@@ -115,7 +108,6 @@ async function run() {
     assert.strictEqual(result.status, 'success');
     assert.strictEqual(result.profile.id, 'hr-a');
     assert.strictEqual(result.profile.personId, 'person-a');
-    assert(events.some((event) => event[0] === 'shared-read' && event[1] === 'person-a'));
   }
   for (const context of [
     Object.assign({}, baseRequest.authContext, { assignmentId: '' }),
@@ -149,7 +141,6 @@ async function run() {
     assert.strictEqual((await request('submitUserHrProfile')).status, 'success');
     assert(events.findIndex((event) => event[0] === 'barrier') < events.findIndex((event) => event[0] === 'create'));
     assert(events.some((event) => event[0] === 'create' && event[1] === 'hr-a' && event[2] === 'org-a'));
-    assert.strictEqual(events.some((event) => event[0] === 'shared-write'), mode === 'direct');
     assert(events.some((event) => event[0] === 'value' && event[1] === (mode === 'audit' ? 1 : 0)));
   }
   record = { id: 'record-a', audit_status: 'pending' };

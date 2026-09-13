@@ -172,8 +172,6 @@ async function testCompleteCleanupImpactContract() {
     'audit_verification_permissions',
     'notification_outbox',
     'legacy_user_bindings',
-    'global_profile_values',
-    'global_profile_history',
     'admin_grants',
     'admin_permission_overrides',
     'identity_invites_for_member',

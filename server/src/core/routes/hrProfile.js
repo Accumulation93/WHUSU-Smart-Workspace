@@ -19,13 +19,11 @@ const profileFieldModel = require('../models/hrProfileField');
 const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
 const profileReviewEventModel = require('../models/hrProfileReviewEvent');
-const personProfileValueModel = require('../models/personProfileValue');
 const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const { countUserCharacters } = require('../services/hrDomainPolicy');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
-const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const pool = require('../../config/db');
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
@@ -215,7 +213,7 @@ router.post('/getUserHrProfile', async (req, res) => {
   try {
     const subject = await resolveSelfHrProfileSubject(req);
     if (subject.status !== 'success') return res.json(subject);
-    const { hr, personId } = subject;
+    const { hr } = subject;
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
     const templateData = template ? {
@@ -246,15 +244,6 @@ router.post('/getUserHrProfile', async (req, res) => {
       vals.forEach((v) => { if (activeFieldIds.has(v.field_id)) values[v.field_id] = v.field_value; });
       pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
-    if (templateData && templateData.fields.length) {
-      const globalRows = await personProfileValueModel.listForPerson(personId);
-      const globalValues = personProfileValueModel.mapRows(globalRows);
-      templateData.fields.forEach((field) => {
-        const shared = globalValues[personProfileValueModel.key(field.label, field.type)];
-        if (shared) values[field.id] = shared.field_value == null ? '' : String(shared.field_value);
-      });
-    }
-
     const auditStatus = record ? (record.audit_status || 'none') : 'none';
     const rejectionReason = record ? (record.rejection_reason || '') : '';
     const completeness = profileCompleteness(
@@ -354,11 +343,6 @@ router.post('/submitUserHrProfile', async (req, res) => {
       for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
         await profileValueModel.create(
           generateId(), recordId, targetPending, fieldId, fieldValue, connection, orgId
-        );
-      }
-      if (editMode !== 'audit') {
-        await personProfileValueModel.upsertEffectiveValues(
-          personId, orgId, recordId, normalizedFields, normalizedValues, nowUtc, connection
         );
       }
     });
@@ -530,26 +514,6 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       pendingValuesByRecord.get(v.record_id)[v.field_id] = v.field_value;
     });
 
-    const legacyHrIds = hrRows.map((row) => safeString(row.id)).filter(Boolean);
-    const personByHrId = new Map();
-    let sharedValuesByPerson = new Map();
-    if (legacyHrIds.length) {
-      const hrPlaceholders = legacyHrIds.map(() => '?').join(',');
-      const [personRows] = await pool.query(
-        `SELECT legacy_hr_id, person_id FROM organization_memberships
-          WHERE legacy_hr_id IN (${hrPlaceholders}) AND org_id = ? AND status IN ('active', 'left')`,
-        legacyHrIds.concat([orgId])
-      );
-      personRows.forEach((item) => personByHrId.set(safeString(item.legacy_hr_id), safeString(item.person_id)));
-      const personIds = personRows.map((item) => safeString(item.person_id)).filter(Boolean);
-      const sharedRows = await personProfileValueModel.listForPersons(personIds);
-      sharedRows.forEach((item) => {
-        const byPerson = sharedValuesByPerson.get(safeString(item.person_id)) || {};
-        byPerson[personProfileValueModel.key(item.normalized_label || item.field_label, item.field_type)] = item;
-        sharedValuesByPerson.set(safeString(item.person_id), byPerson);
-      });
-    }
-
     const fields = template && template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
     const fieldObjs = fields.map((f) => ({
       id: f.id, label: f.label, type: f.type, required: !!f.required,
@@ -570,11 +534,6 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         if (activeFieldIds.has(fieldId)) result[fieldId] = currentRaw[fieldId];
         return result;
       }, {});
-      const sharedValues = sharedValuesByPerson.get(personByHrId.get(safeString(item.id))) || {};
-      fieldObjs.forEach((field) => {
-        const shared = sharedValues[personProfileValueModel.key(field.label, field.type)];
-        if (shared) currentValues[field.id] = shared.field_value == null ? '' : String(shared.field_value);
-      });
       const pendingValues = Object.keys(pendingRaw).reduce((result, fieldId) => {
         if (activeFieldIds.has(fieldId)) result[fieldId] = pendingRaw[fieldId];
         return result;
@@ -719,14 +678,6 @@ router.post('/reviewHrProfileChange', async (req, res) => {
         await profileRecordModel.update(record.id, {
           audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
         }, connection, orgId);
-        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrRecord.id, connection);
-        if (person) {
-          await personProfileValueModel.upsertEffectiveValues(
-            person.id, orgId, record.id,
-            submittedFields.map((field) => ({ id: field.id, label: field.label, type: field.type })),
-            pendingSnapshot, nowUtc, connection
-          );
-        }
       } else {
         await profileValueModel.removeByRecordIdAndPendingFields(
           record.id, 1, pendingFieldIds, connection, orgId
@@ -861,16 +812,6 @@ router.post('/getHrPersonDetail', async (req, res) => {
           pendingValue: Object.prototype.hasOwnProperty.call(historicalPendingValues, field.id)
             ? safeString(historicalPendingValues[field.id]) : ''
         }));
-    }
-
-    const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId, null, true);
-    if (person && templateData && templateData.fields.length) {
-      const globalRows = await personProfileValueModel.listForPerson(person.id);
-      const globalValues = personProfileValueModel.mapRows(globalRows);
-      templateData.fields.forEach((field) => {
-        const shared = globalValues[personProfileValueModel.key(field.label, field.type)];
-        if (shared) values[field.id] = shared.field_value == null ? '' : String(shared.field_value);
-      });
     }
 
     const auditStatus = record ? (record.audit_status || 'none') : 'none';
@@ -1012,12 +953,6 @@ router.post('/saveHrPersonFull', async (req, res) => {
         }
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue, connection, orgId);
-        }
-        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId, connection);
-        if (person) {
-          await personProfileValueModel.upsertEffectiveValues(
-            person.id, orgId, recordId, normalizedFields, normalizedValues, now, connection
-          );
         }
         await profileReviewEventModel.create({
           recordId,

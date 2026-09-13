@@ -98,15 +98,6 @@ async function mergeMembershipProfile(connection, sourceMembership, targetMember
     'UPDATE hr_profile_review_events SET record_id = ? WHERE record_id = ? AND org_id = ?',
     [targetRecord.id, sourceRecord.id, organizationId]
   );
-  await connection.query(
-    'UPDATE person_profile_values SET source_record_id = ? WHERE source_record_id = ?',
-    [targetRecord.id, sourceRecord.id]
-  );
-  await connection.query(
-    'UPDATE person_profile_value_history SET source_record_id = ? WHERE source_record_id = ?',
-    [targetRecord.id, sourceRecord.id]
-  );
-
   const pendingRecords = [sourceRecord, targetRecord].filter(
     (item) => safeString(item.audit_status) === 'pending'
   );
@@ -610,41 +601,6 @@ async function mergePersons(data, actor) {
         );
       }
     }
-    const [sourceValues] = await connection.query(
-      'SELECT * FROM person_profile_values WHERE person_id = ? FOR UPDATE',
-      [sourcePersonId]
-    );
-    for (const value of sourceValues) {
-      const [targetValues] = await connection.query(
-        `SELECT id, value_updated_at FROM person_profile_values
-          WHERE person_id = ? AND normalized_label = ? AND field_type = ?
-          LIMIT 1 FOR UPDATE`,
-        [targetPersonId, value.normalized_label, value.field_type]
-      );
-      const current = targetValues[0];
-      if (!current) {
-        await connection.query(
-          'UPDATE person_profile_values SET person_id = ?, updated_at = NOW() WHERE id = ?',
-          [targetPersonId, value.id]
-        );
-      } else if (new Date(value.value_updated_at).getTime() >= new Date(current.value_updated_at).getTime()) {
-        await connection.query(
-          `UPDATE person_profile_values
-              SET field_label = ?, field_value = ?, value_updated_at = ?, source_org_id = ?,
-                  source_record_id = ?, source_field_id = ?, updated_at = NOW()
-            WHERE id = ?`,
-          [value.field_label, value.field_value, value.value_updated_at, value.source_org_id,
-            value.source_record_id, value.source_field_id, current.id]
-        );
-        await connection.query('DELETE FROM person_profile_values WHERE id = ?', [value.id]);
-      } else {
-        await connection.query('DELETE FROM person_profile_values WHERE id = ?', [value.id]);
-      }
-    }
-    await connection.query(
-      'UPDATE person_profile_value_history SET person_id = ? WHERE person_id = ?',
-      [targetPersonId, sourcePersonId]
-    );
     if (sourceAccount && !targetAccount) {
       await connection.query('UPDATE accounts SET person_id = ?, updated_at = NOW() WHERE id = ?', [targetPersonId, sourceAccount.id]);
     }

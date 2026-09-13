@@ -149,6 +149,34 @@ async function createDirtyLegacyFixture(connection) {
        '最新待审值', 'org-personnel-migration', '2026-08-22 11:00:00'),
       ('value-pending-old', 'record-personnel-new', 1, 'field-personnel',
        '旧待审值', 'org-personnel-migration', '2026-08-21 12:00:00');
+    CREATE TABLE IF NOT EXISTS person_profile_values (
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      person_id VARCHAR(64) NOT NULL,
+      normalized_label VARCHAR(200) NOT NULL,
+      field_label VARCHAR(200) NOT NULL,
+      field_type VARCHAR(32) NOT NULL,
+      field_value TEXT,
+      value_updated_at DATETIME NOT NULL,
+      source_org_id VARCHAR(64) DEFAULT NULL,
+      source_record_id VARCHAR(64) DEFAULT NULL,
+      source_field_id VARCHAR(64) DEFAULT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS person_profile_value_history (
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      person_id VARCHAR(64) NOT NULL,
+      normalized_label VARCHAR(200) NOT NULL,
+      field_label VARCHAR(200) NOT NULL,
+      field_type VARCHAR(32) NOT NULL,
+      field_value TEXT,
+      value_updated_at DATETIME NOT NULL,
+      source_org_id VARCHAR(64) DEFAULT NULL,
+      source_record_id VARCHAR(64) DEFAULT NULL,
+      source_field_id VARCHAR(64) DEFAULT NULL,
+      resolution VARCHAR(24) NOT NULL DEFAULT 'selected',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     INSERT INTO person_profile_values
       (id, person_id, normalized_label, field_label, field_type, field_value,
        value_updated_at, source_org_id, source_record_id, source_field_id)

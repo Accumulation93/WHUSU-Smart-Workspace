@@ -464,15 +464,9 @@ async function scanCleanupImpact(connection, target) {
       `SELECT COUNT(*) AS count FROM user_info WHERE hr_id IN (${inSql}) AND (? = '' OR org_id = ?)`, scopedParams));
   }
 
-  add('global_profile_values', await countRows(connection,
-    `SELECT COUNT(*) AS count FROM person_profile_values
-      WHERE person_id = ? AND (? = '' OR source_org_id = ?)`, [personId, orgId, orgId]));
   add('stamp_assignment_grants', await countRows(connection,
     `SELECT COUNT(*) AS count FROM stamp_assignment_grants WHERE person_id = ? AND (? = '' OR org_id = ?)`,
     [personId, orgId, orgId]));
-  add('global_profile_history', await countRows(connection,
-    `SELECT COUNT(*) AS count FROM person_profile_value_history
-      WHERE person_id = ? AND (? = '' OR source_org_id = ?)`, [personId, orgId, orgId]));
 
   add('admin_grants', await countRows(connection,
     `SELECT COUNT(*) AS count FROM admin_grants WHERE person_id = ? AND (? = '' OR org_id = ?)`,
@@ -549,8 +543,8 @@ async function scanCleanupImpact(connection, target) {
     const cacheClauses = [];
     const cacheParams = [];
     cacheOrganizationIds.forEach((organizationId) => {
-      cacheClauses.push('(cache_key LIKE ? OR cache_key LIKE ?)');
-      cacheParams.push(`overview_${organizationId}_%`, `pubCache:%:${organizationId}`);
+      cacheClauses.push('(cache_key LIKE ? OR cache_key LIKE ? OR cache_key LIKE ?)');
+      cacheParams.push(`overview_${organizationId}_%`, `pubCache:%:${organizationId}`, `pubCache:%:${organizationId}:v2:%`);
     });
     add('scoring_caches', await countRows(connection,
       `SELECT COUNT(*) AS count FROM _shared_cache WHERE ${cacheClauses.join(' OR ')}`,
@@ -1099,66 +1093,10 @@ async function invalidateScoringCaches(connection, organizationId) {
   if (!orgId) return 0;
   const [result] = await connection.query(
     `DELETE FROM _shared_cache
-      WHERE cache_key LIKE ? OR cache_key LIKE ?`,
-    [`overview_${orgId}_%`, `pubCache:%:${orgId}`]
+      WHERE cache_key LIKE ? OR cache_key LIKE ? OR cache_key LIKE ?`,
+    [`overview_${orgId}_%`, `pubCache:%:${orgId}`, `pubCache:%:${orgId}:v2:%`]
   );
   return Number(result.affectedRows || 0);
-}
-
-async function removeOrganizationGlobalProfileValues(connection, personId, organizationId) {
-  const [currentRows] = await connection.query(
-    `SELECT * FROM person_profile_values
-      WHERE person_id = ? AND source_org_id = ?
-      FOR UPDATE`,
-    [safeString(personId), safeString(organizationId)]
-  );
-  let removedCurrent = 0;
-  let restoredCurrent = 0;
-  for (const current of currentRows) {
-    const [removeResult] = await connection.query(
-      'DELETE FROM person_profile_values WHERE id = ? AND person_id = ?',
-      [current.id, safeString(personId)]
-    );
-    removedCurrent += Number(removeResult.affectedRows || 0);
-    const [historyRows] = await connection.query(
-      `SELECT * FROM person_profile_value_history
-        WHERE person_id = ? AND normalized_label = ? AND field_type = ?
-          AND (source_org_id IS NULL OR source_org_id <> ?)
-        ORDER BY value_updated_at DESC, created_at DESC, id DESC
-        LIMIT 1 FOR UPDATE`,
-      [safeString(personId), current.normalized_label, current.field_type, safeString(organizationId)]
-    );
-    const fallback = historyRows[0];
-    if (!fallback) continue;
-    const [restoreResult] = await connection.query(
-      `INSERT INTO person_profile_values
-        (id, person_id, normalized_label, field_label, field_type, field_value,
-         value_updated_at, source_org_id, source_record_id, source_field_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        generateId(),
-        safeString(personId),
-        fallback.normalized_label,
-        fallback.field_label,
-        fallback.field_type,
-        fallback.field_value,
-        fallback.value_updated_at,
-        fallback.source_org_id,
-        fallback.source_record_id,
-        fallback.source_field_id
-      ]
-    );
-    restoredCurrent += Number(restoreResult.affectedRows || 0);
-  }
-  const [historyResult] = await connection.query(
-    'DELETE FROM person_profile_value_history WHERE person_id = ? AND source_org_id = ?',
-    [safeString(personId), safeString(organizationId)]
-  );
-  return {
-    removedCurrent,
-    restoredCurrent,
-    removedHistory: Number(historyResult.affectedRows || 0)
-  };
 }
 
 async function deleteAbsoluteTimeReviewsForRows(connection, tableName, recordIds) {
@@ -1211,8 +1149,6 @@ async function cleanupMembershipAbsoluteTimeReviews(connection, target) {
       [orgId, ...hrIds]
     );
   }
-  await add('person_profile_values', 'SELECT id FROM person_profile_values WHERE person_id = ? AND source_org_id = ?', [personId, orgId]);
-  await add('person_profile_value_history', 'SELECT id FROM person_profile_value_history WHERE person_id = ? AND source_org_id = ?', [personId, orgId]);
   await add('admin_grants', 'SELECT id FROM admin_grants WHERE person_id = ? AND org_id = ?', [personId, orgId]);
   await add(
     'admin_info',
@@ -1282,8 +1218,6 @@ async function cleanupPersonAbsoluteTimeReviews(connection, target) {
   );
   await add('identity_claim_requests', 'SELECT id FROM identity_claim_requests WHERE person_id = ?', [personId]);
   await add('account_recovery_requests', 'SELECT id FROM account_recovery_requests WHERE person_id = ?', [personId]);
-  await add('person_profile_values', 'SELECT id FROM person_profile_values WHERE person_id = ?', [personId]);
-  await add('person_profile_value_history', 'SELECT id FROM person_profile_value_history WHERE person_id = ?', [personId]);
   await add(
     'admin_grants',
     `SELECT id FROM admin_grants
@@ -1380,10 +1314,6 @@ async function cleanupMembershipArtifacts(connection, target) {
   let result;
   const issuedCredentialCleanup = await revokeIssuedCredentials(connection, personId, orgId);
   Object.assign(counts, issuedCredentialCleanup);
-  const globalProfileCleanup = await removeOrganizationGlobalProfileValues(connection, personId, orgId);
-  counts.globalProfileValues = globalProfileCleanup.removedCurrent;
-  counts.globalProfileValuesRestored = globalProfileCleanup.restoredCurrent;
-  counts.globalProfileHistory = globalProfileCleanup.removedHistory;
   [result] = await connection.query('DELETE FROM identity_verification_invites WHERE person_id = ? AND org_id = ?', [personId, orgId]);
   record('identityInvites', result);
   [result] = await connection.query('DELETE FROM identity_claim_requests WHERE person_id = ? AND requested_org_id = ?', [personId, orgId]);
@@ -1522,11 +1452,6 @@ async function cleanupGlobalPersonArtifacts(connection, target, deletionDigest) 
   record('identityClaims', result);
   [result] = await connection.query('DELETE FROM account_recovery_requests WHERE person_id = ?', [personId]);
   record('recoveryRequests', result);
-  [result] = await connection.query('DELETE FROM person_profile_values WHERE person_id = ?', [personId]);
-  record('globalProfileValues', result);
-  [result] = await connection.query('DELETE FROM person_profile_value_history WHERE person_id = ?', [personId]);
-  record('globalProfileHistory', result);
-
   const [grants] = await connection.query('SELECT legacy_admin_id FROM admin_grants WHERE person_id = ? FOR UPDATE', [personId]);
   const adminIds = uniqueStrings(
     uniqueStrings(target.legacyAdminIds).concat(grants.map((item) => item.legacy_admin_id))
@@ -1618,7 +1543,6 @@ module.exports = {
   cleanupRuleReferences,
   cleanupMembershipArtifacts,
   cleanupGlobalPersonArtifacts,
-  removeOrganizationGlobalProfileValues,
   deleteAbsoluteTimeReviewsForRows,
   cleanupMembershipAbsoluteTimeReviews,
   cleanupPersonAbsoluteTimeReviews,

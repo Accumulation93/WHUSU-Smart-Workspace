@@ -464,36 +464,6 @@ function testReferencePairRemoval() {
   assert.deepStrictEqual(JSON.parse(jsonResult.value), []);
 }
 
-async function testOrganizationProfileCleanupRestoresOtherOrganizationValue() {
-  const model = require('../src/core/models/hrMemberDeletion');
-  const calls = [];
-  const result = await model.removeOrganizationGlobalProfileValues({
-    async query(sql, params) {
-      const normalized = String(sql).replace(/\s+/g, ' ').trim();
-      calls.push({ sql: normalized, params });
-      if (normalized.startsWith('SELECT * FROM person_profile_values')) {
-        return [[{
-          id: 'current-a', normalized_label: '政治面貌', field_type: 'text'
-        }]];
-      }
-      if (normalized.startsWith('SELECT * FROM person_profile_value_history')) {
-        return [[{
-          id: 'history-b', normalized_label: '政治面貌', field_label: '政治面貌',
-          field_type: 'text', field_value: '群众', value_updated_at: '2026-08-22 08:00:00',
-          source_org_id: 'org-b', source_record_id: 'record-b', source_field_id: 'field-b'
-        }]];
-      }
-      if (normalized.startsWith('DELETE FROM person_profile_value_history')) return [{ affectedRows: 2 }];
-      return [{ affectedRows: 1 }];
-    }
-  }, 'person-target', 'org-a');
-  assert.deepStrictEqual(result, { removedCurrent: 1, restoredCurrent: 1, removedHistory: 2 });
-  const insert = calls.find((item) => item.sql.startsWith('INSERT INTO person_profile_values'));
-  assert(insert);
-  assert(insert.params.includes('org-b'));
-  assert(!insert.params.includes('org-a'));
-}
-
 (async () => {
   await testBusinessBlockerAppearsInPreview();
   await testMembershipDeletionUsesPreviewVersionAndAudit();
@@ -505,7 +475,6 @@ async function testOrganizationProfileCleanupRestoresOtherOrganizationValue() {
   await testPersonDeletionRequiresTypedStudentIdAndKeepsOnlyDigest();
   await testPersonPreviewIncludesEveryOrganizationRuleInVersion();
   testReferencePairRemoval();
-  await testOrganizationProfileCleanupRestoresOtherOrganizationValue();
   console.log('误导入成员永久删除服务测试通过');
 })().catch((error) => {
   console.error(error);

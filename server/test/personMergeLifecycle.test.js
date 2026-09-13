@@ -87,7 +87,6 @@ async function testSameOrganizationMergePreservesLegacyHistory() {
       }
       if (normalized.startsWith('SELECT source_assignment.id FROM membership_assignments')) return [[]];
       if (normalized.includes('FROM admin_grants ag WHERE ag.person_id = ?')) return [[]];
-      if (normalized === 'SELECT * FROM person_profile_values WHERE person_id = ? FOR UPDATE') return [[]];
       return [{ affectedRows: 1 }];
     }
   };
@@ -129,7 +128,6 @@ async function testSameOrganizationMergePreservesLegacyHistory() {
   assert(executed.some((item) => item.sql.includes('account_recovery_requests')
     && item.sql.includes("status = 'superseded'")));
   assert(executed.some((item) => item.sql.includes('UPDATE hr_profile_review_events SET record_id = ?')));
-  assert(executed.some((item) => item.sql.includes('UPDATE person_profile_values SET source_record_id = ?')));
   assert(executed.some((item) => item.sql.includes('UPDATE hr_profile_record_values')
     && item.params[0] === '新值' && item.params[2] === 'value-target'));
   assert(executed.some((item) => item.sql.includes('DELETE FROM hr_profile_record_values')

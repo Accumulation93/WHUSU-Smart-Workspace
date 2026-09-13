@@ -74,8 +74,6 @@ const MIXED_SOURCE_TABLES = new Set([
   'rate_target_rules',
   'score_records',
   'hr_profile_records',
-  'person_profile_values',
-  'person_profile_value_history',
   'result_publications',
   'pub_view_rules',
   'pub_view_rule_clauses',

@@ -326,6 +326,12 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
   sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
   timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
+  if [[ "$PLAN_JSON" == *"20260913120000_retire_global_profile_values.sql"* ]]; then
+    ARCHIVE_PATH="$BACKUP_DIR/global-profile-values-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).json"
+    log "归档全局补充资料并校验行数与 SHA256"
+    timeout --signal=TERM --kill-after=30s 600s \
+      node "$NEW_RELEASE/server/scripts/archiveGlobalProfileValues.js" "$ARCHIVE_PATH"
+  fi
   MIGRATION_STARTED=1
   if [[ "$PENDING_COUNT" -gt 0 ]]; then
     timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" apply --sha "$TARGET_SHA"

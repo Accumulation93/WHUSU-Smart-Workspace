@@ -108,8 +108,6 @@ const REQUIRED_TABLES = [
   ,'auth_policy'
   ,'auth_audit_events'
   ,'venue_booking_policies'
-  ,'person_profile_values'
-  ,'person_profile_value_history'
   ,'absolute_time_source_registry'
   ,'absolute_time_record_reviews'
   ,'absolute_time_migration_audit'
@@ -140,7 +138,6 @@ const REQUIRED_INDEXES = [
   ,['account_wechat_bindings', 'uk_wechat_active_account']
   ,['auth_sessions', 'idx_auth_session_account']
   ,['auth_sessions', 'idx_auth_session_device']
-  ,['person_profile_values', 'uk_person_profile_value']
   ,['identity_claim_requests', 'idx_claim_org_status']
   ,['identity_verification_invites', 'idx_identity_invite_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']

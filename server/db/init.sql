@@ -1463,41 +1463,6 @@ CREATE TABLE IF NOT EXISTS identity_verification_tokens (
   CONSTRAINT fk_identity_token_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS person_profile_values (
-  id VARCHAR(64) NOT NULL PRIMARY KEY,
-  person_id VARCHAR(64) NOT NULL,
-  normalized_label VARCHAR(200) NOT NULL,
-  field_label VARCHAR(200) NOT NULL,
-  field_type VARCHAR(32) NOT NULL,
-  field_value TEXT,
-  value_updated_at DATETIME NOT NULL,
-  source_org_id VARCHAR(64) DEFAULT NULL,
-  source_record_id VARCHAR(64) DEFAULT NULL,
-  source_field_id VARCHAR(64) DEFAULT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE INDEX uk_person_profile_value (person_id, normalized_label, field_type),
-  INDEX idx_person_profile_person (person_id),
-  CONSTRAINT fk_person_profile_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS person_profile_value_history (
-  id VARCHAR(64) NOT NULL PRIMARY KEY,
-  person_id VARCHAR(64) NOT NULL,
-  normalized_label VARCHAR(200) NOT NULL,
-  field_label VARCHAR(200) NOT NULL,
-  field_type VARCHAR(32) NOT NULL,
-  field_value TEXT,
-  value_updated_at DATETIME NOT NULL,
-  source_org_id VARCHAR(64) DEFAULT NULL,
-  source_record_id VARCHAR(64) DEFAULT NULL,
-  source_field_id VARCHAR(64) DEFAULT NULL,
-  resolution VARCHAR(24) NOT NULL DEFAULT 'selected',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_person_profile_history_key (person_id, normalized_label, field_type, value_updated_at),
-  CONSTRAINT fk_person_profile_history_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS identity_verification_invites (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   person_id VARCHAR(64) NOT NULL,
