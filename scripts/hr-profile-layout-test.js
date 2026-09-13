@@ -188,8 +188,10 @@ const freezeMethod = authPersonnelBehavior.match(/async toggleAuthAccountFrozen\
 assert(freezeMethod, '应保留账号冻结操作');
 assert(!/loadAuthPersonnel|loadAuthAccounts|loadActiveTab/.test(freezeMethod[0]),
   '冻结账号只能局部更新当前人员，不得重新加载整个认证页面');
-assert(/personIdentityOverviewModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute)
-    && !/unifiedIdentityModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute),
-  '历史人事 ID 必须由人员身份概览模型解析，不得调用未导出的统一身份方法');
+assert(!/unifiedIdentityModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute),
+  '历史人事 ID 不得调用未导出的统一身份方法');
+assert(!/resolvePersonByLegacyHrId/.test(hrProfileRoute)
+    || /personIdentityOverviewModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute),
+  '确需解析历史人事 ID 时必须由人员身份概览模型提供');
 
 console.log('hr profile layout tests passed');
