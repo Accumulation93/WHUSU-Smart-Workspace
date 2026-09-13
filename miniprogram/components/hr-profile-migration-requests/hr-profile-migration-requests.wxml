@@ -1,0 +1,30 @@
+<view class="section-control-card">
+  <view class="section-title">{{copy.requestSection}}</view>
+  <view class="button-row">
+    <button class="secondary-btn ui-motion-button" bindtap="onOpen" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.entry}}</button>
+    <button class="secondary-btn ui-motion-button" bindtap="onLoad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.myRequests}}</button>
+  </view>
+  <view class="hr-switch-source" wx:for="{{pendingRequests}}" wx:key="id">
+    <view class="hr-switch-source-head">
+      <view class="hr-template-card-name">{{item.sourceOrgName}} {{item.targetOrgName}}</view>
+      <view class="status-chip none-chip">{{copy.statusPending}}</view>
+    </view>
+    <view class="hr-template-meta">{{copy.peoplePrefix}}{{item.personCount}}{{copy.peopleSuffix}}</view>
+    <view class="button-row hr-template-switch-footer ui-dialog-footer">
+      <button class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="onApprove" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.approve}}</button>
+      <button class="danger-btn ui-motion-button" data-id="{{item.id}}" bindtap="onReject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.reject}}</button>
+    </view>
+  </view>
+  <view class="hr-switch-source" wx:for="{{myRequests}}" wx:key="id">
+    <view class="hr-switch-source-head">
+      <view class="hr-template-card-name">{{item.sourceOrgName}} {{item.targetOrgName}}</view>
+      <view class="status-chip none-chip">{{item.statusText}}</view>
+    </view>
+    <view class="hr-template-meta">{{copy.peoplePrefix}}{{item.personCount}}{{copy.peopleSuffix}}</view>
+    <view class="hr-switch-delete-warning" wx:if="{{item.rejectReason}}">{{item.rejectReason}}</view>
+    <view class="button-row hr-template-switch-footer ui-dialog-footer" wx:if="{{item.canCancel}}">
+      <button class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="onCancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.cancelRequest}}</button>
+    </view>
+  </view>
+  <view class="empty-inline" wx:if="{{!pendingRequests.length && !myRequests.length}}">{{copy.emptyRequests}}</view>
+</view>

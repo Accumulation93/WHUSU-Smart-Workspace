@@ -1,0 +1,1 @@
+/* 结构复用页面 glass 弹窗样式，通过 styleIsolation: apply-shared 接收页面共享样式。 */

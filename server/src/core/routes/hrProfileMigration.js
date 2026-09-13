@@ -81,6 +81,7 @@ router.post('/getCrossOrgMigrationContext', async (req, res) => {
     const result = {
       status: 'success',
       targetOrgId: actor.orgId,
+      canDirect: actor.isSuper,
       visibleOrgs: orgRows.map((row) => ({ id: safeString(row.id), name: safeString(row.name) }))
     };
     if (sourceOrgId) {
@@ -122,7 +123,6 @@ router.post('/previewCrossOrgMigration', async (req, res) => {
 
 async function rebuildPlan(actor, body) {
   const result = await migrationService.buildPlan(actor, body || {});
-  if (result.blockers.length) throw new Error(copy.incompatibleAction);
   return result;
 }
 
@@ -254,6 +254,9 @@ router.post('/listCrossOrgMigrationRequests', async (req, res) => {
     const decorate = (item) => ({
       id: item.id,
       status: item.status,
+      statusText: item.status === 'pending' ? copy.statusPending
+        : (item.status === 'executed' ? copy.statusExecuted
+          : (item.status === 'rejected' ? copy.statusRejected : copy.statusCancelled)),
       sourceOrgId: item.sourceOrgId,
       sourceOrgName: orgMap.get(item.sourceOrgId) || '',
       targetOrgId: item.targetOrgId,

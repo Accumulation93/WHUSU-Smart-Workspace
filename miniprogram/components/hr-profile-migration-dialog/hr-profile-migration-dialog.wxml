@@ -1,0 +1,88 @@
+<viewport-portal wx:if="{{visible}}">
+<view class="modal-mask ui-overlay" bindtap="onClose">
+  <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+  <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
+    <view class="modal-header ui-dialog-header">
+      <view>
+        <view class="modal-title">{{copy.title}}</view>
+      </view>
+      <view class="modal-close ui-motion-chip" catchtap="onClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.closeText}}</view>
+    </view>
+    <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <view class="field">
+        <view class="field-label">{{copy.sourceOrg}}</view>
+        <picker range="{{orgs}}" range-key="name" value="{{sourceIndex}}" bindchange="onSourceChange">
+          <view class="picker-value">{{sourceOrgName || copy.sourceOrgPlaceholder}}</view>
+        </picker>
+      </view>
+      <view class="section-title">{{copy.fieldPlanTitle}}</view>
+      <view class="hr-switch-source" wx:for="{{fieldPlan}}" wx:key="sourceFieldId">
+        <view class="hr-switch-source-head">
+          <view class="hr-template-card-name">{{item.label}}</view>
+          <view class="status-chip none-chip">{{item.typeLabel}}</view>
+        </view>
+        <radio-group class="hr-template-switch-mode-group" data-index="{{index}}" bindchange="onFieldActionChange">
+          <label class="hr-template-switch-mode-item">
+            <radio value="copy" checked="{{item.action === 'copy'}}" color="#2563eb" />
+            <text>{{copy.actionCopy}}</text>
+          </label>
+          <label class="hr-template-switch-mode-item">
+            <radio value="skip" checked="{{item.action === 'skip'}}" color="#2563eb" />
+            <text>{{copy.actionSkip}}</text>
+          </label>
+        </radio-group>
+        <view class="field" wx:if="{{item.action === 'copy'}}">
+          <view class="field-label">{{copy.targetField}}</view>
+          <picker range="{{item.targetOptions}}" range-key="displayLabel" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onTargetChange">
+            <view class="picker-value">{{item.targetOptions[item.targetIndex].displayLabel}}</view>
+          </picker>
+        </view>
+      </view>
+      <view wx:if="{{report.length}}">
+        <view class="section-title">{{copy.reportTitle}}</view>
+        <view class="hint-text">{{copy.reportIntro}}</view>
+        <view class="hr-switch-block-item" wx:for="{{report}}" wx:key="_key">
+          <view class="hr-switch-block-item-head">
+            <text class="hr-switch-block-member">{{item.memberName}}</text>
+          </view>
+          <view class="hr-switch-block-route">{{item.fieldLabel}}</view>
+          <view class="hr-switch-block-value">{{item.rawValue}}</view>
+          <view class="hr-switch-block-reason">{{item.error}}</view>
+        </view>
+      </view>
+      <view wx:if="{{conflicts.length}}">
+        <view class="section-title">{{copy.conflictTitle}}</view>
+        <view class="hint-text">{{copy.conflictIntro}}</view>
+        <view class="button-row">
+          <button class="secondary-btn ui-motion-button" data-policy="keep" bindtap="onBatchConflict" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.keepAll}}</button>
+          <button class="secondary-btn ui-motion-button" data-policy="overwrite" bindtap="onBatchConflict" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.overwriteAll}}</button>
+        </view>
+        <view class="hr-switch-block-item" wx:for="{{conflicts}}" wx:key="_key">
+          <view class="hr-switch-block-item-head">
+            <text class="hr-switch-block-member">{{item.memberName}} {{item.fieldLabel}}</text>
+          </view>
+          <view class="hr-switch-block-value">{{copy.sourceOrg}}{{copy.sep}}{{item.sourceValue}}</view>
+          <view class="hr-switch-block-value">{{copy.targetField}}{{copy.sep}}{{item.targetValue}}</view>
+          <radio-group class="hr-template-switch-mode-group" data-index="{{index}}" bindchange="onConflictChange">
+            <label class="hr-template-switch-mode-item">
+              <radio value="keep" checked="{{item.conflictPolicy === 'keep'}}" color="#2563eb" />
+              <text>{{copy.keep}}</text>
+            </label>
+            <label class="hr-template-switch-mode-item">
+              <radio value="overwrite" checked="{{item.conflictPolicy === 'overwrite'}}" color="#2563eb" />
+              <text>{{copy.overwrite}}</text>
+            </label>
+          </radio-group>
+        </view>
+      </view>
+      <view class="scroll-tail-space"></view>
+    </scroll-view>
+    <view class="button-row hr-template-switch-footer ui-dialog-footer">
+      <button class="secondary-btn ui-motion-button" bindtap="onClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancelText}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{report.length}}" loading="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && !hasToken}}" disabled="{{!fieldPlan.length}}" loading="{{loading}}" bindtap="onPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.preview}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && hasToken}}" loading="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
+    </view>
+  </view>
+</view>
+</viewport-portal>

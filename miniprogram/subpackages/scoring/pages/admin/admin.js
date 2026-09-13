@@ -28,6 +28,8 @@ const auditBehavior = require('./modules/auditBehavior');
 const stampGrantBehavior = require('./modules/stampGrantBehavior');
 const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
 const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
+const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
+const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
 
 Page({
   behaviors: [
@@ -47,10 +49,12 @@ Page({
     auditBehavior,
     stampGrantBehavior,
     authPersonnelBehavior,
+    hrProfileMigrationBehavior,
   ],
   data: {
     controlLayoutCopy,
     localeCopy,
+    migrationCopy,
     user: null,
     hasPermission: false,
     isSuperAdmin: false,
@@ -230,6 +234,26 @@ Page({
     hrTemplateSwitchSummary: null,
     hrTemplateSwitchBlockVisible: false,
     hrTemplateSwitchBlockReport: null,
+    crossOrgMigrationVisible: false,
+    crossOrgMigrationLoading: false,
+    crossOrgMigrationSubmitting: false,
+    canDirectCrossOrgMigration: false,
+    crossOrgMigrationOrgs: [],
+    crossOrgMigrationSourceOrgId: '',
+    crossOrgMigrationSourceFields: [],
+    crossOrgMigrationTargetFields: [],
+    crossOrgMigrationFieldPlan: [],
+    crossOrgMigrationReport: [],
+    crossOrgMigrationConflicts: [],
+    crossOrgMigrationToken: '',
+    crossOrgMigrationSummary: null,
+    crossOrgMigrationSourceIndex: 0,
+    crossOrgMigrationSourceOrgName: '',
+    crossOrgMyRequests: [],
+    crossOrgPendingRequests: [],
+    personOrgProfiles: [],
+    personOrgProfilesLoading: false,
+    personOrgProfilesPersonId: '',
     _hrInfoKeywordInput: '',
     showHrPersonDetail: false,
     detailHrId: '',
@@ -477,6 +501,11 @@ Page({
         hrTemplateSwitchSummary: null,
         hrTemplateSwitchBlockVisible: false,
         hrTemplateSwitchBlockReport: null,
+        crossOrgMigrationVisible: false,
+        crossOrgMigrationToken: '',
+        crossOrgMigrationFieldPlan: [],
+        crossOrgMigrationReport: [],
+        crossOrgMigrationConflicts: [],
         hrProfileFilters: emptyHrProfileFilters(),
         hrProfileFilterOptions: emptyHrProfileFilterOptions(),
         hrProfileActiveFilterChips: [],
