@@ -402,6 +402,7 @@ printf '%s' "$TIME_CONFIG_JSON" | node -e '
       || !Number.isInteger(mappedReviewCount) || mappedReviewCount !== unresolvedCount
       || result.timePresentationMappingVersion !== "record-id+raw-value:v1"
       || result.historicalTimeReviewRequired !== (unresolvedCount > 0)) {
+      console.error(JSON.stringify(result));
       throw new Error("时间配置语义健康检查未通过");
     }
   });

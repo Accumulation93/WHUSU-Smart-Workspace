@@ -340,6 +340,7 @@ async function verify(connection, markVerified) {
           SET status = ?, verified_at = IF(? = 'mapping_incomplete', NULL, CURRENT_TIMESTAMP(3)),
               detail_json = JSON_SET(
                 COALESCE(detail_json, JSON_OBJECT()),
+                '$.reviewRecordCount', ?,
                 '$.verifiedRecordCount', ?,
                 '$.unresolvedReviewCount', ?,
                 '$.presentationMappedReviewCount', ?,
@@ -349,7 +350,7 @@ async function verify(connection, markVerified) {
                 '$.presentationMappingProofVersion', ?
               )
         WHERE migration_key = ? AND status IN ('materialized', 'review_pending', 'verified', 'mapping_incomplete')`,
-      [cutoverStatus, cutoverStatus, recordCount, unresolvedReviewCount,
+      [cutoverStatus, cutoverStatus, recordCount, recordCount, unresolvedReviewCount,
         presentationMapping.mappedCount, presentationMapping.unmappedCount,
         presentationMapping.ambiguousCount, PRESENTATION_MAPPING_VERSION,
         PRESENTATION_MAPPING_PROOF_VERSION, MIGRATION_KEY]
