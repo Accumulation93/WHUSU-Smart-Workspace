@@ -727,6 +727,9 @@ module.exports = {
   getSwitchContext,
   preflightSwitch,
   applySwitch,
+  isPotentiallyCompatible,
+  coerceMappedValue,
+  validateMappedValue,
   saveOrgSettings,
   currentOrgId,
   _test: {

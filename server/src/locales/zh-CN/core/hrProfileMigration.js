@@ -1,0 +1,28 @@
+'use strict';
+
+module.exports = Object.freeze({
+  forbidden: '当前管理权限无法执行跨组织迁移',
+  sourceNotVisible: '无法访问所选来源组织',
+  targetMismatch: '只能在当前组织发起迁移',
+  invalidPlan: '迁移方案不完整或已变化，请重新预检',
+  stale: '目标模板或来源资料已变化，请重新预检',
+  notFound: '找不到对应的人事资料',
+  emptySelection: '请选择要迁移的成员',
+  noSourceValues: '所选成员在来源组织没有可迁移的补充资料',
+  requestSubmitted: '迁移申请已提交，等待来源组织审批',
+  requestApproved: '迁移申请已通过并完成复制',
+  requestRejected: '迁移申请已驳回',
+  rejectReasonRequired: '请填写驳回原因',
+  requestNotFound: '迁移申请不存在或已处理',
+  noPermissionToReview: '只有来源组织的补充资料管理员或超级管理员可以审批',
+  invalidOperation: '当前状态不允许该操作',
+  executed: '跨组织迁移已完成',
+  notifierTitle: '跨组织补充资料迁移',
+  notifierPendingBody: '有新的跨组织迁移申请等待你的审批',
+  notifierApprovedBody: '你的跨组织迁移申请已通过并完成复制',
+  notifierRejectedBody: '你的跨组织迁移申请已被驳回',
+  notifierCancelledBody: '跨组织迁移申请已撤回',
+  duplicateTargetField: '同一目标字段只能被一个来源字段复制',
+  incompatibleAction: '所选目标字段与来源字段类型不兼容',
+  fieldActionsRequired: '请为每个来源字段选择复制或跳过'
+});

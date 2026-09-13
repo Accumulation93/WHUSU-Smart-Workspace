@@ -108,6 +108,8 @@ const REQUIRED_TABLES = [
   ,'auth_policy'
   ,'auth_audit_events'
   ,'venue_booking_policies'
+  ,'org_hr_profile_migrations'
+  ,'org_hr_profile_migration_items'
   ,'absolute_time_source_registry'
   ,'absolute_time_record_reviews'
   ,'absolute_time_migration_audit'

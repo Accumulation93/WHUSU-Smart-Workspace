@@ -181,6 +181,11 @@ mapRoutes('hr.profile_templates.select', [
   '/getHrProfileTemplateSwitchContext', '/previewHrProfileTemplateSwitch',
   '/applyHrProfileTemplateSwitch', '/saveOrgHrProfileTemplateSettings'
 ]);
+mapAny([
+  '/getCrossOrgMigrationContext', '/previewCrossOrgMigration', '/applyCrossOrgMigration',
+  '/submitCrossOrgMigrationRequest', '/reviewCrossOrgMigrationRequest',
+  '/cancelCrossOrgMigrationRequest', '/listCrossOrgMigrationRequests', '/getPersonOrgProfiles'
+], ['hr.people', 'hr.profile_review']);
 mapRoutes('hr.departments', ['/saveDepartment', '/deleteDepartment']);
 mapRoutes('hr.identities', ['/saveIdentity', '/deleteIdentity']);
 mapRoutes('hr.work_groups', ['/saveWorkGroup', '/deleteWorkGroup']);
