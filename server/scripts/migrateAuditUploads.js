@@ -67,6 +67,9 @@ function findVerifiedSource(row, candidates, targetPath) {
     }
   }
   const unique = Array.from(new Set(matches.map((item) => path.resolve(item))));
+  // 多个候选都已通过同一份 file_size + file_hash 校验，内容等价；
+  // 按 sourceRoots 顺序取第一个，避免同一附件在多个历史根目录共存时误判失败。
+  if (unique.length > 1) return unique[0];
   if (unique.length !== 1) {
     throw new Error(
       '附件恢复源无法唯一确认: file_id=' + row.id + ', verified_candidates=' + unique.length
