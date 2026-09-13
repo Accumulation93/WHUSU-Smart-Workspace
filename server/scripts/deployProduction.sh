@@ -390,6 +390,9 @@ wait_for_health "$PORT"
     log "运行时间配置诊断"
     timeout --signal=TERM --kill-after=10s 60s \
       node "$NEW_RELEASE/server/scripts/diagnoseTimeConfig.js" || true
+    log "采集新版本错误日志"
+    tail -40 "$NEW_RELEASE/server/logs/error-$(date +%F).log" 2>/dev/null || true
+    tail -60 "$NEW_RELEASE/server/logs/combined-$(date +%F).log" 2>/dev/null | grep -E "Route error|Unhandled|timeReview|error" | tail -20 || true
   fi
 printf '%s' "$TIME_CONFIG_JSON" | node -e '
   let source = "";
