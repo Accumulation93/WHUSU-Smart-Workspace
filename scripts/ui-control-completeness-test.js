@@ -17,7 +17,7 @@ const context = {
 context.require.resolve = require.resolve;
 context.require.cache = require.cache;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(__dirname, 'ui-audit.js'), 'utf8') + '\nthis.scanFixture = scanLayoutContracts; this.scanStyleFixture = scanWxss;', context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, 'ui-audit.js'), 'utf8') + '\nthis.scanFixture = scanLayoutContracts; this.scanStyleFixture = scanWxss; this.scanPickerValues = scanPickerValues;', context);
 function issues(markup) { fixture = markup; return context.scanFixture('fixture.wxml').dataLayoutIssues; }
 function styleIssues(styles) { styleFixture = styles; return context.scanStyleFixture('fixture.wxss').unsafeControlEllipsis; }
 assert.ok(issues('<view class="pick-row"><text class="picker-display">姓名</text></view>').length >= 2);
@@ -41,4 +41,12 @@ for (const selector of ['.hr-profile-export-column-label', '.field-label', '.opt
 // CSV 样本有独立全文入口；画布和轨道裁切不属于字段标签截断。
 assert.strictEqual(styleIssues('.csv-mapping-sample-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }').length, 0);
 assert.strictEqual(styleIssues('.signature-board, .timeline-bar { overflow: hidden; }').length, 0);
+// 选项题必须绑定当前值：不绑定 value 的 picker 每次打开都会回到第一项。
+const pickerIssues = markup => context.scanPickerValues(markup).length;
+assert.strictEqual(pickerIssues('<picker mode="selector" range="{{options}}"><view class="picker-value">未选择</view></picker>'), 1);
+assert.strictEqual(pickerIssues('<picker mode="selector" range="{{options}}" value="{{selectedIndex}}"><view class="picker-value">已选</view></picker>'), 0);
+assert.strictEqual(pickerIssues('<picker mode="date" value="{{detailFieldDates[item.id]}}" bindchange="onPick">'), 0);
+assert.strictEqual(pickerIssues('\n<picker\n  range="{{approvalFlowOptions}}"\n  value="{{pk.idx(approvalFlowOptions, selectedFlowId)}}"\n>'), 0);
+assert.strictEqual(pickerIssues('<picker mode="selector" wx:if="{{list.length > 0}}" value="{{idx}}">'), 0);
+assert.strictEqual(pickerIssues('<picker mode="selector" wx:if="{{list.length > 0}}">'), 1);
 console.log('全局控件完整显示审计：正反例均通过');

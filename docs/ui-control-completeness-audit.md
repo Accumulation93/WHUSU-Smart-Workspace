@@ -64,6 +64,9 @@
 - 正文之外的工具栏与固定标题中的导入来源的拒绝用例。
 - `column-label`、`field-label`、`option-label` 各自的 `ellipsis` 与两行截断拒绝用例，以及自然换行合法用例。
 - CSV 可查看样本与画布/轨道几何裁切不被字段标签规则误判。
+- 选项题当前值硬门禁：`scanPickerValues` 拒绝任何没有 `value` 绑定的原生 `picker`（`selector`/`date`/`time`/`region` 全部适用），
+  覆盖单行与多行标签、属性值内含 `>` 的情况；`ui-audit --strict` 的 `pickerValueIssues` 必须为 0。
+  不绑定 `value` 的 `picker` 每次打开都会回到第一项，读不到当前选择，属于发布阻断项。
 
 本轮已运行通过 `node scripts/ui-control-completeness-test.js`、该测试文件的 `node --check` 和 `node scripts/ui-audit.js --strict`。严格 UI 审计覆盖 40 份 WXML、44 份 WXSS，控件截断及弹窗结构阻断项均为 0；其非阻断统计仍有 Pad 竖屏 15、横屏 16 个缺少局部设备声明项，不能将其解释为现场视觉已通过。发布前还需与主任务一起执行：
 

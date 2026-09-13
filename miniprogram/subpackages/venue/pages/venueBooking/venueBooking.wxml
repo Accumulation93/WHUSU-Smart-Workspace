@@ -11,6 +11,7 @@ function min(t) {
 }
 module.exports = { hour: hour, min: min };
 </wxs>
+<wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
 <view class="page subapp-venue-page">
   <!-- Hero -->
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}}"></workspace-hero>
@@ -331,7 +332,7 @@ module.exports = { hour: hour, min: min };
           </view>
           <view class="field" wx:if="{{allowUserSelectFlow}}">
             <view class="field-label">{{localeCopy.copy_3bc010171a}} <text class="required">*</text></view>
-            <picker class="ui-field-control-host" range="{{approvalFlowOptions}}" range-key="name" bindchange="onBookingFlowSelect">
+            <picker class="ui-field-control-host" range="{{approvalFlowOptions}}" range-key="name" value="{{pk.idx(approvalFlowOptions, selectedFlowId)}}" bindchange="onBookingFlowSelect">
               <view class="picker-display ui-field-control {{selectedFlowId ? 'picker-has-value' : ''}}">{{selectedFlowId ? selectedFlowName : localeCopy.copy_29ea17e75c}}</view>
             </picker>
           </view>

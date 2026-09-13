@@ -193,6 +193,49 @@ function lineAt(source, offset) {
   return source.slice(0, offset).split('\n').length;
 }
 
+// 引号感知地取出每一个起始 <picker ...> 标签，避免把属性值里的 > 当成标签结束。
+function pickerTags(source) {
+  const tags = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const start = source.indexOf('<picker', cursor);
+    if (start < 0) break;
+    const boundary = source[start + 7];
+    if (boundary && /[\w-]/.test(boundary)) {
+      cursor = start + 7;
+      continue;
+    }
+    let quote = '';
+    let end = -1;
+    for (let index = start + 1; index < source.length; index += 1) {
+      const char = source[index];
+      if (quote) {
+        if (char === quote) quote = '';
+        continue;
+      }
+      if (char === '"' || char === "'") quote = char;
+      else if (char === '>') {
+        end = index;
+        break;
+      }
+    }
+    if (end < 0) break;
+    tags.push({ start, tag: source.slice(start, end + 1) });
+    cursor = end + 1;
+  }
+  return tags;
+}
+
+function scanPickerValues(source, file = '') {
+  return pickerTags(source)
+    .filter((item) => !item.tag.startsWith('</') && !/\svalue\s*=/.test(item.tag))
+    .map((item) => ({
+      file: relative(file),
+      line: lineAt(source, item.start),
+      message: '原生 picker 必须绑定 value，打开时才停留在当前选择'
+    }));
+}
+
 function attrValue(attrs, name) {
   const match = attrs.match(new RegExp(`\\b${name}\\s*=\\s*(["'])([\\s\\S]*?)\\1`));
   return match ? match[2] : '';
@@ -1705,6 +1748,10 @@ if (/pageScrollTo\s*\(\s*\{[^}]*scrollTop\s*:\s*0\s*(?:,|})/s.test(signaturePage
   signatureCoordinateIssues.push({ file: relative(`${signaturePageBase}.js`), message: '签名坐标禁止通过强制页面滚动归零实现' });
 }
 
+// 原生 picker 不绑定 value 时每次打开都会回到第一项，读不到当前选择。
+// 这是硬性门禁：所有 mode（selector/date/time/region）的 picker 都必须绑定 value。
+const pickerValueIssues = wxmlFiles.flatMap((file) => scanPickerValues(fs.readFileSync(file, 'utf8'), file));
+
 const report = {
   generatedAt: new Date().toISOString(),
   summary: {
@@ -1763,6 +1810,7 @@ const report = {
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
     signatureCoordinateIssues: signatureCoordinateIssues.length,
+    pickerValueIssues: pickerValueIssues.length,
     selectionCardIssues: selectionCardIssues.length,
     controlSurfaceIssues: controlSurfaceIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
@@ -1845,6 +1893,7 @@ if (process.argv.includes('--strict')) {
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.redundantDialogSingleSection || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.duplicateDialogWrapperSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts ||
-    report.summary.signatureCoordinateIssues || report.summary.selectionCardIssues || report.summary.controlSurfaceIssues;
+    report.summary.signatureCoordinateIssues || report.summary.selectionCardIssues || report.summary.controlSurfaceIssues ||
+    report.summary.pickerValueIssues;
   process.exitCode = failed ? 1 : 0;
 }

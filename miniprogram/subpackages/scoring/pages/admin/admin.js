@@ -269,6 +269,7 @@ Page({
     detailIdentityValue: 0,
     detailWorkGroupValue: 0,
     detailFieldValues: {},
+    detailFieldDates: {},
     detailHrPendingValues: {},
     detailHrAuditStatus: '',
     detailHrAuditStatusText: '',

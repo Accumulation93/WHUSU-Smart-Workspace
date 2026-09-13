@@ -1,6 +1,7 @@
 const orgSession = require('../../../../../utils/orgSession');
 const copy = require('../../../../../locales/zh-CN/hrProfileMigration');
 const { showShortToast, getErrorText } = require('./adminUtils');
+const { formatDateTextOnly } = require('../../../../../utils/hrProfileDate');
 
 function sameNameMatch(source, targetFields) {
   const label = String(source.label || '').trim().toLowerCase();
@@ -29,29 +30,9 @@ function buildFieldPlan(sourceFields, targetFields) {
   });
 }
 
-const DATE_MONTH_NAMES = {
-  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-};
-
 function formatFieldValue(field) {
   const value = field && field.value == null ? '' : String(field.value);
-  const text = value.trim();
-  if (!text) return value;
-  let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (match) {
-    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
-  }
-  match = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  if (match) {
-    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
-  }
-  match = text.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
-  if (match) {
-    const month = DATE_MONTH_NAMES[String(match[1]).toLowerCase()];
-    if (month) return match[3] + '.' + month + '.' + String(Number(match[2])).padStart(2, '0');
-  }
-  return value;
+  return formatDateTextOnly(value);
 }
 
 module.exports = Behavior({

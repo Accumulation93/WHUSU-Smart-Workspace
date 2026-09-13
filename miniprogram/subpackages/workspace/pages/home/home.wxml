@@ -344,7 +344,7 @@
             data-index="{{index}}"
             disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           >
-            <view class="picker-value">{{item.value || copy.select}}</view>
+            <view class="picker-value">{{item.displayValue || copy.select}}</view>
           </picker>
 
           <input
@@ -366,7 +366,7 @@
             data-index="{{index}}"
             disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           >
-            <view class="picker-value">{{item.value || copy.selectDate}}</view>
+            <view class="picker-value">{{item.displayValue || copy.selectDate}}</view>
           </picker>
 
           <input

@@ -12,6 +12,7 @@ const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIO
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
+const { formatDateTextOnly, toDatePickerValue } = require('../../../../../utils/hrProfileDate');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 
@@ -21,33 +22,6 @@ function createPermanentDeletionClientRequestId() {
     Date.now().toString(36),
     Math.random().toString(36).slice(2, 12)
   ].join(':');
-}
-
-const DATE_MONTH_NAMES = {
-  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-};
-
-// 日期只按字面拆分年月日，不经过 Date、时区或时间部分。
-// 兼容 2004-08-31 / 2004/8/31 / 2004.08.31 / 2004年8月31日
-// 以及 Mon Jul 23 2007 08:00:00 GMT+0800 (China Standard Time) 这类文本日期。
-function formatDateTextOnly(value) {
-  const text = String(value == null ? '' : value).trim();
-  if (!text) return value;
-  let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (match) {
-    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
-  }
-  match = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  if (match) {
-    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
-  }
-  match = text.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
-  if (match) {
-    const month = DATE_MONTH_NAMES[String(match[1]).toLowerCase()];
-    if (month) return match[3] + '.' + month + '.' + String(Number(match[2])).padStart(2, '0');
-  }
-  return value;
 }
 
 function toHrProfileListRow(item) {
@@ -1428,17 +1402,22 @@ module.exports = Behavior({
           pendingValue: formatDateTextOnly(row.pendingValue)
         }));
         // 序列字段按当前值定位索引；没有值时回落到第一项。
+        // 日期字段把工作区文本值转成原生 picker 需要的 YYYY-MM-DD。
         const detailFieldValues = {};
+        const detailFieldDates = {};
         if (detailHrTemplate && detailHrTemplate.fields.length) {
           detailHrTemplate.fields.forEach((field) => {
-            if (field.type !== 'sequence') return;
-            const options = Array.isArray(field.options) ? field.options : [];
-            const current = vals[field.id] == null ? '' : String(vals[field.id]);
-            let optionIndex = 0;
-            for (let i = 0; i < options.length; i += 1) {
-              if (String(options[i]) === current) { optionIndex = i; break; }
+            if (field.type === 'sequence') {
+              const options = Array.isArray(field.options) ? field.options : [];
+              const current = vals[field.id] == null ? '' : String(vals[field.id]);
+              let optionIndex = 0;
+              for (let i = 0; i < options.length; i += 1) {
+                if (String(options[i]) === current) { optionIndex = i; break; }
+              }
+              detailFieldValues[field.id] = optionIndex;
+            } else if (field.type === 'date') {
+              detailFieldDates[field.id] = toDatePickerValue(vals[field.id]);
             }
-            detailFieldValues[field.id] = optionIndex;
           });
         }
         this.setData({
@@ -1456,6 +1435,7 @@ module.exports = Behavior({
           detailHrReviewHistory: buildProfileReviewHistory(result.reviewHistory),
           detailHrValues: vals,
           detailFieldValues,
+          detailFieldDates,
           detailHrPendingValues: pendingValues,
           detailHrComparisonRows: detailComparisonRows,
           detailHrAuditStatus: result.auditStatus || 'none',
@@ -1824,6 +1804,7 @@ module.exports = Behavior({
         detailIdentityValue: 0,
         detailWorkGroupValue: 0,
         detailFieldValues: {},
+        detailFieldDates: {},
         membershipAssignmentList: [],
         personIdentityOrganizations: [],
         globalAdminIdentities: [],
@@ -1874,6 +1855,7 @@ module.exports = Behavior({
       // resolve it to the option text so the display shows the selected text.
       const template = this.data.detailHrTemplate;
       let seqIndex = -1;
+      let isDateField = false;
       if (template && template.fields) {
         const fieldDef = template.fields.find(function(f) { return String(f.id) === field; });
         if (fieldDef && fieldDef.type === 'sequence' && Array.isArray(fieldDef.options)) {
@@ -1883,11 +1865,18 @@ module.exports = Behavior({
             seqIndex = idx;
           }
         }
+        if (fieldDef && fieldDef.type === 'date') {
+          isDateField = true;
+        }
       }
   
       const updates = { ['detailHrValues.' + field]: value };
       if (seqIndex >= 0) {
         updates['detailFieldValues.' + field] = seqIndex;
+      }
+      if (isDateField) {
+        updates['detailFieldDates.' + field] = toDatePickerValue(value);
+        updates['detailHrValues.' + field] = formatDateTextOnly(value);
       }
       this.setData(updates);
     },

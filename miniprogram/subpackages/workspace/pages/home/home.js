@@ -5,6 +5,7 @@ const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
+const { formatDateTextOnly } = require('../../../../utils/hrProfileDate');
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
@@ -227,6 +228,8 @@ function normalizeDisplayField(field = {}, valueMap = {}) {
   const result = {
     ...field,
     value: rawValue,
+    // 日期字段提交与校验使用 YYYY-MM-DD，展示统一为 2004.08.31 简略格式。
+    displayValue: field.type === 'date' ? formatDateTextOnly(rawValue) : rawValue,
     typeLabel: getProfileFieldTypeLabel(field.type),
     hintText: buildFieldHint(field)
   };
@@ -1010,6 +1013,7 @@ Page({
     fields[fieldIndex] = {
       ...field,
       value: nextValue,
+      displayValue: nextValue,
       valueIndex: optionIndex
     };
 
@@ -1027,7 +1031,8 @@ Page({
 
     fields[index] = {
       ...fields[index],
-      value: String(e.detail.value || '')
+      value: String(e.detail.value || ''),
+      displayValue: formatDateTextOnly(String(e.detail.value || ''))
     };
 
     this.setData({

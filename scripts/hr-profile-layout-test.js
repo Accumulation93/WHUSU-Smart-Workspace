@@ -194,4 +194,24 @@ assert(!/resolvePersonByLegacyHrId/.test(hrProfileRoute)
     || /personIdentityOverviewModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute),
   '确需解析历史人事 ID 时必须由人员身份概览模型提供');
 
+// 成员详情补充资料的选项题打开时必须停在当前值，而不是每次都回到第一项。
+assert(/<picker[^>]*range="\{\{item\.options\}\}"[^>]*value="\{\{detailFieldValues\[item\.id\]\}\}"[^>]*>/.test(adminWxml),
+  '成员详情序列字段必须按当前值初始化 picker');
+assert(/<picker[^>]*mode="date"[^>]*value="\{\{detailFieldDates\[item\.id\]\}\}"[^>]*>/.test(adminWxml),
+  '成员详情日期字段必须绑定 detailFieldDates，否则打开会回到今天');
+assert(/detailFieldDates\[field\.id\] = toDatePickerValue\(vals\[field\.id\]\)/.test(hrInfoBehavior),
+  '日期字段必须把工作区文本值转成原生 picker 需要的 YYYY-MM-DD');
+const hrProfileDateUtil = fs.readFileSync(path.join(root, 'miniprogram/utils/hrProfileDate.js'), 'utf8');
+assert(/function formatDateTextOnly/.test(hrProfileDateUtil) && /function toDatePickerValue/.test(hrProfileDateUtil),
+  '日期展示与 picker 取值必须由共享的 hrProfileDate 工具提供');
+assert(!/DATE_MONTH_NAMES/.test(hrInfoBehavior),
+  '日期解析实现必须收敛到共享工具，不得在页面内重复实现');
+// 普通用户端本人资料：日期展示精简为 2004.08.31，提交与 picker 仍用 YYYY-MM-DD。
+const homeJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.js'), 'utf8');
+assert(/displayValue: field\.type === 'date' \? formatDateTextOnly\(rawValue\) : rawValue/.test(homeJs),
+  '本人资料日期字段必须保留 YYYY-MM-DD 提交值并单独提供精简展示值');
+const homeWxmlSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxml'), 'utf8');
+assert(/<view class="picker-value">\{\{item\.displayValue \|\| copy\.selectDate\}\}<\/view>/.test(homeWxmlSource),
+  '本人资料日期控件展示必须使用精简格式');
+
 console.log('hr profile layout tests passed');

@@ -1605,7 +1605,7 @@
                   </picker>
                 </block>
                 <block wx:elif="{{item.type === 'date'}}">
-                  <picker disabled="{{!canManageHrPeople || detailHrReadOnly}}" mode="date" bindchange="onDetailProfileFieldInput" data-field="{{item.id}}">
+                  <picker disabled="{{!canManageHrPeople || detailHrReadOnly}}" mode="date" value="{{detailFieldDates[item.id]}}" bindchange="onDetailProfileFieldInput" data-field="{{item.id}}">
                     <view class="picker-value">{{detailHrValues[item.id] || localeCopy.copy_9d1ff80fae}}</view>
                   </picker>
                 </block>
