@@ -374,9 +374,18 @@ RELEASE_SWITCHED=1
 reload_release "$NEW_RELEASE"
 PORT="$(read_port)"
 wait_for_health "$PORT"
-curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
-TIME_CONFIG_JSON="$(curl --fail --silent --show-error --max-time 8 \
-  -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/api/getTimeConfig")"
+  curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
+  TIME_CONFIG_JSON=""
+  for attempt in 1 2 3 4 5; do
+    if TIME_CONFIG_JSON="$(curl --fail --silent --show-error --max-time 8 \
+      -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/api/getTimeConfig")"; then
+      break
+    fi
+    if [[ "$attempt" -lt 5 ]]; then
+      log "时间配置暂不可用，等待实例就绪后重试（第 ${attempt} 次）"
+      sleep 2
+    fi
+  done
 printf '%s' "$TIME_CONFIG_JSON" | node -e '
   let source = "";
   process.stdin.on("data", (chunk) => { source += chunk; });
