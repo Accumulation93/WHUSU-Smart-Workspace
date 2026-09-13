@@ -203,7 +203,6 @@ app.use((req, res, next) => PUBLIC_BODY_ROUTES.has(req.path) ? requestComplexity
 app.disable('x-powered-by');
 
 app.use(authMiddleware);
-app.use((req, res, next) => { req.performanceMark('authentication'); next(); });
 
 // 上传入口在 JWT 会话校验后再按账号使用共享桶，避免多 IP 绕过单账号边界。
 app.use(createSharedRateLimiter({
@@ -216,7 +215,6 @@ app.use(createSharedRateLimiter({
 app.use((req, res, next) => PUBLIC_BODY_ROUTES.has(req.path) ? next() : parseJsonBody(req, res, next));
 app.use((req, res, next) => PUBLIC_BODY_ROUTES.has(req.path) ? next() : parseUrlEncodedBody(req, res, next));
 app.use((req, res, next) => PUBLIC_BODY_ROUTES.has(req.path) ? next() : requestComplexityGuard(req, res, next));
-app.use((req, res, next) => { req.performanceMark('body'); next(); });
 
 // 组织上下文中间件（基于 X-Active-Org header，注入 ALS）
 app.use(orgContextMiddleware);
