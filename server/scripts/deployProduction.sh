@@ -386,6 +386,11 @@ wait_for_health "$PORT"
     if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
   done
   if [[ -z "$TIME_CONFIG_JSON" ]]; then TIME_CONFIG_JSON='{"status":"error"}'; fi
+  if [[ "$HTTP_CODE" != "200" ]]; then
+    log "运行时间配置诊断"
+    timeout --signal=TERM --kill-after=10s 60s \
+      node "$NEW_RELEASE/server/scripts/diagnoseTimeConfig.js" || true
+  fi
 printf '%s' "$TIME_CONFIG_JSON" | node -e '
   let source = "";
   process.stdin.on("data", (chunk) => { source += chunk; });
