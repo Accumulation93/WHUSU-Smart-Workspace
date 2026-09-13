@@ -48,14 +48,12 @@ test('人事字典完整性检查只读取岗位事实源', () => {
   assert.doesNotMatch(source, /departmentModel\.getAll/);
 });
 
-test('成员详情返回已移除字段和可展示的审核历史', () => {
+test('成员详情不再返回历史字段并保留可展示的审核历史', () => {
   const start = profileRouteSource.indexOf("router.post('/getHrPersonDetail'");
   const end = profileRouteSource.indexOf("router.post('/saveHrPersonFull'", start);
   const source = profileRouteSource.slice(start, end);
-  assert.match(source, /historicalFields/);
-  assert.match(source, /effective_values_snapshot/);
-  assert.match(source, /pending_values_snapshot/);
-  assert.match(source, /profileFieldModel\.getByIds\(historicalFieldIds, orgId\)/);
+  assert.match(source, /historicalFields: \[\]/);
+  assert.doesNotMatch(source, /historicalFieldIds|historicalValues/);
   assert.match(source, /reviewerName: safeString\(item\.reviewer_name\)/);
   assert.match(reviewModelSource, /LEFT JOIN persons reviewer/);
 });

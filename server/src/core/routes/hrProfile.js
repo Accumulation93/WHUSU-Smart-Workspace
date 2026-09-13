@@ -767,7 +767,6 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const activeFieldIds = new Set(templateData ? templateData.fields.map((field) => field.id) : []);
     let values = {};
     let pendingValues = {};
-    let historicalFields = [];
     const reviewHistory = record
       ? await profileReviewEventModel.listByRecordId(record.id, orgId)
       : [];
@@ -776,42 +775,12 @@ router.post('/getHrPersonDetail', async (req, res) => {
         profileValueModel.getByRecordIdAndPending(record.id, 0, pool, orgId),
         profileValueModel.getByRecordIdAndPending(record.id, 1, pool, orgId)
       ]);
-      const historicalValues = {};
-      const historicalPendingValues = {};
       vals.forEach((value) => {
         if (activeFieldIds.has(value.field_id)) values[value.field_id] = value.field_value;
-        else historicalValues[value.field_id] = value.field_value;
       });
       pvals.forEach((value) => {
         if (activeFieldIds.has(value.field_id)) pendingValues[value.field_id] = value.field_value;
-        else historicalPendingValues[value.field_id] = value.field_value;
       });
-      reviewHistory.forEach((event) => {
-        const effectiveSnapshot = parseJsonObject(event.effective_values_snapshot);
-        const pendingSnapshot = parseJsonObject(event.pending_values_snapshot);
-        Object.keys(effectiveSnapshot).forEach((fieldId) => {
-          if (!activeFieldIds.has(fieldId) && !Object.prototype.hasOwnProperty.call(historicalValues, fieldId)) {
-            historicalValues[fieldId] = effectiveSnapshot[fieldId];
-          }
-        });
-        Object.keys(pendingSnapshot).forEach((fieldId) => {
-          if (!activeFieldIds.has(fieldId) && !Object.prototype.hasOwnProperty.call(historicalPendingValues, fieldId)) {
-            historicalPendingValues[fieldId] = pendingSnapshot[fieldId];
-          }
-        });
-      });
-      const historicalFieldIds = Array.from(new Set(
-        Object.keys(historicalValues).concat(Object.keys(historicalPendingValues))
-      ));
-      const historicalDefinitions = await profileFieldModel.getByIds(historicalFieldIds, orgId);
-      historicalFields = historicalDefinitions
-        .filter((field) => !activeFieldIds.has(safeString(field.id)))
-        .map((field) => Object.assign(profileFieldResponse(field, true), {
-          value: Object.prototype.hasOwnProperty.call(historicalValues, field.id)
-            ? safeString(historicalValues[field.id]) : '',
-          pendingValue: Object.prototype.hasOwnProperty.call(historicalPendingValues, field.id)
-            ? safeString(historicalPendingValues[field.id]) : ''
-        }));
     }
 
     const auditStatus = record ? (record.audit_status || 'none') : 'none';
@@ -826,7 +795,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       template: templateData,
       values,
       pendingValues,
-      historicalFields,
+      historicalFields: [],
       auditStatus,
       auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
       isComplete: completeness.isComplete,

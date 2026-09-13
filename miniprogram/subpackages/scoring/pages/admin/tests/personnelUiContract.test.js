@@ -206,16 +206,11 @@ test('认证治理降级目录可进入详情并构造完整岗位元组', () =>
   assert.match(adminJs, /canVerifyIdentity \|\| this\.data\.canRecoverAccounts \|\| this\.data\.canGlobalAccountManage/);
 });
 
-test('离任详情展示历史字段与资料审核历史且历史字段不可编辑', () => {
-  assert.match(hrBehavior, /buildHistoricalProfileFields\(result\.historicalFields\)/);
+test('历史资料字段已作废，详情只保留资料审核历史', () => {
+  assert.doesNotMatch(wxml, /detailHrHistoricalFields|hrHistoricalProfileFields/);
+  assert.match(hrBehavior, /detailHrHistoricalFields: \[\]/);
   assert.match(hrBehavior, /buildProfileReviewHistory\(result\.reviewHistory\)/);
-  assert.match(wxml, /detailHrHistoricalFields\.length[\s\S]*hrHistoricalProfileFields/);
   assert.match(wxml, /detailHrReviewHistory\.length[\s\S]*hrProfileReviewHistory/);
-  const historicalSection = wxml.slice(
-    wxml.indexOf('detailHrHistoricalFields.length'),
-    wxml.indexOf('detailHrReviewHistory.length')
-  );
-  assert.doesNotMatch(historicalSection, /bindinput|bindchange|<input|<picker/);
 });
 
 test('数字型 placeholder 必须通过 locale，审计器可识别回归', () => {
