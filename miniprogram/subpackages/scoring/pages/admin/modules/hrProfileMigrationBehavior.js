@@ -29,6 +29,14 @@ function buildFieldPlan(sourceFields, targetFields) {
   });
 }
 
+function formatFieldValue(field) {
+  const value = field && field.value == null ? '' : String(field.value);
+  if (!field || field.type !== 'date') return value;
+  const match = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (!match) return value;
+  return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+}
+
 module.exports = Behavior({
   methods: {
     onCrossOrgSourceChangeEvent(e) {
@@ -329,15 +337,36 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('getPersonOrgProfiles', { personId });
         if (result.status !== 'success') return;
+        const groups = (result.groups || []).map((group) => Object.assign({}, group, {
+          fields: (group.fields || []).map((field) => Object.assign({}, field, {
+            value: formatFieldValue(field)
+          }))
+        }));
+        const current = groups.filter((group) => group.isCurrent)[0] || null;
         this.setData({
-          personOrgProfiles: (result.groups || []).map((group, index) => Object.assign({}, group, {
-            expanded: index === 0 || group.isCurrent
+          personOrgProfiles: groups,
+          currentOrgName: current ? current.orgName : '',
+          orgProfileCurrentExpanded: true,
+          otherOrgProfileGroups: groups.filter((group) => !group.isCurrent).map((group) => Object.assign({}, group, {
+            expanded: false
           }))
         });
       } catch (_) {
       } finally {
         this.setData({ personOrgProfilesLoading: false });
       }
+    },
+
+    toggleOrgProfileGroup(e) {
+      if (e.currentTarget.dataset.org === 'current') {
+        this.setData({ orgProfileCurrentExpanded: !this.data.orgProfileCurrentExpanded });
+        return;
+      }
+      const index = Number(e.currentTarget.dataset.index);
+      const groups = (this.data.otherOrgProfileGroups || []).slice();
+      if (!groups[index]) return;
+      groups[index] = Object.assign({}, groups[index], { expanded: !groups[index].expanded });
+      this.setData({ otherOrgProfileGroups: groups });
     },
 
     openPersonOrgProfiles() {

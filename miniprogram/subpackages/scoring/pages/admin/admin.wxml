@@ -1590,6 +1590,11 @@
           </view>
           <view class="detail-section" id="hr-profile-fields" wx:if="{{detailHrTemplate && detailHrTemplate.fields && detailHrTemplate.fields.length}}">
             <view class="detail-section-title">{{localeCopy.copy_f6f826bc55}}</view>
+            <view class="org-profile-group-head link ui-motion-chip" wx:if="{{isSuperAdmin}}" catchtap="toggleOrgProfileGroup" data-org="current">
+              <text class="org-profile-group-name">{{currentOrgName}}</text>
+              <text class="status-chip none-chip">{{migrationCopy.currentOrg}}</text>
+            </view>
+            <block wx:if="{{!isSuperAdmin || orgProfileCurrentExpanded}}">
             <block wx:for="{{detailHrTemplate.fields}}" wx:key="id">
               <view class="field">
                 <view class="field-label">{{item.label}}<text wx:if="{{item.required}}" class="required-mark"> *</text></view>
@@ -1617,6 +1622,19 @@
                 </block>
                 <view class="field-hint" wx:if="{{item.hintText}}">{{item.hintText}}</view>
               </view>
+            </block>
+            </block>
+            <block wx:for="{{otherOrgProfileGroups}}" wx:key="orgId">
+              <view class="org-profile-group-head link ui-motion-chip" data-index="{{index}}" catchtap="toggleOrgProfileGroup">
+                <text class="org-profile-group-name">{{item.orgName}}</text>
+              </view>
+              <block wx:if="{{item.expanded}}">
+                <view class="field" wx:for="{{item.fields}}" wx:for-item="field" wx:key="id">
+                  <view class="field-label">{{field.label}}</view>
+                  <input class="field-input" disabled value="{{field.value}}" />
+                  <view class="field-hint" wx:if="{{field.pendingValue}}">{{migrationCopy.pendingValue}}{{migrationCopy.sep}}{{field.pendingValue}}</view>
+                </view>
+              </block>
             </block>
           </view>
           <view class="detail-section pending-section" wx:if="{{detailHrHasPending}}">
@@ -1677,22 +1695,6 @@
             <view class="button-row compact-row hr-danger-actions">
               <button class="danger-btn ui-motion-button" data-scope="membership" disabled="{{hrPermanentDeletionLoading}}" loading="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'membership'}}" catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrDeleteMembershipPermanently}}</button>
               <button class="danger-btn ui-motion-button" wx:if="{{isSuperAdmin}}" data-scope="person" disabled="{{hrPermanentDeletionLoading}}" loading="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'person'}}" catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrDeletePersonPermanently}}</button>
-            </view>
-          </view>
-          <view class="detail-section" wx:if="{{isSuperAdmin}}">
-            <view class="detail-section-title link ui-motion-chip" catchtap="openPersonOrgProfiles">{{migrationCopy.orgProfilesTitle}}</view>
-            <view class="field-hint">{{migrationCopy.expandHint}}</view>
-            <view class="field-hint" wx:if="{{personOrgProfilesLoading}}">{{migrationCopy.loading}}</view>
-            <view class="profile-comparison-list" wx:if="{{!personOrgProfilesLoading}}">
-              <view class="profile-comparison-card" wx:for="{{personOrgProfiles}}" wx:key="orgId">
-                <view class="profile-comparison-label link ui-motion-chip" data-index="{{index}}" catchtap="togglePersonOrgProfile">{{item.orgName}} {{item.isCurrent ? migrationCopy.currentOrg : ''}}</view>
-                <block wx:if="{{item.expanded}}">
-                  <view class="profile-comparison-text" wx:for="{{item.fields}}" wx:for-item="field" wx:key="id">
-                    <view>{{field.label}}{{migrationCopy.sep}}{{field.type}}{{migrationCopy.sep}}{{field.value || migrationCopy.emptyValue}}</view>
-                    <view class="status-chip none-chip" wx:if="{{field.pendingValue}}">{{migrationCopy.pendingValue}}{{migrationCopy.sep}}{{field.pendingValue}}</view>
-                  </view>
-                </block>
-              </view>
             </view>
           </view>
           <view class="scroll-tail-space hr-detail-scroll-tail"></view>

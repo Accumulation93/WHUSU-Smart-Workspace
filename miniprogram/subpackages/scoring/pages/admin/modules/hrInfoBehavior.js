@@ -23,6 +23,16 @@ function createPermanentDeletionClientRequestId() {
   ].join(':');
 }
 
+// 日期只按字面拆分年月日，不经过 Date、时区或时间部分。
+function formatDateTextOnly(value) {
+  const text = String(value == null ? '' : value).trim();
+  const match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (!match) return value;
+  const month = String(Number(match[2])).padStart(2, '0');
+  const day = String(Number(match[3])).padStart(2, '0');
+  return match[1] + '.' + month + '.' + day;
+}
+
 function toHrProfileListRow(item) {
   return {
     id: item.id,
@@ -1381,6 +1391,17 @@ module.exports = Behavior({
             : []
         } : null;
         const pendingValues = result.pendingValues || {};
+        if (detailHrTemplate && detailHrTemplate.fields.length) {
+          detailHrTemplate.fields.forEach((field) => {
+            if (field.type !== 'date') return;
+            if (Object.prototype.hasOwnProperty.call(vals, field.id)) {
+              vals[field.id] = formatDateTextOnly(vals[field.id]);
+            }
+            if (Object.prototype.hasOwnProperty.call(pendingValues, field.id)) {
+              pendingValues[field.id] = formatDateTextOnly(pendingValues[field.id]);
+            }
+          });
+        }
         this.setData({
           detailHrProfile: profile,
           detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
@@ -1408,6 +1429,14 @@ module.exports = Behavior({
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });
+        let detailPersonId = profile.personId || '';
+        if (!detailPersonId) {
+          const rows = this.data.hrProfileRows || [];
+          for (let i = 0; i < rows.length; i += 1) {
+            if (rows[i].id === this.data.detailHrId) { detailPersonId = rows[i].personId || ''; break; }
+          }
+        }
+        if (this.data.isSuperAdmin && detailPersonId) this.loadPersonOrgProfiles(detailPersonId);
         await this.loadPersonIdentities(hrId, detailRequestId);
       } catch (err) {
         if (this._hrPersonDetailRequestId !== detailRequestId

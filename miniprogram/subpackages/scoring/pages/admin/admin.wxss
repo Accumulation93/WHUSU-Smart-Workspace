@@ -2777,6 +2777,29 @@ scroll-view {
   line-height: 1.35;
 }
 
+.org-profile-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  min-height: var(--ui-compact-height);
+  margin-bottom: 14rpx;
+  padding: 10rpx 16rpx;
+  border-left: 6rpx solid rgba(37, 99, 235, 0.42);
+  border-radius: 10rpx;
+  background: rgba(239, 246, 255, 0.6);
+}
+
+.org-profile-group-name {
+  flex: 1;
+  min-width: 0;
+  color: #0f172a;
+  font-size: var(--ui-type-section);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .required-mark {
   color: #ef4444;
   font-weight: 600;
