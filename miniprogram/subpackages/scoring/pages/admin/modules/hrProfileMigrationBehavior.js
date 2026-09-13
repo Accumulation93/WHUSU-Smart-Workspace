@@ -29,12 +29,29 @@ function buildFieldPlan(sourceFields, targetFields) {
   });
 }
 
+const DATE_MONTH_NAMES = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+};
+
 function formatFieldValue(field) {
   const value = field && field.value == null ? '' : String(field.value);
-  if (!field || field.type !== 'date') return value;
-  const match = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (!match) return value;
-  return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+  const text = value.trim();
+  if (!text) return value;
+  let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (match) {
+    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+  }
+  match = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (match) {
+    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+  }
+  match = text.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (match) {
+    const month = DATE_MONTH_NAMES[String(match[1]).toLowerCase()];
+    if (month) return match[3] + '.' + month + '.' + String(Number(match[2])).padStart(2, '0');
+  }
+  return value;
 }
 
 module.exports = Behavior({

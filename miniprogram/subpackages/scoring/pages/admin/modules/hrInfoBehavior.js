@@ -23,14 +23,31 @@ function createPermanentDeletionClientRequestId() {
   ].join(':');
 }
 
+const DATE_MONTH_NAMES = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+};
+
 // 日期只按字面拆分年月日，不经过 Date、时区或时间部分。
+// 兼容 2004-08-31 / 2004/8/31 / 2004.08.31 / 2004年8月31日
+// 以及 Mon Jul 23 2007 08:00:00 GMT+0800 (China Standard Time) 这类文本日期。
 function formatDateTextOnly(value) {
   const text = String(value == null ? '' : value).trim();
-  const match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (!match) return value;
-  const month = String(Number(match[2])).padStart(2, '0');
-  const day = String(Number(match[3])).padStart(2, '0');
-  return match[1] + '.' + month + '.' + day;
+  if (!text) return value;
+  let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (match) {
+    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+  }
+  match = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (match) {
+    return match[1] + '.' + String(Number(match[2])).padStart(2, '0') + '.' + String(Number(match[3])).padStart(2, '0');
+  }
+  match = text.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (match) {
+    const month = DATE_MONTH_NAMES[String(match[1]).toLowerCase()];
+    if (month) return match[3] + '.' + month + '.' + String(Number(match[2])).padStart(2, '0');
+  }
+  return value;
 }
 
 function toHrProfileListRow(item) {
@@ -1393,7 +1410,6 @@ module.exports = Behavior({
         const pendingValues = result.pendingValues || {};
         if (detailHrTemplate && detailHrTemplate.fields.length) {
           detailHrTemplate.fields.forEach((field) => {
-            if (field.type !== 'date') return;
             if (Object.prototype.hasOwnProperty.call(vals, field.id)) {
               vals[field.id] = formatDateTextOnly(vals[field.id]);
             }
@@ -1402,6 +1418,15 @@ module.exports = Behavior({
             }
           });
         }
+        const detailComparisonRows = personnelViewModel.buildProfileComparisonRows(
+          detailHrTemplate && detailHrTemplate.fields || [],
+          vals,
+          pendingValues,
+          this.data.localeCopy.hrProfileNoValue
+        ).map((row) => Object.assign({}, row, {
+          effectiveValue: formatDateTextOnly(row.effectiveValue),
+          pendingValue: formatDateTextOnly(row.pendingValue)
+        }));
         this.setData({
           detailHrProfile: profile,
           detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
@@ -1413,16 +1438,11 @@ module.exports = Behavior({
             reviewStatus: result.leftAt ? result.leftAtReviewStatus : profile.leftAtReviewStatus
           }),
           detailHrTemplate,
-          detailHrHistoricalFields: buildHistoricalProfileFields(result.historicalFields),
+          detailHrHistoricalFields: [],
           detailHrReviewHistory: buildProfileReviewHistory(result.reviewHistory),
           detailHrValues: vals,
           detailHrPendingValues: pendingValues,
-          detailHrComparisonRows: personnelViewModel.buildProfileComparisonRows(
-            detailHrTemplate && detailHrTemplate.fields || [],
-            vals,
-            pendingValues,
-            this.data.localeCopy.hrProfileNoValue
-          ),
+          detailHrComparisonRows: detailComparisonRows,
           detailHrAuditStatus: result.auditStatus || 'none',
           detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
           detailHrRejectionReason: result.rejectionReason || '',

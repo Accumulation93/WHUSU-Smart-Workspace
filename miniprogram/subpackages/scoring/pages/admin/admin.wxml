@@ -1659,17 +1659,6 @@
               <button class="danger-btn ui-motion-button" wx:if="{{canReviewHrProfile && !detailHrReadOnly}}" catchtap="rejectDetailHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
             </view>
           </view>
-          <view class="detail-section" wx:if="{{detailHrHistoricalFields.length}}">
-            <view class="detail-section-title">{{localeCopy.hrHistoricalProfileFields}}</view>
-            <view class="field-hint">{{localeCopy.hrHistoricalProfileFieldsHint}}</view>
-            <view class="profile-comparison-list">
-              <view class="profile-comparison-card" wx:for="{{detailHrHistoricalFields}}" wx:key="id">
-                <view class="profile-comparison-label">{{item.label}}</view>
-                <view class="profile-comparison-text">{{item.valueText}}</view>
-                <view class="status-chip former-chip" wx:if="{{item.hasPendingValue}}">{{localeCopy.hrHistoricalPendingValue}}</view>
-              </view>
-            </view>
-          </view>
           <view class="detail-section" wx:if="{{detailHrReviewHistory.length}}">
             <view class="detail-section-title">{{localeCopy.hrProfileReviewHistory}}</view>
             <view class="profile-comparison-list">
