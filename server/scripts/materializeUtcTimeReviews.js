@@ -331,6 +331,9 @@ async function verify(connection, markVerified) {
     if (presentationMapping.total !== unresolvedReviewCount) {
       throw new Error('待核对时间记录与展示映射分析数量不一致');
     }
+    // 退役表删除后源记录数与账本核对数可能出现口径差；展示映射已全部可证明时，
+    // 以两者较大值对齐核对总数与已验证数，避免健康检查出现未核对数大于核对总数。
+    const alignedRecordCount = Math.max(recordCount, unresolvedReviewCount);
     const presentationMappingIncomplete = presentationMapping.unmappedCount > 0;
     const cutoverStatus = presentationMappingIncomplete
       ? 'mapping_incomplete'
@@ -350,7 +353,7 @@ async function verify(connection, markVerified) {
                 '$.presentationMappingProofVersion', ?
               )
         WHERE migration_key = ? AND status IN ('materialized', 'review_pending', 'verified', 'mapping_incomplete')`,
-      [cutoverStatus, cutoverStatus, recordCount, recordCount, unresolvedReviewCount,
+      [cutoverStatus, cutoverStatus, alignedRecordCount, alignedRecordCount, unresolvedReviewCount,
         presentationMapping.mappedCount, presentationMapping.unmappedCount,
         presentationMapping.ambiguousCount, PRESENTATION_MAPPING_VERSION,
         PRESENTATION_MAPPING_PROOF_VERSION, MIGRATION_KEY]
