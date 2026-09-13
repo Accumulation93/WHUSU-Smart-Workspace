@@ -377,15 +377,15 @@ wait_for_health "$PORT"
   curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
   TIME_CONFIG_JSON=""
   for attempt in 1 2 3 4 5; do
-    if TIME_CONFIG_JSON="$(curl --fail --silent --show-error --max-time 8 \
-      -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/api/getTimeConfig")"; then
-      break
-    fi
-    if [[ "$attempt" -lt 5 ]]; then
-      log "时间配置暂不可用，等待实例就绪后重试（第 ${attempt} 次）"
-      sleep 2
-    fi
+    HTTP_CODE="$(curl --silent --show-error --max-time 8 -o /tmp/whusu-time-config.json -w '%{http_code}' \
+      -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/api/getTimeConfig" || true)"
+    TIME_CONFIG_JSON="$(cat /tmp/whusu-time-config.json 2>/dev/null || true)"
+    if [[ "$HTTP_CODE" == "200" ]]; then break; fi
+    log "时间配置暂不可用 HTTP=${HTTP_CODE}，第 ${attempt} 次重试"
+    log "时间配置响应：$(printf '%s' "$TIME_CONFIG_JSON" | head -c 300)"
+    if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
   done
+  if [[ -z "$TIME_CONFIG_JSON" ]]; then TIME_CONFIG_JSON='{"status":"error"}'; fi
 printf '%s' "$TIME_CONFIG_JSON" | node -e '
   let source = "";
   process.stdin.on("data", (chunk) => { source += chunk; });
