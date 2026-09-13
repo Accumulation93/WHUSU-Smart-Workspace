@@ -8,7 +8,7 @@
       <!-- Verification mode picker -->
       <view class="field">
         <view class="field-label">{{localeCopy.copy_2592864779}}</view>
-        <picker range="{{[localeCopy.copy_5d41fef45a,localeCopy.copy_3eb9b187ef]}}" bindchange="onVerifyModeChange">
+        <picker range="{{[localeCopy.copy_5d41fef45a,localeCopy.copy_3eb9b187ef]}}" value="{{verifyMode === 'number' ? 0 : 1}}" bindchange="onVerifyModeChange">
           <view class="picker-value">{{verifyMode === 'number' ? localeCopy.copy_5d41fef45a : localeCopy.copy_3eb9b187ef}}</view>
         </picker>
       </view>

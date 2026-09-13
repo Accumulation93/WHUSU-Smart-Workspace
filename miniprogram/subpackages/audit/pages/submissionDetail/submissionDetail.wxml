@@ -60,7 +60,7 @@
       <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="openAdHocStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_751c159dd2}}</button><button class="secondary-btn ui-motion-button" bindtap="openPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b61c482f3}}</button></view>
       <view class="field field-mt-16">
         <view class="field-label">{{localeCopy.copy_8d3aac9d85}}</view>
-        <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" bindchange="onResubmitModeChange">
+        <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" value="{{resubmitMode === 'fresh' ? 0 : 1}}" bindchange="onResubmitModeChange">
           <view class="picker-value">{{resubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
         </picker>
       </view>
@@ -131,31 +131,31 @@
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
-              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onAdHocActionTypeChange">
+              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{adHocStepForm.actionType === 'pass' ? 0 : (adHocStepForm.actionType === 'sign' ? 1 : (adHocStepForm.actionType === 'estamp' ? 2 : 3))}}" bindchange="onAdHocActionTypeChange">
                 <view class="picker-value">{{adHocStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (adHocStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (adHocStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
               </picker>
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_8f5c5f658c}}</view>
-              <picker range="{{identityPickerScopeOptions}}" bindchange="onIdentityScopeChange">
+        <picker range="{{identityPickerScopeOptions}}" value="{{identityPickerScopeIndex}}" bindchange="onIdentityScopeChange">
                 <view class="picker-value">{{identityPickerScopeOptions[identityPickerScopeIndex] || localeCopy.copy_76d431a4dc}}</view>
               </picker>
             </view>
             <view class="field" wx:if="{{identityPickerScopeValues[identityPickerScopeIndex] === 'specific_department' || identityPickerScopeValues[identityPickerScopeIndex] === 'specific_work_group'}}">
               <view class="field-label">{{localeCopy.copy_f1643742d1}}</view>
-              <picker range="{{identityPickerDeptOptions}}" bindchange="onIdentityDeptChange">
+        <picker range="{{identityPickerDeptOptions}}" value="{{identityPickerDeptIndex}}" bindchange="onIdentityDeptChange">
                 <view class="picker-value">{{identityPickerDeptOptions[identityPickerDeptIndex] || localeCopy.copy_eada426deb}}</view>
               </picker>
             </view>
             <view class="field" wx:if="{{identityPickerScopeValues[identityPickerScopeIndex] === 'specific_work_group'}}">
               <view class="field-label">{{localeCopy.copy_237707b205}}</view>
-              <picker range="{{identityPickerWgOptions}}" bindchange="onIdentityWgChange">
+        <picker range="{{identityPickerWgOptions}}" value="{{identityPickerWgIndex}}" bindchange="onIdentityWgChange">
                 <view class="picker-value">{{identityPickerWgOptions[identityPickerWgIndex] || localeCopy.copy_ec3b03ecc7}}</view>
               </picker>
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_4711f10351}}</view>
-              <picker range="{{identityPickerIdentOptions}}" bindchange="onIdentityIdentChange">
+        <picker range="{{identityPickerIdentOptions}}" value="{{identityPickerIdentIndex}}" bindchange="onIdentityIdentChange">
                 <view class="picker-value">{{identityPickerIdentOptions[identityPickerIdentIndex] || localeCopy.copy_d1856227b6}}</view>
               </picker>
             </view>
@@ -548,7 +548,7 @@
           </view>
           <view class="field field-mt-16">
             <view class="field-label">{{localeCopy.copy_8d3aac9d85}}</view>
-            <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" bindchange="onEditResubmitModeChange">
+            <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" value="{{editResubmitMode === 'fresh' ? 0 : 1}}" bindchange="onEditResubmitModeChange">
               <view class="picker-value">{{editResubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
             </picker>
           </view>
@@ -596,31 +596,31 @@
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
-                <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onEditActionTypeChange">
+                <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{editStepForm.actionType === 'pass' ? 0 : (editStepForm.actionType === 'sign' ? 1 : (editStepForm.actionType === 'estamp' ? 2 : 3))}}" bindchange="onEditActionTypeChange">
                   <view class="picker-value">{{editStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (editStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (editStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
                 </picker>
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_8f5c5f658c}}</view>
-                <picker range="{{identityPickerScopeOptions}}" bindchange="onEditIdentityScopeChange">
+        <picker range="{{identityPickerScopeOptions}}" value="{{editIdentityPickerScopeIndex}}" bindchange="onEditIdentityScopeChange">
                   <view class="picker-value">{{identityPickerScopeOptions[editIdentityPickerScopeIndex] || localeCopy.copy_76d431a4dc}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_department' || identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
                 <view class="field-label">{{localeCopy.copy_f1643742d1}}</view>
-                <picker range="{{identityPickerDeptOptions}}" bindchange="onEditIdentityDeptChange">
+        <picker range="{{identityPickerDeptOptions}}" value="{{editIdentityPickerDeptIndex}}" bindchange="onEditIdentityDeptChange">
                   <view class="picker-value">{{identityPickerDeptOptions[editIdentityPickerDeptIndex] || localeCopy.copy_eada426deb}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
                 <view class="field-label">{{localeCopy.copy_237707b205}}</view>
-                <picker range="{{identityPickerWgOptions}}" bindchange="onEditIdentityWgChange">
+        <picker range="{{identityPickerWgOptions}}" value="{{editIdentityPickerWgIndex}}" bindchange="onEditIdentityWgChange">
                   <view class="picker-value">{{identityPickerWgOptions[editIdentityPickerWgIndex] || localeCopy.copy_ec3b03ecc7}}</view>
                 </picker>
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_4711f10351}}</view>
-                <picker range="{{identityPickerIdentOptions}}" bindchange="onEditIdentityIdentChange">
+        <picker range="{{identityPickerIdentOptions}}" value="{{editIdentityPickerIdentIndex}}" bindchange="onEditIdentityIdentChange">
                   <view class="picker-value">{{identityPickerIdentOptions[editIdentityPickerIdentIndex] || localeCopy.copy_d1856227b6}}</view>
                 </picker>
               </view>
@@ -635,7 +635,7 @@
       <personnel-picker visible="{{editPersonPickerVisible}}" title="{{localeCopy.copy_759682a69b}}" options="{{allHrPersons}}" value="{{editPersonPickerSelectedList}}" selectionLevel="assignment" multiple="{{true}}" loading="{{editPersonPickerLoading}}" contextText="{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}" bindconfirm="confirmSharedEditPersonPicker" bindcancel="closeEditPersonPicker">
         <view slot="extra" class="field field-mt-8">
           <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
-          <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onEditPersonPickerActionTypeChange">
+          <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{editPersonPickerStepActionType === 'pass' ? 0 : (editPersonPickerStepActionType === 'sign' ? 1 : (editPersonPickerStepActionType === 'estamp' ? 2 : 3))}}" bindchange="onEditPersonPickerActionTypeChange">
             <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? localeCopy.copy_8e2f75159e : (editPersonPickerStepActionType === 'sign' ? localeCopy.copy_49cbf30d6b : (editPersonPickerStepActionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
           </picker>
         </view>
@@ -889,7 +889,7 @@
   <personnel-picker visible="{{personPickerVisible}}" title="{{localeCopy.copy_759682a69b}}" options="{{personPickerEligibleList}}" value="{{personPickerSelectedList}}" selectionLevel="assignment" multiple="{{true}}" loading="{{personPickerLoading}}" contextText="{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}" bindconfirm="confirmSharedPersonPicker" bindcancel="closePersonPicker">
     <view slot="extra" class="field field-mt-8" wx:if="{{templateOverrideStepIndex < 0 && personPickerMode !== 'designateNext'}}">
       <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
-      <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onPersonPickerActionTypeChange">
+      <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{personPickerStepActionType === 'pass' ? 0 : (personPickerStepActionType === 'sign' ? 1 : (personPickerStepActionType === 'estamp' ? 2 : 3))}}" bindchange="onPersonPickerActionTypeChange">
         <view class="picker-value">{{personPickerStepActionType === 'pass' ? localeCopy.copy_8e2f75159e : (personPickerStepActionType === 'sign' ? localeCopy.copy_49cbf30d6b : (personPickerStepActionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
       </picker>
     </view>
