@@ -1427,6 +1427,20 @@ module.exports = Behavior({
           effectiveValue: formatDateTextOnly(row.effectiveValue),
           pendingValue: formatDateTextOnly(row.pendingValue)
         }));
+        // 序列字段按当前值定位索引；没有值时回落到第一项。
+        const detailFieldValues = {};
+        if (detailHrTemplate && detailHrTemplate.fields.length) {
+          detailHrTemplate.fields.forEach((field) => {
+            if (field.type !== 'sequence') return;
+            const options = Array.isArray(field.options) ? field.options : [];
+            const current = vals[field.id] == null ? '' : String(vals[field.id]);
+            let optionIndex = 0;
+            for (let i = 0; i < options.length; i += 1) {
+              if (String(options[i]) === current) { optionIndex = i; break; }
+            }
+            detailFieldValues[field.id] = optionIndex;
+          });
+        }
         this.setData({
           detailHrProfile: profile,
           detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
@@ -1441,6 +1455,7 @@ module.exports = Behavior({
           detailHrHistoricalFields: [],
           detailHrReviewHistory: buildProfileReviewHistory(result.reviewHistory),
           detailHrValues: vals,
+          detailFieldValues,
           detailHrPendingValues: pendingValues,
           detailHrComparisonRows: detailComparisonRows,
           detailHrAuditStatus: result.auditStatus || 'none',
