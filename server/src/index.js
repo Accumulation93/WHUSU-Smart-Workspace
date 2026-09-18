@@ -26,8 +26,7 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const startTime = Date.now();
 const REQUEST_TIMEOUT_MS = 30000;
-const MAX_JSON_BODY_BYTES = 500000;
-const MAX_UPLOAD_JSON_BODY_BYTES = 15 * 1024 * 1024;
+const { parseJsonBody } = require('./middleware/jsonBodyLimit');
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_DEFAULT_MAX = 180;
 const RATE_LIMIT_LOGIN_MAX = 30;
@@ -160,22 +159,6 @@ app.get('/api/health', async (req, res) => {
   }
   return res.status(healthCache.statusCode).json(healthCache.body);
 });
-
-const LARGE_JSON_ROUTES = new Set([
-  '/api/uploadAuditFile',
-  '/api/parseTableFile',
-  '/api/verifySignatureChain',
-  '/api/verifyFileSignature'
-]);
-
-function parseJsonBody(req, res, next) {
-  const bodyLimit = LARGE_JSON_ROUTES.has(req.path) ? MAX_UPLOAD_JSON_BODY_BYTES : MAX_JSON_BODY_BYTES;
-  const contentLength = Number(req.get('content-length') || 0);
-  if (Number.isFinite(contentLength) && contentLength > bodyLimit) {
-    return res.status(413).json({ status: 'payload_too_large', message: localeCopy.copy_ac4ff526e9 });
-  }
-  return express.json({ limit: bodyLimit, strict: true })(req, res, next);
-}
 
 function requestComplexityGuard(req, res, next) {
   if (!req.body || typeof req.body !== 'object') return next();

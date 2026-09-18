@@ -335,10 +335,15 @@ async function invokeRetiredAdminRoute(router, routePath) {
   assert.strictEqual(retiredIdentityStamps.statusCode, 410, '重复印章列表端点必须实际返回 HTTP 410');
   assert.strictEqual(retiredIdentityStamps.body.status, 'legacy_api_retired');
   assert.strictEqual(retiredAdmin.getDependencyCalls(), 0, '退役端点不得读取数据库或业务模型');
-  assert(indexSource.includes("'/api/verifySignatureChain'"), '文件签名验证必须使用受控的大请求体解析额度');
-  const largeRouteBlock = indexSource.match(/const LARGE_JSON_ROUTES = new Set\(\[[\s\S]*?\]\);/);
-  assert(largeRouteBlock, '必须保留大请求体路由清单');
-  assert(!largeRouteBlock[0].includes("'/api/verifyAuditFile'"), '退役端点不得继续保留文件上传解析契约');
+  // 请求体上限统一由 server/src/middleware/jsonBodyLimit.js 决定，清单事实来源是
+  // server/src/config/requestBodyLimits.js，index.js 只能委托，不得自己维护第二份。
+  assert(indexSource.includes("require('./middleware/jsonBodyLimit')"), '请求体上限必须由共享中间件统一决定');
+  assert(!indexSource.includes('LARGE_JSON_ROUTES'), 'index.js 不得再维护第二份大请求体路由清单');
+  const bodyLimitSource = fs.readFileSync(path.join(root, 'server/src/config/requestBodyLimits.js'), 'utf8');
+  const { LARGE_JSON_ROUTES } = require('../src/config/requestBodyLimits');
+  assert(bodyLimitSource.includes("'/api/verifySignatureChain'"), '文件签名验证必须使用受控的大请求体解析额度');
+  assert(LARGE_JSON_ROUTES.has('/api/verifySignatureChain'), '文件签名验证必须登记在大请求体白名单');
+  assert(!LARGE_JSON_ROUTES.has('/api/verifyAuditFile'), '退役端点不得继续保留文件上传解析契约');
   assert(!userLogicSource.includes("name: 'verifyAuditFile'"));
   assert(!adminLogicSource.includes("'verifyAuditFile'"));
   [userPageSource, adminPageSource].forEach((source) => {
