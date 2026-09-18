@@ -26,14 +26,6 @@ const AUTH_ENTRY_APIS = {
 
 let authenticationRedirecting = false;
 let contextActivationDepth = 0;
-const messageTimings = [];
-function recordMessageTiming(value) {
-  if (messageTimings.length >= 64) messageTimings.shift();
-  messageTimings.push(value);
-}
-function recordMessageRender(section, startedAt, fields, bytes) {
-  recordMessageTiming({ stage: 'render', section: section, elapsedMs: Date.now() - startedAt, fields: fields, bytes: bytes });
-}
 
 function createRequestId() {
   return 'mp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -203,8 +195,6 @@ function hasSameSelection(left, right) {
 }
 
 function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutMs) {
-  const timingStarted = Date.now();
-  const measureMessage = /^(getMessageOverview|listTodos|listNotifications|getTodoCount|getNotificationUnreadCount)$/.test(name);
   // 登录、认领与恢复属于会话入口，此时客户端本就可能没有可比较的组织会话。
   // 真机收到响应后不得再执行一轮同步存储读取，否则部分 OpenHarmony 设备会
   // 卡在请求已返回、Promise 尚未完成的状态。
@@ -218,9 +208,6 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
       header: createRequestHeaders(requestId),
       data: data,
       success: function(res) {
-        if (measureMessage) recordMessageTiming({ stage: 'request', name: name, requestId: requestId,
-          elapsedMs: Date.now() - timingStarted, statusCode: res.statusCode,
-          bytes: Number(res.header && (res.header['Content-Length'] || res.header['content-length'])) || 0 });
         if (!isAuthEntry && !orgSession.isCurrent(organizationSnapshot)) {
           const currentSnapshot = orgSession.getSnapshot();
           if (allowAuthenticationRefresh
@@ -234,10 +221,6 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
           return;
         }
         if (res.statusCode === 200) {
-          if (!isAuthEntry && res.data && (res.data.status === 'success' || res.data.partial)
-            && !/^(get|list|verify|preview|export|parse|build)/.test(name)) {
-            require('./messageQueries').invalidate();
-          }
           resolve(res.data);
           scheduleResponseSideEffects(res.data);
           return;
@@ -264,8 +247,6 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
         reject(responseError);
       },
       fail: function(err) {
-        if (measureMessage) recordMessageTiming({ stage: 'request', name: name, requestId: requestId,
-          elapsedMs: Date.now() - timingStarted, failed: true });
         if (!isAuthEntry && !orgSession.isCurrent(organizationSnapshot)) {
           reject(cancelledError(requestId));
           return;
@@ -391,8 +372,6 @@ function formatAuditDetailTime(raw, reviewStatus) {
 module.exports = {
   API_BASE: API_BASE,
   CLIENT_VERSION: CLIENT_VERSION,
-  recordMessageRender: recordMessageRender,
-  getMessageTimings: function() { return messageTimings.map(value => Object.assign({}, value)); },
   callFunction: callFunction,
   requestOptionalWechatBinding: requestOptionalWechatBinding,
   requestOptionalDeviceMetadata: requestOptionalDeviceMetadata,
