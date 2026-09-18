@@ -25,18 +25,21 @@ const MAX_SIGNATURE_NAME_CHARS = 100;
 
 function validateSignatureTemplateInput(name, imageData) {
   if (Array.from(name).length > MAX_SIGNATURE_NAME_CHARS) {
-    return { status: 'invalid_params', message: localeCopy.signatureNameTooLong };
+    return { error: { status: 'invalid_params', message: localeCopy.signatureNameTooLong } };
   }
   const inspected = inspectAuditImageData(imageData);
   if (!inspected.ok) {
     return {
-      status: 'invalid_params',
-      message: inspected.reason === 'too_large'
-        ? localeCopy.signatureImageTooLarge
-        : localeCopy.signatureImageInvalid
+      error: {
+        status: 'invalid_params',
+        message: inspected.reason === 'too_large'
+          ? localeCopy.signatureImageTooLarge
+          : localeCopy.signatureImageInvalid
+      }
     };
   }
-  return null;
+  // 声明前缀与真实字节不一致时按识别结果落库，保证历史签名与印章的声明类型自洽。
+  return { imageData: inspected.normalizedDataUrl || imageData };
 }
 
 function decodeVerificationFile(fileBase64) {
@@ -122,8 +125,9 @@ router.post('/saveSignature', async (req, res) => {
     if (!imageData) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_a35b383a47 });
     }
-    const validationError = validateSignatureTemplateInput(name, imageData);
-    if (validationError) return res.json(validationError);
+    const validation = validateSignatureTemplateInput(name, imageData);
+    if (validation.error) return res.json(validation.error);
+    const storedImageData = validation.imageData;
 
     const result = await withLockedSignatureOwner(req, async (connection, owner) => {
       if (id) {
@@ -143,7 +147,7 @@ router.post('/saveSignature', async (req, res) => {
           `UPDATE signature_templates
               SET name = ?, image_data = ?, is_default = ?
             WHERE id = ? AND hr_id = ? AND org_id = ?`,
-          [name || '', imageData, isDefault ? 1 : 0, id, owner.hrId, owner.orgId]
+          [name || '', storedImageData, isDefault ? 1 : 0, id, owner.hrId, owner.orgId]
         );
         return { status: 'success', message: localeCopy.copy_1c620d13e8 };
       }
@@ -157,7 +161,7 @@ router.post('/saveSignature', async (req, res) => {
       await connection.query(
         `INSERT INTO signature_templates (id, hr_id, name, image_data, is_default, org_id)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [newId, owner.hrId, name || localeCopy.copy_214c901792, imageData, isDefault ? 1 : 0, owner.orgId]
+        [newId, owner.hrId, name || localeCopy.copy_214c901792, storedImageData, isDefault ? 1 : 0, owner.orgId]
       );
       return { status: 'success', id: newId, message: localeCopy.copy_082505816e };
     });

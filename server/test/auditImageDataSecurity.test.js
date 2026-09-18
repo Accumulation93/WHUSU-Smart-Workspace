@@ -42,16 +42,28 @@ for (const [mimeType, buffer] of formatCases) {
     mimeType + ' 必须被接受'
   );
 }
-// 声明类型必须与真实字节一致，避免把非图片内容伪装成图片。
+// 声明前缀与真实字节不一致时按识别结果归一化：旧客户端按临时文件扩展名声明类型，
+// 只要字节是受支持图片就必须接受，并用识别出的类型落库。
+const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+const mismatched = inspectAuditImageData('data:image/png;base64,' + jpegBytes.toString('base64'));
+assert.strictEqual(mismatched.ok, true, '声明为 PNG 但内容是 JPEG 时按字节归一化');
+assert.strictEqual(mismatched.mimeType, 'image/jpeg');
+assert.strictEqual(mismatched.declaredMimeType, 'image/png');
+assert.strictEqual(mismatched.normalizedDataUrl, 'data:image/jpeg;base64,' + jpegBytes.toString('base64'));
 assert.strictEqual(
-  isValidAuditImageData('data:image/png;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]).toString('base64')),
-  false,
-  '声明为 PNG 但内容是 JPEG 时必须拒绝'
+  inspectAuditImageData('data:image/jpeg;base64,' + jpegBytes.toString('base64')).normalizedDataUrl,
+  '',
+  '声明与字节一致时不需要改写'
+);
+// 非图片内容仍然必须拒绝，不能因为放宽声明前缀就接受伪造图片。
+assert.strictEqual(
+  isValidAuditImageData('data:image/png;base64,' + Buffer.from('not-an-image').toString('base64')),
+  false
 );
 assert.strictEqual(
   isValidAuditImageData('data:image/tiff;base64,' + Buffer.from([0x49, 0x49, 0x2a, 0x00]).toString('base64')),
   false,
-  '未列入白名单的图片类型必须拒绝'
+  '未列入白名单的图片类型（字节也不是受支持图片）必须拒绝'
 );
 
 console.log('审核签名与印章图片类型及体积限制测试通过');

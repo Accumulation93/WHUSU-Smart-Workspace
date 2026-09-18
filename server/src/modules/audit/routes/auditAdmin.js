@@ -491,16 +491,18 @@ router.post('/saveStamp', async (req, res) => {
           : localeCopy.stampImageInvalid
       });
     }
+    // 声明前缀与真实字节不一致时按识别结果落库，避免旧客户端把 JPEG 声明成 PNG。
+    const storedImageData = imageInspection.normalizedDataUrl || imageData;
 
     if (id) {
-      const updated = await stampModel.update(id, { name, imageData });
+      const updated = await stampModel.update(id, { name, imageData: storedImageData });
       if (!updated) {
         return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
       }
       res.json({ status: 'success', message: localeCopy.copy_161855b67c });
     } else {
       const newId = generateId();
-      await stampModel.create(newId, { name, imageData, createdBy: admin.id });
+      await stampModel.create(newId, { name, imageData: storedImageData, createdBy: admin.id });
       res.json({ status: 'success', id: newId, message: localeCopy.copy_8e51c9c0df });
     }
   } catch (e) {

@@ -5,6 +5,7 @@ const Module = require('module');
 
 let stampUpdateResult = false;
 let stampRemoveResult = false;
+const stampWrites = [];
 let assignmentResult = { status: 'success' };
 let verificationCreateResult = { status: 'success' };
 let verificationRemoveResult = true;
@@ -25,9 +26,9 @@ const mocks = {
   '../models/auditFlowTemplateStep': emptyModel,
   '../models/auditFlowTemplateStepCondition': emptyModel,
   '../models/stamp': {
-    async update() { return stampUpdateResult; },
+    async update(id, data) { stampWrites.push({ op: 'update', id, data }); return stampUpdateResult; },
     async remove() { return stampRemoveResult; },
-    async create() {},
+    async create(id, data) { stampWrites.push({ op: 'create', id, data }); },
     async getAll() { return []; }
   },
   '../models/identityStampAssignment': {
@@ -102,6 +103,25 @@ async function invoke(routePath, body) {
 
   response = await invoke('/deleteStamp', { id: 'stamp-foreign' });
   assert.strictEqual(response.status, 'not_found', '跨组织印章不得伪装成删除成功');
+
+  // 旧客户端会按临时文件扩展名声明类型：真实字节是 JPEG 却声明成 PNG。
+  // 服务端必须按真实字节归一化后落库，而不是把合法印章图片判为格式不支持。
+  const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+  const mismatchedData = 'data:image/png;base64,' + jpegBytes.toString('base64');
+  response = await invoke('/saveStamp', { name: '透明印章', imageData: mismatchedData });
+  assert.strictEqual(response.status, 'success', '声明类型与真实字节不一致时不得拒绝合法图片');
+  assert.strictEqual(
+    stampWrites[stampWrites.length - 1].data.imageData,
+    'data:image/jpeg;base64,' + jpegBytes.toString('base64'),
+    '落库时必须改写为按真实字节识别出的类型'
+  );
+
+  // 内容不是图片时仍然拒绝，不能因为放宽声明前缀而放行伪造图片。
+  response = await invoke('/saveStamp', {
+    name: '伪造图片',
+    imageData: 'data:image/png;base64,' + Buffer.from('not-an-image').toString('base64')
+  });
+  assert.strictEqual(response.status, 'invalid_params');
 
   assignmentResult = { status: 'assignment_unavailable' };
   response = await invoke('/saveStampGrants', {

@@ -2,7 +2,8 @@
 
 const MAX_AUDIT_IMAGE_BYTES = 2 * 1024 * 1024;
 // 常用图片格式全部兼容：PNG（保留透明通道）、JPEG、WebP、GIF、BMP。
-const ALLOWED_IMAGE_MIME_TYPES = new Set(['png', 'jpeg', 'jpg', 'webp', 'gif', 'bmp']);
+// 白名单只看真实字节识别出的类型，不看客户端声明的 data URL 前缀。
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp']);
 
 function detectImageMimeType(buffer) {
   if (!buffer || buffer.length < 4) return '';
@@ -29,9 +30,7 @@ function inspectAuditImageData(value, maxBytes) {
   if (source.length > encodedLimit + 64) return { ok: false, reason: 'too_large' };
 
   const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\r\n]+)$/.exec(source);
-  if (!match || !ALLOWED_IMAGE_MIME_TYPES.has(match[1].toLowerCase())) {
-    return { ok: false, reason: 'format' };
-  }
+  if (!match) return { ok: false, reason: 'format' };
   const encoded = match[2].replace(/[\r\n]/g, '');
   if (!encoded || encoded.length > encodedLimit || encoded.length % 4 === 1) {
     return { ok: false, reason: encoded.length > encodedLimit ? 'too_large' : 'format' };
@@ -40,16 +39,23 @@ function inspectAuditImageData(value, maxBytes) {
     const buffer = Buffer.from(encoded, 'base64');
     if (!buffer.length) return { ok: false, reason: 'format' };
     if (buffer.length > byteLimit) return { ok: false, reason: 'too_large' };
+    const detectedMimeType = detectImageMimeType(buffer);
+    if (!detectedMimeType || !ALLOWED_IMAGE_MIME_TYPES.has(detectedMimeType)) {
+      return { ok: false, reason: 'format' };
+    }
+    // 客户端可能按临时文件扩展名声明类型（压缩后的临时路径常常没有扩展名），
+    // 只要真实字节是受支持的图片就用识别结果落库，声明的前缀不参与判权。
     const declaredMimeType = match[1].toLowerCase() === 'jpg'
       ? 'image/jpeg'
       : 'image/' + match[1].toLowerCase();
-    const detectedMimeType = detectImageMimeType(buffer);
-    if (!detectedMimeType || detectedMimeType !== declaredMimeType) {
-      return { ok: false, reason: 'format' };
-    }
+    const normalizedDataUrl = declaredMimeType === detectedMimeType
+      ? ''
+      : 'data:' + detectedMimeType + ';base64,' + encoded;
     return {
       ok: true,
       mimeType: detectedMimeType,
+      declaredMimeType,
+      normalizedDataUrl,
       byteLength: buffer.length
     };
   } catch (_) {

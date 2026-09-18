@@ -105,9 +105,12 @@ morgan.token('rid', req => req.requestId || '-');
 morgan.token('ua', req => (req.get('user-agent') || '-').slice(0, 80));
 morgan.token('ref', req => (req.get('referer') || '-').slice(0, 60));
 morgan.token('res-size', (req, res) => res.get('content-length') || '-');
+// 请求体大小与客户端版本用于区分“小程序是否已更新到修复版”和“上传内容是否真的到达服务端”。
+morgan.token('req-size', req => req.get('content-length') || '-');
+morgan.token('client-version', req => (req.get('X-Client-Version') || '-').slice(0, 32));
 
 // ---------- middleware ----------
-app.use(morgan(':method :url :status :response-time ms ip=:ip ua=:ua ref=:ref rid=:rid size=:res-size', {
+app.use(morgan(':method :url :status :response-time ms ip=:ip cv=:client-version req=:req-size size=:res-size ua=:ua ref=:ref rid=:rid', {
   stream: createRequestLogger(),
   skip: (req) => req.path === '/api/ping' || req.path === '/api/health'
 }));
