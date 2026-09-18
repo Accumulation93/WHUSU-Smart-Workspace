@@ -1,7 +1,8 @@
 'use strict';
 
 const MAX_AUDIT_IMAGE_BYTES = 2 * 1024 * 1024;
-const ALLOWED_IMAGE_MIME_TYPES = new Set(['png', 'jpeg', 'jpg', 'webp']);
+// 常用图片格式全部兼容：PNG（保留透明通道）、JPEG、WebP、GIF、BMP。
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['png', 'jpeg', 'jpg', 'webp', 'gif', 'bmp']);
 
 function detectImageMimeType(buffer) {
   if (!buffer || buffer.length < 4) return '';
@@ -12,6 +13,11 @@ function detectImageMimeType(buffer) {
   if (buffer.length >= 12
     && buffer.slice(0, 4).toString('ascii') === 'RIFF'
     && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  if (buffer.length >= 6) {
+    const header = buffer.slice(0, 6).toString('ascii');
+    if (header === 'GIF87a' || header === 'GIF89a') return 'image/gif';
+  }
+  if (buffer[0] === 0x42 && buffer[1] === 0x4d) return 'image/bmp';
   return '';
 }
 

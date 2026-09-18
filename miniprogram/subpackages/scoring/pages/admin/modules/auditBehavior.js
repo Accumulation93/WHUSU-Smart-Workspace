@@ -14,6 +14,7 @@ const {
 } = require('../../../../../utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../../../utils/imageDataUrl');
 const {
   ALL_FILTER_KEY,
   buildAuditPersonnelFilterOptions,
@@ -94,6 +95,7 @@ module.exports = Behavior({
     // ── Stamps ──
     stamps: [],
     stampForm: { id: '', name: '', imageData: '' },
+    stampFormError: '',
 
     // ── Audit Submissions ──
     auditSubmissions: [],
@@ -1304,14 +1306,14 @@ module.exports = Behavior({
     },
 
     startCreateStamp() {
-      this.setData({ stampForm: { id: '', name: '', imageData: '' } });
+      this.setData({ stampForm: { id: '', name: '', imageData: '' }, stampFormError: '' });
     },
 
     editStamp(e) {
       const id = e.currentTarget.dataset.id;
       const stamp = this.data.stamps.find(function (s) { return s.id === id; });
       if (!stamp) return;
-      this.setData({ stampForm: { id: stamp.id, name: stamp.name, imageData: stamp.imageData } });
+      this.setData({ stampForm: { id: stamp.id, name: stamp.name, imageData: stamp.imageData }, stampFormError: '' });
     },
 
     onStampFieldInput(e) {
@@ -1320,22 +1322,40 @@ module.exports = Behavior({
     },
 
     chooseStampImage() {
-      const that = this;
       wx.chooseImage({
         count: 1,
-        sizeType: ['compressed'],
+        // 印章必须保留 PNG 透明通道：微信压缩会把透明 PNG 重新编码成白底 JPEG，只能用原图。
+        sizeType: ['original'],
         sourceType: ['album', 'camera'],
-        success: function (res) {
-          const tempFilePath = res.tempFilePaths[0];
+        success: (res) => {
+          const tempFilePath = res.tempFilePaths && res.tempFilePaths[0];
+          if (!tempFilePath) return;
+          // 平台给出文件大小时先拦截，避免把超大图片整体读成 base64。
+          const picked = res.tempFiles && res.tempFiles[0];
+          const pickedSize = picked ? Number(picked.size) : 0;
+          if (pickedSize > MAX_STAMP_IMAGE_BYTES) {
+            showShortToast(stampCopy.imageTooLargeToast);
+            this.setData({ stampFormError: stampCopy.imageTooLarge });
+            return;
+          }
           wx.getFileSystemManager().readFile({
             filePath: tempFilePath,
             encoding: 'base64',
-            success: function (fileRes) {
-              const ext = tempFilePath.split('.').pop().toLowerCase();
-              const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
-              const mime = mimeMap[ext] || 'image/png';
-              const base64 = 'data:' + mime + ';base64,' + fileRes.data;
-              that.setData({ 'stampForm.imageData': base64 });
+            success: (fileRes) => {
+              const built = buildImageDataUrl(fileRes.data, { maxBytes: MAX_STAMP_IMAGE_BYTES });
+              if (!built.ok) {
+                const tooLarge = built.reason === 'too_large';
+                showShortToast(tooLarge ? stampCopy.imageTooLargeToast : stampCopy.imageUnsupportedToast);
+                this.setData({
+                  stampFormError: tooLarge ? stampCopy.imageTooLarge : stampCopy.imageUnsupported
+                });
+                return;
+              }
+              this.setData({ 'stampForm.imageData': built.dataUrl, stampFormError: '' });
+            },
+            fail: () => {
+              showShortToast(stampCopy.imageReadFailedToast);
+              this.setData({ stampFormError: stampCopy.imageReadFailed });
             }
           });
         }

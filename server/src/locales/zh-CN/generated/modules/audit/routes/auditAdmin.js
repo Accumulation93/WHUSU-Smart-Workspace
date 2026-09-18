@@ -46,7 +46,7 @@ module.exports = Object.freeze({
   copy_fa1dcca5ac: "请重新打开申请",
   copy_fc971e88db: "请重新选择印章",
   copy_fc98ff863c: '由 同部门 ',
-  stampImageInvalid: "请使用支持的印章图片",
+  stampImageInvalid: "图片格式不支持，请使用 PNG、JPG、WebP、GIF 或 BMP 格式的印章图片",
   stampImageTooLarge: "印章图片不能超过 2MB",
   stampNameTooLong: "印章名称不能超过 200 个字符",
   stampOperationFailed: "印章暂时无法处理，请稍后再试"

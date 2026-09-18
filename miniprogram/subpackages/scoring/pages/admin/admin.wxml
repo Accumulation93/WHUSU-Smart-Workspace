@@ -2948,6 +2948,8 @@
           <view class="field-label">{{localeCopy.copy_6eeaccbeca}}</view>
           <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--large" />
           <button class="secondary-btn ui-motion-button" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampForm.imageData ? localeCopy.copy_cb81018d6d : localeCopy.copy_393f873d06}}</button>
+          <view class="field-hint">{{stampCopy.imageHint}}</view>
+          <view class="field-hint stamp-form-error" wx:if="{{stampFormError}}">{{stampFormError}}</view>
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveStamp}}" bindtap="saveStamp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2278d2da18}}</button>
