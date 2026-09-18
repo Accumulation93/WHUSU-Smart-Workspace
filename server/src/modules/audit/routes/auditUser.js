@@ -1046,6 +1046,23 @@ router.post('/getSubmissionDetail', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     }
 
+    // 当前待处理步骤是否由当前岗位负责：必须与 approveStep 的授权判断同源。
+    // userIsApprover 只代表"看过或处理过这条申请"，不代表当前步骤归他处理，
+    // 不能用来决定是否显示通过/驳回入口。
+    let currentPendingStep = null;
+    for (const candidate of steps) {
+      if (candidate.status !== 'pending') continue;
+      if (candidate.sort_order !== submission.current_step_index) continue;
+      if (!currentPendingStep || (candidate.round || 1) > (currentPendingStep.round || 1)) {
+        currentPendingStep = candidate;
+      }
+    }
+    let canApproveCurrentStep = false;
+    if (detailAssignment && currentPendingStep) {
+      const currentAuthorization = await checkStepAuthorization(currentPendingStep, submission, detailAssignment);
+      canApproveCurrentStep = currentAuthorization.authorized === true;
+    }
+
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const currentFileIds = new Set(files.map(function(file) { return safeString(file.id); }));
     const signatures = (await submissionSignatureModel.getBySubmissionId(submissionId))
@@ -1143,6 +1160,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
       status: 'success',
       userIsSubmitter: isSubmitter,
       userIsApprover: isApprover,
+      canApproveCurrentStep,
       userIsAdmin: !!admin,
       events: events.map((e) => ({
         id: safeString(e.id),

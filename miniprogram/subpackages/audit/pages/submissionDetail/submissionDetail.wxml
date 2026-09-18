@@ -222,7 +222,7 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
+      <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && canApproveCurrentStep}}">
         <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
           {{activeApprovalStep.stepName || (localeCopy.copy_93c50c01c0 + activeApprovalStep.sortOrder + localeCopy.copy_493a127a99)}} · {{activeApprovalStep.actionLabel}}
@@ -415,7 +415,7 @@
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
-                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && hasActiveAssignment && userIsApprover}}">
+                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && hasActiveAssignment && canApproveCurrentStep}}">
                   <text class="flow-action-btn ui-motion-chip" data-step-id="{{node.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</text>
                   <text class="flow-action-btn flow-action-danger ui-motion-chip" data-step-id="{{node.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</text>
                 </view>

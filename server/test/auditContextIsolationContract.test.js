@@ -52,4 +52,34 @@ assert(routeSource.includes('flowTemplateModel.getByIdForUpdate(templateId, conn
   && adminRouteSource.includes('validateStepShape'),
   '模板保存、发起和编辑必须锁定同一模板版本并严格校验步骤');
 
+// 审批入口只能按“当前待处理步骤是否由当前岗位负责”显示：
+// userIsApprover 代表参与过这条申请（含历史处理），不能用来显示通过/驳回。
+const detailRouteSource = routeSource.slice(
+  routeSource.indexOf("router.post('/getSubmissionDetail'"),
+  routeSource.indexOf('// ═══════════════════════════════════════════════════\n// Approval Actions')
+);
+assert(detailRouteSource.includes('canApproveCurrentStep'),
+  '审批详情必须返回当前步骤是否由当前岗位负责的结论');
+assert(detailRouteSource.includes('currentPendingStep')
+  && detailRouteSource.includes('await checkStepAuthorization(currentPendingStep, submission, detailAssignment)'),
+  '当前步骤审批入口必须复用 approveStep 的同一授权判断');
+assert(!/canApproveCurrentStep\s*[:=]\s*(isApprover|hasHistoricalApprovalEvent|Boolean\(isApprover\))/.test(detailRouteSource),
+  '不得用历史审批身份代替当前步骤授权');
+
+const submissionWxml = fs.readFileSync(path.resolve(
+  __dirname,
+  '../../miniprogram/subpackages/audit/pages/submissionDetail/submissionDetail.wxml'
+), 'utf8');
+const submissionJs = fs.readFileSync(path.resolve(
+  __dirname,
+  '../../miniprogram/subpackages/audit/pages/submissionDetail/submissionDetail.js'
+), 'utf8');
+assert(!submissionWxml.includes('userIsApprover'),
+  '审批页面不得再用 userIsApprover 决定是否显示通过/驳回入口');
+const approvalEntryGates = submissionWxml.match(/wx:if="\{\{[^"]*canApproveCurrentStep[^"]*\}\}"/g) || [];
+assert(approvalEntryGates.length >= 2,
+  '审批卡与流程节点操作都必须按 canApproveCurrentStep 显示');
+assert(submissionJs.includes('canApproveCurrentStep: Boolean(res.canApproveCurrentStep && this.data.hasActiveAssignment)'),
+  '前端必须直接采用服务端返回的当前步骤授权结论');
+
 console.log('审核岗位隔离、角色认证、附件与通知契约测试通过');

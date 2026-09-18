@@ -168,6 +168,9 @@ Page({
     // User role flags
     userIsSubmitter: false,
     userIsApprover: false,
+    // 只有当前待处理步骤确实由当前岗位负责时才显示通过/驳回入口；
+    // userIsApprover 代表"参与过这条申请"，不能用来决定审批入口。
+    canApproveCurrentStep: false,
     userIsAdmin: false,
     activeWorkContext: null,
     hasActiveAssignment: false,
@@ -1615,6 +1618,7 @@ Page({
           // User role flags for conditional UI
           userIsSubmitter: res.userIsSubmitter || false,
           userIsApprover: Boolean(res.userIsApprover && this.data.hasActiveAssignment),
+          canApproveCurrentStep: Boolean(res.canApproveCurrentStep && this.data.hasActiveAssignment),
           userIsAdmin: res.userIsAdmin || false,
           expandedNodeKey: ''
         });
