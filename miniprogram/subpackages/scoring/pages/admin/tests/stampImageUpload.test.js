@@ -201,3 +201,83 @@ test('超出体积、格式不支持与读取失败都给出明确提示且不�
   assert.equal(page.data.stampFormError, copy.imageReadFailed);
   assert.ok(toasts.length >= 3, '三种失败都必须有提示');
 });
+
+// 真机相册可能返回小程序无法直接识别的格式（iPhone 原图 HEIC 等），
+// 此时先转码一次，再按真实字节重新识别，不能直接判为不支持。
+function installConvertibleWx(runtime, options) {
+  const convertCalls = [];
+  runtime.sandbox.wx = {
+    chooseImage: (pickOptions) => pickOptions.success({ tempFilePaths: ['wxfile://tmp_heic_original'] }),
+    getFileSystemManager: () => ({
+      readFile: (readOptions) => {
+        const data = readOptions.filePath === 'wxfile://tmp_heic_original' ? options.original : options.converted;
+        if (data == null) {
+          readOptions.fail({ errMsg: 'readFile:fail' });
+          return;
+        }
+        readOptions.success({ data });
+      }
+    })
+  };
+  if (options.compressImage) {
+    runtime.sandbox.wx.compressImage = (compressOptions) => {
+      convertCalls.push(compressOptions.src);
+      options.compressImage(compressOptions);
+    };
+  }
+  return convertCalls;
+}
+
+test('无法直接识别的格式转码后按字节重新识别，成功写入图片', () => {
+  const runtime = loadStampUploadRuntime();
+  const { behavior, toasts } = runtime;
+  const page = createStampPage(behavior);
+  const heicBase64 = toBase64(Buffer.concat([
+    Buffer.from([0x00, 0x00, 0x00, 0x18]),
+    Buffer.from('ftypheic', 'ascii'),
+    Buffer.alloc(8)
+  ]));
+  const convertedJpeg = toBase64(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]));
+  const convertCalls = installConvertibleWx(runtime, {
+    original: heicBase64,
+    converted: convertedJpeg,
+    compressImage: (options) => options.success({ tempFilePath: 'wxfile://tmp_converted' })
+  });
+
+  page.chooseStampImage();
+  assert.equal(convertCalls.length, 1, 'HEIC 必须先转码一次');
+  assert.equal(page.data.stampForm.imageData, 'data:image/jpeg;base64,' + convertedJpeg);
+  assert.equal(page.data.stampFormError, '');
+  assert.equal(toasts.length, 0);
+});
+
+test('转码后仍不支持或转码失败时只提示一次，不重复转码', () => {
+  const copy = require('../../../../../locales/zh-CN/stampAuthorization');
+  const heicBase64 = toBase64(Buffer.concat([
+    Buffer.from([0x00, 0x00, 0x00, 0x18]),
+    Buffer.from('ftypheic', 'ascii'),
+    Buffer.alloc(8)
+  ]));
+
+  const failRuntime = loadStampUploadRuntime();
+  const failPage = createStampPage(failRuntime.behavior);
+  installConvertibleWx(failRuntime, {
+    original: heicBase64,
+    converted: null,
+    compressImage: (options) => options.fail({ errMsg: 'compressImage:fail' })
+  });
+  failPage.chooseStampImage();
+  assert.equal(failPage.data.stampForm.imageData, '');
+  assert.equal(failPage.data.stampFormError, copy.imageUnsupported);
+
+  const retryRuntime = loadStampUploadRuntime();
+  const retryPage = createStampPage(retryRuntime.behavior);
+  const convertCalls = installConvertibleWx(retryRuntime, {
+    original: heicBase64,
+    converted: heicBase64,
+    compressImage: (options) => options.success({ tempFilePath: 'wxfile://tmp_converted' })
+  });
+  retryPage.chooseStampImage();
+  assert.equal(convertCalls.length, 1, '转码只允许尝试一次，避免循环');
+  assert.equal(retryPage.data.stampFormError, copy.imageUnsupported);
+});

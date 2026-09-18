@@ -1334,32 +1334,73 @@ module.exports = Behavior({
           const picked = res.tempFiles && res.tempFiles[0];
           const pickedSize = picked ? Number(picked.size) : 0;
           if (pickedSize > MAX_STAMP_IMAGE_BYTES) {
-            showShortToast(stampCopy.imageTooLargeToast);
-            this.setData({ stampFormError: stampCopy.imageTooLarge });
+            this.showStampImageError('too_large');
             return;
           }
-          wx.getFileSystemManager().readFile({
-            filePath: tempFilePath,
-            encoding: 'base64',
-            success: (fileRes) => {
-              const built = buildImageDataUrl(fileRes.data, { maxBytes: MAX_STAMP_IMAGE_BYTES });
-              if (!built.ok) {
-                const tooLarge = built.reason === 'too_large';
-                showShortToast(tooLarge ? stampCopy.imageTooLargeToast : stampCopy.imageUnsupportedToast);
-                this.setData({
-                  stampFormError: tooLarge ? stampCopy.imageTooLarge : stampCopy.imageUnsupported
-                });
-                return;
-              }
-              this.setData({ 'stampForm.imageData': built.dataUrl, stampFormError: '' });
-            },
-            fail: () => {
-              showShortToast(stampCopy.imageReadFailedToast);
-              this.setData({ stampFormError: stampCopy.imageReadFailed });
-            }
-          });
+          this.readStampImage(tempFilePath, true);
         }
       });
+    },
+
+    // 按真实字节读取印章图片；allowConvert 为真时，对无法直接识别的格式再转码重试一次。
+    readStampImage(tempFilePath, allowConvert) {
+      wx.getFileSystemManager().readFile({
+        filePath: tempFilePath,
+        encoding: 'base64',
+        success: (fileRes) => {
+          const built = buildImageDataUrl(fileRes.data, { maxBytes: MAX_STAMP_IMAGE_BYTES });
+          if (built.ok) {
+            this.setData({ 'stampForm.imageData': built.dataUrl, stampFormError: '' });
+            return;
+          }
+          if (built.reason === 'too_large') {
+            this.showStampImageError('too_large');
+            return;
+          }
+          // iPhone 原图等可能是 HEIC 等小程序不能直接识别的格式，先转码再按字节重新识别。
+          if (allowConvert && typeof wx.compressImage === 'function') {
+            this.convertStampImage(tempFilePath);
+            return;
+          }
+          this.showStampImageError('unsupported');
+        },
+        fail: () => {
+          this.showStampImageError('read_failed');
+        }
+      });
+    },
+
+    convertStampImage(tempFilePath) {
+      wx.compressImage({
+        src: tempFilePath,
+        quality: 92,
+        success: (res) => {
+          const convertedPath = res && res.tempFilePath;
+          if (!convertedPath) {
+            this.showStampImageError('unsupported');
+            return;
+          }
+          this.readStampImage(convertedPath, false);
+        },
+        fail: () => {
+          this.showStampImageError('unsupported');
+        }
+      });
+    },
+
+    showStampImageError(reason) {
+      if (reason === 'too_large') {
+        showShortToast(stampCopy.imageTooLargeToast);
+        this.setData({ stampFormError: stampCopy.imageTooLarge });
+        return;
+      }
+      if (reason === 'read_failed') {
+        showShortToast(stampCopy.imageReadFailedToast);
+        this.setData({ stampFormError: stampCopy.imageReadFailed });
+        return;
+      }
+      showShortToast(stampCopy.imageUnsupportedToast);
+      this.setData({ stampFormError: stampCopy.imageUnsupported });
     },
 
     async saveStamp() {
