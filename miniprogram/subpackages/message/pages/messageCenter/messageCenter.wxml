@@ -1,3 +1,4 @@
+<page-meta page-style="{{showSwitchDialog || organizationPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page message-page">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 

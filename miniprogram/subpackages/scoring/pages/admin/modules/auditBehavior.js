@@ -96,6 +96,9 @@ module.exports = Behavior({
     stamps: [],
     stampForm: { id: '', name: '', imageData: '' },
     stampFormError: '',
+    // 图片预览只用本地临时路径；完整 Data URL 保存在页面属性里，不进 data / setData。
+    stampImagePreview: '',
+    stampImageReading: false,
 
     // ── Audit Submissions ──
     auditSubmissions: [],
@@ -1306,14 +1309,16 @@ module.exports = Behavior({
     },
 
     startCreateStamp() {
-      this.setData({ stampForm: { id: '', name: '', imageData: '' }, stampFormError: '' });
+      this._stampImageData = '';
+      this.setData({ stampForm: { id: '', name: '', imageData: '' }, stampFormError: '', stampImagePreview: '' });
     },
 
     editStamp(e) {
       const id = e.currentTarget.dataset.id;
       const stamp = this.data.stamps.find(function (s) { return s.id === id; });
       if (!stamp) return;
-      this.setData({ stampForm: { id: stamp.id, name: stamp.name, imageData: stamp.imageData }, stampFormError: '' });
+      this._stampImageData = stamp.imageData || '';
+      this.setData({ stampForm: { id: stamp.id, name: stamp.name, imageData: '' }, stampFormError: '', stampImagePreview: stamp.imageData || '' });
     },
 
     onStampFieldInput(e) {
@@ -1337,6 +1342,7 @@ module.exports = Behavior({
             this.showStampImageError('too_large');
             return;
           }
+          this.setData({ stampImageReading: true, stampFormError: '' });
           this.readStampImage(tempFilePath, true);
         }
       });
@@ -1350,7 +1356,9 @@ module.exports = Behavior({
         success: (fileRes) => {
           const built = buildImageDataUrl(fileRes.data, { maxBytes: MAX_STAMP_IMAGE_BYTES });
           if (built.ok) {
-            this.setData({ 'stampForm.imageData': built.dataUrl, stampFormError: '' });
+            // 预览用本地文件路径，1.6MB 的 Data URL 只留在页面属性里，避免大 setData 卡顿。
+            this._stampImageData = built.dataUrl;
+            this.setData({ stampImagePreview: tempFilePath, stampFormError: '', stampImageReading: false });
             return;
           }
           if (built.reason === 'too_large') {
@@ -1391,31 +1399,32 @@ module.exports = Behavior({
     showStampImageError(reason) {
       if (reason === 'too_large') {
         showShortToast(stampCopy.imageTooLargeToast);
-        this.setData({ stampFormError: stampCopy.imageTooLarge });
+        this.setData({ stampFormError: stampCopy.imageTooLarge, stampImageReading: false });
         return;
       }
       if (reason === 'read_failed') {
         showShortToast(stampCopy.imageReadFailedToast);
-        this.setData({ stampFormError: stampCopy.imageReadFailed });
+        this.setData({ stampFormError: stampCopy.imageReadFailed, stampImageReading: false });
         return;
       }
       showShortToast(stampCopy.imageUnsupportedToast);
-      this.setData({ stampFormError: stampCopy.imageUnsupported });
+      this.setData({ stampFormError: stampCopy.imageUnsupported, stampImageReading: false });
     },
 
     async saveStamp() {
-      if (this.data.loadingMap.saveStamp || this.data.stampLoadError) return;
+      if (this.data.loadingMap.saveStamp || this.data.stampLoadError || this.data.stampImageReading) return;
       const request = orgSession.beginRequest(this, 'auditStampSave');
       const form = this.data.stampForm;
+      const imageData = this._stampImageData || '';
       if (!form.name) { showShortToast(localeCopy.copy_76f2662073); return; }
-      if (!form.imageData) { showShortToast(localeCopy.copy_9cf20101c9); return; }
+      if (!imageData) { showShortToast(localeCopy.copy_9cf20101c9); return; }
 
       this.setLoading('saveStamp', true);
       try {
         const res = await this.callCloud('saveStamp', {
           id: form.id,
           name: form.name,
-          imageData: form.imageData
+          imageData
         });
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {

@@ -11,6 +11,7 @@ function min(t) {
 }
 module.exports = { hour: hour, min: min };
 </wxs>
+<page-meta page-style="{{scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
 <view class="page subapp-venue-page">
   <!-- Hero -->

@@ -1,3 +1,4 @@
+<page-meta page-style="{{showMessageSwitchDialog ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 

@@ -17,7 +17,7 @@ const context = {
 context.require.resolve = require.resolve;
 context.require.cache = require.cache;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(__dirname, 'ui-audit.js'), 'utf8') + '\nthis.scanFixture = scanLayoutContracts; this.scanStyleFixture = scanWxss; this.scanPickerValues = scanPickerValues;', context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, 'ui-audit.js'), 'utf8') + '\nthis.scanFixture = scanLayoutContracts; this.scanStyleFixture = scanWxss; this.scanPickerValues = scanPickerValues; this.scanDialogScrollLock = scanDialogScrollLock;', context);
 function issues(markup) { fixture = markup; return context.scanFixture('fixture.wxml').dataLayoutIssues; }
 function styleIssues(styles) { styleFixture = styles; return context.scanStyleFixture('fixture.wxss').unsafeControlEllipsis; }
 assert.ok(issues('<view class="pick-row"><text class="picker-display">姓名</text></view>').length >= 2);
@@ -49,4 +49,12 @@ assert.strictEqual(pickerIssues('<picker mode="date" value="{{detailFieldDates[i
 assert.strictEqual(pickerIssues('\n<picker\n  range="{{approvalFlowOptions}}"\n  value="{{pk.idx(approvalFlowOptions, selectedFlowId)}}"\n>'), 0);
 assert.strictEqual(pickerIssues('<picker mode="selector" wx:if="{{list.length > 0}}" value="{{idx}}">'), 0);
 assert.strictEqual(pickerIssues('<picker mode="selector" wx:if="{{list.length > 0}}">'), 1);
+// 弹窗打开时背景必须锁定：缺少 page-meta 或未覆盖可见标志都必须在严格审计中阻断。
+const lockIssues = markup => context.scanDialogScrollLock(markup).length;
+assert.strictEqual(lockIssues('<view class="page"><view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}"></view></view>'), 1);
+assert.strictEqual(lockIssues('<page-meta page-style="{{approvalVisible ? \'overflow: hidden;\' : \'\'}}"></page-meta><view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}"></view>'), 0);
+assert.strictEqual(lockIssues('<page-meta page-style="{{otherFlag ? \'overflow: hidden;\' : \'\'}}"></page-meta><view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}"></view>'), 1);
+assert.strictEqual(lockIssues('<personnel-picker visible="{{pickerVisible}}"></personnel-picker>'), 1);
+assert.strictEqual(lockIssues('<page-meta page-style="{{pickerVisible ? \'overflow: hidden;\' : \'\'}}"></page-meta><personnel-picker visible="{{pickerVisible}}"></personnel-picker>'), 0);
+assert.strictEqual(lockIssues('<view class="page"><view class="card"></view></view>'), 0);
 console.log('全局控件完整显示审计：正反例均通过');

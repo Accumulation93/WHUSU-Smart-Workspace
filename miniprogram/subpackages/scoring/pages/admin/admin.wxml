@@ -1,6 +1,6 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
-<page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
 
@@ -2946,8 +2946,8 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_6eeaccbeca}}</view>
-          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--large" />
-          <button class="secondary-btn ui-motion-button" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampForm.imageData ? localeCopy.copy_cb81018d6d : localeCopy.copy_393f873d06}}</button>
+          <image wx:if="{{stampImagePreview}}" src="{{stampImagePreview}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--large" />
+          <button class="secondary-btn ui-motion-button" loading="{{stampImageReading}}" disabled="{{stampImageReading}}" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampImageReading ? stampCopy.imageReading : (stampImagePreview ? localeCopy.copy_cb81018d6d : localeCopy.copy_393f873d06)}}</button>
           <view class="field-hint stamp-form-error" wx:if="{{stampFormError}}">{{stampFormError}}</view>
         </view>
         <view class="button-row">

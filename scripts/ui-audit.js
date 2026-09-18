@@ -236,6 +236,49 @@ function scanPickerValues(source, file = '') {
     }));
 }
 
+// 弹窗打开时必须锁定背景滚动：页面要声明 <page-meta page-style>，并覆盖该窗口的可见标志。
+// 遗漏会让用户在窗口边缘拖动时滚到窗口背后的页面内容。
+function dialogVisibilityFlags(source) {
+  const flags = [];
+  const push = (flag, reason) => {
+    const text = String(flag || '').trim();
+    if (!text || /^(true|false)$/.test(text)) return;
+    flags.push({ flag: text, reason });
+  };
+  for (const match of source.matchAll(/<(?:viewport-portal|root-portal)[^>]*wx:if="\{\{([^}]+)\}\}"/g)) {
+    push(match[1], 'portal');
+  }
+  for (const match of source.matchAll(/class="[^"]*ui-overlay[^"]*"[\s\S]{0,120}?wx:if="\{\{([^}]+)\}\}"/g)) {
+    push(match[1], 'overlay');
+  }
+  for (const match of source.matchAll(/<([a-z][\w-]*-[\w-]+)\b[^>]*\bvisible="\{\{([^}]+)\}\}"/g)) {
+    if (/dialog|modal|picker|sheet|popup/i.test(match[1])) push(match[2], 'component:' + match[1]);
+  }
+  return flags;
+}
+
+function scanDialogScrollLock(source, file = '') {
+  const flags = dialogVisibilityFlags(source);
+  if (!flags.length) return [];
+  const meta = source.match(/<page-meta[^>]*page-style="\{\{([^}]*)\}\}"/);
+  const locked = new Set(meta ? [...meta[1].matchAll(/[A-Za-z_$][\w$]*/g)].map((match) => match[0]) : []);
+  const issues = [];
+  const seen = new Set();
+  for (const item of flags) {
+    const identifiers = [...item.flag.matchAll(/[A-Za-z_$][\w$]*/g)].map((match) => match[0]);
+    if (identifiers.length && identifiers.every((identifier) => locked.has(identifier))) continue;
+    if (seen.has(item.flag)) continue;
+    seen.add(item.flag);
+    const offset = source.indexOf(item.flag);
+    issues.push({
+      file: relative(file),
+      line: offset >= 0 ? lineAt(source, offset) : 1,
+      message: '弹窗可见标志未纳入 page-meta 背景锁定（' + item.reason + '）：' + item.flag
+    });
+  }
+  return issues;
+}
+
 function attrValue(attrs, name) {
   const match = attrs.match(new RegExp(`\\b${name}\\s*=\\s*(["'])([\\s\\S]*?)\\1`));
   return match ? match[2] : '';
@@ -1752,6 +1795,11 @@ if (/pageScrollTo\s*\(\s*\{[^}]*scrollTop\s*:\s*0\s*(?:,|})/s.test(signaturePage
 // 这是硬性门禁：所有 mode（selector/date/time/region）的 picker 都必须绑定 value。
 const pickerValueIssues = wxmlFiles.flatMap((file) => scanPickerValues(fs.readFileSync(file, 'utf8'), file));
 
+// 组件内弹窗由宿主页面负责锁定，因此只检查页面级 WXML。
+const dialogScrollLockIssues = wxmlFiles
+  .filter((file) => !relative(file).includes('/components/'))
+  .flatMap((file) => scanDialogScrollLock(fs.readFileSync(file, 'utf8'), file));
+
 const report = {
   generatedAt: new Date().toISOString(),
   summary: {
@@ -1811,6 +1859,7 @@ const report = {
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
     signatureCoordinateIssues: signatureCoordinateIssues.length,
     pickerValueIssues: pickerValueIssues.length,
+    dialogScrollLockIssues: dialogScrollLockIssues.length,
     selectionCardIssues: selectionCardIssues.length,
     controlSurfaceIssues: controlSurfaceIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
@@ -1894,6 +1943,6 @@ if (process.argv.includes('--strict')) {
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.duplicateDialogWrapperSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts ||
     report.summary.signatureCoordinateIssues || report.summary.selectionCardIssues || report.summary.controlSurfaceIssues ||
-    report.summary.pickerValueIssues;
+    report.summary.pickerValueIssues || report.summary.dialogScrollLockIssues;
   process.exitCode = failed ? 1 : 0;
 }

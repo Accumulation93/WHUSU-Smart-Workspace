@@ -1,3 +1,4 @@
+<page-meta page-style="{{approvalVisible || nextApproverPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page page-narrow subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_5aaf844f1e}}"></workspace-hero>
 

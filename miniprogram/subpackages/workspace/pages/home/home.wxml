@@ -1,3 +1,4 @@
+<page-meta page-style="{{showUserDesigPopup ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 

@@ -114,6 +114,8 @@ this.setData({ _kbField: 'min', _kbGray: gray, _kbSelected: true });
 
 `scroll-y="{{false}}"` 会使 scroll-view 忽略 `scroll-top` 程序化更新。弹窗背景锁定由正文之外的同级 `ui-overlay-blocker` 负责，不得在 `scroll-view` 自身或其祖先用 `catchtouchmove` 代替，否则会同时锁死窗口正文。
 
+阻断层只能拦住遮罩区域的触摸，窗口外壳、标题栏、边角以及 `root-portal` 之外的页面仍然可以滚动。因此**每个可能弹出窗口的页面都必须在 WXML 首个节点声明 `<page-meta page-style="{{窗口标志 ? 'overflow: hidden;' : ''}}">`**，表达式必须覆盖该页面所有弹窗与人员选择器等弹窗组件的可见标志；组件自身无法锁定页面，宿主页面必须负责。遗漏会让用户在窗口边缘拖动时滚到窗口背后的内容。`node scripts/ui-audit.js --strict` 的 `dialogScrollLockIssues` 会阻断这类页面，`scripts/ui-control-completeness-test.js` 保存正反例。
+
 ### 3.7 `clientY` vs `pageY`
 
 - `pageY` 含 scroll-view 内部滚动偏移

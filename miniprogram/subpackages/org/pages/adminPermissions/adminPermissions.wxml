@@ -1,3 +1,4 @@
+<page-meta page-style="{{editorVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="permission-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_267c7ab9d4}}" tone="admin"></workspace-hero>
 

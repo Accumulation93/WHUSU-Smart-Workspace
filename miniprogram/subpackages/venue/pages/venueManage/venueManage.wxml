@@ -1,3 +1,4 @@
+<page-meta page-style="{{editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_02719d6557}}" tone="admin"></workspace-hero>
 

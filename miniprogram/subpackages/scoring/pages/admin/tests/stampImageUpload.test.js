@@ -118,7 +118,7 @@ function loadStampUploadRuntime() {
   return { behavior, toasts, sandbox };
 }
 
-// 还原小程序 setData 的路径写法（'stampForm.imageData'）。
+// 还原小程序 setData 的路径写法（如 'stampForm.name'）。
 function applySetData(data, values) {
   Object.keys(values).forEach((key) => {
     const parts = key.split('.');
@@ -131,10 +131,17 @@ function applySetData(data, values) {
 }
 
 function createStampPage(behavior) {
-  return Object.assign({}, behavior.methods, {
-    data: Object.assign({}, behavior.data, { stampForm: { id: '', name: '', imageData: '' }, stampFormError: '' }),
-    setData(values) { applySetData(this.data, values); }
+  const page = Object.assign({}, behavior.methods, {
+    data: Object.assign({}, behavior.data, { stampForm: { id: '', name: '', imageData: '' }, stampFormError: '', stampImagePreview: '', stampImageReading: false }),
+    _stampImageData: '',
+    _maxSetDataBytes: 0,
+    setData(values) {
+      // 记录每次 setData 的序列化体积：大图片串进 setData 会直接卡住页面。
+      this._maxSetDataBytes = Math.max(this._maxSetDataBytes, Buffer.byteLength(JSON.stringify(values), 'utf8'));
+      applySetData(this.data, values);
+    }
   });
+  return page;
 }
 
 function pickStampImage(runtime, page, pickResult, readResult) {
@@ -156,15 +163,26 @@ test('无扩展名临时路径下按真实字节声明类型，透明 PNG 与 JP
   // 透明 PNG，临时路径无扩展名，且平台没有返回 size。
   const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
   pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_no_extension'] }, { ok: true, data: pngBase64 });
-  assert.equal(page.data.stampForm.imageData, 'data:image/png;base64,' + pngBase64);
+  assert.equal(page._stampImageData, 'data:image/png;base64,' + pngBase64);
+  assert.equal(page.data.stampImagePreview, 'wxfile://tmp_no_extension', '预览必须使用本地临时路径');
+  assert.equal(page.data.stampImageReading, false);
   assert.equal(page.data.stampFormError, '');
   assert.equal(toasts.length, 0);
+  assert.ok(page._maxSetDataBytes < 4096, '大图片 Data URL 不得进入 setData，否则上传前就会卡住页面');
+
+  // 1.2MB 图片：载荷只能留在页面属性，setData 体积必须仍然很小。
+  const bigPng = Buffer.alloc(1200000, 0x41);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bigPng, 0);
+  page._maxSetDataBytes = 0;
+  pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_big_png'] }, { ok: true, data: bigPng.toString('base64') });
+  assert.ok(page._stampImageData.length > 1500000, '大图必须完整保存在页面属性中');
+  assert.ok(page._maxSetDataBytes < 4096, '1.2MB 图片的 setData 体积必须保持在 4KB 以内');
 
   // 微信压缩产生的 JPEG，同样没有扩展名，旧实现会错误声明成 PNG。
   const jpegBase64 = toBase64(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]));
-  page.setData({ 'stampForm.imageData': '' });
+  page._stampImageData = '';
   pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_no_extension'] }, { ok: true, data: jpegBase64 });
-  assert.equal(page.data.stampForm.imageData, 'data:image/jpeg;base64,' + jpegBase64);
+  assert.equal(page._stampImageData, 'data:image/jpeg;base64,' + jpegBase64);
   assert.equal(page.data.stampFormError, '');
 });
 
@@ -188,16 +206,16 @@ test('超出体积、格式不支持与读取失败都给出明确提示且不�
   const page = createStampPage(behavior);
 
   pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_big'], tempFiles: [{ size: MAX_IMAGE_BYTES + 1 }] }, { ok: true, data: '' });
-  assert.equal(page.data.stampForm.imageData, '');
+  assert.equal(page._stampImageData, '');
   assert.equal(page.data.stampFormError, copy.imageTooLarge);
 
   const tiffBase64 = toBase64(Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]));
   pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_tiff'] }, { ok: true, data: tiffBase64 });
-  assert.equal(page.data.stampForm.imageData, '');
+  assert.equal(page._stampImageData, '');
   assert.equal(page.data.stampFormError, copy.imageUnsupported);
 
   pickStampImage(runtime, page, { tempFilePaths: ['wxfile://tmp_missing'] }, { ok: false, error: { errMsg: 'read fail' } });
-  assert.equal(page.data.stampForm.imageData, '');
+  assert.equal(page._stampImageData, '');
   assert.equal(page.data.stampFormError, copy.imageReadFailed);
   assert.ok(toasts.length >= 3, '三种失败都必须有提示');
 });
@@ -246,7 +264,7 @@ test('无法直接识别的格式转码后按字节重新识别，成功写入�
 
   page.chooseStampImage();
   assert.equal(convertCalls.length, 1, 'HEIC 必须先转码一次');
-  assert.equal(page.data.stampForm.imageData, 'data:image/jpeg;base64,' + convertedJpeg);
+  assert.equal(page._stampImageData, 'data:image/jpeg;base64,' + convertedJpeg);
   assert.equal(page.data.stampFormError, '');
   assert.equal(toasts.length, 0);
 });
@@ -267,7 +285,7 @@ test('转码后仍不支持或转码失败时只提示一次，不重复转码',
     compressImage: (options) => options.fail({ errMsg: 'compressImage:fail' })
   });
   failPage.chooseStampImage();
-  assert.equal(failPage.data.stampForm.imageData, '');
+  assert.equal(failPage._stampImageData, '');
   assert.equal(failPage.data.stampFormError, copy.imageUnsupported);
 
   const retryRuntime = loadStampUploadRuntime();

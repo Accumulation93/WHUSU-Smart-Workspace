@@ -8,6 +8,7 @@ module.exports = {
   saveFailed: '可用人保存失败，请重试', saved: '可用人已保存', retry: '重新加载',
   invalidRemoved: '已失效的岗位不会继续授权。确认后将移除这些岗位。',
   imageUnsupported: '图片格式不支持，请上传 PNG、JPG、WebP、GIF 或 BMP 格式的印章图片。',
+  imageReading: '读取中…',
   imageUnsupportedToast: '格式不支持',
   imageTooLarge: '印章图片不能超过 2MB，请压缩或裁剪后重新上传。',
   imageTooLargeToast: '图片过大',
