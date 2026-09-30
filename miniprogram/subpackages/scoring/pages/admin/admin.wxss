@@ -1188,15 +1188,15 @@ scroll-view {
 }
 
 .medium-scroll {
-  max-height: 620rpx;
+  max-height: none;
 }
 
 .large-scroll {
-  max-height: 820rpx;
+  max-height: none;
 }
 
 .small-scroll {
-  max-height: 700rpx;
+  max-height: none;
 }
 
 .small-scroll.template-config-scroll-expanded {
@@ -5466,7 +5466,7 @@ scroll-view {
   }
 }
 .target-scroll--limited {
-  max-height: 500rpx;
+  max-height: none;
 }
 
 .audit-condition-card {
@@ -5610,7 +5610,7 @@ scroll-view {
 
 @media (min-width: 520px) {
   .target-scroll--limited {
-    max-height: 360px;
+    max-height: none;
   }
 
   .audit-condition-token {
@@ -5673,7 +5673,7 @@ scroll-view {
 
 @media (min-width: 900px) and (orientation: landscape) {
   .target-scroll--limited {
-    max-height: 300px;
+    max-height: none;
   }
 
   .audit-condition-card {
@@ -6543,7 +6543,7 @@ scroll-view {
 }
 
 .hr-review-dialog-body {
-  max-height: 360rpx;
+  max-height: none;
 }
 
 .person-correction-body {

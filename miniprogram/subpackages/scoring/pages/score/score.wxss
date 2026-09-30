@@ -1065,7 +1065,7 @@ page {
 
 /* Quick score scrollable container */
 .kb-quick-scroll {
-  max-height: 420rpx;
+  max-height: none;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.30) 0%, rgba(239, 246, 255, 0.24) 100%);
   border-bottom: 1rpx solid rgba(147, 197, 253, 0.30);
 }

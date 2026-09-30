@@ -203,7 +203,7 @@ textarea {
 /* ── Shared utility classes (used across multiple audit pages) ── */
 .compact-row { margin-top: 10rpx; }
 
-.large-scroll { max-height: 820rpx; }
+.large-scroll { max-height: none; }
 
 .card-loading-overlay {
   display: flex;
@@ -328,7 +328,7 @@ textarea {
 
 @media (min-width: 520px) {
   .large-scroll {
-    max-height: 65vh;
+    max-height: none;
   }
 
   .audit-submission-item,

@@ -222,7 +222,7 @@
 }
 
 .popup-scroll {
-  max-height: 56vh;
+  max-height: none;
 }
 
 .progress-cell {

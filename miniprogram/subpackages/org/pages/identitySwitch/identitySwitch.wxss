@@ -260,7 +260,7 @@ page {
 }
 
 .organization-scroll {
-  max-height: 610rpx;
+  max-height: none;
 }
 
 .organization-list,
@@ -546,7 +546,7 @@ page {
   }
 
   .organization-scroll {
-    max-height: 340px;
+    max-height: none;
   }
 
   .organization-list,
