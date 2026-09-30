@@ -108,13 +108,13 @@
 
     <!-- 应用搜索栏 -->
     <view class="app-search-bar">
-      <view class="app-search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="{{copy.search}}" /></view>
+      <view class="app-search-icon"><ui-icon name="search" tone="muted" sizeRole="row-leading" ariaLabel="{{copy.search}}" /></view>
       <input class="app-search-input"
              placeholder="{{copy.searchPlaceholder}}"
              value="{{appSearchKeyword}}"
              bindinput="onAppSearchInput"
              confirm-type="search"/>
-      <view class="app-search-clear ui-motion-chip" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="{{copy.clearSearch}}" /></view>
+      <view class="app-search-clear ui-motion-chip" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.clearSearch}}" /></view>
     </view>
 
     <!-- 无搜索结果 -->
