@@ -23,6 +23,21 @@ const {
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 
+// 字段类型在导入问题报告中必须显示本地化名称，不能直接暴露 text/date 这类内部值。
+function buildProfileFieldTypeLabel(type) {
+  if (!type) return '';
+  const option = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === type);
+  return option ? option.label : type;
+}
+
+// 问题记录一行摘要：优先显示“第 N 行 · 学号”，缺失时退回到可读的组合。
+function buildValidationErrorMeta(error, copy) {
+  const parts = [];
+  if (error && error.rowNumber) parts.push(copy.importRowPrefix + error.rowNumber + copy.importRowSuffix);
+  if (error && error.studentId) parts.push(error.studentId);
+  return parts.join(' · ');
+}
+
 function createPermanentDeletionClientRequestId() {
   return [
     'hr-delete',
@@ -2718,9 +2733,16 @@ module.exports = Behavior({
       let cardMap = {};
       for (let i = 0; i < flatErrors.length; i++) {
         let e = flatErrors[i];
-        let key = e.studentId || '__no_id__';
+        // 无学号的行必须按行号分卡，否则多行会被并成一张卡，用户看不出是哪几条记录。
+        let key = e.studentId ? 'sid:' + e.studentId : 'row:' + (e.rowNumber || i);
         if (!cardMap[key]) {
-          cardMap[key] = { name: e.name, studentId: e.studentId, errors: [] };
+          cardMap[key] = {
+            cardKey: key,
+            name: e.name || '',
+            studentId: e.studentId || '',
+            metaLabel: buildValidationErrorMeta(e, localeCopy),
+            errors: []
+          };
           cards.push(cardMap[key]);
         }
         cardMap[key].errors.push({
@@ -2844,7 +2866,7 @@ module.exports = Behavior({
             name: group.name || '',
             studentId: group.studentId || '',
             fieldName: error.field || '',
-            fieldType: error.fieldType || '',
+            fieldType: buildProfileFieldTypeLabel(error.fieldType),
             errorValue: error.value || '',
             errorReason: error.error || ''
           });
@@ -2876,6 +2898,8 @@ module.exports = Behavior({
       }
       let invalidRows = Number(data.invalidRows || 0);
       let skipInvalid = !!this.data.csvImportSkipInvalid;
+      // 预览阶段就把不兼容记录逐条摊开，用户在点“确认应用”之前就能看清哪几条有问题。
+      let errorCards = this.buildValidationErrorCards(this.flattenHrImportErrors(data.errors));
       return {
         fileName: this.data.csvImportFileName || localeCopy.copy_6278f75572,
         sheetName: this.data.csvImportSheetName || localeCopy.copy_a62f5b5e20,
@@ -2891,6 +2915,7 @@ module.exports = Behavior({
         newIdentities: data.newIdentities || [],
         newWorkGroups: data.newWorkGroups || [],
         errors: data.errors || [],
+        errorCards: errorCards,
         canImport: invalidRows === 0 || skipInvalid,
         skipInvalid: skipInvalid
       };

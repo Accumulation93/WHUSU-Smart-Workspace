@@ -11,6 +11,7 @@
     "admin-candidate-list": "/subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList",
     "dictionary-load-failure": "/subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure",
     "dictionary-usage-dialog": "/subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog",
+    "hr-import-issue-list": "/subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList",
     "score-record-detail-dialog": "/subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog",
     "audit-verification-matches": "/components/audit-verification-matches/audit-verification-matches"
   }

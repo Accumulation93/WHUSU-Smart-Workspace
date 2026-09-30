@@ -1,0 +1,22 @@
+<view class="issue-list" wx:if="{{cards.length}}">
+  <view class="issue-title" wx:if="{{title}}">{{title}}</view>
+  <view class="issue-hint" wx:if="{{hint}}">{{hint}}</view>
+  <view class="validation-error-card" wx:for="{{cards}}" wx:key="cardKey">
+    <view class="ve-card-top">
+      <view class="ve-card-name">{{item.name || '—'}}</view>
+      <view class="ve-card-sid">{{item.metaLabel}}</view>
+    </view>
+    <view class="ve-card-errors">
+      <view class="ve-error-item" wx:for="{{item.errors}}" wx:key="index" wx:for-item="err">
+        <view class="ve-error-label">
+          <text class="ve-error-field">{{err.fieldName}}</text>
+          <text class="ve-error-type-tag">{{err.fieldType}}</text>
+        </view>
+        <view class="ve-error-detail">
+          <text class="ve-error-reason">{{err.errorReason}}</text>
+          <text class="ve-error-value" wx:if="{{err.errorValue}}">{{valuePrefix}}{{err.errorValue}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

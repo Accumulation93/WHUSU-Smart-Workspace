@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  importRowPrefix: '第 ',
+  importRowSuffix: ' 行',
   copy_01c502a089: '追加',
   copy_028fbc8a93: '请先调整资料',
   copy_0304ae11cd: '内容类型',

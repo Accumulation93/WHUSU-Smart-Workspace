@@ -1906,6 +1906,17 @@
             {{hrImportPreview.invalidRows}} {{localeCopy.copy_7c22a48e84}}{{hrImportPreview.skipInvalid ? localeCopy.copy_b0d3b06307 : localeCopy.copy_a5a1bad35b}}
           </view>
 
+          <view class="validation-errors-skip-row" wx:if="{{hrImportPreview.invalidRows > 0}}">
+            <view class="validation-errors-skip-text">{{localeCopy.ignoreIncompatibleHint}}</view>
+            <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb" />
+          </view>
+
+          <view class="hr-import-preview-section" wx:if="{{hrImportPreview.errorCards.length}}">
+            <view class="hr-import-preview-heading">{{localeCopy.importIssueTitle}}</view>
+            <view class="hr-import-preview-note">{{localeCopy.importIssueHint}}</view>
+            <hr-import-issue-list class="hr-import-preview-issues" cards="{{hrImportPreview.errorCards}}" value-prefix="{{localeCopy.copy_34338619cf}}" />
+          </view>
+
           <view class="hr-import-preview-section">
             <view class="hr-import-preview-heading">{{localeCopy.copy_cc8d2abb43}}</view>
             <view class="hr-import-preview-mapping" wx:for="{{hrImportPreview.mappings}}" wx:key="columnKey">
@@ -1978,24 +1989,7 @@
             <view class="validation-errors-skip-text">{{localeCopy.ignoreIncompatibleHint}}</view>
             <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb" />
           </view>
-          <view class="validation-error-card" wx:for="{{validationErrorCards}}" wx:key="studentId">
-            <view class="ve-card-top">
-              <view class="ve-card-name">{{item.name || '—'}}</view>
-              <view class="ve-card-sid">{{item.studentId}}</view>
-            </view>
-            <view class="ve-card-errors">
-              <view class="ve-error-item" wx:for="{{item.errors}}" wx:key="index" wx:for-item="err">
-                <view class="ve-error-label">
-                  <text class="ve-error-field">{{err.fieldName}}</text>
-                  <text class="ve-error-type-tag">{{err.fieldType}}</text>
-                </view>
-                <view class="ve-error-detail">
-                  <text class="ve-error-reason">{{err.errorReason}}</text>
-                  <text class="ve-error-value" wx:if="{{err.errorValue}}">{{localeCopy.copy_34338619cf}}{{err.errorValue}}</text>
-                </view>
-              </view>
-            </view>
-          </view>
+          <hr-import-issue-list class="hr-import-validation-issues" cards="{{validationErrorCards}}" value-prefix="{{localeCopy.copy_34338619cf}}" />
           <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="modal-footer ui-dialog-footer">

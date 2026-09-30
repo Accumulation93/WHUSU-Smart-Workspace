@@ -3,6 +3,10 @@
 module.exports = Object.freeze({
   ignoreIncompatibleHint: '忽略不兼容记录，仅导入通过的记录',
   ignoreIncompatibleImport: '忽略不兼容并继续导入',
+  importIssueTitle: '不兼容记录明细',
+  importIssueHint: '以下记录不符合当前模板，导入时会被跳过；可返回修改表格后重新导入，或直接勾选忽略不兼容。',
+  importRowPrefix: '第 ',
+  importRowSuffix: ' 行',
   selectTime: '请选择时间',
   copy_00c8a8f256: "全选",
   copy_00cb20b85e: "查看/编辑",
