@@ -6633,3 +6633,13 @@ scroll-view {
   .person-correction-body { max-height: calc(100vh - 148px); }
   .hr-review-dialog { width: min(560px, calc(100vw - 48px)); }
 }
+
+/* 长列表弹窗正文统一交给共享滚动契约：去掉页面级固定高度上限，并保留底部安全留白，
+ * 避免导入预览、导入检查、CSV 映射等弹窗把最后一项藏在底栏后面。 */
+.validation-errors-body.ui-dialog-body,
+.hr-import-preview-body.ui-dialog-body,
+.csv-mapping-body.ui-dialog-body {
+  max-height: none;
+  padding-bottom: 24rpx;
+  box-sizing: border-box;
+}

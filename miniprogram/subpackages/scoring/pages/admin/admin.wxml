@@ -1251,6 +1251,7 @@
           </view>
         </view>
         </view>
+          <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="button-row hr-profile-export-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -2080,6 +2081,7 @@
             <view class="auth-code-list ui-dialog-stack">
               <view class="auth-code-row" wx:for="{{authIssuedCodes}}" wx:key="key"><view class="auth-code-name">{{item.personName}}</view><view class="auth-code-value">{{item.code}}</view></view>
             </view>
+          <view class="scroll-tail-space"></view>
           </scroll-view>
           <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="copyAuthIssuedCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b763f058b0}}</button><button class="primary-btn ui-motion-button" bindtap="closeAuthCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d5e4a3193a}}</button></view>
         </view>
