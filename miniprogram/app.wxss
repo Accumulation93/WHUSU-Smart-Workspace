@@ -3310,8 +3310,6 @@ page .pending-refresh-btn {
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  /* 正文高度交给 .ui-dialog-scroll--fill/--pane 的确定高度契约，
-     这里不得再回落成 height:auto / max-height:none，否则原生滚动量归零。 */
 }
 
 /* 三段网格外壳：正文占满 minmax(0, 1fr) 轨道，原生滚动视口才拿到确定高度。 */

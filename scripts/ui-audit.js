@@ -1241,7 +1241,10 @@ function scanWxss(file) {
     }
     if (/(popup|modal|dialog|sheet)/i.test(selector) &&
       /(?:^|;)\s*height\s*:\s*(?:\d+(?:\.\d+)?vh|calc\(\s*100vh\b)/i.test(declarations) &&
-      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-shell--viewport|ui-dialog-scroll--both|sheet-mask|^\s*\.sheet\s*$)/i.test(selector)) {
+      // 允许外层正文 scroll-view 取视口派生的确定高度：微信原生 scroll-view 只有在
+      // 拿到确定高度时才建立滚动量，height:auto 会让弹窗拖不动。这是正文契约，
+      // 不是把普通弹窗外壳强制成全屏。
+      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-shell--viewport|ui-dialog-scroll--both|scroll-view\.ui-dialog-body|sheet-mask|^\s*\.sheet\s*$)/i.test(selector)) {
       forcedDialogViewport.push({
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
@@ -1513,7 +1516,9 @@ const missingStableDialogSystem = !(
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*flex:\s*1\s+1\s+auto\s*!important;[^}]*max-height:\s*none\s*!important;/m.test(GLOBAL_STYLE) &&
+  // 外层正文必须拿到确定高度：微信原生 scroll-view 在 height:auto 下滚动量恒为 0，
+  // 表现为拖不动、末行被裁。确定高度按外壳固定块令牌推导，且禁止 flex 收缩改写。
+  /scroll-view\.ui-dialog-body[\s\S]{0,260}?\{[^}]*flex:\s*0\s+0\s+auto\s*!important;[^}]*height:\s*calc\(100vh[^}]*\}/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*100%\s*!important;/m.test(GLOBAL_STYLE) &&
   !/\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*max-height:\s*calc\(100vh\s*-\s*\d/m.test(GLOBAL_STYLE)
 );
