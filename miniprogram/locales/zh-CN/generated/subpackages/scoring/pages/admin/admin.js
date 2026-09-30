@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  ignoreIncompatibleHint: '忽略不兼容记录，仅导入通过的记录',
+  ignoreIncompatibleImport: '忽略不兼容并继续导入',
   selectTime: '请选择时间',
   copy_00c8a8f256: "全选",
   copy_00cb20b85e: "查看/编辑",

@@ -2691,7 +2691,26 @@ module.exports = Behavior({
     },
 
     toggleCsvSkipInvalid() {
-      this.setData({ csvImportSkipInvalid: !this.data.csvImportSkipInvalid });
+      const next = !this.data.csvImportSkipInvalid;
+      const preview = this.data.hrImportPreview || null;
+      const updates = { csvImportSkipInvalid: next };
+      if (preview) {
+        // 勾选“忽略不兼容”后，预览态的 canImport 必须同步刷新，否则再次导入会被旧结论挡住。
+        updates['hrImportPreview.skipInvalid'] = next;
+        updates['hrImportPreview.canImport'] = Number(preview.invalidRows || 0) === 0 || next;
+      }
+      this.setData(updates);
+    },
+
+    // 校验弹窗内直接勾选“忽略不兼容”并重试导入，避免用户回到字段映射弹窗再找开关。
+    confirmHrImportSkipInvalid() {
+      this.setData({
+        csvImportSkipInvalid: true,
+        'hrImportPreview.skipInvalid': true,
+        'hrImportPreview.canImport': true,
+        showValidationErrors: false
+      });
+      this.confirmHrTableImport();
     },
 
     buildValidationErrorCards(flatErrors) {

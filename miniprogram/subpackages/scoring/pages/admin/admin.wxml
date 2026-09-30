@@ -1251,7 +1251,6 @@
           </view>
         </view>
         </view>
-          <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="button-row hr-profile-export-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -1954,6 +1953,7 @@
           <view class="hr-import-preview-note" wx:if="{{hrImportPreview.preservedEmptyFields > 0}}">
             {{localeCopy.copy_1ddb44b743}}
           </view>
+          <view class="scroll-tail-space"></view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_034ae84999}}</button>
@@ -1974,6 +1974,10 @@
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <view class="validation-errors-summary">{{validationErrorSummary}}{{localeCopy.copy_e5f5be43de}}</view>
+          <view class="validation-errors-skip-row">
+            <view class="validation-errors-skip-text">{{localeCopy.ignoreIncompatibleHint}}</view>
+            <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb" />
+          </view>
           <view class="validation-error-card" wx:for="{{validationErrorCards}}" wx:key="studentId">
             <view class="ve-card-top">
               <view class="ve-card-name">{{item.name || '—'}}</view>
@@ -1992,8 +1996,10 @@
               </view>
             </view>
           </view>
+          <view class="scroll-tail-space"></view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer ui-dialog-footer">
+          <button class="primary-btn ui-motion-button" catchtap="confirmHrImportSkipInvalid" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.ignoreIncompatibleImport}}</button>
           <button class="secondary-btn ui-motion-button" catchtap="downloadErrorTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e07efb186e}}</button>
           <button class="primary-btn ui-motion-button" catchtap="closeValidationErrors" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</button>
         </view>
