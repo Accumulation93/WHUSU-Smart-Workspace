@@ -30,7 +30,7 @@ module.exports = {
   exportWriteFailed: '无法在本机准备证书文件。请检查可用存储空间，或使用“复制证书文本”。', exporting: '正在导出',
   copyCertificate: '复制证书文本', certificateCopied: '证书文本已复制',
   certificateTextGuide: '将完整内容粘贴到电脑上的纯文本文件，保存为 WHUSU.cer（不要附加 .txt）。保留 BEGIN CERTIFICATE 和 END CERTIFICATE 两行，即可作为证书导入 PDF 软件。',
-  certificateCopyFailed: '证书文本未能复制，请重试。',
+  certificateCopyFailed: '证书内容复制失败，请重试',
   hostedNotice: '签署方式：平台为已登录账号的审批操作生成签名，个人不持有独立签署私钥。',
   platformUnconfirmed: '尚未确认此文件由本平台签署。文件签名通过检查，也不代表平台已核实经办人身份。',
   unconfirmedReportNotice: '证书上的平台名称或姓名可以自行填写，不能作为来源证明。本次未确认平台签署身份，不提供该文件内的证书供你当作平台证书信任。',

@@ -15,7 +15,7 @@ const passwordBinding = Object.freeze({
 const login = Object.freeze({
   navigationTitle: '登录 - WHUSU智慧工作台',
   messages: Object.freeze({
-    pageOpenFailed: '页面未打开，请重试',
+    pageOpenFailed: '页面打开失败，请重试',
     passwordRequired: '请输入学号和口令',
     passwordStudentIdRequired: '请输入学号',
     passwordPassphraseRequired: '请输入口令',
@@ -23,7 +23,7 @@ const login = Object.freeze({
     relogin: '请重新微信登录',
     loginUnavailable: '暂时无法登录',
     profileRequired: '请填写组织、姓名和学号',
-    submitFailed: '未提交，请重试',
+    submitFailed: '提交失败，请重试',
     verificationRequired: '请输入个人认证码',
     verificationInvalid: '请检查认证码',
     recoveryRequired: '请输入恢复码或恢复口令',
@@ -116,9 +116,9 @@ const portal = Object.freeze({
   messages: Object.freeze({
     notification: '通知',
     todo: '待办',
-    readFailed: '未标记已读，请重试',
-    deleteFailed: '未删除，请重试',
-    incomplete: '未完成，请重试',
+    readFailed: '标记已读失败，请重试',
+    deleteFailed: '删除失败，请重试',
+    incomplete: '操作未完成，请重试',
     partialBulkAction: '部分未完成',
     retryLater: common.actions.retryLater,
     switchWorkContext: '切换工作角色后查看',
@@ -126,7 +126,7 @@ const portal = Object.freeze({
     targetOrganization: '目标组织',
     selectWorkContext: '请重新选择工作角色',
     selectOrganization: '请重新选择组织',
-    switchFailed: '未切换，请重试'
+    switchFailed: '切换失败，请重试'
   }),
   view: Object.freeze({
     appName: common.brandName,
@@ -186,14 +186,14 @@ const messageCenter = Object.freeze({
     switchWorkContext: '切换工作角色后查看',
     switchOrganizationAndWorkContext: '切换组织与工作角色后查看',
     targetOrganization: '目标组织',
-    notificationReadFailed: '未标记已读，请重试',
+    notificationReadFailed: '标记已读失败，请重试',
     selectWorkContext: '请重新选择工作角色',
     selectOrganization: '请重新选择组织',
-    switchFailed: '未切换，请重试',
-    incomplete: '未完成，请重试',
+    switchFailed: '切换失败，请重试',
+    incomplete: '操作未完成，请重试',
     partialBulkAction: '部分未完成',
-    deleteFailed: '未删除，请重试',
-    clearFailed: '未清除，请重试',
+    deleteFailed: '删除失败，请重试',
+    clearFailed: '清除失败，请重试',
     clearTitle: '清除全部通知',
     clearDescription: '将清除当前可见组织范围内的全部通知，待我审批事项不受影响。',
     clearConfirm: '全部清除'
@@ -230,7 +230,7 @@ const messageCenter = Object.freeze({
 });
 
 const authContext = Object.freeze({
-  switchFailed: '未切换，请重试',
+  switchFailed: '切换失败，请重试',
   reopenWorkContext: '请重新打开组织与工作角色',
   selectAccessibleOrganization: '请选择可访问的组织',
   relogin: '请重新微信登录'

@@ -1,8 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_076bb5d383: '未删除，请重试',
-  copy_215e3c57da: '未保存，请重试',
+  copy_076bb5d383: '删除失败，请重试',
+  copy_215e3c57da: '保存失败，请重试',
   copy_21cc5de126: '删除部门',
   copy_2531b7527d: '请填写部门名称',
   copy_3ab009e9ad: '部门列表加载失败，请稍后重试',

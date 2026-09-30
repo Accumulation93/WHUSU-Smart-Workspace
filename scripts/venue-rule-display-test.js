@@ -14,7 +14,7 @@ const mixed = buildBookingRuleDisplayList([
   { id: 'admin-rule', rule_type: 'admin' }
 ]);
 assert.deepStrictEqual(mixed.map((item) => item.id), ['admin-rule']);
-assert.strictEqual(mixed[0]._ruleTypeLabel, '管理员审核');
+assert.strictEqual(mixed[0]._ruleTypeLabel, '管理员审批');
 
 const noFlow = buildBookingRuleDisplayList([
   { id: 'direct-rule', rule_type: 'direct' }

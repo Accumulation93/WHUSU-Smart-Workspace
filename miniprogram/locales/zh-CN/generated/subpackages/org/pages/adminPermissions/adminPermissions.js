@@ -8,7 +8,7 @@ module.exports = Object.freeze({
   copy_06e8d3a970: '未命名管理员',
   copy_09614cef6c: "关闭",
   copy_1557b96093: '普通管理员',
-  copy_215e3c57da: '未保存，请重试',
+  copy_215e3c57da: '保存失败，请重试',
   copy_2370e6144f: "人",
   copy_267c7ab9d4: "管理员权限",
   copy_2948683a6d: "管理员列表",

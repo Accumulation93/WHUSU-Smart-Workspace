@@ -1,8 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_00a471585c: '处理中...',
-  copy_0531ed9e78: '未完成，请重试',
+  copy_00a471585c: '处理中…',
+  copy_0531ed9e78: '操作未完成，请重试',
   copy_0dc99cac16: '审核中',
   copy_2220286f1c: '已完成',
   copy_282e15e226: '已撤回',

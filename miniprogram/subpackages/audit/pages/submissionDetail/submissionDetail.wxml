@@ -46,7 +46,7 @@
 
     <!-- Ad-hoc mode -->
     <view class="card" wx:if="{{createMode === 'ad_hoc'}}">
-      <view class="section-title">{{localeCopy.copy_265568fe85}} ({{adHocSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
+      <view class="section-title">{{localeCopy.copy_265568fe85}}（{{adHocSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
           <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? ((item.approverHrName || localeCopy.copy_5fff626dd6) + (item.approverAssignmentLabel ? ' · ' + item.approverAssignmentLabel : '')) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
@@ -102,7 +102,7 @@
         <view class="field-label">{{localeCopy.copy_25e1199dc3}}</view>
         <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="{{localeCopy.copy_3234735724}}" ></textarea>
       </view>
-      <view class="section-title field-mt-16">{{localeCopy.copy_d036aa723a}} ({{uploadedFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
+      <view class="section-title field-mt-16">{{localeCopy.copy_d036aa723a}}（{{uploadedFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
         <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
         <view class="file-attach-name">{{item.fileName}}</view>
@@ -443,7 +443,7 @@
 
       <!-- Files -->
       <view class="card" wx:if="{{files.length}}">
-        <view class="section-title">{{localeCopy.copy_d036aa723a}} ({{files.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
+        <view class="section-title">{{localeCopy.copy_d036aa723a}}（{{files.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
         <view class="file-attach-item ui-motion-card" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" bindtap="previewFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
           <view class="file-attach-name">{{item.fileName}}</view>
@@ -452,7 +452,7 @@
 
       <!-- Signatures -->
       <view class="card" wx:if="{{signatures.length}}">
-        <view class="section-title">{{localeCopy.copy_6a200ce590}} ({{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
+        <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
           <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
           <view class="list-desc">{{item.signedAtText}}</view>
@@ -529,7 +529,7 @@
 
         <!-- Ad-hoc steps editor -->
         <view class="card" wx:if="{{editType === 'ad_hoc'}}">
-          <view class="section-title">{{localeCopy.copy_265568fe85}} ({{editSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
+          <view class="section-title">{{localeCopy.copy_265568fe85}}（{{editSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
               <view class="ad-hoc-step-title">{{localeCopy.copy_ef8b7ffa9b}}{{index + 1}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
@@ -556,13 +556,13 @@
 
         <!-- Files -->
         <view class="card">
-          <view class="section-title">{{localeCopy.copy_b33e8e9a52}} ({{editFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
+          <view class="section-title">{{localeCopy.copy_b33e8e9a52}}（{{editFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
           <view class="file-attach-item" wx:for="{{editFiles}}" wx:key="id">
             <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>
             <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
-          <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">{{localeCopy.copy_165509f937}} ({{editNewFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
+          <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">{{localeCopy.copy_165509f937}}（{{editNewFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
           <view class="file-attach-item" wx:for="{{editNewFiles}}" wx:key="fileId">
             <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>

@@ -9,7 +9,7 @@
 
   <view class="card">
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-    <view class="section-title">{{localeCopy.copy_decce2c059}} ({{bookings.length}})</view>
+    <view class="section-title">{{localeCopy.copy_decce2c059}}（{{bookings.length}}）</view>
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
       <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-text">{{localeCopy.copy_28981b382e}}</view></view>
       <view class="booking-item ui-motion-card" wx:for="{{bookings}}" wx:key="id" data-id="{{item.id}}" bindtap="openBookingDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">

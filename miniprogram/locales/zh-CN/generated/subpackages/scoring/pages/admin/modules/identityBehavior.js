@@ -1,8 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_076bb5d383: '未删除，请重试',
-  copy_215e3c57da: '未保存，请重试',
+  copy_076bb5d383: '删除失败，请重试',
+  copy_215e3c57da: '保存失败，请重试',
   copy_30267845ce: '确认删除这个身份类别吗？',
   copy_437b04668d: '身份类别信息已保存',
   copy_4b213fd88a: '取消',

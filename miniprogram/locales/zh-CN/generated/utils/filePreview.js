@@ -17,7 +17,7 @@ module.exports = Object.freeze({
   copy_b10d64a68c: '请重新微信登录',
   copy_b6d7510119: '\n大小：',
   copy_b8ede9c6ec: '缺少文件路径或数据',
-  copy_fc99c4cc7b: '加载中...',
+  copy_fc99c4cc7b: '正在加载…',
   copy_fee4566726: '文件信息',
   fileIntegrityFailure: '文件内容校验失败，暂时无法打开'
 });

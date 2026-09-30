@@ -1,9 +1,9 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_076bb5d383: '未删除，请重试',
+  copy_076bb5d383: '删除失败，请重试',
   copy_1d828c61a6: '职能组已删除',
-  copy_215e3c57da: '未保存，请重试',
+  copy_215e3c57da: '保存失败，请重试',
   copy_2bc5d4cf83: '删除职能组',
   copy_4b213fd88a: '取消',
   copy_4fdb08add2: '职能组已保存',

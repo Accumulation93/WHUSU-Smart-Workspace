@@ -2,13 +2,13 @@
 
 module.exports = Object.freeze({
   navigationTitle: '组织与工作角色 - WHUSU智慧工作台',
-  copy_05644ca9d3: '未加载，请重试',
+  copy_05644ca9d3: '加载失败，请重试',
   copy_08113b4ae2: "搜索组织",
   copy_14d02ca4c3: "选择此组织",
   copy_27446ca109: "没有匹配的组织",
   copy_34e2d1f8a0: "组织",
   copy_3704f9b212: "管理权限",
-  copy_53d5e0a0c8: '未切换，请重试',
+  copy_53d5e0a0c8: '切换失败，请重试',
   copy_54474b693d: "提示",
   copy_56f0b27402: '已选择',
   copy_58063dc31f: "当前工作角色",

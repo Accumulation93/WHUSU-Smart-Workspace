@@ -3096,7 +3096,7 @@
             </view>
 
             <!-- Files -->
-            <view class="list-title audit-file-section-title" wx:if="{{auditSubmissionDetail.files.length}}">{{localeCopy.copy_d036aa723a}} ({{auditSubmissionDetail.files.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
+            <view class="list-title audit-file-section-title" wx:if="{{auditSubmissionDetail.files.length}}">{{localeCopy.copy_d036aa723a}}（{{auditSubmissionDetail.files.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
             <view class="file-attach-item file-attach-item--spaced ui-motion-card" wx:for="{{auditSubmissionDetail.files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" catchtap="previewAuditFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
               <view class="file-attach-name">{{item.fileName}}</view>

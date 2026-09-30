@@ -49,7 +49,7 @@ module.exports = Object.freeze({
   cancelText: '取消',
   pendingValue: '待审核',
   emptyValue: '暂无内容',
-  loading: '加载中',
+  loading: '正在加载…',
   noSourceFields: '来源组织没有可迁移的补充资料',
   noMembers: '请先选择要迁移的成员',
   success: '跨组织迁移已完成',

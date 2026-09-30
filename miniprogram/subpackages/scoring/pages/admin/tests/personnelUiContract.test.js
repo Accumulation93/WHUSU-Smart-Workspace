@@ -184,7 +184,7 @@ test('列表与详情时间使用共享精度且全局复核状态不污染具�
   assert.equal(dateTime.formatListTime(utcSample), '2026-08-23 19:10');
   assert.match(
     dateTime.formatListTime(utcSample, { reviewStatus: 'review_required' }),
-    /历史时区待核对/
+    /时间待核对/
   );
 });
 

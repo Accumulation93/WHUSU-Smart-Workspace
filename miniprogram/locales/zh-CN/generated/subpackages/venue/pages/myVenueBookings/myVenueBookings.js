@@ -12,7 +12,7 @@ module.exports = Object.freeze({
   copy_059dd7bc2c: "取消借用",
   copy_10bd4c9a19: '确认取消',
   copy_28981b382e: "暂无借用记录",
-  copy_301f0250ef: '未取消，请重试',
+  copy_301f0250ef: '取消失败，请重试',
   copy_3b3b392755: "审批意见：",
   copy_589d645596: '确定取消此次借用吗？',
   copy_5d5af942c5: '已驳回',
@@ -32,5 +32,5 @@ module.exports = Object.freeze({
   endUnavailable: '当前状态不能结束使用',
   endUse: '结束使用',
   navigationTitle: "我的借用 - WHUSU智慧工作台",
-  operationFailed: '未完成，请重试'
+  operationFailed: '操作未完成，请重试'
 });

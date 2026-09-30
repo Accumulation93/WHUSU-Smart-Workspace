@@ -2,7 +2,7 @@
 
 module.exports = Object.freeze({
   copy_03d69a9d28: '请重新选择文件',
-  copy_2e61b82784: '解析中...',
+  copy_2e61b82784: '正在解析…',
   copy_3244171e5e: '文件中没有有效数据',
   copy_3bf91c39df: '请选择有内容的表格',
   copy_53de6ca47b: '无法打开文件',

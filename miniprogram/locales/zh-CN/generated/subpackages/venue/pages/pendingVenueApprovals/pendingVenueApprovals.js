@@ -7,7 +7,7 @@ module.exports = Object.freeze({
   requiredContextPrefix: '此事项需要以下岗位之一：',
   requiredContextGeneric: '请先切换到可处理此事项的组织和岗位',
   switchWorkContext: '切换岗位',
-  copy_0531ed9e78: '未完成，请重试',
+  copy_0531ed9e78: '操作未完成，请重试',
   copy_06dbb49961: "取消",
   copy_09614cef6c: "关闭",
   copy_0c90eb0204: "驳回",
