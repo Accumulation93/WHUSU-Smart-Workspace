@@ -27,6 +27,7 @@ const LONG_LIST_DIALOG_CLASSES = [
   'hr-profile-export-modal',
   'hr-template-switch-modal',
   'hr-template-switch-block-modal',
+  'hr-person-editor-shell',
   'auth-code-dialog',
   'desig-popup-card'
 ];

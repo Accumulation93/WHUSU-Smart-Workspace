@@ -1373,17 +1373,19 @@
     <viewport-portal wx:if="{{showHrPersonDetail}}">
     <view class="modal-mask ui-overlay" wx:if="{{showHrPersonDetail}}" bindtap="closeHrPersonDetail">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-      <view class="modal-card hr-person-editor-shell ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-card hr-person-editor-shell ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">{{localeCopy.copy_43992b550e}}<text wx:if="{{detailHrValues._name}}">·{{detailHrValues._name}}</text></view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <view class="detail-loading" wx:if="{{loadingDetailHr}}">
-          <view class="detail-loading-line detail-loading-line-title"></view>
-          <view class="detail-loading-line"></view>
-          <view class="detail-loading-line"></view>
-        </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--pane" scroll-y scroll-into-view="{{detailScrollTarget}}" wx:if="{{!loadingDetailHr}}">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y scroll-into-view="{{detailScrollTarget}}">
+          <view class="detail-loading" wx:if="{{loadingDetailHr}}">
+            <view class="detail-loading-line detail-loading-line-title"></view>
+            <view class="detail-loading-line"></view>
+            <view class="detail-loading-line"></view>
+            <view class="loading-inline">{{localeCopy.copy_a017932da1}}</view>
+          </view>
+          <block wx:if="{{!loadingDetailHr}}">
           <view class="detail-section detail-basic-section">
             <view class="detail-section-title">{{localeCopy.copy_66240d9d99}}</view>
             <view class="field">
@@ -1698,10 +1700,8 @@
             </view>
           </view>
           <view class="scroll-tail-space hr-detail-scroll-tail"></view>
-        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="modal-body" wx:if="{{loadingDetailHr}}">
-          <view class="loading-inline">{{localeCopy.copy_a017932da1}}</view>
-        </view>
+          </block>
+        </scroll-view>
         <view class="button-row detail-buttons ui-dialog-footer" wx:if="{{!loadingDetailHr}}">
           <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && !detailHrReadOnly}}" loading="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_71db23a36b}}</button>
           <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && detailHrReadOnly}}" data-hr-id="{{detailHrId}}" disabled="{{reactivatingHrId}}" loading="{{reactivatingHrId === detailHrId}}" catchtap="reactivateHrMembership" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrReactivateMembershipInline}}</button>

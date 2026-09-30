@@ -100,6 +100,8 @@ page,
   --ui-dialog-edge: 36rpx;
   --ui-dialog-width-inset: 32rpx;
   --ui-dialog-height-inset: 72rpx;
+  /* 外壳内固定块（标题、底栏与内外留白）的语义高度，用于推导正文确定高度。 */
+  --ui-dialog-body-reserve: 220rpx;
   --ui-dialog-padding: 32rpx;
   --ui-dialog-body-padding: 18rpx;
   --ui-dialog-section-padding: 22rpx;
@@ -1611,6 +1613,7 @@ button:active,
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 40px;
     --ui-dialog-height-inset: 48px;
+    --ui-dialog-body-reserve: 210px;
     --ui-dialog-padding: 24px;
     --ui-dialog-body-padding: 14px;
     --ui-dialog-section-padding: 16px;
@@ -2116,6 +2119,7 @@ button:active,
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 48px;
     --ui-dialog-height-inset: 48px;
+    --ui-dialog-body-reserve: 170px;
     --ui-dialog-padding: 22px;
     --ui-dialog-body-padding: 12px;
     --ui-dialog-section-padding: 14px;
@@ -3305,16 +3309,29 @@ page .pending-refresh-btn {
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
   flex: 1 1 auto !important;
-  height: auto !important;
   min-height: 0 !important;
-  /* 正文高度由外壳动态上限与网格轨道决定，不写死减去固定偏移。 */
-  max-height: none !important;
+  /* 正文高度交给 .ui-dialog-scroll--fill/--pane 的确定高度契约，
+     这里不得再回落成 height:auto / max-height:none，否则原生滚动量归零。 */
 }
 
 /* 三段网格外壳：正文占满 minmax(0, 1fr) 轨道，原生滚动视口才拿到确定高度。 */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid > .ui-dialog-body {
   height: 100% !important;
   max-height: 100% !important;
+}
+
+/*
+ * 外层正文确定高度契约：微信原生 scroll-view 只有拿到确定高度才会建立滚动量。
+ * height:auto（以及被后续媒体查询改回 auto）会让内部滚动量恒为 0，表现为拖不动、
+ * 末项被外壳裁掉。这里用视口安全区减去外壳固定块（标题、底栏与内外留白）的语义
+ * 令牌得到确定高度；三段网格外壳由上面更高优先级的 100% 规则接管。
+ */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body,
+.ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body {
+  /* 正文高度必须保持确定值，不能再被 flex 收缩改写，否则原生滚动量仍为 0。 */
+  flex: 0 0 auto !important;
+  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - var(--ui-dialog-body-reserve, 220rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - var(--ui-dialog-body-reserve, 220rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > .ui-dialog-body,
@@ -3489,8 +3506,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    /* 正文高度由外壳动态上限与网格轨道决定，平板端不再写死固定偏移。 */
-  max-height: none !important;
+    /* 正文高度由上面的确定高度契约给出，平板端不再回落到 max-height:none。 */
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
@@ -3530,7 +3546,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    max-height: none !important;
+    /* 正文高度由上面的确定高度契约给出。 */
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {

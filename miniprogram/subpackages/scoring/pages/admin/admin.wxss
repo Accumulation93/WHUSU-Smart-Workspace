@@ -5116,8 +5116,6 @@ scroll-view {
   }
 
   .detail-body {
-    height: 520px;
-    max-height: calc(100vh - 176px);
     padding: var(--ui-dialog-body-padding);
   }
 
@@ -5142,8 +5140,7 @@ scroll-view {
 
 @media (min-width: 900px) {
   .detail-body {
-    height: 420px;
-    max-height: calc(100vh - 160px);
+    padding: var(--ui-dialog-body-padding);
   }
 }
 .context-switch-guard-card {
@@ -5300,9 +5297,7 @@ scroll-view {
 
   .detail-body {
     flex: 1;
-    height: auto;
     min-height: 0;
-    max-height: calc(100vh - 148px);
     padding: var(--ui-dialog-body-padding);
   }
 
