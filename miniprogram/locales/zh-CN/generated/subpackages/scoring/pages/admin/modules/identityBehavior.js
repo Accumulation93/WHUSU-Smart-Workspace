@@ -11,5 +11,5 @@ module.exports = Object.freeze({
   copy_b538d2281a: '加载身份类别列表失败:',
   copy_e000ed06dd: '身份类别已删除',
   copy_f5b2fb24f1: '请填写身份类别名称',
-  copy_f878df1668: '请稍后刷新身份类别'
+  copy_f878df1668: '身份类别加载失败，请稍后重试'
 });

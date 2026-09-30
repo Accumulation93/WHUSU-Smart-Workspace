@@ -15,7 +15,7 @@ module.exports = Object.freeze({
   copy_1f152441c7: `补填 {0} 个条款`,
   copy_21368b3e76: '请选择评分活动',
   copy_215e3c57da: '未保存，请重试',
-  copy_23e27d9fb0: '请稍后刷新人事信息',
+  copy_23e27d9fb0: '人事信息加载失败，请稍后重试',
   copy_2b3035d391: '已全部就绪',
   copy_2b61466286: '未导出，请重试',
   copy_31d4595959: '全部',
@@ -41,7 +41,7 @@ module.exports = Object.freeze({
   copy_c5b6490a3f: '不合格',
   copy_c5ed87fa11: '请先选择评分活动',
   copy_d50cdab568: `已生成 {0} 个`,
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_f7dbdfa4c2: '批量操作进行中，请稍候',
   copy_fe25ffc934: '请先选择要删除的类别'
 });

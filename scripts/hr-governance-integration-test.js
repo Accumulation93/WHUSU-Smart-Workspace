@@ -111,7 +111,7 @@ assert.strictEqual(independentRows[0].accountStateText, independentRows[1].accou
 assert.strictEqual(independentRows[0].canIssueVerification, false, '口令已认证人员不应重新要求身份认证');
 assert.strictEqual(independentRows[0].wxBindStatus, 'unbound', '正常账号不等于已绑定微信');
 assert.strictEqual(independentRows[1].wxBindStatus, 'bound');
-assert.strictEqual(independentRows[4].accountStateText, '账号状态未加载', '未取得状态不能伪装成无账号');
+assert.strictEqual(independentRows[4].accountStateText, '账号状态暂时不可用', '未取得状态不能伪装成无账号');
 const directoryUtils = require('../miniprogram/subpackages/scoring/pages/admin/modules/adminUtils');
 const normalFilter = directoryUtils.emptyHrProfileFilters();
 normalFilter.accountStates = ['verified'];

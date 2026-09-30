@@ -28,7 +28,7 @@ module.exports = Object.freeze({
   copy_cf540b4349: '评分问题已删除',
   copy_d1f2f20702: '没有有效问题',
   copy_d2791c48ce: '表格文件为空',
-  copy_d6b9c2f034: '请稍后刷新评分问题',
+  copy_d6b9c2f034: '评分问题加载失败，请稍后重试',
   copy_d976fb44d6: '请填写评分问题',
   copy_da19b42124: '请选择“问题内容”对应的表格列',
   copy_e1035ed73b: '评分问题副本已创建',

@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
-  accountStateUnknown: '账号状态未加载',
+  accountStateUnknown: '账号状态暂时不可用',
   accountNotCreated: '未创建账号',
   accountPendingVerification: '待认证',
   credentialRevokeAction: '撤销',
@@ -56,7 +56,7 @@ module.exports = Object.freeze({
   copy_b86e259dd7: '解绑',
   copy_b88a1260e3: '冻结',
   copy_ba9b0425fd: '未绑定',
-  copy_bff49f783f: '请重试',
+  copy_bff49f783f: '操作未完成，请重试',
   copy_c3f53dd501: '退出',
   copy_c69999ba88: '该设备已退出',
   copy_cb56cac0f1: '最近使用时间未知',

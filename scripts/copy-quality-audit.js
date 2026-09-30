@@ -145,6 +145,8 @@ for (const entry of miniEntries) {
 }
 
 for (const [key, group] of byKey) {
+  // 语义键按页面/模块命名，天然可以逐页不同；只有内容寻址的 hash 键要求跨文件一致。
+  if (!HASH_KEY.test(key)) continue;
   const texts = Array.from(new Set(group.map((item) => item.text)));
   if (texts.length > 1) {
     for (const entry of group) report('R8-同键文案不一致', entry, texts.join(' | '));

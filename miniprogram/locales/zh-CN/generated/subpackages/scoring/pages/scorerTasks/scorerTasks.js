@@ -39,7 +39,7 @@ module.exports = Object.freeze({
   copy_d0de4ea38f: "评分已全部完成",
   copy_d6b32891ae: "搜索评分人",
   copy_e47f95e658: "导出明细",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   historicalAssignmentUnavailable: '历史岗位未记录',
   navigationTitle: "考核评分 - WHUSU智慧工作台"
 });

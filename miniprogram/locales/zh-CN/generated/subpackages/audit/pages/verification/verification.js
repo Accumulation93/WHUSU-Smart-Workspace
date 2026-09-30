@@ -3,7 +3,7 @@
 module.exports = Object.freeze({
   copy_03d69a9d28: '请重新选择文件',
   copy_07c93eae72: "签名记录",
-  copy_0ad36ee44c: "签名有效，但当前设备可能无法确认签名来源",
+  copy_0ad36ee44c: "签名有效；本平台暂时无法确认签名来源",
   copy_1a50073a0e: "轮：",
   copy_1ddd4c9b39: "提交编号",
   copy_2592864779: "查询方式",
@@ -32,7 +32,7 @@ module.exports = Object.freeze({
   copy_b791913c7a: '签名验证未完成，请重试',
   copy_c0915246d1: "如：SUB-20260611-001",
   copy_c25d1b8a38: "由",
-  copy_c9448bb954: "文件内签名：未签名",
+  copy_c9448bb954: "文件内签名：无",
   copy_cbf65b3559: '请选择要验证的文件',
   copy_d1cbed9945: '请切换到可验证签名的岗位',
   copy_df548b0f40: "个签名）",
@@ -41,5 +41,5 @@ module.exports = Object.freeze({
   copy_fb4bf20470: '选择要验证的文件',
   copy_fbf2871317: '文件内容一致',
   copy_fde988de1e: "签名来源信息完整",
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "文件签名验证 - WHUSU智慧工作台"
 });

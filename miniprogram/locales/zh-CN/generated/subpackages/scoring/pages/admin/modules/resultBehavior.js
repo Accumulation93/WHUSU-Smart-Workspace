@@ -2,7 +2,7 @@
 
 module.exports = Object.freeze({
   copy_03a3d115c7: '全部状态',
-  copy_0dce54533e: '请稍后刷新评分详情',
+  copy_0dce54533e: '评分详情加载失败，请稍后重试',
   copy_0fe86822a1: '未设置部门',
   copy_2220286f1c: '已完成',
   copy_2b4df49497: '未设置',
@@ -14,10 +14,10 @@ module.exports = Object.freeze({
   copy_5327cd39d0: '请先选择所属部门',
   copy_5503123f4c: 'Excel 格式 (.xlsx)',
   copy_55780718f9: '全部身份',
-  copy_5b26233f5a: '请稍后刷新评分人',
+  copy_5b26233f5a: '评分人加载失败，请稍后重试',
   copy_60c630a885: '按分数从高到低',
   copy_68f7277730: '全部部门',
-  copy_6af651c0a8: '请稍后刷新评分记录',
+  copy_6af651c0a8: '评分记录加载失败，请稍后重试',
   copy_7647264e2a: '撤销后该条评分记录会被删除，成员将恢复为待评分状态，是否继续？',
   copy_7ffcbc33aa: 'CSV 格式 (.csv)',
   copy_8351ecc192: '未撤销，请重试',
@@ -27,11 +27,11 @@ module.exports = Object.freeze({
   copy_abb0a3f46c: `{0} 的被评分人完成情况`,
   copy_ad183b164d: '未设置身份',
   copy_bd06e9a531: '加载评分结果失败：',
-  copy_c59ab1ce4a: '请稍后刷新评分结果',
+  copy_c59ab1ce4a: '评分结果加载失败，请稍后重试',
   copy_d08849e510: '评分记录已撤销',
   copy_d6c748ac95: '确认撤销',
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_f54076411e: '全部工作分工',
-  copy_f6a9d3621a: '请稍后刷新被评分人',
+  copy_f6a9d3621a: '被评分人加载失败，请稍后重试',
   historicalAssignmentUnavailable: '历史岗位未记录'
 });

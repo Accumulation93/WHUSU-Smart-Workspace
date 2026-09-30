@@ -108,7 +108,7 @@ async function main() {
   assert(!wxml.includes('class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">\n            <view class="question-card"'));
   f = fixture();
   await f.page.saveHrProfileTemplate();
-  assert.equal(f.modals[0].title, '模板库已保存');
+  assert.equal(f.modals[0].title, '模板已保存');
   assert.equal(f.modals[0].showCancel, true);
   assert.equal(f.calls[0].data.fields[0].type, 'sequence');
   assert.equal(f.calls[0].data.fields[0].options.join(','), 'one,two');

@@ -1,7 +1,7 @@
 'use strict';
 
 const text = Object.freeze({
-  matchSectionTitle: '匹配到的审核记录',
+  matchSectionTitle: '相关审核记录',
   currentResult: '当前结果',
   viewResult: '查看验证结果',
   matchingFiles: '匹配文件',
@@ -19,7 +19,7 @@ const text = Object.freeze({
 
 const format = Object.freeze({
   matchCount(count) {
-    return `共匹配到 ${Number(count) || 0} 条审核记录`;
+    return `共找到 ${Number(count) || 0} 条相关审核记录`;
   }
 });
 

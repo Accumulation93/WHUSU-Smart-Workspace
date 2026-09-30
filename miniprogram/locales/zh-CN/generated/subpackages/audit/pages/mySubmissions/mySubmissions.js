@@ -18,7 +18,7 @@ module.exports = Object.freeze({
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_bff094c480: "状态筛选",
   copy_c64e979552: "发起申请",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_f6afc42806: '草稿',
   copy_fb0dc97a1d: "我的申请",
   currentWorkContext: '当前工作角色',
@@ -28,5 +28,5 @@ module.exports = Object.freeze({
   cancel: '取消',
   positionAvailable: '可发起',
   positionUnavailable: '仅查看',
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "我的申请 - WHUSU智慧工作台"
 });

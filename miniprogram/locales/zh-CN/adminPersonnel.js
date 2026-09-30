@@ -10,9 +10,9 @@ module.exports = Object.freeze({
   hrTemplateSwitchActionDelete: '删除现有资料',
   hrTemplateSwitchDuplicateTarget: '请为每项资料选择不同的保存位置',
   hrTemplateSwitchIncompatibleReportTitle: '部分资料无法移入',
-  hrTemplateSwitchIncompatibleReportIntro: '以下字段与所选移入字段格式不匹配，无法直接移入：',
-  hrTemplateSwitchIncompatibleReportHint: '可将该字段改为“隐藏保存”保留原资料，或选择“删除现有资料”；调整后重新预检。',
-  hrTemplateSwitchIncompatibleReportDetailIntro: '以下资料内容无法转换为新字段类型，可返回修改后重新应用，或忽略不兼容直接应用（不兼容内容将清空）。',
+  hrTemplateSwitchIncompatibleReportIntro: '以下资料项与所选移入位置格式不匹配，无法直接移入：',
+  hrTemplateSwitchIncompatibleReportHint: '可将该项改为“隐藏保存”保留原资料，或选择“删除现有资料”；调整后重新检查。',
+  hrTemplateSwitchIncompatibleReportDetailIntro: '以下资料内容无法转换为新资料项的类型，可返回修改后重新应用，或忽略不兼容直接应用（不兼容内容将清空）。',
   hrTemplateSwitchIncompatibleBackToEdit: '返回修改',
   hrTemplateSwitchIncompatibleApplyAnyway: '忽略不兼容并应用',
   hrTemplateSwitchIncompatibleUnnamedMember: '未命名成员',
@@ -38,12 +38,12 @@ module.exports = Object.freeze({
     })
   }),
   dictionaryUsageDialogTitle: '暂时无法删除',
-  dictionaryUsageDialogDescription: '该字典项仍被以下内容引用。请先处理相关配置或记录，再尝试删除。',
-  dictionaryUsageTargetLabel: '当前字典项',
+  dictionaryUsageDialogDescription: '该项仍被以下内容引用，请先处理相关配置或记录，再删除。',
+  dictionaryUsageTargetLabel: '当前项',
   dictionaryUsageCount(count) {
     return `${count} 条引用`;
   },
-  dictionaryUsageClose: '知道了',
+  dictionaryUsageClose: '我知道了',
   dictionaryUsageCategories: Object.freeze({
     legacy_people: '历史人员资料',
     positions: '成员岗位',

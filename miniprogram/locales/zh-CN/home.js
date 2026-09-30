@@ -17,7 +17,7 @@ const text = Object.freeze({
   meritList: '评优名单',
   welcome: '欢迎使用',
   signedOut: '未登录',
-  signInWithWechat: '请微信登录',
+  signInWithWechat: '请使用微信登录',
   superAdmin: '超级管理员',
   admin: '普通管理员',
   unsetIdentity: '未设置岗位',
@@ -32,8 +32,8 @@ const text = Object.freeze({
   activityNotStarted: '当前评分活动尚未开始',
   activityEnded: '当前评分活动已结束',
   loadingTargets: '正在加载被评分人',
-  refreshTargetsLater: '请稍后刷新被评分人',
-  noTargets: '暂无符合规则的被评分人',
+  refreshTargetsLater: '被评分人加载失败，请稍后重试',
+  noTargets: '暂无可评分人员',
   unclassified: '未分类',
   assignmentNatureStaff: '本会岗位',
   assignmentNatureLiaison: '学院对接岗位',
@@ -69,7 +69,7 @@ const text = Object.freeze({
   edit: '✎ 编辑',
   noDesignatedMember: '暂未指定人选',
   noMeritList: '暂无评优名单',
-  noTemplate: '未使用模板',
+  noTemplate: '无需填写补充资料',
   profilePending: '资料正在审核，请等待结果。',
   rejectionReasonPrefix: '驳回原因：',
   name: '姓名',
@@ -168,7 +168,7 @@ const text = Object.freeze({
   updated: '已更新',
   enteringScorePage: '进入评分页',
   enterScorePageFailed: '无法进入评分页',
-  refreshLater: '请稍后刷新',
+  refreshLater: '请稍后重试',
   unlimitedPeople: '不限人数'
 });
 

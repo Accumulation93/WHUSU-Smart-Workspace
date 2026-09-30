@@ -25,12 +25,12 @@ module.exports = Object.freeze({
   copy_ba7787dd8d: "浏览场地",
   copy_ce171a2581: '已通过',
   copy_decce2c059: "借用记录",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e8d9493a44: "至",
   copy_fd4601c1f9: '已取消',
   endSuccess: '使用已结束',
   endUnavailable: '当前状态不能结束使用',
   endUse: '结束使用',
-  navigationTitle: "场地借用 - WHUSU智慧工作台",
+  navigationTitle: "我的借用 - WHUSU智慧工作台",
   operationFailed: '未完成，请重试'
 });

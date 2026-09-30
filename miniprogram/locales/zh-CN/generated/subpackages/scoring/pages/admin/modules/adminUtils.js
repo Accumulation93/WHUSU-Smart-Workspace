@@ -2,7 +2,7 @@
 
 module.exports = Object.freeze({
   profileFieldTypeDatetime: '日期时间',
-  profileFieldHintDatetime: '请选择日期与时间（按系统时区显示）',
+  profileFieldHintDatetime: '请选择日期与时间',
   copy_007b4d4286: '请输入整数',
   copy_027e560285: '录取部门',
   copy_03a3d115c7: '全部状态',
@@ -149,7 +149,7 @@ module.exports = Object.freeze({
   copy_fd0da10351: '分值说明',
   copy_fd57aa07b7: '格式：YYYY-MM-DD',
   copy_fd80cc149b: '查看同职能组内所有成员的结果',
-  hrSearchAllCore: '全部核心字段',
+  hrSearchAllCore: '全部基本信息',
   hrSearchName: '姓名',
   hrSearchStudentId: '学号',
   hrSearchDepartment: '部门',
@@ -181,7 +181,7 @@ module.exports = Object.freeze({
   hrProfileIncomplete: '资料不完整',
   hrAccountActive: '账号正常',
   hrAccountPendingVerification: '待认证',
-  hrAccountUnknown: '账号状态未加载',
+  hrAccountUnknown: '账号状态暂时不可用',
   hrAccountPendingActivation: '待完成绑定',
   hrAccountRecoveryRequired: '需要恢复账号',
   hrAccountFrozen: '账号冻结',

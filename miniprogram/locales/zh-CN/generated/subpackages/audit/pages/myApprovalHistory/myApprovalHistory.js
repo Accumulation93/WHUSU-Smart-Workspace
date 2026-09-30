@@ -10,9 +10,9 @@ module.exports = Object.freeze({
   copy_638da8ae60: "武汉大学学生会",
   copy_86accadcca: "暂无审批记录",
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_f69eaef5c5: "我的审批记录",
   processedAssignmentPrefix: '处理岗位：',
   legacyAssignmentSnapshotUnavailable: '未记录当时的处理岗位',
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "我的审批记录 - WHUSU智慧工作台"
 });

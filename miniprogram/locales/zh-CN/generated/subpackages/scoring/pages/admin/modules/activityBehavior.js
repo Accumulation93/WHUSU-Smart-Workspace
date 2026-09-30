@@ -11,7 +11,7 @@ module.exports = Object.freeze({
   copy_2e234dd2db: '评分活动已删除',
   copy_55a98e5fa5: '设为当前评分活动',
   copy_78ad9dc82c: '未设置，请重试',
-  copy_8b63ce8619: '请稍后刷新评分活动',
+  copy_8b63ce8619: '评分活动加载失败，请稍后重试',
   copy_8dbc945bf2: '删除评分活动',
   copy_e394895492: '请填写评分活动名称'
 });

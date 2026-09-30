@@ -73,7 +73,7 @@ module.exports = Object.freeze({
   copy_e06667ae8f: '模板已创建',
   copy_e0922834ac: '请先选择一名人员',
   copy_e32406217a: '删除后不可恢复，确定删除此审核流程吗？',
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e5d78a79f7: '请选择具体人员岗位',
   copy_efc8493bdc: '模板已删除',
   copy_f262abee38: '选择人员',

@@ -53,10 +53,10 @@ module.exports = Object.freeze({
   copy_ce30bda5a2: "借用人",
   copy_dc59906817: "已完成",
   copy_dcadcebf08: "审批时间：",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e58fa637eb: '请稍后重试',
   copy_e8d9493a44: "至",
   copy_ef8b7ffa9b: "第",
   copy_f658e7b4d0: '已',
-  navigationTitle: "场地借用 - WHUSU智慧工作台"
+  navigationTitle: "待我审批 - WHUSU智慧工作台"
 });

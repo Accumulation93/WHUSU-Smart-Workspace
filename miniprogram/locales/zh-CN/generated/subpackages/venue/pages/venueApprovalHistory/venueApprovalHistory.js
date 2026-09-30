@@ -19,9 +19,9 @@ module.exports = Object.freeze({
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_ad310c8780: '使用中',
   copy_ce171a2581: '已通过',
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e8d9493a44: "至",
   copy_f3a46d24ad: "你处理过的场地借用记录会显示在这里",
   copy_fd4601c1f9: '已取消',
-  navigationTitle: "场地借用 - WHUSU智慧工作台"
+  navigationTitle: "审批历史 - WHUSU智慧工作台"
 });

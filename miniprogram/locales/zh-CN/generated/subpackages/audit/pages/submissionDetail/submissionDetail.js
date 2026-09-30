@@ -177,7 +177,7 @@ module.exports = Object.freeze({
   copy_8ff5c9662e: "未指定时按模板审批条件确定第一步审批人，指定后由所选人员审批。",
   copy_9167c33257: '请添加审批步骤',
   copy_9288d54fa0: '文件过大，最大支持 10MB',
-  copy_92c9f0b2b4: '请在待修改状态下编辑',
+  copy_92c9f0b2b4: '当前不可编辑，请先退回修改',
   copy_93c50c01c0: '第',
   copy_94988c2510: "进度",
   copy_95cf78856c: "当前：第",
@@ -270,7 +270,7 @@ module.exports = Object.freeze({
   copy_e4882ec81b: '文件读取失败:',
   copy_e4a2b8faee: "申请操作",
   copy_e4c3cdbf04: '审批驳回',
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e6f444764d: '未重新提交，请重试',
   copy_e986e973a2: '全部职能组',
   copy_eada426deb: '请选择部门',
@@ -289,7 +289,7 @@ module.exports = Object.freeze({
   copy_f69a5ce118: "步已驳回，可修改后重新提交",
   copy_f6afc42806: '草稿',
   copy_f90d5fcc1f: "尚未提交",
-  copy_fbc220bedd: '请稍后刷新模板',
+  copy_fbc220bedd: '模板加载失败，请稍后重试',
   copy_fbdf6b37eb: "审批条件：",
   copy_fc2ce54999: '按身份类别审批',
   copy_fc98ff863c: '由 同部门 ',
@@ -308,5 +308,5 @@ module.exports = Object.freeze({
   processedAssignment: '处理时岗位：',
   operationAssignment: '操作时岗位：',
   legacyAssignmentSnapshotUnavailable: '未记录当时的岗位',
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "审核申请 - WHUSU智慧工作台"
 });

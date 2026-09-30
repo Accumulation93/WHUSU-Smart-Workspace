@@ -18,7 +18,7 @@ module.exports = Object.freeze({
   copy_a63d02480e: '签字+盖章',
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_bba7f8b8ba: '请切换到可审批的岗位',
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_ef8b7ffa9b: "第",
   workContextRequiredTitle: '需要切换工作角色',
   workContextRequiredDescription: '当前工作角色不能处理此事项，请切换到要求的组织和岗位。',
@@ -31,5 +31,5 @@ module.exports = Object.freeze({
   requiredAssignmentPrefix: '可处理岗位：',
   eligibleAssignmentsPrefix: '请切换到以下可处理岗位：',
   assignmentSeparator: '、',
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "待我审批 - WHUSU智慧工作台"
 });

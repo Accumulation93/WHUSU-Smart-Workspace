@@ -8,7 +8,7 @@ module.exports = Object.freeze({
   copy_4b213fd88a: '取消',
   copy_4fdb08add2: '职能组已保存',
   copy_54e953f1bb: '无',
-  copy_5778bc8da0: '请稍后刷新职能组',
+  copy_5778bc8da0: '职能组加载失败，请稍后重试',
   copy_7093ebdf5f: '加载工作分工列表失败:',
   copy_7f31eec657: '确认删除',
   copy_ce1f5597c6: '请填写职能组名称',

@@ -73,7 +73,7 @@ for (const nextType of ['number', 'sequence']) {
   assert.equal(ambiguous.suggestionText, '');
   const incompatible = buildSwitchSources([Object.assign({}, oldField, { compatibleTargetIds: [] })], [newField], '', String)[0];
   assert.equal(incompatible.incompatible, true);
-  assert.match(incompatible.suggestionText, /当前模板没有类型匹配的字段/);
+  assert.match(incompatible.suggestionText, /当前模板没有类型匹配的资料项/);
 }
 
 // 用真实 Behavior 验证建议预填、用户覆盖和最终提交参数；不连接数据库。

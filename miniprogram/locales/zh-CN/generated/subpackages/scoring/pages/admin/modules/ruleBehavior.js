@@ -13,7 +13,7 @@ module.exports = Object.freeze({
   copy_492761e445: '删除评分人类别',
   copy_4e36c10a9e: '请先设置当前评分活动',
   copy_5398fec054: '已删除',
-  copy_58d149dfbb: '请稍后刷新评分人类别',
+  copy_58d149dfbb: '评分人类别加载失败，请稍后重试',
   copy_6a36edd369: '问题已在规则中',
   copy_7151fd51a0: '请填写被评分人身份',
   copy_78ad9dc82c: '未设置，请重试',

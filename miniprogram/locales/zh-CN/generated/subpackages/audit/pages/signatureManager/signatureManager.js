@@ -23,8 +23,8 @@ module.exports = Object.freeze({
   copy_d654f6c1d3: "新建签名",
   copy_da92c43d07: '确定删除此签名模板吗？',
   copy_e040ae3016: "编辑",
-  copy_e52119b17e: '请稍后刷新',
+  copy_e52119b17e: '请稍后重试',
   copy_e92a06d5bf: "已保存签名",
   copy_f1b28c5cf9: "设默认",
-  navigationTitle: "审核 - WHUSU智慧工作台"
+  navigationTitle: "我的签名 - WHUSU智慧工作台"
 });

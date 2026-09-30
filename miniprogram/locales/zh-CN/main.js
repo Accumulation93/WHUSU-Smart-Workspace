@@ -181,7 +181,7 @@ const messageCenter = Object.freeze({
     notification: '通知',
     allOrganizations: '全部组织',
     selectOrganizationOrWorkContext: '请重新选择组织或工作角色',
-    refreshLater: '请稍后刷新',
+    refreshLater: '请稍后重试',
     retryLater: '请稍后重试',
     switchWorkContext: '切换工作角色后查看',
     switchOrganizationAndWorkContext: '切换组织与工作角色后查看',

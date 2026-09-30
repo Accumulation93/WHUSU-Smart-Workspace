@@ -937,7 +937,7 @@ module.exports = Behavior({
           }
         });
       } catch (error) {
-        showShortToast(getErrorText(error, '') || (error && error.errMsg) || localeCopy.copy_e58fa637eb);
+        showShortToast(getErrorText(error, '') || localeCopy.hrTemplateSwitchPreviewFailed);
       } finally {
         this.setLoading('previewHrTemplateSwitch', false);
       }
@@ -965,7 +965,7 @@ module.exports = Behavior({
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
         showShortToast(localeCopy.copy_75349a79ee, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '') || (error && error.errMsg) || localeCopy.copy_c45d6ea9d1);
+        showShortToast(getErrorText(error, '') || localeCopy.copy_c45d6ea9d1);
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }
