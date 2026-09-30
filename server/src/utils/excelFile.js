@@ -1,4 +1,5 @@
 const ExcelJS = require('exceljs');
+const tableCopy = require('../locales/zh-CN/tableFile');
 
 const MAX_XLSX_BYTES = 8 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
@@ -19,16 +20,16 @@ function invalidWorkbook(message) {
 function decodeWorkbookBase64(value) {
   const text = String(value || '').trim();
   if (!text || text.length > Math.ceil(MAX_XLSX_BYTES * 4 / 3) + 16 || !/^[A-Za-z0-9+/]+={0,2}$/.test(text)) {
-    throw invalidWorkbook('工作簿编码无效或文件过大');
+    throw invalidWorkbook(tableCopy.invalidBase64);
   }
   const buffer = Buffer.from(text, 'base64');
-  if (!buffer.length || buffer.length > MAX_XLSX_BYTES) throw invalidWorkbook('工作簿文件过大');
+  if (!buffer.length || buffer.length > MAX_XLSX_BYTES) throw invalidWorkbook(tableCopy.tooLarge);
   return buffer;
 }
 
 function assertXlsxArchive(buffer) {
-  if (!Buffer.isBuffer(buffer) || !buffer.length) throw invalidWorkbook('工作簿内容为空');
-  if (buffer.length > MAX_XLSX_BYTES) throw invalidWorkbook('工作簿文件过大');
+  if (!Buffer.isBuffer(buffer) || !buffer.length) throw invalidWorkbook(tableCopy.empty);
+  if (buffer.length > MAX_XLSX_BYTES) throw invalidWorkbook(tableCopy.tooLarge);
 
   const minimumOffset = Math.max(0, buffer.length - 65557);
   let endOffset = -1;
@@ -38,13 +39,13 @@ function assertXlsxArchive(buffer) {
       break;
     }
   }
-  if (endOffset < 0) throw invalidWorkbook('仅支持有效的 XLSX 工作簿');
+  if (endOffset < 0) throw invalidWorkbook(tableCopy.notXlsx);
 
   const entryCount = buffer.readUInt16LE(endOffset + 10);
   const directorySize = buffer.readUInt32LE(endOffset + 12);
   const directoryOffset = buffer.readUInt32LE(endOffset + 16);
   if (entryCount > MAX_ARCHIVE_ENTRIES || directoryOffset + directorySize > buffer.length) {
-    throw invalidWorkbook('工作簿压缩结构异常');
+    throw invalidWorkbook(tableCopy.brokenArchive);
   }
 
   let cursor = directoryOffset;
@@ -52,7 +53,7 @@ function assertXlsxArchive(buffer) {
   let uncompressedTotal = 0;
   for (let index = 0; index < entryCount; index += 1) {
     if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== 0x02014b50) {
-      throw invalidWorkbook('工作簿目录损坏');
+      throw invalidWorkbook(tableCopy.brokenDirectory);
     }
     const flags = buffer.readUInt16LE(cursor + 8);
     const compressedSize = buffer.readUInt32LE(cursor + 20);
@@ -61,21 +62,21 @@ function assertXlsxArchive(buffer) {
     const extraLength = buffer.readUInt16LE(cursor + 30);
     const commentLength = buffer.readUInt16LE(cursor + 32);
     if ((flags & 1) !== 0 || compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) {
-      throw invalidWorkbook('不支持加密或 ZIP64 工作簿');
+      throw invalidWorkbook(tableCopy.encryptedOrZip64);
     }
     compressedTotal += compressedSize;
     uncompressedTotal += uncompressedSize;
-    if (uncompressedTotal > MAX_UNCOMPRESSED_BYTES) throw invalidWorkbook('工作簿展开后过大');
+    if (uncompressedTotal > MAX_UNCOMPRESSED_BYTES) throw invalidWorkbook(tableCopy.expandedTooLarge);
     cursor += 46 + nameLength + extraLength + commentLength;
   }
 
   const ratio = uncompressedTotal / Math.max(1, compressedTotal);
-  if (ratio > MAX_COMPRESSION_RATIO) throw invalidWorkbook('工作簿压缩比例异常');
+  if (ratio > MAX_COMPRESSION_RATIO) throw invalidWorkbook(tableCopy.badCompressionRatio);
 }
 
 function cellText(cell) {
   const text = cell && cell.text != null ? String(cell.text) : '';
-  if (text.length > MAX_CELL_LENGTH) throw invalidWorkbook('工作簿包含过长单元格');
+  if (text.length > MAX_CELL_LENGTH) throw invalidWorkbook(tableCopy.cellTooLong);
   return text;
 }
 
@@ -88,21 +89,21 @@ async function parseWorkbookTables(buffer) {
     });
   } catch (error) {
     if (error && error.code === 'invalid_workbook') throw error;
-    throw invalidWorkbook('仅支持有效的 XLSX 工作簿');
+    throw invalidWorkbook(tableCopy.notXlsx);
   }
-  if (!workbook.worksheets.length) throw invalidWorkbook('工作簿中没有工作表');
-  if (workbook.worksheets.length > MAX_SHEETS) throw invalidWorkbook('工作表数量超过限制');
+  if (!workbook.worksheets.length) throw invalidWorkbook(tableCopy.noWorksheet);
+  if (workbook.worksheets.length > MAX_SHEETS) throw invalidWorkbook(tableCopy.tooManyWorksheets);
 
   let totalRows = 0;
   let totalCells = 0;
   return workbook.worksheets.map((worksheet) => {
     const columnCount = worksheet.actualColumnCount;
     const rowCount = worksheet.actualRowCount;
-    if (columnCount > MAX_COLUMNS) throw invalidWorkbook('工作簿列数超过限制');
+    if (columnCount > MAX_COLUMNS) throw invalidWorkbook(tableCopy.tooManyColumns);
     totalRows += rowCount;
     totalCells += rowCount * columnCount;
     if (totalRows > MAX_TOTAL_ROWS || totalCells > MAX_TOTAL_CELLS) {
-      throw invalidWorkbook('工作簿数据量超过限制');
+      throw invalidWorkbook(tableCopy.tooMuchData);
     }
 
     const table = [];
@@ -123,17 +124,17 @@ function safeSheetName(value) {
 }
 
 async function buildWorkbookBuffer(sheetName, rows) {
-  if (!Array.isArray(rows) || !rows.length) throw invalidWorkbook('缺少表格数据');
-  if (rows.length > MAX_TOTAL_ROWS) throw invalidWorkbook('导出行数超过限制');
+  if (!Array.isArray(rows) || !rows.length) throw invalidWorkbook(tableCopy.rowsMissing);
+  if (rows.length > MAX_TOTAL_ROWS) throw invalidWorkbook(tableCopy.exportRowsTooMany);
   let totalCells = 0;
   const normalizedRows = rows.map((row) => {
     const values = Array.isArray(row) ? row : [];
-    if (values.length > MAX_COLUMNS) throw invalidWorkbook('导出列数超过限制');
+    if (values.length > MAX_COLUMNS) throw invalidWorkbook(tableCopy.exportColumnsTooMany);
     totalCells += values.length;
-    if (totalCells > MAX_TOTAL_CELLS) throw invalidWorkbook('导出数据量超过限制');
+    if (totalCells > MAX_TOTAL_CELLS) throw invalidWorkbook(tableCopy.exportDataTooMuch);
     return values.map((value) => {
       const text = value == null ? '' : String(value);
-      if (text.length > MAX_CELL_LENGTH) throw invalidWorkbook('导出内容包含过长单元格');
+      if (text.length > MAX_CELL_LENGTH) throw invalidWorkbook(tableCopy.exportCellTooLong);
       return text;
     });
   });

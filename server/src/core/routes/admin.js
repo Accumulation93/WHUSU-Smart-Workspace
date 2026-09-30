@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/admin');
+const accountCopy = require('../../locales/zh-CN/core/adminAccount');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -24,15 +25,15 @@ async function getRequestOrganizationId(req) {
 }
 
 function getAdminLevelLabel(adminLevel) {
-  return adminLevel === 'super_admin' ? '超级管理员' : '普通管理员';
+  return adminLevel === 'super_admin' ? accountCopy.superAdmin : accountCopy.admin;
 }
 
 function getAuthenticationStatusLabel(status) {
   const labels = {
-    verified: '已认证',
-    frozen: '已冻结',
-    recovery_required: '待恢复',
-    pending_verification: '待认证'
+    verified: accountCopy.verified,
+    frozen: accountCopy.frozen,
+    recovery_required: accountCopy.recoveryRequired,
+    pending_verification: accountCopy.pendingVerification
   };
   return labels[status] || localeCopy.copy_5342fa4b24;
 }

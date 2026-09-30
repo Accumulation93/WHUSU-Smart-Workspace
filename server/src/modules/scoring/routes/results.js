@@ -1058,7 +1058,9 @@ function enrichScoreRecords(records, members, granularity) {
 }
 
 function isAllFilter(value) {
-  return !value || ['全部', '全部部门', '全部身份', '全部职能组', '全部工作分工', '全部工作分工（职能组）'].includes(value) || value === '鍏ㄩ儴';
+  // 客户端提交的是筛选标签文案；此前还额外容忍一个 UTF-8 被按 GBK 解码产生的乱码
+  // （鍏ㄩ儴），该值在语言资源中并不存在，直接删除以免掩盖真实取值。
+  return !value || ['全部', '全部部门', '全部身份', '全部职能组', '全部工作分工', '全部工作分工（职能组）'].includes(value);
 }
 
 function filterScorerRows(rows, filters) {

@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/adminPermissions');
+const accountCopy = require('../../locales/zh-CN/core/adminAccount');
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
@@ -32,7 +33,7 @@ async function resolvePermissionManager(req) {
 }
 
 function levelLabel(level) {
-  return level === 'super_admin' ? '超级管理员' : '普通管理员';
+  return level === 'super_admin' ? accountCopy.superAdmin : accountCopy.admin;
 }
 
 router.post('/getMyAdminPermissions', async (req, res) => {
@@ -70,10 +71,10 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
       const grantedCount = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, row.admin_level) && targetEffective.permissions[key]).length;
       const authenticationStatus = authenticationStates[row.id] || 'pending_verification';
       const authenticationLabels = {
-        verified: '已认证',
-        frozen: '已冻结',
-        recovery_required: '待恢复',
-        pending_verification: '待认证'
+    verified: accountCopy.verified,
+    frozen: accountCopy.frozen,
+    recovery_required: accountCopy.recoveryRequired,
+    pending_verification: accountCopy.pendingVerification
       };
       items.push({
         id: row.id,

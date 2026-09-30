@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueApprovalMultiFlow');
+const approvalCopy = require('../../../locales/zh-CN/venueApproval');
 const pool = require('../../../config/db');
 const { safeString } = require('../../../utils/helpers');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
@@ -12,20 +13,20 @@ const {
 } = require('./venueAssignmentContext');
 
 const REASONS = Object.freeze({
-  NO_FLOW: '该借用未设置审批流程',
-  REJECTED: '该借用已被驳回',
-  COMPLETED: '该借用已完成所有审批步骤',
-  INVALID_STEP: '审批步骤有误，请联系管理员',
-  ADMIN_REQUIRED: '该步骤仅允许当前组织管理员审批',
-  USER_ROLE_REQUIRED: '当前步骤需切换到普通用户身份审批',
-  NO_RULES: '请联系管理员设置审批条件',
-  INVALID_HR: localeCopy.applicantSnapshotMissing,
-  FLOW_SNAPSHOT_MISSING: localeCopy.flowSnapshotMissing,
-  RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
-  DESIGNATED_ONLY: '该步骤已指定审批人，只有指定人员可以审批',
-  DESIGNATE_FIRST_NOT_ALLOWED: localeCopy.firstDesignationNotAllowed,
-  DESIGNATE_NEXT_NOT_ALLOWED: localeCopy.nextDesignationNotAllowed,
-  DESIGNATE_INVALID: '请选择符合条件的审批人'
+  NO_FLOW: approvalCopy.noFlow,
+  REJECTED: approvalCopy.rejected,
+  COMPLETED: approvalCopy.completed,
+  INVALID_STEP: approvalCopy.invalidStep,
+  ADMIN_REQUIRED: approvalCopy.adminRequired,
+  USER_ROLE_REQUIRED: approvalCopy.userRoleRequired,
+  NO_RULES: approvalCopy.noRules,
+  INVALID_HR: approvalCopy.applicantSnapshotMissing,
+  FLOW_SNAPSHOT_MISSING: approvalCopy.flowSnapshotMissing,
+  RULE_MISMATCH: approvalCopy.ruleMismatch,
+  DESIGNATED_ONLY: approvalCopy.designatedOnly,
+  DESIGNATE_FIRST_NOT_ALLOWED: approvalCopy.firstDesignationNotAllowed,
+  DESIGNATE_NEXT_NOT_ALLOWED: approvalCopy.nextDesignationNotAllowed,
+  DESIGNATE_INVALID: approvalCopy.designateInvalid
 });
 
 function normalizeFlag(value) {

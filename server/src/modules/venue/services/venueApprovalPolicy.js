@@ -1,16 +1,17 @@
 const { safeString } = require('../../../utils/helpers');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
+const approvalCopy = require('../../../locales/zh-CN/venueApproval');
 
 const REASONS = Object.freeze({
-  NO_FLOW: '该借用未设置审批流程',
-  REJECTED: '该借用已被驳回',
-  COMPLETED: '该借用已完成所有审批步骤',
-  INVALID_STEP: '审批步骤有误，请联系管理员',
-  ADMIN_REQUIRED: '该步骤仅允许当前组织管理员审批',
-  USER_ROLE_REQUIRED: '当前步骤需切换到普通用户身份审批',
-  NO_RULES: '请联系管理员设置审批条件',
-  INVALID_HR: '绑定的人事信息不存在',
-  RULE_MISMATCH: '您不符合当前审批步骤的审批条件'
+  NO_FLOW: approvalCopy.noFlow,
+  REJECTED: approvalCopy.rejected,
+  COMPLETED: approvalCopy.completed,
+  INVALID_STEP: approvalCopy.invalidStep,
+  ADMIN_REQUIRED: approvalCopy.adminRequired,
+  USER_ROLE_REQUIRED: approvalCopy.userRoleRequired,
+  NO_RULES: approvalCopy.noRules,
+  INVALID_HR: approvalCopy.applicantSnapshotMissing,
+  RULE_MISMATCH: approvalCopy.ruleMismatch
 });
 
 function parseSnapshots(raw) {
