@@ -308,7 +308,7 @@
           </view>
           <switch checked="{{templateCsvReplaceMode}}" bindchange="toggleTemplateCsvReplaceMode" color="#2563eb"/>
         </view>
-        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
+        </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           <button class="primary-btn ui-motion-button" catchtap="confirmTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b35531a5fd}}</button>
@@ -1829,7 +1829,7 @@
     <viewport-portal wx:if="{{showCsvMappingDialog}}">
     <view class="modal-mask ui-overlay" wx:if="{{showCsvMappingDialog}}" bindtap="closeCsvMappingDialog">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-      <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">{{localeCopy.copy_bc267b6762}}</view>
           <view class="modal-close ui-motion-chip" catchtap="closeCsvMappingDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
@@ -2081,7 +2081,7 @@
     <viewport-portal wx:if="{{showAuthCodeDialog}}">
       <view class="ui-overlay" wx:if="{{showAuthCodeDialog}}">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="modal-card auth-code-dialog ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="modal-card auth-code-dialog ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="modal-header ui-dialog-header"><view><view class="modal-title">{{localeCopy.copy_c195d59710}}</view><view class="auth-dialog-subtitle">{{localeCopy.copy_fe964455aa}}</view></view><text class="modal-close ui-motion-chip" catchtap="closeAuthCodeDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
             <view class="auth-code-list ui-dialog-stack">
@@ -2739,7 +2739,7 @@
       <viewport-portal wx:if="{{auditTemplateStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_b79428bf57}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
             <!-- Step name -->
@@ -2889,7 +2889,7 @@
       <viewport-portal wx:if="{{auditStarterConditionEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? localeCopy.copy_1dc07a45f9 : localeCopy.copy_a59dd7ae8d}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
             <view class="field">
@@ -3188,7 +3188,7 @@
   <viewport-portal wx:if="{{auditMultiPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{auditMultiPickerVisible}}" bindtap="closeAuditMultiPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
@@ -3243,7 +3243,7 @@
   <viewport-portal wx:if="{{auditIdentityPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{auditIdentityPickerVisible}}" bindtap="closeAuditIdentityPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_e8b001bfef}} — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="list-desc ui-dialog-help-text">{{auditIdentityPickerMulti ? localeCopy.copy_23a586a08a : localeCopy.copy_2376d5dfcb}}</view>
