@@ -1185,7 +1185,8 @@ scroll-view.ui-dialog-scroll--both {
 scroll-view.ui-dialog-scroll--fill {
   height: auto;
   min-height: 0;
-  max-height: 56vh;
+  /* 正文高度随视口安全区自适应，不再写死固定 vh。 */
+  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
 
 scroll-view.ui-dialog-scroll--both {
