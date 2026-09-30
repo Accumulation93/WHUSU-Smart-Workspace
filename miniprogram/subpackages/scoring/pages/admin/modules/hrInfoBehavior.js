@@ -12,7 +12,14 @@ const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIO
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
-const { formatDateTextOnly, toDatePickerValue } = require('../../../../../utils/hrProfileDate');
+const {
+  formatDateTextOnly,
+  toDatePickerValue,
+  formatDateTimeText,
+  formatDateTimePickerDate,
+  formatDateTimePickerTime,
+  pickerToUtcIso
+} = require('../../../../../utils/hrProfileDate');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 
@@ -1405,6 +1412,7 @@ module.exports = Behavior({
         // 日期字段把工作区文本值转成原生 picker 需要的 YYYY-MM-DD。
         const detailFieldValues = {};
         const detailFieldDates = {};
+        const detailFieldDateTimes = {};
         if (detailHrTemplate && detailHrTemplate.fields.length) {
           detailHrTemplate.fields.forEach((field) => {
             if (field.type === 'sequence') {
@@ -1417,6 +1425,13 @@ module.exports = Behavior({
               detailFieldValues[field.id] = optionIndex;
             } else if (field.type === 'date') {
               detailFieldDates[field.id] = toDatePickerValue(vals[field.id]);
+            } else if (field.type === 'datetime') {
+              // 日期时间字段值保持绝对时刻（用于保存），选择器与展示按系统时区换算。
+              detailFieldDateTimes[field.id] = {
+                date: formatDateTimePickerDate(vals[field.id]),
+                time: formatDateTimePickerTime(vals[field.id]),
+                text: formatDateTimeText(vals[field.id])
+              };
             }
           });
         }
@@ -1436,6 +1451,7 @@ module.exports = Behavior({
           detailHrValues: vals,
           detailFieldValues,
           detailFieldDates,
+          detailFieldDateTimes,
           detailHrPendingValues: pendingValues,
           detailHrComparisonRows: detailComparisonRows,
           detailHrAuditStatus: result.auditStatus || 'none',
@@ -1805,6 +1821,7 @@ module.exports = Behavior({
         detailWorkGroupValue: 0,
         detailFieldValues: {},
         detailFieldDates: {},
+        detailFieldDateTimes: {},
         membershipAssignmentList: [],
         personIdentityOrganizations: [],
         globalAdminIdentities: [],
@@ -1856,6 +1873,7 @@ module.exports = Behavior({
       const template = this.data.detailHrTemplate;
       let seqIndex = -1;
       let isDateField = false;
+      let isDateTimeField = false;
       if (template && template.fields) {
         const fieldDef = template.fields.find(function(f) { return String(f.id) === field; });
         if (fieldDef && fieldDef.type === 'sequence' && Array.isArray(fieldDef.options)) {
@@ -1868,6 +1886,9 @@ module.exports = Behavior({
         if (fieldDef && fieldDef.type === 'date') {
           isDateField = true;
         }
+        if (fieldDef && fieldDef.type === 'datetime') {
+          isDateTimeField = true;
+        }
       }
   
       const updates = { ['detailHrValues.' + field]: value };
@@ -1877,6 +1898,20 @@ module.exports = Behavior({
       if (isDateField) {
         updates['detailFieldDates.' + field] = toDatePickerValue(value);
         updates['detailHrValues.' + field] = formatDateTextOnly(value);
+      }
+      if (isDateTimeField) {
+        // 日期时间只能由两个选择器合成：按系统时区把所选墙上时间换算成绝对时刻保存。
+        const part = String(e.currentTarget.dataset.part || '');
+        const current = this.data.detailFieldDateTimes && this.data.detailFieldDateTimes[field] || {};
+        const nextDate = part === 'date' ? value : (current.date || '');
+        const nextTime = part === 'time' ? value : (current.time || '00:00');
+        const instant = nextDate ? pickerToUtcIso(nextDate, nextTime || '00:00') : '';
+        updates['detailFieldDateTimes.' + field] = {
+          date: nextDate,
+          time: nextTime || '00:00',
+          text: instant ? formatDateTimeText(instant) : ''
+        };
+        updates['detailHrValues.' + field] = instant || this.data.detailHrValues[field] || '';
       }
       this.setData(updates);
     },

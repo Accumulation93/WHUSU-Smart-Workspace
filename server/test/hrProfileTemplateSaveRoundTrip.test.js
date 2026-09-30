@@ -44,6 +44,7 @@ async function main() {
     '../../middleware/auth': { JWT_SECRET: 'isolated-template-save-test' },
     '../../utils/helpers': Object.assign({}, require('../src/utils/helpers'), { generateId: () => 'field-' + (++sequence) }),
     '../../utils/orgContext': { getCurrentOrgId: () => 'org-self' },
+    '../../utils/dateValue': require('../src/utils/dateValue'),
     './hrProfileFieldSuggestions': require('../src/core/services/hrProfileFieldSuggestions')
   };
   const sandbox = { module: { exports: {} }, require: key => {

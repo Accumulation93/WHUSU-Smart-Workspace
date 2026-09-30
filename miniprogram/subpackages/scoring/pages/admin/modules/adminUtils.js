@@ -1,6 +1,11 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
 const { format: localeFormat } = require('../../../../../locales/runtime');
 const fieldMatching = require('../../../../../utils/hrFieldMatching');
+const {
+  normalizeDateLiteral,
+  normalizeDateTimeInstant,
+  detectColumnDateType
+} = require('../../../../../utils/hrProfileDate');
 // Auto-extracted pure utilities and constants from admin.js
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
@@ -60,6 +65,7 @@ const PROFILE_FIELD_TYPE_OPTIONS = [
   { value: 'number', label: localeCopy.copy_dfb6c2130f },
   { value: 'sequence', label: localeCopy.copy_f942ac6f2a },
   { value: 'date', label: localeCopy.copy_45d46b9df2 },
+  { value: 'datetime', label: localeCopy.profileFieldTypeDatetime },
   { value: 'phone', label: localeCopy.copy_8e0c2b3066 },
   { value: 'email', label: localeCopy.copy_138db9568c }
 ];
@@ -880,19 +886,11 @@ function emptyResultFilters() {
 }
 
 function isValidDateString(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
+  return Boolean(normalizeDateLiteral(value));
+}
 
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  const [year, month, day] = value.split('-').map((item) => Number(item));
-  return date.getUTCFullYear() === year
-    && date.getUTCMonth() + 1 === month
-    && date.getUTCDate() === day;
+function isValidDateTimeValue(value) {
+  return Boolean(normalizeDateTimeInstant(value));
 }
 
 function getNumericLength(value) {
@@ -959,6 +957,10 @@ function buildFieldHint(field = {}) {
     return localeCopy.copy_fd57aa07b7;
   }
 
+  if (field.type === 'datetime') {
+    return localeCopy.profileFieldHintDatetime;
+  }
+
   if (field.type === 'phone') {
     return localeCopy.copy_388528b146;
   }
@@ -1021,6 +1023,10 @@ function validateProfileField(field = {}, rawValue) {
     return localeFormat(localeCopy.copy_993602ff18, [field.label]);
   }
 
+  if (field.type === 'datetime' && !isValidDateTimeValue(value)) {
+    return localeFormat(localeCopy.copy_993602ff18, [field.label]);
+  }
+
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
     return localeFormat(localeCopy.copy_9973008adb, [field.label]);
   }
@@ -1033,23 +1039,10 @@ function validateProfileField(field = {}, rawValue) {
 }
 
 function tryParseDateValue(value) {
-  let v = String(value || '').trim();
-  if (!v) return null;
-
-  let m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
-  if (m1) {
-    let year = Number(m1[1]);
-    let month = Number(m1[2]);
-    let day = Number(m1[3]);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      let dt = new Date(Date.UTC(year, month - 1, day));
-      if (dt.getUTCFullYear() === year && dt.getUTCMonth() + 1 === month && dt.getUTCDate() === day) {
-        return { year: year, month: month, day: day };
-      }
-    }
-  }
-
-  return null;
+  const literal = normalizeDateLiteral(value);
+  if (!literal) return null;
+  const parts = literal.split('-').map((item) => Number(item));
+  return { year: parts[0], month: parts[1], day: parts[2] };
 }
 
 function detectFieldTypeFromValues(values) {
@@ -1060,6 +1053,9 @@ function detectFieldTypeFromValues(values) {
   let allPhone = true;
   let allEmail = true;
   let allNumber = true;
+
+  const columnDateType = detectColumnDateType(nonEmpty);
+  if (columnDateType) return columnDateType;
 
   for (let i = 0; i < nonEmpty.length; i++) {
     let v = String(nonEmpty[i]).trim();
@@ -1160,7 +1156,12 @@ function validateCsvValueAgainstField(value, fieldDef) {
   }
 
   if (fieldType === 'date') {
-    if (!tryParseDateValue(v)) return { ok: false, reason: localeCopy.copy_a1eb0bc51c, fieldType: typeLabel };
+    if (!normalizeDateLiteral(v)) return { ok: false, reason: localeCopy.copy_a1eb0bc51c, fieldType: typeLabel };
+    return { ok: true };
+  }
+
+  if (fieldType === 'datetime') {
+    if (!normalizeDateTimeInstant(v)) return { ok: false, reason: localeCopy.copy_a1eb0bc51c, fieldType: typeLabel };
     return { ok: true };
   }
 
@@ -1400,6 +1401,7 @@ module.exports = {
   buildFieldHint,
   validateProfileField,
   tryParseDateValue,
+  detectColumnDateType,
   detectFieldTypeFromValues,
   normalizeEmptyValue,
   getFieldTypeDisplayName,

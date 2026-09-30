@@ -370,6 +370,31 @@
             <view class="picker-value">{{item.displayValue || copy.selectDate}}</view>
           </picker>
 
+          <view wx:elif="{{item.type === 'datetime'}}" class="datetime-picker-row">
+            <picker
+              class="datetime-picker-cell"
+              mode="date"
+              value="{{item.pickerDate}}"
+              bindchange="onHrProfileDateTimeChange"
+              data-index="{{index}}"
+              data-part="date"
+              disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
+            >
+              <view class="picker-value">{{item.displayDate || copy.selectDate}}</view>
+            </picker>
+            <picker
+              class="datetime-picker-cell"
+              mode="time"
+              value="{{item.pickerTime}}"
+              bindchange="onHrProfileDateTimeChange"
+              data-index="{{index}}"
+              data-part="time"
+              disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
+            >
+              <view class="picker-value">{{item.displayTime || copy.selectTime}}</view>
+            </picker>
+          </view>
+
           <input
             wx:elif="{{item.type === 'phone'}}"
             class="field-input"

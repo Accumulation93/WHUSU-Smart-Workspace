@@ -20,6 +20,8 @@ test('补充资料加载失败与成功空状态严格分离并提供原地重�
 test('只读资料和失败状态冻结所有资料输入控件', () => {
   const disabledContract = /disabled="\{\{hrProfile\.errorText \|\| hrProfile\.template\.editMode === 'readonly'\}\}"/g;
   const matches = templateSource.match(disabledContract) || [];
-  assert.equal(matches.length, 7);
+  // 文本/数字/手机号/邮箱输入、序列与日期选择器、日期时间的日期与时间两个选择器都必须冻结。
+  assert.equal(matches.length, 9);
+  assert.match(templateSource, /item\.type === 'datetime'[\s\S]*?data-part="date"[\s\S]*?data-part="time"/);
   assert.match(pageSource, /Array\.from\(value\)\.length/);
 });

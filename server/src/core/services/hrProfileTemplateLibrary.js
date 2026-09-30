@@ -4,11 +4,12 @@ const crypto = require('crypto');
 const pool = require('../../config/db');
 const { JWT_SECRET } = require('../../middleware/auth');
 const { generateId, safeString, normalizeEmptyValue } = require('../../utils/helpers');
+const { normalizeDateValue: normalizeDateValueShared, normalizeDateTimeValue } = require('../../utils/dateValue');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const { suggestFields } = require('./hrProfileFieldSuggestions');
 
 const EDIT_MODES = ['direct', 'audit', 'readonly'];
-const FIELD_TYPES = ['text', 'number', 'sequence', 'date', 'phone', 'email'];
+const FIELD_TYPES = ['text', 'number', 'sequence', 'date', 'datetime', 'phone', 'email'];
 const NUMBER_RULE_TYPES = ['value_range', 'length_range'];
 const SWITCH_ACTIONS = ['map', 'hide', 'delete'];
 const TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -23,23 +24,9 @@ function parseOptions(value) {
   }
 }
 
-function padDatePart(value) {
-  return String(value).padStart(2, '0');
-}
-
+// 日期只按字面取年月日；无法识别时返回空串，由调用方给出提示。
 function normalizeDateValue(value) {
-  const raw = normalizeEmptyValue(value);
-  if (!raw) return '';
-  const separatorMatch = raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$/);
-  const chineseMatch = raw.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日(?:.*)?$/);
-  const match = separatorMatch || chineseMatch;
-  if (!match) return '';
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return '';
-  return `${year}-${padDatePart(month)}-${padDatePart(day)}`;
+  return normalizeDateValueShared(normalizeEmptyValue(value));
 }
 
 function normalizePhoneValue(value) {
@@ -76,6 +63,10 @@ function coerceMappedValue(targetField, rawValue) {
   }
   if (type === 'date') {
     const normalized = normalizeDateValue(value);
+    return normalized ? { value: normalized } : { error: localeCopy.copy_ee70060b25 };
+  }
+  if (type === 'datetime') {
+    const normalized = normalizeDateTimeValue(value);
     return normalized ? { value: normalized } : { error: localeCopy.copy_ee70060b25 };
   }
   if (type === 'phone') {
@@ -351,7 +342,7 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
 function isPotentiallyCompatible(sourceType, targetType) {
   if (targetType === 'text') return true;
   if (targetType === 'number' || targetType === 'sequence') return true;
-  if (sourceType === 'text' && ['date', 'phone', 'email'].includes(targetType)) return true;
+  if (sourceType === 'text' && ['date', 'datetime', 'phone', 'email'].includes(targetType)) return true;
   return sourceType === targetType;
 }
 
@@ -379,7 +370,7 @@ function validateMappedValue(targetField, rawValue) {
     }
     return '';
   }
-  if (targetField.type === 'sequence' || targetField.type === 'date'
+  if (targetField.type === 'sequence' || targetField.type === 'date' || targetField.type === 'datetime'
     || targetField.type === 'phone' || targetField.type === 'email') return '';
   return localeCopy.copy_114e62ddbf;
 }

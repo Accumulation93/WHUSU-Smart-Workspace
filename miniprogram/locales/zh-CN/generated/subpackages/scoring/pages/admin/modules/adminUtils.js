@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  profileFieldTypeDatetime: '日期时间',
+  profileFieldHintDatetime: '请选择日期与时间（按系统时区显示）',
   copy_007b4d4286: '请输入整数',
   copy_027e560285: '录取部门',
   copy_03a3d115c7: '全部状态',
@@ -104,7 +106,7 @@ module.exports = Object.freeze({
   copy_9d0e9da601: 'UTC+10 (悉尼)',
   copy_a0e4ae632c: 'UTC-6 (芝加哥)',
   copy_a1399ed0a2: '由管理员维护',
-  copy_a1eb0bc51c: '不是有效日期（支持YYYY-MM-DD、YYYY/MM/DD、日期时间等格式）',
+  copy_a1eb0bc51c: '不是有效日期（支持 2006-10-20、2006/10/20、2006.10.20、2006年10月20日、Oct 20 2006 等写法）',
   copy_a3c996a525: '未命名评分问题',
   copy_a3dea6ada5: '填写整数',
   copy_a610bcb008: '，要求全评后计入核算',

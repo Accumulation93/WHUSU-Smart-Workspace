@@ -6,6 +6,7 @@ const {
   emptyHrProfileFilters,
   applyHrProfileFilters,
   tryParseDateValue,
+  detectColumnDateType,
   validateProfileField
 } = require('../modules/adminUtils');
 
@@ -88,10 +89,15 @@ test('同名岗位字典项只按组织内 ID 命中', () => {
   assert.equal(applyHrProfileFilters(rows, filters).length, 1);
 });
 
-test('补充资料日期不接受时间戳且文本长度按 Unicode 码点计算', () => {
+test('补充资料日期按字面取年月日、时间戳列归为日期时间且文本长度按 Unicode 码点计算', () => {
   assert.deepEqual(tryParseDateValue('2026/08/23'), { year: 2026, month: 8, day: 23 });
   const rawUtcTimestamp = ['2026-08-23', '11:10:16.000Z'].join('T');
-  assert.equal(tryParseDateValue(rawUtcTimestamp), null);
+  // 日期字段按字面取年月日：带时区偏移的时间戳不再被拒，日期取字面值。
+  assert.deepEqual(tryParseDateValue(rawUtcTimestamp), { year: 2026, month: 8, day: 23 });
+  // 列类型推断必须把时间戳列识别为日期时间，而不是文本。
+  assert.equal(detectColumnDateType([rawUtcTimestamp]), 'datetime');
+  assert.equal(detectColumnDateType(['2026/08/23', '2026-08-24']), 'date');
+  assert.equal(detectColumnDateType(['2026/08/23', '待定']), '');
   assert.equal(tryParseDateValue('23/08/2026'), null);
   assert.equal(validateProfileField({ type: 'text', label: '昵称', maxLength: 1 }, '𠮷'), '');
   assert.notEqual(validateProfileField({ type: 'text', label: '昵称', maxLength: 1 }, '𠮷好'), '');

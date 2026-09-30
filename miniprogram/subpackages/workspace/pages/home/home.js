@@ -5,7 +5,15 @@ const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
-const { formatDateTextOnly } = require('../../../../utils/hrProfileDate');
+const {
+  formatDateTextOnly,
+  normalizeDateLiteral,
+  normalizeDateTimeInstant,
+  formatDateTimeText,
+  formatDateTimePickerDate,
+  formatDateTimePickerTime,
+  pickerToUtcIso
+} = require('../../../../utils/hrProfileDate');
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
@@ -144,7 +152,11 @@ function showShortToast(title, icon = 'none') {
 }
 
 function isValidDateString(value) {
-  return Boolean(formatDateOnly(String(value || '')));
+  return Boolean(normalizeDateLiteral(String(value || '')));
+}
+
+function isValidDateTimeString(value) {
+  return Boolean(normalizeDateTimeInstant(String(value || '')));
 }
 
 function getNumericLength(value) {
@@ -160,6 +172,9 @@ function getProfileFieldTypeLabel(type) {
   }
   if (type === 'date') {
     return copy.text.dateType;
+  }
+  if (type === 'datetime') {
+    return copy.text.datetimeType;
   }
   if (type === 'phone') {
     return copy.text.phoneType;
@@ -233,6 +248,14 @@ function normalizeDisplayField(field = {}, valueMap = {}) {
     typeLabel: getProfileFieldTypeLabel(field.type),
     hintText: buildFieldHint(field)
   };
+  if (field.type === 'datetime') {
+    // 日期时间字段存绝对时刻，展示按系统时区换算；选择器分别给出日期与时间初值。
+    result.displayValue = rawValue ? (formatDateTimeText(rawValue) || rawValue) : '';
+    result.pickerDate = rawValue ? formatDateTimePickerDate(rawValue) : '';
+    result.pickerTime = rawValue ? formatDateTimePickerTime(rawValue) : '';
+    result.displayDate = result.pickerDate;
+    result.displayTime = result.pickerTime;
+  }
   if (field.type === 'sequence' && Array.isArray(field.options)) {
     const idx = field.options.indexOf(rawValue);
     result.valueIndex = idx >= 0 ? idx : 0;
@@ -292,6 +315,10 @@ function validateProfileField(field = {}, rawValue) {
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
+    return copy.format.selectValid(field.label);
+  }
+
+  if (field.type === 'datetime' && !isValidDateTimeString(value)) {
     return copy.format.selectValid(field.label);
   }
 
@@ -1033,6 +1060,37 @@ Page({
       ...fields[index],
       value: String(e.detail.value || ''),
       displayValue: formatDateTextOnly(String(e.detail.value || ''))
+    };
+
+    this.setData({
+      'hrProfile.template.fields': fields
+    });
+  },
+
+  // 日期时间字段只能通过选择器录入：日期与时间分别选择后合成绝对时刻。
+  onHrProfileDateTimeChange(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const part = String(e.currentTarget.dataset.part || '');
+    const fields = [...((this.data.hrProfile.template && this.data.hrProfile.template.fields) || [])];
+    const field = fields[index];
+    if (!field || (part !== 'date' && part !== 'time')) {
+      return;
+    }
+    const picked = String(e.detail.value || '');
+    const nextDate = part === 'date' ? picked : (field.pickerDate || formatDateTimePickerDate(field.value) || '');
+    const nextTime = part === 'time' ? picked : (field.pickerTime || formatDateTimePickerTime(field.value) || '');
+    if (!nextDate) {
+      return;
+    }
+    const instant = pickerToUtcIso(nextDate, nextTime || '00:00');
+    fields[index] = {
+      ...field,
+      value: instant,
+      displayValue: instant ? formatDateTimeText(instant) : '',
+      pickerDate: nextDate,
+      pickerTime: nextTime || '00:00',
+      displayDate: nextDate,
+      displayTime: nextTime || '00:00'
     };
 
     this.setData({

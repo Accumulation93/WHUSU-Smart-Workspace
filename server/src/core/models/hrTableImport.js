@@ -3,6 +3,7 @@ const { format: localeFormat } = require('../../locales/runtime');
 const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
 const { nowMysqlUtc } = require('../../utils/dateTime');
+const { normalizeDateValue, normalizeDateTimeValue } = require('../../utils/dateValue');
 const unifiedIdentityModel = require('./unifiedIdentity');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const { countUserCharacters } = require('../services/hrDomainPolicy');
@@ -134,23 +135,6 @@ function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
   });
 }
 
-function tryParseDate(rawValue) {
-  const value = String(rawValue == null ? '' : rawValue).trim();
-  if (!value) return null;
-  const match = value.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
-  if (match) {
-    const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const day = parseInt(match[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1) {
-      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-      if (day <= daysInMonth) {
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-    }
-  }
-  return null;
-}
 
 function validateFieldValue(field, rawValue) {
   const value = normalizeEmptyValue(rawValue);
@@ -179,7 +163,8 @@ function validateFieldValue(field, rawValue) {
     if (field.options.length && field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_60f441b409, [field.label]);
     return '';
   }
-  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_4a203bdbda, [field.label]);
+  if (field.type === 'date' && !normalizeDateValue(value)) return localeFormat(localeCopy.copy_4a203bdbda, [field.label]);
+  if (field.type === 'datetime' && !normalizeDateTimeValue(value)) return localeFormat(localeCopy.copy_4a203bdbda, [field.label]);
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_40ca1af540, [field.label]);
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_e3215fea62, [field.label]);
   return '';
@@ -392,7 +377,9 @@ async function prepareHrTableImport(payload, orgId) {
         rowErrors.push(buildError(field ? field.label : localeCopy.copy_9ec66981b8, value, error, field ? field.type : 'text'));
         return;
       }
-      extensionValues[mapping.fieldId] = field && field.type === 'date' ? tryParseDate(value) : value;
+      if (field && field.type === 'date') extensionValues[mapping.fieldId] = normalizeDateValue(value);
+      else if (field && field.type === 'datetime') extensionValues[mapping.fieldId] = normalizeDateTimeValue(value);
+      else extensionValues[mapping.fieldId] = value;
     });
 
     const basicErrorCount = rowErrors.filter((error) => error.fieldType === personnelCopy.basicProfileLabel).length;

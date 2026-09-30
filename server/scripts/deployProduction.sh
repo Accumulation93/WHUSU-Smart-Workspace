@@ -298,6 +298,12 @@ if [[ "$PLAN_JSON" == *"20260826170000_score_snapshot_v2_normalization.sql"* ]];
   timeout --signal=TERM --kill-after=30s 600s \
     node "$NEW_RELEASE/server/scripts/normalizeScoreCalculationSnapshots.js" --preflight
 fi
+
+DATE_VALUE_NORMALIZE_REPORT="$LOG_DIR/hr-date-normalization-$(date +%Y%m%d-%H%M%S).json"
+log "预检人事补充资料日期/日期时间存量归一化"
+DATE_VALUE_PLAN_JSON="$(timeout --signal=TERM --kill-after=30s 600s \
+  node "$NEW_RELEASE/server/scripts/normalizeHrProfileDateValues.js" --preflight --report="$DATE_VALUE_NORMALIZE_REPORT" | tail -n 1)"
+DATE_VALUE_PENDING="$(printf '%s' "$DATE_VALUE_PLAN_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).planned))}catch(e){process.stdout.write('0')}})")"
 if [[ "$PLAN_JSON" == *"20260823190000_utc_time_normalization.sql"* ]]; then
   log "执行生产时间来源只读预检"
   timeout --signal=TERM --kill-after=30s 300s node "$NEW_RELEASE/server/scripts/preflightUtcTimeMigration.js" --strict
@@ -355,6 +361,14 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     log "执行 UTC 迁移逐记录语义校验"
     timeout --signal=TERM --kill-after=30s 1200s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --verify
   fi
+  if [[ "${DATE_VALUE_PENDING:-0}" -gt 0 ]]; then
+    log "归一化人事补充资料日期/日期时间存量值"
+    timeout --signal=TERM --kill-after=30s 1200s \
+      node "$NEW_RELEASE/server/scripts/normalizeHrProfileDateValues.js" --apply --report="$DATE_VALUE_NORMALIZE_REPORT"
+  fi
+  log "校验人事补充资料日期存量值已归一化"
+  timeout --signal=TERM --kill-after=30s 1200s \
+    node "$NEW_RELEASE/server/scripts/normalizeHrProfileDateValues.js" --verify --report="$DATE_VALUE_NORMALIZE_REPORT"
   AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
     AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
     node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js"

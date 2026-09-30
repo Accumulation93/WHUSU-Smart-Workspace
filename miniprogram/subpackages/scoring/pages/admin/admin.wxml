@@ -1609,6 +1609,16 @@
                     <view class="picker-value">{{detailHrValues[item.id] || localeCopy.copy_9d1ff80fae}}</view>
                   </picker>
                 </block>
+                <block wx:elif="{{item.type === 'datetime'}}">
+                  <view class="datetime-picker-row">
+                    <picker class="datetime-picker-cell" disabled="{{!canManageHrPeople || detailHrReadOnly}}" mode="date" value="{{detailFieldDateTimes[item.id].date}}" bindchange="onDetailProfileFieldInput" data-field="{{item.id}}" data-part="date">
+                      <view class="picker-value">{{detailFieldDateTimes[item.id].date || localeCopy.copy_9d1ff80fae}}</view>
+                    </picker>
+                    <picker class="datetime-picker-cell" disabled="{{!canManageHrPeople || detailHrReadOnly}}" mode="time" value="{{detailFieldDateTimes[item.id].time}}" bindchange="onDetailProfileFieldInput" data-field="{{item.id}}" data-part="time">
+                      <view class="picker-value">{{detailFieldDateTimes[item.id].time || localeCopy.selectTime}}</view>
+                    </picker>
+                  </view>
+                </block>
                 <block wx:elif="{{item.type === 'number'}}">
                   <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" type="digit" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_c952809d89}}" />
                 </block>

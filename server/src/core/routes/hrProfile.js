@@ -7,6 +7,7 @@ const router = express.Router();
 const { createNotification } = require('../../modules/audit/utils/notificationHelper');
 const { safeString, generateId, buildNameMap, normalizeEmptyValue } = require('../../utils/helpers');
 const { nowMysqlUtc } = require('../../utils/dateTime');
+const { normalizeDateValue, normalizeDateTimeValue } = require('../../utils/dateValue');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const { resolveCurrentAdmin } = require('../services/adminRequestContext');
 const { resolveSelfHrProfileSubject } = require('../services/selfHrProfileSubject');
@@ -124,24 +125,6 @@ function normalizeTemplateField(field) {
   };
 }
 
-function tryParseDate(rawValue) {
-  const value = (rawValue == null ? '' : String(rawValue)).trim();
-  if (!value) return null;
-  const match = value.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
-  if (match) {
-    const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const day = parseInt(match[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1) {
-      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-      if (day <= daysInMonth) {
-        return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-      }
-    }
-  }
-  return null;
-}
-
 function validateFieldValue(field, rawValue, isAdmin) {
   const value = normalizeEmptyValue(rawValue);
   if (field.required && !value && !isAdmin) return localeFormat(localeCopy.copy_377d9cc43d, [field.label]);
@@ -167,7 +150,8 @@ function validateFieldValue(field, rawValue, isAdmin) {
     return '';
   }
   if (field.type === 'sequence') { if (field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_02808711c5, [field.label]); return ''; }
-  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
+  if (field.type === 'date' && !normalizeDateValue(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
+  if (field.type === 'datetime' && !normalizeDateTimeValue(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_e840878ac4, [field.label]);
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_f117197c23, [field.label]);
   return '';
@@ -297,8 +281,11 @@ router.post('/submitUserHrProfile', async (req, res) => {
       if (err) return res.json({ status: 'invalid_params', message: err });
       normalizedValues[field.id] = rawValue == null ? '' : String(rawValue).trim();
       if (field.type === 'date' && normalizedValues[field.id]) {
-        const parsed = tryParseDate(normalizedValues[field.id]);
-        if (parsed) normalizedValues[field.id] = parsed;
+        const normalized = normalizeDateValue(normalizedValues[field.id]);
+        if (normalized) normalizedValues[field.id] = normalized;
+      }
+      if (field.type === 'datetime' && normalizedValues[field.id]) {
+        normalizedValues[field.id] = normalizeDateTimeValue(normalizedValues[field.id]) || normalizedValues[field.id];
       }
     }
 
@@ -878,8 +865,11 @@ router.post('/saveHrPersonFull', async (req, res) => {
         if (err) return res.json({ status: 'invalid_params', message: err });
         normalizedValues[fieldId] = rawValue == null ? '' : String(rawValue).trim();
         if (field.type === 'date' && normalizedValues[fieldId]) {
-          const parsed = tryParseDate(normalizedValues[fieldId]);
-          if (parsed) normalizedValues[fieldId] = parsed;
+          const normalized = normalizeDateValue(normalizedValues[fieldId]);
+          if (normalized) normalizedValues[fieldId] = normalized;
+        }
+        if (field.type === 'datetime' && normalizedValues[fieldId]) {
+          normalizedValues[fieldId] = normalizeDateTimeValue(normalizedValues[fieldId]) || normalizedValues[fieldId];
         }
       }
 

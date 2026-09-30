@@ -176,6 +176,28 @@ scroll-view {
     inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
 }
 
+/* 日期时间字段：日期与时间各占一格，沿用共享控件尺寸令牌。 */
+.datetime-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.datetime-picker-cell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.datetime-picker-cell .picker-value {
+  width: 100%;
+}
+
+@media (min-width: 520px) {
+  .datetime-picker-row {
+    gap: 10px;
+  }
+}
+
 .picker-value:active {
   border-color: rgba(59, 130, 246, 0.96);
   box-shadow:
