@@ -711,7 +711,7 @@
                 <text class="admin-time-arrow">▲</text><view class="admin-time-tag">{{adminBookingTimeEnd}} {{controlLayoutCopy.end}}</view>
               </view>
             </view>
-            <view class="timeline-ticks admin-time-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
+            <view class="timeline-ticks admin-time-ticks"><text wx:for="{{localeCopy.timelineTicks}}" wx:key="*this">{{item}}</text></view>
           </view>
           <view class="field"><view class="field-label">{{localeCopy.copy_deb776d2af}}</view>
             <view wx:if="{{adminStartHours.length}}" class="time-picker-row">

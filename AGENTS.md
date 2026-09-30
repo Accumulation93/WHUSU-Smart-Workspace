@@ -81,6 +81,7 @@
 
 - 修改过的所有 JS：`node --check`。
 - 小程序前端：`node scripts/miniprogram-compat-audit.js`，并在微信开发者工具中至少编译主包和所有分包入口。
+- 用户可见文案：`node scripts/user-visible-copy-audit.js --strict`、两个 `--strict-localization`、`--strict-guidance`，以及 `node scripts/copy-quality-audit.js`（语言系统内的文案值质量；存量清零后改为 `--strict` 门禁）。文案修改必须逐条按语言判断手写，禁止脚本批量替换。
 - 工作区补丁：`git diff --check`。
 - WXML/WXSS：检查标签闭合、选择器覆盖顺序、父子点击隔离、移动端与平板布局。
 - 服务端：检查路由、Model、认证、参数校验、SQL 参数化、组织隔离和响应契约。

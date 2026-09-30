@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  timelineTicks: Object.freeze(['0:00', '6:00', '12:00', '18:00', '24:00']),
   bookingPurposeDeletePrefix: '确定删除常用事由“',
   bookingPurposeDeleteSuffix: '”吗？已被借用记录使用的事由不能删除。',
   bookingPurposeTooLong: '事由内容最多填写 200 个字符',

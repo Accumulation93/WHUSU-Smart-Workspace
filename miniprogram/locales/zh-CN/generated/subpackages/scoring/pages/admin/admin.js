@@ -7,6 +7,15 @@ module.exports = Object.freeze({
   importIssueHint: '以下记录不符合当前模板，导入时会被跳过；可返回修改表格后重新导入，或直接勾选忽略不兼容。',
   importRowPrefix: '第 ',
   importRowSuffix: ' 行',
+  gradeBandLabelText: {
+    fallbackPrefix: '区间 ',
+    rangeOpen: '（',
+    rangeSeparator: '-',
+    rangeClose: '）'
+  },
+  rankMedalGold: '🥇',
+  rankMedalSilver: '🥈',
+  rankMedalBronze: '🥉',
   selectTime: '请选择时间',
   copy_00c8a8f256: "全选",
   copy_00cb20b85e: "查看/编辑",

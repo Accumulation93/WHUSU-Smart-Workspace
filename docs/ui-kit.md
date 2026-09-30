@@ -73,6 +73,9 @@
 - 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等用户可见常量只能来自 locale。业务代码通过语义键和格式化参数引用；CSV 列别名、状态码、路由和内部日志不属于文案。
 - locale 生成必须合并现有文件与 Git 基线资源，禁止覆盖同文件已有键；迁移后必须重跑语言审计和受影响功能测试。
 - 发布前必须通过 `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`、`node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization` 和 `node scripts/user-visible-copy-audit.js --strict-guidance`。
+- 用户文案规范（`node scripts/copy-quality-audit.js` 检查语言系统内的文案值）：不得首尾带空格、不得以标点开头或结尾、不得以冒号结尾；不得把 `▼▲✓✗○●✎` 等符号写进文案，状态符号由 WXML/WXSS 承担；不得使用半角括号与 `...`，统一全角括号与 `…`；不得把一句话拆成多个键再拼接，动态段一律用 `{0}`，单位随完整句式出现；结果提示使用「对象+动作+成功/失败」，失败必须给出下一步；按钮使用动词短语，不得包含括号或数量，数量放独立 `.ui-action-summary`；短提示不加句末句号，同类提示口径一致。
+- 文案术语表（唯一写法）：「资料项」（模板编辑与导入导出统一，不再写「字段」）、「职能组」、「工作角色」（通用称谓）、「岗位」、「身份类别」、「管理权限」、「应用服务」、「认证码」「恢复码」、「驳回原因」、「处理人」、「处理时间」；申请单与模块称「审核」（审核申请、审核记录、审核模板、审核状态），动作与角色称「审批」（审批人、审批步骤、审批意见、审批流程）；日期展示 `2004.08.31`，日期时间展示 `2006-10-20 08:00:00`；面向用户统一称「你」。
+- 提示语审计分三层，缺一不可：`user-visible-copy-audit.js`（业务代码硬编码，覆盖 WXML/WXS/JSON 与提示常量）、`copy-quality-audit.js`（语言系统内文案值的质量与跨文件一致性）、`ui-audit.js`（控件与弹窗契约）。文案存量清零后 `copy-quality-audit.js --strict` 纳入 CI 硬门禁。
 
 ## 设备层级
 

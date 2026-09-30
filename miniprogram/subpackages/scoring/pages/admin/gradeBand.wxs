@@ -17,15 +17,22 @@ function getColor(name) {
   return PALETTE[Math.abs(hash) % PALETTE.length];
 }
 
-function getLabel(item, index) {
+// 文案全部由调用方从语言系统传入，WXS 内不得保留任何用户可见中文或标点。
+function getLabel(item, index, labelText) {
+  var text = labelText || {};
   var name = item.gradeName || '';
   var minS = item.minScore;
   var maxS = item.maxScore;
   if (name && (minS !== undefined && minS !== '' || maxS !== undefined && maxS !== '')) {
-    return name + ' (' + (minS || '?') + '-' + (maxS || '?') + ')';
+    return name
+      + (text.rangeOpen || '')
+      + (minS || '?')
+      + (text.rangeSeparator || '-')
+      + (maxS || '?')
+      + (text.rangeClose || '');
   }
   if (name) return name;
-  return '区间 ' + (index + 1);
+  return (text.fallbackPrefix || '') + (index + 1);
 }
 
 module.exports = {

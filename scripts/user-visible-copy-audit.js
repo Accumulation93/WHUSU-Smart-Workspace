@@ -28,6 +28,8 @@ const SERVER_ROOT = path.join(ROOT, 'server', 'src');
 const VISIBLE_ATTRIBUTES = new Set([
   'placeholder', 'title', 'label', 'aria-label', 'confirm-text', 'cancel-text'
 ]);
+// 页面 JSON 里唯一会被渲染的文案字段。
+const VISIBLE_JSON_KEYS = ['navigationBarTitleText'];
 const RULES = [
   { id: 'technical-detail', pattern: /(数据库|服务端|客户端|接口|后台|OpenID|openid|令牌|服务器本地|初始化脚本|上下文|会话|参数|标识|主体|字段|映射|快照|哈希|签名链|配置|校验|统一身份|账号体系|认领请求)/i },
   { id: 'internal-workflow', pattern: /(预检|迁移来源字段|未授权接口|数据异常|不合法|失败|错误|异常)/ },
@@ -50,7 +52,10 @@ const EXEMPTIONS = [
   { file: 'miniprogram/utils/hrFieldMatching.js', pattern: /^(?:手机号|手机号码|联系电话|邮箱|电子邮箱|电子邮件|身份|职位|身份类别)$/ },
   { file: 'server/src/index.js', pattern: /数据库不可用/ },
   // 通知 worker 的结构校验码只进入重试/死信日志，不会作为接口 message 返回。
-  { file: 'server/src/modules/audit/services/notificationOutboxService.js', pattern: /^notification_(?:payload_missing|payload_invalid|recipient_invalid)$/ }
+  { file: 'server/src/modules/audit/services/notificationOutboxService.js', pattern: /^notification_(?:payload_missing|payload_invalid|recipient_invalid)$/ },
+  // WXS 里的等第名称是配色字典的匹配键（与数据 gradeName 比对），不是展示文案；
+  // 同一文件中的用户可见文案已全部改由调用方从语言系统传入。
+  { file: 'miniprogram/subpackages/scoring/pages/admin/gradeBand.wxs', pattern: /^(?:优秀|良好|合格|不合格)$/ }
 ];
 
 function walk(dir, extensions, output = []) {
@@ -205,6 +210,31 @@ function visibleJsFragments(file) {
   return { source, fragments };
 }
 
+// WXS 在视图层运行，无法读取页面语言对象，任何中文都只能是硬编码文案。
+function visibleWxsFragments(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  return {
+    source,
+    fragments: jsStringLiterals(source)
+      .filter((literal) => /[\u3400-\u9fff]/.test(literal.text))
+      .map((literal) => ({ text: literal.text, offset: literal.offset }))
+  };
+}
+
+// 页面 JSON 只有导航标题会渲染给用户；其余字段是构建配置。
+function visibleJsonFragments(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const fragments = [];
+  for (const key of VISIBLE_JSON_KEYS) {
+    const pattern = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'g');
+    for (const match of source.matchAll(pattern)) {
+      const text = match[1].replace(/\{\{[\s\S]*?\}\}/g, ' ').trim();
+      if (text) fragments.push({ text, offset: match.index });
+    }
+  }
+  return { source, fragments };
+}
+
 function guidanceJsFragments(file) {
   const source = fs.readFileSync(file, 'utf8');
   const isServer = file.startsWith(SERVER_ROOT);
@@ -290,15 +320,18 @@ const localizationPrefixArg = process.argv.find((arg) => arg.startsWith('--local
 const localizationPrefix = localizationPrefixArg ? localizationPrefixArg.slice('--localization-prefix='.length) : '';
 const localizationFindings = [];
 const guidanceFindings = [];
-const files = walk(MINI_ROOT, ['.wxml', '.js']).concat(
+const files = walk(MINI_ROOT, ['.wxml', '.js', '.wxs', '.json']).concat(
   walk(SERVER_ROOT, ['.js']).filter((file) => !file.includes(`${path.sep}config${path.sep}`)
     && relative(file) !== 'server/src/utils/schemaContract.js')
 ).concat([path.join(ROOT, 'server', 'notificationWorker.js')].filter((file) => fs.existsSync(file)));
 for (const file of files) {
   const fileName = relative(file);
   if (fileName.includes('/locales/')) continue;
-  const result = file.endsWith('.wxml') ? visibleWxmlFragments(file) : visibleJsFragments(file);
-  const guidanceResult = file.endsWith('.js') && !isTestSource(fileName)
+  const result = file.endsWith('.wxml') ? visibleWxmlFragments(file)
+    : file.endsWith('.wxs') ? visibleWxsFragments(file)
+      : file.endsWith('.json') ? visibleJsonFragments(file)
+        : visibleJsFragments(file);
+  const guidanceResult = (file.endsWith('.js') || file.endsWith('.wxs')) && !isTestSource(fileName)
     ? guidanceJsFragments(file)
     : { source: result.source, fragments: [] };
   for (const fragment of result.fragments) {

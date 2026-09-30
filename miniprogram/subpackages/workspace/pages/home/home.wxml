@@ -176,9 +176,9 @@
             <view class="ranked-list">
               <view class="rank-card rank-card-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="name" style="animation-delay: {{0.05 * index}}s;">
                 <view class="rank-badge rank-badge-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}">
-                  <text wx:if="{{index === 0}}">🥇</text>
-                  <text wx:elif="{{index === 1}}">🥈</text>
-                  <text wx:elif="{{index === 2}}">🥉</text>
+                  <text wx:if="{{index === 0}}">{{copy.rankMedalGold}}</text>
+                  <text wx:elif="{{index === 1}}">{{copy.rankMedalSilver}}</text>
+                  <text wx:elif="{{index === 2}}">{{copy.rankMedalBronze}}</text>
                   <text wx:else>{{index + 1}}</text>
                 </view>
                 <view class="member-info">
@@ -200,9 +200,9 @@
       <view class="ranked-list">
         <view class="rank-card rank-card-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{filteredResults}}" wx:key="name" style="animation-delay: {{0.06 * index}}s;">
           <view class="rank-badge rank-badge-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}">
-            <text wx:if="{{item.rank === 1}}">🥇</text>
-            <text wx:elif="{{item.rank === 2}}">🥈</text>
-            <text wx:elif="{{item.rank === 3}}">🥉</text>
+            <text wx:if="{{item.rank === 1}}">{{copy.rankMedalGold}}</text>
+            <text wx:elif="{{item.rank === 2}}">{{copy.rankMedalSilver}}</text>
+            <text wx:elif="{{item.rank === 3}}">{{copy.rankMedalBronze}}</text>
             <text wx:else>{{item.rank}}</text>
           </view>
           <view class="member-info">

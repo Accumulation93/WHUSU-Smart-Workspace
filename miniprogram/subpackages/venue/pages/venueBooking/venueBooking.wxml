@@ -281,7 +281,7 @@ module.exports = { hour: hour, min: min };
                 <view class="tl-tag tl-tag-end">{{bookingTimeEnd ? bookingTimeEnd + localeCopy.copy_ed57cd26dc : localeCopy.copy_ed57cd26dc}}</view>
               </view>
             </view>
-            <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
+            <view class="timeline-ticks"><text wx:for="{{localeCopy.timelineTicks}}" wx:key="*this">{{item}}</text></view>
             <view class="timeline-legend">
               <text class="tl-leg"><view class="tl-dot free"></view>{{localeCopy.copy_eb3a2a30a8}}</text>
               <text class="tl-leg"><view class="tl-dot booked"></view>{{localeCopy.copy_a8a6082fe6}}</text>

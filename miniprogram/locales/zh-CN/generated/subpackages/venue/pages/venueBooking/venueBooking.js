@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  timelineTicks: Object.freeze(['0:00', '6:00', '12:00', '18:00', '24:00']),
   applicantAssignment: '借用岗位',
   approverAssignment: '处理岗位：',
   contextSwitchRequired: '需要切换岗位后处理',

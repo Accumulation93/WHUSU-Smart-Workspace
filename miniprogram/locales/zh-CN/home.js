@@ -4,6 +4,9 @@ const common = require('./common');
 
 const text = Object.freeze({
   all: '全部',
+  rankMedalGold: '🥇',
+  rankMedalSilver: '🥈',
+  rankMedalBronze: '🥉',
   appName: common.brandName,
   organizationName: common.organizationName,
   defaultPageName: '考核评分',
