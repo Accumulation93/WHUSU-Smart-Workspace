@@ -1873,7 +1873,7 @@
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
-        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
+        </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_72a40b3f52}}</button>
@@ -1954,7 +1954,7 @@
             {{localeCopy.copy_1ddb44b743}}
           </view>
           <view class="scroll-tail-space"></view>
-        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+        </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_034ae84999}}</button>
           <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}" loading="{{csvImportLoading}}" catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b35531a5fd}}</button>
