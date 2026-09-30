@@ -3294,6 +3294,9 @@ page .pending-refresh-btn {
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  /* 长列表弹窗用视口安全区给的确定高度，网格轨道与原生滚动视口才有确定尺寸；
+     不写死像素/百分比偏移，手机、Pad 竖屏、Pad 横屏自动适配。 */
+  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
