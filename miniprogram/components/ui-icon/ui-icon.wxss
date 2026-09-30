@@ -12,6 +12,8 @@
 .ui-icon-size-context-trailing { width: 22rpx; height: 22rpx; }
 .ui-icon-size-feature-leading { width: 42rpx; height: 42rpx; }
 .ui-icon-size-row-leading { width: 34rpx; height: 34rpx; }
+/* 状态提示图标：与提示卡片内图标位一致，三档设备同尺寸（受控像素）。 */
+.ui-icon-size-toast-leading { width: 40px; height: 40px; }
 
 @media (min-width: 520px) {
   .ui-icon-size-message-leading { width: 28px; height: 28px; }

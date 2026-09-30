@@ -2,8 +2,8 @@
 
 const ICON_NAMES = [
   'bell', 'calendar', 'check', 'chevron-right', 'clock', 'edit', 'file',
-  'grid', 'home', 'list', 'plus', 'search', 'shield', 'signature', 'trash',
-  'user', 'venue', 'x'
+  'grid', 'home', 'list', 'plus', 'search', 'shield', 'signature', 'toast-check',
+  'toast-info', 'toast-x', 'trash', 'user', 'venue', 'x'
 ];
 
 Component({

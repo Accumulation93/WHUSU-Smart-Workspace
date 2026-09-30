@@ -6,3 +6,6 @@
     <audit-verification-result wx:if="{{resultJson}}" result-json="{{resultJson}}" report="{{true}}" />
   </view>
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

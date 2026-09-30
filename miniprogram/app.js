@@ -2,6 +2,7 @@ require('./utils/runtimeCompat');
 const copy = require('./locales/zh-CN/app');
 const { callFunction } = require('./utils/api');
 const eventBus = require('./utils/eventBus');
+const appToast = require('./utils/appToast');
 
 const TIME_CONFIG_REFRESH_INTERVAL_MS = 60 * 1000;
 const TIME_CONFIG_RETRY_DELAYS_MS = [1000, 3000, 10000, 30000];
@@ -9,6 +10,8 @@ const TIME_CONFIG_RETRY_DELAYS_MS = [1000, 3000, 10000, 30000];
 App({
   onLaunch: function () {
     const that = this;
+    // 所有状态提示统一走自绘弹框，避免微信自带提示截断较长文案。
+    appToast.installAppToast();
     this._timeConfigChangedHandler = function(config) { that._notifyTimeConfigChanged(config); };
     eventBus.on('time:configChanged', this._timeConfigChangedHandler);
     if (!wx.getUpdateManager) return;

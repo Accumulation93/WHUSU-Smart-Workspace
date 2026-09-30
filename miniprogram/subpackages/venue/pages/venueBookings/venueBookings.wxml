@@ -5,3 +5,6 @@
     <view class="redirect-desc">{{localeCopy.copy_0696de3430}}</view>
   </view>
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

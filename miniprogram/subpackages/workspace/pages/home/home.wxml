@@ -560,3 +560,6 @@
 
   <personnel-picker visible="{{showUserDesigPopup}}" title="{{copy.designateMeritList}}" options="{{userDesigHrList}}" value="{{userDesigSelectedList}}" selectionLevel="assignment" multiple="{{true}}" confirmLoading="{{userDesigSaving}}" bindconfirm="confirmSharedUserDesignation" bindcancel="closeUserDesignation" />
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

@@ -1,0 +1,16 @@
+<viewport-portal wx:if="{{visible}}">
+  <view class="app-toast-overlay {{blocking ? 'is-blocking' : ''}}">
+    <view class="app-toast-blocker" wx:if="{{blocking}}" catchtouchmove="noop"></view>
+    <view
+      class="app-toast-card"
+      aria-role="alert"
+      aria-label="{{text}}"
+    >
+      <view class="app-toast-leading">
+        <view class="app-toast-spinner" wx:if="{{state === 'loading'}}"></view>
+        <ui-icon wx:else name="{{iconName}}" tone="white" size-role="toast-leading" />
+      </view>
+      <view class="app-toast-text">{{text}}</view>
+    </view>
+  </view>
+</viewport-portal>

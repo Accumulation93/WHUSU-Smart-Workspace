@@ -4,3 +4,6 @@
     <view class="section-title">{{localeCopy.copy_b5e5c2ce52}}</view>
   </view>
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

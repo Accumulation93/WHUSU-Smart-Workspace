@@ -1,0 +1,143 @@
+/*
+ * 统一状态提示（替代微信自带 showToast / showLoading）。
+ *
+ * 视觉对齐微信原生：纯黑半透明圆角块、状态图标在上、白色正文在下、整体居中。
+ * 与原生唯一的差别是正文不再受字数限制——原生为了塞进固定方框只留极短一行，
+ * 这里正文按内容自然换行、行数不限，超过视口上限时在卡片内滚动，任何长度的
+ * 提示都能完整读到；同时把状态图标放大到原生比例，避免出现「图标比正文还小」。
+ *
+ * 尺寸一律写成确定值（不继承页面变量），保证任意页面上提示都是同一套比例。
+ */
+
+.app-toast-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx 48rpx calc(40rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  /* 非阻塞提示：提示之外的区域仍可正常操作，与原生 showToast 一致。 */
+  pointer-events: none;
+}
+
+/* 阻塞提示（showLoading）：只拦截交互，不做压暗，与微信原生遮罩行为一致。 */
+.app-toast-overlay.is-blocking {
+  pointer-events: auto;
+}
+
+.app-toast-blocker {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: transparent;
+}
+
+.app-toast-card {
+  position: relative;
+  /*
+   * 状态提示字号：与弹窗元信息字阶同档（12 / 13 / 13.5px）。
+   * 提示渲染在 viewport-portal 里，页面级字号变量在自定义组件内不可靠，
+   * 因此组件自带分档令牌，保证三档设备上提示文字都是同一套比例。
+   */
+  --app-toast-text-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 130px;
+  max-width: min(78vw, 460px);
+  max-height: 70vh;
+  padding: 18px 20px;
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.22);
+  box-sizing: border-box;
+  animation: appToastIn 0.16s ease-out both;
+}
+
+.app-toast-leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+}
+
+.app-toast-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: appToastSpin 0.72s linear infinite;
+}
+
+.app-toast-text {
+  display: block;
+  width: 100%;
+  max-height: 54vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 状态提示属于辅助信息，字号比正文与标签更克制。 */
+  font-size: var(--app-toast-text-size, 12px);
+  line-height: 1.42;
+  color: #ffffff;
+  font-weight: 400;
+  text-align: center;
+  /* 长文案不截断：任意位置都可换行，长英文、URL、编号都不会撑破卡片。 */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+@keyframes appToastIn {
+  from { transform: scale(0.94); }
+  to { transform: scale(1); }
+}
+
+@keyframes appToastSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pad 竖屏：密度收紧，字号与图标改用受控像素，避免随屏幕继续放大。 */
+@media (min-width: 520px) {
+  .app-toast-overlay {
+    padding: 24px 32px calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .app-toast-card {
+    --app-toast-text-size: 13px;
+    gap: 10px;
+    min-width: 150px;
+    max-width: min(72vw, 460px);
+    padding: 20px 22px;
+    border-radius: 12px;
+  }
+
+  .app-toast-text {
+    max-height: 50vh;
+  }
+}
+
+/* Pad 横屏：正文完整可读仍是第一优先级，图标与正文比例保持不变。 */
+@media (min-width: 900px) and (orientation: landscape) {
+  .app-toast-card {
+    --app-toast-text-size: 13.5px;
+    max-width: min(64vw, 460px);
+    padding: 19px 21px;
+  }
+
+  .app-toast-text {
+    max-height: 46vh;
+  }
+}

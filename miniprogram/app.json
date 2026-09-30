@@ -73,7 +73,8 @@
   },
   "usingComponents": {
     "workspace-hero": "/components/workspace-hero/workspace-hero",
-    "viewport-portal": "/components/viewport-portal/viewport-portal"
+    "viewport-portal": "/components/viewport-portal/viewport-portal",
+    "app-toast": "/components/app-toast/app-toast"
   },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents"

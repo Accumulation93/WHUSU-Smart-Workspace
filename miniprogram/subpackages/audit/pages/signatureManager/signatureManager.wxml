@@ -42,3 +42,6 @@
     <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

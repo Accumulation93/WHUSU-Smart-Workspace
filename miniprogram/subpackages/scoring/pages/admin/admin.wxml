@@ -3400,3 +3400,6 @@
     />
 
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />

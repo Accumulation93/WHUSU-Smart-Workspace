@@ -47,3 +47,6 @@
 
   <view class="page-footer"><view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view><view class="footer-org">{{localeCopy.copy_638da8ae60}}</view></view>
 </view>
+
+<!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
+<app-toast />
