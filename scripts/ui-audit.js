@@ -1513,7 +1513,9 @@ const missingStableDialogSystem = !(
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*flex:\s*0\s+1\s+auto\s*!important;[^}]*max-height:\s*calc\(100vh/m.test(GLOBAL_STYLE)
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*flex:\s*1\s+1\s+auto\s*!important;[^}]*max-height:\s*none\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*100%\s*!important;/m.test(GLOBAL_STYLE) &&
+  !/\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*max-height:\s*calc\(100vh\s*-\s*\d/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(
   /^\s*\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100vh\s*!important;/m.test(GLOBAL_STYLE) &&

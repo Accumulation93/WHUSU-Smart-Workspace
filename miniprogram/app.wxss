@@ -3301,10 +3301,17 @@ page .pending-refresh-btn {
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-  flex: 0 1 auto !important;
+  flex: 1 1 auto !important;
   height: auto !important;
   min-height: 0 !important;
-  max-height: calc(100vh - 260rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  /* 正文高度由外壳动态上限与网格轨道决定，不写死减去固定偏移。 */
+  max-height: none !important;
+}
+
+/* 三段网格外壳：正文占满 minmax(0, 1fr) 轨道，原生滚动视口才拿到确定高度。 */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid > .ui-dialog-body {
+  height: 100% !important;
+  max-height: 100% !important;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > .ui-dialog-body,
@@ -3479,7 +3486,8 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    max-height: calc(100vh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    /* 正文高度由外壳动态上限与网格轨道决定，平板端不再写死固定偏移。 */
+  max-height: none !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
@@ -3519,7 +3527,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    max-height: calc(100vh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    max-height: none !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
