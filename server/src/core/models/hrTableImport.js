@@ -311,7 +311,8 @@ async function prepareHrTableImport(payload, orgId) {
   const names = buildExistingNameMaps(context);
   const hrByStudentId = new Map(context.hrRows.map((item) => [safeString(item.student_id), item]));
   const templateFieldById = new Map(context.templateFields.map((field) => [field.id, field]));
-  const seenStudentIds = new Set();
+  // 记录每个学号首次出现的表格行号，重复时报出“与哪一行相同”，便于用户回到原表定位。
+  const seenStudentIds = new Map();
   const parsedRows = [];
   const validationErrors = [];
   let preservedEmptyFields = 0;
@@ -325,9 +326,15 @@ async function prepareHrTableImport(payload, orgId) {
     if (!studentId) {
       rowErrors.push(buildError(personnelCopy.studentIdLabel, '', personnelCopy.requiredStudentId));
     } else if (seenStudentIds.has(studentId)) {
-      rowErrors.push(buildError(personnelCopy.studentIdLabel, studentId, personnelCopy.duplicateStudentId));
+      rowErrors.push(buildError(
+        personnelCopy.studentIdLabel,
+        studentId,
+        personnelCopy.duplicateStudentIdRowPrefix
+          + seenStudentIds.get(studentId)
+          + personnelCopy.duplicateStudentIdRowSuffix
+      ));
     } else {
-      seenStudentIds.add(studentId);
+      seenStudentIds.set(studentId, tableRow.rowNumber || 0);
     }
     const membershipStatus = safeString(existing && existing.membership_status);
     if (existing && membershipStatus && membershipStatus !== 'active') {
