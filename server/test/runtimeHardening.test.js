@@ -18,7 +18,7 @@ async function testExcel() {
     ['姓名', '说明\n（可换行）'],
     ['测试成员', '包含,逗号']
   ]);
-  assert.throws(() => decodeWorkbookBase64('%%%'), /编码无效/);
+assert.throws(() => decodeWorkbookBase64('%%%'), /表格文件无效/);
   assert(LIMITS.maxFileBytes <= 8 * 1024 * 1024);
 
   const malformedWorkbook = new JSZip();
@@ -28,7 +28,7 @@ async function testExcel() {
   const malformedBuffer = await malformedWorkbook.generateAsync({ type: 'nodebuffer' });
   await assert.rejects(
     () => parseWorkbookTables(malformedBuffer),
-    (error) => error && error.code === 'invalid_workbook' && /有效的 XLSX/.test(error.message)
+    (error) => error && error.code === 'invalid_workbook' && /XLSX 表格文件/.test(error.message)
   );
 }
 

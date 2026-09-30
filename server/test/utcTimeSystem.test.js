@@ -105,7 +105,7 @@ function testMiniProgramFormatting() {
   );
   assert.strictEqual(
     miniProgramTime.formatListTime('2026-12-31T16:30:45.123Z', { reviewStatus: 'review_required' }),
-    '2027-01-01 00:30 · 历史时区待核对'
+    '2027-01-01 00:30 · 时间待核对'
   );
   miniProgramTime.setSystemTimezoneConfig(8, 7, false, 'review-2');
   delete global.wx;
