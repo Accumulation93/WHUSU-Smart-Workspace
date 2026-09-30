@@ -1526,7 +1526,8 @@ const missingDialogGestureSystem = !(
   /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?touch-action:\s*auto\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE)
 );
 const missingDialogScrollSystem = !(
-  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*56vh;/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*calc\([^;]*\);/m.test(GLOBAL_STYLE) &&
+  !/scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*max-height:\s*\d+(?:vh|rpx|px);/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--x\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--both\s*\{[^}]*height:\s*64vh;/m.test(GLOBAL_STYLE) &&

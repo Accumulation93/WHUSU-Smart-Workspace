@@ -1928,10 +1928,6 @@ scroll-view {
   text-shadow: 0 0 12rpx rgba(37, 99, 235, 0.16);
 }
 
-.popup-scroll {
-  max-height: 56vh;
-}
-
 .result-drill-header {
   margin-bottom: 12rpx;
 }
@@ -3578,7 +3574,6 @@ scroll-view {
 .desig-current-scroll { height: 300rpx; }
 .desig-candidate-scroll { height: 520rpx; }
 .desig-current-item { background: rgba(255,255,255,0.85); }
-.popup-scroll { max-height: 58vh; }
 .popup-scroll .button-row button {
   min-height: 76rpx;
   height: auto;
