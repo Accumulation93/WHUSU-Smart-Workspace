@@ -111,8 +111,16 @@ assert(
   '部门、身份和工作分工必须在岗位详情中分别展示'
 );
 assert(
-  /class="[^"]*modal-body[^"]*detail-body[^"]*ui-dialog-body[^"]*ui-dialog-content[^"]*ui-dialog-content--stack[^"]*ui-dialog-scroll--pane[^"]*"[\s\S]*?scroll-into-view="\{\{detailScrollTarget\}\}"/.test(adminWxml),
+  /class="[^"]*modal-body[^"]*detail-body[^"]*ui-dialog-body[^"]*ui-dialog-content[^"]*ui-dialog-content--stack[^"]*ui-dialog-scroll--fill[^"]*"[\s\S]*?scroll-into-view="\{\{detailScrollTarget\}\}"/.test(adminWxml),
   '岗位和补充资料编辑必须位于可滚动详情视口中'
+);
+assert(
+  /class="modal-card hr-person-editor-shell ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid"/.test(adminWxml),
+  '人事详情外壳必须使用三段网格契约，正文才能拿到确定高度并真正可滚动'
+);
+assert(
+  !/ui-dialog-scroll--pane[^"]*"[\s\S]{0,200}?detailScrollTarget/.test(adminWxml),
+  '人事详情外层正文不得再退回没有高度契约的 --pane 变体'
 );
 assert(
   !/主要岗位|设为主要岗位|isPrimary/.test(adminWxml),
