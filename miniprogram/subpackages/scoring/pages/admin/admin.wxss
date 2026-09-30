@@ -2906,7 +2906,6 @@ scroll-view {
 
 .modal-card {
   width: 100%;
-  max-height: 80vh;
   padding: 28rpx;
   border-radius: 30rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.94) 100%);
@@ -2952,7 +2951,6 @@ scroll-view {
 }
 
 .modal-body {
-  max-height: 56vh;
 }
 
 .hr-profile-export-modal {
@@ -3110,7 +3108,6 @@ scroll-view {
   display: flex;
   flex-direction: column;
   width: 680rpx;
-  max-height: 80vh;
   overflow: hidden;
 }
 
@@ -3288,7 +3285,6 @@ scroll-view {
   display: flex;
   flex-direction: column;
   width: 680rpx;
-  max-height: 82vh;
   overflow: hidden;
 }
 
@@ -3455,7 +3451,6 @@ scroll-view {
 
 .validation-errors-card {
   width: 700rpx;
-  max-height: 85vh;
 }
 
 .validation-errors-summary {
@@ -3466,8 +3461,10 @@ scroll-view {
 }
 
 .validation-errors-body {
-  max-height: 52vh;
-  padding: 0 24rpx;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 0 var(--ui-dialog-body-padding, 18rpx);
 }
 
 /* Validation error cards — matching hr-member-card design */
@@ -6640,7 +6637,7 @@ scroll-view {
 .hr-import-preview-body.ui-dialog-body,
 .csv-mapping-body.ui-dialog-body {
   max-height: none;
-  padding-bottom: 56rpx;
+  padding-bottom: var(--ui-dialog-body-padding, 18rpx);
   box-sizing: border-box;
 }
 
