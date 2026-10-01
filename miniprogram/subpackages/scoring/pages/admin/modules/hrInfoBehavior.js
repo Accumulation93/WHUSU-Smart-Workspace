@@ -20,8 +20,20 @@ const {
   formatDateTimePickerTime,
   pickerToUtcIso
 } = require('../../../../../utils/hrProfileDate');
+const fieldMatching = require('../../../../../utils/hrFieldMatching');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
+// 折叠行最多显示两个选项，避免选项多的字段把整页撑长。
+const HR_FIELD_OPTIONS_PREVIEW_LIMIT = 2;
+const HR_FIELD_TYPE_KEYWORDS = {
+  phone: ['手机号', '手机号码', '移动电话', '联系电话', '电话', 'phone', 'mobile'],
+  email: ['邮箱', '电子邮箱', '电子邮件', 'email'],
+  datetime: ['日期时间', '时间戳', 'datetime'],
+  date: ['出生日期', '日期', 'date']
+};
+const HR_FIELD_NUMBER_KEYWORDS = ['数量', '人数', '金额', '分数', '工资', 'number', 'amount', 'count'];
+// 学号、工号、证件号、银行卡号、认证码是标识不是数值，导入时一律按文本，避免前导零被当数字丢掉。
+const HR_FIELD_IDENTIFIER_PATTERN = /[号证卡码]/;
 
 // 字段类型在导入问题报告中必须显示本地化名称，不能直接暴露 text/date 这类内部值。
 function buildProfileFieldTypeLabel(type) {
@@ -44,6 +56,182 @@ function createPermanentDeletionClientRequestId() {
     Date.now().toString(36),
     Math.random().toString(36).slice(2, 12)
   ].join(':');
+}
+
+/** 选项一律按“一行一个”解析：忽略空行，保留填写顺序（与保存时的口径一致）。 */
+function parseHrFieldOptions(value) {
+  return String(value == null ? '' : value)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function findDuplicateHrFieldOptions(options) {
+  const seen = new Set();
+  const duplicates = [];
+  (options || []).forEach((option) => {
+    const key = option.toLowerCase();
+    if (seen.has(key)) {
+      if (duplicates.indexOf(option) < 0) duplicates.push(option);
+      return;
+    }
+    seen.add(key);
+  });
+  return duplicates;
+}
+
+/** 展开状态按字段编号记录：排序、删除后仍停在同一个字段上，也不会错位。 */
+function buildHrFieldOptionsSummary(optionsText) {
+  const optionsList = parseHrFieldOptions(optionsText);
+  if (optionsList.length <= HR_FIELD_OPTIONS_PREVIEW_LIMIT) return optionsList.join('、');
+  return localeFormat(templateSaveCopy.fieldOptionsSummary,
+    [optionsList.slice(0, HR_FIELD_OPTIONS_PREVIEW_LIMIT).join('、'), optionsList.length]);
+}
+
+function decorateHrTemplateField(field, expandedIds, errors) {
+  const optionsList = parseHrFieldOptions(field.optionsText);
+  const duplicates = findDuplicateHrFieldOptions(optionsList);
+  return Object.assign({}, field, {
+    expanded: (expandedIds || []).indexOf(String(field.id)) >= 0,
+    optionsList,
+    optionsCount: optionsList.length,
+    optionsSummary: buildHrFieldOptionsSummary(field.optionsText),
+    optionsCountText: localeFormat(templateSaveCopy.fieldOptionsCount, [optionsList.length]),
+    optionsDuplicateText: duplicates.length
+      ? localeFormat(templateSaveCopy.fieldOptionsDuplicate, [duplicates.join('、')])
+      : '',
+    errorText: (errors && errors[field.id]) || ''
+  });
+}
+
+function decorateHrTemplateFields(fields, expandedIds, errors) {
+  return (fields || []).map((field) => decorateHrTemplateField(field, expandedIds, errors));
+}
+
+/** 判断“有没有改过”只看真正会保存的内容，展开、拖动、错误提示不算改动。 */
+function hrTemplateFormSignature(form) {
+  const source = form || {};
+  return JSON.stringify({
+    name: String(source.name || ''),
+    description: String(source.description || ''),
+    editMode: String(source.editMode || ''),
+    fields: (source.fields || []).map((field) => [
+      String(field.label || ''),
+      String(field.type || ''),
+      field.required === true,
+      String(field.minLength == null ? '' : field.minLength),
+      String(field.maxLength == null ? '' : field.maxLength),
+      String(field.numberRule || ''),
+      field.allowDecimal !== false,
+      String(field.minDigits == null ? '' : field.minDigits),
+      String(field.maxDigits == null ? '' : field.maxDigits),
+      String(field.minValue == null ? '' : field.minValue),
+      String(field.maxValue == null ? '' : field.maxValue),
+      String(field.optionsText || '')
+    ])
+  });
+}
+
+function isBlankNumberInput(value) {
+  return value === '' || value == null;
+}
+
+function isInvalidNumberInput(value) {
+  return !isBlankNumberInput(value) && !Number.isFinite(Number(value));
+}
+
+function orderedRangeInvalid(min, max) {
+  if (isBlankNumberInput(min) || isBlankNumberInput(max)) return false;
+  return Number(min) > Number(max);
+}
+
+function validateHrTemplateField(field, copy) {
+  if (!String(field.label || '').trim()) return localeCopy.copy_b559e020b7;
+  if (field.type === 'sequence' && !parseHrFieldOptions(field.optionsText).length) {
+    return copy.fieldOptionsRequired;
+  }
+  if (field.type === 'text') {
+    if (isInvalidNumberInput(field.minLength) || isInvalidNumberInput(field.maxLength)) return copy.fieldNumberInvalid;
+    if (orderedRangeInvalid(field.minLength, field.maxLength)) return copy.fieldLengthOrderInvalid;
+  }
+  if (field.type === 'number') {
+    if (field.numberRule === 'length_range') {
+      if (isInvalidNumberInput(field.minDigits) || isInvalidNumberInput(field.maxDigits)) return copy.fieldNumberInvalid;
+      if (orderedRangeInvalid(field.minDigits, field.maxDigits)) return copy.fieldDigitsOrderInvalid;
+    } else {
+      if (isInvalidNumberInput(field.minValue) || isInvalidNumberInput(field.maxValue)) return copy.fieldNumberInvalid;
+      if (orderedRangeInvalid(field.minValue, field.maxValue)) return copy.fieldValueOrderInvalid;
+    }
+  }
+  return '';
+}
+
+/** 保存前先在本地把问题指出来：哪个字段、哪里不对，并给出第一处的位置。 */
+function validateHrTemplateForm(form, copy) {
+  const source = form || {};
+  const fields = source.fields || [];
+  const fieldErrors = {};
+  if (!String(source.name || '').trim()) {
+    return { message: localeCopy.copy_d03e81ea80, fieldErrors, firstFieldId: '' };
+  }
+  if (!fields.length) {
+    return { message: localeCopy.copy_b559e020b7, fieldErrors, firstFieldId: '' };
+  }
+  let firstFieldId = '';
+  const seen = new Set();
+  fields.forEach((field) => {
+    const label = String(field.label || '').trim();
+    let message = validateHrTemplateField(field, copy);
+    if (!message && label && seen.has(label.toLowerCase())) {
+      message = localeFormat(copy.fieldNameDuplicate, [label]);
+    }
+    if (label) seen.add(label.toLowerCase());
+    if (!message) return;
+    fieldErrors[field.id] = message;
+    if (!firstFieldId) firstFieldId = String(field.id);
+  });
+  const count = Object.keys(fieldErrors).length;
+  return {
+    message: count ? localeFormat(copy.errorSummary, [count]) : '',
+    fieldErrors,
+    firstFieldId,
+    count
+  };
+}
+
+function editModeHintFor(editMode, copy) {
+  if (editMode === 'audit') return copy.editModeHintAudit;
+  if (editMode === 'readonly') return copy.editModeHintReadonly;
+  return copy.editModeHintDirect;
+}
+
+/** 导入表格时按列名认类型；认不出再按整列内容判断，最后回落文本。 */
+function matchHrFieldTypeKeywords(text, keywordsByType) {
+  let bestType = '';
+  let bestScore = 0;
+  Object.keys(keywordsByType).forEach((type) => {
+    keywordsByType[type].forEach((keyword) => {
+      const score = fieldMatching.scoreFieldLabels(text, keyword).score;
+      if (score > bestScore) {
+        bestScore = score;
+        bestType = type;
+      }
+    });
+  });
+  return bestScore >= 0.7 ? bestType : '';
+}
+
+function guessHrFieldType(label, values) {
+  const text = String(label || '').trim();
+  if (!text) return 'text';
+  const contentType = matchHrFieldTypeKeywords(text, HR_FIELD_TYPE_KEYWORDS);
+  if (contentType) return contentType;
+  // 学号、工号、编号、证件号这类是标识不是数值，一律按文本，避免把前导零当数字丢掉。
+  if (HR_FIELD_IDENTIFIER_PATTERN.test(text)) return 'text';
+  if (matchHrFieldTypeKeywords(text, { number: HR_FIELD_NUMBER_KEYWORDS })) return 'number';
+  const filled = (values || []).map((value) => String(value == null ? '' : value).trim()).filter(Boolean);
+  if (filled.length && filled.every((value) => /^-?\d+(\.\d+)?$/.test(value))) return 'number';
+  return 'text';
 }
 
 function toHrProfileListRow(item) {
@@ -266,7 +454,14 @@ function decorateDeletionRules(rows) {
 }
 
 module.exports = Behavior({
-  data: { hrTemplateCopy: templateSaveCopy, hrTemplatePreviewId: '', hrTemplateExpandedField: -1 },
+  data: {
+    hrTemplateCopy: templateSaveCopy,
+    hrTemplatePreviewId: '',
+    hrTemplateExpandedFieldIds: [],
+    hrTemplateDirty: false,
+    hrTemplateErrorCount: 0,
+    hrTemplateFormError: ''
+  },
   methods: {
     async loadHrList() {
       const request = orgSession.beginRequest(this, 'hrList');
@@ -649,6 +844,7 @@ module.exports = Behavior({
         }
         const active = result.activeSnapshot || null;
         if (active && Array.isArray(active.fields)) {
+          active.editModeHint = editModeHintFor(active.editMode, templateSaveCopy);
           active.fields = active.fields.map((field) => {
             const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === field.type);
             let ruleText = '';
@@ -662,7 +858,9 @@ module.exports = Behavior({
               }
               if (field.allowDecimal === false) ruleText = localeFormat(localeCopy.copy_d593ce302d, [ruleText ? `${ruleText} · ` : '']);
             } else if (field.type === 'sequence') {
-              ruleText = (field.options || []).length ? localeFormat(localeCopy.copy_d789c23297, [field.options.join(' / ')]) : localeCopy.copy_266af79ece;
+              ruleText = (field.options || []).length
+                ? buildHrFieldOptionsSummary(field.options.join('\n'))
+                : localeCopy.copy_266af79ece;
             }
             return Object.assign({}, field, {
               typeLabel: typeOption ? typeOption.label : field.type,
@@ -672,7 +870,9 @@ module.exports = Behavior({
         }
         this.setData({
           hrProfileTemplateList: (result.list || []).map((template) => Object.assign({}, template, {
-            fields: (template.fields || []).map((field) => Object.assign({}, field, normalizeHrProfileFieldForForm(field)))
+            // 保留原始 options 数组：再次进入编辑器时，序列选项要靠它回填文本框。
+            fields: (template.fields || []).map((field) =>
+              decorateHrTemplateField(Object.assign({}, field, normalizeHrProfileFieldForForm(field)), [], {}))
           })),
           activeHrProfileSnapshot: active,
           canManageHrProfileTemplates: result.canManage === true,
@@ -687,18 +887,96 @@ module.exports = Behavior({
 
     startCreateHrProfileTemplate() {
       if (this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
+      const form = emptyHrProfileTemplateForm();
+      const expandedIds = form.fields.length ? [String(form.fields[0].id)] : [];
+      this._hrTemplateFieldErrors = {};
       this.setData({
-        hrProfileTemplateForm: emptyHrProfileTemplateForm(),
+        hrProfileTemplateForm: Object.assign({}, form, {
+          editModeHint: editModeHintFor(form.editMode, templateSaveCopy),
+          fields: decorateHrTemplateFields(form.fields, expandedIds, {})
+        }),
         hrTemplatePreviewId: '',
-        hrTemplateExpandedField: 0,
+        hrTemplateExpandedFieldIds: expandedIds,
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
         showHrTemplateEditor: true
-      }, () => this.focusHrTemplateEditor(true));
+      }, () => {
+        this.markHrTemplateBaseline();
+        this.focusHrTemplateEditor(true);
+      });
     },
 
-    focusHrTemplateEditor(showHeading) {
+    /** 把编辑器顶部或指定字段滚到可见位置。 */
+    focusHrTemplateEditor(showHeading, fieldId) {
       if (this._pageVisible === false || !this.data.showHrTemplateEditor || typeof wx.pageScrollTo !== 'function') return;
-      const index = this.data.hrTemplateExpandedField;
-      wx.pageScrollTo({ selector: !showHeading && index >= 0 ? '#hr-template-field-' + index : '.hr-template-editor', duration: 0 });
+      const anchor = !showHeading && fieldId ? '#hr-template-field-' + fieldId : '.hr-template-editor';
+      wx.pageScrollTo({ selector: anchor, duration: 0 });
+    },
+
+    /** 记录“打开时是什么样”，用来判断有没有未保存的修改。 */
+    markHrTemplateBaseline() {
+      this._hrTemplateBaseline = hrTemplateFormSignature(this.data.hrProfileTemplateForm);
+      this._hrTemplateLeaveGuard = false;
+      this.setData({ hrTemplateDirty: false });
+      this.syncHrTemplateLeaveGuard(false);
+    },
+
+    syncHrTemplateLeaveGuard(enabled) {
+      if (typeof wx.enableAlertBeforeUnload === 'function' && typeof wx.disableAlertBeforeUnload === 'function') {
+        if (enabled && !this._hrTemplateLeaveGuard) {
+          this._hrTemplateLeaveGuard = true;
+          wx.enableAlertBeforeUnload({ message: templateSaveCopy.leaveWarning });
+          return;
+        }
+        if (!enabled && this._hrTemplateLeaveGuard) {
+          this._hrTemplateLeaveGuard = false;
+          wx.disableAlertBeforeUnload();
+        }
+      }
+    },
+
+    /** 服务端只说“某某不合法”时，尽量把这句话贴到对应的字段行上。 */
+    markHrTemplateServerError(message) {
+      const text = String(message || '').trim();
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (!text || !fields.length) return;
+      const matched = fields.find((field) => {
+        const label = String(field.label || '').trim();
+        return label && text.indexOf(label) >= 0;
+      });
+      if (!matched) return;
+      const fieldId = String(matched.id);
+      const errors = Object.assign({}, this._hrTemplateFieldErrors || {}, { [fieldId]: text });
+      const expandedIds = (this.data.hrTemplateExpandedFieldIds || []).indexOf(fieldId) >= 0
+        ? this.data.hrTemplateExpandedFieldIds
+        : (this.data.hrTemplateExpandedFieldIds || []).concat(fieldId);
+      this._hrTemplateFieldErrors = errors;
+      this.setData({
+        hrTemplateExpandedFieldIds: expandedIds,
+        hrTemplateErrorCount: Object.keys(errors).length,
+        hrTemplateFormError: text,
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, errors)
+      });
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 只在真正会保存的内容变化时提示“有未保存的修改”。 */
+    refreshHrTemplateDirty() {
+      const dirty = hrTemplateFormSignature(this.data.hrProfileTemplateForm) !== this._hrTemplateBaseline;
+      if (dirty !== this.data.hrTemplateDirty) this.setData({ hrTemplateDirty: dirty });
+      this.syncHrTemplateLeaveGuard(dirty);
+    },
+
+    /** 每次改动后重算字段派生信息（展开状态、选项摘要、行内提示）。 */
+    applyHrTemplateFields(fields, errors) {
+      const expandedIds = this.data.hrTemplateExpandedFieldIds || [];
+      const nextErrors = errors || this._hrTemplateFieldErrors || {};
+      this._hrTemplateFieldErrors = nextErrors;
+      this.setData({
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, nextErrors),
+        hrTemplateErrorCount: Object.keys(nextErrors).length
+      });
+      this.refreshHrTemplateDirty();
     },
 
     editHrProfileTemplate(e) {
@@ -707,6 +985,7 @@ module.exports = Behavior({
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
       const modeOption = PROFILE_EDIT_MODE_OPTIONS.find((item) => item.value === template.editMode) || PROFILE_EDIT_MODE_OPTIONS[0];
+      this._hrTemplateFieldErrors = {};
       this.setData({
         hrProfileTemplateForm: {
           id: template.id,
@@ -715,17 +994,54 @@ module.exports = Behavior({
           editMode: modeOption.value,
           editModeLabel: modeOption.label,
           editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(modeOption),
-          fields: (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field))
+          editModeHint: editModeHintFor(modeOption.value, templateSaveCopy),
+          fields: decorateHrTemplateFields(
+            (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field)), [], {})
         },
         hrTemplatePreviewId: id,
-        hrTemplateExpandedField: e.currentTarget.dataset.index == null ? -1 : Number(e.currentTarget.dataset.index),
+        hrTemplateExpandedFieldIds: [],
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
         showHrTemplateEditor: true
-      }, () => this.focusHrTemplateEditor());
+      }, () => {
+        this.markHrTemplateBaseline();
+        this.focusHrTemplateEditor();
+      });
     },
 
     cancelHrProfileTemplateEditor() {
       if (this.data.loadingMap.saveProfileTemplate) return;
-      this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
+      if (!this.data.hrTemplateDirty) {
+        this.closeHrProfileTemplateEditor();
+        return;
+      }
+      wx.showModal({
+        title: templateSaveCopy.discardTitle,
+        content: templateSaveCopy.discardMessage,
+        confirmText: templateSaveCopy.discardAction,
+        cancelText: templateSaveCopy.keepEditingAction,
+        confirmColor: '#ef4444',
+        success: (result) => {
+          if (result.confirm) this.closeHrProfileTemplateEditor();
+        }
+      });
+    },
+
+    closeHrProfileTemplateEditor() {
+      this._hrTemplateBaseline = '';
+      this._hrTemplateFieldErrors = {};
+      this.setData({
+        showHrTemplateEditor: false,
+        hrProfileTemplateForm: emptyHrProfileTemplateForm(),
+        hrTemplateExpandedFieldIds: [],
+        hrTemplateDirty: false,
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
+        hrFieldDragIndex: -1,
+        hrFieldDragInsertIndex: -1,
+        hrFieldDragGhostVisible: false
+      });
+      this.syncHrTemplateLeaveGuard(false);
     },
 
     toggleHrTemplatePreview(e) {
@@ -734,11 +1050,50 @@ module.exports = Behavior({
     },
 
     toggleHrTemplateFieldEditor(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const expanded = this.data.hrTemplateExpandedField !== index;
-      this.setData({ hrTemplateExpandedField: expanded ? index : -1 }, () => {
-        if (expanded) this.focusHrTemplateEditor();
+      const fieldId = String(e.currentTarget.dataset.fieldId || '');
+      if (!fieldId) return;
+      const current = this.data.hrTemplateExpandedFieldIds || [];
+      const expanded = current.indexOf(fieldId) < 0;
+      const expandedIds = expanded
+        ? current.concat(fieldId)
+        : current.filter((item) => item !== fieldId);
+      this.setData({
+        hrTemplateExpandedFieldIds: expandedIds,
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+          this.data.hrProfileTemplateForm.fields || [], expandedIds, {})
+      }, () => {
+        if (expanded) this.focusHrTemplateEditor(false, fieldId);
       });
+    },
+
+    /**
+     * 编辑器组件把每次操作按动作名回传，这里只做分发：
+     * 具体处理仍是原来的方法，避免同一套逻辑在组件和页面里各写一遍。
+     */
+    onHrTemplateEditorAction(e) {
+      const detail = e.detail || {};
+      const currentTarget = { dataset: detail };
+      const valueEvent = { currentTarget, detail: { value: detail.value } };
+      switch (detail.action) {
+        case 'template-input': return this.onHrProfileTemplateInput(valueEvent);
+        case 'edit-mode-change': return this.onHrProfileEditModeChange(valueEvent);
+        case 'field-input': return this.onHrProfileFieldInput(valueEvent);
+        case 'field-type-change': return this.onHrProfileFieldTypeChange(valueEvent);
+        case 'field-required-change': return this.onHrProfileFieldRequiredChange(valueEvent);
+        case 'number-rule-change': return this.onHrProfileNumberRuleChange(valueEvent);
+        case 'field-decimal-change': return this.onHrProfileFieldAllowDecimalChange(valueEvent);
+        case 'toggle-field': return this.toggleHrTemplateFieldEditor({ currentTarget });
+        case 'move-field': return this.moveHrProfileField({ currentTarget });
+        case 'remove-field': return this.removeHrProfileField({ currentTarget });
+        case 'remove-option': return this.removeHrProfileOption({ currentTarget });
+        case 'dedupe-options': return this.dedupeHrProfileOptions({ currentTarget });
+        case 'add-field': return this.addHrProfileField();
+        case 'import-fields': return this.importTableFields();
+        case 'save': return this.saveHrProfileTemplate();
+        case 'cancel': return this.cancelHrProfileTemplateEditor();
+        case 'field-drop': return this.applyHrFieldDrop(detail);
+        default: return undefined;
+      }
     },
 
     async duplicateHrProfileTemplate(e) {
@@ -985,7 +1340,10 @@ module.exports = Behavior({
 
     onActiveHrProfileModeChange(e) {
       const option = PROFILE_EDIT_MODE_OPTIONS[Number(e.detail.value)] || PROFILE_EDIT_MODE_OPTIONS[0];
-      this.setData({ 'activeHrProfileSnapshot.editMode': option.value });
+      this.setData({
+        'activeHrProfileSnapshot.editMode': option.value,
+        'activeHrProfileSnapshot.editModeHint': editModeHintFor(option.value, templateSaveCopy)
+      });
     },
 
     async saveActiveHrProfileSettings() {
@@ -2216,6 +2574,7 @@ module.exports = Behavior({
           [field]: value
         }
       });
+      this.refreshHrTemplateDirty();
     },
 
     onHrProfileFieldInput(e) {
@@ -2225,15 +2584,13 @@ module.exports = Behavior({
       if (!fields[index]) {
         return;
       }
-  
+
       fields[index] = {
         ...fields[index],
         [field]: e.detail.value
       };
-  
-      this.setData({
-        'hrProfileTemplateForm.fields': fields
-      });
+
+      this.applyHrTemplateFields(fields);
     },
 
     onHrProfileFieldRequiredChange(e) {
@@ -2242,15 +2599,13 @@ module.exports = Behavior({
       if (!fields[index]) {
         return;
       }
-  
+
       fields[index] = {
         ...fields[index],
         required: !!e.detail.value
       };
-  
-      this.setData({
-        'hrProfileTemplateForm.fields': fields
-      });
+
+      this.applyHrTemplateFields(fields);
     },
 
     onHrProfileEditModeChange(e) {
@@ -2260,9 +2615,11 @@ module.exports = Behavior({
           ...this.data.hrProfileTemplateForm,
           editMode: option.value,
           editModeLabel: option.label,
-          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(option)
+          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(option),
+          editModeHint: editModeHintFor(option.value, templateSaveCopy)
         }
       });
+      this.refreshHrTemplateDirty();
     },
 
     onHrProfileFieldTypeChange(e) {
@@ -2279,10 +2636,8 @@ module.exports = Behavior({
         typeLabel: option.label,
         typeIndex: PROFILE_FIELD_TYPE_OPTIONS.indexOf(option)
       };
-  
-      this.setData({
-        'hrProfileTemplateForm.fields': fields
-      });
+
+      this.applyHrTemplateFields(fields);
     },
 
     onHrProfileNumberRuleChange(e) {
@@ -2299,10 +2654,8 @@ module.exports = Behavior({
         numberRuleLabel: option.label,
         numberRuleIndex: NUMBER_RULE_OPTIONS.indexOf(option)
       };
-  
-      this.setData({
-        'hrProfileTemplateForm.fields': fields
-      });
+
+      this.applyHrTemplateFields(fields);
     },
 
     onHrProfileFieldAllowDecimalChange(e) {
@@ -2316,20 +2669,75 @@ module.exports = Behavior({
         ...fields[index],
         allowDecimal: !!e.detail.value
       };
-  
-      this.setData({
-        'hrProfileTemplateForm.fields': fields
-      });
+
+      this.applyHrTemplateFields(fields);
     },
 
     addHrProfileField() {
+      const created = createEmptyProfileField();
+      const fields = (this.data.hrProfileTemplateForm.fields || []).concat(created);
+      const expandedIds = (this.data.hrTemplateExpandedFieldIds || []).concat(String(created.id));
       this.setData({
-        hrTemplateExpandedField: (this.data.hrProfileTemplateForm.fields || []).length,
-        'hrProfileTemplateForm.fields': [
-          ...(this.data.hrProfileTemplateForm.fields || []),
-          createEmptyProfileField()
-        ]
-      }, () => this.focusHrTemplateEditor());
+        hrTemplateExpandedFieldIds: expandedIds
+      }, () => {
+        this.applyHrTemplateFields(fields);
+        this.focusHrTemplateEditor(false, String(created.id));
+      });
+    },
+
+    /** 上移 / 下移：每次挪一格，保存顺序就是这里的先后顺序。 */
+    moveHrProfileField(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const direction = Number(e.currentTarget.dataset.dir);
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (Number.isNaN(index) || !fields[index] || (direction !== -1 && direction !== 1)) return;
+      const target = index + direction;
+      if (target < 0 || target >= fields.length) return;
+      const fieldId = String(fields[index].id);
+      const moved = utils.moveItem(fields, index, target);
+      this.applyHrTemplateFields(moved);
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 拖动排序落位：组件只上报起止位置，真正的顺序与提示仍在页面里处理。 */
+    applyHrFieldDrop(detail) {
+      const fromIndex = Number(detail && detail.fromIndex);
+      const toIndex = Number(detail && detail.toIndex);
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
+      if (fromIndex < 0 || fromIndex >= fields.length || toIndex < 0 || toIndex >= fields.length) return;
+      const fieldId = String(detail && detail.fieldId || (fields[fromIndex] && fields[fromIndex].id) || '');
+      this.applyHrTemplateFields(utils.moveItem(fields, fromIndex, toIndex));
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 选项：从文本框里删掉某一条，其余顺序不变。 */
+    removeHrProfileOption(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const optionIndex = Number(e.currentTarget.dataset.optionIndex);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) return;
+      const options = parseHrFieldOptions(fields[index].optionsText);
+      if (Number.isNaN(optionIndex) || optionIndex < 0 || optionIndex >= options.length) return;
+      options.splice(optionIndex, 1);
+      fields[index] = Object.assign({}, fields[index], { optionsText: options.join('\n') });
+      this.applyHrTemplateFields(fields);
+    },
+
+    /** 一键清掉重复选项，保留第一次出现的位置。 */
+    dedupeHrProfileOptions(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) return;
+      const seen = new Set();
+      const options = parseHrFieldOptions(fields[index].optionsText).filter((option) => {
+        const key = option.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      fields[index] = Object.assign({}, fields[index], { optionsText: options.join('\n') });
+      this.applyHrTemplateFields(fields);
     },
 
     importTableFields() {
@@ -2344,28 +2752,47 @@ module.exports = Behavior({
           _this.setLoading('importTemplateFieldsCsv', false);
           return;
         }
-  
-        const newFields = headers.map(function (label) {
+
+        const rows = tableData.rows || [];
+        const detectedCounts = {};
+        const newFields = headers.map(function (label, columnIndex) {
+          const columnValues = rows.map(function (row) { return row && row[columnIndex]; });
+          const type = guessHrFieldType(label, columnValues);
+          const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === type) || PROFILE_FIELD_TYPE_OPTIONS[0];
+          if (type !== 'text') detectedCounts[type] = Number(detectedCounts[type] || 0) + 1;
           return Object.assign({}, createEmptyProfileField(), {
             id: 'profile_field_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-            label: label
+            label: label,
+            type: typeOption.value,
+            typeLabel: typeOption.label,
+            typeIndex: PROFILE_FIELD_TYPE_OPTIONS.indexOf(typeOption)
           });
         });
-  
+
+        const detectedTypes = Object.keys(detectedCounts);
+        const detectedSummary = detectedTypes.length
+          ? localeFormat(templateSaveCopy.importDetectedSummary, [detectedTypes.map(function (type) {
+            return localeFormat(templateSaveCopy.importDetectedItem, [detectedCounts[type], buildProfileFieldTypeLabel(type)]);
+          }).join('、')])
+          : templateSaveCopy.importDetectedNone;
+
         const existingFields = _this.data.hrProfileTemplateForm.fields || [];
         const headerPreview = headers.length > 5
           ? headers.slice(0, 5).join('、') + localeCopy.copy_5daecbb537 + headers.length + localeCopy.copy_5babf47a71
           : headers.join('、');
-  
+
         wx.showModal({
           title: localeCopy.copy_d0fc81b30f,
-          content: localeCopy.copy_a7e6a633a4 + headers.length + localeCopy.copy_fbdaa51ccc + headerPreview + localeCopy.copy_f37be3c249,
+          content: localeCopy.copy_a7e6a633a4 + headers.length + localeCopy.copy_fbdaa51ccc + headerPreview
+            + localeCopy.copy_f37be3c249 + '\n' + detectedSummary,
           confirmText: localeCopy.copy_50a212e945,
           cancelText: localeCopy.copy_01c502a089,
           success: function (modalRes) {
             const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
-            _this.setData({ 'hrProfileTemplateForm.fields': fields });
+            if (modalRes.confirm) _this.setData({ hrTemplateExpandedFieldIds: [] });
+            _this.applyHrTemplateFields(fields);
             wx.showToast({ title: localeCopy.copy_4c8603086a + headers.length + localeCopy.copy_a68c09e48e, icon: 'success' });
+            _this.focusHrTemplateEditor(false, String(newFields[0] && newFields[0].id || ''));
           }
         });
         _this.setLoading('importTemplateFieldsCsv', false);
@@ -2377,14 +2804,27 @@ module.exports = Behavior({
     removeHrProfileField(e) {
       const index = Number(e.currentTarget.dataset.index);
       const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
-      if (!fields[index]) {
-        return;
-      }
-  
-      fields.splice(index, 1);
-      this.setData({
-        hrTemplateExpandedField: fields.length ? -1 : 0,
-        'hrProfileTemplateForm.fields': fields.length ? fields : [createEmptyProfileField()]
+      const field = fields[index];
+      if (!field) return;
+      wx.showModal({
+        title: templateSaveCopy.deleteFieldTitle,
+        content: localeFormat(templateSaveCopy.deleteFieldMessage,
+          [String(field.label || '').trim() || templateSaveCopy.unnamedField]),
+        confirmText: templateSaveCopy.deleteFieldAction,
+        confirmColor: '#ef4444',
+        success: (result) => {
+          if (!result.confirm) return;
+          const current = [...(this.data.hrProfileTemplateForm.fields || [])];
+          const removed = current[index];
+          if (!removed) return;
+          current.splice(index, 1);
+          const nextFields = current.length ? current : [createEmptyProfileField()];
+          const expandedIds = (this.data.hrTemplateExpandedFieldIds || [])
+            .filter((id) => id !== String(removed.id));
+          if (!current.length) expandedIds.push(String(nextFields[0].id));
+          this.setData({ hrTemplateExpandedFieldIds: expandedIds });
+          this.applyHrTemplateFields(nextFields);
+        }
       });
     },
 
@@ -2424,19 +2864,38 @@ module.exports = Behavior({
           .filter(Boolean)
       }));
   
-      if (!templateName) {
-        wx.showToast({ title: localeCopy.copy_d03e81ea80, icon: 'none' });
-        return;
-      }
-
-      if (!fields.length || fields.some((item) => !item.label)) {
-        wx.showToast({
-          title: localeCopy.copy_b559e020b7,
-          icon: 'none'
+      // 保存前先就地指出问题：哪个字段、哪里不对，并带着用户滚到第一处。
+      const validation = validateHrTemplateForm(form, templateSaveCopy);
+      if (validation.message) {
+        this._hrTemplateFieldErrors = validation.fieldErrors;
+        this.setData({
+          hrTemplateErrorCount: validation.count || 0,
+          hrTemplateFormError: validation.message,
+          'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+            this.data.hrProfileTemplateForm.fields || [],
+            this.data.hrTemplateExpandedFieldIds || [],
+            validation.fieldErrors
+          )
         });
+        if (validation.firstFieldId) {
+          const expandedIds = (this.data.hrTemplateExpandedFieldIds || []);
+          if (expandedIds.indexOf(validation.firstFieldId) < 0) {
+            const nextExpanded = expandedIds.concat(validation.firstFieldId);
+            this.setData({
+              hrTemplateExpandedFieldIds: nextExpanded,
+              'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+                this.data.hrProfileTemplateForm.fields || [], nextExpanded, validation.fieldErrors)
+            });
+          }
+          this.focusHrTemplateEditor(false, validation.firstFieldId);
+        } else {
+          this.focusHrTemplateEditor(true);
+        }
         return;
       }
-  
+      this._hrTemplateFieldErrors = {};
+      this.setData({ hrTemplateErrorCount: 0, hrTemplateFormError: '' });
+
       const request = orgSession.beginRequest(this, 'hrTemplateSave');
       this._hrTemplateSaveRequest = request;
       const isCurrent = () => this._pageVisible !== false && orgSession.isRequestCurrent(this, request);
@@ -2457,13 +2916,18 @@ module.exports = Behavior({
         if (!isCurrent()) return;
         wx.hideLoading();
         if (!result || result.status !== 'success') {
+          // 服务端仍会复核；能把原因对到某个字段时就地标出来并滚过去。
+          const serverMessage = result && typeof result.message === 'string' && result.message.trim()
+            ? result.message.trim()
+            : templateSaveCopy.failureMessage;
+          this.markHrTemplateServerError(serverMessage);
           wx.showModal({ title: templateSaveCopy.failureTitle,
-            content: result && typeof result.message === 'string' && result.message.trim() || templateSaveCopy.failureMessage,
+            content: serverMessage,
             showCancel: false });
           return;
         }
-  
-        this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
+
+        this.closeHrProfileTemplateEditor();
         await this.loadHrProfileTemplates();
         if (!isCurrent()) return;
         const savedTemplateId = String(result.id || form.id || '');

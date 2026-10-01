@@ -1,0 +1,298 @@
+/*
+ * 人事模板编辑器样式。
+ *
+ * 只保留编辑器自身独有的部分：字段行的排序与展开控件、就地报错、选项预览、
+ * 拖动虚影和吸底操作栏；字段、按钮、弹窗外壳等基础样式来自页面共享样式。
+ */
+
+.hr-template-editor-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-action-gap);
+  width: 100%;
+}
+
+.hr-template-editor-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+}
+
+.hr-template-dirty-chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(251, 191, 36, 0.18);
+  color: #b45309;
+  font-size: var(--ui-type-caption);
+  font-weight: 600;
+}
+
+.hr-template-error-banner {
+  margin-top: var(--ui-field-gap);
+  padding: 16rpx 20rpx;
+  border: 1rpx solid rgba(248, 113, 113, 0.45);
+  border-radius: var(--ui-list-radius, 16rpx);
+  background: rgba(254, 226, 226, 0.72);
+  color: #b91c1c;
+  font-size: var(--ui-type-caption);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hr-template-editor-actions-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  margin-top: var(--ui-field-gap);
+  padding: var(--ui-field-gap) 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(248, 251, 255, 0.98));
+}
+
+.hr-template-editor .hr-template-editor-actions > .hr-template-editor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: var(--ui-control-height) !important;
+  height: auto !important;
+  margin: 0;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x) !important;
+  border-radius: var(--ui-control-radius, 28rpx);
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-control) !important;
+  text-align: center;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+.hr-template-editor-save { grid-column: 1 / -1; }
+
+.hr-template-editor-btn.template-save-btn::before { display: none; }
+
+/* 字段行：拖动柄、上移下移、展开编辑，以及行内问题提示 */
+.hr-template-field-toggle {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--ui-compact-height);
+  height: auto;
+  margin: 0;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: var(--ui-leading-control);
+}
+
+.hr-template-field-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  padding: 10rpx 0 0;
+}
+
+.hr-template-field-handle {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--ui-compact-height);
+  min-height: var(--ui-compact-height);
+  border: 1rpx solid rgba(147, 197, 253, 0.72);
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: rgba(239, 246, 255, 0.92);
+  color: #2563eb;
+  font-size: var(--ui-type-control);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hr-template-field-move {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  min-height: var(--ui-compact-height);
+  height: auto;
+  margin: 0;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  font-size: var(--ui-type-caption);
+}
+
+.hr-template-field-settings { margin-top: var(--ui-field-gap); }
+
+.hr-template-field-error {
+  margin-top: 6rpx;
+  color: #b91c1c;
+  font-size: var(--ui-type-caption);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hr-snapshot-field.has-error {
+  border-left: 4rpx solid rgba(239, 68, 68, 0.72);
+  background: rgba(254, 242, 242, 0.6);
+}
+
+/* 选项预览：文本框为主，下面显示已填选项，可点掉多余的一条 */
+.hr-template-options-textarea {
+  min-height: 320rpx;
+  height: 320rpx;
+}
+
+.hr-template-option-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 12rpx;
+}
+
+.hr-template-option-chip {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  max-width: 100%;
+  padding: 6rpx 8rpx 6rpx 16rpx;
+  border: 1rpx solid rgba(191, 219, 254, 0.9);
+  border-radius: 999rpx;
+  background: rgba(239, 246, 255, 0.86);
+}
+
+.hr-template-option-text {
+  max-width: 420rpx;
+  color: #334155;
+  font-size: var(--ui-type-caption);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.hr-template-option-remove {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(96, 165, 250, 0.16);
+  color: #2563eb;
+  font-size: var(--ui-type-caption);
+  line-height: 1;
+}
+
+.hr-template-option-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  margin-top: 10rpx;
+  padding: 10rpx 16rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: rgba(254, 243, 199, 0.8);
+  color: #92400e;
+  font-size: var(--ui-type-caption);
+  line-height: 1.45;
+}
+
+/* 拖动排序：插入位置提示、被拖动行的淡化与跟手虚影 */
+.hr-field-insert-line {
+  height: 6rpx;
+  margin: 4rpx 8rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.9), rgba(96, 165, 250, 0.35));
+}
+
+.hr-field-insert-line-end { margin-bottom: 8rpx; }
+
+.hr-template-field-item.is-dragging { opacity: 0.42; }
+
+.hr-field-drag-ghost {
+  position: fixed;
+  z-index: 2200;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 18rpx;
+  border: 1rpx solid rgba(147, 197, 253, 0.9);
+  border-radius: var(--ui-list-radius, 18rpx);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12rpx 30rpx rgba(2, 6, 23, 0.18);
+  box-sizing: border-box;
+}
+
+.hr-field-drag-ghost-handle {
+  color: #2563eb;
+  font-size: var(--ui-type-control);
+  font-weight: 700;
+}
+
+.hr-field-drag-ghost-text {
+  flex: 1;
+  min-width: 0;
+  color: #0f172a;
+  font-size: var(--ui-type-label);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 520px) {
+  .hr-template-field-toggle {
+    min-height: var(--ui-compact-height);
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  }
+
+  .hr-template-field-handle {
+    width: var(--ui-compact-height);
+    min-height: var(--ui-compact-height);
+    border-radius: 10px;
+  }
+
+  .hr-template-field-move {
+    min-height: var(--ui-compact-height);
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+    border-radius: 10px;
+  }
+
+  .hr-template-editor-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--ui-action-gap);
+  }
+
+  .hr-template-editor-save { grid-column: auto; }
+
+  .hr-template-editor-actions-sticky { padding: 10px 0; }
+
+  .hr-template-dirty-chip,
+  .hr-template-error-banner,
+  .hr-template-field-error,
+  .hr-template-option-text,
+  .hr-template-option-warning { font-size: var(--ui-type-caption); }
+
+  .hr-template-option-remove {
+    width: 22px;
+    height: 22px;
+  }
+
+  .hr-template-options-textarea {
+    min-height: 200px;
+    height: 200px;
+  }
+
+  .hr-field-drag-ghost {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .hr-field-drag-ghost-text { font-size: var(--ui-type-label); }
+  .hr-field-insert-line { height: 3px; }
+}

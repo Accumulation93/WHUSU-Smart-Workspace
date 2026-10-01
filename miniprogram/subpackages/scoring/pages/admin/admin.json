@@ -7,6 +7,7 @@
     "hr-profile-migration-dialog": "/components/hr-profile-migration-dialog/hr-profile-migration-dialog",
     "hr-profile-migration-requests": "/components/hr-profile-migration-requests/hr-profile-migration-requests",
     "hr-directory-controls": "/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls",
+    "hr-template-editor": "/subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor",
     "hr-permanent-deletion-dialog": "/subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog",
     "admin-candidate-list": "/subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList",
     "dictionary-load-failure": "/subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure",

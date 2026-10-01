@@ -11,6 +11,8 @@ function fixture(options = {}) {
   let context = 'org-a';
   const calls = [];
   const modals = [];
+  const scrolls = [];
+  const leaveGuards = [];
   const orgSession = {
     beginRequest(page, channel) {
       page._sequences = page._sequences || {};
@@ -25,10 +27,28 @@ function fixture(options = {}) {
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
     module: { exports: {} },
     Behavior(value) { definition = value; return value; },
-    wx: { showLoading() {}, hideLoading() {}, showToast() {}, showModal(value) { modals.push(value); } },
+    wx: {
+      showLoading() {},
+      hideLoading() {},
+      showToast() {},
+      showModal(value) { modals.push(value); },
+      pageScrollTo(value) { scrolls.push(value); },
+      getSystemInfoSync() { return { windowHeight: 700 }; },
+      enableAlertBeforeUnload(value) { leaveGuards.push(value); },
+      disableAlertBeforeUnload() { leaveGuards.push('off'); }
+    },
     require(name) {
       if (name.endsWith('/orgSession')) return orgSession;
-      if (name.includes('/locales/') || name === './adminUtils' || name === './hrTemplateSwitchDraft') return localRequire(name);
+      if (name.includes('/locales/') || name === './adminUtils' || name === './hrTemplateSwitchDraft'
+        || name.endsWith('/utils/hrFieldMatching')) return localRequire(name);
+      if (name.endsWith('/utils/tableFile')) {
+        return {
+          chooseTableFile: () => Promise.resolve(options.tableFile || null),
+          buildCsv: () => '',
+          buildExcelXml: () => '',
+          saveAndShareFile: () => Promise.resolve({ success: true })
+        };
+      }
       return {};
     }
   }, { filename: file });
@@ -65,10 +85,12 @@ function fixture(options = {}) {
       throw new Error('意外的持久化请求：' + name);
     }
   }, definition.methods);
-  return { page, calls, modals, switchContext() { context = 'org-b'; } };
+  return { page, calls, modals, scrolls, leaveGuards, switchContext() { context = 'org-b'; } };
 }
 
 function turn() { return new Promise(resolve => setImmediate(resolve)); }
+/** 沙箱里的数组来自另一个 Realm，比较前转成本 Realm 的普通值。 */
+const plain = (value) => JSON.parse(JSON.stringify(value));
 
 async function main() {
   let f = fixture();
@@ -84,11 +106,15 @@ async function main() {
     { id: 'field-a', label: '测试字段', type: 'sequence', options: ['一', '二'] }
   ] }];
   f.page.editHrProfileTemplate({ currentTarget: { dataset: { id: 'template-a', index: 0 } } });
-  assert.equal(f.page.data.hrTemplateExpandedField, 0);
+  assert.deepEqual(plain(f.page.data.hrTemplateExpandedFieldIds), [], '打开模板时字段默认全部收起');
   assert.equal(f.page.data.hrProfileTemplateForm.editModeIndex, 1, '填写方式选择器必须按已保存枚举下标定位');
   assert.equal(f.page.data.hrProfileTemplateForm.fields[0].typeIndex, 2);
-  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { index: 0 } } });
-  assert.equal(f.page.data.hrTemplateExpandedField, -1);
+  assert.equal(f.page.data.hrProfileTemplateForm.editModeHint, '成员提交后由管理员审核通过才生效', '填写方式要带一句说明');
+  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { fieldId: 'field-a' } } });
+  assert.deepEqual(plain(f.page.data.hrTemplateExpandedFieldIds), ['field-a']);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].expanded, true);
+  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { fieldId: 'field-a' } } });
+  assert.deepEqual(plain(f.page.data.hrTemplateExpandedFieldIds), []);
   f.page.onHrProfileFieldTypeChange({ currentTarget: { dataset: { index: 0 } }, detail: { value: 1 } });
   assert.equal(f.page.data.hrProfileTemplateForm.fields[0].type, 'number');
   assert.equal(f.page.data.hrProfileTemplateForm.fields[0].typeIndex, 1);
@@ -99,9 +125,15 @@ async function main() {
   assert.equal(f.calls.length, 0, '展开、收起、编辑和取消均不得持久化');
   assert.equal(f.page.data.hrProfileTemplateList[0].fields[0].type, 'sequence', '草稿不得污染库中预览');
   const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8');
-  assert(wxml.includes('value="{{item.typeIndex || 0}}"'));
-  assert(wxml.includes('template name="hr-template-inline-editor"'));
-  assert(wxml.includes('hr-template-options-textarea'));
+  const editorWxml = fs.readFileSync(path.join(path.dirname(file),
+    '../components/hrTemplateEditor/hrTemplateEditor.wxml'), 'utf8');
+  const adminJson = fs.readFileSync(path.join(path.dirname(file), '../admin.json'), 'utf8');
+  assert(wxml.includes('<hr-template-editor'), '编辑器必须作为独立组件引入，避免页面模板超限');
+  assert(!wxml.includes('hr-template-inline-editor'), '内联模板必须移除');
+  assert(adminJson.includes('"hr-template-editor"'));
+  assert(editorWxml.includes('value="{{item.typeIndex || 0}}"'));
+  assert(editorWxml.includes('hr-template-options-textarea'));
+  assert(editorWxml.includes('bindlongpress="onHandleLongPress"'));
   assert(wxml.includes('hrTemplateCopy.viewEditAction'));
   assert(wxml.includes('hr-snapshot-fields hr-template-preview-fields'));
   assert(!wxml.includes('class="hr-template-field-summary"'));
@@ -187,7 +219,127 @@ async function main() {
   finishSwitch({ status: 'success', targetTemplate: { id: 'template-a', fields: [] }, sourceFields: [] });
   await turn();
   assert.notEqual(f.page.data.hrTemplateSwitchVisible, true);
-  console.log('人事模板保存后续流程：真实参数、明确确认、取消、权限、失败草稿、离页/换组织/迟到回调通过');
+
+  // 顺序调整：上移/下移与拖动落位都要反映到提交顺序。
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: 'template-a', name: 'fixture', description: '', editMode: 'direct',
+    fields: [
+      { id: 'f1', label: '第一个', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+      { id: 'f2', label: '第二个', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+      { id: 'f3', label: '第三个', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' }
+    ] };
+  f.page.moveHrProfileField({ currentTarget: { dataset: { index: 2, dir: -1 } } });
+  assert.deepEqual(plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.label), ['第一个', '第三个', '第二个']);
+  assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-f3', '调整后要停在同一个字段上');
+  f.page.applyHrFieldDrop({ fromIndex: 0, toIndex: 2, fieldId: 'f1' });
+  assert.deepEqual(plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.id), ['f3', 'f2', 'f1']);
+  f.page.moveHrProfileField({ currentTarget: { dataset: { index: 0, dir: -1 } } });
+  assert.deepEqual(plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.id), ['f3', 'f2', 'f1'], '第一项上移无效');
+  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { fieldId: 'f2' } } });
+  f.page.toggleHrTemplateFieldEditor({ currentTarget: { dataset: { fieldId: 'f1' } } });
+  assert.deepEqual(plain(f.page.data.hrTemplateExpandedFieldIds), ['f2', 'f1'], '允许多个字段同时展开');
+  f.page.moveHrProfileField({ currentTarget: { dataset: { index: 2, dir: -1 } } });
+  assert.deepEqual(plain(f.page.data.hrTemplateExpandedFieldIds), ['f2', 'f1'], '排序后展开状态仍跟着字段');
+  await f.page.saveHrProfileTemplate();
+  assert.deepEqual(plain(f.calls[0].data.fields).map(item => item.id), ['f3', 'f1', 'f2'], '提交顺序就是界面上看到的顺序');
+
+  // 未保存提醒、放弃确认与删除确认。
+  f = fixture();
+  f.page.cancelHrProfileTemplateEditor();
+  assert.equal(f.modals.length, 0, '没有改动时取消不打扰');
+  assert.equal(f.page.data.showHrTemplateEditor, false);
+
+  f = fixture();
+  f.page.onHrProfileTemplateInput({ currentTarget: { dataset: { field: 'name' } }, detail: { value: '改过的名字' } });
+  assert.equal(f.page.data.hrTemplateDirty, true);
+  assert.equal(f.leaveGuards[f.leaveGuards.length - 1].message, '模板还有未保存的修改', '有改动时离开要提醒');
+  f.page.cancelHrProfileTemplateEditor();
+  assert.equal(f.modals[0].content, '有未保存的修改，放弃后无法恢复。确定放弃吗？');
+  assert.equal(f.page.data.showHrTemplateEditor, true, '未确认前不能关掉编辑器');
+  f.modals[0].success({ confirm: true });
+  assert.equal(f.page.data.showHrTemplateEditor, false);
+  assert.equal(f.leaveGuards[f.leaveGuards.length - 1], 'off');
+
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    { id: 'd1', label: '待删除', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+    { id: 'd2', label: '保留', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' }
+  ] };
+  f.page.removeHrProfileField({ currentTarget: { dataset: { index: 0 } } });
+  assert(f.modals[0].content.includes('待删除'), '删除确认要写明是哪一项');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields.length, 2);
+  f.modals[0].success({ confirm: true });
+  assert.deepEqual(plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.id), ['d2']);
+
+  // 选项：一行一个、忽略空行、折叠只显示前两条、重复项可一键清理、可删单条。
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    { id: 's1', label: '序列项', type: 'sequence', optionsText: '一\n二\n三\n\n二', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' }
+  ] };
+  f.page.applyHrTemplateFields(f.page.data.hrProfileTemplateForm.fields);
+  let seq = f.page.data.hrProfileTemplateForm.fields[0];
+  assert.deepEqual(plain(seq.optionsList), ['一', '二', '三', '二'], '空行自动忽略');
+  assert.equal(seq.optionsCountText, '已填 4 项');
+  assert.equal(seq.optionsSummary, '一、二 等共 4 项', '折叠行只显示前两条');
+  assert.equal(seq.optionsDuplicateText, '有重复选项：二');
+  f.page.dedupeHrProfileOptions({ currentTarget: { dataset: { index: 0 } } });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '一\n二\n三');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsDuplicateText, '');
+  f.page.removeHrProfileOption({ currentTarget: { dataset: { index: 0, optionIndex: 1 } } });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '一\n三');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsSummary, '一、三');
+
+  // 表格导入：按列名认类型，标识类按文本，号码/日期/数字都要认出来。
+  f = fixture({ tableFile: {
+    headers: ['姓名', '学号', '联系电话', '邮箱', '出生日期', '人数', '编号', 'F1'],
+    rows: [['张三', '2021302111001', '13800000000', 'a@b.com', '2004-08-31', '3', 'A-01', '12'],
+      ['李四', '2021302111002', '13900000000', 'c@d.com', '2004-09-01', '5', 'A-02', '15']]
+  } });
+  await f.page.importTableFields();
+  await turn();
+  const importModal = f.modals[f.modals.length - 1];
+  assert(importModal.content.includes('按列名识别'), '导入确认框要说明识别结果');
+  importModal.success({ confirm: true });
+  const importedTypes = plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.type);
+  assert.deepEqual(importedTypes, ['text', 'text', 'phone', 'email', 'date', 'number', 'text', 'number'],
+    '学号与编号按文本，电话/邮箱/日期/人数按识别结果，纯数字列按数字');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].typeLabel, utils.PROFILE_FIELD_TYPE_OPTIONS
+    .find(item => item.value === 'phone').label);
+
+  // 保存前就地校验：错误要指名到字段并滚过去。
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: '', description: '', editMode: 'direct', fields: [
+    { id: 'v1', label: '', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' }
+  ] };
+  await f.page.saveHrProfileTemplate();
+  assert.equal(f.calls.length, 0, '本地就能发现的问题不应该打扰服务端');
+  assert.equal(f.page.data.hrTemplateFormError, '请填写模板名称');
+  assert.equal(f.scrolls[f.scrolls.length - 1].selector, '.hr-template-editor', '模板名出错要回到编辑器顶部');
+  f.page.data.hrProfileTemplateForm.name = 'fixture';
+  await f.page.saveHrProfileTemplate();
+  assert.equal(f.page.data.hrTemplateFormError, '有 1 处需要修改，已定位到第一处');
+  assert.equal(f.page.data.hrTemplateErrorCount, 1);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, '请填写资料项名称');
+  assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v1');
+
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    { id: 'v1', label: '重复名', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+    { id: 'v2', label: '重复名', type: 'text', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+    { id: 'v3', label: '长度反了', type: 'text', optionsText: '', minLength: '10', maxLength: '5', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+    { id: 'v4', label: '数字写了字', type: 'text', optionsText: '', minLength: 'abc', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' },
+    { id: 'v5', label: '空序列', type: 'sequence', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' }
+  ] };
+  await f.page.saveHrProfileTemplate();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.page.data.hrTemplateErrorCount, 4);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[1].errorText, '和前面的「重复名」重名');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].errorText, '最小长度不能大于最大长度');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[3].errorText, '这里要填数字，留空表示不限');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[4].errorText, '序列至少要有一个选项');
+  assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v2', '滚到第一处问题');
+
+  console.log('人事模板编辑：顺序调整、多字段展开、未保存提醒、删除确认、选项预览、导入识别、就地校验、保存后续通过');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -4399,69 +4399,6 @@ scroll-view {
   margin-top: 20rpx;
 }
 
-.hr-template-editor-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ui-action-gap);
-  width: 100%;
-}
-
-/* 字段预览与编辑复用当前组织补充资料快照格式。 */
-.hr-template-field-toggle {
-  flex: none;
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
-  min-height: var(--ui-compact-height);
-  height: auto;
-  margin: 0;
-  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  line-height: var(--ui-leading-control);
-}
-.hr-template-field-toggle-row {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--ui-inline-gap);
-  padding: 10rpx 0 0;
-}
-.hr-template-field-settings { margin-top: var(--ui-field-gap); }
-.hr-template-options-textarea {
-  min-height: 320rpx;
-  height: 320rpx;
-}
-
-.hr-template-editor .hr-template-editor-actions > .hr-template-editor-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  min-height: var(--ui-control-height) !important;
-  height: auto !important;
-  margin: 0;
-  padding: var(--ui-control-padding-y) var(--ui-control-padding-x) !important;
-  border-radius: var(--ui-control-radius, 28rpx);
-  font-size: var(--ui-type-body);
-  line-height: var(--ui-leading-control) !important;
-  text-align: center;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
-}
-
-.hr-template-editor-save {
-  grid-column: 1 / -1;
-}
-
-.hr-template-editor-btn.template-save-btn::before {
-  display: none;
-}
 
 .hr-template-current-card {
   border-color: rgba(59, 130, 246, 0.22);
@@ -4895,29 +4832,8 @@ scroll-view {
   .hr-switch-suggestion,
   .hr-switch-delete-warning { font-size: var(--ui-type-meta); }
 
-  .hr-template-field-toggle {
-    min-height: var(--ui-compact-height);
-    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
-  }
-  .hr-template-field-toggle-row {
-    gap: var(--ui-inline-gap);
-    padding: 8px 0 0;
-  }
-  .hr-template-field-settings { margin-top: var(--ui-field-gap); }
-  textarea.field-textarea.hr-template-options-textarea {
-    min-height: 200px !important;
-    height: 200px !important;
-  }
 
   .hr-template-actions { gap: 8px; }
-  .hr-template-editor-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--ui-action-gap);
-  }
-
-  .hr-template-editor-save {
-    grid-column: auto;
-  }
 
   .hr-template-actions {
     grid-template-columns: repeat(4, minmax(0, 1fr));

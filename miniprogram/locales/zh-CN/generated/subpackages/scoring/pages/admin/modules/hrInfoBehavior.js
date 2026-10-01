@@ -122,7 +122,6 @@ module.exports = Object.freeze({
   copy_d593ce302d: `{0}填写整数`,
   copy_d631c78751: `长度 {0}–{1}`,
   copy_d661ec9421: '请选择以下资料所在列：',
-  copy_d789c23297: `选项：{0}`,
   copy_ddb6dca5b6: '待审核资料',
   copy_defcb9a40c: '请选择资料所在列',
   copy_deff18cd29: '请选择目标',

@@ -54,6 +54,11 @@ const EXEMPTIONS = [
     // 词条与 shared/hrFieldMatching.js 的同义组、中心语字典逐字对齐：新增词条必须同步登记。
     pattern: /^(?:手机号|手机号码|移动电话|手机|电话|电话号码|联系电话|联系电话号码|移动电话号码|邮箱|电子邮箱|电子邮件|邮箱地址|电子邮箱地址|身份|职位|身份类别|固定电话|联系邮箱|邮件|通讯地址|联系地址|家庭住址|户籍地址|住址|地址|姓名|名字|学籍号|学号|身份证号码|身份证号|证件号码|部门|院系|学院|单位|职务|职称|职能组|工作组|出生日期|出生年月|生日|性别|民族|政治面貌|专业|班级|年级|备注|说明|日期|时间|编号|序号|账号|账户|状态)$/
   },
+  {
+    file: 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js',
+    // 表格导入时的列名关键词，仅用于猜资料项类型，不作为展示文案；新增关键词必须同步登记。
+    pattern: /^(?:手机号|手机号码|移动电话|联系电话|电话|邮箱|电子邮箱|电子邮件|日期时间|时间戳|出生日期|日期|数量|人数|金额|分数|工资)$/
+  },
   { file: 'server/src/index.js', pattern: /数据库不可用/ },
   // 通知 worker 的结构校验码只进入重试/死信日志，不会作为接口 message 返回。
   { file: 'server/src/modules/audit/services/notificationOutboxService.js', pattern: /^notification_(?:payload_missing|payload_invalid|recipient_invalid)$/ },
