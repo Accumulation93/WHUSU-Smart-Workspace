@@ -5,6 +5,7 @@ const { suggestFieldTargets } = require('../server/src/core/services/hrProfileFi
 require('./sync-hr-field-matching');
 const { suggestFields } = require('../server/src/core/services/hrProfileFieldSuggestions');
 const adminUtils = require('../miniprogram/subpackages/scoring/pages/admin/modules/adminUtils');
+const fieldMatching = require('../miniprogram/utils/hrFieldMatching');
 const { buildSwitchSources } = require('../miniprogram/subpackages/scoring/pages/admin/modules/hrTemplateSwitchDraft');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -26,6 +27,20 @@ assert.deepEqual(suggestFieldTargets([field('s', '紧急联系电话')], [target
 assert.deepEqual(suggestFieldTargets([field('s', 'phone-contact')], [target]), ['']);
 assert.deepEqual(suggestFieldTargets([field('s', 'Email', 'email')], [field('t', 'email', 'email')]), ['t']);
 assert.deepEqual(suggestFieldTargets([phone], []), ['']);
+
+// 移动电话 / 电话号码 / 电话 / mobile 与联系电话属于同一类联系方式，可直接预填。
+assert.deepEqual(suggestFieldTargets([field('s', '移动电话')], [target]), ['new-phone']);
+assert.deepEqual(suggestFieldTargets([target], [field('t', '移动电话')]), ['t']);
+assert.deepEqual(suggestFieldTargets([field('s', '电话号码')], [target]), ['new-phone']);
+assert.deepEqual(suggestFieldTargets([field('s', 'mobile')], [target]), ['new-phone']);
+assert.equal(adminUtils.autoMapCsvColumn('移动电话', [field('phone-field', '手机号')]), 'phone-field');
+// 只共享中心语（电话 / 住址）但限定语不同的字段只给可修改建议，不自动套用。
+assert.deepEqual(fieldMatching.scoreFieldLabels('移动电话', '固定电话'), { score: 0.7, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('家庭住址', '工作住址'), { score: 0.7, confident: false });
+assert.equal(suggestFields([field('s', '移动电话')], [field('t', '固定电话')])[0].confident, false);
+assert.deepEqual(suggestFieldTargets([field('s', '移动电话')], [field('t', '固定电话')]), ['']);
+assert.deepEqual(suggestFieldTargets([field('s', '家庭住址')], [field('t', '工作住址')]), ['']);
+assert.deepEqual(suggestFieldTargets([field('s', '移动电话')], [field('t', '移动端')]), ['']);
 
 assert.deepEqual(suggestFieldTargets([field('s', '邮箱', 'email')], [field('t', '电子邮箱', 'email')]), ['t']);
 assert.deepEqual(suggestFieldTargets([field('s', '身份', 'text')], [field('t', '职位', 'text')]), ['t']);
