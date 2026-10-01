@@ -33,10 +33,19 @@ assert.deepEqual(suggestFieldTargets([field('s', '移动电话')], [target]), ['
 assert.deepEqual(suggestFieldTargets([target], [field('t', '移动电话')]), ['t']);
 assert.deepEqual(suggestFieldTargets([field('s', '电话号码')], [target]), ['new-phone']);
 assert.deepEqual(suggestFieldTargets([field('s', 'mobile')], [target]), ['new-phone']);
+assert.deepEqual(suggestFieldTargets([field('s', 'Mobile Phone')], [target]), ['new-phone']);
+assert.deepEqual(suggestFieldTargets([field('s', '手机号（本人）')], [target]), ['new-phone']);
+assert.deepEqual(suggestFieldTargets([field('s', '手机号 / Mobile')], [target]), ['new-phone']);
 assert.equal(adminUtils.autoMapCsvColumn('移动电话', [field('phone-field', '手机号')]), 'phone-field');
-// 只共享中心语（电话 / 住址）但限定语不同的字段只给可修改建议，不自动套用。
-assert.deepEqual(fieldMatching.scoreFieldLabels('移动电话', '固定电话'), { score: 0.7, confident: false });
-assert.deepEqual(fieldMatching.scoreFieldLabels('家庭住址', '工作住址'), { score: 0.7, confident: false });
+// 近似匹配按语义中心语与二元组判断，不只针对「电话」两个字：不同限定语、中英混写都要能识别成同类。
+assert.deepEqual(fieldMatching.scoreFieldLabels('移动电话', '固定电话'), { score: 0.72, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('家庭住址', '工作住址'), { score: 0.72, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('Student ID', '学号'), { score: 0.72, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('身份证号', '证件号码'), { score: 0.72, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('邮箱', '电子邮箱'), { score: 0.95, confident: true });
+assert.deepEqual(fieldMatching.scoreFieldLabels('备用电子邮箱', '电子邮箱'), { score: 0.75, confident: false });
+assert.deepEqual(fieldMatching.scoreFieldLabels('qq邮箱', '邮箱'), { score: 0.75, confident: false });
+assert.equal(fieldMatching.scoreFieldLabels('成绩', '姓名').score, 0);
 assert.equal(suggestFields([field('s', '移动电话')], [field('t', '固定电话')])[0].confident, false);
 assert.deepEqual(suggestFieldTargets([field('s', '移动电话')], [field('t', '固定电话')]), ['']);
 assert.deepEqual(suggestFieldTargets([field('s', '家庭住址')], [field('t', '工作住址')]), ['']);
