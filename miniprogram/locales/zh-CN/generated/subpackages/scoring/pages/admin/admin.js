@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  authCodeExportAction: '导出表格',
+  authCodeDialogTitleRecovery: '恢复码已生成',
   ignoreIncompatibleHint: '忽略不兼容记录，仅导入通过的记录',
   ignoreIncompatibleImport: '忽略不兼容并继续导入',
   importIssueTitle: '不兼容记录明细',
@@ -546,7 +548,6 @@ module.exports = Object.freeze({
   copy_b722908172: '关闭',
   copy_b72973a16b: "等第范围",
   copy_b750045581: "不允许",
-  copy_b763f058b0: "复制全部",
   copy_b79428bf57: '添加步骤',
   copy_b7eb36a897: "最低分（含）",
   copy_b8139ca252: "删除此区间",

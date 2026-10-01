@@ -3,6 +3,7 @@ const { callFunction, showShortToast, getErrorText, formatAuditTime, formatAudit
 const authContext = require('../../../../../utils/authContext');
 const orgSession = require('../../../../../utils/orgSession');
 const dateTime = require('../../../../../utils/dateTime');
+const { buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 
 const DIRECTORY_LIMIT = 2000;
 
@@ -155,6 +156,28 @@ function flattenIssued(batchResult) {
   }, []);
 }
 
+/**
+ * 生成（认证码 / 恢复码）展示弹窗的数据补丁。
+ * 号码只在生成时展示一次，弹窗必须同时带上号码种类，
+ * 标题、导出列名和导出文件名都按种类区分，避免恢复码被当成认证码。
+ */
+function issuedCodesDialogData(kind, rows, extra) {
+  return Object.assign({
+    authIssuedCodes: rows,
+    authIssuedCodeKind: kind === 'recovery' ? 'recovery' : 'verification'
+  }, extra || {}, { showAuthCodeDialog: true });
+}
+
+function issuedCodeTexts(kind) {
+  const isRecovery = kind === 'recovery';
+  return {
+    codeLabel: isRecovery ? localeCopy.credentialExportColumnRecoveryCode : localeCopy.credentialExportColumnVerificationCode,
+    fileName: isRecovery ? localeCopy.credentialExportFileRecovery : localeCopy.credentialExportFileVerification,
+    sheetName: isRecovery ? localeCopy.credentialExportSheetRecovery : localeCopy.credentialExportSheetVerification,
+    emptyText: isRecovery ? localeCopy.credentialExportEmptyRecovery : localeCopy.credentialExportEmptyVerification
+  };
+}
+
 function mapPolicy(policy) {
   const source = policy || {};
   const starts = splitPolicyDateTime(source.claim_starts_at || source.claimStartsAt);
@@ -224,8 +247,9 @@ module.exports = Behavior({
     authPolicy: null,
     authPolicyLoading: false,
     authPolicyLoadFailed: false,
-    authIssuedCodes: [],
-    showAuthCodeDialog: false,
+      authIssuedCodes: [],
+      authIssuedCodeKind: 'verification',
+      showAuthCodeDialog: false,
     showAuthRecoveryDialog: false,
     pendingAuthRecovery: null,
     authMemberConfirmVisible: false,
@@ -466,7 +490,7 @@ module.exports = Behavior({
             action: 'issue_code', claimId: row.auth.pendingClaimId
           } });
           if (result.status !== 'success' || !result.verificationCode) throw new Error(result.message || localeCopy.copy_9662ceba48);
-          issued = { key: row.auth.pendingClaimId, personName: row.name, code: result.verificationCode };
+          issued = { key: row.auth.pendingClaimId, personName: row.name, studentId: row.studentId, code: result.verificationCode };
           this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
         } else {
           const result = await callFunction({ name: 'admin/auth/claims', data: {
@@ -474,10 +498,10 @@ module.exports = Behavior({
           } });
           const item = result.status === 'success' && result.issued && result.issued[0];
           if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
-          issued = { key: item.inviteId || row.personId, personName: row.name, code: item.code };
+          issued = { key: item.inviteId || row.personId, personName: row.name, studentId: row.studentId, code: item.code };
           this.patchHrGovernance(row.personId, { hasActiveInvite: true });
         }
-        this.setData({ authIssuedCodes: [issued], showAuthCodeDialog: true });
+        this.setData(issuedCodesDialogData('verification', [issued]));
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
@@ -505,7 +529,7 @@ module.exports = Behavior({
           flattenIssued(result).forEach((item) => {
             const row = names.get(item.claimId);
             if (row) {
-              issued.push({ key: item.claimId, personName: row.name, code: item.verificationCode });
+              issued.push({ key: item.claimId, personName: row.name, studentId: row.studentId, code: item.verificationCode });
               patches.push({ personId: row.personId, patch: { hasActiveClaimCode: true } });
             }
           });
@@ -521,14 +545,14 @@ module.exports = Behavior({
           flattenIssued(result).forEach((item) => {
             const row = rowsByPerson.get(String(item.personId));
             if (row) {
-              issued.push({ key: item.inviteId || item.personId, personName: row.name, code: item.code });
+              issued.push({ key: item.inviteId || item.personId, personName: row.name, studentId: row.studentId, code: item.code });
               patches.push({ personId: row.personId, patch: { hasActiveInvite: true } });
             }
           });
         }
         if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
         this.patchHrGovernanceBatch(patches);
-        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedHrMemberIds: [] });
+        this.setData(issuedCodesDialogData('verification', issued, { selectedHrMemberIds: [] }));
         this.refreshHrMemberSelection();
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
@@ -659,7 +683,9 @@ module.exports = Behavior({
         const item = result.status === 'success' && result.issued && result.issued[0];
         if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
         this.patchHrGovernance(row.personId, { hasRecoveryCode: true });
-        this.setData({ authIssuedCodes: [{ key: row.accountId, personName: row.name, code: item.code }], showAuthCodeDialog: true });
+        this.setData(issuedCodesDialogData('recovery', [{
+          key: row.accountId, personName: row.name, studentId: item.studentId || row.studentId, code: item.code
+        }]));
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
@@ -687,10 +713,15 @@ module.exports = Behavior({
         const issued = flattenIssued(result).map((item) => {
           const row = byAccount.get(String(item.accountId));
           if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: true } });
-          return { key: item.accountId, personName: item.name || row && row.name || localeCopy.copy_6e1cafa10a, code: item.code };
+          return {
+            key: item.accountId,
+            personName: item.name || row && row.name || localeCopy.copy_6e1cafa10a,
+            studentId: item.studentId || row && row.studentId || '',
+            code: item.code
+          };
         });
         if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
-        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true });
+        this.setData(issuedCodesDialogData('recovery', issued));
         this.patchHrGovernanceBatch(patches);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
@@ -979,6 +1010,7 @@ module.exports = Behavior({
       const claimId = String(e.currentTarget.dataset.id || '');
       const name = String(e.currentTarget.dataset.name || '');
       if (!claimId || this.data.authActionLoadingKey) return;
+      const claimRow = (this._authPendingClaimsRaw || []).find((item) => String(item.id || '') === claimId);
       this.setData({ authActionLoadingKey: 'claim-' + claimId });
       try {
         const result = await callFunction({ name: 'admin/auth/claims', data: {
@@ -989,10 +1021,12 @@ module.exports = Behavior({
         }
         this._authPendingClaimsRaw = (this._authPendingClaimsRaw || []).map((item) =>
           item.id === claimId ? Object.assign({}, item, { hasActiveCode: true }) : item);
-        this.setData({
-          authIssuedCodes: [{ key: claimId, personName: name, code: result.verificationCode }],
-          showAuthCodeDialog: true
-        });
+        this.setData(issuedCodesDialogData('verification', [{
+          key: claimId,
+          personName: name,
+          studentId: claimRow ? claimRow.studentId : '',
+          code: result.verificationCode
+        }]));
         this.applyAuthPersonnelFilter(this.data.authSearch);
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
@@ -1004,8 +1038,8 @@ module.exports = Behavior({
     async issueSelectedAuthClaimCodes() {
       const ids = this.data.selectedAuthClaimIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
-      const names = {};
-      (this._authPendingClaimsRaw || []).forEach((item) => { names[item.id] = item.name; });
+      const claimRowsById = {};
+      (this._authPendingClaimsRaw || []).forEach((item) => { claimRowsById[item.id] = item; });
       this.setData({ authActionLoadingKey: 'claim-batch' });
       try {
         const batchResult = await runBatchedAuthAction({
@@ -1014,13 +1048,14 @@ module.exports = Behavior({
         });
         const issued = flattenIssued(batchResult).map((item) => ({
           key: item.claimId,
-          personName: names[item.claimId] || localeCopy.copy_87e91ac4b4,
+          personName: claimRowsById[item.claimId] && claimRowsById[item.claimId].name || localeCopy.copy_87e91ac4b4,
+          studentId: claimRowsById[item.claimId] ? claimRowsById[item.claimId].studentId : '',
           code: item.verificationCode
         }));
         const selected = new Set(issued.map((item) => item.key));
         this._authPendingClaimsRaw = (this._authPendingClaimsRaw || []).map((item) =>
           selected.has(item.id) ? Object.assign({}, item, { hasActiveCode: true }) : item);
-        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthClaimIds: [] });
+        this.setData(issuedCodesDialogData('verification', issued, { selectedAuthClaimIds: [] }));
         this.applyAuthPersonnelFilter(this.data.authSearch);
         if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
@@ -1044,12 +1079,13 @@ module.exports = Behavior({
           key: item.inviteId || item.personId,
           personId: item.personId,
           personName: item.name,
+          studentId: item.studentId,
           code: item.code
         }));
         const selected = new Set(issued.map((item) => item.personId));
         this._authEligiblePeopleRaw = (this._authEligiblePeopleRaw || []).map((item) =>
           selected.has(item.personId) ? Object.assign({}, item, { hasActiveInvite: true }) : item);
-        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthEligiblePersonIds: [] });
+        this.setData(issuedCodesDialogData('verification', issued, { selectedAuthEligiblePersonIds: [] }));
         this.applyAuthPersonnelFilter(this.data.authSearch);
         if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
@@ -1435,15 +1471,20 @@ module.exports = Behavior({
           ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
           extraData: { organizationId: this.data.authScopeOrganizationId }
         });
-        const issued = flattenIssued(batchResult).map((item) => ({
-          key: item.accountId,
-          personName: item.name,
-          code: item.code
-        }));
+        const accountsById = new Map((this._authAccountsRaw || []).map((item) => [String(item.accountId || ''), item]));
+        const issued = flattenIssued(batchResult).map((item) => {
+          const account = accountsById.get(String(item.accountId || ''));
+          return {
+            key: item.accountId,
+            personName: item.name || account && account.name || localeCopy.copy_6e1cafa10a,
+            studentId: item.studentId || account && account.studentId || '',
+            code: item.code
+          };
+        });
         const selected = new Set(issued.map((item) => item.key));
         this._authAccountsRaw = (this._authAccountsRaw || []).map((item) =>
           selected.has(item.accountId) ? Object.assign({}, item, { hasRecoveryCode: true }) : item);
-        this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthAccountIds: [] });
+        this.setData(issuedCodesDialogData('recovery', issued, { selectedAuthAccountIds: [] }));
         this.applyAuthPersonnelFilter(this.data.authSearch);
         if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
@@ -1478,14 +1519,60 @@ module.exports = Behavior({
       }
     },
 
-    copyAuthIssuedCodes() {
-      const content = (this.data.authIssuedCodes || [])
-        .map((item) => item.personName + '：' + item.code).join('\n');
-      if (content) wx.setClipboardData({ data: content });
+    /**
+     * 导出本次生成的号码。
+     * 号码只展示一次且不允许出现「复制不全」，因此统一导出为表格文件：
+     * 每一行是姓名 / 学号 / 认证码（或恢复码），由表格文件保证完整可分发。
+     */
+    exportAuthIssuedCodes() {
+      const rows = this.data.authIssuedCodes || [];
+      const texts = issuedCodeTexts(this.data.authIssuedCodeKind);
+      if (!rows.length) return showShortToast(texts.emptyText);
+      wx.showActionSheet({
+        itemList: [localeCopy.credentialExportFormatExcel, localeCopy.credentialExportFormatCsv],
+        success: (res) => {
+          this._exportAuthIssuedCodes(res.tapIndex === 0 ? 'excel' : 'csv', rows, texts);
+        },
+        fail: () => {}
+      });
+    },
+
+    async _exportAuthIssuedCodes(format, rows, texts) {
+      const headers = [
+        { key: 'name', label: localeCopy.credentialExportColumnName },
+        { key: 'studentId', label: localeCopy.credentialExportColumnStudentId },
+        { key: 'code', label: texts.codeLabel }
+      ];
+      const dataRows = rows.map((item) => ({
+        name: item.personName || '',
+        studentId: item.studentId || '',
+        code: item.code || ''
+      }));
+      const organizationName = String(this.data.authScopeOrganizationName || '').trim();
+      const fileName = organizationName + texts.fileName;
+      try {
+        if (format === 'csv') {
+          await saveAndShareFile(buildCsv(headers, dataRows), fileName, 'csv');
+          return;
+        }
+        const result = await this.callCloud('buildTableFile', {
+          format: 'excel',
+          headers,
+          rows: dataRows,
+          sheetName: texts.sheetName
+        });
+        if (!result || result.status !== 'success' || !result.fileBase64) {
+          showShortToast((result && result.message) || localeCopy.credentialExportFailed);
+          return;
+        }
+        await saveAndShareFile(result.fileBase64, fileName, result.extension || 'xlsx');
+      } catch (error) {
+        showShortToast(getErrorText(error, localeCopy.credentialExportFailed));
+      }
     },
 
     closeAuthCodeDialog() {
-      this.setData({ showAuthCodeDialog: false, authIssuedCodes: [] });
+      this.setData({ showAuthCodeDialog: false, authIssuedCodes: [], authIssuedCodeKind: 'verification' });
     },
 
     onAuthPolicySwitch(e) {

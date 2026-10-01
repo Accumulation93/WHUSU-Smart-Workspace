@@ -2076,14 +2076,14 @@
       <view class="ui-overlay" wx:if="{{showAuthCodeDialog}}">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="modal-card auth-code-dialog ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
-          <view class="modal-header ui-dialog-header"><view><view class="modal-title">{{localeCopy.copy_c195d59710}}</view><view class="auth-dialog-subtitle">{{localeCopy.copy_fe964455aa}}</view></view><text class="modal-close ui-motion-chip" catchtap="closeAuthCodeDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</text></view>
+          <view class="modal-header ui-dialog-header"><view><view class="modal-title">{{authIssuedCodeKind === 'recovery' ? localeCopy.authCodeDialogTitleRecovery : localeCopy.copy_c195d59710}}</view><view class="auth-dialog-subtitle">{{localeCopy.copy_fe964455aa}}</view></view><text class="modal-close ui-motion-chip" catchtap="closeAuthCodeDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
             <view class="auth-code-list ui-dialog-stack">
               <view class="auth-code-row" wx:for="{{authIssuedCodes}}" wx:key="key"><view class="auth-code-name">{{item.personName}}</view><view class="auth-code-value">{{item.code}}</view></view>
             </view>
           <view class="scroll-tail-space"></view>
           </scroll-view>
-          <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="copyAuthIssuedCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b763f058b0}}</button><button class="primary-btn ui-motion-button" bindtap="closeAuthCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d5e4a3193a}}</button></view>
+          <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="exportAuthIssuedCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.authCodeExportAction}}</button><button class="primary-btn ui-motion-button" bindtap="closeAuthCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d5e4a3193a}}</button></view>
         </view>
       </view>
     </viewport-portal>
