@@ -149,6 +149,8 @@
  * `height: auto !important`，否则又会被压回一行。
  */
 .hr-template-editor .hr-template-field-settings .hr-template-options-textarea {
+  /* 行高与下面算高度用的是同一个数，框高才会和内容逐行对齐，不在底部留出空白。 */
+  line-height: 44rpx !important;
   height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
   min-height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
   max-height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
@@ -346,6 +348,7 @@
   }
 
   .hr-template-editor .hr-template-field-settings .hr-template-options-textarea {
+    line-height: 22px !important;
     height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
     min-height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
     max-height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;

@@ -94,6 +94,21 @@ assert(optionsTextareaTag && !/auto-height/.test(optionsTextareaTag[0]),
   '选项框不能再依赖 auto-height，高度必须由行数控制');
 assert(optionsTextareaTag && /--hr-option-rows: \{\{item\.optionsRows\}\}/.test(optionsTextareaTag[0]),
   '选项框必须把行数传进样式变量');
+// 带占位符的文案必须先用 format 填好再渲染：把 pattern 直接写进 WXML 会显示成「共 {0} 项」。
+const templateSaveCopy = require('../miniprogram/locales/zh-CN/hrTemplateSave');
+const placeholderKeys = (locale) => Object.keys(locale).filter((key) =>
+  typeof locale[key] === 'string' && /\{\d+\}/.test(locale[key]));
+[
+  { source: templateEditorWxmlSource, variable: 'localeCopy', locale: adminCopy, label: '编辑器 WXML' },
+  { source: templateEditorWxmlSource, variable: 'hrTemplateCopy', locale: templateSaveCopy, label: '编辑器 WXML' },
+  { source: adminWxmlSource, variable: 'localeCopy', locale: adminCopy, label: '页面 WXML' },
+  { source: adminWxmlSource, variable: 'hrTemplateCopy', locale: templateSaveCopy, label: '页面 WXML' }
+].forEach((item) => {
+  placeholderKeys(item.locale).forEach((key) => {
+    assert(!new RegExp('\\b' + item.variable + '\\.' + key + '\\b').test(item.source),
+      item.label + ' 直接渲染了带占位符的文案：' + item.variable + '.' + key);
+  });
+});
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
 // 选项框：全局 .field-textarea 在 Pad 档有 height:auto !important，组件里必须用三级类
 // 选择器 + !important 按行数精确设高，并且不能再依赖 auto-height，否则又会塌成一行。

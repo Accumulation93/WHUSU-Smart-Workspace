@@ -95,8 +95,10 @@ function buildHrFieldOptionsSummary(optionsText) {
 function decorateHrTemplateField(field, expandedIds, errors, optionsExpandedIds) {
   const optionsList = parseHrFieldOptions(field.optionsText);
   const duplicates = findDuplicateHrFieldOptions(optionsList);
-  // 选项框高度跟着条数走：5 行起步、最多 12 行，超过在框内滚动。
-  const optionsRows = Math.min(HR_FIELD_OPTIONS_ROWS_MAX, Math.max(HR_FIELD_OPTIONS_ROWS_MIN, optionsList.length));
+  // 选项框高度跟着内容走：空字段留 5 行方便点，一旦有内容就贴合内容（最多 12 行，超过在框内滚动）。
+  const optionsRows = optionsList.length
+    ? Math.min(HR_FIELD_OPTIONS_ROWS_MAX, optionsList.length)
+    : HR_FIELD_OPTIONS_ROWS_MIN;
   const optionsExpanded = (optionsExpandedIds || []).indexOf(String(field.id)) >= 0;
   const visibleOptions = optionsExpanded ? optionsList : optionsList.slice(0, HR_FIELD_OPTIONS_VISIBLE_LIMIT);
   return Object.assign({}, field, {

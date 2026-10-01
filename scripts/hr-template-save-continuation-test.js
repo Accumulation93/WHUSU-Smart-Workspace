@@ -301,7 +301,8 @@ async function main() {
   ] };
   f.page.applyHrTemplateFields(f.page.data.hrProfileTemplateForm.fields);
   let seqFields = f.page.data.hrProfileTemplateForm.fields;
-  assert.deepEqual(plain(seqFields).map(item => item.optionsRows), [5, 5, 7, 12], '5 行起步、12 行封顶');
+  assert.deepEqual(plain(seqFields).map(item => item.optionsRows), [5, 1, 7, 12],
+    '空字段留 5 行，有内容就贴合内容，最多 12 行');
   assert.equal(seqFields[2].optionsHiddenCount, 1, '超过 6 条默认只列前 6 条');
   assert.deepEqual(plain(seqFields[2].optionsViewList).map(item => item.text),
     ['一', '二', '三', '四', '五', '六']);
