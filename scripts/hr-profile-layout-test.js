@@ -89,7 +89,21 @@ for (const action of ['onAddField', 'onImportFields', 'onSave']) {
   assert(new RegExp('class="[^"]*hr-template-editor-btn[^"\\n]*"[^\\n]*bindtap="' + action + '"').test(templateEditorWxmlSource),
     '三个真实按钮均必须接入模板操作控件规则：' + action);
 }
+const optionsTextareaTag = templateEditorWxmlSource.match(/hr-template-options-textarea[^>]*/);
+assert(optionsTextareaTag && !/auto-height/.test(optionsTextareaTag[0]),
+  '选项框不能再依赖 auto-height，高度必须由行数控制');
+assert(optionsTextareaTag && /--hr-option-rows: \{\{item\.optionsRows\}\}/.test(optionsTextareaTag[0]),
+  '选项框必须把行数传进样式变量');
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
+// 选项框：全局 .field-textarea 在 Pad 档有 height:auto !important，组件里必须用三级类
+// 选择器 + !important 按行数精确设高，并且不能再依赖 auto-height，否则又会塌成一行。
+const optionsHeightRule = templateEditorWxss.match(
+  /(?:\.hr-[a-z-]+\s+){2}\.hr-template-options-textarea\s*\{([^}]+)\}/);
+assert(optionsHeightRule, '选项框高度必须用至少三级类选择器定义');
+assert(/height:\s*calc\(var\(--hr-option-rows/.test(optionsHeightRule[1]) && /!important/.test(optionsHeightRule[1]),
+  '选项框高度必须按行数计算并带 !important，避免被全局规则压回一行');
+assert(/\.hr-template-description-textarea\s*\{[^}]*min-height:[^}]*!important/.test(templateEditorWxss),
+  '模板说明同样要有最小行数兜底');
 // 编辑器组件的三个操作必须由页面接收并落到原有方法上。
 for (const wiring of [
   /case 'add-field': return this\.addHrProfileField\(\)/,

@@ -25,6 +25,10 @@ const fieldMatching = require('../../../../../utils/hrFieldMatching');
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 // 折叠行最多显示两个选项，避免选项多的字段把整页撑长。
 const HR_FIELD_OPTIONS_PREVIEW_LIMIT = 2;
+// 选项编辑框 5 行起步、最多 12 行；卡片默认只列前 6 条，超出可展开全部。
+const HR_FIELD_OPTIONS_ROWS_MIN = 5;
+const HR_FIELD_OPTIONS_ROWS_MAX = 12;
+const HR_FIELD_OPTIONS_VISIBLE_LIMIT = 6;
 const HR_FIELD_TYPE_KEYWORDS = {
   phone: ['手机号', '手机号码', '移动电话', '联系电话', '电话', 'phone', 'mobile'],
   email: ['邮箱', '电子邮箱', '电子邮件', 'email'],
@@ -88,13 +92,27 @@ function buildHrFieldOptionsSummary(optionsText) {
     [optionsList.slice(0, HR_FIELD_OPTIONS_PREVIEW_LIMIT).join('、'), optionsList.length]);
 }
 
-function decorateHrTemplateField(field, expandedIds, errors) {
+function decorateHrTemplateField(field, expandedIds, errors, optionsExpandedIds) {
   const optionsList = parseHrFieldOptions(field.optionsText);
   const duplicates = findDuplicateHrFieldOptions(optionsList);
+  // 选项框高度跟着条数走：5 行起步、最多 12 行，超过在框内滚动。
+  const optionsRows = Math.min(HR_FIELD_OPTIONS_ROWS_MAX, Math.max(HR_FIELD_OPTIONS_ROWS_MIN, optionsList.length));
+  const optionsExpanded = (optionsExpandedIds || []).indexOf(String(field.id)) >= 0;
+  const visibleOptions = optionsExpanded ? optionsList : optionsList.slice(0, HR_FIELD_OPTIONS_VISIBLE_LIMIT);
   return Object.assign({}, field, {
     expanded: (expandedIds || []).indexOf(String(field.id)) >= 0,
     optionsList,
     optionsCount: optionsList.length,
+    optionsRows,
+    optionsExpanded,
+    optionsHiddenCount: Math.max(0, optionsList.length - visibleOptions.length),
+    optionsExpandText: localeFormat(templateSaveCopy.fieldOptionsExpandAction, [optionsList.length]),
+    optionsViewList: visibleOptions.map((text, position) => ({
+      index: position,
+      text,
+      first: position === 0,
+      last: position === optionsList.length - 1
+    })),
     optionsSummary: buildHrFieldOptionsSummary(field.optionsText),
     optionsCountText: localeFormat(templateSaveCopy.fieldOptionsCount, [optionsList.length]),
     optionsDuplicateText: duplicates.length
@@ -104,8 +122,9 @@ function decorateHrTemplateField(field, expandedIds, errors) {
   });
 }
 
-function decorateHrTemplateFields(fields, expandedIds, errors) {
-  return (fields || []).map((field) => decorateHrTemplateField(field, expandedIds, errors));
+function decorateHrTemplateFields(fields, expandedIds, errors, optionsExpandedIds) {
+  return (fields || []).map((field) =>
+    decorateHrTemplateField(field, expandedIds, errors, optionsExpandedIds));
 }
 
 /** 判断“有没有改过”只看真正会保存的内容，展开、拖动、错误提示不算改动。 */
@@ -458,6 +477,7 @@ module.exports = Behavior({
     hrTemplateCopy: templateSaveCopy,
     hrTemplatePreviewId: '',
     hrTemplateExpandedFieldIds: [],
+    hrTemplateExpandedOptionsIds: [],
     hrTemplateDirty: false,
     hrTemplateErrorCount: 0,
     hrTemplateFormError: ''
@@ -872,7 +892,7 @@ module.exports = Behavior({
           hrProfileTemplateList: (result.list || []).map((template) => Object.assign({}, template, {
             // 保留原始 options 数组：再次进入编辑器时，序列选项要靠它回填文本框。
             fields: (template.fields || []).map((field) =>
-              decorateHrTemplateField(Object.assign({}, field, normalizeHrProfileFieldForForm(field)), [], {}))
+              decorateHrTemplateField(Object.assign({}, field, normalizeHrProfileFieldForForm(field)), [], {}, []))
           })),
           activeHrProfileSnapshot: active,
           canManageHrProfileTemplates: result.canManage === true,
@@ -893,10 +913,11 @@ module.exports = Behavior({
       this.setData({
         hrProfileTemplateForm: Object.assign({}, form, {
           editModeHint: editModeHintFor(form.editMode, templateSaveCopy),
-          fields: decorateHrTemplateFields(form.fields, expandedIds, {})
+          fields: decorateHrTemplateFields(form.fields, expandedIds, {}, [])
         }),
         hrTemplatePreviewId: '',
         hrTemplateExpandedFieldIds: expandedIds,
+        hrTemplateExpandedOptionsIds: [],
         hrTemplateErrorCount: 0,
         hrTemplateFormError: '',
         showHrTemplateEditor: true
@@ -955,7 +976,7 @@ module.exports = Behavior({
         hrTemplateExpandedFieldIds: expandedIds,
         hrTemplateErrorCount: Object.keys(errors).length,
         hrTemplateFormError: text,
-        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, errors)
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, errors, this.data.hrTemplateExpandedOptionsIds || [])
       });
       this.focusHrTemplateEditor(false, fieldId);
     },
@@ -973,7 +994,7 @@ module.exports = Behavior({
       const nextErrors = errors || this._hrTemplateFieldErrors || {};
       this._hrTemplateFieldErrors = nextErrors;
       this.setData({
-        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, nextErrors),
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, nextErrors, this.data.hrTemplateExpandedOptionsIds || []),
         hrTemplateErrorCount: Object.keys(nextErrors).length
       });
       this.refreshHrTemplateDirty();
@@ -996,10 +1017,11 @@ module.exports = Behavior({
           editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(modeOption),
           editModeHint: editModeHintFor(modeOption.value, templateSaveCopy),
           fields: decorateHrTemplateFields(
-            (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field)), [], {})
+            (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field)), [], {}, [])
         },
         hrTemplatePreviewId: id,
         hrTemplateExpandedFieldIds: [],
+        hrTemplateExpandedOptionsIds: [],
         hrTemplateErrorCount: 0,
         hrTemplateFormError: '',
         showHrTemplateEditor: true
@@ -1034,6 +1056,7 @@ module.exports = Behavior({
         showHrTemplateEditor: false,
         hrProfileTemplateForm: emptyHrProfileTemplateForm(),
         hrTemplateExpandedFieldIds: [],
+        hrTemplateExpandedOptionsIds: [],
         hrTemplateDirty: false,
         hrTemplateErrorCount: 0,
         hrTemplateFormError: '',
@@ -1060,7 +1083,7 @@ module.exports = Behavior({
       this.setData({
         hrTemplateExpandedFieldIds: expandedIds,
         'hrProfileTemplateForm.fields': decorateHrTemplateFields(
-          this.data.hrProfileTemplateForm.fields || [], expandedIds, {})
+          this.data.hrProfileTemplateForm.fields || [], expandedIds, {}, this.data.hrTemplateExpandedOptionsIds || [])
       }, () => {
         if (expanded) this.focusHrTemplateEditor(false, fieldId);
       });
@@ -1087,6 +1110,9 @@ module.exports = Behavior({
         case 'remove-field': return this.removeHrProfileField({ currentTarget });
         case 'remove-option': return this.removeHrProfileOption({ currentTarget });
         case 'dedupe-options': return this.dedupeHrProfileOptions({ currentTarget });
+        case 'option-move': return this.moveHrProfileOption(detail);
+        case 'option-drop': return this.applyHrOptionDrop(detail);
+        case 'option-toggle-expand': return this.toggleHrProfileOptionsExpand(detail);
         case 'add-field': return this.addHrProfileField();
         case 'import-fields': return this.importTableFields();
         case 'save': return this.saveHrProfileTemplate();
@@ -2740,6 +2766,56 @@ module.exports = Behavior({
       this.applyHrTemplateFields(fields);
     },
 
+    /** 选项上移 / 下移：只改文本框里的行顺序，成员端下拉顺序随之变化。 */
+    moveHrProfileOption(detail) {
+      const index = Number(detail && detail.index);
+      const optionIndex = Number(detail && detail.optionIndex);
+      const dir = Number(detail && detail.dir);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field || (dir !== -1 && dir !== 1)) return;
+      const options = parseHrFieldOptions(field.optionsText);
+      const target = optionIndex + dir;
+      if (Number.isNaN(optionIndex) || optionIndex < 0 || optionIndex >= options.length) return;
+      if (target < 0 || target >= options.length) return;
+      fields[index] = Object.assign({}, field, {
+        optionsText: utils.moveItem(options, optionIndex, target).join('\n')
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
+    /** 选项拖动落位：组件只上报字段位置与起止选项下标。 */
+    applyHrOptionDrop(detail) {
+      const index = Number(detail && detail.index);
+      const fromIndex = Number(detail && detail.fromIndex);
+      const toIndex = Number(detail && detail.toIndex);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field || Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
+      const options = parseHrFieldOptions(field.optionsText);
+      if (fromIndex < 0 || fromIndex >= options.length || toIndex < 0 || toIndex >= options.length) return;
+      fields[index] = Object.assign({}, field, {
+        optionsText: utils.moveItem(options, fromIndex, toIndex).join('\n')
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
+    toggleHrProfileOptionsExpand(detail) {
+      const index = Number(detail && detail.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field) return;
+      const fieldId = String(field.id);
+      const current = this.data.hrTemplateExpandedOptionsIds || [];
+      const expanded = current.indexOf(fieldId) < 0;
+      this.setData({
+        hrTemplateExpandedOptionsIds: expanded
+          ? current.concat(fieldId)
+          : current.filter((id) => id !== fieldId)
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
     importTableFields() {
       this.setLoading('importTemplateFieldsCsv', true);
       const _this = this;
@@ -2874,7 +2950,8 @@ module.exports = Behavior({
           'hrProfileTemplateForm.fields': decorateHrTemplateFields(
             this.data.hrProfileTemplateForm.fields || [],
             this.data.hrTemplateExpandedFieldIds || [],
-            validation.fieldErrors
+            validation.fieldErrors,
+            this.data.hrTemplateExpandedOptionsIds || []
           )
         });
         if (validation.firstFieldId) {
@@ -2884,7 +2961,8 @@ module.exports = Behavior({
             this.setData({
               hrTemplateExpandedFieldIds: nextExpanded,
               'hrProfileTemplateForm.fields': decorateHrTemplateFields(
-                this.data.hrProfileTemplateForm.fields || [], nextExpanded, validation.fieldErrors)
+                this.data.hrProfileTemplateForm.fields || [], nextExpanded, validation.fieldErrors,
+                this.data.hrTemplateExpandedOptionsIds || [])
             });
           }
           this.focusHrTemplateEditor(false, validation.firstFieldId);

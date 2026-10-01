@@ -13,7 +13,7 @@
   </view>
   <view class="field">
     <view class="field-label">{{localeCopy.copy_560dc33d09}}</view>
-    <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onTemplateInput" value="{{form.description}}" placeholder="{{localeCopy.copy_3234735724}}" />
+    <textarea class="field-textarea hr-template-description-textarea" auto-height cursor-spacing="24" maxlength="-1" data-field="description" bindinput="onTemplateInput" value="{{form.description}}" placeholder="{{localeCopy.copy_3234735724}}" />
   </view>
   <view class="field">
     <view class="field-label">{{localeCopy.copy_1037d0aa5f}}</view>
@@ -106,13 +106,22 @@
           </view>
           <view class="field" wx:if="{{item.type === 'sequence'}}">
             <view class="field-label">{{localeCopy.copy_1016162deb}}</view>
-            <textarea class="field-textarea question-textarea hr-template-options-textarea" auto-height maxlength="-1" data-index="{{index}}" data-field="optionsText" bindinput="onFieldInput" value="{{item.optionsText}}" placeholder="{{localeCopy.copy_c3f8ea9aaa}}" />
+            <textarea class="field-textarea question-textarea hr-template-options-textarea" cursor-spacing="24" maxlength="-1" data-index="{{index}}" data-field="optionsText" bindinput="onFieldInput" value="{{item.optionsText}}" style="--hr-option-rows: {{item.optionsRows}}" placeholder="{{localeCopy.copy_c3f8ea9aaa}}" />
             <view class="field-hint">{{hrTemplateCopy.fieldOptionsHint}} · {{item.optionsCountText}}</view>
             <view class="hr-template-option-list" wx:if="{{item.optionsCount}}">
-              <view class="hr-template-option-chip" wx:for="{{item.optionsList}}" wx:for-item="option" wx:for-index="optionIndex" wx:key="*this">
-                <text class="hr-template-option-text">{{option}}</text>
-                <view class="hr-template-option-remove ui-motion-chip" data-index="{{index}}" data-option-index="{{optionIndex}}" bindtap="onRemoveOption" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="button" aria-label="{{hrTemplateCopy.removeOptionAction}}">×</view>
+              <view class="hr-template-option-row {{optionDragFieldIndex === index && optionDragIndex === option.index ? 'is-dragging' : ''}}" wx:for="{{item.optionsViewList}}" wx:for-item="option" wx:key="index" data-field-index="{{index}}" data-option-index="{{option.index}}">
+                <view class="hr-field-insert-line" wx:if="{{optionDragFieldIndex === index && dragInsertIndex === optionIndex}}"></view>
+                <view class="hr-template-option-handle ui-motion-chip" wx:if="{{item.optionsExpanded}}" data-index="{{index}}" data-option-index="{{option.index}}" bindlongpress="onOptionHandleLongPress" catchtouchmove="onDragMove" bindtouchend="onDragEnd" bindtouchcancel="onDragEnd" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="button" aria-label="{{hrTemplateCopy.dragFieldLabel}}">≡</view>
+                <text class="hr-template-option-text">{{option.text}}</text>
+                <view class="hr-template-option-move ui-motion-chip {{option.first ? 'is-disabled' : ''}}" wx:if="{{item.optionsExpanded}}" data-index="{{index}}" data-option-index="{{option.index}}" data-dir="-1" bindtap="onMoveOption" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="button" aria-label="{{hrTemplateCopy.moveOptionUpAction}}">↑</view>
+                <view class="hr-template-option-move ui-motion-chip {{option.last ? 'is-disabled' : ''}}" wx:if="{{item.optionsExpanded}}" data-index="{{index}}" data-option-index="{{option.index}}" data-dir="1" bindtap="onMoveOption" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="button" aria-label="{{hrTemplateCopy.moveOptionDownAction}}">↓</view>
+                <view class="hr-template-option-remove ui-motion-chip" data-index="{{index}}" data-option-index="{{option.index}}" bindtap="onRemoveOption" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="button" aria-label="{{hrTemplateCopy.removeOptionAction}}">×</view>
               </view>
+              <view class="hr-field-insert-line hr-field-insert-line-end" wx:if="{{optionDragFieldIndex === index && dragInsertIndex === item.optionsViewList.length}}"></view>
+            </view>
+            <view class="hr-template-option-toggle-row" wx:if="{{item.optionsHiddenCount > 0 || item.optionsExpanded}}">
+              <text class="link ui-motion-chip" data-index="{{index}}" bindtap="onToggleOptionsExpand" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.optionsExpanded ? hrTemplateCopy.fieldOptionsCollapseAction : hrTemplateCopy.fieldOptionsExpandAction}}</text>
+              <text class="hr-template-option-hint" wx:if="{{!item.optionsExpanded}}">{{hrTemplateCopy.fieldOptionsOrderHint}}</text>
             </view>
             <view class="hr-template-option-warning" wx:if="{{item.optionsDuplicateText}}">
               <text>{{item.optionsDuplicateText}}</text>
@@ -135,5 +144,5 @@
 </view>
 <view class="hr-field-drag-ghost" wx:if="{{ghostVisible}}" style="top: {{ghostTop}}px; left: {{ghostLeft}}px; width: {{ghostWidth}}px;">
   <view class="hr-field-drag-ghost-handle">≡</view>
-  <view class="hr-field-drag-ghost-text">{{form.fields[dragIndex].label || hrTemplateCopy.unnamedField}}</view>
+  <view class="hr-field-drag-ghost-text">{{ghostLabel}}</view>
 </view>

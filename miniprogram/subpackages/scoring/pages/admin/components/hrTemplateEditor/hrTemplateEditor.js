@@ -29,10 +29,13 @@ Component({
   data: {
     dragIndex: -1,
     dragInsertIndex: -1,
+    optionDragFieldIndex: -1,
+    optionDragIndex: -1,
     ghostVisible: false,
     ghostTop: 0,
     ghostLeft: 0,
-    ghostWidth: 0
+    ghostWidth: 0,
+    ghostLabel: ''
   },
 
   methods: {
@@ -104,6 +107,19 @@ Component({
       this.emit('dedupe-options', { index: Number(e.currentTarget.dataset.index) });
     },
 
+    /** 选项：上移 / 下移一格。 */
+    onMoveOption(e) {
+      this.emit('option-move', {
+        index: Number(e.currentTarget.dataset.index),
+        optionIndex: Number(e.currentTarget.dataset.optionIndex),
+        dir: Number(e.currentTarget.dataset.dir)
+      });
+    },
+
+    onToggleOptionsExpand(e) {
+      this.emit('option-toggle-expand', { index: Number(e.currentTarget.dataset.index) });
+    },
+
     onAddField() {
       this.emit('add-field');
     },
@@ -120,21 +136,27 @@ Component({
       this.emit('cancel');
     },
 
-    /** 长按拖动手柄进入排序：拖动期间页面不跟手滚动，到边缘才自动翻页。 */
-    onHandleLongPress(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const fields = (this.data.form && this.data.form.fields) || [];
-      if (Number.isNaN(index) || !fields[index] || this.data.dragIndex >= 0) return;
-      const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-      const touchY = touch ? (touch.clientY != null ? touch.clientY : touch.pageY) : null;
-      this._drag = { index, fieldId: String(fields[index].id) };
-      this._dragLastY = touchY;
+    /**
+     * 通用行拖动：资料项行与选项行共用一套手势。
+     * 手柄自己拦住触摸，所以拖动期间页面不跟手滚动；手指到边缘时再程序化翻页。
+     */
+    startRowDrag(config) {
+      if (this._drag) return;
+      const touchY = config.touchY;
+      this._drag = Object.assign({}, config, { touchY });
       this._dragLastFrame = 0;
       this._dragViewport = { top: 0, bottom: wx.getSystemInfoSync().windowHeight };
-      this.setData({ dragIndex: index, dragInsertIndex: index, ghostVisible: false });
-      this.createSelectorQuery().selectAll('.hr-template-field-item').boundingClientRect((rects) => {
-        if (!rects || !rects.length || !this._drag) return;
-        const rect = rects[index];
+      this.setData({
+        dragIndex: config.kind === 'field' ? config.index : -1,
+        optionDragFieldIndex: config.kind === 'option' ? config.fieldIndex : -1,
+        optionDragIndex: config.kind === 'option' ? config.index : -1,
+        dragInsertIndex: config.visibleIndex,
+        ghostVisible: false,
+        ghostLabel: String(config.label == null ? '' : config.label)
+      });
+      this.queryRects(config.selector, (rects) => {
+        this._dragRects = rects;
+        const rect = rects[config.visibleIndex];
         if (!rect) return;
         this._dragFingerOffset = (touchY == null ? rect.top : touchY) - rect.top;
         this.setData({
@@ -143,16 +165,26 @@ Component({
           ghostLeft: rect.left,
           ghostWidth: rect.width
         });
+      });
+    },
+
+    queryRects(selector, callback) {
+      this.createSelectorQuery().selectAll(selector).boundingClientRect((rects) => {
+        if (!this._drag) return;
+        callback((rects || []).filter((rect) => {
+          if (!this._drag.filterKey) return true;
+          return String(rect.dataset && rect.dataset[this._drag.filterKey]) === String(this._drag.filterValue);
+        }));
       }).exec();
     },
 
-    onDragMove(e) {
+    moveRowDrag(e) {
       const state = this._drag;
-      if (!state || this.data.dragIndex < 0) return;
+      if (!state) return;
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return;
       const touchY = touch.clientY != null ? touch.clientY : touch.pageY;
-      this._dragLastY = touchY;
+      state.touchY = touchY;
       const now = Date.now();
       if (this._dragLastFrame && now - this._dragLastFrame < 33) return;
       this._dragLastFrame = now;
@@ -175,8 +207,8 @@ Component({
         }
       }
 
-      this.createSelectorQuery().selectAll('.hr-template-field-item').boundingClientRect((rects) => {
-        if (!rects || !rects.length || !this._drag) return;
+      this.queryRects(state.selector, (rects) => {
+        this._dragRects = rects;
         let insertIndex = rects.length;
         for (let i = 0; i < rects.length; i += 1) {
           if (touchY < rects[i].top + rects[i].height / 2) {
@@ -185,24 +217,86 @@ Component({
           }
         }
         const offset = this._dragFingerOffset || 0;
-        const draggedHeight = rects[state.index] ? rects[state.index].height : 0;
+        const draggedHeight = rects[state.visibleIndex] ? rects[state.visibleIndex].height : 0;
         let ghostTop = touchY - offset;
         if (viewport) ghostTop = Math.max(viewport.top, Math.min(viewport.bottom - draggedHeight, ghostTop));
         const update = {};
         if (insertIndex !== this.data.dragInsertIndex) update.dragInsertIndex = insertIndex;
         if (ghostTop !== this.data.ghostTop) update.ghostTop = ghostTop;
         if (Object.keys(update).length) this.setData(update);
-      }).exec();
+      });
+    },
+
+    endRowDrag() {
+      const state = this._drag;
+      this._drag = null;
+      this._dragRects = null;
+      if (!state) return;
+      const insertIndex = this.data.dragInsertIndex;
+      const toVisible = insertIndex > state.visibleIndex ? insertIndex - 1 : insertIndex;
+      this.setData({
+        dragIndex: -1,
+        optionDragFieldIndex: -1,
+        optionDragIndex: -1,
+        dragInsertIndex: -1,
+        ghostVisible: false,
+        ghostLabel: ''
+      });
+      if (state.kind === 'field') {
+        this.emit('field-drop', { fromIndex: state.index, toIndex: toVisible, fieldId: state.fieldId });
+        return;
+      }
+      // 选项的可见顺序就是真实顺序（排序只在展开全部时提供），直接按真实下标上报。
+      this.emit('option-drop', { index: state.fieldIndex, fromIndex: state.index, toIndex: toVisible });
+    },
+
+    /** 资料项行：长按排序。 */
+    onHandleLongPress(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = (this.data.form && this.data.form.fields) || [];
+      if (Number.isNaN(index) || !fields[index]) return;
+      const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      this.startRowDrag({
+        kind: 'field',
+        selector: '.hr-template-field-item',
+        index,
+        visibleIndex: index,
+        fieldId: String(fields[index].id),
+        label: fields[index].label,
+        touchY: touch ? (touch.clientY != null ? touch.clientY : touch.pageY) : null
+      });
+    },
+
+    /** 选项行：长按排序（只在展开全部时提供手柄）。 */
+    onOptionHandleLongPress(e) {
+      const fieldIndex = Number(e.currentTarget.dataset.index);
+      const optionIndex = Number(e.currentTarget.dataset.optionIndex);
+      const fields = (this.data.form && this.data.form.fields) || [];
+      const field = fields[fieldIndex];
+      if (!field || Number.isNaN(optionIndex)) return;
+      const view = field.optionsViewList || [];
+      const visibleIndex = view.findIndex((item) => Number(item.index) === optionIndex);
+      if (visibleIndex < 0) return;
+      const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      this.startRowDrag({
+        kind: 'option',
+        selector: '.hr-template-option-row',
+        index: optionIndex,
+        fieldIndex,
+        visibleIndex,
+        filterKey: 'fieldIndex',
+        filterValue: fieldIndex,
+        label: view[visibleIndex].text,
+        touchY: touch ? (touch.clientY != null ? touch.clientY : touch.pageY) : null
+      });
+    },
+
+    onDragMove(e) {
+      this.moveRowDrag(e);
     },
 
     onDragEnd() {
-      const state = this._drag;
-      this._drag = null;
-      if (!state) return;
-      const insertIndex = this.data.dragInsertIndex;
-      const toIndex = insertIndex > state.index ? insertIndex - 1 : insertIndex;
-      this.setData({ dragIndex: -1, dragInsertIndex: -1, ghostVisible: false });
-      this.emit('field-drop', { fromIndex: state.index, toIndex, fieldId: state.fieldId });
+      this.endRowDrag();
     }
   }
 });

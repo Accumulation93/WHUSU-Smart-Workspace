@@ -32,17 +32,21 @@ function loadComponent() {
   return { definition, wx: sandboxWx };
 }
 
-function createInstance(definition, rects) {
+function createInstance(definition, rects, overrides) {
   const events = [];
+  const settings = overrides || {};
   const instance = {
     data: {
       dragIndex: -1,
       dragInsertIndex: -1,
+      optionDragFieldIndex: -1,
+      optionDragIndex: -1,
       ghostVisible: false,
       ghostTop: 0,
       ghostLeft: 0,
       ghostWidth: 0,
-      form: {
+      ghostLabel: '',
+      form: settings.form || {
         fields: [
           { id: 'f1', label: '第一个' },
           { id: 'f2', label: '第二个' },
@@ -142,4 +146,57 @@ test('没有长按就不会产生拖动状态', () => {
   instance.onDragEnd();
   assert.equal(instance.data.dragIndex, -1);
   assert.equal(events.length, 0);
+});
+
+test('选项行长按拖动后按真实下标上报落位', () => {
+  const { definition } = loadComponent();
+  const optionRects = [
+    { top: 100, height: 40, left: 20, width: 300, dataset: { fieldIndex: '0', optionIndex: '0' } },
+    { top: 150, height: 40, left: 20, width: 300, dataset: { fieldIndex: '0', optionIndex: '1' } },
+    { top: 200, height: 40, left: 20, width: 300, dataset: { fieldIndex: '0', optionIndex: '2' } }
+  ];
+  const { instance, events } = createInstance(definition, optionRects, {
+    form: { fields: [{ id: 's1', label: '序列项', optionsViewList: [
+      { index: 0, text: '甲' }, { index: 1, text: '乙' }, { index: 2, text: '丙' }
+    ] }] }
+  });
+  instance.onOptionHandleLongPress({
+    currentTarget: { dataset: { index: 0, optionIndex: 0 } },
+    touches: [{ clientY: 110 }]
+  });
+  assert.equal(instance.data.optionDragIndex, 0);
+  assert.equal(instance.data.optionDragFieldIndex, 0);
+  assert.equal(instance.data.dragIndex, -1, '拖选项时不能把资料项行当作被拖动项');
+  assert.equal(instance.data.ghostLabel, '甲');
+
+  instance.onDragMove({ touches: [{ clientY: 230 }] });
+  assert.equal(instance.data.dragInsertIndex, 3);
+
+  instance.onDragEnd();
+  assert.equal(instance.data.optionDragIndex, -1);
+  assert.deepEqual(JSON.parse(JSON.stringify(events[0].detail)),
+    { action: 'option-drop', index: 0, fromIndex: 0, toIndex: 2 });
+});
+
+test('选项拖动只按本字段的行计算插入位置', () => {
+  const { definition } = loadComponent();
+  const mixedRects = [
+    { top: 100, height: 40, left: 20, width: 300, dataset: { fieldIndex: '0', optionIndex: '0' } },
+    { top: 150, height: 40, left: 20, width: 300, dataset: { fieldIndex: '1', optionIndex: '0' } },
+    { top: 200, height: 40, left: 20, width: 300, dataset: { fieldIndex: '0', optionIndex: '1' } }
+  ];
+  const { instance, events } = createInstance(definition, mixedRects, {
+    form: { fields: [
+      { id: 's1', optionsViewList: [{ index: 0, text: '甲' }, { index: 1, text: '乙' }] },
+      { id: 's2', optionsViewList: [{ index: 0, text: '丙' }] }
+    ] }
+  });
+  instance.onOptionHandleLongPress({
+    currentTarget: { dataset: { index: 0, optionIndex: 0 } },
+    touches: [{ clientY: 110 }]
+  });
+  instance.onDragMove({ touches: [{ clientY: 230 }] });
+  instance.onDragEnd();
+  assert.deepEqual(JSON.parse(JSON.stringify(events[0].detail)),
+    { action: 'option-drop', index: 0, fromIndex: 0, toIndex: 1 }, '别的字段的选项行不参与比较');
 });

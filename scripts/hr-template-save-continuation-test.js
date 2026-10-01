@@ -289,6 +289,53 @@ async function main() {
   assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '一\n三');
   assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsSummary, '一、三');
 
+  // 选项框高度：5 行起步、12 行封顶；卡片默认只列前 6 条，可展开全部。
+  const optionField = (id, optionsText) => ({ id, label: '序列项', type: 'sequence', optionsText,
+    minLength: '', maxLength: '', minDigits: '', maxDigits: '', minValue: '', maxValue: '' });
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    optionField('s1', ''),
+    optionField('s2', '一'),
+    optionField('s3', '一\n二\n三\n四\n五\n六\n七'),
+    optionField('s4', Array.from({ length: 20 }, (_, i) => '选项' + (i + 1)).join('\n'))
+  ] };
+  f.page.applyHrTemplateFields(f.page.data.hrProfileTemplateForm.fields);
+  let seqFields = f.page.data.hrProfileTemplateForm.fields;
+  assert.deepEqual(plain(seqFields).map(item => item.optionsRows), [5, 5, 7, 12], '5 行起步、12 行封顶');
+  assert.equal(seqFields[2].optionsHiddenCount, 1, '超过 6 条默认只列前 6 条');
+  assert.deepEqual(plain(seqFields[2].optionsViewList).map(item => item.text),
+    ['一', '二', '三', '四', '五', '六']);
+  assert.equal(plain(seqFields[2].optionsViewList).map(item => item.first).join(','),
+    'true,false,false,false,false,false');
+  assert.equal(seqFields[2].optionsViewList[5].last, false, '收起时第 6 条不是真正末项，仍可下移');
+  assert.equal(seqFields[3].optionsExpandText, '展开全部（共 20 项）');
+  f.page.toggleHrProfileOptionsExpand({ index: 2 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].optionsExpanded, true);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].optionsHiddenCount, 0);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].optionsViewList.length, 7);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].optionsViewList[6].last, true);
+  f.page.toggleHrProfileOptionsExpand({ index: 2 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[2].optionsHiddenCount, 1);
+
+  // 选项顺序：按钮与拖动都只改行顺序，算改动，并决定保存顺序。
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    optionField('o1', '甲\n乙\n丙') ] };
+  f.page.applyHrTemplateFields(f.page.data.hrProfileTemplateForm.fields);
+  f.page.markHrTemplateBaseline();
+  assert.equal(f.page.data.hrTemplateDirty, false);
+  f.page.moveHrProfileOption({ index: 0, optionIndex: 2, dir: -1 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '甲\n丙\n乙');
+  assert.equal(f.page.data.hrTemplateDirty, true, '调整选项顺序属于改动');
+  f.page.moveHrProfileOption({ index: 0, optionIndex: 0, dir: -1 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '甲\n丙\n乙', '第一项不能再上移');
+  f.page.moveHrProfileOption({ index: 0, optionIndex: 2, dir: 1 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '甲\n丙\n乙', '最后一项不能再下移');
+  f.page.applyHrOptionDrop({ index: 0, fromIndex: 0, toIndex: 2 });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].optionsText, '丙\n乙\n甲');
+  await f.page.saveHrProfileTemplate();
+  assert.equal(f.calls[0].data.fields[0].options.join(','), '丙,乙,甲', '保存顺序就是界面上的顺序');
+
   // 表格导入：按列名认类型，标识类按文本，号码/日期/数字都要认出来。
   f = fixture({ tableFile: {
     headers: ['姓名', '学号', '联系电话', '邮箱', '出生日期', '人数', '编号', 'F1'],

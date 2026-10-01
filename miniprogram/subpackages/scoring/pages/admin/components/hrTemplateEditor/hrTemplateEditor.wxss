@@ -143,31 +143,93 @@
 }
 
 /* 选项预览：文本框为主，下面显示已填选项，可点掉多余的一条 */
-.hr-template-options-textarea {
-  min-height: 320rpx;
-  height: 320rpx;
+/*
+ * 选项框高度由代码给出行数：5 行起步、最多 12 行，超过就在框内滚动。
+ * 必须带 !important 且用三级选择器——全局 .field-textarea 在 Pad 档有
+ * `height: auto !important`，否则又会被压回一行。
+ */
+.hr-template-editor .hr-template-field-settings .hr-template-options-textarea {
+  height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
+  min-height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
+  max-height: calc(var(--hr-option-rows, 5) * 44rpx + 32rpx) !important;
+  overflow-y: auto;
+}
+
+/* 模板说明同样被全局规则压成一行，这里兜一个 3 行起步；它仍可随内容继续长高。 */
+.hr-template-editor .field .hr-template-description-textarea {
+  min-height: calc(3 * 44rpx + 32rpx) !important;
 }
 
 .hr-template-option-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
+  flex-direction: column;
+  gap: 8rpx;
   margin-top: 12rpx;
 }
 
-.hr-template-option-chip {
+.hr-template-option-row {
   display: flex;
   align-items: center;
-  gap: 6rpx;
-  max-width: 100%;
-  padding: 6rpx 8rpx 6rpx 16rpx;
-  border: 1rpx solid rgba(191, 219, 254, 0.9);
-  border-radius: 999rpx;
+  gap: 8rpx;
+  padding: 10rpx 12rpx;
+  border: 1rpx solid rgba(191, 219, 254, 0.72);
+  border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(239, 246, 255, 0.86);
+  box-sizing: border-box;
+}
+
+.hr-template-option-row.is-dragging { opacity: 0.42; }
+
+.hr-template-option-handle {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: rgba(255, 255, 255, 0.9);
+  color: #2563eb;
+  font-size: var(--ui-type-caption);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hr-template-option-move {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: rgba(255, 255, 255, 0.9);
+  color: #2563eb;
+  font-size: var(--ui-type-control);
+  line-height: 1;
+}
+
+.hr-template-option-move.is-disabled {
+  color: #cbd5e1;
+  background: rgba(241, 245, 249, 0.9);
+}
+
+.hr-template-option-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  margin-top: 12rpx;
+}
+
+.hr-template-option-hint {
+  color: #64748b;
+  font-size: var(--ui-type-caption);
 }
 
 .hr-template-option-text {
-  max-width: 420rpx;
+  flex: 1;
+  min-width: 0;
   color: #334155;
   font-size: var(--ui-type-caption);
   line-height: 1.4;
@@ -179,12 +241,12 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 40rpx;
-  height: 40rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
-  background: rgba(96, 165, 250, 0.16);
+  background: rgba(255, 255, 255, 0.9);
   color: #2563eb;
-  font-size: var(--ui-type-caption);
+  font-size: var(--ui-type-control);
   line-height: 1;
 }
 
@@ -279,6 +341,22 @@
   .hr-template-option-warning { font-size: var(--ui-type-caption); }
 
   .hr-template-option-remove {
+    width: 22px;
+    height: 22px;
+  }
+
+  .hr-template-editor .hr-template-field-settings .hr-template-options-textarea {
+    height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
+    min-height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
+    max-height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
+  }
+
+  .hr-template-editor .field .hr-template-description-textarea {
+    min-height: calc(3 * 22px + 18px) !important;
+  }
+
+  .hr-template-option-handle,
+  .hr-template-option-move {
     width: 22px;
     height: 22px;
   }
