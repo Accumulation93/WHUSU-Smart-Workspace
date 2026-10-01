@@ -3,7 +3,7 @@
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
   <view class="portal-message-partial" wx:if="{{hasUser && messagePartial}}">
-    <ui-icon name="bell" tone="primary" size="28" ariaLabel="{{copy.loadingHint}}" />
+    <ui-icon name="bell" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.loadingHint}}" />
     <text>{{copy.partialOrganizationLoading}}</text>
   </view>
 
@@ -16,7 +16,8 @@
       </view>
     </view>
     <scroll-view class="notification-list message-preview-scroll" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{false}}">
-      <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
+      <view class="message-text-action ui-motion-chip" wx:if="{{todoError}}" bindtap="retryMessageOverview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{performanceCopy.retry}}</view>
+      <view class="notification-empty" wx:if="{{!todos.length && !todoLoading && !todoError}}">
         <text class="notification-empty-text">{{copy.noTodos}}</text>
       </view>
       <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="id"
@@ -56,7 +57,8 @@
       </view>
     </view>
     <scroll-view class="notification-list message-preview-scroll" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{false}}">
-      <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
+      <view class="message-text-action ui-motion-chip" wx:if="{{notificationError}}" bindtap="retryMessageOverview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{performanceCopy.retry}}</view>
+      <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading && !notificationError}}">
         <text class="notification-empty-text">{{copy.noNotifications}}</text>
       </view>
       <view class="notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
@@ -133,7 +135,7 @@
             hover-class="ui-press-card"
             hover-start-time="0"
             hover-stay-time="160" hover-stop-propagation="{{true}}">
-        <view class="app-grid-icon"><ui-icon name="{{item.iconName}}" tone="primary" size="48" ariaLabel="{{item.label}}" /></view>
+        <view class="app-grid-icon"><ui-icon name="{{item.iconName}}" tone="primary" sizeRole="feature-leading" ariaLabel="{{item.label}}" /></view>
         <view class="app-grid-label">{{item.label}}</view>
         <view class="app-grid-badge" wx:if="{{item.disabled}}">{{copy.developing}}</view>
       </view>
@@ -159,7 +161,7 @@
           <view class="nav-row-label">{{item.label}}</view>
         </view>
         <view class="nav-row-badge" wx:if="{{item.disabled}}">{{copy.developing}}</view>
-        <ui-icon wx:if="{{!item.disabled}}" name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" />
+        <ui-icon wx:if="{{!item.disabled}}" name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
       </view>
     </view>
   </view>
