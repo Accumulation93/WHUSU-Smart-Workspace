@@ -101,6 +101,8 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
       refreshMyPermissions: async function() {}
     },
     '../../../../utils/portalExit': { shouldClearAuthenticationOnPortalExit() { return false; } },
+    // 门户默认落地门户后会在无会话时探测微信会话；这里统一视为“无法确认”，不改变本测试的前置会话。
+    '../../../../utils/startupSession': { probeStartupSession: () => Promise.resolve({ state: 'unavailable' }) },
     '../../../../locales/zh-CN/main': locale
   };
   const wx = {
