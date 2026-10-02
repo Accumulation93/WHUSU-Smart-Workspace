@@ -422,8 +422,12 @@ router.post('/auth/security/device', async (req, res) => {
       || (device.persistent && !/^[A-Za-z0-9_-]{16,128}$/.test(device.id))) {
       throw new identityModel.IdentityError('invalid_params', localeCopy.copy_6267781771, 400);
     }
+    // 上报设备即把该账号在这台设备上的其它活跃会话作废：登录设备只按设备区分。
     const updated = await sessionDeviceModel.updateCurrentSession(req.authAccount.id, req.authSession.id, device);
-    return res.json({ status: updated ? 'success' : 'not_found' });
+    return res.json({
+      status: updated.updated ? 'success' : 'not_found',
+      revokedDevices: updated.revoked
+    });
   } catch (error) { return sendError(req, res, error); }
 });
 

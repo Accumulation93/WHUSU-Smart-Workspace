@@ -80,18 +80,14 @@ function decorateAccountDevices(devices, sessions) {
       _rowKey: item.deviceKey ? 'device:' + item.deviceKey : 'session:' + String(item.sessionId || ''),
       deviceKey: String(item.deviceKey || ''),
       sessionId: String(item.sessionId || ''),
-      roleLabel: item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
       lastSeenText: formatAuditTime(String(item.lastSeenAt || ''), item.lastSeenAtReviewStatus),
       deviceTitle: item.currentDevice
         ? copy.text.currentDevice
         : (recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
       // 识别不出来的设备标题已经说明了情况，这里不再重复占一行。
       deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ')
-        || (recognized ? copy.text.deviceModelUnavailable : ''),
-      sessionMeta: [
-        item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
-        item.organizationName || ''
-      ].filter(Boolean).join(' · ')
+        || (recognized ? copy.text.deviceModelUnavailable : '')
+      // 登录设备只按设备区分：不展示当前身份与组织，避免看起来像按身份分行。
     });
   });
 }

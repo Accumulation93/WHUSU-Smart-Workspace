@@ -488,7 +488,7 @@
                 <view class="profile-session-copy">
                   <view class="profile-session-title">{{item.deviceTitle}}</view>
                   <view class="profile-credential-note" wx:if="{{item.deviceMeta}}">{{item.deviceMeta}}</view>
-                  <view class="profile-credential-note">{{item.sessionMeta}} · {{copy.recentActivity}} {{item.lastSeenText}}</view>
+                  <view class="profile-credential-note">{{copy.recentActivity}} {{item.lastSeenText}}</view>
                 </view>
                 <view class="profile-account-status" wx:if="{{item.currentDevice}}">{{copy.current}}</view>
                 <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" loading="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.signOutDevice}}</button>

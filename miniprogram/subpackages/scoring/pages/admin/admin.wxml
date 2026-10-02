@@ -1337,7 +1337,7 @@
               <view class="hr-account-device" wx:for="{{detailHrSecurity.devices}}" wx:key="_rowKey">
                 <view class="hr-account-device-copy">
                   <view class="hr-account-device-name">{{item.deviceLabel}}</view>
-                  <view class="hr-account-device-meta"><text wx:if="{{item.platform}}">{{item.platform}} · </text>{{item.organizationName || localeCopy.copy_6b5de892b0}} · {{item.lastSeenText}}</view>
+                  <view class="hr-account-device-meta"><text wx:if="{{item.platform}}">{{item.platform}} · </text>{{item.lastSeenText}}</view>
                 </view>
                 <button class="secondary-btn compact-action ui-motion-button" wx:if="{{!detailHrReadOnly}}" data-row-key="{{item._rowKey}}" catchtap="requestMemberDeviceRevoke" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_6a855406a9}}</button>
               </view>

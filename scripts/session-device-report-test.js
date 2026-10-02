@@ -11,15 +11,25 @@ function load(file, dependencies, globals) {
 async function main() {
   const queries = [];
   const model = load('server/src/core/models/sessionDevice.js', {
-    '../../config/db': { query: async (sql, params) => { queries.push({ sql, params }); return [{ affectedRows: 1 }]; } },
+    '../../config/db': {
+      query: async (sql, params) => { queries.push({ sql, params }); return [{ affectedRows: 1 }]; },
+      withTransaction: async (callback) => callback({
+        query: async (sql, params) => { queries.push({ sql, params }); return [{ affectedRows: 1 }]; }
+      })
+    },
     '../services/identityCrypto': { hmac: value => 'hash:' + value }
   });
   await model.updateCurrentSession('account-self', 'session-self', { id: 'install-test', persistent: true, platform: 'ohos', model: 'test model' });
   assert(queries[0].sql.includes('id = ? AND account_id = ?'));
   assert(queries[0].sql.includes("status = 'active' AND expires_at > NOW()"));
   assert.deepStrictEqual(Array.from(queries[0].params).slice(3, 5), ['session-self', 'account-self']);
+  // 同一账号同一设备的其它活跃会话必须一并作废：登录设备只按设备区分，不按身份/会话区分。
+  assert(queries[1].sql.includes("SET status = 'revoked'"), '上报设备后必须作废同设备的旧会话');
+  assert(queries[1].sql.includes('device_key_hash = ? AND id <> ?'));
+  assert.deepStrictEqual(Array.from(queries[1].params), ['account-self', 'hash:session-device:v1:install-test', 'session-self']);
   await model.updateCurrentSession('account-self', 'session-self', { id: 'ignored', persistent: false, platform: '', model: '' });
-  assert.strictEqual(queries[1].params[0], null);
+  assert.strictEqual(queries[2].params[0], null);
+  assert.strictEqual(queries.length, 3, '没有识别码时不得再发作废语句');
 
   let token = 'first'; let timer; let request; let calls = 0; let aborted = 0;
   const report = load('miniprogram/utils/deviceMetadataReport.js', {
@@ -62,7 +72,9 @@ async function main() {
     express: { Router: () => ({ post: (url, handler) => { handlers[url] = handler; }, all: (url, handler) => { handlers[url] = handler; }, get: (url, handler) => { handlers[url] = handler; } }) },
     '../../utils/helpers': { safeString: value => String(value || '') },
     '../models/unifiedIdentity': identityModelStub,
-    '../models/sessionDevice': { updateCurrentSession: async (...args) => { saved = args; return true; } },
+    '../models/sessionDevice': {
+      updateCurrentSession: async (...args) => { saved = args; return { updated: true, revoked: 2 }; }
+    },
     '../models/systemConfig': { get: async () => ({ timezone: 8, timezone_config_version: 1 }) },
     '../services/unifiedAuth': { decorateContext: async () => ({ permissions: [] }), profileFromContext: value => value },
     '../config/db': { query: async () => [[]], withTransaction: async callback => callback({ query: async () => [{ affectedRows: 0 }] }) },
@@ -78,6 +90,7 @@ async function main() {
   const res = { status: value => { status = value; return res; }, json: value => { result = value; } };
   await handlers['/auth/security/device'](req, res);
   assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.revokedDevices, 2, '上报设备必须回报同设备旧会话作废数量');
   assert.deepStrictEqual(saved.slice(0, 2), ['self-account', 'self-session']);
   saved = null; req.body.device.model = 'x'.repeat(97);
   await handlers['/auth/security/device'](req, res);
@@ -146,6 +159,8 @@ async function main() {
   assert(homeWxml.includes('wx:for="{{accountSecurity.devices}}"'), '普通用户端登录设备必须按设备维度渲染');
   assert(!homeWxml.includes('wx:for="{{accountSecurity.sessions}}"'), '普通用户端不得再按会话逐条渲染登录设备');
   assert(homeWxml.includes('data-row-key="{{item._rowKey}}"'), '普通用户端退出设备必须带设备行标识');
+  assert(!homeWxml.includes('item.sessionMeta'), '登录设备只按设备区分：不得展示身份与组织');
+  assert(!/sessionMeta/.test(homeJs), '设备行不得再派生身份/组织摘要');
   assert(homeJs.includes('decorateAccountDevices(result.devices, result.sessions)'), '普通用户端必须消费设备维度数据并兼容旧服务端');
   assert(homeJs.includes('sessionId ? { sessionId } : { deviceKey }'), '普通用户端退出设备必须按设备识别码提交');
   assert(adminWxml.includes('wx:for="{{detailHrSecurity.devices}}"'), '管理端成员设备列表必须按设备维度渲染');
