@@ -45,9 +45,10 @@ const ORG_SCOPED_CLEANUP_ORDER = [
   'venue_approval_flow_step_rules',
   'venue_approval_flow_steps',
   'venue_approval_flows',
+  // 职能组引用部门（fk_wg_department），必须先删职能组再删部门/身份类别。
+  'work_groups',
   'departments',
   'identities',
-  'work_groups',
   'organization_dictionary_locks',
   'request_deduplication'
 ];
