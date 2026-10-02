@@ -103,6 +103,10 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
     '../../../../utils/portalExit': { shouldClearAuthenticationOnPortalExit() { return false; } },
     // 门户默认落地门户后会在无会话时探测微信会话；这里统一视为“无法确认”，不改变本测试的前置会话。
     '../../../../utils/startupSession': { probeStartupSession: () => Promise.resolve({ state: 'unavailable' }) },
+    // 门户自绘顶栏从平台胶囊推算几何；桩值不影响本测试的消息链路断言。
+    '../../../../utils/navigationBarMetrics': {
+      getNavigationBarMetrics: () => ({ statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 })
+    },
     '../../../../locales/zh-CN/main': locale
   };
   const wx = {
