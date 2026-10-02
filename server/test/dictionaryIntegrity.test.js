@@ -83,6 +83,11 @@ async function testOptionalLegacyPermissionTablesRequireCompatibleColumns() {
     sqlLog.push({ sql, params });
     if (sql.includes('FROM information_schema.tables')) return [[{ present: 1 }]];
     if (sql.includes('FROM information_schema.columns')) {
+      if (sql.includes('table_name IN')) return [[
+        { table_name: 'result_view_permissions', column_name: 'grantee_department_id' },
+        { table_name: 'result_view_permissions', column_name: 'org_id' },
+        { table_name: 'merit_list_permissions', column_name: 'org_id' }
+      ]];
       const table = params[0];
       if (table === 'result_view_permissions') {
         return [[{ column_name: params[1] }, { column_name: 'org_id' }]];
@@ -135,6 +140,7 @@ async function testDictionaryDeleteLocksAndDeletesInOneTransaction() {
     if (sql.startsWith('INSERT IGNORE INTO organization_dictionary_locks')) return [{ affectedRows: 1 }];
     if (sql.startsWith('SELECT org_id FROM organization_dictionary_locks')) return [[{ org_id: 'org-1' }]];
     if (sql.includes('FROM information_schema.tables')) return [[]];
+    if (sql.includes('FROM information_schema.columns')) return [[]];
     if (sql.startsWith('SELECT id FROM identities WHERE id = ?')) return [[{ id: 'identity-1' }]];
     if (sql.startsWith('SELECT id,')) return [[]];
     if (sql.startsWith('SELECT id FROM')) return [[]];
@@ -163,6 +169,7 @@ async function testReferencedDictionaryRollsBackWithoutDeleting() {
     if (sql.startsWith('INSERT IGNORE INTO organization_dictionary_locks')) return [{ affectedRows: 1 }];
     if (sql.startsWith('SELECT org_id FROM organization_dictionary_locks')) return [[{ org_id: 'org-1' }]];
     if (sql.includes('FROM information_schema.tables')) return [[]];
+    if (sql.includes('FROM information_schema.columns')) return [[]];
     if (sql.startsWith('SELECT id FROM work_groups WHERE id = ?')) return [[{ id: 'group-1' }]];
     if (sql.includes('FROM membership_assignments WHERE work_group_id = ?')) {
       return [[{ id: 'assignment-1' }, { id: 'assignment-2' }]];

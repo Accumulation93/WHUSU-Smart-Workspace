@@ -31,6 +31,8 @@ const pool = mysql.createPool({
   timezone: 'Z'
 });
 
+require('../utils/requestWork').instrumentPool(pool);
+
 // 新连接先固定 UTC 会话，再应用查询超时。监听器中的查询会按连接队列顺序先于业务查询执行。
 pool.on('connection', (conn) => {
   conn.query("SET SESSION time_zone = '+00:00'");

@@ -158,11 +158,13 @@ function testMigrationAndFrontendContract() {
     'copy',
     true
   );
-  assert.match(portal, /getMessageOverview/);
+  assert.match(portal, /listNotifications/);
+  assert.match(portal, /listTodos/);
+  assert.match(portal, /Promise\.all\(\[false, true\]/, '待办和通知必须独立并行加载');
   assert.match(portal, /markAllNotificationsRead/);
   assert.match(portal, /limit: 6/);
   assert.match(portal, /activateOrganization/);
-  assert.match(portal, /if \(this\._messageOverviewLoading\)[\s\S]*this\._messageOverviewQueued = true/);
+  assert.match(portal, /if \(this\._messageOverviewLoading\)/);
   assert.match(portal, /shouldReload && this\._isPageVisible && this\.data\.hasUser/);
   assert.strictEqual(
     (portal.match(/key:\s*['"]messages['"],\s*label:\s*['"]消息中心['"],\s*iconName:\s*['"]bell['"],\s*url:\s*['"]\/subpackages\/message\/pages\/messageCenter\/messageCenter['"]/g) || []).length,

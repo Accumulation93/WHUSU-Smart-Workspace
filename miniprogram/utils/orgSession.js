@@ -135,6 +135,7 @@ function getAuthenticatedState() {
 }
 
 function updateAuthenticatedState(authState) {
+  require('./messageQueries').invalidate();
   const snapshot = getSnapshot();
   const compact = Object.assign({}, snapshot, {
     authState: authState && typeof authState === 'object' ? authState : null
@@ -180,6 +181,7 @@ function writeStorageValue(key, value) {
 }
 
 function commitContext(context) {
+  require('./messageQueries').invalidate();
   const next = context || {};
   const before = getSnapshot();
   const has = Object.prototype.hasOwnProperty;
@@ -217,6 +219,7 @@ function commitContext(context) {
 }
 
 function commitFastContext(context) {
+  require('./messageQueries').invalidate();
   const next = context || {};
   // 登录入口不得先读取散落的旧会话键。以当前绝对时间作为单调性足够的
   // 页面会话版本，登录临界路径只更新 AppService 内存，不等待原生存储桥。
@@ -258,6 +261,7 @@ function commitFastContext(context) {
 }
 
 function clearAuthentication(nextRole) {
+  require('./messageQueries').invalidate();
   const committed = commitContext({
     token: '',
     role: nextRole || '',

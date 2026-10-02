@@ -85,6 +85,22 @@ async function getByScorerParticipant(participant, activityId) {
   return rows;
 }
 
+// 待办仅使用不可变岗位关联，不读取大体积答案和计算快照。
+async function getCompletionTargets(participant, activityId) {
+  const orgId = await getCurrentOrgId();
+  const assignmentId = String(participant && (participant.assignment_id || participant.assignmentId || participant.id) || '');
+  if (!assignmentId) return [];
+  const [rows] = await pool.query(
+    `SELECT target_assignment_id, target_subject_key FROM score_records
+      WHERE org_id = ? AND activity_id = ? AND scorer_assignment_id = ?
+     UNION
+     SELECT target_assignment_id, target_subject_key FROM score_records
+      WHERE org_id = ? AND activity_id = ? AND scorer_subject_key = ?`,
+    [orgId, activityId, assignmentId, orgId, activityId, 'assignment:' + assignmentId]
+  );
+  return rows;
+}
+
 async function getByParticipantPair(scorer, target, activityId) {
   const orgId = await getCurrentOrgId();
   const scorerAssignmentId = String(scorer && (scorer.assignment_id || scorer.assignmentId || scorer.id) || '');
@@ -164,6 +180,7 @@ module.exports = {
   getByScorer,
   getByScorerSubject,
   getByScorerParticipant,
+  getCompletionTargets,
   getByParticipantPair,
   query,
   create,

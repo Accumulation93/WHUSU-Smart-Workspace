@@ -6,6 +6,7 @@ const outboxModel = require('../models/notificationOutbox');
 const messageDataModel = require('../models/messageData');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
 const { logger } = require('../../../utils/logger');
+const requestWork = require('../../../utils/requestWork');
 const RECIPIENT_CONCURRENCY = 8;
 
 async function forEachConcurrent(items, concurrency, worker) {
@@ -38,12 +39,13 @@ function parsePayload(raw) {
   }
 }
 
-async function createForRecipient(job, recipientType, recipientId, payload) {
+function buildRecipient(job, recipientType, recipientId, payload) {
   if (recipientType !== 'user' && recipientType !== 'admin') {
     throw new Error('notification_recipient_invalid');
   }
   const eventKey = job.event_key + ':' + recipientType + ':' + recipientId;
-  await notificationModel.create(generateId(), {
+  return {
+    id: generateId(),
     orgId: job.org_id,
     recipientType,
     recipientId,
@@ -55,24 +57,37 @@ async function createForRecipient(job, recipientType, recipientId, payload) {
     targetType: payload.targetType || '',
     targetId: payload.targetId || '',
     targetUrl: payload.targetUrl || ''
-  });
+  };
 }
 
 async function processScoringRecipients(job, payload) {
-  const users = await messageDataModel.listBoundUsersInOrg(job.org_id);
-  await forEachConcurrent(users, RECIPIENT_CONCURRENCY, async (user) => {
-    const task = await getUserScoringTask(user, payload.activity || null);
-    if (!task || task.pendingCount <= 0) return;
-    await createForRecipient(job, 'user', user.id, Object.assign({}, payload, {
-      targetId: safeString(task.activity.id),
-      description: payload.description || (localeCopy.copy_50fc130639 + task.pendingCount + localeCopy.copy_67a5467bc2)
-    }));
+  const activityId = safeString(payload.targetId || (payload.activity && payload.activity.id));
+  if (!activityId) throw new Error('notification_payload_invalid');
+  const activity = await messageDataModel.getScoringActivityForEvent(activityId, job.org_id);
+  // 延迟/重试投递必须读取原活动的当前状态，不能套用旧载荷或误发新活动。
+  if (!activity || !activity.is_current || activity.is_paused) return;
+  const pending = new Map();
+  await requestWork.run(async () => {
+    requestWork.getState().readOnly = true;
+    const users = await messageDataModel.listBoundUsersInOrg(job.org_id);
+    await forEachConcurrent(users, RECIPIENT_CONCURRENCY, async (user) => {
+      const actor = { type: 'user', id: user.id, personId: user.person_id, assignmentId: user.assignment_id };
+      const task = await getUserScoringTask(user, activity, null, actor);
+      if (!task || task.pendingCount <= 0) return;
+      const previous = pending.get(user.id);
+      pending.set(user.id, { user, activityId: task.activity.id, count: task.pendingCount + (previous ? previous.count : 0) });
+    });
   });
+  const items = Array.from(pending.values()).map(({ user, activityId, count }) => buildRecipient(job, 'user', user.id, Object.assign({}, payload, {
+    targetId: safeString(activityId),
+    description: payload.description || (localeCopy.copy_50fc130639 + count + localeCopy.copy_67a5467bc2)
+  })));
+  await notificationModel.batchCreate(items);
 }
 
 async function processPublicationRecipients(job, payload) {
   const ids = await messageDataModel.listPublicationRecipients(payload.publicationId, job.org_id);
-  await forEachConcurrent(ids, RECIPIENT_CONCURRENCY, id => createForRecipient(job, 'user', id, payload));
+  await notificationModel.batchCreate([...new Set(ids)].map(id => buildRecipient(job, 'user', id, payload)));
 }
 
 async function processJob(job) {
@@ -83,7 +98,7 @@ async function processJob(job) {
     } else if (job.event_type === 'score_results_published') {
       await processPublicationRecipients(job, payload);
     } else if (job.recipient_type && job.recipient_id) {
-      await createForRecipient(job, job.recipient_type, job.recipient_id, payload);
+      await notificationModel.batchCreate([buildRecipient(job, job.recipient_type, job.recipient_id, payload)]);
     } else {
       throw new Error(localeCopy.copy_6d05068b26);
     }

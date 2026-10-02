@@ -54,6 +54,7 @@ jobs:
           node scripts/security-audit.js --strict
           node scripts/secret-audit.js --strict
           node scripts/tenant-sql-audit.js
+          node scripts/performance-audit.js --strict
           node scripts/submission-reference-audit.js
           node scripts/submission-reference-audit.js --self-test
           node scripts/submission-reference-audit.js --inventory
@@ -98,6 +99,7 @@ jobs:
           node scripts/hr-template-switch-suggestion-test.js
           node scripts/hr-template-save-continuation-test.js
           node scripts/personnel-picker-test.js
+          node scripts/message-performance-test.js
           node scripts/submission-runtime-test.js
           node scripts/login-layout-test.js
           node scripts/ui-control-completeness-test.js

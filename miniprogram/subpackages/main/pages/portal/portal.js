@@ -1,4 +1,4 @@
-const { callFunction, formatAuditTime, showShortToast } = require('../../../../utils/api');
+const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -71,6 +71,9 @@ function getDisplayWorkContext(user, activeRole) {
 
 Page({
   data: {
+    performanceCopy: require('../../../../locales/zh-CN/messagePerformance'),
+    todoError: false,
+    notificationError: false,
     copy: copy.view,
     portalCards: [],
     heroName: '',
@@ -239,6 +242,8 @@ Page({
   continuePortalShow(activeSession) {
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
+      this._todoFingerprint = ''; this._notificationFingerprint = '';
+      this._messageOverviewLoading = false;
       orgSession.invalidateRequests(this);
       this._messageRevision = (this._messageRevision || 0) + 1;
       this.setData({
@@ -306,6 +311,8 @@ Page({
   onHide() {
     deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
+    orgSession.invalidateRequests(this);
+    this._messageOverviewLoading = false;
     passwordBindingOffer.cancel(this);
     if (this._timeConfigRefreshTimer) {
       clearTimeout(this._timeConfigRefreshTimer);
@@ -545,50 +552,77 @@ Page({
     });
   },
 
-  async loadMessageOverview() {
+  async loadMessageOverview(refresh) {
     if (this._messageOverviewLoading) {
-      this._messageOverviewQueued = true;
+      if (refresh === true) { this._messageRefreshQueued = true; this._messageOverviewQueued = true; }
+      if (this._messageOverviewRevision !== (this._messageRevision || 0)) this._messageOverviewQueued = true;
       return;
     }
     this._messageOverviewLoading = true;
     const request = orgSession.beginRequest(this, 'portalMessages');
     const revision = this._messageRevision || 0;
-    this.setData({ todoLoading: true, notificationLoading: true });
+    this._messageOverviewRevision = revision;
+    this.setData({ todoLoading: !this.data.todos.length, notificationLoading: !this.data.notifications.length });
     try {
-      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 6 } });
-      if (!orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0) || res.status !== 'success') return;
-      const todos = res.todos || {};
-      const notifications = res.notifications || {};
-      this.setData({
-        todos: this.formatMessageItems(todos.items, false),
-        todoCount: todos.total || 0,
-        todoNextCursor: todos.nextCursor || '',
-        notifications: this.formatMessageItems(notifications.items, true),
-        notificationCount: notifications.unreadCount || 0,
-        notificationNextCursor: notifications.nextCursor || '',
-        messagePartial: !!res.partial
-      });
+      await Promise.all([false, true].map(async (isNotification) => {
+        const prefix = isNotification ? 'notification' : 'todo';
+        try {
+          const res = await require('../../../../utils/messageQueries').load(isNotification ? 'listNotifications' : 'listTodos', { limit: 6, refresh: refresh === true });
+          if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0)) return;
+          if (res.status !== 'success') throw new Error('message_list_unavailable');
+          const fingerprint = JSON.stringify([res.items, res.total, res.unreadCount]);
+          const patch = {};
+          patch[prefix + 'Loading'] = false;
+          patch[prefix + 'Error'] = false;
+          patch[prefix + 'Count'] = isNotification ? res.unreadCount || 0 : res.total || 0;
+          if (this['_' + prefix + 'Fingerprint'] !== fingerprint) {
+            orgSession.beginRequest(this, isNotification ? 'portalNotificationMore' : 'portalTodoMore');
+            patch[prefix + 'LoadingMore'] = false;
+            patch[isNotification ? 'notifications' : 'todos'] = this.formatMessageItems(res.items, isNotification);
+            patch[prefix + 'NextCursor'] = res.nextCursor || '';
+            this['_' + prefix + 'Fingerprint'] = fingerprint;
+          }
+          this['_' + prefix + 'Partial'] = !!res.partial;
+          patch.messagePartial = !!(this._todoPartial || this._notificationPartial);
+          const renderStarted = Date.now();
+          this.setData(patch, function() {
+            if (typeof recordMessageRender === 'function') recordMessageRender('portal.' + prefix, renderStarted, Object.keys(patch).length, null);
+          });
+        } catch (error) {
+          if (this._isPageVisible && orgSession.isRequestCurrent(this, request)) {
+            const patch = {}; patch[prefix + 'Loading'] = false; patch[prefix + 'Error'] = true;
+            this.setData(patch);
+          }
+        }
+      }));
     } catch (error) {
     } finally {
       if (orgSession.isRequestCurrent(this, request)) {
         this.setData({ todoLoading: false, notificationLoading: false });
       }
-      this._messageOverviewLoading = false;
+      if (orgSession.isRequestCurrent(this, request)) this._messageOverviewLoading = false;
       const shouldReload = this._messageOverviewQueued;
       this._messageOverviewQueued = false;
       if (shouldReload && this._isPageVisible && this.data.hasUser) {
-        this.loadMessageOverview();
+        const forceRefresh = this._messageRefreshQueued === true;
+        this._messageRefreshQueued = false;
+        this.loadMessageOverview(forceRefresh);
       }
     }
   },
 
   async loadMoreTodos() {
-    if (!this.data.todoNextCursor || this.data.todoLoadingMore) return;
+    if (this._messageOverviewLoading || !this.data.todoNextCursor || this.data.todoLoadingMore) return;
     const request = orgSession.beginRequest(this, 'portalTodoMore');
     const revision = this._messageRevision || 0;
     this.setData({ todoLoadingMore: true });
     try {
       const res = await callFunction({ name: 'listTodos', data: { limit: 20, cursor: this.data.todoNextCursor } });
+      if (res.status === 'cursor_expired' && orgSession.isRequestCurrent(this, request)) {
+        this._todoFingerprint = '';
+        this.retryMessageOverview();
+        return;
+      }
       if (!orgSession.isRequestCurrent(this, request)
           || revision !== (this._messageRevision || 0)
           || res.status !== 'success') return;
@@ -604,7 +638,7 @@ Page({
   },
 
   async loadMoreNotifications() {
-    if (!this.data.notificationNextCursor || this.data.notificationLoadingMore) return;
+    if (this._messageOverviewLoading || !this.data.notificationNextCursor || this.data.notificationLoadingMore) return;
     const request = orgSession.beginRequest(this, 'portalNotificationMore');
     const revision = this._messageRevision || 0;
     this.setData({ notificationLoadingMore: true });
@@ -650,6 +684,11 @@ Page({
       catch (_) { failed.push(id); }
     }
     if (failed.length) wx.setStorageSync(key, failed); else wx.removeStorageSync(key);
+  },
+
+  retryMessageOverview() {
+    require('../../../../utils/messageQueries').invalidate();
+    return this.loadMessageOverview(true);
   },
 
   queuePendingNotificationRead(item) {

@@ -60,7 +60,7 @@
                   </view>
                 </view>
               </view>
-              <view class="personnel-picker-empty" wx:if="{{!normalizedOptions.length}}">{{localeCopy.empty}}</view>
+              <view class="personnel-picker-empty" wx:if="{{!optionCount}}">{{localeCopy.empty}}</view>
               <view class="personnel-picker-empty" wx:elif="{{!filteredOptions.length}}">{{localeCopy.noMatch}}</view>
               <view class="scroll-tail-space"></view>
             </scroll-view>

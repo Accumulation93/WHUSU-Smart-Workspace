@@ -62,10 +62,23 @@ async function remove(id, conn) {
   await db.query('DELETE FROM venue_booking_rules WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
+async function getByVenueIdsForOrg(venueIds, orgId) {
+  const ids = Array.from(new Set(venueIds));
+  const rows = [];
+  for (let start = 0; start < ids.length; start += 500) {
+    const chunk = ids.slice(start, start + 500);
+    const [batch] = await pool.query(
+      `SELECT * FROM venue_booking_rules WHERE org_id = ? AND venue_id IN (${chunk.map(() => '?').join(',')})
+        AND is_active = 1 ORDER BY venue_id, sort_order`, [orgId, ...chunk]);
+    rows.push(...batch);
+  }
+  return rows;
+}
+
 async function removeByVenueId(venueId, conn) {
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query('DELETE FROM venue_booking_rules WHERE venue_id = ? AND org_id = ?', [venueId, orgId]);
 }
 
-module.exports = { getByVenueId, getByVenueIdForOrg, getById, create, update, remove, removeByVenueId };
+module.exports = { getByVenueId, getByVenueIdForOrg, getByVenueIdsForOrg, getById, create, update, remove, removeByVenueId };

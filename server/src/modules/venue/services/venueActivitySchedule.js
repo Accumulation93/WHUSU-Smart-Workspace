@@ -1,5 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueActivitySchedule');
 const { parseSystemDateTime, toIsoUtc } = require('../../../utils/dateTime');
+const { countOccurrences } = require('./calendarRecurrence');
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
@@ -87,15 +88,7 @@ function countOccurrencesThrough(dateText, cycleType, values) {
   const startDate = parseDateOnly(meta.periodStartDate);
   const targetDate = parseDateOnly(dateText);
   if (!startDate || !targetDate || targetDate < startDate || !meta.repeatCount) return 0;
-  let count = 0;
-  let cursor = startDate;
-  let guard = 0;
-  while (cursor <= targetDate && guard < 36600) {
-    if (dateMatchesCycle(formatDate(cursor), cycleType, { ...meta, periodStartDate: '', periodEndDate: '' })) count += 1;
-    cursor = addDays(cursor, 1);
-    guard += 1;
-  }
-  return count;
+  return countOccurrences(meta.periodStartDate, dateText, cycleType, meta.values);
 }
 
 function legacyTimeRange(rule) {
@@ -163,7 +156,9 @@ function getActivitySlots(dateText, activityRules, timezoneOffset) {
         const intervalDays = values.intervalUnit === 'week' ? (Number(values.intervalValue) || 1) * 7 : (Number(values.intervalValue) || 1);
         const repeatCount = Math.min(1000, Math.max(0, Number(values.repeatCount) || 0));
         const duration = firstEnd.getTime() - firstStart.getTime();
-        for (let index = 0; index < repeatCount; index += 1) {
+        const intervalMs = intervalDays * 86400000;
+        const firstIndex = Math.max(0, Math.floor((dayStart.getTime() - duration - firstStart.getTime()) / intervalMs) + 1);
+        for (let index = firstIndex; index < repeatCount; index += 1) {
           const start = new Date(firstStart.getTime() + index * intervalDays * 86400000);
           const end = new Date(start.getTime() + duration);
           if (end > dayStart && start < dayEnd) ranges.push({ start, end });

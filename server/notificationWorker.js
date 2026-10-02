@@ -10,21 +10,18 @@ const messageDataModel = require('./src/modules/audit/models/messageData');
 const outboxService = require('./src/modules/audit/services/notificationOutboxService');
 const requestDeduplication = require('./src/utils/requestDeduplication');
 const { cleanupAuditTemp } = require('./scripts/cleanupAuditTemp');
+const systemConfig = require('./src/core/models/systemConfig');
+const { getSystemDate, getSystemNowParts } = require('./src/utils/dateTime');
+const { buildDueAt } = require('./src/modules/scoring/services/scoringTaskService');
 
 const POLL_MS = 60 * 1000;
 let running = false;
 let timer = null;
 let lastMaintenanceDay = '';
 
-function endOfShanghaiDay(value) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(String(value).slice(0, 10) + 'T23:59:59+08:00');
-  if (Number.isNaN(date.getTime())) return null;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
-}
-
 async function enqueueScheduledScoringEvents() {
   const activities = await messageDataModel.listCurrentScoringActivities();
+  const config = await systemConfig.get();
   const now = Date.now();
   for (const activity of activities) {
     const activityId = String(activity.id);
@@ -40,7 +37,7 @@ async function enqueueScheduledScoringEvents() {
         activity
       }
     });
-    const dueAt = endOfShanghaiDay(activity.end_date);
+    const dueAt = buildDueAt(activity.end_date, config.timezone);
     if (dueAt && dueAt.getTime() > now && dueAt.getTime() - now <= 24 * 60 * 60 * 1000) {
       await outboxModel.enqueue({
         orgId,
@@ -64,12 +61,10 @@ async function tick() {
     await enqueueScheduledScoringEvents();
     await outboxService.processBatch(50);
     const now = new Date();
-    const maintenanceDay = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0')
-    ].join('-');
-    if (now.getHours() === 3 && now.getMinutes() < 5 && lastMaintenanceDay !== maintenanceDay) {
+    const config = await systemConfig.get();
+    const maintenanceDay = getSystemDate(now, config.timezone);
+    const clock = getSystemNowParts(now, config.timezone);
+    if (clock.hour === 3 && clock.minute < 5 && lastMaintenanceDay !== maintenanceDay) {
       await notificationModel.cleanupOld(30);
       await outboxModel.cleanupDone(30);
       await outboxModel.cleanupDead(90);

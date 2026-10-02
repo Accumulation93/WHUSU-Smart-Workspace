@@ -12,45 +12,41 @@ function normalizeRecipient(data) {
 }
 
 async function create(id, data, conn) {
-  const db = conn || pool;
-  const orgId = data.orgId || await getCurrentOrgId();
-  const recipient = normalizeRecipient(data);
-  if (!orgId || !RECIPIENT_TYPES.has(recipient.recipientType) || !recipient.recipientId) {
-    throw new Error(localeCopy.copy_30212ef2fb);
-  }
-  const [result] = await db.query(
-    `INSERT INTO notifications
-      (id, hr_id, recipient_type, recipient_id, event_key, org_id, type, title, description,
-       category, target_type, target_id, target_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE id = id`,
-    [
-      id,
-      recipient.recipientType === 'user' ? recipient.recipientId : null,
-      recipient.recipientType,
-      recipient.recipientId,
-      data.eventKey || null,
-      orgId,
-      data.type,
-      data.title,
-      data.description || null,
-      data.category || 'system',
-      data.targetType || null,
-      data.targetId || null,
-      data.targetUrl || null
-    ]
-  );
-  return { created: result.affectedRows === 1 };
+  const result = await batchCreate([Object.assign({}, data, { id })], conn);
+  return { created: result.created === 1 };
 }
 
 async function batchCreate(items, conn) {
   if (!items.length) return { created: 0 };
-  let created = 0;
-  for (const item of items) {
-    const result = await create(item.id, item, conn);
-    if (result.created) created += 1;
-  }
-  return { created };
+  const currentOrgId = await getCurrentOrgId();
+  const rows = items.map(item => {
+    const recipient = normalizeRecipient(item);
+    const orgId = item.orgId || currentOrgId;
+    if (!orgId || !RECIPIENT_TYPES.has(recipient.recipientType) || !recipient.recipientId) throw new Error(localeCopy.copy_30212ef2fb);
+    return [item.id, recipient.recipientType === 'user' ? recipient.recipientId : null,
+      recipient.recipientType, recipient.recipientId, item.eventKey || null, orgId,
+      item.type, item.title, item.description || null, item.category || 'system',
+      item.targetType || null, item.targetId || null, item.targetUrl || null];
+  });
+  const write = async (db) => {
+    let created = 0;
+    for (let start = 0; start < rows.length; start += 100) {
+      const chunk = rows.slice(start, start + 100);
+      // 单行也走多值 INSERT，使 MySQL 返回准确的 Records / Duplicates，
+      // 不依赖 CLIENT_FOUND_ROWS 下无法区分新增和未改变重复项的 affectedRows。
+      if (chunk.length === 1) chunk.push(chunk[0]);
+      const [result] = await db.query(
+        `INSERT INTO notifications (id, hr_id, recipient_type, recipient_id, event_key, org_id,
+          type, title, description, category, target_type, target_id, target_url)
+         VALUES ${chunk.map(() => '(' + Array(13).fill('?').join(',') + ')').join(',')}
+         ON DUPLICATE KEY UPDATE id = id`, chunk.flat());
+      const counts = /Records:\s*(\d+)\s+Duplicates:\s*(\d+)\s+Warnings:\s*(\d+)/.exec(result.info || '');
+      if (!counts || Number(counts[3]) !== 0) throw Object.assign(new Error(), { code: 'NOTIFICATION_BATCH_RESULT_UNVERIFIED' });
+      created += Number(counts[1]) - Number(counts[2]);
+    }
+    return { created };
+  };
+  return conn ? write(conn) : pool.withTransaction(write);
 }
 
 async function listForRecipient(actor, options) {
@@ -70,13 +66,14 @@ async function listForRecipient(actor, options) {
   const [countResult, rowsResult] = await Promise.all([
     pool.query(
       `SELECT COUNT(*) AS total,
-              COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread_count
+              COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread_count,
+              MIN(created_at) AS oldest_created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
           AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`,
       params
     ),
-    pool.query(
+    options.countOnly ? Promise.resolve([[], []]) : pool.query(
       `SELECT id, type, title, description, category, target_type, target_id, target_url,
               is_read, created_at
          FROM notifications
@@ -95,13 +92,14 @@ async function listForRecipient(actor, options) {
     items: rows,
     total: Number(countRow.total || 0),
     unreadCount: Number(countRow.unread_count || 0),
+    expiresAt: countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : null,
     offset: 0,
     limit
   };
 }
 
 async function getUnreadCountForRecipient(actor) {
-  const result = await listForRecipient(actor, { limit: 1, offset: 0 });
+  const result = await listForRecipient(actor, { countOnly: true });
   return result.unreadCount;
 }
 

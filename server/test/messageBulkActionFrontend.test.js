@@ -32,6 +32,10 @@ function createOverview(notificationItems, options) {
 }
 
 function loadPage(relativePath, responseQueues, runtimeOptions) {
+  if (responseQueues.getMessageOverview) {
+    responseQueues.listTodos = responseQueues.getMessageOverview.map(result => Object.assign({}, result, result.todos));
+    responseQueues.listNotifications = responseQueues.getMessageOverview.map(result => Object.assign({}, result, result.notifications));
+  }
   const runtime = runtimeOptions || {};
   const source = fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
   const calls = [];
@@ -101,13 +105,15 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
       refreshMyPermissions: async function() {}
     },
     '../../../../utils/portalExit': { shouldClearAuthenticationOnPortalExit() { return false; } },
+    '../../../../locales/zh-CN/main': locale,
     // 门户默认落地门户后会在无会话时探测微信会话；这里统一视为“无法确认”，不改变本测试的前置会话。
     '../../../../utils/startupSession': { probeStartupSession: () => Promise.resolve({ state: 'unavailable' }) },
     // 门户自绘顶栏从平台胶囊推算几何；桩值不影响本测试的消息链路断言。
     '../../../../utils/navigationBarMetrics': {
       getNavigationBarMetrics: () => ({ statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 })
     },
-    '../../../../locales/zh-CN/main': locale
+    '../../../../locales/zh-CN/messagePerformance': require('../../miniprogram/locales/zh-CN/messagePerformance'),
+    '../../../../utils/messageQueries': { invalidate() {}, load(name, data) { return api.callFunction({ name, data }); } }
   };
   const wx = {
     getStorageSync(key) {
@@ -170,7 +176,7 @@ async function testMessageCenterMarkAllPartialRefreshesTruth() {
 
   await harness.page.markAllRead();
 
-  assert.deepStrictEqual(harness.calls, ['markAllNotificationsRead', 'getMessageOverview']);
+  assert.deepStrictEqual(harness.calls, ['markAllNotificationsRead', 'listTodos', 'listNotifications']);
   assert.strictEqual(harness.page.data.unreadCount, 1);
   assert.strictEqual(harness.page.data.notifications[0].id, 'notice-real');
   assert.strictEqual(harness.page.data.notifications[0].isRead, false);
@@ -204,7 +210,7 @@ async function testMessageCenterMarkAllFailureRollsBackAndRefreshes() {
 
   await harness.page.markAllRead();
 
-  assert.deepStrictEqual(harness.calls, ['markAllNotificationsRead', 'getMessageOverview']);
+  assert.deepStrictEqual(harness.calls, ['markAllNotificationsRead', 'listTodos', 'listNotifications']);
   assert.strictEqual(harness.page.data.unreadCount, 1);
   assert.strictEqual(harness.page.data.notifications[0].id, 'notice-after-failure');
   assert.deepStrictEqual(harness.toasts, [locale.messageCenter.messages.incomplete]);
@@ -224,7 +230,7 @@ async function testMessageCenterClearPartialRefreshesTruth() {
   assert.strictEqual(harness.modals.length, 1);
   await harness.modals[0].success({ confirm: true });
 
-  assert.deepStrictEqual(harness.calls, ['deleteAllNotifications', 'getMessageOverview']);
+  assert.deepStrictEqual(harness.calls, ['deleteAllNotifications', 'listTodos', 'listNotifications']);
   assert.strictEqual(harness.page.data.notificationTotal, 1);
   assert.strictEqual(harness.page.data.notifications[0].id, 'notice-not-deleted');
   assert.deepStrictEqual(harness.toasts, [locale.messageCenter.messages.partialBulkAction]);
@@ -260,7 +266,7 @@ async function testMessageCenterClearFailureRollsBackAndRefreshes() {
   harness.page.deleteAllNotifications();
   await harness.modals[0].success({ confirm: true });
 
-  assert.deepStrictEqual(harness.calls, ['deleteAllNotifications', 'getMessageOverview']);
+  assert.deepStrictEqual(harness.calls, ['deleteAllNotifications', 'listTodos', 'listNotifications']);
   assert.strictEqual(harness.page.data.notificationTotal, 1);
   assert.strictEqual(harness.page.data.unreadCount, 1);
   assert.strictEqual(harness.page.data.notifications[0].id, 'notice-after-clear-failure');
@@ -282,7 +288,7 @@ async function testMessageCenterSingleDeleteFailureRestoresCompleteState() {
 
   await harness.page.deleteNotification({ currentTarget: { dataset: { id: 'notice-before' } } });
 
-  assert.deepStrictEqual(harness.calls, ['deleteNotification', 'getMessageOverview']);
+  assert.deepStrictEqual(harness.calls, ['deleteNotification', 'listTodos', 'listNotifications']);
   assert.strictEqual(harness.page.data.notifications[0].id, 'notice-authoritative');
   assert.strictEqual(harness.page.data.notificationTotal, 3);
   assert.strictEqual(harness.page.data.unreadCount, 2);
@@ -387,7 +393,7 @@ async function testPortalMarkAllPartialAndFailureRefreshTruth() {
   );
   seedNotifications(partialHarness.page);
   await partialHarness.page.markAllNotificationsRead();
-  assert.deepStrictEqual(partialHarness.calls, ['markAllNotificationsRead', 'getMessageOverview']);
+  assert.deepStrictEqual(partialHarness.calls, ['markAllNotificationsRead', 'listTodos', 'listNotifications']);
   assert.strictEqual(partialHarness.page.data.notificationCount, 1);
   assert.strictEqual(partialHarness.page.data.notifications[0].id, 'portal-real');
   assert.deepStrictEqual(partialHarness.toasts, [locale.portal.messages.partialBulkAction]);
@@ -401,7 +407,7 @@ async function testPortalMarkAllPartialAndFailureRefreshTruth() {
   );
   seedNotifications(failureHarness.page);
   await failureHarness.page.markAllNotificationsRead();
-  assert.deepStrictEqual(failureHarness.calls, ['markAllNotificationsRead', 'getMessageOverview']);
+  assert.deepStrictEqual(failureHarness.calls, ['markAllNotificationsRead', 'listTodos', 'listNotifications']);
   assert.strictEqual(failureHarness.page.data.notificationCount, 1);
   assert.strictEqual(failureHarness.page.data.notifications[0].id, 'portal-after-failure');
   assert.deepStrictEqual(failureHarness.toasts, [locale.portal.messages.incomplete]);

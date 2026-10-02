@@ -388,7 +388,7 @@ assert.strictEqual(historicalAssignment.department_id, 'department-a');
   ), '指定人员时不得自动绑定该人的全部合规岗位');
   assert(routeSource.includes("missingBindingError.code = 'assignment_binding_required'"),
     '旧客户端只传 personHrIds 时必须明确失败关闭');
-  assert(todoSource.includes('getPendingByApprover(actor)'),
+  assert(todoSource.includes('getPendingByApprover(actor, null, { unsorted: true })'),
     '跨组织待办聚合必须把每个服务端工作上下文传入审核待办查询');
 
   console.log('审核岗位上下文、多岗位拒绝与历史快照测试通过');

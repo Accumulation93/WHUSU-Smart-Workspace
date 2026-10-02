@@ -36,6 +36,8 @@ Module._load = function load(request, parent, isMain) {
   if (parent && parent.filename === modelPath && request === '../services/auditAssignmentContext') {
     return {
       async resolveActorAssignment() { return null; },
+      snapshotToAssignment() { return { department_id: 'dept-a', work_group_id: 'group-a', identity_id: 'identity-submit' }; },
+      async listActiveAssignments() { return []; },
       async getSubmissionSubmitterAssignments() {
         return [{ department_id: 'dept-a', work_group_id: 'group-a', identity_id: 'identity-submit' }];
       }

@@ -1,0 +1,542 @@
+[
+  {
+    "name": "cv_persons_i",
+    "table": "persons",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_persons_u",
+    "table": "persons",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_persons_d",
+    "table": "persons",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_accounts_i",
+    "table": "accounts",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_accounts_u",
+    "table": "accounts",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_accounts_d",
+    "table": "accounts",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_organizations_i",
+    "table": "organizations",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_organizations_u",
+    "table": "organizations",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_organizations_d",
+    "table": "organizations",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_system_config_i",
+    "table": "system_config",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_system_config_u",
+    "table": "system_config",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_system_config_d",
+    "table": "system_config",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_admin_grants_i",
+    "table": "admin_grants",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_admin_grants_u",
+    "table": "admin_grants",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_admin_grants_d",
+    "table": "admin_grants",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_hr_info_i",
+    "table": "hr_info",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_hr_info_u",
+    "table": "hr_info",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_hr_info_d",
+    "table": "hr_info",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_organization_memberships_i",
+    "table": "organization_memberships",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_organization_memberships_u",
+    "table": "organization_memberships",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_organization_memberships_d",
+    "table": "organization_memberships",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_membership_assignments_i",
+    "table": "membership_assignments",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_membership_assignments_u",
+    "table": "membership_assignments",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_membership_assignments_d",
+    "table": "membership_assignments",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_departments_i",
+    "table": "departments",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_departments_u",
+    "table": "departments",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_departments_d",
+    "table": "departments",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_identities_i",
+    "table": "identities",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_identities_u",
+    "table": "identities",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_identities_d",
+    "table": "identities",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_work_groups_i",
+    "table": "work_groups",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_work_groups_u",
+    "table": "work_groups",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_work_groups_d",
+    "table": "work_groups",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_admin_info_i",
+    "table": "admin_info",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_admin_info_u",
+    "table": "admin_info",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_admin_info_d",
+    "table": "admin_info",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_admin_permission_overrides_i",
+    "table": "admin_permission_overrides",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_admin_permission_overrides_u",
+    "table": "admin_permission_overrides",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_admin_permission_overrides_d",
+    "table": "admin_permission_overrides",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_activities_i",
+    "table": "score_activities",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_activities_u",
+    "table": "score_activities",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_activities_d",
+    "table": "score_activities",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_rate_target_rules_i",
+    "table": "rate_target_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_rate_target_rules_u",
+    "table": "rate_target_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_rate_target_rules_d",
+    "table": "rate_target_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_rate_rule_clauses_i",
+    "table": "rate_rule_clauses",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_rate_rule_clauses_u",
+    "table": "rate_rule_clauses",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_rate_rule_clauses_d",
+    "table": "rate_rule_clauses",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_clause_template_configs_i",
+    "table": "clause_template_configs",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_clause_template_configs_u",
+    "table": "clause_template_configs",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_clause_template_configs_d",
+    "table": "clause_template_configs",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_records_i",
+    "table": "score_records",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_records_u",
+    "table": "score_records",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_records_d",
+    "table": "score_records",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_answers_i",
+    "table": "score_answers",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_answers_u",
+    "table": "score_answers",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_answers_d",
+    "table": "score_answers",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_question_templates_i",
+    "table": "score_question_templates",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_question_templates_u",
+    "table": "score_question_templates",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_question_templates_d",
+    "table": "score_question_templates",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_questions_i",
+    "table": "score_questions",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_questions_u",
+    "table": "score_questions",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_questions_d",
+    "table": "score_questions",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_score_template_order_i",
+    "table": "score_template_order",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_score_template_order_u",
+    "table": "score_template_order",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_score_template_order_d",
+    "table": "score_template_order",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_result_publications_i",
+    "table": "result_publications",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_result_publications_u",
+    "table": "result_publications",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_result_publications_d",
+    "table": "result_publications",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_pub_view_rules_i",
+    "table": "pub_view_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_pub_view_rules_u",
+    "table": "pub_view_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_pub_view_rules_d",
+    "table": "pub_view_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_pub_view_rule_clauses_i",
+    "table": "pub_view_rule_clauses",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_pub_view_rule_clauses_u",
+    "table": "pub_view_rule_clauses",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_pub_view_rule_clauses_d",
+    "table": "pub_view_rule_clauses",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_pub_grade_bands_i",
+    "table": "pub_grade_bands",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_pub_grade_bands_u",
+    "table": "pub_grade_bands",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_pub_grade_bands_d",
+    "table": "pub_grade_bands",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_pub_merit_rules_i",
+    "table": "pub_merit_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_pub_merit_rules_u",
+    "table": "pub_merit_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_pub_merit_rules_d",
+    "table": "pub_merit_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_pub_merit_rule_clauses_i",
+    "table": "pub_merit_rule_clauses",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_pub_merit_rule_clauses_u",
+    "table": "pub_merit_rule_clauses",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_pub_merit_rule_clauses_d",
+    "table": "pub_merit_rule_clauses",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_merit_list_designations_i",
+    "table": "merit_list_designations",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_merit_list_designations_u",
+    "table": "merit_list_designations",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_merit_list_designations_d",
+    "table": "merit_list_designations",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_audit_submissions_i",
+    "table": "audit_submissions",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_audit_submissions_u",
+    "table": "audit_submissions",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_audit_submissions_d",
+    "table": "audit_submissions",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_audit_submission_steps_i",
+    "table": "audit_submission_steps",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_audit_submission_steps_u",
+    "table": "audit_submission_steps",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_audit_submission_steps_d",
+    "table": "audit_submission_steps",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_venue_bookings_i",
+    "table": "venue_bookings",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_venue_bookings_u",
+    "table": "venue_bookings",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_venue_bookings_d",
+    "table": "venue_bookings",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_venue_booking_rules_i",
+    "table": "venue_booking_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_venue_booking_rules_u",
+    "table": "venue_booking_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_venue_booking_rules_d",
+    "table": "venue_booking_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_venues_i",
+    "table": "venues",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_venues_u",
+    "table": "venues",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_venues_d",
+    "table": "venues",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_hr_profile_records_i",
+    "table": "hr_profile_records",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_hr_profile_records_u",
+    "table": "hr_profile_records",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_hr_profile_records_d",
+    "table": "hr_profile_records",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_notifications_i",
+    "table": "notifications",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_notifications_u",
+    "table": "notifications",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_notifications_d",
+    "table": "notifications",
+    "event": "DELETE"
+  }
+]

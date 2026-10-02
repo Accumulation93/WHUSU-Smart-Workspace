@@ -170,9 +170,17 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
     );
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
-  for (const [table, column, category] of OPTIONAL_DIRECT_USAGE[normalizedKind] || []) {
-    if (!await tableExists(table, connection)) continue;
-    if (!await tableHasColumns(table, [column, 'org_id'], connection)) continue;
+  const optional = OPTIONAL_DIRECT_USAGE[normalizedKind] || [];
+  const optionalTables = Array.from(new Set(optional.map(item => item[0])));
+  const schemaColumns = new Set();
+  if (optionalTables.length) {
+    const [schema] = await connection.query(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name IN (${optionalTables.map(() => '?').join(',')})`, optionalTables);
+    for (const row of schema) schemaColumns.add(row.table_name + '.' + row.column_name);
+  }
+  for (const [table, column, category] of optional) {
+    if (!schemaColumns.has(table + '.' + column) || !schemaColumns.has(table + '.org_id')) continue;
     const [rows] = await connection.query(
       lockRows
         ? `SELECT id FROM ${table} WHERE ${column} = ? AND org_id = ? FOR UPDATE`

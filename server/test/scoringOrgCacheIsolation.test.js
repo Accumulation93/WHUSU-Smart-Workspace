@@ -35,6 +35,7 @@ const mocks = {
     async getCurrentOrgId() { return scenario.orgId; }
   },
   '../utils/sharedCache': {
+    async versionedKey(key, orgId) { return key + ':v2:' + orgId; },
     async get(key) {
       cacheReads.push(key);
       return scenario.cached;

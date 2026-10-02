@@ -71,8 +71,9 @@ async function replaceForStamp(stampId, value) {
         if (!await lockPersonDeletionBarrier(connection, personId)) return { status: 'assignment_unavailable' };
       }
       const [locked] = await connection.query(candidateSelect + ` AND ma.id IN (${marks}) ORDER BY ma.id FOR UPDATE`, [orgId, ...assignmentIds]);
+      const initialPeople = new Map(initial.map(row => [row.assignmentId, row.personId]));
       if (locked.length !== assignmentIds.length
-        || locked.some(row => !initial.some(old => old.assignmentId === row.assignmentId && old.personId === row.personId))) {
+        || locked.some(row => !initialPeople.has(row.assignmentId) || initialPeople.get(row.assignmentId) !== row.personId)) {
         return { status: 'assignment_unavailable' };
       }
       candidates = locked;

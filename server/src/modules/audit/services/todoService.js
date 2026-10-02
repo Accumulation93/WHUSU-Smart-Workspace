@@ -12,6 +12,8 @@ const {
 } = require('../../venue/services/venueAssignmentContext');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
 const { loadEffectivePermissions } = require('../../../core/services/adminPermissions');
+const { memo, measure } = require('../../../utils/requestWork');
+const messageCopy = require('../../../locales/zh-CN/modules/messagePerformance');
 
 function groupBy(items, keyName) {
   const map = new Map();
@@ -29,9 +31,10 @@ function buildHrMap(rows) {
   return map;
 }
 
-async function listAuditItems(actor, orgId) {
+async function listAuditItems(actor, orgId, countOnly) {
   if (actor.type !== 'user') return [];
-  const steps = await submissionStepModel.getPendingByApprover(actor);
+  const steps = await submissionStepModel.getPendingByApprover(actor, null, { unsorted: true });
+  if (countOnly) return steps.map(step => ({ id: 'audit:' + safeString(step.id), category: 'audit' }));
   const submitterIds = [...new Set(steps.map((item) => item.submitted_by).filter(Boolean))];
   const submitters = await messageDataModel.getHrPeople(submitterIds, orgId);
   const submitterMap = buildHrMap(submitters);
@@ -54,11 +57,14 @@ async function listAuditItems(actor, orgId) {
   });
 }
 
-async function listVenueItems(actor, orgId) {
+async function listVenueItems(actor, orgId, countOnly) {
   const bookings = await messageDataModel.getPendingVenueBookings(orgId);
   if (!bookings.length) return [];
   const applicantIds = [...new Set(bookings.map((item) => item.user_hr_id).filter(Boolean))];
-  const applicantMap = buildHrMap(await messageDataModel.getHrPeople(applicantIds, orgId));
+  const applicantMap = buildHrMap(countOnly ? [] : await messageDataModel.getHrPeople(applicantIds, orgId));
+  const venueIds = Array.from(new Set(bookings.filter(item => !((item.approval_flow_id || item.approval_flow_state_json) && Number(item.approval_total_steps) > 0)).map(item => item.venue_id))).sort();
+  const rulesByVenue = await memo('todoVenueRules:' + orgId + ':' + JSON.stringify(venueIds), async () =>
+    groupBy(await venueBookingRuleModel.getByVenueIdsForOrg(venueIds, orgId), 'venue_id'));
   let contextualActor = actor;
   if (actor.type === 'user') {
     const assignment = await resolveCurrentActorAssignment(actor, orgId);
@@ -86,12 +92,13 @@ async function listVenueItems(actor, orgId) {
       currentStepName = safeString(firstActive && firstActive.stepName);
       applicant = authorization.applicantHrInfo || applicant;
     } else {
-      const applicantAssignment = await resolveBookingApplicantAssignment(booking);
+      const applicantAssignment = await memo('bookingApplicant:' + orgId + ':' + booking.id, () => resolveBookingApplicantAssignment(booking));
       if (!applicantAssignment) continue;
-      const rules = await venueBookingRuleModel.getByVenueIdForOrg(booking.venue_id, orgId);
+      const rules = rulesByVenue.get(booking.venue_id) || [];
       if (!evaluateBookingRules(rules, contextualActor)) continue;
       applicant = toRuleProfile(applicantAssignment);
     }
+    if (countOnly) { items.push({ id: 'venue:' + safeString(booking.id), category: 'venue' }); continue; }
     items.push({
       id: 'venue:' + safeString(booking.id),
       type: 'todo',
@@ -111,10 +118,11 @@ async function listVenueItems(actor, orgId) {
   return items;
 }
 
-async function listScoringItems(actor) {
+async function listScoringItems(actor, countOnly) {
   if (actor.type !== 'user') return [];
   const task = await getUserScoringTask(actor.profile, null, null, actor);
   if (!task) return [];
+  if (countOnly) return [{ id: 'scoring:' + safeString(task.activity.id), category: 'scoring' }];
   return [{
     id: 'scoring:' + safeString(task.activity.id),
     type: 'todo',
@@ -130,17 +138,18 @@ async function listScoringItems(actor) {
   }];
 }
 
-async function listHrProfileItems(actor, orgId) {
+async function listHrProfileItems(actor, orgId, countOnly) {
   if (actor.type !== 'admin') return [];
   const effective = await loadEffectivePermissions(actor.profile, orgId);
   if (!effective.permissions || effective.permissions['hr.profile_review'] !== true) return [];
   const records = await messageDataModel.getPendingHrProfiles(orgId);
+  if (countOnly) return records.map(record => ({ id: 'hr-profile:' + safeString(record.id), category: 'hr' }));
   return records.map((record) => ({
     id: 'hr-profile:' + safeString(record.id),
     type: 'todo',
     sourceType: 'hr_profile_review',
     title: safeString(record.name || localeCopy.copy_0a1d44e805),
-    description: localeCopy.copy_5d43cbef1a + safeString(record.student_id || localeCopy.copy_de00c3e48a) + localeCopy.copy_c9fa920da1,
+    description: messageCopy.profileReviewDescription,
     category: 'hr',
     targetType: 'hr_profile',
     targetId: safeString(record.hr_id),
@@ -160,14 +169,16 @@ function compareTodo(a, b) {
   return String(a.id).localeCompare(String(b.id));
 }
 
-async function listAll(actor, orgId) {
+async function listAll(actor, orgId, options) {
+  const countOnly = options && options.countOnly === true;
   const [auditItems, venueItems, scoringItems, hrItems] = await Promise.all([
-    listAuditItems(actor, orgId),
-    listVenueItems(actor, orgId),
-    listScoringItems(actor),
-    listHrProfileItems(actor, orgId)
+    measure('todo.audit', () => listAuditItems(actor, orgId, countOnly)),
+    measure('todo.venue', () => listVenueItems(actor, orgId, countOnly)),
+    measure('todo.scoring', () => listScoringItems(actor, countOnly)),
+    measure('todo.hr', () => listHrProfileItems(actor, orgId, countOnly))
   ]);
-  return auditItems.concat(venueItems, scoringItems, hrItems).sort(compareTodo);
+  const items = auditItems.concat(venueItems, scoringItems, hrItems);
+  return options && options.unsorted ? items : items.sort(compareTodo);
 }
 
 module.exports = { listAll, compareTodo };

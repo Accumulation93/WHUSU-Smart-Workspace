@@ -494,13 +494,17 @@ const ORG_LOOKUPS_CACHE_TTL = 60000; // 60 seconds
 async function fetchOrgLookups() {
   const orgId = await getCurrentOrgId();
   const now = Date.now();
-  const cached = _orgLookupsCache.get(orgId);
+  const key = await require('../utils/sharedCache').versionedKey('publicationLookups:' + orgId, orgId);
+  const cached = _orgLookupsCache.get(key);
   if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) return cached.value;
   const [departments, identities, workGroups] = await Promise.all([
     departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
   ]);
   const value = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
-  _orgLookupsCache.set(orgId, { value, timestamp: now });
+  if (!key.includes(':uncached:')) {
+    if (_orgLookupsCache.size >= 64) _orgLookupsCache.delete(_orgLookupsCache.keys().next().value);
+    _orgLookupsCache.set(key, { value, timestamp: now });
+  }
   return value;
 }
 
@@ -1130,11 +1134,14 @@ router.post('/getPublicResults', async (req, res) => {
     // Full three-layer score map is deterministic for a given (activity, org).
     // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
     // Cache auto-expires after 5 min; invalidated on score submission.
-    let cached = await pubCache.get(activityId, orgId);
+    const cacheHandle = await pubCache.open(activityId, orgId);
+    let cached = await pubCache.get(activityId, orgId, cacheHandle);
+    let computed = false;
     if (!cached || !cached.diagnostics) {
       if (cached) await pubCache.invalidate(activityId, orgId);
       const { computeValidScoreMap } = require('../utils/scoreCalc');
       cached = await computeValidScoreMap(activityId, orgId, {});
+      computed = true;
     }
     const { getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
     const historicalFailure = getHistoricalSnapshotFailure(cached.diagnostics);
@@ -1145,7 +1152,7 @@ router.post('/getPublicResults', async (req, res) => {
           : localeCopy.historicalSnapshotInvalid
       }));
     }
-    await pubCache.set(activityId, orgId, cached);
+    if (computed) await pubCache.set(activityId, orgId, cached, cacheHandle);
     const fullScoreMap = (cached instanceof Map) ? cached : (cached && cached.finalScoreMap instanceof Map ? cached.finalScoreMap : new Map());
 
     // Filter cached full map to visible targets only (pure O(1) Map.get, no side effects)

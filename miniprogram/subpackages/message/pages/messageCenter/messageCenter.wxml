@@ -33,8 +33,9 @@
       </view>
     </view>
     <scroll-view class="message-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMore" lower-threshold="100">
-      <view class="message-empty" wx:if="{{!loading && activeTab === 'todos' && !todos.length}}">{{copy.noTodos}}</view>
-      <view class="message-empty" wx:if="{{!loading && activeTab === 'notifications' && !notifications.length}}">{{copy.noNotifications}}</view>
+      <view class="message-action ui-motion-chip" wx:if="{{activeTab === 'todos' ? todoError : notificationError}}" bindtap="retryOverview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{performanceCopy.retry}}</view>
+      <view class="message-empty" wx:if="{{!todoLoading && !todoError && activeTab === 'todos' && !todos.length}}">{{copy.noTodos}}</view>
+      <view class="message-empty" wx:if="{{!notificationLoading && !notificationError && activeTab === 'notifications' && !notifications.length}}">{{copy.noNotifications}}</view>
 
       <view wx:if="{{activeTab === 'todos'}}" class="message-list">
         <view class="message-row ui-motion-card" wx:for="{{todos}}" wx:key="id" data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
@@ -84,7 +85,7 @@
           <view class="message-delete ui-motion-chip" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><ui-icon name="trash" tone="danger" size="28" ariaLabel="{{copy.deleteNotification}}" /></view>
         </view>
       </view>
-      <view class="message-loading" wx:if="{{loading || loadingMore}}">{{copy.loading}}</view>
+      <view class="message-loading" wx:if="{{loadingMore || (activeTab === 'todos' ? todoLoading : notificationLoading)}}">{{copy.loading}}</view>
     </scroll-view>
   </view>
 

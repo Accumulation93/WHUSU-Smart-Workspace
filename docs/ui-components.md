@@ -7,6 +7,7 @@
 - 保持语义边界：输入框仍为 block；人员岗位选择卡、左对齐选择值及带说明业务卡仍按信息层级排版，不属于整卡文字居中的动作按钮。卡内独立操作按钮才执行本契约，并隔离事件。
 - 组件验收执行 `node scripts/button-alignment-test.js` 和严格 UI 审计；现场分别覆盖手机、Pad 竖屏、Pad 横屏，核对短/长文案、loading、disabled 与切换前后。必须检查最终级联及实际边界，未完成现场项单独记录，不宣称所有组件已通过。
 
+人员选择器性能契约：`personnel-picker` 的 `_options/_byKey/_visibleIndex` 属于逻辑层；候选选择使用行级 `_selected` 补丁，已选区维持原候选顺序，120 ms 搜索防抖在关闭与隐藏时清理。单选、多选、清空、取消草稿、整卡科技蓝选中及同岗位元组筛选均不改变。禁止为减少渲染量截断可选人员。
 
 当前项目使用原生微信小程序组件和项目自有 WXSS，不依赖第三方 UI provider。公共组件路径均以仓库根目录 `miniprogram/` 为前缀；公共 WXSS 源位于 `miniprogram/subpackages/main/styles/**`，不得从业务分包互相引用。
 

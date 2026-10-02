@@ -30,7 +30,7 @@ const mocks = {
       };
     }
   },
-  '../../venue/models/venueBookingRule': { async getByVenueIdForOrg() { return []; } },
+  '../../venue/models/venueBookingRule': { async getByVenueIdForOrg() { return []; }, async getByVenueIdsForOrg() { return []; } },
   '../../venue/services/venueBookingRuleAuthorization': { evaluateBookingRules() { return false; } },
   '../../venue/services/venueAssignmentContext': {
     async resolveCurrentActorAssignment(actor) { return { assignmentId: actor.assignmentId }; },

@@ -3,6 +3,7 @@ const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const securityCopy = require('../../locales/zh-CN/core/security');
 const pool = require('../../config/db');
 const crypto = require('crypto');
+const { memo } = require('../../utils/requestWork');
 const { usableLoginCredentialSql } = require('./accountLoginState');
 const { generateId, safeString } = require('../../utils/helpers');
 const { normalizeAssignmentNature } = require('../services/hrDomainPolicy');
@@ -1217,7 +1218,12 @@ async function getBootstrapSession(id, lock, connection) {
   return rows[0] || null;
 }
 
-async function listContexts(accountId, connection) {
+function listContexts(accountId, connection) {
+  if (connection) return queryContexts(accountId, connection);
+  return memo('authContexts:' + accountId, () => queryContexts(accountId));
+}
+
+async function queryContexts(accountId, connection) {
   const executor = connection || pool;
   // 所有认证方式共用账号状态限制，口令会话不能绕过冻结或恢复要求。
   const accountStatusCondition = "a.status = 'verified'";

@@ -46,6 +46,7 @@ let definition;
 require('vm').runInNewContext(componentSource, {
   require: function(id) { return id.includes('personnelPickerModel') ? model : require('../miniprogram/locales/zh-CN/personnelPicker'); },
   Component: function(value) { definition = value; }
+  ,setTimeout, clearTimeout
 });
 const events = [];
 const instance = Object.assign({

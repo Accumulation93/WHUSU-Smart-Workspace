@@ -26,6 +26,7 @@ function mapsToStorable(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const result = {};
     for (const [k, v] of Object.entries(value)) {
+      if (k === 'studentId' || k === 'student_id' || k === 'normalized_student_id') continue;
       result[k] = mapsToStorable(v);
     }
     return result;
@@ -56,23 +57,32 @@ function storableToMaps(value) {
   return value;
 }
 
-async function get(activityId, orgId) {
-  const stored = await sharedCache.get(cacheKey(activityId, orgId));
+async function open(activityId, orgId) {
+  return { key: await sharedCache.versionedKey(cacheKey(activityId, orgId), orgId), startedAt: Date.now() };
+}
+
+async function get(activityId, orgId, handle) {
+  const selected = handle || await open(activityId, orgId);
+  const stored = await sharedCache.get(selected.key);
   if (stored === null || stored === undefined) return null;
   return storableToMaps(stored);
 }
 
-async function set(activityId, orgId, data) {
-  return sharedCache.set(cacheKey(activityId, orgId), mapsToStorable(data), TTL);
+async function set(activityId, orgId, data, handle) {
+  // 不带读取句柄的旧调用不能把此前计算写入当前版本。
+  if (!handle) return;
+  const remaining = TTL - (Date.now() - handle.startedAt);
+  if (remaining <= 0) return;
+  return sharedCache.set(handle.key, mapsToStorable(data), remaining);
 }
 
 async function invalidate(activityId, orgId) {
   if (orgId) {
-    await sharedCache.invalidateKey(cacheKey(activityId, orgId));
+    await sharedCache.invalidatePrefix(cacheKey(activityId, orgId));
   } else if (activityId) {
     // Invalidate all orgs for this activity
     await sharedCache.invalidatePrefix(cacheKey(activityId, ''));
   }
 }
 
-module.exports = { get, set, invalidate };
+module.exports = { get, set, invalidate, open };

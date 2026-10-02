@@ -6,6 +6,27 @@ const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const scoreRecordModel = require('../models/scoreRecord');
 const participantService = require('./participants');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { memo, getState } = require('../../../utils/requestWork');
+const { getSystemDate, parseSystemDateTime } = require('../../../utils/dateTime');
+const systemConfig = require('../../../core/models/systemConfig');
+
+function scopeKey(scope) {
+  return JSON.stringify([scope.scopeType, scope.departmentId || '', scope.workGroupId || '', scope.identityId || '']);
+}
+
+function buildTargetIndex(targets) {
+  const index = new Map();
+  for (const target of targets) {
+    for (const scopeType of ['all_people', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'identity_only']) {
+      const scope = buildClauseScope({ scope_type: scopeType, target_identity_id: target.identity_id }, target);
+      if (!scope) continue;
+      const key = scopeKey(scope);
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(target);
+    }
+  }
+  return index;
+}
 
 function parseDateOnly(value) {
   if (!value) return null;
@@ -18,18 +39,19 @@ function parseDateOnly(value) {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
-function buildDueAt(endDate) {
-  const date = parseDateOnly(endDate);
+function buildDueAt(endDate, timezoneOffset = 8) {
+  const text = endDate instanceof Date ? endDate.toISOString().slice(0, 10) : String(endDate || '').slice(0, 10);
+  const date = parseSystemDateTime(text + ' 23:59:59', timezoneOffset);
   if (!date) return null;
-  date.setHours(23, 59, 59, 999);
+  date.setUTCMilliseconds(999);
   return date;
 }
 
-function isActivityActionable(activity, now) {
+function isActivityActionable(activity, now, timezoneOffset = 8) {
   if (!activity || activity.is_paused) return false;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const start = parseDateOnly(activity.start_date);
-  const end = parseDateOnly(activity.end_date);
+  const today = getSystemDate(now, timezoneOffset);
+  const start = activity.start_date ? String(activity.start_date).slice(0, 10) : '';
+  const end = activity.end_date ? String(activity.end_date).slice(0, 10) : '';
   if (start && today < start) return false;
   if (end && today > end) return false;
   return true;
@@ -84,21 +106,26 @@ function targetMatchesClause(target, clause, scorer) {
 async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actorOverride) {
   if (!hrRecord || !hrRecord.id || !actorOverride || !safeString(actorOverride.assignmentId)) return null;
   const now = nowOverride || new Date();
-  const activity = activityOverride || await scoreActivityModel.getCurrent();
-  if (!isActivityActionable(activity, now)) return null;
   const orgId = await getCurrentOrgId();
+  const activity = activityOverride || await memo('scoreActivity:' + orgId, () => scoreActivityModel.getCurrent());
+  const config = await memo('todoTimezone', () => systemConfig.get());
+  const timezoneOffset = config && config.timezone != null ? Number(config.timezone) : 8;
+  const midnight = parseSystemDateTime(getSystemDate(now, timezoneOffset) + ' 00:00:00', timezoneOffset);
+  const work = getState();
+  if (work && midnight) work.nextBusinessBoundary = Math.min(work.nextBusinessBoundary || Infinity, midnight.getTime() + 86400000);
+  if (!isActivityActionable(activity, now, timezoneOffset)) return null;
   const granularity = participantService.normalizeGranularity(activity.participant_granularity);
   const actor = actorOverride;
   const scorer = await participantService.resolveActorParticipant(orgId, actor, granularity);
   if (!scorer) return null;
 
   const scorerKey = makeOrgRuleKey(scorer.department_id, scorer.identity_id);
-  const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
+  const rule = await memo('scoreRule:' + orgId + ':' + activity.id + ':' + scorerKey, () => rateRuleModel.getByKey(activity.id, scorerKey));
   if (!rule || !rule.is_active) return null;
 
-  const clauses = await rateRuleClauseModel.getByRuleId(rule.id);
+  const clauses = await memo('scoreClauses:' + orgId + ':' + rule.id, () => rateRuleClauseModel.getByRuleId(rule.id));
   if (!clauses.length) return null;
-  const configs = await clauseTemplateConfigModel.getByClauseIds(clauses.map((item) => item.id));
+  const configs = await memo('scoreConfigs:' + orgId + ':' + rule.id, () => clauseTemplateConfigModel.getByClauseIds(clauses.map((item) => item.id)));
   const configuredClauseIds = new Set(configs.map((item) => item.clause_id));
   const activeClauses = clauses.filter((item) => configuredClauseIds.has(item.id));
   const scopes = activeClauses.map((item) => buildClauseScope(item, scorer)).filter(Boolean);
@@ -106,7 +133,7 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
 
   const [targets, records] = await Promise.all([
     participantService.listParticipants(orgId, granularity),
-    scoreRecordModel.getByScorerParticipant(scorer, activity.id)
+    scoreRecordModel.getCompletionTargets(scorer, activity.id)
   ]);
   const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
     ? participantService.createRecordParticipantResolver(targets)
@@ -115,15 +142,20 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
     records.map((item) => resolveRecordParticipantId(item, 'target')).filter(Boolean)
   );
   const expectedIds = new Set();
-  for (const target of targets) {
-    if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(target, scorer)) continue;
-    if (activeClauses.some((clause) => targetMatchesClause(target, clause, scorer))) {
+  const targetIndex = await memo('scoreTargetIndex:' + orgId, () => buildTargetIndex(targets));
+  const uniqueScopes = new Set(scopes.map(scopeKey));
+  // 全员范围已覆盖其他范围，避免反复遍历重叠的大集合。
+  const allKey = scopeKey({ scopeType: 'all_people' });
+  const keys = uniqueScopes.has(allKey) ? [allKey] : Array.from(uniqueScopes);
+  for (const key of keys) {
+    for (const target of targetIndex.get(key) || []) {
+      if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(target, scorer)) continue;
       expectedIds.add(target.id);
     }
   }
   const pendingCount = Array.from(expectedIds).filter((id) => !scoredIds.has(id)).length;
   if (!pendingCount) return null;
-  const dueAt = buildDueAt(activity.end_date);
+  const dueAt = buildDueAt(activity.end_date, timezoneOffset);
   return {
     activity,
     pendingCount,

@@ -86,6 +86,10 @@ const mocks = {
     async getByScorerParticipant(participant) {
       scorerParticipant = participant;
       return [{ target_assignment_id: 'target-a', target_id: 'hr-target' }];
+    },
+    async getCompletionTargets(participant) {
+      scorerParticipant = participant;
+      return [{ target_assignment_id: 'target-a', target_id: 'hr-target' }];
     }
   },
   '../models/scoreAnswer': emptyModel,

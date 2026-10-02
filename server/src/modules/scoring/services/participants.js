@@ -1,12 +1,20 @@
 const pool = require('../../../config/db');
 const { safeString } = require('../../../utils/helpers');
+const { memo } = require('../../../utils/requestWork');
 
 function normalizeGranularity(value) {
   // 评分事实始终按岗位落库；前端是否按自然人聚合只是展示策略。
   return 'assignment';
 }
 
-async function listParticipants(orgId, granularity) {
+async function queryParticipants(orgId, selection) {
+  const params = [safeString(orgId)];
+  let predicate = '';
+  if (selection && selection.assignmentId) { predicate = ' AND ma.id = ?'; params.push(selection.assignmentId); }
+  if (selection && selection.legacyId) {
+    predicate = ' AND (om.legacy_hr_id = ? OR om.person_id = ?)';
+    params.push(selection.legacyId, selection.legacyId);
+  }
   const [rows] = await pool.query(
     `SELECT ma.id, ma.id AS assignment_id, ma.membership_id, om.legacy_hr_id,
             om.person_id, p.name, p.student_id,
@@ -21,11 +29,15 @@ async function listParticipants(orgId, granularity) {
        JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
        JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
        LEFT JOIN work_groups wg ON wg.id = ma.work_group_id AND wg.org_id = ma.org_id
-      WHERE ma.org_id = ? AND ma.status = 'active'
-      ORDER BY p.name, ma.created_at ASC, ma.id ASC`,
-    [safeString(orgId)]
+      WHERE ma.org_id = ? AND ma.status = 'active'${predicate}
+      ORDER BY p.name, ma.created_at ASC, ma.id ASC${selection ? ' LIMIT 2' : ''}`,
+    params
   );
   return rows;
+}
+
+function listParticipants(orgId, granularity) {
+  return memo('participants:' + safeString(orgId), () => queryParticipants(orgId));
 }
 
 function participantRecordId(record, side, granularity) {
@@ -63,23 +75,20 @@ function isSameNaturalPerson(left, right) {
 }
 
 async function resolveParticipant(orgId, participantId, granularity) {
-  const participants = await listParticipants(orgId, granularity);
   const id = safeString(participantId);
-  const exact = participants.find((item) => safeString(item.assignment_id || item.id) === id);
+  if (!id) return null;
+  const exact = (await queryParticipants(orgId, { assignmentId: id })).find(item => safeString(item.assignment_id || item.id) === id);
   if (exact) return exact;
 
   // 兼容旧客户端传入 legacy hr/person id；多岗位时拒绝猜测具体岗位。
-  const compatible = participants.filter((item) =>
-    safeString(item.legacy_hr_id) === id || safeString(item.person_id) === id
-  );
+  const compatible = (await queryParticipants(orgId, { legacyId: id })).filter(item => safeString(item.legacy_hr_id) === id || safeString(item.person_id) === id);
   return compatible.length === 1 ? compatible[0] : null;
 }
 
 async function resolveActorParticipant(orgId, actor, granularity) {
-  const participants = await listParticipants(orgId, granularity);
   const assignmentId = safeString(actor && actor.assignmentId);
   if (!assignmentId) return null;
-  const matched = participants.find((item) => safeString(item.assignment_id || item.id) === assignmentId) || null;
+  const matched = (await queryParticipants(orgId, { assignmentId })).find(item => safeString(item.assignment_id || item.id) === assignmentId) || null;
   if (!matched) return null;
   const actorPersonId = safeString(actor && actor.personId);
   if (actorPersonId && safeString(matched.person_id) !== actorPersonId) return null;

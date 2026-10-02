@@ -25,10 +25,15 @@ const migrationSource = fs.readFileSync(
 
 assert.match(messageDataSource, /SELECT h\.id, h\.name/);
 assert.doesNotMatch(messageDataSource, /SELECT ui\.hr_id, h\.name/);
-assert.match(outboxServiceSource, /createForRecipient\(job, 'user', user\.id/);
-assert.doesNotMatch(outboxServiceSource, /createForRecipient\(job, 'user', user\.hr_id/);
+assert.match(outboxServiceSource, /buildRecipient\(job, 'user', user\.id/);
+assert.doesNotMatch(outboxServiceSource, /buildRecipient\(job, 'user', user\.hr_id/);
+assert.match(outboxServiceSource, /notificationModel\.batchCreate\(items\)/);
+assert.match(outboxServiceSource, /null, actor\)/);
 assert.match(workerSource, /copy\.scoreActivityStartedTitle/);
 assert.match(workerSource, /copy\.scoreDeadlineTitle/);
+assert.match(workerSource, /buildDueAt\(activity\.end_date, config\.timezone\)/);
+assert.doesNotMatch(workerSource, /endOfShanghaiDay|getFullYear\(|getHours\(/);
+assert.doesNotMatch(messageDataSource, /CURDATE\(\)/);
 assert.ok(notificationCopy.scoreActivityStartedTitle);
 assert.ok(notificationCopy.scoreDeadlineTitle);
 assert.match(workerSource, /cleanupDead\(90\)/);

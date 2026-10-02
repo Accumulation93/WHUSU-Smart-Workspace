@@ -7,6 +7,9 @@ const { listAccessibleActorContexts } = require('../../../core/services/accessib
 const notificationModel = require('../models/notification');
 const todoService = require('../services/todoService');
 const { getAuthenticatedContext } = require('../../../core/services/authenticatedContext');
+const messageCache = require('../services/messageCache');
+const messageCopy = require('../../../locales/zh-CN/modules/messagePerformance');
+const { getState } = require('../../../utils/requestWork');
 
 const AGGREGATION_CONCURRENCY = 4;
 
@@ -74,7 +77,7 @@ function organizationMetadata(context) {
     contextId: context.contextId || '',
     identityId: context.authIdentityId || '',
     identityType: context.identityType || context.role || '',
-    identityName: context.identityName || (context.role === 'admin' ? '管理员' : '普通岗位'),
+    identityName: context.identityName || (context.role === 'admin' ? messageCopy.adminRole : messageCopy.userRole),
     identityScope: context.identityScope || 'organization',
     isCurrentContext: Boolean(context.isCurrentContext),
     _identityPriority: context.isCurrentContext
@@ -214,6 +217,7 @@ async function resolveScope(req, body, defaultToCurrent) {
   }
   return {
     ok: true,
+    accountId: req.authAccount.id,
     role,
     currentOrgId,
     allContexts,
@@ -226,13 +230,11 @@ function respondScopeError(res, scope) {
   res.json({ status: scope.status, message: scope.message });
 }
 
-async function loadTodos(scope, body) {
-  const limit = parseLimit(body.limit);
-  const offset = getOffset(body);
+async function computeTodos(scope, body) {
   const results = await settleWithConcurrency(scope.contexts, async (context) => {
     const items = await orgStorage.run(
       context.organizationId,
-      () => todoService.listAll(context.actor, context.organizationId)
+      () => todoService.listAll(context.actor, context.organizationId, { unsorted: true, countOnly: body.countOnly === true })
     );
     return items.map((item) => Object.assign({}, item, organizationMetadata(context)));
   });
@@ -247,35 +249,76 @@ async function loadTodos(scope, body) {
       todoMap.set(key, item);
     }
   });
-  const uniqueItems = Array.from(todoMap.values()).sort(todoService.compareTodo);
-  const items = uniqueItems.slice(offset, offset + limit).map(withoutIdentityPriority);
-  const nextOffset = offset + items.length;
+  const uniqueItems = Array.from(todoMap.values());
+  if (!body.countOnly) uniqueItems.sort(todoService.compareTodo);
   return {
+    contentVersion: body.countOnly ? '' : messageCache.digest(uniqueItems.map(item => [item.organizationId, item.id, item.dueAt, item.createdAt])),
+    expiresAt: getState() && getState().nextBusinessBoundary || null,
     data: {
-      items,
+      items: body.countOnly ? [] : uniqueItems.map(withoutIdentityPriority),
       total: uniqueItems.length,
       unreadCount: 0,
-      nextCursor: nextOffset < uniqueItems.length ? encodeCursor(nextOffset) : ''
+      nextCursor: ''
     },
     failures: collectFailures(results)
   };
 }
 
-async function loadNotifications(scope, body) {
+async function loadTodos(scope, body) {
+  const snapshot = await messageCache.load(scope, 'todos', { refresh: body.refresh, countOnly: body.countOnly }, () => computeTodos(scope, body));
+  if (body.countOnly) return snapshot;
+  const scopeKey = messageCache.digest([scope.accountId, scope.selectedOrganizationId, scope.contexts.map(c => c.contextId || c.actor.id)]);
+  const revision = messageCache.digest([snapshot.dependencyVersion || '', snapshot.contentVersion]);
+  let offset = getOffset(body);
+  if (body.cursor) {
+    if (String(body.cursor).length > 512) throw Object.assign(new Error('INVALID_TODO_CURSOR'), { code: 'INVALID_TODO_CURSOR' });
+    const raw = Buffer.from(String(body.cursor), 'base64url').toString();
+    if (raw.startsWith('{')) {
+      let cursor;
+      try { cursor = JSON.parse(raw); } catch (_) { throw Object.assign(new Error('INVALID_TODO_CURSOR'), { code: 'INVALID_TODO_CURSOR' }); }
+      if (cursor.v !== 2 || cursor.scope !== scopeKey || cursor.revision !== revision || !Number.isSafeInteger(cursor.offset) || cursor.offset < 0) {
+        throw Object.assign(new Error('TODO_CURSOR_STALE'), { code: 'TODO_CURSOR_STALE' });
+      }
+      offset = cursor.offset;
+    }
+  }
+  const limit = parseLimit(body.limit);
+  const items = snapshot.data.items.slice(offset, offset + limit);
+  const nextOffset = offset + items.length;
+  return {
+    data: Object.assign({}, snapshot.data, { items, nextCursor: nextOffset < snapshot.data.total
+      ? Buffer.from(JSON.stringify({ v: 2, scope: scopeKey, revision, offset: nextOffset })).toString('base64url') : '' }),
+    failures: snapshot.failures
+  };
+}
+
+function recipientContexts(contexts) {
+  const recipients = new Map();
+  for (const context of contexts) {
+    const key = JSON.stringify([context.organizationId, context.actor.type, context.actor.id]);
+    const previous = recipients.get(key);
+    if (!previous || organizationMetadata(context)._identityPriority < organizationMetadata(previous)._identityPriority) recipients.set(key, context);
+  }
+  return Array.from(recipients.values());
+}
+
+async function computeNotifications(scope, body) {
   const limit = parseLimit(body.limit);
   const boundary = decodeNotificationCursor(body.cursor);
   const fetchLimit = limit + 1;
-  const results = await settleWithConcurrency(scope.contexts, async (context) => {
+  const results = await settleWithConcurrency(recipientContexts(scope.contexts), async (context) => {
     const result = await notificationModel.listForRecipient(context.actor, {
       limit: fetchLimit,
       maxLimit: fetchLimit,
       beforeCreatedAt: boundary && boundary.beforeCreatedAt,
-      beforeId: boundary && boundary.beforeId
+      beforeId: boundary && boundary.beforeId,
+      countOnly: body.countOnly === true
     });
     return {
       items: result.items.map((row) => mapNotification(row, context)),
       total: result.total,
-      unreadCount: result.unreadCount
+      unreadCount: result.unreadCount,
+      expiresAt: result.expiresAt
     };
   });
   const successful = results.filter((item) => item.ok);
@@ -302,6 +345,7 @@ async function loadNotifications(scope, body) {
   const unreadCount = Array.from(recipientCounts.values())
     .reduce((sum, value) => sum + Number(value.unreadCount || 0), 0);
   return {
+    expiresAt: Math.min(...successful.map(item => item.value.expiresAt || Infinity)),
     data: {
       items,
       total,
@@ -314,14 +358,18 @@ async function loadNotifications(scope, body) {
   };
 }
 
+function loadNotifications(scope, body) {
+  return messageCache.load(scope, 'notifications', body, () => computeNotifications(scope, body));
+}
+
 router.post('/getMessageOverview', async (req, res) => {
   try {
     const scope = await resolveScope(req, req.body || {}, false);
     if (!scope.ok) return respondScopeError(res, scope);
     const limit = parseLimit(req.body.limit || 10);
     const [todos, notifications] = await Promise.all([
-      loadTodos(scope, { limit }),
-      loadNotifications(scope, { limit })
+      loadTodos(scope, { limit, refresh: req.body.refresh }),
+      loadNotifications(scope, { limit, refresh: req.body.refresh })
     ]);
     const failures = mergeFailures(todos.failures, notifications.failures);
     res.json(Object.assign(
@@ -346,6 +394,9 @@ router.post('/listTodos', async (req, res) => {
     ));
   } catch (error) {
     console.error('[todo:list] failed:', error);
+    if (error.code === 'TODO_CURSOR_STALE' || error.code === 'INVALID_TODO_CURSOR') {
+      return res.json({ status: 'cursor_expired', message: messageCopy.cursorExpired });
+    }
     res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
@@ -354,7 +405,7 @@ router.post('/getTodoCount', async (req, res) => {
   try {
     const scope = await resolveScope(req, req.body || {}, false);
     if (!scope.ok) return respondScopeError(res, scope);
-    const result = await loadTodos(scope, { limit: 1 });
+    const result = await loadTodos(scope, { countOnly: true, refresh: req.body.refresh });
     res.json(Object.assign(
       { status: 'success', count: result.data.total },
       scopeMetadata(scope, result.failures)
@@ -391,7 +442,7 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
   try {
     const scope = await resolveScope(req, req.body || {}, false);
     if (!scope.ok) return respondScopeError(res, scope);
-    const result = await loadNotifications(scope, { limit: 1 });
+    const result = await loadNotifications(scope, { countOnly: true, refresh: req.body.refresh });
     res.json(Object.assign(
       { status: 'success', count: result.data.unreadCount },
       scopeMetadata(scope, result.failures)
@@ -431,7 +482,7 @@ router.post('/markAllNotificationsRead', async (req, res) => {
     const scope = await resolveScope(req, req.body || {}, false);
     if (!scope.ok) return respondScopeError(res, scope);
     const results = await settleWithConcurrency(
-      scope.contexts,
+      recipientContexts(scope.contexts),
       (context) => notificationModel.markAllRead(context.actor)
     );
     const failures = collectFailures(results);
@@ -453,7 +504,7 @@ router.post('/deleteAllNotifications', async (req, res) => {
     const scope = await resolveScope(req, req.body || {}, false);
     if (!scope.ok) return respondScopeError(res, scope);
     const results = await settleWithConcurrency(
-      scope.contexts,
+      recipientContexts(scope.contexts),
       (context) => notificationModel.deleteAll(context.actor)
     );
     const failures = collectFailures(results);

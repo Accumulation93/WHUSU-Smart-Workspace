@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const { safeString, toNumber, roundScore } = require('../../../utils/helpers');
 const pool = require('../../../config/db');
+const sharedCache = require('./sharedCache');
 const { logger } = require('../../../utils/logger');
 const { validateCalculationPolicySignature } = require('./calculationSnapshotSignature');
 const {
@@ -164,7 +165,25 @@ function getHistoricalSnapshotFailure(diagnostics) {
   };
 }
 
+const pendingComputations = new Map();
+
 async function computeValidScoreMap(activityId, orgId, options = {}) {
+  const scope = JSON.stringify([activityId, orgId, !!options.includeCounts,
+    options.visibleTargetIds ? Array.from(options.visibleTargetIds).sort() : null]);
+  const key = await sharedCache.versionedKey('scoreCalculation:' + crypto.createHash('sha256').update(scope).digest('hex'), orgId);
+  if (pendingComputations.has(key)) {
+    const result = structuredClone(await pendingComputations.get(key));
+    if (result.finalScoreMap) result.finalScoreMap.diagnostics = result.diagnostics;
+    return result;
+  }
+  const pending = calculateScoreMap(activityId, orgId, options);
+  if (pendingComputations.size < 64) pendingComputations.set(key, pending);
+  try { return await pending; } finally {
+    if (pendingComputations.get(key) === pending) pendingComputations.delete(key);
+  }
+}
+
+async function calculateScoreMap(activityId, orgId, options = {}) {
   const visibleTargetIds = options.visibleTargetIds;
   const [recordRows] = await pool.query(
     'SELECT * FROM score_records WHERE activity_id = ? AND org_id = ?',

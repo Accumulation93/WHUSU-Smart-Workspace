@@ -1,9 +1,11 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const { getColumns } = require('../services/auditSchemaCapabilities');
+const { memo, getState } = require('../../../utils/requestWork');
 const {
   resolveActorAssignment,
-  getSubmissionSubmitterAssignments
+  snapshotToAssignment,
+  listActiveAssignments
 } = require('../services/auditAssignmentContext');
 const {
   effectiveConditionsForAuthorization,
@@ -91,35 +93,46 @@ async function getTemplateStepConditions(templateStepId) {
  * Missing or corrupt historical snapshots fail closed and must never fall back to
  * the mutable template or legacy flat fields.
  */
-async function getPendingByApprover(actor, approverOverride) {
+async function getPendingByApprover(actor, approverOverride, options = {}) {
   const orgId = await getCurrentOrgId();
   const approver = approverOverride || await resolveActorAssignment(actor, orgId);
   if (!approver) return [];
-  const [pendingRows] = await pool.query(
+  const [pendingRows] = await memo('auditPending:' + orgId, () => pool.query(
     `SELECT asub.*, ass.*, ass.id AS id, ass.submission_id AS submission_id,
             asub.submission_number, asub.title, asub.submitted_by,
             asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
-     JOIN audit_submissions asub ON asub.id = ass.submission_id
-     JOIN (
-       SELECT submission_id, sort_order, MAX(round) as max_round
-       FROM audit_submission_steps WHERE org_id = ?
-       GROUP BY submission_id, sort_order
-     ) mr ON mr.submission_id = ass.submission_id AND mr.sort_order = ass.sort_order AND mr.max_round = ass.round
+     JOIN audit_submissions asub ON asub.id = ass.submission_id AND asub.org_id = ass.org_id
      WHERE ass.status = 'pending' AND asub.status = 'in_progress'
        AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
-     ORDER BY ass.created_at DESC`,
-    [orgId, orgId]
-  );
+       AND ass.round = (SELECT MAX(newer.round) FROM audit_submission_steps newer
+         WHERE newer.org_id = ass.org_id AND newer.submission_id = ass.submission_id
+           AND newer.sort_order = ass.sort_order)`,
+    [orgId]
+  ));
 
   const submitterMap = new Map();
+  const missingIds = [...new Set(pendingRows.filter(row => !snapshotToAssignment(row.submitted_context_snapshot, row.submitted_by))
+    .map(row => row.submitted_assignment_id).filter(Boolean))];
+  const historicalAssignments = await memo('auditSubmitterBatch:' + orgId, async () => {
+    const byId = new Map();
+    for (let start = 0; start < missingIds.length; start += 500) {
+      const assignments = await listActiveAssignments(orgId, { assignmentIds: missingIds.slice(start, start + 500) });
+      for (const assignment of assignments) byId.set(assignment.assignment_id, assignment);
+    }
+    return byId;
+  });
   let rows = [];
 
   for (const row of pendingRows) {
     if (!submitterMap.has(row.submission_id)) {
       submitterMap.set(
         row.submission_id,
-        await getSubmissionSubmitterAssignments(row, orgId)
+        await memo('auditSubmitter:' + orgId + ':' + row.submission_id, () => {
+          const snapshot = snapshotToAssignment(row.submitted_context_snapshot, row.submitted_by);
+          const assignment = snapshot || historicalAssignments.get(row.submitted_assignment_id);
+          return assignment ? [assignment] : [];
+        })
       );
     }
     const submitters = submitterMap.get(row.submission_id);
@@ -127,7 +140,7 @@ async function getPendingByApprover(actor, approverOverride) {
 
     if (!row.step_conditions_json) continue;
     try {
-      const conditions = JSON.parse(row.step_conditions_json);
+      const conditions = await memo('auditConditions:' + orgId + ':' + row.id, () => JSON.parse(row.step_conditions_json));
       if (matchesAnyCondition(conditions, approver, submitters)) rows.push(row);
     } catch (_) {
       // 快照缺失或损坏时失败关闭；模板后续修改不得重新授权历史步骤。
@@ -149,7 +162,7 @@ async function getPendingByApprover(actor, approverOverride) {
 
 
   // Sort by created_at DESC
-  rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  if (!options.unsorted) rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return rows;
 }
 
@@ -157,12 +170,21 @@ async function getPendingByApprover(actor, approverOverride) {
  * Helper: check if a value exists in a comma-separated list.
  * Both inputs are coerced to strings for robust comparison.
  */
+function csvSet(csv) {
+  const source = String(csv || '');
+  const state = getState();
+  if (!state || !state.readOnly) return new Set(source.split(',').map(value => value.trim()).filter(Boolean));
+  if (!state.conditionSets) state.conditionSets = new Map();
+  if (!state.conditionSets.has(source)) state.conditionSets.set(source, new Set(source.split(',').map(value => value.trim()).filter(Boolean)));
+  return state.conditionSets.get(source);
+}
+
 function inCsv(csv, value) {
   if (csv == null || value == null) return false;
   let csvStr = String(csv).trim();
   let valStr = String(value).trim();
   if (!csvStr || !valStr) return false;
-  return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
+  return csvSet(csvStr).has(valStr);
 }
 
 /**
@@ -185,14 +207,12 @@ function matchesAnyCondition(conditions, approver, submitter) {
     if (!validateConditionShape(cond).ok) return false;
     if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
-      let personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      let personMatch = personIds.includes(String(approver.id));
-      const assignmentIds = (cond.assignmentIds || cond.personAssignmentIds || '').toString()
-        .split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      const personMatch = csvSet(cond.personHrIds).has(String(approver.id));
+      const assignmentIds = csvSet(cond.assignmentIds || cond.personAssignmentIds);
       // 人员条件必须同时绑定明确岗位。旧条件没有 assignmentIds 时失败关闭，
       // 禁止同一自然人切换到另一个岗位后继承原岗位的审批权限。
-      const assignmentMatch = assignmentIds.length > 0 &&
-        assignmentIds.includes(String(approver.assignment_id || ''));
+      const assignmentMatch = assignmentIds.size > 0 &&
+        assignmentIds.has(String(approver.assignment_id || ''));
       if (personMatch && assignmentMatch) return true;
     } else {
       let identMatch = matchesIdentityScopeCondition(cond, approver, submitter);

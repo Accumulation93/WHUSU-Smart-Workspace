@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/servi
 const approvalCopy = require('../../../locales/zh-CN/venueApproval');
 const pool = require('../../../config/db');
 const { safeString } = require('../../../utils/helpers');
+const { memo } = require('../../../utils/requestWork');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
 const {
   toRuleProfile,
@@ -693,9 +694,9 @@ async function evaluateActorEligibility(booking, actor, orgId) {
     });
   }
   const state = parseFlowState(booking);
-  const flowDefinition = parseFlowDefinitionSnapshot(booking, orgId);
+  const flowDefinition = await memo('venueDefinition:' + orgId + ':' + booking.id, () => parseFlowDefinitionSnapshot(booking, orgId));
   const flowsMap = flowDefinition.flowsMap;
-  const snapshotsResult = parseSnapshotsResult(booking && booking.approval_snapshots_json);
+  const snapshotsResult = await memo('venueApprovalSnapshots:' + orgId + ':' + booking.id, () => parseSnapshotsResult(booking && booking.approval_snapshots_json));
   const stateFlowIds = Object.keys(state.flows || {});
   const snapshotFlowIds = Object.keys(flowsMap);
   const stateMatchesSnapshot = flowDefinition.ok

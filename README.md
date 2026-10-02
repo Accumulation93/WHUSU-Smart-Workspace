@@ -4,6 +4,8 @@ WHUSU智慧工作台是一个原生微信小程序与 Node.js/Express/MySQL 服�
 
 ## 事实来源
 
+- 性能与安全缓存：[docs/performance.md](docs/performance.md)；消息接口：[docs/message-api.md](docs/message-api.md)
+
 - UI 规范：[docs/ui-kit.md](docs/ui-kit.md)、[docs/ui-components.md](docs/ui-components.md)、[docs/ui-page-templates.md](docs/ui-page-templates.md)
 - 小程序编译边界：[docs/miniprogram-compiler-compatibility.md](docs/miniprogram-compiler-compatibility.md)
 - 分包与语言边界：[docs/module-boundaries-and-language-migration.md](docs/module-boundaries-and-language-migration.md)

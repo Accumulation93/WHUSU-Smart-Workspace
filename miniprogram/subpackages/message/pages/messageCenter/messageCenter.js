@@ -1,4 +1,4 @@
-const { callFunction, formatAuditTime, showShortToast } = require('../../../../utils/api');
+const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const messageScope = require('../../../../utils/messageScope');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
@@ -39,6 +39,7 @@ function isPartialBulkResult(result) {
 
 Page({
   data: {
+    performanceCopy: require('../../../../locales/zh-CN/messagePerformance'),
     copy: copy.view,
     isAdminRole: false,
     activeTab: 'todos',
@@ -50,6 +51,10 @@ Page({
     todoCursor: '',
     notificationCursor: '',
     loading: false,
+    todoLoading: false,
+    notificationLoading: false,
+    todoError: false,
+    notificationError: false,
     loadingMore: false,
     organizationOptions: [{ id: '', name: copy.messages.allOrganizations }],
     selectedOrganizationId: '',
@@ -75,9 +80,12 @@ Page({
   },
 
   onShow() {
+    this._isPageVisible = true;
     const state = orgSession.consume(this);
     const isAdminRole = state.snapshot.role === 'admin';
     if (state.changed) {
+      this._todoFingerprint = ''; this._notificationFingerprint = '';
+      this.setData({ todos: [], notifications: [], todoTotal: 0, notificationTotal: 0, unreadCount: 0 });
       orgSession.invalidateRequests(this);
       this._messageRevision = (this._messageRevision || 0) + 1;
     }
@@ -88,10 +96,15 @@ Page({
   },
 
   onHide() {
+    this._isPageVisible = false;
+    orgSession.invalidateRequests(this);
+    this._overviewPromise = null;
     this.stopPolling();
   },
 
   onUnload() {
+    this._isPageVisible = false;
+    orgSession.invalidateRequests(this);
     this.stopPolling();
   },
 
@@ -141,79 +154,86 @@ Page({
       : {};
   },
 
-  async loadOverview(reset) {
-    if (this.data.loading || this.data.loadingMore) {
-      this._overviewReloadQueued = true;
-      return;
+  async loadOverview(reset, refresh) {
+    if (this._overviewPromise) {
+      if (refresh === true) { this._messageRefreshQueued = true; this._overviewReloadQueued = true; }
+      if (this._overviewRevision !== (this._messageRevision || 0)) this._overviewReloadQueued = true;
+      return this._overviewPromise;
     }
     const request = orgSession.beginRequest(this, 'messageOverview');
     const revision = this._messageRevision || 0;
-    this.setData({ loading: true });
-    try {
-      const data = Object.assign({ limit: 20 }, this.selectedOrganizationData());
-      const result = await callFunction({ name: 'getMessageOverview', data });
-      if (!orgSession.isRequestCurrent(this, request)
-          || revision !== (this._messageRevision || 0)) return;
-      if (result.status === 'org_access_denied' && this.data.selectedOrganizationId) {
-        messageScope.resetScope();
-        this._messageRevision = (this._messageRevision || 0) + 1;
-        this.setData({
-          selectedOrganizationId: '',
-          selectedOrganizationName: copy.messages.allOrganizations,
-          selectedOrganizationIndex: 0,
-          loading: false
+    this._overviewRevision = revision;
+    const current = () => this._isPageVisible !== false && orgSession.isRequestCurrent(this, request)
+      && revision === (this._messageRevision || 0);
+    this.setData({ todoLoading: !this.data.todos.length, notificationLoading: !this.data.notifications.length });
+    const job = Promise.all([false, true].map(async (isNotification) => {
+      const prefix = isNotification ? 'notification' : 'todo';
+      try {
+        const data = Object.assign({ limit: 20, refresh: refresh === true }, this.selectedOrganizationData());
+        const result = await require('../../../../utils/messageQueries').load(isNotification ? 'listNotifications' : 'listTodos', data);
+        if (!current()) return;
+        if (result.status === 'org_access_denied' && this.data.selectedOrganizationId) {
+          messageScope.resetScope();
+          this._todoFingerprint = ''; this._notificationFingerprint = '';
+          this._messageRevision = (this._messageRevision || 0) + 1;
+          this.setData({
+            selectedOrganizationId: '', selectedOrganizationName: copy.messages.allOrganizations,
+            selectedOrganizationIndex: 0, todos: [], notifications: [], todoLoading: false, notificationLoading: false,
+            todoTotal: 0, notificationTotal: 0, unreadCount: 0, todoCursor: '', notificationCursor: '', loadingMore: false
+          });
+          this._overviewReloadQueued = true;
+          return;
+        }
+        if (result.status !== 'success') throw new Error('message_list_unavailable');
+        const organizationOptions = this.buildOrganizationOptions(result.organizations);
+        const selectedIndex = Math.max(0, organizationOptions.findIndex(item => item.id === this.data.selectedOrganizationId));
+        const organization = organizationOptions[selectedIndex];
+        messageScope.setScope(organization);
+        const fingerprint = JSON.stringify([result.items, result.total, result.unreadCount]);
+        const patch = {
+          organizationOptions: organizationOptions,
+          selectedOrganizationIndex: selectedIndex,
+          selectedOrganizationName: organization.name
+        };
+        patch[prefix + 'Loading'] = false;
+        patch[prefix + 'Error'] = false;
+        patch[prefix + 'Total'] = result.total || 0;
+        if (isNotification) patch.unreadCount = result.unreadCount || 0;
+        if (this['_' + prefix + 'Fingerprint'] !== fingerprint) {
+          orgSession.beginRequest(this, isNotification ? 'messageNotificationsMore' : 'messageTodosMore');
+          patch.loadingMore = false;
+          patch[isNotification ? 'notifications' : 'todos'] = this.formatItems(result.items);
+          patch[prefix + 'Cursor'] = result.nextCursor || '';
+          this['_' + prefix + 'Fingerprint'] = fingerprint;
+        }
+        this['_' + prefix + 'Partial'] = !!result.partial;
+        patch.partial = !!(this._todoPartial || this._notificationPartial);
+        const renderStarted = Date.now();
+        this.setData(patch, function() {
+          if (typeof recordMessageRender === 'function') recordMessageRender('messageCenter.' + prefix, renderStarted, Object.keys(patch).length, null);
         });
-        showShortToast(copy.messages.selectOrganizationOrWorkContext);
-        this.loadOverview(true);
-        return;
+      } catch (error) {
+        if (current()) {
+          const patch = {}; patch[prefix + 'Loading'] = false; patch[prefix + 'Error'] = true;
+          this.setData(patch);
+        }
       }
-      if (result.status !== 'success') throw new Error(result.message || copy.messages.refreshLater);
-
-      const organizationOptions = this.buildOrganizationOptions(result.organizations);
-      let selectedIndex = organizationOptions.findIndex((item) => (
-        item.id === this.data.selectedOrganizationId
-      ));
-      if (selectedIndex < 0 && this.data.selectedOrganizationId) {
-        messageScope.resetScope();
-        this._messageRevision = (this._messageRevision || 0) + 1;
-        this.setData({
-          selectedOrganizationId: '',
-          selectedOrganizationName: copy.messages.allOrganizations,
-          selectedOrganizationIndex: 0,
-          loading: false
-        });
-        showShortToast(copy.messages.selectOrganizationOrWorkContext);
-        this.loadOverview(true);
-        return;
-      }
-      if (selectedIndex < 0) selectedIndex = 0;
-      const selectedOrganization = organizationOptions[selectedIndex];
-      messageScope.setScope(selectedOrganization);
-
-      const todos = result.todos || {};
-      const notifications = result.notifications || {};
-      this.setData({
-        todos: this.formatItems(todos.items),
-        notifications: this.formatItems(notifications.items),
-        todoTotal: todos.total || 0,
-        notificationTotal: notifications.total || 0,
-        unreadCount: notifications.unreadCount || 0,
-        todoCursor: todos.nextCursor || '',
-        notificationCursor: notifications.nextCursor || '',
-        organizationOptions,
-        selectedOrganizationIndex: selectedIndex,
-        selectedOrganizationName: selectedOrganization.name,
-        partial: !!result.partial
-      });
-    } catch (error) {
-      if (!(error && error.silent)) showShortToast(copy.messages.refreshLater);
-    } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
-      if (this._overviewReloadQueued && !this.data.loading && !this.data.loadingMore) {
+    }));
+    this._overviewPromise = job;
+    try { await job; } finally {
+      if (this._overviewPromise === job) this._overviewPromise = null;
+      if (this._overviewReloadQueued && this._isPageVisible !== false) {
         this._overviewReloadQueued = false;
-        this.loadOverview(true);
+        const forceRefresh = this._messageRefreshQueued === true;
+        this._messageRefreshQueued = false;
+        this.loadOverview(true, forceRefresh);
       }
     }
+  },
+
+  retryOverview() {
+    require('../../../../utils/messageQueries').invalidate();
+    return this.loadOverview(true, true);
   },
 
   openOrganizationPicker() {
@@ -241,6 +261,8 @@ Page({
     this.setData({ organizationPickerVisible: false });
     if (organization.id === this.data.selectedOrganizationId) return;
     messageScope.setScope(organization);
+    this._overviewPromise = null;
+    this._todoFingerprint = ''; this._notificationFingerprint = '';
     this._messageRevision = (this._messageRevision || 0) + 1;
     orgSession.invalidateRequests(this);
     this.setData({
@@ -263,7 +285,7 @@ Page({
   },
 
   async loadMore() {
-    if (this.data.loading || this.data.loadingMore) return;
+    if (this._overviewPromise || this.data.loading || this.data.loadingMore) return;
     const isNotifications = this.data.activeTab === 'notifications';
     const cursor = isNotifications ? this.data.notificationCursor : this.data.todoCursor;
     if (!cursor) return;
@@ -277,6 +299,11 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)
           || revision !== (this._messageRevision || 0)) return;
       if (result.status !== 'success') {
+        if (result.status === 'cursor_expired') {
+          this._todoFingerprint = '';
+          this.retryOverview();
+          return;
+        }
         throw new Error(result.message || copy.messages.retryLater);
       }
       const items = this.formatItems(result.items);

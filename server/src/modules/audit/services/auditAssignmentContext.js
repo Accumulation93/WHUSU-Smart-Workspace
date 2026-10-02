@@ -114,6 +114,12 @@ async function listActiveAssignments(orgId, options, db) {
     extraWhere += ' AND ma.id = ?';
     params.push(assignmentId);
   }
+  if (Array.isArray(normalizedOptions.assignmentIds)) {
+    const ids = [...new Set(normalizedOptions.assignmentIds.map(safeString).filter(Boolean))];
+    if (!ids.length) return [];
+    extraWhere += ' AND ma.id IN (?)';
+    params.push(ids);
+  }
   if (hrIds.length) {
     extraWhere += ' AND om.legacy_hr_id IN (?)';
     params.push(hrIds);

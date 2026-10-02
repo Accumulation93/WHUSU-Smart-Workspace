@@ -16,6 +16,18 @@
 
 const pool = require('../../../config/db');
 const { logger } = require('../../../utils/logger');
+const { randomUUID, createHash } = require('crypto');
+
+async function versionedKey(key, orgId) {
+  try {
+    const version = await require('../../../core/models/cacheVersions').read([orgId], ['directory', 'scoring']);
+    // 保留原前缀，使旧的显式失效调用仍然有效。版本在计算前取得，写入时不得重取。
+    return key.slice(0, 150) + ':v2:' + createHash('sha256').update(JSON.stringify([key, version])).digest('hex');
+  } catch (_) {
+    // 无法读版本时仅允许这次计算使用不可复用键，不能命中过期数据。
+    return key.slice(0, 150) + ':uncached:' + randomUUID();
+  }
+}
 
 let tableReady = false;
 
@@ -38,6 +50,7 @@ async function ensureTable() {
  * @returns {Promise<any>|null}
  */
 async function get(key) {
+  if (key.includes(':uncached:')) return null;
   try {
     await ensureTable();
     const now = Date.now();
@@ -67,6 +80,7 @@ async function get(key) {
  * @param {number} ttlMs
  */
 async function set(key, value, ttlMs) {
+  if (key.includes(':uncached:')) return;
   try {
     await ensureTable();
     const now = Date.now();
@@ -104,7 +118,8 @@ async function invalidateKey(key) {
 async function invalidatePrefix(prefix) {
   try {
     await ensureTable();
-    await pool.query('DELETE FROM _shared_cache WHERE cache_key LIKE ?', [prefix + '%']);
+    const escaped = prefix.replace(/[!%_]/g, character => '!' + character);
+    await pool.query("DELETE FROM _shared_cache WHERE cache_key LIKE ? ESCAPE '!'", [escaped + '%']);
   } catch (err) {
     logger.warn('sharedCache.invalidatePrefix failed', { error: err.message });
   }
@@ -130,4 +145,4 @@ const PURGE_INTERVAL = 5 * 60 * 1000;
 const purgeTimer = setInterval(purgeExpired, PURGE_INTERVAL);
 purgeTimer.unref();
 
-module.exports = { get, set, invalidateKey, invalidatePrefix, purgeExpired };
+module.exports = { get, set, invalidateKey, invalidatePrefix, purgeExpired, versionedKey };

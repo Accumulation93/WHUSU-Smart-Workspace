@@ -100,7 +100,7 @@ const mocks = {
   '../../../utils/orgContext': {
     async getCurrentOrgId() { return 'history-org'; }
   },
-  '../utils/sharedCache': {}
+  '../utils/sharedCache': { async versionedKey(key, orgId) { return key + ':v2:' + orgId; } }
 };
 
 const originalLoad = Module._load;

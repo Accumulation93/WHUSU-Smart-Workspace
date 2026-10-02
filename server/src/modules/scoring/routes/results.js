@@ -76,14 +76,17 @@ async function getCachedOverview(cacheKey) {
   return sharedCache.get(cacheKey);
 }
 
-async function setCachedOverview(cacheKey, data) {
-  return sharedCache.set(cacheKey, data, OVERVIEW_CACHE_TTL);
+async function setCachedOverview(cacheKey, data, startedAt) {
+  const remaining = OVERVIEW_CACHE_TTL - (Date.now() - startedAt);
+  if (remaining <= 0) return;
+  return sharedCache.set(cacheKey, data, remaining);
 }
 
 async function fetchOrgLookups(explicitOrgId) {
   const orgId = safeString(explicitOrgId) || await getCurrentOrgId();
   const now = Date.now();
-  const cached = _orgLookupsCache.get(orgId);
+  const key = await sharedCache.versionedKey('resultLookups:' + orgId, orgId);
+  const cached = _orgLookupsCache.get(key);
   if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) {
     return cached.value;
   }
@@ -118,7 +121,10 @@ async function fetchOrgLookups(explicitOrgId) {
     workGroupsById: buildOrgMap(workGroups),
     templatesById
   };
-  _orgLookupsCache.set(orgId, { value: result, timestamp: now });
+  if (!key.includes(':uncached:')) {
+    if (_orgLookupsCache.size >= 64) _orgLookupsCache.delete(_orgLookupsCache.keys().next().value);
+    _orgLookupsCache.set(key, { value: result, timestamp: now });
+  }
   return result;
 }
 
@@ -767,9 +773,12 @@ function getRecordTemplateScores(record) {
     .filter((item) => item.templateId)
     .sort((left, right) => left.sortOrder - right.sortOrder);
   const answers = Array.isArray(record.answers) ? record.answers : [];
+  const hasZero = answers.some(a => a.questionIndex === 0);
+  const totalsByTemplate = new Map();
   const answerMap = new Map(answers.map((item, index) => {
     const raw = item.questionIndex != null ? item.questionIndex : index;
-    const hasZero = answers.some(a => a.questionIndex === 0);
+    const templateId = safeString(item.templateId);
+    totalsByTemplate.set(templateId, (totalsByTemplate.get(templateId) || 0) + toNumber(item.score, 0));
     const key = hasZero ? raw + 1 : raw;
     return [String(key), toNumber(item.score, 0)];
   }));
@@ -779,7 +788,7 @@ function getRecordTemplateScores(record) {
     if (config.questionCount) {
       for (let i = 0; i < config.questionCount; i++) score += toNumber(answerMap.get(String(cursor + i + 1)), 0);
     } else {
-      answers.filter((a) => safeString(a.templateId) === config.templateId).forEach((a) => { score += toNumber(a.score, 0); });
+      score = totalsByTemplate.get(config.templateId) || 0;
     }
     cursor += config.questionCount;
     return { ...config, score };
@@ -1153,7 +1162,8 @@ router.post('/getScoreResults', async (req, res) => {
 
     // ── Overview cache shortcut ──
     if (dataType === 'overview') {
-      const cacheKey = getOverviewCacheKey(orgId, activityId, dataType, filters);
+      const cacheStartedAt = Date.now();
+      const cacheKey = await sharedCache.versionedKey(getOverviewCacheKey(orgId, activityId, dataType, filters), orgId);
       if (nocache) await sharedCache.invalidateKey(cacheKey);
       const cached = await getCachedOverview(cacheKey);
       if (cached && cached.historicalIntegrityVerified === true) {
@@ -1211,7 +1221,7 @@ router.post('/getScoreResults', async (req, res) => {
           assignmentKind: member.assignmentKind,
           departmentId: member.departmentId, identityId: member.identityId,
           workGroupId: member.workGroupId,
-          name: member.name, studentId: member.studentId,
+          name: member.name,
           department: member.department, identity: member.identity,
           workGroup: member.workGroup || DEFAULT_WORK_GROUP,
           finalScore: roundScore(finalScore),
@@ -1282,7 +1292,7 @@ router.post('/getScoreResults', async (req, res) => {
         stats: overviewStats,
         filterOptions: filterOpts,
         activity: actBrief
-      });
+      }, cacheStartedAt);
 
       return res.json({
         status: 'success',
