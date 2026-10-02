@@ -16,6 +16,7 @@ const applicationPassword = `HrTemplateTest_${Date.now()}_${process.pid}`;
 const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-smart-workspace-hr-template-migration-'));
 const globalMigrationSource = path.resolve(__dirname, '../db/deploy/20260722113000_global_hr_profile_templates.sql');
 const uniqueSnapshotMigrationSource = path.resolve(__dirname, '../db/deploy/20260722203000_unique_hr_profile_snapshot.sql');
+const fieldHintMigrationSource = path.resolve(__dirname, '../db/deploy/20261003090000_hr_profile_field_hint.sql');
 const migrationTools = require('../scripts/runDeploymentMigrations');
 
 process.env.DB_HOST = process.env.DEPLOY_TEST_DB_HOST;
@@ -66,6 +67,7 @@ async function createLegacyFixture(connection) {
       min_length INT, max_length INT, number_rule VARCHAR(32), allow_decimal TINYINT(1),
       min_digits INT, max_digits INT, min_value DECIMAL(20,4), max_value DECIMAL(20,4),
       options_json TEXT,
+      hint VARCHAR(200) DEFAULT NULL,
       org_id VARCHAR(64) NOT NULL,
       INDEX idx_hptf_template (template_id),
       INDEX idx_hptf_org (org_id),
@@ -251,6 +253,15 @@ async function run() {
       fs.copyFileSync(uniqueSnapshotMigrationSource, path.join(migrationDirectory, '20260722203001_unique_hr_profile_snapshot_retry.sql'));
       await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '5'.repeat(40) });
       await assertMigrated(connection);
+      // 字段填写说明列由后续迁移补齐：模板应用/切换写快照时要带上它。
+      fs.copyFileSync(fieldHintMigrationSource, path.join(migrationDirectory, '20261003090000_hr_profile_field_hint.sql'));
+      await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '6'.repeat(40) });
+      const [[hintColumn]] = await connection.query(
+        `SELECT COUNT(*) AS columns_with_hint FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'hint'
+            AND TABLE_NAME IN ('hr_profile_template_fields', 'org_hr_profile_template_snapshot_fields')`
+      );
+      assert.equal(Number(hintColumn.columns_with_hint), 2, '填写说明列必须由迁移补齐到两张字段表');
       await admin.query(`CREATE USER '${applicationUser}'@'%' IDENTIFIED BY ?`, [applicationPassword]);
       await admin.query(`GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO '${applicationUser}'@'%'`);
       process.env.DB_USER = applicationUser;

@@ -134,7 +134,7 @@ async function main() {
         label VARCHAR(200) NOT NULL, type VARCHAR(32) NOT NULL, required TINYINT NOT NULL DEFAULT 0,
         min_length INT, max_length INT, number_rule VARCHAR(32), allow_decimal TINYINT,
         min_digits INT, max_digits INT, min_value DECIMAL(20,4), max_value DECIMAL(20,4),
-        options_json TEXT
+        options_json TEXT, hint VARCHAR(200) DEFAULT NULL
       );
       CREATE TABLE org_hr_profile_template_snapshots (
         id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64) NOT NULL UNIQUE,
@@ -147,7 +147,7 @@ async function main() {
         label VARCHAR(200) NOT NULL, type VARCHAR(32) NOT NULL,
         required TINYINT NOT NULL DEFAULT 0, min_length INT, max_length INT, number_rule VARCHAR(32),
         allow_decimal TINYINT, min_digits INT, max_digits INT, min_value DECIMAL(20,4),
-        max_value DECIMAL(20,4), options_json TEXT
+        max_value DECIMAL(20,4), options_json TEXT, hint VARCHAR(200) DEFAULT NULL
       );
       CREATE TABLE hr_profile_records (
         id VARCHAR(64) PRIMARY KEY, hr_id VARCHAR(64) NOT NULL, name VARCHAR(100), openid VARCHAR(128),
