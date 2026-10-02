@@ -192,15 +192,22 @@ async function main() {
     assert.strictEqual(imported.count, 35);
 
     // 导入必须留下“谁在什么时候维护了补充资料”，导出与详情才能显示提交人。
+    // 本夹具没有映射补充资料列，所以这里校验的是“写入补充资料的成员数 = 维护记录数”这一不变量。
+    const [valueRecords] = await pool.query(
+      'SELECT DISTINCT record_id FROM hr_profile_record_values WHERE org_id = ?',
+      [orgId]
+    );
     const [importEvents] = await pool.query(
       `SELECT action, reviewer_person_id, reviewer_context_id, created_at
          FROM hr_profile_review_events WHERE org_id = ?`,
       [orgId]
     );
-    assert.strictEqual(importEvents.length, 35, '每名导入成员都要有一条维护记录');
-    assert(importEvents.every((event) => event.action === 'maintained'));
-    assert(importEvents.every((event) => event.reviewer_person_id === 'person-import-admin'));
-    assert(importEvents.every((event) => event.reviewer_context_id === 'context-import-admin'));
+    assert.strictEqual(importEvents.length, valueRecords.length,
+      '每位写入了补充资料的导入成员都要有一条维护记录');
+    assert(importEvents.every((event) => event.action === 'maintained'
+      && event.reviewer_person_id === 'person-import-admin'
+      && event.reviewer_context_id === 'context-import-admin'),
+    '导入维护记录必须带上操作管理员与其上下文');
 
     const [counts] = await pool.query(
       `SELECT

@@ -258,6 +258,15 @@ async function run() {
   assert.strictEqual(response.result.rows[0].auditStatusText, '未提交');
   assert.strictEqual(response.result.rows[0].submittedAt, null);
 
+  // 表格导入同样是管理员维护：源码契约锁定“写事件 + 记录操作人 + 缺必填按未提交”。
+  const importSource = fs.readFileSync(path.resolve(__dirname, '../src/core/models/hrTableImport.js'), 'utf8');
+  assert.match(importSource, /INSERT INTO hr_profile_review_events/, '导入必须写入资料维护事件');
+  assert.match(importSource, /'maintained', \?, \?, \?, \?/, '导入事件必须是管理员维护并带操作人');
+  assert.match(importSource, /safeString\(actor && actor\.personId\)/);
+  assert.match(importSource, /auditStatus = 'none'/, '导入缺必填只能记未提交');
+  const hrRouteSource = fs.readFileSync(path.resolve(__dirname, '../src/core/routes/hr.js'), 'utf8');
+  assert.match(hrRouteSource, /importHrTable\(req\.body, orgId, actor\)/, '导入路由必须把操作管理员传进模型');
+
   console.log('补充资料状态与提交信息回归通过：必填未填完=未提交、待审保留、提交人留痕');
 }
 
