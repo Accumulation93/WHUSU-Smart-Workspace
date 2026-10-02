@@ -15,7 +15,10 @@
  *
  * 用法：
  *   node server/scripts/purgeOrganization.js --organization-id <id> --confirm-name "<组织名>" \
- *     --actor-person-id <超级管理员personId> [--apply] [--batch-size 50]
+ *     --actor-person-id <超级管理员personId> [--only-person-id <personId>] [--apply] [--batch-size 50]
+ *
+ * 注意：服务端禁止操作者删除自己，因此“操作者本人也是本组织成员”的那一条必须换一名
+ * 超级管理员再跑一次（配合 --only-person-id 精准处理），审计会如实记录两次的真实操作者。
  */
 const path = require('path');
 const pool = require('../src/config/db');
@@ -135,6 +138,7 @@ async function run() {
   const organizationId = safeString(args['organization-id']);
   const confirmName = safeString(args['confirm-name']);
   const actorPersonId = safeString(args['actor-person-id']);
+  const onlyPersonId = safeString(args['only-person-id']);
   const apply = args.apply === true;
   const batchSize = Math.max(1, Number(args['batch-size'] || 50));
 
@@ -165,24 +169,29 @@ async function run() {
   log(`[purge] 成员 ${members.length}：仅属本组织 ${exclusiveMembers.length}，同时属于其他组织 ${sharedMembers.length}`);
   log(`[purge] 模式：${apply ? 'APPLY（真实删除）' : 'DRY-RUN（只预检）'}`);
 
-  const blocked = [];
+  const businessBlocked = [];
+  const safetySkipped = [];
   const planned = [];
   for (let index = 0; index < members.length; index += 1) {
     const member = members[index];
+    if (onlyPersonId && safeString(member.person_id) !== onlyPersonId) continue;
     const input = buildPreviewInput(member, organizationId);
     try {
       const preview = await hrMemberDeletionService.previewHrMemberDeletion(input, actor);
       planned.push({ member, input, version: preview.version, scope: preview.scope });
       if (!preview.eligible) {
-        blocked.push({
+        const entry = {
           name: safeString(member.name),
           scope: preview.scope,
           blockers: (preview.blockers || []).map((item) => `${item.category}:${item.count}`).join(','),
           safety: (preview.safetyBlocks || []).map((item) => item.category).join(',')
-        });
+        };
+        // 安全类（操作者本人、最后一名超级管理员）跳过即可；业务历史类必须停下来。
+        if (preview.blockers && preview.blockers.length) businessBlocked.push(entry);
+        else safetySkipped.push(entry);
       }
     } catch (error) {
-      blocked.push({
+      businessBlocked.push({
         name: safeString(member.name),
         scope: input.scope,
         blockers: 'preview_failed',
@@ -190,26 +199,30 @@ async function run() {
       });
     }
     if ((index + 1) % batchSize === 0) {
-      log(`[purge] 预检进度 ${index + 1}/${members.length}（不可删 ${blocked.length}）`);
+      log(`[purge] 预检进度 ${index + 1}/${members.length}（业务受阻 ${businessBlocked.length}，安全跳过 ${safetySkipped.length}）`);
     }
   }
 
-  log(`[purge] 预检完成：可删除 ${planned.length - blocked.length}，受阻 ${blocked.length}`);
-  blocked.slice(0, 20).forEach((item) => {
+  const executable = planned.filter((item) => !safetySkipped.some((skip) => skip.name === safeString(item.member.name)));
+  log(`[purge] 预检完成：可删除 ${executable.length}，安全跳过 ${safetySkipped.length}，业务受阻 ${businessBlocked.length}`);
+  safetySkipped.slice(0, 20).forEach((item) => {
+    log(`[purge]   安全跳过 ${item.name}（${item.scope}）${item.safety}`);
+  });
+  businessBlocked.slice(0, 20).forEach((item) => {
     log(`[purge]   受阻 ${item.name}（${item.scope}）${item.blockers} ${item.safety}`);
   });
   if (!apply) {
     log('[purge] DRY-RUN 结束，未做任何写入');
     return;
   }
-  if (blocked.length) {
+  if (businessBlocked.length) {
     log('[purge] 存在受阻成员，先处理后再执行；本次不写入');
     return;
   }
 
   const results = { person: 0, membership: 0, failed: [] };
-  for (let index = 0; index < planned.length; index += 1) {
-    const item = planned[index];
+  for (let index = 0; index < executable.length; index += 1) {
+    const item = executable[index];
     const clientRequestId = `purge-org-${organizationId.slice(0, 12)}-${index}`;
     const data = Object.assign({}, item.input, {
       clientRequestId,
@@ -230,7 +243,7 @@ async function run() {
       results.failed.push({ name: safeString(item.member.name), error: safeString(error && error.message) });
     }
     if ((index + 1) % batchSize === 0) {
-      log(`[purge] 删除进度 ${index + 1}/${planned.length}（自然人 ${results.person}，仅成员关系 ${results.membership}，失败 ${results.failed.length}）`);
+      log(`[purge] 删除进度 ${index + 1}/${executable.length}（自然人 ${results.person}，仅成员关系 ${results.membership}，失败 ${results.failed.length}）`);
     }
   }
   log(`[purge] 成员删除完成：自然人 ${results.person}，仅成员关系 ${results.membership}，失败 ${results.failed.length}`);
