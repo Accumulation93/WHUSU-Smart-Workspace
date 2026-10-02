@@ -86,7 +86,7 @@ function createHarness(options) {
     '../models/hrProfileReviewEvent': {
       create: async (data) => events.push(['event', data.action, data.reviewerPersonId || '']),
       listByRecordId: async () => [],
-      getLatestSubmission: async () => settings.submission || null,
+      getLatestSubmissions: async () => settings.submissions || { self: null, admin: null },
       listLatestSubmissionsByRecordIds: async () => new Map()
     },
     '../models/personIdentityOverview': {},
@@ -197,24 +197,36 @@ async function run() {
   assert.strictEqual(response.result.status, 'success');
   assert.strictEqual(harness.events[0][1], 'pending');
 
-  // 详情接口必须回报最后一次提交的时间、提交人与类别。
+  // 详情接口必须分别回报本人提交与管理员维护，两者互不覆盖。
   harness = createHarness({
-    record: { id: 'record-a', audit_status: 'approved' },
-    submission: {
-      record_id: 'record-a',
-      action: 'maintained',
-      created_at: '2026-10-02 05:05:41',
-      reviewer_person_id: 'person-admin',
-      reviewer_name: '王管理员'
+    record: { id: 'record-a', audit_status: 'approved', updated_at: '2026-10-02 05:05:41' },
+    effectiveRows: [{ field_id: 'field-required', field_value: '有值' }],
+    submissions: {
+      self: {
+        record_id: 'record-a',
+        action: 'submitted',
+        created_at: '2026-09-20 02:00:00',
+        reviewer_person_id: 'person-a',
+        reviewer_name: '甲'
+      },
+      admin: {
+        record_id: 'record-a',
+        action: 'maintained',
+        created_at: '2026-10-02 05:05:41',
+        reviewer_person_id: 'person-admin',
+        reviewer_name: '王管理员'
+      }
     }
   });
   response = await harness.request('getHrPersonDetail', Object.assign(adminReq({}), {
     body: { hrId: 'hr-a' }
   }));
   assert.strictEqual(response.result.status, 'success');
-  assert.strictEqual(response.result.submittedAt, '2026-10-02 05:05:41');
-  assert.strictEqual(response.result.submittedByName, '王管理员');
-  assert.strictEqual(response.result.submittedByType, 'admin');
+  assert.strictEqual(response.result.selfSubmittedAt, '2026-09-20 02:00:00');
+  assert.strictEqual(response.result.selfSubmittedByName, '甲');
+  assert.strictEqual(response.result.maintainedAt, '2026-10-02 05:05:41');
+  assert.strictEqual(response.result.maintainedByName, '王管理员');
+  assert.strictEqual(response.result.lastChangedAt, '2026-10-02 05:05:41');
 
   // 旧数据带着“已生效”但必填是空的：对外必须显示未提交，不能再算生效。
   harness = createHarness({
@@ -232,10 +244,11 @@ async function run() {
   assert.strictEqual(response.result.auditStatus, 'none', '必填为空的历史记录不能显示已生效');
   assert.strictEqual(response.result.auditStatusText, '未提交');
   assert.strictEqual(response.result.isComplete, false);
-  // 没有提交事件时只回退到记录自身的最近变更时间，提交人与类别留空。
-  assert.strictEqual(response.result.submittedAt, '2026-09-30 03:00:00');
-  assert.strictEqual(response.result.submittedByName, '');
-  assert.strictEqual(response.result.submittedByType, '');
+  // 没有提交事件时两组都留空，只给“资料最后变更时间”，不猜提交人。
+  assert.strictEqual(response.result.selfSubmittedAt, null);
+  assert.strictEqual(response.result.maintainedAt, null);
+  assert.strictEqual(response.result.maintainedByName, '');
+  assert.strictEqual(response.result.lastChangedAt, '2026-09-30 03:00:00');
 
   // 必填齐全的历史记录仍然显示已生效。
   harness = createHarness({
@@ -256,7 +269,9 @@ async function run() {
   assert.strictEqual(response.result.status, 'success');
   assert.strictEqual(response.result.rows[0].auditStatus, 'none');
   assert.strictEqual(response.result.rows[0].auditStatusText, '未提交');
-  assert.strictEqual(response.result.rows[0].submittedAt, null);
+  assert.strictEqual(response.result.rows[0].selfSubmittedAt, null);
+  assert.strictEqual(response.result.rows[0].maintainedAt, null);
+  assert.strictEqual(response.result.rows[0].lastChangedAt, null);
 
   // 表格导入同样是管理员维护：源码契约锁定“写事件 + 记录操作人 + 缺必填按未提交”。
   const importSource = fs.readFileSync(path.resolve(__dirname, '../src/core/models/hrTableImport.js'), 'utf8');

@@ -172,25 +172,21 @@ function profileCompleteness(fields, effectiveValues, pendingValues, auditStatus
 }
 
 /**
- * 补充资料“最后一次提交”的对外字段：时间、提交人、类别。
- * action=submitted 表示本人提交，action=maintained 表示管理员维护，
- * 没有提交记录的旧数据一律留空，不猜测提交人。
+ * 补充资料的提交信息分两组，各自独立、互不覆盖：
+ *   本人提交（submitted）：时间 + 提交人（本人）；
+ *   管理员维护（maintained）：时间 + 维护人。
+ * 历史数据两组都可能没有记录，此时只给“资料最后变更时间”，不猜提交人。
  */
-function profileSubmissionFields(submission, record) {
-  if (!submission) {
-    // 历史数据没有提交事件：只回退到记录自身的最近变更时间，提交人与类别不猜。
-    return {
-      submittedAt: (record && (record.reviewed_at || record.updated_at)) || null,
-      submittedByName: '',
-      submittedByType: '',
-      submittedByPersonId: ''
-    };
-  }
+function profileSubmissionFields(submissions, record) {
+  const self = submissions && submissions.self;
+  const admin = submissions && submissions.admin;
   return {
-    submittedAt: submission.created_at || null,
-    submittedByName: safeString(submission.reviewer_name),
-    submittedByType: submission.action === 'submitted' ? 'self' : 'admin',
-    submittedByPersonId: safeString(submission.reviewer_person_id)
+    selfSubmittedAt: self ? (self.created_at || null) : null,
+    selfSubmittedByName: self ? safeString(self.reviewer_name) : '',
+    maintainedAt: admin ? (admin.created_at || null) : null,
+    maintainedByName: admin ? safeString(admin.reviewer_name) : '',
+    maintainedByPersonId: admin ? safeString(admin.reviewer_person_id) : '',
+    lastChangedAt: (record && (record.reviewed_at || record.updated_at)) || null
   };
 }
 
@@ -626,10 +622,12 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         missingRequiredFieldIds: completeness.missingRequiredFieldIds,
         rejectionReason: safeString(record ? record.rejection_reason : ''),
         hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
-        submittedAt: submission.submittedAt,
-        submittedByName: submission.submittedByName,
-        submittedByType: submission.submittedByType,
-        submittedByPersonId: submission.submittedByPersonId,
+        selfSubmittedAt: submission.selfSubmittedAt,
+        selfSubmittedByName: submission.selfSubmittedByName,
+        maintainedAt: submission.maintainedAt,
+        maintainedByName: submission.maintainedByName,
+        maintainedByPersonId: submission.maintainedByPersonId,
+        lastChangedAt: submission.lastChangedAt,
         userInfoId: binding.userInfoId,
         boundOpenid: binding.boundOpenid ? safeString(binding.boundOpenid).slice(0, 8) + '***' : '',
         wxBindStatus: binding.status
@@ -817,9 +815,9 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const reviewHistory = record
       ? await profileReviewEventModel.listByRecordId(record.id, orgId)
       : [];
-    const lastSubmission = record
-      ? await profileReviewEventModel.getLatestSubmission(record.id, orgId)
-      : null;
+    const submissions = record
+      ? await profileReviewEventModel.getLatestSubmissions(record.id, orgId)
+      : { self: null, admin: null };
     if (record) {
       const [vals, pvals] = await Promise.all([
         profileValueModel.getByRecordIdAndPending(record.id, 0, pool, orgId),
@@ -865,7 +863,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       membershipStatus: safeString(hr.membership_status) || 'active',
       joinedAt: hr.joined_at || null,
       leftAt: hr.left_at || null,
-      ...profileSubmissionFields(lastSubmission, record)
+      ...profileSubmissionFields(submissions, record)
     });
   } catch (e) {
     return sendHrProfileFailure(req, res, e);

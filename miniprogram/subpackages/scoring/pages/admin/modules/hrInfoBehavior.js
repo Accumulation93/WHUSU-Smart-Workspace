@@ -289,9 +289,10 @@ function toHrProfileListRow(item) {
     isFormer: item.membershipStatus === 'left',
     joinedAtText: item.joinedAtText || '',
     leftAtText: item.leftAtText || '',
-    submittedAtText: item.submittedAtText || '',
-    submittedByName: item.submittedByName || '',
-    submittedByTypeText: item.submittedByTypeText || '',
+    selfSubmittedAtText: item.selfSubmittedAtText || '',
+    maintainedAtText: item.maintainedAtText || '',
+    maintainedByName: item.maintainedByName || '',
+    lastChangedAtText: item.lastChangedAtText || '',
     isComplete: Boolean(item.isComplete)
   };
 }
@@ -317,12 +318,11 @@ function decorateDirectoryRow(item) {
     membershipStatusText: membershipStatus === 'left' ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive,
     joinedAtText: formatListTime(item.joinedAt, { reviewStatus: item.joinedAtReviewStatus }),
     leftAtText: formatListTime(item.leftAt, { reviewStatus: item.leftAtReviewStatus }),
-    // 补充资料最后一次提交：时间按系统时区显示，提交人带上类别（本人 / 管理员）。
-    submittedAtText: formatListTime(item.submittedAt, { reviewStatus: item.submittedAtReviewStatus }),
-    submittedByName: String(item.submittedByName || ''),
-    submittedByTypeText: item.submittedByType === 'self'
-      ? personnelSwitchCopy.hrSubmitterSelf
-      : (item.submittedByType === 'admin' ? personnelSwitchCopy.hrSubmitterAdmin : ''),
+    // 补充资料两组提交信息各自独立：本人提交、管理员维护；历史数据只给最后变更时间。
+    selfSubmittedAtText: formatListTime(item.selfSubmittedAt, { reviewStatus: item.selfSubmittedAtReviewStatus }),
+    maintainedAtText: formatListTime(item.maintainedAt, { reviewStatus: item.maintainedAtReviewStatus }),
+    maintainedByName: String(item.maintainedByName || ''),
+    lastChangedAtText: formatListTime(item.lastChangedAt, { reviewStatus: item.lastChangedAtReviewStatus }),
     assignments: (item.assignments || []).map((assignment) => Object.assign({}, assignment, {
       historical: membershipStatus === 'left' || Boolean(assignment.historical)
     }))
@@ -1539,9 +1539,10 @@ module.exports = Behavior({
         { key: 'workGroup', label: localeCopy.copy_6cc69fb176, groupLabel: localeCopy.copy_79a04f117c, source: 'workGroup', checked: true },
         { key: 'wxBindStatus', label: localeCopy.copy_f93247534b, groupLabel: localeCopy.copy_142861823e, source: 'wxBindStatus', checked: true },
         { key: 'auditStatus', label: localeCopy.copy_e3070392e0, groupLabel: localeCopy.copy_142861823e, source: 'auditStatus', checked: true },
-        { key: 'submittedAt', label: personnelSwitchCopy.hrProfileSubmittedAt, groupLabel: localeCopy.copy_142861823e, source: 'submittedAtText', checked: true },
-        { key: 'submittedBy', label: personnelSwitchCopy.hrProfileSubmitter, groupLabel: localeCopy.copy_142861823e, source: 'submittedByName', checked: true },
-        { key: 'submittedByType', label: personnelSwitchCopy.hrProfileSubmitterType, groupLabel: localeCopy.copy_142861823e, source: 'submittedByTypeText', checked: true }
+        { key: 'selfSubmittedAt', label: personnelSwitchCopy.hrProfileSelfSubmittedAt, groupLabel: localeCopy.copy_142861823e, source: 'selfSubmittedAtText', checked: true },
+        { key: 'maintainedAt', label: personnelSwitchCopy.hrProfileMaintainedAt, groupLabel: localeCopy.copy_142861823e, source: 'maintainedAtText', checked: true },
+        { key: 'maintainedBy', label: personnelSwitchCopy.hrProfileMaintainedBy, groupLabel: localeCopy.copy_142861823e, source: 'maintainedByName', checked: true },
+        { key: 'lastChangedAt', label: personnelSwitchCopy.hrProfileLastChangedAt, groupLabel: localeCopy.copy_142861823e, source: 'lastChangedAtText', checked: true }
       ];
       const pendingFieldMap = {};
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -1870,15 +1871,17 @@ module.exports = Behavior({
           detailHrAuditStatus: result.auditStatus || 'none',
           detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
           detailHrRejectionReason: result.rejectionReason || '',
-          detailHrSubmittedAtText: formatDetailTime(result.submittedAt, {
-            reviewStatus: result.submittedAtReviewStatus
+          detailHrSelfSubmittedText: formatDetailTime(result.selfSubmittedAt, {
+            reviewStatus: result.selfSubmittedAtReviewStatus
           }),
-          detailHrSubmitterText: [
-            String(result.submittedByName || ''),
-            result.submittedByType === 'self'
-              ? personnelSwitchCopy.hrSubmitterSelf
-              : (result.submittedByType === 'admin' ? personnelSwitchCopy.hrSubmitterAdmin : '')
+          // 管理员维护：时间 + 维护人，与本人提交互不覆盖。
+          detailHrMaintainedText: [
+            formatDetailTime(result.maintainedAt, { reviewStatus: result.maintainedAtReviewStatus }),
+            String(result.maintainedByName || '')
           ].filter(Boolean).join(' · '),
+          detailHrLastChangedText: formatDetailTime(result.lastChangedAt, {
+            reviewStatus: result.lastChangedAtReviewStatus
+          }),
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });

@@ -26,15 +26,17 @@ test('岗位编辑器不再展示或提交自由文本岗位名称', () => {
 });
 
 test('人事详情与导出都能看到补充资料最后一次提交与当前状态', () => {
-  assert.match(wxml, /detailHrSubmittedAtText/, '人事详情必须展示补充资料提交时间');
-  assert.match(wxml, /detailHrSubmitterText/, '人事详情必须展示补充资料提交人');
+  assert.match(wxml, /detailHrSelfSubmittedText/, '人事详情必须展示本人提交时间');
+  assert.match(wxml, /detailHrMaintainedText/, '人事详情必须展示管理员维护时间与维护人');
+  assert.match(wxml, /detailHrLastChangedText/, '人事详情必须为历史数据展示资料最后变更时间');
   assert.match(wxml, /detailHrAuditStatusText/, '人事详情必须展示当前状态');
-  assert.match(hrBehavior, /detailHrSubmittedAtText: formatDetailTime\(result\.submittedAt/);
-  assert.match(hrBehavior, /detailHrSubmitterText: \[/, '详情提交人必须带上本人或管理员的类别');
-  assert.match(hrBehavior, /submittedAtText: formatListTime\(item\.submittedAt/);
-  assert.match(hrBehavior, /submittedByTypeText: item\.submittedByType === 'self'/);
-  assert.match(hrBehavior, /key: 'submittedAt', label: personnelSwitchCopy\.hrProfileSubmittedAt/);
-  assert.match(hrBehavior, /key: 'submittedByType', label: personnelSwitchCopy\.hrProfileSubmitterType/);
+  assert.match(hrBehavior, /detailHrSelfSubmittedText: formatDetailTime\(result\.selfSubmittedAt/);
+  assert.match(hrBehavior, /detailHrMaintainedText: \[/, '管理员维护必须同时给出时间与维护人');
+  assert.match(hrBehavior, /selfSubmittedAtText: formatListTime\(item\.selfSubmittedAt/);
+  assert.match(hrBehavior, /maintainedAtText: formatListTime\(item\.maintainedAt/);
+  assert.match(hrBehavior, /key: 'selfSubmittedAt', label: personnelSwitchCopy\.hrProfileSelfSubmittedAt/);
+  assert.match(hrBehavior, /key: 'maintainedBy', label: personnelSwitchCopy\.hrProfileMaintainedBy/);
+  assert.match(hrBehavior, /key: 'lastChangedAt', label: personnelSwitchCopy\.hrProfileLastChangedAt/);
   assert.match(hrBehavior, /source: 'auditStatus'/);
 });
 

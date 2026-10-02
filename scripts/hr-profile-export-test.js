@@ -20,9 +20,10 @@ const context = {
       workGroup: '综合事务',
       wxBindStatus: 'bound',
       auditStatusText: '待审核',
-      submittedAtText: '2026-10-02 13:05:41',
-      submittedByName: '张三',
-      submittedByTypeText: '本人',
+      selfSubmittedAtText: '2026-10-02 13:05:41',
+      maintainedAtText: '2026-09-13 14:21:35',
+      maintainedByName: '王管理员',
+      lastChangedAtText: '2026-10-02 13:05:41',
       currentValues: { field_1: '蓝色' },
       pendingValues: { field_1: '绿色' }
     }, {
@@ -33,9 +34,10 @@ const context = {
       workGroup: '综合事务',
       wxBindStatus: 'pending_activation',
       auditStatusText: '未提交',
-      submittedAtText: '2026-10-02 15:10:00',
-      submittedByName: '王管理员',
-      submittedByTypeText: '管理员',
+      selfSubmittedAtText: '',
+      maintainedAtText: '',
+      maintainedByName: '',
+      lastChangedAtText: '2026-09-30 15:10:21',
       currentValues: {},
       pendingValues: {}
     }],
@@ -49,13 +51,14 @@ Object.assign(context, behavior.methods);
 
 context.exportHrProfiles();
 assert.strictEqual(context.data.hrProfileExportVisible, true);
-assert.strictEqual(context.data.hrProfileExportColumns.length, 16);
-// 状态之后固定跟“补充资料提交时间 / 提交人 / 类别”，资料项列顺延到其后。
-assert.strictEqual(context.data.hrProfileExportColumns[11].label, '补充资料提交时间');
-assert.strictEqual(context.data.hrProfileExportColumns[12].label, '补充资料提交人');
-assert.strictEqual(context.data.hrProfileExportColumns[13].label, '补充资料提交类别');
-assert.strictEqual(context.data.hrProfileExportColumns[14].label, '喜欢的颜色');
-assert.strictEqual(context.data.hrProfileExportColumns[15].label, '喜欢的颜色（待审核）');
+assert.strictEqual(context.data.hrProfileExportColumns.length, 17);
+// 状态之后固定跟“本人提交时间 / 管理员维护时间 / 管理员维护人 / 资料最后变更时间”，资料项列顺延到其后。
+assert.strictEqual(context.data.hrProfileExportColumns[11].label, '本人提交时间');
+assert.strictEqual(context.data.hrProfileExportColumns[12].label, '管理员维护时间');
+assert.strictEqual(context.data.hrProfileExportColumns[13].label, '管理员维护人');
+assert.strictEqual(context.data.hrProfileExportColumns[14].label, '资料最后变更时间');
+assert.strictEqual(context.data.hrProfileExportColumns[15].label, '喜欢的颜色');
+assert.strictEqual(context.data.hrProfileExportColumns[16].label, '喜欢的颜色（待审核）');
 
 context.onHrProfileExportColumnChange({ detail: { value: ['name', 'profile_0'] } });
 let captured = null;
@@ -81,26 +84,28 @@ assert.deepStrictEqual(captured.rows, [
   { name: '李四', wxBindStatus: '待激活' }
 ]);
 
-// 提交信息随成员资料一起导出：时间、提交人、类别（本人 / 管理员）。
-context.onHrProfileExportColumnChange({ detail: { value: ['name', 'auditStatus', 'submittedAt', 'submittedBy', 'submittedByType'] } });
+// 提交信息随成员资料一起导出：本人提交与管理员维护各一组，互不覆盖。
+context.onHrProfileExportColumnChange({ detail: { value: ['name', 'auditStatus', 'selfSubmittedAt', 'maintainedAt', 'maintainedBy', 'lastChangedAt'] } });
 context.confirmHrProfileExport();
 assert.deepStrictEqual(captured.headers.map((header) => header.label), [
-  '姓名', '补充资料状态', '补充资料提交时间', '补充资料提交人', '补充资料提交类别'
+  '姓名', '补充资料状态', '本人提交时间', '管理员维护时间', '管理员维护人', '资料最后变更时间'
 ]);
 assert.deepStrictEqual(captured.rows, [
   {
     name: '张三',
     auditStatus: '待审核',
-    submittedAt: '2026-10-02 13:05:41',
-    submittedBy: '张三',
-    submittedByType: '本人'
+    selfSubmittedAt: '2026-10-02 13:05:41',
+    maintainedAt: '2026-09-13 14:21:35',
+    maintainedBy: '王管理员',
+    lastChangedAt: '2026-10-02 13:05:41'
   },
   {
     name: '李四',
     auditStatus: '未提交',
-    submittedAt: '2026-10-02 15:10:00',
-    submittedBy: '王管理员',
-    submittedByType: '管理员'
+    selfSubmittedAt: '',
+    maintainedAt: '',
+    maintainedBy: '',
+    lastChangedAt: '2026-09-30 15:10:21'
   }
 ]);
 
@@ -161,11 +166,11 @@ assert.match(labelRule, /overflow-wrap:\s*anywhere/);
 context.data.hrProfileFields = Array.from({ length: 120 }, (_, index) => ({ id: 'long_' + index, label: '需要完整显示且允许自然换行的人事补充资料字段名称'.repeat(3) + index }));
 context.data.hrProfileRows[0].pendingValues = Object.fromEntries(context.data.hrProfileFields.map(field => [field.id, '待审核值']));
 context.exportHrProfiles();
-// 11 个固定列 + 3 个提交信息列 + 120 个资料项（各自含有效值与待审核值）。
-assert.strictEqual(context.data.hrProfileExportColumns.length, 254);
-assert(context.data.hrProfileExportColumns[253].label.includes('119'));
+// 11 个固定列 + 4 个提交信息列 + 120 个资料项（各自含有效值与待审核值）。
+assert.strictEqual(context.data.hrProfileExportColumns.length, 255);
+assert(context.data.hrProfileExportColumns[254].label.includes('119'));
 context.clearHrProfileExportColumns();
 assert.strictEqual(context.data.hrProfileExportSelectedCount, 0);
 context.selectAllHrProfileExportColumns();
-assert.strictEqual(context.data.hrProfileExportSelectedCount, 254);
-console.log('人事导出列完整性：254 列、长字段、提交信息列、清空/全选与滚动结构回归通过');
+assert.strictEqual(context.data.hrProfileExportSelectedCount, 255);
+console.log('人事导出列完整性：255 列、长字段、提交信息列、清空/全选与滚动结构回归通过');
