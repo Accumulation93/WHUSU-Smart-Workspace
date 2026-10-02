@@ -9,6 +9,12 @@ const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/por
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
 const { probeStartupSession } = require('../../../../utils/startupSession');
+// 启动探测节奏：首次延后起跑躲开未就绪的桥，单次 4 秒；失败后后台再试一次给 6 秒。
+const STARTUP_AUTH_FIRST_DELAY_MS = 600;
+const STARTUP_AUTH_TIMEOUT_MS = 4000;
+const STARTUP_AUTH_RETRY_TIMEOUT_MS = 6000;
+// 后台重试很快成功时不要让提示闪一下：提示本身也延后 600ms 才出现。
+const STARTUP_AUTH_HINT_DELAY_MS = 600;
 const {
   isTrustedRoute,
   navigateToTrustedRoute,
@@ -131,40 +137,79 @@ Page({
 
   /**
    * 启动确认：已绑定直接建立会话继续进门户；未绑定或冻结去登录页完成绑定/认领；
-   * 网络等失败视为“未知”，留在门户并给出重试，不能冒充未绑定。
+   * 网络等失败视为“未知”，先给出提示与“去登录”，再在后台自动重试一次。
+   * 确认期间不显示任何“正在确认”的中间状态：正常情况下一两秒内自然出结果。
    */
   runStartupAuthCheck() {
     if (this._startupAuthRunning) return;
     this._startupAuthRunning = true;
-    this.setData({ portalAuthState: 'checking', portalAuthFrozen: false });
     const requestId = (this._startupAuthRequestId || 0) + 1;
     this._startupAuthRequestId = requestId;
     const isCurrent = () => this._isPageVisible !== false && this._startupAuthRequestId === requestId;
-    probeStartupSession().then((probe) => {
-      if (!isCurrent()) return;
-      if (probe && probe.state === 'authenticated') {
-        authContext.applyAuthenticatedResult(probe.result);
+    probeStartupSession({ delayMs: STARTUP_AUTH_FIRST_DELAY_MS, timeoutMs: STARTUP_AUTH_TIMEOUT_MS })
+      .then((probe) => {
+        if (!isCurrent()) return;
+        if (this.applyStartupAuthProbe(probe)) return;
+        // 先让用户可以马上“去登录”，再在后台自动重试一次；用户离开门户则结果作废。
         this._startupAuthRunning = false;
-        this.setData({ portalAuthState: 'ready' });
-        this.continuePortalShow(orgSession.getSnapshot());
-        return;
-      }
+        this._startupAuthHintTimer = setTimeout(() => {
+          this._startupAuthHintTimer = null;
+          if (!isCurrent()) return;
+          this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: false });
+        }, STARTUP_AUTH_HINT_DELAY_MS);
+        return probeStartupSession({ delayMs: 0, timeoutMs: STARTUP_AUTH_RETRY_TIMEOUT_MS })
+          .then((retryProbe) => {
+            if (!isCurrent()) return;
+            this.applyStartupAuthProbe(retryProbe);
+          });
+      })
+      .catch(() => {
+        if (!isCurrent()) return;
+        this._startupAuthRunning = false;
+        this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: false });
+      });
+  },
+
+  clearStartupAuthHintTimer() {
+    if (!this._startupAuthHintTimer) return;
+    clearTimeout(this._startupAuthHintTimer);
+    this._startupAuthHintTimer = null;
+  },
+
+  /** 返回 true 表示已经落到确定状态；false 表示这次无法判断，需要提示与重试。 */
+  applyStartupAuthProbe(probe) {
+    const state = probe && probe.state;
+    if (state === 'authenticated') {
+      this.clearStartupAuthHintTimer();
+      authContext.applyAuthenticatedResult(probe.result);
       this._startupAuthRunning = false;
-      if (probe && probe.state === 'unbound') {
-        authContext.clearUnifiedAuthentication();
-        wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
-        return;
-      }
-      if (probe && probe.state === 'frozen') {
-        this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: true });
-        return;
-      }
-      this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: false });
-    });
+      this.setData({ portalAuthState: 'ready', portalAuthFrozen: false });
+      this.continuePortalShow(orgSession.getSnapshot());
+      return true;
+    }
+    if (state === 'unbound') {
+      this.clearStartupAuthHintTimer();
+      this._startupAuthRunning = false;
+      authContext.clearUnifiedAuthentication();
+      wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
+      return true;
+    }
+    if (state === 'frozen') {
+      this.clearStartupAuthHintTimer();
+      this._startupAuthRunning = false;
+      this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: true });
+      return true;
+    }
+    return false;
   },
 
   onRetryPortalAuth() {
     this.runStartupAuthCheck();
+  },
+
+  /** 门户左上角返回键：回登录页换账号；保留当前会话，可以返回门户。 */
+  onBackToLoginTap() {
+    navigateToTrustedRoute('/subpackages/main/pages/login/login');
   },
 
   continuePortalShow(activeSession) {

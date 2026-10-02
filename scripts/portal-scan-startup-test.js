@@ -15,6 +15,8 @@ const portalJs = path.join(root, 'miniprogram/subpackages/main/pages/portal/port
 const portalWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.wxml'), 'utf8');
 const appJson = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/app.json'), 'utf8'));
 const localRequire = require('node:module').createRequire(portalJs);
+/** 沙箱里的对象/数组来自另一个 Realm，比较前转换成本 Realm 的普通值。 */
+const plain = (value) => JSON.parse(JSON.stringify(value));
 
 // —— 默认落地页 ——
 assert.strictEqual(appJson.pages[0], 'subpackages/main/pages/portal/portal', '默认落地页必须是门户');
@@ -28,13 +30,17 @@ assert.ok(!/扫一扫/.test(portalWxml), '扫一扫文案必须来自语言系�
 /** 用桩模块加载门户页定义，便于直接调用页面方法。 */
 function createPage(options) {
   const settings = options || {};
-  const calls = { navigate: [], reLaunch: [], modal: [], clipboard: [], applied: [], toasts: [], scanned: [] };
+  const calls = { navigate: [], reLaunch: [], modal: [], clipboard: [], applied: [], toasts: [], scanned: [], probes: [] };
   let definition = null;
   const sandbox = {
     console,
     module: { exports: {} },
     getCurrentPages: () => [],
     Page: (value) => { definition = value; return value; },
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
     require: (name) => {
       if (name.indexOf('/locales/') >= 0) return localRequire(name);
       if (name.endsWith('/utils/trustedNavigation')) {
@@ -52,7 +58,14 @@ function createPage(options) {
         };
       }
       if (name.endsWith('/utils/startupSession')) {
-        return { probeStartupSession: () => Promise.resolve(settings.probe || { state: 'unavailable' }) };
+        return {
+          probeStartupSession: (options) => {
+            calls.probes.push(options || {});
+            const queue = settings.probeQueue || [settings.probe || { state: 'unavailable' }];
+            const index = Math.min(calls.probes.length - 1, queue.length - 1);
+            return Promise.resolve(queue[index]);
+          }
+        };
       }
       if (name.endsWith('/utils/api')) {
         return {
@@ -122,12 +135,14 @@ function createPage(options) {
 }
 
 (async () => {
-  // 未绑定微信：去登录页
+  // 未绑定微信：确认期间不出现任何中间状态，随后直接去登录页
   let harness = createPage({ probe: { state: 'unbound' } });
   harness.page.onShow();
-  assert.strictEqual(harness.page.data.portalAuthState, 'checking', '确认期间必须给出进度状态');
+  assert.strictEqual(harness.page.data.portalAuthState, 'ready', '确认期间不得出现“正在确认”这类中间状态');
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepStrictEqual(harness.calls.reLaunch, ['/subpackages/main/pages/login/login'], '未绑定必须去登录页');
+  assert.deepStrictEqual(plain(harness.calls.probes), [{ delayMs: 600, timeoutMs: 4000 }],
+    '首次探测延后 600ms 起跑、单次 4 秒');
 
   // 已绑定微信：直接进门户，不再要求点一次登录
   harness = createPage({ probe: { state: 'authenticated', result: { status: 'login_success' } } });
@@ -139,13 +154,30 @@ function createPage(options) {
   assert.strictEqual(continued, 1, '确认成功后必须继续加载门户');
   assert.deepStrictEqual(harness.calls.reLaunch, [], '已绑定不得再跳登录页');
 
-  // 网络等失败：留在门户并给出重试，不得冒充未绑定
-  harness = createPage({ probe: { state: 'unavailable' } });
+  // 两次都失败：提示可重试并保留“去登录”，不跳走、不冒充未绑定
+  harness = createPage({ probeQueue: [{ state: 'unavailable' }, { state: 'unavailable' }] });
   harness.page.onShow();
   await new Promise((resolve) => setImmediate(resolve));
+  assert.deepStrictEqual(harness.calls.reLaunch, [], '第一次失败就先提示，不能跳登录页');
+  assert.deepStrictEqual(plain(harness.calls.probes[1]), { delayMs: 0, timeoutMs: 6000 }, '后台自动重试一次、给 6 秒');
+  await new Promise((resolve) => setTimeout(resolve, 700));
   assert.deepStrictEqual(harness.calls.reLaunch, [], '无法确认登录状态时不得跳登录页');
   assert.strictEqual(harness.page.data.portalAuthState, 'unavailable', '必须提示可重试或手动登录');
   assert.strictEqual(harness.page.data.portalAuthFrozen, false);
+
+  // 第一次失败、后台重试成功：自动进门户，且不闪出提示
+  harness = createPage({
+    probeQueue: [{ state: 'unavailable' }, { state: 'authenticated', result: { status: 'login_success' } }]
+  });
+  let retryContinued = 0;
+  harness.page.continuePortalShow = () => { retryContinued += 1; };
+  harness.page.onShow();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.strictEqual(retryContinued, 1, '后台重试成功后必须自动进门户');
+  assert.strictEqual(harness.page.data.portalAuthState, 'ready', '后台重试成功不得留下失败提示');
+  assert.deepStrictEqual(harness.calls.applied.length, 1);
 
   // 冻结账号：留在门户给出说明，用户可主动去登录
   harness = createPage({ probe: { state: 'frozen' } });
@@ -155,6 +187,15 @@ function createPage(options) {
   assert.deepStrictEqual(harness.calls.reLaunch, []);
   harness.page.logout();
   assert.deepStrictEqual(harness.calls.reLaunch, ['/subpackages/main/pages/login/login'], '手动登录入口必须可用');
+
+  // 左上角返回键：仅已登录显示，点击进登录页（保留会话、可返回），不是退出登录
+  assert.ok(portalWxml.indexOf('bindtap="onBackToLoginTap"') >= 0, '门户左上角必须有返回键');
+  assert.ok(/portal-back-key[^>]*wx:if="\{\{hasUser\}\}"/.test(portalWxml), '返回键只对已登录用户显示');
+  assert.ok(portalWxml.indexOf('portalAuthState === \'checking\'') < 0, '不得再渲染“正在确认”中间状态');
+  harness = createPage({});
+  harness.page.onBackToLoginTap();
+  assert.deepStrictEqual(harness.calls.navigate, ['/subpackages/main/pages/login/login'], '返回键走受信导航进登录页');
+  assert.deepStrictEqual(harness.calls.reLaunch, [], '返回键不得重建页面栈（要能退回门户）');
 
   // 扫一扫：站内地址直接跳转
   harness = createPage({});

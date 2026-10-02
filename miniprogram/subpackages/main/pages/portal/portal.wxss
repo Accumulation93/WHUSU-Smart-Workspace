@@ -502,6 +502,21 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 /* 启动登录状态提示：正在确认 / 无法确认时给出重试与手动登录 */
+/* 左上角返回键：与导航图标同尺寸的圆形玻璃键，替代门户成为首页后消失的平台“返回首页”。 */
+.portal-back-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  margin-bottom: var(--ui-card-gap);
+  border: 1rpx solid rgba(147, 197, 253, 0.72);
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(239, 246, 255, 0.8) 100%);
+  box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.08), inset 0 1rpx 0 rgba(255, 255, 255, 0.88);
+  box-sizing: border-box;
+}
+
 .portal-auth-hint {
   display: flex;
   align-items: center;
@@ -1115,6 +1130,11 @@ button, input, textarea, picker, view, text, scroll-view {
   }
 
   /* 受控 px：Pad 上快捷键与提示条不再随屏幕继续放大 */
+  .portal-back-key {
+    width: 32px;
+    height: 32px;
+  }
+
   .portal-auth-hint {
     padding: 10px 14px;
     border-radius: 12px;

@@ -163,7 +163,7 @@ const portal = Object.freeze({
     scanCopyAction: '复制内容',
     scanCloseAction: '关闭',
     scanFailed: '暂时无法打开扫一扫，请检查相机权限后重试',
-    authChecking: '正在确认登录状态…',
+    backToLogin: '回到登录页',
     authUnavailable: '暂时无法确认登录状态，可重试或手动登录',
     authFrozen: '账号已被冻结，登录后可查看处理方式',
     authRetryAction: '重试',
