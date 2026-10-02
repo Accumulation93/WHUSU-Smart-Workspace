@@ -9,6 +9,7 @@ const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/por
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
 const { probeStartupSession } = require('../../../../utils/startupSession');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 // 启动探测节奏：首次延后起跑躲开未就绪的桥，单次 4 秒；失败后后台再试一次给 6 秒。
 const STARTUP_AUTH_FIRST_DELAY_MS = 600;
 const STARTUP_AUTH_TIMEOUT_MS = 4000;
@@ -104,7 +105,14 @@ Page({
 
     // 启动时确认登录状态：checking 时说明进度，unavailable 时允许重试或主动去登录
     portalAuthState: 'ready',
-    portalAuthFrozen: false
+    portalAuthFrozen: false,
+
+    // 自绘顶栏几何（px）：门户用导航栏自绘，才能把“回到登录页”放进顶栏
+    navStatusBarHeight: 20,
+    navBarHeight: 44,
+    navCapsuleInset: 0,
+    navTotalHeight: 64,
+    navTitle: copy.pageName
   },
 
   _pollTimer: null,
@@ -113,7 +121,8 @@ Page({
   _messageOverviewQueued: false,
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: copy.navigationTitle });
+    // 门户使用自绘顶栏，标题也由页面自己渲染；不再调用原生标题接口。
+    this.applyNavigationMetrics();
     let pendingRoute = String((options && options.next) || '').trim();
     try { pendingRoute = decodeURIComponent(pendingRoute); } catch (_) { pendingRoute = ''; }
     this._pendingTrustedRoute = isTrustedRoute(pendingRoute)
@@ -133,6 +142,21 @@ Page({
       return;
     }
     this.continuePortalShow(activeSession);
+  },
+
+  // Pad 横竖屏切换后状态栏与胶囊位置会变，顶栏几何必须跟着重算，否则会错位。
+  applyNavigationMetrics() {
+    const navMetrics = getNavigationBarMetrics();
+    this.setData({
+      navStatusBarHeight: navMetrics.statusBarHeight,
+      navBarHeight: navMetrics.barHeight,
+      navCapsuleInset: navMetrics.capsuleInset,
+      navTotalHeight: navMetrics.totalHeight
+    });
+  },
+
+  onResize() {
+    this.applyNavigationMetrics();
   },
 
   /**

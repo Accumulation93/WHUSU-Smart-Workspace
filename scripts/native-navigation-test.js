@@ -12,6 +12,14 @@ const routes = [
   ))
 ];
 
+/*
+ * 全站仍以微信默认导航为准；门户页是唯一例外——它的顶栏自己画，
+ * 这样才能把“回到登录页”放进顶栏（原生导航栏不允许小程序插入按钮）。
+ */
+const CUSTOM_NAV_ROUTES = {
+  'subpackages/main/pages/portal/portal': true
+};
+
 assert.strictEqual(
   app.window && app.window.navigationStyle,
   'default',
@@ -25,10 +33,18 @@ assert.ok(
 routes.forEach((route) => {
   const jsonPath = path.join(miniRoot, `${route}.json`);
   const pageConfig = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-  assert.notStrictEqual(pageConfig.navigationStyle, 'custom', `${route} 不得隐藏微信默认导航`);
+  if (CUSTOM_NAV_ROUTES[route]) {
+    assert.strictEqual(pageConfig.navigationStyle, 'custom', `${route} 作为自绘顶栏页面必须显式声明自定义导航`);
+  } else {
+    assert.notStrictEqual(pageConfig.navigationStyle, 'custom', `${route} 不得隐藏微信默认导航`);
+  }
 
   const wxml = fs.readFileSync(path.join(miniRoot, `${route}.wxml`), 'utf8');
   assert.ok(!/<workspace-navigation\b/.test(wxml), `${route} 不得渲染自定义导航组件`);
 });
 
-console.log(`微信默认导航测试通过：${routes.length} 个页面均已覆盖。`);
+assert.ok(
+  Object.keys(CUSTOM_NAV_ROUTES).every((route) => routes.indexOf(route) >= 0),
+  '自绘顶栏例外必须指向真实存在的页面'
+);
+console.log(`导航测试通过：${routes.length} 个页面已覆盖，其中 ${Object.keys(CUSTOM_NAV_ROUTES).length} 个页面使用自绘顶栏。`);

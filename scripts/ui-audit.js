@@ -675,17 +675,22 @@ function scanWorkspaceShellContracts() {
     const scriptFile = path.join(MINI_ROOT, `${route}.js`);
     const pageConfig = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
     const script = fs.readFileSync(scriptFile, 'utf8');
+    const markup = fs.readFileSync(wxmlFile, 'utf8');
     const hasStaticTitle = /^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '');
     const hasLocaleRuntimeTitle = !pageConfig.navigationBarTitleText &&
       /wx\.setNavigationBarTitle\s*\(\s*\{[\s\S]{0,320}?\btitle\s*:/.test(script);
-    if (!hasStaticTitle && !hasLocaleRuntimeTitle) {
+    // 自绘顶栏页面没有原生标题栏，标题必须由页面自己渲染，且必须取自语言系统。
+    const hasSelfDrawnTitle = pageConfig.navigationStyle === 'custom' &&
+      /class="[^"]*\bnav-heading\b[^"]*"/.test(markup) &&
+      /\{\{\s*navTitle\s*\}\}/.test(markup) &&
+      /\bnavTitle\s*:\s*[A-Za-z_$][\w$.]*\s*[,}\n]/.test(script);
+    if (!hasStaticTitle && !hasLocaleRuntimeTitle && !hasSelfDrawnTitle) {
       findings.push({
         file: relative(jsonFile),
-        message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”'
+        message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”，或由自绘顶栏渲染语言系统标题'
       });
     }
     if (heroExceptions.has(route)) continue;
-    const markup = fs.readFileSync(wxmlFile, 'utf8');
     if (!/<workspace-hero\b[^>]*\bapp-name=(?:"WHUSU智慧工作台"|"\{\{[^}]+\}\}")/.test(markup)) {
       findings.push({
         file: relative(wxmlFile),

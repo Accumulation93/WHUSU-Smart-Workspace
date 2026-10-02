@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -226,4 +227,48 @@ test('登录兼容旧服务端时忽略岗位提示，退出时清理历史缓�
   assert.equal(orgSession.getSnapshot().orgId, 'org-final', '移除提示不改变有效组织');
   authContext.clearUnifiedAuthentication();
   assert.equal(storage.authSelectionNotice, undefined, '正常退出一并清理旧通知键');
+});
+
+test('登录成功必须发出身份变化通知，顶栏身份卡才不会停在未登录样子', function() {
+  const before = events.length;
+  authContext.applyAuthenticatedResult({
+    status: 'login_success',
+    token: 'token-landing',
+    account: { id: 'account-2', personId: 'person-2', name: '落地成员' },
+    context: {
+      contextId: 'ctx-landing',
+      role: 'user',
+      organizationId: 'org-landing',
+      organizationName: '落地组织',
+      assignmentId: 'assignment-landing'
+    },
+    contexts: [{
+      contextId: 'ctx-landing',
+      role: 'user',
+      organizationId: 'org-landing',
+      organizationName: '落地组织',
+      assignmentId: 'assignment-landing'
+    }],
+    organizations: [{ id: 'org-landing', name: '落地组织', roles: ['user'] }],
+    identities: [],
+    selection: { organizationId: 'org-landing', contextId: 'ctx-landing' },
+    user: { id: 'hr-2', name: '落地成员', assignmentId: 'assignment-landing' }
+  });
+  const emitted = events.slice(before);
+  const contextChanged = emitted.find(function(item) { return item.name === 'auth:contextChanged'; });
+  assert.ok(contextChanged, '登录成功必须发出身份变化事件，否则门户已挂载的身份卡不会刷新');
+  assert.equal(contextChanged.payload.user.name, '落地成员');
+  assert.equal(contextChanged.payload.user.assignmentId, 'assignment-landing');
+  assert.ok(
+    emitted.some(function(item) { return item.name === 'auth:selectionChanged'; }),
+    '登录成功必须同步发出工作上下文选择变化事件'
+  );
+  const heroSource = fs.readFileSync(
+    path.resolve(__dirname, '..', 'miniprogram/components/workspace-hero/workspace-hero.js'),
+    'utf8'
+  );
+  assert.ok(
+    heroSource.indexOf("eventBus.on('auth:contextChanged'") >= 0,
+    '顶栏身份卡必须监听身份变化事件，登录通知才有接收方'
+  );
 });

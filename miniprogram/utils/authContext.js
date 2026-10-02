@@ -510,6 +510,9 @@ function applyAuthenticatedResult(result) {
   });
   markAuthenticationReady();
   persistAuthenticatedStateLater(state);
+  // 门户落地后自动登录不会再重建页面栈，已挂载的顶栏身份卡只认身份变化事件；
+  // 登录成功与切换身份在“身份是否变了”这件事上没有区别，必须发同样的通知。
+  emitIdentityChanged(state.context, state.profile, state.selection, committed.version);
   return committed;
 }
 
@@ -580,21 +583,7 @@ function applyActivatedResult(result) {
   // 切换必须产生新的持久化代次，使登录或上一次切换遗留的延迟任务失效。
   // 页面立即读取上面的完整内存状态，兼容旧页面的分散键随后后台落盘。
   persistAuthenticatedStateLater(state);
-  const payload = {
-    organizationId: context.organizationId,
-    organizationName: context.organizationName,
-    contextId: selection.contextId,
-    workContext: context,
-    context: context,
-    user: profile,
-    version: committed.version
-  };
-  eventBus.emit('auth:selectionChanged', payload);
-  eventBus.emit('auth:contextChanged', {
-    context: context,
-    user: profile,
-    version: committed.version
-  });
+  const payload = emitIdentityChanged(context, profile, selection, committed.version);
   if (before.orgId !== context.organizationId) {
     eventBus.emit('org:changed', {
       orgId: context.organizationId,
@@ -606,6 +595,31 @@ function applyActivatedResult(result) {
     });
   }
   return { context: context, user: profile, version: committed.version, selection };
+}
+
+/**
+ * 身份（工作角色 / 组织 / 岗位）一旦变化就必须通知已挂载的页面与组件。
+ * 登录成功也算一次身份变化：门户落地后自动登录不会再重建页面栈，
+ * 顶栏身份卡只会等这些事件重新读取资料，否则会一直显示为未登录的样子。
+ */
+function emitIdentityChanged(context, profile, selection, version) {
+  const activeContext = context || {};
+  const payload = {
+    organizationId: activeContext.organizationId,
+    organizationName: activeContext.organizationName,
+    contextId: stringValue((selection && selection.contextId) || activeContext.contextId),
+    workContext: activeContext,
+    context: activeContext,
+    user: profile,
+    version: version
+  };
+  eventBus.emit('auth:selectionChanged', payload);
+  eventBus.emit('auth:contextChanged', {
+    context: activeContext,
+    user: profile,
+    version: version
+  });
+  return payload;
 }
 
 async function activateContext(contextId) {

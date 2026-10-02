@@ -31,6 +31,8 @@ assert.ok(!/扫一扫/.test(portalWxml), '扫一扫文案必须来自语言系�
 function createPage(options) {
   const settings = options || {};
   const calls = { navigate: [], reLaunch: [], modal: [], clipboard: [], applied: [], toasts: [], scanned: [], probes: [] };
+  // 顶栏几何来自平台：测试里可改写，用来验证横竖屏切换后的重算。
+  const metricsState = { value: { statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 }, calls: 0 };
   let definition = null;
   const sandbox = {
     console,
@@ -64,6 +66,14 @@ function createPage(options) {
             const queue = settings.probeQueue || [settings.probe || { state: 'unavailable' }];
             const index = Math.min(calls.probes.length - 1, queue.length - 1);
             return Promise.resolve(queue[index]);
+          }
+        };
+      }
+      if (name.endsWith('/utils/navigationBarMetrics')) {
+        return {
+          getNavigationBarMetrics: () => {
+            metricsState.calls += 1;
+            return Object.assign({}, metricsState.value);
           }
         };
       }
@@ -131,7 +141,7 @@ function createPage(options) {
     },
     _isPageVisible: true
   }, settings.overrides || {});
-  return { page, calls };
+  return { page, calls, metricsState };
 }
 
 (async () => {
@@ -188,10 +198,23 @@ function createPage(options) {
   harness.page.logout();
   assert.deepStrictEqual(harness.calls.reLaunch, ['/subpackages/main/pages/login/login'], '手动登录入口必须可用');
 
-  // 左上角返回键：仅已登录显示，点击进登录页（保留会话、可返回），不是退出登录
-  assert.ok(portalWxml.indexOf('bindtap="onBackToLoginTap"') >= 0, '门户左上角必须有返回键');
-  assert.ok(/portal-back-key[^>]*wx:if="\{\{hasUser\}\}"/.test(portalWxml), '返回键只对已登录用户显示');
+  // 门户自绘顶栏：返回键在顶栏内，点击进登录页（保留会话、可返回），不是退出登录
+  const portalJson = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.json'), 'utf8'));
+  assert.strictEqual(portalJson.navigationStyle, 'custom', '门户必须改用自绘导航栏才能把按钮放进顶栏');
+  assert.ok(portalWxml.indexOf('class="portal-nav"') >= 0, '门户必须有自绘顶栏');
+  assert.ok(/portal-nav-back[^>]*bindtap="onBackToLoginTap"/.test(portalWxml), '顶栏内必须有返回键');
+  assert.ok(/portal-nav-heading[^>]*>\{\{navTitle\}\}</.test(portalWxml), '顶栏标题必须由语言系统的标题变量渲染');
+  assert.ok(portalWxml.indexOf('portal-back-key') < 0, '不再在页面内容里另外放返回键');
   assert.ok(portalWxml.indexOf('portalAuthState === \'checking\'') < 0, '不得再渲染“正在确认”中间状态');
+  harness = createPage({});
+  harness.page.onLoad({});
+  assert.strictEqual(harness.page.data.navTotalHeight, 64, '顶栏几何必须按平台胶囊推算');
+  assert.strictEqual(harness.page.data.navCapsuleInset, 88, '顶栏右侧必须为微信胶囊留出通道');
+  // Pad 横竖屏切换后状态栏与胶囊位置会变，几何必须重算，否则标题会错位。
+  harness.metricsState.value = { statusBarHeight: 0, barHeight: 40, capsuleInset: 96, totalHeight: 40 };
+  harness.page.onResize();
+  assert.strictEqual(harness.page.data.navTotalHeight, 40, '横竖屏切换后必须重算顶栏总高度');
+  assert.strictEqual(harness.page.data.navCapsuleInset, 96, '横竖屏切换后必须重算胶囊通道宽度');
   harness = createPage({});
   harness.page.onBackToLoginTap();
   assert.deepStrictEqual(harness.calls.navigate, ['/subpackages/main/pages/login/login'], '返回键走受信导航进登录页');

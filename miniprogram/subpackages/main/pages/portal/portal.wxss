@@ -501,22 +501,72 @@ button, input, textarea, picker, view, text, scroll-view {
   box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
 
-/* 启动登录状态提示：正在确认 / 无法确认时给出重试与手动登录 */
-/* 左上角返回键：与导航图标同尺寸的圆形玻璃键，替代门户成为首页后消失的平台“返回首页”。 */
-.portal-back-key {
+/*
+ * 自绘顶栏：门户整条导航栏自己画，才能把“回到登录页”放进顶栏。
+ * 顶部让出状态栏，右侧给微信胶囊留出通道，底部用玻璃分隔线收边。
+ */
+.portal-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.9) 100%);
+  border-bottom: 1rpx solid var(--ui-line);
+  box-shadow: 0 8rpx 20rpx rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(24rpx);
+  -webkit-backdrop-filter: blur(24rpx);
+  box-sizing: border-box;
+}
+
+.portal-nav-status {
+  width: 100%;
+}
+
+.portal-nav-bar {
   display: flex;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  padding: 0 20rpx;
+  box-sizing: border-box;
+}
+
+.portal-nav-back {
+  display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: 64rpx;
   height: 64rpx;
-  margin-bottom: var(--ui-card-gap);
-  border: 1rpx solid rgba(147, 197, 253, 0.72);
+  border: 1rpx solid var(--ui-line-blue);
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(239, 246, 255, 0.8) 100%);
-  box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.08), inset 0 1rpx 0 rgba(255, 255, 255, 0.88);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
+  box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.1), inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
   box-sizing: border-box;
 }
 
+.portal-nav-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: var(--ui-type-emphasis);
+  font-weight: 700;
+  line-height: var(--ui-leading-control);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-nav-capsule-space {
+  flex: 0 0 auto;
+}
+
+.portal-nav-placeholder {
+  width: 100%;
+}
+
+/* 启动登录状态提示：无法确认时给出重试与手动登录 */
 .portal-auth-hint {
   display: flex;
   align-items: center;
@@ -1129,8 +1179,13 @@ button, input, textarea, picker, view, text, scroll-view {
     font-size: var(--ui-type-label);
   }
 
-  /* 受控 px：Pad 上快捷键与提示条不再随屏幕继续放大 */
-  .portal-back-key {
+  /* 受控 px：Pad 上顶栏、快捷键与提示条不再随屏幕继续放大 */
+  .portal-nav-bar {
+    gap: 8px;
+    padding: 0 14px;
+  }
+
+  .portal-nav-back {
     width: 32px;
     height: 32px;
   }

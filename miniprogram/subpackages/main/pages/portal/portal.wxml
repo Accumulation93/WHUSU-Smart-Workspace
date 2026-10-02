@@ -1,10 +1,17 @@
 <page-meta page-style="{{showMessageSwitchDialog ? 'overflow: hidden;' : ''}}"></page-meta>
+<view class="portal-nav">
+  <view class="portal-nav-status" style="height: {{navStatusBarHeight}}px;"></view>
+  <view class="portal-nav-bar" style="height: {{navBarHeight}}px;">
+    <view class="portal-nav-back ui-motion-chip" bindtap="onBackToLoginTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="{{copy.backToLogin}}">
+      <ui-icon name="home" tone="primary" sizeRole="row-leading" ariaLabel="{{copy.backToLogin}}" />
+    </view>
+    <view class="portal-nav-heading">{{navTitle}}</view>
+    <view class="portal-nav-capsule-space" style="width: {{navCapsuleInset}}px;"></view>
+  </view>
+</view>
+<view class="portal-nav-placeholder" style="height: {{navTotalHeight}}px;"></view>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
-
-  <view class="portal-back-key ui-motion-chip" wx:if="{{hasUser}}" bindtap="onBackToLoginTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="{{copy.backToLogin}}">
-    <ui-icon name="home" tone="primary" sizeRole="row-leading" ariaLabel="{{copy.backToLogin}}" />
-  </view>
 
   <view class="portal-auth-hint portal-auth-hint-action" wx:if="{{portalAuthState === 'unavailable'}}">
     <ui-icon name="shield" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.authUnavailable}}" />
