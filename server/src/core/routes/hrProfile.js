@@ -362,11 +362,14 @@ router.post('/submitUserHrProfile', async (req, res) => {
           recordId, 1, activeFieldIds, connection, orgId
         );
       }
-      for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-        await profileValueModel.create(
-          generateId(), recordId, targetPending, fieldId, fieldValue, connection, orgId
-        );
-      }
+      // 批量写入：字段多时只发少量多值语句，事务内的语句数不再随字段数线性增长。
+      await profileValueModel.createMany(
+        Object.entries(normalizedValues).map(([fieldId, fieldValue]) => ({
+          id: generateId(), recordId, isPending: targetPending === 1, fieldId, fieldValue
+        })),
+        connection,
+        orgId
+      );
       // 本人提交同样留痕，导出与详情才能回答“谁在什么时候提交的”。
       await profileReviewEventModel.create({
         recordId,
@@ -712,11 +715,14 @@ router.post('/reviewHrProfileChange', async (req, res) => {
         await profileValueModel.removeByRecordIdAndPendingFields(
           record.id, 0, pendingFieldIds, connection, orgId
         );
-        for (const value of pendingVals) {
-          await profileValueModel.create(
-            generateId(), record.id, 0, value.field_id, value.field_value, connection, orgId
-          );
-        }
+        await profileValueModel.createMany(
+          pendingVals.map((value) => ({
+            id: generateId(), recordId: record.id, isPending: false,
+            fieldId: value.field_id, fieldValue: value.field_value
+          })),
+          connection,
+          orgId
+        );
         await profileValueModel.removeByRecordIdAndPendingFields(
           record.id, 1, pendingFieldIds, connection, orgId
         );
@@ -978,9 +984,13 @@ router.post('/saveHrPersonFull', async (req, res) => {
             auditStatus: nextStatus, reviewedAt: nextStatus === 'approved' ? now : null
           }, connection, orgId);
         }
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue, connection, orgId);
-        }
+        await profileValueModel.createMany(
+          Object.entries(normalizedValues).map(([fieldId, fieldValue]) => ({
+            id: generateId(), recordId, isPending: false, fieldId, fieldValue
+          })),
+          connection,
+          orgId
+        );
         await profileReviewEventModel.create({
           recordId,
           action: 'maintained',

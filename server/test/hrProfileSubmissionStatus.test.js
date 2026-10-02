@@ -81,7 +81,11 @@ function createHarness(options) {
         : (settings.effectiveRows || [])),
       getByRecordIdsAndPending: async () => [],
       removeByRecordIdAndPendingFields: async () => {},
-      create: async () => {}
+      create: async () => {},
+      createMany: async (rows) => {
+        events.push(['values-batch', rows.length]);
+        return rows.length;
+      }
     },
     '../models/hrProfileReviewEvent': {
       create: async (data) => events.push(['event', data.action, data.reviewerPersonId || '']),
@@ -143,8 +147,11 @@ async function run() {
   }));
   assert.strictEqual(response.result.status, 'success');
   assert.deepStrictEqual(harness.events[0], ['record-create', 'none', null]);
-  assert.deepStrictEqual(harness.events[1], ['event', 'maintained', 'person-admin'],
-    '管理员维护必须记录提交人');
+  assert.deepStrictEqual(harness.events[1], ['values-batch', 2], '资料值必须一次批量写入');
+  assert.ok(
+    harness.events.some((item) => item[0] === 'event' && item[1] === 'maintained' && item[2] === 'person-admin'),
+    '管理员维护必须记录提交人'
+  );
 
   // 必填项齐全才算已生效。
   harness = createHarness();
@@ -186,7 +193,11 @@ async function run() {
   }));
   assert.strictEqual(response.result.status, 'success');
   assert.strictEqual(harness.events[0][1], 'approved');
-  assert.deepStrictEqual(harness.events[1], ['event', 'submitted', 'person-a'], '本人提交必须记录提交人');
+  assert.deepStrictEqual(harness.events[1], ['values-batch', 2], '本人提交的资料值必须一次批量写入');
+  assert.ok(
+    harness.events.some((item) => item[0] === 'event' && item[1] === 'submitted' && item[2] === 'person-a'),
+    '本人提交必须记录提交人'
+  );
 
   // 待审核模式下本人提交仍然是待审核。
   harness = createHarness({ editMode: 'audit' });

@@ -51,7 +51,11 @@ async function run() {
   const valueModel = {
     getByRecordIdAndPending: async (id, pending) => [{ field_id: 'field-a', field_value: pending ? 'pending' : 'effective' }],
     removeByRecordIdAndPendingFields: async (id, pending) => events.push(['remove-values', pending]),
-    create: async (id, recordId, pending, fieldId, value) => events.push(['value', pending, fieldId, value])
+    create: async (id, recordId, pending, fieldId, value) => events.push(['value', pending, fieldId, value]),
+    createMany: async (rows) => {
+      rows.forEach((row) => events.push(['value', row.isPending ? 1 : 0, row.fieldId, row.fieldValue]));
+      return rows.length;
+    }
   };
   const unifiedIdentity = {
     lockActiveBusinessSubjects: async (conn, subjects) => {
