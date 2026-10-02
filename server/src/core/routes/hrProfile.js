@@ -176,14 +176,32 @@ function profileCompleteness(fields, effectiveValues, pendingValues, auditStatus
  * action=submitted 表示本人提交，action=maintained 表示管理员维护，
  * 没有提交记录的旧数据一律留空，不猜测提交人。
  */
-function profileSubmissionFields(submission) {
-  if (!submission) return { submittedAt: null, submittedByName: '', submittedByType: '', submittedByPersonId: '' };
+function profileSubmissionFields(submission, record) {
+  if (!submission) {
+    // 历史数据没有提交事件：只回退到记录自身的最近变更时间，提交人与类别不猜。
+    return {
+      submittedAt: (record && (record.reviewed_at || record.updated_at)) || null,
+      submittedByName: '',
+      submittedByType: '',
+      submittedByPersonId: ''
+    };
+  }
   return {
     submittedAt: submission.created_at || null,
     submittedByName: safeString(submission.reviewer_name),
     submittedByType: submission.action === 'submitted' ? 'self' : 'admin',
     submittedByPersonId: safeString(submission.reviewer_person_id)
   };
+}
+
+/**
+ * 状态以“当前模板的必填完整性”为准：旧数据可能带着 approved 但必填是空的，
+ * 这种记录对外只能显示未提交，不能继续算已生效。
+ */
+function effectiveProfileStatus(auditStatus, completeness) {
+  const status = safeString(auditStatus) || 'none';
+  if (status === 'approved' && completeness && !completeness.isComplete) return 'none';
+  return status;
 }
 
 async function enrichHrWithOrg(hr) {
@@ -248,15 +266,16 @@ router.post('/getUserHrProfile', async (req, res) => {
     const completeness = profileCompleteness(
       templateData ? templateData.fields : [], values, pendingValues, auditStatus
     );
+    const displayStatus = effectiveProfileStatus(auditStatus, completeness);
 
     res.json({
       status: 'success',
       profile: await enrichHrWithOrg(hr),
       template: templateData,
-      values, pendingValues, auditStatus, rejectionReason,
+      values, pendingValues, auditStatus: displayStatus, rejectionReason,
       isComplete: completeness.isComplete,
       missingRequiredFieldIds: completeness.missingRequiredFieldIds,
-      statusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_ede4536b9a
+      statusText: PROFILE_STATUS_TEXT[displayStatus] || localeCopy.copy_ede4536b9a
     });
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
@@ -559,7 +578,11 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       }, {});
       const auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
       const completeness = profileCompleteness(fieldObjs, currentValues, pendingValues, auditStatus);
-      const submission = profileSubmissionFields(record ? lastSubmissions.get(safeString(record.id)) : null);
+      const displayStatus = effectiveProfileStatus(auditStatus, completeness);
+      const submission = profileSubmissionFields(
+        record ? lastSubmissions.get(safeString(record.id)) : null,
+        record
+      );
 
       const binding = bindingStates.get(safeString(item.id)) || {
         status: 'unbound',
@@ -597,8 +620,8 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         pendingSummary: summarizeValues(pendingValues),
         currentValues,
         pendingValues,
-        auditStatus,
-        auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
+        auditStatus: displayStatus,
+        auditStatusText: PROFILE_STATUS_TEXT[displayStatus] || localeCopy.copy_67f2697101,
         isComplete: completeness.isComplete,
         missingRequiredFieldIds: completeness.missingRequiredFieldIds,
         rejectionReason: safeString(record ? record.rejection_reason : ''),
@@ -815,6 +838,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const completeness = profileCompleteness(
       templateData ? templateData.fields : [], values, pendingValues, auditStatus
     );
+    const displayStatus = effectiveProfileStatus(auditStatus, completeness);
 
     res.json({
       status: 'success',
@@ -823,8 +847,8 @@ router.post('/getHrPersonDetail', async (req, res) => {
       values,
       pendingValues,
       historicalFields: [],
-      auditStatus,
-      auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
+      auditStatus: displayStatus,
+      auditStatusText: PROFILE_STATUS_TEXT[displayStatus] || localeCopy.copy_67f2697101,
       isComplete: completeness.isComplete,
       missingRequiredFieldIds: completeness.missingRequiredFieldIds,
       rejectionReason,
@@ -841,7 +865,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       membershipStatus: safeString(hr.membership_status) || 'active',
       joinedAt: hr.joined_at || null,
       leftAt: hr.left_at || null,
-      ...profileSubmissionFields(lastSubmission)
+      ...profileSubmissionFields(lastSubmission, record)
     });
   } catch (e) {
     return sendHrProfileFailure(req, res, e);

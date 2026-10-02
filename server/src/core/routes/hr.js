@@ -698,9 +698,14 @@ async function handleStructuredHrImport(req, res, previewOnly) {
     const admin = await resolveRequestAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
+    // 导入同样要留痕：把操作管理员带进资料写入，导出才能显示“谁导入的”。
+    const actor = {
+      personId: safeString(admin.person_id),
+      contextId: safeString(admin.context_id)
+    };
     const result = previewOnly
       ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
-      : await hrTableImportModel.importHrTable(req.body, orgId);
+      : await hrTableImportModel.importHrTable(req.body, orgId, actor);
     return res.json(result);
   } catch (error) {
     const isExpectedImportError = error instanceof hrTableImportModel.HrTableImportError;

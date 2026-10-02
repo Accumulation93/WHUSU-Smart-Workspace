@@ -24,6 +24,7 @@ function createHarness(options) {
   const events = [];
   const state = { record: settings.record || null };
   const connection = {};
+  let directoryRows = [];
 
   const router = loadIsolated('../src/core/routes/hrProfile.js', {
     '../services/adminRequestContext': { resolveCurrentAdmin: async () => null },
@@ -49,7 +50,7 @@ function createHarness(options) {
       getByIdIncludingFormer: async () => ({
         id: 'hr-a', name: '甲', student_id: '20260001', person_id: 'person-a', membership_status: 'active'
       }),
-      getMembershipDirectory: async () => [],
+      getMembershipDirectory: async () => directoryRows,
       getActiveByPersonIdInOrg: async () => ({ id: 'hr-a', name: '甲', student_id: '20260001' })
     },
     '../models/department': { getAll: async () => [] },
@@ -75,7 +76,9 @@ function createHarness(options) {
       }
     },
     '../models/hrProfileValue': {
-      getByRecordIdAndPending: async () => (settings.pendingRows || []),
+      getByRecordIdAndPending: async (id, pending) => (pending
+        ? (settings.pendingRows || [])
+        : (settings.effectiveRows || [])),
       getByRecordIdsAndPending: async () => [],
       removeByRecordIdAndPendingFields: async () => {},
       create: async () => {}
@@ -109,7 +112,12 @@ function createHarness(options) {
     return { result, statusCode };
   }
 
-  return { events, state, request };
+  return {
+    events,
+    state,
+    request,
+    setDirectoryRows(rows) { directoryRows = rows; }
+  };
 }
 
 const adminReq = (profileValues) => ({
@@ -207,6 +215,48 @@ async function run() {
   assert.strictEqual(response.result.submittedAt, '2026-10-02 05:05:41');
   assert.strictEqual(response.result.submittedByName, '王管理员');
   assert.strictEqual(response.result.submittedByType, 'admin');
+
+  // 旧数据带着“已生效”但必填是空的：对外必须显示未提交，不能再算生效。
+  harness = createHarness({
+    record: {
+      id: 'record-a',
+      audit_status: 'approved',
+      reviewed_at: '2026-09-30 03:00:00',
+      updated_at: '2026-09-30 03:00:00'
+    }
+  });
+  response = await harness.request('getHrPersonDetail', Object.assign(adminReq({}), {
+    body: { hrId: 'hr-a' }
+  }));
+  assert.strictEqual(response.result.status, 'success');
+  assert.strictEqual(response.result.auditStatus, 'none', '必填为空的历史记录不能显示已生效');
+  assert.strictEqual(response.result.auditStatusText, '未提交');
+  assert.strictEqual(response.result.isComplete, false);
+  // 没有提交事件时只回退到记录自身的最近变更时间，提交人与类别留空。
+  assert.strictEqual(response.result.submittedAt, '2026-09-30 03:00:00');
+  assert.strictEqual(response.result.submittedByName, '');
+  assert.strictEqual(response.result.submittedByType, '');
+
+  // 必填齐全的历史记录仍然显示已生效。
+  harness = createHarness({
+    record: { id: 'record-a', audit_status: 'approved' },
+    effectiveRows: [{ field_id: 'field-required', field_value: '有值' }]
+  });
+  response = await harness.request('getHrPersonDetail', Object.assign(adminReq({}), {
+    body: { hrId: 'hr-a' }
+  }));
+  assert.strictEqual(response.result.auditStatus, 'approved');
+
+  // 管理员列表导出同口径：缺必填的旧记录按未提交下发。
+  harness = createHarness({
+    record: { id: 'record-a', audit_status: 'approved' }
+  });
+  harness.setDirectoryRows([{ id: 'hr-a', person_id: 'person-a', name: '甲', student_id: '20260001' }]);
+  response = await harness.request('listHrProfileAdminData', Object.assign(adminReq({}), { body: {} }));
+  assert.strictEqual(response.result.status, 'success');
+  assert.strictEqual(response.result.rows[0].auditStatus, 'none');
+  assert.strictEqual(response.result.rows[0].auditStatusText, '未提交');
+  assert.strictEqual(response.result.rows[0].submittedAt, null);
 
   console.log('补充资料状态与提交信息回归通过：必填未填完=未提交、待审保留、提交人留痕');
 }

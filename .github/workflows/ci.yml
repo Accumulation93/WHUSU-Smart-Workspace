@@ -114,8 +114,9 @@ jobs:
           bash -n server/scripts/setupCollabSession.sh
           pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -Raw 'scripts/remote-collab.ps1')) | Out-Null"
       - name: Dependency audit
-        working-directory: server
-        run: npm audit
+        run: |
+          node scripts/dependency-audit.js --self-test
+          node scripts/dependency-audit.js
 
   deploy-production:
     name: deploy-production

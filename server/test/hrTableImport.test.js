@@ -158,6 +158,12 @@ async function main() {
         id VARCHAR(64) PRIMARY KEY, record_id VARCHAR(64) NOT NULL, is_pending TINYINT NOT NULL,
         field_id VARCHAR(64) NOT NULL, field_value TEXT, org_id VARCHAR(64) NOT NULL
       );
+      CREATE TABLE hr_profile_review_events (
+        id VARCHAR(64) PRIMARY KEY, record_id VARCHAR(64) NOT NULL, action VARCHAR(24) NOT NULL,
+        reason TEXT, reviewer_person_id VARCHAR(64), reviewer_context_id VARCHAR(160),
+        effective_values_snapshot JSON, pending_values_snapshot JSON, org_id VARCHAR(64) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     await schemaConnection.end();
 
@@ -178,9 +184,23 @@ async function main() {
     assert.strictEqual(preview.preview.newIdentities.length, 2);
     assert.strictEqual(preview.preview.newWorkGroups.length, 0);
 
-    const imported = await model.importHrTable(payload, orgId);
+    const imported = await model.importHrTable(payload, orgId, {
+      personId: 'person-import-admin',
+      contextId: 'context-import-admin'
+    });
     assert.strictEqual(imported.status, 'success');
     assert.strictEqual(imported.count, 35);
+
+    // 导入必须留下“谁在什么时候维护了补充资料”，导出与详情才能显示提交人。
+    const [importEvents] = await pool.query(
+      `SELECT action, reviewer_person_id, reviewer_context_id, created_at
+         FROM hr_profile_review_events WHERE org_id = ?`,
+      [orgId]
+    );
+    assert.strictEqual(importEvents.length, 35, '每名导入成员都要有一条维护记录');
+    assert(importEvents.every((event) => event.action === 'maintained'));
+    assert(importEvents.every((event) => event.reviewer_person_id === 'person-import-admin'));
+    assert(importEvents.every((event) => event.reviewer_context_id === 'context-import-admin'));
 
     const [counts] = await pool.query(
       `SELECT

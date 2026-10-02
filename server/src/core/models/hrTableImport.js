@@ -462,7 +462,7 @@ async function prepareHrTableImport(payload, orgId) {
   };
 }
 
-async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc) {
+async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc, actor) {
   const extensionEntries = Object.entries(row.extensionValues);
   if (!extensionEntries.length) return;
   const template = prepared.context.template;
@@ -478,7 +478,8 @@ async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc) {
       `INSERT INTO hr_profile_records
        (id, hr_id, name, openid, template_snapshot_id, audit_status, reviewed_at, org_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [recordId, hrId, row.name, '', template.id, 'pending', nowUtc, orgId, nowUtc, nowUtc]
+      // 先按未提交落库，紧接着由下方统一判定最终状态。
+      [recordId, hrId, row.name, '', template.id, 'none', null, orgId, nowUtc, nowUtc]
     );
     record = { id: recordId };
   }
@@ -506,12 +507,29 @@ async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc) {
     );
     const valueByFieldId = new Map(allValues.map((value) => [value.field_id, value.field_value]));
     if (requiredFields.some((field) => !normalizeEmptyValue(valueByFieldId.get(field.id)))) {
-      auditStatus = 'pending';
+      // 导入把值直接写成生效值，必填没填完就只能是“未提交”，不能借 pending 冒充待审核。
+      auditStatus = 'none';
     }
   }
   await conn.query(
     'UPDATE hr_profile_records SET audit_status = ?, reviewed_at = ?, updated_at = ? WHERE id = ? AND org_id = ?',
-    [auditStatus, nowUtc, nowUtc, record.id, orgId]
+    [auditStatus, auditStatus === 'approved' ? nowUtc : null, nowUtc, record.id, orgId]
+  );
+  // 导入也是管理员维护：记录操作人，导出与详情才能显示“谁在什么时候提交的”。
+  await conn.query(
+    `INSERT INTO hr_profile_review_events
+       (id, record_id, action, reason, reviewer_person_id, reviewer_context_id,
+        effective_values_snapshot, pending_values_snapshot, org_id)
+     VALUES (?, ?, 'maintained', ?, ?, ?, ?, '{}', ?)`,
+    [
+      generateId(),
+      record.id,
+      null,
+      safeString(actor && actor.personId) || null,
+      safeString(actor && (actor.contextId || actor.authContextId)) || null,
+      JSON.stringify(Object.fromEntries(extensionEntries.filter(([fieldId]) => templateFieldById.has(fieldId)))),
+      orgId
+    ]
   );
 }
 
@@ -556,7 +574,7 @@ async function lockExistingImportSubjects(connection, rows, organizationId, exis
   return knownMembershipSubjects.concat(locked);
 }
 
-async function importPreparedRows(prepared, orgId) {
+async function importPreparedRows(prepared, orgId, actor) {
   if (prepared.validationErrors.length && !prepared.skipInvalid) {
     return {
       status: 'validation_errors',
@@ -640,7 +658,7 @@ async function importPreparedRows(prepared, orgId) {
         hrByStudentId.set(row.studentId, { id: hrId, student_id: row.studentId });
       }
       affectedHrIds.push(hrId);
-      await writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc);
+      await writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc, actor);
     }
 
     await unifiedIdentityModel.syncLegacyHrRecords(conn, affectedHrIds);
@@ -666,9 +684,9 @@ async function previewHrTableImport(payload, orgId) {
   return { status: 'success', preview: prepared.preview };
 }
 
-async function importHrTable(payload, orgId) {
+async function importHrTable(payload, orgId, actor) {
   const prepared = await prepareHrTableImport(payload, orgId);
-  return importPreparedRows(prepared, orgId);
+  return importPreparedRows(prepared, orgId, actor);
 }
 
 module.exports = {
