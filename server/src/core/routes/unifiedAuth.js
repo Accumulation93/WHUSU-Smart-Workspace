@@ -77,6 +77,58 @@ function mapSecuritySession(item) {
   };
 }
 
+const DEVICE_KEY_PATTERN = /^[a-f0-9]{64}$/i;
+
+/**
+ * 会话按设备识别码归并：同一台设备上的多次登录（不同岗位、不同认证方式、
+ * 退出后重登）只算一台登录设备。没有识别码的会话归入一组“无法识别的设备”。
+ */
+function groupSessionsByDevice(sessions, currentDeviceHash) {
+  const order = [];
+  const groups = new Map();
+  (sessions || []).forEach((session) => {
+    const key = safeString(session && session.device_key_hash);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key).push(session);
+  });
+  const current = safeString(currentDeviceHash);
+  return order.map((key) => {
+    // listSessions 已按 last_seen_at 倒序，第一行就是这台设备最近一次登录。
+    const list = groups.get(key);
+    const latest = list[0] || {};
+    return {
+      deviceKey: key,
+      recognized: Boolean(key),
+      platform: safeString(latest.device_platform),
+      model: safeString(latest.device_model),
+      sessionCount: list.length,
+      role: safeString(latest.role),
+      organizationName: safeString(latest.organization_name),
+      lastSeenAt: latest.last_seen_at || null,
+      currentDevice: Boolean(key && current && key === current)
+    };
+  });
+}
+
+function mapSecurityDevice(group) {
+  return {
+    deviceKey: group.deviceKey,
+    recognized: group.recognized,
+    deviceLabel: group.model || group.platform || localeCopy.copy_6378c3f013,
+    platform: group.platform,
+    model: group.model,
+    sessionCount: group.sessionCount,
+    role: group.role,
+    organizationName: group.organizationName,
+    lastSeenAt: group.lastSeenAt,
+    currentDevice: group.currentDevice,
+    current: group.currentDevice
+  };
+}
+
 async function resolveMemberAccount(req, personId) {
   const account = await identityModel.getAccountByPersonInOrg(
     safeString(personId),
@@ -382,6 +434,7 @@ router.all('/auth/security', async (req, res) => {
       identityModel.getPolicy(),
       identityModel.listSessions(req.authAccount.id)
     ]);
+    const devices = groupSessionsByDevice(sessions, req.authSession.device_key_hash);
     return res.json({
       status: 'success',
       bindingStatus: 'verified',
@@ -409,7 +462,8 @@ router.all('/auth/security', async (req, res) => {
         createdAt: item.created_at,
         lastSeenAt: item.last_seen_at,
         expiresAt: item.expires_at
-      }))
+      })),
+      devices: devices.map(mapSecurityDevice)
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -448,9 +502,28 @@ router.post('/auth/security/recovery-credential', async (req, res) => {
 router.post('/auth/security/sessions/revoke', async (req, res) => {
   try {
     requireUnifiedSession(req);
+    const body = req.body || {};
+    // 传 deviceKey 表示“退出这台设备”：吊销该设备上的全部会话（当前会话除外）；
+    // 空字符串代表没有识别码的那一组“无法识别的设备”。
+    if (Object.prototype.hasOwnProperty.call(body, 'deviceKey')) {
+      const deviceKey = typeof body.deviceKey === 'string' ? body.deviceKey.trim() : '';
+      if (deviceKey !== '' && !DEVICE_KEY_PATTERN.test(deviceKey)) {
+        throw new identityModel.IdentityError('invalid_params', localeCopy.copy_6267781771, 400);
+      }
+      const revokedCount = await identityModel.revokeSessionsByDeviceKey(
+        req.authAccount.id,
+        deviceKey,
+        req.authSession.id
+      );
+      return res.json({
+        status: revokedCount > 0 ? 'success' : 'not_found',
+        revokedCount,
+        message: localeCopy.copy_c69999ba88
+      });
+    }
     const revoked = await identityModel.revokeSession(
       req.authAccount.id,
-      req.body && req.body.sessionId,
+      body.sessionId,
       req.authSession.id
     );
     return res.json({
@@ -479,6 +552,7 @@ router.post('/admin/auth/security', async (req, res) => {
       actor.organizationId,
       canGlobalManage
     ) : [];
+    const devices = groupSessionsByDevice(sessions, req.authSession.device_key_hash);
     const passphraseSet = canGlobalManage && accountExists
       ? await identityModel.getPassphraseStatus(account.account_id)
       : false;
@@ -489,7 +563,8 @@ router.post('/admin/auth/security', async (req, res) => {
       bindingStatus: accountExists ? safeString(account.account_status) : 'unbound',
       canGlobalManage,
       passphraseSet,
-      sessions: sessions.map(mapSecuritySession)
+      sessions: sessions.map(mapSecuritySession),
+      devices: devices.map(mapSecurityDevice)
     }));
   } catch (error) {
     return sendError(req, res, error);
@@ -499,8 +574,42 @@ router.post('/admin/auth/security', async (req, res) => {
 router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
   try {
     await requireAdminPermission(req, 'auth.accounts.global_manage');
-    const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    const sessionId = safeString(req.body && req.body.sessionId);
+    const body = req.body || {};
+    const account = await resolveMemberAccount(req, body.personId);
+    if (Object.prototype.hasOwnProperty.call(body, 'deviceKey')) {
+      const deviceKey = typeof body.deviceKey === 'string' ? body.deviceKey.trim() : '';
+      if (deviceKey !== '' && !DEVICE_KEY_PATTERN.test(deviceKey)) {
+        throw new identityModel.IdentityError('invalid_params', localeCopy.copy_72b5b8b086, 400);
+      }
+      const revokedCount = await pool.withTransaction(async (connection) => {
+        const changed = await identityModel.revokeSessionsByDeviceKey(
+          account.account_id,
+          deviceKey,
+          req.authSession.id,
+          connection
+        );
+        await identityModel.appendAuditEvent({
+          connection,
+          eventType: 'admin_session_revoked',
+          actorPersonId: req.authAccount.personId,
+          targetPersonId: account.person_id,
+          accountId: account.account_id,
+          organizationId: req.authContext.organizationId,
+          contextId: req.authContext.contextId,
+          requestId: req.requestId,
+          ip: req.ip,
+          outcome: changed > 0 ? 'success' : 'not_found',
+          detail: { deviceKey, revokedCount: changed }
+        });
+        return changed;
+      });
+      return res.json({
+        status: revokedCount > 0 ? 'success' : 'not_found',
+        revokedCount,
+        message: localeCopy.copy_c69999ba88
+      });
+    }
+    const sessionId = safeString(body.sessionId);
     if (!sessionId) {
       throw new identityModel.IdentityError('invalid_params', localeCopy.copy_72b5b8b086, 400);
     }

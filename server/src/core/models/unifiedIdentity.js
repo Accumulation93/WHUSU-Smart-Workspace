@@ -2523,6 +2523,29 @@ async function revokeSession(accountId, sessionId, currentSessionId, connection)
   return result.affectedRows > 0;
 }
 
+/**
+ * 按设备识别码吊销该账号在这台设备上的全部会话。
+ * deviceKeyHash 传空表示吊销所有“没有设备识别码”的会话；
+ * 当前正在使用的会话不在这里吊销，与单条吊销保持同一口径。
+ */
+async function revokeSessionsByDeviceKey(accountId, deviceKeyHash, currentSessionId, connection) {
+  const executor = connection || pool;
+  const account = safeString(accountId);
+  const current = safeString(currentSessionId);
+  const [result] = deviceKeyHash
+    ? await executor.query(
+        `UPDATE auth_sessions SET status = 'revoked', revoked_at = NOW()
+          WHERE account_id = ? AND status = 'active' AND device_key_hash = ? AND id <> ?`,
+        [account, safeString(deviceKeyHash), current]
+      )
+    : await executor.query(
+        `UPDATE auth_sessions SET status = 'revoked', revoked_at = NOW()
+          WHERE account_id = ? AND status = 'active' AND device_key_hash IS NULL AND id <> ?`,
+        [account, current]
+      );
+  return result.affectedRows || 0;
+}
+
 async function getAccountByPersonInOrg(personId, orgId) {
   const [rows] = await pool.query(
     `SELECT a.id AS account_id, a.person_id, a.status AS account_status,
@@ -3114,6 +3137,7 @@ module.exports = {
   approveRecovery,
   listSessions,
   revokeSession,
+  revokeSessionsByDeviceKey,
   getAccountByPersonInOrg,
   getMemberAccountSubjectByPersonInOrg,
   ensureAccountForActiveMember,

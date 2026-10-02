@@ -44,13 +44,33 @@ async function main() {
   const handlers = {};
   class IdentityError extends Error { constructor(code, message, httpStatus) { super(message); this.code = code; this.httpStatus = httpStatus; } }
   let saved;
+  const DEVICE_HASH = 'a'.repeat(64);
+  const deviceSessions = [
+    { id: 's-2', context_id: 'ctx-a', organization_id: 'org-a', role: 'user', device_key_hash: DEVICE_HASH, device_platform: 'ios', device_model: 'iPhone 17', last_seen_at: '2026-10-02 05:15:41', created_at: '2026-10-02 05:09:59' },
+    { id: 's-1', context_id: 'ctx-a', organization_id: 'org-a', role: 'admin', device_key_hash: DEVICE_HASH, device_platform: 'ios', device_model: 'iPhone 17', last_seen_at: '2026-10-02 04:49:45', created_at: '2026-10-02 04:49:45' },
+    { id: 's-0', context_id: 'ctx-b', organization_id: 'org-b', role: 'user', device_key_hash: null, device_platform: '', device_model: '', last_seen_at: '2026-09-30 15:14:08', created_at: '2026-09-30 15:14:08' }
+  ];
+  let deviceRevoke = null;
+  const identityModelStub = {
+    IdentityError,
+    getPolicy: async () => ({}),
+    listSessions: async () => deviceSessions,
+    revokeSession: async () => true,
+    revokeSessionsByDeviceKey: async (...args) => { deviceRevoke = args; return 2; }
+  };
   load('server/src/core/routes/unifiedAuth.js', {
     express: { Router: () => ({ post: (url, handler) => { handlers[url] = handler; }, all: (url, handler) => { handlers[url] = handler; }, get: (url, handler) => { handlers[url] = handler; } }) },
     '../../utils/helpers': { safeString: value => String(value || '') },
-    '../models/unifiedIdentity': { IdentityError },
+    '../models/unifiedIdentity': identityModelStub,
     '../models/sessionDevice': { updateCurrentSession: async (...args) => { saved = args; return true; } },
-    '../services/adminPermissions': {},
-    '../../locales/zh-CN/generated/core/routes/unifiedAuth': { copy_6267781771: 'invalid', copy_cffa8244af: 'session required' }
+    '../models/systemConfig': { get: async () => ({ timezone: 8, timezone_config_version: 1 }) },
+    '../services/unifiedAuth': { decorateContext: async () => ({ permissions: [] }), profileFromContext: value => value },
+    '../config/db': { query: async () => [[]], withTransaction: async callback => callback({ query: async () => [{ affectedRows: 0 }] }) },
+    '../services/adminPermissions': { scopeAccountSessions: sessions => sessions },
+    '../../locales/zh-CN/generated/core/routes/unifiedAuth': {
+      copy_6267781771: 'invalid', copy_cffa8244af: 'session required',
+      copy_6378c3f013: '未知设备', copy_c69999ba88: '已退出'
+    }
   });
   const requestBody = { device: { id: 'installation_123456', persistent: true, model: 'API model', platform: 'ohos' }, sessionId: 'other', accountId: 'other' };
   const req = { body: requestBody, authSession: { id: 'self-session' }, authAccount: { id: 'self-account' }, authContext: {}, logger: { error() {} } };
@@ -89,6 +109,47 @@ async function main() {
   api.requestOptionalDeviceMetadata(optional);
   assert.strictEqual(apiRequests.length, 1); assert.strictEqual(apiSuccess, 1); assert.strictEqual(apiFailure, 2);
   assert(!fs.readFileSync(path.join(root, 'miniprogram/utils/deviceMetadataReport.js'), 'utf8').includes('wx.request'));
+
+  // —— 登录设备按设备识别码合并，并按设备整体退出 ——
+  const securityReq = {
+    body: {},
+    authSession: { id: 's-2', device_key_hash: DEVICE_HASH },
+    authAccount: { id: 'self-account' },
+    authContext: { role: 'user', contextId: 'ctx-a', organizationId: 'org-a' },
+    logger: { error() {} }
+  };
+  await handlers['/auth/security'](securityReq, res);
+  assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.devices.length, 2, '同一设备上的多次登录必须合并成一台设备');
+  assert.strictEqual(result.devices[0].sessionCount, 2);
+  assert.strictEqual(result.devices[0].deviceLabel, 'iPhone 17');
+  assert.strictEqual(result.devices[0].currentDevice, true, '当前正在使用的设备必须标出来');
+  assert.strictEqual(result.devices[1].recognized, false, '没有识别码的会话归入“无法识别的设备”');
+  assert.strictEqual(result.devices[1].deviceLabel, '未知设备');
+  await handlers['/auth/security/sessions/revoke'](
+    Object.assign({}, securityReq, { body: { deviceKey: DEVICE_HASH } }), res
+  );
+  assert.deepStrictEqual(Array.from(deviceRevoke), ['self-account', DEVICE_HASH, 's-2']);
+  assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.revokedCount, 2);
+  status = null;
+  await handlers['/auth/security/sessions/revoke'](
+    Object.assign({}, securityReq, { body: { deviceKey: 'not-a-hash' } }), res
+  );
+  assert.strictEqual(status, 400, '非设备摘要的 deviceKey 必须拒绝');
+
+  // —— 前端沿用同一口径：列表按设备渲染，退出按设备提交 ——
+  const homeWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxml'), 'utf8');
+  const homeJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.js'), 'utf8');
+  const adminWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
+  const adminBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');
+  assert(homeWxml.includes('wx:for="{{accountSecurity.devices}}"'), '普通用户端登录设备必须按设备维度渲染');
+  assert(!homeWxml.includes('wx:for="{{accountSecurity.sessions}}"'), '普通用户端不得再按会话逐条渲染登录设备');
+  assert(homeWxml.includes('data-row-key="{{item._rowKey}}"'), '普通用户端退出设备必须带设备行标识');
+  assert(homeJs.includes('decorateAccountDevices(result.devices, result.sessions)'), '普通用户端必须消费设备维度数据并兼容旧服务端');
+  assert(homeJs.includes('sessionId ? { sessionId } : { deviceKey }'), '普通用户端退出设备必须按设备识别码提交');
+  assert(adminWxml.includes('wx:for="{{detailHrSecurity.devices}}"'), '管理端成员设备列表必须按设备维度渲染');
+  assert(adminBehavior.includes('{ personId, deviceKey: String(device.deviceKey || \'\') }'), '管理端退出设备必须按设备识别码提交');
   console.log('session-device-report-test passed: scoped SQL, delayed report, 401 isolation, account change, hide cancellation');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

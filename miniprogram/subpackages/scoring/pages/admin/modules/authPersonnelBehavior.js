@@ -260,7 +260,7 @@ module.exports = Behavior({
     authMemberConfirmHrId: '',
     authMemberConfirmName: '',
     authMemberConfirmFrozen: false,
-    authMemberConfirmSessionId: '',
+    authMemberConfirmDeviceRowKey: '',
     authMemberConfirmActionLabel: '',
     detailHrSecurity: null,
     detailHrPassphraseInput: '',
@@ -588,7 +588,7 @@ module.exports = Behavior({
           ? localeCopy.credentialSelectedPrefix + targets.length + localeCopy.credentialSelectedSuffix
           : targets[0].name,
         authMemberConfirmFrozen: false,
-        authMemberConfirmSessionId: ''
+        authMemberConfirmDeviceRowKey: ''
       });
     },
 
@@ -1157,13 +1157,37 @@ module.exports = Behavior({
               : localeCopy.copy_cb56cac0f1
           });
         });
+        // 设备维度：同一台设备的多次登录合成一条；服务端未返回 devices 时退回会话维度。
+        const deviceRows = Array.isArray(result.devices) && result.devices.length
+          ? result.devices
+          : sessions.map(function(item) {
+            return Object.assign({}, item, {
+              deviceKey: '',
+              sessionId: item.id,
+              sessionCount: 1,
+              recognized: item.recognized !== false
+            });
+          });
+        const devices = deviceRows.map(function(item) {
+          const sessionId = String(item.sessionId || '');
+          const deviceKey = String(item.deviceKey || '');
+          return Object.assign({}, item, {
+            sessionId,
+            deviceKey,
+            _rowKey: deviceKey ? 'device:' + deviceKey : 'session:' + sessionId,
+            lastSeenText: item.lastSeenAt
+              ? formatAuditDetailTime(item.lastSeenAt, item.lastSeenAtReviewStatus)
+              : localeCopy.copy_cb56cac0f1
+          });
+        });
         this.setData({
           detailHrSecurity: {
             account: result.account || null,
             accountExists: Boolean(result.accountExists),
             bindingStatus: result.bindingStatus || '',
             passphraseSet: Boolean(result.passphraseSet),
-            sessions
+            sessions,
+            devices
           }
         });
       } catch (error) {
@@ -1222,21 +1246,22 @@ module.exports = Behavior({
 
     requestMemberDeviceRevoke(e) {
       if (!this.data.canGlobalAccountManage) return;
-      const sessionId = String(e.currentTarget.dataset.sessionId || '');
+      const rowKey = String((e.currentTarget.dataset || {}).rowKey || '');
       const security = this.data.detailHrSecurity;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
-      if (!sessionId || !security || !row || this.data.authActionLoadingKey) return;
-      const session = (security.sessions || []).find(function(item) { return item.id === sessionId; });
+      if (!rowKey || !security || !row || this.data.authActionLoadingKey) return;
+      const device = (security.devices || []).find(function(item) { return item._rowKey === rowKey; });
+      if (!device) return;
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'device-revoke',
         authMemberConfirmActionLabel: localeCopy.copy_c3f53dd501,
         authMemberConfirmTitle: localeCopy.copy_78b51a10ec,
-        authMemberConfirmMessage: localeCopy.copy_69d8cb0e31 + String(session && session.deviceLabel || localeCopy.copy_e169da88b9),
+        authMemberConfirmMessage: localeCopy.copy_69d8cb0e31 + String(device.deviceLabel || localeCopy.copy_e169da88b9),
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
         authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
-        authMemberConfirmSessionId: sessionId,
+        authMemberConfirmDeviceRowKey: rowKey,
         authMemberConfirmFrozen: false
       });
     },
@@ -1254,28 +1279,35 @@ module.exports = Behavior({
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
         authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
-        authMemberConfirmSessionId: '',
+        authMemberConfirmDeviceRowKey: '',
         authMemberConfirmFrozen: false
       });
     },
 
-    async revokeMemberDevice(sessionId) {
+    async revokeMemberDevice(rowKey) {
       if (!this.data.canGlobalAccountManage) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       const personId = String(row && row.personId || '');
-      if (!sessionId || !personId || this.data.authActionLoadingKey) return;
+      const security = this.data.detailHrSecurity || {};
+      const device = (security.devices || []).find(function(item) { return item._rowKey === rowKey; });
+      if (!device || !personId || this.data.authActionLoadingKey) return;
+      const targetSessionId = String(device.sessionId || '');
       this.setData({ authActionLoadingKey: 'member-device-revoke' });
       try {
         const result = await callFunction({
           name: 'admin/auth/security/sessions/revoke',
-          data: { personId, sessionId }
+          data: targetSessionId
+            ? { personId, sessionId: targetSessionId }
+            : { personId, deviceKey: String(device.deviceKey || '') }
         });
         if (!result || result.status !== 'success') {
           throw new Error((result && result.message) || localeCopy.copy_bff49f783f);
         }
+        const removedCount = Math.max(Number(result.revokedCount || (targetSessionId ? 1 : 0)), 1);
+        const devices = (security.devices || []).filter(function(item) { return item._rowKey !== rowKey; });
         this.setData({
-          'detailHrSecurity.sessions': (this.data.detailHrSecurity.sessions || []).filter(function(item) { return item.id !== sessionId; }),
-          'detailHrGovernance.auth.activeSessionCount': Math.max(Number(this.data.detailHrGovernance.auth.activeSessionCount || 0) - 1, 0)
+          'detailHrSecurity.devices': devices,
+          'detailHrGovernance.auth.activeSessionCount': Math.max(Number(this.data.detailHrGovernance.auth.activeSessionCount || 0) - removedCount, 0)
         });
         showShortToast(localeCopy.copy_c69999ba88, 'success');
       } catch (error) {
@@ -1360,7 +1392,7 @@ module.exports = Behavior({
         authMemberConfirmHrId: '',
         authMemberConfirmName: '',
         authMemberConfirmFrozen: false,
-        authMemberConfirmSessionId: ''
+        authMemberConfirmDeviceRowKey: ''
       });
     },
 
@@ -1384,7 +1416,7 @@ module.exports = Behavior({
       } else if (action === 'unbind') {
         this.unbindHrWechat({ currentTarget: { dataset: { hrId } } });
       } else if (action === 'device-revoke') {
-        this.revokeMemberDevice(this.data.authMemberConfirmSessionId);
+        this.revokeMemberDevice(this.data.authMemberConfirmDeviceRowKey);
       } else if (action === 'passphrase-clear') {
         this.clearMemberPassphrase();
       } else if (action === 'verification-code-revoke') {

@@ -482,18 +482,18 @@
           </view>
 
           <view class="profile-session-panel">
-            <view class="profile-session-head"><view><view class="profile-credential-title">{{copy.loginDevices}}</view><view class="profile-credential-note">{{copy.loginDevicesDescription}}</view></view><view class="profile-session-count">{{accountSecurity.sessions.length}} {{copy.deviceSuffix}}</view></view>
+            <view class="profile-session-head"><view><view class="profile-credential-title">{{copy.loginDevices}}</view><view class="profile-credential-note">{{copy.loginDevicesDescription}}</view></view><view class="profile-session-count">{{accountSecurity.devices.length}} {{copy.deviceSuffix}}</view></view>
             <view class="profile-session-list">
-              <view class="profile-session-row" wx:for="{{accountSecurity.sessions}}" wx:key="id">
+              <view class="profile-session-row" wx:for="{{accountSecurity.devices}}" wx:key="_rowKey">
                 <view class="profile-session-copy">
                   <view class="profile-session-title">{{item.deviceTitle}}</view>
-                  <view class="profile-credential-note">{{item.deviceMeta}}</view>
+                  <view class="profile-credential-note" wx:if="{{item.deviceMeta}}">{{item.deviceMeta}}</view>
                   <view class="profile-credential-note">{{item.sessionMeta}} · {{copy.recentActivity}} {{item.lastSeenText}}</view>
                 </view>
-                <view class="profile-account-status" wx:if="{{item.current}}">{{copy.current}}</view>
-                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-id="{{item.id}}" loading="{{accountSecurity.revokingSessionId === item.id}}" bindtap="revokeAccountSession" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.signOutDevice}}</button>
+                <view class="profile-account-status" wx:if="{{item.currentDevice}}">{{copy.current}}</view>
+                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" loading="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.signOutDevice}}</button>
               </view>
-              <view class="empty-inline" wx:if="{{!accountSecurity.sessions.length}}">{{copy.noDevices}}</view>
+              <view class="empty-inline" wx:if="{{!accountSecurity.devices.length}}">{{copy.noDevices}}</view>
             </view>
           </view>
         </block>

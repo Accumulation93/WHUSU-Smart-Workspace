@@ -22,6 +22,12 @@ function getDeviceIdentity() {
     try {
       wx.setStorageSync(STORAGE_KEY, id);
       persistent = String(wx.getStorageSync(STORAGE_KEY) || '') === id;
+      // 首次启动偶尔会在存储桥还没就绪时写不进去：再写一次并复核，
+      // 仍然读不回来才承认这台设备无法持久化识别码。
+      if (!persistent) {
+        wx.setStorageSync(STORAGE_KEY, id);
+        persistent = String(wx.getStorageSync(STORAGE_KEY) || '') === id;
+      }
     } catch (_) {
       persistent = false;
     }

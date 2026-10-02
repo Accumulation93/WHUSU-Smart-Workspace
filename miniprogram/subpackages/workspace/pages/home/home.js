@@ -46,25 +46,48 @@ function emptyAccountSecurityState() {
     loading: false,
     loaded: false,
     account: null,
-    sessions: [],
+    devices: [],
     allowRecoveryCode: false,
     allowPassphrase: false,
     passphrase: '',
     recoveryCode: '',
     savingCredential: false,
-    revokingSessionId: ''
+    revokingDeviceKey: ''
   };
 }
 
-function decorateAccountSessions(sessions) {
-  return (sessions || []).map(function(item) {
+/**
+ * 登录设备按“设备”展示：同一台设备上的多次登录（不同岗位、口令/微信登录、退出后重登）
+ * 合成一台；没有识别码的会话合成一条“无法识别的设备”。
+ */
+function decorateAccountDevices(devices, sessions) {
+  const list = Array.isArray(devices) && devices.length
+    ? devices
+    : (sessions || []).map(function(item) {
+      // 兼容还没返回 devices 的服务端：每条会话先各自算一台，并保留 sessionId 供吊销。
+      return Object.assign({}, item, {
+        deviceKey: item.deviceKey || '',
+        sessionId: item.id || '',
+        recognized: item.recognized !== false,
+        sessionCount: 1,
+        currentDevice: Boolean(item.currentDevice || item.current)
+      });
+    });
+  return list.map(function(item) {
+    const recognized = item.recognized !== false;
     return Object.assign({}, item, {
+      // 设备维度用 deviceKey 作为唯一键；兼容模式（一条会话一台设备）用会话 id。
+      _rowKey: item.deviceKey ? 'device:' + item.deviceKey : 'session:' + String(item.sessionId || ''),
+      deviceKey: String(item.deviceKey || ''),
+      sessionId: String(item.sessionId || ''),
       roleLabel: item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
       lastSeenText: formatAuditTime(String(item.lastSeenAt || ''), item.lastSeenAtReviewStatus),
-      deviceTitle: item.currentDevice || item.current
+      deviceTitle: item.currentDevice
         ? copy.text.currentDevice
-        : copy.text.signedInDevice,
-      deviceMeta: [item.platform, item.model || copy.text.deviceModelUnavailable].filter(Boolean).join(' · '),
+        : (recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
+      // 识别不出来的设备标题已经说明了情况，这里不再重复占一行。
+      deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ')
+        || (recognized ? copy.text.deviceModelUnavailable : ''),
       sessionMeta: [
         item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
         item.organizationName || ''
@@ -907,7 +930,7 @@ Page({
           loading: false,
           loaded: true,
           account: result.account || null,
-          sessions: decorateAccountSessions(result.sessions),
+          devices: decorateAccountDevices(result.devices, result.sessions),
           allowRecoveryCode: Boolean(policy.allowRecoveryCode),
           allowPassphrase: Boolean(policy.allowPassphrase)
         })
@@ -988,25 +1011,30 @@ Page({
     }
   },
 
-  async revokeAccountSession(e) {
-    const sessionId = String(e.currentTarget.dataset.id || '');
-    if (!sessionId || this.data.accountSecurity.revokingSessionId) return;
-    this.setData({ 'accountSecurity.revokingSessionId': sessionId });
+  async revokeAccountDevice(e) {
+    const rowKey = String((e.currentTarget.dataset || {}).rowKey || '');
+    const device = (this.data.accountSecurity.devices || []).find((item) => item._rowKey === rowKey);
+    if (!device || this.data.accountSecurity.revokingDeviceKey) return;
+    const sessionId = String(device.sessionId || '');
+    const deviceKey = String(device.deviceKey || '');
+    const revokeKey = device._rowKey;
+    this.setData({ 'accountSecurity.revokingDeviceKey': revokeKey });
     try {
+      // 有 sessionId 说明服务端还没返回设备维度，退回单条吊销；否则按设备整体退出。
       const result = await callFunction({
         name: 'auth/security/sessions/revoke',
-        data: { sessionId }
+        data: sessionId ? { sessionId } : { deviceKey }
       });
       if (!result || (result.status !== 'success' && result.status !== 'not_found')) {
         throw new Error((result && result.message) || copy.text.retry);
       }
-      const sessions = this.data.accountSecurity.sessions.filter((item) => item.id !== sessionId);
-      this.setData({ 'accountSecurity.sessions': sessions });
+      const devices = (this.data.accountSecurity.devices || []).filter((item) => item._rowKey !== revokeKey);
+      this.setData({ 'accountSecurity.devices': devices });
       showShortToast(copy.text.deviceSignedOut, 'success');
     } catch (error) {
       showShortToast(getErrorText(error, copy.text.retry));
     } finally {
-      this.setData({ 'accountSecurity.revokingSessionId': '' });
+      this.setData({ 'accountSecurity.revokingDeviceKey': '' });
     }
   },
 
