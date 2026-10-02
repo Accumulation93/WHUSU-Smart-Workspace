@@ -8,6 +8,7 @@ const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
+const { probeStartupSession } = require('../../../../utils/startupSession');
 const {
   isTrustedRoute,
   navigateToTrustedRoute,
@@ -32,6 +33,7 @@ function isPartialBulkResult(result) {
 }
 
 const PORTAL_CARDS_USER = [
+  { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/workspace/pages/home/home?subApp=scoring', disabled: false },
@@ -41,6 +43,7 @@ const PORTAL_CARDS_USER = [
 ];
 
 const PORTAL_CARDS_ADMIN = [
+  { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
@@ -91,7 +94,11 @@ Page({
     // 应用服务视图与搜索
     appViewMode: 'grid',        // 宫格或列表
     appSearchKeyword: '',
-    filteredPortalCards: []
+    filteredPortalCards: [],
+
+    // 启动时确认登录状态：checking 时说明进度，unavailable 时允许重试或主动去登录
+    portalAuthState: 'ready',
+    portalAuthFrozen: false
   },
 
   _pollTimer: null,
@@ -114,10 +121,53 @@ Page({
     this._isPageVisible = true;
     const activeSession = orgSession.getSnapshot();
     if (!activeSession.token || !activeSession.role) {
-      authContext.clearUnifiedAuthentication();
-      wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
+      // 默认落地门户：先问一次微信是不是已绑定账号，未绑定才去登录页，
+      // 避免每次进来都要先点一次不必要的登录。
+      this.runStartupAuthCheck();
       return;
     }
+    this.continuePortalShow(activeSession);
+  },
+
+  /**
+   * 启动确认：已绑定直接建立会话继续进门户；未绑定或冻结去登录页完成绑定/认领；
+   * 网络等失败视为“未知”，留在门户并给出重试，不能冒充未绑定。
+   */
+  runStartupAuthCheck() {
+    if (this._startupAuthRunning) return;
+    this._startupAuthRunning = true;
+    this.setData({ portalAuthState: 'checking', portalAuthFrozen: false });
+    const requestId = (this._startupAuthRequestId || 0) + 1;
+    this._startupAuthRequestId = requestId;
+    const isCurrent = () => this._isPageVisible !== false && this._startupAuthRequestId === requestId;
+    probeStartupSession().then((probe) => {
+      if (!isCurrent()) return;
+      if (probe && probe.state === 'authenticated') {
+        authContext.applyAuthenticatedResult(probe.result);
+        this._startupAuthRunning = false;
+        this.setData({ portalAuthState: 'ready' });
+        this.continuePortalShow(orgSession.getSnapshot());
+        return;
+      }
+      this._startupAuthRunning = false;
+      if (probe && probe.state === 'unbound') {
+        authContext.clearUnifiedAuthentication();
+        wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
+        return;
+      }
+      if (probe && probe.state === 'frozen') {
+        this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: true });
+        return;
+      }
+      this.setData({ portalAuthState: 'unavailable', portalAuthFrozen: false });
+    });
+  },
+
+  onRetryPortalAuth() {
+    this.runStartupAuthCheck();
+  },
+
+  continuePortalShow(activeSession) {
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
@@ -327,7 +377,57 @@ Page({
       wx.showToast({ title: card.disabledReason || copy.messages.retryLater, icon: 'none' });
       return;
     }
+    if (card.action === 'scan') {
+      this.startScan();
+      return;
+    }
     navigateToTrustedRoute(card.url);
+  },
+
+  /** 门户页的“扫一扫”快捷键入口。 */
+  onScanQuickTap() {
+    this.startScan();
+  },
+
+  /** 扫一扫：站内地址直接跳转，其他内容只展示与复制，不自动打开外部地址。 */
+  startScan() {
+    if (typeof wx.scanCode !== 'function') {
+      showShortToast(copy.scanFailed);
+      return;
+    }
+    if (this._scanRunning) return;
+    this._scanRunning = true;
+    wx.scanCode({
+      scanType: ['qrCode', 'barCode'],
+      success: (result) => {
+        this._scanRunning = false;
+        this.handleScanPayload(String((result && result.result) || '').trim());
+      },
+      fail: (error) => {
+        this._scanRunning = false;
+        if (/cancel/i.test(String((error && error.errMsg) || ''))) return;
+        showShortToast(copy.scanFailed);
+      }
+    });
+  },
+
+  handleScanPayload(raw) {
+    if (!raw) return;
+    if (isTrustedRoute(raw)) {
+      navigateToTrustedRoute(raw);
+      return;
+    }
+    const looksExternal = /^https?:\/\//i.test(raw);
+    wx.showModal({
+      title: copy.scanResultTitle,
+      content: looksExternal ? copy.scanExternalHint + '\n' + raw : raw,
+      confirmText: copy.scanCopyAction,
+      cancelText: copy.scanCloseAction,
+      success: (answer) => {
+        if (!answer.confirm) return;
+        wx.setClipboardData({ data: raw });
+      }
+    });
   },
 
   // ── 应用服务视图与搜索 ──

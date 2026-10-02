@@ -2,6 +2,19 @@
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
+  <view class="portal-auth-hint" wx:if="{{portalAuthState === 'checking'}}">
+    <ui-icon name="user" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.authChecking}}" />
+    <text>{{copy.authChecking}}</text>
+  </view>
+  <view class="portal-auth-hint portal-auth-hint-action" wx:elif="{{portalAuthState === 'unavailable'}}">
+    <ui-icon name="shield" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.authUnavailable}}" />
+    <text class="portal-auth-text">{{portalAuthFrozen ? copy.authFrozen : copy.authUnavailable}}</text>
+    <view class="portal-auth-actions">
+      <view class="link ui-motion-chip" bindtap="onRetryPortalAuth" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authRetryAction}}</view>
+      <view class="link ui-motion-chip" bindtap="logout" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authLoginAction}}</view>
+    </view>
+  </view>
+
   <view class="portal-message-partial" wx:if="{{hasUser && messagePartial}}">
     <ui-icon name="bell" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.loadingHint}}" />
     <text>{{copy.partialOrganizationLoading}}</text>
@@ -98,11 +111,17 @@
   <view class="card portal-services-card">
     <view class="info-head">
       <view class="section-title">{{copy.servicesTitle}}</view>
-      <view class="app-view-tabs ui-compact-segmented">
+      <view class="app-head-actions">
+        <view class="app-scan-btn ui-motion-chip" bindtap="onScanQuickTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <ui-icon name="scan" tone="primary" sizeRole="message-trailing" ariaLabel="{{copy.scan}}" />
+          <text class="app-scan-label">{{copy.scan}}</text>
+        </view>
+        <view class="app-view-tabs ui-compact-segmented">
         <view class="app-view-tab ui-compact-segmented-item {{appViewMode === 'grid' ? 'app-view-tab-active' : ''}} ui-motion-chip"
               data-mode="grid" bindtap="switchAppView" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.grid}}</view>
         <view class="app-view-tab ui-compact-segmented-item {{appViewMode === 'list' ? 'app-view-tab-active' : ''}} ui-motion-chip"
               data-mode="list" bindtap="switchAppView" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.list}}</view>
+        </view>
       </view>
     </view>
 
