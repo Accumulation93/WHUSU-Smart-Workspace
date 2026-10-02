@@ -68,6 +68,7 @@ module.exports = {
   hrMembershipPermanentlyDeleted: '组织成员记录已永久删除',
   personPermanentlyDeleted: '人员资料及其账号已永久删除',
   hrDeletionFailed: '无法永久删除，请重新进行删除前检查',
+  profileFieldHintTooLong: '{0}的填写说明最多{1}字',
   hrDeletionSystemError: '永久删除服务暂时不可用',
   hrDeletionMessages: {
     invalid_hr_deletion_scope: '删除范围无效',

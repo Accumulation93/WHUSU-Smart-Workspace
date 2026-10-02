@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/hrProfileTemplateLibrary');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const { format: localeFormat } = require('../../locales/runtime');
 const crypto = require('crypto');
 const pool = require('../../config/db');
@@ -11,8 +12,14 @@ const { suggestFields } = require('./hrProfileFieldSuggestions');
 const EDIT_MODES = ['direct', 'audit', 'readonly'];
 const FIELD_TYPES = ['text', 'number', 'sequence', 'date', 'datetime', 'phone', 'email'];
 const NUMBER_RULE_TYPES = ['value_range', 'length_range'];
+// 字段「填写说明」：纯文本、可多行、上限 200 字（按字符计，与用户可见文案口径一致）。
+const HINT_MAX_LENGTH = 200;
 const SWITCH_ACTIONS = ['map', 'hide', 'delete'];
 const TOKEN_TTL_MS = 10 * 60 * 1000;
+
+function hintLength(value) {
+  return Array.from(safeString(value)).length;
+}
 
 function parseOptions(value) {
   if (!value) return [];
@@ -94,7 +101,8 @@ function serializeField(field) {
     maxDigits: field.max_digits == null ? null : Number(field.max_digits),
     minValue: field.min_value == null ? null : Number(field.min_value),
     maxValue: field.max_value == null ? null : Number(field.max_value),
-    options: parseOptions(field.options_json)
+    options: parseOptions(field.options_json),
+    hint: safeString(field.hint)
   };
 }
 
@@ -116,7 +124,8 @@ function normalizeDefinitionField(field) {
     maxValue: field && field.maxValue !== '' && field.maxValue != null ? Number(field.maxValue) : null,
     options: Array.isArray(field && field.options)
       ? field.options.map((item) => safeString(item).trim()).filter(Boolean)
-      : []
+      : [],
+    hint: safeString(field && field.hint).trim()
   };
   return normalized;
 }
@@ -133,6 +142,9 @@ function validateDefinition(name, editMode, fields) {
     if (labels.has(labelKey)) return localeFormat(localeCopy.copy_8757e8a233, [field.label]);
     labels.add(labelKey);
     if (field.type === 'sequence' && !field.options.length) return localeFormat(localeCopy.copy_c38d4ca5a6, [field.label]);
+    if (field.hint && hintLength(field.hint) > HINT_MAX_LENGTH) {
+      return localeFormat(personnelCopy.profileFieldHintTooLong, [field.label, HINT_MAX_LENGTH]);
+    }
     if (field.minLength != null && !Number.isFinite(field.minLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
     if (field.maxLength != null && !Number.isFinite(field.maxLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
     if (field.minValue != null && !Number.isFinite(field.minValue)) return localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]);
@@ -147,12 +159,13 @@ async function insertDefinitionFields(connection, templateId, fields) {
     await connection.query(
       `INSERT INTO hr_profile_template_fields
        (id, template_id, sort_order, label, type, required, min_length, max_length,
-        number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json, hint)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [generateId(), templateId, index + 1, field.label, field.type, field.required ? 1 : 0,
        field.minLength, field.maxLength, field.numberRule, field.allowDecimal ? 1 : 0,
        field.minDigits, field.maxDigits, field.minValue, field.maxValue,
-       field.options.length ? JSON.stringify(field.options) : null]
+       field.options.length ? JSON.stringify(field.options) : null,
+       field.hint ? field.hint : null]
     );
   }
 }
@@ -610,12 +623,13 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       await connection.query(
         `INSERT INTO org_hr_profile_template_snapshot_fields
          (id, snapshot_id, sort_order, is_active, label, type, required,
-          min_length, max_length, number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          min_length, max_length, number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json, hint)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [snapshotFieldId, snapshotId, index + 1, 1, field.label, field.type, field.required ? 1 : 0,
          field.minLength, field.maxLength, field.numberRule, field.allowDecimal ? 1 : 0,
          field.minDigits, field.maxDigits, field.minValue, field.maxValue,
-         field.options.length ? JSON.stringify(field.options) : null]
+         field.options.length ? JSON.stringify(field.options) : null,
+         field.hint ? field.hint : null]
       );
     }
 

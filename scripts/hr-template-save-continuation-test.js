@@ -387,6 +387,35 @@ async function main() {
   assert.equal(f.page.data.hrProfileTemplateForm.fields[4].errorText, '序列至少要有一个选项');
   assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v2', '滚到第一处问题');
 
+  // —— 字段「填写说明」：多行可存、只改说明也算未保存、超长就地拦下 ——
+  f = fixture();
+  f.page.data.showHrTemplateEditor = false;
+  f.page.data.hrProfileTemplateList = [{ id: 'template-hint', name: 'hint-template', editMode: 'direct', fields: [
+    { id: 'field-hint', label: '手机号', type: 'phone', options: [], hint: '第一行\n第二行' }
+  ] }];
+  f.page.editHrProfileTemplate({ currentTarget: { dataset: { id: 'template-hint', index: 0 } } });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].hint, '第一行\n第二行', '重新打开模板必须回填已保存的填写说明');
+  assert.ok(!f.page.data.hrTemplateDirty, '刚打开模板不应算未保存');
+  f.page.onHrProfileFieldInput({ currentTarget: { dataset: { index: 0, field: 'hint' } }, detail: { value: '新的说明' } });
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].hint, '新的说明');
+  assert.equal(f.page.data.hrTemplateDirty, true, '只改填写说明也必须标记为有未保存的修改');
+  f.calls.length = 0;
+  await f.page.saveHrProfileTemplate();
+  const hintSave = f.calls.find((item) => item.name === 'saveHrProfileTemplateDefinition');
+  assert.ok(hintSave, '保存必须提交模板定义');
+  assert.equal(hintSave.data.fields[0].hint, '新的说明', '提交载荷必须带上填写说明');
+  // 超长说明：独立夹具（保存成功后表单已关闭重置），必须就地拦下且不发请求。
+  f = fixture();
+  f.page.data.hrProfileTemplateForm = { id: '', name: 'fixture', description: '', editMode: 'direct', fields: [
+    { id: 'v9', label: '手机号', type: 'phone', optionsText: '', minLength: '', maxLength: '', minDigits: '', maxDigits: '',
+      minValue: '', maxValue: '', hint: '很'.repeat(201) }
+  ] };
+  await f.page.saveHrProfileTemplate();
+  assert.equal(f.calls.length, 0, '超长填写说明不得提交');
+  assert.equal(f.page.data.hrTemplateErrorCount, 1);
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, '填写说明最多200字');
+  assert.equal(f.page.data.hrTemplateFormError, '有 1 处需要修改，已定位到第一处');
+
   console.log('人事模板编辑：顺序调整、多字段展开、未保存提醒、删除确认、选项预览、导入识别、就地校验、保存后续通过');
 }
 

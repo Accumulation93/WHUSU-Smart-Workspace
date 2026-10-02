@@ -427,6 +427,7 @@
             disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
+          <view class="profile-field-hint" wx:if="{{item.hintLine}}">{{item.hintLine}}</view>
           <view class="field-hint" wx:if="{{item.hintText}}">{{item.hintText}}</view>
         </view>
         </scroll-view>

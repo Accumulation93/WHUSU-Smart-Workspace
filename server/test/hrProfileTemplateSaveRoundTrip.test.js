@@ -20,7 +20,7 @@ async function main() {
     if (sql.startsWith('DELETE FROM hr_profile_template_fields')) { fields = []; return [{}]; }
     if (sql.startsWith('INSERT INTO hr_profile_template_fields')) {
       const keys = ['id', 'template_id', 'sort_order', 'label', 'type', 'required', 'min_length', 'max_length',
-        'number_rule', 'allow_decimal', 'min_digits', 'max_digits', 'min_value', 'max_value', 'options_json'];
+        'number_rule', 'allow_decimal', 'min_digits', 'max_digits', 'min_value', 'max_value', 'options_json', 'hint'];
       fields.push(Object.fromEntries(keys.map((key, index) => [key, args[index]])));
       return [{}];
     }
@@ -38,6 +38,7 @@ async function main() {
   } };
   const dependencies = {
     '../../locales/zh-CN/generated/core/services/hrProfileTemplateLibrary': require('../src/locales/zh-CN/generated/core/services/hrProfileTemplateLibrary'),
+    '../../locales/zh-CN/core/personnel': require('../src/locales/zh-CN/core/personnel'),
     '../../locales/runtime': require('../src/locales/runtime'),
     crypto: require('node:crypto'),
     '../../config/db': Object.assign({ withTransaction: callback => callback(connection) }, connection),
@@ -55,14 +56,23 @@ async function main() {
   const library = sandbox.module.exports;
   for (const type of ['number', 'sequence']) {
     const result = await library.saveDefinition({ id: 'template', name: '资料', editMode: 'direct',
-      fields: [{ label: '资料项', type, options: type === 'sequence' ? ['甲', '乙'] : [] }] }, { id: 'operator' });
+      fields: [{
+        label: '资料项', type, options: type === 'sequence' ? ['甲', '乙'] : [],
+        hint: type === 'number' ? '只填整数\n不要带单位' : ''
+      }] }, { id: 'operator' });
     assert.equal(result.status, 'success');
     const saved = (await library.listTemplates())[0].fields[0];
     assert.equal(saved.type, type);
+    assert.equal(saved.hint, type === 'number' ? '只填整数\n不要带单位' : '', '填写说明必须随字段一同保存并可回读（含换行）');
     if (type === 'sequence') assert.equal(JSON.stringify(saved.options), '["甲","乙"]');
     const active = await library.getActiveSnapshot('org-self');
     assert.equal(active.fields[0].type, 'text', '定义保存不得暗中改写任何组织现有资料类型');
   }
+  // 超过 200 字的说明必须被拒绝，且不写库
+  const tooLong = await library.saveDefinition({ id: 'template', name: '资料', editMode: 'direct',
+    fields: [{ label: '资料项', type: 'text', options: [], hint: '很'.repeat(201) }] }, { id: 'operator' });
+  assert.equal(tooLong.status, 'invalid_params');
+  assert.ok(String(tooLong.message).includes('200'), '超长说明的提示要写明 200 字上限');
   assert(writes.every(sql => !sql.includes('org_hr_profile_template')));
   assert(library._test.validateMappedValue({ type: 'number', allow_decimal: false }, '非数字'));
   assert(library._test.validateMappedValue({ type: 'sequence', options_json: '["甲","乙"]' }, '丙'));

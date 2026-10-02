@@ -240,6 +240,7 @@ router.post('/getUserHrProfile', async (req, res) => {
             numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
             minDigits: f.min_digits, maxDigits: f.max_digits,
             minValue: f.min_value, maxValue: f.max_value,
+            hint: f.hint || '',
             options: f.options_json ? JSON.parse(f.options_json) : []
           }))
         : []
@@ -648,6 +649,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
           numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
           minDigits: f.min_digits, maxDigits: f.max_digits,
           minValue: f.min_value, maxValue: f.max_value,
+          hint: f.hint || '',
           options: f.options_json ? JSON.parse(f.options_json) : []
         }))
       } : null,
@@ -809,6 +811,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
             numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
             minDigits: f.min_digits, maxDigits: f.max_digits,
             minValue: f.min_value, maxValue: f.max_value,
+            hint: f.hint || '',
             options: f.options_json ? JSON.parse(f.options_json) : []
           }))
         : []

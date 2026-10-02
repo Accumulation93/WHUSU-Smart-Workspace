@@ -558,6 +558,19 @@ scroll-view {
   line-height: 1.7;
 }
 
+/* 管理员写的字段填写说明：与下方自动规则提醒分行，最多 3 行、超出省略。 */
+.profile-field-hint {
+  margin-top: 10rpx;
+  color: #2563eb;
+  font-size: var(--ui-type-meta);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 .activity-status-banner {
   margin-bottom: 18rpx;
   padding: 20rpx 22rpx;

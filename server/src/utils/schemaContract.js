@@ -16,6 +16,8 @@ const REQUIRED_COLUMNS = [
   ['org_hr_profile_template_snapshots', 'created_at'],
   ['org_hr_profile_template_snapshots', 'updated_at'],
   ['org_hr_profile_template_snapshot_fields', 'is_active'],
+  ['org_hr_profile_template_snapshot_fields', 'hint'],
+  ['hr_profile_template_fields', 'hint'],
   ['org_hr_profile_template_switches', 'snapshot_id'],
   ['hr_profile_records', 'template_snapshot_id'],
   ['hr_profile_record_values', 'updated_at'],

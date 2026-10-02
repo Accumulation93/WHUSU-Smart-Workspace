@@ -162,6 +162,11 @@
   min-height: calc(3 * 44rpx + 32rpx) !important;
 }
 
+/* 填写说明：默认两行起步，可随内容增高；与说明文本框同样的三级选择器兜底全局规则。 */
+.hr-template-editor .field .hr-template-hint-textarea {
+  min-height: calc(2 * 44rpx + 32rpx) !important;
+}
+
 .hr-template-option-list {
   display: flex;
   flex-direction: column;
@@ -356,6 +361,10 @@
 
   .hr-template-editor .field .hr-template-description-textarea {
     min-height: calc(3 * 22px + 18px) !important;
+  }
+
+  .hr-template-editor .field .hr-template-hint-textarea {
+    min-height: calc(2 * 22px + 18px) !important;
   }
 
   .hr-template-option-handle,

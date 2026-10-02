@@ -26,6 +26,28 @@ test('岗位编辑器不再展示或提交自由文本岗位名称', () => {
 });
 
 test('人事详情与导出都能看到补充资料最后一次提交与当前状态', () => {
+  assert.match(wxml, /detailHrAuditStatusText/);
+});
+
+test('字段填写说明：编辑器可填写，成员详情与模板预览同一份展示', () => {
+  const editorRoot = path.join(adminRoot, 'components', 'hrTemplateEditor');
+  const editorWxml = fs.readFileSync(path.join(editorRoot, 'hrTemplateEditor.wxml'), 'utf8');
+  const editorWxss = fs.readFileSync(path.join(editorRoot, 'hrTemplateEditor.wxss'), 'utf8');
+  assert.match(editorWxml, /data-field="hint"/, '模板编辑器字段里必须有填写说明输入框');
+  assert.match(editorWxml, /maxlength="200"/, '填写说明上限 200 字');
+  assert.match(editorWxml, /hrTemplateCopy\.fieldHintLabel/);
+  assert.match(editorWxml, /hrTemplateCopy\.fieldHintPlaceholder/);
+  // 两处管理端展示：成员详情与模板快照预览，样式最多 3 行。
+  const hintNotes = (wxml.match(/class="hr-field-hint-note"/g) || []).length;
+  assert.ok(hintNotes >= 2, '成员详情与模板预览都要显示填写说明');
+  assert.match(adminWxss, /\.hr-field-hint-note\s*\{[\s\S]{0,240}?-webkit-line-clamp:\s*3/);
+  // 说明随字段流转：详情字段映射与保存载荷都必须带上。
+  assert.match(hrBehavior, /hint: String\(f\.hint \|\| ''\)/);
+  assert.match(hrBehavior, /hint: String\(item\.hint \|\| ''\)\.trim\(\)/);
+  assert.match(editorWxss, /\.hr-template-hint-textarea\s*\{/);
+});
+
+test('人事详情与导出都能看到补充资料最后一次提交与当前状态', () => {
   assert.match(wxml, /detailHrSelfSubmittedText/, '人事详情必须展示本人提交时间');
   assert.match(wxml, /detailHrMaintainedText/, '人事详情必须展示管理员维护时间与维护人');
   assert.match(wxml, /detailHrLastChangedText/, '人事详情必须为历史数据展示资料最后变更时间');

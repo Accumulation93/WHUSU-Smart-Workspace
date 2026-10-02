@@ -23,6 +23,8 @@ const {
 const fieldMatching = require('../../../../../utils/hrFieldMatching');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
+// 字段「填写说明」上限：与服务端一致，按字符计（与用户可见文案同一口径）。
+const HR_FIELD_HINT_MAX_LENGTH = 200;
 // 折叠行最多显示两个选项，避免选项多的字段把整页撑长。
 const HR_FIELD_OPTIONS_PREVIEW_LIMIT = 2;
 // 选项编辑框 5 行起步、最多 12 行；卡片默认只列前 6 条，超出可展开全部。
@@ -148,7 +150,8 @@ function hrTemplateFormSignature(form) {
       String(field.maxDigits == null ? '' : field.maxDigits),
       String(field.minValue == null ? '' : field.minValue),
       String(field.maxValue == null ? '' : field.maxValue),
-      String(field.optionsText || '')
+      String(field.optionsText || ''),
+      String(field.hint || '')
     ])
   });
 }
@@ -168,6 +171,10 @@ function orderedRangeInvalid(min, max) {
 
 function validateHrTemplateField(field, copy) {
   if (!String(field.label || '').trim()) return localeCopy.copy_b559e020b7;
+  // 填写说明是给成员看的提示文字：纯文本、最多 200 字，超长就地指出。
+  if (Array.from(String(field.hint || '')).length > HR_FIELD_HINT_MAX_LENGTH) {
+    return localeFormat(copy.fieldHintTooLong, [HR_FIELD_HINT_MAX_LENGTH]);
+  }
   if (field.type === 'sequence' && !parseHrFieldOptions(field.optionsText).length) {
     return copy.fieldOptionsRequired;
   }
@@ -1795,7 +1802,9 @@ module.exports = Behavior({
                   minDigits: f.minDigits,
                   maxDigits: f.maxDigits,
                   minValue: f.minValue,
-                  maxValue: f.maxValue
+                  maxValue: f.maxValue,
+                  // 管理员写的填写说明：原样保留，与自动规则提醒分行显示。
+                  hint: String(f.hint || '')
                 };
                 field.hintText = buildFieldHint(field);
                 return field;
@@ -2960,6 +2969,7 @@ module.exports = Behavior({
         maxDigits: item.maxDigits === '' ? null : Number(item.maxDigits),
         minValue: item.minValue === '' ? null : Number(item.minValue),
         maxValue: item.maxValue === '' ? null : Number(item.maxValue),
+        hint: String(item.hint || '').trim(),
         options: String(item.optionsText || '')
           .split('\n')
           .map((option) => option.trim())

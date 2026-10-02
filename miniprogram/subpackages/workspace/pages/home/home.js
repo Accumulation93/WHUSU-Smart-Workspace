@@ -265,6 +265,8 @@ function normalizeDisplayField(field = {}, valueMap = {}) {
     // 日期字段提交与校验使用 YYYY-MM-DD，展示统一为 2004.08.31 简略格式。
     displayValue: field.type === 'date' ? formatDateTextOnly(rawValue) : rawValue,
     typeLabel: getProfileFieldTypeLabel(field.type),
+    // 管理员写的填写说明单列一行；自动规则提醒继续保留，两者互不覆盖。
+    hintLine: String(field.hint || '').trim(),
     hintText: buildFieldHint(field)
   };
   if (field.type === 'datetime') {

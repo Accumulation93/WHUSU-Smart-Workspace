@@ -906,6 +906,7 @@
                 <view class="hr-snapshot-field-order">{{index + 1}}</view>
                 <view class="hr-snapshot-field-main">
                   <view class="hr-snapshot-field-name">{{item.label}}</view>
+                  <view class="hr-field-hint-note" wx:if="{{item.hint}}">{{item.hint}}</view>
                   <view class="hr-snapshot-field-rule" wx:if="{{item.ruleText}}">{{item.ruleText}}</view>
                 </view>
                 <view class="hr-snapshot-field-tags">
@@ -1490,6 +1491,7 @@
             <block wx:for="{{detailHrTemplate.fields}}" wx:key="id">
               <view class="field">
                 <view class="field-label">{{item.label}}<text wx:if="{{item.required}}" class="required-mark"> *</text></view>
+                <view class="hr-field-hint-note" wx:if="{{item.hint}}">{{item.hint}}</view>
                 <block wx:if="{{item.type === 'sequence'}}">
                   <picker disabled="{{!canManageHrPeople || detailHrReadOnly}}" range="{{item.options}}" value="{{detailFieldValues[item.id]}}" bindchange="onDetailProfileFieldInput" data-field="{{item.id}}">
                     <view class="picker-value">{{detailHrValues[item.id] || localeCopy.copy_b540933e66}}</view>

@@ -383,6 +383,7 @@ CREATE TABLE IF NOT EXISTS hr_profile_template_fields (
   min_value DECIMAL(20,4) DEFAULT NULL,
   max_value DECIMAL(20,4) DEFAULT NULL,
   options_json TEXT,
+  hint VARCHAR(200) DEFAULT NULL,
   INDEX idx_hptf_template (template_id),
   CONSTRAINT fk_hptf_template FOREIGN KEY (template_id)
     REFERENCES hr_profile_templates(id) ON DELETE CASCADE
@@ -417,6 +418,7 @@ CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshot_fields (
   min_value DECIMAL(20,4) DEFAULT NULL,
   max_value DECIMAL(20,4) DEFAULT NULL,
   options_json TEXT,
+  hint VARCHAR(200) DEFAULT NULL,
   INDEX idx_ohptsf_snapshot (snapshot_id),
   INDEX idx_ohptsf_active (snapshot_id, is_active, sort_order),
   CONSTRAINT fk_ohptsf_snapshot FOREIGN KEY (snapshot_id)

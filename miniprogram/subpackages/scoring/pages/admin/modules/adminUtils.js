@@ -192,7 +192,8 @@ function createEmptyProfileField() {
     maxDigits: '',
     minValue: '',
     maxValue: '',
-    optionsText: ''
+    optionsText: '',
+    hint: ''
   };
 }
 
@@ -230,7 +231,8 @@ function normalizeHrProfileFieldForForm(field = {}) {
     maxDigits: field.maxDigits == null ? '' : String(field.maxDigits),
     minValue: field.minValue == null ? '' : String(field.minValue),
     maxValue: field.maxValue == null ? '' : String(field.maxValue),
-    optionsText: Array.isArray(field.options) ? field.options.join('\n') : ''
+    optionsText: Array.isArray(field.options) ? field.options.join('\n') : '',
+    hint: field.hint == null ? '' : String(field.hint)
   };
 }
 

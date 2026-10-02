@@ -4576,6 +4576,19 @@ scroll-view {
   overflow-wrap: anywhere;
 }
 
+/* 管理员填写的字段说明：与自动规则提醒分行，最多 3 行、超出省略。 */
+.hr-field-hint-note {
+  margin-top: 4rpx;
+  color: #2563eb;
+  font-size: var(--ui-type-caption);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 .hr-snapshot-field-tags {
   display: flex;
   flex: 0 0 auto;

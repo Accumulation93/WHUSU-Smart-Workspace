@@ -53,6 +53,10 @@
             <input class="field-input" data-index="{{index}}" data-field="label" bindinput="onFieldInput" value="{{item.label}}" placeholder="{{localeCopy.copy_a4cbcb25b9}}" />
           </view>
           <view class="field">
+            <view class="field-label">{{hrTemplateCopy.fieldHintLabel}}</view>
+            <textarea class="field-textarea hr-template-hint-textarea" auto-height cursor-spacing="24" maxlength="200" data-index="{{index}}" data-field="hint" bindinput="onFieldInput" value="{{item.hint}}" placeholder="{{hrTemplateCopy.fieldHintPlaceholder}}" />
+          </view>
+          <view class="field">
             <view class="field-label">{{localeCopy.copy_54d366a2c5}}</view>
             <picker range="{{fieldTypeOptions}}" value="{{item.typeIndex || 0}}" range-key="label" bindchange="onFieldTypeChange" data-index="{{index}}">
               <view class="picker-value">{{item.typeLabel}}</view>
