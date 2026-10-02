@@ -171,6 +171,21 @@ function profileCompleteness(fields, effectiveValues, pendingValues, auditStatus
   };
 }
 
+/**
+ * 补充资料“最后一次提交”的对外字段：时间、提交人、类别。
+ * action=submitted 表示本人提交，action=maintained 表示管理员维护，
+ * 没有提交记录的旧数据一律留空，不猜测提交人。
+ */
+function profileSubmissionFields(submission) {
+  if (!submission) return { submittedAt: null, submittedByName: '', submittedByType: '', submittedByPersonId: '' };
+  return {
+    submittedAt: submission.created_at || null,
+    submittedByName: safeString(submission.reviewer_name),
+    submittedByType: submission.action === 'submitted' ? 'self' : 'admin',
+    submittedByPersonId: safeString(submission.reviewer_person_id)
+  };
+}
+
 async function enrichHrWithOrg(hr) {
   if (!hr) return null;
   const [departments, identities, workGroups] = await Promise.all([
@@ -290,6 +305,11 @@ router.post('/submitUserHrProfile', async (req, res) => {
     }
 
     const nowUtc = nowMysqlUtc();
+    // 本人提交在入口就要求必填齐全；这里再兜一次状态口径，保证“必填没填完”永远不会变成已生效。
+    const completeness = profileCompleteness(normalizedFields, normalizedValues, {}, 'none');
+    const submitStatus = editMode === 'audit'
+      ? 'pending'
+      : (completeness.isComplete ? 'approved' : 'none');
     await pool.withTransaction(async (connection) => {
       await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
         personId,
@@ -301,10 +321,10 @@ router.post('/submitUserHrProfile', async (req, res) => {
       if (existing) {
         await profileRecordModel.update(existing.id, {
           template_snapshot_id: template.id,
-          audit_status: editMode === 'audit' ? 'pending' : 'approved',
+          audit_status: submitStatus,
           rejection_reason: '',
           requested_at: editMode === 'audit' ? nowUtc : existing.requested_at,
-          reviewed_at: editMode === 'audit' ? existing.reviewed_at : nowUtc,
+          reviewed_at: submitStatus === 'approved' ? nowUtc : (editMode === 'audit' ? existing.reviewed_at : null),
           updated_at: nowUtc
         }, connection, orgId);
       } else {
@@ -313,9 +333,9 @@ router.post('/submitUserHrProfile', async (req, res) => {
           name: hr.name || '',
           openid,
           templateSnapshotId: template.id,
-          auditStatus: editMode === 'audit' ? 'pending' : 'approved',
+          auditStatus: submitStatus,
           requestedAt: editMode === 'audit' ? nowUtc : null,
-          reviewedAt: editMode === 'audit' ? null : nowUtc
+          reviewedAt: submitStatus === 'approved' ? nowUtc : null
         }, connection, orgId);
       }
       const targetPending = editMode === 'audit' ? 1 : 0;
@@ -332,6 +352,16 @@ router.post('/submitUserHrProfile', async (req, res) => {
           generateId(), recordId, targetPending, fieldId, fieldValue, connection, orgId
         );
       }
+      // 本人提交同样留痕，导出与详情才能回答“谁在什么时候提交的”。
+      await profileReviewEventModel.create({
+        recordId,
+        action: 'submitted',
+        reviewerPersonId: personId,
+        reviewerContextId: req.authContext && req.authContext.contextId,
+        effectiveValues: editMode === 'audit' ? {} : normalizedValues,
+        pendingValues: editMode === 'audit' ? normalizedValues : {},
+        organizationId: orgId
+      }, connection);
     });
 
     res.json({
@@ -500,6 +530,8 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       if (!pendingValuesByRecord.has(v.record_id)) pendingValuesByRecord.set(v.record_id, {});
       pendingValuesByRecord.get(v.record_id)[v.field_id] = v.field_value;
     });
+    // 最后一次提交（时间/提交人/类别）随列表一起返回，导出直接可用。
+    const lastSubmissions = await profileReviewEventModel.listLatestSubmissionsByRecordIds(recordIds, orgId);
 
     const fields = template && template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
     const fieldObjs = fields.map((f) => ({
@@ -527,6 +559,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       }, {});
       const auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
       const completeness = profileCompleteness(fieldObjs, currentValues, pendingValues, auditStatus);
+      const submission = profileSubmissionFields(record ? lastSubmissions.get(safeString(record.id)) : null);
 
       const binding = bindingStates.get(safeString(item.id)) || {
         status: 'unbound',
@@ -570,6 +603,10 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         missingRequiredFieldIds: completeness.missingRequiredFieldIds,
         rejectionReason: safeString(record ? record.rejection_reason : ''),
         hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
+        submittedAt: submission.submittedAt,
+        submittedByName: submission.submittedByName,
+        submittedByType: submission.submittedByType,
+        submittedByPersonId: submission.submittedByPersonId,
         userInfoId: binding.userInfoId,
         boundOpenid: binding.boundOpenid ? safeString(binding.boundOpenid).slice(0, 8) + '***' : '',
         wxBindStatus: binding.status
@@ -757,6 +794,9 @@ router.post('/getHrPersonDetail', async (req, res) => {
     const reviewHistory = record
       ? await profileReviewEventModel.listByRecordId(record.id, orgId)
       : [];
+    const lastSubmission = record
+      ? await profileReviewEventModel.getLatestSubmission(record.id, orgId)
+      : null;
     if (record) {
       const [vals, pvals] = await Promise.all([
         profileValueModel.getByRecordIdAndPending(record.id, 0, pool, orgId),
@@ -800,7 +840,8 @@ router.post('/getHrPersonDetail', async (req, res) => {
       })),
       membershipStatus: safeString(hr.membership_status) || 'active',
       joinedAt: hr.joined_at || null,
-      leftAt: hr.left_at || null
+      leftAt: hr.left_at || null,
+      ...profileSubmissionFields(lastSubmission)
     });
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
@@ -874,6 +915,8 @@ router.post('/saveHrPersonFull', async (req, res) => {
       }
 
       const orgId = await getCurrentOrgId();
+      // 必填项没填完只能算“未提交”：可以保存，但绝不能标成已生效。
+      const completeness = profileCompleteness(normalizedFields, normalizedValues, {}, 'none');
       await pool.withTransaction(async (connection) => {
         await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
           legacyHrId: hrId,
@@ -893,21 +936,24 @@ router.post('/saveHrPersonFull', async (req, res) => {
           && safeString(existing.audit_status) === 'pending'
           && Object.keys(pendingSnapshot).length
         );
+        const nextStatus = preservePending
+          ? 'pending'
+          : (completeness.isComplete ? 'approved' : 'none');
         if (existing) {
           await profileValueModel.removeByRecordIdAndPendingFields(
             existing.id, 0, normalizedFields.map((field) => field.id), connection, orgId
           );
           await profileRecordModel.update(existing.id, {
             templateSnapshotId: template.id,
-            auditStatus: preservePending ? 'pending' : 'approved',
+            auditStatus: nextStatus,
             rejectionReason: preservePending ? safeString(existing.rejection_reason) : '',
-            reviewedAt: preservePending ? existing.reviewed_at : now,
+            reviewedAt: nextStatus === 'approved' ? now : (preservePending ? existing.reviewed_at : null),
             updatedAt: now
           }, connection, orgId);
         } else {
           await profileRecordModel.create(recordId, {
             hrId, name, openid, templateSnapshotId: template.id,
-            auditStatus: 'approved', reviewedAt: now
+            auditStatus: nextStatus, reviewedAt: nextStatus === 'approved' ? now : null
           }, connection, orgId);
         }
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {

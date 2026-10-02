@@ -33,6 +33,9 @@ assert(maintainSource.includes('preservePending'), '维护生效资料时必须�
 assert(!maintainSource.includes(
   'removeByRecordIdAndPendingFields(\n            existing.id, 1'
 ), '维护接口不得删除待审资料');
-assert(maintainSource.includes("auditStatus: preservePending ? 'pending' : 'approved'"), '存在待审提交时状态必须保持 pending');
+assert(maintainSource.includes("const nextStatus = preservePending"), '维护接口必须明确区分待审保留与生效判定');
+assert(maintainSource.includes(": (completeness.isComplete ? 'approved' : 'none')"), '必填未填完的维护结果只能是未提交，不能算已生效');
+assert(maintainSource.includes("reviewedAt: nextStatus === 'approved' ? now : (preservePending ? existing.reviewed_at : null)"),
+  '未生效的维护结果不得留下审核通过时间');
 
 console.log('人事资料审核并发与待审保留契约测试通过');

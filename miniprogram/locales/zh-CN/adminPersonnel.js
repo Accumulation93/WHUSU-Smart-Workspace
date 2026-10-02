@@ -60,6 +60,11 @@ module.exports = Object.freeze({
   }),
   adminCandidateNoPosition: '暂未设置岗位',
   adminCandidatePositionPrefix: '岗位',
+  hrProfileSubmittedAt: '补充资料提交时间',
+  hrProfileSubmitter: '补充资料提交人',
+  hrProfileSubmitterType: '补充资料提交类别',
+  hrSubmitterSelf: '本人',
+  hrSubmitterAdmin: '管理员',
   assignmentNatureLabels: Object.freeze({
     staff: '本会岗位',
     liaison: '学院对接岗位',

@@ -76,7 +76,14 @@ async function run() {
     '../models/hrProfileField': fieldModel,
     '../models/hrProfileRecord': recordModel,
     '../models/hrProfileValue': valueModel,
-    '../models/hrProfileReviewEvent': {},
+    '../models/hrProfileReviewEvent': {
+      create: async (data, conn) => {
+        assert.strictEqual(conn, connection);
+        events.push(['review-event', data.action]);
+      },
+      listByRecordId: async () => [],
+      getLatestSubmission: async () => null
+    },
     '../models/personIdentityOverview': {},
     '../models/unifiedIdentity': unifiedIdentity,
     '../services/hrProfileTemplateLibrary': {},

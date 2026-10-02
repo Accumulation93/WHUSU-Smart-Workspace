@@ -1290,6 +1290,8 @@
             </view>
             <view class="field-hint" wx:if="{{detailHrJoinedAtText}}">{{localeCopy.hrMembershipJoinedAt}} · {{detailHrJoinedAtText}}</view>
             <view class="field-hint" wx:if="{{detailHrLeftAtText}}">{{localeCopy.hrMembershipLeftAt}} · {{detailHrLeftAtText}}</view>
+            <view class="field-hint" wx:if="{{detailHrSubmittedAtText}}">{{localeCopy.hrProfileSubmittedAt}} · {{detailHrSubmittedAtText}}</view>
+            <view class="field-hint" wx:if="{{detailHrSubmitterText}}">{{localeCopy.hrProfileSubmitter}} · {{detailHrSubmitterText}}</view>
             <view class="hr-former-readonly-callout" wx:if="{{detailHrReadOnly}}">{{localeCopy.hrFormerReadOnlyHint}}</view>
             <view class="field-hint hr-global-account-hint" wx:if="{{detailHrGovernance && detailHrGovernance.accountId && !canGlobalAccountManage}}">{{localeCopy.hrGlobalAccountContact}}</view>
           </view>

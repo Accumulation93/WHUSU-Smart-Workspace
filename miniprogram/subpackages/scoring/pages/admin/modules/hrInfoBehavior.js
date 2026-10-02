@@ -289,6 +289,9 @@ function toHrProfileListRow(item) {
     isFormer: item.membershipStatus === 'left',
     joinedAtText: item.joinedAtText || '',
     leftAtText: item.leftAtText || '',
+    submittedAtText: item.submittedAtText || '',
+    submittedByName: item.submittedByName || '',
+    submittedByTypeText: item.submittedByTypeText || '',
     isComplete: Boolean(item.isComplete)
   };
 }
@@ -314,6 +317,12 @@ function decorateDirectoryRow(item) {
     membershipStatusText: membershipStatus === 'left' ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive,
     joinedAtText: formatListTime(item.joinedAt, { reviewStatus: item.joinedAtReviewStatus }),
     leftAtText: formatListTime(item.leftAt, { reviewStatus: item.leftAtReviewStatus }),
+    // 补充资料最后一次提交：时间按系统时区显示，提交人带上类别（本人 / 管理员）。
+    submittedAtText: formatListTime(item.submittedAt, { reviewStatus: item.submittedAtReviewStatus }),
+    submittedByName: String(item.submittedByName || ''),
+    submittedByTypeText: item.submittedByType === 'self'
+      ? personnelSwitchCopy.hrSubmitterSelf
+      : (item.submittedByType === 'admin' ? personnelSwitchCopy.hrSubmitterAdmin : ''),
     assignments: (item.assignments || []).map((assignment) => Object.assign({}, assignment, {
       historical: membershipStatus === 'left' || Boolean(assignment.historical)
     }))
@@ -1529,7 +1538,10 @@ module.exports = Behavior({
         { key: 'identity', label: localeCopy.copy_e69d9e7df1, groupLabel: localeCopy.copy_79a04f117c, source: 'identity', checked: true },
         { key: 'workGroup', label: localeCopy.copy_6cc69fb176, groupLabel: localeCopy.copy_79a04f117c, source: 'workGroup', checked: true },
         { key: 'wxBindStatus', label: localeCopy.copy_f93247534b, groupLabel: localeCopy.copy_142861823e, source: 'wxBindStatus', checked: true },
-        { key: 'auditStatus', label: localeCopy.copy_e3070392e0, groupLabel: localeCopy.copy_142861823e, source: 'auditStatus', checked: true }
+        { key: 'auditStatus', label: localeCopy.copy_e3070392e0, groupLabel: localeCopy.copy_142861823e, source: 'auditStatus', checked: true },
+        { key: 'submittedAt', label: personnelSwitchCopy.hrProfileSubmittedAt, groupLabel: localeCopy.copy_142861823e, source: 'submittedAtText', checked: true },
+        { key: 'submittedBy', label: personnelSwitchCopy.hrProfileSubmitter, groupLabel: localeCopy.copy_142861823e, source: 'submittedByName', checked: true },
+        { key: 'submittedByType', label: personnelSwitchCopy.hrProfileSubmitterType, groupLabel: localeCopy.copy_142861823e, source: 'submittedByTypeText', checked: true }
       ];
       const pendingFieldMap = {};
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -1858,6 +1870,15 @@ module.exports = Behavior({
           detailHrAuditStatus: result.auditStatus || 'none',
           detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
           detailHrRejectionReason: result.rejectionReason || '',
+          detailHrSubmittedAtText: formatDetailTime(result.submittedAt, {
+            reviewStatus: result.submittedAtReviewStatus
+          }),
+          detailHrSubmitterText: [
+            String(result.submittedByName || ''),
+            result.submittedByType === 'self'
+              ? personnelSwitchCopy.hrSubmitterSelf
+              : (result.submittedByType === 'admin' ? personnelSwitchCopy.hrSubmitterAdmin : '')
+          ].filter(Boolean).join(' · '),
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });

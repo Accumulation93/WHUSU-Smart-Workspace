@@ -25,6 +25,19 @@ test('岗位编辑器不再展示或提交自由文本岗位名称', () => {
   assert.doesNotMatch(saveCall, /\.\.\.form|title\s*:/);
 });
 
+test('人事详情与导出都能看到补充资料最后一次提交与当前状态', () => {
+  assert.match(wxml, /detailHrSubmittedAtText/, '人事详情必须展示补充资料提交时间');
+  assert.match(wxml, /detailHrSubmitterText/, '人事详情必须展示补充资料提交人');
+  assert.match(wxml, /detailHrAuditStatusText/, '人事详情必须展示当前状态');
+  assert.match(hrBehavior, /detailHrSubmittedAtText: formatDetailTime\(result\.submittedAt/);
+  assert.match(hrBehavior, /detailHrSubmitterText: \[/, '详情提交人必须带上本人或管理员的类别');
+  assert.match(hrBehavior, /submittedAtText: formatListTime\(item\.submittedAt/);
+  assert.match(hrBehavior, /submittedByTypeText: item\.submittedByType === 'self'/);
+  assert.match(hrBehavior, /key: 'submittedAt', label: personnelSwitchCopy\.hrProfileSubmittedAt/);
+  assert.match(hrBehavior, /key: 'submittedByType', label: personnelSwitchCopy\.hrProfileSubmitterType/);
+  assert.match(hrBehavior, /source: 'auditStatus'/);
+});
+
 test('账号高危控件只由全局账号治理权限控制', () => {
   assert.doesNotMatch(wxml, /wx:if="\{\{canRecoverAccounts && detailHrGovernance/);
   assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.canIssueRecovery/);
