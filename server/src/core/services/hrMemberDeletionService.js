@@ -340,6 +340,9 @@ async function previewHrMemberDeletion(data, actor) {
   return {
     scope,
     eligible: state.blockers.length === 0 && safetyBlocks.length === 0,
+    // 存在业务历史、但没有触碰安全红线时，允许管理员确认后强行删除：
+    // 业务记录全部保留，只把本人引用匿名化（原学号线索仅超管可查看）。
+    canForce: state.blockers.length > 0 && safetyBlocks.length === 0,
     target: publicTarget(state),
     version,
     blockers: publicCountItems(state.blockers),
@@ -356,8 +359,10 @@ async function previewHrMemberDeletion(data, actor) {
   };
 }
 
-function assertExecutable(state, safetyBlocks, expectedVersion, acceptCleanup) {
-  if (state.blockers.length) {
+function assertExecutable(state, safetyBlocks, expectedVersion, acceptCleanup, force) {
+  // 强行删除只放行“业务历史”这一类拦截：先把本人引用匿名化，记录本身全部保留。
+  // 两条安全红线（删除自己、删除最后一个有效超级管理员）永远不放行。
+  if (state.blockers.length && force !== true) {
     throw new HrMemberDeletionError('hr_member_deletion_has_business_history', 409, {
       blockers: publicCountItems(state.blockers)
     });
@@ -446,7 +451,13 @@ async function executeWithIdempotency(data, actor, scope, operationType, callbac
       const lockKey = await acquireDeletionLock(connection, state.person.person_id);
       try {
         const safetyBlocks = await evaluateSafety(connection, state, authorizedActor, true);
-        const version = assertExecutable(state, safetyBlocks, data.expectedVersion, data.acceptCleanup);
+        const version = assertExecutable(
+          state,
+          safetyBlocks,
+          data.expectedVersion,
+          data.acceptCleanup,
+          data.force === true
+        );
         const response = await callback(connection, state, version, authorizedActor);
         await requestDeduplication.complete(connection, Object.assign({}, claim, {
           orgId: dedupOrgId,
@@ -473,11 +484,20 @@ async function deleteHrMembershipPermanently(data, actor, options) {
     MEMBERSHIP_SCOPE,
     'delete_hr_membership_permanently',
     async (connection, state, version, authorizedActor) => {
+      const forced = data.force === true && state.blockers.length > 0;
       const cleanup = await deletionModel.cleanupMembershipArtifacts(connection, state.target);
+      const redactedReferences = forced
+        ? await deletionModel.redactDeletedPersonReferences(connection, state.target, {
+          studentId: safeString(state.person.student_id)
+        })
+        : {};
       const result = {
         scope: MEMBERSHIP_SCOPE,
         deleted: true,
         idempotent: false,
+        forced,
+        blockers: forced ? publicCountItems(state.blockers) : [],
+        redactedReferences,
         targetId: safeString(state.person.person_id),
         organizationId: state.organizationId,
         previewVersion: version,
@@ -496,6 +516,9 @@ async function deleteHrMembershipPermanently(data, actor, options) {
         ip: safeString(data.ip),
         detail: {
           scope: MEMBERSHIP_SCOPE,
+          forced,
+          blockers: forced ? publicCountItems(state.blockers) : [],
+          redactedReferences,
           cleanupCounts: result.cleanupCounts,
           affectedRules: result.affectedRules,
           disabledRules: result.disabledRules
@@ -514,6 +537,7 @@ async function deletePersonPermanently(data, actor, options) {
     PERSON_SCOPE,
     'delete_person_permanently',
     async (connection, state, version, authorizedActor) => {
+      const forced = data.force === true && state.blockers.length > 0;
       if (safeString(data.confirmStudentId) !== safeString(state.person.student_id)) {
         throw new HrMemberDeletionError('person_deletion_confirmation_mismatch', 400);
       }
@@ -549,10 +573,18 @@ async function deletePersonPermanently(data, actor, options) {
         digest
       );
       combineCleanupCounts(cleanupCounts, globalCounts);
+      const redactedReferences = forced
+        ? await deletionModel.redactDeletedPersonReferences(connection, state.target, {
+          studentId: safeString(state.person.student_id)
+        })
+        : {};
       const result = {
         scope: PERSON_SCOPE,
         deleted: true,
         idempotent: false,
+        forced,
+        blockers: forced ? publicCountItems(state.blockers) : [],
+        redactedReferences,
         targetId: digest,
         previewVersion: version,
         cleanupCounts,
@@ -572,6 +604,9 @@ async function deletePersonPermanently(data, actor, options) {
         detail: {
           scope: PERSON_SCOPE,
           deletionDigest: digest,
+          forced,
+          blockers: forced ? publicCountItems(state.blockers) : [],
+          redactedReferences,
           cleanupCounts,
           affectedRules: result.affectedRules,
           disabledRules: result.disabledRules

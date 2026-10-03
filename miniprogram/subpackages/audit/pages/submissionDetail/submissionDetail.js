@@ -5,6 +5,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const workContextView = require('../../utils/workContextView');
 const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 
@@ -22,8 +23,21 @@ function normalizeApprovalStepForView(step) {
 }
 
 Page({
+  behaviors: [dialogKeyboardBehavior],
   data: {
     localeCopy,
+    // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
+    dialogLockKeys: [
+      'adHocStepEditorVisible',
+      'editStepEditorVisible',
+      'editPersonPickerVisible',
+      'stampPickerVisible',
+      'placementVisible',
+      'approvalVisible',
+      'sigSourcePickerVisible',
+      'signaturePadVisible',
+      'personPickerVisible'
+    ],
     submissionId: '',
     action: '', // 'create' or 'view'
     submission: null,
@@ -249,6 +263,7 @@ Page({
   },
 
   onShow() {
+    this.bindDialogKeyboard();
     this._pageActive = true;
     if (!orgSession.consume(this).changed) {
       this.refreshActiveWorkContext();
@@ -260,6 +275,7 @@ Page({
   },
 
   onHide() {
+    this.unbindDialogKeyboard();
     this._pageActive = false;
     if (this._actionTimer) {
       clearTimeout(this._actionTimer);
@@ -268,6 +284,8 @@ Page({
   },
 
   onUnload() {
+    this.unbindDialogKeyboard();
+    this.releaseDialogScrollLock();
     this._pageActive = false;
     orgSession.invalidateRequests(this);
     if (this._actionTimer) {

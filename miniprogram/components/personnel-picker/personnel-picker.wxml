@@ -39,7 +39,7 @@
               <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.identity}}</view><picker class="ui-field-control-host" range="{{identityOptions}}" value="{{identityIndex}}" bindchange="onIdentityChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{identityIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{identityOptions[identityIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
               <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.workGroup}}</view><picker class="ui-field-control-host" range="{{workGroupOptions}}" value="{{workGroupIndex}}" bindchange="onWorkGroupChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{workGroupIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{workGroupOptions[workGroupIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
             </view>
-            <input class="personnel-picker-search field-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="{{localeCopy.searchPlaceholder}}" />
+            <input class="personnel-picker-search field-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="{{localeCopy.searchPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
           </view>
 
           <slot name="extra"></slot>

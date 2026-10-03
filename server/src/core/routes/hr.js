@@ -563,6 +563,7 @@ function deletionRequestData(req, scope, organizationId) {
     expectedVersion: safeString(req.body && req.body.expectedVersion),
     clientRequestId: safeString(req.body && req.body.clientRequestId),
     acceptCleanup: Boolean(req.body && req.body.acceptCleanup === true),
+    force: Boolean(req.body && req.body.force === true),
     confirmStudentId: safeString(req.body && req.body.confirmStudentId),
     requestId: safeString(req.requestId),
     ip: safeString(req.ip)

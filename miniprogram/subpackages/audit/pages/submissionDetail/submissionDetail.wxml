@@ -1,4 +1,4 @@
-<page-meta page-style="{{adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{(adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <view class="page subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{action === 'create' ? localeCopy.copy_67587e6612 : localeCopy.copy_2d40e10806}}"></workspace-hero>
 
@@ -127,7 +127,7 @@
           <view class="detail-popup-form ui-dialog-stack">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
-              <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
+              <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
@@ -280,13 +280,13 @@
         <!-- Approval comment -->
         <view class="approval-field">
           <view class="approval-field-label">{{localeCopy.copy_12555b2518}}</view>
-          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_79e3568eee}}"></textarea>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_79e3568eee}}" adjust-position="{{false}}" cursor-spacing="24" ></textarea>
         </view>
 
         <!-- Rejection reason -->
         <view class="approval-field">
           <view class="approval-field-label">{{localeCopy.copy_47a12cc974}}</view>
-          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_cc26adb7da}}"></textarea>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_cc26adb7da}}" adjust-position="{{false}}" cursor-spacing="24" ></textarea>
         </view>
 
         <!-- Designate next-step approvers (optional) -->
@@ -494,11 +494,11 @@
           <view class="section-title">{{localeCopy.copy_66240d9d99}}</view>
           <view class="field">
             <view class="field-label">{{localeCopy.copy_30f93d24ca}}</view>
-            <input class="field-input" value="{{editTitle}}" bindinput="onEditTitleInput" placeholder="{{localeCopy.copy_3ebd5d2cf0}}" />
+            <input class="field-input" value="{{editTitle}}" bindinput="onEditTitleInput" placeholder="{{localeCopy.copy_3ebd5d2cf0}}" adjust-position="{{false}}" cursor-spacing="24" />
           </view>
           <view class="field">
             <view class="field-label">{{localeCopy.copy_25e1199dc3}}</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="{{localeCopy.copy_3234735724}}" ></textarea>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="{{localeCopy.copy_3234735724}}" adjust-position="{{false}}" cursor-spacing="24" ></textarea>
           </view>
         </view>
 
@@ -592,7 +592,7 @@
             <view class="detail-popup-form ui-dialog-stack">
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
-                <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
+                <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
               </view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
@@ -792,7 +792,7 @@
           <view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_47a12cc974}}</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_a2d2583699}}" />
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_a2d2583699}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
           </view>
 
@@ -860,7 +860,7 @@
             </view>
             <view wx:if="{{sigSaveNew}}" class="sig-source-save-input-wrap">
               <input class="sig-source-save-input"
-                     placeholder="{{localeCopy.copy_1d953e38dc}}" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" />
+                     placeholder="{{localeCopy.copy_1d953e38dc}}" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <button class="primary-btn sig-source-draw-btn ui-motion-button" catchtap="onOpenNewSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a9df85e7e6}}</button>
           </view>

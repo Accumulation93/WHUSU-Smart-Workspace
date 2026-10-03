@@ -5,6 +5,7 @@ const eventBus = require('../../../../utils/eventBus');
 const personnelPickerCopy = require('../../../../locales/zh-CN/personnelPicker');
 const personnelPickerModel = require('../../../../components/personnel-picker/personnelPickerModel');
 const orgSession = require('../../../../utils/orgSession');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { formatSystemClock } = require('../../../../utils/dateTime');
 const {
@@ -39,10 +40,14 @@ function resolveVenueApprovalEndpoint(record, action) {
 }
 
 Page({
+  behaviors: [dialogKeyboardBehavior],
   onLoad() {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.bindDialogKeyboard();
   },
   data: {
+    // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
+    dialogLockKeys: ['approvalVisible', 'nextApproverPickerVisible'],
     localeCopy,
     pending: [],
     loading: false,
@@ -103,6 +108,8 @@ Page({
   },
 
   onUnload() {
+    this.unbindDialogKeyboard();
+    this.releaseDialogScrollLock();
     this._isPageVisible = false;
     this._clearApprovalSyncTimer();
     this.stopPolling();

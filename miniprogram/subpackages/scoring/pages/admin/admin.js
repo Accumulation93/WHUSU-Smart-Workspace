@@ -38,10 +38,12 @@ const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
 const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
 const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
 const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 
 Page({
   behaviors: [
     sharedApi,
+    dialogKeyboardBehavior,
     dictionaryFeedbackBehavior,
     activityBehavior,
     templateBehavior,
@@ -118,6 +120,41 @@ Page({
     ruleForm: emptyRuleForm(),
     draggingClauseTemplateIndex: -1,
     dragActive: false,
+    // 弹窗标志位清单：键盘守卫在页面卸载时统一复位，避免 page-meta 的
+    // overflow:hidden 被泄漏的标志位永久锁住（与 admin.wxml 的 page-style 保持一致）。
+    dialogLockKeys: [
+      'dragActive',
+      'showTemplateCsvDialog',
+      'hrProfileExportVisible',
+      'hrTemplateSwitchVisible',
+      'hrTemplateSwitchBlockVisible',
+      'crossOrgMigrationVisible',
+      'showHrPersonDetail',
+      'hrPermanentDeletionVisible',
+      'profileRejectVisible',
+      'personCorrectionVisible',
+      'showCsvMappingDialog',
+      'showHrImportPreview',
+      'showValidationErrors',
+      'auditTemplateStepEditorVisible',
+      'auditStarterConditionEditorVisible',
+      'auditSubmissionDetailVisible',
+      'auditMultiPickerVisible',
+      'auditPersonnelPickerVisible',
+      'auditIdentityPickerVisible',
+      'showDesignationPicker',
+      'orgFormVisible',
+      'scorerTargetPopupVisible',
+      'recordDetailPopupVisible',
+      'contextSwitchGuardVisible',
+      'identityActionConfirmVisible',
+      'adminDeleteConfirmVisible',
+      'showAuthCodeDialog',
+      'showAuthRecoveryDialog',
+      'authMemberConfirmVisible',
+      'stampGrantVisible',
+      'dictionaryUsageDialog.visible'
+    ],
     draggingQuestionIndex: -1,
     dragInsertIndex: -1,
     dragGhostTop: 0,
@@ -305,6 +342,8 @@ Page({
     hrPermanentDeletionCleanup: [],
     hrPermanentDeletionRules: [],
     hrPermanentDeletionCleanupAccepted: false,
+    hrPermanentDeletionCanForce: false,
+    hrPermanentDeletionForceAccepted: false,
     hrPermanentDeletionConfirmation: '',
     hrPermanentDeletionLoading: false,
     loadingDetailHr: false,
@@ -461,6 +500,7 @@ Page({
 
   onShow() {
     this._pageVisible = true;
+    this.bindDialogKeyboard();
     const consumed = orgSession.consume(this);
     const organizationChanged = consumed.changed;
     const preservedTab = this.data.activeTab;
@@ -630,6 +670,7 @@ Page({
 
   onHide() {
     this._pageVisible = false;
+    this.unbindDialogKeyboard();
     this.clearPermissionCheckGuard();
     if (this.cancelHrTemplateSaveContinuation) this.cancelHrTemplateSaveContinuation();
     if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();
@@ -642,6 +683,8 @@ Page({
 
   onUnload() {
     this._pageVisible = false;
+    this.unbindDialogKeyboard();
+    this.releaseDialogScrollLock();
     this.clearPermissionCheckGuard();
     if (this.cancelHrTemplateSaveContinuation) this.cancelHrTemplateSaveContinuation();
     if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();

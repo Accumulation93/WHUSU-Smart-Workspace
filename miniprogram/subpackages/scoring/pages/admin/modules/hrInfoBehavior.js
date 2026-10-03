@@ -647,6 +647,8 @@ module.exports = Behavior({
           hrPermanentDeletionCleanup: decorateDeletionImpact(preview.cleanupImpact || []),
           hrPermanentDeletionRules: decorateDeletionRules(preview.affectedRules || []),
           hrPermanentDeletionCleanupAccepted: false,
+          hrPermanentDeletionCanForce: Boolean(preview.canForce),
+          hrPermanentDeletionForceAccepted: false,
           hrPermanentDeletionConfirmation: ''
         });
         // 每次权威预检对应一次新的受控确认。执行失败后的网络重试复用该值；
@@ -676,6 +678,8 @@ module.exports = Behavior({
         hrPermanentDeletionCleanup: [],
         hrPermanentDeletionRules: [],
         hrPermanentDeletionCleanupAccepted: false,
+        hrPermanentDeletionCanForce: false,
+        hrPermanentDeletionForceAccepted: false,
         hrPermanentDeletionConfirmation: ''
       });
       if (deletionCompleted && this.data.showHrPersonDetail) this.closeHrPersonDetail();
@@ -685,6 +689,10 @@ module.exports = Behavior({
       this.setData({ hrPermanentDeletionCleanupAccepted: Boolean(e.detail && e.detail.accepted) });
     },
 
+    onPermanentHrDeletionForceAcceptance(e) {
+      this.setData({ hrPermanentDeletionForceAccepted: Boolean(e.detail && e.detail.accepted) });
+    },
+
     onPermanentHrDeletionConfirmation(e) {
       this.setData({ hrPermanentDeletionConfirmation: String(e.detail.value || '') });
     },
@@ -692,7 +700,12 @@ module.exports = Behavior({
     async confirmPermanentHrDeletion() {
       const preview = this.data.hrPermanentDeletionPreview;
       const target = this.data.hrPermanentDeletionTarget;
-      if (!preview || !target || !preview.eligible || this.data.hrPermanentDeletionLoading) return;
+      if (!preview || !target || this.data.hrPermanentDeletionLoading) return;
+      // 存在业务历史时，只有勾选“已知晓会保留记录并匿名化引用”才允许强行删除；
+      // 两条安全红线由服务端始终拦截，这里不做任何放行。
+      const forced = !preview.eligible && Boolean(this.data.hrPermanentDeletionCanForce);
+      if (!preview.eligible && !forced) return;
+      if (forced && !this.data.hrPermanentDeletionForceAccepted) return;
       const scope = target.scope;
       const cleanupRequired = Array.isArray(this.data.hrPermanentDeletionCleanup)
         && this.data.hrPermanentDeletionCleanup.length > 0;
@@ -715,6 +728,7 @@ module.exports = Behavior({
             expectedVersion: preview.version,
             clientRequestId: this._hrPermanentDeletionClientRequestId,
             acceptCleanup: !cleanupRequired || this.data.hrPermanentDeletionCleanupAccepted,
+            force: forced,
             confirmStudentId: scope === 'person' ? this.data.hrPermanentDeletionConfirmation : ''
           }
         );
@@ -749,6 +763,7 @@ module.exports = Behavior({
         this.setData({
           hrPermanentDeletionLoading: false,
           hrPermanentDeletionResult: {
+            forced: Boolean(deletionResult.forced),
             cleanup: cleanupLabels,
             affectedRules,
             disabledRules

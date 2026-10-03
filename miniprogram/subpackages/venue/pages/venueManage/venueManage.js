@@ -5,6 +5,7 @@ const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const flowManagementCopy = require('../../../../locales/zh-CN/venueFlowManagement');
 const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const adminTimeSelection = require('../../utils/adminTimeSelection');
@@ -244,10 +245,26 @@ function bookingWindowMinutes(item) {
 }
 
 Page({
+  behaviors: [dialogKeyboardBehavior],
   data: {
     controlLayoutCopy,
     localeCopy,
     flowManagementCopy,
+    // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
+    dialogLockKeys: [
+      'editing',
+      'rulesVisible',
+      'ruleEditorVisible',
+      'scheduleVisible',
+      'occupiedPopupVisible',
+      'activityDetailVisible',
+      'bookingDetailVisible',
+      'adminBookingVisible',
+      'purposeVisible',
+      'condMultiPickerVisible',
+      'approvalPopupVisible',
+      'contextSwitchGuardVisible'
+    ],
     // ── Main tab ──
     activeTab: 'venue',  // 'venue' | 'bookings' | 'pending' | 'purposes'
     hasPermission: true,
@@ -439,10 +456,12 @@ Page({
   },
 
   onShow() {
+    this.bindDialogKeyboard();
     this.preparePermissionsAndLoad();
   },
 
   onHide() {
+    this.unbindDialogKeyboard();
     this._adminTimelineDrag = null;
     this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
     orgSession.invalidateRequests(this);
@@ -450,6 +469,7 @@ Page({
   },
 
   onUnload() {
+    this.releaseDialogScrollLock();
     this.onHide();
   },
 

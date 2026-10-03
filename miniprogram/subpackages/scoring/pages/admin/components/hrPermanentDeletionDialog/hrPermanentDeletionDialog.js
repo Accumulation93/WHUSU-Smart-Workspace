@@ -15,6 +15,8 @@ Component({
     cleanup: Array,
     affectedRules: Array,
     cleanupAccepted: Boolean,
+    canForce: Boolean,
+    forceAccepted: Boolean,
     confirmation: String,
     loading: Boolean
   },
@@ -31,6 +33,12 @@ Component({
     emitCleanupAcceptance(e) {
       this.triggerEvent('cleanupacceptance', {
         accepted: Array.isArray(e.detail.value) && e.detail.value.includes('accepted')
+      });
+    },
+
+    emitForceAcceptance(e) {
+      this.triggerEvent('forceacceptance', {
+        accepted: Array.isArray(e.detail.value) && e.detail.value.includes('force')
       });
     },
 

@@ -11,7 +11,7 @@ function min(t) {
 }
 module.exports = { hour: hour, min: min };
 </wxs>
-<page-meta page-style="{{scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{(scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
 <view class="page subapp-venue-page">
   <!-- Hero -->
@@ -240,7 +240,7 @@ module.exports = { hour: hour, min: min };
           <!-- Title -->
           <view class="field">
             <view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
-            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}" placeholder-class="field-placeholder"/>
+            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}" placeholder-class="field-placeholder" adjust-position="{{false}}" cursor-spacing="24" />
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
@@ -329,7 +329,7 @@ module.exports = { hour: hour, min: min };
           <!-- Description -->
           <view class="field">
             <view class="field-label">{{localeCopy.copy_5b5ccadb74}}</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2edf3fde90}}"/>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2edf3fde90}}" adjust-position="{{false}}" cursor-spacing="24" />
           </view>
           <view class="field" wx:if="{{allowUserSelectFlow}}">
             <view class="field-label">{{localeCopy.copy_3bc010171a}} <text class="required">*</text></view>
@@ -419,7 +419,7 @@ module.exports = { hour: hour, min: min };
             </view>
             <view class="field field--approval-comment">
               <view class="field-label">{{localeCopy.copy_bddb855314}}</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}"/>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
           </view>
         </view>

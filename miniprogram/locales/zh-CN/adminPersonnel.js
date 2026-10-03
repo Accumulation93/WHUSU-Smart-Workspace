@@ -64,6 +64,8 @@ module.exports = Object.freeze({
   hrProfileMaintainedAt: '管理员维护时间',
   hrProfileMaintainedBy: '管理员维护人',
   hrProfileLastChangedAt: '资料最后变更时间',
+  deletedPerson: '已删除人员',
+  deletedPersonWithStudentId: '{0}（原学号 {1}）',
   assignmentNatureLabels: Object.freeze({
     staff: '本会岗位',
     liaison: '学院对接岗位',

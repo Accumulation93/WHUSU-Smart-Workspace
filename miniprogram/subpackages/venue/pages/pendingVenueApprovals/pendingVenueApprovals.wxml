@@ -1,4 +1,4 @@
-<page-meta page-style="{{approvalVisible || nextApproverPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{(approvalVisible || nextApproverPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <view class="page page-narrow subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_5aaf844f1e}}"></workspace-hero>
 
@@ -113,7 +113,7 @@
             </view>
             <view class="field field--approval-comment">
               <view class="field-label">{{localeCopy.copy_bddb855314}}</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}"/>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
           </view>
         </view>

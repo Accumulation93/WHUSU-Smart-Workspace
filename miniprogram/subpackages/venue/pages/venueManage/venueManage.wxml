@@ -1,4 +1,4 @@
-<page-meta page-style="{{editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{(editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <view class="page subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_02719d6557}}" tone="admin"></workspace-hero>
 
@@ -57,9 +57,9 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
-          <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8ed5dab532}}"/></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_b9966da09b}}</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2cae5f609b}}"/></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_25e1199dc3}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8516d4b714}}"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8ed5dab532}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_b9966da09b}}</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2cae5f609b}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_25e1199dc3}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8516d4b714}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
         </view>
       </scroll-view>
       <view class="venue-edit-actions ui-dialog-footer">
@@ -158,7 +158,7 @@
       <view class="field">
         <view class="field-label">{{localeCopy.copy_a97eb08acb}}</view>
         <view class="input-row purpose-input-row">
-          <input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/>
+          <input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}" adjust-position="{{false}}" cursor-spacing="24" />
           <button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button>
           <button wx:if="{{purposeEditId}}" class="secondary-btn purpose-cancel-btn ui-motion-button" bindtap="cancelPurposeEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         </view>
@@ -266,7 +266,7 @@
                 <view class="picker-display">{{bookingWindowForm.open.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.open.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.open.mode === 'days'}}" class="booking-window-value-row">
-                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
                 <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.open.mode === 'duration'}}" class="booking-window-value-row">
@@ -283,7 +283,7 @@
                 <view class="picker-display">{{bookingWindowForm.deadline.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.deadline.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'days'}}" class="booking-window-value-row">
-                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" />
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
                 <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'duration'}}" class="booking-window-value-row">
@@ -317,7 +317,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
         <view class="form-body rule-editor-stack ui-dialog-stack">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-            <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}"/></view>
+            <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
             <view class="field"><view class="field-label">{{localeCopy.copy_5c507fbab7}}</view>
               <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" bindchange="onCycleTypeChange">
                 <view class="picker-display">{{ruleForm.cycleType === 'daily' ? localeCopy.copy_13293d504a : (ruleForm.cycleType === 'weekly' ? localeCopy.copy_1a6678cddf : (ruleForm.cycleType === 'monthly' ? localeCopy.copy_06a9527bac : (ruleForm.cycleType === 'yearly' ? localeCopy.copy_9084e6bc76 : localeCopy.copy_652116de6d)))}}</view></picker></view>
@@ -405,15 +405,15 @@
               </block>
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'count'}}">
                 <view class="field"><view class="field-label">{{localeCopy.copy_eb5f7de0a2}}</view>
-                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="{{localeCopy.copy_bc3fac7db2}}" />
+                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="{{localeCopy.copy_bc3fac7db2}}" adjust-position="{{false}}" cursor-spacing="24" />
                   <view class="field-hint">{{localeCopy.copy_915ca9ad86}}</view>
                 </view>
               </block>
             </block>
 
             <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="{{localeCopy.venueStartTimePlaceholder}}"/></view>
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="{{localeCopy.venueEndTimePlaceholder}}"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="{{localeCopy.venueStartTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="{{localeCopy.venueEndTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
             </block>
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
@@ -461,7 +461,7 @@
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingStepIdx >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_904f6072c4}}</view><text class="rule-editor-section-note">{{localeCopy.copy_391bf52121}}</text></view>
                   <view class="field">
                     <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
-                    <input class="field-input" value="{{ruleForm._editingStepName}}" data-field="_editingStepName" bindinput="onRuleFlowSubField" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
+                    <input class="field-input" value="{{ruleForm._editingStepName}}" data-field="_editingStepName" bindinput="onRuleFlowSubField" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
                   </view>
                   <view class="field">
                     <view class="field-label">{{localeCopy.copy_97d10704ef}}</view>
@@ -689,7 +689,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
           <view class="field"><view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
-            <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}"/>
+            <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}" adjust-position="{{false}}" cursor-spacing="24" />
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{adminBookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onAdminSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
@@ -731,7 +731,7 @@
             </view>
             <view wx:else class="field-hint">{{adminBookingEndDate ? localeCopy.copy_560bd817fb : localeCopy.copy_9dfd1d5a78}}</view>
           </view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_90f94d6263}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_188a745e76}}"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_90f94d6263}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_188a745e76}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="field-hint">{{localeCopy.copy_b439065096}}</view>
         </view>
       </scroll-view>
@@ -751,7 +751,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
           <view class="field"><view class="field-label">{{purposeEditId ? localeCopy.copy_259bd6c893 : localeCopy.copy_c312b03c06}}</view>
-            <view class="input-row"><input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
+            <view class="input-row"><input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}" adjust-position="{{false}}" cursor-spacing="24" /><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
           </view>
           <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
           <block wx:if="{{purposes.length}}">
@@ -780,7 +780,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row rule-filter-row--dialog ui-inline-field-row">
-        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
@@ -868,7 +868,7 @@
           </view>
           <view class="field field--approval-comment">
             <view class="field-label">{{localeCopy.copy_bddb855314}}</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}"/>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}" adjust-position="{{false}}" cursor-spacing="24" />
           </view>
         </view>
       </scroll-view>

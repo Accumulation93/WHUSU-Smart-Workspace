@@ -309,6 +309,30 @@ const hrInfoBehavior = require('../miniprogram/subpackages/scoring/pages/admin/m
   '迁移只能顺延仍在使用中的认证码，且必须可安全重试');
 
   console.log('认证码有效期默认值与手动设置测试通过');
+
+  // 强行删除：只在存在业务历史且用户勾选“已知晓会保留记录并匿名化引用”时才放行；
+  // 两条安全红线由服务端始终拦截，前端不得提供任何绕过入口。
+  const deletionDialogSource = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.wxml'),
+    'utf8'
+  );
+  assert(/bindchange="emitForceAcceptance"/.test(deletionDialogSource)
+    && /canForce && !preview\.eligible/.test(deletionDialogSource)
+    && /hrDeletionForceConfirm/.test(deletionDialogSource)
+    && /result\.forced \? localeCopy\.hrDeletionForcedDone/.test(deletionDialogSource),
+  '永久删除弹窗必须提供强行删除勾选、按钮文案与强制执行结果提示');
+  const deletionBehaviorSource = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'),
+    'utf8'
+  );
+  assert(/const forced = !preview\.eligible && Boolean\(this\.data\.hrPermanentDeletionCanForce\)/.test(deletionBehaviorSource)
+    && /if \(forced && !this\.data\.hrPermanentDeletionForceAccepted\) return;/.test(deletionBehaviorSource)
+    && /force: forced,/.test(deletionBehaviorSource),
+  '强行删除必须由勾选门控并把 force 传给服务端');
+  assert(!/hrPermanentDeletionForceAccepted: true/.test(deletionBehaviorSource)
+    && !/hrPermanentDeletionCanForce: true/.test(deletionBehaviorSource),
+  '强行删除的勾选与可强删标记不得被前端预置为 true，必须由服务端预检与用户操作决定');
+  console.log('强行删除入口与脱敏展示契约测试通过');
   console.log('成员资料与账号治理故障隔离测试通过');
 })().catch((error) => {
   console.error(error);

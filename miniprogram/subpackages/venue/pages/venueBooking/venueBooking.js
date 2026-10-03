@@ -5,6 +5,7 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const personnelPickerCopy = require('../../../../locales/zh-CN/personnelPicker');
 const personnelPickerModel = require('../../../../components/personnel-picker/personnelPickerModel');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
@@ -271,10 +272,24 @@ function isEndStillValid(startMin, endMin, openMerged, blockedMerged) {
 }
 
 Page({
+  behaviors: [dialogKeyboardBehavior],
   onLoad() {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.bindDialogKeyboard();
   },
   data: {
+    // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
+    dialogLockKeys: [
+      'scheduleVisible',
+      'occupiedPopupVisible',
+      'activityDetailVisible',
+      'bookingDetailVisible',
+      'bookingVisible',
+      'approvalVisible',
+      '_kbVisible',
+      'firstApproverPickerVisible',
+      'nextApproverPickerVisible'
+    ],
     localeCopy,
     hasActiveAssignment: false,
     activeTab: 'browse', loading: false,
@@ -390,6 +405,8 @@ Page({
   },
 
   onUnload() {
+    this.unbindDialogKeyboard();
+    this.releaseDialogScrollLock();
     this._isPageVisible = false;
     this._clearApprovalSyncTimer();
     this.stopPolling();

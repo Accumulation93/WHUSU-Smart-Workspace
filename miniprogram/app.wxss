@@ -864,8 +864,10 @@ button[disabled],
   min-width: 0;
   max-width: calc(100vw - var(--ui-dialog-width-inset, 32rpx)) !important;
   margin: 0 !important;
-  transform: translate(-50%, -50%) !important;
-  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  /* 键盘弹起时，弹窗按 --kb-height 收窄并整体上移到键盘上方：页面本身不再被顶偏，
+     被遮挡的字段由弹窗正文自己的滚动条保证可见可点。 */
+  transform: translate(-50%, calc(-50% - var(--kb-height, 0px) / 2)) !important;
+  max-height: calc(100vh - var(--kb-height, 0px) - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   overflow-x: hidden;
   overflow-y: hidden !important;
   overscroll-behavior: none;

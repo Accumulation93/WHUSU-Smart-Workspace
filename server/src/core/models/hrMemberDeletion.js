@@ -1270,6 +1270,176 @@ async function cleanupPersonAbsoluteTimeReviews(connection, target) {
   return removed;
 }
 
+// 强制删除时的引用脱敏：业务记录（评分、评优指定、审核提交/步骤/签名/事件、场地
+// 预约）全部保留，只把被删人员的引用匿名化——可空列置 NULL，不可空的历史标识列
+// 写入 `deleted:<原学号>:<行主键前8位>` 占位（既保留原学号线索，又逐行唯一、不会
+// 撞唯一索引）。历史 JSON 快照不改写（审计证据不可篡改）。
+// 组织成员范围只脱敏该组织的 hr/岗位/管理员标识（自然人保留）；自然人范围连
+// person_id 引用一并置空。
+const DELETED_REFERENCE_PREFIX = 'deleted:';
+
+async function redactDeletedPersonReferences(connection, target, options) {
+  const personScope = !safeString(target.organizationId);
+  const orgId = safeString(target.organizationId);
+  const studentId = safeString(options && options.studentId);
+  const legacyOpenids = uniqueStrings(target.legacyOpenids);
+  const counts = {};
+  const sentinel = `CONCAT('${DELETED_REFERENCE_PREFIX}', ?, ':', LEFT(id, 8))`;
+
+  const withOrg = (reference) => (orgId
+    ? { sql: `(${reference.sql}) AND org_id = ?`, params: reference.params.concat([orgId]) }
+    : reference);
+
+  const groups = [
+    {
+      key: 'scoreRecords',
+      table: 'score_records',
+      sides: [
+        {
+          match: { hrColumns: ['scorer_id'], assignmentColumns: ['scorer_assignment_id'] },
+          sentinelColumns: ['scorer_id'],
+          nullColumns: ['scorer_assignment_id'],
+          personColumns: ['scorer_person_id']
+        },
+        {
+          match: { hrColumns: ['target_id'], assignmentColumns: ['target_assignment_id'] },
+          sentinelColumns: ['target_id'],
+          nullColumns: ['target_assignment_id'],
+          personColumns: ['target_person_id']
+        }
+      ]
+    },
+    {
+      key: 'scoringDesignations',
+      table: 'merit_list_designations',
+      sides: [
+        {
+          match: { hrColumns: ['target_hr_id'], assignmentColumns: ['target_assignment_id'] },
+          sentinelColumns: ['target_hr_id'],
+          nullColumns: ['target_assignment_id'],
+          personColumns: ['designated_by_person_id']
+        },
+        {
+          match: { assignmentColumns: ['designated_by_assignment_id'], personColumns: ['designated_by_person_id'] },
+          sentinelColumns: [],
+          nullColumns: ['designated_by_assignment_id']
+        },
+        {
+          match: { legacyAdminColumns: ['designated_by'] },
+          sentinelColumns: ['designated_by'],
+          extraWhere: legacyOpenids.length
+            ? { sql: `designated_by IN (${placeholders(legacyOpenids)})`, params: legacyOpenids.slice() }
+            : null
+        }
+      ]
+    },
+    {
+      key: 'auditSubmissions',
+      table: 'audit_submissions',
+      sides: [
+        {
+          match: { hrColumns: ['submitted_by'], assignmentColumns: ['submitted_assignment_id'] },
+          sentinelColumns: ['submitted_by'],
+          nullColumns: ['submitted_assignment_id'],
+          personColumns: ['submitted_person_id']
+        }
+      ]
+    },
+    {
+      key: 'auditSteps',
+      table: 'audit_submission_steps',
+      sides: [
+        {
+          match: { hrColumns: ['approver_hr_id'], assignmentColumns: ['processed_assignment_id'] },
+          nullColumns: ['approver_hr_id', 'processed_assignment_id'],
+          personColumns: ['processed_person_id']
+        }
+      ]
+    },
+    {
+      key: 'auditSignatures',
+      table: 'audit_submission_signatures',
+      sides: [
+        {
+          match: { hrColumns: ['signer_hr_id'], assignmentColumns: ['signer_assignment_id'] },
+          sentinelColumns: ['signer_hr_id'],
+          nullColumns: ['signer_assignment_id']
+        }
+      ]
+    },
+    {
+      key: 'auditEvents',
+      table: 'audit_events',
+      sides: [
+        {
+          match: { hrColumns: ['operator_hr_id'], assignmentColumns: ['operator_assignment_id'] },
+          nullColumns: ['operator_hr_id', 'operator_assignment_id'],
+          personColumns: ['operator_person_id']
+        }
+      ]
+    },
+    {
+      key: 'venueBookings',
+      table: 'venue_bookings',
+      sides: [
+        {
+          match: {
+            hrColumns: ['user_hr_id'],
+            assignmentColumns: ['creator_assignment_id'],
+            adminGrantColumns: ['creator_admin_grant_id'],
+            legacyAdminColumns: ['creator_admin_id']
+          },
+          nullColumns: ['user_hr_id', 'creator_assignment_id', 'creator_admin_grant_id', 'creator_admin_id'],
+          personColumns: ['creator_person_id']
+        }
+      ]
+    }
+  ];
+
+  for (const group of groups) {
+    for (const side of group.sides) {
+      const reference = withOrg(personReferenceWhere(target, side.match || {}));
+      const extra = side.extraWhere && side.extraWhere.sql ? side.extraWhere : null;
+      if (!reference.sql) continue;
+      const whereParts = [`(${reference.sql})`];
+      const whereParams = reference.params.slice();
+      if (extra) {
+        const scopedExtra = withOrg(extra);
+        whereParts.push(`(${scopedExtra.sql})`);
+        whereParams.push(...scopedExtra.params);
+      }
+      const sets = [];
+      const params = [];
+      (side.sentinelColumns || []).forEach((column) => {
+        sets.push(`${column} = ${sentinel}`);
+        params.push(studentId);
+      });
+      (side.nullColumns || []).forEach((column) => sets.push(`${column} = NULL`));
+      if (personScope) {
+        (side.personColumns || []).forEach((column) => sets.push(`${column} = NULL`));
+      }
+      if (!sets.length) continue;
+      const [result] = await connection.query(
+        `UPDATE ${group.table} SET ${sets.join(', ')} WHERE ${whereParts.join(' OR ')}`,
+        params.concat(whereParams)
+      );
+      const affected = Number(result && result.affectedRows || 0);
+      if (affected) counts[group.key] = (counts[group.key] || 0) + affected;
+    }
+  }
+
+  if (personScope) {
+    const [merged] = await connection.query(
+      'UPDATE persons SET merged_into_person_id = NULL WHERE merged_into_person_id = ?',
+      [safeString(target.personId)]
+    );
+    const affected = Number(merged && merged.affectedRows || 0);
+    if (affected) counts.mergedPersonReferences = affected;
+  }
+
+  return counts;
+}
+
 async function cleanupMembershipArtifacts(connection, target) {
   const orgId = safeString(target.organizationId);
   const personId = safeString(target.personId);
@@ -1543,6 +1713,7 @@ module.exports = {
   cleanupRuleReferences,
   cleanupMembershipArtifacts,
   cleanupGlobalPersonArtifacts,
+  redactDeletedPersonReferences,
   deleteAbsoluteTimeReviewsForRows,
   cleanupMembershipAbsoluteTimeReviews,
   cleanupPersonAbsoluteTimeReviews,

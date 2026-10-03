@@ -1,6 +1,6 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
-<page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{(dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
 
@@ -462,7 +462,7 @@
                   <view class="field field-row">
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_30e235fb56}}</view>
-                      <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" />
+                      <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
                     </view>
                   </view>
                   <view class="field">
@@ -474,11 +474,11 @@
                   <view class="field field-row" wx:if="{{ruleForm.clauseCalculationMethod === 'trim_extremes'}}">
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_413624a39e}}</view>
-                      <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
+                      <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" adjust-position="{{false}}" cursor-spacing="24" />
                     </view>
                     <view class="field field-half">
                       <view class="field-label">{{localeCopy.copy_061e85a1bb}}</view>
-                      <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
+                      <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" adjust-position="{{false}}" cursor-spacing="24" />
                     </view>
                   </view>
                   <view class="button-row compact-row">
@@ -501,7 +501,7 @@
             <view class="field field-row">
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_30e235fb56}}</view>
-                <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" />
+                <input class="field-input" data-field="clauseTemplateWeight" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTemplateWeight}}" placeholder="{{localeCopy.numericOnePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
               </view>
             </view>
             <view class="field">
@@ -513,11 +513,11 @@
             <view class="field field-row" wx:if="{{ruleForm.clauseCalculationMethod === 'trim_extremes'}}">
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_413624a39e}}</view>
-                <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
+                <input class="field-input" data-field="clauseTrimHighCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimHighCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" adjust-position="{{false}}" cursor-spacing="24" />
               </view>
               <view class="field field-half">
                 <view class="field-label">{{localeCopy.copy_061e85a1bb}}</view>
-                <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" />
+                <input class="field-input" data-field="clauseTrimLowCount" bindinput="onRuleFieldInput" value="{{ruleForm.clauseTrimLowCount}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" type="number" adjust-position="{{false}}" cursor-spacing="24" />
               </view>
             </view>
             <view class="button-row compact-row">
@@ -873,11 +873,11 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_7a4d5ab30f}}</view>
-          <input class="field-input" data-field="name" bindinput="onHrFieldInput" value="{{hrForm.name}}" placeholder="{{localeCopy.copy_971b628f49}}" />
+          <input class="field-input" data-field="name" bindinput="onHrFieldInput" value="{{hrForm.name}}" placeholder="{{localeCopy.copy_971b628f49}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_80fba348b7}}</view>
-          <input class="field-input" data-field="studentId" bindinput="onHrFieldInput" value="{{hrForm.studentId}}" placeholder="{{localeCopy.copy_f4094dd21d}}" />
+          <input class="field-input" data-field="studentId" bindinput="onHrFieldInput" value="{{hrForm.studentId}}" placeholder="{{localeCopy.copy_f4094dd21d}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row compact-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveHr}}" bindtap="saveHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6ee4bd4f78}}</button>
@@ -917,7 +917,7 @@
             </view>
             <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
               <view class="field-label">{{localeCopy.copy_f594467fe0}}</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onActiveHrProfileSettingInput" value="{{activeHrProfileSnapshot.description}}" placeholder="{{localeCopy.copy_29f1c77823}}" />
+              <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onActiveHrProfileSettingInput" value="{{activeHrProfileSnapshot.description}}" placeholder="{{localeCopy.copy_29f1c77823}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
               <view class="field-label">{{localeCopy.copy_1037d0aa5f}}</view>
@@ -1279,11 +1279,11 @@
             <view class="detail-section-title">{{localeCopy.copy_66240d9d99}}</view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_7a4d5ab30f}}</view>
-              <input class="field-input" disabled="{{!canGlobalAccountManage || detailHrReadOnly}}" data-field="_name" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._name}}" placeholder="{{localeCopy.copy_7a4d5ab30f}}" />
+              <input class="field-input" disabled="{{!canGlobalAccountManage || detailHrReadOnly}}" data-field="_name" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._name}}" placeholder="{{localeCopy.copy_7a4d5ab30f}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_80fba348b7}}</view>
-              <input class="field-input" disabled="{{!canGlobalAccountManage || detailHrReadOnly}}" data-field="_studentId" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._studentId}}" placeholder="{{localeCopy.copy_80fba348b7}}" />
+              <input class="field-input" disabled="{{!canGlobalAccountManage || detailHrReadOnly}}" data-field="_studentId" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._studentId}}" placeholder="{{localeCopy.copy_80fba348b7}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <view class="hr-detail-summary" wx:if="{{detailHrGovernance}}">
               <view class="status-chip {{detailHrReadOnly ? 'former-chip' : 'current-chip'}}">{{detailHrReadOnly ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive}}</view>
@@ -1329,7 +1329,7 @@
                 <button class="secondary-btn compact-action ui-motion-button" wx:if="{{detailHrSecurity.passphraseSet}}" catchtap="requestMemberPassphraseClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_b92f43fb29}}</button>
               </view>
               <view class="hr-account-security-form" wx:if="{{showDetailPassphraseForm}}">
-                <input class="field-input" password="{{true}}" value="{{detailHrPassphraseInput}}" bindinput="onDetailPassphraseInput" placeholder="{{localeCopy.copy_10c21cf3bc}}" />
+                <input class="field-input" password="{{true}}" value="{{detailHrPassphraseInput}}" bindinput="onDetailPassphraseInput" placeholder="{{localeCopy.copy_10c21cf3bc}}" adjust-position="{{false}}" cursor-spacing="24" />
                 <view class="button-row hr-account-security-form-actions">
                   <button class="primary-btn ui-motion-button" loading="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.savePassphrase}}</button>
                   <button class="secondary-btn ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
@@ -1516,16 +1516,16 @@
                   </view>
                 </block>
                 <block wx:elif="{{item.type === 'number'}}">
-                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" type="digit" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_c952809d89}}" />
+                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" type="digit" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_c952809d89}}" adjust-position="{{false}}" cursor-spacing="24" />
                 </block>
                 <block wx:elif="{{item.type === 'phone'}}">
-                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" type="number" maxlength="11" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_ba0ffa5386}}" />
+                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" type="number" maxlength="11" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_ba0ffa5386}}" adjust-position="{{false}}" cursor-spacing="24" />
                 </block>
                 <block wx:elif="{{item.type === 'email'}}">
-                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_d7be99abe4}}" />
+                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_d7be99abe4}}" adjust-position="{{false}}" cursor-spacing="24" />
                 </block>
                 <block wx:else>
-                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_fae2f8bfa5}}{{item.label}}" />
+                  <input class="field-input" disabled="{{!canManageHrPeople || detailHrReadOnly}}" data-field="{{item.id}}" bindinput="onDetailProfileFieldInput" value="{{detailHrValues[item.id]}}" placeholder="{{localeCopy.copy_fae2f8bfa5}}{{item.label}}" adjust-position="{{false}}" cursor-spacing="24" />
                 </block>
                 <view class="field-hint" wx:if="{{item.hintText}}">{{item.hintText}}</view>
               </view>
@@ -1538,7 +1538,7 @@
               <block wx:if="{{item.expanded}}">
                 <view class="field" wx:for="{{item.fields}}" wx:for-item="field" wx:key="id">
                   <view class="field-label">{{field.label}}</view>
-                  <input class="field-input" disabled value="{{field.value}}" />
+                  <input class="field-input" disabled value="{{field.value}}" adjust-position="{{false}}" cursor-spacing="24" />
                   <view class="field-hint" wx:if="{{field.pendingValue}}">{{migrationCopy.pendingValue}}{{migrationCopy.sep}}{{field.pendingValue}}</view>
                 </view>
               </block>
@@ -1617,10 +1617,13 @@
       cleanup="{{hrPermanentDeletionCleanup}}"
       affected-rules="{{hrPermanentDeletionRules}}"
       cleanup-accepted="{{hrPermanentDeletionCleanupAccepted}}"
+      can-force="{{hrPermanentDeletionCanForce}}"
+      force-accepted="{{hrPermanentDeletionForceAccepted}}"
       confirmation="{{hrPermanentDeletionConfirmation}}"
       loading="{{hrPermanentDeletionLoading}}"
       bindclose="closePermanentHrDeletion"
       bindcleanupacceptance="onPermanentHrDeletionCleanupAcceptance"
+      bindforceacceptance="onPermanentHrDeletionForceAcceptance"
       bindconfirmationinput="onPermanentHrDeletionConfirmation"
       bindconfirm="confirmPermanentHrDeletion"
     />
@@ -1636,7 +1639,7 @@
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-review-dialog-body">
             <view class="field">
               <view class="field-label">{{localeCopy.hrRejectReasonLabel}}</view>
-              <textarea class="field-textarea" maxlength="500" value="{{profileRejectReason}}" bindinput="onProfileRejectReasonInput" placeholder="{{localeCopy.hrRejectReasonPlaceholder}}" />
+              <textarea class="field-textarea" maxlength="500" value="{{profileRejectReason}}" bindinput="onProfileRejectReasonInput" placeholder="{{localeCopy.hrRejectReasonPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer">
@@ -1910,11 +1913,11 @@
 
         <view class="field">
           <view class="field-label">{{localeCopy.copy_7a4d5ab30f}}</view>
-          <input class="field-input" data-field="name" bindinput="onAdminFieldInput" value="{{adminForm.name}}" placeholder="{{localeCopy.copy_971b628f49}}" />
+          <input class="field-input" data-field="name" bindinput="onAdminFieldInput" value="{{adminForm.name}}" placeholder="{{localeCopy.copy_971b628f49}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_80fba348b7}}</view>
-          <input class="field-input" data-field="studentId" bindinput="onAdminFieldInput" value="{{adminForm.studentId}}" placeholder="{{localeCopy.copy_f4094dd21d}}" />
+          <input class="field-input" data-field="studentId" bindinput="onAdminFieldInput" value="{{adminForm.studentId}}" placeholder="{{localeCopy.copy_f4094dd21d}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_b96baa9918}}</view>
@@ -1926,7 +1929,7 @@
 
         <view class="field">
           <view class="field-label">{{localeCopy.copy_e7c1936709}}</view>
-          <input class="field-input" bindinput="onAdminCandidateKeyword" bindconfirm="onAdminCandidateConfirm" confirm-type="search" value="{{adminCandidateKeyword}}" placeholder="{{localeCopy.copy_634a8d035c}}" />
+          <input class="field-input" bindinput="onAdminCandidateKeyword" bindconfirm="onAdminCandidateConfirm" confirm-type="search" value="{{adminCandidateKeyword}}" placeholder="{{localeCopy.copy_634a8d035c}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
 
         <admin-candidate-list
@@ -2021,11 +2024,11 @@
         <view class="list-title">{{departmentForm.id ? localeCopy.copy_c97f4e1c21 : localeCopy.copy_81888e3e1d}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_ff6a3c2862}}</view>
-          <input class="field-input" data-field="name" bindinput="onDepartmentFieldInput" value="{{departmentForm.name}}" placeholder="{{localeCopy.copy_46b1f83a99}}" />
+          <input class="field-input" data-field="name" bindinput="onDepartmentFieldInput" value="{{departmentForm.name}}" placeholder="{{localeCopy.copy_46b1f83a99}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_c0a872bff0}}</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onDepartmentFieldInput" value="{{departmentForm.description}}" placeholder="{{localeCopy.copy_91459a2ebc}}" />
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onDepartmentFieldInput" value="{{departmentForm.description}}" placeholder="{{localeCopy.copy_91459a2ebc}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveDepartment}}" bindtap="saveDepartment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9d34006a03}}</button>
@@ -2071,7 +2074,7 @@
         <view class="list-title">{{workGroupForm.id ? localeCopy.copy_a530f9158a : localeCopy.copy_8860e9ad76}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_7a4ac1ad99}}</view>
-          <input class="field-input" data-field="name" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.name}}" placeholder="{{localeCopy.copy_9cf9a2961b}}" />
+          <input class="field-input" data-field="name" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.name}}" placeholder="{{localeCopy.copy_9cf9a2961b}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
@@ -2081,7 +2084,7 @@
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_aa523247a6}}</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.description}}" placeholder="{{localeCopy.copy_88ae76e6fe}}" />
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.description}}" placeholder="{{localeCopy.copy_88ae76e6fe}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveWorkGroup}}" bindtap="saveWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_397a0808d4}}</button>
@@ -2128,11 +2131,11 @@
         <view class="list-title">{{identityForm.id ? localeCopy.copy_018d741992 : localeCopy.copy_7e6fe80a00}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_827d50f428}}</view>
-          <input class="field-input" data-field="name" bindinput="onIdentityFieldInput" value="{{identityForm.name}}" placeholder="{{localeCopy.copy_5056ad7eb7}}" />
+          <input class="field-input" data-field="name" bindinput="onIdentityFieldInput" value="{{identityForm.name}}" placeholder="{{localeCopy.copy_5056ad7eb7}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_07d8551536}}</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onIdentityFieldInput" value="{{identityForm.description}}" placeholder="{{localeCopy.copy_14671f2231}}" />
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onIdentityFieldInput" value="{{identityForm.description}}" placeholder="{{localeCopy.copy_14671f2231}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveIdentity}}" bindtap="saveIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_637d8a9907}}</button>
@@ -2282,10 +2285,10 @@
                 <!-- Expanded: editable fields -->
                 <view class="question-fields" wx:if="{{expandedGradeBandIndex === index}}">
                   <view class="field field-row">
-                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_b7eb36a897}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" /></view>
-                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_2100c88988}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="{{localeCopy.numericHundredPlaceholder}}" /></view>
+                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_b7eb36a897}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="{{localeCopy.numericZeroPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+                    <view class="field field-half"><view class="field-label">{{localeCopy.copy_2100c88988}}</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="{{localeCopy.numericHundredPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
                   </view>
-                  <view class="field"><view class="field-label">{{localeCopy.copy_20033515d8}}</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="{{localeCopy.copy_811bde992e}}" /></view>
+                  <view class="field"><view class="field-label">{{localeCopy.copy_20033515d8}}</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="{{localeCopy.copy_811bde992e}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
                   <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeClauseGradeBand" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b8139ca252}}</button></view>
                 </view>
               </view>
@@ -2330,7 +2333,7 @@
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_efa712e243}}</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_7844b14771}}</view></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_c95c079dfd}}</view><picker range="{{viewScopeOptions}}" range-key="label" value="{{pk.idx(viewScopeOptions, pubMeritRuleForm.clauseScopeType)}}" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.clauseTargetIdentityId)}}" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_f1dc48a65c}}</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="{{localeCopy.copy_cd42443afc}}"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_f1dc48a65c}}</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="{{localeCopy.copy_cd42443afc}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_fa66c182e7}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_063079dbec}}</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubMeritClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_31b3c65645 : localeCopy.copy_0bc13740e4}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubMeritClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_02a9c01344}}</button></view>
         </view>
@@ -2449,11 +2452,11 @@
         <view class="list-title">{{auditTemplateForm.id ? localeCopy.copy_67f4dcc157 : localeCopy.copy_996309f45d}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_53adcabdff}}</view>
-          <input class="field-input" data-field="name" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.name}}" placeholder="{{localeCopy.copy_6479e33014}}" />
+          <input class="field-input" data-field="name" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.name}}" placeholder="{{localeCopy.copy_6479e33014}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_e53f7aae11}}</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.description}}" placeholder="{{localeCopy.copy_87fcf63dd5}}" />
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.description}}" placeholder="{{localeCopy.copy_87fcf63dd5}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field field-row">
         <view class="field field-half">
@@ -2633,7 +2636,7 @@
             <!-- Step name -->
             <view class="field ui-dialog-inset">
               <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
-              <input class="field-input" value="{{auditTemplateStepForm.name}}" data-field="name" bindinput="onAuditTemplateStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
+              <input class="field-input" value="{{auditTemplateStepForm.name}}" data-field="name" bindinput="onAuditTemplateStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
             </view>
             <!-- Conditions list -->
             <view class="list-title ui-dialog-inset">{{localeCopy.copy_28542c7241}}</view>
@@ -2848,7 +2851,7 @@
         <view class="list-title">{{stampForm.id ? localeCopy.copy_211047f590 : localeCopy.copy_a44e21b978}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_9395b8661f}}</view>
-          <input class="field-input" data-field="name" bindinput="onStampFieldInput" value="{{stampForm.name}}" placeholder="{{localeCopy.copy_e57c8daee6}}" />
+          <input class="field-input" data-field="name" bindinput="onStampFieldInput" value="{{stampForm.name}}" placeholder="{{localeCopy.copy_e57c8daee6}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_6eeaccbeca}}</view>
@@ -3044,7 +3047,7 @@
         </view>
         <view class="field" wx:if="{{verificationMode === 'number'}}">
           <view class="field-label">{{localeCopy.copy_1ddd4c9b39}}</view>
-          <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="{{localeCopy.verificationNumberPlaceholder}}" />
+          <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="{{localeCopy.verificationNumberPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="field" wx:if="{{verificationMode === 'file'}}">
           <view class="field-label">{{localeCopy.copy_98aea69c53}}</view>
@@ -3081,7 +3084,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row">
-        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view>
       </view>
       <!-- Filters (only for personnel picker) -->
       <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
@@ -3168,7 +3171,7 @@
       <view class="popup-body ui-dialog-compact-content">
         <view class="field">
           <view class="field-label">{{localeCopy.copy_2deb5cbfc9}}</view>
-          <input class="field-input" bindinput="onOrgFieldInput" value="{{orgFormData.name}}" placeholder="{{localeCopy.copy_f3bb9fa262}}" />
+          <input class="field-input" bindinput="onOrgFieldInput" value="{{orgFormData.name}}" placeholder="{{localeCopy.copy_f3bb9fa262}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row compact-row ui-dialog-footer">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0ee803a476}}</button>
