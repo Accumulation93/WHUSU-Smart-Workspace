@@ -776,6 +776,8 @@ Page({
     }
     const restored = authContext.getRuntimeProfile('admin');
     if (restored && (restored.adminLevel || (restored.permissionKeys || []).length)) return restored;
+    // 当前会话不是管理员时不必再取权限目录，直接按补取结果返回。
+    if (orgSession.getSnapshot().role !== 'admin') return restored || fallbackProfile || null;
     try {
       return await adminPermissions.refreshMyPermissions() || restored || fallbackProfile || null;
     } catch (error) {
@@ -785,8 +787,8 @@ Page({
 
   async bootstrapPage() {
     let adminProfile = authContext.getRuntimeProfile('admin');
-    const activeSession = orgSession.getSnapshot();
-    const activeRole = activeSession.role || '';
+    let activeSession = orgSession.getSnapshot();
+    let activeRole = activeSession.role || '';
 
     if (activeRole === 'admin') {
       try {
@@ -809,7 +811,9 @@ Page({
     if (!adminProfile || activeRole !== 'admin') {
       // 真机上存储桥与网络时序可能让目录资料晚一步落地；先补取一次，再判定
       // 是否真的没有管理权限，避免把管理员误判成“无权限”。
-      if (activeRole === 'admin') adminProfile = await this.retryAdminProfile();
+      adminProfile = await this.retryAdminProfile(adminProfile);
+      activeSession = orgSession.getSnapshot();
+      activeRole = activeSession.role || '';
       if (!adminProfile || activeRole !== 'admin') {
         this._visibleTabs = [];
         this.setData({
