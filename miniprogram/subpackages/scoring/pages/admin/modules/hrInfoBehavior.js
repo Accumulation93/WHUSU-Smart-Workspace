@@ -23,6 +23,9 @@ const {
 const fieldMatching = require('../../../../../utils/hrFieldMatching');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
+// 人事目录列表随页面滚动，页面级触底与容器触底可能几乎同时到达；用短时间窗
+// 去重，保证一次只追加一批，既不重复也不跳批。
+const HR_PROFILE_LOAD_MORE_DEDUPE_MS = 120;
 // 字段「填写说明」上限：与服务端一致，按字符计（与用户可见文案同一口径）。
 const HR_FIELD_HINT_MAX_LENGTH = 200;
 // 折叠行最多显示两个选项，避免选项多的字段把整页撑长。
@@ -304,6 +307,16 @@ function toHrProfileListRow(item) {
   };
 }
 
+// 列表头计数要如实反映"已经渲染出多少、一共有多少"，避免只显示总数却只渲染
+// 了第一批时让人以为其余成员丢失。
+function buildHrProfileResultSummary(visibleCount, totalCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  const visible = Math.min(total, Math.max(0, Number(visibleCount) || 0));
+  return visible < total
+    ? localeFormat(localeCopy.hrDirectoryShownOfTotal, [visible, total])
+    : localeFormat(localeCopy.hrDirectoryTotalOnly, [total]);
+}
+
 function buildHrProfileRenderState(rows, visibleCount = HR_PROFILE_RENDER_BATCH_SIZE) {
   const source = Array.isArray(rows) ? rows : [];
   const normalizedVisibleCount = Math.min(
@@ -313,6 +326,7 @@ function buildHrProfileRenderState(rows, visibleCount = HR_PROFILE_RENDER_BATCH_
   return {
     hrProfileRows: source.slice(0, normalizedVisibleCount).map(toHrProfileListRow),
     hrProfileResultCount: source.length,
+    hrProfileResultSummary: buildHrProfileResultSummary(normalizedVisibleCount, source.length),
     hrProfileVisibleCount: normalizedVisibleCount,
     hrProfileHasMore: normalizedVisibleCount < source.length
   };
@@ -1427,20 +1441,31 @@ module.exports = Behavior({
     },
 
     loadMoreHrProfileRows() {
+      const now = Date.now();
+      if (this._hrProfileLoadMoreAt && now - this._hrProfileLoadMoreAt < HR_PROFILE_LOAD_MORE_DEDUPE_MS) return;
       if (!this.data.hrProfileHasMore) return;
       const rows = this._hrProfileFilteredRows || [];
       const start = Math.max(0, Number(this.data.hrProfileVisibleCount) || 0);
       const end = Math.min(rows.length, start + HR_PROFILE_RENDER_BATCH_SIZE);
       if (end <= start) return;
+      this._hrProfileLoadMoreAt = now;
       const updates = {
         hrProfileVisibleCount: end,
         hrProfileResultCount: rows.length,
+        hrProfileResultSummary: buildHrProfileResultSummary(end, rows.length),
         hrProfileHasMore: end < rows.length
       };
       rows.slice(start, end).map(toHrProfileListRow).forEach((row, index) => {
         updates['hrProfileRows[' + (start + index) + ']'] = row;
       });
       this.setData(updates);
+    },
+
+    // 人事目录列表随页面自然铺开，页面滚到底时继续渲染下一批成员。
+    onReachBottom() {
+      if (this.data.activeTab !== 'hrInfo' || this.data.hrInfoMode !== 'profiles') return;
+      if (!this.data.hrProfileHasMore) return;
+      this.loadMoreHrProfileRows();
     },
 
     onHrProfileFilterGroupChange(e) {

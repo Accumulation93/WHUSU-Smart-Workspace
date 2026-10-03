@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "",
+  "onReachBottomDistance": 120,
   "usingComponents": {
     "audit-verification-result": "/components/audit-verification-result/audit-verification-result",
     "ui-icon": "/components/ui-icon/ui-icon",

@@ -818,7 +818,6 @@ module.exports = Object.freeze({
   hrMembershipLeftAt: '离开时间',
   hrReactivateMembershipInline: '重新加入',
   hrFormerReadOnlyHint: '该成员已离开当前组织，资料与离任前岗位仅供查看。重新加入后将恢复为无岗位成员。',
-  hrDirectoryResultCount: '当前结果',
   hrDangerZone: '危险操作',
   hrPermanentDeletionHint: '仅误导入且从未产生业务记录的成员可以永久删除。系统会先检查全部引用，不符合条件时不会修改任何数据。',
   hrDeleteMembershipPermanently: '永久删除组织成员记录',

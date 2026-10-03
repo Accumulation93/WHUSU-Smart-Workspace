@@ -153,8 +153,6 @@
             scroll-y
             scroll-into-view="{{templateQuestionScrollInto}}"
             scroll-top="{{templateQuestionScrollTop}}"
-            lower-threshold="80"
-            bindscrolltolower="loadMoreScoreResults"
           >
             <view catchtouchmove="{{draggingQuestionIndex >= 0 ? 'noop' : ''}}">
             <view
@@ -743,8 +741,6 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}"
           class="inner-scroll large-scroll"
           scroll-y
-          lower-threshold="80"
-          bindscrolltolower="loadMoreScoreResults"
         >
           <view
             class="list-item scorer-result-card {{item.canViewDetail ? 'scorer-result-card-clickable' : ''}} ui-motion-card"
@@ -1030,7 +1026,7 @@
     />
 
       <view class="list-card hr-directory-results" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
-        <view class="list-card-header"><view class="field-hint">{{localeCopy.hrDirectoryResultCount}} · {{hrProfileResultCount}}</view></view>
+        <view class="list-card-header"><view class="field-hint">{{hrProfileResultSummary}}</view></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreHrProfileRows">
           <view class="card-loading-overlay" wx:if="{{loadingMap.profile}}">
             <view class="card-loading-spinner"></view>

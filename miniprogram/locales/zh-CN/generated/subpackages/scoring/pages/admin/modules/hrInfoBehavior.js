@@ -153,6 +153,8 @@ module.exports = Object.freeze({
   personMergeFailed: '自然人合并未完成',
   rejectionReasonRequired: '请填写驳回原因',
   hrMembershipActive: '在职',
+  hrDirectoryShownOfTotal: '已显示 {0} 人，共 {1} 人',
+  hrDirectoryTotalOnly: '共 {0} 人',
   hrMembershipLeft: '已离开',
   hrHistoricalPosition: '历史岗位',
   hrReactivatedNoPosition: '已重新加入，请重新配置岗位',

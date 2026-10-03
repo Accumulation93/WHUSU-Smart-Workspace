@@ -268,4 +268,103 @@ const homeWxmlSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/
 assert(/<view class="picker-value">\{\{item\.displayValue \|\| copy\.selectDate\}\}<\/view>/.test(homeWxmlSource),
   '本人资料日期控件展示必须使用精简格式');
 
+// 滚动分页契约：scroll-view 只有拿到确定高度才会真正滚动。人事成员目录随页面
+// 铺开后，唯一可达的加载入口就是页面级触底，因此三件事必须同时成立。
+const adminJson = JSON.parse(fs.readFileSync(
+  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.json'),
+  'utf8'
+));
+assert(Number(adminJson.onReachBottomDistance) > 0,
+  '人事成员目录依赖页面级触底加载，管理端必须设置 onReachBottomDistance');
+const hrReachBottom = hrInfoBehavior.match(/onReachBottom\(\)\s*\{[\s\S]*?\n {4}\},/);
+assert(hrReachBottom
+    && /activeTab !== 'hrInfo'/.test(hrReachBottom[0])
+    && /hrInfoMode !== 'profiles'/.test(hrReachBottom[0])
+    && /loadMoreHrProfileRows\(\)/.test(hrReachBottom[0]),
+  '管理端页面级触底必须只对人事成员目录分派 loadMoreHrProfileRows');
+
+function walkMiniProgram(dir, suffix, output = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkMiniProgram(full, suffix, output);
+    else if (entry.name.endsWith(suffix)) output.push(full);
+  }
+  return output;
+}
+
+// 逐字符读取开始标签，避免把 Mustache 里的大于号当成标签结束。
+function readTagText(source, start) {
+  let index = start;
+  let quote = '';
+  let text = '';
+  while (index < source.length) {
+    const char = source[index];
+    if (quote) {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      break;
+    }
+    text += char;
+    index += 1;
+  }
+  return text;
+}
+
+// 判断某个类是否在该目录树内被约束成确定高度（none/auto 不算）。
+function classHasBoundedHeight(wxssSource, className) {
+  const blocks = Array.from(wxssSource.matchAll(new RegExp('\\.' + className + '(?![\\w-])[^{}]*\\{([^}]*)\\}', 'g')));
+  return blocks.some((block) => Array.from(block[1].matchAll(/(?:^|[;\s])(height|min-height|max-height)\s*:\s*([^;]+)/g))
+    .some((declaration) => {
+      const value = declaration[2].trim().replace(/!important$/i, '').trim();
+      return value && value !== 'none' && value !== 'auto' && value !== '0';
+    }));
+}
+
+const miniProgramRoot = path.join(root, 'miniprogram');
+const allMiniJs = walkMiniProgram(miniProgramRoot, '.js')
+  .map((file) => fs.readFileSync(file, 'utf8'))
+  .join('\n');
+const scrollLowerPages = [];
+for (const wxmlFile of walkMiniProgram(miniProgramRoot, '.wxml')) {
+  const source = fs.readFileSync(wxmlFile, 'utf8');
+  let cursor = source.indexOf('<scroll-view');
+  while (cursor >= 0) {
+    const tagText = readTagText(source, cursor + '<scroll-view'.length);
+    const handler = /bindscrolltolower="([^"]+)"/.exec(tagText);
+    if (handler) {
+      const pageDir = path.dirname(wxmlFile);
+      const classAttribute = /class="([^"]*)"/.exec(tagText);
+      const classNames = classAttribute ? classAttribute[1].split(/\s+/).filter(Boolean) : [];
+      scrollLowerPages.push({
+        file: path.relative(root, wxmlFile).replace(/\\/g, '/'),
+        handler: handler[1],
+        classNames,
+        pageDir
+      });
+    }
+    cursor = source.indexOf('<scroll-view', cursor + 1);
+  }
+}
+assert(scrollLowerPages.length > 0, '应至少保留一个触底加载列表用于分页');
+for (const entry of scrollLowerPages) {
+  // 死绑定：处理器被删空或根本不存在，用户滑到底也不会有任何反应。
+  const handlerPattern = new RegExp('(^|[^\\w.])' + entry.handler + '\\s*\\([^)]*\\)\\s*\\{\\s*(?://[^\\n]*\\n\\s*)*\\}');
+  assert(!handlerPattern.test(allMiniJs),
+    entry.file + ' 的 bindscrolltolower="' + entry.handler + '" 指向空处理器，必须删除绑定或恢复真实分页');
+  assert(new RegExp('(^|[^\\w.])' + entry.handler + '\\s*\\(').test(allMiniJs),
+    entry.file + ' 的 bindscrolltolower="' + entry.handler + '" 找不到处理器定义');
+  // 可达性：容器没有确定高度时，页面必须补页面级触底，否则事件永远不触发。
+  const dirWxss = walkMiniProgram(entry.pageDir, '.wxss')
+    .map((file) => fs.readFileSync(file, 'utf8'))
+    .join('\n');
+  const dirJs = walkMiniProgram(entry.pageDir, '.js')
+    .map((file) => fs.readFileSync(file, 'utf8'))
+    .join('\n');
+  const bounded = entry.classNames.some((className) => classHasBoundedHeight(dirWxss, className));
+  assert(bounded || /onReachBottom\s*\(/.test(dirJs),
+    entry.file + ' 的触底列表既没有确定高度容器，也没有注册 onReachBottom，滑动到底不会加载更多');
+}
+
 console.log('hr profile layout tests passed');

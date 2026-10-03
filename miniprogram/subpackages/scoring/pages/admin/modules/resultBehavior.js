@@ -322,10 +322,6 @@ module.exports = Behavior({
       }
     },
 
-    loadMoreScoreResults() {
-      // Overview results are now loaded all at once — scrolling is instant, no pagination needed
-    },
-
     async openTargetScoreRecords(e) {
       const targetId = String(e.currentTarget.dataset.targetId || '').trim();
       const target = (this.data.scoreResultsView.overviewRows || []).find((item) => String(item.targetId || item.id) === targetId);
