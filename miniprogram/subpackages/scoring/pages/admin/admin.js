@@ -57,6 +57,7 @@ Page({
     migrationCopy,
     user: null,
     hasPermission: false,
+    permissionChecked: false,
     isSuperAdmin: false,
     canManageAdmins: false,
     canExportScoreResults: false,
@@ -608,6 +609,13 @@ Page({
     });
   },
 
+  // 人事成员目录随页面自然铺开，页面滚到底时继续渲染下一批成员。
+  onReachBottom() {
+    if (this.data.activeTab !== 'hrInfo' || this.data.hrInfoMode !== 'profiles') return;
+    if (!this.data.hrProfileHasMore) return;
+    this.loadMoreHrProfileRows();
+  },
+
   onHide() {
     this._pageVisible = false;
     if (this.cancelHrTemplateSaveContinuation) this.cancelHrTemplateSaveContinuation();
@@ -755,6 +763,26 @@ Page({
     if (requestedVisible) this._requestedTab = '';
   },
 
+  // 鸿蒙等真机上，工作角色目录与权限目录可能因为存储桥或网络时序晚一步落地。
+  // 页面在判定“无权限”之前补取一次，并且只补取一次，避免异常状态下反复请求。
+  async retryAdminProfile(fallbackProfile) {
+    if (this._adminProfileRetryUsed) {
+      return authContext.getRuntimeProfile('admin') || fallbackProfile || null;
+    }
+    this._adminProfileRetryUsed = true;
+    try {
+      await authContext.refreshCatalog();
+    } catch (error) {
+    }
+    const restored = authContext.getRuntimeProfile('admin');
+    if (restored && (restored.adminLevel || (restored.permissionKeys || []).length)) return restored;
+    try {
+      return await adminPermissions.refreshMyPermissions() || restored || fallbackProfile || null;
+    } catch (error) {
+      return restored || fallbackProfile || null;
+    }
+  },
+
   async bootstrapPage() {
     let adminProfile = authContext.getRuntimeProfile('admin');
     const activeSession = orgSession.getSnapshot();
@@ -767,29 +795,53 @@ Page({
         await authContext.refreshCatalog();
       } catch (error) {
       }
-      if (!orgSession.isCurrent(activeSession)) return;
+      if (!orgSession.isCurrent(activeSession)) {
+        // 刷新期间工作角色或组织被切换：用最新会话重跑一次，不能把管理员
+        // 直接停在“无权限”。只重试一次，避免异常状态下反复进入。
+        if (this._bootstrapContextRetried) return;
+        this._bootstrapContextRetried = true;
+        return this.bootstrapPage();
+      }
+      this._bootstrapContextRetried = false;
       adminProfile = authContext.getRuntimeProfile('admin');
     }
 
     if (!adminProfile || activeRole !== 'admin') {
-      this._visibleTabs = [];
-      this.setData({
-        user: null,
-        hasPermission: false,
-        isSuperAdmin: false,
-        canManageAdmins: false,
-        canReadAdmins: false,
-        canWriteAdmins: false
-      });
-      return;
+      // 真机上存储桥与网络时序可能让目录资料晚一步落地；先补取一次，再判定
+      // 是否真的没有管理权限，避免把管理员误判成“无权限”。
+      if (activeRole === 'admin') adminProfile = await this.retryAdminProfile();
+      if (!adminProfile || activeRole !== 'admin') {
+        this._visibleTabs = [];
+        this.setData({
+          user: null,
+          hasPermission: false,
+          permissionChecked: true,
+          isSuperAdmin: false,
+          canManageAdmins: false,
+          canReadAdmins: false,
+          canWriteAdmins: false
+        });
+        return;
+      }
     }
 
     try {
       adminProfile = await adminPermissions.refreshMyPermissions() || adminProfile;
     } catch (error) {
+      adminProfile = await this.retryAdminProfile(adminProfile) || adminProfile;
     }
-    if (!orgSession.isCurrent(activeSession)) return;
+    if (!orgSession.isCurrent(activeSession)) {
+      if (this._bootstrapContextRetried) return;
+      this._bootstrapContextRetried = true;
+      return this.bootstrapPage();
+    }
+    this._bootstrapContextRetried = false;
     adminProfile = authContext.getRuntimeProfile('admin') || adminProfile;
+    // 权限目录没有落地时资料里既没有管理级别也没有权限键，此时再补取一次，
+    // 仍拿不到才按无权限处理。
+    if (!adminProfile.adminLevel && !(adminProfile.permissionKeys || []).length) {
+      adminProfile = await this.retryAdminProfile(adminProfile) || adminProfile;
+    }
     const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
     this.applySubAppFilter(adminProfile);
 
@@ -822,6 +874,7 @@ Page({
     this.setData({
       user: adminProfile,
       hasPermission: this._visibleTabs.length > 0,
+      permissionChecked: true,
       isSuperAdmin,
       canManageAdmins: canWriteAdmins,
       canReadAdmins,
@@ -855,6 +908,8 @@ Page({
       adminLevelOptions: isSuperAdmin ? [localeCopy.copy_fd31650797, localeCopy.copy_ccd219e5f1] : [localeCopy.copy_fd31650797],
       adminLevelValues: isSuperAdmin ? ['admin', 'super_admin'] : ['admin']
     });
+    // 本次判定已经拿到完整角色资料，补取额度重置，供后续进入或切换角色时再用。
+    this._adminProfileRetryUsed = false;
 
     const loadSubApp = async () => {
       const visibleTabs = this._visibleTabs || [];

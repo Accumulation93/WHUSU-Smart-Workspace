@@ -276,12 +276,20 @@ const adminJson = JSON.parse(fs.readFileSync(
 ));
 assert(Number(adminJson.onReachBottomDistance) > 0,
   '人事成员目录依赖页面级触底加载，管理端必须设置 onReachBottomDistance');
-const hrReachBottom = hrInfoBehavior.match(/onReachBottom\(\)\s*\{[\s\S]*?\n {4}\},/);
+// 触底加载必须挂在页面对象上（不放在 Behavior 里），避免真机对 Behavior 页面
+// 生命周期方法的处理差异影响管理端。
+const adminJsSource = fs.readFileSync(
+  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.js'),
+  'utf8'
+);
+const hrReachBottom = adminJsSource.match(/onReachBottom\(\)\s*\{[\s\S]*?\n {2}\},/);
 assert(hrReachBottom
     && /activeTab !== 'hrInfo'/.test(hrReachBottom[0])
     && /hrInfoMode !== 'profiles'/.test(hrReachBottom[0])
     && /loadMoreHrProfileRows\(\)/.test(hrReachBottom[0]),
-  '管理端页面级触底必须只对人事成员目录分派 loadMoreHrProfileRows');
+  '管理端页面对象必须注册页面级触底，并只对人事成员目录分派 loadMoreHrProfileRows');
+assert(!/onReachBottom\(\)\s*\{[\s\S]{0,400}?loadMoreHrProfileRows/.test(hrInfoBehavior),
+  '触底加载不得定义在 Behavior 里，必须由页面对象统一注册');
 
 function walkMiniProgram(dir, suffix, output = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

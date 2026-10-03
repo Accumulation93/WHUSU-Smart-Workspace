@@ -5,8 +5,11 @@
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
-    <view class="empty-title">{{localeCopy.copy_0da26e8c6e}}{{subAppLabel || localeCopy.copy_7d4f155111}}{{localeCopy.copy_214161848a}}</view>
-    <view class="empty-desc">{{localeCopy.copy_b6e35653ea}}</view>
+    <view class="empty-title" wx:if="{{!permissionChecked}}">{{localeCopy.copy_a017932da1}}</view>
+    <block wx:else>
+      <view class="empty-title">{{localeCopy.copy_0da26e8c6e}}{{subAppLabel || localeCopy.copy_7d4f155111}}{{localeCopy.copy_214161848a}}</view>
+      <view class="empty-desc">{{localeCopy.copy_b6e35653ea}}</view>
+    </block>
   </view>
 
   <view class="admin-workbench" wx:if="{{hasPermission}}">

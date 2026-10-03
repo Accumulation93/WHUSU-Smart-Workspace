@@ -1464,13 +1464,6 @@ module.exports = Behavior({
       this.setData(updates);
     },
 
-    // 人事目录列表随页面自然铺开，页面滚到底时继续渲染下一批成员。
-    onReachBottom() {
-      if (this.data.activeTab !== 'hrInfo' || this.data.hrInfoMode !== 'profiles') return;
-      if (!this.data.hrProfileHasMore) return;
-      this.loadMoreHrProfileRows();
-    },
-
     onHrProfileFilterGroupChange(e) {
       const detail = e.detail || {};
       const dataset = e.currentTarget && e.currentTarget.dataset || {};
