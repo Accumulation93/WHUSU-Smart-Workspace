@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "node --watch src/index.js",
     "test:org-switch": "node test/activateOrganization.test.js",
     "test:org-cache": "node test/scoringOrgCacheIsolation.test.js",
     "test:security-org": "node test/orgContextSecurity.test.js",
@@ -53,9 +53,6 @@
     "sharp": "0.35.4",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.0"
   },
   "overrides": {
     "brace-expansion": "5.0.12",
