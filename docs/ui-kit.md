@@ -2,6 +2,16 @@
 
 ## 全局加载与交互性能规则
 
+## 先读：故障登记与三条 UI 硬规则
+
+动手改 UI 前先读 `docs/failure-register.md`（已踩过的坑与对应门禁）。其中三条最容易复发、且已被脚本守住：
+
+1. **滚动容器必须有确定高度**：`scroll-view` 没有确定高度就没有内部滚动，`bindscrolltolower` 永不触发（曾导致人事成员目录停在 50 人不加载、长弹窗拖不到底）。分页列表必须"容器有确定高度"或"页面注册 `onReachBottom`"二选一。
+2. **弹窗标志位必须可复位**：`page-meta page-style` 的每个锁标志都要有复位路径，含弹窗输入的页面声明 `dialogLockKeys` 并在 `onUnload` 复位，避免关闭弹窗后页面被永久锁住。
+3. **弹窗内输入禁用整页位移**：弹窗外壳内的 `input/textarea` 一律 `adjust-position="{{false}}"` + `cursor-spacing`；键盘高度写进 `page-style` 的 `--kb-height`，由 `app.wxss` 让弹窗收窄上移，遮挡交给弹窗正文滚动。
+
+对应门禁：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`、`node scripts/ui-control-completeness-test.js`、`node scripts/button-alignment-test.js`、`node scripts/ui-audit.js --strict`。
+
 各独立内容区必须分别展示加载、失败和结果，不能让慢待办阻塞通知。已有内容后台刷新时保持可见；结果未变化不重传整表、不清空已加载页数或滚动位置。角色/账号变化必须清理旧私有数据并拦截迟到响应。性能改造不得截断完整人事目录、减少授权校验或改变整卡蓝色选择与窗口滚动契约。
 
 共享人员选择器原始候选与索引保留在逻辑层；一次选择只更新受影响卡片及已选摘要，禁止每次选择重建整份候选 `setData`。筛选条件变化才刷新候选视图，搜索短防抖且隐藏/卸载清理计时器。复杂度与量化检查见 `docs/performance.md`。

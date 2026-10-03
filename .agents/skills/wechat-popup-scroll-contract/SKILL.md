@@ -72,12 +72,22 @@ In phone portrait, Pad portrait, and Pad landscape:
 4. Drag on header, footer, dialog edge, and mask; the background page must remain fixed.
 5. Close and reopen after changing page scroll position; dialog geometry must be identical.
 6. Check compact, complex, wide, nested-list, and signature/canvas variants.
+7. Focus an input inside the dialog, open the keyboard, and confirm the page itself does not shift, the shell stays above the keyboard (it shrinks via `--kb-height`), and the focused field plus the footer buttons remain reachable.
+8. Close the dialog and scroll the page immediately; the whole page must be scrollable again (no leaked `overflow: hidden`).
+
+## Inputs and keyboard inside dialogs
+
+- Every `input`/`textarea` inside a dialog shell must carry `adjust-position="{{false}}"` and `cursor-spacing`. With the default `adjust-position`, WeChat scrolls the page while a `position: fixed` shell stays put, which is what produced the "dialog misaligned with keyboard / bottom buttons unreachable" reports.
+- The page must publish the keyboard height so the shell can shrink: keep `dialogKeyboardHeight` in page data (see `miniprogram/utils/dialogKeyboard.js`), append `' --kb-height: ' + dialogKeyboardHeight + 'px;'` to the page's `page-meta page-style`, and let the global rule in `app.wxss` shrink and lift the shell. The dialog body's own scroll carries any remaining occlusion.
+- Every dialog flag used by `page-meta page-style` must have a written reset path, and pages with dialog inputs must declare `dialogLockKeys` so `releaseDialogScrollLock()` can clear them on unload.
 
 Run at minimum when the user has not explicitly requested a script-free manual audit:
 
 ```powershell
 node scripts/ui-audit.js --strict
 node scripts/miniprogram-compat-audit.js
+node scripts/dialog-scroll-contract-audit.js
+node scripts/dialog-keyboard-audit.js
 git diff --check
 ```
 

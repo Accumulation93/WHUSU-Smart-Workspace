@@ -75,6 +75,15 @@ paths: "server/**"
 
 ## 8. 迁移与发布
 
+### 8.0 数据一致性与零中断发布（硬规则）
+
+- **展示层一致性不得阻断启动**：启动期数据契约发现"兼容行缺映射"这类展示层不一致时，先就地补齐、补不齐只告警；只有 schema 缺列/缺表才允许拒绝启动。历史教训：2026-10-03 一次正常"新建超级管理员"留下无映射兼容行，导致重启时全站 502 共 226 次。
+- **兼容行 ↔ 授权行映射不变式**：任何写入 `admin_grants` 的 upsert 撞 `(person_id, org_id)` 唯一键时，必须回写 `legacy_admin_id = VALUES(legacy_admin_id)`；每次新建/变更管理员后，未映射兼容行数必须为 0。守卫：`server/test/adminGrantLegacyMapping.test.js`。
+- **迁移分类**：非破坏性迁移（加列/建表/建索引/回填）在线执行，只生成 `--single-transaction` 快照；破坏性迁移（DROP/TRUNCATE/DELETE FROM/RENAME/ALTER … MODIFY|CHANGE 或 `-- @destructive`）与 UTC 切换才进维护窗口。
+- **上流量前必须预检**：新版本先在独立端口连迁移后的库跑通 `/api/health` 再切换；切换用 PM2 集群滚动重载；在线失败滚动切回旧版本，不停进程、不回滚数据库。前端-only 发布不得重启进程。
+- **依赖公告**：优先升级或移除依赖，禁止为新公告开豁免；豁免只允许"官方无修复且路径不可达"并带证据与到期日。
+- **时间口径**：库内一律 UTC 原始值，对外按 `system_config.timezone` 换算；排查生产时间线必须用 `DATE_FORMAT` 原始值再显式换算（否则会整体偏 8 小时）。守卫：`scripts/time-system-audit.js --strict`。
+
 - 生产只使用 `server/db/deploy/` 中的时间戳幂等迁移和 `schema_migrations` 账本；旧 `migrate.sh/migrate.bat` 只可作为历史兼容工具，不能声称覆盖当前全部迁移，也不得直接用于生产。
 - 有数据库结构或数据变更时新增迁移，不修改已执行迁移；纯前端、文档和样式改动不伪造迁移。
 - 修改后执行与范围匹配的测试、权限/租户审计、迁移预检和 `git diff --check`。推送后由 GitHub Actions 先通过 `audit-and-test`，再执行部署；部署后核对完整 SHA、release/current、PM2 进程、迁移账本和本地/公网健康接口。

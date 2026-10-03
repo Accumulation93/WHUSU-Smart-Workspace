@@ -13,6 +13,7 @@
 5. `.claude/rules/audit.md`：审核审批模块规则。
 6. `.claude/rules/venue.md`：场地借用模块规则。
 7. `memory.md`：历史项目上下文，仅作为低优先级背景资料；其中可能过时的路径、数据、接口或部署信息必须以当前代码和配置复核。
+8. `docs/failure-register.md`：**故障登记与防复发门禁**。这份清单记录了已经踩过的每一类坑（UI 错位、滑不到底、键盘位移、跑不通、逻辑不对、数据不一致、发布中断）以及守住它的脚本/规则。任何一次用户可见的异常修完之后必须回到这份表登记。
 
 即使当前任务看似只涉及单个文件，也要完成上述加载。读取文本时使用 UTF-8，避免中文规则因终端默认编码而失真。
 
@@ -27,6 +28,12 @@
 - `server/**`：`CLAUDE.md` + `.claude/rules/server.md`
 
 涉及跨模块共享文件时，必须检查所有调用方。尤其是 `api.js`、`eventBus.js`、`adminUtils.js`、`flowTimeline.js`、`submissionDetail.js` 和共享 WXSS。
+
+### 2.1 故障登记（强制）
+
+- 动手前先读 `docs/failure-register.md`，确认本次改动是否命中已有故障类型；命中就必须跑它列出的门禁。
+- 改完之后：若属于新类型，必须在 `docs/failure-register.md` 增补条目（现象 / 根因 / 门禁），并补上能拦住它的脚本或规则；**未登记的修复视为未完成**。
+- UI、滚动、键盘、动画类改动：静态审计通过后仍必须在手机、Pad 竖屏、Pad 横屏现场确认；无法确认时在交付说明里写明"未完成现场验证"。
 
 ## 3. 指令优先级与冲突处理
 
@@ -80,6 +87,7 @@
 根据改动范围至少执行：
 
 - 修改过的所有 JS：`node --check`。
+- 弹窗/滚动/键盘：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`、`node scripts/ui-control-completeness-test.js`、`node scripts/button-alignment-test.js`。
 - 小程序前端：`node scripts/miniprogram-compat-audit.js`，并在微信开发者工具中至少编译主包和所有分包入口。
 - 用户可见文案：`node scripts/user-visible-copy-audit.js --strict`、两个 `--strict-localization`、`--strict-guidance`，以及 `node scripts/copy-quality-audit.js`（语言系统内的文案值质量；存量清零后改为 `--strict` 门禁）。文案修改必须逐条按语言判断手写，禁止脚本批量替换。
 - 工作区补丁：`git diff --check`。

@@ -34,6 +34,14 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 
 ## 2. 全局样式冲突
 
+### 2.1 UI 契约硬规则（违反必被审计拦下）
+
+- **滚动必须有确定高度**：`scroll-view` 只有拿到确定高度才会产生内部滚动。禁止给列表/弹窗正文的滚动容器写 `max-height: none` 或依赖内容撑高；长列表弹窗走三段网格契约，页面内分页列表必须注册 `onReachBottom`。守卫：`scripts/dialog-scroll-contract-audit.js`、`scripts/hr-profile-layout-test.js`。
+- **弹窗标志位必须可复位**：`page-meta page-style` 里的每个锁标志都要能在页面脚本里置回 `false`；含弹窗输入的页面声明 `dialogLockKeys` 并在 `onUnload` 调 `releaseDialogScrollLock()`。守卫：`scripts/dialog-keyboard-audit.js`。
+- **弹窗内输入禁用整页位移**：所有弹窗外壳内的 `input/textarea` 必须 `adjust-position="{{false}}"` + `cursor-spacing`，键盘高度写进 `page-style` 的 `--kb-height`（`app.wxss` 的弹窗外壳规则负责收窄上移），遮挡由弹窗正文自身滚动承接。守卫：`scripts/dialog-keyboard-audit.js`。
+- **控件不得被裁切**：不写死高度裁切、不用行内 text 冒充完整选择框、不让末项贴边或遮住；按钮文字双轴居中。守卫：`scripts/ui-control-completeness-test.js`、`scripts/ui-audit.js --strict`、`scripts/button-alignment-test.js`。
+- **日期口径**：日期字段只显示日期（`2004.08.31`），日期时间才到秒；解析统一走 `utils/hrProfileDate.js`，禁止使用设备本地时区。
+
 项目中有 **多处 CSS 重名选择器**：
 
 | 文件 | 关键选择器 | 影响范围 |

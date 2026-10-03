@@ -37,8 +37,26 @@ description: Connect and collaborate with the WHUSU Smart Workspace production s
 
 - 仅在 `server/db/deploy/` 新增 `YYYYMMDDHHMMSS_description.sql`；不得修改已执行迁移。
 - 先运行迁移预检或让 CI 集成测试验证；发现校验和变化、重复数据或不可自动处理数据时停止。
-- 让生产部署在存在待执行迁移时自动进入维护、停止 Worker、排空请求、备份、迁移和恢复服务。
+- 迁移分两类：非破坏性迁移（加列/建表/建索引/回填）**在线执行**——不停进程、不进维护状态，只额外生成 `--single-transaction` 一致性快照；破坏性迁移（`DROP/TRUNCATE/DELETE FROM/RENAME/ALTER … MODIFY|CHANGE` 或文件内 `-- @destructive`）与 UTC 时间切换才进入维护窗口。
 - 允许破坏性迁移不等于允许无备份执行；任何迁移都必须经过账本、快照和失败恢复链路。
+
+## 零中断发布与数据契约核查
+
+发布前（只读）先确认线上能起来，再让流水线切换：
+
+```bash
+# 数据契约：未映射兼容行必须为 0，否则先修数据再发布
+cd /home/ubuntu/whusu-smart-workspace-current/server && node -e '
+require("dotenv").config({path:".env"});
+const mysql=require("mysql2/promise");
+(async()=>{const c=await mysql.createConnection({host:process.env.DB_HOST,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME});
+const [r]=await c.query("SELECT (SELECT COUNT(*) FROM admin_info ai LEFT JOIN admin_grants ag ON ag.legacy_admin_id=ai.id AND ag.status=\"active\" WHERE ag.id IS NULL) unmapped_admin, (SELECT COUNT(*) FROM hr_info h LEFT JOIN organization_memberships om ON om.legacy_hr_id=h.id AND om.org_id=h.org_id WHERE om.id IS NULL) unmapped_hr");
+console.log(r[0]); await c.end();})();'
+```
+
+- 部署脚本会先在独立端口启动新版本连迁移后的库跑 `/api/health`（`新版本上流量前预检`）再切换；切换用 PM2 集群滚动重载。失败时在线发布只滚动切回旧版本，不停进程、不回滚数据库。
+- 前端-only 发布（`server` 目录未变化）不得重启进程；日志应显示"服务端目录未变化，仅同步远端仓库"。
+- 迁移分类由 `runDeploymentMigrations.js plan` 的 `destructive` 字段判定，不要手工绕过。
 
 ## 完成验证
 
