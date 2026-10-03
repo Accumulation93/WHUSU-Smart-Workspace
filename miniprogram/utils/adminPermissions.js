@@ -64,9 +64,13 @@ function savePermissionState(result, expectedSnapshot) {
   const snapshot = orgSession.getSnapshot();
   if (expectedSnapshot && !orgSession.isCurrent(expectedSnapshot)) return null;
   if (snapshot.role !== 'admin') return null;
-  if (result.organizationId && String(result.organizationId) !== String(snapshot.orgId || '')) return null;
   const current = require('./authContext').getRuntimeProfile('admin');
   if (!current) return null;
+  // 真机上紧凑会话里的组织可能还没落盘；此时用资料里的组织兜底：只有在我们
+  // 确知当前组织、且与权限目录返回的组织不一致时才丢弃，避免切换组织后套用
+  // 旧权限，也避免组织未知时把管理员的权限目录整体丢掉。
+  const knownOrgId = String(snapshot.orgId || '') || String(current.organizationId || '');
+  if (result.organizationId && knownOrgId && String(result.organizationId) !== knownOrgId) return null;
   const profile = Object.assign({}, current, {
     adminLevel: result.adminLevel || current.adminLevel,
     permissions: result.permissions || {},

@@ -599,6 +599,7 @@ Page({
       this._boundOnOrgChanged = this._onOrgChanged.bind(this);
       eventBus.on('org:changed', this._boundOnOrgChanged);
     }
+    this.startPermissionCheckGuard();
     this.bootstrapPage().then(() => {
       if (!orgSession.isCurrent(consumed.snapshot)) return null;
       const activeTab = organizationChanged ? preservedTab : this.data.activeTab;
@@ -618,6 +619,7 @@ Page({
 
   onHide() {
     this._pageVisible = false;
+    this.clearPermissionCheckGuard();
     if (this.cancelHrTemplateSaveContinuation) this.cancelHrTemplateSaveContinuation();
     if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();
     // 页面隐藏时移除监听，避免重复注册
@@ -629,6 +631,7 @@ Page({
 
   onUnload() {
     this._pageVisible = false;
+    this.clearPermissionCheckGuard();
     if (this.cancelHrTemplateSaveContinuation) this.cancelHrTemplateSaveContinuation();
     if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();
     orgSession.invalidateRequests(this);
@@ -763,6 +766,35 @@ Page({
     if (requestedVisible) this._requestedTab = '';
   },
 
+  // 判定只关心“还是不是同一个工作角色和组织”。存储落盘先后会让版本号变化，
+  // 但身份没变时不能因此中止加载，否则真机会卡在判定之前。
+  sessionIdentityChanged(snapshot) {
+    const current = orgSession.getSnapshot();
+    return !snapshot || !current
+      || snapshot.orgId !== current.orgId
+      || snapshot.role !== current.role
+      || snapshot.contextId !== current.contextId
+      || snapshot.token !== current.token;
+  },
+
+  // 真机上请求偶发一直 pending（服务端已返回 200，客户端仍未回调）。判定不能
+  // 无限停在加载中：超时后按当前结果收尾，用户再次进入会重新判定并自愈。
+  startPermissionCheckGuard() {
+    this.clearPermissionCheckGuard();
+    this._permissionCheckGuard = setTimeout(() => {
+      this._permissionCheckGuard = null;
+      if (this.data.permissionChecked) return;
+      this.setData({ permissionChecked: true });
+    }, 6000);
+  },
+
+  clearPermissionCheckGuard() {
+    if (this._permissionCheckGuard) {
+      clearTimeout(this._permissionCheckGuard);
+      this._permissionCheckGuard = null;
+    }
+  },
+
   // 鸿蒙等真机上，工作角色目录与权限目录可能因为存储桥或网络时序晚一步落地。
   // 页面在判定“无权限”之前补取一次，并且只补取一次，避免异常状态下反复请求。
   async retryAdminProfile(fallbackProfile) {
@@ -797,14 +829,18 @@ Page({
         await authContext.refreshCatalog();
       } catch (error) {
       }
-      if (!orgSession.isCurrent(activeSession)) {
-        // 刷新期间工作角色或组织被切换：用最新会话重跑一次，不能把管理员
-        // 直接停在“无权限”。只重试一次，避免异常状态下反复进入。
-        if (this._bootstrapContextRetried) return;
-        this._bootstrapContextRetried = true;
-        return this.bootstrapPage();
+      if (this.sessionIdentityChanged(activeSession)) {
+        // 刷新期间工作角色或组织确实被切换：用最新会话重跑一次；仍不稳定时按
+        // 最新会话继续判定，不能把页面停在加载中。
+        if (!this._bootstrapContextRetried) {
+          this._bootstrapContextRetried = true;
+          return this.bootstrapPage();
+        }
+      } else {
+        this._bootstrapContextRetried = false;
       }
-      this._bootstrapContextRetried = false;
+      activeSession = orgSession.getSnapshot();
+      activeRole = activeSession.role || '';
       adminProfile = authContext.getRuntimeProfile('admin');
     }
 
@@ -816,6 +852,7 @@ Page({
       activeRole = activeSession.role || '';
       if (!adminProfile || activeRole !== 'admin') {
         this._visibleTabs = [];
+        this.clearPermissionCheckGuard();
         this.setData({
           user: null,
           hasPermission: false,
@@ -834,12 +871,15 @@ Page({
     } catch (error) {
       adminProfile = await this.retryAdminProfile(adminProfile) || adminProfile;
     }
-    if (!orgSession.isCurrent(activeSession)) {
-      if (this._bootstrapContextRetried) return;
-      this._bootstrapContextRetried = true;
-      return this.bootstrapPage();
+    if (this.sessionIdentityChanged(activeSession)) {
+      if (!this._bootstrapContextRetried) {
+        this._bootstrapContextRetried = true;
+        return this.bootstrapPage();
+      }
+    } else {
+      this._bootstrapContextRetried = false;
     }
-    this._bootstrapContextRetried = false;
+    activeSession = orgSession.getSnapshot();
     adminProfile = authContext.getRuntimeProfile('admin') || adminProfile;
     // 权限目录没有落地时资料里既没有管理级别也没有权限键，此时再补取一次，
     // 仍拿不到才按无权限处理。
@@ -875,6 +915,7 @@ Page({
     // 读取当前活跃组织名称
     const activeOrgName = activeSession.orgName || '';
 
+    this.clearPermissionCheckGuard();
     this.setData({
       user: adminProfile,
       hasPermission: this._visibleTabs.length > 0,
