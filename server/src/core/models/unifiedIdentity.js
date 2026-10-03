@@ -1103,7 +1103,8 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
        (id, person_id, org_id, admin_level, status, legacy_admin_id)
      VALUES (?, ?, ?, ?, 'active', ?)
      ON DUPLICATE KEY UPDATE person_id = VALUES(person_id), org_id = VALUES(org_id),
-       admin_level = VALUES(admin_level), status = 'active', updated_at = NOW()`,
+       admin_level = VALUES(admin_level), status = 'active',
+       legacy_admin_id = VALUES(legacy_admin_id), updated_at = NOW()`,
     [grantRows[0] ? grantRows[0].id : generateId(), personId, admin.org_id, admin.admin_level, admin.id]
   );
   const [bindingRows] = await connection.query(

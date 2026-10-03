@@ -258,12 +258,46 @@ async function verifySchemaContract(pool) {
   if (Number(identityIntegrity.verified_accounts_without_login_method)
     || Number(identityIntegrity.account_multi_binding)
     || Number(identityIntegrity.insecure_active_bindings)
-    || Number(identityIntegrity.unmapped_hr_records)
-    || Number(identityIntegrity.unmapped_admin_records)) {
+    || Number(identityIntegrity.unmapped_hr_records)) {
     const error = new Error(localeCopy.copy_5c60f991c0);
     error.code = 'schema_contract_failed';
     error.missing = ['data:unified_identity_integrity'];
     throw error;
+  }
+  // 兼容表 admin_info 与授权表 admin_grants 的映射属于展示层一致性：管理员权限
+  // 只以 admin_grants 为准，缺映射的兼容行本身不授予任何权限。历史上小程序新建
+  // 超级管理员时会漏写映射（授权行撞 (person_id, org_id) 唯一键后未回写
+  // legacy_admin_id），若因此拒绝启动会让全站停服。这里先就地补齐映射，补不齐
+  // 只告警不阻断启动，避免一条展示行拖垮整个服务。
+  const unmappedAdmins = Number(identityIntegrity.unmapped_admin_records);
+  if (unmappedAdmins) {
+    await pool.query(
+      `UPDATE admin_info legacy_row
+         JOIN persons p
+           ON p.normalized_student_id = LOWER(TRIM(legacy_row.student_id))
+          AND p.name = TRIM(legacy_row.name)
+          AND p.status = 'active'
+         JOIN admin_grants grant_row
+           ON grant_row.person_id = p.id
+          AND grant_row.org_id = legacy_row.org_id
+          AND grant_row.admin_level = legacy_row.admin_level
+          AND grant_row.status = 'active'
+         LEFT JOIN admin_info linked ON linked.id = grant_row.legacy_admin_id
+          SET grant_row.legacy_admin_id = legacy_row.id,
+              grant_row.updated_at = NOW()
+        WHERE linked.id IS NULL`
+    );
+    const [remainingRows] = await pool.query(
+      `SELECT COUNT(*) AS unpairable
+         FROM admin_info ai
+         LEFT JOIN admin_grants ag ON ag.legacy_admin_id = ai.id AND ag.status = 'active'
+        WHERE ag.id IS NULL`
+    );
+    const remaining = Number((remainingRows[0] || {}).unpairable || 0);
+    if (remaining) {
+      console.warn('[schema-contract] 兼容管理员行缺少有效授权映射，已跳过启动阻断', { remaining });
+    }
+    identityIntegrity.unmapped_admin_records = remaining;
   }
   const [signingKeyIntegrityRows] = await pool.query(
     `SELECT COUNT(*) AS invalid_count

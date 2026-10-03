@@ -81,6 +81,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+\(SELECT COUNT\(\*\)\s+FROM persons p\s+LEFT JOIN organization_memberships/i, reason: '启动时统一身份全局一致性检查' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT COUNT\(\*\) AS invalid_count\s+FROM audit_submission_files\s+WHERE signing_key_private/i, reason: '启动时全库阻断任何未完成静态加密迁移的 PDF 签名私钥' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+COUNT\(DISTINCT ag\.id\) AS total,\s+COUNT/i, reason: '启动时超级管理员绑定存续检查' }
+  ,{ file: 'server/src/utils/schemaContract.js', sql: /SELECT COUNT\(\*\) AS unpairable\s+FROM admin_info ai/i, reason: '启动时兼容管理员行与授权行映射复查（只统计是否仍有未配对行）' }
 ];
 
 function walk(directory, output = []) {
