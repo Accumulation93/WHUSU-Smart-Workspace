@@ -36,11 +36,13 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 
 ### 2.1 UI 契约硬规则（违反必被审计拦下）
 
-- **滚动必须有确定高度**：`scroll-view` 只有拿到确定高度才会产生内部滚动。禁止给列表/弹窗正文的滚动容器写 `max-height: none` 或依赖内容撑高；长列表弹窗走三段网格契约，页面内分页列表必须注册 `onReachBottom`。守卫：`scripts/dialog-scroll-contract-audit.js`、`scripts/hr-profile-layout-test.js`。
-- **弹窗标志位必须可复位**：`page-meta page-style` 里的每个锁标志都要能在页面脚本里置回 `false`；含弹窗输入的页面声明 `dialogLockKeys` 并在 `onUnload` 调 `releaseDialogScrollLock()`。守卫：`scripts/dialog-keyboard-audit.js`。
-- **弹窗内输入禁用整页位移**：所有弹窗外壳内的 `input/textarea` 必须 `adjust-position="{{false}}"` + `cursor-spacing`，键盘高度写进 `page-style` 的 `--kb-height`（`app.wxss` 的弹窗外壳规则负责收窄上移），遮挡由弹窗正文自身滚动承接。守卫：`scripts/dialog-keyboard-audit.js`。
-- **控件不得被裁切**：不写死高度裁切、不用行内 text 冒充完整选择框、不让末项贴边或遮住；按钮文字双轴居中。守卫：`scripts/ui-control-completeness-test.js`、`scripts/ui-audit.js --strict`、`scripts/button-alignment-test.js`。
-- **日期口径**：日期字段只显示日期（`2004.08.31`），日期时间才到秒；解析统一走 `utils/hrProfileDate.js`，禁止使用设备本地时区。
+这五条都是真实出过问题的地方，写之前先想清楚为什么：用户看到的是"滑不到底""关掉弹窗后不能滚""键盘一弹整页跑偏"。
+
+- **滚动容器的高度要限定住**：微信的 `scroll-view` 只有在高度被限定住时才会自己滚动，否则"滚动到底"永远不会触发（曾导致成员目录停在 50 人不加载）。所以不要给列表或弹窗正文的滚动容器写 `max-height: none`，也不要指望内容把它撑高；长列表弹窗必须有固定高度，页面内的分页列表必须注册 `onReachBottom`。必须跑的检查：`scripts/dialog-scroll-contract-audit.js`、`scripts/hr-profile-layout-test.js`。
+- **弹窗的开关必须能关回去**：`page-meta page-style` 里每个用来禁止页面滚动的开关，都要能在页面脚本里写回 `false`；带输入框的弹窗页面要声明 `dialogLockKeys`，并在页面卸载时调用 `releaseDialogScrollLock()`。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
+- **弹窗里的输入框不能让整页上移**：一律写 `adjust-position="{{false}}"` 并带 `cursor-spacing`；键盘高度写进 `page-style` 的 `--kb-height`，由 `app.wxss` 让弹窗缩到键盘上方，被挡住的字段靠弹窗正文自己滚动看到。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
+- **控件不能被切掉**：不写死高度把内容裁掉、不用一行文字冒充完整的选择框、不让最后一项贴边或被遮住，按钮文字要居中。必须跑的检查：`scripts/ui-control-completeness-test.js`、`scripts/ui-audit.js --strict`、`scripts/button-alignment-test.js`。
+- **日期只显示日期**：日期字段显示成 `2004.08.31`，不带时间也不带时区；日期时间才显示到秒。解析统一用 `utils/hrProfileDate.js`，不许用设备本地时区。
 
 项目中有 **多处 CSS 重名选择器**：
 

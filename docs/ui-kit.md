@@ -10,7 +10,7 @@
 2. **弹窗标志位必须可复位**：`page-meta page-style` 的每个锁标志都要有复位路径，含弹窗输入的页面声明 `dialogLockKeys` 并在 `onUnload` 复位，避免关闭弹窗后页面被永久锁住。
 3. **弹窗内输入禁用整页位移**：弹窗外壳内的 `input/textarea` 一律 `adjust-position="{{false}}"` + `cursor-spacing`；键盘高度写进 `page-style` 的 `--kb-height`，由 `app.wxss` 让弹窗收窄上移，遮挡交给弹窗正文滚动。
 
-对应门禁：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`、`node scripts/ui-control-completeness-test.js`、`node scripts/button-alignment-test.js`、`node scripts/ui-audit.js --strict`。
+改完必须跑：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`、`node scripts/ui-control-completeness-test.js`、`node scripts/button-alignment-test.js`、`node scripts/ui-audit.js --strict`。
 
 各独立内容区必须分别展示加载、失败和结果，不能让慢待办阻塞通知。已有内容后台刷新时保持可见；结果未变化不重传整表、不清空已加载页数或滚动位置。角色/账号变化必须清理旧私有数据并拦截迟到响应。性能改造不得截断完整人事目录、减少授权校验或改变整卡蓝色选择与窗口滚动契约。
 
