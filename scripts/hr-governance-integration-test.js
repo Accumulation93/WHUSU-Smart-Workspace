@@ -239,6 +239,76 @@ const hrInfoBehavior = require('../miniprogram/subpackages/scoring/pages/admin/m
   assert.strictEqual(isolated.data.hrProfileRows.length, 1);
   assert.strictEqual(isolated.data.hrProfileRows[0].id, 'hr-fallback');
   assert.strictEqual(isolated.data.hrGovernanceUnavailable, true);
+
+  // 认证码有效期：默认 48 小时、管理端可在 1–7 天之间手动设置，且每个发码入口
+  // 都必须带上该设置（漏传会静默回落到默认值，属于难发现的回归）。
+  const authBehaviorSource = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'),
+    'utf8'
+  );
+  // 只统计认证码入口（admin/auth/claims）；恢复码走 admin/auth/recoveries，是长期
+  // 凭证、不带有效期，不能要求它传 expiresInHours。逐行回溯判断归属，避免正则
+  // 跨行匹配把两种入口混在一起。
+  const issueActions = authBehaviorSource.split(/\r?\n/).filter((line, index, lines) => {
+    if (!/action: 'issue_(?:code|codes|invites)'/.test(line)) return false;
+    for (let back = index; back >= Math.max(0, index - 4); back -= 1) {
+      if (/admin\/auth\/claims/.test(lines[back])) return true;
+      if (/admin\/auth\/recoveries/.test(lines[back])) return false;
+    }
+    return false;
+  }).length;
+  const validityPassed = (authBehaviorSource.match(/expiresInHours: this\.data\.verificationCodeHours/g) || []).length;
+  assert(issueActions > 0 && issueActions === validityPassed,
+    '每个认证码发码入口都必须带 expiresInHours，当前 ' + issueActions + ' 个入口只有 ' + validityPassed + ' 个带有效期');
+
+  const adminPageSource = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/admin.js'),
+    'utf8'
+  );
+  assert(/VERIFICATION_CODE_VALIDITY_DAYS = \[1, 2, 3, 4, 5, 6, 7\]/.test(adminPageSource)
+    && /DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX = 1;/.test(adminPageSource)
+    && /verificationCodeHours: VERIFICATION_CODE_VALIDITY_DAYS\[DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX\] \* 24/.test(adminPageSource)
+    && /onVerificationCodeValidityChange\(e\)\s*\{[\s\S]*?verificationCodeHours: VERIFICATION_CODE_VALIDITY_DAYS\[index\] \* 24/.test(adminPageSource),
+  '管理端必须提供 1–7 天的认证码有效期选择，并默认 2 天（48 小时）');
+  const directoryControlsSource = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.wxml'),
+    'utf8'
+  );
+  assert(/range="\{\{codeValidityOptions\}\}"[\s\S]{0,80}?bindchange="emitCodeValidityChange"/.test(directoryControlsSource),
+    '成员目录工具区必须提供认证码有效期选择器');
+
+  const serverModelSource = fs.readFileSync(
+    path.join(__dirname, '../server/src/core/models/unifiedIdentity.js'),
+    'utf8'
+  );
+  assert(/const DEFAULT_VERIFICATION_HOURS = 48;/.test(serverModelSource)
+    && /const MAX_VERIFICATION_HOURS = 168;/.test(serverModelSource)
+    && /Math\.min\(Math\.max\(Math\.round\(parsed\), MIN_VERIFICATION_HOURS\), MAX_VERIFICATION_HOURS\)/.test(serverModelSource),
+  '服务端认证码有效期默认必须为 48 小时并限制在 1–168 小时');
+  const serverRouteSource = fs.readFileSync(
+    path.join(__dirname, '../server/src/core/routes/unifiedAuth.js'),
+    'utf8'
+  );
+  const hoursMetadataUsed = (serverRouteSource.match(/metadataWithHours\(req\)/g) || []).length;
+  assert(hoursMetadataUsed >= 3,
+    '发码接口必须把管理端提交的有效期传给模型层（issue_invites / issue_code / issue_codes）');
+
+  const migrationFile = fs.readdirSync(path.join(__dirname, '../server/db/deploy'))
+    .filter((name) => /_verification_code_ttl_48h\.sql$/.test(name));
+  assert.strictEqual(migrationFile.length, 1, '必须存在且只存在一个认证码 48 小时迁移');
+  const migrationSql = fs.readFileSync(
+    path.join(__dirname, '../server/db/deploy', migrationFile[0]),
+    'utf8'
+  );
+  ['identity_verification_invites', 'identity_verification_tokens'].forEach((table) => {
+    assert(new RegExp('UPDATE ' + table + '[\\s\\S]*?INTERVAL 48 HOUR').test(migrationSql),
+      '迁移必须把 ' + table + ' 的有效期顺延为 48 小时');
+  });
+  assert((migrationSql.match(/WHERE status = 'active'/g) || []).length === 2
+    && (migrationSql.match(/expires_at < DATE_ADD\(NOW\(\), INTERVAL 48 HOUR\)/g) || []).length === 2,
+  '迁移只能顺延仍在使用中的认证码，且必须可安全重试');
+
+  console.log('认证码有效期默认值与手动设置测试通过');
   console.log('成员资料与账号治理故障隔离测试通过');
 })().catch((error) => {
   console.error(error);

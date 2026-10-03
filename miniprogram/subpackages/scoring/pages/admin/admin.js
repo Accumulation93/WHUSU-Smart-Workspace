@@ -2,6 +2,14 @@ const generatedLocaleCopy = require('../../../../locales/zh-CN/generated/subpack
 const personnelLocaleCopy = require('../../../../locales/zh-CN/adminPersonnel');
 const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const localeCopy = Object.freeze(Object.assign({}, generatedLocaleCopy, personnelLocaleCopy));
+const { format: localeFormat } = require('../../../../locales/runtime');
+// 认证码有效期由管理员手动选择，最小 1 天（24 小时）、最大 7 天（168 小时），
+// 与服务端的取值范围一致；默认 2 天（48 小时）。
+const VERIFICATION_CODE_VALIDITY_DAYS = [1, 2, 3, 4, 5, 6, 7];
+const DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX = 1;
+const verificationCodeValidityOptions = Object.freeze(
+  VERIFICATION_CODE_VALIDITY_DAYS.map((days) => localeFormat(localeCopy.verificationCodeValidityDays, [days]))
+);
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
@@ -61,6 +69,9 @@ Page({
     isSuperAdmin: false,
     canManageAdmins: false,
     canExportScoreResults: false,
+    verificationCodeValidityOptions,
+    verificationCodeValidityIndex: DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX,
+    verificationCodeHours: VERIFICATION_CODE_VALIDITY_DAYS[DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX] * 24,
     canRevokeScoreRecords: false,
     canManageHrPeople: false,
     canImportHr: false,
@@ -1180,6 +1191,18 @@ Page({
   },
 
   noop() {},
+
+  // 管理员手动设置认证码有效期：界面按天选择，提交给服务端时换算成小时。
+  onVerificationCodeValidityChange(e) {
+    const index = Math.min(
+      Math.max(Number(e.detail && e.detail.value) || 0, 0),
+      VERIFICATION_CODE_VALIDITY_DAYS.length - 1
+    );
+    this.setData({
+      verificationCodeValidityIndex: index,
+      verificationCodeHours: VERIFICATION_CODE_VALIDITY_DAYS[index] * 24
+    });
+  },
 
   async _ensureDepartmentsLoaded() {
     if (this.data.departmentList && this.data.departmentList.length) return;

@@ -37,6 +37,12 @@
   </view>
   <view class="hr-active-filter-chips" wx:if="{{activeFilterChips.length}}"><view class="hr-active-filter-chip" wx:for="{{activeFilterChips}}" wx:key="id"><text>{{item.label}}</text><text class="hr-active-filter-remove ui-motion-chip" data-category="{{item.category}}" data-value="{{item.value}}" catchtap="emitClearChip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text></view></view>
   <view class="hr-member-tools">
+    <view class="field hr-member-tools-validity" wx:if="{{canVerifyIdentity}}">
+      <view class="field-label">{{localeCopy.verificationCodeValidity}}</view>
+      <picker range="{{codeValidityOptions}}" value="{{codeValidityIndex}}" bindchange="emitCodeValidityChange">
+        <view class="picker-value">{{codeValidityOptions[codeValidityIndex]}}</view>
+      </picker>
+    </view>
     <view class="hr-member-tools-summary" wx:if="{{canVerifyIdentity || canGlobalAccountManage}}">{{localeCopy.copy_801a88e4a1}} {{selectionCount}} {{localeCopy.copy_2370e6144f}}</view>
     <view class="hr-member-tools-actions">
       <button class="secondary-btn compact-action ui-motion-button" bindtap="emitReset" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bed15e0757}}</button>

@@ -25,10 +25,17 @@ Component({
     canIssueVerification: Boolean,
     canRevokeVerification: Boolean,
     canIssueRecovery: Boolean,
-    canRevokeRecovery: Boolean
+    canRevokeRecovery: Boolean,
+    // 认证码有效期选项（天）与当前选中项，由页面统一持有，批次与单人发码共用。
+    codeValidityOptions: Array,
+    codeValidityIndex: Number
   },
 
   methods: {
+    emitCodeValidityChange(e) {
+      this.triggerEvent('codevaliditychange', { value: e.detail.value });
+    },
+
     emitExport() {
       this.triggerEvent('export');
     },

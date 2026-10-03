@@ -28,6 +28,13 @@ function metadata(req) {
   };
 }
 
+// 认证码有效期由管理端手动设置（小时），未传时由模型层回落到默认 48 小时。
+function metadataWithHours(req) {
+  return Object.assign({}, metadata(req), {
+    expiresInHours: req.body && req.body.expiresInHours
+  });
+}
+
 function sendError(req, res, error) {
   if (error instanceof identityModel.IdentityError) {
     return res.status(error.httpStatus).json({
@@ -792,7 +799,12 @@ router.post('/admin/auth/claims', async (req, res) => {
       const orgId = actor.adminLevel === 'super_admin'
         ? safeString(req.body && req.body.organizationId)
         : actor.organizationId;
-      const results = await identityModel.issueInitialInvites(req.body && req.body.personIds, orgId, actor, metadata(req));
+      const results = await identityModel.issueInitialInvites(
+        req.body && req.body.personIds,
+        orgId,
+        actor,
+        metadataWithHours(req)
+      );
       return res.json({ status: 'success', issued: results, message: localeCopy.copy_bf3336af0d });
     }
     if (action === 'revoke_invites') {
@@ -806,7 +818,7 @@ router.post('/admin/auth/claims', async (req, res) => {
       const result = await identityModel.issueVerificationCode(
         req.body && req.body.claimId,
         actor,
-        metadata(req)
+        metadataWithHours(req)
       );
       return res.json({
         status: 'success',
@@ -819,15 +831,14 @@ router.post('/admin/auth/claims', async (req, res) => {
       const claimIds = Array.isArray(req.body && req.body.claimIds)
         ? req.body.claimIds.map(safeString).filter(Boolean).slice(0, 50)
         : [];
-      const results = await identityModel.issueVerificationCodes(claimIds, actor, metadata(req));
-      const issued = results.map((result) => ({
-        claimId: result.claimId,
-        verificationCode: result.code,
-        expiresInHours: result.expiresInHours
-      }));
+      const results = await identityModel.issueVerificationCodes(claimIds, actor, metadataWithHours(req));
       return res.json({
         status: 'success',
-        issued,
+        issued: results.map((result) => ({
+          claimId: result.claimId,
+          verificationCode: result.code,
+          expiresInHours: result.expiresInHours
+        })),
         message: localeCopy.copy_78aaa917be
       });
     }

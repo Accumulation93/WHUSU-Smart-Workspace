@@ -696,6 +696,8 @@ module.exports = Object.freeze({
   copy_edef2184fb: "授予验证权限",
   copy_ee368e39ca: "最高分",
   copy_eee2fd643a: '生成认证码',
+  verificationCodeValidity: '认证码有效期',
+  verificationCodeValidityDays: '{0} 天',
   copy_ef1232fbde: '已隐藏资料',
   copy_ef89679d22: "留空，不创建",
   copy_ef8b7ffa9b: "第",

@@ -23,7 +23,10 @@ const APP_ID = 'whusu-smart-workspace';
 const SESSION_MINUTES = 7 * 24 * 60;
 const BOOTSTRAP_MINUTES = 15;
 const CLAIM_HOURS = 48;
-const VERIFY_TOKEN_HOURS = 24;
+// 认证码有效期：默认 48 小时，管理端可在 1–168 小时（1–7 天）之间手动设置。
+const DEFAULT_VERIFICATION_HOURS = 48;
+const MIN_VERIFICATION_HOURS = 1;
+const MAX_VERIFICATION_HOURS = 168;
 const RECOVERY_HOURS = 24;
 const MAX_VERIFY_ATTEMPTS = 8;
 const MAX_RECOVERY_ATTEMPTS = 8;
@@ -32,6 +35,12 @@ const PASSPHRASE_MAX_CHARACTERS = 128;
 // 管理端需要一次取得当前权限范围内的完整人员目录，再在本地完成即时筛选。
 // 该上限只对已通过管理员权限校验的接口开放，避免旧的 100/200 条截断。
 const MAX_AUTH_DIRECTORY_LIMIT = 2000;
+
+function normalizeVerificationHours(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_VERIFICATION_HOURS;
+  return Math.min(Math.max(Math.round(parsed), MIN_VERIFICATION_HOURS), MAX_VERIFICATION_HOURS);
+}
 
 class IdentityError extends Error {
   constructor(code, message, httpStatus) {
@@ -1668,6 +1677,7 @@ async function listClaims(organizationId, options) {
 }
 
 async function issueVerificationCodeWithConnection(connection, claimId, actor, metadata) {
+  const hours = normalizeVerificationHours(metadata && metadata.expiresInHours);
   const [rows] = await connection.query(
     `SELECT r.*, EXISTS (
         SELECT 1 FROM organization_memberships om
@@ -1707,7 +1717,7 @@ async function issueVerificationCodeWithConnection(connection, claimId, actor, m
       actor.personId,
       actor.contextId,
       hmac('identity-code:' + claim.id + ':' + code),
-      VERIFY_TOKEN_HOURS
+      hours
     ]
   );
   await appendAuditEvent({
@@ -1720,7 +1730,7 @@ async function issueVerificationCodeWithConnection(connection, claimId, actor, m
     requestId: metadata && metadata.requestId,
     ip: metadata && metadata.ip
   });
-  return { claimId: safeString(claim.id), code, expiresInHours: VERIFY_TOKEN_HOURS };
+  return { claimId: safeString(claim.id), code, expiresInHours: hours };
 }
 
 async function issueVerificationCode(claimId, actor, metadata) {
@@ -2805,7 +2815,7 @@ async function issueInitialInvites(personIds, organizationId, actor, options) {
   const ids = Array.from(new Set((Array.isArray(personIds) ? personIds : []).map(safeString).filter(Boolean))).slice(0, 100);
   const orgId = safeString(organizationId);
   if (!ids.length) throw new IdentityError('invalid_params', localeCopy.copy_e5d78a79f7, 400);
-  const hours = Math.min(Math.max(Number(options && options.expiresInHours) || 24, 1), 168);
+  const hours = normalizeVerificationHours(options && options.expiresInHours);
   return pool.withTransaction(async (connection) => {
     const results = [];
     for (const personId of ids) {

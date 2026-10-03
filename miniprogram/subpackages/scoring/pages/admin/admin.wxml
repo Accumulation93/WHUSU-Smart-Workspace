@@ -999,6 +999,8 @@
         can-revoke-verification="{{hrCanRevokeVerification}}"
         can-issue-recovery="{{hrCanIssueRecovery}}"
         can-revoke-recovery="{{hrCanRevokeRecovery}}"
+        code-validity-options="{{verificationCodeValidityOptions}}"
+        code-validity-index="{{verificationCodeValidityIndex}}"
         bindexport="exportHrProfiles"
         bindsearchfieldchange="onHrProfileSearchFieldChange"
         bindkeywordinput="onHrProfileKeywordInput"
@@ -1010,6 +1012,7 @@
         bindselectall="selectAllFilteredHrMembers"
         bindinvertselection="invertFilteredHrMembers"
         bindclearselection="clearHrMemberSelection"
+        bindcodevaliditychange="onVerificationCodeValidityChange"
         bindissueverification="issueSelectedHrVerificationCodes"
         bindrevokeverification="revokeSelectedHrVerificationCodes"
         bindissuerecovery="issueSelectedHrRecoveryCodes"
@@ -1343,6 +1346,7 @@
               </view>
             </view>
             <view class="hr-account-actions" wx:if="{{!detailHrReadOnly}}">
+              <view class="field-hint" wx:if="{{canVerifyIdentity}}">{{localeCopy.verificationCodeValidity}} {{verificationCodeValidityOptions[verificationCodeValidityIndex]}}</view>
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canIssueVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasActiveClaimCode || detailHrGovernance.auth.hasActiveInvite ? localeCopy.copy_85f42e4ef8 : localeCopy.copy_eee2fd643a}}</button>
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canRevokeVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_265032194a}}</button>
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canIssueRecovery}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-recovery-' + detailHrGovernance.id}}" catchtap="issueHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasRecoveryCode ? localeCopy.copy_43229676c3 : localeCopy.copy_2098fca507}}</button>

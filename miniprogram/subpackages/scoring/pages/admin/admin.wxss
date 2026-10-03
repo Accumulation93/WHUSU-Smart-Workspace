@@ -2485,6 +2485,13 @@ scroll-view {
   line-height: 1.45;
 }
 
+/* 认证码有效期选择：独占一行，不挤占右侧的批量操作按钮网格。 */
+.hr-member-tools-validity {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+}
+
 .hr-governance-warning {
   color: #9a5a13;
 }

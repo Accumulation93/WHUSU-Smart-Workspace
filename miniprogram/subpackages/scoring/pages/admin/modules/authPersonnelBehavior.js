@@ -487,14 +487,17 @@ module.exports = Behavior({
         let issued;
         if (row.auth && row.auth.pendingClaimId) {
           const result = await callFunction({ name: 'admin/auth/claims', data: {
-            action: 'issue_code', claimId: row.auth.pendingClaimId
+            action: 'issue_code', claimId: row.auth.pendingClaimId,
+            expiresInHours: this.data.verificationCodeHours
           } });
           if (result.status !== 'success' || !result.verificationCode) throw new Error(result.message || localeCopy.copy_9662ceba48);
           issued = { key: row.auth.pendingClaimId, personName: row.name, studentId: row.studentId, code: result.verificationCode };
           this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
         } else {
           const result = await callFunction({ name: 'admin/auth/claims', data: {
-            action: 'issue_invites', personIds: [row.personId], organizationId: row.organizationId || orgSession.getSnapshot().orgId || ''
+            action: 'issue_invites', personIds: [row.personId],
+            organizationId: row.organizationId || orgSession.getSnapshot().orgId || '',
+            expiresInHours: this.data.verificationCodeHours
           } });
           const item = result.status === 'success' && result.issued && result.issued[0];
           if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
@@ -524,7 +527,8 @@ module.exports = Behavior({
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
             ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
-            failureMessage: localeCopy.copy_d7ceb7b422
+            failureMessage: localeCopy.copy_d7ceb7b422,
+            extraData: { expiresInHours: this.data.verificationCodeHours }
           });
           flattenIssued(result).forEach((item) => {
             const row = names.get(item.claimId);
@@ -539,7 +543,10 @@ module.exports = Behavior({
             name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
             failureMessage: localeCopy.copy_d7ceb7b422,
-            extraData: { organizationId: orgSession.getSnapshot().orgId || '' }
+            extraData: {
+              organizationId: orgSession.getSnapshot().orgId || '',
+              expiresInHours: this.data.verificationCodeHours
+            }
           });
           const rowsByPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
           flattenIssued(result).forEach((item) => {
@@ -1014,7 +1021,8 @@ module.exports = Behavior({
       this.setData({ authActionLoadingKey: 'claim-' + claimId });
       try {
         const result = await callFunction({ name: 'admin/auth/claims', data: {
-          action: 'issue_code', claimId
+          action: 'issue_code', claimId,
+          expiresInHours: this.data.verificationCodeHours
         } });
         if (result.status !== 'success' || !result.verificationCode) {
           throw new Error(result.message || localeCopy.copy_9662ceba48);
@@ -1044,7 +1052,8 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
-          ids, batchSize: 50, failureMessage: localeCopy.copy_9662ceba48
+          ids, batchSize: 50, failureMessage: localeCopy.copy_9662ceba48,
+          extraData: { expiresInHours: this.data.verificationCodeHours }
         });
         const issued = flattenIssued(batchResult).map((item) => ({
           key: item.claimId,
@@ -1073,7 +1082,10 @@ module.exports = Behavior({
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
           ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
-          extraData: { organizationId: this.data.authScopeOrganizationId }
+          extraData: {
+            organizationId: this.data.authScopeOrganizationId,
+            expiresInHours: this.data.verificationCodeHours
+          }
         });
         const issued = flattenIssued(batchResult).map((item) => ({
           key: item.inviteId || item.personId,
