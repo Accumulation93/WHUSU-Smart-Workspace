@@ -1424,6 +1424,9 @@ module.exports = Behavior({
     },
 
     refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this._hrProfileRawRows || []) {
+      // 列表内容被重建（筛选、搜索、排序、重新加载）时清掉触底去重时间窗，
+      // 避免新列表刚出现就被上一次追加的时间戳挡住而停在第一批。
+      this._hrProfileLoadMoreAt = 0;
       const filteredRows = applyHrProfileFilters(nextRawRows, nextFilters);
       const actionState = this.buildHrMemberActionState(filteredRows);
       const selected = new Set(actionState.selectedHrMemberIds);
