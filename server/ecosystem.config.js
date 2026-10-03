@@ -24,7 +24,9 @@ module.exports = {
     out_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-api-out.log',
     merge_logs: true,
     kill_timeout: 5000,
-    listen_timeout: 5000
+    // 滚动重载时 PM2 等候新实例完成启动（含数据库校验）；给足时间可避免把
+    // 正常但稍慢的启动判为失败而中断服务。
+    listen_timeout: 20000
   }, {
     name: 'whusu-smart-workspace-notification-worker',
     script: 'notificationWorker.js',

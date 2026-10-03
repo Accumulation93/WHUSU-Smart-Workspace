@@ -59,6 +59,9 @@ WORKER_STOPPED=0
 API_STOPPED=0
 BACKUP_STOPPED=0
 UTC_CUTOVER_REQUIRED=0
+# 非破坏性迁移走在线发布：不停进程、不进维护状态、滚动重载，升级不中断服务。
+ONLINE_DEPLOY=0
+PREFLIGHT_PID=""
 
 log() {
   printf '[%s] %s\n' "$(date '+%F %T')" "$*"
@@ -104,6 +107,73 @@ wait_for_health() {
     fi
     sleep 2
   done
+  return 1
+}
+
+stop_preflight() {
+  if [[ -z "$PREFLIGHT_PID" ]]; then return 0; fi
+  kill "$PREFLIGHT_PID" >/dev/null 2>&1 || true
+  local attempt
+  for attempt in $(seq 1 20); do
+    kill -0 "$PREFLIGHT_PID" >/dev/null 2>&1 || break
+    sleep 1
+  done
+  kill -9 "$PREFLIGHT_PID" >/dev/null 2>&1 || true
+  PREFLIGHT_PID=""
+}
+
+# 上流量前的预检：在独立端口把新版本真正跑起来，确认它能启动、能连上迁移后的
+# 数据库并响应健康检查。预检失败时线上进程与端口完全不受影响，直接放弃本次发布。
+preflight_new_release() {
+  local live_port="$1"
+  local port=$((live_port + 1))
+  local attempt
+  local try_index
+  for attempt in 1 2 3 4 5; do
+    if ! (ss -lnt 2>/dev/null || true) | grep -q ":${port}\b"; then break; fi
+    port=$((port + 1))
+  done
+  local preflight_log="$LOG_DIR/preflight-$(date +%Y%m%d-%H%M%S)-${TARGET_SHA:0:12}.log"
+  for try_index in 1 2 3; do
+    : >"$preflight_log"
+    log "新版本上流量前预检：${port} 端口启动（线上 ${live_port} 不受影响）"
+    (
+      cd "$NEW_RELEASE/server" || exit 1
+      PORT="$port" NODE_ENV=production nohup node src/index.js >>"$preflight_log" 2>&1 &
+      printf '%s' "$!" >"$LOG_DIR/.preflight.pid"
+    )
+    PREFLIGHT_PID="$(cat "$LOG_DIR/.preflight.pid" 2>/dev/null || true)"
+    rm -f "$LOG_DIR/.preflight.pid"
+    if [[ -z "$PREFLIGHT_PID" ]]; then
+      log "预检进程未能启动，放弃发布"
+      return 1
+    fi
+    local healthy=0
+    for attempt in $(seq 1 30); do
+      if curl --fail --silent --show-error --max-time 4 "http://127.0.0.1:${port}/api/health" >/dev/null; then
+        healthy=1
+        break
+      fi
+      # 进程提前退出说明启动就失败，无需继续等待。
+      if ! kill -0 "$PREFLIGHT_PID" >/dev/null 2>&1; then break; fi
+      sleep 2
+    done
+    if [[ "$healthy" -eq 1 ]]; then
+      stop_preflight
+      log "新版本预检通过"
+      return 0
+    fi
+    if grep -q "EADDRINUSE" "$preflight_log" 2>/dev/null; then
+      stop_preflight
+      port=$((port + 1))
+      log "预检端口被占用，改用 ${port} 重试"
+      continue
+    fi
+    break
+  done
+  log "新版本预检失败，预检日志尾部："
+  tail -n 30 "$preflight_log" 2>/dev/null || true
+  stop_preflight
   return 1
 }
 
@@ -162,6 +232,27 @@ rollback() {
   local failed_line="$1"
   trap - ERR TERM INT HUP
   set +e
+  stop_preflight
+  # 在线发布不回滚数据库也不停进程：本轮迁移都是非破坏性的，旧版本继续可用。
+  # 只有已经把流量切到新版本时才滚动切回旧版本，全过程不中断服务。
+  if [[ "$ONLINE_DEPLOY" -eq 1 ]]; then
+    log "在线发布在第 ${failed_line} 行失败，开始滚动回退（不中断服务）"
+    if [[ "$RELEASE_SWITCHED" -eq 1 && -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]]; then
+      if atomic_link "$OLD_RELEASE" && reload_release "$OLD_RELEASE" && wait_for_health "$(read_port)"; then
+        pm2 save
+        log "已滚动切回旧版本 $OLD_SHA，服务全程未中断"
+      else
+        log "滚动回退失败，保留维护状态并等待人工处理"
+        touch "$MAINTENANCE_FLAG"
+      fi
+    else
+      log "尚未切换流量，线上版本未受影响，数据库保持在线的非破坏性变更"
+    fi
+    if [[ -d "$NEW_RELEASE" && "$NEW_RELEASE" != "$OLD_RELEASE" ]]; then
+      git -C "$REPO_DIR" worktree remove --force "$NEW_RELEASE" >/dev/null 2>&1 || true
+    fi
+    exit 1
+  fi
   log "部署在第 ${failed_line} 行失败，开始自动恢复"
   if [[ "$MIGRATION_STARTED" -eq 1 && -n "$SNAPSHOT" && -f "$SNAPSHOT" ]]; then
     log "确认停止 API、通知 Worker 与备份进程，释放数据库连接"
@@ -319,19 +410,36 @@ else
     log "检测到未完成的 UTC 切换状态：$UTC_CUTOVER_STATUS"
   fi
 fi
+PLAN_DESTRUCTIVE="$(printf '%s' "$PLAN_JSON" | node -e "
+  let source = '';
+  process.stdin.on('data', (chunk) => { source += chunk; });
+  process.stdin.on('end', () => {
+    try { process.stdout.write(JSON.parse(source).destructive ? '1' : '0'); }
+    catch (error) { process.stdout.write('1'); }
+  });
+")"
 if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
-  log "检测到 $PENDING_COUNT 个待执行迁移，UTC 切换待恢复=$UTC_CUTOVER_REQUIRED，进入维护状态"
-  touch "$MAINTENANCE_FLAG"
-  MAINTENANCE_ACTIVE=1
-  stop_process_group whusu-smart-workspace-api
-  API_STOPPED=1
-  stop_process_group whusu-smart-workspace-notification-worker
-  WORKER_STOPPED=1
-  stop_process_group whusu-smart-workspace-backup
-  BACKUP_STOPPED=1
-  sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
-  timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
+  if [[ "$PENDING_COUNT" -gt 0 && "$UTC_CUTOVER_REQUIRED" -eq 0 && "$PLAN_DESTRUCTIVE" -eq 0 ]]; then
+    # 加列、建表、数据回填这类迁移对旧版本同样兼容，可以在线执行；此时保持服务可
+    # 用（mysqldump 使用 --single-transaction，快照仍是一致的），只有破坏性 DDL
+    # 与 UTC 切换才需要维护窗口，避免“一升级就中断”。
+    ONLINE_DEPLOY=1
+    log "检测到 $PENDING_COUNT 个待执行迁移且全部为非破坏性，保持在线发布（不进入维护状态）"
+    timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
+  else
+    log "检测到 $PENDING_COUNT 个待执行迁移（破坏性=$PLAN_DESTRUCTIVE），UTC 切换待恢复=$UTC_CUTOVER_REQUIRED，进入维护状态"
+    touch "$MAINTENANCE_FLAG"
+    MAINTENANCE_ACTIVE=1
+    stop_process_group whusu-smart-workspace-api
+    API_STOPPED=1
+    stop_process_group whusu-smart-workspace-notification-worker
+    WORKER_STOPPED=1
+    stop_process_group whusu-smart-workspace-backup
+    BACKUP_STOPPED=1
+    sleep "$DRAIN_SECONDS"
+    timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
+  fi
   if [[ "$PLAN_JSON" == *"20260913120000_retire_global_profile_values.sql"* ]]; then
     ARCHIVE_PATH="$BACKUP_DIR/global-profile-values-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).json"
     log "归档全局补充资料并校验行数与 SHA256"
@@ -381,6 +489,12 @@ fi
 # 即使本次没有数据库迁移，也必须拒绝带明文或损坏签名私钥的版本上线。
 timeout --signal=TERM --kill-after=10s 120s \
   node "$NEW_RELEASE/server/scripts/migrateAuditSigningKeys.js"
+
+# 上流量前的最后一道闸门：新版本先在独立端口跑通健康检查，再切换到线上。
+if ! preflight_new_release "$(read_port)"; then
+  log "新版本未通过上线前预检，放弃本次发布并保持当前版本继续服务"
+  exit 1
+fi
 
 log "原子切换服务版本"
 atomic_link "$NEW_RELEASE"

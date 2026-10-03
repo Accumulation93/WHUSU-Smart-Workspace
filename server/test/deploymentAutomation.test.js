@@ -74,6 +74,32 @@ function testDeploymentScriptContract() {
   assert.match(script, /stop_process_group whusu-smart-workspace-api/);
   assert.match(script, /pm2 jlist/);
   assert.doesNotMatch(script, /pm2 stop whusu-smart-workspace-api \|\| true/);
+
+  // 零中断发布契约：非破坏性迁移必须在线执行（不停进程、不进维护状态），上流量前
+  // 先在独立端口预检新版本，失败即放弃发布；只有破坏性迁移或 UTC 切换才停机。
+  assert.match(script, /ONLINE_DEPLOY=0/);
+  assert.match(script, /PLAN_DESTRUCTIVE=/);
+  assert.match(script, /\$PENDING_COUNT" -gt 0 && "\$UTC_CUTOVER_REQUIRED" -eq 0 && "\$PLAN_DESTRUCTIVE" -eq 0/);
+  assert.match(script, /保持在线发布（不进入维护状态）/);
+  assert.match(script, /preflight_new_release "\$\(read_port\)"/);
+  const onlineStart = script.indexOf('if [[ "$PENDING_COUNT" -gt 0 && "$UTC_CUTOVER_REQUIRED" -eq 0');
+  const onlineRest = onlineStart >= 0 ? script.slice(onlineStart) : '';
+  const onlineElse = onlineRest.match(/\r?\n  else\r?\n/);
+  assert.ok(onlineStart > 0 && onlineElse, '应存在在线迁移分支');
+  const onlineBranch = onlineRest.slice(0, onlineElse.index);
+  assert.doesNotMatch(onlineBranch, /stop_process_group/);
+  assert.doesNotMatch(onlineBranch, /touch "\$MAINTENANCE_FLAG"/);
+  const onlineRollback = script.slice(
+    script.indexOf('if [[ "$ONLINE_DEPLOY" -eq 1 ]]; then', script.indexOf('rollback() {')),
+    script.indexOf('log "部署在第 ${failed_line} 行失败，开始自动恢复"')
+  );
+  assert.ok(onlineRollback.length > 0, '在线发布失败必须有独立的回退分支');
+  assert.doesNotMatch(onlineRollback, /stop_process_group/);
+  assert.doesNotMatch(onlineRollback, /deploymentDatabase\.js" restore/);
+  assert.match(onlineRollback, /reload_release "\$OLD_RELEASE"/);
+  assert.match(script, /stop_preflight/);
+  // 滚动重载必须给足启动时间，否则正常但稍慢的启动会被判失败而中断服务。
+  assert.match(ecosystem, /listen_timeout:\s*20000/);
   assert.match(script, /无法确认全部数据库客户端已经停止，拒绝恢复快照或切换旧版本/);
   assert.match(script, /数据库快照恢复失败，保留维护状态并停止回滚/);
   assert.match(script, /旧版本进程重载失败，保留维护状态/);
