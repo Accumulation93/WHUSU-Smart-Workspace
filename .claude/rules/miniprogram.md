@@ -294,7 +294,7 @@ Page({
 
 - 用户可见文案只允许定义在 `miniprogram/locales/zh-CN/**`；业务 JS、WXML 和页面 JSON 不得新增中文文案常量。
 - WXML 通过页面或组件 `data` 中的语言对象读取文案；Toast、Modal、空状态、无障碍标签和动态提示同样适用。
-- 全站顶栏统一使用 `miniprogram/components/ui-navbar/`：页面 JSON 声明 `"navigationStyle": "custom"`、保持 `navigationBarTitleText` 为空、注册 `ui-navbar`，模板在 `<page-meta>`/`<wxs>` 之后、主内容容器之前渲染 `<ui-navbar title="{{navigationTitle}}" />`，不再调用 `wx.setNavigationBarTitle`。页面最外层容器用 `style="min-height: calc(100vh - {{navTopPx}}px)"` 补偿顶栏高度，`navTopPx` 取自 `utils/navigationBarMetrics` 并在 `onResize` 重算。
+- 全站顶栏统一使用 `miniprogram/components/ui-navbar/`：页面 JSON 声明 `"navigationStyle": "custom"`、保持 `navigationBarTitleText` 为空、注册 `ui-navbar`，模板在 `<page-meta>`/`<wxs>` 之后、主内容容器之前渲染 `<ui-navbar title="{{navigationTitle}}" />`，不再调用 `wx.setNavigationBarTitle`。标题必须带“ - WHUSU智慧工作台”后缀（组件会兜底补齐，缺标题时回落应用名），后缀让标题变长时由组件按可用宽度在语义字号档位间自动选档，保证完整显示而不是截断。页面最外层容器用 `style="min-height: calc(100vh - {{navTopPx}}px)"` 补偿顶栏高度，`navTopPx` 取自 `utils/navigationBarMetrics` 并在 `onResize` 重算。
 - 动态句子必须在语言资源中定义模板或格式化函数，业务代码只传变量；路由、状态码、权限键、数据库枚举和业务标识不得伪装成语言资源。
 - 新增文案使用可读语义键；`generated/**` 的内容寻址键仅用于历史等值迁移，不得手写复制到无关页面。
 - 完成小程序修改必须运行 `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`。

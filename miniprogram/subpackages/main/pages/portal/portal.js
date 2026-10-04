@@ -110,8 +110,8 @@ Page({
     portalAuthState: 'ready',
     portalAuthFrozen: false,
 
-    // 顶栏由 ui-navbar 标准件渲染；页面只提供标题文案。
-    navTitle: copy.pageName,
+    // 顶栏由 ui-navbar 标准件渲染；标题用带“ - WHUSU智慧工作台”后缀的完整标题。
+    navTitle: copy.navigationTitle,
     // 顶栏自绘后 100vh 是整屏高度，页面容器要按顶栏高度补偿，否则底部会多出空白。
     navTopPx: 0
   },

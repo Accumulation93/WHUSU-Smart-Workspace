@@ -29,7 +29,8 @@
 
 统一顶栏契约：所有注册页面在 `<页面>.json` 声明 `"navigationStyle": "custom"`、注册并在模板里渲染 `<ui-navbar title="{{navigationTitle}}" />`，页面不再调用 `wx.setNavigationBarTitle`。组件自己量状态栏与微信胶囊、自己固定定位并渲染等高占位块，页面不需要再算顶栏几何；模板里它必须是页面级兄弟节点，放在 `<page-meta>`/`<wxs>` 之后、主内容容器之前，不能放进 `.page` 或 grid/flex 容器。页面侧要守的规则：
 
-- 标题传语言系统的 `navigationTitle`，组件自动去掉“ - WHUSU智慧工作台”后缀；没拿到标题时回落应用名，不会出现空条。
+- 标题传语言系统的 `navigationTitle`，**必须带“ - WHUSU智慧工作台”后缀**；组件会在标题缺后缀时自动补齐，没拿到标题时回落应用名，不会出现空条，也不会只显示一个短标题。
+- 标题加了后缀会变长。组件按可用宽度自动选字号（17 / 15 / 13 / 12.5 / 12 / 11px，档位全部取现有语义令牌），优先保持与微信默认顶栏一致的字号、保持屏幕居中；放不下时先往左借一点空间让开返回键，再降档字号，保证整条标题完整显示而不是被省略号截断。
 - 返回键默认 `back-mode="auto"`，与微信原生一致（有上一页才显示），点击退一页，退不了才回到门户；门户这类落地页用 `left-mode="slot"` 放自己的左侧控件（例如登录/退出登录图标键），并用 `back-mode="never"` 关掉返回键。
 - `app.wxss` 的全局 `.page { min-height: 100vh }` 在自绘顶栏后会让页面底部多出顶栏高度的空白，页面最外层容器必须补偿：`style="min-height: calc(100vh - {{navTopPx}}px)"`（容器本身是 `height: 100vh` 时改用 `height:`）。`navTopPx` 来自 `miniprogram/utils/navigationBarMetrics.js`，并在 `onResize` 里随横竖屏重算。
 - 贴视口顶部的固定元素（`position: fixed; top: 0`）同样要加 `style="top: {{navTopPx}}px"`；定位祖先是页面本身的 `position: sticky` 元素，`top` 值也要加上 `navTopPx`，避免滚动时钻到顶栏下面。

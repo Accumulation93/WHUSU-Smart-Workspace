@@ -8,6 +8,8 @@ const componentFile = path.join(root, 'miniprogram/components/ui-navbar/ui-navba
 const componentStyle = fs.readFileSync(path.join(root, 'miniprogram/components/ui-navbar/ui-navbar.wxss'), 'utf8');
 const componentMarkup = fs.readFileSync(path.join(root, 'miniprogram/components/ui-navbar/ui-navbar.wxml'), 'utf8');
 
+const BRAND_SUFFIX = ' - WHUSU智慧工作台';
+
 function loadComponent(options) {
   const settings = options || {};
   let definition = null;
@@ -29,12 +31,18 @@ function loadComponent(options) {
         return {
           getNavigationBarMetrics: () => {
             calls.metrics += 1;
-            return settings.metrics || { statusBarHeight: 24, barHeight: 48, capsuleInset: 96, totalHeight: 72 };
+            return settings.metrics || {
+              statusBarHeight: 24,
+              barHeight: 48,
+              capsuleInset: 96,
+              totalHeight: 72,
+              windowWidth: 375
+            };
           }
         };
       }
       if (name.indexOf('locales') >= 0) {
-        return { backAria: '返回上一页', refreshing: '正在刷新…', emptyTitle: 'WHUSU智慧工作台' };
+        return { backAria: '返回上一页', refreshing: '正在刷新…', brandName: 'WHUSU智慧工作台' };
       }
       return {};
     },
@@ -59,97 +67,125 @@ function createInstance(definition, properties) {
   return instance;
 }
 
+function makeInstance(settings, properties) {
+  const loaded = loadComponent(settings || {});
+  const instance = createInstance(loaded.definition, properties || {});
+  instance.refresh();
+  return { instance, calls: loaded.calls, definition: loaded.definition };
+}
+
 // —— 顶栏几何 ——
 {
-  const { definition, calls } = loadComponent({});
-  const instance = createInstance(definition);
-  instance.applyMetrics();
-  assert.strictEqual(calls.metrics, 1, '顶栏必须向平台量一次状态栏与胶囊几何');
+  const loaded = loadComponent({});
+  const instance = createInstance(loaded.definition);
+  instance.refresh();
+  assert.strictEqual(loaded.calls.metrics, 1, '顶栏必须向平台量一次状态栏与胶囊几何');
   assert.deepStrictEqual(
     [instance.data.statusBarHeight, instance.data.barHeight, instance.data.capsuleInset, instance.data.totalHeight],
     [24, 48, 96, 72],
     '顶栏几何必须按平台返回值落地'
   );
-  // Pad 横竖屏切换：组件在自己的页面事件里重算
-  assert.strictEqual(typeof definition.pageLifetimes.resize, 'function', '顶栏必须在横竖屏切换后重算几何');
-  instance.refreshGeometry();
-  assert.strictEqual(calls.metrics, 2, '重算必须重新量一次几何');
 }
 
-// —— 标题：去掉“ - WHUSU智慧工作台”后缀，空标题回落应用名 ——
+// —— 横竖屏切换后必须重算 ——
 {
-  const { definition } = loadComponent({});
-  const instance = createInstance(definition);
-  definition.observers.title.call(instance, '场地借用审批详情 - WHUSU智慧工作台');
-  assert.strictEqual(instance.data.shortTitle, '场地借用审批详情', '顶栏只显示子应用名称');
-  definition.observers.title.call(instance, '  应用服务 - WHUSU智慧工作台  ');
-  assert.strictEqual(instance.data.shortTitle, '应用服务', '标题两侧空白与后缀都要去掉');
-  definition.observers.title.call(instance, '');
-  assert.strictEqual(instance.data.shortTitle, 'WHUSU智慧工作台', '没拿到标题时回落应用名，不能显示空条');
+  const loaded = loadComponent({});
+  const instance = createInstance(loaded.definition);
+  assert.strictEqual(typeof loaded.definition.pageLifetimes.resize, 'function', '顶栏必须在横竖屏切换后重算');
+  assert.strictEqual(typeof loaded.definition.pageLifetimes.show, 'function', '顶栏必须在页面重新显示时重算返回键');
+  loaded.definition.pageLifetimes.resize.call(instance);
+  assert.strictEqual(loaded.calls.metrics, 1, '重算必须重新量一次几何');
+  instance.refreshGeometry();
+  assert.strictEqual(loaded.calls.metrics, 2, '页面主动要求时也要能重算');
+}
+
+// —— 标题：必须带“ - WHUSU智慧工作台”后缀 ——
+{
+  const short = makeInstance({}, { title: '场地借用' }).instance;
+  assert.strictEqual(short.data.headingText, '场地借用' + BRAND_SUFFIX, '缺后缀的标题要补齐后缀');
+
+  const suffixed = makeInstance({}, { title: '场地借用审批详情' + BRAND_SUFFIX }).instance;
+  assert.strictEqual(suffixed.data.headingText, '场地借用审批详情' + BRAND_SUFFIX, '已带后缀的标题不能重复追加');
+
+  const spaced = makeInstance({}, { title: '  应用服务' + BRAND_SUFFIX + '  ' }).instance;
+  assert.strictEqual(spaced.data.headingText, '应用服务' + BRAND_SUFFIX, '标题两侧空白要去掉');
+
+  const empty = makeInstance({}, { title: '' }).instance;
+  assert.strictEqual(empty.data.headingText, 'WHUSU智慧工作台', '没拿到标题时至少显示应用名，不能是空条');
+}
+
+// —— 标题宽度：优先原字号，放得下就居中，放不下才往左借位或降档 ——
+{
+  const short = makeInstance({ pageDepth: 3 }, { title: '登录', backMode: 'auto', leftMode: 'back' }).instance;
+  assert.strictEqual(short.data.headingFontStep, 0, '一般标题保持与微信默认顶栏一致的字号');
+  assert.ok(short.data.headingLeft <= 96, '标题不能压到右侧胶囊上');
+  assert.ok(short.data.headingLeft >= 56, '标题不能压住左侧返回键');
+
+  const long = makeInstance({ pageDepth: 3 }, { title: '场地借用审批详情', backMode: 'auto', leftMode: 'back' }).instance;
+  assert.ok(long.data.headingFontStep > 0, '长标题要降一档字号，保证后缀完整显示');
+  assert.ok(long.data.headingLeft >= 56, '长标题要让开左侧返回键，避免压住按钮');
+
+  const centered = makeInstance({ pageDepth: 1 }, { title: '登录', backMode: 'auto', leftMode: 'back' }).instance;
+  assert.strictEqual(centered.data.headingLeft, 96, '标题放得下且左侧没有按钮时按屏幕居中');
+
+  const noBack = makeInstance({ pageDepth: 1 }, { title: '场地借用审批详情', backMode: 'auto', leftMode: 'back' }).instance;
+  assert.strictEqual(noBack.data.headingLeft, 96, '没有返回键时标题仍按屏幕居中');
+  assert.ok(noBack.data.headingFontStep > 0, '没有返回键时同样要降档把标题显示完整');
+
+  const wide = makeInstance({ metrics: { statusBarHeight: 24, barHeight: 48, capsuleInset: 96, totalHeight: 72, windowWidth: 768 } },
+    { title: '场地借用审批详情', backMode: 'always', leftMode: 'back' }).instance;
+  assert.strictEqual(wide.data.headingFontStep, 0, 'Pad 上宽度够，标题保持原字号');
 }
 
 // —— 返回键：默认有上一页才显示，与微信原生一致 ——
 {
-  const root = loadComponent({ pageDepth: 1 });
-  const rootInstance = createInstance(root.definition, { backMode: 'auto', leftMode: 'back' });
-  rootInstance.syncBackVisibility();
-  assert.strictEqual(rootInstance.data.showBack, false, '落地页没有上一页，不显示返回键');
+  const root = makeInstance({ pageDepth: 1 }, { backMode: 'auto', leftMode: 'back' }).instance;
+  assert.strictEqual(root.data.showBack, false, '落地页没有上一页，不显示返回键');
 
-  const pushed = loadComponent({ pageDepth: 3 });
-  const pushedInstance = createInstance(pushed.definition, { backMode: 'auto', leftMode: 'back' });
-  pushedInstance.syncBackVisibility();
-  assert.strictEqual(pushedInstance.data.showBack, true, '有上一页时必须显示返回键');
+  const pushed = makeInstance({ pageDepth: 3 }, { backMode: 'auto', leftMode: 'back' }).instance;
+  assert.strictEqual(pushed.data.showBack, true, '有上一页时必须显示返回键');
 
-  pushedInstance.data.backMode = 'never';
-  pushedInstance.syncBackVisibility();
-  assert.strictEqual(pushedInstance.data.showBack, false, '显式关闭时不得显示返回键');
+  pushed.data.backMode = 'never';
+  pushed.refresh();
+  assert.strictEqual(pushed.data.showBack, false, '显式关闭时不得显示返回键');
 
-  pushedInstance.data.backMode = 'always';
-  pushedInstance.syncBackVisibility();
-  assert.strictEqual(pushedInstance.data.showBack, true, '显式要求时总要显示返回键');
+  pushed.data.backMode = 'always';
+  pushed.refresh();
+  assert.strictEqual(pushed.data.showBack, true, '显式要求时总要显示返回键');
 
-  // 左侧换成页面自己的控件（门户的退出登录图标键）时不再渲染返回键
-  const slotted = loadComponent({ pageDepth: 3 });
-  const slottedInstance = createInstance(slotted.definition, { backMode: 'auto', leftMode: 'slot' });
-  slottedInstance.syncBackVisibility();
-  assert.strictEqual(slottedInstance.data.showBack, false, '左侧自定义槽位时不得再画返回键');
+  const slotted = makeInstance({ pageDepth: 3 }, { backMode: 'auto', leftMode: 'slot' }).instance;
+  assert.strictEqual(slotted.data.showBack, false, '左侧自定义槽位时不得再画返回键');
 }
 
 // —— 点返回键：退一页；没有可退时回门户 ——
 {
-  const { definition, calls } = loadComponent({ pageDepth: 2 });
-  const instance = createInstance(definition, { backMode: 'auto', leftMode: 'back' });
-  instance.syncBackVisibility();
-  instance.onBackTap();
-  assert.strictEqual(calls.navigateBack.length, 1, '点返回键必须退一页');
-  assert.strictEqual(calls.navigateBack[0].delta, 1, '返回步长必须是一页');
-  assert.deepStrictEqual(calls.reLaunch, [], '正常返回不得重建页面栈');
+  const pushed = makeInstance({ pageDepth: 2 }, { backMode: 'auto', leftMode: 'back' });
+  pushed.instance.onBackTap();
+  assert.strictEqual(pushed.calls.navigateBack.length, 1, '点返回键必须退一页');
+  assert.strictEqual(pushed.calls.navigateBack[0].delta, 1, '返回步长必须是一页');
+  assert.deepStrictEqual(pushed.calls.reLaunch, [], '正常返回不得重建页面栈');
 
-  const failing = loadComponent({ pageDepth: 2, navigateBackFails: true });
-  const failingInstance = createInstance(failing.definition, { backMode: 'auto', leftMode: 'back' });
-  failingInstance.syncBackVisibility();
-  failingInstance.onBackTap();
+  const failing = makeInstance({ pageDepth: 2, navigateBackFails: true }, { backMode: 'auto', leftMode: 'back' });
+  failing.instance.onBackTap();
   assert.deepStrictEqual(
     failing.calls.reLaunch,
     ['/subpackages/main/pages/portal/portal'],
     '退不了时必须回到门户，不能把用户留在死页'
   );
-}
 
-// —— 隐藏返回键后点击不应该导航 ——
-{
-  const { definition, calls } = loadComponent({ pageDepth: 1 });
-  const instance = createInstance(definition, { backMode: 'auto', leftMode: 'back' });
-  instance.syncBackVisibility();
-  instance.onBackTap();
-  assert.deepStrictEqual(calls.navigateBack, [], '没有返回键时不得触发返回');
+  const rootPage = makeInstance({ pageDepth: 1 }, { backMode: 'auto', leftMode: 'back' });
+  rootPage.instance.onBackTap();
+  assert.deepStrictEqual(rootPage.calls.navigateBack, [], '没有返回键时不得触发返回');
 }
 
 // —— 模板与样式契约 ——
 assert.ok(/class="ui-navbar-placeholder"/.test(componentMarkup), '顶栏必须自带占位块，页面不需要自己留白');
 assert.ok(/<slot name="left">/.test(componentMarkup), '顶栏必须给页面留出左侧自定义槽位');
 assert.ok(/hover-class="ui-press-chip"/.test(componentMarkup), '返回键必须有按压反馈');
+assert.ok(/ui-navbar-font-\{\{headingFontStep\}\}/.test(componentMarkup), '标题字号必须按算出来的档位渲染');
 assert.ok(/grid-column:\s*1\s*\/\s*-1;/.test(componentStyle), '占位块必须能在 grid 页面里整行占满');
+assert.ok(/\.ui-navbar-font-5\s*\{\s*font-size:\s*var\(--ui-type-caption\)/.test(componentStyle), '最小档字号必须来自语义令牌');
+assert.ok(!/font-size:\s*\d/.test(componentStyle), '顶栏字号只能取语义令牌，不得写死数值');
 {
   const navbarZ = Number((componentStyle.match(/\.ui-navbar\s*\{[\s\S]*?z-index:\s*(\d+)/) || [])[1]);
   assert.ok(navbarZ > 50, '顶栏必须盖住页面内容（内容最高 z-index 50）');
@@ -158,4 +194,4 @@ assert.ok(/grid-column:\s*1\s*\/\s*-1;/.test(componentStyle), '占位块必须�
 assert.ok(/@media\s*\(min-width:\s*520px\)/.test(componentStyle), '顶栏必须给 Pad 竖屏单独定尺寸');
 assert.ok(/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)/.test(componentStyle), '顶栏必须给 Pad 横屏单独定尺寸');
 
-console.log('统一顶栏测试通过：几何、标题、返回键与槽位行为符合预期。');
+console.log('统一顶栏测试通过：几何、标题后缀与字号、返回键与槽位行为符合预期。');

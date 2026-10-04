@@ -50,6 +50,8 @@ function getNavigationBarMetrics() {
     metrics.capsuleInset = FALLBACK_CAPSULE_INSET_PX;
   }
   metrics.totalHeight = metrics.statusBarHeight + metrics.barHeight;
+  // 顶栏标题要按可用宽度自动选字号，组件需要知道屏幕宽度。
+  metrics.windowWidth = Number.isFinite(windowWidth) && windowWidth > 0 ? Math.round(windowWidth) : 0;
   return metrics;
 }
 
