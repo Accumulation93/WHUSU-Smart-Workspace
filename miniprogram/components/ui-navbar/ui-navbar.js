@@ -8,15 +8,14 @@ const copy = require('../../locales/zh-CN/uiNavbar');
 const BRAND = copy.brandName;
 const BRAND_SUFFIX = ' - ' + BRAND;
 // 标题按可用宽度从大到小挑字号，档位全部取现有语义令牌，不新增字号。
-// 标题带“ - WHUSU智慧工作台”后缀后本身就比较长，起点取控件档而不是顶栏 17px 档，
-// 免得窄屏上要么被截断、要么挤得满满当当。
+// 标题带“ - WHUSU智慧工作台”后缀后本身就比较长，起点取偏小的一档，窄屏上才不会又大又挤。
 const HEADING_FONT_STEPS = [
-  15,    // --ui-type-value
   13.5,  // --ui-type-body
   13,    // --ui-type-control
   12.5,  // --ui-type-label
   12,    // --ui-type-meta
-  11     // --ui-type-caption
+  11,    // --ui-type-caption
+  10     // --ui-type-micro
 ];
 // 左侧有返回键或页面自定义键时，标题可用的起点 = 键宽 + 间距 + 内边距。
 const LEFT_RESERVE_PX = 50;

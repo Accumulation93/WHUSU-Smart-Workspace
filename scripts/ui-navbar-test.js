@@ -184,7 +184,7 @@ assert.ok(/<slot name="left">/.test(componentMarkup), '顶栏必须给页面留�
 assert.ok(/hover-class="ui-press-chip"/.test(componentMarkup), '返回键必须有按压反馈');
 assert.ok(/ui-navbar-font-\{\{headingFontStep\}\}/.test(componentMarkup), '标题字号必须按算出来的档位渲染');
 assert.ok(/grid-column:\s*1\s*\/\s*-1;/.test(componentStyle), '占位块必须能在 grid 页面里整行占满');
-assert.ok(/\.ui-navbar-font-5\s*\{\s*font-size:\s*var\(--ui-type-caption\)/.test(componentStyle), '最小档字号必须来自语义令牌');
+assert.ok(/\.ui-navbar-font-5\s*\{\s*font-size:\s*var\(--ui-type-micro\)/.test(componentStyle), '最小档字号必须来自语义令牌');
 assert.ok(!/font-size:\s*\d/.test(componentStyle), '顶栏字号只能取语义令牌，不得写死数值');
 {
   const navbarZ = Number((componentStyle.match(/\.ui-navbar\s*\{[\s\S]*?z-index:\s*(\d+)/) || [])[1]);
