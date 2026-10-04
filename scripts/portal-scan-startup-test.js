@@ -198,12 +198,13 @@ function createPage(options) {
   harness.page.logout();
   assert.deepStrictEqual(harness.calls.reLaunch, ['/subpackages/main/pages/login/login'], '手动登录入口必须可用');
 
-  // 门户自绘顶栏：返回键在顶栏内，点击进登录页（保留会话、可返回），不是退出登录
+  // 门户自绘顶栏：左上角是退出登录图标键（箭头图标），已登录点它退出，未登录点它进登录页
   const portalJson = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.json'), 'utf8'));
   assert.strictEqual(portalJson.navigationStyle, 'custom', '门户必须改用自绘导航栏才能把按钮放进顶栏');
   assert.ok(portalWxml.indexOf('class="portal-nav"') >= 0, '门户必须有自绘顶栏');
-  assert.ok(/portal-nav-auth[^>]*bindtap="onPortalAuthButtonTap"/.test(portalWxml), '顶栏左上角必须有登录 / 退出登录按钮');
-  assert.ok(/hasUser \? copy\.logout : copy\.navLoginAction/.test(portalWxml), '顶栏按钮文案必须随登录状态切换');
+  assert.ok(/portal-nav-exit[^>]*bindtap="onPortalAuthButtonTap"/.test(portalWxml), '顶栏左上角必须有登录 / 退出登录图标键');
+  assert.ok(/ui-icon name="logout"[^>]*/.test(portalWxml), '顶栏左上角必须用退出登录箭头图标，不是文字按钮');
+  assert.ok(/aria-label="\{\{hasUser \? copy\.logout : copy\.navLoginAction\}\}"/.test(portalWxml), '图标键的无障碍文案必须随登录状态切换');
   assert.ok(/portal-nav-heading[^>]*>\{\{navTitle\}\}</.test(portalWxml), '顶栏标题必须由语言系统的标题变量渲染');
   assert.ok(portalWxml.indexOf('portal-back-key') < 0, '不再在页面内容里另外放返回键');
   assert.ok(portalWxml.indexOf('portalAuthState === \'checking\'') < 0, '不得再渲染“正在确认”中间状态');
