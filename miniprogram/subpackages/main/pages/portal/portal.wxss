@@ -524,6 +524,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .portal-nav-bar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--ui-inline-gap);
@@ -546,16 +547,20 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .portal-nav-heading {
-  flex: 1 1 auto;
-  min-width: 0;
+  /* 与微信默认顶栏一致：标题按屏幕居中（左右对称让出胶囊宽度），而不是在
+     “返回键与胶囊之间”的剩余空间里居中；字号取系统顶栏的 17px 常规字重。 */
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--ui-text);
-  font-size: var(--ui-type-emphasis);
-  font-weight: 700;
-  line-height: var(--ui-leading-control);
+  font-size: var(--ui-type-nav-title);
+  font-weight: 500;
+  line-height: 1;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .portal-nav-capsule-space {

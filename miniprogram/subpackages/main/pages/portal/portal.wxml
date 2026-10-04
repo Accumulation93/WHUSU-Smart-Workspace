@@ -5,7 +5,7 @@
     <view class="portal-nav-back ui-motion-chip" bindtap="onBackToLoginTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="{{copy.backToLogin}}">
       <ui-icon name="home" tone="primary" sizeRole="row-leading" ariaLabel="{{copy.backToLogin}}" />
     </view>
-    <view class="portal-nav-heading">{{navTitle}}</view>
+    <view class="portal-nav-heading" style="left: {{navCapsuleInset}}px; right: {{navCapsuleInset}}px;">{{navTitle}}</view>
     <view class="portal-nav-capsule-space" style="width: {{navCapsuleInset}}px;"></view>
   </view>
 </view>
