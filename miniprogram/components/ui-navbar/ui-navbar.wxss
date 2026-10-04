@@ -60,7 +60,7 @@
   align-items: center;
   justify-content: center;
   color: var(--ui-text-nav-title);
-  font-size: var(--ui-type-nav-title);
+  font-size: var(--ui-type-value);
   font-weight: 500;
   line-height: 1;
   text-align: center;
@@ -68,8 +68,8 @@
 }
 
 /* 标题带“ - WHUSU智慧工作台”后缀，按可用宽度逐档降字号，档位全部来自现有语义令牌。 */
-.ui-navbar-font-0 { font-size: var(--ui-type-nav-title); }
-.ui-navbar-font-1 { font-size: var(--ui-type-value); }
+.ui-navbar-font-0 { font-size: var(--ui-type-value); }
+.ui-navbar-font-1 { font-size: var(--ui-type-body); }
 .ui-navbar-font-2 { font-size: var(--ui-type-control); }
 .ui-navbar-font-3 { font-size: var(--ui-type-label); }
 .ui-navbar-font-4 { font-size: var(--ui-type-meta); }
@@ -80,6 +80,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 不给系统字体放大留空间：调大系统字号时标题才会一直完整显示。 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .ui-navbar-heading-hint {

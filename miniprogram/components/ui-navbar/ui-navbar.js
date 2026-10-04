@@ -8,16 +8,18 @@ const copy = require('../../locales/zh-CN/uiNavbar');
 const BRAND = copy.brandName;
 const BRAND_SUFFIX = ' - ' + BRAND;
 // 标题按可用宽度从大到小挑字号，档位全部取现有语义令牌，不新增字号。
+// 标题带“ - WHUSU智慧工作台”后缀后本身就比较长，起点取控件档而不是顶栏 17px 档，
+// 免得窄屏上要么被截断、要么挤得满满当当。
 const HEADING_FONT_STEPS = [
-  17,    // --ui-type-nav-title，与微信默认顶栏一致
   15,    // --ui-type-value
+  13.5,  // --ui-type-body
   13,    // --ui-type-control
   12.5,  // --ui-type-label
   12,    // --ui-type-meta
   11     // --ui-type-caption
 ];
 // 左侧有返回键或页面自定义键时，标题可用的起点 = 键宽 + 间距 + 内边距。
-const LEFT_RESERVE_PX = 56;
+const LEFT_RESERVE_PX = 50;
 const FALLBACK_WINDOW_WIDTH = 375;
 
 function withBrandSuffix(title) {
@@ -44,8 +46,8 @@ function estimateTextWidth(text, fontSize) {
 
 function pickFontStep(text, availableWidth) {
   for (let i = 0; i < HEADING_FONT_STEPS.length; i += 1) {
-    // 留 2px 余量，避免估宽误差刚好把最后一个字挤出去。
-    if (estimateTextWidth(text, HEADING_FONT_STEPS[i]) <= availableWidth - 2) return i;
+    // 留 4px 余量，避免估宽误差刚好把最后一个字挤出去。
+    if (estimateTextWidth(text, HEADING_FONT_STEPS[i]) <= availableWidth - 4) return i;
   }
   return HEADING_FONT_STEPS.length - 1;
 }
@@ -55,11 +57,11 @@ function fitHeading(text, screenWidth, capsuleInset, leftReserve) {
   const widestWidth = Math.max(96, screenWidth - leftReserve - capsuleInset);
   const baseWidth = estimateTextWidth(text, HEADING_FONT_STEPS[0]);
   // 1）原字号就能在屏幕正中间放完整：保持居中，和微信默认顶栏一致。
-  if (baseWidth <= centeredWidth - 2) {
+  if (baseWidth <= centeredWidth - 4) {
     return { left: capsuleInset, fontStep: 0 };
   }
   // 2）原字号放不下，但把标题往左借一点（不压住返回键）能放完整：宁可轻微偏左也不缩小字号。
-  if (baseWidth <= widestWidth - 2) {
+  if (baseWidth <= widestWidth - 4) {
     const left = Math.max(leftReserve, Math.round(screenWidth - capsuleInset - baseWidth));
     return { left: left, fontStep: 0 };
   }
@@ -67,7 +69,7 @@ function fitHeading(text, screenWidth, capsuleInset, leftReserve) {
   const fontStep = pickFontStep(text, widestWidth);
   const textWidth = estimateTextWidth(text, HEADING_FONT_STEPS[fontStep]);
   // 降档后能在屏幕正中间放下就保持居中，否则按实际宽度靠右贴齐胶囊。
-  if (textWidth <= centeredWidth - 2) {
+  if (textWidth <= centeredWidth - 4) {
     return { left: capsuleInset, fontStep: fontStep };
   }
   const left = Math.max(leftReserve, Math.round(screenWidth - capsuleInset - textWidth));
