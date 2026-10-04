@@ -6,6 +6,7 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 const { formatAssignmentLabel } = require('../../utils/workContextPresentation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
   approved: localeCopy.copy_ce171a2581,
@@ -16,10 +17,22 @@ const STATUS_LABELS = {
 };
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   onLoad() {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
   },
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
+    navRefreshing: false,
     localeCopy,
     history: [],
     loading: false,
@@ -46,7 +59,12 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadData().then(function() { wx.stopPullDownRefresh(); });
+    const that = this;
+    this.setData({ navRefreshing: true });
+    this.loadData().then(function() {
+      that.setData({ navRefreshing: false });
+      wx.stopPullDownRefresh();
+    });
   },
 
   async loadData() {

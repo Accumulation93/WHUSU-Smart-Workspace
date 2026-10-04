@@ -1,4 +1,5 @@
-<view class="redirect-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="redirect-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <view class="redirect-card">{{localeCopy.copy_a434110c44}}</view>
 </view>
 

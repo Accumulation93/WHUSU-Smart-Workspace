@@ -4,6 +4,7 @@ const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { createScoreSignature, isScoreDraftDirty } = require('./scoreDraftGuard');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 function assignmentNatureText(value) {
   if (value === 'staff') return localeCopy.assignmentNatureStaff;
@@ -231,7 +232,18 @@ function computeSummaries(questionList) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     localeCopy,
     loading: true,
     loadFailed: false,
@@ -325,7 +337,7 @@ Page({
   },
 
   onLoad: function (options) {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this._pageActive = true;
     this._pageTimers = [];
     orgSession.consume(this);

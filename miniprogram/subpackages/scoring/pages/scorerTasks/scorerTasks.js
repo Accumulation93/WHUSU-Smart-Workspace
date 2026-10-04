@@ -3,6 +3,7 @@ const { format: localeFormat } = require('../../../../locales/runtime');
 const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
 const { saveAndShareFile } = require('../../../../utils/tableFile');
 const orgSession = require('../../../../utils/orgSession');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 function buildOptions(values = []) {
   return [localeCopy.copy_31d4595959, ...values.filter(Boolean)];
@@ -91,7 +92,18 @@ function normalizeScorerRows(rows = []) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     localeCopy,
     activityId: '',
     activityName: '',
@@ -119,7 +131,7 @@ Page({
   },
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     const activityId = decodeURIComponent(options.activityId || '');
     const activityName = formatActivityName(decodeURIComponent(options.activityName || ''));
     this.setData({

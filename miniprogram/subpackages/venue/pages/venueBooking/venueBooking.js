@@ -9,6 +9,7 @@ const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const personnelPickerCopy = require('../../../../locales/zh-CN/personnelPicker');
 const personnelPickerModel = require('../../../../components/personnel-picker/personnelPickerModel');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {
   getSystemDate,
   getSystemMinuteOfDay,
@@ -272,12 +273,23 @@ function isEndStillValid(startMin, endMin, openMerged, blockedMerged) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   behaviors: [dialogKeyboardBehavior],
   onLoad() {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this.bindDialogKeyboard();
   },
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
     dialogLockKeys: [
       'scheduleVisible',

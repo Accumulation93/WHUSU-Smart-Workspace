@@ -3,8 +3,20 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const orgSession = require('../../../../utils/orgSession');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     localeCopy,
     bookingId: '',
     detail: null,
@@ -13,7 +25,7 @@ Page({
   },
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this.setData({ bookingId: String((options && options.id) || '') });
   },
 

@@ -679,15 +679,13 @@ function scanWorkspaceShellContracts() {
     const hasStaticTitle = /^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '');
     const hasLocaleRuntimeTitle = !pageConfig.navigationBarTitleText &&
       /wx\.setNavigationBarTitle\s*\(\s*\{[\s\S]{0,320}?\btitle\s*:/.test(script);
-    // 自绘顶栏页面没有原生标题栏，标题必须由页面自己渲染，且必须取自语言系统。
-    const hasSelfDrawnTitle = pageConfig.navigationStyle === 'custom' &&
-      /class="[^"]*\bnav-heading\b[^"]*"/.test(markup) &&
-      /\{\{\s*navTitle\s*\}\}/.test(markup) &&
-      /\bnavTitle\s*:\s*[A-Za-z_$][\w$.]*\s*[,}\n]/.test(script);
-    if (!hasStaticTitle && !hasLocaleRuntimeTitle && !hasSelfDrawnTitle) {
+    // 自绘顶栏页面没有原生标题栏，标题必须由统一顶栏组件渲染，且必须取自语言系统。
+    const hasNavbarTitle = pageConfig.navigationStyle === 'custom' &&
+      /<ui-navbar\b[^>]*\btitle="\{\{\s*[A-Za-z_$][\w$]*(?:\.[\w$]+)*\s*\}\}"/.test(markup);
+    if (!hasStaticTitle && !hasLocaleRuntimeTitle && !hasNavbarTitle) {
       findings.push({
         file: relative(jsonFile),
-        message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”，或由自绘顶栏渲染语言系统标题'
+        message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”，或由统一顶栏组件渲染语言系统标题'
       });
     }
     if (heroExceptions.has(route)) continue;

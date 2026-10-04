@@ -11,6 +11,7 @@ const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const adminTimeSelection = require('../../utils/adminTimeSelection');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {
   getSystemDate,
   getSystemWeekStart,
@@ -245,8 +246,19 @@ function bookingWindowMinutes(item) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   behaviors: [dialogKeyboardBehavior],
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     controlLayoutCopy,
     localeCopy,
     flowManagementCopy,
@@ -448,7 +460,7 @@ Page({
   },
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     // Support ?tab=bookings redirect from old venueBookings page
     if (options && options.tab) {
       this.setData({ activeTab: options.tab });

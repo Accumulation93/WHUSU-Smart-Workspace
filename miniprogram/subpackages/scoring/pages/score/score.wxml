@@ -1,4 +1,5 @@
-<view class="page {{readOnly ? 'page-readonly' : 'page-with-keyboard'}}">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page {{readOnly ? 'page-readonly' : 'page-with-keyboard'}}" style="min-height: calc(100vh - {{navTopPx}}px)">
   <input
     wx:if="{{!readOnly}}"
     class="physical-keyboard-capture"
@@ -16,7 +17,7 @@
   />
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_0c1a3a9fd9}} · {{localeCopy.copy_1f4d77229c}}"></workspace-hero>
 
-  <view class="target-sticky {{showStickyTarget ? 'target-sticky-show' : ''}}" wx:if="{{target.name}}">
+  <view class="target-sticky {{showStickyTarget ? 'target-sticky-show' : ''}}" style="top: {{navTopPx}}px" wx:if="{{target.name}}">
     <view class="target-sticky-label">{{localeCopy.copy_12cd162fda}}</view>
     <view class="target-sticky-name">{{target.name}}</view>
   </view>

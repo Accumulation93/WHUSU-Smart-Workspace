@@ -9,6 +9,7 @@ const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const workContextView = require('../../utils/workContextView');
 const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -23,8 +24,19 @@ function normalizeApprovalStepForView(step) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   behaviors: [dialogKeyboardBehavior],
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     localeCopy,
     // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
     dialogLockKeys: [
@@ -245,7 +257,7 @@ Page({
   },
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this._pageActive = true;
     orgSession.consume(this);
     this.refreshActiveWorkContext();

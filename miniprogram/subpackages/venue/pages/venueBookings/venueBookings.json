@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"","usingComponents":{}}
+{
+  "navigationBarTitleText": "",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  }
+}

@@ -2,6 +2,8 @@
   "navigationBarTitleText": "",
   "usingComponents": {
     "workspace-hero": "/components/workspace-hero/workspace-hero",
-    "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail"
-  }
+    "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  },
+  "navigationStyle": "custom"
 }

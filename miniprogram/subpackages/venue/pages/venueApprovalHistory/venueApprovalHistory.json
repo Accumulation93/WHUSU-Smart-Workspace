@@ -1,7 +1,9 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
-    "workspace-hero": "/components/workspace-hero/workspace-hero"
+    "workspace-hero": "/components/workspace-hero/workspace-hero",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
   },
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom"
 }

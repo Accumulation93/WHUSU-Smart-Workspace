@@ -2,7 +2,9 @@
   "navigationBarTitleText": "",
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon",
-    "personnel-picker": "/components/personnel-picker/personnel-picker"
+    "personnel-picker": "/components/personnel-picker/personnel-picker",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
   },
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom"
 }

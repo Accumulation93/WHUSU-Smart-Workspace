@@ -1,5 +1,6 @@
 <page-meta page-style="{{showSwitchDialog || organizationPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
-<view class="page message-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page message-page" style="height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
   <view class="message-tabs">

@@ -1,0 +1,109 @@
+/*
+ * 全站统一顶栏：白色玻璃条 + 底部发丝线，状态栏自己让位、右侧给微信胶囊留通道。
+ * 标题按屏幕居中（左右对称扣掉胶囊宽度），与微信默认导航观感一致。
+ */
+.ui-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* 顶栏要盖住页面内容（内容最高 50），又必须低于全屏弹窗遮罩（98/99 起），
+     这样弹窗打开时遮罩能连顶栏一起盖住，不会出现“顶栏浮在遮罩上”。 */
+  z-index: 90;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.9) 100%);
+  border-bottom: 1rpx solid var(--ui-line);
+  box-shadow: 0 8rpx 20rpx rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(24rpx);
+  -webkit-backdrop-filter: blur(24rpx);
+  box-sizing: border-box;
+}
+
+.ui-navbar-status {
+  width: 100%;
+}
+
+.ui-navbar-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  padding: 0 20rpx;
+  box-sizing: border-box;
+}
+
+.ui-navbar-left {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.ui-navbar-back {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border: 1rpx solid var(--ui-line-blue);
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
+  box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.1), inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
+  box-sizing: border-box;
+}
+
+.ui-navbar-heading {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-nav-title);
+  font-size: var(--ui-type-nav-title);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ui-navbar-heading-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-navbar-heading-hint {
+  margin-top: 4rpx;
+  font-size: var(--ui-type-caption);
+  font-weight: 500;
+  color: var(--ui-blue-700);
+}
+
+.ui-navbar-capsule-space {
+  flex: 0 0 auto;
+}
+
+/* 占位块与固定条同高，页面内容不需要自己留白；grid 布局下也整行占满。 */
+.ui-navbar-placeholder {
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 520px) {
+  .ui-navbar-bar {
+    padding: 0 16px;
+  }
+
+  .ui-navbar-back {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .ui-navbar-bar {
+    padding: 0 14px;
+  }
+}

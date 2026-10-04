@@ -1,6 +1,7 @@
 const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const passwordBindingOffer = require('../../../../utils/passwordBindingOffer');
@@ -9,7 +10,6 @@ const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/por
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
 const { probeStartupSession } = require('../../../../utils/startupSession');
-const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 // 启动探测节奏：首次延后起跑躲开未就绪的桥，单次 4 秒；失败后后台再试一次给 6 秒。
 const STARTUP_AUTH_FIRST_DELAY_MS = 600;
 const STARTUP_AUTH_TIMEOUT_MS = 4000;
@@ -110,12 +110,10 @@ Page({
     portalAuthState: 'ready',
     portalAuthFrozen: false,
 
-    // 自绘顶栏几何（px）：门户用导航栏自绘，才能把“回到登录页”放进顶栏
-    navStatusBarHeight: 20,
-    navBarHeight: 44,
-    navCapsuleInset: 0,
-    navTotalHeight: 64,
-    navTitle: copy.pageName
+    // 顶栏由 ui-navbar 标准件渲染；页面只提供标题文案。
+    navTitle: copy.pageName,
+    // 顶栏自绘后 100vh 是整屏高度，页面容器要按顶栏高度补偿，否则底部会多出空白。
+    navTopPx: 0
   },
 
   _pollTimer: null,
@@ -124,7 +122,7 @@ Page({
   _messageOverviewQueued: false,
 
   onLoad(options) {
-    // 门户使用自绘顶栏，标题也由页面自己渲染；不再调用原生标题接口。
+    // 门户使用统一自绘顶栏（ui-navbar），标题由页面提供文案。
     this.applyNavigationMetrics();
     let pendingRoute = String((options && options.next) || '').trim();
     try { pendingRoute = decodeURIComponent(pendingRoute); } catch (_) { pendingRoute = ''; }
@@ -133,6 +131,15 @@ Page({
       && pendingRoute.indexOf('/subpackages/main/pages/login/login') !== 0
       ? pendingRoute
       : '';
+  },
+
+  // Pad 横竖屏切换后状态栏与胶囊位置会变，页面容器补偿高度必须跟着重算。
+  applyNavigationMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationMetrics();
   },
 
   onShow() {
@@ -145,21 +152,6 @@ Page({
       return;
     }
     this.continuePortalShow(activeSession);
-  },
-
-  // Pad 横竖屏切换后状态栏与胶囊位置会变，顶栏几何必须跟着重算，否则会错位。
-  applyNavigationMetrics() {
-    const navMetrics = getNavigationBarMetrics();
-    this.setData({
-      navStatusBarHeight: navMetrics.statusBarHeight,
-      navBarHeight: navMetrics.barHeight,
-      navCapsuleInset: navMetrics.capsuleInset,
-      navTotalHeight: navMetrics.totalHeight
-    });
-  },
-
-  onResize() {
-    this.applyNavigationMetrics();
   },
 
   /**

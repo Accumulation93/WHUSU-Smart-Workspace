@@ -1,5 +1,6 @@
 <page-meta page-style="{{(adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
-<view class="page subapp-audit-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page subapp-audit-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{action === 'create' ? localeCopy.copy_67587e6612 : localeCopy.copy_2d40e10806}}"></workspace-hero>
 
   <!-- ═══════════ Create Mode ═══════════ -->

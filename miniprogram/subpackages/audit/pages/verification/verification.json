@@ -3,6 +3,8 @@
   "usingComponents": {
     "audit-verification-result": "/components/audit-verification-result/audit-verification-result",
     "ui-icon": "/components/ui-icon/ui-icon",
-    "audit-verification-matches": "/components/audit-verification-matches/audit-verification-matches"
-  }
+    "audit-verification-matches": "/components/audit-verification-matches/audit-verification-matches",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  },
+  "navigationStyle": "custom"
 }

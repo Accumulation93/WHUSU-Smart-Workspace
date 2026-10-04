@@ -1,4 +1,5 @@
-<view class="page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <view class="login-layout">
     <view class="hero login-hero">
       <view class="hero-badge">{{copy.appName}}</view>

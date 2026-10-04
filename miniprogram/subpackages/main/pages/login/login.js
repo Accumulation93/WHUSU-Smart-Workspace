@@ -11,6 +11,7 @@ const authContext = require('../../../../utils/authContext');
 const passwordBindingOffer = require('../../../../utils/passwordBindingOffer');
 const { login: copy } = require('../../../../locales/zh-CN/main');
 const { getPasswordRequiredMessage } = require('./loginValidation');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 const WECHAT_LOGIN_TIMEOUT_MS = 10000;
 const WECHAT_SESSION_TIMEOUT_MS = 18000;
@@ -220,9 +221,20 @@ function requestWechatSessionDirect(callbacks, preferredSelection) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   // 遮罩的触摸阻断事件必须有真实处理函数，避免运行时反复报告缺失事件。
   noop() {},
   data: {
+    navigationTitle: copy.navigationTitle,
+    navTopPx: 0,
     copy: copy.view,
     loading: false,
     sheetClass: 'sheet',
@@ -250,7 +262,7 @@ Page({
   },
 
   onLoad() {
-    wx.setNavigationBarTitle({ title: copy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this._active = true;
     this._loginSubmitting = false;
     this._portalNavigating = false;

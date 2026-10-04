@@ -3,6 +3,8 @@
   "usingComponents": {
     "signature-pad": "../../components/signaturePad/signaturePad",
     "personnel-picker": "/components/personnel-picker/personnel-picker",
-    "ui-icon": "/components/ui-icon/ui-icon"
-  }
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  },
+  "navigationStyle": "custom"
 }

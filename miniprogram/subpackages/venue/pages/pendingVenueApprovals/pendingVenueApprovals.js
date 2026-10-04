@@ -8,6 +8,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { formatSystemClock } = require('../../../../utils/dateTime');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {
   decoratePendingBooking,
   decorateApproverCandidates,
@@ -40,12 +41,24 @@ function resolveVenueApprovalEndpoint(record, action) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   behaviors: [dialogKeyboardBehavior],
   onLoad() {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
     this.bindDialogKeyboard();
   },
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
+    navRefreshing: false,
     // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
     dialogLockKeys: ['approvalVisible', 'nextApproverPickerVisible'],
     localeCopy,
@@ -145,7 +158,9 @@ Page({
 
   onPullDownRefresh() {
     let that = this;
+    this.setData({ navRefreshing: true });
     this.loadData().then(function() {
+      that.setData({ navRefreshing: false });
       wx.stopPullDownRefresh();
     });
   },

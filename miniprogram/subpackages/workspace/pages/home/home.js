@@ -4,6 +4,7 @@ const authContext = require('../../../../utils/authContext');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
 const {
   formatDateTextOnly,
@@ -355,7 +356,21 @@ function validateProfileField(field = {}, rawValue) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度；
+  // Pad 横屏的页签会在页面里吸顶，它的 top 也要跟着顶栏下移。
+  applyNavigationBarMetrics() {
+    const totalHeight = getNavigationBarMetrics().totalHeight;
+    this.setData({ navTopPx: totalHeight, navStickyTopPx: totalHeight + 16 });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   data: {
+    navigationTitle: copy.format.navigationTitle(''),
+    navTopPx: 0,
+    navStickyTopPx: 16,
     copy: copy.text,
     user: null,
     activeRole: '',
@@ -491,9 +506,7 @@ Page({
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
     const SUB_APP_LABELS = { scoring: copy.text.scoring, hr: copy.text.hr, audit: copy.text.audit };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
-    wx.setNavigationBarTitle({
-      title: copy.format.navigationTitle(this._subAppLabel)
-    });
+    this.setData({ navigationTitle: copy.format.navigationTitle(this._subAppLabel) });
   },
 
   rebuildUserTabs(finalizeOrgFallback) {

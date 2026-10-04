@@ -18,6 +18,7 @@ const authContext = require('../../../../utils/authContext');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const utils = require('./modules/adminUtils');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
 const sharedApi = require('./modules/sharedApi');
@@ -41,6 +42,15 @@ const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
 const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   behaviors: [
     sharedApi,
     dialogKeyboardBehavior,
@@ -62,6 +72,8 @@ Page({
     hrProfileMigrationBehavior,
   ],
   data: {
+    navigationTitle: localeCopy.copy_33a502217d + localeCopy.copy_61386762d9,
+    navTopPx: 0,
     controlLayoutCopy,
     localeCopy,
     migrationCopy,
@@ -807,10 +819,8 @@ Page({
     const requestedVisible = requestedTab && this._visibleTabs.indexOf(requestedTab) >= 0;
     const SUB_APP_LABELS = { scoring: localeCopy.copy_33a502217d, hr: localeCopy.copy_eb65126cfe, system: localeCopy.copy_5b4cf5d1bf, audit: localeCopy.copy_4f6ab0ccf7 };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
-    wx.setNavigationBarTitle({
-      title: (this._subAppLabel || localeCopy.copy_33a502217d) + localeCopy.copy_61386762d9
-    });
     this.setData({
+      navigationTitle: (this._subAppLabel || localeCopy.copy_33a502217d) + localeCopy.copy_61386762d9,
       visibleTabs: this._visibleTabs,
       subAppLabel: this._subAppLabel,
       activeTab: requestedVisible

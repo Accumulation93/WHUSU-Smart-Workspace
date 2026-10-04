@@ -1,4 +1,5 @@
-<view class="page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_166a418985}}"></workspace-hero>
   <view class="card"><view class="section-title">{{localeCopy.copy_7c1addc466}}</view></view>
 </view>

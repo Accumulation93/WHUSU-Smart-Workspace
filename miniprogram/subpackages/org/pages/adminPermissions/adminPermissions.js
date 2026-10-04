@@ -3,6 +3,7 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 function cloneGroups(groups) {
   return (groups || []).map(function(group) {
@@ -20,6 +21,8 @@ function cloneGroups(groups) {
 Page({
   data: {
     localeCopy,
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     loading: true,
     saving: false,
     organizationName: '',
@@ -34,7 +37,7 @@ Page({
   },
 
   onLoad() {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
     this._active = true;
     this.setData({ organizationName: orgSession.getSnapshot().orgName || '' });
   },
@@ -58,6 +61,10 @@ Page({
   onUnload() {
     this._active = false;
     orgSession.invalidateRequests(this);
+  },
+
+  onResize() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
   },
 
   async loadPage() {

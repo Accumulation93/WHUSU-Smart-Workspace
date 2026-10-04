@@ -121,6 +121,19 @@
 
 规则：修保存或提交，必须用真实的前端参数跑通一次，再把保存结果读回来确认。只验证“空参数会被拒绝”“语法检查通过”“函数存在”都不算验收。必须跑的检查：`node scripts/submission-reference-audit.js`（含 `--self-test`、`--inventory`）。
 
+### 坑 16：换成自绘顶栏之后，页面底部多出一段空白、贴顶内容钻到顶栏下面
+
+你会看到什么：页面滚到底还能继续往下拖一段空白；贴在最上面的提示条、Pad 横屏会吸顶的页签，往下滚的时候钻到顶栏下面被挡住；下拉刷新时看不到任何刷新中的反馈。
+
+为什么：`app.wxss` 里 `.page` 的高度是 `min-height: 100vh`。用微信原生导航栏时，`100vh` 指的是“去掉导航栏以后的高度”；顶栏改成自己画以后，页面盖住整屏，`100vh` 变成整屏高度，再加上顶栏的占位块，底部就多出顶栏高度的可滚动空白。`top: 0` 的固定元素同理，现在是从屏幕最顶端开始算，正好落在顶栏下面。
+
+现在靠什么防止再发生：
+- 必须跑的检查：`node scripts/native-navigation-test.js`——每个页面必须声明自定义导航、注册并渲染 `<ui-navbar title="{{...}}">`、最外层容器写 `min-height: calc(100vh - {{navTopPx}}px)`，JS 里维护 `navTopPx`。
+- 必须跑的检查：`node scripts/ui-navbar-test.js`——顶栏几何、标题、返回键、左侧槽位，以及顶栏层级必须低于全屏弹窗遮罩（顶栏 `z-index` 必须大于 50 且小于 98）。
+- 规则：贴视口顶部的固定元素和页面级吸顶元素，`top` 要加上 `navTopPx`；用下拉刷新的页面给 `<ui-navbar refreshing="{{navRefreshing}}">`，因为微信自带的转圈动画会被顶栏挡住。
+
+怎么判断又犯了：随便进一个页面，滑到最底看能不能拖出一段空白；往下滚的时候看贴顶的条有没有被顶栏吃掉。
+
 ## 三、环境上的坑
 
 ### 坑 15：本地和线上不一样
@@ -136,6 +149,7 @@
 |---|---|
 | 任何 JS | `node --check <文件>` |
 | 小程序前端 | `miniprogram-compat-audit`、`wechat-template-runtime-audit`、`miniprogram-page-registration-test`、`ui-audit --strict` |
+| 顶栏、导航 | `native-navigation-test`、`ui-navbar-test` |
 | 弹窗、滚动、键盘 | `dialog-scroll-contract-audit`、`dialog-keyboard-audit`、`ui-control-completeness-test`、`button-alignment-test` |
 | 列表分页 | `hr-profile-layout-test`（分页能不能真的加载）、`dialog-scroll-contract-audit` |
 | 文案 | `user-visible-copy-audit --strict`、两个 `--strict-localization`、`--strict-guidance`、`copy-quality-audit` |
@@ -155,3 +169,4 @@
 | 控件完整显示，最后一项和页面底部之间留有正常间距 | ☐ | ☐ | ☐ |
 | 按钮文字居中，长文案不被切掉 | ☐ | ☐ | ☐ |
 | 日期按“只显示日期”的规则显示，没有时间也没有时区 | ☐ | ☐ | ☐ |
+| 每个页面顶栏标题、返回键正常，滚到底没有多余空白 | ☐ | ☐ | ☐ |

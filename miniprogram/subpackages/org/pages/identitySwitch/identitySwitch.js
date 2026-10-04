@@ -3,6 +3,7 @@ const { getErrorText } = require('../../../../utils/api');
 const authContext = require('../../../../utils/authContext');
 const contextRouteGuard = require('../../../../utils/contextRouteGuard');
 const orgSession = require('../../../../utils/orgSession');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -40,6 +41,8 @@ function decorateWorkContexts(workContexts, draftOrganizationId, selection) {
 Page({
   data: {
     localeCopy,
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     organizations: [],
     filteredOrganizations: [],
     workContexts: [],
@@ -62,7 +65,7 @@ Page({
   },
 
   onLoad() {
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
     this._active = true;
     this.applyCatalog({
       organizations: authContext.getOrganizations(),
@@ -80,6 +83,10 @@ Page({
   onUnload() {
     this._active = false;
     orgSession.invalidateRequests(this);
+  },
+
+  onResize() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
   },
 
   applyCatalog(catalog) {

@@ -1,11 +1,21 @@
 const copy = require('../../../../locales/zh-CN/signingEvidence');
 const transfer = require('../../../../utils/auditVerificationReport');
 const orgSession = require('../../../../utils/orgSession');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 Page({
-  data: { copy, resultJson: '' },
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
+  data: { copy, navigationTitle: copy.reportNavigationTitle, navTopPx: 0, resultJson: '' },
   onLoad: function() {
-    wx.setNavigationBarTitle({ title: copy.reportNavigationTitle });
+    this.applyNavigationBarMetrics();
     const report = transfer.take();
     this._reportSnapshot = report && report.snapshot;
     this.setData({ resultJson: report ? report.json : '' });

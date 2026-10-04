@@ -1,8 +1,9 @@
 <page-meta page-style="{{showUserDesigPopup ? 'overflow: hidden;' : ''}}"></page-meta>
-<view class="page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
-  <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
+  <view class="tabs-card" style="top: {{navStickyTopPx}}px" wx:if="{{hasUser && !isAdminRole}}">
     <view
       class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}} ui-motion-chip"
       wx:for="{{userTabs}}"

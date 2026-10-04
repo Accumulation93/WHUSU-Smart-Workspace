@@ -31,8 +31,6 @@ assert.ok(!/扫一扫/.test(portalWxml), '扫一扫文案必须来自语言系�
 function createPage(options) {
   const settings = options || {};
   const calls = { navigate: [], reLaunch: [], modal: [], clipboard: [], applied: [], toasts: [], scanned: [], probes: [] };
-  // 顶栏几何来自平台：测试里可改写，用来验证横竖屏切换后的重算。
-  const metricsState = { value: { statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 }, calls: 0 };
   let definition = null;
   const sandbox = {
     console,
@@ -70,12 +68,8 @@ function createPage(options) {
         };
       }
       if (name.endsWith('/utils/navigationBarMetrics')) {
-        return {
-          getNavigationBarMetrics: () => {
-            metricsState.calls += 1;
-            return Object.assign({}, metricsState.value);
-          }
-        };
+        // 顶栏几何来自平台；门户只把总高度写进页面容器的补偿样式。
+        return { getNavigationBarMetrics: () => ({ statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 }) };
       }
       if (name.endsWith('/utils/api')) {
         return {
@@ -141,7 +135,7 @@ function createPage(options) {
     },
     _isPageVisible: true
   }, settings.overrides || {});
-  return { page, calls, metricsState };
+  return { page, calls };
 }
 
 (async () => {
@@ -198,25 +192,21 @@ function createPage(options) {
   harness.page.logout();
   assert.deepStrictEqual(harness.calls.reLaunch, ['/subpackages/main/pages/login/login'], '手动登录入口必须可用');
 
-  // 门户自绘顶栏：左上角是退出登录图标键（箭头图标），已登录点它退出，未登录点它进登录页
+  // 门户顶栏：使用全站统一的 ui-navbar 标准件，左上角放退出登录图标键（箭头图标）
   const portalJson = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.json'), 'utf8'));
   assert.strictEqual(portalJson.navigationStyle, 'custom', '门户必须改用自绘导航栏才能把按钮放进顶栏');
-  assert.ok(portalWxml.indexOf('class="portal-nav"') >= 0, '门户必须有自绘顶栏');
+  assert.ok(/<ui-navbar\b[^>]*\btitle="\{\{navTitle\}\}"/.test(portalWxml), '门户顶栏必须使用统一顶栏组件并绑定语言系统的标题');
+  assert.strictEqual(
+    (portalJson.usingComponents || {})['ui-navbar'],
+    '/components/ui-navbar/ui-navbar',
+    '门户必须注册统一顶栏组件'
+  );
   assert.ok(/portal-nav-exit[^>]*bindtap="onPortalAuthButtonTap"/.test(portalWxml), '顶栏左上角必须有登录 / 退出登录图标键');
+  assert.ok(/slot="left"/.test(portalWxml), '退出登录图标键必须放进顶栏的左侧槽位');
   assert.ok(/ui-icon name="logout"[^>]*/.test(portalWxml), '顶栏左上角必须用退出登录箭头图标，不是文字按钮');
   assert.ok(/aria-label="\{\{hasUser \? copy\.logout : copy\.navLoginAction\}\}"/.test(portalWxml), '图标键的无障碍文案必须随登录状态切换');
-  assert.ok(/portal-nav-heading[^>]*>\{\{navTitle\}\}</.test(portalWxml), '顶栏标题必须由语言系统的标题变量渲染');
   assert.ok(portalWxml.indexOf('portal-back-key') < 0, '不再在页面内容里另外放返回键');
   assert.ok(portalWxml.indexOf('portalAuthState === \'checking\'') < 0, '不得再渲染“正在确认”中间状态');
-  harness = createPage({});
-  harness.page.onLoad({});
-  assert.strictEqual(harness.page.data.navTotalHeight, 64, '顶栏几何必须按平台胶囊推算');
-  assert.strictEqual(harness.page.data.navCapsuleInset, 88, '顶栏右侧必须为微信胶囊留出通道');
-  // Pad 横竖屏切换后状态栏与胶囊位置会变，几何必须重算，否则标题会错位。
-  harness.metricsState.value = { statusBarHeight: 0, barHeight: 40, capsuleInset: 96, totalHeight: 40 };
-  harness.page.onResize();
-  assert.strictEqual(harness.page.data.navTotalHeight, 40, '横竖屏切换后必须重算顶栏总高度');
-  assert.strictEqual(harness.page.data.navCapsuleInset, 96, '横竖屏切换后必须重算胶囊通道宽度');
   harness = createPage({});
   harness.page.onBackToLoginTap();
   assert.deepStrictEqual(harness.calls.navigate, ['/subpackages/main/pages/login/login'], '返回键走受信导航进登录页');

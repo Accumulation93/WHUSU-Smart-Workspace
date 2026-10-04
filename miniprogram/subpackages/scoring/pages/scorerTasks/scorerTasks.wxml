@@ -1,5 +1,6 @@
 <page-meta page-style="{{pendingPopupVisible ? 'overflow: hidden;' : ''}}"></page-meta>
-<view class="page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_0c1a3a9fd9}} · {{localeCopy.copy_3a550fe14c}}"></workspace-hero>
 
   <view class="section-stack">

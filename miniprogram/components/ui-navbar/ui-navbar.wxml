@@ -1,0 +1,27 @@
+<view class="ui-navbar">
+  <view class="ui-navbar-status" style="height: {{statusBarHeight}}px;"></view>
+  <view class="ui-navbar-bar" style="height: {{barHeight}}px;">
+    <view class="ui-navbar-left" wx:if="{{leftMode === 'slot'}}">
+      <slot name="left"></slot>
+    </view>
+    <view
+      wx:elif="{{showBack}}"
+      class="ui-navbar-back ui-motion-chip"
+      bindtap="onBackTap"
+      hover-class="ui-press-chip"
+      hover-start-time="0"
+      hover-stay-time="160"
+      hover-stop-propagation="{{true}}"
+      aria-role="button"
+      aria-label="{{backAria}}"
+    >
+      <ui-icon name="chevron-left" tone="primary" sizeRole="row-leading" ariaLabel="{{backAria}}" />
+    </view>
+    <view class="ui-navbar-heading" style="left: {{capsuleInset}}px; right: {{capsuleInset}}px;">
+      <text class="ui-navbar-heading-text">{{shortTitle}}</text>
+      <text class="ui-navbar-heading-hint" wx:if="{{refreshing}}">{{refreshingText}}</text>
+    </view>
+    <view class="ui-navbar-capsule-space" style="width: {{capsuleInset}}px;"></view>
+  </view>
+</view>
+<view class="ui-navbar-placeholder" wx:if="{{placeholder}}" style="height: {{totalHeight}}px;"></view>

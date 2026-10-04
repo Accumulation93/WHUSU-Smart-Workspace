@@ -1,4 +1,5 @@
-<view class="page page-narrow subapp-audit-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page page-narrow subapp-audit-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_f69eaef5c5}}"></workspace-hero>
 
   <view class="section-stack">

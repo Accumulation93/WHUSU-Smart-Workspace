@@ -1,5 +1,9 @@
 {
   "navigationBarTitleText": "",
+  "navigationStyle": "custom",
   "navigationBarBackgroundColor": "#ffffff",
-  "navigationBarTextStyle": "black"
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  }
 }

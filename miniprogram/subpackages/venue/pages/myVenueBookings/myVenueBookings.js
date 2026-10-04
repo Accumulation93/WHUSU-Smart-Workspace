@@ -7,6 +7,7 @@ const { parseAbsoluteTime } = require('../../../../utils/dateTime');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const MAX_TIMER_DELAY = 2147483000;
 
 function decorateBooking(rawBooking) {
@@ -32,12 +33,23 @@ function getNextStatusBoundary(bookings, now) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   onLoad(options) {
     const query = options || {};
     this._pendingBookingId = String(query.bookingId || query.id || '').trim();
-    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+    this.applyNavigationBarMetrics();
   },
   data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
     localeCopy,
     bookings: [],
     loading: false,

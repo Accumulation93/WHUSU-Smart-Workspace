@@ -9,6 +9,7 @@ const {
   reLaunchPortalThenNavigate
 } = require('../../../../utils/trustedNavigation');
 const { messageCenter: copy } = require('../../../../locales/zh-CN/main');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 const CATEGORY_LABELS = copy.categoryLabels;
 
@@ -38,7 +39,18 @@ function isPartialBulkResult(result) {
 }
 
 Page({
+  // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  onResize() {
+    this.applyNavigationBarMetrics();
+  },
+
   data: {
+    navigationTitle: copy.navigationTitle,
+    navTopPx: 0,
     performanceCopy: require('../../../../locales/zh-CN/messagePerformance'),
     copy: copy.view,
     isAdminRole: false,
@@ -70,7 +82,7 @@ Page({
   },
 
   onLoad(options) {
-    wx.setNavigationBarTitle({ title: copy.navigationTitle });
+    this.applyNavigationBarMetrics();
     const scope = messageScope.getScope();
     this.setData({
       activeTab: options.tab === 'notifications' ? 'notifications' : 'todos',

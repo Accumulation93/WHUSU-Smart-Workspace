@@ -3,6 +3,8 @@
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon",
     "personnel-picker": "/components/personnel-picker/personnel-picker",
-    "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail"
-  }
+    "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  },
+  "navigationStyle": "custom"
 }

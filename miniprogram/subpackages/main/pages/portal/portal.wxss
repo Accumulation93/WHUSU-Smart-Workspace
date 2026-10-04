@@ -501,38 +501,7 @@ button, input, textarea, picker, view, text, scroll-view {
   box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
 
-/*
- * 自绘顶栏：门户整条导航栏自己画，才能把“回到登录页”放进顶栏。
- * 顶部让出状态栏，右侧给微信胶囊留出通道，底部用玻璃分隔线收边。
- */
-.portal-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 900;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.9) 100%);
-  border-bottom: 1rpx solid var(--ui-line);
-  box-shadow: 0 8rpx 20rpx rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(24rpx);
-  -webkit-backdrop-filter: blur(24rpx);
-  box-sizing: border-box;
-}
-
-.portal-nav-status {
-  width: 100%;
-}
-
-.portal-nav-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--ui-inline-gap);
-  padding: 0 20rpx;
-  box-sizing: border-box;
-}
-
-/* 左上角的退出登录图标键：圆形玻璃键里放一支"出门"箭头，和微信顶栏图标键观感一致。
+/* 门户左上角的退出登录图标键：放进门户顶栏的左侧槽位。
    已登录时点它退出登录，未登录时同一位置进登录页（无障碍文案随状态切换）。 */
 .portal-nav-exit {
   display: flex;
@@ -546,31 +515,6 @@ button, input, textarea, picker, view, text, scroll-view {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
   box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.1), inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
   box-sizing: border-box;
-}
-
-.portal-nav-heading {
-  /* 与微信默认顶栏一致：标题按屏幕居中（左右对称让出胶囊宽度），而不是在
-     “返回键与胶囊之间”的剩余空间里居中；字号取系统顶栏的 17px 常规字重。 */
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ui-text-nav-title);
-  font-size: var(--ui-type-nav-title);
-  font-weight: 500;
-  line-height: 1;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.portal-nav-capsule-space {
-  flex: 0 0 auto;
-}
-
-.portal-nav-placeholder {
-  width: 100%;
 }
 
 /* 启动登录状态提示：无法确认时给出重试与手动登录 */

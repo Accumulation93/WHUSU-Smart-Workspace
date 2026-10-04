@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "",
+  "navigationStyle": "custom",
   "onReachBottomDistance": 120,
   "usingComponents": {
     "audit-verification-result": "/components/audit-verification-result/audit-verification-result",
@@ -15,6 +16,7 @@
     "dictionary-usage-dialog": "/subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog",
     "hr-import-issue-list": "/subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList",
     "score-record-detail-dialog": "/subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog",
-    "audit-verification-matches": "/components/audit-verification-matches/audit-verification-matches"
+    "audit-verification-matches": "/components/audit-verification-matches/audit-verification-matches",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
   }
 }

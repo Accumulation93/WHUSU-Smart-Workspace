@@ -217,6 +217,7 @@
 
 - 左侧图标、多行正文和尾部操作采用受控三段布局；正文必须 `min-width:0`，多行卡顶部对齐。图标图片不得超出图标槽。
 - `ui-icon` 业务调用使用 `sizeRole` 语义档位，由组件分别定义手机 rpx、Pad 竖屏 px、Pad 横屏 px。固定 px 图标槽内不得继续使用随屏幕放大的数值 rpx 图标。
+- 全站顶栏统一用 `miniprogram/components/ui-navbar/`：页面声明 `navigationStyle: custom` 并在模板里渲染 `<ui-navbar title="{{navigationTitle}}" />`，标题、返回键、状态栏占位和胶囊让位都由组件负责。页面最外层容器按顶栏高度补偿 `100vh`（`min-height: calc(100vh - {{navTopPx}}px)`），贴顶固定条和页面级 sticky 元素同样下移 `navTopPx`，否则会出现滚动钻到顶栏下面或底部多出一段空白。
 - 门户和消息中心的业务类别与岗位组成明确上下文行，组织名称和“当前”独占下一整行。组织名称保持完整，空间不足时只在该语义行内按词自然换行、不得拆字；“当前”固定不收缩。
 - 页面底部双主操作使用 `--ui-page-action-gap`，Pad 起默认两列；品牌页脚使用 `--ui-footer-gap`。二者置于共同语义容器中，外层 Grid 不能替代或清空内部间距。
 

@@ -13,7 +13,8 @@ module.exports = { hour: hour, min: min };
 </wxs>
 <page-meta page-style="{{(scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
-<view class="page subapp-venue-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page subapp-venue-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <!-- Hero -->
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}}"></workspace-hero>
 
