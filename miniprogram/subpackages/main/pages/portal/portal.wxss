@@ -552,7 +552,7 @@ button, input, textarea, picker, view, text, scroll-view {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--ui-text);
+  color: var(--ui-text-nav-title);
   font-size: var(--ui-type-nav-title);
   font-weight: 500;
   line-height: 1;

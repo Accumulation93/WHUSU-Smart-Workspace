@@ -32,8 +32,9 @@ page,
   --ui-type-emphasis: 14px;
   --ui-type-value: 15px;
   --ui-type-section: 16px;
-  /* 自绘顶栏（门户页）的标题要与微信默认导航栏一致：17px、常规字重、不随断点缩放。 */
+  /* 自绘顶栏（门户页）的标题要与微信默认导航栏一致：17px、纯黑、常规字重，不随断点缩放。 */
   --ui-type-nav-title: 17px;
+  --ui-text-nav-title: #000000;
   --ui-type-dialog: var(--ui-type-section);
   --ui-type-page: 24px;
   /* 弹窗空间更集中，使用独立的紧凑字阶，避免手机上产生“老年机”式放大。 */
