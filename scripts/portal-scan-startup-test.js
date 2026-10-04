@@ -202,7 +202,8 @@ function createPage(options) {
   const portalJson = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.json'), 'utf8'));
   assert.strictEqual(portalJson.navigationStyle, 'custom', '门户必须改用自绘导航栏才能把按钮放进顶栏');
   assert.ok(portalWxml.indexOf('class="portal-nav"') >= 0, '门户必须有自绘顶栏');
-  assert.ok(/portal-nav-back[^>]*bindtap="onBackToLoginTap"/.test(portalWxml), '顶栏内必须有返回键');
+  assert.ok(/portal-nav-auth[^>]*bindtap="onPortalAuthButtonTap"/.test(portalWxml), '顶栏左上角必须有登录 / 退出登录按钮');
+  assert.ok(/hasUser \? copy\.logout : copy\.navLoginAction/.test(portalWxml), '顶栏按钮文案必须随登录状态切换');
   assert.ok(/portal-nav-heading[^>]*>\{\{navTitle\}\}</.test(portalWxml), '顶栏标题必须由语言系统的标题变量渲染');
   assert.ok(portalWxml.indexOf('portal-back-key') < 0, '不再在页面内容里另外放返回键');
   assert.ok(portalWxml.indexOf('portalAuthState === \'checking\'') < 0, '不得再渲染“正在确认”中间状态');

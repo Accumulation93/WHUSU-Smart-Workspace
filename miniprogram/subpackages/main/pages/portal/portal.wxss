@@ -532,17 +532,23 @@ button, input, textarea, picker, view, text, scroll-view {
   box-sizing: border-box;
 }
 
-.portal-nav-back {
+/* 左上角的登录 / 退出登录按钮：文字按钮用柔和圆角矩形（审计要求 24–28rpx），
+   不用胶囊或圆形，免得和顶栏里的圆形图标键混淆。 */
+.portal-nav-auth {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 64rpx;
-  height: 64rpx;
+  min-height: 56rpx;
+  padding: 0 22rpx;
   border: 1rpx solid var(--ui-line-blue);
-  border-radius: 50%;
+  border-radius: 26rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
   box-shadow: 0 8rpx 18rpx rgba(37, 99, 235, 0.1), inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-control);
+  font-weight: 700;
+  line-height: 1;
   box-sizing: border-box;
 }
 
@@ -1190,9 +1196,10 @@ button, input, textarea, picker, view, text, scroll-view {
     padding: 0 14px;
   }
 
-  .portal-nav-back {
-    width: 32px;
-    height: 32px;
+  .portal-nav-auth {
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 13px;
   }
 
   .portal-auth-hint {

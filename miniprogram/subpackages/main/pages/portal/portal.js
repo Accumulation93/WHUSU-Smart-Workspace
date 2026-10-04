@@ -235,6 +235,15 @@ Page({
   },
 
   /** 门户左上角返回键：回登录页换账号；保留当前会话，可以返回门户。 */
+  // 左上角按钮随登录状态切换：未登录时去登录页（保留当前会话），已登录时退出登录。
+  onPortalAuthButtonTap() {
+    if (this.data.hasUser) {
+      this.logout();
+      return;
+    }
+    this.onBackToLoginTap();
+  },
+
   onBackToLoginTap() {
     navigateToTrustedRoute('/subpackages/main/pages/login/login');
   },
