@@ -1216,16 +1216,9 @@ scroll-view {
 }
 
 /* 三个信息气泡各用一色，便于一眼区分部门 / 身份类别 / 职能组。 */
-.score-record-detail-popup-card {
-  /* 不再依赖共享弹窗壳的定位链（它在本页会把卡片留在最上面）：自己绝对定位、
-     在顶栏下方居中，并限高，标题行与关闭键始终可点。 */
-  position: absolute !important;
-  left: 50% !important;
-  right: auto !important;
-  top: calc(50% + 68rpx) !important;
-  bottom: auto !important;
-  margin: 0 !important;
-  transform: translate(-50%, -50%) !important;
+view.popup-mask.ui-overlay > view.score-record-detail-popup-card.ui-dialog-shell {
+  /* 自绘顶栏约 68px，比原生状态栏高：只收高度让标题行与关闭键露在微信胶囊下方。
+     居中仍由共享弹窗壳负责，页面不得自己重定位弹窗。 */
   max-height: calc(100vh - 184rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
 
