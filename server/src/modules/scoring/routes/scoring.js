@@ -923,7 +923,9 @@ router.post('/submitScoreRecord', async (req, res) => {
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
     const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
-    const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activityId);
+    // 必须与事务内的判定用同一口径（岗位键），否则前置查询可能查不到已存在记录，
+    // 于是流程落到“新建”分支、再在事务里撞到同一对记录报“已在其他位置更新”。
+    const existingRecords = await scoreRecordModel.getBySubjects(scorerSubjectKey, targetSubjectKey, activityId);
     if (existingRecords.length) {
       return updateExistingScoreRecord({
         req,
@@ -1110,19 +1112,37 @@ router.post('/submitScoreRecord', async (req, res) => {
         [orgId, activityId, scorerSubjectKey, targetSubjectKey]
       );
       if (existingRecords.length) {
-        concurrentSubmissionResponse = {
-          status: 'score_revision_conflict',
-          recordId: safeString(existingRecords[0].id),
-          submittedAt: existingRecords[0].submitted_at || null,
-          message: localeCopy.scoreRevisionConflict
-        };
+        // 事务内按同一对岗位键查到了已存在记录：这仍然是“同一评分人对同一被评分人的再次提交”，
+        // 按覆盖处理（替换答案 + 版本号 +1），不再报“已在其他位置更新”。
+        const existingRecordId = safeString(existingRecords[0].id);
+        const [updateResult] = await conn.query(
+          `UPDATE score_records
+              SET template_config_signature = ?, calculation_context_snapshot = ?,
+                  submitted_at = ?, revision_number = revision_number + 1, updated_at = ?
+            WHERE id = ? AND org_id = ?`,
+          [templateConfigSignature, JSON.stringify(calculationContextSnapshot), nowUtc, nowUtc, existingRecordId, orgId]
+        );
+        if (Number(updateResult && updateResult.affectedRows || 0) !== 1) {
+          const conflictError = new Error('score_revision_conflict');
+          conflictError.code = 'SCORE_REVISION_CONFLICT';
+          throw conflictError;
+        }
+        await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [existingRecordId, orgId]);
+        for (const answer of normalizedAnswers) {
+          await conn.query(
+            'INSERT INTO score_answers (id, record_id, question_index, score, org_id) VALUES (?, ?, ?, ?, ?)',
+            [generateId(), existingRecordId, answer.questionIndex, answer.score, orgId]
+          );
+        }
+        resultRecordId = existingRecordId;
+        duplicateResponse = { status: 'success', recordId: existingRecordId, revised: true };
         await dedup.complete(conn, {
           ...claim,
           resourceId: stableScoreResourceId,
           orgId,
           actorKey: 'score-subject:' + scorerSubjectKey,
           operationType: 'submit_score'
-        }, concurrentSubmissionResponse);
+        }, duplicateResponse);
         return;
       }
 

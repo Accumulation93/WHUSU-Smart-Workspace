@@ -104,7 +104,12 @@ const mocks = {
   '../models/rateRule': { async getByKey() { throw new Error('覆盖不得套用当前规则'); } },
   '../models/rateRuleClause': emptyModel,
   '../models/clauseTemplateConfig': emptyModel,
-  '../models/scoreRecord': { async getByParticipantPair() { return [record]; } },
+  '../models/scoreRecord': {
+    // 前置查询与事务内判定现在统一按岗位键查找，测试桩必须跟着改，
+    // 否则桩缺方法会让覆盖链路直接落到 error 分支。
+    async getBySubjects() { return [record]; },
+    async getByParticipantPair() { return [record]; }
+  },
   '../models/scoreAnswer': { async getByRecordId() { return oldAnswers; } },
   '../../../core/models/adminInfo': emptyModel,
   '../../../core/services/currentActor': {
