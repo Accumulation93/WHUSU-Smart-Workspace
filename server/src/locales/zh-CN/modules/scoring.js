@@ -60,5 +60,14 @@ module.exports = Object.freeze({
   publicationViewRuleHasMeritRule: '该查看规则仍被评优指定规则使用，请先调整对应的评优规则',
   designationAlreadyAssigned: '所选岗位已在该活动的其他评优名单中，请先由原指定方调整',
   statusCompleted: '已完成',
-  statusInactive: '评分未生效'
+  statusInactive: '评分未生效',
+  // 结果页：被跳过的历史记录原因（逐条跳过并在页面标出，不再整表打不开）
+  skippedReasonMissingSnapshot: '历史评分依据未留存',
+  skippedReasonUnsupportedSnapshot: '历史评分依据版本过旧',
+  skippedReasonSnapshotMismatch: '历史评分依据不完整',
+  skippedReasonSignature: '历史评分依据校验未通过',
+  skippedReasonAnswerMismatch: '历史答案与评分依据不一致',
+  skippedReasonIncomplete: '必评对象未全部完成',
+  skippedReasonSelfAssessment: '自评不计入核算',
+  skippedReasonUnknown: '其他原因'
 });

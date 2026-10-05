@@ -16,8 +16,6 @@ const rateRuleClauseModel = require('../models/rateRuleClause');
 const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const scoreRecordModel = require('../models/scoreRecord');
 const scoreAnswerModel = require('../models/scoreAnswer');
-const systemConfigModel = require('../../../core/models/systemConfig');
-const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const sharedCache = require('../utils/sharedCache');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
@@ -25,12 +23,104 @@ const participantService = require('../services/participants');
 const {
   validateCalculationSnapshot,
   getHistoricalSnapshotFailure,
-  buildAggregationPolicySignature
+  computeActivityScoreMap,
+  listScoreCalculationGroups
 } = require('../utils/scoreCalc');
 
 const DEFAULT_WORK_GROUP = '';
-const RESPONSE_SAFE_LIMIT = 850 * 1024;
 const EXPORT_MAX_ROWS = 50000; // Safety cap to prevent OOM from excessive export data
+const RESULT_PAGE_SIZE = 50;
+const RESULT_PAGE_SIZE_MAX = 100;
+
+// 被跳过的历史记录：逐条跳过并报给前端，禁止再让一条坏记录导致整表打不开。
+function skippedReasonText(reason) {
+  const map = {
+    missing_calculation_snapshot: scoringCopy.skippedReasonMissingSnapshot,
+    unsupported_snapshot_version: scoringCopy.skippedReasonUnsupportedSnapshot,
+    non_canonical_snapshot: scoringCopy.skippedReasonUnsupportedSnapshot,
+    snapshot_activity_mismatch: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_scorer_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_target_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_rule_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_clause_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_required_targets_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    missing_template_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    invalid_template_snapshot: scoringCopy.skippedReasonSnapshotMismatch,
+    snapshot_signature_version_mismatch: scoringCopy.skippedReasonSignature,
+    template_signature_mismatch: scoringCopy.skippedReasonSignature,
+    calculation_policy_signature_mismatch: scoringCopy.skippedReasonSignature,
+    answer_count_mismatch: scoringCopy.skippedReasonAnswerMismatch,
+    answer_snapshot_mismatch: scoringCopy.skippedReasonAnswerMismatch,
+    required_targets_incomplete: scoringCopy.skippedReasonIncomplete,
+    self_assessment_snapshot_violation: scoringCopy.skippedReasonSelfAssessment
+  };
+  return map[safeString(reason)] || scoringCopy.skippedReasonUnknown;
+}
+
+function buildSkippedRecordsReport(diagnostics, nameByRecordId) {
+  const source = diagnostics || {};
+  const samples = (Array.isArray(source.records) ? source.records : []).slice(0, 50).map((item) => {
+    const recordId = safeString(item && item.recordId);
+    return {
+      recordId,
+      reason: safeString(item && item.reason),
+      reasonText: skippedReasonText(item && item.reason),
+      name: (nameByRecordId && nameByRecordId.get(recordId)) || ''
+    };
+  });
+  return {
+    count: Number(source.skippedRecords || 0),
+    acceptedCount: Number(source.acceptedRecords || 0),
+    totalRecords: Number(source.totalRecords || 0),
+    reasons: Object.assign({}, source.reasons || {}),
+    samples
+  };
+}
+
+function normalizePageSize(value) {
+  const size = Math.floor(toNumber(value, RESULT_PAGE_SIZE));
+  if (!Number.isFinite(size) || size <= 0) return RESULT_PAGE_SIZE;
+  return Math.min(RESULT_PAGE_SIZE_MAX, Math.max(5, size));
+}
+
+// 服务端排序：不再把日期当分数比较（原先 Number(日期) 恒为 NaN，排序等于没排）。
+function sortResultRows(rows, sortMode, scoreField) {
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  const mode = safeString(sortMode) || 'score_desc';
+  const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN');
+  if (mode === 'name_asc') return list.sort(byName);
+  if (mode === 'department_asc') {
+    return list.sort((a, b) => String(a.department || '').localeCompare(String(b.department || ''), 'zh-CN') || byName(a, b));
+  }
+  if (mode === 'workGroup_asc') {
+    return list.sort((a, b) => String(a.workGroup || '').localeCompare(String(b.workGroup || ''), 'zh-CN') || byName(a, b));
+  }
+  if (mode === 'submitted_desc') {
+    return list.sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+  }
+  const field = safeString(scoreField) || 'finalScore';
+  return list.sort((a, b) => toNumber(b[field], 0) - toNumber(a[field], 0));
+}
+
+// 统一分页：筛选与排序先做，之后才切页；响应字节按页控制，不再整表估重。
+function paginateResultRows(rows, offset, pageSize, options) {
+  const total = rows.length;
+  const start = Math.min(Math.max(0, Math.floor(toNumber(offset, 0))), total);
+  // 老客户端不带分页参数时返回全部行，保证“加分页”这件事可以分批上线而不打断现有界面。
+  const size = options && options.unlimited ? Math.max(total, 1) : normalizePageSize(pageSize);
+  const pageRows = rows.slice(start, start + size);
+  const nextOffset = start + pageRows.length;
+  return {
+    rows: pageRows,
+    pagination: {
+      offset: start,
+      nextOffset,
+      total,
+      hasMore: nextOffset < total,
+      returnedCount: pageRows.length
+    }
+  };
+}
 
 function decorateAssignmentRows(rows) {
   if (typeof participantService.decorateAssignmentDisambiguation === 'function') {
@@ -756,9 +846,21 @@ function getCurrentTemplateWeight(rule, clauseIndex, templateId, fallback) {
   return 1;
 }
 
+/**
+ * 模板得分必须与计算内核（scoreCalc）用同一口径：按题目快照自带的题号
+ * （globalQuestionIndex，缺失时退回 questionIndex）逐题取分相加。
+ * 这里曾经用“游标 + 零基偏移”的方式累加，和历史答案的实际题号对不上，
+ * 导致明细/导出与总分速览出现两套数；不要再改回游标算法。
+ */
 function getRecordTemplateScores(record) {
   const snapshot = record.calculationSnapshot || {};
-  const templates = (Array.isArray(snapshot.templates) ? snapshot.templates : [])
+  const answers = Array.isArray(record.answers) ? record.answers : [];
+  const answerByIndex = new Map();
+  answers.forEach((item, index) => {
+    const raw = item.questionIndex != null ? item.questionIndex : index;
+    answerByIndex.set(String(raw), toNumber(item.score, 0));
+  });
+  return (Array.isArray(snapshot.templates) ? snapshot.templates : [])
     .map((template) => ({
       templateId: safeString(template.templateId),
       templateName: safeString(template.templateName),
@@ -771,28 +873,15 @@ function getRecordTemplateScores(record) {
       questions: Array.isArray(template.questions) ? template.questions : []
     }))
     .filter((item) => item.templateId)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
-  const answers = Array.isArray(record.answers) ? record.answers : [];
-  const hasZero = answers.some(a => a.questionIndex === 0);
-  const totalsByTemplate = new Map();
-  const answerMap = new Map(answers.map((item, index) => {
-    const raw = item.questionIndex != null ? item.questionIndex : index;
-    const templateId = safeString(item.templateId);
-    totalsByTemplate.set(templateId, (totalsByTemplate.get(templateId) || 0) + toNumber(item.score, 0));
-    const key = hasZero ? raw + 1 : raw;
-    return [String(key), toNumber(item.score, 0)];
-  }));
-  let cursor = 0;
-  return templates.map((config) => {
-    let score = 0;
-    if (config.questionCount) {
-      for (let i = 0; i < config.questionCount; i++) score += toNumber(answerMap.get(String(cursor + i + 1)), 0);
-    } else {
-      score = totalsByTemplate.get(config.templateId) || 0;
-    }
-    cursor += config.questionCount;
-    return { ...config, score };
-  });
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((config) => {
+      let score = 0;
+      config.questions.forEach((question) => {
+        const raw = question.globalQuestionIndex != null ? question.globalQuestionIndex : question.questionIndex;
+        score += toNumber(answerByIndex.get(String(raw)), 0);
+      });
+      return Object.assign({}, config, { score: roundScore(score) });
+    });
 }
 
 function addSnapshotDiagnostic(diagnostics, recordId, reason) {
@@ -801,7 +890,8 @@ function addSnapshotDiagnostic(diagnostics, recordId, reason) {
   if (diagnostics.records.length < 50) diagnostics.records.push({ recordId: safeString(recordId), reason });
 }
 
-function inspectImmutableRecords(records, activityId) {
+function inspectImmutableRecords(records, activityId, options) {
+  const skipAnswerCheck = Boolean(options && options.skipAnswerCheck);
   const diagnostics = {
     totalRecords: records.length,
     acceptedRecords: 0,
@@ -817,6 +907,7 @@ function inspectImmutableRecords(records, activityId) {
       return;
     }
     const answers = Array.isArray(record.answers) ? record.answers : [];
+    if (!skipAnswerCheck) {
     const hasZeroBasedAnswer = answers.some((item) => Number(item.questionIndex) === 0);
     const answerIndexes = new Set(answers.map((item, index) => {
       const raw = item.questionIndex != null ? Number(item.questionIndex) : index + 1;
@@ -831,6 +922,7 @@ function inspectImmutableRecords(records, activityId) {
         addSnapshotDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch');
         return;
       }
+    }
     }
     const snapshot = validation.snapshot;
     const scorerContext = snapshot.scorer.context || {};
@@ -1103,37 +1195,6 @@ function filterDetailRows(rows, filters) {
 
 // ---------- Pagination ----------
 
-function estimateBytes(payload) {
-  return Buffer.byteLength(JSON.stringify(payload), 'utf8');
-}
-function sliceRowsBySize(rows, offset, basePayload, fieldName) {
-  const start = Math.max(0, Math.floor(toNumber(offset, 0)));
-  const selected = [];
-  for (let i = start; i < rows.length; i++) {
-    selected.push(rows[i]);
-    if (estimateBytes({ ...basePayload, [fieldName]: selected }) > RESPONSE_SAFE_LIMIT) {
-      selected.pop();
-      return { rows: selected, nextOffset: i, hasMore: true, total: rows.length };
-    }
-  }
-  return { rows: selected, nextOffset: rows.length, hasMore: false, total: rows.length };
-}
-
-function applyCalcMethod(scores, weight, method, trimH, trimL) {
-  if (!scores.length) return { averageScore: 0, contributionScore: 0 };
-  if (method === 'trim_extremes') {
-    let totalTrim = (trimH || 0) + (trimL || 0);
-    if (scores.length < totalTrim) return { averageScore: 0, contributionScore: 0 };
-    let sorted = scores.slice().sort(function(a, b) { return a - b; });
-    let trimmed = sorted.slice(trimL || 0, scores.length - (trimH || 0));
-    if (!trimmed.length) return { averageScore: 0, contributionScore: 0 };
-    let avg = trimmed.reduce(function(s, v) { return s + v; }, 0) / trimmed.length;
-    return { averageScore: roundScore(avg), contributionScore: roundScore(avg * weight) };
-  }
-  let avg = scores.reduce(function(s, v) { return s + v; }, 0) / scores.length;
-  return { averageScore: roundScore(avg), contributionScore: roundScore(avg * weight) };
-}
-
 // ---------- Route handlers ----------
 
 // getScoreResults
@@ -1143,7 +1204,11 @@ router.post('/getScoreResults', async (req, res) => {
     const filters = req.body.filters || {};
     const offset = Math.max(0, Math.floor(toNumber(req.body.offset, 0)));
     const page = Math.max(1, Math.floor(toNumber(req.body.page, 1)));
-    const pageSize = Math.min(100, Math.max(5, Math.floor(toNumber(req.body.pageSize, 20))));
+    const pageSize = normalizePageSize(req.body.pageSize === undefined ? req.body.limit : req.body.pageSize);
+    const paginationRequested = req.body.offset !== undefined
+      || req.body.limit !== undefined
+      || req.body.pageSize !== undefined;
+    const sortMode = safeString(req.body.sortMode) || safeString(filters.sortMode) || 'score_desc';
     const nocache = req.body.nocache === true;
     const dataType = safeString(req.body.dataType) || 'overview';
     const targetId = safeString(req.body.targetId);
@@ -1167,14 +1232,18 @@ router.post('/getScoreResults', async (req, res) => {
       if (nocache) await sharedCache.invalidateKey(cacheKey);
       const cached = await getCachedOverview(cacheKey);
       if (cached && cached.historicalIntegrityVerified === true) {
+        const cachedRows = sortResultRows(cached.overviewRows || [], sortMode, 'finalScore');
+        const cachedPage = paginateResultRows(cachedRows, offset, pageSize, { unlimited: !paginationRequested });
         return res.json({
           status: 'success',
           activity: cached.activity,
-          overviewRows: cached.overviewRows,
+          overviewRows: cachedPage.rows,
           needsAssignmentDisambiguation: cached.needsAssignmentDisambiguation === true,
           stats: cached.stats,
           filterOptions: cached.filterOptions,
-          pagination: { total: cached.overviewRows.length }
+          skippedRecords: cached.skippedRecords || buildSkippedRecordsReport(null),
+          dataType,
+          pagination: cachedPage.pagination
         });
       }
       if (cached) await sharedCache.invalidateKey(cacheKey);
@@ -1188,7 +1257,6 @@ router.post('/getScoreResults', async (req, res) => {
       const mems = memRaw.map((item) => normalizeMember(item, orgLk));
       const actBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
 
-      const { computeValidScoreMap, getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
       const {
         finalScoreMap,
         submittedByTarget,
@@ -1196,9 +1264,10 @@ router.post('/getScoreResults', async (req, res) => {
         scorerExpectedCount,
         targetSnapshots,
         diagnostics
-      } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
+      } = await computeActivityScoreMap(activityId, orgId, { includeCounts: true });
+      // 整场都算不出来时才明确失败；只要还有可用记录，就照常出结果并标出被跳过的条目。
       const historicalFailure = getHistoricalSnapshotFailure(diagnostics);
-      if (historicalFailure) {
+      if (historicalFailure && !diagnostics.acceptedRecords) {
         return res.json(Object.assign({}, historicalFailure, {
           message: historicalFailure.status === 'historical_snapshot_missing'
             ? localeCopy.historicalSnapshotMissing
@@ -1284,6 +1353,9 @@ router.post('/getScoreResults', async (req, res) => {
         completedMembers: completed
       };
 
+      const skippedRecords = buildSkippedRecordsReport(diagnostics,
+        new Map(overviewMembers.map(function (m) { return [safeString(m.id), safeString(m.name)]; })));
+
       // Cache and return
       await setCachedOverview(cacheKey, {
         historicalIntegrityVerified: true,
@@ -1291,21 +1363,107 @@ router.post('/getScoreResults', async (req, res) => {
         needsAssignmentDisambiguation: overviewPresentation.needsAssignmentDisambiguation,
         stats: overviewStats,
         filterOptions: filterOpts,
-        activity: actBrief
+        activity: actBrief,
+        skippedRecords
       }, cacheStartedAt);
 
+      const sortedRows = sortResultRows(filteredRows, sortMode, 'finalScore');
+      const pageResult = paginateResultRows(sortedRows, offset, pageSize, { unlimited: !paginationRequested });
       return res.json({
         status: 'success',
         activity: actBrief,
-        overviewRows: filteredRows,
+        overviewRows: pageResult.rows,
         needsAssignmentDisambiguation: overviewPresentation.needsAssignmentDisambiguation,
         stats: overviewStats,
         filterOptions: filterOpts,
-        pagination: { total: filteredRows.length }
+        skippedRecords,
+        dataType,
+        pagination: pageResult.pagination
       });
     }
 
     // ── Non-overview dataTypes: load full data ──
+    // 单条评分明细：只查这一条记录和它的答案，不再为了看一条记录全量重扫整个活动。
+    if (dataType === 'recordDetail') {
+      if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_52a76c0da1 });
+      const recordRow = await scoreRecordModel.getById(recordId);
+      if (!recordRow || safeString(recordRow.activity_id) !== activityId) {
+        return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
+      }
+      const detailGranularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
+      const answerRows = await scoreAnswerModel.getByRecordIds([recordId]);
+      const recordWithAnswers = enrichScoreRecords([Object.assign({}, recordRow, {
+        answers: answerRows.map((item) => ({
+          questionIndex: item.question_index,
+          score: Number(item.score),
+          templateId: ''
+        }))
+      })], [], detailGranularity)[0];
+      const detailInspection = inspectImmutableRecords([recordWithAnswers], activityId);
+      const record = detailInspection.records[0];
+      if (!record) {
+        const reasons = Object.keys(detailInspection.diagnostics.reasons || {});
+        return res.json({
+          status: 'snapshot_unavailable',
+          dataType,
+          skippedRecords: buildSkippedRecordsReport(detailInspection.diagnostics),
+          message: skippedReasonText(reasons[0])
+        });
+      }
+      const templates = getRecordTemplateScores(record).map((template) => ({
+        ...template,
+        templateName: safeString(template.templateName),
+        weightedScore: template.score * template.weight
+      }));
+      const ansArr = Array.isArray(record.answers) ? record.answers : [];
+      const answerByIndex = new Map(ansArr.map((item, index) => [
+        String(item.questionIndex != null ? item.questionIndex : index + 1),
+        toNumber(item.score, 0)
+      ]));
+      const answerGroups = templates.map((tpl) => ({
+        templateId: tpl.templateId,
+        templateName: tpl.templateName,
+        weight: tpl.weight,
+        score: roundScore(tpl.score),
+        weightedScore: roundScore(tpl.weightedScore),
+        questions: (tpl.questions || []).map((question, qi) => {
+          const raw = question.globalQuestionIndex != null ? question.globalQuestionIndex : question.questionIndex;
+          return {
+            questionIndex: qi + 1,
+            question: safeString(question.question),
+            scoreLabel: safeString(question.scoreLabel),
+            minValue: toNumber(question.minValue, 0),
+            maxValue: toNumber(question.maxValue, 0),
+            stepValue: toNumber(question.stepValue, 0),
+            score: toNumber(answerByIndex.get(String(raw)), 0)
+          };
+        })
+      }));
+      return res.json({
+        status: 'success',
+        dataType,
+        recordDetail: {
+          recordId: safeString(record.id),
+          scorer: {
+            id: safeString(record.scorerId), name: safeString(record.scorerName),
+            studentId: safeString(record.scorerStudentId), identity: safeString(record.scorerIdentity)
+          },
+          target: {
+            id: safeString(record.targetId), name: safeString(record.targetName),
+            studentId: safeString(record.targetStudentId), identity: safeString(record.targetIdentity)
+          },
+          submittedAt: record.submittedAt || null,
+          templates: answerGroups,
+          rawAnswers: ansArr.map((item, index) => ({
+            questionIndex: item.questionIndex != null ? item.questionIndex : index + 1,
+            score: toNumber(item.score, 0)
+          })),
+          historicalRuleUnavailable: false,
+          immutableSnapshot: true
+        }
+      });
+    }
+
     const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
@@ -1314,11 +1472,16 @@ router.post('/getScoreResults', async (req, res) => {
     ]);
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
-    const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
+    // “某人评分列表 / 评分人完成度”只看谁给谁评了分，不需要答案，省掉整活动的答案读取。
+    const needsAnswers = dataType !== 'targetRecords' && dataType !== 'scorerTargets';
+    const recordsWithAnswers = needsAnswers
+      ? await enrichRecordsWithAnswers(recordsRaw)
+      : recordsRaw.map((record) => Object.assign({}, record, { answers: [] }));
     const enrichedRecords = enrichScoreRecords(recordsWithAnswers, members, granularity);
-    const inspection = inspectImmutableRecords(enrichedRecords, activityId);
+    const inspection = inspectImmutableRecords(enrichedRecords, activityId, { skipAnswerCheck: !needsAnswers });
+    // 逐条跳过坏记录：只有整场一条可用记录都没有时才明确失败，避免显示成 0 分。
     const historicalFailure = getHistoricalSnapshotFailure(inspection.diagnostics);
-    if (historicalFailure) {
+    if (historicalFailure && !inspection.diagnostics.acceptedRecords) {
       return res.json(Object.assign({}, historicalFailure, {
         message: historicalFailure.status === 'historical_snapshot_missing'
           ? localeCopy.historicalSnapshotMissing
@@ -1398,62 +1561,6 @@ router.post('/getScoreResults', async (req, res) => {
         return String(a.targetName).localeCompare(String(b.targetName), 'zh-CN');
       });
       return res.json({ status: 'success', activity: activityBrief, scorerName: scorerMember ? scorerMember.name : scorerKey, scorerTargetRows });
-    }
-
-    if (dataType === 'recordDetail') {
-      if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_52a76c0da1 });
-      const recordById = new Map(records.map((r) => [safeString(r.id), r]));
-      const record = recordById.get(safeString(recordId));
-      if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
-      const templates = getRecordTemplateScores(record).map((template) => ({
-        ...template,
-        templateName: safeString(template.templateName),
-        weightedScore: template.score * template.weight
-      }));
-      // Build answer map keyed by global questionIndex (handles legacy 0-based data)
-      const ansArr = Array.isArray(record.answers) ? record.answers : [];
-      const answerMap = new Map(ansArr.map((item, idx) => {
-        const raw = item.questionIndex != null ? item.questionIndex : idx;
-        const hasZero = ansArr.some(a => a.questionIndex === 0);
-        const key = hasZero ? raw + 1 : raw;
-        return [String(key), toNumber(item.score, 0)];
-      }));
-      let questionCursor = 0;
-      const answerGroups = templates.map((tpl) => {
-        const tplQuestions = tpl.questions || [];
-        const questions = tplQuestions.map((q, qi) => {
-          const globalIdx = questionCursor + qi + 1;
-          const score = toNumber(answerMap.get(String(globalIdx)), 0);
-          return {
-            questionIndex: qi + 1, question: safeString(q.question),
-            scoreLabel: safeString(q.scoreLabel),
-            minValue: toNumber(q.minValue, 0), maxValue: toNumber(q.maxValue, 0),
-            stepValue: toNumber(q.stepValue, 0), score
-          };
-        });
-        questionCursor += tplQuestions.length;
-        return {
-          templateId: tpl.templateId, templateName: tpl.templateName,
-          weight: tpl.weight, score: roundScore(tpl.score),
-          weightedScore: roundScore(tpl.weightedScore), questions
-        };
-      });
-      return res.json({
-        status: 'success',
-        recordDetail: {
-          recordId: safeString(record.id),
-          scorer: { id: safeString(record.scorerId), name: safeString(record.scorerName), studentId: safeString(record.scorerStudentId), identity: safeString(record.scorerIdentity) },
-          target: { id: safeString(record.targetId), name: safeString(record.targetName), studentId: safeString(record.targetStudentId), identity: safeString(record.targetIdentity) },
-          submittedAt: record.submittedAt || null,
-          templates: answerGroups,
-          rawAnswers: ansArr.map((item, index) => ({
-            questionIndex: item.questionIndex != null ? item.questionIndex : index + 1,
-            score: toNumber(item.score, 0)
-          })),
-          historicalRuleUnavailable: false,
-          immutableSnapshot: true
-        }
-      });
     }
 
     if (dataType === 'completion') {
@@ -1569,12 +1676,10 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     // Standard data types: overview, calculation, detail, records
-    const hrMap = new Map(members.map((item) => [item.id, item]));
     const needsRecords = dataType === 'records';
     const needsDetail = dataType === 'detail';
     const needsCalculation = dataType === 'calculation' || dataType === 'overview';
 
-    const calculationMap = new Map();
     const detailRows = [];
     const recordRows = [];
 
@@ -1656,22 +1761,6 @@ router.post('/getScoreResults', async (req, res) => {
         const weight = toNumber(tplItem.weight, 0);
         const tplScore = toNumber(tplItem.score, 0);
 
-        if (needsCalculation) {
-          const gKey = [
-            targetBase.targetId,
-            scorerCategoryKey,
-            tplItem.templateId,
-            buildAggregationPolicySignature(record.calculationSnapshot)
-          ].join('||');
-          if (!calculationMap.has(gKey)) {
-            const calcMethod = safeString(cfg.calculationMethod || cfg.calculation_method) || 'weighted_average';
-            const trimH = Number(cfg.trimHighCount || cfg.trim_high_count || 0);
-            const trimL = Number(cfg.trimLowCount || cfg.trim_low_count || 0);
-            calculationMap.set(gKey, { ...targetBase, scorerDepartment, scorerIdentity, scorerCategoryKey, scorerCategoryLabel, ...scorerHistoricalFields, templateId: tplItem.templateId, templateName: tplName, weight, method: calcMethod, trimHigh: trimH, trimLow: trimL, scores: [] });
-          }
-          if (!excludedByRequireAll) { calculationMap.get(gKey).scores.push(tplScore); }
-        }
-
         if (needsDetail) {
           detailRows.push({ ...targetBase, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerCategoryLabel, ...scorerHistoricalFields, ruleId: safeString(record.ruleId), recordId: safeString(record.id), templateId: tplItem.templateId, templateName: tplName, weight, templateScore: tplScore, weightedScore: roundScore(tplScore * weight), submittedAt: record.submittedAt || null, excludedByRequireAll, signatureStale, historicalRuleUnavailable });
         }
@@ -1679,12 +1768,74 @@ router.post('/getScoreResults', async (req, res) => {
     });
 
 
-    const calculationRows = needsCalculation
-      ? Array.from(calculationMap.values()).filter((item) => item.scores.length > 0).map((item) => {
-          const result = applyCalcMethod(item.scores, item.weight, item.method, item.trimHigh, item.trimLow);
-          return { ...item, recordCount: item.scores.length, sumScore: item.scores.reduce(function(s, v) { return s + v; }, 0), ...result };
-        })
-      : [];
+    // 计分明细与总分速览共用同一套分组结果（scoreCalc 是唯一算法来源）。
+    let calculationRows = [];
+    if (needsCalculation) {
+      const targetMetaById = new Map();
+      const scorerMetaByKey = new Map();
+      const templateNameById = new Map();
+      records.forEach((record) => {
+        const tid = safeString(record.targetId);
+        if (tid && !targetMetaById.has(tid)) {
+          targetMetaById.set(tid, {
+            targetId: tid,
+            assignmentId: safeString(record.targetAssignmentId),
+            personId: safeString(record.targetPersonId),
+            assignmentNature: safeString(record.targetAssignmentNature),
+            assignmentLabel: safeString(record.targetAssignmentLabel),
+            historicalAssignmentUnavailable: record.targetHistoricalAssignmentUnavailable === true,
+            departmentId: safeString(record.targetDepartmentId),
+            identityCategoryId: safeString(record.targetIdentityCategoryId || record.targetIdentityId),
+            identityId: safeString(record.targetIdentityCategoryId || record.targetIdentityId),
+            workGroupId: safeString(record.targetWorkGroupId),
+            name: safeString(record.targetName),
+            studentId: safeString(record.targetStudentId),
+            department: safeString(record.targetDepartment),
+            identityCategory: safeString(record.targetIdentityCategory || record.targetIdentity),
+            identity: safeString(record.targetIdentityCategory || record.targetIdentity),
+            workGroup: record.targetHistoricalAssignmentUnavailable ? '' : safeString(record.targetWorkGroup || DEFAULT_WORK_GROUP)
+          });
+        }
+        const scorerCategoryKey = safeString(record.scorerDepartmentId) + '::' + safeString(record.scorerIdentityId);
+        if (!scorerMetaByKey.has(scorerCategoryKey)) {
+          scorerMetaByKey.set(scorerCategoryKey, {
+            scorerDepartment: safeString(record.scorerDepartment),
+            scorerIdentity: safeString(record.scorerIdentityCategory || record.scorerIdentity),
+            scorerCategoryLabel: record.scorerHistoricalAssignmentUnavailable
+              ? ''
+              : ([safeString(record.scorerDepartment), safeString(record.scorerIdentityCategory || record.scorerIdentity)]
+                .filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1),
+            scorerAssignmentLabel: safeString(record.scorerAssignmentLabel),
+            scorerHistoricalAssignmentUnavailable: record.scorerHistoricalAssignmentUnavailable === true
+          });
+        }
+        const snapshot = record.calculationSnapshot || {};
+        (Array.isArray(snapshot.templates) ? snapshot.templates : []).forEach((template) => {
+          const templateKey = safeString(template.templateId);
+          if (templateKey && !templateNameById.has(templateKey)) {
+            templateNameById.set(templateKey, safeString(template.templateName));
+          }
+        });
+      });
+      const groupResult = await listScoreCalculationGroups(activityId, orgId, { includeCounts: true });
+      calculationRows = (groupResult.groups || []).map((group) => {
+        const targetMeta = targetMetaById.get(safeString(group.targetId)) || {};
+        const scorerMeta = scorerMetaByKey.get(safeString(group.scorerGroupKey)) || {};
+        return Object.assign({}, targetMeta, scorerMeta, {
+          scorerCategoryKey: safeString(group.scorerGroupKey),
+          templateId: safeString(group.templateId),
+          templateName: templateNameById.get(safeString(group.templateId)) || '',
+          weight: toNumber(group.weight, 0),
+          method: safeString(group.method) || 'weighted_average',
+          trimHigh: toNumber(group.trimHigh, 0),
+          trimLow: toNumber(group.trimLow, 0),
+          recordCount: Number(group.recordCount || 0),
+          sumScore: toNumber(group.sumScore, 0),
+          averageScore: toNumber(group.averageScore, 0),
+          contributionScore: toNumber(group.contributionScore, 0)
+        });
+      });
+    }
 
     let sourceForFilters = needsRecords ? recordRows : needsDetail ? detailRows : calculationRows;
     const targetPresentation = decorateAssignmentRows(sourceForFilters);
@@ -1714,8 +1865,13 @@ router.post('/getScoreResults', async (req, res) => {
 
     const sourceRows = sourceForFilters.filter(matchFilter);
     const filterOptions = buildFilterOptions(sourceRows);
+    const skippedRecords = buildSkippedRecordsReport(inspection.diagnostics,
+      new Map(records.map((record) => [safeString(record.id), safeString(record.targetName)])));
 
-    // ── Non-overview dataTypes: use existing size‑based slicing (backward compatible) ──
+    // ── 统一分页：先筛选排序，再切页；不再逐行序列化整个响应估字节 ──
+    const scoreFieldForSort = needsRecords ? 'submittedAt' : needsDetail ? 'weightedScore' : 'contributionScore';
+    const defaultSort = needsRecords ? 'submitted_desc' : 'score_desc';
+    const orderedRows = sortResultRows(sourceRows, safeString(sortMode) || defaultSort, scoreFieldForSort);
     const basePayload = { status: 'success', activity: activityBrief, overviewRows: [], calculationRows, detailRows: needsDetail ? detailRows : [], recordRows: needsRecords ? recordRows : [], scorerCompletionRows: [], scorerTaskRows: taskData.scorerTaskRows, needsAssignmentDisambiguation: targetPresentation.needsAssignmentDisambiguation, completionBoards: { departments: [] }, stats: { totalMembers: sourceRows.length, scoredMembers, recordCount, calculationItemCount: needsCalculation ? calculationRows.length : 0, completedMembers }, filterOptions, pagination: { offset, nextOffset: offset, total: 0, hasMore: false, returnedCount: 0 } };
 
     const filteredPayload = { ...basePayload };
@@ -1725,9 +1881,12 @@ router.post('/getScoreResults', async (req, res) => {
     if (dataType !== 'records') filteredPayload.recordRows = [];
     if (dataType !== 'calculation') filteredPayload.calculationRows = [];
 
-    const pageResult = sliceRowsBySize(sourceRows, offset, filteredPayload, rowField);
+    const pageResult = paginateResultRows(orderedRows, offset, pageSize, { unlimited: !paginationRequested });
     filteredPayload[rowField] = pageResult.rows;
-    filteredPayload.pagination = { offset, nextOffset: pageResult.nextOffset, total: sourceRows.length, hasMore: pageResult.hasMore, returnedCount: pageResult.rows.length };
+    filteredPayload.pagination = pageResult.pagination;
+    filteredPayload.skippedRecords = skippedRecords;
+    filteredPayload.dataType = dataType;
+    filteredPayload.sortMode = sortMode;
     filteredPayload.stats.totalMembers = sourceRows.length;
     // Recompute stats after filtering to respect department/identity/workGroup view
     filteredPayload.stats.scoredMembers = new Set(
@@ -1748,7 +1907,22 @@ router.post('/getScoreResults', async (req, res) => {
 
     res.json(filteredPayload);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_c59ab1ce4a });
+    // 结果接口曾把异常静默吞掉，线上出问题查不到任何记录；这里必须留下带上下文的错误日志。
+    const failedActivityId = safeString(req.body && req.body.activityId);
+    const failedDataType = safeString(req.body && req.body.dataType) || 'overview';
+    if (req.logger && typeof req.logger.error === 'function') {
+      req.logger.error('Get score results failed', {
+        activityId: failedActivityId,
+        dataType: failedDataType,
+        requestBytes: Number((req.get && req.get('content-length')) || 0),
+        error: safeString(e && e.message)
+      });
+    }
+    res.json({
+      status: 'error',
+      dataType: failedDataType,
+      message: safeString(e.message) || localeCopy.copy_c59ab1ce4a
+    });
   }
 });
 
@@ -1919,6 +2093,13 @@ router.post('/exportScoreResults', async (req, res) => {
 
     res.json({ status: 'success', fileContent, fileName, extension });
   } catch (e) {
+    if (req.logger && typeof req.logger.error === 'function') {
+      req.logger.error('Export score results failed', {
+        activityId: safeString(req.body && req.body.activityId),
+        reportType: safeString(req.body && req.body.reportType),
+        error: safeString(e && e.message)
+      });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

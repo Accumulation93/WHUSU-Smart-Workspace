@@ -69,14 +69,17 @@ async function run() {
   const helper = source.slice(source.indexOf('function getRecordTemplateScores('), source.indexOf('function addSnapshotDiagnostic('));
   const evaluate = vm.runInNewContext(helper + '; getRecordTemplateScores;', {
     safeString: value => String(value || ''),
-    toNumber: (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback
+    toNumber: (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback,
+    roundScore: value => Math.round(Number(value || 0) * 1000) / 1000
   });
   for (const size of [1000, 2000, 4000]) {
     let scans = 0;
-    const answers = Array.from({ length: size }, (_, index) => ({ questionIndex: index, score: 1 }));
+    const answers = Array.from({ length: size }, (_, index) => ({ questionIndex: index + 1, score: 1 }));
     answers.some = function(predicate) { scans += 1; return Array.prototype.some.call(this, predicate); };
-    const result = evaluate({ answers, calculationSnapshot: { templates: [{ templateId: 't', questions: answers }] } });
-    assert.strictEqual(result[0].score, size); assert.strictEqual(scans, 1, '零基题号检查只能执行一次');
+    const questions = Array.from({ length: size }, (_, index) => ({ questionIndex: index + 1, globalQuestionIndex: index + 1 }));
+    const result = evaluate({ answers, calculationSnapshot: { templates: [{ templateId: 't', questions }] } });
+    assert.strictEqual(result[0].score, size, '模板得分必须按题目快照的题号逐题取分相加');
+    assert.ok(scans <= 1, '不得反复全量扫描答案来找零基题号');
   }
   const taskSource = fs.readFileSync(path.resolve(__dirname, '../src/modules/scoring/services/scoringTaskService.js'), 'utf8');
   const taskTime = vm.runInNewContext(taskSource.slice(taskSource.indexOf('function buildDueAt('), taskSource.indexOf('function buildClauseScope('))

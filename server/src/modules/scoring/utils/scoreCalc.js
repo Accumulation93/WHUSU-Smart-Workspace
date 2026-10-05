@@ -185,24 +185,34 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
 
 async function calculateScoreMap(activityId, orgId, options = {}) {
   const visibleTargetIds = options.visibleTargetIds;
+  // 只取计算必需的列：不再把评分人/被评人的上下文快照整列拉回内存。
   const [recordRows] = await pool.query(
-    'SELECT * FROM score_records WHERE activity_id = ? AND org_id = ?',
+    `SELECT id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
+            target_id, target_person_id, target_assignment_id, template_config_signature,
+            submitted_at, calculation_context_snapshot
+       FROM score_records
+      WHERE activity_id = ? AND org_id = ?`,
     [activityId, orgId]
   );
   const answerMap = new Map();
   if (recordRows.length) {
     const recordIds = recordRows.map((record) => record.id);
-    const placeholders = recordIds.map(() => '?').join(',');
-    const [answerRows] = await pool.query(
-      `SELECT * FROM score_answers
-        WHERE record_id IN (${placeholders}) AND org_id = ?
-        ORDER BY record_id, question_index`,
-      recordIds.concat(orgId)
-    );
-    answerRows.forEach((answer) => {
-      if (!answerMap.has(answer.record_id)) answerMap.set(answer.record_id, new Map());
-      answerMap.get(answer.record_id).set(Number(answer.question_index), toNumber(answer.score, 0));
-    });
+    // 一次 IN 上万个主键会让 MySQL 解析与回包都变得很慢，这里按 400 条一批拉取。
+    const ANSWER_BATCH_SIZE = 400;
+    for (let start = 0; start < recordIds.length; start += ANSWER_BATCH_SIZE) {
+      const batch = recordIds.slice(start, start + ANSWER_BATCH_SIZE);
+      const placeholders = batch.map(() => '?').join(',');
+      const [answerRows] = await pool.query(
+        `SELECT record_id, question_index, score FROM score_answers
+          WHERE record_id IN (${placeholders}) AND org_id = ?
+          ORDER BY record_id, question_index`,
+        batch.concat(orgId)
+      );
+      answerRows.forEach((answer) => {
+        if (!answerMap.has(answer.record_id)) answerMap.set(answer.record_id, new Map());
+        answerMap.get(answer.record_id).set(Number(answer.question_index), toNumber(answer.score, 0));
+      });
+    }
   }
 
   const diagnostics = {
@@ -317,6 +327,9 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
       if (!calculationMap.has(groupKey)) {
         calculationMap.set(groupKey, {
           targetId: candidate.targetId,
+          scorerGroupKey: scorerCategoryKey,
+          templateId: safeString(template.templateId),
+          policySignature: buildAggregationPolicySignature(snapshot),
           weight: Number(template.weight),
           method: safeString(template.calculationMethod) || 'weighted_average',
           trimHigh: Number(template.trimHighCount || 0),
@@ -341,6 +354,12 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
   const scorerExpectedCount = new Map();
   scorerExpectedSets.forEach((targets, scorerId) => scorerExpectedCount.set(scorerId, targets.size));
   finalScoreMap.diagnostics = diagnostics;
+  // 分组明细（计分明细视图与总分速览共用同一批分组，保证两个页签数值一致）。
+  const calculationGroups = Array.from(calculationMap.values()).map((item) => Object.assign(
+    { recordCount: item.scores.length, sumScore: item.scores.reduce((sum, value) => sum + value, 0) },
+    item,
+    applyCalcMethod(item.scores, item.weight, item.method, item.trimHigh, item.trimLow)
+  ));
   logger.debug('computeValidScoreMap immutable snapshot stats', {
     activityId,
     orgId,
@@ -358,15 +377,32 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
       expectedByCount,
       scorerExpectedCount,
       targetSnapshots,
+      calculationGroups,
       diagnostics
     };
   }
-  return { finalScoreMap, targetSnapshots, diagnostics };
+  return { finalScoreMap, targetSnapshots, calculationGroups, diagnostics };
+}
+
+/**
+ * 计分明细视图的统一入口：返回与总分速览同源的分组结果。
+ * 结果页不得再自己实现一份加权/去极值，否则两个页签必然对不上。
+ */
+async function listScoreCalculationGroups(activityId, orgId, options = {}) {
+  const internals = await calculateScoreMap(activityId, orgId, Object.assign({}, options, { includeCounts: true }));
+  return {
+    groups: internals.calculationGroups || [],
+    targetSnapshots: internals.targetSnapshots,
+    diagnostics: internals.diagnostics
+  };
 }
 
 module.exports = {
   applyCalcMethod,
   computeValidScoreMap,
+  // 结果页统一入口：总分速览与计分明细都必须走这里，禁止再各写一份。
+  computeActivityScoreMap: computeValidScoreMap,
+  listScoreCalculationGroups,
   validateCalculationSnapshot,
   getHistoricalSnapshotFailure,
   buildAggregationPolicySignature

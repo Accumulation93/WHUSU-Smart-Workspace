@@ -38,7 +38,9 @@ const completion = records.slice(records.indexOf('async function getCompletionTa
 requireContract('待办评分查询禁止完整行投影', completion.includes('target_assignment_id, target_subject_key') && !/SELECT\s+\*/i.test(completion));
 const results = read('server/src/modules/scoring/routes/results.js');
 const answers = results.slice(results.indexOf('function getRecordTemplateScores('), results.indexOf('function addSnapshotDiagnostic('));
-requireContract('评分答案禁止每模板重复筛选', !/answers\.filter\s*\(/.test(answers) && answers.includes('totalsByTemplate'));
+// 模板得分必须一次建索引后按题号取分：既不能每个模板重复过滤答案，也不能再回到游标累加。
+requireContract('评分答案禁止每模板重复筛选',
+  !/answers\.filter\s*\(/.test(answers) && answers.includes('answerByIndex') && answers.includes('globalQuestionIndex'));
 requireContract('人员选择禁止视图保存第二份完整候选', !read('miniprogram/components/personnel-picker/personnel-picker.js').includes('normalizedOptions:'));
 for (const file of ['miniprogram/subpackages/main/pages/portal/portal.js', 'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js']) {
   const source = read(file);
