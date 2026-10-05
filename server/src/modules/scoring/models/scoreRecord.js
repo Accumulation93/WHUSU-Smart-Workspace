@@ -18,8 +18,11 @@ async function getAll() {
 
 async function getByActivity(activityId) {
   const orgId = await getCurrentOrgId();
+  // 不再 ORDER BY：结果集会带三份 JSON 快照，排序会在 MySQL 侧对大字段做 filesort，
+  // 超过会话 15 秒语句上限就会被中断（线上表现为“评分记录加载失败”）。
+  // 需要在页面上按提交时间排序的调用方，在拿到行之后自行按 submitted_at 排序。
   const [rows] = await pool.query(
-    'SELECT * FROM score_records WHERE activity_id = ? AND org_id = ? ORDER BY submitted_at DESC',
+    'SELECT * FROM score_records WHERE activity_id = ? AND org_id = ?',
     [activityId, orgId]
   );
   return rows;
