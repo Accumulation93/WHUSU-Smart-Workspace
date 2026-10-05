@@ -1219,19 +1219,29 @@ scroll-view {
 /*
  * 本页 .popup-mask / .popup-card 自己的规则（display:flex 居中 + 74vh 限高）会把共享弹窗
  * 契约挡掉，卡片落成普通块，于是永远贴在屏幕最上面、关闭键被微信胶囊盖住点不到。
- * 这里用最高优先级把共享几何原样重申一遍（与外壳同一套数值），并让出顶栏高度。
+ * 这里不再依赖共享壳的 fixed+transform：卡片上带 transform 会让内部原生 scroll-view
+ * 拖不动，所以改成“遮罩做 flex 居中 + 卡片完全静态定位”，顶部用遮罩内边距让出顶栏。
  */
+view.popup-mask.ui-overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 216rpx 32rpx 64rpx !important;
+  box-sizing: border-box !important;
+}
+
 view.popup-mask.ui-overlay > view.popup-card.completion-popup-card.score-record-detail-popup-card.ui-dialog-shell {
-  position: fixed !important;
-  top: 50vh !important;
-  left: 50vw !important;
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
   right: auto !important;
   bottom: auto !important;
   margin: 0 !important;
-  transform: translate(-50%, -50%) !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 960rpx !important;
+  max-height: 100% !important;
   --kb-height: 0px;
-  --ui-dialog-height-inset: 208rpx;
-  max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
 
 .result-meta-chip-dept {
