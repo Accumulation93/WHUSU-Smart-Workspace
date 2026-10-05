@@ -44,6 +44,10 @@ const dialogKeyboardBehavior = defineBehavior({
         const name = String(key || '').trim();
         if (name) patch[name] = false;
       });
+      // 键盘高度也必须一起清零：页面隐藏或切页签时若不复位，
+      // 残留的 --kb-height 会把所有弹窗按 translate(-50%, -50% - kb/2) 永久上顶
+      // （表现为弹窗贴在最上面、关闭键被微信胶囊盖住点不到）。
+      if (Number(this.data.dialogKeyboardHeight || 0) !== 0) patch.dialogKeyboardHeight = 0;
       if (Object.keys(patch).length) this.setData(patch);
     }
   }

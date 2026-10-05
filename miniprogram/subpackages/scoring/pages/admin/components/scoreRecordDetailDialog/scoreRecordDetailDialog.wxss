@@ -6,6 +6,9 @@
  * 并用“两个类名 + 直接子级”的选择器，否则单类名挡不住共享规则的 !important。
  */
 .popup-mask.ui-overlay > .popup-card.ui-dialog-shell {
+  /* 这个弹窗是只读的（没有输入框），键盘高度不该作用于它：
+     显式清零，挡住页面残留的 --kb-height 把它整体上顶。 */
+  --kb-height: 0px;
   /* 只调共享弹窗契约的“高度让位”令牌，居中仍交给共享壳负责，不自己重定位弹窗。 */
   --ui-dialog-height-inset: 208rpx;
   max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
