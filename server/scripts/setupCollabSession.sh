@@ -5,6 +5,11 @@ SESSION="${WHUSU_SMART_WORKSPACE_TMUX_SESSION:-whusu-smart-workspace-collab}"
 REPO_DIR="${WHUSU_SMART_WORKSPACE_REPO_DIR:-/home/ubuntu/whusu-smart-workspace}"
 DEPLOY_LOG_DIR="${WHUSU_SMART_WORKSPACE_DEPLOY_LOG_DIR:-/home/ubuntu/whusu-smart-workspace-deploy/logs}"
 
+# 部署脚本用文件描述符 9 持有 deploy.lock 后调用本脚本，tmux 服务进程会把该描述符一起
+# 继承并长期持有，导致后续部署被 flock 判定为“已有部署在执行”（退出码 75）。
+# 建会话前先把继承来的锁描述符关掉；本脚本自己不需要它。
+exec 9>&- 2>/dev/null || true
+
 if tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "tmux 会话已存在: $SESSION"
   exit 0
