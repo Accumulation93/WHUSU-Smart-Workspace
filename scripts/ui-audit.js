@@ -1255,7 +1255,10 @@ function scanWxss(file) {
         message: '普通内容弹窗不得强制占据固定视口高度；应按内容生长并只在溢出时滚动'
       });
     }
-    const isViewportAnchoredDialog = /\.ui-overlay\s*>?\s*\.ui-dialog-shell\b/i.test(selector) &&
+    // 选择器里同时出现 .ui-overlay 与 .ui-dialog-shell（后代或直接子级皆可），
+    // 且几何值仍是视口锚定（fixed + 50vh/50vw/translate(-50%)）时视为合规：
+    // 共享壳用后代选择器，页面为重申同一套几何会写成带类名链的直接子级。
+    const isViewportAnchoredDialog = /\.ui-overlay\b[^{,]*\.ui-dialog-shell\b/i.test(selector) &&
       /position\s*:\s*fixed\b/i.test(declarations) &&
       /(?:top\s*:\s*50vh|left\s*:\s*50vw|transform\s*:\s*translate\(\s*-?50%)/i.test(declarations);
     if (/(?:\.ui-dialog-shell\b|\.dialog-panel\b|\.message-switch-dialog\b|\.permission-dialog\b|\.popup-card\b|\.modal-card\b)/i.test(selector) &&

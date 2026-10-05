@@ -1216,9 +1216,20 @@ scroll-view {
 }
 
 /* 三个信息气泡各用一色，便于一眼区分部门 / 身份类别 / 职能组。 */
-view.popup-mask.ui-overlay > view.score-record-detail-popup-card.ui-dialog-shell {
-  /* 自绘顶栏约 68px，比原生状态栏高：只收高度让标题行与关闭键露在微信胶囊下方。
-     居中仍由共享弹窗壳负责，页面不得自己重定位弹窗。 */
+/*
+ * 本页 .popup-mask / .popup-card 自己的规则（display:flex 居中 + 74vh 限高）会把共享弹窗
+ * 契约挡掉，卡片落成普通块，于是永远贴在屏幕最上面、关闭键被微信胶囊盖住点不到。
+ * 这里用最高优先级把共享几何原样重申一遍（与外壳同一套数值），并让出顶栏高度。
+ */
+view.popup-mask.ui-overlay > view.popup-card.completion-popup-card.score-record-detail-popup-card.ui-dialog-shell {
+  position: fixed !important;
+  top: 50vh !important;
+  left: 50vw !important;
+  right: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  --kb-height: 0px;
   --ui-dialog-height-inset: 208rpx;
   max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
