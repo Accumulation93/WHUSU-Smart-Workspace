@@ -1667,6 +1667,51 @@ router.post('/getScoreResults', async (req, res) => {
         });
       });
 
+      // 每位评分人对该成员的得分：只取这个成员的记录与答案，算法与总分速览同源。
+      const recordByIdForTarget = new Map(targetRecords.map((item) => [safeString(item.id), item]));
+      const scoredRecordIds = targetRecordRows
+        .map((row) => safeString(row.recordId))
+        .filter((id) => id && recordByIdForTarget.has(id));
+      const scoreByRecordId = new Map();
+      if (scoredRecordIds.length) {
+        const targetAnswerRows = await scoreAnswerModel.getByRecordIds(scoredRecordIds);
+        const answersByRecordId = new Map();
+        targetAnswerRows.forEach((answer) => {
+          const key = safeString(answer.record_id);
+          if (!answersByRecordId.has(key)) answersByRecordId.set(key, []);
+          answersByRecordId.get(key).push({
+            questionIndex: answer.question_index,
+            score: Number(answer.score),
+            templateId: ''
+          });
+        });
+        scoredRecordIds.forEach((id) => {
+          const record = recordByIdForTarget.get(id);
+          if (!record) return;
+          const templates = getRecordTemplateScores(Object.assign({}, record, {
+            answers: answersByRecordId.get(id) || []
+          })).map((template) => ({
+            templateId: template.templateId,
+            templateName: template.templateName,
+            weight: toNumber(template.weight, 0),
+            score: roundScore(toNumber(template.score, 0)),
+            weightedScore: roundScore(toNumber(template.score, 0) * toNumber(template.weight, 0))
+          }));
+          const scoredTotal = roundScore(templates.reduce((sum, item) => sum + item.weightedScore, 0));
+          scoreByRecordId.set(id, {
+            hasScore: templates.length > 0,
+            scoredTotal,
+            templateScores: templates
+          });
+        });
+      }
+      targetRecordRows.forEach((row) => {
+        const scored = scoreByRecordId.get(safeString(row.recordId));
+        row.hasScore = Boolean(scored && scored.hasScore);
+        row.scoredTotal = scored ? scored.scoredTotal : 0;
+        row.templateScores = scored ? scored.templateScores : [];
+      });
+
       res.json({
         status: 'success', activity: activityBrief, targetRecordRows,
         stats: { recordCount: targetRecordRows.length },

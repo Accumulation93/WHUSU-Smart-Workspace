@@ -765,8 +765,13 @@
                 <view class="list-desc">{{localeCopy.copy_405f619b06}}{{item.departmentText}}</view>
                 <view class="list-desc">{{localeCopy.copy_105bbfcae6}}{{item.identityText}}</view>
                 <view class="list-desc" wx:if="{{item.workGroupText}}">{{localeCopy.copy_f31350a7af}}{{item.workGroupText}}</view>
+                <view class="list-desc" wx:if="{{item.templateText}}">{{item.templateText}}</view>
               </view>
               <view class="list-desc submitted-text" wx:if="{{item.submittedAtText}}">{{item.submittedAtText}}</view>
+            </view>
+            <view class="score-display" wx:if="{{item.hasScore}}">
+              <view class="score-value">{{item.scoreText}}</view>
+              <view class="score-label">{{localeCopy.copy_7dce1d98a1}}</view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{targetRecordLoading}}">{{localeCopy.copy_80c4bdb2f5}}</view>

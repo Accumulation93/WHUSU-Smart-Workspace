@@ -1192,7 +1192,10 @@ scroll-view {
 }
 
 .large-scroll {
-  max-height: none;
+  /* 结果列表必须有确定的可滚动高度：高度放开后内容只能靠页面滚，
+     手指落在卡片上时页面滚不动，用户就翻不下去。 */
+  max-height: 62vh;
+  overflow-y: auto;
 }
 
 .small-scroll {
