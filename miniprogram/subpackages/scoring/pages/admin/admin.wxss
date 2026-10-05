@@ -1222,25 +1222,18 @@ scroll-view {
  * 这里不再依赖共享壳的 fixed+transform：卡片上带 transform 会让内部原生 scroll-view
  * 拖不动，所以改成“遮罩做 flex 居中 + 卡片完全静态定位”，顶部用遮罩内边距让出顶栏。
  */
-view.popup-mask.ui-overlay {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 216rpx 32rpx 64rpx !important;
-  box-sizing: border-box !important;
-}
-
+/*
+ * 评分详情是 `ui-dialog-shell--wide`：共享套件靠 top + bottom 上下拉伸来给定高度
+ * （height:auto; max-height:none），正文再 flex:1 撑满并内部滚动。
+ * 这里只把顶边再下移一个顶栏高度（自绘顶栏约 68px），其余几何全部保持共享取值——
+ * 之前几版把 bottom/height/max-height 改掉，卡片失去高度来源，正文就拖不动了。
+ */
 view.popup-mask.ui-overlay > view.popup-card.completion-popup-card.score-record-detail-popup-card.ui-dialog-shell {
-  position: relative !important;
-  top: auto !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  margin: 0 !important;
-  transform: none !important;
-  width: 100% !important;
-  max-width: 960rpx !important;
-  max-height: 100% !important;
+  top: calc(env(safe-area-inset-top) + var(--ui-dialog-edge, 36rpx) + 136rpx) !important;
+  bottom: calc(env(safe-area-inset-bottom) + var(--ui-dialog-edge, 36rpx)) !important;
+  height: auto !important;
+  max-height: none !important;
+  transform: translateX(-50%) !important;
   --kb-height: 0px;
 }
 
