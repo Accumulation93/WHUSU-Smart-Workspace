@@ -762,9 +762,9 @@
                 <view class="status-chip scorer-inline-status {{item.statusClass}}">{{item.statusText}}</view>
               </view>
               <view class="scorer-meta-lines">
-                <view class="result-meta-chip" wx:if="{{item.departmentText}}">{{item.departmentText}}</view>
-                <view class="result-meta-chip" wx:if="{{item.identityText}}">{{item.identityText}}</view>
-                <view class="result-meta-chip" wx:if="{{item.workGroupText}}">{{item.workGroupText}}</view>
+                <view class="result-meta-chip result-meta-chip-dept" wx:if="{{item.departmentText}}">{{item.departmentText}}</view>
+                <view class="result-meta-chip result-meta-chip-identity" wx:if="{{item.identityText}}">{{item.identityText}}</view>
+                <view class="result-meta-chip result-meta-chip-workgroup" wx:if="{{item.workGroupText}}">{{item.workGroupText}}</view>
               </view>
               <view class="list-desc submitted-text" wx:if="{{item.submittedAtText}}">{{item.submittedAtText}}</view>
             </view>
