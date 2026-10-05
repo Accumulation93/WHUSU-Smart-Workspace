@@ -1199,6 +1199,41 @@ scroll-view {
   overflow-y: auto;
 }
 
+/* 某人评分列表：部门 / 身份类别 / 职能组用气泡展示，标题旁显示已评分人数。 */
+.result-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ui-compact-height, 40rpx);
+  margin: 0 var(--ui-inline-gap) var(--ui-label-gap) 0;
+  padding: 4rpx 16rpx;
+  border: 1rpx solid var(--ui-line-blue);
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(219, 234, 254, 0.82));
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-meta);
+  line-height: 1.3;
+}
+
+.scorer-meta-lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.result-drill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--ui-compact-height, 40rpx);
+  min-height: var(--ui-compact-height, 40rpx);
+  margin-left: var(--ui-inline-gap);
+  padding: 0 10rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(96, 165, 250, 0.16));
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-meta);
+}
+
 .small-scroll {
   max-height: none;
 }

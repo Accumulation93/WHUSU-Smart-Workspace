@@ -73,6 +73,25 @@ async function getByScorerSubject(scorerSubjectKey, activityId) {
   return rows;
 }
 
+/**
+ * 只看某个被评分人的评分记录：结果页“点开一位同学”不再需要把整个活动的记录与答案读出来。
+ * 历史记录可能只有旧 hr 标识（target_id）或自然人（target_person_id），所以三者都要匹配。
+ */
+async function getByTarget(activityId, targetId) {
+  const orgId = await getCurrentOrgId();
+  const key = String(targetId || '').trim();
+  const [rows] = await pool.query(
+    `SELECT id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
+            target_id, target_person_id, target_assignment_id, template_config_signature,
+            submitted_at, calculation_context_snapshot
+       FROM score_records
+      WHERE activity_id = ? AND org_id = ?
+        AND (target_assignment_id = ? OR target_id = ? OR target_person_id = ?)`,
+    [activityId, orgId, key, key, key]
+  );
+  return rows;
+}
+
 async function getByScorerParticipant(participant, activityId) {
   const orgId = await getCurrentOrgId();
   const assignmentId = String(participant && (participant.assignment_id || participant.assignmentId || participant.id) || '');
@@ -178,6 +197,7 @@ module.exports = {
   getAll,
   getByActivity,
   getById,
+  getByTarget,
   getByScorerTarget,
   getBySubjects,
   getByScorer,

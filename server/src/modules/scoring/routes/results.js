@@ -77,6 +77,14 @@ function buildSkippedRecordsReport(diagnostics, nameByRecordId) {
   };
 }
 
+// 某人评分列表的失败判定：只有这位同学的记录全都不可用时才报错；
+// 部分可用时照常列出可用的评分人。
+function targetRowFailure(diagnostics) {
+  if (!diagnostics || Number(diagnostics.totalRecords || 0) === 0) return null;
+  if (Number(diagnostics.acceptedRecords || 0) > 0) return null;
+  return getHistoricalSnapshotFailure(diagnostics);
+}
+
 function normalizePageSize(value) {
   const size = Math.floor(toNumber(value, RESULT_PAGE_SIZE));
   if (!Number.isFinite(size) || size <= 0) return RESULT_PAGE_SIZE;
@@ -1460,6 +1468,78 @@ router.post('/getScoreResults', async (req, res) => {
           })),
           historicalRuleUnavailable: false,
           immutableSnapshot: true
+        }
+      });
+    }
+
+    // 某人评分列表：只查这个被评分人的记录。不加载答案、不计算分数、不扫整个活动，
+    // 所以点开一位同学是毫秒级；每题分数与总分只在点进单条明细时才计算。
+    if (dataType === 'targetRecords') {
+      if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
+      const targetRowsRaw = await scoreRecordModel.getByTarget(activityId, targetId);
+      const targetDiagnostics = { totalRecords: targetRowsRaw.length, acceptedRecords: 0, skippedRecords: 0, reasons: {}, records: [] };
+      const targetRecordRows = targetRowsRaw
+        .map((row) => {
+          const validation = validateCalculationSnapshot(row, activityId);
+          if (!validation.ok) {
+            targetDiagnostics.skippedRecords += 1;
+            targetDiagnostics.reasons[validation.reason] = (targetDiagnostics.reasons[validation.reason] || 0) + 1;
+            if (targetDiagnostics.records.length < 50) {
+              targetDiagnostics.records.push({ recordId: safeString(row.id), reason: validation.reason });
+            }
+            return null;
+          }
+          targetDiagnostics.acceptedRecords += 1;
+          const snapshot = validation.snapshot;
+          const scorerContext = snapshot.scorer.context || {};
+          const department = safeString(scorerContext.department);
+          const identity = safeString(scorerContext.identityCategory);
+          return {
+            recordId: safeString(row.id),
+            targetId: safeString(snapshot.target.participantId),
+            scorerKey: safeString(snapshot.scorer.participantId),
+            scorerId: safeString(snapshot.scorer.participantId),
+            scorerName: safeString(scorerContext.name),
+            scorerStudentId: safeString(scorerContext.studentId),
+            scorerDepartment: department,
+            scorerIdentity: identity,
+            scorerWorkGroup: safeString(scorerContext.workGroup),
+            scorerHistoricalAssignmentUnavailable: false,
+            scorerCategoryLabel: [department, identity].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1,
+            submittedAt: row.submitted_at || null,
+            status: 'completed',
+            statusText: scoringCopy.statusCompleted,
+            excludedByRequireAll: false
+          };
+        })
+        .filter(Boolean)
+        .sort((left, right) => String(right.submittedAt || '').localeCompare(String(left.submittedAt || '')));
+      // 这位同学的记录都不可用时，明确说明依据缺失，而不是假装“没有评分记录”。
+      const targetFailure = targetRowFailure(targetDiagnostics);
+      if (targetFailure) {
+        return res.json(Object.assign({}, targetFailure, {
+          dataType,
+          message: targetFailure.status === 'historical_snapshot_missing'
+            ? localeCopy.historicalSnapshotMissing
+            : localeCopy.historicalSnapshotInvalid
+        }));
+      }
+      return res.json({
+        status: 'success',
+        dataType,
+        activity: {
+          id: scopedActivity.id,
+          name: safeString(scopedActivity.name),
+          description: safeString(scopedActivity.description)
+        },
+        targetRecordRows,
+        stats: { recordCount: targetRecordRows.length },
+        pagination: {
+          offset: 0,
+          nextOffset: targetRecordRows.length,
+          total: targetRecordRows.length,
+          hasMore: false,
+          returnedCount: targetRecordRows.length
         }
       });
     }

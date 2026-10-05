@@ -389,14 +389,6 @@ module.exports = Behavior({
             submittedAtText: formatAuditTime(normalizedItem.submittedAt, normalizedItem.submittedAtReviewStatus),
             status: recordStatus,
             canViewDetail: (recordStatus === 'completed' || recordStatus === 'inactive') && !!normalizedItem.recordId,
-            hasScore: normalizedItem.hasScore === true,
-            scoreText: normalizedItem.hasScore === true ? formatScoreFixed3(normalizedItem.scoredTotal) : '',
-            templateText: (normalizedItem.templateScores || [])
-              .filter(function (template) { return template && template.templateName; })
-              .map(function (template) {
-                return template.templateName + '×' + toNumber(template.weight, 0) + '（' + formatScoreFixed3(template.score) + '）';
-              })
-              .join('；'),
             departmentText: normalizedItem.scorerHistoricalAssignmentUnavailable
               ? localeCopy.historicalAssignmentUnavailable
               : (normalizedItem.scorerDepartment || localeCopy.copy_0fe86822a1),

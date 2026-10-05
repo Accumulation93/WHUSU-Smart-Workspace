@@ -739,7 +739,7 @@
 
       <view class="list-card" wx:if="{{resultFilters.viewMode === 'overview' && selectedResultTarget}}">
         <view class="popup-header result-drill-header ui-dialog-header">
-          <view class="list-title">{{selectedResultTarget.name}}{{localeCopy.copy_a859dc349b}}</view>
+          <view class="list-title">{{selectedResultTarget.name}}{{localeCopy.copy_a859dc349b}}<text class="result-drill-count">{{targetRecordRows.length}}</text></view>
           <text class="popup-close ui-motion-chip" bindtap="closeTargetScoreRecords" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8ec888d575}}</text>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}"
@@ -762,16 +762,11 @@
                 <view class="status-chip scorer-inline-status {{item.statusClass}}">{{item.statusText}}</view>
               </view>
               <view class="scorer-meta-lines">
-                <view class="list-desc">{{localeCopy.copy_405f619b06}}{{item.departmentText}}</view>
-                <view class="list-desc">{{localeCopy.copy_105bbfcae6}}{{item.identityText}}</view>
-                <view class="list-desc" wx:if="{{item.workGroupText}}">{{localeCopy.copy_f31350a7af}}{{item.workGroupText}}</view>
-                <view class="list-desc" wx:if="{{item.templateText}}">{{item.templateText}}</view>
+                <view class="result-meta-chip" wx:if="{{item.departmentText}}">{{item.departmentText}}</view>
+                <view class="result-meta-chip" wx:if="{{item.identityText}}">{{item.identityText}}</view>
+                <view class="result-meta-chip" wx:if="{{item.workGroupText}}">{{item.workGroupText}}</view>
               </view>
               <view class="list-desc submitted-text" wx:if="{{item.submittedAtText}}">{{item.submittedAtText}}</view>
-            </view>
-            <view class="score-display" wx:if="{{item.hasScore}}">
-              <view class="score-value">{{item.scoreText}}</view>
-              <view class="score-label">{{localeCopy.copy_7dce1d98a1}}</view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{targetRecordLoading}}">{{localeCopy.copy_80c4bdb2f5}}</view>

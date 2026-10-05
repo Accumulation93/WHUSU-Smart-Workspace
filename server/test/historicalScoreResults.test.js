@@ -74,7 +74,8 @@ const mocks = {
   },
   '../models/clauseTemplateConfig': {},
   '../models/scoreRecord': {
-    async getByActivity() { return records; }
+    async getByActivity() { return records; },
+    async getByTarget() { return records; }
   },
   '../models/scoreAnswer': {
     async getByRecordIds() { return []; }
