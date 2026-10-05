@@ -28,6 +28,14 @@ assert(updateSource.includes('score_revision_conflict'), '并发修改必须失�
 assert(updateSource.includes('buildHistoricalTemplateBundle(record'),
   '重新评分必须继续使用该记录自己的题目依据，禁止套用当前模板');
 assert(updateSource.includes('invalidateScoreResultCaches'), '评分更新成功后必须同时失效公示与管理端结果缓存');
+// 回归：评分人本人重开修改时，页面上的版本号必然可能过期。
+// 旧实现拿它跟服务端版本比对，导致“每次提交都提示该评分已在其他位置更新”，
+// 这里禁止再出现这种把正常修改判成冲突的前置拦截。
+assert(!/lockedRevision\s*!==\s*expectedRevision/.test(updateSource),
+  '不得用页面上的版本号判定冲突；不丢写必须靠 FOR UPDATE 加条件更新');
+assert(updateSource.includes('WHERE id = ? AND org_id = ? AND revision_number = ?')
+  || updateSource.includes('AND revision_number = ?'),
+  '覆盖仍必须带 revision_number 条件更新，保证并发不丢写');
 
 assert.match(initSql, /revision_number INT NOT NULL DEFAULT 1/i);
 assert.doesNotMatch(initSql, /CREATE TABLE IF NOT EXISTS score_record_revisions/i);

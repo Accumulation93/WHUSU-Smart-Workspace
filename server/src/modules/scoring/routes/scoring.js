@@ -799,7 +799,6 @@ async function updateExistingScoreRecord(options) {
   if (!validation.ok) return res.json(validation);
 
   const expectedRecordId = safeString(req.body.existingRecordId) || safeString(record.id);
-  const expectedRevision = Math.max(1, Number(req.body.existingRecordRevision || record.revision_number || 1));
   if (expectedRecordId !== safeString(record.id)) {
     return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
   }
@@ -842,7 +841,12 @@ async function updateExistingScoreRecord(options) {
     );
     const lockedRecord = lockedRows[0] || null;
     const lockedRevision = Math.max(1, Number(lockedRecord && lockedRecord.revision_number || 1));
-    if (!lockedRecord || lockedRevision !== expectedRevision) {
+    // 评分人本人重新打开评分表修改是正常路径：页面上的 existingRecordRevision 天然可能
+    // 过期（保存过一次、从缓存页面回来、或记录由更早的会话写入），旧实现拿它跟服务端版本
+    // 比对，于是“每次提交都提示该评分已在其他位置更新”。不丢写由 FOR UPDATE 加下面
+    // `WHERE revision_number = lockedRevision` 的条件更新保证，所以只保留“记录不存在”
+    // 这一种真冲突。
+    if (!lockedRecord) {
       response = { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict };
       await dedup.complete(conn, { ...claim, orgId, actorKey: 'score-subject:' + scorerSubjectKey,
         operationType: 'submit_score', resourceId: stableScoreResourceId }, response);
