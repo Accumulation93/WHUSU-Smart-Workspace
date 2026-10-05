@@ -74,6 +74,39 @@ async function getByScorerSubject(scorerSubjectKey, activityId) {
 }
 
 /**
+ * 查找“同一评分人对同一被评分人”的记录，兼容两种岗位键口径：
+ * 新建记录用 `assignment:<岗位ID>`，统一身份迁移后的历史记录可能是 `person:<自然人ID>`。
+ * 只按其中一种查会漏掉另一种，提交时就会误判成“第一次评分”，进而报“评分问题已更新”。
+ */
+async function getBySubjectsOrPersons(activityId, options) {
+  const orgId = await getCurrentOrgId();
+  const settings = options || {};
+  const scorerSubjectKey = String(settings.scorerSubjectKey || '');
+  const targetSubjectKey = String(settings.targetSubjectKey || '');
+  const scorerPersonId = String(settings.scorerPersonId || '');
+  const targetPersonId = String(settings.targetPersonId || '');
+  if (!activityId || !scorerSubjectKey || !targetSubjectKey) return [];
+  const scorerPersonKey = scorerPersonId ? 'person:' + scorerPersonId : '';
+  const targetPersonKey = targetPersonId ? 'person:' + targetPersonId : '';
+  const [rows] = await pool.query(
+    `SELECT * FROM score_records
+      WHERE org_id = ? AND activity_id = ?
+        AND (scorer_subject_key = ? OR scorer_subject_key = ? OR (scorer_person_id <> '' AND scorer_person_id = ?))
+        AND (target_subject_key = ? OR target_subject_key = ? OR (target_person_id <> '' AND target_person_id = ?))
+      ORDER BY submitted_at DESC`,
+    [
+      orgId, activityId,
+      scorerSubjectKey, scorerPersonKey, scorerPersonId,
+      targetSubjectKey, targetPersonKey, targetPersonId
+    ]
+  );
+  // 岗位键完全一致的最优先，其次才是按自然人匹配到的历史记录。
+  const exact = rows.filter((row) => String(row.scorer_subject_key || '') === scorerSubjectKey
+    && String(row.target_subject_key || '') === targetSubjectKey);
+  return exact.length ? exact : rows;
+}
+
+/**
  * 只看某个被评分人的评分记录：结果页“点开一位同学”不再需要把整个活动的记录与答案读出来。
  * 历史记录可能只有旧 hr 标识（target_id）或自然人（target_person_id），所以三者都要匹配。
  */
@@ -200,6 +233,7 @@ module.exports = {
   getByTarget,
   getByScorerTarget,
   getBySubjects,
+  getBySubjectsOrPersons,
   getByScorer,
   getByScorerSubject,
   getByScorerParticipant,

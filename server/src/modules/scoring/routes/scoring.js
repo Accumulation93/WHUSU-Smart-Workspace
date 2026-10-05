@@ -835,9 +835,9 @@ async function updateExistingScoreRecord(options) {
     const [lockedRows] = await conn.query(
       `SELECT * FROM score_records
         WHERE id = ? AND org_id = ?
-          AND activity_id = ? AND scorer_subject_key = ? AND target_subject_key = ?
+          AND activity_id = ?
         FOR UPDATE`,
-      [record.id, orgId, activity.id, scorerSubjectKey, targetSubjectKey]
+      [record.id, orgId, activity.id]
     );
     const lockedRecord = lockedRows[0] || null;
     const lockedRevision = Math.max(1, Number(lockedRecord && lockedRecord.revision_number || 1));
@@ -925,7 +925,12 @@ router.post('/submitScoreRecord', async (req, res) => {
     const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
     // 必须与事务内的判定用同一口径（岗位键），否则前置查询可能查不到已存在记录，
     // 于是流程落到“新建”分支、再在事务里撞到同一对记录报“已在其他位置更新”。
-    const existingRecords = await scoreRecordModel.getBySubjects(scorerSubjectKey, targetSubjectKey, activityId);
+    const existingRecords = await scoreRecordModel.getBySubjectsOrPersons(activityId, {
+      scorerSubjectKey,
+      scorerPersonId: safeString(scorerRecord.person_id),
+      targetSubjectKey,
+      targetPersonId: safeString(targetRecord.person_id)
+    });
     if (existingRecords.length) {
       return updateExistingScoreRecord({
         req,

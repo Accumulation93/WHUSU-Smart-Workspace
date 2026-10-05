@@ -108,6 +108,7 @@ const mocks = {
     // 前置查询与事务内判定现在统一按岗位键查找，测试桩必须跟着改，
     // 否则桩缺方法会让覆盖链路直接落到 error 分支。
     async getBySubjects() { return [record]; },
+    async getBySubjectsOrPersons() { return [record]; },
     async getByParticipantPair() { return [record]; }
   },
   '../models/scoreAnswer': { async getByRecordId() { return oldAnswers; } },
