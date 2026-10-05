@@ -1239,6 +1239,50 @@ scroll-view {
   color: #b45309;
 }
 
+/* 某人评分列表：固定图标槽 + 可收缩正文 + 固定尾部箭头（媒体行规范）。 */
+.scorer-result-card {
+  align-items: flex-start;
+  gap: var(--ui-inline-gap);
+  padding: 22rpx 20rpx;
+  border-radius: var(--ui-list-radius, 20rpx);
+}
+
+.scorer-card-leading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border: 1rpx solid var(--ui-line-blue);
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(219, 234, 254, 0.8));
+}
+
+.scorer-card-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: center;
+}
+
+.submitted-text {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  margin-top: var(--ui-label-gap);
+  color: var(--ui-text-muted, #64748b);
+  font-size: var(--ui-type-meta);
+}
+
+.submitted-text-value {
+  font-size: var(--ui-type-meta);
+}
+
+.scorer-result-card-clickable:active {
+  border-color: var(--ui-line-blue);
+}
+
 .scorer-meta-lines {
   display: flex;
   flex-wrap: wrap;

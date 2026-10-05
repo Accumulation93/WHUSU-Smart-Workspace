@@ -756,6 +756,9 @@
             hover-start-time="0"
             hover-stay-time="160"
            hover-stop-propagation="{{true}}">
+            <view class="scorer-card-leading">
+              <ui-icon name="user" tone="primary" sizeRole="row-leading" ariaLabel="{{item.scorerName}}" />
+            </view>
             <view class="list-main">
               <view class="scorer-card-title">
                 <view class="list-name scorer-name">{{item.scorerName}}</view>
@@ -766,7 +769,13 @@
                 <view class="result-meta-chip result-meta-chip-identity" wx:if="{{item.identityText}}">{{item.identityText}}</view>
                 <view class="result-meta-chip result-meta-chip-workgroup" wx:if="{{item.workGroupText}}">{{item.workGroupText}}</view>
               </view>
-              <view class="list-desc submitted-text" wx:if="{{item.submittedAtText}}">{{item.submittedAtText}}</view>
+              <view class="list-desc submitted-text" wx:if="{{item.submittedAtText}}">
+                <ui-icon name="clock" tone="muted" sizeRole="context-trailing" ariaLabel="{{item.submittedAtText}}" />
+                <text class="submitted-text-value">{{item.submittedAtText}}</text>
+              </view>
+            </view>
+            <view class="scorer-card-trailing" wx:if="{{item.canViewDetail}}">
+              <ui-icon name="chevron-right" tone="muted" sizeRole="context-trailing" ariaLabel="{{item.scorerName}}" />
             </view>
           </view>
           <view class="empty-inline" wx:if="{{targetRecordLoading}}">{{localeCopy.copy_80c4bdb2f5}}</view>
