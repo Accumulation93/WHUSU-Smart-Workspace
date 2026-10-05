@@ -6,5 +6,7 @@
  * 并用“两个类名 + 直接子级”的选择器，否则单类名挡不住共享规则的 !important。
  */
 .popup-mask.ui-overlay > .popup-card.ui-dialog-shell {
-  max-height: calc(100vh - 184rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  /* 只调共享弹窗契约的“高度让位”令牌，居中仍交给共享壳负责，不自己重定位弹窗。 */
+  --ui-dialog-height-inset: 208rpx;
+  max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }

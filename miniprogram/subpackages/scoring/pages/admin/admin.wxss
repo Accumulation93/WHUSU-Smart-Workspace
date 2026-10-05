@@ -1219,7 +1219,8 @@ scroll-view {
 view.popup-mask.ui-overlay > view.score-record-detail-popup-card.ui-dialog-shell {
   /* 自绘顶栏约 68px，比原生状态栏高：只收高度让标题行与关闭键露在微信胶囊下方。
      居中仍由共享弹窗壳负责，页面不得自己重定位弹窗。 */
-  max-height: calc(100vh - 184rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  --ui-dialog-height-inset: 208rpx;
+  max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
 
 .result-meta-chip-dept {
