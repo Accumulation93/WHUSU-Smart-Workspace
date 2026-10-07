@@ -80,6 +80,7 @@ jobs:
           node scripts/portal-back-logout-test.js
           node scripts/native-navigation-test.js
           node scripts/ui-navbar-test.js
+          node scripts/app-toast-fallback-test.js
           node scripts/trusted-navigation-recovery-test.js
           node scripts/hr-profile-layout-test.js
           node scripts/button-alignment-test.js

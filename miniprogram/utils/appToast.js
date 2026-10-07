@@ -81,7 +81,9 @@ function renderOn(instance, payload) {
     instance.render(payload);
     return true;
   } catch (_) {
-    unregisterInstance(instance);
+    // 渲染失败只跳过这一次，不把实例从栈里摘掉：
+    // 旧实现一旦某个实例渲染异常，就会连带注销它并让后续提示全部回退成
+    // 微信原生弹框（表现为“某些页面的提示没有走统一标准件”）。
     return false;
   }
 }
@@ -97,9 +99,15 @@ function show(options) {
   const payload = { text, state, blocking };
 
   clearTimers();
-  let instance = activeInstance();
-  while (instance && !renderOn(instance, payload)) instance = activeInstance();
-  if (!instance) return false;
+  // 从最近注册的实例往前逐个尝试，全部失败才回退原生实现；不修改实例栈。
+  let rendered = false;
+  for (let index = instances.length - 1; index >= 0; index -= 1) {
+    if (renderOn(instances[index], payload)) {
+      rendered = true;
+      break;
+    }
+  }
+  if (!rendered) return false;
 
   currentState = state;
   if (state === 'loading') {
