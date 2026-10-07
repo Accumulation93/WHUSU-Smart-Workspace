@@ -141,7 +141,8 @@
 为什么：三件事叠在一起。一是弹窗外壳曾经用“顶部贴边 + 底部贴边”来撑高度，这种变体直接把顶边放在屏幕最上面；二是外壳的居中锚点是屏幕正中，高度上限只减掉了安全区，而安卓（含鸿蒙）在网页里读到的安全区是 0，减不掉真实状态栏的高度，于是弹窗越长顶边越往上跑；三是微信右上角那个原生胶囊按钮永远盖在页面最上层，弹窗标题行正好落在它后面就点不动。三套高度和定位规则互相覆盖，越改越乱。
 
 现在靠什么防止再发生：
-- 唯一几何来源：弹窗的位置和高度只在 `miniprogram/app.wxss` 里定义一次（`--ui-dialog-top-reserve` / `--ui-dialog-bottom-reserve` / `--ui-dialog-available`），页面和组件一律不得再写自己的 `top / bottom / height / max-height / transform`。顶部让位量取“自绘顶栏高度”和“状态栏 + 顶栏行高”的较大值，所以安卓和鸿蒙也躲得开胶囊。
+- 唯一几何来源：弹窗的位置和高度只在 `miniprogram/app.wxss` 里定义一次（`--ui-dialog-top-reserve` / `--ui-dialog-bottom-reserve` / `--ui-dialog-available`），页面和组件一律不得再写自己的 `top / bottom / height / max-height / transform`。
+- 顶部安全线取三者最大值：页面写入的自绘顶栏高度、`状态栏 + 顶栏行高`、以及胶囊下沿兜底 `--ui-dialog-capsule-floor`（108px）。只靠前两者不够：页面写入的高度在弹层里不一定生效，安卓和鸿蒙读到的安全区又是 0，二者都会让顶边落到胶囊下面。胶囊下沿各机型最高约 91–97px，108px 这条底线保证任何机型都躲得开，第一版只让位到顶栏高度时用户仍看到“和右上角省略号有一点重叠”就是这个原因。
 - 必须跑的检查：`node scripts/ui-audit.js --strict`——居中锚点必须是“去掉上下留白后的可用区中心”，裸 `top: 50vh` 和页面局部覆盖都会被判失败；弹窗里的 `calc(100vh - …)` 也会被判失败。
 - 必须跑的检查：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`——长列表仍有确定高度可滚，键盘高度仍然参与底部让位。
 - 必须跑的检查：`node server/test/auditWorkflowContract.test.js`——外壳定位、按下不变形的契约。

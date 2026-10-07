@@ -164,7 +164,8 @@
 | `--ui-section-title-inset` | 标题蓝色竖线与标题文字的距离 |
 | `--ui-dialog-edge` | 弹窗与物理视口的安全边距 |
 | `--ui-dialog-width-inset` | 弹窗横向两侧安全边距之和，供兼容性良好的 `calc()` 使用 |
-| `--ui-dialog-top-reserve` | 弹窗顶部让位量 = 自绘顶栏高度（页面用 `page-meta` 写入 `--ui-navbar-height`）再留一点空间；取不到时退回“状态栏 + 顶栏行高” |
+| `--ui-dialog-top-reserve` | 弹窗顶部让位量 = “顶栏最低安全线”再加一点空间；安全线取三者最大值：自绘顶栏高度（页面用 `page-meta` 写入 `--ui-navbar-height`）、状态栏 + 顶栏行高、`--ui-dialog-capsule-floor` |
+| `--ui-dialog-capsule-floor` | 微信右上角胶囊下沿的兜底高度（108px）：胶囊是原生按钮、永远盖在页面最上层，各机型胶囊下沿最高约 91–97px，用它保证任何机型上弹窗顶边都在胶囊下方 |
 | `--ui-dialog-bottom-reserve` | 弹窗底部让位量 = 安全区 + 键盘高度（`--kb-height`）再留一点空间 |
 | `--ui-dialog-available` | 弹窗可用高度 = `100vh` 减去上下让位量；外壳高度上限与正文确定高度都由它推导 |
 | `--ui-dialog-body-reserve` | 外壳内固定块（标题、底栏与内外留白）的语义高度，正文确定高度 = 可用高度 − 该值 |

@@ -106,9 +106,12 @@ page,
    * 弹窗几何只在这里算一次：顶部让出自绘顶栏，底部让出安全区与键盘，
    * 中间剩下的才是弹窗可用高度。页面用 page-meta 写入 --ui-navbar-height
    * （含状态栏，取自微信导航栏度量）；取不到时退回“状态栏 + 顶栏行高”，
-   * 保证弹窗顶边在任何机型上都不会压到微信胶囊。
+   * 再用 --ui-dialog-capsule-floor 兜底：微信右上角胶囊是原生按钮、永远盖在
+   * 页面最上层，各机型胶囊下沿最高约 91–97px，这条 108px 的底线保证任何机型
+   * 上弹窗顶边都落在胶囊下方并留出净空。
    */
-  --ui-dialog-top-reserve: calc(max(var(--ui-navbar-height, 0px), calc(env(safe-area-inset-top) + 44px)) + var(--ui-dialog-edge, 36rpx));
+  --ui-dialog-capsule-floor: 108px;
+  --ui-dialog-top-reserve: calc(max(var(--ui-navbar-height, 0px), calc(env(safe-area-inset-top) + 44px), var(--ui-dialog-capsule-floor, 108px)) + var(--ui-dialog-edge, 36rpx));
   --ui-dialog-bottom-reserve: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px) + var(--ui-dialog-edge, 36rpx));
   --ui-dialog-available: calc(100vh - var(--ui-dialog-top-reserve) - var(--ui-dialog-bottom-reserve));
   /* 外壳内固定块（标题、底栏与内外留白）的语义高度，用于推导正文确定高度。 */
