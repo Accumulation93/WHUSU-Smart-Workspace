@@ -7,16 +7,12 @@ const copy = require('../../locales/zh-CN/uiNavbar');
 // 这里只做兜底补齐，保证任何页面都不会只显示一个短标题。
 const BRAND = copy.brandName;
 const BRAND_SUFFIX = ' - ' + BRAND;
-// 标题按可用宽度从大到小挑字号，档位全部取现有语义令牌，不新增字号。
-// 标题带“ - WHUSU智慧工作台”后缀后本身就比较长，起点取偏小的一档，窄屏上才不会又大又挤。
-const HEADING_FONT_STEPS = [
-  13.5,  // --ui-type-body
-  13,    // --ui-type-control
-  12.5,  // --ui-type-label
-  12,    // --ui-type-meta
-  11,    // --ui-type-caption
-  10     // --ui-type-micro
-];
+/*
+ * 顶栏标题字号全站统一为 12px（令牌 --ui-type-meta）：这是能让最长标题
+ * 「场地借用审批详情 - WHUSU智慧工作台」在 360px 以上手机上完整显示的最大字号。
+ * 字号只在这里与 WXSS 的 --ui-type-meta 各写一次，页面不得再各自调整。
+ */
+const HEADING_FONT_PX = 12;
 // 左侧有返回键或页面自定义键时，标题可用的起点 = 键宽 + 间距 + 内边距。
 const LEFT_RESERVE_PX = 50;
 const FALLBACK_WINDOW_WIDTH = 375;
@@ -43,36 +39,22 @@ function estimateTextWidth(text, fontSize) {
   return units * fontSize;
 }
 
-function pickFontStep(text, availableWidth) {
-  for (let i = 0; i < HEADING_FONT_STEPS.length; i += 1) {
-    // 留 4px 余量，避免估宽误差刚好把最后一个字挤出去。
-    if (estimateTextWidth(text, HEADING_FONT_STEPS[i]) <= availableWidth - 4) return i;
-  }
-  return HEADING_FONT_STEPS.length - 1;
-}
-
 function fitHeading(text, screenWidth, capsuleInset, leftReserve) {
   const centeredWidth = Math.max(96, screenWidth - capsuleInset * 2);
   const widestWidth = Math.max(96, screenWidth - leftReserve - capsuleInset);
-  const baseWidth = estimateTextWidth(text, HEADING_FONT_STEPS[0]);
-  // 1）原字号就能在屏幕正中间放完整：保持居中，和微信默认顶栏一致。
+  const baseWidth = estimateTextWidth(text, HEADING_FONT_PX);
+  // 1）统一字号就能在屏幕正中间放完整：保持居中，和微信默认顶栏一致。
   if (baseWidth <= centeredWidth - 4) {
-    return { left: capsuleInset, fontStep: 0 };
+    return { left: capsuleInset };
   }
-  // 2）原字号放不下，但把标题往左借一点（不压住返回键）能放完整：宁可轻微偏左也不缩小字号。
+  // 2）居中放不下，但把标题往左借一点（不压住返回键）能放完整：宁可轻微偏左也不缩小字号。
   if (baseWidth <= widestWidth - 4) {
     const left = Math.max(leftReserve, Math.round(screenWidth - capsuleInset - baseWidth));
-    return { left: left, fontStep: 0 };
+    return { left: left };
   }
-  // 3）连最宽的位置都放不下：降到能放下的最大档字号。
-  const fontStep = pickFontStep(text, widestWidth);
-  const textWidth = estimateTextWidth(text, HEADING_FONT_STEPS[fontStep]);
-  // 降档后能在屏幕正中间放下就保持居中，否则按实际宽度靠右贴齐胶囊。
-  if (textWidth <= centeredWidth - 4) {
-    return { left: capsuleInset, fontStep: fontStep };
-  }
-  const left = Math.max(leftReserve, Math.round(screenWidth - capsuleInset - textWidth));
-  return { left: left, fontStep: fontStep };
+  // 3）极窄屏（约 320px 以下）也放不下：仍用统一字号，靠右贴齐胶囊，
+  //    由标题自身的省略号兜底，不再为个别机型单独改字号。
+  return { left: leftReserve };
 }
 
 function readPageDepth() {
@@ -115,7 +97,6 @@ Component({
     totalHeight: 64,
     headingText: BRAND,
     headingLeft: 0,
-    headingFontStep: 0,
     showBack: false,
     backAria: copy.backAria,
     refreshingText: copy.refreshing
@@ -165,8 +146,7 @@ Component({
         totalHeight: metrics.totalHeight,
         showBack: showBack,
         headingText: heading.text,
-        headingLeft: heading.left,
-        headingFontStep: heading.fontStep
+        headingLeft: heading.left
       });
     },
 
@@ -177,7 +157,7 @@ Component({
       const hasLeftControl = leftMode === 'slot' || showBack;
       const leftEdge = hasLeftControl ? LEFT_RESERVE_PX : capsuleInset;
       const fit = fitHeading(text, screenWidth, capsuleInset, leftEdge);
-      return { text: text, left: fit.left, fontStep: fit.fontStep };
+      return { text: text, left: fit.left };
     },
 
     onBackTap() {

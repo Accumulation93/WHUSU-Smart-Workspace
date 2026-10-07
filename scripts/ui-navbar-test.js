@@ -114,15 +114,13 @@ function makeInstance(settings, properties) {
   assert.strictEqual(empty.data.headingText, 'WHUSU智慧工作台', '没拿到标题时至少显示应用名，不能是空条');
 }
 
-// —— 标题宽度：优先原字号，放得下就居中，放不下才往左借位或降档 ——
+// —— 标题宽度：全站统一字号，放得下就居中，放不下就往左借位 ——
 {
   const short = makeInstance({ pageDepth: 3 }, { title: '登录', backMode: 'auto', leftMode: 'back' }).instance;
-  assert.strictEqual(short.data.headingFontStep, 0, '一般标题保持与微信默认顶栏一致的字号');
   assert.ok(short.data.headingLeft <= 96, '标题不能压到右侧胶囊上');
   assert.ok(short.data.headingLeft >= 56, '标题不能压住左侧返回键');
 
   const long = makeInstance({ pageDepth: 3 }, { title: '场地借用审批详情', backMode: 'auto', leftMode: 'back' }).instance;
-  assert.ok(long.data.headingFontStep > 0, '长标题要降一档字号，保证后缀完整显示');
   assert.ok(long.data.headingLeft >= 56, '长标题要让开左侧返回键，避免压住按钮');
 
   const centered = makeInstance({ pageDepth: 1 }, { title: '登录', backMode: 'auto', leftMode: 'back' }).instance;
@@ -130,11 +128,11 @@ function makeInstance(settings, properties) {
 
   const noBack = makeInstance({ pageDepth: 1 }, { title: '场地借用审批详情', backMode: 'auto', leftMode: 'back' }).instance;
   assert.strictEqual(noBack.data.headingLeft, 96, '没有返回键时标题仍按屏幕居中');
-  assert.ok(noBack.data.headingFontStep > 0, '没有返回键时同样要降档把标题显示完整');
 
   const wide = makeInstance({ metrics: { statusBarHeight: 24, barHeight: 48, capsuleInset: 96, totalHeight: 72, windowWidth: 768 } },
     { title: '场地借用审批详情', backMode: 'always', leftMode: 'back' }).instance;
-  assert.strictEqual(wide.data.headingFontStep, 0, 'Pad 上宽度够，标题保持原字号');
+  assert.ok(wide.data.headingLeft >= 56, 'Pad 上标题同样要避开胶囊与返回键');
+  assert.strictEqual(wide.data.headingFontStep, undefined, '字号不再按标题长度分档，必须全站统一');
 }
 
 // —— 返回键：默认有上一页才显示，与微信原生一致 ——
@@ -182,9 +180,11 @@ function makeInstance(settings, properties) {
 assert.ok(/class="ui-navbar-placeholder"/.test(componentMarkup), '顶栏必须自带占位块，页面不需要自己留白');
 assert.ok(/<slot name="left">/.test(componentMarkup), '顶栏必须给页面留出左侧自定义槽位');
 assert.ok(/hover-class="ui-press-chip"/.test(componentMarkup), '返回键必须有按压反馈');
-assert.ok(/ui-navbar-font-\{\{headingFontStep\}\}/.test(componentMarkup), '标题字号必须按算出来的档位渲染');
+assert.ok(!/headingFontStep/.test(componentMarkup) && !/headingFontStep/.test(componentStyle),
+  '标题字号不得再按标题长度分档');
 assert.ok(/grid-column:\s*1\s*\/\s*-1;/.test(componentStyle), '占位块必须能在 grid 页面里整行占满');
-assert.ok(/\.ui-navbar-font-5\s*\{\s*font-size:\s*var\(--ui-type-micro\)/.test(componentStyle), '最小档字号必须来自语义令牌');
+assert.ok(/\.ui-navbar-heading\s*\{[\s\S]*?font-size:\s*var\(--ui-type-meta\)/.test(componentStyle),
+  '顶栏标题字号必须统一为 --ui-type-meta（12px），且来自语义令牌');
 assert.ok(!/font-size:\s*\d/.test(componentStyle), '顶栏字号只能取语义令牌，不得写死数值');
 {
   const navbarZ = Number((componentStyle.match(/\.ui-navbar\s*\{[\s\S]*?z-index:\s*(\d+)/) || [])[1]);

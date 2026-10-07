@@ -60,20 +60,13 @@
   align-items: center;
   justify-content: center;
   color: var(--ui-text-nav-title);
-  font-size: var(--ui-type-body);
+  /* 全站统一字号：12px（--ui-type-meta）是能让最长标题在 360px 以上手机完整显示的最大值。 */
+  font-size: var(--ui-type-meta);
   font-weight: 500;
   line-height: 1;
   text-align: center;
   pointer-events: none;
 }
-
-/* 标题带“ - WHUSU智慧工作台”后缀，按可用宽度逐档降字号，档位全部来自现有语义令牌。 */
-.ui-navbar-font-0 { font-size: var(--ui-type-body); }
-.ui-navbar-font-1 { font-size: var(--ui-type-control); }
-.ui-navbar-font-2 { font-size: var(--ui-type-label); }
-.ui-navbar-font-3 { font-size: var(--ui-type-meta); }
-.ui-navbar-font-4 { font-size: var(--ui-type-caption); }
-.ui-navbar-font-5 { font-size: var(--ui-type-micro); }
 
 .ui-navbar-heading-text {
   max-width: 100%;

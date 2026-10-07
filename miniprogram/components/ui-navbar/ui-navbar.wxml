@@ -18,7 +18,7 @@
       <ui-icon name="chevron-left" tone="primary" sizeRole="row-leading" ariaLabel="{{backAria}}" />
     </view>
     <view class="ui-navbar-heading" style="left: {{headingLeft}}px; right: {{capsuleInset}}px;">
-      <text class="ui-navbar-heading-text ui-navbar-font-{{headingFontStep}}">{{headingText}}</text>
+      <text class="ui-navbar-heading-text">{{headingText}}</text>
       <text class="ui-navbar-heading-hint" wx:if="{{refreshing}}">{{refreshingText}}</text>
     </view>
     <view class="ui-navbar-capsule-space" style="width: {{capsuleInset}}px;"></view>
