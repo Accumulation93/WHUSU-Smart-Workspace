@@ -45,7 +45,8 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 
 - Render every overlay through `root-portal`, outside page `scroll-view` and transformed layout containers.
 - Keep `.ui-overlay` and `.ui-overlay-blocker` fixed at `top/right/bottom/left: 0` with `100vw × 100vh`.
-- Follow the single geometry owner in `miniprogram/app.wxss`: keep the shell fixed at `top: 50vh; left: 50vw; transform: translate(-50%, -50%)`; do not replace it with a page-local flex-centering or relative shell. `--wide` and bottom sheets are explicit variants.
+- Follow the single geometry owner in `miniprogram/app.wxss`: keep the shell fixed and centred in the *available* area with `left: 50vw; transform: translate(-50%, -50%)` and `top: calc(50vh + (var(--ui-dialog-top-reserve) - var(--ui-dialog-bottom-reserve)) / 2)`, `max-height: var(--ui-dialog-available)`. Never fall back to a bare `top: 50vh` (a long dialog then reaches up under the WeChat capsule and its close button stops responding), and never stretch a variant with `top` + `bottom`. Do not replace the shared rule with a page-local flex-centering or relative shell. `--wide` and bottom sheets are explicit variants.
+- The top reserve covers the custom navbar: every page that hosts a centred dialog publishes `--ui-navbar-height` through `page-meta page-style`, and the shared token takes the larger of that value and `env(safe-area-inset-top) + 44px`, because Android/HarmonyOS report a zero safe-area inset while still having a tall status bar.
 - Assign blocker `z-index: 0` and shell `z-index: 1`; background controls must remain below the overlay.
 - Preserve the same transform for shell `:active`, `:focus`, and `:focus-within` states so tapping does not make it jump.
 - Never anchor a dialog to page scroll position, a content column, or a local absolute-positioned parent.
@@ -54,7 +55,9 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 
 - Overlay and shell never scroll; both clip overflow.
 - `ui-dialog-shell--complex` describes a header/body/footer structure, not a full-height window. It must stay content-driven so short and collapsed forms do not leave blank space.
-- Give the body a viewport-safe dynamic maximum and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally; fixed content heights and fixed pixel offsets are forbidden, while `max-height: calc(100vh - safe-area)` is allowed as overflow protection.
+- Give the body a viewport-safe dynamic maximum and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally.
+- A direct `scroll-view.ui-dialog-body` still needs a *definite* height or WeChat never builds an internal scroll amount (the dialog looks stuck however far you drag). The shared rule derives it from the same reserves — `calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve))` with `flex: 1 1 auto` — so the body grows or shrinks to exactly fill the shell. Never reintroduce a second `calc(100vh - …)` in a page, a component or a variant.
+- `.ui-dialog-shell--grid` / `--viewport` / `--wide` take `height: var(--ui-dialog-available)`; every other variant stays content-driven.
 - Only data workspaces that genuinely require a stable full-screen working area may add `ui-dialog-shell--viewport`; wide timetables continue to use `ui-dialog-shell--wide`. Never add a viewport height merely because a dialog is a long form.
 - Header and footer are non-scrolling flex items. The direct body is the only outer scrolling region.
 - Every vertical dialog `scroll-view` enables `enhanced`, `scroll-y`, and `nested-scroll-enabled`.

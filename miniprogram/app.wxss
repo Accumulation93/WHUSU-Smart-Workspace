@@ -102,7 +102,15 @@ page,
   --ui-tab-shell-radius: 30rpx;
   --ui-dialog-edge: 36rpx;
   --ui-dialog-width-inset: 32rpx;
-  --ui-dialog-height-inset: 72rpx;
+  /*
+   * 弹窗几何只在这里算一次：顶部让出自绘顶栏，底部让出安全区与键盘，
+   * 中间剩下的才是弹窗可用高度。页面用 page-meta 写入 --ui-navbar-height
+   * （含状态栏，取自微信导航栏度量）；取不到时退回“状态栏 + 顶栏行高”，
+   * 保证弹窗顶边在任何机型上都不会压到微信胶囊。
+   */
+  --ui-dialog-top-reserve: calc(max(var(--ui-navbar-height, 0px), calc(env(safe-area-inset-top) + 44px)) + var(--ui-dialog-edge, 36rpx));
+  --ui-dialog-bottom-reserve: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px) + var(--ui-dialog-edge, 36rpx));
+  --ui-dialog-available: calc(100vh - var(--ui-dialog-top-reserve) - var(--ui-dialog-bottom-reserve));
   /* 外壳内固定块（标题、底栏与内外留白）的语义高度，用于推导正文确定高度。 */
   --ui-dialog-body-reserve: 220rpx;
   --ui-dialog-padding: 32rpx;
@@ -829,7 +837,19 @@ button[disabled],
   line-height: 1.4;
 }
 
-/* 稳定弹窗与响应式数据布局契约 */
+/*
+ * 弹窗几何唯一契约（2026-10 重写）
+ *
+ * 只有三个角色，各管一件事：
+ *   1) 遮罩 .ui-overlay —— 覆盖物理视口，压住背景，并给出上下两道留白；
+ *   2) 外壳 .ui-dialog-shell —— 以“去掉留白后的可用区中心”为锚点固定定位，
+ *      高度上限等于可用区高度，自己不再算任何 vh、安全区或键盘偏移；
+ *   3) 正文 .ui-dialog-body —— 撑满外壳剩余空间，由内部 scroll-view 滚动。
+ *
+ * 旧的“--wide 用 top+bottom 上下拉伸贴边”“--grid / --viewport 各自算
+ * calc(100vh - …)”“正文写死 calc(100vh - …)”全部废弃：它们互相覆盖，
+ * 既会把弹窗顶到胶囊下面点不到关闭键，也会让正文拿不到确定高度而拖不动。
+ */
 .ui-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -855,7 +875,7 @@ button[disabled],
 
 .ui-overlay .ui-dialog-shell {
   position: fixed !important;
-  top: 50vh !important;
+  top: calc(50vh + (var(--ui-dialog-top-reserve) - var(--ui-dialog-bottom-reserve)) / 2) !important;
   left: 50vw !important;
   right: auto !important;
   bottom: auto !important;
@@ -867,10 +887,10 @@ button[disabled],
   min-width: 0;
   max-width: calc(100vw - var(--ui-dialog-width-inset, 32rpx)) !important;
   margin: 0 !important;
-  /* 键盘弹起时，弹窗按 --kb-height 收窄并整体上移到键盘上方：页面本身不再被顶偏，
-     被遮挡的字段由弹窗正文自己的滚动条保证可见可点。 */
-  transform: translate(-50%, calc(-50% - var(--kb-height, 0px) / 2)) !important;
-  max-height: calc(100vh - var(--kb-height, 0px) - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  /* 键盘只改变 --ui-dialog-bottom-reserve，弹窗因此自动在剩下的可用区里重新居中，
+     不再需要额外的位移换算；页面本身也不会被键盘顶偏。 */
+  transform: translate(-50%, -50%) !important;
+  max-height: var(--ui-dialog-available) !important;
   overflow-x: hidden;
   overflow-y: hidden !important;
   overscroll-behavior: none;
@@ -878,6 +898,11 @@ button[disabled],
   pointer-events: auto !important;
   touch-action: auto !important;
   -webkit-text-size-adjust: 100%;
+}
+
+/* 底部抽屉自己贴底，顶部不需要让出自绘顶栏，只保留一点边距。 */
+.ui-sheet-overlay {
+  --ui-dialog-top-reserve: var(--ui-dialog-edge, 36rpx);
 }
 
 /* 透明挡板只拦截背景滑动；弹窗外壳在其上方，内部 scroll-view 仍可独立滚动。 */
@@ -896,6 +921,7 @@ button[disabled],
   touch-action: none !important;
 }
 
+/* 变体只表达宽度与结构，高度一律交给上面的可用区契约。 */
 .ui-overlay .ui-dialog-shell--compact {
   height: auto;
   max-width: 640rpx !important;
@@ -903,14 +929,6 @@ button[disabled],
 
 .ui-overlay .ui-dialog-shell--complex {
   height: auto;
-}
-
-.ui-overlay .ui-dialog-shell--wide {
-  top: calc(env(safe-area-inset-top) + var(--ui-dialog-edge, 36rpx)) !important;
-  bottom: calc(env(safe-area-inset-bottom) + var(--ui-dialog-edge, 36rpx)) !important;
-  height: auto !important;
-  max-height: none !important;
-  transform: translateX(-50%) !important;
 }
 
 /* 弹窗表面与内部留白统一由 UI Kit 令牌控制，页面只定义业务布局。 */
@@ -1192,8 +1210,8 @@ scroll-view.ui-dialog-scroll--both {
 scroll-view.ui-dialog-scroll--fill {
   height: auto;
   min-height: 0;
-  /* 正文高度随视口安全区自适应，不再写死固定 vh。 */
-  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  /* 没有确定高度契约（例如底部抽屉的滚动正文）时的上限：不超过弹窗可用区。 */
+  max-height: var(--ui-dialog-available);
 }
 
 scroll-view.ui-dialog-scroll--both {
@@ -1617,7 +1635,6 @@ button:active,
     --ui-tab-shell-radius: 15px;
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 40px;
-    --ui-dialog-height-inset: 48px;
     --ui-dialog-body-reserve: 210px;
     --ui-dialog-padding: 24px;
     --ui-dialog-body-padding: 14px;
@@ -2123,7 +2140,6 @@ button:active,
     --ui-section-title-inset: 10px;
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 48px;
-    --ui-dialog-height-inset: 48px;
     --ui-dialog-body-reserve: 170px;
     --ui-dialog-padding: 22px;
     --ui-dialog-body-padding: 12px;
@@ -3286,35 +3302,37 @@ page .pending-refresh-btn {
 /*
  * 视口级弹窗契约（必须位于所有页面级样式之后）
  *
- * 弹窗不是页面内容的一部分：遮罩固定覆盖整个可视视口，弹窗壳直接
- * 以视口中心为锚点。这样背景页面即使曾经滚动到任意位置，打开或滚动
- * 弹窗时也不会把遮罩和弹窗一起带偏。正文仍由显式 scroll-view 承担滚动。
- */
-/*
- * “复杂”只描述结构，不代表必须占满屏幕。窗口默认按实际内容收缩；正文
- * 超过可用高度后由 scroll-view 自己滚动，标题和操作栏始终固定。只有真正
- * 需要整屏工作区的表格、时间表等，才显式使用 --viewport / --wide。
+ * 弹窗不是页面内容的一部分：遮罩固定覆盖整个可视视口，弹窗壳以“去掉上下
+ * 留白后的可用区中心”为锚点。这样背景页面即使曾经滚动到任意位置，打开或
+ * 滚动弹窗时也不会把遮罩和弹窗一起带偏。正文仍由显式 scroll-view 承担滚动。
+ *
+ * 下面是整套几何的唯一实现；页面与组件不得再各自声明窗口高度或定位。
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
   height: auto !important;
 }
 
-/* 三段式长列表使用确定的网格轨道，避免原生滚动视口仍保留 Flex 收缩前高度。 */
+/*
+ * “复杂”只描述结构（标题 / 正文 / 底栏），不代表必须占满屏幕；短表单仍按内容收缩。
+ * 真正需要整块工作区的长列表与表格才用 --grid / --viewport / --wide，
+ * 它们直接占满可用区高度，网格轨道与原生滚动视口因此都有确定尺寸。
+ */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  /* 长列表弹窗用视口安全区给的确定高度，网格轨道与原生滚动视口才有确定尺寸；
-     不写死像素/百分比偏移，手机、Pad 竖屏、Pad 横屏自动适配。 */
-  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  height: var(--ui-dialog-available) !important;
 }
 
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
-  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
+  height: var(--ui-dialog-available) !important;
 }
 
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > .ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > .ui-dialog-body {
   flex: 1 1 auto !important;
   min-height: 0 !important;
+  max-height: none !important;
 }
 
 /* 三段网格外壳：正文占满 minmax(0, 1fr) 轨道，原生滚动视口才拿到确定高度。 */
@@ -3324,23 +3342,21 @@ page .pending-refresh-btn {
 }
 
 /*
- * 外层正文确定高度契约：微信原生 scroll-view 只有拿到确定高度才会建立滚动量。
- * height:auto（以及被后续媒体查询改回 auto）会让内部滚动量恒为 0，表现为拖不动、
- * 末项被外壳裁掉。这里用视口安全区减去外壳固定块（标题、底栏与内外留白）的语义
- * 令牌得到确定高度；三段网格外壳由上面更高优先级的 100% 规则接管。
+ * 正文确定高度契约：微信原生 scroll-view 只有拿到确定高度才会建立滚动量，
+ * height:auto 会让滚动量恒为 0，表现为拖不动、末行被外壳裁掉。
+ * 高度只用同一套让位量推导：可用区高度减去外壳内固定块（标题、底栏与内外留白）
+ * 的语义高度。变体、页面、组件都不得再写第二套 calc(100vh - …)。
+ * flex 基数与上下浮动同时保留：内容短时外壳按内容收缩，内容长时正文刚好占满
+ * 外壳剩余空间，既不会留下空白，也不会把底栏挤出可视区。
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > scroll-view.ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > scroll-view.ui-dialog-body,
 .ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body {
-  /* 正文高度必须保持确定值，不能再被 flex 收缩改写，否则原生滚动量仍为 0。 */
-  flex: 0 0 auto !important;
-  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - var(--ui-dialog-body-reserve, 220rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - var(--ui-dialog-body-reserve, 220rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-}
-
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > .ui-dialog-body,
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > .ui-dialog-body {
   flex: 1 1 auto !important;
-  max-height: none !important;
+  min-height: 0 !important;
+  height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
+  max-height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
 }
 
 .ui-overlay .ui-dialog-body {
@@ -3477,12 +3493,6 @@ page .ui-overlay .ui-dialog-shell:focus-within {
   transition-property: opacity, box-shadow, border-color, background-color !important;
 }
 
-page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:active,
-page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus,
-page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
-  transform: translateX(-50%) !important;
-}
-
 /*
  * Pad 竖屏弹窗保留稳定的屏幕边距和阅读宽度。使用 px 防止 rpx 因竖屏宽度
  * 被放大；标题和正文沿用 Pad 语义字号，不受页面局部弹窗样式抬高。
@@ -3492,7 +3502,6 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   .ui-overlay .ui-dialog-shell {
     width: calc(100vw - 40px) !important;
     max-width: 760px !important;
-    max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
@@ -3500,16 +3509,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
-    height: auto !important;
     max-width: 760px !important;
-  }
-
-  .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
-    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-  }
-
-  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    /* 正文高度由上面的确定高度契约给出，平板端不再回落到 max-height:none。 */
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
@@ -3532,7 +3532,6 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   .ui-overlay .ui-dialog-shell {
     width: calc(100vw - 48px) !important;
     max-width: 1024px !important;
-    max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
@@ -3540,16 +3539,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
-    height: auto !important;
     max-width: 1024px !important;
-  }
-
-  .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
-    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-  }
-
-  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
-    /* 正文高度由上面的确定高度契约给出。 */
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {

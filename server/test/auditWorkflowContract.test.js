@@ -148,8 +148,10 @@ assert(/<personnel-picker\s+visible="\{\{auditPersonnelPickerVisible\}\}"/.test(
 
 assert(/\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*0\s*!important;[\s\S]*?left:\s*0\s*!important;/m.test(appWxssSource),
   '弹窗遮罩必须固定覆盖整个可视区域');
-assert(/\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;/m.test(appWxssSource),
-  '弹窗外壳必须固定在可视区域中心');
+// 居中锚点必须是“去掉顶栏与底部安全区/键盘留白后的可用区中心”：裸的 top: 50vh
+// 会让长弹窗顶边顶到微信胶囊下面，关闭键点不到，所以这里同时锁定让位量来源。
+assert(/\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*calc\(50vh[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?max-height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(appWxssSource),
+  '弹窗外壳必须固定在“去掉上下留白后的可用区”中心，且高度上限取自同一套让位量');
 assert(!/\.(?:popup-card|modal-card):active\s*[,\{][\s\S]{0,220}?transform:\s*none/m.test(appWxssSource),
   '弹窗按下时不得清除用于视口居中的 transform');
 assert(/\.ui-dialog-shell:active,[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)\s*!important;/m.test(appWxssSource),

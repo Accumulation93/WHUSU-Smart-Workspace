@@ -1,15 +1,10 @@
-/* 组件使用 apply-shared，复用管理页已审计的评分详情弹窗样式。 */
+/* 组件使用 apply-shared，复用管理页与共享弹窗契约的样式。 */
 
 /*
- * 自绘顶栏比原生状态栏更高：弹窗按共享规则居中后，顶边会顶到微信胶囊，
- * 标题行与关闭键点不到。这里只收高度（居中仍交给共享弹窗壳），
- * 并用“两个类名 + 直接子级”的选择器，否则单类名挡不住共享规则的 !important。
+ * 弹窗的高度、定位与遮罩覆盖一律由 app.wxss 的唯一契约负责，组件不再覆盖几何。
+ * 这里只声明一条业务事实：本弹窗是只读的（没有输入框），键盘高度不该作用于它，
+ * 因此把 --kb-height 置零，避免页面残留值带来位移。
  */
 .popup-mask.ui-overlay > .popup-card.ui-dialog-shell {
-  /* 这个弹窗是只读的（没有输入框），键盘高度不该作用于它：
-     显式清零，挡住页面残留的 --kb-height 把它整体上顶。 */
   --kb-height: 0px;
-  /* 只调共享弹窗契约的“高度让位”令牌，居中仍交给共享壳负责，不自己重定位弹窗。 */
-  --ui-dialog-height-inset: 208rpx;
-  max-height: calc(100vh - 208rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }

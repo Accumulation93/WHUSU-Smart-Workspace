@@ -1062,24 +1062,8 @@ page {
 }
 
 .rule-editor-popup { width: 92vw; max-width: 760rpx; }
-.rule-editor-viewport-limit {
-  position: absolute; top: 0; left: 0; width: 1rpx; height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  visibility: hidden; pointer-events: none;
-}
 .rule-editor-header-copy { flex: 1; min-width: 0; }
 .rule-editor-header-note { margin-top: 5rpx; color: #64748b; font-size: var(--ui-type-meta); line-height: 1.5; }
-.rule-editor-scroll { height: auto; min-height: 0; }
-.ui-overlay .ui-dialog-shell.rule-editor-popup {
-  height: auto !important;
-  min-height: 0;
-  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-}
-.ui-overlay .ui-dialog-shell.rule-editor-popup > scroll-view.rule-editor-scroll.ui-dialog-body {
-  flex: 0 0 auto !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
 .ui-overlay .ui-dialog-shell.rule-editor-popup > .rule-save-bar.ui-dialog-footer {
   flex: 0 0 auto !important;
   min-height: 0;

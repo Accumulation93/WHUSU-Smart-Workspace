@@ -64,7 +64,7 @@
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
 | `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
 | `.ui-dialog-header` / `.ui-dialog-body` / `.ui-dialog-footer` | 固定标题、可滚动正文、固定操作区 | 长表单、人员选择、审批步骤和详情 |
-| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；保持 viewport 定位、自然高度和动态安全上限 |
+| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；外壳高度取共享的 `--ui-dialog-available`（顶部已让出自绘顶栏、底部已让出安全区与键盘），页面与组件不得再覆盖弹窗几何 |
 | `.ui-dialog-inset` | 使用弹窗令牌的对称水平留白 | 弹窗内独立字段、提示和操作行 |
 | `.ui-dialog-content` | 普通弹窗的统一正文玻璃表面和边缘留白 | 详情、表单、选择器、长列表 |
 | `.ui-dialog-content--stack` | 多个独立分区共同存在时使用的透明正文滚动层 | 人事详情、权限分组等多分区窗口 |

@@ -917,7 +917,7 @@ function scanLayoutContracts(file) {
 
     // 正文之外只允许有界结构；业务字段、长说明和工具栏不能挤占列表高度。
     if (directParent?.dialog && directParent.dialog.classes.has('ui-dialog-shell--complex')) {
-      const fixedRoles = ['ui-dialog-header', 'ui-dialog-body', 'ui-dialog-footer', 'scroll-hint', 'rules-tabs', 'rule-editor-viewport-limit', 'detail-loading'];
+      const fixedRoles = ['ui-dialog-header', 'ui-dialog-body', 'ui-dialog-footer', 'scroll-hint', 'rules-tabs', 'detail-loading'];
       const isLoadingBody = classes.has('modal-body') && /wx:if="\{\{loadingDetailHr\}\}"/.test(raw);
       if (!fixedRoles.some(name => classes.has(name)) && !isLoadingBody && tag !== 'wxs') {
         dataLayoutIssues.push({ file: relative(file), line, message: '复杂弹窗的业务字段、工具栏和可增长说明必须放入滚动正文，不能作为外壳的额外固定子项' });
@@ -1074,7 +1074,10 @@ function scanLayoutContracts(file) {
 }
 
 function scanWxss(file) {
-  const source = fs.readFileSync(file, 'utf8');
+  const raw = fs.readFileSync(file, 'utf8');
+  // 注释不是选择器：把注释内容替换成等长空白（换行保留），
+  // 否则注释里的 .ui-dialog-shell / calc(100vh - …) 会被当成规则里的选择器和声明。
+  const source = raw.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ' '));
   const shellActive = [];
   const nativeInputFlex = [];
   const unsafeControlEllipsis = [];
@@ -1260,7 +1263,7 @@ function scanWxss(file) {
     // 共享壳用后代选择器，页面为重申同一套几何会写成带类名链的直接子级。
     const isViewportAnchoredDialog = /\.ui-overlay\b[^{,]*\.ui-dialog-shell\b/i.test(selector) &&
       /position\s*:\s*fixed\b/i.test(declarations) &&
-      /(?:top\s*:\s*50vh|left\s*:\s*50vw|transform\s*:\s*translate\(\s*-?50%)/i.test(declarations);
+      /(?:top\s*:\s*(?:calc\(\s*)?50vh|left\s*:\s*50vw|transform\s*:\s*translate\(\s*-?50%)/i.test(declarations);
     if (/(?:\.ui-dialog-shell\b|\.dialog-panel\b|\.message-switch-dialog\b|\.permission-dialog\b|\.popup-card\b|\.modal-card\b)/i.test(selector) &&
       /position\s*:\s*(?:absolute|fixed)\b/i.test(declarations) &&
       /(?:left|right|inset|transform)\s*:/i.test(declarations) &&
@@ -1521,16 +1524,20 @@ const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport,\s*\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--wide\s*\{[^}]*height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE) &&
+  // 全屏变体必须直接占满可用区高度，网格轨道与原生的滚动视口才有确定尺寸。
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*\{[^}]*height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE) &&
   // 外层正文必须拿到确定高度：微信原生 scroll-view 在 height:auto 下滚动量恒为 0，
-  // 表现为拖不动、末行被裁。确定高度按外壳固定块令牌推导，且禁止 flex 收缩改写。
-  /scroll-view\.ui-dialog-body[\s\S]{0,260}?\{[^}]*flex:\s*0\s+0\s+auto\s*!important;[^}]*height:\s*calc\(100vh[^}]*\}/m.test(GLOBAL_STYLE) &&
+  // 表现为拖不动、末行被裁。确定高度只由可用区与外壳固定块两个令牌推导。
+  /scroll-view\.ui-dialog-body[\s\S]{0,600}?\{[^}]*flex:\s*1\s+1\s+auto\s*!important;[^}]*height:\s*calc\(var\(--ui-dialog-available\)[^}]*\}/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*100%\s*!important;/m.test(GLOBAL_STYLE) &&
   !/\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*max-height:\s*calc\(100vh\s*-\s*\d/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(
   /^\s*\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100vh\s*!important;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;/m.test(GLOBAL_STYLE)
+  // 弹窗居中锚点必须是“去掉上下留白后的可用区中心”，不能再是裸的 top: 50vh：
+  // 裸居中对长弹窗会把顶边顶到微信胶囊下面，关闭键就点不到了。
+  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*calc\(50vh[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;[\s\S]*?max-height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE)
 );
 const missingDialogGestureSystem = !(
   /page\s*\{[\s\S]*?touch-action:\s*manipulation;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
@@ -1539,7 +1546,7 @@ const missingDialogGestureSystem = !(
   /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?touch-action:\s*auto\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE)
 );
 const missingDialogScrollSystem = !(
-  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*calc\([^;]*\);/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*(?:calc|var)\([^;]*\);/m.test(GLOBAL_STYLE) &&
   !/scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*max-height:\s*\d+(?:vh|rpx|px);/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--x\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE) &&
@@ -1559,11 +1566,13 @@ const missingDialogInteriorSystem = !(
   /\.ui-dialog-stack\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/m.test(GLOBAL_STYLE)
 );
 const missingDialogPortalTokenSystem = !(
-  /page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*32rpx;[\s\S]*?--ui-dialog-height-inset:\s*72rpx;/.test(GLOBAL_STYLE) &&
-  /@media\s*\(min-width:\s*520px\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*40px;[\s\S]*?--ui-dialog-height-inset:\s*48px;/.test(GLOBAL_STYLE) &&
-  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*48px;[\s\S]*?--ui-dialog-height-inset:\s*48px;/.test(GLOBAL_STYLE) &&
+  // 弹窗让位量只在共享令牌块里算一次：顶部让出顶栏、底部让出安全区与键盘，
+  // 中间才是可用高度；任何页面或组件都不得再写第二套窗口高度。
+  /page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*32rpx;[\s\S]*?--ui-dialog-top-reserve:[\s\S]*?--ui-dialog-bottom-reserve:[\s\S]*?--ui-dialog-available:/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*40px;[^}]*\}/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay,\s*\.ui-portal-surface\s*\{[\s\S]*?--ui-dialog-width-inset:\s*48px;[^}]*\}/.test(GLOBAL_STYLE) &&
   /width:\s*calc\(100vw\s*-\s*var\(--ui-dialog-width-inset,\s*32rpx\)\)\s*!important;/.test(GLOBAL_STYLE) &&
-  /max-height:\s*calc\(100vh\s*-\s*var\(--ui-dialog-height-inset,\s*72rpx\)/.test(GLOBAL_STYLE)
+  /max-height:\s*var\(--ui-dialog-available\)\s*!important;/.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(

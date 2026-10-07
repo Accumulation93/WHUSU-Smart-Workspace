@@ -1,4 +1,4 @@
-<page-meta page-style="{{(editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;'}}"></page-meta>
+<page-meta page-style="{{(editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page subapp-venue-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_02719d6557}}" tone="admin"></workspace-hero>
@@ -307,7 +307,6 @@
   <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card rule-editor-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="rule-editor-viewport-limit" aria-hidden="true"></view>
       <view class="popup-header rule-editor-popup-header ui-dialog-header">
         <view class="rule-editor-header-copy">
           <view class="popup-title">{{ruleEditId ? localeCopy.copy_20f94d2c18 : localeCopy.copy_766176221d}}{{ruleEditorType === 'open' ? localeCopy.copy_6e6ee2b747 : (ruleEditorType === 'activity' ? localeCopy.copy_acd4c5c171 : localeCopy.copy_a9a18dd6e8)}}</view>

@@ -164,7 +164,10 @@
 | `--ui-section-title-inset` | 标题蓝色竖线与标题文字的距离 |
 | `--ui-dialog-edge` | 弹窗与物理视口的安全边距 |
 | `--ui-dialog-width-inset` | 弹窗横向两侧安全边距之和，供兼容性良好的 `calc()` 使用 |
-| `--ui-dialog-height-inset` | 弹窗纵向两侧安全边距之和，供最大高度计算使用 |
+| `--ui-dialog-top-reserve` | 弹窗顶部让位量 = 自绘顶栏高度（页面用 `page-meta` 写入 `--ui-navbar-height`）再留一点空间；取不到时退回“状态栏 + 顶栏行高” |
+| `--ui-dialog-bottom-reserve` | 弹窗底部让位量 = 安全区 + 键盘高度（`--kb-height`）再留一点空间 |
+| `--ui-dialog-available` | 弹窗可用高度 = `100vh` 减去上下让位量；外壳高度上限与正文确定高度都由它推导 |
+| `--ui-dialog-body-reserve` | 外壳内固定块（标题、底栏与内外留白）的语义高度，正文确定高度 = 可用高度 − 该值 |
 | `--ui-dialog-padding` | 弹窗表面的对称内边距 |
 | `--ui-dialog-section-gap` | 弹窗标题、正文分组和控件之间的间距 |
 | `--ui-dialog-footer-gap` | 弹窗正文与底部操作区的距离 |
@@ -240,12 +243,14 @@
 - 凭据表单的主要保存操作必须使用标准主按钮规格。普通用户“保存口令”独占一行并全宽显示；管理端使用“保存口令 / 取消”标准双按钮行。两处按钮高度、字号、圆角和垂直留白与“保存人事信息”一致，禁止复用 `.compact-action`。
 - 纵向 Flex 表单中的全宽主按钮必须显式使用 `flex: none`，并通过 `box-sizing: border-box` 与 `width/min-width/max-width: 100%` 固定横轴。双列按钮类的 `flex-basis: 50%` 不得泄漏到纵向表单，否则会被解释为高度并导致按钮巨高或半宽；三档设备验收必须核对最终盒模型。
 - 大型人员目录在当前权限范围内完整获取，并在本地筛选；单人状态变更只更新对应列表行，不能用全页加载状态打断用户。
-- `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者：全局只允许一处几何定义，遮罩固定覆盖 `100vw × 100vh`，弹窗以 `50vw / 50vh` 为锚点居中。
+- `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者：全局只允许一处几何定义，遮罩固定覆盖 `100vw × 100vh`，弹窗以“去掉上下留白后的可用区中心”为锚点居中（`top: calc(50vh + (顶栏让位 − 底部让位) / 2)`、`left: 50vw`、`transform: translate(-50%, -50%)`），高度上限固定取 `--ui-dialog-available`。禁止再用裸 `top: 50vh` 居中、用 `top` + `bottom` 上下拉伸贴边，或在页面/组件里另写一套 `calc(100vh - …)`：裸居中和贴边都会让顶边压到微信胶囊下面，关闭键点不到。
+- 弹窗顶部让位量必须包含自绘顶栏：每个含居中弹窗的页面在 `page-meta page-style` 里写入 `--ui-navbar-height: {{navTopPx}}px`，`--ui-dialog-top-reserve` 取它与“状态栏 + 顶栏行高”的较大值。这样手机上（尤其状态栏较高的鸿蒙机型）弹窗顶边始终落在胶囊下方并留有余量。
+- 变体只表达结构与宽度：`--compact` 只收窄宽度，`--complex` 只保留三段结构且按内容收缩，`--grid` / `--viewport` / `--wide` 直接占满 `--ui-dialog-available`。页面和组件不得再声明弹窗 `top / bottom / height / max-height / transform`。
 - `viewport-portal` 会把弹窗提升到 `RootPortal` 原生顶层宿主。所有 `--ui-dialog-*`、弹窗字号和颜色令牌必须同时直接声明在 `.ui-overlay` / `.ui-sheet-overlay` 上，禁止只依赖 `page` 的变量继承；否则宽度和内边距声明会整体失效。
 - 视口层级必须完整闭合：依附于某弹窗的键盘、选择面板或操作 sheet 要么放在同一个 `viewport-portal`，要么单独放入更晚的 `viewport-portal` 并由 `.ui-portal-surface` 持有令牌；禁止把 `position:fixed` 子层留在普通页面树中，再依赖 `z-index` 穿过 RootPortal。
 - `.ui-overlay-blocker` 只负责阻止背景触摸；弹窗壳不滚动，正文由直接子级 `scroll-view.ui-dialog-body` 滚动，嵌套列表继续使用 `nested-scroll-enabled`。
 - 三段式长列表可在共享外壳追加 `.ui-dialog-shell--grid`，与 `.ui-dialog-shell--complex` 配合；`app.wxss` 唯一实现为 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。使用前必须确认外壳恰好只有标题、正文、底栏三个直接布局子级，中间为 `scroll-view.ui-dialog-body`；额外工具栏应按业务归入相应段，不能把第四个子级直接塞进三行轨道。复杂多段、嵌套滚动及专业工作区单独审查，不自动迁移。
-- Grid 不是观感优化，而是长列表弹窗能够滚动的硬前提。微信原生 `scroll-view` 只在正文拿到**确定高度**时才建立内部滚动量；当正文高度由 Flex 收缩或 `height:auto` 推导时，宿主矩形虽然正确（例如 480px 且内容 2869px），组件内部滚动量仍为 0，表现为「拖不动」、最后一行被外壳 `overflow` 裁掉、底部控件完全看不见。因此长列表弹窗必须使用 `.ui-dialog-shell--grid`，由确定视口高度的外壳 + `minmax(0,1fr)` 轨道 + 正文 `height:100%` 提供确定高度；禁止用固定 `vh`/像素给正文兜底。
+- Grid 不是观感优化，而是长列表弹窗能够滚动的硬前提。微信原生 `scroll-view` 只在正文拿到**确定高度**时才建立内部滚动量；当正文高度由 Flex 收缩或 `height:auto` 推导时，宿主矩形虽然正确（例如 480px 且内容 2869px），组件内部滚动量仍为 0，表现为「拖不动」、最后一行被外壳 `overflow` 裁掉、底部控件完全看不见。因此长列表弹窗必须使用 `.ui-dialog-shell--grid`，由占据 `--ui-dialog-available` 的外壳 + `minmax(0,1fr)` 轨道 + 正文 `height:100%` 提供确定高度。非网格外壳的直接 `scroll-view.ui-dialog-body` 由全局契约给出 `可用高度 − --ui-dialog-body-reserve` 的确定高度；禁止页面或组件用固定 `vh`/像素给正文兜底。
 - 现场证据（Pad 横屏 1024×700，真实鼠标拖动，2026-09-30）：同一个「选择人事资料列」弹窗，去掉 `ui-dialog-shell--grid` 后正文 480px、内容 2869px、拖动位移 `delta=0`；加上后条件完全相同但 `delta=-245`，连续拖动可滚到末项，「忽略不兼容」开关行完整可见（末行 bottom 584 / 正文 bottom 597 / 底栏 top 597，留白 13px）。同一轮验证通过的还有导入预览、导入检查、导入模板映射、导出列。以上是观测值，不是新尺寸令牌；其他弹窗与手机、Pad 竖屏仍需逐设备现场验证。
 - 普通 WXML 不写静态 `style` 或 `placeholder-style`。进度宽度、时间表坐标、拖拽位置、动画延时等运行时几何可以保留动态行内样式；其余表现必须进入语义类并引用设备令牌。
 - 页面返回、组织与工作上下文切换、登录失效等系统行为使用现有共享流程，不在页面内重新实现一套。
