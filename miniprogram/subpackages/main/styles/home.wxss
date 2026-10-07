@@ -2641,6 +2641,10 @@ scroll-view {
 }
 
 .profile-account-action {
+  /* .secondary-btn 带 flex: 1 1 280rpx，在纵向排布的卡片头里 flex-basis 会落到高度上，
+     把“生成新码”这类小按钮撑得很高；这里收回 flex 并按内容高度居中。 */
+  flex: 0 0 auto;
+  align-self: center;
   width: auto;
   min-width: 0;
   min-height: var(--ui-compact-height, 52rpx);
