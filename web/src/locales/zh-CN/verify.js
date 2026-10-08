@@ -1,5 +1,23 @@
 export default Object.freeze({
   navigationTitle: '验签 - WHUSU智慧工作台',
   reportTitle: '验证报告',
-  title: '验签'
+  title: '验签',
+  pageName: '审核 · 验签',
+  formTitle: '按申请编号或文件核对签署',
+  modeLabel: '核对方式',
+  modeNumber: '申请编号',
+  modeFile: '上传文件',
+  numberLabel: '申请编号',
+  numberPlaceholder: '请输入申请编号',
+  numberRequired: '请输入申请编号',
+  fileLabel: '待核对文件',
+  filePlaceholder: '选择文件',
+  fileTooLarge: '单个文件不能超过 10MB',
+  fileReadFailed: '文件读取失败，请重新选择',
+  fileRequired: '请先选择要核对的文件',
+  verifyAction: '开始核对',
+  verifying: '正在核对',
+  resultTitle: '核对结果',
+  verifyFailed: '核对没有完成，请稍后重试',
+  forbidden: '当前工作角色没有这项权限'
 });

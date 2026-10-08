@@ -52,6 +52,13 @@ export const USER_CARDS = Object.freeze([
     route: { name: 'auditMySubmissions' }
   },
   {
+    key: 'verification',
+    label: copy.audit.verificationTitle,
+    iconName: 'shield',
+    status: READY,
+    route: { name: 'auditVerification' }
+  },
+  {
     key: 'venue',
     label: copy.portal.entryVenue,
     iconName: 'venue',
@@ -90,6 +97,13 @@ export const ADMIN_CARDS = Object.freeze([
     iconName: 'file',
     status: READY,
     route: { name: 'auditMySubmissions' }
+  },
+  {
+    key: 'verification',
+    label: copy.audit.verificationTitle,
+    iconName: 'shield',
+    status: READY,
+    route: { name: 'auditVerification' }
   },
   {
     key: 'venueManage',
