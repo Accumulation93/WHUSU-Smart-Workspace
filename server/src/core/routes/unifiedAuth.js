@@ -1,5 +1,6 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/unifiedAuth');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const webSessionCopy = require('../../locales/zh-CN/core/webSession');
 const express = require('express');
 const { safeString } = require('../../utils/helpers');
 const pool = require('../../config/db');
@@ -7,6 +8,8 @@ const identityModel = require('../models/unifiedIdentity');
 const sessionDeviceModel = require('../models/sessionDevice');
 const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
+const webSessionCookie = require('../services/webSessionCookie');
+const { resolveUnifiedSession, readRequestToken } = require('../../middleware/auth');
 const {
   scopeAccountSessions
 } = require('../services/adminPermissions');
@@ -53,6 +56,35 @@ function requireUnifiedSession(req) {
   if (!req.authSession || !req.authAccount || !req.authContext) {
     throw new identityModel.IdentityError('client_upgrade_required', localeCopy.copy_cffa8244af, 426);
   }
+}
+
+/**
+ * 网页会话把令牌写进 HttpOnly Cookie，并从响应体里移除明文令牌。
+ * 小程序请求不经过这里，响应结构保持原样。
+ */
+function applyWebSessionCookie(req, res, payload, maxAgeSeconds) {
+  if (!payload || typeof payload !== 'object' || !payload.token) return payload;
+  res.setHeader('Set-Cookie', webSessionCookie.buildWebSessionSetCookie(
+    payload.token,
+    maxAgeSeconds,
+    webSessionCookie.isSecureRequest(req)
+  ));
+  const rest = Object.assign({}, payload);
+  delete rest.token;
+  rest.webSession = true;
+  return rest;
+}
+
+/**
+ * 切换工作角色会重新签发令牌，Cookie 的存活时间按服务端会话剩余时间计算，
+ * 不能按新的完整时长顺延，否则浏览器会留着一个已经失效的凭证。
+ */
+function remainingSessionSeconds(session) {
+  const raw = session && session.expires_at;
+  if (!raw) return 0;
+  const expiresAt = raw instanceof Date ? raw.getTime() : new Date(raw).getTime();
+  if (!Number.isFinite(expiresAt)) return 0;
+  return Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
 }
 
 async function requireAdminPermission(req, permissionKey) {
@@ -227,11 +259,14 @@ router.post('/auth/claims/redeem', async (req, res) => {
 
 router.post('/auth/password/session', async (req, res) => {
   try {
+    // 网页会话：浏览器里没有可用的微信登录凭据，因此不提供微信绑定邀请，
+    // 令牌改由服务端写进 HttpOnly Cookie，响应体里不再出现明文令牌。
+    const webSession = Boolean(req.body && req.body.webSession === true);
     const account = await identityModel.authenticateWithPassphrase(
       req.body && req.body.studentId,
       req.body && req.body.passphrase
     );
-    const hasWechatCode = Boolean(req.body && (req.body.code || req.body.openid));
+    const hasWechatCode = !webSession && Boolean(req.body && (req.body.code || req.body.openid));
     let openid = '';
     let bindingAvailable = false;
     // 微信只提供登录后可选的绑定邀请；交换失败不能否定已经验证的口令。
@@ -251,7 +286,7 @@ router.post('/auth/password/session', async (req, res) => {
       organizationId: req.body && req.body.preferredOrganizationId,
       identityId: req.body && req.body.preferredIdentityId
     }, metadata(req), temporaryOptions);
-    if (!account.openid_hash && openid && bindingAvailable) {
+    if (!webSession && !account.openid_hash && openid && bindingAvailable) {
       payload.bindingOffer = {
         available: true,
         currentWechatBound: false,
@@ -259,13 +294,38 @@ router.post('/auth/password/session', async (req, res) => {
       };
     }
     // 未检查当前微信只能请求登录后的独立检查，不能声明可绑定。
-    if (!account.openid_hash && req.body && req.body.requestBindingOffer === true) {
+    if (!webSession && !account.openid_hash && req.body && req.body.requestBindingOffer === true) {
       payload.bindingOfferCheck = true;
     }
-    return res.json(await withSystemTimezone(payload));
+    const withTimezone = await withSystemTimezone(payload);
+    if (!webSession) return res.json(withTimezone);
+    return res.json(applyWebSessionCookie(req, res, withTimezone, withTimezone.expiresIn));
   } catch (error) {
     return sendError(req, res, error);
   }
+});
+
+/**
+ * 网页退出登录。
+ *
+ * 这个入口不要求当前凭证仍然有效：凭证已经过期或被吊销时，用户依然需要能清掉
+ * 浏览器里的痕迹。服务端会话能确认身份时才顺带吊销，确认不了也不影响清 Cookie。
+ */
+router.post('/auth/web/logout', async (req, res) => {
+  res.setHeader('Set-Cookie', webSessionCookie.buildClearedWebSessionCookie(
+    webSessionCookie.isSecureRequest(req)
+  ));
+  let revoked = false;
+  try {
+    const { token } = readRequestToken(req);
+    const resolved = token ? await resolveUnifiedSession(token) : null;
+    if (resolved) {
+      revoked = await identityModel.revokeSession(resolved.account.id, resolved.session.id, '');
+    }
+  } catch (error) {
+    req.logger.error('Web session logout failed', { error: error.message, path: req.path });
+  }
+  return res.json({ status: 'success', revoked, message: webSessionCopy.logoutDone });
 });
 
 router.post('/auth/security/wechat-binding-offer', async (req, res) => {
@@ -394,7 +454,7 @@ router.post('/auth/contexts/activate', async (req, res) => {
         identityScope: decorated.identityScope
       }
     });
-    return res.json(await withSystemTimezone({
+    const activated = await withSystemTimezone({
       status: 'success',
       token: unifiedAuth.signAccessToken(
         Object.assign({}, req.authSession, { context: decorated }),
@@ -412,7 +472,17 @@ router.post('/auth/contexts/activate', async (req, res) => {
       user: unifiedAuth.profileFromContext(decorated),
       activeRole: decorated.role,
       activeOrg: { id: decorated.organizationId, name: decorated.organizationName }
-    }));
+    });
+    // 网页会话换角色时重新签发令牌，浏览器侧换成新 Cookie，响应体里没有明文令牌。
+    if (req.authTokenSource === 'cookie') {
+      return res.json(applyWebSessionCookie(
+        req,
+        res,
+        activated,
+        remainingSessionSeconds(req.authSession)
+      ));
+    }
+    return res.json(activated);
   } catch (error) {
     return sendError(req, res, error);
   }

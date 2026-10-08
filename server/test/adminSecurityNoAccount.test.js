@@ -54,6 +54,11 @@ const mocks = {
   },
   '../services/adminPermissions': {
     scopeAccountSessions(items) { return items; }
+  },
+  // 网页会话的令牌解析复用认证中间件；本用例只覆盖管理端账号查询。
+  '../../middleware/auth': {
+    resolveUnifiedSession: async () => null,
+    readRequestToken: () => ({ token: '', source: '' })
   }
 };
 

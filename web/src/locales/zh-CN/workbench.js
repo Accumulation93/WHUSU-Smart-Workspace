@@ -1,0 +1,22 @@
+export default Object.freeze({
+  navigationTitle: '工作台 - WHUSU智慧工作台',
+  title: '工作台',
+  tabScoring: '考核评分',
+  tabHr: '人事信息',
+  tabAudit: '审核审批',
+  currentOrgLabel: '当前组织',
+  currentRoleLabel: '当前工作角色',
+  pendingLabel: '待处理',
+  unreadLabel: '未读消息',
+  sectionAccount: '账号安全',
+  pendingEmpty: '暂时没有待处理事项',
+  scoringEntry: '进入评分',
+  hrEntry: '我的资料',
+  auditEntry: '审核审批',
+  notPortedTitle: '这个模块的网页版还在制作中',
+  notPortedBody: '请先在小程序里使用，网页版会按模块逐步开放。',
+  openMiniProgram: '知道了',
+  heroTitle: '工作台',
+  roleAdmin: '管理权限',
+  roleAssignment: '岗位'
+});

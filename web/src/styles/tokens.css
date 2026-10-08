@@ -1,0 +1,206 @@
+/*
+ * 蓝色轻奢玻璃设计令牌（网页版）。
+ *
+ * 取值与小程序 miniprogram/app.wxss 的三档设备令牌一致：手机端把 rpx 折半成 px，
+ * 平板竖屏与平板横屏直接沿用已有的 px 值。网页端不得另写一套尺寸，
+ * 页面样式只能引用这里的变量。
+ */
+
+:root {
+  /* 品牌色 */
+  --ui-blue-700: #1d4ed8;
+  --ui-blue-600: #2563eb;
+  --ui-blue-500: #3b82f6;
+  --ui-blue-400: #60a5fa;
+
+  /* 文字 */
+  --ui-text: #0f172a;
+  --ui-text-body: #334155;
+  --ui-text-muted: #64748b;
+  --ui-text-soft: #94a3b8;
+
+  /* 线与状态 */
+  --ui-line: rgba(226, 237, 247, 0.96);
+  --ui-line-blue: rgba(147, 197, 253, 0.64);
+  --ui-danger: #ef4444;
+
+  /* 字阶（手机） */
+  --ui-type-micro: 10px;
+  --ui-type-caption: 11px;
+  --ui-type-meta: 12px;
+  --ui-type-label: 12.5px;
+  --ui-type-control: 13px;
+  --ui-type-body: 13.5px;
+  --ui-type-emphasis: 14px;
+  --ui-type-value: 15px;
+  --ui-type-section: 16px;
+  --ui-type-title: 20px;
+  --ui-type-page: 24px;
+
+  /* 控件 */
+  --ui-control-height: 40px;
+  --ui-field-control-height: 40px;
+  --ui-control-padding-y: 9px;
+  --ui-control-padding-x: 14px;
+  --ui-compact-height: 28px;
+  --ui-compact-padding-y: 5px;
+  --ui-compact-padding-x: 10px;
+
+  /* 圆角 */
+  --ui-control-radius: 14px;
+  --ui-compact-radius: 9px;
+  --ui-field-radius: 10px;
+  --ui-card-radius: 15px;
+  --ui-hero-radius: 19px;
+  --ui-list-radius: 10px;
+
+  /* 间距 */
+  --ui-page-padding-top: 15px;
+  --ui-page-padding-x: 12px;
+  --ui-page-padding-bottom: 21px;
+  --ui-hero-gap: 12px;
+  --ui-hero-padding-top: 20px;
+  --ui-hero-padding-x: 17px;
+  --ui-hero-padding-bottom: 18px;
+  --ui-card-gap: 12px;
+  --ui-card-padding-y: 14px;
+  --ui-card-padding-x: 13px;
+  --ui-list-gap: 7px;
+  --ui-list-padding-y: 11px;
+  --ui-list-padding-x: 10px;
+  --ui-field-gap: 8px;
+  --ui-inline-gap: 5px;
+  --ui-action-gap: 10px;
+
+  /* 玻璃容器 */
+  --ui-surface: linear-gradient(160deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 251, 255, 0.88) 100%);
+  --ui-surface-soft: linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(244, 249, 255, 0.78) 100%);
+  --ui-surface-border: 1px solid rgba(255, 255, 255, 0.9);
+  --ui-surface-shadow: 0 12px 28px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --ui-surface-blur: blur(12px);
+
+  /* 状态标签：只允许四种颜色 */
+  --ui-chip-blue-bg: rgba(219, 234, 254, 0.76);
+  --ui-chip-blue-text: #1d4ed8;
+  --ui-chip-green-bg: rgba(209, 250, 229, 0.78);
+  --ui-chip-green-text: #15803d;
+  --ui-chip-orange-bg: rgba(255, 237, 213, 0.78);
+  --ui-chip-orange-text: #c2410c;
+  --ui-chip-sky-bg: rgba(224, 242, 254, 0.76);
+  --ui-chip-sky-text: #0369a1;
+
+  /* 页面背景 */
+  --ui-page-background:
+    radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.16) 0%, transparent 26%),
+    radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
+    linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
+
+  /* 唯一允许的入场动画 */
+  --ui-animation-enter: glassFadeUp 0.42s ease both;
+
+  /* 布局骨架 */
+  --ui-shell-sidebar-width: 0px;
+  --ui-content-max-width: 640px;
+}
+
+/* 手机横屏与窄屏手机：保持手机字阶，避免退化成更小号字。 */
+@media (min-width: 390px) and (max-width: 519px) {
+  :root {
+    --ui-type-body: 14px;
+    --ui-type-control: 13.5px;
+    --ui-page-padding-x: 14px;
+  }
+}
+
+/* Pad 竖屏 */
+@media (min-width: 520px) and (max-width: 899px) {
+  :root {
+    --ui-type-micro: 12px;
+    --ui-type-caption: 13px;
+    --ui-type-meta: 14px;
+    --ui-type-label: 14.5px;
+    --ui-type-control: 15px;
+    --ui-type-body: 16px;
+    --ui-type-emphasis: 16.5px;
+    --ui-type-value: 17.5px;
+    --ui-type-section: 19px;
+    --ui-type-title: 24px;
+    --ui-type-page: 29px;
+
+    --ui-control-height: 44px;
+    --ui-field-control-height: 44px;
+    --ui-control-padding-y: 10px;
+    --ui-control-padding-x: 16px;
+    --ui-compact-height: 32px;
+    --ui-compact-padding-y: 5px;
+    --ui-compact-padding-x: 11px;
+
+    --ui-control-radius: 14px;
+    --ui-compact-radius: 12px;
+    --ui-field-radius: 10px;
+    --ui-card-radius: 18px;
+    --ui-hero-radius: 20px;
+    --ui-list-radius: 12px;
+
+    --ui-page-padding-top: 24px;
+    --ui-page-padding-x: 22px;
+    --ui-page-padding-bottom: 32px;
+    --ui-hero-gap: 18px;
+    --ui-hero-padding-top: 24px;
+    --ui-hero-padding-x: 26px;
+    --ui-hero-padding-bottom: 22px;
+    --ui-card-gap: 18px;
+    --ui-card-padding-y: 18px;
+    --ui-card-padding-x: 18px;
+    --ui-list-gap: 10px;
+    --ui-list-padding-y: 12px;
+    --ui-list-padding-x: 14px;
+    --ui-field-gap: 10px;
+    --ui-inline-gap: 7px;
+    --ui-action-gap: 14px;
+
+    --ui-content-max-width: 900px;
+  }
+}
+
+/* Pad 横屏与电脑：开始出现固定侧栏与主工作区。 */
+@media (min-width: 900px) {
+  :root {
+    --ui-page-padding-top: 22px;
+    --ui-page-padding-x: 28px;
+    --ui-page-padding-bottom: 30px;
+    --ui-hero-gap: 16px;
+    --ui-card-gap: 16px;
+    --ui-card-radius: 16px;
+    --ui-control-radius: 12px;
+    --ui-type-title: 26px;
+    --ui-type-page: 30px;
+    --ui-shell-sidebar-width: 232px;
+    --ui-content-max-width: 1180px;
+  }
+}
+
+/* 电脑端宽度：内容按信息关系分栏，不做等比放大。 */
+@media (min-width: 1280px) {
+  :root {
+    --ui-shell-sidebar-width: 256px;
+    --ui-content-max-width: 1320px;
+  }
+}
+
+@keyframes glassFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-animation-enter: none;
+  }
+}

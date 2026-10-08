@@ -1,0 +1,30 @@
+export default Object.freeze({
+  navigationTitle: '消息中心 - WHUSU智慧工作台',
+  title: '消息中心',
+  tabTodo: '待办',
+  tabNotification: '通知',
+  emptyTodo: '暂时没有待办',
+  emptyNotification: '暂时没有通知',
+  unreadSuffix: '条未读',
+  markAllRead: '全部标为已读',
+  markRead: '标为已读',
+  deleteOne: '删除',
+  clearAll: '全部删除',
+  clearAllConfirmTitle: '删除全部通知',
+  clearAllConfirmBody: '删除后这些通知不会恢复，待办不受影响。',
+  deleteConfirmTitle: '删除这条通知',
+  deleteConfirmBody: '删除后这条通知不会恢复。',
+  deleted: '通知已删除',
+  allRead: '已全部标为已读',
+  loadFailed: '消息加载未完成，请稍后重试',
+  loadMore: '加载更多',
+  noMore: '没有更多了',
+  unreadChip: '未读',
+  categoryLabels: Object.freeze({
+    audit: '审核',
+    venue: '场地',
+    scoring: '考核',
+    hr: '人事',
+    system: '其他'
+  })
+});

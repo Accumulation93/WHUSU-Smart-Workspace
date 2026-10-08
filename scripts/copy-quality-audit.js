@@ -28,6 +28,7 @@ const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
 const LOCALE_ROOT = path.join(MINI_ROOT, 'locales', 'zh-CN');
 const SERVER_LOCALE_ROOT = path.join(ROOT, 'server', 'src', 'locales', 'zh-CN');
+const WEB_LOCALE_ROOT = path.join(ROOT, 'web', 'src', 'locales', 'zh-CN');
 const HASH_KEY = /^copy_[0-9a-f]{10}$/;
 
 // 单字/单token 碎片：它们只能靠拼接才成句，必须与相邻文案合并。
@@ -110,9 +111,10 @@ function collectReferencedHashKeys() {
 
 const files = walk(LOCALE_ROOT)
   .filter((file) => !file.endsWith(`${path.sep}runtime.js`))
-  .concat(fs.existsSync(SERVER_LOCALE_ROOT) ? walk(SERVER_LOCALE_ROOT) : []);
+  .concat(fs.existsSync(SERVER_LOCALE_ROOT) ? walk(SERVER_LOCALE_ROOT) : [])
+  .concat(fs.existsSync(WEB_LOCALE_ROOT) ? walk(WEB_LOCALE_ROOT) : []);
 const entries = files.flatMap(collectCopy);
-// 文案质量规则只作用于小程序文案；服务端文案本轮只参与“键是否声明”的判定。
+// 文案质量规则作用于小程序与网页文案；服务端文案本轮只参与“键是否声明”的判定。
 const miniEntries = entries.filter((entry) => !entry.file.startsWith('server/'));
 const findings = [];
 

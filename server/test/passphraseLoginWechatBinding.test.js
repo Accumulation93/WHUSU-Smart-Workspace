@@ -69,6 +69,11 @@ const mocks = {
   '../models/systemConfig': { async get() { return { timezone: 8, timezone_config_version: 1 }; } },
   '../services/adminPermissions': {
     scopeAccountSessions(items) { return items; }
+  },
+  // 网页会话的令牌解析复用认证中间件；本用例只覆盖口令登录与绑定邀请。
+  '../../middleware/auth': {
+    resolveUnifiedSession: async () => null,
+    readRequestToken: () => ({ token: '', source: '' })
   }
 };
 

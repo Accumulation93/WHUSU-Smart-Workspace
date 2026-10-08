@@ -141,6 +141,19 @@ function testDeploymentScriptContract() {
   assert.match(workflow, /timeout-minutes: 45/);
   assert.match(workflow, /env WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH=main \/home\/ubuntu\/whusu-smart-workspace-deploy\/bin\/deploy-entrypoint/);
   assert.doesNotMatch(workflow, /kill-after=10s 120s/);
+
+  // 网页静态产物必须与 release 一起构建和切换：产物缺失时失败关闭，不切换 current。
+  assert.match(script, /diff --quiet "\$OLD_SHA" "\$TARGET_SHA" -- server web/);
+  assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" ci --no-audit --no-fund/);
+  assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" run build/);
+  assert.match(script, /-s "\$NEW_RELEASE\/web\/dist\/index\.html"/);
+  assert(
+    script.indexOf('npm --prefix "$NEW_RELEASE/web" run build')
+      < script.indexOf('PLAN_JSON="$(node'),
+    '网页构建必须在生产切换之前完成'
+  );
+  assert.match(workflow, /working-directory: web/);
+  assert.match(workflow, /npm run test:e2e/);
 }
 
 testMigrationDiscoveryAndLedger();

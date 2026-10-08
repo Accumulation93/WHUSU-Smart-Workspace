@@ -79,6 +79,11 @@ async function main() {
     '../services/unifiedAuth': { decorateContext: async () => ({ permissions: [] }), profileFromContext: value => value },
     '../config/db': { query: async () => [[]], withTransaction: async callback => callback({ query: async () => [{ affectedRows: 0 }] }) },
     '../services/adminPermissions': { scopeAccountSessions: sessions => sessions },
+    // 会话解析与网页退出登录复用认证中间件的实现；本用例只覆盖设备上报，因此给出空实现。
+    '../../middleware/auth': {
+      resolveUnifiedSession: async () => null,
+      readRequestToken: () => ({ token: '', source: '' })
+    },
     '../../locales/zh-CN/generated/core/routes/unifiedAuth': {
       copy_6267781771: 'invalid', copy_cffa8244af: 'session required',
       copy_6378c3f013: '未知设备', copy_c69999ba88: '已退出'

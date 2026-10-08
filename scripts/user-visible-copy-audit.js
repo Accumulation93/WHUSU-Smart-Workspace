@@ -25,6 +25,7 @@ try {
 const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
 const SERVER_ROOT = path.join(ROOT, 'server', 'src');
+const WEB_ROOT = path.join(ROOT, 'web', 'src');
 const VISIBLE_ATTRIBUTES = new Set([
   'placeholder', 'title', 'label', 'aria-label', 'confirm-text', 'cancel-text'
 ]);
@@ -244,6 +245,28 @@ function visibleJsonFragments(file) {
   return { source, fragments };
 }
 
+/**
+ * Vue 单文件组件：模板里只允许出现插值表达式，用户可见文字一律来自语言资源。
+ * 脚本和样式块由 JS 文件审计与样式约定负责，这里只检查模板文本。
+ */
+function visibleVueFragments(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const start = source.indexOf('<template>');
+  const end = source.lastIndexOf('</template>');
+  if (start < 0 || end <= start) return { source, fragments: [] };
+  const template = source.slice(start + '<template>'.length, end);
+  // 先把插值表达式替换成等长空白，避免把表达式里的标识符误判成文案，
+  // 同时保持后续定位偏移不变。
+  const masked = template.replace(/\{\{[\s\S]*?\}\}/g, (value) => ' '.repeat(value.length));
+  const fragments = [];
+  const pattern = /[\u3400-\u9fff][^<>\n"]*/g;
+  for (const match of masked.matchAll(pattern)) {
+    const text = match[0].replace(/\s+/g, ' ').trim();
+    if (text) fragments.push({ text, offset: start + match.index });
+  }
+  return { source, fragments };
+}
+
 function guidanceJsFragments(file) {
   const source = fs.readFileSync(file, 'utf8');
   const isServer = file.startsWith(SERVER_ROOT);
@@ -332,11 +355,14 @@ const guidanceFindings = [];
 const files = walk(MINI_ROOT, ['.wxml', '.js', '.wxs', '.json']).concat(
   walk(SERVER_ROOT, ['.js']).filter((file) => !file.includes(`${path.sep}config${path.sep}`)
     && relative(file) !== 'server/src/utils/schemaContract.js')
+).concat(
+  walk(WEB_ROOT, ['.js', '.vue'])
 ).concat([path.join(ROOT, 'server', 'notificationWorker.js')].filter((file) => fs.existsSync(file)));
 for (const file of files) {
   const fileName = relative(file);
   if (fileName.includes('/locales/')) continue;
   const result = file.endsWith('.wxml') ? visibleWxmlFragments(file)
+    : file.endsWith('.vue') ? visibleVueFragments(file)
     : file.endsWith('.wxs') ? visibleWxsFragments(file)
       : file.endsWith('.json') ? visibleJsonFragments(file)
         : visibleJsFragments(file);

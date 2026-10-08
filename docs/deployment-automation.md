@@ -52,6 +52,31 @@
   13.3MB）；若 Nginx 上限低于此值，请求会在到达 Express 前被 413 拒绝，前端只能
   兜底提示“未上传，请重试”。重装或重建 Nginx 后必须核对此项。
 
+## 网页静态站点
+
+网页版挂在 `https://accumulation93.com/web`，与接口同源，因此不需要修改服务端的跨域名单。
+静态产物随服务端 release 一起构建：部署脚本在 release 内执行 `npm ci` 与 `npm run build`，
+产物位于 `<release>/web/dist`；`web/dist/index.html` 不存在时本次发布直接失败，不切换
+`whusu-smart-workspace-current`，线上继续使用上一个已验证的静态版本。
+
+Nginx 需要一段指向当前 release 的静态配置（只需配置一次，之后的发布由原子软链接自动切换）：
+
+```nginx
+location /web/ {
+    alias /home/ubuntu/whusu-smart-workspace-current/web/dist/;
+    try_files $uri $uri/ /web/index.html;
+}
+```
+
+- `alias` 必须写在 `/home/ubuntu/whusu-smart-workspace-current/` 这一层，不要写死某个 release 目录，
+  否则回退旧版本时网页不会跟着回退。
+- `/api/` 的既有反向代理规则保持不变，网页与接口必须同源；一旦换成独立子域名，
+  服务端的来源核对与跨域名单都要同步修改。
+- Nginx 运行用户必须能读取该目录，且上传体积上限仍是 15MB。
+- 服务端环境文件里新增 `MIN_WEB_CLIENT_VERSION`（默认 `1.0.0`）。网页构建注入的
+  `X-Client-Version` 低于该值时，网页请求会被要求刷新；小程序继续使用 `MIN_CLIENT_VERSION`，
+  两者互不影响。
+
 ## 数据库迁移
 
 新迁移放入 `server/db/deploy/`，文件名必须是：

@@ -41,7 +41,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
       - name: Install locked dependencies
         working-directory: server
         run: npm ci
@@ -50,6 +52,7 @@ jobs:
           git ls-files -z '*.js' | xargs -0 -n1 node --check
           node scripts/miniprogram-compat-audit.js
           node scripts/wechat-template-runtime-audit.js
+          node scripts/sync-shared-modules.js
           node scripts/org-lifecycle-audit.js --strict
           node scripts/security-audit.js --strict
           node scripts/secret-audit.js --strict
@@ -67,6 +70,7 @@ jobs:
           node scripts/user-visible-copy-audit.js --strict
           node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
           node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
+          node scripts/user-visible-copy-audit.js --localization-prefix=web/ --strict-localization
           node scripts/user-visible-copy-audit.js --strict-guidance
           node scripts/copy-quality-audit.js
           git diff --check
@@ -94,6 +98,7 @@ jobs:
           node scripts/password-binding-offer-test.js
           node scripts/login-auth-continuation-test.js
           node scripts/wechat-login-timing-test.js
+          node scripts/shared-modules-test.js
           node scripts/device-metadata-regression-test.js
           node scripts/session-device-report-test.js
           node scripts/stamp-grant-ui-test.js
@@ -122,6 +127,13 @@ jobs:
         run: |
           node scripts/dependency-audit.js --self-test
           node scripts/dependency-audit.js
+
+      - name: Web client build and browser tests
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npm run test:e2e
 
   deploy-production:
     name: deploy-production

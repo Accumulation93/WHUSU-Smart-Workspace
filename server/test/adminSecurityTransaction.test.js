@@ -82,6 +82,11 @@ const mocks = {
   '../services/adminPermissions': {
     hasGrantedPermission() { return true; },
     scopeAccountSessions(items) { return items; }
+  },
+  // 网页会话的令牌解析复用认证中间件；本用例只覆盖管理端事务边界。
+  '../../middleware/auth': {
+    resolveUnifiedSession: async () => null,
+    readRequestToken: () => ({ token: '', source: '' })
   }
 };
 

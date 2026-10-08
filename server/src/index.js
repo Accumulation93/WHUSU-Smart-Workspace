@@ -14,6 +14,7 @@ const { orgContextMiddleware } = require('./middleware/orgContext');
 const { adminPermissionMiddleware } = require('./middleware/adminPermission');
 const { timeReviewPresentationMiddleware } = require('./middleware/timeReviewPresentation');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
+const { webSessionGuard } = require('./middleware/webSessionGuard');
 const { createRateLimiter, createSharedRateLimiter } = require('./middleware/rateLimiter');
 const sharedRateLimitModel = require('./core/models/sharedRateLimit');
 const { verifySchemaContract } = require('./utils/schemaContract');
@@ -41,6 +42,7 @@ const PUBLIC_BODY_ROUTES = new Set([
   '/api/auth/claims/verify',
   '/api/auth/claims/redeem',
   '/api/auth/password/session',
+  '/api/auth/web/logout',
   '/api/auth/recovery/start',
   '/api/auth/recovery/complete'
 ]);
@@ -120,8 +122,8 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'https://accumulation93.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Request-Id']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Client-Type', 'X-Request-Id']
+  }));
 app.use(clientVersionMiddleware);
 
 app.use(createRateLimiter({
@@ -136,6 +138,9 @@ app.use(createSharedRateLimiter({
   policies: SHARED_IP_RATE_POLICIES,
   keyResolver: (req) => 'ip:' + String(req.ip || '-')
 }));
+
+// 带网页会话 Cookie 的改动类请求必须来自受信任的网页来源，防止其他站点借用登录状态。
+app.use(webSessionGuard);
 
 // 公共健康检查也必须位于共享限流与基础安全响应头之后。
 app.get('/api/ping', (req, res) => {
