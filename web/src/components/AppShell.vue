@@ -1,38 +1,41 @@
 <template>
   <div class="shell">
-    <aside class="shell-sidebar">
-      <div class="sidebar-brand">
-        <span class="shell-brand">{{ copy.common.appName }}</span>
-        <span class="soft">{{ copy.common.webVersionLabel }} {{ WEB_CLIENT_VERSION }}</span>
-      </div>
-      <button
-        v-for="entry in SIDEBAR_ENTRIES"
-        :key="entry.key"
-        type="button"
-        class="nav-item"
-        :class="{ 'nav-item-active': isActive(entry) }"
-        @click="go(entry.route)"
-      >
-        {{ entry.label }}
-      </button>
-      <div class="sidebar-spacer"></div>
-      <div class="sidebar-user">
-        <div class="value break-all">{{ displayName }}</div>
-        <div class="soft break-all">{{ roleText }}</div>
-        <button type="button" class="btn-quiet" @click="onLogout">{{ copy.common.logout }}</button>
-      </div>
-    </aside>
-
-    <main class="shell-main">
-      <header class="shell-topbar">
+    <div class="shell-bar">
+      <div class="shell-bar-inner">
+        <span class="shell-bar-brand">
+          {{ copy.common.appName }}
+          <span class="shell-bar-version">{{ copy.common.webVersionLabel }} {{ WEB_CLIENT_VERSION }}</span>
+        </span>
+        <span class="shell-bar-title">{{ currentTitle }}</span>
+        <span class="shell-bar-user">
+          <span class="shell-bar-user-name">{{ displayName }}</span>
+          <span class="shell-bar-user-role">{{ roleText }}</span>
+        </span>
         <button type="button" class="btn-quiet" @click="go({ name: 'portal' })">
           {{ copy.common.goPortal }}
         </button>
-        <span class="shell-brand grow">{{ currentTitle }}</span>
         <button type="button" class="btn-quiet btn-quiet-danger" @click="onLogout">
           {{ copy.common.logout }}
         </button>
-      </header>
+      </div>
+
+      <nav class="shell-tabs">
+        <div class="shell-tabs-inner" :class="{ 'shell-tabs-inner-scroll': tabs.length > 5 }">
+          <button
+            v-for="entry in tabs"
+            :key="entry.key"
+            type="button"
+            class="shell-tab"
+            :class="{ 'shell-tab-active': isActive(entry) }"
+            @click="go(entry.route)"
+          >
+            {{ entry.label }}
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    <main class="shell-main">
       <slot />
     </main>
   </div>
@@ -42,13 +45,16 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
+import { shellTabsForRole } from '@/runtime/modules.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
-import { SIDEBAR_ENTRIES } from '@/runtime/modules.js';
 import { logout, roleLabelOf, session } from '@/runtime/session.js';
 import { WEB_CLIENT_VERSION } from '@/runtime/version.js';
 
 const route = useRoute();
 const router = useRouter();
+
+// 吸顶玻璃条把品牌、当前页名、当前用户与页签放在同一层玻璃表面上。
+const tabs = computed(() => shellTabsForRole(session.activeRole));
 
 const displayName = computed(() => {
   const user = session.user || {};

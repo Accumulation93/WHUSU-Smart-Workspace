@@ -38,6 +38,13 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
-    chunkSizeWarningLimit: 1200
+    chunkSizeWarningLimit: 1200,
+    /*
+     * 显式声明要兼容的浏览器：esbuild 在默认目标下会把
+     * `backdrop-filter` 与 `-webkit-backdrop-filter` 当作同一个属性的重复声明，
+     * 只保留带前缀的那一条，结果 Chrome 读到的计算值是 none，玻璃模糊在网页上消失。
+     * 指定目标后会同时保留标准属性与前缀，Safari 16/17 与 Chrome 都能拿到模糊。
+     */
+    cssTarget: ['chrome90', 'safari15']
   }
 });

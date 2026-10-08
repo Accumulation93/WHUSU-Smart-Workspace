@@ -1,48 +1,59 @@
 <template>
   <div class="login-layout">
-    <form class="login-panel" @submit.prevent="onSubmit">
-      <div class="stack-tight">
-        <h1 class="login-title">{{ copy.login.title }}</h1>
-        <p class="muted">{{ copy.login.subtitle }}</p>
-      </div>
+    <div class="login-layout-inner">
+      <section class="hero login-hero">
+        <div class="hero-badge">{{ copy.common.appName }}</div>
+        <h1 class="hero-title">{{ copy.login.title }}</h1>
+        <p class="hero-subtitle">{{ copy.login.subtitle }}</p>
+      </section>
 
-      <div v-if="notice" class="notice-line">{{ notice }}</div>
+      <form class="card stack" @submit.prevent="onSubmit">
+        <div class="section-title">{{ copy.login.formTitle }}</div>
+        <p class="muted">{{ copy.login.formHint }}</p>
 
-      <label class="field">
-        <span class="field-label">{{ copy.login.studentIdLabel }}</span>
-        <input
-          v-model="studentId"
-          class="field-input"
-          type="text"
-          name="studentId"
-          autocomplete="username"
-          :placeholder="copy.login.studentIdPlaceholder"
-          :disabled="submitting"
-        />
-      </label>
+        <div v-if="notice" class="notice-line">{{ notice }}</div>
 
-      <label class="field">
-        <span class="field-label">{{ copy.login.passphraseLabel }}</span>
-        <input
-          v-model="passphrase"
-          class="field-input"
-          type="password"
-          name="passphrase"
-          autocomplete="current-password"
-          :placeholder="copy.login.passphrasePlaceholder"
-          :disabled="submitting"
-        />
-      </label>
+        <label class="field">
+          <span class="field-label">{{ copy.login.studentIdLabel }}</span>
+          <input
+            v-model="studentId"
+            class="field-input"
+            type="text"
+            name="studentId"
+            autocomplete="username"
+            :placeholder="copy.login.studentIdPlaceholder"
+            :disabled="submitting"
+          />
+        </label>
 
-      <p v-if="failureText" class="field-error">{{ failureText }}</p>
+        <label class="field">
+          <span class="field-label">{{ copy.login.passphraseLabel }}</span>
+          <input
+            v-model="passphrase"
+            class="field-input"
+            type="password"
+            name="passphrase"
+            autocomplete="current-password"
+            :placeholder="copy.login.passphrasePlaceholder"
+            :disabled="submitting"
+          />
+        </label>
 
-      <button type="submit" class="btn btn-primary" :disabled="submitting">
-        <span v-if="submitting" class="spinner" aria-hidden="true"></span>
-        <span>{{ submitting ? copy.login.submitting : copy.login.submit }}</span>
-      </button>
+        <p v-if="failureText" class="field-error">{{ failureText }}</p>
 
-      <p class="soft">{{ copy.login.webNotice }}</p>
-    </form>
+        <button type="submit" class="btn btn-primary" :disabled="submitting">
+          <span v-if="submitting" class="spinner" aria-hidden="true"></span>
+          <span>{{ submitting ? copy.login.submitting : copy.login.submit }}</span>
+        </button>
+
+        <p class="soft">{{ copy.login.webNotice }}</p>
+      </form>
+
+      <footer class="page-footer">
+        <span>{{ copy.common.appName }}</span>
+        <span>{{ copy.common.webVersionLabel }} {{ WEB_CLIENT_VERSION }}</span>
+      </footer>
+    </div>
   </div>
 </template>
 
@@ -52,6 +63,7 @@ import { useRoute, useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi } from '@/runtime/api.js';
 import { applyLoginResult, session } from '@/runtime/session.js';
+import { WEB_CLIENT_VERSION } from '@/runtime/version.js';
 
 const route = useRoute();
 const router = useRouter();

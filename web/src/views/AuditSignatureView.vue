@@ -1,8 +1,19 @@
 <template>
   <div class="page stack">
+    <WorkspaceHero
+      :page-name="copy.audit.signatureTitle"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
+
     <section class="card stack">
-      <div class="row row-wrap">
-        <span class="card-title grow">{{ copy.audit.signatureTitle }}</span>
+      <div class="panel-head">
+        <div class="stack-tight">
+          <span class="section-title">{{ copy.audit.signatureTitle }}</span>
+          <span class="panel-note">{{ copy.audit.signaturePanelNote }}</span>
+        </div>
         <button type="button" class="btn-quiet" @click="togglePad">
           {{ padVisible ? copy.audit.signatureCancel : copy.audit.signatureNew }}
         </button>
@@ -70,11 +81,16 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { detailTimeText } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
+
+const router = useRouter();
 
 const signatures = ref([]);
 const loading = ref(true);
@@ -87,6 +103,23 @@ const padRef = ref(null);
 let drawing = false;
 let lastPoint = null;
 let hasStroke = false;
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 function padContext() {
   const canvas = padRef.value;

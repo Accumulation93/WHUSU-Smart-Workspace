@@ -1,9 +1,20 @@
 <template>
   <div class="page stack">
+    <WorkspaceHero
+      :page-name="copy.audit.title"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
+    <AuditNav active="pending" />
+
     <section class="card stack">
-      <div class="row row-wrap">
-        <span class="card-title grow">{{ copy.audit.tabPending }}</span>
-        <span v-if="rows.length" class="chip chip-blue">{{ rows.length }}</span>
+      <div class="panel-head">
+        <div class="stack-tight">
+          <span class="section-title">{{ copy.audit.tabPending }}</span>
+          <span class="panel-note">{{ copy.audit.pendingNote }}</span>
+        </div>
         <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
       </div>
 
@@ -34,15 +45,36 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import AuditNav from '@/components/AuditNav.vue';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { detailTimeText, formatTemplate } from '@/runtime/audit.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
 const rows = ref([]);
 const loading = ref(true);
 const loadNotice = ref('');
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 function stepText(row) {
   const order = Number(row.sortOrder || 0) + 1;

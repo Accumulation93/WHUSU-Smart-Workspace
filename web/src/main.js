@@ -3,5 +3,6 @@ import App from './App.vue';
 import router from './router/index.js';
 import './styles/tokens.css';
 import './styles/components.css';
+import './styles/parity.css';
 
 createApp(App).use(router).mount('#app');

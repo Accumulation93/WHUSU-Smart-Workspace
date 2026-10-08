@@ -8,7 +8,12 @@ import { defineConfig, devices } from '@playwright/test';
  * 真实服务端链路的端到端验证按计划在后续阶段单独接入。
  */
 
-const PORT = 4173;
+/*
+ * 端口与「复用已有服务」都允许用环境变量覆盖：多人或并行任务同时跑浏览器测试时，
+ * 默认端口被占用会让测试直接起不来，换端口即可继续，不必改动配置。
+ */
+const PORT = Number(process.env.PLAYWRIGHT_PORT || 4173);
+const REUSE_EXISTING_SERVER = process.env.PLAYWRIGHT_REUSE === '1';
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /**
@@ -34,7 +39,7 @@ export default defineConfig({
     // 显式绑定 IPv4 与端口，并且禁止 npx 在缺少本地依赖时联网安装。
     command: `npx --no-install vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
     url: `${BASE_URL}/web/`,
-    reuseExistingServer: false,
+    reuseExistingServer: REUSE_EXISTING_SERVER,
     timeout: 120000
   },
   projects: [

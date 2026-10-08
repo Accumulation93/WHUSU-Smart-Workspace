@@ -5,13 +5,21 @@
     </section>
 
     <template v-else-if="detail">
+      <WorkspaceHero
+        :page-name="copy.audit.detailTitle"
+        :person-name="displayName"
+        :identity-name="roleLine"
+        :organization-name="orgName"
+        @switch="goWorkRole"
+      />
+
       <section class="hero stack-tight">
         <div class="row row-wrap">
-          <span class="chip" :class="statusTone(submission.status)">{{ statusLabel(submission.status) }}</span>
+          <span class="chip chip-sky">{{ statusLabel(submission.status) }}</span>
           <span class="soft">{{ submission.submissionNumber }}</span>
         </div>
-        <h1 class="login-title break-all">{{ submission.title }}</h1>
-        <p class="muted break-all">
+        <h1 class="hero-title break-all">{{ submission.title }}</h1>
+        <p class="hero-subtitle break-all">
           {{ submission.description || copy.audit.detailEmptyDescription }}
         </p>
         <div class="row row-wrap">
@@ -53,7 +61,7 @@
       </section>
 
       <section class="card stack">
-        <div class="card-title">{{ copy.audit.detailStepsTitle }}</div>
+        <div class="section-title">{{ copy.audit.detailStepsTitle }}</div>
         <div v-if="!steps.length" class="empty-state">{{ copy.audit.detailEmptySteps }}</div>
         <div v-else class="list">
           <div v-for="step in steps" :key="step.id" class="list-row">
@@ -72,7 +80,7 @@
       </section>
 
       <section class="card stack">
-        <div class="card-title">{{ copy.audit.detailFilesTitle }}</div>
+        <div class="section-title">{{ copy.audit.detailFilesTitle }}</div>
         <div v-if="!files.length" class="empty-state">{{ copy.audit.detailEmptyFiles }}</div>
         <div v-else class="list">
           <div v-for="file in files" :key="file.id" class="list-row">
@@ -91,7 +99,7 @@
       </section>
 
       <section class="card stack">
-        <div class="card-title">{{ copy.audit.detailEventsTitle }}</div>
+        <div class="section-title">{{ copy.audit.detailEventsTitle }}</div>
         <div v-if="!events.length" class="empty-state">{{ copy.audit.emptyHistory }}</div>
         <div v-else class="list">
           <div v-for="event in events" :key="event.id" class="list-row">
@@ -130,6 +138,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import {
@@ -141,6 +150,7 @@ import {
   stepStatusLabel
 } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -151,6 +161,23 @@ const submitting = ref(false);
 const loadNotice = ref('');
 const approveComment = ref('');
 const rejectReason = ref('');
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 const submission = computed(() => (detail.value && detail.value.submission) || {});
 const steps = computed(() => (detail.value && detail.value.steps) || []);

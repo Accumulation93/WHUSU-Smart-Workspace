@@ -1,0 +1,1090 @@
+/*
+ * 与小程序逐条对齐的补充层。
+ *
+ * 事实来源：docs/web-ui-parity.md（由 miniprogram/app.wxss、
+ * components/workspace-hero/workspace-hero.wxss、subpackages/main/pages/portal/portal.wxss 推导）。
+ * 本文件在 components.css 之后加载，用于覆盖基础配料并补齐小程序里已经存在、
+ * 网页端此前缺失的组件角色。只允许引用 tokens.css 的 --ui-* 变量。
+ */
+
+/* ---------- 页面壳与装饰光斑 ---------- */
+
+.page {
+  position: relative;
+  z-index: 0;
+  animation: var(--ui-animation-enter);
+}
+
+.page::before,
+.page::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.page::before {
+  top: -60px;
+  right: -45px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.18) 0%, rgba(96, 165, 250, 0) 72%);
+}
+
+.page::after {
+  left: -60px;
+  bottom: 75px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.16) 0%, rgba(147, 197, 253, 0) 72%);
+}
+
+/* ---------- 玻璃卡片与内层行 ---------- */
+
+.card {
+  background: var(--ui-card-bg);
+  border: var(--ui-card-border);
+  box-shadow: var(--ui-card-shadow);
+  backdrop-filter: var(--ui-surface-blur);
+  -webkit-backdrop-filter: var(--ui-surface-blur);
+  animation: var(--ui-animation-card);
+}
+
+.list-row {
+  border: var(--ui-list-border);
+  background: var(--ui-list-bg);
+  box-shadow: var(--ui-list-shadow);
+}
+
+/* ---------- 分区控制卡与小操作 ---------- */
+
+/* 分区标题、二级页签和成组操作必须共同归属于一张真实可见的玻璃表面。 */
+.section-control-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inline-gap);
+  padding: var(--ui-card-padding-y) var(--ui-card-padding-x);
+  border: var(--ui-card-border);
+  border-radius: var(--ui-card-radius);
+  background: var(--ui-card-bg);
+  box-shadow: var(--ui-card-shadow);
+  backdrop-filter: var(--ui-surface-blur);
+  -webkit-backdrop-filter: var(--ui-surface-blur);
+}
+
+.section-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  flex-wrap: wrap;
+}
+
+/* 列表卡片小操作独立成行、右对齐、顶部细分隔。 */
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-card-action-gap);
+  flex-wrap: wrap;
+  margin-top: var(--ui-card-action-divider-gap);
+  padding-top: var(--ui-card-action-divider-gap);
+  border-top: 1px solid var(--ui-list-border);
+}
+
+.card-actions > .btn-quiet {
+  min-width: var(--ui-card-action-min-width);
+}
+
+/* ---------- 状态标签 ---------- */
+
+.chip {
+  border-radius: var(--ui-compact-radius);
+}
+
+/* ---------- 页签与紧凑分段 ---------- */
+
+.tabs {
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(248, 251, 255, 0.56));
+  box-shadow: 0 7px 14px rgba(15, 23, 42, 0.045), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.tab-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 15px rgba(29, 78, 216, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+/* 标题旁的宫格/列表二态切换，宽度按内容收缩，不复用整行页签高度。 */
+.compact-segmented {
+  display: flex;
+  gap: var(--ui-tab-gap);
+  flex-shrink: 0;
+  padding: var(--ui-tab-shell-padding);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: var(--ui-tab-shell-radius);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 251, 255, 0.64) 100%);
+  box-shadow: 0 5px 11px rgba(15, 23, 42, 0.045), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.compact-segmented-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ui-compact-height);
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border: 1px solid transparent;
+  border-radius: var(--ui-tab-radius);
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: var(--ui-type-caption);
+  font-weight: 600;
+  line-height: var(--ui-leading-control);
+  text-align: center;
+  cursor: pointer;
+}
+
+.compact-segmented-item-active {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+/* ---------- 门户与消息中心的玻璃消息行 ---------- */
+
+.info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  flex-wrap: wrap;
+  margin-bottom: var(--ui-field-gap);
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.message-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-inline-gap);
+  flex-wrap: wrap;
+}
+
+.message-text-action {
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border-radius: var(--ui-compact-radius);
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-meta);
+  font-weight: 700;
+  line-height: var(--ui-leading-control);
+}
+
+.todo-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 32px;
+  min-height: 20px;
+  padding: 0 8px;
+  border: 1px solid rgba(147, 197, 253, 0.5);
+  border-radius: var(--ui-compact-radius);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.86) 100%);
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-meta);
+  font-weight: 800;
+  line-height: var(--ui-leading-control);
+}
+
+.notification-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0 5px;
+  border: 1px solid rgba(252, 165, 165, 0.5);
+  border-radius: var(--ui-compact-radius);
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.94) 0%, rgba(254, 226, 226, 0.84) 100%);
+  color: #dc2626;
+  font-size: var(--ui-type-meta);
+  font-weight: 800;
+  line-height: var(--ui-leading-control);
+}
+
+/* 预览列表用令牌化最大高度 + 框内滚动，不按条数估算高度。 */
+.message-preview-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-message-preview-gap);
+  max-height: calc(var(--ui-message-preview-row) * 3 + var(--ui-message-preview-gap) * 2);
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 9px 8px;
+  border: 1px solid rgba(219, 229, 241, 0.76);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(246, 249, 255, 0.72) 100%);
+  text-align: left;
+}
+
+.notification-item-todo {
+  border-color: rgba(147, 197, 253, 0.42);
+}
+
+.notification-unread {
+  border-color: rgba(147, 197, 253, 0.55);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
+}
+
+.notification-read {
+  opacity: 0.78;
+}
+
+.notification-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--ui-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(147, 197, 253, 0.4);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.94) 0%, rgba(219, 234, 254, 0.84) 100%);
+}
+
+.notification-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.portal-message-metadata {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.portal-message-context-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.portal-organization-meta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 5px;
+  border: 1px solid rgba(186, 210, 232, 0.72);
+  border-radius: var(--ui-compact-radius);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.78));
+  color: #475569;
+  font-size: var(--ui-type-micro);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.portal-organization-meta-current {
+  border-color: rgba(147, 197, 253, 0.64);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(219, 234, 254, 0.78));
+  color: var(--ui-blue-700);
+}
+
+.portal-identity-meta {
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid rgba(203, 213, 225, 0.74);
+  border-radius: 6px;
+  background: rgba(248, 250, 252, 0.74);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-micro);
+  font-weight: 700;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-identity-meta-current {
+  border-color: rgba(147, 197, 253, 0.56);
+  background: rgba(219, 234, 254, 0.68);
+  color: var(--ui-blue-700);
+}
+
+.portal-organization-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.portal-organization-current {
+  flex: 0 0 auto;
+  color: var(--ui-blue-700);
+  font-size: var(--ui-type-micro);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.notification-tag {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.notification-title {
+  color: var(--ui-text);
+  font-size: var(--ui-type-emphasis);
+  font-weight: 700;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.notification-desc {
+  margin-top: 1px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption);
+  line-height: var(--ui-leading-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-time {
+  margin-top: 2px;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-micro);
+  line-height: var(--ui-leading-body);
+}
+
+.notification-empty {
+  padding: 4px 0;
+  text-align: center;
+}
+
+.notification-empty-text {
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-control);
+  line-height: var(--ui-leading-body);
+}
+
+/* ---------- 应用宫格与搜索栏 ---------- */
+
+.app-grid,
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.app-grid-item,
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: auto;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 1px solid rgba(219, 229, 241, 0.76);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 249, 255, 0.78) 100%);
+  color: var(--ui-text);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.app-grid-item:active,
+.tile:active {
+  transform: translateY(0.5px) scale(0.97);
+}
+
+.app-grid-item-disabled,
+.tile-disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+
+.app-grid-item-disabled:active,
+.tile-disabled:active {
+  transform: none;
+}
+
+.app-grid-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+.app-grid-label,
+.tile-label {
+  max-width: 100%;
+  color: var(--ui-text);
+  font-size: var(--ui-type-meta);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.app-grid-desc {
+  max-width: 100%;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-micro);
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-grid-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  padding: 1px 5px;
+  border: 1px solid rgba(253, 186, 116, 0.44);
+  border-radius: var(--ui-compact-radius);
+  background: rgba(255, 237, 213, 0.84);
+  color: #c2410c;
+  font-size: var(--ui-type-micro);
+  font-weight: 600;
+  line-height: var(--ui-leading-control);
+}
+
+.app-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid rgba(219, 229, 241, 0.96);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
+  box-shadow: 0 4px 9px rgba(15, 23, 42, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.app-search-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+}
+
+.app-search-input {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ui-text);
+  font-family: inherit;
+  font-size: var(--ui-type-control);
+  line-height: 1.4;
+}
+
+.app-search-input:focus {
+  outline: none;
+}
+
+.app-search-input::placeholder {
+  color: var(--ui-text-soft);
+}
+
+.app-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--ui-text-muted);
+  font-family: inherit;
+  font-size: var(--ui-type-meta);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 列表视图行 */
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid rgba(219, 229, 241, 0.82);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 249, 255, 0.78) 100%);
+  color: var(--ui-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-row-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nav-row-label {
+  color: var(--ui-text);
+  font-size: var(--ui-type-emphasis);
+  font-weight: 700;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.nav-row-desc {
+  margin-top: 1px;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-caption);
+  line-height: 1.4;
+}
+
+/* ---------- 底部主操作组与品牌页脚 ---------- */
+
+.actions {
+  display: grid;
+  gap: var(--ui-page-action-gap);
+}
+
+.portal-session-footer {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--ui-action-gap);
+}
+
+.page-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-top: var(--ui-footer-gap);
+  padding: 0;
+  text-align: center;
+}
+
+.footer-name {
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-meta);
+  font-weight: 600;
+  line-height: var(--ui-leading-body);
+}
+
+.footer-org {
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-caption);
+  line-height: var(--ui-leading-body);
+}
+
+/* ---------- 审批流程时间线 ---------- */
+
+.flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-list-gap);
+}
+
+.flow-info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-list-gap);
+  width: 100%;
+  padding: var(--ui-list-padding-y) var(--ui-list-padding-x);
+  border: var(--ui-list-border);
+  border-radius: var(--ui-list-radius);
+  background: var(--ui-list-bg);
+  box-shadow: var(--ui-list-shadow);
+  color: var(--ui-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flow-step-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.9), rgba(191, 219, 254, 0.8));
+  color: var(--ui-blue-800);
+  font-size: var(--ui-type-micro);
+  font-weight: 800;
+}
+
+.flow-node-done .flow-step-index {
+  background: linear-gradient(135deg, rgba(209, 250, 229, 0.9), rgba(167, 243, 208, 0.8));
+  color: var(--ui-chip-green-text);
+}
+
+.flow-node-rejected .flow-step-index {
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.9), rgba(253, 186, 116, 0.7));
+  color: var(--ui-chip-orange-text);
+}
+
+.flow-info-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.flow-info-title {
+  color: var(--ui-text);
+  font-size: var(--ui-type-emphasis);
+  font-weight: 700;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.flow-info-meta {
+  margin-top: 2px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption);
+  line-height: var(--ui-leading-body);
+}
+
+/* 展开详情必须留在同一张卡片内部，并把卡片本身切换为白色玻璃层。 */
+.flow-info-expanded {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(249, 251, 255, 0.9));
+  border-color: rgba(191, 219, 254, 0.9);
+}
+
+.flow-expand-detail {
+  margin-top: var(--ui-label-gap);
+  padding-top: var(--ui-label-gap);
+  border-top: 1px solid var(--ui-list-border);
+}
+
+.flow-detail-processed-text {
+  color: var(--ui-text-body);
+  font-size: var(--ui-type-meta);
+  line-height: var(--ui-leading-body);
+  overflow-wrap: anywhere;
+}
+
+.flow-detail-processed-meta {
+  margin-top: 2px;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-caption);
+  line-height: var(--ui-leading-body);
+}
+
+.flow-detail-comment {
+  margin-top: var(--ui-label-gap);
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border: 1px solid rgba(226, 237, 247, 0.96);
+  border-radius: var(--ui-compact-radius);
+  background: rgba(248, 250, 252, 0.86);
+  color: var(--ui-text-body);
+  font-size: var(--ui-type-meta);
+  line-height: var(--ui-leading-body);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 整卡选择卡 ---------- */
+
+/* 整卡点击、再次点击取消；选中为科技蓝边框与淡蓝背景；不使用独立选择椭圆控件。 */
+.selection-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-list-gap);
+  width: 100%;
+  padding: var(--ui-list-padding-y) var(--ui-list-padding-x);
+  border: 1px solid var(--ui-list-border);
+  border-radius: var(--ui-list-radius);
+  background: var(--ui-list-bg);
+  box-shadow: var(--ui-list-shadow);
+  color: var(--ui-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-option-card-selected {
+  border-color: var(--ui-line-blue);
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.78) 0%, rgba(239, 246, 255, 0.7) 100%);
+  box-shadow: 0 6px 12px rgba(37, 99, 235, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.selection-option-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- 弹窗三段结构 ---------- */
+
+.dialog {
+  width: min(100%, var(--ui-dialog-max-width));
+  max-height: 82vh;
+  padding: var(--ui-dialog-padding);
+  border: var(--ui-card-border);
+  border-radius: var(--ui-dialog-radius);
+  background: var(--ui-card-bg);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  backdrop-filter: var(--ui-surface-blur);
+  -webkit-backdrop-filter: var(--ui-surface-blur);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-dialog-section-gap);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  flex: 0 0 auto;
+}
+
+.dialog-title {
+  color: var(--ui-text);
+  font-size: var(--ui-dialog-title-size);
+  font-weight: 800;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.dialog-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border: 1px solid var(--ui-chip-blue-border);
+  border-radius: var(--ui-compact-radius);
+  background: var(--ui-chip-blue-bg);
+  color: var(--ui-chip-blue-text);
+  font-size: var(--ui-dialog-meta-size);
+  font-weight: 700;
+  line-height: var(--ui-leading-control);
+}
+
+.dialog-desc {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-dialog-body-size);
+  line-height: var(--ui-leading-body);
+  overflow-wrap: anywhere;
+}
+
+/* 正文独立滚动；标题与操作栏固定，不参与滚动。 */
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-dialog-section-gap);
+}
+
+.dialog-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inline-gap);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+}
+
+.dialog-footer .btn {
+  margin: 0;
+}
+
+@media (min-width: 520px) {
+  .dialog-footer {
+    flex-direction: row;
+  }
+
+  .dialog-footer .btn {
+    flex: 1 1 0;
+  }
+}
+
+/* ---------- 网页外壳：顶栏 + 顶部分段页签 ---------- */
+
+/*
+ * 小程序在手机、Pad 竖屏、Pad 横屏保持同一套顶部分段页签语言，
+ * 因此电脑端也不使用宽侧边栏，而是把页签放在吸顶玻璃条里。
+ */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(226, 237, 247, 0.9);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(246, 249, 255, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  backdrop-filter: var(--ui-surface-blur);
+  -webkit-backdrop-filter: var(--ui-surface-blur);
+}
+
+.shell-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-inline-gap);
+  width: 100%;
+  max-width: var(--ui-shell-bar-max-width);
+  margin: 0 auto;
+  padding: 8px var(--ui-page-padding-x) 0;
+}
+
+.shell-bar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-label-gap);
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: var(--ui-type-emphasis);
+  font-weight: 800;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.shell-bar-version {
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-micro);
+  font-weight: 600;
+}
+
+.shell-bar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-meta);
+  font-weight: 700;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.shell-bar-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  max-width: 42%;
+  text-align: right;
+}
+
+.shell-bar-user-name {
+  color: var(--ui-text);
+  font-size: var(--ui-type-label);
+  font-weight: 800;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.shell-bar-user-role {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-micro);
+  line-height: var(--ui-leading-body);
+  overflow-wrap: anywhere;
+}
+
+.shell-tabs {
+  width: 100%;
+  max-width: var(--ui-shell-bar-max-width);
+  margin: 0 auto;
+  padding: 6px var(--ui-page-padding-x) 8px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell-tabs-inner {
+  display: flex;
+  gap: var(--ui-tab-gap);
+  padding: var(--ui-tab-shell-padding);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: var(--ui-tab-shell-radius);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(248, 251, 255, 0.56));
+  box-shadow: 0 7px 14px rgba(15, 23, 42, 0.045), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.shell-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--ui-tab-min-height);
+  padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x);
+  border: 1px solid transparent;
+  border-radius: var(--ui-tab-radius);
+  background: transparent;
+  color: #49627f;
+  font-family: inherit;
+  font-size: var(--ui-type-label);
+  font-weight: 700;
+  line-height: var(--ui-leading-control);
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  cursor: pointer;
+}
+
+.shell-tab-active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 15px rgba(29, 78, 216, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+/* 超过五项时改用横向滚动，禁止末项换行或被裁切。 */
+.shell-tabs-inner-scroll {
+  overflow-x: auto;
+}
+
+.shell-tabs-inner-scroll .shell-tab {
+  flex: 0 0 auto;
+}
+
+.shell-main {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 519px) {
+  .shell-bar-user {
+    max-width: 38%;
+  }
+
+  .shell-bar-title {
+    display: none;
+  }
+}
+
+/* ---------- 动画 ---------- */
+
+@keyframes serviceCardIn {
+  from {
+    opacity: 0.01;
+    filter: blur(1px) saturate(0.98);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .page,
+  .app-grid-item,
+  .tile {
+    animation: none;
+  }
+}
+
+/* ---------- 分区标题：与小程序 portal.wxss 的实际渲染一致 ---------- */
+
+/*
+ * 小程序门户里 `.section-title` 的实际字重是 700（蓝色强调条 + 深色标题），
+ * 基础层写的是 800，这里按「以小程序实际渲染为准」的原则覆盖回来。
+ */
+.section-title {
+  position: relative;
+  padding-left: var(--ui-section-title-inset);
+  color: #0f172a;
+  font-size: var(--ui-type-section);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.5px;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%);
+}
+
+/* ---------- 应用宫格列数：手机 3 列、Pad 竖屏 4 列、Pad 横屏与电脑 5 列 ---------- */
+
+@media (min-width: 520px) {
+  .app-grid,
+  .tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .app-grid,
+  .tiles {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---------- 玻璃模糊：标准属性单独声明一次 ---------- */
+
+/*
+ * 打包时的压缩步骤会把同一条规则里的 `backdrop-filter` 与 `-webkit-backdrop-filter`
+ * 当成同一属性的重复声明，只保留后写的那一条。如果留下的是前缀版本，Chrome 的计算值
+ * 就是 none，玻璃模糊会整体消失（这正是本轮发现并修掉的问题）。
+ * 因此标准属性在这里单独声明一遍，前缀版本只放进 @supports，给真正需要它的浏览器补。
+ */
+.card,
+.section-control-card,
+.workspace-hero,
+.shell-bar,
+.dialog,
+.glass-panel,
+.app-search-bar,
+.notification-item {
+  backdrop-filter: var(--ui-surface-blur);
+}
+
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .card,
+  .section-control-card,
+  .workspace-hero,
+  .shell-bar,
+  .dialog,
+  .glass-panel,
+  .app-search-bar,
+  .notification-item {
+    -webkit-backdrop-filter: var(--ui-surface-blur);
+  }
+}

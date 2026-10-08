@@ -4,6 +4,11 @@ export default Object.freeze({
   tabMySubmissions: '我的申请',
   tabPending: '待我审批',
   tabHistory: '审批历史',
+  verificationTitle: '密码验签',
+  verificationReportTitle: '验签报告',
+  mySubmissionsNote: '查看自己发起的申请进度，也可以发起新的申请',
+  pendingNote: '这些申请正等着你处理',
+  historyNote: '你处理过的申请与当时的结论',
 
   statusAll: '全部状态',
   statusLabels: Object.freeze({
@@ -81,6 +86,7 @@ export default Object.freeze({
   designateRequiredBody: '这一步需要指定下一步审批人，请在小程序里完成。',
 
   createTitle: '发起申请',
+  createPanelNote: '按已有流程填写并上传附件，提交后按流程审批',
   createTemplateLabel: '选择审批流程',
   createTemplatePlaceholder: '请选择审批流程',
   createNoTemplate: '当前没有你可以发起的审批流程',
@@ -102,6 +108,7 @@ export default Object.freeze({
   createAdHocNotAvailable: '网页版目前只支持按已有流程发起申请，自定义流程请在小程序里使用。',
 
   signatureTitle: '签名管理',
+  signaturePanelNote: '保存常用签名，审批需要签名时可以直接选用',
   signatureEmpty: '你还没有保存过签名',
   signatureNew: '新建签名',
   signatureClear: '清空画布',

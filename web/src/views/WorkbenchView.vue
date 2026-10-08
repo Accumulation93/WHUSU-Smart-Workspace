@@ -1,16 +1,17 @@
 <template>
   <div class="page stack">
-    <section class="hero stack-tight">
-      <h1 class="login-title">{{ copy.workbench.title }}</h1>
-      <div class="row row-wrap">
-        <span v-if="orgName" class="chip chip-sky">{{ orgName }}</span>
-        <span v-if="roleLine" class="chip chip-blue">{{ roleLine }}</span>
-      </div>
-    </section>
+    <WorkspaceHero
+      tone="admin"
+      :page-name="copy.workbench.title"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
 
     <div class="columns">
       <section class="card stack">
-        <div class="card-title">{{ copy.portal.todos }}</div>
+        <div class="section-title">{{ copy.portal.todos }}</div>
         <div class="row row-wrap">
           <span class="value">{{ todoTotal }}</span>
           <span class="muted">{{ copy.workbench.pendingLabel }}</span>
@@ -31,7 +32,7 @@
       </section>
 
       <section class="card stack">
-        <div class="card-title">{{ copy.portal.notifications }}</div>
+        <div class="section-title">{{ copy.portal.notifications }}</div>
         <div class="row row-wrap">
           <span class="value">{{ unreadCount }}</span>
           <span class="muted">{{ copy.workbench.unreadLabel }}</span>
@@ -43,7 +44,7 @@
     </div>
 
     <section class="card stack">
-      <div class="card-title">{{ moduleTitle }}</div>
+      <div class="section-title">{{ moduleTitle }}</div>
       <div v-if="moduleKey" class="stack-tight">
         <p class="muted">{{ MODULE_BUILDING_TITLE }}</p>
         <p class="soft">{{ MODULE_BUILDING_BODY }}</p>
@@ -72,6 +73,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { cardsForRole } from '@/runtime/modules.js';
@@ -103,6 +105,11 @@ const moduleTitle = computed(() => {
 
 const orgName = computed(() => (session.context && session.context.organizationName) || '');
 
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
 const roleLine = computed(() => {
   const context = session.context;
   if (!context) return '';
@@ -111,6 +118,10 @@ const roleLine = computed(() => {
 
 function goMessages(tab) {
   router.push({ name: 'messages', query: { tab } });
+}
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
 }
 
 function openCard(card) {

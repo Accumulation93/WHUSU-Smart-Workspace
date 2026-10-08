@@ -34,7 +34,8 @@ test('口令登录后进入门户并展示当前工作角色', async ({ page }) 
 
   // 用问候语标题断言：电脑端侧栏与手机端顶栏展示位置不同，标题在两种布局下都可见。
   await expect(page.getByRole('heading', { name: new RegExp('测试用户') })).toBeVisible();
-  await expect(page.getByText(ROLE_LABEL, { exact: true })).toBeVisible();
+  // 共享 Hero 与里面的组织切换行都会展示工作角色，这里只断言第一处可见。
+  await expect(page.getByText(ROLE_LABEL, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(copy.portal.modules, { exact: true })).toBeVisible();
 });
 

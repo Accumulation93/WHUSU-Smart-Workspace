@@ -1,18 +1,32 @@
 <template>
   <div class="page stack">
+    <WorkspaceHero
+      :page-name="copy.messages.title"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
+
     <section class="card stack">
-      <div class="row row-wrap">
+      <div class="tabs">
         <button
           v-for="tab in tabs"
           :key="tab.key"
           type="button"
-          class="btn-quiet"
+          class="tab"
           :class="{ 'tab-active': activeTab === tab.key }"
           @click="selectTab(tab.key)"
         >
           {{ tab.label }}
         </button>
-        <span class="grow"></span>
+      </div>
+
+      <div class="panel-head">
+        <span class="section-title">
+          {{ isNotificationTab ? copy.messages.tabNotification : copy.messages.tabTodo }}
+        </span>
+        <span class="row row-wrap">
         <button
           v-if="activeTab === 'notifications' && unreadCount > 0"
           type="button"
@@ -29,6 +43,7 @@
         >
           {{ copy.messages.clearAll }}
         </button>
+        </span>
       </div>
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
@@ -76,10 +91,12 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
 import { notifyModuleBuilding } from '@/runtime/porting.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
 
 const PAGE_SIZE = 20;
 
@@ -100,6 +117,23 @@ const loadNotice = ref('');
 const loadedTabs = ref({});
 
 const isNotificationTab = computed(() => activeTab.value === 'notifications');
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 function endpointFor(tab) {
   return tab === 'notifications' ? 'listNotifications' : 'listTodos';
@@ -218,8 +252,9 @@ onMounted(() => loadFirstPage(activeTab.value));
 
 <style scoped>
 .tab-active {
-  background: var(--ui-chip-blue-bg);
-  color: var(--ui-chip-blue-text);
-  font-weight: 600;
+  /* 与全局分段页签一致：激活项用蓝色渐变 + 白字，不用浅色描边。 */
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 15px rgba(29, 78, 216, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 </style>

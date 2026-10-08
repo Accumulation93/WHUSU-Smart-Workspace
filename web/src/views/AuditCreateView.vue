@@ -1,8 +1,19 @@
 <template>
   <div class="page stack">
+    <WorkspaceHero
+      :page-name="copy.audit.createTitle"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
+
     <section class="card stack">
-      <div class="row row-wrap">
-        <span class="card-title grow">{{ copy.audit.createTitle }}</span>
+      <div class="panel-head">
+        <div class="stack-tight">
+          <span class="section-title">{{ copy.audit.createTitle }}</span>
+          <span class="panel-note">{{ copy.audit.createPanelNote }}</span>
+        </div>
         <button type="button" class="btn-quiet" @click="goBack">{{ copy.audit.actionBackToList }}</button>
       </div>
 
@@ -82,12 +93,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { MAX_AUDIT_FILE_BYTES, formatTemplate, readFileAsBase64 } from '@/runtime/audit.js';
 import { showToast } from '@/runtime/notify.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
 
@@ -100,6 +113,23 @@ const files = ref([]);
 const submitting = ref(false);
 const loadNotice = ref('');
 let fileSeed = 0;
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 function fileSizeText(size) {
   const value = Number(size || 0);

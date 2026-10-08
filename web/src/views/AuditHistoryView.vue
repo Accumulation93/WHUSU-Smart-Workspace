@@ -1,8 +1,20 @@
 <template>
   <div class="page stack">
+    <WorkspaceHero
+      :page-name="copy.audit.title"
+      :person-name="displayName"
+      :identity-name="roleLine"
+      :organization-name="orgName"
+      @switch="goWorkRole"
+    />
+    <AuditNav active="history" />
+
     <section class="card stack">
-      <div class="row row-wrap">
-        <span class="card-title grow">{{ copy.audit.tabHistory }}</span>
+      <div class="panel-head">
+        <div class="stack-tight">
+          <span class="section-title">{{ copy.audit.tabHistory }}</span>
+          <span class="panel-note">{{ copy.audit.historyNote }}</span>
+        </div>
         <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
       </div>
 
@@ -30,16 +42,36 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import AuditNav from '@/components/AuditNav.vue';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { formatTemplate, listTimeText, statusLabel, statusTone } from '@/runtime/audit.js';
+import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
 const rows = ref([]);
 const loading = ref(true);
 const loadNotice = ref('');
+
+const displayName = computed(() => {
+  const context = session.context || {};
+  return context.name || (session.user && session.user.name) || '';
+});
+
+const orgName = computed(() => (session.context && session.context.organizationName) || '');
+
+const roleLine = computed(() => {
+  const context = session.context;
+  if (!context) return '';
+  return context.assignmentLabel || context.identityName || roleLabelOf(context);
+});
+
+function goWorkRole() {
+  router.push({ name: 'workRole' });
+}
 
 function myActionText(row) {
   const steps = Array.isArray(row.mySteps) ? row.mySteps : [];

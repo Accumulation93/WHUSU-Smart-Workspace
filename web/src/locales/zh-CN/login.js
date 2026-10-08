@@ -2,6 +2,8 @@ export default Object.freeze({
   navigationTitle: '登录 - WHUSU智慧工作台',
   title: '登录',
   subtitle: '使用学号和口令登录，登录后可以切换工作角色。',
+  formTitle: '口令登录',
+  formHint: '请输入本人学号和口令。',
   studentIdLabel: '学号',
   studentIdPlaceholder: '请输入学号',
   passphraseLabel: '口令',
