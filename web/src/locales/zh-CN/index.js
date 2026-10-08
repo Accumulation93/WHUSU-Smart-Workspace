@@ -13,7 +13,7 @@ import venue from './venue.js';
 import verify from './verify.js';
 import workRole from './workRole.js';
 import workbench from './workbench.js';
-import withAliases from './aliases.js';
+import withAliases from '../../runtime/localeAliases.js';
 
 const copy = Object.freeze({
   admin: withAliases(admin),
