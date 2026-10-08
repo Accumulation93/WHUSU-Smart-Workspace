@@ -77,6 +77,26 @@ location /web/ {
   `X-Client-Version` 低于该值时，网页请求会被要求刷新；小程序继续使用 `MIN_CLIENT_VERSION`，
   两者互不影响。
 
+### 网页目录的读取权限（一次性配置）
+
+部署脚本以收紧权限运行，网页产物随 release 一起生成，因此需要一次性让 Nginx 的
+运行用户能够沿路径进入并读取静态文件。二选一，推荐第一种，它不改变家目录对其他用户的可见性：
+
+```bash
+# 方案一：把 Nginx 运行用户加入部署账号的用户组（家目录已是 750，同组即可进入）
+sudo usermod -aG ubuntu www-data
+sudo systemctl reload nginx
+
+# 方案二：只给家目录增加“可穿过”权限，其他用户仍然无法列出目录内容
+sudo chmod 751 /home/ubuntu
+```
+
+部署脚本会在每次发布时把 release 根目录设为 `711`、网页子树设为 `755`、静态文件设为 `644`。
+只放开网页子树，服务端源码、环境文件与上传目录维持构建时的收紧权限。
+
+核对方式：配置完成后请求 `https://accumulation93.com/web/` 应当返回网页首页；
+若返回 403 或 404，按上面的顺序逐层检查 `/home/ubuntu`、release 目录与 `web/dist` 的实际权限。
+
 ## 数据库迁移
 
 新迁移放入 `server/db/deploy/`，文件名必须是：

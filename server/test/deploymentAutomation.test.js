@@ -147,6 +147,11 @@ function testDeploymentScriptContract() {
   assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" ci --no-audit --no-fund/);
   assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" run build/);
   assert.match(script, /-s "\$NEW_RELEASE\/web\/dist\/index\.html"/);
+  // 构建脚本以收紧权限运行，静态产物必须显式放开给 Nginx 运行用户读取。
+  assert.match(script, /chmod 711 "\$NEW_RELEASE"/);
+  assert.match(script, /chmod 755 "\$NEW_RELEASE\/web" "\$NEW_RELEASE\/web\/dist"/);
+  assert.match(script, /find "\$NEW_RELEASE\/web\/dist" -type d -exec chmod 755/);
+  assert.match(script, /find "\$NEW_RELEASE\/web\/dist" -type f -exec chmod 644/);
   assert(
     script.indexOf('npm --prefix "$NEW_RELEASE/web" run build')
       < script.indexOf('PLAN_JSON="$(node'),

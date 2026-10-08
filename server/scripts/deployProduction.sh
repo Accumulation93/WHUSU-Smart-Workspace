@@ -379,6 +379,13 @@ if [[ ! -s "$NEW_RELEASE/web/dist/index.html" ]]; then
   log "网页构建产物缺少入口文件，拒绝切换 release"
   exit 1
 fi
+# Nginx 以独立的系统用户运行，静态产物必须沿路径可进入、可读取。
+# 只放开网页子树：release 根目录仅给其他用户通过权限（不列目录），
+# 服务端源码、.env 与上传目录维持构建时的收紧权限。
+chmod 711 "$NEW_RELEASE"
+chmod 755 "$NEW_RELEASE/web" "$NEW_RELEASE/web/dist"
+find "$NEW_RELEASE/web/dist" -type d -exec chmod 755 {} +
+find "$NEW_RELEASE/web/dist" -type f -exec chmod 644 {} +
 
 # 密钥只在受锁保护的生产服务器首次生成；清单和独立恢复副本必须同时自检通过。
 export AUDIT_EVIDENCE_KEYRING_PATH="$SHARED_DIR/signing-evidence/keyring.json"
