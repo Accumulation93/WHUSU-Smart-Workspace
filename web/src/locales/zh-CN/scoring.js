@@ -2,6 +2,37 @@ export default Object.freeze({
   navigationTitle: '考核评分 - WHUSU智慧工作台',
   title: '考核评分',
   taskTitle: '评分任务',
+  taskNote: '按考核流程给每位被评人打分，已评分的可以修改',
   fillTitle: '评分填写',
-  adminTitle: '考核管理'
+  adminTitle: '考核管理',
+
+  activityLabel: '当前考核活动',
+  activityEmpty: '当前没有进行中的考核活动',
+  activityWindowClosed: '当前不在评分时间内',
+  progressLabel: '评分进度',
+  progressText: '已评 {0} 人 / 共 {1} 人',
+  scoreStatusScored: '已评分',
+  scoreStatusPending: '待评分',
+  actionOpenScore: '开始评分',
+  actionRewriteScore: '修改评分',
+  actionBackToTasks: '返回任务列表',
+
+  targetLabel: '被评人',
+  targetListEmpty: '暂时没有需要你评分的对象',
+  loadFailed: '评分数据没有加载出来，请稍后重试',
+  submitFailed: '评分没有提交成功，请稍后重试',
+  submitDone: '评分已提交',
+  submitting: '正在提交',
+  actionSubmit: '提交评分',
+  readOnlyNotice: '这条评分记录只能查看，不能再修改。',
+  readOnlyReason: '历史评分缺少当时的配置记录，只展示已保存的结果。',
+  existingRecordNotice: '你已经给这位评过分数，再次提交会更新这条记录。',
+  revisionConflict: '这条评分刚刚被更新过，已为你重新加载最新内容。',
+
+  questionRequired: '请填写全部评分项',
+  questionRange: '第 {0} 项的分数需要在 {1} 到 {2} 之间',
+  questionStep: '第 {0} 项的分数需要按 {1} 的间隔填写',
+  totalLabel: '合计得分',
+  templateWeightLabel: '权重',
+  scoreLabel: '得分'
 });
