@@ -59,10 +59,14 @@
 产物位于 `<release>/web/dist`；`web/dist/index.html` 不存在时本次发布直接失败，不切换
 `whusu-smart-workspace-current`，线上继续使用上一个已验证的静态版本。
 
-Nginx 需要一段指向当前 release 的静态配置（只需配置一次，之后的发布由原子软链接自动切换）：
+**当前生产服务器已经配置完成**，下面是配置原文，供重装、重建服务器或迁移域名时照抄。
+其中的 `^~` 不能省略：站点里还有一条匹配 `.css`、`.js` 的正则位置块，
+前缀位置块不带 `^~` 时会被它抢走，网页的脚本和样式会去博客目录里找而返回 404。
 
 ```nginx
-location /web/ {
+# WHUSU 智慧工作台网页版：静态产物随 release 原子切换
+location = /web { return 308 /web/; }
+location ^~ /web/ {
     alias /home/ubuntu/whusu-smart-workspace-current/web/dist/;
     try_files $uri $uri/ /web/index.html;
 }
@@ -70,6 +74,9 @@ location /web/ {
 
 - `alias` 必须写在 `/home/ubuntu/whusu-smart-workspace-current/` 这一层，不要写死某个 release 目录，
   否则回退旧版本时网页不会跟着回退。
+- 配置改动只允许写进 `/etc/nginx/sites-enabled/` 下的正式站点文件；备份文件必须放到
+  `/var/backups/whusu-nginx/` 一类目录，放进 `sites-enabled` 会被 Nginx 当成第二个配置加载，
+  直接报 upstream 重复而无法重载。
 - `/api/` 的既有反向代理规则保持不变，网页与接口必须同源；一旦换成独立子域名，
   服务端的来源核对与跨域名单都要同步修改。
 - Nginx 运行用户必须能读取该目录，且上传体积上限仍是 15MB。
@@ -77,10 +84,11 @@ location /web/ {
   `X-Client-Version` 低于该值时，网页请求会被要求刷新；小程序继续使用 `MIN_CLIENT_VERSION`，
   两者互不影响。
 
-### 网页目录的读取权限（一次性配置）
+### 网页目录的读取权限
 
-部署脚本以收紧权限运行，网页产物随 release 一起生成，因此需要一次性让 Nginx 的
-运行用户能够沿路径进入并读取静态文件。二选一，推荐第一种，它不改变家目录对其他用户的可见性：
+部署脚本以收紧权限运行，网页产物随 release 一起生成，因此需要让 Nginx 的运行用户
+能够沿路径进入并读取静态文件。**当前服务器采用方案二，已经执行完成**；
+重装或迁移时二选一即可：
 
 ```bash
 # 方案一：把 Nginx 运行用户加入部署账号的用户组（家目录已是 750，同组即可进入）
@@ -94,7 +102,7 @@ sudo chmod 751 /home/ubuntu
 部署脚本会在每次发布时把 release 根目录设为 `711`、网页子树设为 `755`、静态文件设为 `644`。
 只放开网页子树，服务端源码、环境文件与上传目录维持构建时的收紧权限。
 
-核对方式：配置完成后请求 `https://accumulation93.com/web/` 应当返回网页首页；
+核对方式：请求 `https://accumulation93.com/web/` 应当返回网页首页；
 若返回 403 或 404，按上面的顺序逐层检查 `/home/ubuntu`、release 目录与 `web/dist` 的实际权限。
 
 ## 数据库迁移
