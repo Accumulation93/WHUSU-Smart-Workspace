@@ -153,7 +153,9 @@ function testDeploymentScriptContract() {
     '网页构建必须在生产切换之前完成'
   );
   assert.match(workflow, /working-directory: web/);
-  assert.match(workflow, /npm run test:e2e/);
+  assert.match(workflow, /npx playwright install --with-deps chromium/);
+  assert.match(workflow, /npx playwright test/);
+  assert.match(workflow, /npm run build/);
 }
 
 testMigrationDiscoveryAndLedger();

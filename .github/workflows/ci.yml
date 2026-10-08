@@ -128,12 +128,21 @@ jobs:
           node scripts/dependency-audit.js --self-test
           node scripts/dependency-audit.js
 
-      - name: Web client build and browser tests
+      - name: Install web dependencies
         working-directory: web
-        run: |
-          npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
-          npm run test:e2e
+        run: npm ci --no-audit --no-fund
+
+      - name: Build web client
+        working-directory: web
+        run: npm run build
+
+      - name: Install browser for web tests
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Web browser tests
+        working-directory: web
+        run: npx playwright test
 
   deploy-production:
     name: deploy-production

@@ -31,10 +31,11 @@ export default defineConfig({
     trace: 'off'
   },
   webServer: {
-    command: `npx vite preview --port ${PORT} --strictPort`,
+    // 显式绑定 IPv4 与端口，并且禁止 npx 在缺少本地依赖时联网安装。
+    command: `npx --no-install vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
     url: `${BASE_URL}/web/`,
     reuseExistingServer: false,
-    timeout: 60000
+    timeout: 120000
   },
   projects: [
     { name: 'computer', use: { ...devices['Desktop Chrome'], ...browserOverrides } },

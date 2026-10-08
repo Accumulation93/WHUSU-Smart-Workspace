@@ -17,12 +17,22 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '127.0.0.1',
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: false
       }
     }
+  },
+  /*
+   * 预览服务必须绑定到 127.0.0.1：Linux 上 localhost 可能只解析到 IPv6，
+   * 浏览器测试按 IPv4 探测就会一直连不上，表现为构建成功但测试超时。
+   */
+  preview: {
+    host: '127.0.0.1',
+    port: 4173,
+    strictPort: true
   },
   build: {
     outDir: 'dist',
