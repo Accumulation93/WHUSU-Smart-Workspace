@@ -12,7 +12,7 @@
           :placeholder="copy.workRole.searchPlaceholder"
         />
       </label>
-      <div v-if="!organizations.length" class="empty-state">{{ copy.workRole.emptyOrg }}</div>
+      <div v-if="!organizations.length" class="empty-state">{{ copy.workRole.noSelectableOrg }}</div>
       <div v-else class="row row-wrap">
         <button
           v-for="organization in filteredOrganizations"
@@ -46,10 +46,10 @@
             <span class="soft">{{ item.organizationName }}</span>
           </span>
           <span v-if="item.isCurrent" class="chip chip-blue">{{ copy.workRole.currentBadge }}</span>
-          <span v-else class="chip chip-sky">{{ applying ? copy.workRole.applying : copy.workRole.apply }}</span>
+          <span v-else class="chip chip-sky">{{ copy.workRole.apply }}</span>
         </button>
       </div>
-      <p class="soft">{{ copy.workRole.noAssignmentHint }}</p>
+      <p class="soft">{{ copy.workRole.selectOrgHint }}</p>
     </section>
 
     <section v-if="admins.length" class="card stack">
@@ -69,7 +69,7 @@
             <span class="soft">{{ item.organizationName }}</span>
           </span>
           <span v-if="item.isCurrent" class="chip chip-blue">{{ copy.workRole.currentBadge }}</span>
-          <span v-else class="chip chip-sky">{{ applying ? copy.workRole.applying : copy.workRole.apply }}</span>
+          <span v-else class="chip chip-sky">{{ copy.workRole.apply }}</span>
         </button>
       </div>
     </section>
@@ -81,7 +81,6 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import { errorText } from '@/runtime/api.js';
-import { showToast } from '@/runtime/notify.js';
 import { activateContext, reloadSession, session } from '@/runtime/session.js';
 
 const router = useRouter();
@@ -123,7 +122,7 @@ async function apply(item) {
   loadNotice.value = '';
   try {
     await activateContext(item.contextId);
-    showToast(copy.workRole.switched);
+    
     // 与小程序一致：切换后回到门户，所有子应用按新角色重新初始化。
     router.replace({ name: 'portal' });
   } catch (error) {

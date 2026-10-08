@@ -82,7 +82,6 @@
       >
         {{ loading ? copy.common.loading : copy.messages.loadMore }}
       </button>
-      <p v-else-if="items.length" class="soft">{{ copy.messages.noMore }}</p>
     </section>
   </div>
 </template>
@@ -151,7 +150,7 @@ async function loadFirstPage(tab) {
     unreadCount.value = Number(result.unreadCount || 0);
     loadedTabs.value = Object.assign({}, loadedTabs.value, { [target]: true });
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.retryLater);
   } finally {
     loading.value = false;
   }
@@ -171,7 +170,7 @@ async function loadMore() {
     items.value = items.value.concat(incoming);
     nextCursor.value = result.nextCursor || '';
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.retryLater);
   } finally {
     loading.value = false;
   }
@@ -206,25 +205,17 @@ async function markAllRead() {
     items.value = items.value.map((item) => Object.assign({}, item, { isRead: true }));
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.retryLater);
   }
 }
 
 async function removeNotification(item) {
-  const confirmed = await confirmAction({
-    title: copy.messages.deleteConfirmTitle,
-    body: copy.messages.deleteConfirmBody,
-    confirmText: copy.messages.deleteOne,
-    cancelText: copy.common.cancel,
-    danger: true
-  });
-  if (!confirmed) return;
   try {
     await callApi('deleteNotification', { id: item.id });
     items.value = items.value.filter((row) => row.id !== item.id);
     if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.deleteFailed);
   }
 }
 
@@ -243,7 +234,7 @@ async function clearAll() {
     nextCursor.value = '';
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.clearFailed);
   }
 }
 

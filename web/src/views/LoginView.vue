@@ -46,7 +46,6 @@
           <span>{{ submitting ? copy.login.submitting : copy.login.submit }}</span>
         </button>
 
-        <p class="soft">{{ copy.login.webNotice }}</p>
       </form>
 
       <footer class="page-footer">

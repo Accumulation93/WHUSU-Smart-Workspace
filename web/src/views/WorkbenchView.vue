@@ -11,7 +11,7 @@
 
     <div class="columns">
       <section class="card stack">
-        <div class="section-title">{{ copy.portal.todos }}</div>
+        <div class="section-title">{{ copy.portal.todoTitle }}</div>
         <div class="row row-wrap">
           <span class="value">{{ todoTotal }}</span>
           <span class="muted">{{ copy.workbench.pendingLabel }}</span>
@@ -32,7 +32,7 @@
       </section>
 
       <section class="card stack">
-        <div class="section-title">{{ copy.portal.notifications }}</div>
+        <div class="section-title">{{ copy.portal.notificationTitle }}</div>
         <div class="row row-wrap">
           <span class="value">{{ unreadCount }}</span>
           <span class="muted">{{ copy.workbench.unreadLabel }}</span>
@@ -98,9 +98,9 @@ const cards = computed(() => cardsForRole(session.activeRole));
 const moduleKey = computed(() => String(route.query.subApp || ''));
 
 const moduleTitle = computed(() => {
-  if (!moduleKey.value) return copy.portal.modules;
+  if (!moduleKey.value) return copy.portal.servicesTitle;
   const card = cards.value.find((item) => item.key === moduleKey.value);
-  return card ? card.label : copy.portal.modules;
+  return card ? card.label : copy.portal.servicesTitle;
 });
 
 const orgName = computed(() => (session.context && session.context.organizationName) || '');
@@ -143,13 +143,13 @@ async function loadSummary() {
     todoPreview.value = Array.isArray(result.items) ? result.items : [];
     todoTotal.value = Number(result.total || 0);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.portal.loadFailed);
+    loadNotice.value = errorText(error, copy.portal.retryLater);
   }
   try {
     const result = await callApi('listNotifications', { limit: 1 });
     unreadCount.value = Number(result.unreadCount || 0);
   } catch (error) {
-    loadNotice.value = loadNotice.value || errorText(error, copy.portal.loadFailed);
+    loadNotice.value = loadNotice.value || errorText(error, copy.portal.retryLater);
   }
 }
 

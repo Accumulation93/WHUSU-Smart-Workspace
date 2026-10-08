@@ -10,7 +10,7 @@
 
     <section class="card stack">
       <div class="info-head">
-        <span class="section-title">{{ copy.portal.todos }}</span>
+        <span class="section-title">{{ copy.portal.todoTitle }}</span>
         <span class="message-head-actions">
           <span v-if="todoTotal > 0" class="todo-count">
             {{ copy.portal.totalPrefix }} {{ todoTotal > 99 ? '99+' : todoTotal }} {{ copy.portal.itemSuffix }}
@@ -22,7 +22,7 @@
       </div>
       <div v-if="todosLoading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!todos.length" class="notification-empty">
-        <span class="notification-empty-text">{{ copy.portal.emptyTodos }}</span>
+        <span class="notification-empty-text">{{ copy.portal.noTodos }}</span>
       </div>
       <div v-else class="message-preview-scroll">
         <MessageRow
@@ -37,7 +37,7 @@
 
     <section class="card stack">
       <div class="info-head">
-        <span class="section-title">{{ copy.portal.notifications }}</span>
+        <span class="section-title">{{ copy.portal.notificationTitle }}</span>
         <span class="message-head-actions">
           <button
             v-if="unreadCount > 0"
@@ -57,7 +57,7 @@
       </div>
       <div v-if="notificationsLoading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!notifications.length" class="notification-empty">
-        <span class="notification-empty-text">{{ copy.portal.emptyNotifications }}</span>
+        <span class="notification-empty-text">{{ copy.portal.noNotifications }}</span>
       </div>
       <div v-else class="message-preview-scroll">
         <MessageRow
@@ -90,7 +90,7 @@
             :class="{ 'compact-segmented-item-active': appViewMode === 'grid' }"
             @click="appViewMode = 'grid'"
           >
-            {{ copy.portal.viewGrid }}
+            {{ copy.portal.grid }}
           </button>
           <button
             type="button"
@@ -98,7 +98,7 @@
             :class="{ 'compact-segmented-item-active': appViewMode === 'list' }"
             @click="appViewMode = 'list'"
           >
-            {{ copy.portal.viewList }}
+            {{ copy.portal.list }}
           </button>
         </span>
       </div>
@@ -177,7 +177,7 @@
     <div class="portal-session-footer">
       <div class="actions">
         <button type="button" class="btn btn-secondary" @click="go({ name: 'workRole' })">
-          {{ copy.portal.workContextSwitch }}
+          {{ copy.portal.workContextSwitchLabel }}
         </button>
         <button type="button" class="btn btn-danger" @click="onLogout">
           {{ copy.common.logout }}
@@ -269,7 +269,7 @@ async function loadPreview() {
     todos.value = Array.isArray(result.items) ? result.items : [];
     todoTotal.value = Number(result.total || todos.value.length);
   } catch (error) {
-    failures.push(errorText(error, copy.portal.loadFailed));
+    failures.push(errorText(error, copy.portal.retryLater));
   } finally {
     todosLoading.value = false;
   }
@@ -278,12 +278,12 @@ async function loadPreview() {
     notifications.value = Array.isArray(result.items) ? result.items : [];
     unreadCount.value = Number(result.unreadCount || 0);
   } catch (error) {
-    failures.push(errorText(error, copy.portal.loadFailed));
+    failures.push(errorText(error, copy.portal.retryLater));
   } finally {
     notificationsLoading.value = false;
   }
   const visible = failures.filter(Boolean);
-  loadNotice.value = visible.length ? visible[0] : '';
+  loadNotice.value = visible.length ? copy.portal.partialOrganizationLoading : '';
 }
 
 async function openMessage(item) {
@@ -311,7 +311,7 @@ async function markAllRead() {
     notifications.value = notifications.value.map((item) => Object.assign({}, item, { isRead: true }));
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.readFailed);
   }
 }
 
@@ -322,7 +322,7 @@ async function removeNotification(item) {
     notifications.value = notifications.value.filter((row) => row.id !== item.id);
     if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.loadFailed);
+    loadNotice.value = errorText(error, copy.messages.readFailed);
   }
 }
 

@@ -36,7 +36,8 @@ test('口令登录后进入门户并展示当前工作角色', async ({ page }) 
   await expect(page.getByRole('heading', { name: new RegExp('测试用户') })).toBeVisible();
   // 共享 Hero 与里面的组织切换行都会展示工作角色，这里只断言第一处可见。
   await expect(page.getByText(ROLE_LABEL, { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(copy.portal.modules, { exact: true })).toBeVisible();
+  // 「应用服务」同时出现在侧栏、Hero 页签与板块标题，这里只断言板块标题。
+  await expect(page.locator('.section-title', { hasText: copy.portal.servicesTitle }).first()).toBeVisible();
 });
 
 test('登录状态在使用中失效时回到登录页并说明原因', async ({ page }) => {
@@ -47,7 +48,7 @@ test('登录状态在使用中失效时回到登录页并说明原因', async ({
 
   // 服务端会话失效后，下一次业务请求会返回登录失效。
   api.setSessionAlive(false);
-  await page.getByRole('button', { name: copy.portal.entryMessages }).first().click();
+  await page.getByRole('button', { name: copy.portal.cards.messages }).first().click();
 
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/login`));
   await expect(page.getByText(copy.login.expiredNotice)).toBeVisible();

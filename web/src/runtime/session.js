@@ -119,7 +119,13 @@ export async function logout() {
 }
 
 export function roleLabelOf(context) {
-  return context && context.role === 'admin' ? copy.portal.roleAdmin : copy.portal.roleAssignment;
+  if (!context) return copy.portal.workContext.signedOut;
+  if (context.role === 'admin') {
+    return context.adminLevel === 'super_admin'
+      ? copy.portal.workContext.superAdmin
+      : copy.portal.workContext.admin;
+  }
+  return context.assignmentLabel || context.identityName || copy.portal.workContext.unset;
 }
 
 setAuthenticationLostHandler((error) => {
