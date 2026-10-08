@@ -22,6 +22,8 @@ const ORG_CONTEXT_BYPASS_PATHS = new Set([
   '/api/auth/claims/verify',
   '/api/auth/claims/redeem',
   '/api/auth/password/session',
+  // 网页退出登录必须能在凭证失效后继续清 Cookie，因此不需要组织上下文。
+  '/api/auth/web/logout',
   '/api/auth/recovery/start',
   '/api/auth/recovery/complete',
   '/api/confirmAutoBind',
@@ -58,4 +60,4 @@ async function orgContextMiddleware(req, res, next) {
   orgStorage.run(orgId, () => next());
 }
 
-module.exports = { orgContextMiddleware, clearOrgAccessCache };
+module.exports = { orgContextMiddleware, clearOrgAccessCache, ORG_CONTEXT_BYPASS_PATHS };

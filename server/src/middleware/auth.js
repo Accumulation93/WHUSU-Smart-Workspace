@@ -122,4 +122,10 @@ async function authMiddleware(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware, resolveUnifiedSession, readRequestToken, JWT_SECRET };
+module.exports = {
+  authMiddleware,
+  resolveUnifiedSession,
+  readRequestToken,
+  PUBLIC_PATHS,
+  JWT_SECRET
+};
