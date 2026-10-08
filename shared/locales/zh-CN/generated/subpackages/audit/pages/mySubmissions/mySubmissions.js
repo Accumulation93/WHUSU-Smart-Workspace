@@ -1,0 +1,32 @@
+'use strict';
+
+module.exports = Object.freeze({
+  copy_00a471585c: '处理中…',
+  copy_0531ed9e78: '操作未完成，请重试',
+  copy_0dc99cac16: '审核中',
+  copy_2220286f1c: '已完成',
+  copy_282e15e226: '已撤回',
+  copy_31d4595959: '全部',
+  copy_56d416c578: "审核",
+  copy_57b008f8c7: '待提交',
+  copy_5d5af942c5: '已驳回',
+  copy_638da8ae60: "武汉大学学生会",
+  copy_6830671a51: "全部已读",
+  copy_6a9352d30a: '已全部设为已读',
+  copy_8ad4a40192: "申请列表",
+  copy_a7f09dc2db: "暂无申请",
+  copy_aa4f0ed6cd: "WHUSU智慧工作台",
+  copy_bff094c480: "状态筛选",
+  copy_c64e979552: "发起申请",
+  copy_e52119b17e: '请稍后重试',
+  copy_f6afc42806: '草稿',
+  copy_fb0dc97a1d: "我的申请",
+  currentWorkContext: '当前工作角色',
+  noAssignmentTitle: '当前没有可用岗位',
+  noAssignmentActionDescription: '当前没有可用于审核的岗位。你仍可查看申请记录。',
+  switchWorkContext: '切换工作角色',
+  cancel: '取消',
+  positionAvailable: '可发起',
+  positionUnavailable: '仅查看',
+  navigationTitle: "我的申请 - WHUSU智慧工作台"
+});

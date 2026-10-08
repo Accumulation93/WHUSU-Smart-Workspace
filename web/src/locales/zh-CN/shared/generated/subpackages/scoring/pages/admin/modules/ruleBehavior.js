@@ -1,0 +1,35 @@
+// 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
+'use strict';
+
+const sharedModule = Object.freeze({
+  copy_06219d4706: '确认删除这条评分人类别吗？',
+  copy_0752b95158: '请先选择评分问题',
+  copy_076bb5d383: '删除失败，请重试',
+  copy_20c9187fe4: '正在批量应用…',
+  copy_2143a01760: `已生成 {0} 类评分人`,
+  copy_215e3c57da: '保存失败，请重试',
+  copy_30a324d851: '请先准备好要批量应用的被评分人规则',
+  copy_31d4595959: '全部',
+  copy_3bf6e80d99: '批量更新完成',
+  copy_492761e445: '删除评分人类别',
+  copy_4e36c10a9e: '请先设置当前评分活动',
+  copy_5398fec054: '已删除',
+  copy_58d149dfbb: '评分人类别加载失败，请稍后重试',
+  copy_6a36edd369: '问题已在规则中',
+  copy_7151fd51a0: '请填写被评分人身份',
+  copy_78ad9dc82c: '设置失败，请重试',
+  copy_78e3986a7f: '请选择类别',
+  copy_7acbc2acc0: `未设置：{0}/{1}`,
+  copy_7aed7111ba: '被评分人规则已存在',
+  copy_7ca6a5ec8a: '默认评分人类别已生成',
+  copy_7ef5d3f1ee: '没有可生成的评分人类别',
+  copy_9662ceba48: '生成失败，请重试',
+  copy_aee0e7df2d: '请填写完整评分人类别',
+  copy_b9e48da987: '请先添加被评分人规则',
+  copy_ba359df757: '请输入大于 0 的评分问题权重',
+  copy_bb6f1ef281: '正在生成默认类别…',
+  copy_d2758f01a6: '类别已保存',
+  copy_f6ace868f2: '请填写完整的评分人类别'
+});
+
+export default sharedModule;

@@ -22,7 +22,7 @@
           <UiIcon name="home" tone="primary" size-role="message-meta" />
           <span class="portal-organization-name">{{ organizationName }}</span>
           <span v-if="item.isCurrentOrganization === true" class="portal-organization-current">
-            {{ copy.portal.current }}
+            {{ copy.portal.view.current }}
           </span>
         </div>
       </div>

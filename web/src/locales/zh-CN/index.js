@@ -13,23 +13,24 @@ import venue from './venue.js';
 import verify from './verify.js';
 import workRole from './workRole.js';
 import workbench from './workbench.js';
+import withAliases from './aliases.js';
 
 const copy = Object.freeze({
-  admin,
-  audit,
-  common,
-  errors,
-  hero,
-  hr,
-  login,
-  messages,
-  portal,
-  scoring,
-  system,
-  venue,
-  verify,
-  workRole,
-  workbench
+  admin: withAliases(admin),
+  audit: withAliases(audit),
+  common: withAliases(common),
+  errors: withAliases(errors),
+  hero: withAliases(hero),
+  hr: withAliases(hr),
+  login: withAliases(login),
+  messages: withAliases(messages),
+  portal: withAliases(portal),
+  scoring: withAliases(scoring),
+  system: withAliases(system),
+  venue: withAliases(venue),
+  verify: withAliases(verify),
+  workRole: withAliases(workRole),
+  workbench: withAliases(workbench)
 });
 
 export default copy;

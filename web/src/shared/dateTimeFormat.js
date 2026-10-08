@@ -157,7 +157,7 @@ function formatClockTime(value) {
     : '';
 }
 
-const sharedModule = {
+const sharedModule = Object.freeze({
   DEFAULT_SYSTEM_TIMEZONE_OFFSET,
   MIN_TIMEZONE_OFFSET,
   MAX_TIMEZONE_OFFSET,
@@ -169,7 +169,7 @@ const sharedModule = {
   formatAbsoluteDate,
   formatDateOnly,
   formatClockTime
-};
+});
 
 export { DEFAULT_SYSTEM_TIMEZONE_OFFSET, MIN_TIMEZONE_OFFSET, MAX_TIMEZONE_OFFSET, normalizeSystemTimezoneOffset, parseAbsoluteTime, getShiftedUtcParts, formatListTime, formatDetailTime, formatAbsoluteDate, formatDateOnly, formatClockTime };
 export default sharedModule;

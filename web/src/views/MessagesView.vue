@@ -1,7 +1,7 @@
 <template>
   <div class="page stack">
     <WorkspaceHero
-      :page-name="copy.messages.title"
+      :page-name="copy.portal.messages"
       :person-name="displayName"
       :identity-name="roleLine"
       :organization-name="orgName"
@@ -24,7 +24,7 @@
 
       <div class="panel-head">
         <span class="section-title">
-          {{ isNotificationTab ? copy.messages.tabNotification : copy.messages.tabTodo }}
+          {{ isNotificationTab ? copy.messages.view.notifications : copy.messages.view.todos }}
         </span>
         <span class="row row-wrap">
         <button
@@ -33,7 +33,7 @@
           class="btn-quiet"
           @click="markAllRead"
         >
-          {{ copy.messages.markAllRead }}
+          {{ copy.messages.view.markAllRead }}
         </button>
         <button
           v-if="activeTab === 'notifications' && items.length"
@@ -41,7 +41,7 @@
           class="btn-quiet btn-quiet-danger"
           @click="clearAll"
         >
-          {{ copy.messages.clearAll }}
+          {{ copy.messages.view.clearAll }}
         </button>
         </span>
       </div>
@@ -50,7 +50,7 @@
 
       <div v-if="loading && !items.length" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!items.length" class="empty-state">
-        {{ activeTab === 'todos' ? copy.messages.emptyTodo : copy.messages.emptyNotification }}
+        {{ activeTab === 'todos' ? copy.messages.view.noTodos : copy.messages.view.noNotifications }}
       </div>
       <div v-else class="list">
         <MessageRow
@@ -67,7 +67,7 @@
               class="btn-quiet btn-quiet-danger"
               @click="removeNotification(row)"
             >
-              {{ copy.messages.deleteOne }}
+              {{ copy.messages.view.deleteNotification }}
             </button>
           </template>
         </MessageRow>
@@ -80,7 +80,7 @@
         :disabled="loading"
         @click="loadMore"
       >
-        {{ loading ? copy.common.loading : copy.messages.loadMore }}
+        {{ loading ? copy.common.loading : copy.messages.view.loading }}
       </button>
     </section>
   </div>
@@ -103,8 +103,8 @@ const route = useRoute();
 const router = useRouter();
 
 const tabs = [
-  { key: 'todos', label: copy.messages.tabTodo },
-  { key: 'notifications', label: copy.messages.tabNotification }
+  { key: 'todos', label: copy.messages.view.todos },
+  { key: 'notifications', label: copy.messages.view.notifications }
 ];
 
 const activeTab = ref(route.query.tab === 'notifications' ? 'notifications' : 'todos');
@@ -150,7 +150,7 @@ async function loadFirstPage(tab) {
     unreadCount.value = Number(result.unreadCount || 0);
     loadedTabs.value = Object.assign({}, loadedTabs.value, { [target]: true });
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.retryLater);
+    loadNotice.value = errorText(error, copy.messages.view.retryLater);
   } finally {
     loading.value = false;
   }
@@ -170,7 +170,7 @@ async function loadMore() {
     items.value = items.value.concat(incoming);
     nextCursor.value = result.nextCursor || '';
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.retryLater);
+    loadNotice.value = errorText(error, copy.messages.view.retryLater);
   } finally {
     loading.value = false;
   }
@@ -205,7 +205,7 @@ async function markAllRead() {
     items.value = items.value.map((item) => Object.assign({}, item, { isRead: true }));
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.retryLater);
+    loadNotice.value = errorText(error, copy.messages.view.retryLater);
   }
 }
 
@@ -215,15 +215,15 @@ async function removeNotification(item) {
     items.value = items.value.filter((row) => row.id !== item.id);
     if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.deleteFailed);
+    loadNotice.value = errorText(error, copy.messages.messages.deleteFailed);
   }
 }
 
 async function clearAll() {
   const confirmed = await confirmAction({
-    title: copy.messages.clearAllConfirmTitle,
-    body: copy.messages.clearAllConfirmBody,
-    confirmText: copy.messages.clearAll,
+    title: copy.messages.messages.clearTitle,
+    body: copy.messages.messages.clearDescription,
+    confirmText: copy.messages.view.clearAll,
     cancelText: copy.common.cancel,
     danger: true
   });
@@ -234,7 +234,7 @@ async function clearAll() {
     nextCursor.value = '';
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.clearFailed);
+    loadNotice.value = errorText(error, copy.messages.messages.clearFailed);
   }
 }
 

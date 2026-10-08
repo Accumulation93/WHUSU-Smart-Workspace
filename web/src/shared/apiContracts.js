@@ -40,12 +40,12 @@ function isAuthEntry(name) {
   return AUTH_ENTRY_APIS[String(name || '')] === true;
 }
 
-const sharedModule = {
+const sharedModule = Object.freeze({
   IDEMPOTENT_WRITE_APIS,
   AUTH_ENTRY_APIS,
   isIdempotentWrite,
   isAuthEntry
-};
+});
 
 export { IDEMPOTENT_WRITE_APIS, AUTH_ENTRY_APIS, isIdempotentWrite, isAuthEntry };
 export default sharedModule;

@@ -10,19 +10,19 @@
 
     <section class="card stack">
       <div class="info-head">
-        <span class="section-title">{{ copy.portal.todoTitle }}</span>
+        <span class="section-title">{{ copy.portal.view.todoTitle }}</span>
         <span class="message-head-actions">
           <span v-if="todoTotal > 0" class="todo-count">
-            {{ copy.portal.totalPrefix }} {{ todoTotal > 99 ? '99+' : todoTotal }} {{ copy.portal.itemSuffix }}
+            {{ copy.portal.view.totalPrefix }} {{ todoTotal > 99 ? '99+' : todoTotal }} {{ copy.portal.view.itemSuffix }}
           </span>
           <button type="button" class="message-text-action" @click="goMessages('todos')">
-            {{ copy.portal.viewAll }}
+            {{ copy.portal.view.viewAll }}
           </button>
         </span>
       </div>
       <div v-if="todosLoading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!todos.length" class="notification-empty">
-        <span class="notification-empty-text">{{ copy.portal.noTodos }}</span>
+        <span class="notification-empty-text">{{ copy.portal.view.noTodos }}</span>
       </div>
       <div v-else class="message-preview-scroll">
         <MessageRow
@@ -37,7 +37,7 @@
 
     <section class="card stack">
       <div class="info-head">
-        <span class="section-title">{{ copy.portal.notificationTitle }}</span>
+        <span class="section-title">{{ copy.portal.view.notificationTitle }}</span>
         <span class="message-head-actions">
           <button
             v-if="unreadCount > 0"
@@ -45,19 +45,19 @@
             class="message-text-action"
             @click="markAllRead"
           >
-            {{ copy.portal.markAllRead }}
+            {{ copy.portal.view.markAllRead }}
           </button>
           <span v-if="unreadCount > 0" class="notification-badge">
             {{ unreadCount > 99 ? '99+' : unreadCount }}
           </span>
           <button type="button" class="message-text-action" @click="goMessages('notifications')">
-            {{ copy.portal.viewAll }}
+            {{ copy.portal.view.viewAll }}
           </button>
         </span>
       </div>
       <div v-if="notificationsLoading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!notifications.length" class="notification-empty">
-        <span class="notification-empty-text">{{ copy.portal.noNotifications }}</span>
+        <span class="notification-empty-text">{{ copy.portal.view.noNotifications }}</span>
       </div>
       <div v-else class="message-preview-scroll">
         <MessageRow
@@ -73,7 +73,7 @@
               class="btn-quiet btn-quiet-danger"
               @click="removeNotification(row)"
             >
-              {{ copy.messages.deleteOne }}
+              {{ copy.messages.view.deleteNotification }}
             </button>
           </template>
         </MessageRow>
@@ -82,7 +82,7 @@
 
     <section class="card stack">
       <div class="info-head">
-        <span class="section-title">{{ copy.portal.servicesTitle }}</span>
+        <span class="section-title">{{ copy.portal.view.servicesTitle }}</span>
         <span class="compact-segmented">
           <button
             type="button"
@@ -90,7 +90,7 @@
             :class="{ 'compact-segmented-item-active': appViewMode === 'grid' }"
             @click="appViewMode = 'grid'"
           >
-            {{ copy.portal.grid }}
+            {{ copy.portal.view.grid }}
           </button>
           <button
             type="button"
@@ -98,7 +98,7 @@
             :class="{ 'compact-segmented-item-active': appViewMode === 'list' }"
             @click="appViewMode = 'list'"
           >
-            {{ copy.portal.list }}
+            {{ copy.portal.view.list }}
           </button>
         </span>
       </div>
@@ -111,7 +111,7 @@
           v-model="appSearchKeyword"
           class="app-search-input"
           type="search"
-          :placeholder="copy.portal.searchPlaceholder"
+          :placeholder="copy.portal.view.searchPlaceholder"
         />
         <button
           v-if="appSearchKeyword"
@@ -126,7 +126,7 @@
 
       <div v-if="!filteredCards.length" class="notification-empty">
         <span class="notification-empty-text">
-          {{ appSearchKeyword ? copy.portal.noMatchingApps : copy.portal.noApps }}
+          {{ appSearchKeyword ? copy.portal.view.noMatchingApps : copy.portal.view.noApps }}
         </span>
       </div>
 
@@ -145,7 +145,7 @@
           </span>
           <span class="app-grid-label">{{ card.label }}</span>
           <span v-if="card.status === 'building'" class="app-grid-badge">
-            {{ copy.portal.developing }}
+            {{ copy.portal.view.developing }}
           </span>
         </button>
       </div>
@@ -167,7 +167,7 @@
             <span class="nav-row-label">{{ card.label }}</span>
           </span>
           <span v-if="card.status === 'building'" class="app-grid-badge app-grid-badge-inline">
-            {{ copy.portal.developing }}
+            {{ copy.portal.view.developing }}
           </span>
           <UiIcon v-else name="chevron-right" tone="muted" size-role="message-trailing" />
         </button>
@@ -177,7 +177,7 @@
     <div class="portal-session-footer">
       <div class="actions">
         <button type="button" class="btn btn-secondary" @click="go({ name: 'workRole' })">
-          {{ copy.portal.workContextSwitchLabel }}
+          {{ copy.portal.workContextSwitch }}
         </button>
         <button type="button" class="btn btn-danger" @click="onLogout">
           {{ copy.common.logout }}
@@ -311,7 +311,7 @@ async function markAllRead() {
     notifications.value = notifications.value.map((item) => Object.assign({}, item, { isRead: true }));
     unreadCount.value = 0;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.readFailed);
+    loadNotice.value = errorText(error, copy.messages.messages.notificationReadFailed);
   }
 }
 
@@ -322,7 +322,7 @@ async function removeNotification(item) {
     notifications.value = notifications.value.filter((row) => row.id !== item.id);
     if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.readFailed);
+    loadNotice.value = errorText(error, copy.messages.messages.notificationReadFailed);
   }
 }
 

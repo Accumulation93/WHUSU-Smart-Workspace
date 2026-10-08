@@ -1,24 +1,18 @@
-const text = Object.freeze({
-  matchSectionTitle: '相关审核记录',
-  currentResult: '当前结果',
-  viewResult: '查看验证结果',
-  matchingFiles: '匹配文件',
-  untitledSubmission: '未命名审核',
-  unknownStatus: '状态未知',
-  status: Object.freeze({
-    draft: '草稿',
-    pending: '待提交',
-    in_progress: '审核中',
-    approved: '已通过',
-    rejected: '已驳回',
-    withdrawn: '已撤回'
-  })
-});
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_auditVerification from './shared/auditVerification.js';
 
-const format = Object.freeze({
-  matchCount(count) {
-    return `共找到 ${Number(count) || 0} 条相关审核记录`;
-  }
+export default Object.freeze({
+  matchSectionTitle: src_auditVerification.text.matchSectionTitle,
+  currentResult: src_auditVerification.text.currentResult,
+  viewResult: src_auditVerification.text.viewResult,
+  matchingFiles: src_auditVerification.text.matchingFiles,
+  untitledSubmission: src_auditVerification.text.untitledSubmission,
+  unknownStatus: src_auditVerification.text.unknownStatus,
+  draft: src_auditVerification.text.status.draft,
+  pending: src_auditVerification.text.status.pending,
+  in_progress: src_auditVerification.text.status.in_progress,
+  approved: src_auditVerification.text.status.approved,
+  rejected: src_auditVerification.text.status.rejected,
+  withdrawn: src_auditVerification.text.status.withdrawn,
 });
-
-export default Object.freeze({ text, format });

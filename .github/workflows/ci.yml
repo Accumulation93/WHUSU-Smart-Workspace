@@ -53,6 +53,7 @@ jobs:
           node scripts/miniprogram-compat-audit.js
           node scripts/wechat-template-runtime-audit.js
           node scripts/sync-shared-modules.js
+          node scripts/locale-single-source-audit.js
           node scripts/org-lifecycle-audit.js --strict
           node scripts/security-audit.js --strict
           node scripts/secret-audit.js --strict

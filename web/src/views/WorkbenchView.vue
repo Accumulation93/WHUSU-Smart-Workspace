@@ -11,7 +11,7 @@
 
     <div class="columns">
       <section class="card stack">
-        <div class="section-title">{{ copy.portal.todoTitle }}</div>
+        <div class="section-title">{{ copy.portal.view.todoTitle }}</div>
         <div class="row row-wrap">
           <span class="value">{{ todoTotal }}</span>
           <span class="muted">{{ copy.workbench.pendingLabel }}</span>
@@ -27,18 +27,18 @@
           />
         </div>
         <button type="button" class="btn btn-secondary" @click="goMessages('todos')">
-          {{ copy.portal.viewAll }}
+          {{ copy.portal.view.viewAll }}
         </button>
       </section>
 
       <section class="card stack">
-        <div class="section-title">{{ copy.portal.notificationTitle }}</div>
+        <div class="section-title">{{ copy.portal.view.notificationTitle }}</div>
         <div class="row row-wrap">
           <span class="value">{{ unreadCount }}</span>
           <span class="muted">{{ copy.workbench.unreadLabel }}</span>
         </div>
         <button type="button" class="btn btn-secondary" @click="goMessages('notifications')">
-          {{ copy.portal.viewAll }}
+          {{ copy.portal.view.viewAll }}
         </button>
       </section>
     </div>
@@ -98,9 +98,9 @@ const cards = computed(() => cardsForRole(session.activeRole));
 const moduleKey = computed(() => String(route.query.subApp || ''));
 
 const moduleTitle = computed(() => {
-  if (!moduleKey.value) return copy.portal.servicesTitle;
+  if (!moduleKey.value) return copy.portal.view.servicesTitle;
   const card = cards.value.find((item) => item.key === moduleKey.value);
-  return card ? card.label : copy.portal.servicesTitle;
+  return card ? card.label : copy.portal.view.servicesTitle;
 });
 
 const orgName = computed(() => (session.context && session.context.organizationName) || '');

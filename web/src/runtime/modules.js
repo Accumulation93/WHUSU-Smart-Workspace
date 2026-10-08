@@ -18,35 +18,35 @@ const BUILDING = MODULE_STATUS.building;
 export const USER_CARDS = Object.freeze([
   {
     key: 'messages',
-    label: copy.portal.cards.messages,
+    label: copy.portal.messages,
     iconName: 'bell',
     status: READY,
     route: { name: 'messages' }
   },
   {
     key: 'workRole',
-    label: copy.portal.cards.workContextSwitch,
+    label: copy.portal.workContextSwitch,
     iconName: 'user',
     status: READY,
     route: { name: 'workRole' }
   },
   {
     key: 'scoring',
-    label: copy.portal.cards.scoring,
+    label: copy.portal.scoring,
     iconName: 'grid',
     status: READY,
     route: { name: 'scoringTasks' }
   },
   {
     key: 'hr',
-    label: copy.portal.cards.hr,
+    label: copy.portal.hr,
     iconName: 'list',
     status: READY,
     route: { name: 'hrProfile' }
   },
   {
     key: 'audit',
-    label: copy.portal.cards.audit,
+    label: copy.portal.audit,
     iconName: 'file',
     status: READY,
     route: { name: 'auditMySubmissions' }
@@ -60,7 +60,7 @@ export const USER_CARDS = Object.freeze([
   },
   {
     key: 'venue',
-    label: copy.portal.cards.venueBooking,
+    label: copy.portal.venueBooking,
     iconName: 'venue',
     status: READY,
     route: { name: 'venueBookings' }
@@ -72,28 +72,28 @@ export const ADMIN_CARDS = Object.freeze([
   USER_CARDS[1],
   {
     key: 'scoring',
-    label: copy.portal.cards.scoring,
+    label: copy.portal.scoring,
     iconName: 'grid',
     status: READY,
     route: { name: 'adminConsole' }
   },
   {
     key: 'hr',
-    label: copy.portal.cards.hr,
+    label: copy.portal.hr,
     iconName: 'list',
     status: READY,
     route: { name: 'hrProfile' }
   },
   {
     key: 'system',
-    label: copy.portal.cards.system,
+    label: copy.portal.system,
     iconName: 'shield',
     status: READY,
     route: { name: 'adminConsole' }
   },
   {
     key: 'audit',
-    label: copy.portal.cards.audit,
+    label: copy.portal.audit,
     iconName: 'file',
     status: READY,
     route: { name: 'auditMySubmissions' }
@@ -107,14 +107,14 @@ export const ADMIN_CARDS = Object.freeze([
   },
   {
     key: 'venueManage',
-    label: copy.portal.cards.venueManage,
+    label: copy.portal.venueManage,
     iconName: 'calendar',
     status: READY,
     route: { name: 'venueManage' }
   },
   {
     key: 'permissions',
-    label: copy.portal.cards.permissions,
+    label: copy.portal.permissions,
     iconName: 'shield',
     status: READY,
     route: { name: 'adminPermissions' }
@@ -134,16 +134,16 @@ export function cardsForRole(role) {
  */
 export function shellTabsForRole(role) {
   return [
-    { key: 'portal', label: copy.portal.title, route: { name: 'portal' }, match: '/portal' },
+    { key: 'portal', label: copy.portal.pageName, route: { name: 'portal' }, match: '/portal' },
     {
       key: 'audit',
-      label: copy.portal.cards.audit,
+      label: copy.portal.audit,
       route: { name: 'auditMySubmissions' },
       match: '/audit'
     },
     {
       key: 'venue',
-      label: copy.portal.cards.venueBooking,
+      label: copy.portal.venueBooking,
       route: { name: 'venueBookings' },
       match: '/venue'
     },
@@ -151,13 +151,13 @@ export function shellTabsForRole(role) {
       ? { key: 'admin', label: copy.admin.title, route: { name: 'adminConsole' }, match: '/admin' }
       : {
           key: 'scoring',
-          label: copy.portal.cards.scoring,
+          label: copy.portal.scoring,
           route: { name: 'scoringTasks' },
           match: '/scoring'
         },
     {
       key: 'messages',
-      label: copy.portal.cards.messages,
+      label: copy.portal.messages,
       route: { name: 'messages' },
       match: '/messages'
     }
@@ -166,13 +166,13 @@ export function shellTabsForRole(role) {
 
 /** 保留旧名，避免历史引用失效；外壳已改用 shellTabsForRole。 */
 export const SIDEBAR_ENTRIES = Object.freeze([
-  { key: 'portal', label: copy.portal.title, route: { name: 'portal' }, match: '/portal' },
+  { key: 'portal', label: copy.portal.pageName, route: { name: 'portal' }, match: '/portal' },
   { key: 'workbench', label: copy.workbench.title, route: { name: 'workbench' }, match: '/workbench' },
-  { key: 'scoring', label: copy.portal.cards.scoring, route: { name: 'scoringTasks' }, match: '/scoring' },
-  { key: 'hr', label: copy.portal.cards.hr, route: { name: 'hrProfile' }, match: '/hr' },
-  { key: 'audit', label: copy.portal.cards.audit, route: { name: 'auditMySubmissions' }, match: '/audit' },
-  { key: 'venue', label: copy.portal.cards.venueBooking, route: { name: 'venueBookings' }, match: '/venue' },
+  { key: 'scoring', label: copy.portal.scoring, route: { name: 'scoringTasks' }, match: '/scoring' },
+  { key: 'hr', label: copy.portal.hr, route: { name: 'hrProfile' }, match: '/hr' },
+  { key: 'audit', label: copy.portal.audit, route: { name: 'auditMySubmissions' }, match: '/audit' },
+  { key: 'venue', label: copy.portal.venueBooking, route: { name: 'venueBookings' }, match: '/venue' },
   { key: 'admin', label: copy.admin.title, route: { name: 'adminConsole' }, match: '/admin' },
-  { key: 'messages', label: copy.portal.cards.messages, route: { name: 'messages' }, match: '/messages' },
-  { key: 'workRole', label: copy.portal.cards.workContextSwitch, route: { name: 'workRole' }, match: '/work-role' }
+  { key: 'messages', label: copy.portal.messages, route: { name: 'messages' }, match: '/messages' },
+  { key: 'workRole', label: copy.portal.workContextSwitch, route: { name: 'workRole' }, match: '/work-role' }
 ]);

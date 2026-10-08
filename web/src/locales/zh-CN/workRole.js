@@ -1,34 +1,38 @@
-/**
- * 组织与工作角色切换页文案。
- * 逐条照抄小程序 miniprogram/locales/zh-CN/generated/subpackages/org/pages/identitySwitch。
- */
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_adminPersonnel from './shared/adminPersonnel.js';
+import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
+import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
+import src_home from './shared/home.js';
+
 export default Object.freeze({
-  navigationTitle: '组织与工作角色 - WHUSU智慧工作台',
-  title: '组织与工作角色',
-  currentContextLabel: '当前工作角色',
-  organizationLabel: '选择组织',
-  searchPlaceholder: '搜索组织全称',
-  clearSearch: '清除搜索',
-  noMatchingOrg: '没有匹配的组织',
-  noOrg: '暂无组织',
-  noSelectableOrg: '暂无可选组织',
-  currentOrg: '当前组织',
-  selectedOrg: '已选组织',
-  selectOrgHint: '选好组织后，请在下方选择岗位或管理权限',
-  organization: '组织',
-  assignmentTitle: '岗位',
-  adminTitle: '管理权限',
-  adminGlobalScope: '全局管理权限',
-  emptyAssignment: '该组织暂无可用工作角色',
-  apply: '使用此工作角色',
-  select: '选择',
-  selected: '已选择',
-  currentBadge: '当前',
-  selectRole: '选择工作角色',
-  pendingRole: '待选择工作角色',
-  switchFailed: '切换失败，请重试',
-  loadFailed: '加载失败，请重试',
-  notice: '提示',
-  noAccessHint: '请选择其他组织，或联系管理员确认你的岗位或管理权限',
-  noMemberHint: '请联系组织管理员添加您的成员信息'
+  navigationTitle: src_identitySwitch.navigationTitle,
+  title: src_identitySwitch.copy_c3e7d7fee4,
+  currentContextLabel: src_mySubmissions.currentWorkContext,
+  organizationLabel: src_identitySwitch.copy_9fa9026726,
+  searchPlaceholder: src_identitySwitch.copy_c1256b26d6,
+  clearSearch: src_identitySwitch.copy_ed081670d5,
+  noMatchingOrg: src_identitySwitch.copy_27446ca109,
+  noOrg: src_identitySwitch.copy_81f76a3946,
+  noSelectableOrg: src_identitySwitch.copy_dd633ab414,
+  currentOrg: src_identitySwitch.copy_e74c96dd07,
+  selectedOrg: src_identitySwitch.copy_83d91b058a,
+  selectOrgHint: src_identitySwitch.copy_d77e17f5b0,
+  organization: src_identitySwitch.copy_34e2d1f8a0,
+  assignmentTitle: src_adminPersonnel.adminCandidatePositionPrefix,
+  adminTitle: src_identitySwitch.copy_3704f9b212,
+  adminGlobalScope: src_identitySwitch.copy_e3eb24175c,
+  emptyAssignment: src_identitySwitch.copy_da8326b294,
+  apply: src_identitySwitch.copy_ee42a0dcb0,
+  select: src_submissionDetail.copy_896f105132,
+  selected: src_identitySwitch.copy_56f0b27402,
+  currentBadge: src_home.text.current,
+  selectRole: src_identitySwitch.copy_e8b001bfef,
+  pendingRole: src_identitySwitch.copy_6bec6cf9f0,
+  switchFailed: src_identitySwitch.copy_53d5e0a0c8,
+  loadFailed: src_identitySwitch.copy_05644ca9d3,
+  notice: src_identitySwitch.copy_54474b693d,
+  noAccessHint: src_identitySwitch.copy_7c36a9a835,
+  noMemberHint: src_identitySwitch.copy_c2a3133a92,
 });

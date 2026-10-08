@@ -1,29 +1,84 @@
-/**
- * 登录页文案。
- *
- * 取值照抄小程序 miniprogram/locales/zh-CN/main.js 的 login 对象；
- * 小程序登录页以微信为默认入口，网页端只保留口令登录，因此标题与说明
- * 使用小程序里"口令登录"那一支的原话（passwordLogin / passwordNote）。
- */
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_common from './shared/common.js';
+import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
+import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
+import src_api from './shared/generated/utils/api.js';
+import src_authContext from './shared/generated/utils/authContext.js';
+import src_trustedNavigation from './shared/generated/utils/trustedNavigation.js';
+import src_home from './shared/home.js';
+import src_login from './shared/login.js';
+
 export default Object.freeze({
-  navigationTitle: '登录 - WHUSU智慧工作台',
-  appName: 'WHUSU智慧工作台',
-  organizationName: '武汉大学学生会',
-  title: '口令登录',
-  subtitle: '登录后选择组织与工作角色',
-  formTitle: '登录',
-  formHint: '使用已设置的口令登录',
-  studentIdLabel: '学号',
-  studentIdPlaceholder: '请输入学号',
-  passphraseLabel: '口令',
-  passphrasePlaceholder: '请输入口令',
-  submit: '登录',
-  submitting: '登录',
-  missingStudentId: '请输入学号',
-  missingPassphrase: '请输入口令',
-  passwordRequired: '请输入学号和口令',
-  failed: '登录信息不正确',
-  frozen: '账号已被冻结，登录后可查看处理方式',
-  unavailable: '暂时无法登录',
-  expiredNotice: '请重新登录'
+  navigationTitle: src_login.navigationTitle,
+  pageOpenFailed: src_trustedNavigation.copy_4becb061c6,
+  passwordRequired: src_login.messages.passwordRequired,
+  passwordStudentIdRequired: src_admin.copy_f4094dd21d,
+  passwordPassphraseRequired: src_login.messages.passwordPassphraseRequired,
+  loginInvalid: src_login.messages.loginInvalid,
+  relogin: src_authContext.copy_b10d64a68c,
+  loginUnavailable: src_login.messages.loginUnavailable,
+  profileRequired: src_login.messages.profileRequired,
+  submitFailed: src_submissionDetail.copy_8831c65b75,
+  verificationRequired: src_login.messages.verificationRequired,
+  verificationInvalid: src_login.messages.verificationInvalid,
+  recoveryRequired: src_login.messages.recoveryRequired,
+  recoveryInvalid: src_login.messages.recoveryInvalid,
+  recoveryCode: src_home.text.recoveryCode,
+  recoveryPassphrase: src_login.messages.recoveryPassphrase,
+  appName: src_common.brandName,
+  organizationName: src_common.organizationName,
+  wechatLogin: src_login.view.wechatLogin,
+  loginSubtitle: src_login.view.loginSubtitle,
+  loginHint: src_login.view.loginHint,
+  loginTitle: src_login.view.loginTitle,
+  useOwnWechat: src_login.view.useOwnWechat,
+  passwordLogin: src_login.view.passwordLogin,
+  titleVerify: src_login.view.titleVerify,
+  titleRecoveryVerify: src_login.view.titleRecoveryVerify,
+  titleRecoveryRotated: src_login.view.titleRecoveryRotated,
+  titleRecoveryPending: src_login.view.titleRecoveryPending,
+  titleRecovery: src_login.view.titleRecovery,
+  titleClaim: src_login.view.titleClaim,
+  closeWithIcon: src_login.view.closeWithIcon,
+  recoveryStartNote: src_login.view.recoveryStartNote,
+  claimStartNote: src_login.view.claimStartNote,
+  organization: src_login.view.organization,
+  chooseOrganization: src_api.copy_c6070950c1,
+  name: src_admin.copy_7a4d5ab30f,
+  namePlaceholder: src_admin.copy_971b628f49,
+  studentId: src_adminPermissions.copy_80fba348b7,
+  studentIdPlaceholder: src_admin.copy_f4094dd21d,
+  continueAction: src_login.view.continueAction,
+  claimUnavailable: src_login.view.claimUnavailable,
+  submitRecovery: src_login.view.submitRecovery,
+  changeWechat: src_login.view.titleRecovery,
+  backToClaim: src_login.view.backToClaim,
+  passwordNote: src_login.view.passwordNote,
+  passphrase: src_login.view.passphrase,
+  passphrasePlaceholder: src_login.messages.passwordPassphraseRequired,
+  loginAction: src_login.view.loginTitle,
+  titlePasswordBinding: src_login.view.titlePasswordBinding,
+  passwordBindingNote: src_login.view.passwordBindingNote,
+  passwordBindingBlockedNote: src_login.view.passwordBindingBlockedNote,
+  bindPasswordWechat: src_login.view.titlePasswordBinding,
+  skipPasswordBinding: src_login.view.skipPasswordBinding,
+  enterAfterTemporaryLogin: src_login.view.enterAfterTemporaryLogin,
+  backToWechat: src_login.view.backToWechat,
+  verificationNote: src_login.view.verificationNote,
+  verificationCode: src_login.view.verificationCode,
+  verificationPlaceholder: src_login.view.verificationPlaceholder,
+  finishClaim: src_login.view.finishClaim,
+  backToProfile: src_login.view.backToProfile,
+  recoveryNote: src_login.view.recoveryNote,
+  recoveryMethod: src_login.view.recoveryMethod,
+  recoveryPlaceholder: src_login.messages.recoveryRequired,
+  confirmWechatChange: src_login.view.confirmWechatChange,
+  waitForReview: src_login.view.titleRecoveryPending,
+  rotatedRecoveryNote: src_login.view.rotatedRecoveryNote,
+  copyRecoveryCode: src_login.view.copyRecoveryCode,
+  finish: src_admin.hrDeletionFinish,
+  recoveryPendingNote: src_login.view.recoveryPendingNote,
+  close: src_common.actions.close,
 });

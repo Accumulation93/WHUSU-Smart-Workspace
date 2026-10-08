@@ -3,18 +3,18 @@
     <div class="login-layout-inner">
       <section class="hero login-hero">
         <div class="hero-badge">{{ copy.common.appName }}</div>
-        <h1 class="hero-title">{{ copy.login.title }}</h1>
-        <p class="hero-subtitle">{{ copy.login.subtitle }}</p>
+        <h1 class="hero-title">{{ copy.login.passwordLogin }}</h1>
+        <p class="hero-subtitle">{{ copy.login.loginSubtitle }}</p>
       </section>
 
       <form class="card stack" @submit.prevent="onSubmit">
-        <div class="section-title">{{ copy.login.formTitle }}</div>
-        <p class="muted">{{ copy.login.formHint }}</p>
+        <div class="section-title">{{ copy.login.loginTitle }}</div>
+        <p class="muted">{{ copy.login.passwordNote }}</p>
 
         <div v-if="notice" class="notice-line">{{ notice }}</div>
 
         <label class="field">
-          <span class="field-label">{{ copy.login.studentIdLabel }}</span>
+          <span class="field-label">{{ copy.login.studentId }}</span>
           <input
             v-model="studentId"
             class="field-input"
@@ -27,7 +27,7 @@
         </label>
 
         <label class="field">
-          <span class="field-label">{{ copy.login.passphraseLabel }}</span>
+          <span class="field-label">{{ copy.login.passphrase }}</span>
           <input
             v-model="passphrase"
             class="field-input"
@@ -43,7 +43,7 @@
 
         <button type="submit" class="btn btn-primary" :disabled="submitting">
           <span v-if="submitting" class="spinner" aria-hidden="true"></span>
-          <span>{{ submitting ? copy.login.submitting : copy.login.submit }}</span>
+          <span>{{ copy.login.loginAction }}</span>
         </button>
 
       </form>
@@ -73,25 +73,25 @@ const submitting = ref(false);
 const failureText = ref('');
 
 const notice = computed(() => {
-  if (route.query.reason === 'expired') return copy.login.expiredNotice;
+  if (route.query.reason === 'expired') return copy.login.relogin;
   return session.status === 'anonymous' ? session.notice : '';
 });
 
 function failureReason(error) {
   const status = String((error && error.status) || '');
-  if (status === 'account_frozen') return copy.login.frozen;
-  if (status === 'login_failed' || status === 'auth_failed') return copy.login.failed;
-  return (error && error.message) || copy.login.unavailable;
+  if (status === 'account_frozen') return copy.portal.view.authFrozen;
+  if (status === 'login_failed' || status === 'auth_failed') return copy.login.loginInvalid;
+  return (error && error.message) || copy.login.loginUnavailable;
 }
 
 async function onSubmit() {
   if (submitting.value) return;
   if (!studentId.value.trim()) {
-    failureText.value = copy.login.missingStudentId;
+    failureText.value = copy.login.passwordStudentIdRequired;
     return;
   }
   if (!passphrase.value) {
-    failureText.value = copy.login.missingPassphrase;
+    failureText.value = copy.login.passwordPassphraseRequired;
     return;
   }
   submitting.value = true;
@@ -109,7 +109,7 @@ async function onSubmit() {
       router.replace({ name: 'portal' });
       return;
     }
-    failureText.value = (result && result.message) || copy.login.unavailable;
+    failureText.value = (result && result.message) || copy.login.loginUnavailable;
   } catch (error) {
     failureText.value = failureReason(error);
   } finally {

@@ -133,7 +133,7 @@ const routes = [
   },
   {
     path: '/venue/create',
-    name: 'venueBooking',
+    name: 'venueBookingCreate',
     component: () => import('@/views/venue/VenueBookingView.vue'),
     meta: { requiresAuth: true, title: copy.venue.createTitle }
   },

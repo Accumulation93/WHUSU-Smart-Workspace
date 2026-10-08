@@ -1,9 +1,14 @@
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_api from './shared/generated/utils/api.js';
+import src_web from './shared/web.js';
+
 export default Object.freeze({
-  networkFailed: '网络连接不稳定，请稍后重试',
-  requestFailed: '请求未完成，请稍后重试',
-  sessionExpired: '登录状态已过期，请重新登录',
-  upgradeRequired: '页面版本过旧，请刷新后重试',
-  originRejected: '页面已过期，请刷新后重试',
-  permissionDenied: '当前工作角色没有这项权限',
-  roleRequired: '请先选择工作角色'
+  networkFailed: src_web.errors.networkFailed,
+  requestFailed: src_web.errors.requestFailed,
+  sessionExpired: src_api.copy_c337bd9350,
+  upgradeRequired: src_web.errors.upgradeRequired,
+  originRejected: src_web.errors.originRejected,
+  permissionDenied: src_web.errors.permissionDenied,
+  roleRequired: src_web.errors.roleRequired,
 });

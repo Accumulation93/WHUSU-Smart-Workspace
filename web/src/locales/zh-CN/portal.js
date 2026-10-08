@@ -1,63 +1,98 @@
-/**
- * 门户文案。
- *
- * 取值逐条照抄小程序 miniprogram/locales/zh-CN/main.js 的 portal 对象，
- * 不做改写、不换说法；网页端没有的能力（扫一扫、微信登录）不在这里登记。
- */
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_common from './shared/common.js';
+import src_workspace_hero from './shared/generated/components/workspace-hero/workspace-hero.js';
+import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
+import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
+import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
+import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
+import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
+import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
+import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
+import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
+import src_hrInfoBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
+import src_venueBookingDetail from './shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
+import src_myVenueBookings from './shared/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js';
+import src_venueBooking from './shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
+import src_venueManage from './shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import src_home from './shared/home.js';
+import src_login from './shared/login.js';
+import src_main from './shared/main.js';
+
 export default Object.freeze({
-  navigationTitle: '应用服务 - WHUSU智慧工作台',
-  appName: 'WHUSU智慧工作台',
-  title: '应用服务',
-  pageName: '应用服务',
-  organizationName: '武汉大学学生会',
-  categoryLabels: Object.freeze({ audit: '审核', venue: '场地', scoring: '考核', hr: '人事', system: '其他' }),
-  cards: Object.freeze({
-    messages: '消息中心',
-    workContextSwitch: '组织与工作角色',
-    scoring: '考核评分',
-    hr: '人事信息',
-    audit: '审核',
-    venueBooking: '场地借用',
-    system: '基本设置',
-    venueManage: '场地管理',
-    permissions: '权限管理'
-  }),
-  workContext: Object.freeze({
-    signedOut: '未登录',
-    superAdmin: '超级管理员',
-    admin: '普通管理员',
-    unset: '未设置岗位',
-    welcome: '欢迎使用'
-  }),
-  todoTitle: '待办事项',
-  totalPrefix: '共',
-  itemSuffix: '条',
-  viewAll: '查看全部',
-  noTodos: '暂无待处理事项',
-  partialOrganizationLoading: '部分组织暂未加载，正在重试',
-  organization: '所属组织',
-  current: '当前',
-  enter: '进入',
-  loadingMore: '正在加载更多…',
-  notificationTitle: '通知',
-  markAllRead: '全部已读',
-  noNotifications: '暂无通知',
-  delete: '删除',
-  servicesTitle: '应用服务',
-  grid: '宫格',
-  list: '列表',
-  search: '搜索',
-  searchPlaceholder: '搜索应用…',
-  clearSearch: '清除搜索',
-  noMatchingApps: '没有匹配的应用',
-  noApps: '暂无应用',
-  developing: '开发中',
-  workContextSwitchLabel: '组织与工作角色',
-  logout: '退出登录',
-  crossOrganization: '跨组织事项',
-  switchDescription: '切换到以下组织后查看',
-  cancel: '取消',
-  switchAndView: '切换并查看',
-  retryLater: '请稍后再试',
-  close: '关闭'
+  partialOrganizationLoading: src_main.portal.partialOrganizationLoading,
+  navigationTitle: src_main.portal.navigationTitle,
+  appName: src_common.brandName,
+  pageName: src_main.portal.pageName,
+  organizationName: src_common.organizationName,
+  audit: src_myApprovalHistory.copy_56d416c578,
+  venue: src_venueBookingDetail.copy_bbbebc1abf,
+  scoring: src_admin.copy_33a502217d,
+  hr: src_accountSecurity.copy_166a418985,
+  system: src_admin.copy_5b4cf5d1bf,
+  scan: src_main.portal.cards.scan,
+  messages: src_main.portal.cards.messages,
+  workContextSwitch: src_identitySwitch.copy_c3e7d7fee4,
+  venueBooking: src_myVenueBookings.copy_9ba3b8c8a9,
+  venueManage: src_venueManage.copy_02719d6557,
+  permissions: src_main.portal.cards.permissions,
+  signedOut: src_home.text.signedOut,
+  superAdmin: src_workspace_hero.copy_ccd219e5f1,
+  admin: src_adminPermissions.copy_1557b96093,
+  unset: src_venueBooking.copy_ad183b164d,
+  welcome: src_home.text.welcome,
+  notification: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  todo: src_main.portal.messages.todo,
+  readFailed: src_main.portal.messages.readFailed,
+  deleteFailed: src_signatureManager.copy_076bb5d383,
+  incomplete: src_signaturePad.copy_bff49f783f,
+  partialBulkAction: src_main.portal.messages.partialBulkAction,
+  retryLater: src_common.actions.retryLater,
+  switchWorkContext: src_main.portal.messages.switchWorkContext,
+  switchOrganizationAndWorkContext: src_main.portal.messages.switchOrganizationAndWorkContext,
+  targetOrganization: src_main.portal.messages.targetOrganization,
+  selectWorkContext: src_main.portal.messages.selectWorkContext,
+  selectOrganization: src_main.portal.messages.selectOrganization,
+  switchFailed: src_identitySwitch.copy_53d5e0a0c8,
+  workContextHint: src_main.portal.view.workContextHint,
+  loadingHint: src_main.portal.view.loadingHint,
+  todoTitle: src_main.portal.view.todoTitle,
+  totalPrefix: src_admin.copy_b4c3e73028,
+  itemSuffix: src_main.portal.view.itemSuffix,
+  viewAll: src_main.portal.view.viewAll,
+  noTodos: src_main.portal.view.noTodos,
+  todoType: src_main.portal.view.todoType,
+  organization: src_login.view.organization,
+  current: src_home.text.current,
+  enter: src_common.actions.enter,
+  loadingMore: src_main.portal.view.loadingMore,
+  notificationTitle: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  markAllRead: src_mySubmissions.copy_6830671a51,
+  noNotifications: src_main.portal.view.noNotifications,
+  notificationType: src_main.portal.view.notificationType,
+  delete: src_signatureManager.copy_acc985cabc,
+  servicesTitle: src_main.portal.pageName,
+  grid: src_main.portal.view.grid,
+  list: src_main.portal.view.list,
+  search: src_adminPermissions.copy_cea1da7603,
+  searchPlaceholder: src_main.portal.view.searchPlaceholder,
+  clearSearch: src_identitySwitch.copy_ed081670d5,
+  scanResultTitle: src_main.portal.view.scanResultTitle,
+  scanExternalHint: src_main.portal.view.scanExternalHint,
+  scanCopyAction: src_main.portal.view.scanCopyAction,
+  scanCloseAction: src_common.actions.close,
+  scanFailed: src_main.portal.view.scanFailed,
+  navLoginAction: src_login.view.loginTitle,
+  authUnavailable: src_main.portal.view.authUnavailable,
+  authFrozen: src_main.portal.view.authFrozen,
+  authRetryAction: src_main.portal.view.authRetryAction,
+  authLoginAction: src_main.portal.view.authLoginAction,
+  noMatchingApps: src_main.portal.view.noMatchingApps,
+  noApps: src_main.portal.view.noApps,
+  developing: src_main.portal.view.developing,
+  logout: src_main.portal.view.logout,
+  crossOrganization: src_main.portal.view.crossOrganization,
+  switchDescription: src_main.portal.view.switchDescription,
+  cancel: src_common.actions.cancel,
+  switchAndView: src_main.portal.view.switchAndView,
 });

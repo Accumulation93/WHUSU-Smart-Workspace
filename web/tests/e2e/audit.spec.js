@@ -6,9 +6,9 @@ const WEB_BASE = '/web';
 
 async function login(page) {
   await page.goto(`${WEB_BASE}/login`);
-  await page.getByLabel(copy.login.studentIdLabel).fill(STORED_STUDENT_ID);
-  await page.getByLabel(copy.login.passphraseLabel).fill(STORED_PASSPHRASE);
-  await page.getByRole('button', { name: copy.login.submit }).click();
+  await page.getByLabel(copy.login.studentId).fill(STORED_STUDENT_ID);
+  await page.getByLabel(copy.login.passphrase).fill(STORED_PASSPHRASE);
+  await page.getByRole('button', { name: copy.login.loginAction }).click();
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/portal$`));
 }
 

@@ -7,9 +7,9 @@ const ROLE_LABEL = '综合事务 · 办公室';
 
 async function login(page) {
   await page.goto(`${WEB_BASE}/login`);
-  await page.getByLabel(copy.login.studentIdLabel).fill(STORED_STUDENT_ID);
-  await page.getByLabel(copy.login.passphraseLabel).fill(STORED_PASSPHRASE);
-  await page.getByRole('button', { name: copy.login.submit }).click();
+  await page.getByLabel(copy.login.studentId).fill(STORED_STUDENT_ID);
+  await page.getByLabel(copy.login.passphrase).fill(STORED_PASSPHRASE);
+  await page.getByRole('button', { name: copy.login.loginAction }).click();
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/portal$`));
 }
 
@@ -17,8 +17,8 @@ test('未登录直接访问门户会进入登录页且不谎称登录过期', as
   await mockApi(page, { authenticated: false });
   await page.goto(`${WEB_BASE}/portal`);
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/login`));
-  await expect(page.getByRole('heading', { name: copy.login.title })).toBeVisible();
-  await expect(page.getByText(copy.login.expiredNotice)).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: copy.login.passwordLogin })).toBeVisible();
+  await expect(page.getByText(copy.login.relogin)).toHaveCount(0);
 });
 
 test('口令登录后进入门户并展示当前工作角色', async ({ page }) => {
@@ -37,7 +37,7 @@ test('口令登录后进入门户并展示当前工作角色', async ({ page }) 
   // 共享 Hero 与里面的组织切换行都会展示工作角色，这里只断言第一处可见。
   await expect(page.getByText(ROLE_LABEL, { exact: true }).first()).toBeVisible();
   // 「应用服务」同时出现在侧栏、Hero 页签与板块标题，这里只断言板块标题。
-  await expect(page.locator('.section-title', { hasText: copy.portal.servicesTitle }).first()).toBeVisible();
+  await expect(page.locator('.section-title', { hasText: copy.portal.view.servicesTitle }).first()).toBeVisible();
 });
 
 test('登录状态在使用中失效时回到登录页并说明原因', async ({ page }) => {
@@ -51,7 +51,7 @@ test('登录状态在使用中失效时回到登录页并说明原因', async ({
   await page.getByRole('button', { name: copy.portal.cards.messages }).first().click();
 
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/login`));
-  await expect(page.getByText(copy.login.expiredNotice)).toBeVisible();
+  await expect(page.getByText(copy.login.relogin)).toBeVisible();
 });
 
 test('门户展示待办与通知，点开通知先标记已读再给出模块说明', async ({ page }) => {
@@ -73,10 +73,10 @@ test('门户的全部标为已读与删除通知调用对应接口', async ({ pa
   const api = await mockApi(page);
   await login(page);
 
-  await page.getByRole('button', { name: copy.portal.markAllRead }).click();
+  await page.getByRole('button', { name: copy.portal.view.markAllRead }).click();
   await expect.poll(() => callsOf(api.calls, 'markAllNotificationsRead').length).toBe(1);
 
-  await page.getByRole('button', { name: copy.messages.deleteOne }).click();
+  await page.getByRole('button', { name: copy.messages.view.deleteNotification }).click();
   await expect.poll(() => callsOf(api.calls, 'deleteNotification').length).toBe(1);
 });
 
@@ -105,12 +105,12 @@ test('消息中心按页签加载待办与通知，并可全部删除', async ({
   await expect(page.getByText('场地借用审批')).toBeVisible();
   expect(callsOf(api.calls, 'listTodos').length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: copy.messages.tabNotification }).click();
+  await page.getByRole('button', { name: copy.messages.view.notifications }).click();
   await expect(page.getByText('有一条新的审核申请')).toBeVisible();
   expect(callsOf(api.calls, 'listNotifications').length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: copy.messages.clearAll }).click();
-  await page.getByRole('dialog').getByRole('button', { name: copy.messages.clearAll }).click();
+  await page.getByRole('button', { name: copy.messages.view.clearAll }).click();
+  await page.getByRole('dialog').getByRole('button', { name: copy.messages.view.clearAll }).click();
   await expect.poll(() => callsOf(api.calls, 'deleteAllNotifications').length).toBe(1);
 });
 

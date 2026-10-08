@@ -1,49 +1,70 @@
-/**
- * 消息中心文案。
- *
- * 取值逐条照抄小程序 miniprogram/locales/zh-CN/main.js 的 messageCenter 对象。
- * 小程序在成功删除、成功标记已读时不弹提示，只在失败时提示，网页保持同一行为。
- */
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_common from './shared/common.js';
+import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
+import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
+import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
+import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
+import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
+import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
+import src_authPersonnelBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
+import src_hrInfoBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
+import src_venueBookingDetail from './shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
+import src_home from './shared/home.js';
+import src_login from './shared/login.js';
+import src_main from './shared/main.js';
+
 export default Object.freeze({
-  navigationTitle: '消息中心 - WHUSU智慧工作台',
-  title: '消息中心',
-  categoryLabels: Object.freeze({
-    audit: '审核',
-    venue: '场地',
-    scoring: '考核',
-    hr: '人事',
-    system: '其他'
-  }),
-  tabTodo: '待办',
-  tabNotification: '通知',
-  currentTodos: '当前待办',
-  allNotifications: '全部通知',
-  organizationScope: '组织范围',
-  selectOrganization: '选择组织',
-  allOrganizations: '全部组织',
-  partialOrganizationLoading: '部分组织暂未加载，正在重试',
-  loading: '正在加载…',
-  markAllRead: '全部已读',
-  clearAll: '全部清除',
-  clearAllConfirmTitle: '清除全部通知',
-  clearAllConfirmBody: '将清除当前可见组织范围内的全部通知，待我审批事项不受影响。',
-  deleteOne: '删除通知',
-  emptyTodo: '暂无待处理事项',
-  emptyNotification: '暂无通知',
-  deleteFailed: '删除失败，请重试',
-  clearFailed: '清除失败，请重试',
-  readFailed: '标记已读失败，请重试',
-  incomplete: '操作未完成，请重试',
-  partialBulkAction: '部分未完成',
-  retryLater: '请稍后重试',
-  loadMore: '正在加载更多…',
-  organization: '所属组织',
-  current: '当前',
-  enter: '进入',
-  selected: '已选择',
-  confirm: '确定',
-  close: '关闭',
-  switchAndView: '切换并查看',
-  crossOrganizationItem: '跨组织事项',
-  switchDescription: '切换到以下组织后查看'
+  navigationTitle: src_main.messageCenter.navigationTitle,
+  audit: src_myApprovalHistory.copy_56d416c578,
+  venue: src_venueBookingDetail.copy_bbbebc1abf,
+  scoring: src_main.portal.categoryLabels.scoring,
+  hr: src_main.portal.categoryLabels.hr,
+  system: src_main.portal.categoryLabels.system,
+  notification: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  allOrganizations: src_authPersonnelBehavior.copy_d337157f74,
+  selectOrganizationOrWorkContext: src_main.messageCenter.messages.selectOrganizationOrWorkContext,
+  refreshLater: src_myApprovalHistory.copy_e52119b17e,
+  retryLater: src_myApprovalHistory.copy_e52119b17e,
+  switchWorkContext: src_main.portal.messages.switchWorkContext,
+  switchOrganizationAndWorkContext: src_main.portal.messages.switchOrganizationAndWorkContext,
+  targetOrganization: src_main.portal.messages.targetOrganization,
+  notificationReadFailed: src_main.portal.messages.readFailed,
+  selectWorkContext: src_main.portal.messages.selectWorkContext,
+  selectOrganization: src_identitySwitch.copy_9fa9026726,
+  switchFailed: src_identitySwitch.copy_53d5e0a0c8,
+  incomplete: src_signaturePad.copy_bff49f783f,
+  partialBulkAction: src_main.portal.messages.partialBulkAction,
+  deleteFailed: src_signatureManager.copy_076bb5d383,
+  clearFailed: src_main.messageCenter.messages.clearFailed,
+  clearTitle: src_main.messageCenter.messages.clearTitle,
+  clearDescription: src_main.messageCenter.messages.clearDescription,
+  clearConfirm: src_main.messageCenter.messages.clearConfirm,
+  appName: src_common.brandName,
+  pageName: src_main.portal.cards.messages,
+  todos: src_main.portal.messages.todo,
+  notifications: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  organizationScope: src_main.messageCenter.view.organizationScope,
+  loadingHint: src_main.portal.view.loadingHint,
+  partialOrganizationLoading: src_main.portal.partialOrganizationLoading,
+  currentTodos: src_main.messageCenter.view.currentTodos,
+  allNotifications: src_main.messageCenter.view.allNotifications,
+  markAllRead: src_mySubmissions.copy_6830671a51,
+  clearAll: src_main.messageCenter.messages.clearConfirm,
+  noTodos: src_main.portal.view.noTodos,
+  noNotifications: src_main.portal.view.noNotifications,
+  organization: src_login.view.organization,
+  current: src_home.text.current,
+  enter: src_common.actions.enter,
+  deleteNotification: src_main.messageCenter.view.deleteNotification,
+  loading: src_admin.copy_a017932da1,
+  crossOrganizationItem: src_main.portal.view.crossOrganization,
+  switchDescription: src_main.portal.view.switchDescription,
+  cancel: src_common.actions.cancel,
+  switchAndView: src_main.portal.view.switchAndView,
+  selectOrganizationScope: src_main.messageCenter.view.selectOrganizationScope,
+  close: src_common.actions.close,
+  selected: src_identitySwitch.copy_56f0b27402,
+  confirm: src_submissionDetail.copy_a58e97a9f8,
 });

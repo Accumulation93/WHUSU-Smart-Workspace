@@ -1,23 +1,30 @@
+// 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
+// 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import src_verification from './shared/generated/subpackages/audit/pages/verification/verification.js';
+import src_signingEvidence from './shared/signingEvidence.js';
+import src_web from './shared/web.js';
+
 export default Object.freeze({
-  navigationTitle: '验签 - WHUSU智慧工作台',
-  reportTitle: '验证报告',
-  title: '验签',
-  pageName: '审核 · 验签',
-  formTitle: '按申请编号或文件核对签署',
-  modeLabel: '核对方式',
-  modeNumber: '申请编号',
-  modeFile: '上传文件',
-  numberLabel: '申请编号',
-  numberPlaceholder: '请输入申请编号',
-  numberRequired: '请输入申请编号',
-  fileLabel: '待核对文件',
-  filePlaceholder: '选择文件',
-  fileTooLarge: '单个文件不能超过 10MB',
-  fileReadFailed: '文件读取失败，请重新选择',
-  fileRequired: '请先选择要核对的文件',
-  verifyAction: '开始核对',
-  verifying: '正在核对',
-  resultTitle: '核对结果',
-  verifyFailed: '核对没有完成，请稍后重试',
-  forbidden: '当前工作角色没有这项权限'
+  navigationTitle: src_web.verify.navigationTitle,
+  reportTitle: src_signingEvidence.reportTitle,
+  title: src_web.verify.title,
+  pageName: src_web.verify.pageName,
+  formTitle: src_verification.copy_5d41fef45a,
+  modeLabel: src_web.verify.modeLabel,
+  modeNumber: src_verification.copy_1ddd4c9b39,
+  modeFile: src_verification.copy_3eb9b187ef,
+  numberLabel: src_verification.copy_1ddd4c9b39,
+  numberPlaceholder: src_verification.copy_93eb240494,
+  numberRequired: src_verification.copy_93eb240494,
+  fileLabel: src_web.verify.fileLabel,
+  filePlaceholder: src_submissionDetail.copy_98aea69c53,
+  fileTooLarge: src_web.verify.fileTooLarge,
+  fileReadFailed: src_submissionDetail.copy_03d69a9d28,
+  fileRequired: src_verification.copy_cbf65b3559,
+  verifyAction: src_web.verify.verifyAction,
+  verifying: src_web.verify.verifying,
+  resultTitle: src_web.verify.resultTitle,
+  verifyFailed: src_web.verify.verifyFailed,
+  forbidden: src_web.errors.permissionDenied,
 });
