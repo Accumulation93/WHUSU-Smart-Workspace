@@ -42,6 +42,43 @@ const routes = [
     component: () => import('@/views/WorkRoleView.vue'),
     meta: { requiresAuth: true, title: copy.workRole.navigationTitle }
   },
+  { path: '/audit', redirect: { name: 'auditMySubmissions' } },
+  {
+    path: '/audit/my-submissions',
+    name: 'auditMySubmissions',
+    component: () => import('@/views/AuditMySubmissionsView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.navigationTitle }
+  },
+  {
+    path: '/audit/pending',
+    name: 'auditPending',
+    component: () => import('@/views/AuditPendingView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.navigationTitle }
+  },
+  {
+    path: '/audit/history',
+    name: 'auditHistory',
+    component: () => import('@/views/AuditHistoryView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.navigationTitle }
+  },
+  {
+    path: '/audit/submission/:id',
+    name: 'auditSubmission',
+    component: () => import('@/views/AuditSubmissionView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.detailTitle }
+  },
+  {
+    path: '/audit/create',
+    name: 'auditCreate',
+    component: () => import('@/views/AuditCreateView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.createTitle }
+  },
+  {
+    path: '/audit/signatures',
+    name: 'auditSignatures',
+    component: () => import('@/views/AuditSignatureView.vue'),
+    meta: { requiresAuth: true, title: copy.audit.signatureTitle }
+  },
   { path: '/switch', redirect: { name: 'workRole' } },
   {
     path: '/account-security',

@@ -44,8 +44,8 @@ export const USER_CARDS = Object.freeze([
   {
     key: 'audit',
     label: copy.portal.entryAudit,
-    status: BUILDING,
-    route: { name: 'workbench', query: { subApp: 'audit' } }
+    status: READY,
+    route: { name: 'auditMySubmissions' }
   },
   {
     key: 'venue',
@@ -79,8 +79,8 @@ export const ADMIN_CARDS = Object.freeze([
   {
     key: 'audit',
     label: copy.portal.entryAudit,
-    status: BUILDING,
-    route: { name: 'workbench', query: { subApp: 'audit' } }
+    status: READY,
+    route: { name: 'auditMySubmissions' }
   },
   {
     key: 'venueManage',
@@ -101,8 +101,9 @@ export function cardsForRole(role) {
 }
 
 export const SIDEBAR_ENTRIES = Object.freeze([
-  { key: 'portal', label: copy.portal.title, route: { name: 'portal' } },
-  { key: 'workbench', label: copy.workbench.title, route: { name: 'workbench' } },
-  { key: 'messages', label: copy.portal.entryMessages, route: { name: 'messages' } },
-  { key: 'workRole', label: copy.portal.entryRole, route: { name: 'workRole' } }
+  { key: 'portal', label: copy.portal.title, route: { name: 'portal' }, match: '/portal' },
+  { key: 'workbench', label: copy.workbench.title, route: { name: 'workbench' }, match: '/workbench' },
+  { key: 'audit', label: copy.portal.entryAudit, route: { name: 'auditMySubmissions' }, match: '/audit' },
+  { key: 'messages', label: copy.portal.entryMessages, route: { name: 'messages' }, match: '/messages' },
+  { key: 'workRole', label: copy.portal.entryRole, route: { name: 'workRole' }, match: '/work-role' }
 ]);

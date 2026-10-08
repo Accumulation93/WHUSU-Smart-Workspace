@@ -113,6 +113,150 @@ export const NOTIFICATION_ITEM = {
   createdAt: '2026-01-03T06:07:08.000Z'
 };
 
+// ---------- 审核审批 ----------
+
+export const MY_SUBMISSION = {
+  id: 'submission-1',
+  submissionNumber: 'SP-2026-0001',
+  title: '活动室使用申请',
+  description: '申请 3 月 12 日使用活动室',
+  type: 'template',
+  status: 'in_progress',
+  currentStepIndex: 1,
+  resubmitMode: 'fresh',
+  createdAt: '2026-03-01T02:00:00.000Z',
+  updatedAt: '2026-03-02T02:00:00.000Z',
+  isUnread: true
+};
+
+export const PENDING_STEP = {
+  id: 'step-2',
+  submissionId: 'submission-1',
+  submissionNumber: 'SP-2026-0001',
+  title: '活动室使用申请',
+  submittedBy: 'hr-2',
+  submitterName: '张同学',
+  sortOrder: 1,
+  approverType: 'identity',
+  scopeType: 'all',
+  actionType: 'pass',
+  round: 1,
+  createdAt: '2026-03-02T02:00:00.000Z'
+};
+
+export const HISTORY_ROW = {
+  id: 'submission-1',
+  submissionNumber: 'SP-2026-0001',
+  title: '活动室使用申请',
+  description: '申请 3 月 12 日使用活动室',
+  type: 'template',
+  status: 'in_progress',
+  currentStepIndex: 1,
+  submittedBy: 'hr-2',
+  submitterName: '张同学',
+  createdAt: '2026-03-01T02:00:00.000Z',
+  updatedAt: '2026-03-02T02:00:00.000Z',
+  mySteps: [{ _key: 0, sortOrder: 0, status: 'approved', processedAt: '2026-03-02T02:00:00.000Z', comment: '同意' }],
+  myLastActionAt: '2026-03-02T02:00:00.000Z'
+};
+
+export const SIGNATURE_ITEM = {
+  id: 'signature-1',
+  name: '我的签名',
+  imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  isDefault: true,
+  createdAt: '2026-03-01T02:00:00.000Z'
+};
+
+export function submissionDetail(options) {
+  const settings = options || {};
+  const actionType = settings.actionType || 'pass';
+  return {
+    status: 'success',
+    userIsSubmitter: settings.userIsSubmitter === true,
+    userIsApprover: settings.userIsApprover !== false,
+    canApproveCurrentStep: settings.canApproveCurrentStep !== false,
+    userIsAdmin: false,
+    submission: {
+      id: 'submission-1',
+      submissionNumber: 'SP-2026-0001',
+      title: '活动室使用申请',
+      description: '申请 3 月 12 日使用活动室',
+      type: 'template',
+      templateId: 'template-1',
+      templateName: '活动申请流程',
+      status: 'in_progress',
+      submittedBy: 'hr-2',
+      submitterName: '张同学',
+      currentStepIndex: 1,
+      resubmitMode: 'fresh',
+      createdAt: '2026-03-01T02:00:00.000Z',
+      updatedAt: '2026-03-02T02:00:00.000Z'
+    },
+    steps: [
+      {
+        id: 'step-1',
+        sortOrder: 0,
+        stepName: '部门初审',
+        approverType: 'identity',
+        approverDesc: '由 综合事务 审批',
+        actionType: 'pass',
+        allowApproverDesignation: false,
+        status: 'approved',
+        comment: '同意',
+        rejectionReason: '',
+        round: 1,
+        processedAt: '2026-03-02T02:00:00.000Z'
+      },
+      {
+        id: 'step-2',
+        sortOrder: 1,
+        stepName: '负责人审批',
+        approverType: 'identity',
+        approverDesc: '由 负责人 审批',
+        actionType,
+        allowApproverDesignation: settings.allowApproverDesignation === true,
+        status: 'pending',
+        comment: '',
+        rejectionReason: '',
+        round: 1,
+        processedAt: null
+      }
+    ],
+    files: [
+      {
+        id: 'file-1',
+        fileName: '申请表.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 20480,
+        fileHash: 'hash-1',
+        sortOrder: 0
+      }
+    ],
+    signatures: [],
+    events: [
+      {
+        id: 'event-1',
+        eventType: 'submit',
+        stepIndex: 0,
+        round: 1,
+        operatorName: '张同学',
+        comment: '',
+        createdAt: '2026-03-01T02:00:00.000Z'
+      },
+      {
+        id: 'event-2',
+        eventType: 'approve',
+        stepIndex: 0,
+        round: 1,
+        operatorName: '李老师',
+        comment: '同意',
+        createdAt: '2026-03-02T02:00:00.000Z'
+      }
+    ]
+  };
+}
+
 /**
  * 拦截网页发出的全部接口调用，按接口名给出固定应答，并记录调用顺序。
  */
@@ -175,6 +319,46 @@ export async function mockApi(page, options) {
       });
     }
     if (name === 'deleteAllNotifications') return reply({ status: 'success', deletedCount: 1 });
+    if (name === 'listMySubmissions') {
+      return reply({
+        status: 'success',
+        submissions: settings.emptySubmissions ? [] : [MY_SUBMISSION]
+      });
+    }
+    if (name === 'listPendingApprovals') {
+      return reply({ status: 'success', pending: settings.emptyPending ? [] : [PENDING_STEP] });
+    }
+    if (name === 'listMyApprovalHistory') {
+      return reply({ status: 'success', items: settings.emptyHistory ? [] : [HISTORY_ROW] });
+    }
+    if (name === 'getSubmissionDetail') {
+      return reply(submissionDetail(settings.detail));
+    }
+    if (name === 'listAvailableFlowTemplates') {
+      return reply({
+        status: 'success',
+        templates: settings.emptyTemplates ? [] : [
+          { id: 'template-1', name: '活动申请流程', description: '活动室与活动用品申请', stepCount: 2, resubmitMode: 'fresh' }
+        ]
+      });
+    }
+    if (name === 'uploadAuditFile') {
+      return reply({
+        status: 'success',
+        fileId: 'uploaded-1',
+        fileName: body.fileName || 'uploaded.pdf',
+        mimeType: body.mimeType || 'application/pdf',
+        fileSize: 1024,
+        fileHash: 'hash-uploaded',
+        fileToken: 'token-uploaded'
+      });
+    }
+    if (name === 'listMySignatures') {
+      return reply({ status: 'success', signatures: settings.emptySignatures ? [] : [SIGNATURE_ITEM] });
+    }
+    if (name === 'saveSignature') {
+      return reply({ status: 'success', id: 'signature-new' });
+    }
     return reply({ status: 'success' });
   });
   return {

@@ -67,7 +67,7 @@ const roleText = computed(() => {
 const currentTitle = computed(() => route.meta.title || copy.common.appName);
 
 function isActive(entry) {
-  return route.name === entry.route.name;
+  return route.path === entry.match || route.path.startsWith(entry.match + '/');
 }
 
 function go(target) {
