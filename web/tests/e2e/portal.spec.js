@@ -4,6 +4,8 @@ import { callsOf, mockApi, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtur
 
 const WEB_BASE = '/web';
 const ROLE_LABEL = '综合事务 · 办公室';
+// 测试会话里的当前组织名，用来证明底部不会显示它。
+const ORG_NAME = '测试组织';
 
 async function login(page) {
   await page.goto(`${WEB_BASE}/login`);
@@ -57,6 +59,12 @@ test('登录状态在使用中失效时回到登录页并说明原因', async ({
 test('门户展示待办与通知，点开通知先标记已读再给出模块说明', async ({ page }) => {
   const api = await mockApi(page);
   await login(page);
+
+  // 页面底部两行是固定品牌文案，取语言库常量；当前组织名不能顶替它。
+  const footer = page.locator('.page-footer').first();
+  await expect(footer.locator('.footer-name')).toHaveText(copy.common.appName);
+  await expect(footer.locator('.footer-org')).toHaveText(copy.common.organizationName);
+  await expect(footer.locator('.footer-org')).not.toHaveText(ORG_NAME);
 
   await expect(page.getByText('场地借用审批')).toBeVisible();
   await expect(page.getByText('有一条新的审核申请')).toBeVisible();

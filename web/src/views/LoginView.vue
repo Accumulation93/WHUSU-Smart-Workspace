@@ -49,8 +49,8 @@
       </form>
 
       <footer class="page-footer">
-        <span>{{ copy.common.appName }}</span>
-        <span>{{ copy.common.webVersionLabel }} {{ WEB_CLIENT_VERSION }}</span>
+        <span class="footer-name">{{ copy.common.appName }}</span>
+        <span class="footer-org">{{ copy.common.organizationName }}</span>
       </footer>
     </div>
   </div>
@@ -62,7 +62,6 @@ import { useRoute, useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi } from '@/runtime/api.js';
 import { applyLoginResult, session } from '@/runtime/session.js';
-import { WEB_CLIENT_VERSION } from '@/runtime/version.js';
 
 const route = useRoute();
 const router = useRouter();

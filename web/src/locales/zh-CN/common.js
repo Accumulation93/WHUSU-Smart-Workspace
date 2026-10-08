@@ -11,6 +11,7 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   appName: src_common.brandName,
+  organizationName: src_common.organizationName,
   webVersionLabel: src_web.common.webVersionLabel,
   retry: src_main.portal.view.authRetryAction,
   confirm: src_submissionDetail.copy_a58e97a9f8,

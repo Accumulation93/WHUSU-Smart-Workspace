@@ -66,6 +66,11 @@
     </section>
 
     <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+
+    <div class="page-footer">
+      <span class="footer-name">{{ copy.common.appName }}</span>
+      <span class="footer-org">{{ copy.common.organizationName }}</span>
+    </div>
   </div>
 </template>
 

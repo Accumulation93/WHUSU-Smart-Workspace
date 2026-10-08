@@ -592,23 +592,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: var(--ui-label-gap);
   margin-top: var(--ui-footer-gap);
   padding: 0;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-type-caption);
+  line-height: 1.7;
   text-align: center;
 }
 
 .footer-name {
-  color: var(--ui-text-soft);
-  font-size: var(--ui-type-meta);
-  font-weight: 600;
-  line-height: var(--ui-leading-body);
+  color: #7b8ba3;
+  font-size: var(--ui-type-caption);
+  letter-spacing: 1px;
 }
 
 .footer-org {
-  color: var(--ui-text-soft);
-  font-size: var(--ui-type-caption);
-  line-height: var(--ui-leading-body);
+  color: #506380;
+  font-size: var(--ui-type-control);
+  font-weight: 650;
 }
 
 /* ---------- 审批流程时间线 ---------- */

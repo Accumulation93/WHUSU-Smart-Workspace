@@ -32,6 +32,11 @@
         </div>
       </div>
     </section>
+
+    <div class="page-footer">
+      <span class="footer-name">{{ copy.common.appName }}</span>
+      <span class="footer-org">{{ copy.common.organizationName }}</span>
+    </div>
   </div>
 </template>
 
