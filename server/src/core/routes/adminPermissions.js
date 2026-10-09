@@ -79,7 +79,6 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
       items.push({
         id: row.id,
         name: safeString(row.name),
-        studentId: safeString(row.student_id),
         adminLevel: row.admin_level,
         adminLevelLabel: levelLabel(row.admin_level),
         authenticationStatus,
@@ -110,7 +109,6 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
       admin: {
         id: target.id,
         name: safeString(target.name),
-        studentId: safeString(target.student_id),
         adminLevel: target.admin_level,
         adminLevelLabel: levelLabel(target.admin_level)
       },

@@ -23,7 +23,7 @@
           v-model="keyword"
           class="search-input"
           type="text"
-          :placeholder="copy.common.search"
+          :placeholder="copy.admin.permissionsSearchPlaceholder"
         />
         <button v-if="keyword" type="button" class="search-clear" @click="keyword = ''">
           <UiIcon name="x" tone="muted" size-role="message-trailing" />

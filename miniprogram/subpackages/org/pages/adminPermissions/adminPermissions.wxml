@@ -28,7 +28,7 @@
             <view class="permission-admin-name">{{item.name || localeCopy.copy_06e8d3a970}}</view>
             <view class="permission-level permission-level-{{item.adminLevel}}">{{item.adminLevelLabel}}</view>
           </view>
-          <view class="permission-admin-meta">{{localeCopy.copy_80fba348b7}} {{item.studentId || localeCopy.copy_4dbdbf9dcd}} · {{item.bindStatusLabel}}</view>
+          <view class="permission-admin-meta">{{item.bindStatusLabel}}</view>
           <view class="permission-admin-progress">
             <view class="permission-progress-track"><view class="permission-progress-fill" style="width: {{item.applicableCount ? item.grantedCount * 100 / item.applicableCount : 0}}%;"></view></view>
             <view class="permission-progress-text">{{localeCopy.copy_9c0ceb5c90}} {{item.grantedCount}} / {{item.applicableCount}}</view>

@@ -104,7 +104,6 @@ Page({
     const keyword = String(e.detail.value || '').trim().toLowerCase();
     const filteredAdmins = (this.data.admins || []).filter(function(item) {
       return String(item.name || '').toLowerCase().indexOf(keyword) >= 0
-        || String(item.studentId || '').toLowerCase().indexOf(keyword) >= 0
         || String(item.adminLevelLabel || '').toLowerCase().indexOf(keyword) >= 0;
     });
     this.setData({ keyword: e.detail.value, filteredAdmins: filteredAdmins });

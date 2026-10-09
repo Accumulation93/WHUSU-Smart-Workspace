@@ -32,6 +32,6 @@ module.exports = Object.freeze({
   copy_e3a7655873: '请切换到相应的管理权限。',
   copy_e47065f3f1: '权限已生效',
   copy_e52119b17e: '请稍后重试',
-  copy_f679e67c6f: "搜索姓名、学号或管理权限",
+  copy_f679e67c6f: "搜索姓名或管理权限",
   copy_f7eeef9596: "有未保存内容"
 });
