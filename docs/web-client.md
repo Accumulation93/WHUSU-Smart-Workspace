@@ -96,7 +96,7 @@ shared/locales/zh-CN/**            ← 唯一来源（文案只写在这里）
 | 审核审批 | `/audit/my-submissions`、`/audit/pending`、`/audit/history`、`/audit/submission/:id`、`/audit/create`、`/audit/signatures` | 我的申请、待我审批、审批历史、详情（通过/驳回/撤回/附件下载）、按模板发起申请、签名管理 |
 | 验签 | `/audit/verification`、`/audit/verification-report/:id` | 文件密码验签与验证报告 |
 | 考核评分 | `/scoring/tasks`、`/scoring/fill/:id` | 评分任务、公示结果与评优名单共用入口；按模板分组的评分填写（必填/上下限/步长校验） |
-| 场地借用 | `/venue/bookings`、`/venue/create`、`/venue/mine`、`/venue/pending`、`/venue/history`、`/venue/history/:id`、`/venue/manage` | 浏览场地、发起借用、我的借用（取消/结束使用）、待我审批、审批历史与详情、场地管理（只读） |
+| 场地借用 | `/venue/bookings`、`/venue/create`、`/venue/mine`、`/venue/pending`、`/venue/history`、`/venue/history/:id`、`/venue/manage` | 浏览场地、发起借用、我的借用（取消/结束使用）、待我审批、审批历史与详情、场地资料维护；其他管理操作待补齐 |
 | 管理端 | `/admin?subApp=scoring/hr/system/audit`、`/admin/permissions`、`/admin/auth` | 按小程序子应用与权限显示页签；人事目录、部门/职能组/身份类别维护、管理权限可用，其他管理操作仍待补齐 |
 | 基本设置 | `/system/config`、`/system/dictionary`、`/system/audit-template`、`/system/permissions` | 字典旧地址进入人事部门维护；其余设置与模板旧页面仍只读 |
 | 人事 | `/hr/profile` | 本人基础资料只读；补充资料按模板填写、保存或提交审核并回读 |
@@ -185,6 +185,7 @@ shared/locales/zh-CN/**            ← 唯一来源（文案只写在这里）
 - 用户端结果公示、评优名单已恢复同页权限页签。通过 `getLatestPublishedScoreActivity/getPublicResults/getPublicMeritList/submitMeritListDesignations` 读取历史公示、筛选分组结果和保存岗位名单；名单保存失败保留选择，成功回读失败后冻结编辑并原地重试。管理端公示配置仍未补齐；名单写入仅在隔离模拟测试验证，生产保持只读。
 - 权限目录与详情接口不再返回他人学号，小程序同步取消该处学号展示与搜索；两端共用“搜索姓名或管理权限”。微信开发者工具预览编译主包及 6 个分包成功（总计 2327778 字节），未发布小程序正式版本，真实设备触控未完成现场验证。
 - 场地待审批已补原地详情、通过与驳回窗口、下一步岗位选择和成功回读，流程卡由待审批与审批历史共用。成功与失败链路在浏览器模拟响应中验证，未对生产申请执行审批。
+- 场地资料维护恢复名称、位置、描述和原地新增/编辑、确认删除，按 `venue.resources` 控制；三个原有接口为 `listVenues/saveVenue/deleteVenue`。读取失败保留内容、保存拒绝保留输入、成功后回读失败禁止重复写入；管理日程、规则、借用管理和常用事由尚未完成。生产不修改场地。
 - 借用申请改为场地页内弹窗，恢复事由、同日时间条、快捷时长、流程和首步岗位指定；旧 create 地址复用同一组件。模拟提交成功后回读借用列表，不在生产制造测试申请。
 - 借用窗口的日程、审批流程或用途读取失败时保留输入并提供原地重试，恢复前禁止提交；日程读取失败不再显示成场地未开放。三个失败恢复链路均由隔离模拟请求覆盖。
 - 借用时间输入恢复小程序小时/分钟分格与数字键盘，使用相同的区间检查，禁止越过占用；门户通知独立加载，确认窗口共享滚动与焦点恢复，并使用小程序短确认窗口宽度。
