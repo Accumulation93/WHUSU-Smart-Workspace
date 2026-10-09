@@ -170,6 +170,6 @@ test('门户的审核入口直接进入审核模块', async ({ page }) => {
   await mockApi(page);
   await login(page);
 
-  await page.getByRole('button', { name: copy.portal.cards.audit }).first().click();
+  await page.getByRole('button', { name: copy.portal.cards.audit, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/audit/my-submissions$`));
 });

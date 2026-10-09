@@ -7,6 +7,26 @@ export function toMinute(value) {
   return hour * 60 + minute;
 }
 export function toTime(value) { return String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0'); }
+export function addDays(date, days) { return new Date(Date.parse(date + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10); }
+export function weekStart(date) { return addDays(date, -((new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7)); }
+export function scheduleInstant(value) {
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(value))) return value;
+  return new Date(Date.parse(value.replace(' ', 'T') + ':00Z') - getSystemTimezoneConfig().offset * 3600000).toISOString();
+}
+export function bookingWindowLabels(window) {
+  function label(side) {
+    const fallback = side === 'open' ? native.copy_584ba3052b : native.copy_9e824e777e;
+    const prefix = side === 'open' ? native.copy_44ce05c859 : native.copy_db4932f471;
+    const mode = window?.[side + 'AdvanceMode'];
+    if (!mode) return fallback;
+    if (mode === 'days') return prefix + Number(window[side + 'AdvanceDays'] || 0) + native.copy_d08fb8244e;
+    const minutes = window[side + 'AdvanceMinutes'];
+    if (minutes == null) return fallback;
+    const total = Math.max(0, Number(minutes) || 0), hours = Math.floor(total / 60), remain = total % 60;
+    return prefix + (!hours ? remain + native.copy_82b3c19342 : !remain ? hours + native.copy_57f8fbd947 : hours + native.copy_7bbe7387fa + remain + native.copy_82b3c19342);
+  }
+  return [label('open'), label('deadline')];
+}
 function advance(window, prefix) {
   const mode = window?.[prefix + 'AdvanceMode'];
   if (!mode) return null;

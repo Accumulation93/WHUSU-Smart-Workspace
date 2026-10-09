@@ -22,8 +22,10 @@
           <div class="list-row-main stack-tight">
             <span class="list-row-title break-all">{{ venue.name }}</span>
             <span v-if="venue.location" class="muted break-all">{{ venue.location }}</span>
+            <div class="row row-wrap"><span class="chip" :class="venue.approvalType === 'direct' ? 'chip-green' : 'chip-blue'">{{ venue.approvalType === 'direct' ? venueCopy.copy_4f15bb9939 : venueCopy.copy_761b97e0d4 }}</span><span v-for="(label, index) in bookingWindowLabels(venue.bookingWindow)" :key="index" class="chip" :class="index ? 'chip-orange' : 'chip-sky'">{{ label }}</span></div>
           </div>
           <div class="list-row-actions">
+            <button type="button" class="btn-quiet" @click="scheduleVenue = venue">{{ venueCopy.copy_391b522838 }}</button>
             <button type="button" class="btn-quiet" @click="goCreate(venue)">
               {{ copy.venue.createTitle }}
             </button>
@@ -31,7 +33,8 @@
         </div>
       </div>
     </section>
-    <VenueBookingDialog v-if="bookingVenue" :venue="bookingVenue" @close="closeBooking" @saved="bookingSaved" />
+    <VenueScheduleDialog v-if="scheduleVenue" :venue="scheduleVenue" @close="scheduleVenue = null" @book="bookFromSchedule" />
+    <VenueBookingDialog v-if="bookingVenue" :venue="bookingVenue" :initial-date="bookingSelection.date" :initial-time="bookingSelection.time" @close="closeBooking" @saved="bookingSaved" />
   </div>
 </template>
 
@@ -39,16 +42,20 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VenueBookingDialog from '@/components/VenueBookingDialog.vue';
+import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import { bookingWindowLabels } from '@/runtime/venueTime.js';
 
 const router = useRouter();
 const route = useRoute();
 const bookingVenue = ref(null);
+const scheduleVenue = ref(null);
+const bookingSelection = ref({});
 let generation = 0;
 const venues = ref([]);
 const loading = ref(true);
@@ -70,8 +77,10 @@ function goWorkRole() {
 }
 
 function goCreate(venue) {
+  bookingSelection.value = {};
   bookingVenue.value = venue;
 }
+function bookFromSchedule(selection) { bookingSelection.value = selection; bookingVenue.value = scheduleVenue.value; scheduleVenue.value = null; }
 function closeBooking() {
   bookingVenue.value = null;
   if (route.name === 'venueBookingCreate') router.replace({ name: 'venueBookings' });
@@ -109,6 +118,6 @@ onMounted(async () => {
   await load();
   if (route.name === 'venueBookingCreate') bookingVenue.value = venues.value.find(venue => String(venue.id) === String(route.query.venueId)) || null;
 });
-watch(() => session.context?.contextId, () => { bookingVenue.value = null; venues.value = []; load(); });
+watch(() => session.context?.contextId, () => { bookingVenue.value = null; scheduleVenue.value = null; venues.value = []; load(); });
 onBeforeUnmount(() => { generation++; });
 </script>

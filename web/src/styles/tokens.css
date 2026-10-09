@@ -8,6 +8,10 @@
  */
 
 :root {
+  --ui-schedule-hour-height: 32px;
+  --ui-schedule-header-height: 29px;
+  --ui-schedule-time-width: 32px;
+  --ui-schedule-day-width: 50px;
   --ui-navbar-height: 44px;
   --ui-navbar-back-size: 32px;
   --ui-dialog-compact-max-width: 320px;

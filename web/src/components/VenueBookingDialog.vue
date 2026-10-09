@@ -77,10 +77,10 @@ import { session } from '@/runtime/session.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { toMinute, toTime, startAllowed, rangeError } from '@/runtime/venueTime.js';
 import { showToast } from '@/runtime/notify.js';
-const props = defineProps({ venue: { type: Object, required: true } });
+const props = defineProps({ venue: { type: Object, required: true }, initialDate: String, initialTime: String });
 const emit = defineEmits(['close', 'saved']);
 const today = formatListTime(Date.now()).slice(0, 10);
-const date = ref(today); const title = ref(''); const description = ref('');
+const date = ref(props.initialDate || today); const title = ref(''); const description = ref('');
 const start = ref(''); const end = ref(''); const day = ref(null); const notice = ref('');
 const loading = ref(false); const submitting = ref(false); const ready = ref(false);
 const purposes = ref([]); const flows = ref([]); const flowId = ref(''); const allowSelect = ref(false);
@@ -133,6 +133,7 @@ async function loadDay() {
     const result = requireSuccess(await callApi('getVenueSchedule', { venueId: props.venue.id, dateFrom: date.value, dateTo: date.value }));
     if (!current() || request !== sequence) return;
     day.value = result.dailySchedules?.[0] || null;
+    if (request === 1 && props.initialTime && setTime('start', props.initialTime)) return;
     for (let minute = 0; minute < 1440; minute += 10) {
       if (startAllowed(day.value, date.value, minute, props.venue.bookingWindow)) { setTime('start', toTime(minute)); break; }
     }

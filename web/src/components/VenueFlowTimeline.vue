@@ -16,9 +16,10 @@ import { computed } from 'vue';
 import copy from '@/locales/zh-CN/shared/generated/subpackages/venue/utils/flowTimeline.js';
 import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import { formatDetailTime } from '@/runtime/dateTime.js';
+import { venueProgress } from '@/runtime/venuePresentation.js';
 const props = defineProps({ progress: Object });
 const steps = computed(() => {
-  const progress = props.progress;
+  const progress = venueProgress(props.progress);
   if (!progress) return [];
   return Array.from({ length: Number(progress.totalSteps) || 0 }, (_, index) => {
     const snapshot = [...(progress.snapshots || [])].reverse().find(item => Number(item.stepIndex ?? item.step_index) === index

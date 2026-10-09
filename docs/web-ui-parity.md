@@ -214,6 +214,8 @@ color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; line-height
 遮罩负责灰、窗口负责白，文字不得越出白色表面。
 短确认窗口使用 `compact` 变体：手机最大 320px、Pad 最大 600px，依据 `miniprogram/app.wxss` 的 `ui-dialog-shell--compact`。不得把短提示拉成普通长表单宽度。
 
+场地周日程复用小程序 64rpx 小时格、58rpx 表头、64rpx 时间列和 100rpx 日期列，网页对应 32/29/32/50px 最小尺寸；七天超过正文宽度时内部横向滚动，不扩大整个页面。周切换按钮固定控件宽度，日期文本保持一行；长时间表只滚动正文，标题与图例保持可操作。
+
 ## 五、网页外壳
 
 - 外壳由 `web/src/components/AppShell.vue` 提供，小屏幕与电脑共用同一套结构：

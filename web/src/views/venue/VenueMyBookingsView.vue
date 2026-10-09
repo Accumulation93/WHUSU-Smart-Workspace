@@ -21,12 +21,13 @@
         </span>
       </div>
 
-      <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+      <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
+      <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
 
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!bookings.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
+      <div v-else-if="!loadNotice && !bookings.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
       <div v-else class="list">
-        <div v-for="booking in bookings" :key="booking.id" class="list-row">
+        <div v-for="booking in bookings" :key="booking.id" class="list-row" role="button" tabindex="0" :aria-label="booking.title || booking.venueName" @click="detail = booking" @keydown.enter.self="detail = booking" @keydown.space.self.prevent="detail = booking">
           <div class="list-row-main stack-tight">
             <span class="list-row-title break-all">{{ booking.title }}</span>
             <span class="row row-wrap">
@@ -41,25 +42,29 @@
               v-if="canCancel(booking)"
               type="button"
               class="btn-quiet btn-quiet-danger"
-              @click="cancelBooking(booking)"
+              :disabled="busy || loading || !!loadNotice"
+              @click.stop="cancelBooking(booking)"
             >
               {{ copy.venue.cancelAction }}
             </button>
-            <button v-if="canEnd(booking)" type="button" class="btn-quiet" @click="endBooking(booking)">
+            <button v-if="canEnd(booking)" type="button" class="btn-quiet" :disabled="busy || loading || !!loadNotice" @click.stop="endBooking(booking)">
               {{ copy.venue.endAction }}
             </button>
           </div>
         </div>
       </div>
     </section>
+    <GlassDialog v-if="detail" :title="copy.venue.detailTitle" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import GlassDialog from '@/components/GlassDialog.vue';
+import VenueBookingDetail from '@/components/VenueBookingDetail.vue';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText } from '@/runtime/api.js';
@@ -69,6 +74,9 @@ import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
 const bookings = ref([]);
+const detail = ref(null);
+const busy = ref(false);
+let generation = 0;
 const loading = ref(true);
 const loadNotice = ref('');
 
@@ -83,7 +91,6 @@ const roleLine = computed(() => {
   return context.assignmentLabel || context.identityName || roleLabelOf(context);
 });
 
-/** 展示状态与小程序一致：待审核 / 已通过 / 已驳回 / 已取消 / 已借用。 */
 function displayStatus(booking) {
   if (booking.status === 'cancelled') return 'cancelled';
   if (booking.status === 'rejected') return 'rejected';
@@ -146,25 +153,28 @@ function goCreate() {
 }
 
 async function load() {
+  const request = ++generation;
   loading.value = true;
   loadNotice.value = '';
   try {
     const result = await callApi('listMyVenueBookings', {});
+    if (request !== generation) return;
     if (result.status !== 'success') {
-      bookings.value = [];
       loadNotice.value = result.message || copy.venue.loadFailed;
       return;
     }
     bookings.value = Array.isArray(result.bookings) ? result.bookings : [];
   } catch (error) {
-    bookings.value = [];
+    if (request !== generation) return;
     loadNotice.value = errorText(error, copy.venue.loadFailed);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
 async function cancelBooking(booking) {
+  if (busy.value || loading.value || loadNotice.value) return;
+  const context = session.context?.contextId;
   const confirmed = await confirmAction({
     title: copy.venue.cancelAction,
     body: copy.venue.cancelConfirm,
@@ -172,29 +182,35 @@ async function cancelBooking(booking) {
     cancelText: copy.common.cancel,
     danger: true
   });
-  if (!confirmed) return;
+  if (!confirmed || busy.value || context !== session.context?.contextId) return;
+  busy.value = true;
   try {
     const result = await callApi('cancelVenueBooking', { id: booking.id });
+    if (context !== session.context?.contextId) return;
     if (result.status !== 'success') {
       loadNotice.value = result.message || copy.venue.cancelFailed;
       return;
     }
     await load();
   } catch (error) {
-    loadNotice.value = errorText(error, copy.venue.cancelFailed);
-  }
+    if (context === session.context?.contextId) loadNotice.value = errorText(error, copy.venue.cancelFailed);
+  } finally { busy.value = false; }
 }
 
 async function endBooking(booking) {
+  if (busy.value || loading.value || loadNotice.value) return;
+  const context = session.context?.contextId;
   const confirmed = await confirmAction({
     title: copy.venue.endConfirmTitle,
     body: copy.venue.endConfirmContent,
     confirmText: copy.venue.endAction,
     cancelText: copy.common.cancel
   });
-  if (!confirmed) return;
+  if (!confirmed || busy.value || context !== session.context?.contextId) return;
+  busy.value = true;
   try {
     const result = await callApi('endVenueBooking', { id: booking.id });
+    if (context !== session.context?.contextId) return;
     if (result.status !== 'success') {
       loadNotice.value = result.message || copy.venue.endUnavailable;
       return;
@@ -202,9 +218,10 @@ async function endBooking(booking) {
     showToast(copy.venue.endSuccess);
     await load();
   } catch (error) {
-    loadNotice.value = errorText(error, copy.venue.operationFailed);
-  }
+    if (context === session.context?.contextId) loadNotice.value = errorText(error, copy.venue.operationFailed);
+  } finally { busy.value = false; }
 }
 
-onMounted(load);
+watch(() => session.context?.contextId, () => { bookings.value = []; detail.value = null; load(); }, { immediate: true });
+onBeforeUnmount(() => { generation++; });
 </script>
