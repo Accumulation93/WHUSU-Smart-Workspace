@@ -24,6 +24,15 @@ paths: "server/**"
 - 统一令牌中的服务端组织/工作上下文是授权来源；旧客户端的 `X-Active-Org`、`X-Role` 仅作兼容输入，不能绕过服务端上下文。
 - 所有组织域查询必须验证当前 `org_id`；切换组织/工作上下文时作废旧请求和缓存，不能让旧上下文的迟到响应覆盖当前页面。
 
+### 3.1 网页会话（Cookie 载体）
+
+- 同一个口令登录接口服务两个前端：小程序把 JWT 放在 `Authorization` 头里，网页在 `auth/password/session` 请求体里带 `webSession: true`，服务端把令牌写进 HttpOnly Cookie（`core/services/webSessionCookie.js`），**响应体不再返回明文令牌**。不带这个标记的请求行为与历史完全一致。
+- `middleware/auth.js` 统一解析两种载体：请求头优先，Cookie 兜底，两条路径走同一套会话校验；`req.authTokenSource` 记录来源，切换工作角色时据此决定是否换发新 Cookie。
+- `middleware/webSessionGuard.js` 对**带网页 Cookie 的改动类请求**核对 `Origin`（缺失或不匹配即 403），配合 `SameSite=Lax` 防止其他站点借用登录状态。
+- 客户端版本底线按类型分开：网页读 `MIN_WEB_CLIENT_VERSION`（默认 `1.0.0`），小程序读 `MIN_CLIENT_VERSION`，两者不得互相绑定。
+- **免认证入口有两份清单**：`middleware/auth.js` 的 `PUBLIC_PATHS` 与 `middleware/orgContext.js` 的 `ORG_CONTEXT_BYPASS_PATHS`。新增公开入口必须同时补两份，否则请求会过了认证却卡在组织上下文（见 `docs/failure-register.md` 坑 18，回归测试 `server/test/publicRouteBypass.test.js`）。
+- 网页登录、退出、来源核对与版本底线都有独立测试：`server/test/webSessionCookie.test.js`、`webSessionAuth.test.js`、`webSessionLoginResponse.test.js`、`publicRouteBypass.test.js`。
+
 ## 4. 响应契约
 
 - 成功接口沿用既有业务契约：常见形式为 `{ status: 'success', ... }` 或 `{ status: 'success', data: {...} }`；修改接口前必须读取调用方和现有路由，不能擅自把一种形式批量改成另一种。
