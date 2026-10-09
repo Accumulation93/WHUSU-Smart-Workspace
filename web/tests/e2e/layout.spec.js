@@ -9,6 +9,12 @@ test('venue navigation and empty states follow the native module', async ({ page
   await page.goto('/web/venue/bookings');
   await expect(page.locator('.tabs button')).toHaveCount(3);
   await expect(page.locator('.empty-state')).toHaveText(venueCopy.copy_a60fcec226);
+  await expect(page.locator('.section-title')).toHaveText(venueCopy.copy_b210c95498);
+  await expect(page.getByRole('button', { name: copy.audit.actionRefresh, exact: true })).toHaveCount(0);
+  await expect(page.locator('.footer-org')).toHaveText(copy.common.organizationName);
+  await page.getByRole('button', { name: copy.venue.mineTitle, exact: true }).click();
+  await expect(page.locator('.section-title')).toHaveText(venueCopy.copy_decce2c059);
+  await expect(page.getByRole('button', { name: copy.venue.createTitle, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: copy.venue.pendingTitle, exact: true }).click();
   await expect(page.locator('.empty-state')).toHaveText(venueCopy.copy_a14c4e583b);
   await expect(page.locator('.panel-head').getByRole('button', { name: copy.venue.historyTitle })).toBeVisible();

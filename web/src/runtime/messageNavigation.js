@@ -22,6 +22,11 @@ export function messageRoute(item) {
     const id = new URLSearchParams(query).get('id');
     return id ? { name: 'auditSubmission', params: { id } } : null;
   }
+  if (targets[path] === 'venueMyBookings') {
+    const params = new URLSearchParams(query);
+    const bookingId = params.get('bookingId') || params.get('id');
+    return { name: 'venueMyBookings', ...(bookingId ? { query: { bookingId } } : {}) };
+  }
   return targets[path] ? { name: targets[path] } : null;
 }
 

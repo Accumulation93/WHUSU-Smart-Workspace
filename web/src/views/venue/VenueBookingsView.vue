@@ -11,10 +11,11 @@
 
     <section class="card stack">
       <div class="panel-head">
-        <span class="section-title">{{ copy.venue.createVenueLabel }}</span>
-        <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
+        <span class="section-title">{{ venueCopy.copy_b210c95498 }}</span>
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+      <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
+      <div v-if="!session.context?.assignmentId" class="notice-line"><p>{{ venueCopy.noActiveAssignmentNotice }}</p><button type="button" class="btn-quiet" @click="goWorkRole">{{ venueCopy.switchWorkContext }}</button></div>
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!venues.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a60fcec226 }}</div>
       <div v-else class="list">
@@ -26,13 +27,14 @@
           </div>
           <div class="list-row-actions">
             <button type="button" class="btn-quiet" @click="scheduleVenue = venue">{{ venueCopy.copy_391b522838 }}</button>
-            <button type="button" class="btn-quiet" @click="goCreate(venue)">
-              {{ copy.venue.createTitle }}
+            <button type="button" class="btn-quiet" :disabled="loading || !!loadNotice || !session.context?.assignmentId" @click="goCreate(venue)">
+              {{ venueCopy.copy_183fdf9907 }}
             </button>
           </div>
         </div>
       </div>
     </section>
+    <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
     <VenueScheduleDialog v-if="scheduleVenue" :venue="scheduleVenue" @close="scheduleVenue = null" @book="bookFromSchedule" />
     <VenueBookingDialog v-if="bookingVenue" :venue="bookingVenue" :initial-date="bookingSelection.date" :initial-time="bookingSelection.time" @close="closeBooking" @saved="bookingSaved" />
   </div>
@@ -77,6 +79,7 @@ function goWorkRole() {
 }
 
 function goCreate(venue) {
+  if (!session.context?.assignmentId || loading.value || loadNotice.value) return;
   bookingSelection.value = {};
   bookingVenue.value = venue;
 }
@@ -100,14 +103,12 @@ async function load() {
     const result = await callApi('listVenuesForBooking', {});
     if (request !== generation || context !== session.context?.contextId) return;
     if (result.status !== 'success') {
-      venues.value = [];
       loadNotice.value = result.message || copy.venue.loadFailed;
       return;
     }
     venues.value = Array.isArray(result.venues) ? result.venues : [];
   } catch (error) {
     if (request !== generation || context !== session.context?.contextId) return;
-    venues.value = [];
     loadNotice.value = errorText(error, copy.venue.loadFailed);
   } finally {
     if (request === generation) loading.value = false;

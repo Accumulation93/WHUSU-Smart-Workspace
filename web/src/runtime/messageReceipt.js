@@ -22,7 +22,8 @@ export async function completeMessageReceipt(route) {
   if (Date.now() > receipt.expires || receipt.contextId !== session.context?.contextId
     || session.status !== 'authenticated') { pending = null; return; }
   if (route.name !== receipt.destination.name
-    || Object.entries(receipt.destination.params || {}).some(([key, value]) => String(route.params[key]) !== String(value))) return;
+    || Object.entries(receipt.destination.params || {}).some(([key, value]) => String(route.params[key]) !== String(value))
+    || Object.entries(receipt.destination.query || {}).some(([key, value]) => String(route.query[key]) !== String(value))) return;
   pending = null;
   try {
     requireSuccess(await callApi('markNotificationRead', { id: receipt.id, organizationId: receipt.organizationId }));

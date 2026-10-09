@@ -25,7 +25,7 @@ async function setup(page) {
 test('booking opens in place with schedule, purpose, flow and first approver', async ({ page }) => {
   const state = await setup(page);
   await page.goto('/web/venue/bookings');
-  await page.getByRole('button', { name: copy.venue.createTitle, exact: true }).click();
+  await page.getByRole('button', { name: ui.copy_183fdf9907, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: ui.copy_2b262b7940 + ' · Room A' });
   await dialog.getByLabel(ui.copy_39fcaa02ad).fill('2035-10-10');
   await expect(dialog.locator('.time-display').first().getByRole('button', { name: ui.copy_7bbe7387fa })).toHaveText('09');

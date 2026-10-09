@@ -11,14 +11,7 @@
 
     <section class="card stack">
       <div class="panel-head">
-        <div class="stack-tight">
-          <span class="section-title">{{ copy.venue.mineTitle }}</span>
-          <span class="panel-note">{{ copy.venue.mineNote }}</span>
-        </div>
-        <span class="row row-wrap">
-          <button type="button" class="btn-quiet" @click="goCreate">{{ copy.venue.createTitle }}</button>
-          <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
-        </span>
+        <span class="section-title">{{ venueCopy.copy_decce2c059 }}</span>
       </div>
 
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
@@ -29,13 +22,13 @@
       <div v-else class="list">
         <div v-for="booking in bookings" :key="booking.id" class="list-row" role="button" tabindex="0" :aria-label="booking.title || booking.venueName" @click="detail = booking" @keydown.enter.self="detail = booking" @keydown.space.self.prevent="detail = booking">
           <div class="list-row-main stack-tight">
-            <span class="list-row-title break-all">{{ booking.title }}</span>
-            <span class="row row-wrap">
+            <span class="panel-head">
+              <span class="list-row-title break-all">{{ booking.title || copy.venue.createTitle }}</span>
               <span class="chip" :class="statusTone(booking)">{{ statusLabel(booking) }}</span>
-              <span class="chip chip-sky">{{ booking.venueName }}</span>
             </span>
-            <span class="muted">{{ timeRange(booking) }}</span>
-            <span v-if="progressText(booking)" class="soft">{{ progressText(booking) }}</span>
+            <span class="muted">{{ booking.venueName }} · {{ timeRange(booking) }}</span>
+            <span v-if="booking.description" class="muted break-all">{{ booking.description }}</span>
+            <span v-if="booking.approvalComment" class="muted break-all">{{ venueCopy.copy_3b3b392755 }}{{ booking.approvalComment }}</span>
           </div>
           <div class="list-row-actions">
             <button
@@ -54,25 +47,30 @@
         </div>
       </div>
     </section>
+    <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
     <GlassDialog v-if="detail" :title="copy.venue.detailTitle" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import VenueBookingDetail from '@/components/VenueBookingDetail.vue';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
+import mineCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js';
+import { completeMessageReceipt } from '@/runtime/messageReceipt.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
+const route = useRoute();
+let openedBookingId = '';
 const bookings = ref([]);
 const detail = ref(null);
 const busy = ref(false);
@@ -128,13 +126,6 @@ function timeRange(booking) {
   return start + ' ' + copy.venue.timeSeparator + ' ' + end;
 }
 
-function progressText(booking) {
-  const progress = booking.approvalProgress;
-  if (!progress || !progress.totalSteps) return '';
-  const current = Math.max(0, Number(progress.currentStep || 0));
-  return current + ' / ' + progress.totalSteps;
-}
-
 function canCancel(booking) {
   const status = displayStatus(booking);
   return status === 'pending' || status === 'approved';
@@ -146,10 +137,6 @@ function canEnd(booking) {
 
 function goWorkRole() {
   router.push({ name: 'workRole' });
-}
-
-function goCreate() {
-  router.push({ name: 'venueBookingCreate' });
 }
 
 async function load() {
@@ -164,6 +151,15 @@ async function load() {
       return;
     }
     bookings.value = Array.isArray(result.bookings) ? result.bookings : [];
+    const bookingId = String(route.query.bookingId || '');
+    if (bookingId && openedBookingId !== bookingId) {
+      const booking = bookings.value.find(item => String(item.id) === bookingId);
+      if (!booking) { showToast(mineCopy.bookingNotFound); return; }
+      detail.value = booking;
+      openedBookingId = bookingId;
+    }
+    await nextTick();
+    if (request === generation) await completeMessageReceipt(route);
   } catch (error) {
     if (request !== generation) return;
     loadNotice.value = errorText(error, copy.venue.loadFailed);
@@ -222,6 +218,6 @@ async function endBooking(booking) {
   } finally { busy.value = false; }
 }
 
-watch(() => session.context?.contextId, () => { bookings.value = []; detail.value = null; load(); }, { immediate: true });
+watch([() => session.context?.contextId, () => route.query.bookingId], () => { openedBookingId = ''; bookings.value = []; detail.value = null; load(); }, { immediate: true });
 onBeforeUnmount(() => { generation++; });
 </script>

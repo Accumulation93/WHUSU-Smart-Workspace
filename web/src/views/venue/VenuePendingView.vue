@@ -46,6 +46,7 @@
         </div>
       </div>
     </section>
+    <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
     <GlassDialog v-if="target" :title="target.title || native.copy_48283f4043" :busy="submitting" @close="closeDetail">
       <VenueFlowTimeline :progress="progress" />
       <div class="stack-tight"><span class="soft">{{ native.copy_bbbebc1abf }}</span><span>{{ target.venueName }} {{ target.venueLocation }}</span></div>

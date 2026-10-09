@@ -16,8 +16,10 @@ test('profile follows native field grid and keeps the submitted values when rere
   await page.goto('/web/hr/profile');
   await expect(page.getByText('TEST12345', { exact: true })).toBeVisible();
   await expect(page.locator('form.card')).toHaveCount(1);
-  const cards = await page.locator('.profile-fields > .list-row').all();
-  const first = await cards[0].boundingBox(), second = await cards[1].boundingBox(), third = await cards[2].boundingBox();
+  const [first, second, third] = await page.locator('.profile-fields > .list-row').evaluateAll(cards => cards.map(card => {
+    const rect = card.getBoundingClientRect();
+    return { y: rect.y, width: rect.width };
+  }));
   expect(Math.abs(first.y - second.y)).toBeLessThan(1);
   expect(third.y).toBeGreaterThan(first.y);
   expect(third.width).toBeGreaterThan(first.width + second.width);
