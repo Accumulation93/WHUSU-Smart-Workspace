@@ -20,8 +20,9 @@
           </button>
         </span>
       </div>
+      <div v-if="todoError" class="stack-tight"><p role="alert" class="notice-line">{{ todoError }}</p><button type="button" class="btn-quiet" @click="loadPreview">{{ copy.common.retry }}</button></div>
       <div v-if="todosLoading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!todos.length" class="notification-empty">
+      <div v-else-if="!todos.length && !todoError" class="notification-empty">
         <span class="notification-empty-text">{{ copy.portal.view.noTodos }}</span>
       </div>
       <div v-else class="message-preview-scroll">
@@ -43,6 +44,7 @@
             v-if="unreadCount > 0"
             type="button"
             class="message-text-action"
+            :disabled="notificationBusy"
             @click="markAllRead"
           >
             {{ copy.portal.view.markAllRead }}
@@ -55,8 +57,9 @@
           </button>
         </span>
       </div>
+      <div v-if="notificationError" class="stack-tight"><p role="alert" class="notice-line">{{ notificationError }}</p><button type="button" class="btn-quiet" @click="loadPreview">{{ copy.common.retry }}</button></div>
       <div v-if="notificationsLoading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!notifications.length" class="notification-empty">
+      <div v-else-if="!notifications.length && !notificationError" class="notification-empty">
         <span class="notification-empty-text">{{ copy.portal.view.noNotifications }}</span>
       </div>
       <div v-else class="message-preview-scroll">
@@ -71,6 +74,7 @@
             <button
               type="button"
               class="btn-quiet btn-quiet-danger"
+              :disabled="notificationBusy"
               @click="removeNotification(row)"
             >
               {{ copy.messages.view.deleteNotification }}
@@ -195,7 +199,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
 import UiIcon from '@/components/UiIcon.vue';
@@ -223,6 +227,11 @@ const unreadCount = ref(0);
 const todosLoading = ref(true);
 const notificationsLoading = ref(true);
 const loadNotice = ref('');
+const todoError = ref('');
+const notificationError = ref('');
+const notificationBusy = ref(false);
+let generation = 0;
+let disposed = false;
 const appViewMode = ref('grid');
 const appSearchKeyword = ref('');
 
@@ -264,27 +273,32 @@ function openCard(card) {
 }
 
 async function loadPreview() {
-  const failures = [];
-  try {
-    const result = await callApi('listTodos', { limit: PORTAL_PREVIEW_LIMIT });
-    todos.value = Array.isArray(result.items) ? result.items : [];
-    todoTotal.value = Number(result.total || todos.value.length);
-  } catch (error) {
-    failures.push(errorText(error, copy.portal.retryLater));
-  } finally {
-    todosLoading.value = false;
-  }
-  try {
-    const result = await callApi('listNotifications', { limit: PORTAL_PREVIEW_LIMIT });
-    notifications.value = Array.isArray(result.items) ? result.items : [];
-    unreadCount.value = Number(result.unreadCount || 0);
-  } catch (error) {
-    failures.push(errorText(error, copy.portal.retryLater));
-  } finally {
-    notificationsLoading.value = false;
-  }
-  const visible = failures.filter(Boolean);
-  loadNotice.value = visible.length ? copy.portal.partialOrganizationLoading : '';
+  const request = ++generation;
+  const context = session.context?.contextId;
+  const current = () => !disposed && request === generation && context === session.context?.contextId;
+  todosLoading.value = !todos.value.length;
+  notificationsLoading.value = !notifications.value.length;
+  todoError.value = ''; notificationError.value = '';
+  await Promise.all([
+    (async () => {
+      try {
+        const result = requireSuccess(await callApi('listTodos', { limit: PORTAL_PREVIEW_LIMIT }));
+        if (!current()) return;
+        todos.value = Array.isArray(result.items) ? result.items : [];
+        todoTotal.value = Number(result.total ?? todos.value.length);
+      } catch (error) { if (current()) todoError.value = errorText(error, copy.portal.retryLater); }
+      finally { if (current()) todosLoading.value = false; }
+    })(),
+    (async () => {
+      try {
+        const result = requireSuccess(await callApi('listNotifications', { limit: PORTAL_PREVIEW_LIMIT }));
+        if (!current()) return;
+        notifications.value = Array.isArray(result.items) ? result.items : [];
+        unreadCount.value = Number(result.unreadCount || 0);
+      } catch (error) { if (current()) notificationError.value = errorText(error, copy.portal.retryLater); }
+      finally { if (current()) notificationsLoading.value = false; }
+    })()
+  ]);
 }
 
 async function openMessage(item) {
@@ -296,25 +310,31 @@ async function openMessage(item) {
 }
 
 async function markAllRead() {
+  if (notificationBusy.value) return;
+  notificationBusy.value = true;
+  const context = session.context?.contextId;
   try {
     const result = requireSuccess(await callApi('markAllNotificationsRead', {}));
-    if (result.partial) { await loadPreview(); loadNotice.value = copy.messages.partialBulkAction; return; }
-    notifications.value = notifications.value.map((item) => Object.assign({}, item, { isRead: true }));
-    unreadCount.value = 0;
+    if (disposed || context !== session.context?.contextId) return;
+    await loadPreview();
+    if (result.partial) loadNotice.value = copy.messages.partialBulkAction;
   } catch (error) {
     loadNotice.value = errorText(error, copy.messages.messages.notificationReadFailed);
-  }
+  } finally { notificationBusy.value = false; }
 }
 
 async function removeNotification(item) {
   // 小程序门户的删除通知是滑动即删、不再弹确认层，网页端保持同一交互语言。
+  if (notificationBusy.value) return;
+  notificationBusy.value = true;
+  const context = session.context?.contextId;
   try {
     requireSuccess(await callApi('deleteNotification', { id: item.id, organizationId: item.organizationId }));
-    notifications.value = notifications.value.filter((row) => row.id !== item.id);
-    if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
+    if (disposed || context !== session.context?.contextId) return;
+    await loadPreview();
   } catch (error) {
     loadNotice.value = errorText(error, copy.messages.messages.notificationReadFailed);
-  }
+  } finally { notificationBusy.value = false; }
 }
 
 async function onLogout() {
@@ -332,6 +352,8 @@ async function onLogout() {
 }
 
 onMounted(loadPreview);
+watch(() => session.context?.contextId, () => { todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0; loadPreview(); });
+onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 
 <style scoped>

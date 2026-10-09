@@ -33,6 +33,7 @@ export function dismissToast(id) {
  */
 export function confirmAction(options) {
   const config = options || {};
+  settleDialog(false);
   return new Promise((resolve) => {
     notices.dialog = {
       title: config.title || '',

@@ -23,20 +23,28 @@
           :aria-label="handle === 'start' ? native.copy_deb776d2af : native.copy_2bd6adcbb9"
           :disabled="submitting" @pointerdown="beginDrag($event, handle)" @pointermove="moveDrag" @pointerup="endDrag" @pointercancel="endDrag"
           @keydown.left.prevent="shift(handle, -10)" @keydown.right.prevent="shift(handle, 10)">
-          {{ handle === 'start' ? native.copy_c51e10955c : native.copy_ed57cd26dc }} {{ handle === 'start' ? start : end }}
+          <span v-if="handle === 'end'" aria-hidden="true">▲</span>
+          <span class="booking-handle-label">{{ handle === 'start' ? start : end }} {{ handle === 'start' ? native.copy_c51e10955c : native.copy_ed57cd26dc }}</span>
+          <span v-if="handle === 'start'" aria-hidden="true">▼</span>
         </button>
       </div>
       <div class="booking-ticks"><span v-for="tick in native.timelineTicks" :key="tick">{{ tick }}</span></div>
       <div class="row row-wrap"><span class="chip chip-green">{{ native.copy_eb3a2a30a8 }}</span><span class="chip chip-orange">{{ native.copy_a8a6082fe6 }}</span><span class="chip chip-blue">{{ native.copy_49eedaa56d }}</span></div>
-      <label class="field"><span class="field-label">{{ native.copy_deb776d2af }}</span>
-        <input :value="start" class="field-input" placeholder="HH:mm" :disabled="submitting" @change="changeTime($event, 'start')" />
-      </label>
+      <div class="field"><span class="field-label">{{ native.copy_deb776d2af }}</span>
+        <div class="time-display field-input" role="group" :aria-label="native.copy_deb776d2af">
+          <button type="button" class="btn-quiet" :disabled="submitting" :aria-label="native.copy_7bbe7387fa" @click="openKeyboard('start', 'hour')">{{ start.split(':')[0] || '--' }}</button><span>:</span>
+          <button type="button" class="btn-quiet" :disabled="submitting" :aria-label="native.copy_9feed17479" @click="openKeyboard('start', 'minute')">{{ start.split(':')[1] || '--' }}</button><span v-if="start" class="time-check">✓</span>
+        </div>
+      </div>
       <div class="field"><span class="field-label">{{ native.copy_552d783261 }}</span><div class="row row-wrap">
         <button v-for="item in durations" :key="item.minutes" type="button" class="btn-quiet" :disabled="submitting || !start" @click="setTime('end', toTime(Math.min(1440, toMinute(start) + item.minutes)))">{{ item.label }}</button>
       </div></div>
-      <label class="field"><span class="field-label">{{ native.copy_2bd6adcbb9 }}</span>
-        <input :value="end" class="field-input" placeholder="HH:mm" :disabled="submitting" @change="changeTime($event, 'end')" />
-      </label>
+      <div class="field"><span class="field-label">{{ native.copy_2bd6adcbb9 }}</span>
+        <div class="time-display field-input" role="group" :aria-label="native.copy_2bd6adcbb9">
+          <button type="button" class="btn-quiet" :disabled="submitting || !start" :aria-label="native.copy_7bbe7387fa" @click="openKeyboard('end', 'hour')">{{ end.split(':')[0] || '--' }}</button><span>:</span>
+          <button type="button" class="btn-quiet" :disabled="submitting || !start" :aria-label="native.copy_9feed17479" @click="openKeyboard('end', 'minute')">{{ end.split(':')[1] || '--' }}</button><span v-if="end" class="time-check">✓</span>
+        </div>
+      </div>
     </template>
     <p v-else class="muted">{{ native.copy_824768a506 }}</p>
     <label class="field"><span class="field-label">{{ native.copy_5b5ccadb74 }}</span>
@@ -49,15 +57,19 @@
       <button type="button" class="btn btn-secondary" :disabled="submitting || candidatesLoading" @click="chooseApprovers">{{ selected.length ? selected.map(item => item.name + ' · ' + item.assignmentLabel).join(' / ') : native.copy_6986f4a5fd }}</button>
     </div>
     <p v-if="notice" role="alert" class="notice-line">{{ notice }}</p>
-    <template #footer><button type="button" class="btn btn-primary" :disabled="submitting || loading || !ready || !session.context?.assignmentId" @click="submit">{{ native.copy_02ef2f799d }}</button></template>
+    <template #footer>
+      <VenueTimeKeyboard v-if="keyboard" :key="keyboard.handle + keyboard.field" :value="keyboard.handle === 'start' ? start : end" :initial-field="keyboard.field" :label="keyboard.handle === 'start' ? native.copy_deb776d2af : native.copy_2bd6adcbb9" :validate="keyboardValid" @confirm="confirmTime" />
+      <button v-else type="button" class="btn btn-primary" :disabled="submitting || loading || !ready || !session.context?.assignmentId" @click="submit">{{ native.copy_02ef2f799d }}</button>
+    </template>
   </GlassDialog>
   <PersonnelPicker v-if="pickerVisible" :title="native.copy_0522689efc" :options="candidates" :value="selected" @cancel="pickerVisible = false" @confirm="confirmSelection" />
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import PersonnelPicker from './PersonnelPicker.vue';
+import VenueTimeKeyboard from './VenueTimeKeyboard.vue';
 import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, requireSuccess, errorText, createRequestId } from '@/runtime/api.js';
@@ -74,7 +86,9 @@ const loading = ref(false); const submitting = ref(false); const ready = ref(fal
 const purposes = ref([]); const flows = ref([]); const flowId = ref(''); const allowSelect = ref(false);
 const selected = ref([]); const candidates = ref([]); const pickerVisible = ref(false); const candidatesLoading = ref(false);
 const track = ref(null); const requestId = createRequestId();
+const keyboard = ref(null);
 let disposed = false; let sequence = 0; let drag = null; let animationFrame = 0;
+let timeFocus;
 const context = session.context?.contextId;
 const current = () => !disposed && context === session.context?.contextId;
 const allowDesignate = computed(() => Boolean(flows.value.find(flow => flow.id === flowId.value)?.allowDesignateFirst));
@@ -99,8 +113,13 @@ function setTime(handle, value) {
   notice.value = ''; return true;
 }
 function shift(handle, delta) { setTime(handle, toTime(Math.max(0, Math.min(1440, toMinute(handle === 'start' ? start.value : end.value) + delta)))); }
-function changeTime(event, handle) { setTime(handle, event.target.value); event.target.value = handle === 'start' ? start.value : end.value; }
-function beginDrag(event, handle) { if (submitting.value) return; drag = { handle, rect: track.value.getBoundingClientRect() }; event.target.setPointerCapture(event.pointerId); }
+function openKeyboard(handle, field) { timeFocus = document.activeElement; keyboard.value = { handle, field }; }
+function keyboardValid(value) {
+  return keyboard.value?.handle === 'start' ? startAllowed(day.value, date.value, toMinute(value), props.venue.bookingWindow)
+    : !rangeError(day.value, date.value, start.value, value, props.venue.bookingWindow);
+}
+async function confirmTime(value) { setTime(keyboard.value.handle, value); keyboard.value = null; await nextTick(); if (timeFocus?.isConnected) timeFocus.focus(); }
+function beginDrag(event, handle) { if (submitting.value) return; drag = { handle, rect: track.value.getBoundingClientRect() }; event.currentTarget.setPointerCapture(event.pointerId); }
 function moveDrag(event) {
   if (!drag) return;
   drag.minute = Math.max(0, Math.min(1440, Math.round((event.clientX - drag.rect.left) / drag.rect.width * 144 / 1) * 10));
@@ -109,6 +128,7 @@ function moveDrag(event) {
 function endDrag() { if (drag?.minute !== undefined) setTime(drag.handle, toTime(drag.minute)); drag = null; }
 async function loadDay() {
   const request = ++sequence; loading.value = true; start.value = ''; end.value = ''; day.value = null;
+  keyboard.value = null;
   try {
     const result = requireSuccess(await callApi('getVenueSchedule', { venueId: props.venue.id, dateFrom: date.value, dateTo: date.value }));
     if (!current() || request !== sequence) return;
@@ -174,8 +194,12 @@ onBeforeUnmount(() => { disposed = true; cancelAnimationFrame(animationFrame); }
 .booked { background: var(--ui-chip-orange-bg); }
 .activity { background: var(--ui-chip-blue-bg); }
 .booking-selection { border: 2px solid var(--ui-blue-700); box-sizing: border-box; }
-.booking-handle { position: absolute; transform: translateX(-50%); border: var(--ui-field-border); border-radius: var(--ui-compact-radius); padding: var(--ui-compact-padding-y); font: inherit; font-size: var(--ui-type-caption); background: var(--ui-field-bg); color: var(--ui-blue-700); touch-action: none; white-space: nowrap; }
+.booking-handle { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transform: translateX(-50%); border: 0; padding: 0; font: inherit; font-size: var(--ui-type-caption); background: transparent; color: var(--ui-blue-700); touch-action: none; white-space: nowrap; }
+.booking-handle-label { border-radius: var(--ui-compact-radius); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); background: var(--ui-chip-blue-bg); font-weight: 700; pointer-events: none; }
+.booking-handle.end .booking-handle-label { background: var(--ui-chip-green-bg); }
 .booking-handle.start { bottom: 100%; }
 .booking-handle.end { top: 100%; color: var(--ui-chip-green-text); }
 .booking-ticks { display: flex; justify-content: space-between; font-size: var(--ui-type-caption); }
+.time-display { display: flex; align-items: center; gap: var(--ui-inline-gap); }
+.time-check { color: var(--ui-chip-green-text); }
 </style>

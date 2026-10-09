@@ -217,6 +217,10 @@ async function load() {
 }
 
 watch(() => session.context?.contextId, () => { generation++; target.value = null; pickerVisible.value = false; items.value = []; load(); });
-onMounted(() => { load(); polling = window.setInterval(() => { if (!document.hidden && !target.value && !loading.value) load(); }, 30000); });
-onBeforeUnmount(() => { generation++; window.clearInterval(polling); });
+function updatePolling() {
+  window.clearInterval(polling);
+  if (!document.hidden) polling = window.setInterval(() => { if (!target.value && !loading.value) load(); }, 30000);
+}
+onMounted(() => { load(); updatePolling(); document.addEventListener('visibilitychange', updatePolling); });
+onBeforeUnmount(() => { generation++; window.clearInterval(polling); document.removeEventListener('visibilitychange', updatePolling); });
 </script>

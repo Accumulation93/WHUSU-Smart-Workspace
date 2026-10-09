@@ -212,6 +212,7 @@ color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; line-height
 只有三段：固定标题 → 独立滚动正文 → 固定操作栏。网页必须复用 `web/src/components/GlassDialog.vue`，
 禁止页面自己写遮罩与居中。Pad 竖屏最大宽 `760px`，Pad 横屏 `1024px`，专业工作区 `1120px`。
 遮罩负责灰、窗口负责白，文字不得越出白色表面。
+短确认窗口使用 `compact` 变体：手机最大 320px、Pad 最大 600px，依据 `miniprogram/app.wxss` 的 `ui-dialog-shell--compact`。不得把短提示拉成普通长表单宽度。
 
 ## 五、网页外壳
 

@@ -2,6 +2,8 @@
 
 更新：2026-09-08。代码事实入口：`requestWork.js`、`messageCache.js`、`cacheVersions.js`、`scoringTaskService.js`；接口见 [消息 API](message-api.md)。不引入 Redis，不削弱鉴权、历史快照或密码验签。
 
+2026-10-09 网页补充：`PortalView.vue` 的通知与待办改为独立并发加载；浏览器测试挂起待办请求，验证通知仍先展示，并验证业务失败与空数据的区别。该测试证明请求依赖已解除，不代表公网响应时间或真实设备渲染性能已达标。
+
 ## 已测基线与边界
 
 本轮生产基线提交为 `6c886ca41595ce5fb9d46a09f0ced8b0a4c8a77c`。

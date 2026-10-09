@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div class="dialog-layer" @click.self="close">
-      <section ref="panel" class="dialog glass-dialog" role="dialog" aria-modal="true" :aria-label="title" tabindex="-1">
+      <section ref="panel" class="dialog glass-dialog" :class="{ 'glass-dialog-compact': compact }" role="dialog" aria-modal="true" :aria-label="title" tabindex="-1">
         <header class="dialog-header">
           <span class="dialog-title">{{ title }}</span>
           <button type="button" class="btn-quiet" :disabled="busy" @click="close">{{ ui.close }}</button>
@@ -20,7 +20,7 @@ let previousOverflow = '';
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
-const props = defineProps({ title: { type: String, required: true }, busy: Boolean });
+const props = defineProps({ title: { type: String, required: true }, busy: Boolean, compact: Boolean });
 const emit = defineEmits(['close']);
 const panel = ref(null);
 const identity = {};
@@ -60,6 +60,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .glass-dialog { overflow: hidden; max-height: calc(100dvh - 2 * var(--ui-page-padding-x)); }
+.glass-dialog-compact { max-width: var(--ui-dialog-compact-max-width); }
 .dialog-body { overscroll-behavior: contain; }
 .dialog-body > :deep(*) { flex-shrink: 0; }
 </style>

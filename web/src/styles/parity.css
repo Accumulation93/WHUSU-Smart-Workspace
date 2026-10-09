@@ -825,25 +825,17 @@
 
 .dialog-footer {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--ui-inline-gap);
   flex: 0 0 auto;
   margin: 0;
   padding: 0;
 }
 
-.dialog-footer .btn {
+.dialog-footer > .btn {
   margin: 0;
-}
-
-@media (min-width: 520px) {
-  .dialog-footer {
-    flex-direction: row;
-  }
-
-  .dialog-footer .btn {
-    flex: 1 1 0;
-  }
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* ---------- 网页外壳：顶栏 + 顶部分段页签 ---------- */

@@ -10,6 +10,7 @@
 :root {
   --ui-navbar-height: 44px;
   --ui-navbar-back-size: 32px;
+  --ui-dialog-compact-max-width: 320px;
   /* 品牌蓝与文字（blue-glass-ui 技能指定值） */
   --ui-blue-900: #1e3a8a;
   --ui-blue-800: #1d4ed8;
@@ -349,4 +350,8 @@
   :root {
     --ui-animation-enter: none;
   }
+}
+
+@media (min-width: 520px) {
+  :root { --ui-dialog-compact-max-width: 600px; }
 }
