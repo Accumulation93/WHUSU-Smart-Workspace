@@ -1,12 +1,15 @@
 <template>
   <div class="page stack">
-    <WorkspaceHero tone="admin" :page-name="ui.copy_02719d6557" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
-    <section v-if="permissionLoading || permissionNotice || !allowed" class="card stack">
+    <WorkspaceHero tone="admin" :page-name="ui.copy_9ba3b8c8a9 + ' · ' + ui.copy_02719d6557" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
+    <section v-if="permissionLoading || permissionNotice || !visibleTabs.length" class="card stack">
       <p v-if="permissionLoading" class="muted">{{ copy.common.loading }}</p>
       <template v-else-if="permissionNotice"><p role="alert">{{ permissionNotice }}</p><button type="button" class="btn btn-secondary" @click="loadPermissions">{{ copy.common.retry }}</button></template>
       <p v-else class="muted">{{ ui.copy_0de5656de5 }}</p>
     </section>
-    <section v-if="allowed" class="card stack">
+    <nav v-if="visibleTabs.length" class="tabs venue-admin-tabs">
+      <button v-for="tab in visibleTabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': activeTab === tab.key }" :aria-pressed="activeTab === tab.key" :disabled="allBusy || permissionLoading || !!permissionNotice" @click="switchTab(tab.key)">{{ tab.label }}</button>
+    </nav>
+    <section v-if="allowed && activeTab === 'venue'" class="card stack">
       <div class="panel-head">
         <div class="stack-tight"><span class="section-title">{{ ui.copy_efffdc0050 }}</span><p class="muted">{{ ui.copy_257b230e01 }}</p></div>
         <button type="button" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
@@ -30,6 +33,8 @@
         </div>
       </div>
     </section>
+    <VenueAdminBookings v-if="activeTab === 'bookings' && hasAny(['venue.bookings', 'venue.approvals'])" :key="scope()" :state="bookingState" :can-approve="hasAny(['venue.approvals'])" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
+    <VenuePurposesPanel v-if="activeTab === 'purposes' && hasAny(['venue.purposes'])" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
     <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
   </div>
   <GlassDialog v-if="editing" :title="form.id ? ui.copy_1ba7eec34e : ui.copy_a78ce83cab" :busy="busy" @close="closeEditor">
@@ -49,6 +54,8 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
+import VenuePurposesPanel from '@/components/VenuePurposesPanel.vue';
+import VenueAdminBookings from '@/components/VenueAdminBookings.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -59,6 +66,17 @@ const venues = ref([]), loading = ref(false), loadNotice = ref(''), actionNotice
 const permissionLoading = ref(true), permissionNotice = ref(''), profile = ref(null);
 const editing = ref(false), busy = ref(false), switchGuard = ref(false), savedAwaitingRead = ref(false);
 const form = reactive({ id: '', name: '', location: '', description: '' });
+const purposeState = reactive({ id: '', text: '', awaitingRead: false });
+const bookingState = reactive({ from: '', to: '', status: '', venueId: '', initialized: false });
+const activeTab = ref('venue'), childBusy = ref(false), bookingEditing = ref(false);
+const allBusy = computed(() => busy.value || childBusy.value);
+const hasAny = keys => profile.value?.adminLevel === 'super_admin' || keys.some(key => profile.value?.permissions?.[key] === true);
+const visibleTabs = computed(() => [
+  { key: 'venue', label: ui.copy_ceffdfcdd7, permissions: ['venue.resources'] },
+  { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals'] },
+  { key: 'pending', label: ui.copy_e7f0a24301, permissions: ['venue.approvals'] },
+  { key: 'purposes', label: ui.copy_8dcf3fcf0b, permissions: ['venue.purposes'] }
+].filter(tab => hasAny(tab.permissions)));
 const allowed = computed(() => profile.value?.adminLevel === 'super_admin' || profile.value?.permissions?.['venue.resources'] === true);
 const blocked = computed(() => busy.value || loading.value || permissionLoading.value || !!permissionNotice.value || !!loadNotice.value || savedAwaitingRead.value || !allowed.value);
 const displayName = computed(() => session.context?.name || session.user?.name || '');
@@ -67,9 +85,15 @@ const roleLine = computed(() => session.context?.assignmentLabel || session.cont
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 let disposed = false, generation = 0, permissionGeneration = 0;
 function goWorkRole() {
-  if (busy.value) return;
-  if (editing.value) { switchGuard.value = true; return; }
+  if (allBusy.value) return;
+  if (editing.value || bookingEditing.value || purposeState.id || purposeState.text) { switchGuard.value = true; return; }
   router.push({ name: 'workRole' });
+}
+function switchTab(key) {
+  if (allBusy.value || permissionLoading.value || permissionNotice.value || !visibleTabs.value.some(tab => tab.key === key)) return;
+  if (key === 'pending') { router.push({ name: 'venuePending' }); return; }
+  activeTab.value = key;
+  if (key === 'venue') load();
 }
 function edit(row = {}) {
   if (blocked.value) return;
@@ -102,6 +126,7 @@ async function loadPermissions() {
     if (!current()) return;
     if (result.organizationId && result.organizationId !== session.context?.organizationId) throw new Error(copy.errors.permissionDenied);
     profile.value = result;
+    if (!visibleTabs.value.some(tab => tab.key === activeTab.value)) activeTab.value = visibleTabs.value[0]?.key || '';
   } catch (error) { if (current()) permissionNotice.value = errorText(error, copy.errors.permissionDenied); }
   finally { if (current()) permissionLoading.value = false; }
   if (current() && !permissionNotice.value && allowed.value) await load();
@@ -139,11 +164,14 @@ async function remove(row) {
 }
 watch(scope, () => {
   generation++; venues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
+  activeTab.value = 'venue'; childBusy.value = false; bookingEditing.value = false; busy.value = false; switchGuard.value = false;
+  Object.assign(purposeState, { id: '', text: '', awaitingRead: false });
+  Object.assign(bookingState, { from: '', to: '', status: '', venueId: '', initialized: false });
   loadPermissions();
 }, { immediate: true });
 onBeforeUnmount(() => { disposed = true; generation++; permissionGeneration++; });
-onBeforeRouteLeave(() => session.status !== 'authenticated' || !busy.value);
-onBeforeRouteUpdate(() => session.status !== 'authenticated' || !busy.value);
+onBeforeRouteLeave(() => session.status !== 'authenticated' || !allBusy.value);
+onBeforeRouteUpdate(() => session.status !== 'authenticated' || !allBusy.value);
 </script>
 
 <style scoped>
@@ -151,4 +179,5 @@ onBeforeRouteUpdate(() => session.status !== 'authenticated' || !busy.value);
 .panel-head > .stack-tight { flex: 1; min-width: 0; }
 .venue-add { flex: none; width: auto; white-space: nowrap; }
 .venue-editor-actions { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+.venue-admin-tabs .tab { flex: 1; width: 0; min-width: 0; padding-inline: var(--ui-admin-tab-padding-x); white-space: nowrap; }
 </style>
