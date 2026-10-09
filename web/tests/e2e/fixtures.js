@@ -286,6 +286,7 @@ export async function mockApi(page, options) {
       if (!state.sessionAlive) return reply({ status: 'auth_failed', message: '' }, 401);
       return reply(sessionPayload({ contextId: settings.activeContextId }));
     }
+    if (name === 'getCurrentScoreActivity') return reply({ status: 'success', activity: { name: 'Activity' } });
     if (name === 'auth/password/session') {
       const valid = body.studentId === STORED_STUDENT_ID && body.passphrase === STORED_PASSPHRASE;
       if (!valid) return reply({ status: 'login_failed', message: '' }, 401);

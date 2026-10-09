@@ -32,12 +32,13 @@ test('target card navigation submits the selected assignment and rereads saved s
     return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/scoring/tasks');
-  await page.getByRole('button', { name: copy.scoring.actionOpenScore, exact: true }).click();
+  await page.locator('.target-card').filter({ hasText: target.name }).click();
   await expect(page).toHaveURL(/\/scoring\/fill\/assignment-target$/);
   await page.locator('.score-input').fill('8.5');
   await page.getByRole('button', { name: copy.scoring.actionSubmit }).click();
   await expect(page).toHaveURL(/\/scoring\/tasks$/);
-  await page.getByRole('button', { name: copy.scoring.actionRewriteScore, exact: true }).click();
+  await expect(page.locator('.target-card')).toContainText(copy.scoring.scoreStatusScored);
+  await page.locator('.target-card').filter({ hasText: target.name }).click();
   await expect(page.locator('.score-input')).toHaveValue('8.5');
   expect(reads).toEqual([{ targetId: target.id }, { targetId: target.id }]);
   await expect(page.getByText(copy.scoring.existingRecordNotice)).toHaveCount(0);
@@ -63,7 +64,7 @@ test('form load retry stays on page and draft navigation can be cancelled', asyn
   await page.route('**/api/getScoreFormData', route => route.fulfill({ json: ++count === 1
     ? { status: 'unavailable', message: 'Form unavailable' } : form(5) }));
   await page.goto('/web/scoring/tasks');
-  await page.getByRole('button', { name: copy.scoring.actionOpenScore, exact: true }).click();
+  await page.locator('.target-card').filter({ hasText: target.name }).click();
   await expect(page.getByText('Form unavailable')).toBeVisible();
   await page.getByRole('button', { name: scoreCopy.retryLoad }).click();
   const input = page.locator('.score-input');

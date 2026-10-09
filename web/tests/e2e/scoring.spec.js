@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import copy from '../../src/locales/zh-CN/index.js';
+import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import { STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 const WEB_BASE = '/web';
@@ -108,6 +109,7 @@ async function mockScoring(page, options) {
     if (apiName === 'auth/password/session') {
       return reply(Object.assign({}, SESSION, { status: 'login_success' }));
     }
+    if (apiName === 'getCurrentScoreActivity') return reply({ status: 'success', activity: { id: 'activity-1', name: '2026 年度考核' } });
     if (apiName === 'getRateTargets') {
       return reply({
         status: 'success',
@@ -138,9 +140,10 @@ test('评分任务列出待评与已评对象', async ({ page }) => {
   await page.goto(`${WEB_BASE}/scoring/tasks`);
   await expect(page.getByText('2026 年度考核')).toBeVisible();
   await expect(page.getByText('张同学')).toBeVisible();
-  await expect(page.getByText(copy.scoring.scoreStatusPending)).toBeVisible();
+  await expect(page.locator('.target-card').getByText(copy.scoring.scoreStatusPending)).toBeVisible();
   await expect(page.getByText(copy.scoring.scoreStatusScored).first()).toBeVisible();
-  await expect(page.getByText(copy.scoring.actionRewriteScore)).toBeVisible();
+  await expect(page.locator('.target-card')).toHaveCount(2);
+  await expect(page.getByText(copy.scoring.actionRewriteScore)).toHaveCount(0);
 });
 
 test('没有评分对象时给出空状态', async ({ page }) => {
@@ -148,7 +151,7 @@ test('没有评分对象时给出空状态', async ({ page }) => {
   await login(page);
 
   await page.goto(`${WEB_BASE}/scoring/tasks`);
-  await expect(page.getByText(copy.scoring.targetListEmpty)).toBeVisible();
+  await expect(page.getByText(homeCopy.text.noTargets)).toBeVisible();
 });
 
 test('评分填写按题目校验并与服务端约定一致', async ({ page }) => {

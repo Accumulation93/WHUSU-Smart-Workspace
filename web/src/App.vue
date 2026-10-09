@@ -1,6 +1,10 @@
 <template>
   <AppShell v-if="showShell">
-    <RouterView />
+    <RouterView v-slot="{ Component }">
+      <KeepAlive :key="directoryScope" :include="retainedPages" :max="1">
+        <component :is="Component" />
+      </KeepAlive>
+    </RouterView>
   </AppShell>
   <RouterView v-else />
   <AppToaster />
@@ -17,6 +21,8 @@ import { session } from '@/runtime/session.js';
 
 const route = useRoute();
 const router = useRouter();
+const directoryScope = computed(() => [session.status, session.user?.id, session.context?.organizationId, session.context?.contextId].join('|'));
+const retainedPages = computed(() => ['scoringTasks', 'scoringFill'].includes(route.name) ? ['ScoringTasksView'] : []);
 
 // 登录页和"页面不存在"不套导航外壳，其余页面统一进入工作区布局。
 const showShell = computed(() => session.status === 'authenticated'

@@ -8,6 +8,10 @@
  */
 
 :root {
+  --ui-target-group-bg: linear-gradient(135deg, rgba(241,245,249,0.94), rgba(226,232,240,0.86));
+  --ui-target-group-border: 1px solid rgba(148,163,184,0.26);
+  --ui-target-group-text: #475569;
+  --ui-stat-completed-bg: linear-gradient(135deg, #f59e0b, #d97706);
   --ui-score-page-width: 640px;
   --ui-score-keyboard-width: 380px;
   --ui-score-keyboard-radius: 24px;
