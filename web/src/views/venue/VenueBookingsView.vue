@@ -16,7 +16,7 @@
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!venues.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
+      <div v-else-if="!venues.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a60fcec226 }}</div>
       <div v-else class="list">
         <div v-for="venue in venues" :key="venue.id" class="list-row">
           <div class="list-row-main stack-tight">
@@ -40,6 +40,7 @@ import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 

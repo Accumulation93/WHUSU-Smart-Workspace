@@ -9,6 +9,13 @@
     />
 
     <section class="card stack">
+      <label class="field">
+        <span class="field-label">{{ copy.messages.organizationScope }}</span>
+        <select v-model="organizationId" class="field-input" @change="changeScope">
+          <option value="">{{ copy.messages.allOrganizations }}</option>
+          <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
+        </select>
+      </label>
       <div class="tabs">
         <button
           v-for="tab in tabs"
@@ -87,14 +94,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
-import { notifyModuleBuilding } from '@/runtime/porting.js';
+import { openMessageTarget } from '@/runtime/messageNavigation.js';
+import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const PAGE_SIZE = 20;
@@ -113,7 +121,11 @@ const nextCursor = ref('');
 const unreadCount = ref(0);
 const loading = ref(false);
 const loadNotice = ref('');
-const loadedTabs = ref({});
+const organizationId = ref('');
+const organizations = ref(session.organizations);
+let generation = 0;
+let actionBusy = false;
+onBeforeUnmount(() => { generation++; });
 
 const isNotificationTab = computed(() => activeTab.value === 'notifications');
 
@@ -140,19 +152,24 @@ function endpointFor(tab) {
 
 async function loadFirstPage(tab) {
   const target = tab || activeTab.value;
+  const request = ++generation;
+  const context = session.context?.contextId;
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi(endpointFor(target), { limit: PAGE_SIZE, refresh: true });
-    if (target !== activeTab.value) return;
+    const result = requireSuccess(await callApi(endpointFor(target), { limit: PAGE_SIZE, refresh: true, organizationId: organizationId.value }));
+    if (request !== generation || context !== session.context?.contextId) return;
+    if (Array.isArray(result.organizations)) organizations.value = result.organizations;
+    if (result.partial) loadNotice.value = copy.messages.partialOrganizationLoading;
     items.value = Array.isArray(result.items) ? result.items : [];
     nextCursor.value = result.nextCursor || '';
     unreadCount.value = Number(result.unreadCount || 0);
-    loadedTabs.value = Object.assign({}, loadedTabs.value, { [target]: true });
+
   } catch (error) {
+    if (request !== generation) return;
     loadNotice.value = errorText(error, copy.messages.view.retryLater);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
@@ -160,19 +177,23 @@ async function loadMore() {
   if (loading.value || !nextCursor.value) return;
   loading.value = true;
   const target = activeTab.value;
+  const request = generation;
+  const context = session.context?.contextId;
   try {
-    const result = await callApi(endpointFor(target), {
+    const result = requireSuccess(await callApi(endpointFor(target), {
       limit: PAGE_SIZE,
-      cursor: nextCursor.value
-    });
-    if (target !== activeTab.value) return;
+      cursor: nextCursor.value, organizationId: organizationId.value
+    }));
+    if (request !== generation || context !== session.context?.contextId) return;
     const incoming = Array.isArray(result.items) ? result.items : [];
     items.value = items.value.concat(incoming);
     nextCursor.value = result.nextCursor || '';
   } catch (error) {
+    if (request !== generation) return;
+    if (error.status === 'cursor_expired') { await loadFirstPage(); return; }
     loadNotice.value = errorText(error, copy.messages.view.retryLater);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
@@ -186,66 +207,46 @@ function selectTab(tab) {
   loadFirstPage(tab);
 }
 
+function changeScope() {
+  items.value = [];
+  nextCursor.value = '';
+  loadFirstPage();
+}
+
 async function openMessage(item) {
-  if (isNotificationTab.value && item && item.isRead === false) {
-    try {
-      await callApi('markNotificationRead', { id: item.id });
-      item.isRead = true;
-      unreadCount.value = Math.max(0, unreadCount.value - 1);
-    } catch (_) {
-      // 已读写入失败不阻断打开目标，下一次刷新回到服务端真实状态。
-    }
-  }
-  notifyModuleBuilding();
+  try { await openMessageTarget(router, item, isNotificationTab.value); }
+  catch (error) { showToast(errorText(error, copy.messages.notificationReadFailed)); }
 }
 
-async function markAllRead() {
+async function mutateNotifications(endpoint, data = {}) {
+  if (actionBusy) return;
+  actionBusy = true;
+  const request = generation;
   try {
-    await callApi('markAllNotificationsRead', {});
-    items.value = items.value.map((item) => Object.assign({}, item, { isRead: true }));
-    unreadCount.value = 0;
+    const result = requireSuccess(await callApi(endpoint, { organizationId: organizationId.value, ...data }));
+    if (request !== generation) return;
+    await loadFirstPage();
+    if (result.partial) loadNotice.value = copy.messages.partialBulkAction;
   } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.view.retryLater);
-  }
+    if (request === generation) loadNotice.value = errorText(error, copy.messages.deleteFailed);
+  } finally { actionBusy = false; }
 }
 
-async function removeNotification(item) {
-  try {
-    await callApi('deleteNotification', { id: item.id });
-    items.value = items.value.filter((row) => row.id !== item.id);
-    if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
-  } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.messages.deleteFailed);
-  }
+function markAllRead() { return mutateNotifications('markAllNotificationsRead'); }
+function removeNotification(item) {
+  return mutateNotifications('deleteNotification', { id: item.id, organizationId: item.organizationId });
 }
-
 async function clearAll() {
+  const scope = organizationId.value;
+  const request = generation;
   const confirmed = await confirmAction({
-    title: copy.messages.messages.clearTitle,
-    body: copy.messages.messages.clearDescription,
-    confirmText: copy.messages.view.clearAll,
-    cancelText: copy.common.cancel,
-    danger: true
+    title: copy.messages.clearTitle, body: copy.messages.clearDescription,
+    confirmText: copy.messages.clearAll, cancelText: copy.common.cancel, danger: true
   });
-  if (!confirmed) return;
-  try {
-    await callApi('deleteAllNotifications', {});
-    items.value = [];
-    nextCursor.value = '';
-    unreadCount.value = 0;
-  } catch (error) {
-    loadNotice.value = errorText(error, copy.messages.messages.clearFailed);
+  if (confirmed && scope === organizationId.value && request === generation) {
+    await mutateNotifications('deleteAllNotifications');
   }
 }
 
 onMounted(() => loadFirstPage(activeTab.value));
 </script>
-
-<style scoped>
-.tab-active {
-  /* 与全局分段页签一致：激活项用蓝色渐变 + 白字，不用浅色描边。 */
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 15px rgba(29, 78, 216, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-}
-</style>

@@ -87,6 +87,8 @@ import {
   MODULE_BUILDING_TITLE,
   notifyModuleBuilding
 } from '@/runtime/porting.js';
+import { openMessageTarget } from '@/runtime/messageNavigation.js';
+import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const PREVIEW_LIMIT = 5;
@@ -137,8 +139,9 @@ function openCard(card) {
   router.push(card.route);
 }
 
-function openMessage() {
-  notifyModuleBuilding();
+async function openMessage(item) {
+  try { await openMessageTarget(router, item); }
+  catch (error) { showToast(errorText(error)); }
 }
 
 async function loadSummary() {

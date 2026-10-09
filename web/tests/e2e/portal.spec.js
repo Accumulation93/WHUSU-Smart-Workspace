@@ -56,7 +56,7 @@ test('登录状态在使用中失效时回到登录页并说明原因', async ({
   await expect(page.getByText(copy.login.relogin)).toBeVisible();
 });
 
-test('门户展示待办与通知，点开通知先标记已读再给出模块说明', async ({ page }) => {
+test('门户通知进入对应详情后标记已读', async ({ page }) => {
   const api = await mockApi(page);
   await login(page);
 
@@ -70,7 +70,8 @@ test('门户展示待办与通知，点开通知先标记已读再给出模块�
   await expect(page.getByText('有一条新的审核申请')).toBeVisible();
 
   await page.getByText('有一条新的审核申请').click();
-  await expect(page.getByText(copy.workbench.notPortedBody).first()).toBeVisible();
+  await expect(page).toHaveURL(/\/audit\/submission\/submission-1$/);
+  await expect.poll(() => callsOf(api.calls, 'markNotificationRead').length).toBe(1);
 
   const readCalls = callsOf(api.calls, 'markNotificationRead');
   expect(readCalls).toHaveLength(1);

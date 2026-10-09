@@ -61,6 +61,7 @@ BACKUP_STOPPED=0
 UTC_CUTOVER_REQUIRED=0
 # 非破坏性迁移走在线发布：不停进程、不进维护状态、滚动重载，升级不中断服务。
 ONLINE_DEPLOY=0
+FRONTEND_ONLY=0
 PREFLIGHT_PID=""
 
 log() {
@@ -233,6 +234,17 @@ rollback() {
   trap - ERR TERM INT HUP
   set +e
   stop_preflight
+  # 网页独立发布只回退静态目录，不触碰仍在旧 release 中运行的服务进程。
+  if [[ "$FRONTEND_ONLY" -eq 1 ]]; then
+    if [[ "$RELEASE_SWITCHED" -eq 1 ]]; then
+      if ! atomic_link "$OLD_RELEASE"; then
+        log "网页目录回退失败，保留两个 release 等待人工处理"
+        exit 1
+      fi
+    fi
+    log "网页发布失败，服务进程与数据库未改动，已保留原网页版本"
+    exit 1
+  fi
   # 在线发布不回滚数据库也不停进程：本轮迁移都是非破坏性的，旧版本继续可用。
   # 只有已经把流量切到新版本时才滚动切回旧版本，全过程不中断服务。
   if [[ "$ONLINE_DEPLOY" -eq 1 ]]; then
@@ -352,6 +364,11 @@ if [[ -n "$OLD_SHA" && "$OLD_SHA" =~ ^[0-9a-f]{40}$ ]] && git -C "$REPO_DIR" dif
   exit 0
 fi
 
+# 发布工具和测试自身不属于线上业务运行时；其余服务端文件变化仍走完整发布。
+if [[ -n "$OLD_SHA" && "$OLD_SHA" =~ ^[0-9a-f]{40}$ ]] && git -C "$REPO_DIR" diff --quiet "$OLD_SHA" "$TARGET_SHA" -- server ':!server/test' ':!server/scripts/deployProduction.sh'; then
+  FRONTEND_ONLY=1
+fi
+
 if [[ -e "$NEW_RELEASE" ]]; then
   [[ "$NEW_RELEASE" != "$OLD_RELEASE" ]] || { log "目标版本已经在运行"; exit 0; }
   git -C "$REPO_DIR" worktree remove --force "$NEW_RELEASE"
@@ -396,6 +413,25 @@ timeout --signal=TERM --kill-after=10s 60s node "$NEW_RELEASE/server/scripts/pre
 
 PLAN_JSON="$(node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" plan | tail -n 1)"
 PENDING_COUNT="$(printf '%s' "$PLAN_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).pendingCount)))")"
+if [[ "$FRONTEND_ONLY" -eq 1 ]]; then
+  [[ "$PENDING_COUNT" -eq 0 ]] || { log "网页独立发布发现待执行迁移，拒绝切换"; exit 1; }
+  [[ ! -e "$MAINTENANCE_FLAG" ]] || { log "服务处于维护状态，拒绝网页独立发布"; exit 1; }
+  wait_for_health "$(read_port)"
+  curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
+  log "服务端运行文件未变化，仅切换网页静态产物，不重启进程"
+  atomic_link "$NEW_RELEASE"
+  RELEASE_SWITCHED=1
+  # 核验 Nginx 实际返回新入口，不能把健康接口正常当成静态文件已发布。
+  cmp -s "$NEW_RELEASE/web/dist/index.html" <(curl --fail --silent --show-error --max-time 15 "${PUBLIC_HEALTH_URL%/api/health}/web/")
+  curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
+  mkdir -p "$DEPLOY_DIR/bin"
+  install -m 755 "$NEW_RELEASE/server/scripts/deployEntrypoint.sh" "$DEPLOY_DIR/bin/deploy-entrypoint"
+  printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/web_sha"
+  printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/repository_sha"
+  trap - ERR TERM INT HUP
+  log "部署成功，网页版本 $TARGET_SHA，服务端进程保持运行"
+  exit 0
+fi
 if [[ "$PLAN_JSON" == *"20260825234500_score_calculation_context_snapshot.sql"* ]]; then
   log "执行旧评分记录不可变快照只读预检"
   timeout --signal=TERM --kill-after=30s 600s \
@@ -577,6 +613,7 @@ mkdir -p "$DEPLOY_DIR/bin"
 install -m 755 "$NEW_RELEASE/server/scripts/deployEntrypoint.sh" "$DEPLOY_DIR/bin/deploy-entrypoint"
 
 printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/server_sha"
+printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/web_sha"
 printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/repository_sha"
 if [[ "$MAINTENANCE_ACTIVE" -eq 1 ]]; then
   rm -f "$MAINTENANCE_FLAG"

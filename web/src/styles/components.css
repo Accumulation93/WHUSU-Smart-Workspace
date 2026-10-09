@@ -576,6 +576,7 @@ a {
 }
 
 .workspace-context-card {
+  width: 100%;
   position: relative;
   z-index: 2;
   display: flex;
@@ -595,17 +596,23 @@ a {
 }
 
 .workspace-context-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ui-label-gap);
   flex: 1 1 auto;
   min-width: 0;
 }
 
 .workspace-context-label {
+  display: block;
   color: rgba(255, 255, 255, 0.72);
   font-size: var(--ui-type-caption);
   line-height: var(--ui-leading-control);
 }
 
 .workspace-organization {
+  display: block;
   margin-top: 1.5px;
   color: #ffffff;
   font-size: var(--ui-type-value);
@@ -615,6 +622,7 @@ a {
 }
 
 .workspace-context-identity {
+  display: block;
   margin-top: 1.5px;
   color: rgba(239, 246, 255, 0.88);
   font-size: var(--ui-type-caption);

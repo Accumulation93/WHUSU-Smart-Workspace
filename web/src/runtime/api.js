@@ -125,3 +125,10 @@ export function errorText(error, fallback) {
   const text = String((error && error.message) || '').trim();
   return text || fallback || copy.errors.requestFailed;
 }
+
+export function requireSuccess(result, fallback) {
+  if (!result || result.status !== 'success') {
+    throw apiError({ status: result?.status, message: result?.message || fallback || copy.errors.requestFailed });
+  }
+  return result;
+}

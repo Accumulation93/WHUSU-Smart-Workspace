@@ -201,10 +201,11 @@ import MessageRow from '@/components/MessageRow.vue';
 import UiIcon from '@/components/UiIcon.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { cardsForRole } from '@/runtime/modules.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { notifyModuleBuilding } from '@/runtime/porting.js';
+import { openMessageTarget } from '@/runtime/messageNavigation.js';
 import { logout, roleLabelOf, session } from '@/runtime/session.js';
 
 const PORTAL_PREVIEW_LIMIT = 6;
@@ -287,27 +288,17 @@ async function loadPreview() {
 }
 
 async function openMessage(item) {
-  if (item && item.isRead === false) {
-    try {
-      await callApi('markNotificationRead', { id: item.id });
-      item.isRead = true;
-      unreadCount.value = Math.max(0, unreadCount.value - 1);
-    } catch (_) {
-      // 已读标记失败不影响用户继续查看内容，下一次刷新会回到服务端真实状态。
-    }
+  try {
+    await openMessageTarget(router, item, notifications.value.includes(item));
+  } catch (error) {
+    showToast(errorText(error, copy.messages.notificationReadFailed));
   }
-  const target = item && item.targetUrl;
-  if (typeof target === 'string' && target.indexOf('/subpackages/') === 0) {
-    // 服务端下发的目标地址仍是小程序路由，网页端没有对应页面时明确说明。
-    notifyModuleBuilding();
-    return;
-  }
-  notifyModuleBuilding();
 }
 
 async function markAllRead() {
   try {
-    await callApi('markAllNotificationsRead', {});
+    const result = requireSuccess(await callApi('markAllNotificationsRead', {}));
+    if (result.partial) { await loadPreview(); loadNotice.value = copy.messages.partialBulkAction; return; }
     notifications.value = notifications.value.map((item) => Object.assign({}, item, { isRead: true }));
     unreadCount.value = 0;
   } catch (error) {
@@ -318,7 +309,7 @@ async function markAllRead() {
 async function removeNotification(item) {
   // 小程序门户的删除通知是滑动即删、不再弹确认层，网页端保持同一交互语言。
   try {
-    await callApi('deleteNotification', { id: item.id });
+    requireSuccess(await callApi('deleteNotification', { id: item.id, organizationId: item.organizationId }));
     notifications.value = notifications.value.filter((row) => row.id !== item.id);
     if (item.isRead === false) unreadCount.value = Math.max(0, unreadCount.value - 1);
   } catch (error) {

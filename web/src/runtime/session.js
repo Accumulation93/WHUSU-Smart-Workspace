@@ -1,6 +1,6 @@
 import { computed, reactive } from 'vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText, setAuthenticationLostHandler } from './api.js';
+import { callApi, errorText, requireSuccess, setAuthenticationLostHandler } from './api.js';
 import { resetSystemTimezoneConfig } from './dateTime.js';
 
 /**
@@ -73,6 +73,7 @@ export function clearSession(notice) {
 async function loadSession() {
   try {
     const result = await callApi('auth/contexts', {}, { skipAuthRedirect: true });
+    requireSuccess(result);
     applyPayload(result);
     return 'authenticated';
   } catch (error) {
@@ -99,12 +100,14 @@ export function reloadSession() {
 
 export async function activateContext(contextId) {
   const result = await callApi('auth/contexts/activate', { contextId });
+  requireSuccess(result);
   applyPayload(result);
   return result;
 }
 
 export async function activateSelection(organizationId, identityId) {
   const result = await callApi('auth/contexts/activate', { organizationId, identityId });
+  requireSuccess(result);
   applyPayload(result);
   return result;
 }

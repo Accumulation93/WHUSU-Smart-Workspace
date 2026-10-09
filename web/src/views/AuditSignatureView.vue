@@ -85,7 +85,7 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { detailTimeText } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
@@ -249,7 +249,7 @@ async function save() {
 
 async function setDefault(signature) {
   try {
-    await callApi('setDefaultSignature', { id: signature.id });
+    requireSuccess(await callApi('setDefaultSignature', { id: signature.id }));
     showToast(copy.audit.signatureDefaultSet);
     await load();
   } catch (error) {
@@ -267,7 +267,7 @@ async function remove(signature) {
   });
   if (!confirmed) return;
   try {
-    await callApi('deleteSignature', { id: signature.id });
+    requireSuccess(await callApi('deleteSignature', { id: signature.id }));
     showToast(copy.audit.signatureDeleted);
     await load();
   } catch (error) {

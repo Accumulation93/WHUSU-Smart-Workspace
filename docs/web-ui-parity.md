@@ -216,7 +216,8 @@ color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; line-height
 ## 五、网页外壳
 
 - 外壳由 `web/src/components/AppShell.vue` 提供，小屏幕与电脑共用同一套结构：
-  顶部玻璃条（品牌 + 当前页名 + 用户）→ 顶部玻璃分段页签 → 内容区。
+  顶部玻璃条（页面标题 + 返回键，与 `miniprogram/components/ui-navbar` 一致）→ 内容区。
+- 顶栏不得重复显示版本、姓名、组织岗位、退出按钮或跨应用导航；角色信息在共享 Hero 中展示，应用入口和退出操作遵循小程序门户。场地模块只保留场地浏览、我的借用、待我审批三个页签，审批历史放在待我审批内。
 - 顶部条吸顶（`position: sticky; top: 0`），使用与卡片相同的玻璃配料 + 底部细描边。
 - 电脑端不做左侧固定导航；内容区最大宽度取 `--ui-content-max-width` 并居中。
 - 底部主操作组用 `.actions`，品牌页脚用 `.page-footer`。

@@ -140,7 +140,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import {
   detailTimeText,
   downloadAuditFile,
@@ -151,6 +151,7 @@ import {
 } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import { completeMessageReceipt, cancelMessageReceipt } from '@/runtime/messageReceipt.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -259,16 +260,19 @@ async function load() {
   try {
     const result = await callApi('getSubmissionDetail', { submissionId: route.params.id });
     if (result.status !== 'success') {
+      cancelMessageReceipt();
       detail.value = null;
       loadNotice.value = result.message || copy.audit.loadFailed;
       return;
     }
     detail.value = result;
+    await completeMessageReceipt(route);
     // 打开详情即代表已读，与小程序行为一致；失败不影响查看。
     try {
       await callApi('markSubmissionRead', { submissionId: route.params.id });
     } catch (_) {}
   } catch (error) {
+    cancelMessageReceipt();
     detail.value = null;
     loadNotice.value = errorText(error, copy.audit.loadFailed);
   } finally {
@@ -282,11 +286,11 @@ async function onApprove() {
   submitting.value = true;
   loadNotice.value = '';
   try {
-    await callApi('approveStep', {
+    requireSuccess(await callApi('approveStep', {
       submissionId: route.params.id,
       stepId: step.id,
       comment: approveComment.value
-    });
+    }));
     showToast(copy.audit.approveDone);
     approveComment.value = '';
     await load();
@@ -308,11 +312,11 @@ async function onReject() {
   submitting.value = true;
   loadNotice.value = '';
   try {
-    await callApi('rejectStep', {
+    requireSuccess(await callApi('rejectStep', {
       submissionId: route.params.id,
       stepId: step.id,
       rejectionReason: reason
-    });
+    }));
     showToast(copy.audit.rejectDone);
     rejectReason.value = '';
     await load();
@@ -335,7 +339,7 @@ async function onWithdraw() {
   submitting.value = true;
   loadNotice.value = '';
   try {
-    await callApi('withdrawSubmission', { submissionId: route.params.id });
+    requireSuccess(await callApi('withdrawSubmission', { submissionId: route.params.id }));
     showToast(copy.audit.withdrawDone);
     await load();
   } catch (error) {

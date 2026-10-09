@@ -1,15 +1,17 @@
 <template>
+  <div class="section-control-card">
   <div class="tabs">
     <button
       v-for="entry in entries"
       :key="entry.key"
       type="button"
       class="tab"
-      :class="{ 'tab-active': active === entry.key }"
+      :class="{ 'tab-active': selectedTab === entry.key }"
       @click="go(entry)"
     >
       {{ entry.label }}
     </button>
+  </div>
   </div>
 </template>
 
@@ -17,20 +19,19 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
+import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 
-/** 场地借用模块内部的玻璃分段选项卡，去向与小程序场地子应用一致。 */
-defineProps({
+const props = defineProps({
   active: { type: String, default: '' }
 });
 
 const router = useRouter();
+const selectedTab = computed(() => props.active === 'create' ? 'browse' : props.active === 'history' ? 'pending' : props.active);
 
 const entries = computed(() => [
-  { key: 'browse', label: copy.venue.createVenueLabel, route: { name: 'venueBookings' } },
-  { key: 'create', label: copy.venue.createTitle, route: { name: 'venueBookingCreate' } },
+  { key: 'browse', label: venueCopy.copy_3ecbe06312, route: { name: 'venueBookings' } },
   { key: 'myBookings', label: copy.venue.mineTitle, route: { name: 'venueMyBookings' } },
-  { key: 'pending', label: copy.venue.pendingTitle, route: { name: 'venuePending' } },
-  { key: 'history', label: copy.venue.historyTitle, route: { name: 'venueHistory' } }
+  { key: 'pending', label: copy.venue.pendingTitle, route: { name: 'venuePending' } }
 ]);
 
 function go(entry) {

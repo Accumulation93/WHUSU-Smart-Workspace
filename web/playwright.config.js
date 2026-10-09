@@ -44,6 +44,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'computer', use: { ...devices['Desktop Chrome'], ...browserOverrides } },
-    { name: 'phone', use: { ...devices['Pixel 5'], ...browserOverrides } }
+    { name: 'phone', use: { ...devices['Pixel 5'], ...browserOverrides } },
+    { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, ...browserOverrides } }
   ]
 });

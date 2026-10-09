@@ -61,6 +61,7 @@ import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
@@ -87,8 +88,10 @@ function displayStatus(booking) {
   if (booking.status === 'cancelled') return 'cancelled';
   if (booking.status === 'rejected') return 'rejected';
   if (booking.status === 'approved') {
+    const start = Date.parse(booking.timeStart);
     const end = booking.timeEnd ? new Date(booking.timeEnd).getTime() : 0;
-    return end && end <= Date.now() ? 'finished' : 'inUse';
+    if (end && end <= Date.now()) return 'completed';
+    return Number.isFinite(start) && start <= Date.now() ? 'inUse' : 'approved';
   }
   return 'pending';
 }
@@ -98,7 +101,8 @@ function statusLabel(booking) {
   if (status === 'cancelled') return copy.venue.statusCancelled;
   if (status === 'rejected') return copy.venue.statusRejected;
   if (status === 'inUse') return copy.venue.statusInUse;
-  if (status === 'finished') return copy.venue.statusApproved;
+  if (status === 'completed') return venueCopy.copy_2220286f1c;
+  if (status === 'approved') return copy.venue.statusApproved;
   return copy.venue.statusPending;
 }
 
@@ -106,7 +110,7 @@ function statusTone(booking) {
   const status = displayStatus(booking);
   if (status === 'rejected' || status === 'cancelled') return 'chip-orange';
   if (status === 'inUse') return 'chip-green';
-  if (status === 'finished') return 'chip-sky';
+  if (status === 'completed') return 'chip-sky';
   return 'chip-blue';
 }
 
@@ -126,7 +130,7 @@ function progressText(booking) {
 
 function canCancel(booking) {
   const status = displayStatus(booking);
-  return status === 'pending' || status === 'inUse';
+  return status === 'pending' || status === 'approved';
 }
 
 function canEnd(booking) {

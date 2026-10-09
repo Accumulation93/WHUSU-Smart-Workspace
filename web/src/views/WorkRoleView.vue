@@ -144,7 +144,7 @@ onMounted(ensureLoaded);
   padding: var(--ui-list-padding-y) var(--ui-list-padding-x);
   border: 1px solid rgba(226, 237, 247, 0.9);
   border-radius: var(--ui-list-radius);
-  background: var(--ui-surface-soft);
+  background: var(--ui-list-bg);
   color: var(--ui-text);
   font-family: inherit;
   font-size: var(--ui-type-body);

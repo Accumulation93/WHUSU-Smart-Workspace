@@ -51,11 +51,15 @@
           <div class="list-row-main stack-tight">
             <span class="list-row-title break-all">{{ row.name }}</span>
             <span class="row row-wrap">
-              <span v-if="assignmentText(row)" class="chip chip-sky break-all">{{ assignmentText(row) }}</span>
-              <span class="chip" :class="row.isActive === false ? 'chip-orange' : 'chip-green'">
+              <span v-if="row.studentId" class="muted">{{ row.studentId }}</span>
+              <span class="chip" :class="row.auth?.status === 'verified' ? 'chip-green' : 'chip-orange'">
                 {{ accountState(row) }}
               </span>
             </span>
+            <details v-if="row.assignments?.length" class="stack-tight">
+              <summary>{{ copy.hr.assignmentLabel }} {{ row.assignments.length }}</summary>
+              <span v-for="assignment in row.assignments" :key="assignment.assignmentId" class="muted break-all">{{ [assignment.identityCategoryName, assignment.department, assignment.workGroup].filter(Boolean).join(' · ') }}</span>
+            </details>
           </div>
         </div>
       </div>
@@ -73,6 +77,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import accountCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -119,13 +124,17 @@ function assignmentText(row) {
 }
 
 function accountState(row) {
-  const account = row.account || {};
-  const status = String(account.status || row.accountStatus || '');
-  const map = {
-    verified: copy.audit.statusLabels.approved,
-    frozen: copy.audit.statusLabels.withdrawn
+  const auth = row.auth;
+  if (!auth) return accountCopy.accountStateUnknown;
+  const labels = {
+    verified: accountCopy.copy_8e4abe3d58,
+    frozen: accountCopy.copy_f6eb285e87,
+    recovery_required: accountCopy.copy_16399ef078
   };
-  return map[status] || status || copy.common.empty;
+  if (labels[auth.status]) return labels[auth.status];
+  if (!row.accountId) return accountCopy.accountNotCreated;
+  if (auth.status === 'pending_verification') return accountCopy.accountPendingVerification;
+  return accountCopy.accountStateUnknown;
 }
 
 function goWorkRole() {
@@ -140,7 +149,7 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listHrGovernance', {});
+    const result = await callApi('listHrGovernance', { organizationId: session.context?.organizationId });
     if (result.status !== 'success') {
       rows.value = [];
       loadNotice.value = result.message || copy.errors.permissionDenied;

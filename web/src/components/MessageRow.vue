@@ -77,7 +77,7 @@ const categoryText = computed(() => {
   return copy.messages.categoryLabels[props.item.category] || '';
 });
 
-const contextName = computed(() => props.item.workContextName || '');
+const contextName = computed(() => props.item.workContextName || props.item.identityName || '');
 
 const organizationName = computed(() => props.item.organizationName || '');
 

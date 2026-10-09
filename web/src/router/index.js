@@ -178,7 +178,7 @@ const routes = [
   {
     path: '/admin/auth',
     name: 'adminAuth',
-    component: () => import('@/views/admin/AdminAuthView.vue'),
+    redirect: { name: 'adminConsole' },
     meta: { requiresAuth: true, title: copy.admin.authTitle }
   },
 

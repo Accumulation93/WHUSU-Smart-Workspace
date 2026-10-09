@@ -132,9 +132,9 @@ for (const point of BREAKPOINTS) {
   contains('宫格项底色是玻璃渐变', gridItem.backgroundImage, 'rgba(255, 255, 255, 0.88)');
   check('宫格项描边为浅蓝灰', gridItem.borderColor, 'rgba(219, 229, 241, 0.76)');
 
-  const activeTab = await read('.shell-tab-active');
-  contains('当前页签是蓝色渐变', activeTab.backgroundImage, 'linear-gradient');
-  check('当前页签文字为白色', activeTab.color, 'rgb(255, 255, 255)');
+  const heading = await read('.shell-heading');
+  check('顶栏沿用小程序标题字重', heading.fontWeight, '500');
+  check('顶栏不重复放置全局业务页签', await page.locator('.shell-tab').count(), 0);
 
   const sectionTitle = await read('.page .section-title');
   check('分区标题字重 700', sectionTitle.fontWeight, '700');

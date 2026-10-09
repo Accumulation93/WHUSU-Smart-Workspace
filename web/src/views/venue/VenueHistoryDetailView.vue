@@ -29,8 +29,8 @@
             <div class="list-row-main stack-tight">
               <span class="soft">{{ copy.audit.submitterLabel }}</span>
               <span class="list-row-title break-all">{{ booking.userName || booking.submitterName || '' }}</span>
-              <span v-if="booking.creatorAssignmentLabel" class="muted break-all">
-                {{ booking.creatorAssignmentLabel }}
+              <span v-if="booking.applicantAssignmentLabel" class="muted break-all">
+                {{ booking.applicantAssignmentLabel }}
               </span>
             </div>
           </div>
@@ -119,14 +119,21 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('getVenueApprovalHistoryDetail', { bookingId: route.params.id });
+    const result = await callApi('getVenueApprovalHistoryDetail', { id: route.params.id });
     if (result.status !== 'success') {
       booking.value = null;
       loadNotice.value = result.message || copy.venue.notFound;
       return;
     }
-    booking.value = result.booking || result;
-    steps.value = Array.isArray(result.flowSteps) ? result.flowSteps : [];
+    booking.value = result.detail || null;
+    const progress = result.detail?.approvalProgress;
+    steps.value = (progress?.flowSteps || []).map((step, index) => {
+      const snapshot = (progress.snapshots || []).find(item => Number(item.stepIndex) === index
+        && (!progress.flowId || String(item.flowId || item.flow_id || '') === String(progress.flowId)));
+      const rejected = progress.isRejected && index === Number(progress.rejectStep);
+      const approved = !rejected && (progress.isApproved || index < (progress.isRejected ? Number(progress.rejectStep) : Number(progress.currentStep)));
+      return { ...step, ...snapshot, approved, rejected };
+    });
   } catch (error) {
     booking.value = null;
     loadNotice.value = errorText(error, copy.venue.notFound);

@@ -13,13 +13,12 @@
       <div class="panel-head">
         <div class="stack-tight">
           <span class="section-title">{{ copy.venue.pendingTitle }}</span>
-          <span class="panel-note">{{ copy.venue.emptyPending }}</span>
         </div>
-        <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
+        <button type="button" class="btn-quiet" @click="router.push({ name: 'venueHistory' })">{{ copy.venue.historyTitle }}</button>
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!items.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
+      <div v-else-if="!items.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a14c4e583b }}</div>
       <div v-else class="list">
         <div v-for="item in items" :key="item.bookingId || item.id" class="list-row">
           <div class="list-row-main stack-tight">
@@ -50,6 +49,7 @@ import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
