@@ -31,20 +31,25 @@
         </div>
       </div>
     </section>
+    <VenueBookingDialog v-if="bookingVenue" :venue="bookingVenue" @close="closeBooking" @saved="bookingSaved" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import VenueBookingDialog from '@/components/VenueBookingDialog.vue';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
+const route = useRoute();
+const bookingVenue = ref(null);
+let generation = 0;
 const venues = ref([]);
 const loading = ref(true);
 const loadNotice = ref('');
@@ -65,14 +70,26 @@ function goWorkRole() {
 }
 
 function goCreate(venue) {
-  router.push({ name: 'venueBookingCreate', query: { venueId: venue.id } });
+  bookingVenue.value = venue;
+}
+function closeBooking() {
+  bookingVenue.value = null;
+  if (route.name === 'venueBookingCreate') router.replace({ name: 'venueBookings' });
+}
+async function bookingSaved() {
+  closeBooking();
+  try { requireSuccess(await callApi('listMyVenueBookings', {})); await load(); }
+  catch (error) { loadNotice.value = errorText(error); }
 }
 
 async function load() {
+  const request = ++generation;
+  const context = session.context?.contextId;
   loading.value = true;
   loadNotice.value = '';
   try {
     const result = await callApi('listVenuesForBooking', {});
+    if (request !== generation || context !== session.context?.contextId) return;
     if (result.status !== 'success') {
       venues.value = [];
       loadNotice.value = result.message || copy.venue.loadFailed;
@@ -80,12 +97,18 @@ async function load() {
     }
     venues.value = Array.isArray(result.venues) ? result.venues : [];
   } catch (error) {
+    if (request !== generation || context !== session.context?.contextId) return;
     venues.value = [];
     loadNotice.value = errorText(error, copy.venue.loadFailed);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  if (route.name === 'venueBookingCreate') bookingVenue.value = venues.value.find(venue => String(venue.id) === String(route.query.venueId)) || null;
+});
+watch(() => session.context?.contextId, () => { bookingVenue.value = null; venues.value = []; load(); });
+onBeforeUnmount(() => { generation++; });
 </script>

@@ -396,6 +396,7 @@ if [[ ! -s "$NEW_RELEASE/web/dist/index.html" ]]; then
   log "网页构建产物缺少入口文件，拒绝切换 release"
   exit 1
 fi
+node "$NEW_RELEASE/scripts/retain-web-assets.js" "$NEW_RELEASE/web/dist" "${OLD_RELEASE:+$OLD_RELEASE/web/dist}" "$RELEASES_DIR"
 # Nginx 以独立的系统用户运行，静态产物必须沿路径可进入、可读取。
 # 只放开网页子树：release 根目录仅给其他用户通过权限（不列目录），
 # 服务端源码、.env 与上传目录维持构建时的收紧权限。
