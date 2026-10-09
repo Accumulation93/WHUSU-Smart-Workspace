@@ -47,19 +47,7 @@
       <section class="card stack">
         <div class="section-title">{{ copy.audit.detailStepsTitle }}</div>
         <div v-if="!steps.length" class="empty-state">{{ copy.venue.emptyHistory }}</div>
-        <div v-else class="list">
-          <div v-for="(step, index) in steps" :key="index" class="list-row">
-            <div class="list-row-main stack-tight">
-              <span class="list-row-title">{{ step.stepName || step.name || copy.audit.stepNumber }}</span>
-              <span class="row row-wrap">
-                <span class="chip" :class="step.approved || step.status === 'approved' ? 'chip-green' : (step.rejected || step.status === 'rejected' ? 'chip-orange' : 'chip-blue')">
-                  {{ step.approverName || step.approverDesc || '' }}
-                </span>
-              </span>
-              <span v-if="step.comment" class="muted break-all">{{ step.comment }}</span>
-            </div>
-          </div>
-        </div>
+        <VenueFlowTimeline v-else :progress="booking.approvalProgress" />
       </section>
 
       <button type="button" class="btn btn-secondary" @click="goBack">{{ copy.audit.actionBackToList }}</button>
@@ -76,6 +64,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
+import VenueFlowTimeline from '@/components/VenueFlowTimeline.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
