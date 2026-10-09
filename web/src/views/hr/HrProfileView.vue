@@ -1,36 +1,36 @@
 <template>
   <div class="page stack">
     <WorkspaceHero
-      :page-name="copy.hr.profileTitle"
+      :page-name="homeCopy.hr"
       :person-name="displayName"
       :identity-name="roleLine"
       :organization-name="orgName"
       @switch="goWorkRole"
     />
 
-    <section class="card stack">
+    <form class="card stack" @submit.prevent="save">
       <div class="panel-head">
-        <span class="section-title">{{ copy.hr.profileTitle }}</span>
-        <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
+        <span class="section-title">{{ homeCopy.hr }}</span>
+        <span v-if="profileData && !loadNotice" class="chip chip-sky">{{ profileData.template?.modeText || homeCopy.noTemplate }}</span>
       </div>
-      <p class="muted">{{ homeCopy.profileManagedByAdmin }}</p>
-      <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
-
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else class="list">
-        <div v-for="field in fields" :key="field.key" class="list-row">
+      <p v-if="profileData?.template?.description" class="muted">{{ profileData.template.description }}</p>
+      <span v-if="profileData?.statusText && !loadNotice" class="chip chip-sky">{{ profileData.statusText }}</span>
+      <p v-if="profileData?.auditStatus === 'pending' && !loadNotice" class="muted">{{ homeCopy.profilePending }}</p>
+      <p v-if="profileData?.rejectionReason" class="notice-line">{{ homeCopy.rejectionReasonPrefix }}{{ profileData.rejectionReason }}</p>
+      <div v-if="fields.length" class="profile-fields">
+        <div v-for="field in fields" :key="field.key" class="list-row" :class="{ 'profile-field-wide': !['name', 'studentId'].includes(field.key) }">
           <div class="list-row-main stack-tight">
             <span class="soft">{{ field.label }}</span>
-            <span class="list-row-title break-all">{{ field.value || copy.common.empty }}</span>
+            <span class="list-row-title break-all">{{ field.value }}</span>
           </div>
         </div>
       </div>
-    </section>
-    <form v-if="profileData" class="card stack" @submit.prevent="save">
-      <p v-if="profileData.template?.description" class="muted">{{ profileData.template.description }}</p>
-      <span v-if="profileData.statusText" class="chip chip-sky">{{ profileData.statusText }}</span>
-      <p v-if="profileData.rejectionReason" class="notice-line">{{ homeCopy.rejectionReasonPrefix }}{{ profileData.rejectionReason }}</p>
-      <p v-if="!profileData.template?.fields?.length" class="empty-state">{{ homeCopy.noTemplate }}</p>
+      <p class="muted">{{ homeCopy.profileManagedByAdmin }}</p>
+      <div v-if="loading" class="empty-state">{{ homeCopy.loadingProfile }}</div>
+      <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
+      <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ homeCopy.reloadProfile }}</button>
+      <div v-if="profileData" class="stack">
+      <p v-if="!loading && !loadNotice && !profileData.template?.fields?.length" class="empty-state">{{ homeCopy.noExtraProfile }}</p>
       <label v-for="field in profileData.template?.fields || []" :key="field.id" class="field">
         <span class="field-label">{{ field.label }} <span v-if="field.required">*</span></span>
         <select v-if="field.type === 'sequence'" v-model="values[field.id]" class="field-input" :required="field.required" :disabled="readonly || saving || loading || !!loadNotice">
@@ -46,12 +46,13 @@
       <button v-if="!readonly && profileData.template?.fields?.length" class="btn btn-primary" type="submit" :disabled="saving || loading || !!loadNotice">
         {{ saving ? copy.common.loading : profileData.template.editMode === 'audit' ? homeCopy.submitReview : homeCopy.saveProfile }}
       </button>
+      </div>
     </form>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
@@ -120,6 +121,7 @@ async function load() {
   loadNotice.value = '';
   try {
     const result = await callApi('getUserHrProfile', {});
+    if (request !== generation || contextId !== session.context?.contextId) return;
     if (result.status !== 'success') {
       loadNotice.value = result.message || copy.errors.requestFailed;
       return;
@@ -134,17 +136,21 @@ async function load() {
     const context = session.context || {};
     fields.value = [
       { key: 'name', label: copy.hr.nameLabel, value: profile.name || displayName.value },
-      { key: 'department', label: copy.hr.departmentLabel, value: profile.department || context.department || '' },
+      { key: 'studentId', label: homeCopy.studentId, value: profile.studentId || '' },
+      { key: 'department', label: homeCopy.belongingDepartment, value: profile.department || context.department || '' },
       { key: 'identity', label: copy.hr.identityLabel, value: profile.identity || profile.identityName || context.identityCategoryName || context.identityName || '' },
-      { key: 'workGroup', label: copy.hr.workGroupLabel, value: profile.workGroup || context.workGroup || '' },
-      { key: 'assignment', label: copy.hr.assignmentLabel, value: profile.assignmentLabel || context.assignmentLabel || '' }
-    ].filter(field => field.key !== 'workGroup' || field.value);
+      { key: 'workGroup', label: homeCopy.workDivision, value: profile.workGroup || context.workGroup || '' }
+    ].filter(field => !['workGroup', 'department'].includes(field.key) || field.value);
   } catch (error) {
-    loadNotice.value = errorText(error, copy.errors.requestFailed);
+    if (request === generation && contextId === session.context?.contextId) loadNotice.value = errorText(error, copy.errors.requestFailed);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
-onMounted(load);
+watch(() => session.context?.contextId, () => { fields.value = []; profileData.value = null; values.value = {}; saveNotice.value = ''; load(); }, { immediate: true });
 </script>
+<style scoped>
+.profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-field-gap); }
+.profile-field-wide { grid-column: 1 / -1; }
+</style>
