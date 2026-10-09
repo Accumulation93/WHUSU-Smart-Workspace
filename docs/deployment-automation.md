@@ -105,6 +105,20 @@ sudo chmod 751 /home/ubuntu
 核对方式：请求 `https://accumulation93.com/web/` 应当返回网页首页；
 若返回 403 或 404，按上面的顺序逐层检查 `/home/ubuntu`、release 目录与 `web/dist` 的实际权限。
 
+### 网页在流水线里的位置
+
+网页与后端同一次发布、同一个 release，因此**一次提交同时更新两端**；回滚也是整包回退。
+
+CI 的 `audit-and-test` 里与网页相关的步骤（顺序执行，任一失败即阻断发布）：
+
+1. `node scripts/sync-shared-modules.js`、`node scripts/locale-single-source-audit.js`、`node scripts/locale-align.js --report`：共用副本与语言库单一来源。
+2. `node scripts/user-visible-copy-audit.js --localization-prefix=web/ --strict-localization` 与 `--strict-guidance`：网页不得硬编码文案。
+3. `Install web dependencies` → `Build web client` → `Install browser for web tests` → `Web browser tests`：`web/` 的 `npm ci`、`vite build` 与 Playwright（电脑与手机两档，共 48 条）。
+
+这些步骤在网页刚接入时被拆成独立步骤，就是为了失败时能直接看出停在哪一环，不必依赖服务器日志权限。
+
+本地等价命令见 `docs/web-client.md` 第 3 节与第 7 节。
+
 ## 数据库迁移
 
 新迁移放入 `server/db/deploy/`，文件名必须是：

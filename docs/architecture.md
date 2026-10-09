@@ -115,3 +115,22 @@
 审核动作在组织/岗位鉴权和事务行锁内，经 `approvalSigningEvidence` 为当前附件产生凭证，`auditFileCommitCoordinator` 协调文件版本和事务。`audit_signing_evidence` 保存不可变 CMS、加密身份和事件/文件引用；`audit_signing_certificates` 保存组织范围的受控证书登记。清理必须保留凭证引用路径。
 
 `signingEvidenceProtocol` 负责 JCS、HMAC/AES 身份绑定和步骤链，`cmsSignature` 是唯一 CMS 实现，`pdfVerification` 在受限 Worker 内验证实际 PDF 字节及签名对象。`signingVerification` 聚合身份、事件、文件和证书结果，前端复用 `audit-verification-result`。密钥仅在受保护版本化文件及独立副本，不属于数据库配置。协议、OID、API、历史边界及自动配置见 [签署隐私与密码验签](pdf-signing-trust.md)。
+
+## 网页客户端与共享层
+
+网页版是同一套 Express + MySQL 服务端上的第二个前端，挂在 `https://accumulation93.com/web`，与小程序长期并存；它不复制后端逻辑，接口、权限、组织隔离与响应结构与小程序完全一致。工程细节、页面清单、脚本与未完成项见 [网页版工作台](web-client.md)，视觉取值见 [网页版视觉对齐](web-ui-parity.md)。
+
+```text
+miniprogram/            小程序前端（微信原生）
+web/                    网页前端（Vue 3 + Vite，构建出静态产物）
+shared/                 两端共用的纯逻辑与唯一语言库
+  ├── apiContracts.js       接口约定（幂等写入、登录前入口）
+  ├── dateTimeFormat.js     绝对时间展示规则
+  └── locales/zh-CN/**      文案唯一来源
+server/                 唯一的服务端
+```
+
+- **共用逻辑不跨目录引用**：小程序的项目根目录固定为 `miniprogram/`，不能 require 目录外的文件，所以共用模块由 `scripts/sync-shared-modules.js` 按清单生成两端副本（服务端需要时也生成一份），不带参数运行即校验逐字节一致，不一致直接失败。
+- **语言库只有一份**：`shared/locales/zh-CN/**`。`scripts/locale-align.js` 把网页语言文件生成为对共享库的引用（网页语言文件里不允许出现中文），`scripts/locale-single-source-audit.js` 负责拦截任何想自存文案的文件。小程序侧读取同一来源生成的副本，`miniprogram/locales/zh-CN/main.js` 只做聚合。
+- **认证分两条载体、一套校验**：小程序把 JWT 放在 `Authorization` 头里，网页把它放在 HttpOnly Cookie 里；服务端 `core/services/webSessionCookie.js` 负责 Cookie 读写，`middleware/auth.js` 统一解析两种来源，`middleware/webSessionGuard.js` 对带 Cookie 的改动类请求核对来源。网页模式由 `auth/password/session` 的 `webSession` 标记开启，响应体不再返回明文令牌。
+- **网页不提供的能力**：微信登录、扫码与扫一扫、微信绑定邀请，以及需要把签名/印章定位到附件上的操作；遇到这些步骤页面会明确指向小程序。

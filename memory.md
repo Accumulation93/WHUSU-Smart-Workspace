@@ -6,10 +6,12 @@
 
 ## 当前运行基线
 
-- 前端是原生微信小程序，后端是 Node.js/Express + MySQL 8.0。
+- 前端有**两套**：原生微信小程序（`miniprogram/`，功能最全）与网页版（`web/`，Vue 3 + Vite，挂在 `https://accumulation93.com/web`）；后端是同一套 Node.js/Express + MySQL 8.0，网页不复制后端逻辑。工程说明见 `docs/web-client.md`，视觉取值见 `docs/web-ui-parity.md`。
+- 共用层在 `shared/`：`apiContracts.js`、`dateTimeFormat.js` 与文案唯一来源 `shared/locales/zh-CN/**`；副本由 `scripts/sync-shared-modules.js` 生成并校验，网页语言文件由 `scripts/locale-align.js` 生成为引用。
 - Express 只监听 `127.0.0.1:${PORT}`，生产 HTTPS 由 Nginx 终止；不要把本地服务写成 `https://localhost:3000`。
 - `miniprogram/app.json` 顶层主包注册 2 个页面：`subpackages/main/pages/login/login`、`subpackages/main/pages/portal/portal`；物理目录位于 `subpackages/main`，但 `subpackages/main` 不是分包。
 - 业务分包为 `workspace`、`message`、`scoring`、`audit`、`venue`、`org`，当前注册页面总数以 `app.json` 为准（2026-08-15 基线为 25 页）。
+- 网页路由以 `web/src/router/index.js` 为准（2026-10-09 基线：登录、门户、工作台、消息中心、工作角色、审核审批 7 页、验签 2 页、评分 2 页、场地 7 页、管理端 3 页、基本设置 4 页、本人资料与两个兼容跳转）；导航入口清单在 `web/src/runtime/modules.js`。
 - 公共逻辑和语言资源位于 `miniprogram/utils`、`miniprogram/components`、`miniprogram/locales`；共享 WXSS 源位于 `miniprogram/subpackages/main/styles/**`。`miniprogram/subpackages/workspace/pages/home/home.wxss` 只是桥接文件。
 - 业务分包只能引用自身或主包资源，禁止跨业务分包引用 JS、JSON、WXML、WXSS 或组件。兼容性审计同时检查路径存在性和包边界。
 

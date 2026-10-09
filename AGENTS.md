@@ -27,8 +27,11 @@
 - `miniprogram/subpackages/audit/**`：再叠加 `.claude/rules/audit.md`
 - `miniprogram/subpackages/venue/**`：再叠加 `.claude/rules/venue.md`
 - `server/**`：`CLAUDE.md` + `.claude/rules/server.md`
+- `web/**`：`CLAUDE.md` + `.claude/rules/web.md`，工程说明见 `docs/web-client.md`，视觉取值见 `docs/web-ui-parity.md`
+- `shared/**`、`scripts/locale-align.js`、`scripts/locale-single-source-audit.js`、`scripts/sync-shared-modules.js`：两端共用，改动必须同时验证小程序与网页
 
 涉及跨模块共享文件时，必须检查所有调用方。尤其是 `api.js`、`eventBus.js`、`adminUtils.js`、`flowTimeline.js`、`submissionDetail.js` 和共享 WXSS。
+网页侧对应的是 `web/src/runtime/api.js`、`web/src/runtime/session.js`、`web/src/runtime/localeAliases.js`、`web/src/components/WorkspaceHero.vue` 和 `web/src/styles/{tokens,components,parity}.css`。
 
 ### 2.1 故障登记（强制）
 
@@ -75,6 +78,15 @@
 - 注释和项目文档优先使用中文；命名遵循现有 camelCase、kebab-case、UPPER_SNAKE_CASE 和数据库 snake_case 约定。
 - 不撤销或覆盖用户已有改动；遇到脏工作区时只处理当前任务相关内容。
 
+### 4.1 网页版与共享层（2026-10-09 起）
+
+- 网页版是同一套服务端的第二个前端，路由挂 `https://accumulation93.com/web`，与小程序长期并存；接口、权限、组织隔离和响应结构与小程序完全一致，禁止为网页另开一套后端逻辑。
+- **语言库只有一份**：`shared/locales/zh-CN/**`。网页语言文件是生成物（只含引用、不含中文），小程序侧读取同一来源生成的副本；两端副本不一致时 CI 直接失败。改文案只能改共享库，再依次运行 `scripts/sync-shared-modules.js --write` 与 `scripts/locale-align.js --write`。
+- 小程序已有的说法必须直接复用；网页独有的说法登记在 `shared/locales/zh-CN/web.js` 并注明原因。禁止在 `.vue`/`.js` 里写中文，包括注释。
+- 网页视觉只能引用 `web/src/styles/tokens.css` 的 `--ui-*` 变量与 `components.css` 的语义类，取值以 `docs/web-ui-parity.md` 为准；三档断点与小程序一致（`<520px`、`520-899px`、`>=900px`）。
+- 页面底部两行是固定品牌文案（`common.appName` + `common.organizationName`），不是当前登录组织；页面内的"当前组织与工作角色"卡片显示当前工作角色，两者不要混用。
+- 网页登录凭证放在 HttpOnly Cookie 里，前端不接触令牌；所有请求走 `web/src/runtime/api.js`，401 一律回登录页，不自动重试或换账号重放。
+
 ## 5. 技能与专项规则
 
 - 蓝色轻奢玻璃 UI 任务使用 `.agents/skills/blue-glass-ui/SKILL.md`。
@@ -92,7 +104,10 @@
 - 弹窗/滚动/键盘：`node scripts/dialog-scroll-contract-audit.js`、`node scripts/dialog-keyboard-audit.js`、`node scripts/ui-control-completeness-test.js`、`node scripts/button-alignment-test.js`。
 - 交付说明：按 `docs/report-style.md` 自查（先结论、写完整句、不用内部黑话、带数字与出处、说清未完成项）。
 - 小程序前端：`node scripts/miniprogram-compat-audit.js`，并在微信开发者工具中至少编译主包和所有分包入口。
+- 网页前端：`cd web && npm run build`、`cd web && PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`、`cd web && node scripts/parity-audit.mjs`，并在真实浏览器里打开改动的页面确认。
+- 共用层与语言库：`node scripts/sync-shared-modules.js`、`node scripts/locale-single-source-audit.js`、`node scripts/locale-align.js --report`；网页语言文件不得自存文案，两端副本必须逐字节一致。
 - 用户可见文案：`node scripts/user-visible-copy-audit.js --strict`、两个 `--strict-localization`、`--strict-guidance`，以及 `node scripts/copy-quality-audit.js`（语言系统内的文案值质量；存量清零后改为 `--strict` 门禁）。文案修改必须逐条按语言判断手写，禁止脚本批量替换。
+- 用户可见文案新增（2026-10-09 起）：文案唯一来源是 `shared/locales/zh-CN/**`，网页语言文件由 `node scripts/locale-align.js` 生成；第三个 `--strict-localization` 要带 `--localization-prefix=web/`。
 - 工作区补丁：`git diff --check`。
 - WXML/WXSS：检查标签闭合、选择器覆盖顺序、父子点击隔离、移动端与平板布局。
 - 服务端：检查路由、Model、认证、参数校验、SQL 参数化、组织隔离和响应契约。

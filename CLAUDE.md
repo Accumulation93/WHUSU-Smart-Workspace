@@ -7,11 +7,13 @@
 
 ## 1. 项目概述
 
-**WHUSU智慧工作台** — 武汉大学组织工作台微信小程序。当前包含评分、人事、审核审批、场地借用、消息中心和组织/岗位上下文管理。
+**WHUSU智慧工作台** — 武汉大学组织工作台。现在有**两个前端共用同一套服务端**：微信小程序（主入口，功能最全）与网页版（`web/`，挂在 `https://accumulation93.com/web`）。当前包含评分、人事、审核审批、场地借用、消息中心和组织/岗位上下文管理。
 
-- **前端**：微信小程序原生框架（WXML / WXSS / JS），无第三方框架
+- **小程序前端**：微信小程序原生框架（WXML / WXSS / JS），无第三方框架，目录 `miniprogram/`
+- **网页前端**：Vue 3 + Vite + vue-router，纯静态产物，目录 `web/`；工程说明见 `docs/web-client.md`，视觉取值见 `docs/web-ui-parity.md`
+- **共用层**：`shared/`（接口约定、时间展示规则、语言库唯一来源），由 `scripts/sync-shared-modules.js` 生成两端副本
 - **后端**：Node.js Express（本机回环 HTTP，由 Nginx 终止 HTTPS），MySQL 8.0 (InnoDB, utf8mb4, `mysql2/promise`)
-- **认证**：全局账号 + 服务端会话 + JWT Bearer Token；口令与微信均进入同一自然人/工作角色授权链，微信 code2session 只用于显式微信认证或绑定。
+- **认证**：全局账号 + 服务端会话 + JWT；小程序把令牌放在 `Authorization` 头里，网页把它放在 HttpOnly Cookie 里，两条路径共用同一套会话校验。口令与微信均进入同一自然人/工作角色授权链，微信 code2session 只用于显式微信认证或绑定。
 - **部署**：Ubuntu 22.04 + PM2 ×2 + Nginx 反向代理
 - **App ID**：`wxa0946295a962ee2e`，生产域名：`accumulation93.com`
 
@@ -189,6 +191,8 @@ page {
 5. 完整用户操作链无断点
 6. 小程序改动运行 `node scripts/miniprogram-compat-audit.js`，并用微信开发者工具真实编译主包及全部分包
 7. 用户可见文案只允许来自 `miniprogram/locales/zh-CN/**` 或 `server/src/locales/zh-CN/**`；运行改动范围对应的 `--strict-localization` 审计
+8. 网页改动运行 `cd web && npm run build`、`cd web && npm run test:e2e`（需 `PLAYWRIGHT_CHANNEL=chrome`）与 `cd web && node scripts/parity-audit.mjs`，并在真实浏览器里打开改动页面确认
+9. 文案或共用层改动运行 `node scripts/sync-shared-modules.js`、`node scripts/locale-single-source-audit.js`、`node scripts/locale-align.js --report`；文案唯一来源是 `shared/locales/zh-CN/**`，网页语言文件是生成物（不允许含中文）
 
 **目标：代码可直接推送到生产环境。**
 
@@ -248,4 +252,10 @@ page {
 - ❌ 开启 `enhance`、`es6` 或 `compileHotReLoad` 后只验证登录页；私有配置会覆盖公共配置，必须冷启动并逐页验证全部注册页面
 - ❌ 用正则表达式批量插入、删除或重排 WXML 标签属性
 - ❌ 只运行 `node --check` 就认定小程序编译兼容；必须再运行兼容性审计和微信开发者工具编译
+- ❌ 在 `web/**` 的 `.vue` / `.js` 里写中文（含注释）；网页文案只能来自共享语言库的生成副本
+- ❌ 在 `web/src/locales/zh-CN/` 下手写新文件或直接改生成的语言文件；文案只能改 `shared/locales/zh-CN/**` 后重新生成
+- ❌ 改完共享语言库不运行 `sync-shared-modules.js` 与 `locale-align.js`；两端副本不一致会让 CI 失败
+- ❌ 在网页里写死颜色、字号或绕过 `--ui-*` 令牌；视觉取值以 `docs/web-ui-parity.md` 为准
+- ❌ 网页底部用当前登录组织顶替固定品牌组织名（底部两行取语言库常量）
+- ❌ 网页页面里直接 `fetch` 接口、接触登录令牌或在 401 时自动重试；必须走 `web/src/runtime/api.js`
 - ❌ 忽视关联代码的完整性校验
