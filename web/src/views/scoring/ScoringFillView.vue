@@ -28,9 +28,6 @@
         {{ copy.scoring.readOnlyNotice }}
         <span v-if="form.readOnlyReason"> {{ copy.scoring.readOnlyReason }}</span>
       </p>
-      <p v-else-if="existingRecord" class="notice-line notice-line-info">
-        {{ copy.scoring.existingRecordNotice }}
-      </p>
 
       <section class="card stack">
         <div class="info-head">
@@ -85,6 +82,7 @@
 
     <section v-else class="card stack">
       <div class="empty-state">{{ loadNotice || copy.scoring.loadFailed }}</div>
+      <button type="button" class="btn btn-primary" @click="load">{{ scoreCopy.retryLoad }}</button>
       <button type="button" class="btn btn-secondary" @click="goBack">
         {{ copy.scoring.actionBackToTasks }}
       </button>
@@ -93,13 +91,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import scoreCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/score/score.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { formatTemplate } from '@/runtime/audit.js';
-import { showToast } from '@/runtime/notify.js';
+import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const route = useRoute();
@@ -110,6 +109,16 @@ const loading = ref(true);
 const submitting = ref(false);
 const loadNotice = ref('');
 const answers = ref({});
+const baseline = ref({});
+function comparableScore(value) {
+  const text = String(value ?? '').trim();
+  return text && Number.isFinite(Number(text)) ? Number(text) : text;
+}
+const dirty = computed(() => !!form.value && !form.value.readOnly
+  && Object.keys(answers.value).some(key => comparableScore(answers.value[key]) !== comparableScore(baseline.value[key])));
+let generation = 0;
+let disposed = false;
+const scope = () => [session.context?.organizationId, session.context?.contextId, route.params.id].join('|');
 
 const activity = computed(() => (form.value && form.value.currentActivity) || {});
 const target = computed(() => (form.value && form.value.target) || {});
@@ -128,7 +137,6 @@ const roleLine = computed(() => {
   return context.assignmentLabel || context.identityName || roleLabelOf(context);
 });
 
-/** 按模板分组展示，同一模板的题目归到一组，与小程序的分组一致。 */
 const questionGroups = computed(() => {
   const questions = (form.value && form.value.templateBundle && form.value.templateBundle.questions) || [];
   const groups = [];
@@ -178,13 +186,17 @@ function goBack() {
 }
 
 async function load() {
+  const request = ++generation;
+  const expected = scope();
+  const current = () => !disposed && request === generation && expected === scope();
   loading.value = true;
   loadNotice.value = '';
   try {
     const result = await callApi('getScoreFormData', { targetId: route.params.id });
+    if (!current()) return;
     if (result.status !== 'success') {
       form.value = null;
-      loadNotice.value = result.message || '';
+      loadNotice.value = result.message || copy.scoring.loadFailed;
       return;
     }
     form.value = result;
@@ -196,15 +208,16 @@ async function load() {
         : String(question.score);
     });
     answers.value = seeded;
+    baseline.value = { ...seeded };
   } catch (error) {
+    if (!current()) return;
     form.value = null;
     loadNotice.value = errorText(error, copy.scoring.loadFailed);
   } finally {
-    loading.value = false;
+    if (current()) loading.value = false;
   }
 }
 
-/** 校验口径与小程序一致：必填、上下限、按步长对齐。 */
 function validate() {
   const questions = (form.value && form.value.templateBundle && form.value.templateBundle.questions) || [];
   const list = [];
@@ -241,7 +254,9 @@ function validate() {
 }
 
 async function submit() {
-  if (submitting.value || !form.value) return;
+  if (submitting.value || loading.value || !form.value || form.value.readOnly) return;
+  const expected = scope();
+  const current = () => !disposed && expected === scope();
   const validation = validate();
   if (!validation.ok) {
     loadNotice.value = validation.message;
@@ -262,6 +277,7 @@ async function submit() {
       existingRecordId: record ? record.id : '',
       existingRecordRevision: record ? record.revisionNumber : 0
     });
+    if (!current()) return;
     if (result.status !== 'success') {
       loadNotice.value = result.message || copy.scoring.submitFailed;
       if (result.status === 'score_revision_conflict') {
@@ -271,15 +287,30 @@ async function submit() {
       return;
     }
     showToast(copy.scoring.submitDone);
+    baseline.value = { ...answers.value };
     router.replace({ name: 'scoringTasks' });
   } catch (error) {
-    loadNotice.value = errorText(error, copy.scoring.submitFailed);
+    if (current()) loadNotice.value = errorText(error, copy.scoring.submitFailed);
   } finally {
-    submitting.value = false;
+    if (current()) submitting.value = false;
   }
 }
 
-onMounted(load);
+function warnBeforeUnload(event) {
+  if (!dirty.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+onBeforeRouteLeave(() => {
+  if (session.status !== 'authenticated') return true;
+  if (submitting.value) return false;
+  if (!dirty.value) return true;
+  return confirmAction({ title: copy.common.notice, body: scoreCopy.unsavedScoreLeaveWarning,
+    confirmText: copy.common.confirm, cancelText: copy.common.cancel });
+});
+window.addEventListener('beforeunload', warnBeforeUnload);
+watch(scope, () => { form.value = null; answers.value = {}; baseline.value = {}; submitting.value = false; load(); }, { immediate: true });
+onBeforeUnmount(() => { disposed = true; generation++; window.removeEventListener('beforeunload', warnBeforeUnload); });
 </script>
 
 <style scoped>

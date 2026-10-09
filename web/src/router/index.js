@@ -224,7 +224,8 @@ router.beforeEach(async (to) => {
   return { name: 'login', query: session.notice ? { reason: 'expired' } : {} };
 });
 
-router.afterEach((to) => {
+router.afterEach((to, from, failure) => {
+  if (failure) return;
   document.title = to.name === 'adminConsole' ? adminModule(to.query.subApp).label + ' - ' + copy.common.appName : to.meta.title || copy.common.appName;
 });
 

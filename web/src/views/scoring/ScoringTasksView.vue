@@ -14,7 +14,7 @@
           <span class="section-title">{{ copy.scoring.taskTitle }}</span>
           <span class="panel-note">{{ copy.scoring.taskNote }}</span>
         </div>
-        <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
+        <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading" @click="load">{{ scoreCopy.retryLoad }}</button>
       </div>
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
@@ -27,8 +27,8 @@
         </span>
       </div>
 
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
-      <div v-else-if="!targets.length" class="empty-state">
+      <div v-if="loading && !targets.length" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-else-if="!loadNotice && !targets.length" class="empty-state">
         {{ activityName ? copy.scoring.targetListEmpty : copy.scoring.activityEmpty }}
       </div>
       <div v-else class="list">
@@ -45,7 +45,7 @@
             </span>
           </div>
           <div class="list-row-actions">
-            <button type="button" class="btn-quiet" @click="openScore(target)">
+            <button type="button" class="btn-quiet" :disabled="loading || !!loadNotice" @click="openScore(target)">
               {{ target.isScored ? copy.scoring.actionRewriteScore : copy.scoring.actionOpenScore }}
             </button>
           </div>
@@ -61,11 +61,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import scoreCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/score/score.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatTemplate } from '@/runtime/audit.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -76,6 +77,9 @@ const scoredCount = ref(0);
 const progressTotal = ref(0);
 const loading = ref(true);
 const loadNotice = ref('');
+let generation = 0;
+let disposed = false;
+const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 
 const displayName = computed(() => {
   const context = session.context || {};
@@ -95,32 +99,36 @@ function goWorkRole() {
 }
 
 async function load() {
+  const request = ++generation;
+  const expected = scope();
+  const current = () => !disposed && request === generation && expected === scope();
   loading.value = true;
-  loadNotice.value = '';
   try {
-    const result = await callApi('getRateTargets', {});
-    if (result.status !== 'success') {
-      targets.value = [];
-      loadNotice.value = result.message || '';
-      return;
-    }
+    const result = requireSuccess(await callApi('getRateTargets', {}));
+    if (!current()) return;
+    if (!Array.isArray(result.targets)) throw new Error();
     const activity = result.currentActivity || {};
     activityName.value = activity.name || '';
     const list = Array.isArray(result.targets) ? result.targets : [];
     targets.value = list;
     progressTotal.value = list.length;
     scoredCount.value = list.filter((item) => item.isScored === true).length;
+    loadNotice.value = '';
   } catch (error) {
-    targets.value = [];
-    loadNotice.value = errorText(error, copy.scoring.loadFailed);
+    if (current()) loadNotice.value = errorText(error, copy.scoring.loadFailed);
   } finally {
-    loading.value = false;
+    if (current()) loading.value = false;
   }
 }
 
 function openScore(target) {
-  router.push({ name: 'scoringFill', params: { targetId: target.id } });
+  if (loading.value || loadNotice.value || !target.id) return;
+  router.push({ name: 'scoringFill', params: { id: target.id } });
 }
 
-onMounted(load);
+watch(scope, () => {
+  targets.value = []; activityName.value = ''; scoredCount.value = 0; progressTotal.value = 0; loadNotice.value = '';
+  load();
+}, { immediate: true });
+onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
