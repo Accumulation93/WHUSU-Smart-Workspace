@@ -1,10 +1,10 @@
 <template>
-  <GlassDialog :title="venue.name" @close="$emit('close')">
+  <GlassDialog :title="venue.name" :busy="bookingBusy" @close="close">
     <div class="stack">
       <div class="schedule-nav">
-        <button type="button" class="btn btn-secondary" @click="changeWeek(-7)">‹</button>
+        <button type="button" class="btn btn-secondary" :disabled="bookingBusy" @click="changeWeek(-7)">‹</button>
         <span>{{ start }} {{ ui.copy_59799547cb }}</span>
-        <button type="button" class="btn btn-secondary" @click="changeWeek(7)">›</button>
+        <button type="button" class="btn btn-secondary" :disabled="bookingBusy" @click="changeWeek(7)">›</button>
       </div>
       <p v-if="notice" role="alert">{{ notice }}</p>
       <button v-if="notice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
@@ -31,21 +31,25 @@
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null">
     <div class="stack"><strong>{{ activity.activity?.name || activity.ruleName || ui.copy_acd4c5c171 }}</strong><span>{{ venue.name }}</span><span>{{ activity.activity?.occurrenceStart || activity.date + ' ' + activity.timeStart }} {{ ui.copy_e8d9493a44 }} {{ activity.activity?.occurrenceEnd || activity.date + ' ' + activity.timeEnd }}</span><span>{{ activityCycle(activity.activity) }}</span><p>{{ ui.copy_c1ce05d451 }}</p></div>
   </GlassDialog>
+  <VenueAdminBookingDialog v-if="adminBooking" :venue="venue" :date="adminBooking.date" :initial-time="adminBooking.time" @close="adminBooking = null" @busy="bookingBusy = $event" @saved="bookingSaved" />
 </template>
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import VenueBookingDetail from './VenueBookingDetail.vue';
+import VenueAdminBookingDialog from './VenueAdminBookingDialog.vue';
+import adminTime from '@/shared/venueAdminTimeSelection.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { session } from '@/runtime/session.js';
 import { addDays, weekStart, toMinute, toTime, startAllowed, scheduleInstant } from '@/runtime/venueTime.js';
-const props = defineProps({ venue: { type: Object, required: true } });
-const emit = defineEmits(['close', 'book']);
+const props = defineProps({ venue: { type: Object, required: true }, adminMode: Boolean, canBook: Boolean });
+const emit = defineEmits(['close', 'book', 'busy', 'editing']);
 const start = ref(weekStart(formatListTime(Date.now()).slice(0, 10)));
 const days = ref([]), loading = ref(true), notice = ref(''), detail = ref(null), occupied = ref(null), activity = ref(null);
+const adminBooking = ref(null), bookingBusy = ref(false);
 const context = session.context?.contextId;
 let generation = 0, disposed = false;
 const weekdays = [ui.copy_92af9d9017, ui.copy_e3233a4b58, ui.copy_2f48862253, ui.copy_017e3df1a1, ui.copy_41a9548e60, ui.copy_f2c74088c9, ui.copy_a814b25100];
@@ -54,12 +58,17 @@ const columns = computed(() => Array.from({ length: 7 }, (_, index) => {
   const day = days.value.find(item => item.date === date) || { date, openSlots: [], bookedSlots: [], activitySlots: [] };
   const targets = new Set();
   for (const slot of day.openSlots || []) for (let minute = toMinute(slot.timeStart); minute < toMinute(slot.timeEnd); minute += 30) {
-    if (startAllowed(day, date, minute, props.venue.bookingWindow)) targets.add(minute);
+    if (props.adminMode ? props.canBook && adminTime.freeRanges(day).some(range => minute >= range[0] && minute < Math.min(range[1], 1439)) : startAllowed(day, date, minute, props.venue.bookingWindow)) targets.add(minute);
   }
   return { ...day, targets: [...targets] };
 }));
 function position(slot) { return { top: toMinute(slot.timeStart) / 14.4 + '%', height: Math.max(0, toMinute(slot.timeEnd) - toMinute(slot.timeStart)) / 14.4 + '%' }; }
 function select(day, minute) {
+  if (bookingBusy.value || loading.value || notice.value) return;
+  if (props.adminMode) {
+    if (props.canBook && adminTime.choose(day, toTime(minute), '', true)) adminBooking.value = { date: day.date, time: toTime(minute) };
+    return;
+  }
   if (!session.context?.assignmentId) { notice.value = ui.noActiveAssignment; return; }
   if (!startAllowed(day, day.date, minute, props.venue.bookingWindow)) { notice.value = ui.copy_6491116806; return; }
   emit('book', { date: day.date, time: toTime(minute) });
@@ -78,16 +87,21 @@ function activityCycle(value) {
   const ending = to ? to + ' ' + (meta.periodEndTime || meta.endTime || '23:59') : ui.copy_b8c87b0fb5;
   return ui.copy_eeb5f0e78e + beginning + ui.copy_c44dbba9e9 + ending + (Number(meta.repeatCount) > 0 ? ui.copy_960969cd90 + Number(meta.repeatCount) + ui.copy_c5aa06059a : '');
 }
-function changeWeek(delta) { start.value = addDays(start.value, delta); load(); }
+function close() { if (!bookingBusy.value) emit('close'); }
+function changeWeek(delta) { if (!bookingBusy.value) { start.value = addDays(start.value, delta); load(); } }
+async function bookingSaved() { adminBooking.value = null; await load(); }
 async function load() {
   const request = ++generation; loading.value = true; notice.value = '';
   try {
     const result = requireSuccess(await callApi('getVenueSchedule', { venueId: props.venue.id, dateFrom: start.value, dateTo: addDays(start.value, 6) }));
-    if (!disposed && request === generation && context === session.context?.contextId) days.value = result.dailySchedules || [];
+    if (!Array.isArray(result.dailySchedules)) throw new Error();
+    if (!disposed && request === generation && context === session.context?.contextId) days.value = result.dailySchedules;
   } catch (error) { if (!disposed && request === generation && context === session.context?.contextId) notice.value = errorText(error); }
   finally { if (!disposed && request === generation) loading.value = false; }
 }
 onMounted(load);
+watch(bookingBusy, value => emit('busy', value), { flush: 'sync' });
+watch(adminBooking, value => emit('editing', !!value), { flush: 'sync' });
 onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 <style scoped>

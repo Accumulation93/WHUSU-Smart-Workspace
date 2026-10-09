@@ -16,6 +16,13 @@ const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
   {
+    source: 'shared/venueAdminTimeSelection.js',
+    targets: [
+      { path: 'miniprogram/subpackages/venue/utils/adminTimeSelection.js' },
+      { path: 'web/src/shared/venueAdminTimeSelection.js', format: 'esm' }
+    ]
+  },
+  {
     source: 'shared/hrProfileDate.js',
     targets: [
       { path: 'miniprogram/utils/hrProfileDateRules.js' },

@@ -27,6 +27,7 @@
             <span v-if="venue.description" class="muted break-all">{{ venue.description }}</span>
           </div>
           <div class="row row-wrap">
+            <button type="button" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
             <button type="button" class="btn-quiet" :disabled="blocked" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
             <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
           </div>
@@ -47,6 +48,7 @@
     <template #footer><div class="venue-editor-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="closeEditor">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" :disabled="blocked" @click="save">{{ ui.copy_c701dd2fcc }}</button></div></template>
   </GlassDialog>
   <GlassDialog v-if="switchGuard" compact :title="ui.copy_40859eeee7" @close="switchGuard = false"><p>{{ ui.copy_2406186d54 }}</p></GlassDialog>
+  <VenueScheduleDialog v-if="scheduleVenue" :key="scope()" :venue="scheduleVenue" admin-mode :can-book="hasAny(['venue.bookings'])" @close="scheduleVenue = null" @busy="childBusy = $event" @editing="bookingEditing = $event" />
 </template>
 
 <script setup>
@@ -56,6 +58,7 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import VenuePurposesPanel from '@/components/VenuePurposesPanel.vue';
 import VenueAdminBookings from '@/components/VenueAdminBookings.vue';
+import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -69,6 +72,7 @@ const form = reactive({ id: '', name: '', location: '', description: '' });
 const purposeState = reactive({ id: '', text: '', awaitingRead: false });
 const bookingState = reactive({ from: '', to: '', status: '', venueId: '', initialized: false });
 const activeTab = ref('venue'), childBusy = ref(false), bookingEditing = ref(false);
+const scheduleVenue = ref(null);
 const allBusy = computed(() => busy.value || childBusy.value);
 const hasAny = keys => profile.value?.adminLevel === 'super_admin' || keys.some(key => profile.value?.permissions?.[key] === true);
 const visibleTabs = computed(() => [
@@ -165,6 +169,7 @@ async function remove(row) {
 watch(scope, () => {
   generation++; venues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
   activeTab.value = 'venue'; childBusy.value = false; bookingEditing.value = false; busy.value = false; switchGuard.value = false;
+  scheduleVenue.value = null;
   Object.assign(purposeState, { id: '', text: '', awaitingRead: false });
   Object.assign(bookingState, { from: '', to: '', status: '', venueId: '', initialized: false });
   loadPermissions();
