@@ -8,6 +8,22 @@
  */
 
 :root {
+  --ui-score-page-width: 640px;
+  --ui-score-keyboard-width: 380px;
+  --ui-score-keyboard-radius: 24px;
+  --ui-score-keyboard-bg: linear-gradient(135deg, rgba(239,246,255,0.82), rgba(219,234,254,0.66));
+  --ui-score-keyboard-border: 1px solid rgba(147,197,253,0.58);
+  --ui-score-keyboard-shadow: 0 -9px 21px rgba(37,99,235,0.14), inset 0 1px 0 rgba(255,255,255,0.82);
+  --ui-score-key-height: 32px;
+  --ui-score-number-height: 40px;
+  --ui-score-key-gap: 4px;
+  --ui-score-key-padding: 5px;
+  --ui-score-quick-height: 180px;
+  --ui-score-switch-width: 26px;
+  --ui-score-switch-height: 15px;
+  --ui-score-switch-thumb: 12px;
+  --ui-score-switch-inset: 1.5px;
+  --ui-score-switch-off: linear-gradient(135deg, rgba(203,213,225,0.74), rgba(226,237,247,0.84));
   --ui-schedule-hour-height: 32px;
   --ui-schedule-header-height: 29px;
   --ui-schedule-time-width: 32px;
@@ -199,6 +215,12 @@
 /* Pad 竖屏 */
 @media (min-width: 520px) and (max-width: 899px) {
   :root {
+    --ui-score-page-width: 760px;
+    --ui-score-key-height: 44px;
+    --ui-score-number-height: 52px;
+    --ui-score-key-gap: 6px;
+    --ui-score-key-padding: 8px;
+    --ui-score-quick-height: 216px;
     --ui-type-micro: 12px;
     --ui-type-caption: 13px;
     --ui-type-meta: 14px;
@@ -280,6 +302,12 @@
  */
 @media (min-width: 900px) {
   :root {
+    --ui-score-page-width: 1180px;
+    --ui-score-key-height: 40px;
+    --ui-score-number-height: 52px;
+    --ui-score-key-gap: 5px;
+    --ui-score-key-padding: 6px;
+    --ui-score-quick-height: 216px;
     --ui-type-micro: 12.5px;
     --ui-type-caption: 13.5px;
     --ui-type-meta: 14.5px;

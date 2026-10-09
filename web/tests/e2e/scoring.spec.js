@@ -165,7 +165,7 @@ test('评分填写按题目校验并与服务端约定一致', async ({ page }) 
   expect(calls.filter((call) => call.name === 'submitScoreRecord')).toHaveLength(0);
 
   // 超出上限也要拦下
-  const inputs = page.locator('input[type="number"]');
+  const inputs = page.locator('.score-input');
   await inputs.nth(0).fill('20');
   await inputs.nth(1).fill('8');
   await page.getByRole('button', { name: copy.scoring.actionSubmit }).click();

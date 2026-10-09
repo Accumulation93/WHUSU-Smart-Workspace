@@ -34,11 +34,11 @@ test('target card navigation submits the selected assignment and rereads saved s
   await page.goto('/web/scoring/tasks');
   await page.getByRole('button', { name: copy.scoring.actionOpenScore, exact: true }).click();
   await expect(page).toHaveURL(/\/scoring\/fill\/assignment-target$/);
-  await page.locator('input[type="number"]').fill('8.5');
+  await page.locator('.score-input').fill('8.5');
   await page.getByRole('button', { name: copy.scoring.actionSubmit }).click();
   await expect(page).toHaveURL(/\/scoring\/tasks$/);
   await page.getByRole('button', { name: copy.scoring.actionRewriteScore, exact: true }).click();
-  await expect(page.locator('input[type="number"]')).toHaveValue('8.5');
+  await expect(page.locator('.score-input')).toHaveValue('8.5');
   expect(reads).toEqual([{ targetId: target.id }, { targetId: target.id }]);
   await expect(page.getByText(copy.scoring.existingRecordNotice)).toHaveCount(0);
 });
@@ -58,21 +58,23 @@ test('failed target reads show a retry instead of a false empty directory', asyn
 
 test('form load retry stays on page and draft navigation can be cancelled', async ({ page }) => {
   await mockApi(page);
+  await page.route('**/api/getRateTargets', route => route.fulfill({ json: { status: 'success', currentActivity: { name: 'Activity' }, targets: [target] } }));
   let count = 0;
   await page.route('**/api/getScoreFormData', route => route.fulfill({ json: ++count === 1
     ? { status: 'unavailable', message: 'Form unavailable' } : form(5) }));
-  await page.goto('/web/scoring/fill/assignment-target');
+  await page.goto('/web/scoring/tasks');
+  await page.getByRole('button', { name: copy.scoring.actionOpenScore, exact: true }).click();
   await expect(page.getByText('Form unavailable')).toBeVisible();
   await page.getByRole('button', { name: scoreCopy.retryLoad }).click();
-  const input = page.locator('input[type="number"]');
+  const input = page.locator('.score-input');
   await input.fill('7');
-  await page.getByRole('button', { name: copy.scoring.actionBackToTasks }).click();
+  await page.locator('.shell-back').click();
   await expect(page.getByRole('dialog')).toContainText(scoreCopy.unsavedScoreLeaveWarning);
   await page.getByRole('dialog').getByRole('button', { name: copy.common.cancel, exact: true }).click();
   await expect(input).toHaveValue('7');
   await expect(page).toHaveTitle(copy.scoring.fillTitle);
   await input.fill('5.0');
-  await page.getByRole('button', { name: copy.scoring.actionBackToTasks }).click();
+  await page.locator('.shell-back').click();
   await expect(page).toHaveURL(/\/scoring\/tasks$/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
