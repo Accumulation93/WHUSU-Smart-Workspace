@@ -23,7 +23,7 @@
           v-model="keyword"
           class="search-input"
           type="text"
-          :placeholder="copy.admin.permissionsSearchPlaceholder"
+          :placeholder="copy.common.search"
         />
         <button v-if="keyword" type="button" class="search-clear" @click="keyword = ''">
           <UiIcon name="x" tone="muted" size-role="message-trailing" />
@@ -31,7 +31,7 @@
       </div>
 
       <div v-if="loading" class="empty-state">{{ copy.admin.permissionsLoading }}</div>
-      <div v-else-if="!filteredAdmins.length" class="empty-state">
+      <div v-else-if="!notice && !filteredAdmins.length" class="empty-state">
         {{ keyword ? copy.admin.permissionsSearchEmpty : copy.admin.permissionsEmpty }}
       </div>
       <div v-else class="list">
@@ -40,6 +40,7 @@
           :key="item.id"
           type="button"
           class="list-row admin-row"
+          :disabled="loading || opening || !!notice"
           @click="openAdmin(item)"
         >
           <span class="admin-role-mark">
@@ -51,7 +52,7 @@
               <span class="chip" :class="levelChip(item)">{{ item.adminLevelLabel }}</span>
             </span>
             <span class="muted">
-              {{ copy.admin.permissionsStudentId }} {{ item.studentId || copy.admin.permissionsNotFilled }} · {{ item.bindStatusLabel }}
+              {{ item.bindStatusLabel }}
             </span>
             <span class="admin-progress">
               <span class="admin-progress-track">
@@ -68,20 +69,10 @@
     </section>
 
     <p v-if="notice" class="notice-line">{{ notice }}</p>
+    <button v-if="notice" type="button" class="btn btn-secondary" @click="loadAdmins">{{ copy.common.retry }}</button>
 
-    <div v-if="editor" class="dialog-layer" role="dialog" aria-modal="true">
-      <div class="dialog dialog-wide">
-        <div class="dialog-header">
-          <span class="panel-title-group grow">
-            <span class="soft">{{ selected.adminLevelLabel }}</span>
-            <span class="dialog-title">{{ selected.name }}{{ copy.admin.permissionsOf }}</span>
-          </span>
-          <button type="button" class="btn-quiet" @click="closeEditor">
-            {{ copy.common.close }}
-          </button>
-        </div>
-
-        <div class="dialog-body stack">
+    <GlassDialog v-if="editor" :title="selected.name + copy.admin.permissionsOf" :busy="saving" @close="closeEditor">
+          <span class="soft">{{ selected.adminLevelLabel }}</span>
           <div v-for="group in groups" :key="group.key" class="glass-panel stack">
             <div class="panel-head">
               <span class="panel-title-group">
@@ -93,12 +84,12 @@
                 <input
                   type="checkbox"
                   :checked="group.allGranted"
-                  :disabled="!group.editableCount"
+                  :disabled="saving || !group.editableCount"
                   @change="onGroupChange(group, $event)"
                 />
               </label>
             </div>
-            <div v-for="item in group.permissions" :key="item.key" class="list-row">
+            <div v-for="item in group.permissions" :key="item.key" class="permission-item">
               <span class="list-row-main">
                 <span class="list-row-title">{{ item.label }}</span>
                 <span class="muted">{{ item.description }}</span>
@@ -107,41 +98,36 @@
                 <input
                   type="checkbox"
                   :checked="item.granted"
-                  :disabled="!item.editable"
+                  :aria-label="item.label"
+                  :disabled="saving || !item.editable"
                   @change="onPermissionChange(item, $event)"
                 />
               </span>
             </div>
           </div>
-        </div>
-
-        <div class="dialog-footer">
+        <p v-if="editorNotice" class="notice-line" role="alert">{{ editorNotice }}</p>
+        <template #footer>
           <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeEditor">
             {{ copy.common.cancel }}
           </button>
           <button type="button" class="btn btn-primary" :disabled="saving" @click="savePermissions">
             {{ saving ? copy.admin.permissionsSaving : copy.admin.permissionsSave }}
           </button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </GlassDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import UiIcon from '@/components/UiIcon.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import GlassDialog from '@/components/GlassDialog.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
-
-// 管理权限：先列出当前组织可管理的管理员，再逐人设置细粒度权限。
-// 接口与小程序 subpackages/org/pages/adminPermissions 一致：
-// listPermissionManagedAdmins / getAdminPermissionDetail / saveAdminPermissions。
-// 只有服务端标记为 editable 的项才会写回，不把不可编辑项伪装成可切换。
 
 const router = useRouter();
 
@@ -153,6 +139,9 @@ const editor = ref(false);
 const saving = ref(false);
 const selected = ref({});
 const groups = ref([]);
+const opening = ref(false);
+const editorNotice = ref('');
+let generation = 0;
 
 const displayName = computed(() => {
   const context = session.context || {};
@@ -170,12 +159,12 @@ const roleLine = computed(() => {
 const filteredAdmins = computed(() => {
   const text = keyword.value.trim().toLowerCase();
   if (!text) return admins.value;
-  return admins.value.filter((item) => [item.name, item.studentId, item.adminLevelLabel]
+  return admins.value.filter((item) => [item.name, item.adminLevelLabel]
     .some((field) => String(field || '').toLowerCase().indexOf(text) >= 0));
 });
 
 function levelChip(item) {
-  return item && item.adminLevel === 'super' ? 'chip-blue' : 'chip-sky';
+  return item && item.adminLevel === 'super_admin' ? 'chip-blue' : 'chip-sky';
 }
 
 function grantStyle(item) {
@@ -203,6 +192,7 @@ function refreshGroupState(group) {
 }
 
 function onGroupChange(group, event) {
+  if (saving.value || !group.editableCount) return;
   const granted = Boolean(event.target.checked);
   group.permissions.forEach((item) => {
     if (item.editable) item.granted = granted;
@@ -211,8 +201,13 @@ function onGroupChange(group, event) {
 }
 
 function onPermissionChange(item, event) {
+  if (saving.value || !item.editable) return;
   item.granted = Boolean(event.target.checked);
   const group = groups.value.find((candidate) => candidate.permissions.indexOf(item) >= 0);
+  if (item.key === 'system.admin_accounts.write' && item.granted) {
+    const read = group?.permissions.find(permission => permission.key === 'system.admin_accounts.read');
+    if (read?.editable) read.granted = true;
+  }
   if (group) refreshGroupState(group);
 }
 
@@ -224,30 +219,38 @@ function closeEditor() {
 }
 
 async function loadAdmins() {
+  const request = ++generation;
   loading.value = true;
   notice.value = '';
   try {
     const result = await callApi('listPermissionManagedAdmins', {});
-    admins.value = Array.isArray(result.admins) ? result.admins : [];
+    if (request !== generation) return;
+    requireSuccess(result);
+    admins.value = Array.isArray(result.list) ? result.list : [];
   } catch (error) {
-    notice.value = errorText(error, copy.admin.permissionsLoadFailed);
+    if (request === generation) notice.value = errorText(error, copy.admin.permissionsLoadFailed);
   } finally {
-    loading.value = false;
+    if (request === generation) loading.value = false;
   }
 }
 
 async function openAdmin(item) {
-  if (saving.value) return;
+  if (saving.value || opening.value || loading.value || notice.value) return;
+  const request = generation;
+  opening.value = true;
   notice.value = '';
   try {
     const result = await callApi('getAdminPermissionDetail', { adminId: item.id });
+    if (request !== generation) return;
+    requireSuccess(result);
     selected.value = result.admin || item;
     groups.value = cloneGroups(result.groups);
     groups.value.forEach(refreshGroupState);
     editor.value = true;
+    editorNotice.value = '';
   } catch (error) {
-    notice.value = errorText(error, copy.admin.permissionsLoadFailed);
-  }
+    if (request === generation) notice.value = errorText(error, copy.admin.permissionsLoadFailed);
+  } finally { if (request === generation) opening.value = false; }
 }
 
 function permissionMap() {
@@ -263,12 +266,15 @@ function permissionMap() {
 async function savePermissions() {
   if (saving.value || !selected.value.id) return;
   saving.value = true;
-  notice.value = '';
+  editorNotice.value = '';
+  const request = generation;
   try {
     const result = await callApi('saveAdminPermissions', {
       adminId: selected.value.id,
       permissions: permissionMap()
     });
+    if (request !== generation) return;
+    requireSuccess(result);
     if (Array.isArray(result.groups) && result.groups.length) {
       groups.value = cloneGroups(result.groups);
       groups.value.forEach(refreshGroupState);
@@ -279,16 +285,29 @@ async function savePermissions() {
     showToast(copy.admin.permissionsSaved);
     await loadAdmins();
   } catch (error) {
-    notice.value = errorText(error, copy.admin.permissionsSaveFailed);
+    if (request === generation) editorNotice.value = errorText(error, copy.admin.permissionsSaveFailed);
   } finally {
     saving.value = false;
   }
 }
 
-onMounted(loadAdmins);
+watch(() => session.context?.contextId, () => {
+  editor.value = false; selected.value = {}; groups.value = []; admins.value = []; opening.value = false; loadAdmins();
+}, { immediate: true });
+onBeforeUnmount(() => { generation++; });
 </script>
 
 <style scoped>
+.permission-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  min-height: var(--ui-field-control-height);
+  padding: var(--ui-control-padding-y) 0;
+  border-bottom: 1px solid var(--ui-line);
+}
+.permission-item:last-child { border-bottom: 0; }
 .panel-title-group {
   display: flex;
   flex-direction: column;
@@ -402,14 +421,4 @@ onMounted(loadAdmins);
   accent-color: #2563eb;
 }
 
-.dialog-wide {
-  width: min(100%, 720px);
-}
-
-.dialog-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--ui-list-gap);
-}
 </style>
