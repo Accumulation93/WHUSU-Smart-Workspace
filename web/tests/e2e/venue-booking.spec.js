@@ -78,3 +78,35 @@ test('time selection refuses occupied spans and legacy create URL uses the same 
   await dialog.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
   await expect(page).toHaveURL(/\/venue\/bookings$/);
 });
+
+const retryCases = [
+  ['getVenueSchedule', { status: 'success', dailySchedules: [{ openSlots: [{ timeStart: '09:00', timeEnd: '18:00' }], bookedSlots: [], activitySlots: [] }] }],
+  ['getVenueApprovalFlowOptions', { status: 'success', allowUserSelect: true, flows: [{ id: 'flow-1', name: 'Flow A', allowDesignateFirst: true }] }],
+  ['listVenueBookingPurposes', { status: 'success', purposes: [{ id: 'purpose-1', text: 'Meeting' }] }]
+];
+for (const [endpoint, response] of retryCases) {
+  test(`booking retries ${endpoint} without losing the form and then saves and rereads`, async ({ page }) => {
+    const state = await setup(page);
+    let failed = true;
+    await page.route(`**/api/${endpoint}`, route => route.fulfill({ json: failed ? { status: 'error', message: 'Temporarily unavailable' } : response }));
+    await page.goto('/web/venue/create?venueId=venue-1');
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(ui.copy_bbb0cc00c9).fill('Preserved meeting');
+    await dialog.getByLabel(ui.copy_5b5ccadb74).fill('Preserved explanation');
+    await dialog.getByLabel(ui.copy_39fcaa02ad).fill('2035-10-10');
+    await expect(dialog.getByRole('alert')).toContainText('Temporarily unavailable');
+    await expect(dialog.getByRole('button', { name: ui.copy_02ef2f799d })).toBeDisabled();
+    if (endpoint === 'getVenueSchedule') await expect(dialog.getByText(ui.copy_824768a506, { exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: copy.common.retry, exact: true })).toBeEnabled();
+    failed = false;
+    await dialog.getByRole('button', { name: copy.common.retry, exact: true }).click();
+    await expect(dialog.getByRole('button', { name: copy.common.retry, exact: true })).toHaveCount(0);
+    await expect(dialog.getByLabel(ui.copy_bbb0cc00c9)).toHaveValue('Preserved meeting');
+    await expect(dialog.getByLabel(ui.copy_5b5ccadb74)).toHaveValue('Preserved explanation');
+    await dialog.getByLabel(ui.copy_3bc010171a).selectOption('flow-1');
+    await dialog.getByRole('button', { name: ui.copy_02ef2f799d }).click();
+    await expect.poll(state.reads).toBe(1);
+    expect(state.request()).toMatchObject({ title: 'Preserved meeting', description: 'Preserved explanation', timeStart: '2035-10-10T09:00', timeEnd: '2035-10-10T10:00', flowId: 'flow-1' });
+    expect(state.saved).toHaveLength(1);
+  });
+}

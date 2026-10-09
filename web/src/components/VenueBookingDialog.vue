@@ -46,7 +46,7 @@
         </div>
       </div>
     </template>
-    <p v-else class="muted">{{ native.copy_824768a506 }}</p>
+    <p v-else-if="!dayError" class="muted">{{ native.copy_824768a506 }}</p>
     <label class="field"><span class="field-label">{{ native.copy_5b5ccadb74 }}</span>
       <textarea v-model="description" class="field-input" rows="3" :disabled="submitting" :placeholder="native.copy_2edf3fde90" />
     </label>
@@ -57,9 +57,14 @@
       <button type="button" class="btn btn-secondary" :disabled="submitting || candidatesLoading" @click="chooseApprovers">{{ selected.length ? selected.map(item => item.name + ' · ' + item.assignmentLabel).join(' / ') : native.copy_6986f4a5fd }}</button>
     </div>
     <p v-if="notice" role="alert" class="notice-line">{{ notice }}</p>
+    <div v-if="dayError || referenceError" class="stack-tight">
+      <p v-if="dayError" role="alert" class="notice-line">{{ dayError }}</p>
+      <p v-if="referenceError && referenceError !== dayError" role="alert" class="notice-line">{{ referenceError }}</p>
+      <button type="button" class="btn-quiet" :disabled="submitting || loading || referencesLoading" @click="retryLoad">{{ copy.common.retry }}</button>
+    </div>
     <template #footer>
       <VenueTimeKeyboard v-if="keyboard" :key="keyboard.handle + keyboard.field" :value="keyboard.handle === 'start' ? start : end" :initial-field="keyboard.field" :label="keyboard.handle === 'start' ? native.copy_deb776d2af : native.copy_2bd6adcbb9" :validate="keyboardValid" @confirm="confirmTime" />
-      <button v-else type="button" class="btn btn-primary" :disabled="submitting || loading || !ready || !session.context?.assignmentId" @click="submit">{{ native.copy_02ef2f799d }}</button>
+      <button v-else type="button" class="btn btn-primary" :disabled="submitting || loading || referencesLoading || !!dayError || !day?.openSlots?.length || !ready || !session.context?.assignmentId" @click="submit">{{ native.copy_02ef2f799d }}</button>
     </template>
   </GlassDialog>
   <PersonnelPicker v-if="pickerVisible" :title="native.copy_0522689efc" :options="candidates" :value="selected" @cancel="pickerVisible = false" @confirm="confirmSelection" />
@@ -83,6 +88,7 @@ const today = formatListTime(Date.now()).slice(0, 10);
 const date = ref(props.initialDate || today); const title = ref(''); const description = ref('');
 const start = ref(''); const end = ref(''); const day = ref(null); const notice = ref('');
 const loading = ref(false); const submitting = ref(false); const ready = ref(false);
+const dayError = ref(''); const referenceError = ref(''); const referencesLoading = ref(false);
 const purposes = ref([]); const flows = ref([]); const flowId = ref(''); const allowSelect = ref(false);
 const selected = ref([]); const candidates = ref([]); const pickerVisible = ref(false); const candidatesLoading = ref(false);
 const track = ref(null); const requestId = createRequestId();
@@ -128,16 +134,17 @@ function moveDrag(event) {
 function endDrag() { if (drag?.minute !== undefined) setTime(drag.handle, toTime(drag.minute)); drag = null; }
 async function loadDay() {
   const request = ++sequence; loading.value = true; start.value = ''; end.value = ''; day.value = null;
-  keyboard.value = null;
+  keyboard.value = null; dayError.value = '';
   try {
     const result = requireSuccess(await callApi('getVenueSchedule', { venueId: props.venue.id, dateFrom: date.value, dateTo: date.value }));
     if (!current() || request !== sequence) return;
+    if (!Array.isArray(result.dailySchedules)) throw new Error();
     day.value = result.dailySchedules?.[0] || null;
     if (request === 1 && props.initialTime && setTime('start', props.initialTime)) return;
     for (let minute = 0; minute < 1440; minute += 10) {
       if (startAllowed(day.value, date.value, minute, props.venue.bookingWindow)) { setTime('start', toTime(minute)); break; }
     }
-  } catch (error) { if (current() && request === sequence) notice.value = errorText(error); }
+  } catch (error) { if (current() && request === sequence) dayError.value = errorText(error); }
   finally { if (current() && request === sequence) loading.value = false; }
 }
 async function chooseApprovers() {
@@ -149,12 +156,12 @@ async function chooseApprovers() {
       assignmentLabel: person.assignmentLabel || person.assignment?.assignmentLabel, department: person.assignment?.departmentName,
       identity: person.assignment?.identityCategoryName, workGroup: person.assignment?.workGroupName })).filter(person => person.assignmentId);
     pickerVisible.value = true;
-  } catch (error) { if (current()) notice.value = errorText(error); }
+  } catch (error) { if (current() && selectedFlow === flowId.value) notice.value = errorText(error); }
   finally { candidatesLoading.value = false; }
 }
 function confirmSelection(items) { selected.value = items; pickerVisible.value = false; }
 async function submit() {
-  if (submitting.value || loading.value || !ready.value || !current()) return;
+  if (submitting.value || loading.value || referencesLoading.value || dayError.value || !ready.value || !current()) return;
   if (!session.context?.assignmentId) { notice.value = native.noActiveAssignment; return; }
   if (!title.value.trim()) { notice.value = native.copy_7db68605c6; return; }
   if (allowSelect.value && !flowId.value) { notice.value = native.copy_29ea17e75c; return; }
@@ -173,17 +180,26 @@ async function submit() {
 }
 watch(date, loadDay);
 watch(flowId, () => { selected.value = []; pickerVisible.value = false; });
-onMounted(async () => {
-  loadDay();
+async function loadReferences() {
+  referencesLoading.value = true; ready.value = false;
   try {
     const [flowResult, purposeResult] = await Promise.all([callApi('getVenueApprovalFlowOptions', { venueId: props.venue.id }), callApi('listVenueBookingPurposes', {})]);
     if (!current()) return;
     requireSuccess(flowResult); requireSuccess(purposeResult);
-    flows.value = flowResult.flows || []; allowSelect.value = Boolean(flowResult.allowUserSelect);
-    if (!allowSelect.value && flows.value.length === 1) flowId.value = flows.value[0].id;
-    purposes.value = purposeResult.purposes || []; ready.value = true;
-  } catch (error) { if (current()) notice.value = errorText(error); }
-});
+    if (!Array.isArray(flowResult.flows) || !Array.isArray(purposeResult.purposes)) throw new Error();
+    flows.value = flowResult.flows; allowSelect.value = flowResult.allowUserSelect === true;
+    flowId.value = !allowSelect.value && flows.value.length === 1 ? flows.value[0].id
+      : flows.value.some(flow => flow.id === flowId.value) ? flowId.value : '';
+    purposes.value = purposeResult.purposes; ready.value = true; referenceError.value = '';
+  } catch (error) { if (current()) referenceError.value = errorText(error); }
+  finally { if (current()) referencesLoading.value = false; }
+}
+function retryLoad() {
+  if (loading.value || referencesLoading.value || submitting.value) return;
+  if (dayError.value) loadDay();
+  if (referenceError.value) loadReferences();
+}
+onMounted(() => { loadDay(); loadReferences(); });
 onBeforeUnmount(() => { disposed = true; cancelAnimationFrame(animationFrame); });
 </script>
 
