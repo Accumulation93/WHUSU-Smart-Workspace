@@ -1,10 +1,11 @@
 <template>
-  <GlassDialog :title="title" @close="$emit('cancel')">
-    <input v-model="query" class="field-input" :placeholder="ui.searchPlaceholder" :aria-label="ui.searchPlaceholder" />
+  <GlassDialog :title="title" :busy="busy" @close="$emit('cancel')">
+    <slot />
+    <input v-model="query" class="field-input" :disabled="busy" :placeholder="ui.searchPlaceholder" :aria-label="ui.searchPlaceholder" />
     <div class="row row-wrap">
       <label v-for="filter in filterDefinitions" :key="filter.key" class="field">
         <span class="field-label">{{ filter.label }}</span>
-        <select v-model="filters[filter.key]" class="field-input">
+        <select v-model="filters[filter.key]" class="field-input" :disabled="busy">
           <option value="">{{ ui.all }}</option>
           <option v-for="value in choices(filter.key)" :key="value" :value="value">{{ value }}</option>
         </select>
@@ -14,12 +15,12 @@
     <div v-if="!filtered.length" class="empty-state">{{ query ? ui.noMatch : ui.empty }}</div>
     <button v-for="item in filtered" :key="item.assignmentId" type="button" class="list-row personnel-option"
       :class="{ 'personnel-option-selected': selected.includes(item.assignmentId) }"
-      :aria-pressed="selected.includes(item.assignmentId)" @click="toggle(item.assignmentId)">
+      :aria-pressed="selected.includes(item.assignmentId)" :disabled="busy" @click="toggle(item.assignmentId)">
       <span class="stack-tight"><strong>{{ item.name }}</strong><span>{{ item.assignmentLabel }}</span></span>
     </button>
     <template #footer>
-      <button type="button" class="btn btn-secondary" @click="$emit('cancel')">{{ ui.cancelSelection }}</button>
-      <button type="button" class="btn btn-primary" @click="$emit('confirm', options.filter(item => selected.includes(item.assignmentId)))">{{ ui.confirm }}</button>
+      <button type="button" class="btn btn-secondary" :disabled="busy" @click="$emit('cancel')">{{ ui.cancelSelection }}</button>
+      <button type="button" class="btn btn-primary" :disabled="busy" @click="$emit('confirm', options.filter(item => selected.includes(item.assignmentId)))">{{ ui.confirm }}</button>
     </template>
   </GlassDialog>
 </template>
@@ -27,7 +28,7 @@
 import { computed, reactive, ref } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
-const props = defineProps({ title: String, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
+const props = defineProps({ title: String, busy: Boolean, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
 defineEmits(['cancel', 'confirm']);
 const query = ref('');
 const selected = ref(props.value.map(item => item.assignmentId));

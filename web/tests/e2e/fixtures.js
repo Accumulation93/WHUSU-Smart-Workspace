@@ -354,6 +354,9 @@ export async function mockApi(page, options) {
         fileToken: 'token-uploaded'
       });
     }
+    if (name === 'getLatestPublishedScoreActivity') {
+      return reply({ status: 'success', activity: null });
+    }
     if (name === 'listMySignatures') {
       return reply({ status: 'success', signatures: settings.emptySignatures ? [] : [SIGNATURE_ITEM] });
     }

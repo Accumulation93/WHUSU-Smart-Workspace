@@ -1,6 +1,8 @@
 <template>
   <div class="page stack scoring-directory">
     <WorkspaceHero :page-name="copy.scoring.title" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
+    <ScoringPublication>
+    <template #scoring>
     <section class="card stack">
       <span class="section-title">{{ home.currentActivity }}</span>
       <span v-if="activity" class="activity-name break-all">{{ activity.name }}</span>
@@ -36,6 +38,8 @@
         </div>
       </div>
     </section>
+    </template>
+    </ScoringPublication>
     <div class="page-footer"><span class="footer-name">{{ copy.common.appName }}</span><span class="footer-org">{{ copy.common.organizationName }}</span></div>
   </div>
 </template>
@@ -44,6 +48,7 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import ScoringPublication from '@/components/ScoringPublication.vue';
 import copy from '@/locales/zh-CN/index.js';
 import homeCopy from '@/locales/zh-CN/shared/home.js';
 import scoreCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/score/score.js';
