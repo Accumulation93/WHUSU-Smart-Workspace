@@ -191,6 +191,6 @@ module.exports = Object.freeze({
     memberDetailTitle: "成员详情",
     memberCountSuffix: "人",
     accountStatusLabel: "账号状态",
-    consoleNote: "网页版目前只开放人事成员目录的查看，其余面板请在小程序里使用。",
+    consoleNote: "此项管理功能尚未在网页版开放，请在小程序中办理。",
   }),
 });

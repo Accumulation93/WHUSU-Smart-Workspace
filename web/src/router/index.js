@@ -1,14 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import { ensureSessionLoaded, session } from '@/runtime/session.js';
-
-/**
- * 网页路由。
- *
- * 手机与平板竖屏从门户宫格逐级进入，电脑端用顶部玻璃分段页签直达模块；
- * 两种入口指向同一批路由，不存在两套页面。
- * 尚未迁入网页版的模块落到统一的说明页，占位视图由对应模块替换成真实实现。
- */
+import { adminModule } from '@/runtime/adminNavigation.js';
 
 const routes = [
   { path: '/', redirect: { name: 'portal' } },
@@ -43,7 +36,6 @@ const routes = [
     meta: { requiresAuth: true, title: copy.workRole.navigationTitle }
   },
 
-  /* 审核审批 */
   { path: '/audit', redirect: { name: 'auditMySubmissions' } },
   {
     path: '/audit/my-submissions',
@@ -94,7 +86,6 @@ const routes = [
     meta: { requiresAuth: true, title: copy.verify.reportTitle }
   },
 
-  /* 人事信息 */
   {
     path: '/hr/profile',
     name: 'hrProfile',
@@ -102,7 +93,6 @@ const routes = [
     meta: { requiresAuth: true, title: copy.hr.navigationTitle }
   },
 
-  /* 考核评分 */
   { path: '/scoring', redirect: { name: 'scoringTasks' } },
   {
     path: '/scoring/tasks',
@@ -117,7 +107,6 @@ const routes = [
     meta: { requiresAuth: true, title: copy.scoring.fillTitle }
   },
 
-  /* 场地借用 */
   { path: '/venue', redirect: { name: 'venueBookings' } },
   {
     path: '/venue/bookings',
@@ -162,7 +151,6 @@ const routes = [
     meta: { requiresAuth: true, title: copy.venue.detailTitle }
   },
 
-  /* 管理端 */
   {
     path: '/admin',
     name: 'adminConsole',
@@ -178,11 +166,10 @@ const routes = [
   {
     path: '/admin/auth',
     name: 'adminAuth',
-    redirect: { name: 'adminConsole' },
+    redirect: { name: 'adminConsole', query: { subApp: 'hr', tab: 'hrInfo' } },
     meta: { requiresAuth: true, title: copy.admin.authTitle }
   },
 
-  /* 基本设置 */
   { path: '/system', redirect: { name: 'systemConfig' } },
   {
     path: '/system/config',
@@ -193,7 +180,7 @@ const routes = [
   {
     path: '/system/dictionary',
     name: 'systemDictionary',
-    component: () => import('@/views/system/SystemDictionaryView.vue'),
+    redirect: { name: 'adminConsole', query: { subApp: 'hr', tab: 'departments' } },
     meta: { requiresAuth: true, title: copy.system.dictionaryTitle }
   },
   {
@@ -234,12 +221,11 @@ router.beforeEach(async (to) => {
   const status = await ensureSessionLoaded();
   if (to.meta.public) return true;
   if (status === 'authenticated') return true;
-  // 登录失效或尚未登录时回到登录页，带上原因让页面给出明确提示。
   return { name: 'login', query: session.notice ? { reason: 'expired' } : {} };
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title || copy.common.appName;
+  document.title = to.name === 'adminConsole' ? adminModule(to.query.subApp).label + ' - ' + copy.common.appName : to.meta.title || copy.common.appName;
 });
 
 export default router;

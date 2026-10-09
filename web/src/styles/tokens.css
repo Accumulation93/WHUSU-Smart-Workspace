@@ -73,6 +73,8 @@
   --ui-tab-min-height: 38px;
   --ui-tab-padding-y: 8px;
   --ui-tab-padding-x: 9px;
+  --ui-admin-tab-padding-x: 2px;
+  --ui-admin-tab-font-size: min(var(--ui-type-label), calc((100vw - 76px) / 25));
   --ui-tab-gap: 4px;
   --ui-tab-shell-padding: 4px;
 
@@ -218,6 +220,7 @@
     --ui-tab-min-height: 40px;
     --ui-tab-padding-y: 7px;
     --ui-tab-padding-x: 10px;
+    --ui-admin-tab-font-size: var(--ui-type-label);
     --ui-tab-gap: 4px;
     --ui-tab-shell-padding: 4px;
 
@@ -291,6 +294,7 @@
     --ui-tab-min-height: 50px;
     --ui-tab-padding-y: 8px;
     --ui-tab-padding-x: 14px;
+    --ui-admin-tab-padding-x: var(--ui-tab-padding-x);
     --ui-tab-gap: 6px;
     --ui-tab-shell-padding: 5px;
     --ui-tab-radius: 12px;

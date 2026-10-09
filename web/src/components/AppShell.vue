@@ -18,11 +18,12 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import navbarCopy from '@/locales/zh-CN/shared/uiNavbar.js';
 import UiIcon from '@/components/UiIcon.vue';
+import { adminModule } from '@/runtime/adminNavigation.js';
 
 const route = useRoute();
 const router = useRouter();
 const currentTitle = computed(() => {
-  const title = String(route.meta.title || navbarCopy.brandName).trim();
+  const title = String((route.name === 'adminConsole' ? adminModule(route.query.subApp).label : route.meta.title) || navbarCopy.brandName).trim();
   return title.includes(navbarCopy.brandName) ? title : title + ' - ' + navbarCopy.brandName;
 });
 
