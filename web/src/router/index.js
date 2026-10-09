@@ -161,7 +161,7 @@ const routes = [
     path: '/admin/permissions',
     name: 'adminPermissions',
     component: () => import('@/views/admin/AdminPermissionsView.vue'),
-    meta: { requiresAuth: true, title: copy.admin.permissionsTitle }
+    meta: { requiresAuth: true, title: copy.admin.permissionsPageName }
   },
   {
     path: '/admin/auth',

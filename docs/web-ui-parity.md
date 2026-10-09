@@ -195,6 +195,8 @@ color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; line-height
 
 ### 表单
 
+权限编辑使用共享 `UiSwitch` 表达开关，保持蓝色选中、白色圆形滑块与禁用状态；`--ui-switch-*` 控制 52×32px 表面及 28px 滑块。管理员人数位于标题右侧，目录在 Pad 横屏为两列；页面宽度使用 `--ui-permission-page-width`，不扩张到普通超宽工作区。
+
 ```css
 .field-input, .field-textarea, .field-select {
   min-height: var(--ui-field-control-height);

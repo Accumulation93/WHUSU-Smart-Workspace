@@ -1,5 +1,5 @@
 <template>
-  <div class="page stack">
+  <div class="page stack permission-page">
     <WorkspaceHero
       tone="admin"
       :page-name="copy.admin.permissionsPageName"
@@ -13,8 +13,8 @@
       <div class="panel-head">
         <span class="panel-title-group">
           <span class="section-title">{{ copy.admin.permissionsListTitle }}</span>
-          <span class="panel-note">{{ filteredAdmins.length }} {{ copy.admin.permissionsCountSuffix }}</span>
         </span>
+        <span class="chip chip-blue">{{ filteredAdmins.length }} {{ copy.admin.permissionsCountSuffix }}</span>
       </div>
 
       <div class="search-bar">
@@ -25,7 +25,7 @@
           type="text"
           :placeholder="copy.admin.permissionsSearchPlaceholder"
         />
-        <button v-if="keyword" type="button" class="search-clear" @click="keyword = ''">
+        <button v-if="keyword" type="button" class="search-clear" :aria-label="permissionCopy.copy_2a0e50c5f6" @click="keyword = ''">
           <UiIcon name="x" tone="muted" size-role="message-trailing" />
         </button>
       </div>
@@ -34,14 +34,14 @@
       <div v-else-if="!notice && !filteredAdmins.length" class="empty-state">
         {{ keyword ? copy.admin.permissionsSearchEmpty : copy.admin.permissionsEmpty }}
       </div>
-      <div v-else class="list">
+      <div v-else class="list permission-admin-list">
         <button
           v-for="item in filteredAdmins"
           :key="item.id"
           type="button"
           class="list-row admin-row"
           :disabled="loading || opening || !!notice"
-          @click="openAdmin(item)"
+          @click="openAdmin(item, $event)"
         >
           <span class="admin-role-mark">
             <UiIcon name="shield" tone="primary" size-role="row-leading" />
@@ -71,8 +71,7 @@
     <p v-if="notice" class="notice-line">{{ notice }}</p>
     <button v-if="notice" type="button" class="btn btn-secondary" @click="loadAdmins">{{ copy.common.retry }}</button>
 
-    <GlassDialog v-if="editor" :title="selected.name + copy.admin.permissionsOf" :busy="saving" @close="closeEditor">
-          <span class="soft">{{ selected.adminLevelLabel }}</span>
+    <GlassDialog v-if="editor" :title="selected.name + copy.admin.permissionsOf" :eyebrow="selected.adminLevelLabel" :busy="saving" @close="closeEditor">
           <div v-for="group in groups" :key="group.key" class="glass-panel stack">
             <div class="panel-head">
               <span class="panel-title-group">
@@ -81,8 +80,8 @@
               </span>
               <label class="switch">
                 <span class="muted">{{ copy.admin.permissionsAll }}</span>
-                <input
-                  type="checkbox"
+                <UiSwitch
+                  :label="group.label + ' · ' + copy.admin.permissionsAll"
                   :checked="group.allGranted"
                   :disabled="saving || !group.editableCount"
                   @change="onGroupChange(group, $event)"
@@ -95,10 +94,9 @@
                 <span class="muted">{{ item.description }}</span>
               </span>
               <span class="list-row-actions">
-                <input
-                  type="checkbox"
+                <UiSwitch
                   :checked="item.granted"
-                  :aria-label="item.label"
+                  :label="item.label"
                   :disabled="saving || !item.editable"
                   @change="onPermissionChange(item, $event)"
                 />
@@ -115,15 +113,21 @@
           </button>
         </template>
     </GlassDialog>
+    <GlassDialog v-if="switchGuard" :title="permissionCopy.copy_f7eeef9596" compact @close="switchGuard = false">
+      <p>{{ permissionCopy.copy_56640dd4ae }}</p>
+      <template #footer><button class="btn btn-primary" type="button" @click="switchGuard = false">{{ permissionCopy.copy_c1961a2760 }}</button></template>
+    </GlassDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRouter } from 'vue-router';
 import UiIcon from '@/components/UiIcon.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
+import UiSwitch from '@/components/UiSwitch.vue';
+import permissionCopy from '@/locales/zh-CN/shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
@@ -141,6 +145,8 @@ const selected = ref({});
 const groups = ref([]);
 const opening = ref(false);
 const editorNotice = ref('');
+const switchGuard = ref(false);
+let editorTrigger;
 let generation = 0;
 
 const displayName = computed(() => {
@@ -175,6 +181,8 @@ function grantStyle(item) {
 }
 
 function goWorkRole() {
+  if (saving.value) return;
+  if (editor.value) { switchGuard.value = true; return; }
   router.push({ name: 'workRole' });
 }
 
@@ -211,11 +219,13 @@ function onPermissionChange(item, event) {
   if (group) refreshGroupState(group);
 }
 
-function closeEditor() {
+async function closeEditor() {
   if (saving.value) return;
   editor.value = false;
   selected.value = {};
   groups.value = [];
+  await nextTick();
+  if (editorTrigger?.isConnected) editorTrigger.focus();
 }
 
 async function loadAdmins() {
@@ -234,9 +244,10 @@ async function loadAdmins() {
   }
 }
 
-async function openAdmin(item) {
+async function openAdmin(item, event) {
   if (saving.value || opening.value || loading.value || notice.value) return;
   const request = generation;
+  editorTrigger = event?.currentTarget;
   opening.value = true;
   notice.value = '';
   try {
@@ -291,13 +302,21 @@ async function savePermissions() {
   }
 }
 
-watch(() => session.context?.contextId, () => {
+onBeforeRouteLeave((to) => {
+  if (session.status !== 'authenticated') return true;
+  if (saving.value) return false;
+  if (editor.value && to.name === 'workRole') { switchGuard.value = true; return false; }
+  return true;
+});
+watch(() => [session.context?.organizationId, session.context?.contextId].join('|'), () => {
+  switchGuard.value = false;
   editor.value = false; selected.value = {}; groups.value = []; admins.value = []; opening.value = false; loadAdmins();
 }, { immediate: true });
 onBeforeUnmount(() => { generation++; });
 </script>
 
 <style scoped>
+.permission-page { max-width: var(--ui-permission-page-width); }
 .permission-item {
   display: flex;
   align-items: center;
@@ -319,7 +338,8 @@ onBeforeUnmount(() => { generation++; });
   display: flex;
   align-items: center;
   gap: var(--ui-inline-gap);
-  padding: 7px 10px;
+  min-height: var(--ui-control-height);
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   border-radius: var(--ui-field-radius);
   background: var(--ui-field-bg);
   border: var(--ui-field-border);
@@ -358,7 +378,7 @@ onBeforeUnmount(() => { generation++; });
 
 .admin-row {
   width: 100%;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--ui-list-gap);
   font-family: inherit;
   text-align: left;
@@ -370,11 +390,11 @@ onBeforeUnmount(() => { generation++; });
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: var(--ui-permission-icon-size);
+  height: var(--ui-permission-icon-size);
   border-radius: var(--ui-compact-radius);
-  background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(219, 234, 254, 0.84));
-  border: 1px solid rgba(147, 197, 253, 0.4);
+  background: var(--ui-chip-blue-bg);
+  border: 1px solid var(--ui-chip-blue-border);
 }
 
 .list-row-main {
@@ -393,9 +413,10 @@ onBeforeUnmount(() => { generation++; });
 .admin-progress-track {
   flex: 1 1 auto;
   min-width: 0;
-  height: 6px;
+  max-width: var(--ui-permission-progress-width);
+  height: var(--ui-permission-progress-height);
   border-radius: 999px;
-  background: rgba(219, 234, 254, 0.76);
+  background: var(--ui-chip-blue-bg);
   overflow: hidden;
 }
 
@@ -403,7 +424,7 @@ onBeforeUnmount(() => { generation++; });
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  background: var(--ui-compact-primary-bg);
 }
 
 .switch {
@@ -414,11 +435,7 @@ onBeforeUnmount(() => { generation++; });
   min-height: var(--ui-compact-height);
 }
 
-.switch input,
-.list-row-actions input {
-  width: 16px;
-  height: 16px;
-  accent-color: #2563eb;
-}
+.admin-progress > .soft { flex: none; }
+@media (min-width: 900px) { .permission-admin-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 </style>

@@ -8,6 +8,16 @@
  */
 
 :root {
+  --ui-switch-width: 52px;
+  --ui-switch-height: 32px;
+  --ui-switch-thumb: 28px;
+  --ui-switch-inset: 1px;
+  --ui-switch-off: #e5e5e5;
+  --ui-disabled-opacity: 0.5;
+  --ui-permission-icon-size: 32px;
+  --ui-permission-progress-width: 120px;
+  --ui-permission-progress-height: 4px;
+  --ui-permission-page-width: 640px;
   --ui-target-group-bg: linear-gradient(135deg, rgba(241,245,249,0.94), rgba(226,232,240,0.86));
   --ui-target-group-border: 1px solid rgba(148,163,184,0.26);
   --ui-target-group-text: #475569;
@@ -220,6 +230,8 @@
 @media (min-width: 520px) and (max-width: 899px) {
   :root {
     --ui-score-page-width: 760px;
+    --ui-permission-icon-size: 36px;
+    --ui-permission-page-width: calc(720px + 2 * var(--ui-page-padding-x));
     --ui-score-key-height: 44px;
     --ui-score-number-height: 52px;
     --ui-score-key-gap: 6px;
@@ -307,6 +319,7 @@
 @media (min-width: 900px) {
   :root {
     --ui-score-page-width: 1180px;
+    --ui-permission-page-width: calc(1040px + 2 * var(--ui-page-padding-x));
     --ui-score-key-height: 40px;
     --ui-score-number-height: 52px;
     --ui-score-key-gap: 5px;

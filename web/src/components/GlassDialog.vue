@@ -3,7 +3,7 @@
     <div class="dialog-layer" @click.self="close">
       <section ref="panel" class="dialog glass-dialog" :class="{ 'glass-dialog-compact': compact }" role="dialog" aria-modal="true" :aria-label="title" tabindex="-1">
         <header class="dialog-header">
-          <span class="dialog-title">{{ title }}</span>
+          <span class="dialog-heading stack-tight"><span v-if="eyebrow" class="dialog-eyebrow">{{ eyebrow }}</span><span class="dialog-title">{{ title }}</span></span>
           <button type="button" class="btn-quiet" :disabled="busy" @click="close">{{ ui.close }}</button>
         </header>
         <div class="dialog-body"><slot /></div>
@@ -20,7 +20,7 @@ let previousOverflow = '';
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
-const props = defineProps({ title: { type: String, required: true }, busy: Boolean, compact: Boolean });
+const props = defineProps({ title: { type: String, required: true }, eyebrow: String, busy: Boolean, compact: Boolean });
 const emit = defineEmits(['close']);
 const panel = ref(null);
 const identity = {};
@@ -63,4 +63,6 @@ onBeforeUnmount(() => {
 .glass-dialog-compact { max-width: var(--ui-dialog-compact-max-width); }
 .dialog-body { overscroll-behavior: contain; }
 .dialog-body > :deep(*) { flex-shrink: 0; }
+.dialog-heading { min-width: 0; }
+.dialog-eyebrow { color: var(--ui-blue-700); font-size: var(--ui-type-caption); }
 </style>
