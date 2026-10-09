@@ -42,12 +42,14 @@ test('profile saves actual field values and reloads saved result', async ({ page
   });
   await page.goto('/web/hr/profile');
   await page.getByLabel('Email').fill('new@example.com');
-  await page.getByLabel('Meeting').fill('2026-10-10T10:30');
+  await page.getByLabel('Meeting · ' + homeCopy.selectDate).fill('2026-10-10');
+  await page.getByLabel('Meeting · ' + homeCopy.selectTime).fill('10:30');
   await page.getByRole('button', { name: homeCopy.saveProfile, exact: true }).click();
   await expect.poll(() => reads).toBe(2);
-  expect(saved).toEqual({ contact: 'new@example.com', date: '2026-10-09', meeting: '2026-10-10T02:30:00.000Z' });
+  expect(saved).toEqual({ contact: 'new@example.com', date: '2026-10-09', meeting: '2026-10-10T02:30:00Z' });
   await expect(page.getByLabel('Email')).toHaveValue('new@example.com');
-  await expect(page.getByLabel('Meeting')).toHaveValue('2026-10-10T10:30');
+  await expect(page.getByLabel('Meeting · ' + homeCopy.selectDate)).toHaveValue('2026-10-10');
+  await expect(page.getByLabel('Meeting · ' + homeCopy.selectTime)).toHaveValue('10:30');
 });
 
 test('venue history uses id and detail response from server', async ({ page }) => {

@@ -31,17 +31,18 @@
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ homeCopy.reloadProfile }}</button>
       <div v-if="profileData" class="stack">
       <p v-if="!loading && !loadNotice && !profileData.template?.fields?.length" class="empty-state">{{ homeCopy.noExtraProfile }}</p>
-      <label v-for="field in profileData.template?.fields || []" :key="field.id" class="field">
-        <span class="field-label">{{ field.label }} <span v-if="field.required">*</span></span>
-        <select v-if="field.type === 'sequence'" v-model="values[field.id]" class="field-input" :required="field.required" :disabled="readonly || saving || loading || !!loadNotice">
+      <div v-for="field in profileData.template?.fields || []" :key="field.id" class="field">
+        <label class="field-label" :for="['date', 'datetime'].includes(field.type) ? undefined : 'profile-' + field.id">{{ field.label }} <span v-if="field.required">*</span></label>
+        <HrDateField v-if="['date', 'datetime'].includes(field.type)" v-model="values[field.id]" :type="field.type" :label="field.label" :required="field.required" :disabled="readonly || saving || loading || !!loadNotice" />
+        <select v-else-if="field.type === 'sequence'" :id="'profile-' + field.id" v-model="values[field.id]" class="field-input" :required="field.required" :disabled="readonly || saving || loading || !!loadNotice">
           <option value="">{{ homeCopy.select }}</option>
           <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
         </select>
-        <input v-else v-model="values[field.id]" class="field-input" :type="inputType(field)"
+        <input v-else :id="'profile-' + field.id" v-model="values[field.id]" class="field-input" :type="inputType(field)"
           :required="field.required" :disabled="readonly || saving || loading || !!loadNotice" :step="field.type === 'number' ? (field.allowDecimal ? 'any' : '1') : undefined"
           :min="field.type === 'number' ? field.minValue : undefined" :max="field.type === 'number' ? field.maxValue : undefined" />
         <span v-if="field.hint" class="muted">{{ field.hint }}</span>
-      </label>
+      </div>
       <p v-if="saveNotice" class="notice-line" role="status">{{ saveNotice }}</p>
       <button v-if="!readonly && profileData.template?.fields?.length" class="btn btn-primary" type="submit" :disabled="saving || loading || !!loadNotice">
         {{ saving ? copy.common.loading : profileData.template.editMode === 'audit' ? homeCopy.submitReview : homeCopy.saveProfile }}
@@ -55,9 +56,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import HrDateField from '@/components/HrDateField.vue';
 import copy from '@/locales/zh-CN/index.js';
 import homeLocale from '@/locales/zh-CN/shared/home.js';
-import { formatListTime, getSystemTimezoneConfig } from '@/runtime/dateTime.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -74,7 +75,7 @@ const readonly = computed(() => profileData.value?.template?.editMode === 'reado
 let generation = 0;
 onBeforeUnmount(() => { generation++; });
 function inputType(field) {
-  return { date: 'date', datetime: 'datetime-local', number: 'number', phone: 'tel', email: 'email' }[field.type] || 'text';
+  return { number: 'number', phone: 'tel', email: 'email' }[field.type] || 'text';
 }
 async function save() {
   if (saving.value || readonly.value || loading.value || loadNotice.value || !profileData.value) return;
@@ -84,12 +85,6 @@ async function save() {
   saveNotice.value = '';
   try {
     const submitted = { ...values.value };
-    for (const field of profileData.value.template.fields) {
-      if (field.type === 'datetime' && submitted[field.id]) {
-        const utc = Date.parse(submitted[field.id] + 'Z') - getSystemTimezoneConfig().offset * 3600000;
-        submitted[field.id] = new Date(utc).toISOString();
-      }
-    }
     const result = requireSuccess(await callApi('submitUserHrProfile', { values: submitted }));
     if (request !== generation || context !== session.context?.contextId) return;
     await load();
@@ -129,9 +124,6 @@ async function load() {
     if (request !== generation || contextId !== session.context?.contextId) return;
     profileData.value = result;
     values.value = { ...result.values, ...(result.auditStatus === 'pending' ? result.pendingValues : {}) };
-    for (const field of result.template?.fields || []) {
-      if (field.type === 'datetime' && values.value[field.id]) values.value[field.id] = formatListTime(values.value[field.id]).replace(' ', 'T');
-    }
     const profile = result.profile || result.user || {};
     const context = session.context || {};
     fields.value = [

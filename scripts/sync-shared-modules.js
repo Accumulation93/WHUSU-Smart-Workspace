@@ -16,6 +16,13 @@ const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
   {
+    source: 'shared/hrProfileDate.js',
+    targets: [
+      { path: 'miniprogram/utils/hrProfileDateRules.js' },
+      { path: 'web/src/shared/hrProfileDate.js', format: 'esm' }
+    ]
+  },
+  {
     source: 'shared/hrFieldMatching.js',
     targets: [
       { path: 'miniprogram/utils/hrFieldMatching.js' },

@@ -256,7 +256,9 @@ assert(/<picker[^>]*mode="date"[^>]*value="\{\{detailFieldDates\[item\.id\]\}\}"
 assert(/detailFieldDates\[field\.id\] = toDatePickerValue\(vals\[field\.id\]\)/.test(hrInfoBehavior),
   '日期字段必须把工作区文本值转成原生 picker 需要的 YYYY-MM-DD');
 const hrProfileDateUtil = fs.readFileSync(path.join(root, 'miniprogram/utils/hrProfileDate.js'), 'utf8');
-assert(/function formatDateTextOnly/.test(hrProfileDateUtil) && /function toDatePickerValue/.test(hrProfileDateUtil),
+const hrProfileDateRules = fs.readFileSync(path.join(root, 'shared/hrProfileDate.js'), 'utf8');
+assert(/createHrProfileDate\(getSystemTimezoneConfig\)/.test(hrProfileDateUtil)
+  && /function formatDateTextOnly/.test(hrProfileDateRules) && /function toDatePickerValue/.test(hrProfileDateRules),
   '日期展示与 picker 取值必须由共享的 hrProfileDate 工具提供');
 assert(!/DATE_MONTH_NAMES/.test(hrInfoBehavior),
   '日期解析实现必须收敛到共享工具，不得在页面内重复实现');
