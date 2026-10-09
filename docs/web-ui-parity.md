@@ -145,6 +145,8 @@ box-shadow: 0 4px 9px rgba(15,23,42,0.035), inset 0 1px 0 rgba(255,255,255,0.86)
 按下反馈 `transform: translateY(1px) scale(0.985)`。按钮文字双轴居中，自然高度 + `min-height` +
 对称内边距 + 无单位行高。
 
+场地卡片“借用”使用 `.btn-quiet-primary`，对应小程序 `.action-btn.primary`；紧凑尺寸不变，背景与阴影分别引用 `--ui-compact-primary-bg`、`--ui-compact-primary-shadow`，白字引用 `--ui-on-primary`。手机场地卡操作独立放在正文下方，借用记录的取消/结束操作在三档尺寸均位于卡片底部。
+
 ### 页签
 
 - 整行页签 `.tabs` + `.tab` + `.tab-active`：外壳是玻璃分段控件，激活项用

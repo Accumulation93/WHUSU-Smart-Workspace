@@ -285,6 +285,13 @@ a {
   opacity: 0.6;
 }
 
+.btn-quiet-primary {
+  color: var(--ui-on-primary);
+  background: var(--ui-compact-primary-bg);
+  border-color: transparent;
+  box-shadow: var(--ui-compact-primary-shadow);
+}
+
 .btn-quiet-danger {
   border-color: rgba(254, 202, 202, 0.9);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(254, 242, 242, 0.84));

@@ -19,7 +19,7 @@
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!venues.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a60fcec226 }}</div>
       <div v-else class="list">
-        <div v-for="venue in venues" :key="venue.id" class="list-row">
+        <div v-for="venue in venues" :key="venue.id" class="list-row venue-card">
           <div class="list-row-main stack-tight">
             <span class="list-row-title break-all">{{ venue.name }}</span>
             <span v-if="venue.location" class="muted break-all">{{ venue.location }}</span>
@@ -27,7 +27,7 @@
           </div>
           <div class="list-row-actions">
             <button type="button" class="btn-quiet" @click="scheduleVenue = venue">{{ venueCopy.copy_391b522838 }}</button>
-            <button type="button" class="btn-quiet" :disabled="loading || !!loadNotice || !session.context?.assignmentId" @click="goCreate(venue)">
+            <button type="button" class="btn-quiet btn-quiet-primary" :disabled="loading || !!loadNotice || !session.context?.assignmentId" @click="goCreate(venue)">
               {{ venueCopy.copy_183fdf9907 }}
             </button>
           </div>
@@ -122,3 +122,10 @@ onMounted(async () => {
 watch(() => session.context?.contextId, () => { bookingVenue.value = null; scheduleVenue.value = null; venues.value = []; load(); });
 onBeforeUnmount(() => { generation++; });
 </script>
+
+<style scoped>
+@media (max-width: 519px) {
+  .venue-card { flex-direction: column; align-items: stretch; }
+  .venue-card > .list-row-actions { justify-content: flex-end; }
+}
+</style>

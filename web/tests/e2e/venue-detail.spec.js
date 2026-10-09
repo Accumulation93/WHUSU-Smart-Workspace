@@ -15,6 +15,8 @@ test('my booking opens shared detail and cancel does not open detail', async ({ 
   const api = await mockApi(page);
   await page.route('**/api/listMyVenueBookings', route => route.fulfill({ json: { status: 'success', bookings: [booking] } }));
   await page.goto('/web/venue/mine');
+  const layout = await page.locator('.booking-card').evaluate(card => ({ body: card.querySelector('.list-row-main').getBoundingClientRect().bottom, actions: card.querySelector('.list-row-actions').getBoundingClientRect().top }));
+  expect(layout.actions).toBeGreaterThanOrEqual(layout.body);
   await page.getByRole('button', { name: copy.venue.cancelAction, exact: true }).click();
   await expect(page.getByRole('dialog', { name: copy.venue.detailTitle })).toHaveCount(0);
   await page.getByRole('button', { name: copy.common.cancel, exact: true }).click();

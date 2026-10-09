@@ -25,6 +25,11 @@ async function setup(page) {
 test('booking opens in place with schedule, purpose, flow and first approver', async ({ page }) => {
   const state = await setup(page);
   await page.goto('/web/venue/bookings');
+  await expect(page.getByRole('button', { name: ui.copy_183fdf9907, exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  if (page.viewportSize().width < 520) {
+    const layout = await page.locator('.venue-card').evaluate(card => ({ body: card.querySelector('.list-row-main').getBoundingClientRect().bottom, actions: card.querySelector('.list-row-actions').getBoundingClientRect().top }));
+    expect(layout.actions).toBeGreaterThanOrEqual(layout.body);
+  }
   await page.getByRole('button', { name: ui.copy_183fdf9907, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: ui.copy_2b262b7940 + ' · Room A' });
   await dialog.getByLabel(ui.copy_39fcaa02ad).fill('2035-10-10');

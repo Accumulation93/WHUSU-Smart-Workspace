@@ -20,7 +20,7 @@
       <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
       <div v-else-if="!loadNotice && !bookings.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
       <div v-else class="list">
-        <div v-for="booking in bookings" :key="booking.id" class="list-row" role="button" tabindex="0" :aria-label="booking.title || booking.venueName" @click="detail = booking" @keydown.enter.self="detail = booking" @keydown.space.self.prevent="detail = booking">
+        <div v-for="booking in bookings" :key="booking.id" class="list-row booking-card" role="button" tabindex="0" :aria-label="booking.title || booking.venueName" @click="detail = booking" @keydown.enter.self="detail = booking" @keydown.space.self.prevent="detail = booking">
           <div class="list-row-main stack-tight">
             <span class="panel-head">
               <span class="list-row-title break-all">{{ booking.title || copy.venue.createTitle }}</span>
@@ -30,7 +30,7 @@
             <span v-if="booking.description" class="muted break-all">{{ booking.description }}</span>
             <span v-if="booking.approvalComment" class="muted break-all">{{ venueCopy.copy_3b3b392755 }}{{ booking.approvalComment }}</span>
           </div>
-          <div class="list-row-actions">
+          <div v-if="canCancel(booking) || canEnd(booking)" class="list-row-actions booking-actions">
             <button
               v-if="canCancel(booking)"
               type="button"
@@ -221,3 +221,8 @@ async function endBooking(booking) {
 watch([() => session.context?.contextId, () => route.query.bookingId], () => { openedBookingId = ''; bookings.value = []; detail.value = null; load(); }, { immediate: true });
 onBeforeUnmount(() => { generation++; });
 </script>
+
+<style scoped>
+.booking-card { flex-direction: column; align-items: stretch; }
+.booking-actions { justify-content: flex-end; }
+</style>
