@@ -30,7 +30,7 @@
     </div>
 
     <AdminActivityPanel v-if="activeTab === 'activities'" :state="activityState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
-    <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
+    <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo'" class="card stack">
       <div class="panel-head">
         <div class="stack-tight">
@@ -107,6 +107,9 @@ const permissionNotice = ref('');
 const profile = ref(null);
 const actionBusy = ref(false);
 const activityState = reactive({ form: { id: '', name: '', description: '', startDate: '', endDate: '' }, resetAfterRead: false });
+const dictionaryStates = reactive(Object.fromEntries(['departments', 'workGroups', 'identities'].map(kind => [kind, {
+  form: { id: '', name: '', description: '', departmentId: '' }, resetAfterRead: false
+}])));
 const module = computed(() => adminModule(route.query.subApp));
 const tabs = computed(() => adminTabs(route.query.subApp, profile.value));
 let generation = 0;
@@ -198,7 +201,14 @@ async function loadPermissions() {
   } catch (error) { if (current()) permissionNotice.value = errorText(error, copy.errors.permissionDenied); }
   finally { if (current()) permissionLoading.value = false; }
 }
-watch(scope, () => { generation++; profile.value = null; activeTab.value = ''; rows.value = []; keyword.value = ''; loadNotice.value = ''; Object.assign(activityState.form, { id: '', name: '', description: '', startDate: '', endDate: '' }); activityState.resetAfterRead = false; loadPermissions(); }, { immediate: true });
+watch(scope, () => {
+  generation++; profile.value = null; activeTab.value = ''; rows.value = []; keyword.value = ''; loadNotice.value = '';
+  Object.assign(activityState.form, { id: '', name: '', description: '', startDate: '', endDate: '' }); activityState.resetAfterRead = false;
+  for (const state of Object.values(dictionaryStates)) {
+    Object.assign(state.form, { id: '', name: '', description: '', departmentId: '' }); state.resetAfterRead = false;
+  }
+  loadPermissions();
+}, { immediate: true });
 watch(() => route.query.tab, key => { if (tabs.value.some(tab => tab.key === key)) activeTab.value = key; });
 watch([activeTab, permissionLoading], () => { generation++; if (activeTab.value === 'hrInfo' && !permissionLoading.value) load(); });
 onBeforeUnmount(() => { disposed = true; generation++; permissionGeneration++; });

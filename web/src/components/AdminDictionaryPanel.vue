@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -75,7 +75,7 @@ import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { session } from '@/runtime/session.js';
 
-const props = defineProps({ kind: { type: String, required: true }, disabled: Boolean });
+const props = defineProps({ kind: { type: String, required: true }, state: { type: Object, required: true }, disabled: Boolean });
 const emit = defineEmits(['busy']);
 const configs = {
   departments: {
@@ -115,16 +115,15 @@ const busy = ref(false);
 const loadNotice = ref('');
 const actionNotice = ref('');
 const usage = ref(null);
-const form = reactive({ id: '', name: '', description: '', departmentId: '' });
+const form = computed(() => props.state.form);
 const blocked = computed(() => props.disabled || loading.value || busy.value || !!loadNotice.value);
 let generation = 0;
 let disposed = false;
-let resetAfterRead = false;
 const scope = () => [session.context?.contextId, session.context?.organizationId, props.kind].join('|');
-function reset() { Object.assign(form, { id: '', name: '', description: '', departmentId: '' }); actionNotice.value = ''; }
+function reset() { Object.assign(form.value, { id: '', name: '', description: '', departmentId: '' }); actionNotice.value = ''; }
 async function edit(row) {
   if (blocked.value) return;
-  Object.assign(form, { id: row.id, name: row.name, description: row.description || '', departmentId: row.departmentId || '' });
+  Object.assign(form.value, { id: row.id, name: row.name, description: row.description || '', departmentId: row.departmentId || '' });
   actionNotice.value = '';
   await nextTick();
   editor.value?.scrollIntoView({ block: 'start' });
@@ -144,7 +143,7 @@ async function load() {
     rows.value = results[0][props.kind];
     if (results[1]) departments.value = results[1].departments;
     loadNotice.value = '';
-    if (resetAfterRead) { resetAfterRead = false; reset(); }
+    if (props.state.resetAfterRead) { props.state.resetAfterRead = false; reset(); }
     return true;
   } catch (error) {
     if (current()) loadNotice.value = errorText(error, personnel.dictionaryLoadFailed[props.kind].description);
@@ -153,23 +152,23 @@ async function load() {
 }
 async function save() {
   if (blocked.value) return;
-  if (!form.name.trim()) { actionNotice.value = config.value.missingName; return; }
-  if (props.kind === 'workGroups' && !departments.value.some(row => row.id === form.departmentId)) {
+  if (!form.value.name.trim()) { actionNotice.value = config.value.missingName; return; }
+  if (props.kind === 'workGroups' && !departments.value.some(row => row.id === form.value.departmentId)) {
     actionNotice.value = ui.copy_eada426deb; return;
   }
   const expected = scope();
   const current = () => !disposed && expected === scope();
-  const payload = { id: form.id, name: form.name.trim(), description: form.description };
+  const payload = { id: form.value.id, name: form.value.name.trim(), description: form.value.description };
   if (props.kind === 'workGroups') {
-    payload.departmentId = form.departmentId;
-    payload.departmentCode = departments.value.find(row => row.id === form.departmentId)?.code || '';
+    payload.departmentId = form.value.departmentId;
+    payload.departmentCode = departments.value.find(row => row.id === form.value.departmentId)?.code || '';
   }
   busy.value = true;
   actionNotice.value = '';
   try {
     requireSuccess(await callApi(config.value.saveApi, payload));
     if (!current()) return;
-    resetAfterRead = true;
+    props.state.resetAfterRead = true;
     const refreshed = await load();
     if (!current()) return;
     if (refreshed) reset();
@@ -199,13 +198,13 @@ async function remove(row) {
     requireSuccess(result);
     await load();
     if (!current()) return;
-    if (form.id === target.id) reset();
+    if (form.value.id === target.id) reset();
     showToast(config.value.deleted);
   } catch (error) { if (current()) actionNotice.value = errorText(error, dept.copy_076bb5d383); }
   finally { if (current()) busy.value = false; }
 }
 watch(busy, value => emit('busy', value), { flush: 'sync' });
-watch(scope, () => { generation++; resetAfterRead = false; reset(); rows.value = []; departments.value = []; usage.value = null; busy.value = false; loadNotice.value = ''; load(); }, { immediate: true });
+watch(scope, () => { generation++; rows.value = []; departments.value = []; usage.value = null; busy.value = false; loadNotice.value = ''; actionNotice.value = ''; load(); }, { immediate: true });
 onBeforeUnmount(() => { disposed = true; generation++; emit('busy', false); });
 </script>
 

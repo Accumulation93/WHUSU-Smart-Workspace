@@ -178,3 +178,60 @@ test('permission read failure remains retryable and does not request an unauthor
   await expect(page.getByLabel(ui.copy_827d50f428)).toBeVisible();
   expect(directoryReads).toBe(1);
 });
+
+test('three dictionary drafts survive tab changes and are discarded when leaving the module', async ({ page }) => {
+  await setup(page);
+  await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Department' }] } }));
+  await page.route('**/api/listWorkGroups', route => route.fulfill({ json: { status: 'success', workGroups: [] } }));
+  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [] } }));
+  await page.goto('/web/admin?subApp=hr&tab=departments');
+  await page.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await page.getByLabel(ui.copy_ff6a3c2862).fill('Department draft');
+  await page.getByRole('tab', { name: ui.copy_303b7a8611, exact: true }).click();
+  await page.getByLabel(ui.copy_7a4ac1ad99).fill('Group draft');
+  await page.getByLabel(ui.copy_7ee1272d5b).selectOption('d1');
+  await page.getByRole('tab', { name: ui.copy_38f7aca35c, exact: true }).click();
+  await page.getByLabel(ui.copy_827d50f428).fill('Identity draft');
+  await page.getByRole('tab', { name: ui.copy_c15260b37c, exact: true }).click();
+  await expect(page.getByLabel(ui.copy_ff6a3c2862)).toHaveValue('Department draft');
+  await expect(page.getByText(ui.copy_c97f4e1c21, { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: ui.copy_303b7a8611, exact: true }).click();
+  await expect(page.getByLabel(ui.copy_7a4ac1ad99)).toHaveValue('Group draft');
+  await expect(page.getByLabel(ui.copy_7ee1272d5b)).toHaveValue('d1');
+  await page.getByRole('tab', { name: ui.copy_38f7aca35c, exact: true }).click();
+  await expect(page.getByLabel(ui.copy_827d50f428)).toHaveValue('Identity draft');
+  await page.goto('/web/portal');
+  await page.goto('/web/admin?subApp=hr&tab=identities');
+  await expect(page.getByLabel(ui.copy_827d50f428)).toHaveValue('');
+});
+
+test('successful dictionary save survives failed rereads across tabs without a duplicate write', async ({ page }) => {
+  await setup(page);
+  let saved;
+  let reads = 0;
+  let writes = 0;
+  await page.route('**/api/listDepartments', route => {
+    reads++;
+    return route.fulfill({ json: reads === 2 || reads === 3 ? { status: 'unavailable', message: 'Read unavailable' }
+      : { status: 'success', departments: saved ? [{ ...saved, id: 'd1' }] : [] } });
+  });
+  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [] } }));
+  await page.route('**/api/saveDepartment', route => {
+    writes++; saved = route.request().postDataJSON();
+    return route.fulfill({ json: { status: 'success', id: 'd1' } });
+  });
+  await page.goto('/web/admin?subApp=hr&tab=departments');
+  await page.getByLabel(ui.copy_ff6a3c2862).fill('Saved department');
+  await page.getByRole('button', { name: ui.copy_9d34006a03, exact: true }).click();
+  await expect(page.getByText('Read unavailable')).toBeVisible();
+  await page.getByRole('tab', { name: ui.copy_38f7aca35c, exact: true }).click();
+  await page.getByRole('tab', { name: ui.copy_c15260b37c, exact: true }).click();
+  await expect(page.getByText('Read unavailable')).toBeVisible();
+  await expect(page.getByLabel(ui.copy_ff6a3c2862)).toHaveValue('Saved department');
+  await expect(page.getByRole('button', { name: ui.copy_9d34006a03, exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: personnel.dictionaryRetry }).click();
+  await expect(page.locator('article')).toContainText('Saved department');
+  await expect(page.getByLabel(ui.copy_ff6a3c2862)).toHaveValue('');
+  expect(writes).toBe(1);
+  expect(saved).toEqual({ id: '', name: 'Saved department', description: '' });
+});
