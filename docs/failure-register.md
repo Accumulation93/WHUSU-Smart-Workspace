@@ -377,6 +377,16 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 
 检查：`web/tests/e2e/venue-admin-schedule.spec.js` 验证细权限、仅占用记录、固定日期、原生时分选择、占用冲突恢复、按住标签不跳时刻、键盘微调、模拟保存回读及失败重试。`scripts/venue-admin-time-selection-test.js` 继续验证原小程序算法与手势竞态，生成副本必须一致；实际微信预览编译主包与 6 个分包通过。生产不创建预约，真实手机与 Pad 触控未完成现场验证。场地规则维护尚待补齐。
 
+### 坑 48：网页版场地规则入口缺失，周期与审批配置不能维护
+
+现象与根因：场地卡只有资料和日程操作，没有迁移小程序的规则窗口。此前测试只覆盖已有入口，未点击规则、周期限制与步骤条件；Vue 模板引用未声明的数据也不会被普通构建检查拦住。
+
+修复：恢复开放时间、活动时间、借用规则、借用时间四个权限控制页签；周期选择、活动二选一限制、时刻、步骤与条件逐项复用小程序字段。条件选择先确认再写回，指定范围显示实际字典名称，子编辑器互斥显示并按语义目标滚入可见区域。三个流程开关独立保存，切换直接通过与审批流程先确认影响；删除展示具体目标并确认。成功后重新读取，读取失败保留草稿、冻结写入与离页，恢复后只读取而不重复保存。
+
+验证限制：2026-10-13 微信开发者工具 CLI 已确认登录，但预览持续停在准备阶段，未取得主包和分包编译结果。本次小程序生成副本只增加列表分隔符语言键，尚未在原小程序业务调用；语法、兼容性和模板生成检查不能表述为真实微信编译通过。
+
+检查：`web/tests/e2e/venue-rules.spec.js` 覆盖十组操作在三个视口的成功参数与回读、拒绝重试、读取失败、月周期重复、年周期与日期范围、条件确认及取消、部门下职能组筛选与全选清除、独立开关、审核方式确认、删除引用拒绝、310px 页签完整、损坏条件禁止编辑与保存期间返回。动态接口为 `listVenueOpenRules/listVenueActivityRules/listVenueBookingRules/listVenueApprovalFlows`、`saveVenueOpenRule/saveVenueActivityRule/saveVenueBookingWindow/saveVenueBookingRule/saveVenueApprovalWholeFlow/saveVenueApprovalFlowMeta`、`deleteVenueOpenRule/deleteVenueActivityRule/deleteVenueBookingRule/deleteVenueApprovalFlow`；字典复用三个原接口。写入只使用隔离浏览器响应，生产不改规则；测试保留三档模拟流程编辑图。2026-10-13 浏览器现场工具因无法可靠识别 Edge 当前地址停止，手机与 Pad 触控也未完成现场验证；自动化通过不能替代现场验收。
+
 ### 坑 15：本地和线上不一样
 
 - 编译固定关掉 `nodeModules`、`es6`、`enhance`、`swc`，不许依赖微信开发者工具热重载注入的编译辅助代码；引入新语法前必须确认辅助代码真的被打进包里。

@@ -4,7 +4,7 @@
 > 本文说明**网页版是什么、代码在哪、文案从哪来、怎么跑、怎么发、哪些坑不能踩、哪些还没做**。
 > 视觉细节以 `docs/web-ui-parity.md` 为准，本文件不重复罗列色值与尺寸。
 
-最后更新：2026-10-09
+最后更新：2026-10-13
 
 ---
 
@@ -96,7 +96,7 @@ shared/locales/zh-CN/**            ← 唯一来源（文案只写在这里）
 | 审核审批 | `/audit/my-submissions`、`/audit/pending`、`/audit/history`、`/audit/submission/:id`、`/audit/create`、`/audit/signatures` | 我的申请、待我审批、审批历史、详情（通过/驳回/撤回/附件下载）、按模板发起申请、签名管理 |
 | 验签 | `/audit/verification`、`/audit/verification-report/:id` | 文件密码验签与验证报告 |
 | 考核评分 | `/scoring/tasks`、`/scoring/fill/:id` | 评分任务、公示结果与评优名单共用入口；按模板分组的评分填写（必填/上下限/步长校验） |
-| 场地借用 | `/venue/bookings`、`/venue/create`、`/venue/mine`、`/venue/pending`、`/venue/history`、`/venue/history/:id`、`/venue/manage` | 浏览场地、发起借用、我的借用（取消/结束使用）、待我审批、审批历史与详情、场地资料维护；其他管理操作待补齐 |
+| 场地借用 | `/venue/bookings`、`/venue/create`、`/venue/mine`、`/venue/pending`、`/venue/history`、`/venue/history/:id`、`/venue/manage` | 浏览场地、发起借用、我的借用、待我审批、历史与详情；管理端资料、规则、日程、借用与事由维护 |
 | 管理端 | `/admin?subApp=scoring/hr/system/audit`、`/admin/permissions`、`/admin/auth` | 按小程序子应用与权限显示页签；人事目录、部门/职能组/身份类别维护、管理权限可用，其他管理操作仍待补齐 |
 | 基本设置 | `/system/config`、`/system/dictionary`、`/system/audit-template`、`/system/permissions` | 字典旧地址进入人事部门维护；其余设置与模板旧页面仍只读 |
 | 人事 | `/hr/profile` | 本人基础资料只读；补充资料按模板填写、保存或提交审核并回读 |
@@ -185,7 +185,8 @@ shared/locales/zh-CN/**            ← 唯一来源（文案只写在这里）
 - 用户端结果公示、评优名单已恢复同页权限页签。通过 `getLatestPublishedScoreActivity/getPublicResults/getPublicMeritList/submitMeritListDesignations` 读取历史公示、筛选分组结果和保存岗位名单；名单保存失败保留选择，成功回读失败后冻结编辑并原地重试。管理端公示配置仍未补齐；名单写入仅在隔离模拟测试验证，生产保持只读。
 - 权限目录与详情接口不再返回他人学号，小程序同步取消该处学号展示与搜索；两端共用“搜索姓名或管理权限”。微信开发者工具预览编译主包及 6 个分包成功（总计 2327778 字节），未发布小程序正式版本，真实设备触控未完成现场验证。
 - 场地待审批已补原地详情、通过与驳回窗口、下一步岗位选择和成功回读，流程卡由待审批与审批历史共用。成功与失败链路在浏览器模拟响应中验证，未对生产申请执行审批。
-- 场地资料维护恢复名称、位置、描述和原地新增/编辑、确认删除，按 `venue.resources` 控制；三个原有接口为 `listVenues/saveVenue/deleteVenue`。读取失败保留内容、保存拒绝保留输入、成功后回读失败禁止重复写入；场地规则尚未完成。生产不修改场地。
+- 场地资料维护恢复名称、位置、描述和原地新增/编辑、确认删除，按 `venue.resources` 控制；三个原有接口为 `listVenues/saveVenue/deleteVenue`。读取失败保留内容、保存拒绝保留输入、成功后回读失败禁止重复写入。生产不修改场地。
+- 场地规则恢复四个原有页签；开放与活动周期、活动时间范围或重复次数、借用开放与截止设置、审批步骤和字典条件使用相同接口与字段。首步与后续指定开关分别保存，直接通过与流程互斥切换先确认；成功回读失败保留草稿并冻结重复写入。字典选择保留搜索、当前筛选全选与清除、所选部门下的职能组切换及确认清空，规则页签固定在滚动正文上方。规则写入只在隔离模拟请求中测试；2026-10-13 浏览器现场工具因无法可靠识别 Edge 当前地址停止，真实手机与 Pad 也未完成现场验证。本轮微信预览停在准备阶段，未取得编译结果；新增共享列表分隔符未用于小程序业务调用，原页面与算法未改变，但这不替代真实编译。
 - 管理日程复用七列时间表，按 `venue.bookings` 开放当天免审批借用；锁定日期、独立时分选择及拖动算法与小程序一致，算法源为 `shared/venueAdminTimeSelection.js`。`createAdminVenueBooking` 保存失败保留输入与请求标识，成功后重新读取日程；仅场地资料权限不显示创建入口。模拟保存回读、三档浏览器与真实微信预览编译分别验证，生产不创建测试预约。
 - 场地管理恢复场地管理、借用管理、待我审批、事由管理四个按权限显示的页签。借用管理分别读取日期外待审批和日期内记录，合并去重，按原有参数筛选、查看完整详情、通过或驳回后重新读取；事由恢复原地新增编辑和确认删除，跨页签保留草稿与回读状态。动态审批接口为 `approveVenueBooking/rejectVenueBooking/approveVenueBookingStep/rejectVenueBookingStep`，只提交小程序原有 `id/comment`；事由接口为 `listVenueBookingPurposes/saveVenueBookingPurpose/deleteVenueBookingPurpose`。写入和回读在隔离浏览器响应中验证，生产不执行审批或修改事由。
 - 借用申请改为场地页内弹窗，恢复事由、同日时间条、快捷时长、流程和首步岗位指定；旧 create 地址复用同一组件。模拟提交成功后回读借用列表，不在生产制造测试申请。

@@ -6,6 +6,7 @@
           <span class="dialog-heading stack-tight"><span v-if="eyebrow" class="dialog-eyebrow">{{ eyebrow }}</span><span class="dialog-title">{{ title }}</span></span>
           <button type="button" class="btn-quiet" :disabled="busy" @click="close">{{ ui.close }}</button>
         </header>
+        <div v-if="$slots.toolbar" class="dialog-toolbar"><slot name="toolbar" /></div>
         <div class="dialog-body"><slot /></div>
         <footer v-if="$slots.footer" class="dialog-footer"><slot name="footer" /></footer>
       </section>
