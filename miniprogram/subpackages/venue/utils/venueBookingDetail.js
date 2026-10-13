@@ -1,7 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
 const { buildFlowTimeline } = require('./flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
-const { formatListTime, formatDetailTime, parseAbsoluteTime } = require('../../../utils/dateTime');
+const { formatListTime, formatDetailTime, parseAbsoluteTime, systemDateTimeToTimestamp, addDateDays } = require('../../../utils/dateTime');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -25,6 +25,18 @@ function computeDisplayStatus(item) {
     return 'inUse';
   }
   return item.status || '';
+}
+
+function formatActivityOccurrence(value, reviewStatus) {
+  let instant = value;
+  // 旧日程仅到分钟的时间是系统墙上时间；ISO 及带秒的绝对时间沿用公共规则。
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(value))) {
+    const parts = value.split(' ');
+    instant = parts[1] === '24:00'
+      ? systemDateTimeToTimestamp(addDateDays(parts[0], 1), '00:00')
+      : systemDateTimeToTimestamp(parts[0], parts[1]);
+  }
+  return formatDetailTime(instant, { reviewStatus });
 }
 
 function getSnapshotCompletedSteps(progress) {
@@ -94,4 +106,4 @@ function prepareVenueBookingDetail(item) {
   return detail;
 }
 
-module.exports = { computeDisplayStatus, prepareVenueBookingDetail };
+module.exports = { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence };

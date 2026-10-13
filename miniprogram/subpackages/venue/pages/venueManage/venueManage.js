@@ -10,7 +10,7 @@ const flowManagementCopy = require('../../../../locales/zh-CN/venueFlowManagemen
 const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const adminTimeSelection = require('../../utils/adminTimeSelection');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
+const { prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {
   getSystemDate,
@@ -1668,7 +1668,7 @@ Page({
       name: activity.name || localeCopy.copy_acd4c5c171,
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
-      occurrenceTime: (activity.occurrenceStart || '') + localeCopy.copy_c44dbba9e9 + (activity.occurrenceEnd || ''),
+      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
       note: localeCopy.copy_c1ce05d451
     }});
   },

@@ -29,7 +29,7 @@
   <GlassDialog v-if="detail" :title="ui.copy_40d594ac66" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   <GlassDialog v-if="occupied" compact :title="ui.copy_a1f843d887" @close="occupied = null"><p>{{ occupied.timeStart }} {{ ui.copy_e8d9493a44 }} {{ occupied.timeEnd }}</p><p>{{ ui.copy_c46b04a9c5 }}</p></GlassDialog>
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null">
-    <div class="stack"><strong>{{ activity.activity?.name || activity.ruleName || ui.copy_acd4c5c171 }}</strong><span>{{ venue.name }}</span><span>{{ activity.activity?.occurrenceStart || activity.date + ' ' + activity.timeStart }} {{ ui.copy_e8d9493a44 }} {{ activity.activity?.occurrenceEnd || activity.date + ' ' + activity.timeEnd }}</span><span>{{ activityCycle(activity.activity) }}</span><p>{{ ui.copy_c1ce05d451 }}</p></div>
+    <div class="stack"><strong>{{ activity.activity?.name || activity.ruleName || ui.copy_acd4c5c171 }}</strong><span>{{ venue.name }}</span><span>{{ activityTime('Start') }} {{ ui.copy_e8d9493a44 }} {{ activityTime('End') }}</span><span>{{ activityCycle(activity.activity) }}</span><p>{{ ui.copy_c1ce05d451 }}</p></div>
   </GlassDialog>
   <VenueAdminBookingDialog v-if="adminBooking" :venue="venue" :date="adminBooking.date" :initial-time="adminBooking.time" @close="adminBooking = null" @busy="bookingBusy = $event" @saved="bookingSaved" />
 </template>
@@ -42,7 +42,7 @@ import adminTime from '@/shared/venueAdminTimeSelection.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { formatListTime } from '@/runtime/dateTime.js';
+import { formatDetailTime, formatListTime } from '@/runtime/dateTime.js';
 import { session } from '@/runtime/session.js';
 import { addDays, weekStart, toMinute, toTime, startAllowed, scheduleInstant } from '@/runtime/venueTime.js';
 const props = defineProps({ venue: { type: Object, required: true }, adminMode: Boolean, canBook: Boolean });
@@ -76,6 +76,11 @@ function select(day, minute) {
 function openBooking(slot) {
   if (slot.visibility !== 'details') { occupied.value = { timeStart: slot.timeStart, timeEnd: slot.timeEnd }; return; }
   detail.value = { ...slot, fullTimeStart: scheduleInstant(slot.fullTimeStart), fullTimeEnd: scheduleInstant(slot.fullTimeEnd) };
+}
+function activityTime(boundary) {
+  const slot = activity.value;
+  const value = slot?.activity?.['occurrence' + boundary] || slot?.['fullTime' + boundary] || (slot?.date + ' ' + slot?.['time' + boundary]);
+  return formatDetailTime(scheduleInstant(value), slot?.activity?.['occurrence' + boundary + 'ReviewStatus']);
 }
 function activityCycle(value) {
   let meta = value?.cycleValues || {};

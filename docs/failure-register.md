@@ -383,9 +383,17 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 
 修复：恢复开放时间、活动时间、借用规则、借用时间四个权限控制页签；周期选择、活动二选一限制、时刻、步骤与条件逐项复用小程序字段。条件选择先确认再写回，指定范围显示实际字典名称，子编辑器互斥显示并按语义目标滚入可见区域。三个流程开关独立保存，切换直接通过与审批流程先确认影响；删除展示具体目标并确认。成功后重新读取，读取失败保留草稿、冻结写入与离页，恢复后只读取而不重复保存。
 
-验证限制：2026-10-13 微信开发者工具 CLI 已确认登录，但预览持续停在准备阶段，未取得主包和分包编译结果。本次小程序生成副本只增加列表分隔符语言键，尚未在原小程序业务调用；语法、兼容性和模板生成检查不能表述为真实微信编译通过。
+微信验证：2026-10-13 预览曾持续停在准备阶段，用户同时报告模拟器启动超时。工具日志显示基础库 3.17.4 首次校验失败后重新下载、多次模拟器启动超时；未据此认定项目代码错误。通过官方 CLI 仅清理隔离验证项目的编译缓存后，真实预览主包与 6 个分包通过，总计 2328006 字节。编译通过不代表模拟器运行或真实设备触控通过。本次小程序生成副本只增加列表分隔符语言键，尚未在原小程序业务调用。
 
-检查：`web/tests/e2e/venue-rules.spec.js` 覆盖十组操作在三个视口的成功参数与回读、拒绝重试、读取失败、月周期重复、年周期与日期范围、条件确认及取消、部门下职能组筛选与全选清除、独立开关、审核方式确认、删除引用拒绝、310px 页签完整、损坏条件禁止编辑与保存期间返回。动态接口为 `listVenueOpenRules/listVenueActivityRules/listVenueBookingRules/listVenueApprovalFlows`、`saveVenueOpenRule/saveVenueActivityRule/saveVenueBookingWindow/saveVenueBookingRule/saveVenueApprovalWholeFlow/saveVenueApprovalFlowMeta`、`deleteVenueOpenRule/deleteVenueActivityRule/deleteVenueBookingRule/deleteVenueApprovalFlow`；字典复用三个原接口。写入只使用隔离浏览器响应，生产不改规则；测试保留三档模拟流程编辑图。2026-10-13 浏览器现场工具因无法可靠识别 Edge 当前地址停止，手机与 Pad 触控也未完成现场验证；自动化通过不能替代现场验收。
+检查：`web/tests/e2e/venue-rules.spec.js` 覆盖十组操作在三个视口的成功参数与回读、拒绝重试、读取失败、月周期重复、年周期与日期范围、条件确认及取消、部门下职能组筛选与全选清除、独立开关、审核方式确认、删除引用拒绝、310px 页签完整、损坏条件禁止编辑与保存期间返回。动态接口为 `listVenueOpenRules/listVenueActivityRules/listVenueBookingRules/listVenueApprovalFlows`、`saveVenueOpenRule/saveVenueActivityRule/saveVenueBookingWindow/saveVenueBookingRule/saveVenueApprovalWholeFlow/saveVenueApprovalFlowMeta`、`deleteVenueOpenRule/deleteVenueActivityRule/deleteVenueBookingRule/deleteVenueApprovalFlow`；字典复用三个原接口。写入只使用隔离浏览器响应，生产不改规则；测试保留三档模拟流程编辑图。2026-10-13 浏览器现场工具曾因无法可靠识别 Edge 地址停止；恢复后在内置浏览器使用本地隔离数据实际打开规则、步骤、条件和日程，未向生产写入。手机与 Pad 触控仍未完成现场验证；自动化通过不能替代现场验收。
+
+### 坑 49：活动占用详情直接展示 ISO UTC，时间格式与系统时区错误
+
+根因：网页直接渲染 `activity.occurrenceStart/occurrenceEnd`，而服务端返回 ISO UTC；旧日程测试使用墙上时间，并只断言活动名称，未核对实际时刻。
+
+修复：网页与小程序用户、管理日程的活动详情均经过系统时区工具显示到秒；旧墙上时间和缺少详情时的日期/时刻先按系统时区解析，避免重复移动。小程序两处复用 `venueBookingDetail.formatActivityOccurrence`，午夜 24:00 显示为次日 00:00:00。日期与每日时刻仍保持规则值。复用原日程、详情与关闭流程，不改变活动或借用数据。
+
+检查：`web/tests/e2e/venue-schedule.spec.js` 在三个视口、浏览器洛杉矶时区下分别验证系统 UTC−12、UTC、UTC+8、UTC+12，核对跨日跨年的 ISO 时刻、旧墙上时间、缺少详情的显示及关闭返回，不出现原始 ISO；原日程隐私与空闲时段进入借用测试同时保留。`server/test/venueActivityTime.test.js` 加载两处真实小程序页面方法，使用同样四个系统时区核对显示及关闭，并单独检查午夜。2026-10-13 修改后真实微信主包与 6 个分包预览编译通过，总计 2328409 字节；327 项网页测试、178 个服务端测试文件、87 项视觉取值检查通过。本地隔离浏览器实际打开活动详情，显示 09:00:00 至 10:00:00，与原 ISO 的系统时区换算一致。生产保持只读；手机与 Pad 触控及模拟器运行未完成现场验证。
 
 ### 坑 15：本地和线上不一样
 

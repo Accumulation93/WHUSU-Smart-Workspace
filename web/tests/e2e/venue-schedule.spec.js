@@ -44,6 +44,7 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   await schedule.getByRole('button', { name: 'Planned activity', exact: true }).click();
   const activity = page.getByRole('dialog', { name: ui.copy_c4df6642e3 });
   await expect(activity.getByText('Planned activity')).toBeVisible();
+  await expect(activity.getByText('2035-01-01 16:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 17:00:00', { exact: true })).toBeVisible();
   await activity.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
   await schedule.getByRole('button', { name: '›', exact: true }).click();
   await expect.poll(() => requests.at(-1).dateFrom).toBe('2035-01-08');
@@ -55,4 +56,37 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   expect(callsOf(api.calls, 'createVenueBooking')).toHaveLength(0);
   await booking.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
+test.describe('activity instants follow the system timezone', () => {
+  test.use({ timezoneId: 'America/Los_Angeles' });
+  for (const offset of [-12, 0, 8, 12]) {
+    test('absolute and legacy schedule times remain readable at UTC ' + offset, async ({ page }) => {
+      await mockApi(page);
+      await page.clock.setFixedTime(new Date('2035-01-01T12:00:00Z'));
+      await page.route('**/api/listVenuesForBooking', route => route.fulfill({ json: { status: 'success', venues: [{ id: 'venue', name: 'Room A', approvalType: 'direct' }] } }));
+      await page.route('**/api/getVenueSchedule', route => route.fulfill({ json: {
+        status: 'success', systemTimezoneOffset: offset, dailySchedules: [{ date: '2035-01-01', openSlots: [], bookedSlots: [], activitySlots: [
+          { ruleName: 'Absolute activity', timeStart: '09:00', timeEnd: '10:00', activity: { name: 'Absolute activity', occurrenceStart: '2026-12-31T18:20:37Z', occurrenceEnd: '2027-01-01T00:40:58Z', cycleType: 'daily', cycleValues: {} } },
+          { ruleName: 'Legacy activity', timeStart: '12:00', timeEnd: '13:00', activity: { name: 'Legacy activity', occurrenceStart: '2035-01-01 12:00', occurrenceEnd: '2035-01-01 13:00', cycleType: 'daily', cycleValues: {} } },
+          { ruleName: 'Fallback activity', timeStart: '16:00', timeEnd: '17:00' }
+        ] }]
+      } }));
+      await page.goto('/web/venue/bookings');
+      await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
+      const schedule = page.getByRole('dialog', { name: 'Room A', exact: true });
+      const detail = page.getByRole('dialog', { name: ui.copy_c4df6642e3 });
+      const shifted = value => new Date(Date.parse(value) + offset * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+      for (const [name, expected] of [
+        ['Absolute activity', shifted('2026-12-31T18:20:37Z') + ' ' + ui.copy_e8d9493a44 + ' ' + shifted('2027-01-01T00:40:58Z')],
+        ['Legacy activity', '2035-01-01 12:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 13:00:00'],
+        ['Fallback activity', '2035-01-01 16:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 17:00:00']
+      ]) {
+        await schedule.getByRole('button', { name, exact: true }).click();
+        await expect(detail.getByText(expected, { exact: true })).toBeVisible();
+        await expect(detail).not.toContainText(/\d{4}-\d{2}-\d{2}T/);
+        await detail.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
+      }
+    });
+  }
 });

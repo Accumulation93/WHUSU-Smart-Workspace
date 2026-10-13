@@ -1,6 +1,6 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
-const { computeDisplayStatus, prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
+const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
@@ -622,7 +622,7 @@ Page({
       name: activity.name || localeCopy.copy_acd4c5c171,
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
-      occurrenceTime: (activity.occurrenceStart || '') + localeCopy.copy_c44dbba9e9 + (activity.occurrenceEnd || ''),
+      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
       note: localeCopy.copy_c1ce05d451
     }});
   },
