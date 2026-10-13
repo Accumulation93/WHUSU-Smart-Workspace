@@ -19,6 +19,7 @@ const scoreAnswerModel = require('../models/scoreAnswer');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const sharedCache = require('../utils/sharedCache');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
+const { respondScoringResponse, publicScoringHeaders } = require('../utils/scoringPrivacy');
 const participantService = require('../services/participants');
 const {
   validateCalculationSnapshot,
@@ -138,8 +139,9 @@ function decorateAssignmentRows(rows) {
 }
 
 async function buildXlsxBase64(sheetName, headers, rows) {
-  const headerLabels = headers.map(h => h.label);
-  const dataRows = rows.map(row => headers.map(h => row[h.key]));
+  const publicHeaders = publicScoringHeaders(headers);
+  const headerLabels = publicHeaders.map(h => h.label);
+  const dataRows = rows.map(row => publicHeaders.map(h => row[h.key]));
   const sheetData = [headerLabels, ...dataRows];
   const buffer = await buildWorkbookBuffer(sheetName, sheetData);
   return buffer.toString('base64');
@@ -151,7 +153,7 @@ function getLookupName(map, id) {
 }
 
 function getScorerUniqueKey(memberOrRecord) {
-  return safeString(memberOrRecord.scorerId || memberOrRecord.id) || safeString(memberOrRecord.studentId);
+  return safeString(memberOrRecord.scorerId || memberOrRecord.id);
 }
 
 // ---------- Data loading helpers ----------
@@ -441,7 +443,7 @@ function createScorerKeyResolver(members) {
   const aliasMap = new Map();
   members.forEach((member) => {
     const canonicalKey = getScorerUniqueKey(member);
-    [member.id, member.studentId, member.scorerId].forEach((value) => {
+    [member.id, member.scorerId].forEach((value) => {
       const key = safeString(value);
       if (key) aliasMap.set(key, canonicalKey);
     });
@@ -1224,14 +1226,14 @@ router.post('/getScoreResults', async (req, res) => {
     const departmentName = safeString(req.body.departmentName);
     const scorerKey = safeString(req.body.scorerKey);
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
     const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     // 活动归属必须在任何缓存读取之前验证，避免旧组织活动 ID 命中共享缓存。
     const orgId = await getCurrentOrgId();
     const scopedActivity = await activityModel.getById(activityId);
-    if (!scopedActivity) return res.json(buildActivityNotFoundPayload(dataType));
+    if (!scopedActivity) return respondScoringResponse(res, buildActivityNotFoundPayload(dataType));
 
     // ── Overview cache shortcut ──
     if (dataType === 'overview') {
@@ -1242,7 +1244,7 @@ router.post('/getScoreResults', async (req, res) => {
       if (cached && cached.historicalIntegrityVerified === true) {
         const cachedRows = sortResultRows(cached.overviewRows || [], sortMode, 'finalScore');
         const cachedPage = paginateResultRows(cachedRows, offset, pageSize, { unlimited: !paginationRequested });
-        return res.json({
+        return respondScoringResponse(res, {
           status: 'success',
           activity: cached.activity,
           overviewRows: cachedPage.rows,
@@ -1276,7 +1278,7 @@ router.post('/getScoreResults', async (req, res) => {
       // 整场都算不出来时才明确失败；只要还有可用记录，就照常出结果并标出被跳过的条目。
       const historicalFailure = getHistoricalSnapshotFailure(diagnostics);
       if (historicalFailure && !diagnostics.acceptedRecords) {
-        return res.json(Object.assign({}, historicalFailure, {
+        return respondScoringResponse(res, Object.assign({}, historicalFailure, {
           message: historicalFailure.status === 'historical_snapshot_missing'
             ? localeCopy.historicalSnapshotMissing
             : localeCopy.historicalSnapshotInvalid
@@ -1377,7 +1379,7 @@ router.post('/getScoreResults', async (req, res) => {
 
       const sortedRows = sortResultRows(filteredRows, sortMode, 'finalScore');
       const pageResult = paginateResultRows(sortedRows, offset, pageSize, { unlimited: !paginationRequested });
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'success',
         activity: actBrief,
         overviewRows: pageResult.rows,
@@ -1393,10 +1395,10 @@ router.post('/getScoreResults', async (req, res) => {
     // ── Non-overview dataTypes: load full data ──
     // 单条评分明细：只查这一条记录和它的答案，不再为了看一条记录全量重扫整个活动。
     if (dataType === 'recordDetail') {
-      if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_52a76c0da1 });
+      if (!recordId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_52a76c0da1 });
       const recordRow = await scoreRecordModel.getById(recordId);
       if (!recordRow || safeString(recordRow.activity_id) !== activityId) {
-        return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
+        return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c173b07ef3 });
       }
       const detailGranularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
       const answerRows = await scoreAnswerModel.getByRecordIds([recordId]);
@@ -1411,7 +1413,7 @@ router.post('/getScoreResults', async (req, res) => {
       const record = detailInspection.records[0];
       if (!record) {
         const reasons = Object.keys(detailInspection.diagnostics.reasons || {});
-        return res.json({
+        return respondScoringResponse(res, {
           status: 'snapshot_unavailable',
           dataType,
           skippedRecords: buildSkippedRecordsReport(detailInspection.diagnostics),
@@ -1447,7 +1449,7 @@ router.post('/getScoreResults', async (req, res) => {
           };
         })
       }));
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'success',
         dataType,
         recordDetail: {
@@ -1475,7 +1477,7 @@ router.post('/getScoreResults', async (req, res) => {
     // 某人评分列表：只查这个被评分人的记录。不加载答案、不计算分数、不扫整个活动，
     // 所以点开一位同学是毫秒级；每题分数与总分只在点进单条明细时才计算。
     if (dataType === 'targetRecords') {
-      if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
+      if (!targetId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
       const targetRowsRaw = await scoreRecordModel.getByTarget(activityId, targetId);
       const targetDiagnostics = { totalRecords: targetRowsRaw.length, acceptedRecords: 0, skippedRecords: 0, reasons: {}, records: [] };
       const targetRecordRows = targetRowsRaw
@@ -1517,14 +1519,14 @@ router.post('/getScoreResults', async (req, res) => {
       // 这位同学的记录都不可用时，明确说明依据缺失，而不是假装“没有评分记录”。
       const targetFailure = targetRowFailure(targetDiagnostics);
       if (targetFailure) {
-        return res.json(Object.assign({}, targetFailure, {
+        return respondScoringResponse(res, Object.assign({}, targetFailure, {
           dataType,
           message: targetFailure.status === 'historical_snapshot_missing'
             ? localeCopy.historicalSnapshotMissing
             : localeCopy.historicalSnapshotInvalid
         }));
       }
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'success',
         dataType,
         activity: {
@@ -1562,7 +1564,7 @@ router.post('/getScoreResults', async (req, res) => {
     // 逐条跳过坏记录：只有整场一条可用记录都没有时才明确失败，避免显示成 0 分。
     const historicalFailure = getHistoricalSnapshotFailure(inspection.diagnostics);
     if (historicalFailure && !inspection.diagnostics.acceptedRecords) {
-      return res.json(Object.assign({}, historicalFailure, {
+      return respondScoringResponse(res, Object.assign({}, historicalFailure, {
         message: historicalFailure.status === 'historical_snapshot_missing'
           ? localeCopy.historicalSnapshotMissing
           : localeCopy.historicalSnapshotInvalid
@@ -1605,7 +1607,7 @@ router.post('/getScoreResults', async (req, res) => {
     };
 
     if (dataType === 'scorerTargets') {
-      if (!scorerKey) return res.json({ status: 'invalid_params', message: localeCopy.copy_66565f7cf6 });
+      if (!scorerKey) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_66565f7cf6 });
       const expectedTargets = new Map();
       (taskData.expectedPairs || []).forEach((pair) => {
         if (pair.scorerKey !== scorerKey) return;
@@ -1640,7 +1642,7 @@ router.post('/getScoreResults', async (req, res) => {
         if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
         return String(a.targetName).localeCompare(String(b.targetName), 'zh-CN');
       });
-      return res.json({ status: 'success', activity: activityBrief, scorerName: scorerMember ? scorerMember.name : scorerKey, scorerTargetRows });
+      return respondScoringResponse(res, { status: 'success', activity: activityBrief, scorerName: scorerMember ? scorerMember.name : scorerKey, scorerTargetRows });
     }
 
     if (dataType === 'completion') {
@@ -1680,12 +1682,12 @@ router.post('/getScoreResults', async (req, res) => {
       };
       if (departmentName) {
         const deptRows = filteredRows.filter((r) => safeString(r.department) === departmentName).sort((a, b) => { if (a.pendingCount !== b.pendingCount) return b.pendingCount - a.pendingCount; return String(a.scorerName).localeCompare(String(b.scorerName), 'zh-CN'); });
-        return res.json({
+        return respondScoringResponse(res, {
           status: 'success', activity: activityBrief, scorerCompletionRows: deptRows, stats, filterOptions,
           needsAssignmentDisambiguation: scorerPresentation.needsAssignmentDisambiguation
         });
       }
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'success', activity: activityBrief,
         scorerCompletionRows: filteredRows,
         needsAssignmentDisambiguation: scorerPresentation.needsAssignmentDisambiguation,
@@ -1696,7 +1698,7 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     if (dataType === 'targetRecords') {
-      if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
+      if (!targetId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
       const targetRecords = records.filter((r) => safeString(r.targetId) === safeString(targetId));
       const expectRow = {
         targetId,
@@ -1792,7 +1794,7 @@ router.post('/getScoreResults', async (req, res) => {
         row.templateScores = scored ? scored.templateScores : [];
       });
 
-      res.json({
+      respondScoringResponse(res, {
         status: 'success', activity: activityBrief, targetRecordRows,
         stats: { recordCount: targetRecordRows.length },
         pagination: { offset, nextOffset: targetRecordRows.length, total: targetRecordRows.length, hasMore: false, returnedCount: targetRecordRows.length }
@@ -2030,7 +2032,7 @@ router.post('/getScoreResults', async (req, res) => {
       return true;
     }).filter((s) => toNumber(s.pendingCount, 0) === 0).length;
 
-    res.json(filteredPayload);
+    respondScoringResponse(res, filteredPayload);
   } catch (e) {
     // 结果接口曾把异常静默吞掉，线上出问题查不到任何记录；这里必须留下带上下文的错误日志。
     const failedActivityId = safeString(req.body && req.body.activityId);
@@ -2043,7 +2045,7 @@ router.post('/getScoreResults', async (req, res) => {
         error: safeString(e && e.message)
       });
     }
-    res.json({
+    respondScoringResponse(res, {
       status: 'error',
       dataType: failedDataType,
       message: safeString(e.message) || localeCopy.copy_c59ab1ce4a
@@ -2073,12 +2075,12 @@ router.post('/exportScoreResults', async (req, res) => {
     const format = safeString(req.body.format) || 'csv';
     const filters = req.body.filters || {};
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
     const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
+    if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
@@ -2093,7 +2095,7 @@ router.post('/exportScoreResults', async (req, res) => {
     const inspection = inspectImmutableRecords(enrichedRecords, activityId);
     const exportHistoricalFailure = getHistoricalSnapshotFailure(inspection.diagnostics);
     if (exportHistoricalFailure) {
-      return res.json(Object.assign({}, exportHistoricalFailure, {
+      return respondScoringResponse(res, Object.assign({}, exportHistoricalFailure, {
         message: exportHistoricalFailure.status === 'historical_snapshot_missing'
           ? localeCopy.historicalSnapshotMissing
           : localeCopy.historicalSnapshotInvalid
@@ -2117,7 +2119,7 @@ router.post('/exportScoreResults', async (req, res) => {
       } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
       const historicalFailure = getHistoricalSnapshotFailure(diagnostics);
       if (historicalFailure) {
-        return res.json(Object.assign({}, historicalFailure, {
+        return respondScoringResponse(res, Object.assign({}, historicalFailure, {
           message: historicalFailure.status === 'historical_snapshot_missing'
             ? localeCopy.historicalSnapshotMissing
             : localeCopy.historicalSnapshotInvalid
@@ -2199,7 +2201,7 @@ router.post('/exportScoreResults', async (req, res) => {
 
     // Safety cap: refuse exports larger than EXPORT_MAX_ROWS to prevent OOM
     if (filteredRows.length > EXPORT_MAX_ROWS) {
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'too_large',
         message: localeFormat(localeCopy.copy_985bc885b8, [filteredRows.length]),
         rowCount: filteredRows.length,
@@ -2216,7 +2218,7 @@ router.post('/exportScoreResults', async (req, res) => {
     const fileContent = await buildXlsxBase64(sheetNames[reportType] || localeCopy.copy_47aa0b0bde, headers, filteredRows);
     const extension = 'xlsx';
 
-    res.json({ status: 'success', fileContent, fileName, extension });
+    respondScoringResponse(res, { status: 'success', fileContent, fileName, extension });
   } catch (e) {
     if (req.logger && typeof req.logger.error === 'function') {
       req.logger.error('Export score results failed', {
@@ -2225,7 +2227,7 @@ router.post('/exportScoreResults', async (req, res) => {
         error: safeString(e && e.message)
       });
     }
-    res.json({ status: 'error', message: safeString(e.message) });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
   }
 });
 
@@ -2233,13 +2235,13 @@ router.post('/exportScoreResults', async (req, res) => {
 router.post('/revokeScoreRecord', async (req, res) => {
   try {
     const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const recordId = safeString(req.body.recordId);
-    if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_397b800fc5 });
+    if (!recordId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_397b800fc5 });
 
     const record = await scoreRecordModel.getById(recordId);
-    if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_62fff082e2 });
+    if (!record) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_62fff082e2 });
 
     // Delete answers and record atomically within a transaction
     const { withTransaction } = require('../../../config/db');
@@ -2256,9 +2258,9 @@ router.post('/revokeScoreRecord', async (req, res) => {
       sharedCache.invalidatePrefix('overview_' + orgId + '_' + record.activity_id + '_')
     ]);
 
-    res.json({ status: 'success', message: localeCopy.copy_d08849e510 });
+    respondScoringResponse(res, { status: 'success', message: localeCopy.copy_d08849e510 });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
   }
 });
 

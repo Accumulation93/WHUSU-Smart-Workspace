@@ -4,6 +4,7 @@ const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin'
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
+const { respondScoringResponse, publicScoringHeaders } = require('../utils/scoringPrivacy');
 const notificationOutboxModel = require('../../audit/models/notificationOutbox');
 const { safeString, toNumber, roundScore, generateId, buildNameMap } = require('../../../utils/helpers');
 const { nowMysqlUtc } = require('../../../utils/dateTime');
@@ -46,7 +47,7 @@ function rejectPublicationRule(status, message) {
 }
 
 function respondPublicationRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
-  return res.json({
+  return respondScoringResponse(res, {
     status: error instanceof PublicationRuleRequestError ? error.status : 'error',
     message: error instanceof PublicationRuleRequestError ? error.message : fallbackMessage
   });
@@ -571,13 +572,13 @@ function buildDesignatorSnapshot(req, actor, assignment) {
 router.post('/getResultPublication', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
     if (!publication) {
-      return res.json({ status: 'success', publication: null, viewRules: [], meritRules: [], meritListDesignations: [] });
+      return respondScoringResponse(res, { status: 'success', publication: null, viewRules: [], meritRules: [], meritListDesignations: [] });
     }
 
     const orgId = await getCurrentOrgId();
@@ -728,23 +729,23 @@ router.post('/getResultPublication', async (req, res) => {
       assignmentLabel: publicationAssignments.buildAssignmentLabel(assignment, lookups)
     })).filter((assignment) => assignment.assignmentId);
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success',
       publication: { id: pubId, activityId: publication.activity_id, isPublished: !!publication.is_published, publishedAt: publication.published_at, publishedBy: publication.published_by },
       viewRules: enrichedViewRules, meritRules: enrichedMeritRules,
       meritListDesignations: enrichedDesignations, assignmentCandidates
     });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── saveResultPublication ───
 router.post('/saveResultPublication', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     const isPublished = req.body.isPublished === true || req.body.isPublished === 1;
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const now = nowMysqlUtc();
     const orgId = await getCurrentOrgId();
@@ -800,13 +801,13 @@ router.post('/saveResultPublication', async (req, res) => {
       }
       return { id: publicationId };
     });
-    if (!outcome) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-    res.json({
+    if (!outcome) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    respondScoringResponse(res, {
       status: 'success',
       publication: { id: outcome.id, activityId, isPublished },
       message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1
     });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── saveResultViewPermission ───
@@ -833,7 +834,7 @@ router.post('/deleteMeritListPermission', (req, res) => {
 router.post('/saveMeritListDesignations', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const clauseIds = Array.isArray(req.body.clauseIds) && req.body.clauseIds.length
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
@@ -842,7 +843,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     // 新客户端提交岗位 ID；旧 HR ID 仅在该人员当前只有一个岗位时兼容。
     const designationTargetIds = getDesignationTargetIds(req.body);
 
-    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
+    if (!primaryClauseId || !publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
     // Look up clause + parent merit rule from new tables (include publication_id for reliable INSERT)
     const orgId = await getCurrentOrgId();
@@ -853,7 +854,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
       [primaryClauseId, orgId, orgId, publicationId]
     );
-    if (!clause) return res.json({ status: 'not_found', message: localeCopy.copy_22d72751cb });
+    if (!clause) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_22d72751cb });
 
     // Admin can designate fewer than quota but NOT exceed it
     // Aggregate quota across all clauses
@@ -865,7 +866,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId]
       );
       if (quotaRows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
+        return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
@@ -890,7 +891,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId, orgId, publicationId]
       );
       if (rows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
+        return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       allClauseScopes = rows;
     } else {
@@ -904,11 +905,11 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
     const resolvedTargets = publicationAssignments.resolveRequestedAssignments(designationTargetIds, activeAssignments);
     if (!resolvedTargets.ok) {
-      return res.json({ status: 'invalid_hr', reason: resolvedTargets.status, message: localeCopy.copy_f3dd2d1ffc });
+      return respondScoringResponse(res, { status: 'invalid_hr', reason: resolvedTargets.status, message: localeCopy.copy_f3dd2d1ffc });
     }
     const designationTargets = resolvedTargets.targets;
     if (aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit) {
-      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+      return respondScoringResponse(res, { status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
     }
     for (const targetAssignment of designationTargets) {
       let matchesAnyClause = false;
@@ -924,7 +925,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       }
       if (!matchesAnyClause) {
         const displayName = safeString(targetAssignment.name) || publicationAssignments.assignmentIdOf(targetAssignment);
-        return res.json({ status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [displayName]) });
+        return respondScoringResponse(res, { status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [displayName]) });
       }
     }
 
@@ -991,10 +992,10 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       targetName: item.name,
       targetStudentId: item.studentId
     }));
-    res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
+    respondScoringResponse(res, { status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (e.code === 'ER_DUP_ENTRY') return respondScoringResponse(res, { status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
   }
 });
 
@@ -1007,19 +1008,19 @@ router.post('/removeMeritListDesignation', (req, res) => {
 router.post('/getPublicResults', async (req, res) => {
   try {
     const activityId = safeString(req.body.activityId);
-    if (!getAuthenticatedContext(req)) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     const orgId = await getCurrentOrgId();
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
+    if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const [viewerRecord, participantRows, lookups, scoreRecords] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
@@ -1027,7 +1028,7 @@ router.post('/getPublicResults', async (req, res) => {
       fetchOrgLookups(),
       scoreRecordModel.getByActivity(activityId)
     ]);
-    if (!viewerRecord) return res.json({ status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
+    if (!viewerRecord) return respondScoringResponse(res, { status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
     const viewer = {
       id: safeString(viewerRecord.id),
       personId: safeString(viewerRecord.person_id),
@@ -1038,7 +1039,7 @@ router.post('/getPublicResults', async (req, res) => {
 
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     const matchingRules = viewRuleRows.filter(r => safeString(r.grantee_department_id) === viewer.departmentId && safeString(r.grantee_identity_id) === viewer.identityId);
-    if (!matchingRules.length) return res.json({ status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
+    if (!matchingRules.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
     // Collect all matching clauses (with per-clause display_mode)
     const matchingRuleIds = matchingRules.map((rule) => rule.id);
@@ -1049,7 +1050,7 @@ router.post('/getPublicResults', async (req, res) => {
         ORDER BY rule_id, sort_order ASC`,
       [...matchingRuleIds, orgId]
     );
-    if (!matchingClauses.length) return res.json({ status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
+    if (!matchingClauses.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
     // Load per-clause grade bands in one batch
     const gradeBandsByClause = new Map();
@@ -1146,7 +1147,7 @@ router.post('/getPublicResults', async (req, res) => {
     const { getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
     const historicalFailure = getHistoricalSnapshotFailure(cached.diagnostics);
     if (historicalFailure) {
-      return res.json(Object.assign({}, historicalFailure, {
+      return respondScoringResponse(res, Object.assign({}, historicalFailure, {
         message: historicalFailure.status === 'historical_snapshot_missing'
           ? localeCopy.historicalSnapshotMissing
           : localeCopy.historicalSnapshotInvalid
@@ -1249,23 +1250,23 @@ router.post('/getPublicResults', async (req, res) => {
       });
     }
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success',
       needsAssignmentDisambiguation: memberPresentation.needsAssignmentDisambiguation,
       groups
     });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── getPublicMeritList (user-facing) ───
 router.post('/getPublicMeritList', async (req, res) => {
   try {
     const activityId = safeString(req.body.activityId);
-    if (!getAuthenticatedContext(req)) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     // 当前评优权限只认请求中明确选择的活动岗位，不得从 hr_info 猜测岗位。
     let canDesignate = false;
@@ -1274,7 +1275,7 @@ router.post('/getPublicMeritList', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
     const viewerAssignment = activeAssignments.find((assignment) => (
@@ -1283,7 +1284,7 @@ router.post('/getPublicMeritList', async (req, res) => {
       && (!safeString(actorResult.actor.membershipId) || safeString(assignment.membership_id) === safeString(actorResult.actor.membershipId))
     ));
     if (!viewerAssignment) {
-      return res.json({ status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
+      return respondScoringResponse(res, { status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
     }
     const [meritRuleRows] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     matchingRules = meritRuleRows.filter((rule) => publicationAssignments.matchesRuleGrantee(viewerAssignment, rule));
@@ -1376,7 +1377,7 @@ router.post('/getPublicMeritList', async (req, res) => {
       designationCandidates = candidatePresentation.rows;
       needsAssignmentDisambiguation = candidatePresentation.needsAssignmentDisambiguation;
     }
-    res.json({
+    respondScoringResponse(res, {
       status: 'success',
       meritList: result,
       canDesignate,
@@ -1386,7 +1387,7 @@ router.post('/getPublicMeritList', async (req, res) => {
       needsAssignmentDisambiguation,
       publicationId: publication.id
     });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── submitMeritListDesignations (user-facing, grantee-verified) ───
@@ -1399,14 +1400,14 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     const primaryClauseId = clauseIds[0];
     const designationTargetIds = getDesignationTargetIds(req.body);
 
-    if (!getAuthenticatedContext(req)) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
-    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
+    if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!primaryClauseId || !publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
     // Look up clause + parent merit rule (include publication_id for reliable lookup)
     const orgId = await getCurrentOrgId();
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
     const viewerAssignment = activeAssignments.find((assignment) => (
@@ -1415,7 +1416,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       && (!safeString(actorResult.actor.membershipId) || safeString(assignment.membership_id) === safeString(actorResult.actor.membershipId))
     ));
     if (!viewerAssignment) {
-      return res.json({ status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
+      return respondScoringResponse(res, { status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
     }
     const [[clause]] = await pool.query(
       `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
@@ -1424,14 +1425,14 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
       [primaryClauseId, orgId, orgId, publicationId]
     );
-    if (!clause) return res.json({ status: 'not_found', message: localeCopy.copy_22d72751cb });
+    if (!clause) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_22d72751cb });
     if (!publicationAssignments.matchesRuleGrantee(viewerAssignment, clause))
-      return res.json({ status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
+      return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
 
     // Use merit rule's publication_id (reliable), fall back to frontend-supplied
     const pubId = safeString(clause.publication_id) || publicationId;
     const publication = await publicationModel.getById(pubId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     // Aggregate quota across all clauses in a single query
     let aggregatedQuotaLimit = 0, hasExactQuota = false;
@@ -1445,7 +1446,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId]
       );
       if (quotaRows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
+        return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
@@ -1468,18 +1469,18 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     );
     if (!targetValidation.ok) {
       if (targetValidation.status === 'invalid_assignment' || targetValidation.status === 'ambiguous_assignment') {
-        return res.json({ status: 'invalid_hr', reason: targetValidation.status, message: localeCopy.copy_f3dd2d1ffc });
+        return respondScoringResponse(res, { status: 'invalid_hr', reason: targetValidation.status, message: localeCopy.copy_f3dd2d1ffc });
       }
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'out_of_scope',
         message: localeFormat(localeCopy.copy_45ccfd7d80, [targetValidation.targetId])
       });
     }
     const designationTargets = targetValidation.targets;
     if (hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length !== aggregatedQuotaLimit)
-      return res.json({ status: 'quota_mismatch', message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
+      return respondScoringResponse(res, { status: 'quota_mismatch', message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
     if (!hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit)
-      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+      return respondScoringResponse(res, { status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
 
     const designatorSnapshot = buildDesignatorSnapshot(req, actorResult.actor, viewerAssignment);
 
@@ -1535,10 +1536,10 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       targetName: item.name,
       targetStudentId: item.studentId
     }));
-    res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
+    respondScoringResponse(res, { status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (e.code === 'ER_DUP_ENTRY') return respondScoringResponse(res, { status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
   }
 });
 
@@ -1546,13 +1547,13 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 router.post('/generatePubViewRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
+    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
     const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
+    if (!pubCheck) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
     // 自动规则只从当前在职成员的活动岗位生成，禁止读取 hr_info 兼容快照。
     const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
@@ -1579,21 +1580,21 @@ router.post('/generatePubViewRules', async (req, res) => {
 
     const backfilledCount = 0; // No longer auto-creating clauses
 
-    res.json({ status: 'success', totalCategories: categories.size, createdCount, skippedCount: categories.size - createdCount, backfilledCount });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+    respondScoringResponse(res, { status: 'success', totalCategories: categories.size, createdCount, skippedCount: categories.size - createdCount, backfilledCount });
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── generatePubMeritRules ───
 router.post('/generatePubMeritRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
+    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
     const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
+    if (!pubCheck) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
     // Get existing view rules as source
     const [viewRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
@@ -1619,21 +1620,21 @@ router.post('/generatePubMeritRules', async (req, res) => {
 
     const backfilledCount = 0; // No longer auto-creating clauses
 
-    res.json({ status: 'success', totalViewCategories: viewRules.length, createdCount, skippedCount: viewRules.length - createdCount, backfilledCount });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+    respondScoringResponse(res, { status: 'success', totalViewCategories: viewRules.length, createdCount, skippedCount: viewRules.length - createdCount, backfilledCount });
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── savePubViewRule ───
 router.post('/savePubViewRule', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
       const input = await normalizePubViewRuleInput(connection, orgId, req.body);
       return savePubViewRuleWithConnection(connection, orgId, input);
     });
-    res.json({ status: 'success', id: ruleId });
+    respondScoringResponse(res, { status: 'success', id: ruleId });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
 
@@ -1641,7 +1642,7 @@ router.post('/savePubViewRule', async (req, res) => {
 router.post('/batchSavePubViewRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
     const ids = await withTransaction(async (connection) => {
@@ -1652,7 +1653,7 @@ router.post('/batchSavePubViewRules', async (req, res) => {
       for (const input of inputs) savedIds.push(await savePubViewRuleWithConnection(connection, orgId, input));
       return savedIds;
     });
-    res.json({ status: 'success', count: ids.length, ids });
+    respondScoringResponse(res, { status: 'success', count: ids.length, ids });
   } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
@@ -1662,9 +1663,9 @@ router.post('/listPubViewRules', async (req, res) => {
   /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
+    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
 
@@ -1727,20 +1728,20 @@ router.post('/listPubViewRules', async (req, res) => {
         clauseCount: clauses.length, clauses
       });
     }
-    res.json({ status: 'success', rules: result });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+    respondScoringResponse(res, { status: 'success', rules: result });
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── deletePubViewRule ───
 router.post('/deletePubViewRule', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
-    if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
+    if (!ruleId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
     await withTransaction((connection) => deletePubViewRuleWithConnection(connection, orgId, ruleId));
-    res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
+    respondScoringResponse(res, { status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
 
@@ -1748,7 +1749,7 @@ router.post('/deletePubViewRule', async (req, res) => {
 router.post('/batchDeletePubViewRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();
     const deletedIds = await withTransaction(async (connection) => {
@@ -1758,7 +1759,7 @@ router.post('/batchDeletePubViewRules', async (req, res) => {
       }
       return result;
     });
-    res.json({ status: 'success', count: deletedIds.length, ids: deletedIds });
+    respondScoringResponse(res, { status: 'success', count: deletedIds.length, ids: deletedIds });
   } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
@@ -1766,13 +1767,13 @@ router.post('/batchDeletePubViewRules', async (req, res) => {
 router.post('/savePubMeritRule', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
       const input = await normalizePubMeritRuleInput(connection, orgId, req.body);
       return savePubMeritRuleWithConnection(connection, orgId, input);
     });
-    res.json({ status: 'success', id: ruleId });
+    respondScoringResponse(res, { status: 'success', id: ruleId });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
 
@@ -1780,7 +1781,7 @@ router.post('/savePubMeritRule', async (req, res) => {
 router.post('/batchSavePubMeritRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
     const ids = await withTransaction(async (connection) => {
@@ -1791,7 +1792,7 @@ router.post('/batchSavePubMeritRules', async (req, res) => {
       for (const input of inputs) savedIds.push(await savePubMeritRuleWithConnection(connection, orgId, input));
       return savedIds;
     });
-    res.json({ status: 'success', count: ids.length, ids });
+    respondScoringResponse(res, { status: 'success', count: ids.length, ids });
   } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
@@ -1801,9 +1802,9 @@ router.post('/listPubMeritRules', async (req, res) => {
   /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
+    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
     const lookups = await fetchOrgLookups();
@@ -1834,20 +1835,20 @@ router.post('/listPubMeritRules', async (req, res) => {
         clauses: clauses.map(c => ({ id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '', targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '', quotaLimit: c.quota_limit || 0, requireExactQuota: (c.require_exact_quota === 1), sortOrder: c.sort_order }))
       });
     }
-    res.json({ status: 'success', rules: result });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+    respondScoringResponse(res, { status: 'success', rules: result });
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── deletePubMeritRule ───
 router.post('/deletePubMeritRule', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
-    if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
+    if (!ruleId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
     await withTransaction((connection) => deletePubMeritRuleWithConnection(connection, orgId, ruleId));
-    res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
+    respondScoringResponse(res, { status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
 
@@ -1855,7 +1856,7 @@ router.post('/deletePubMeritRule', async (req, res) => {
 router.post('/batchDeletePubMeritRules', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();
     const deletedIds = await withTransaction(async (connection) => {
@@ -1865,7 +1866,7 @@ router.post('/batchDeletePubMeritRules', async (req, res) => {
       }
       return result;
     });
-    res.json({ status: 'success', count: deletedIds.length, ids: deletedIds });
+    respondScoringResponse(res, { status: 'success', count: deletedIds.length, ids: deletedIds });
   } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
@@ -1873,20 +1874,20 @@ router.post('/batchDeletePubMeritRules', async (req, res) => {
 router.post('/getMeritListSummary', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const orgId = await getCurrentOrgId();
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
+    if (!publication) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
 
     // Get all merit rules with clauses and designations — batch all queries
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     if (!meritRules.length) {
-      return res.json({ status: 'success', groups: [], departmentOptions: [], identityOptions: [], workGroupOptions: [] });
+      return respondScoringResponse(res, { status: 'success', groups: [], departmentOptions: [], identityOptions: [], workGroupOptions: [] });
     }
 
     // Batch-load all clauses
@@ -1975,23 +1976,23 @@ router.post('/getMeritListSummary', async (req, res) => {
       }
     }
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success',
       groups,
       departmentOptions: Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
       identityOptions: Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
       workGroupOptions: Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))
     });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── exportMeritListSummary (admin) ───
 router.post('/exportMeritListSummary', async (req, res) => {
   try {
     const admin = await resolveAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const filterDepartment = safeString(req.body.filterDepartment || '');
     const filterIdentity = safeString(req.body.filterIdentity || '');
@@ -1999,12 +2000,12 @@ router.post('/exportMeritListSummary', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
+    if (!publication) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     if (!meritRules.length) {
-      return res.json({ status: 'success', fileContent: '', fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: 0 });
+      return respondScoringResponse(res, { status: 'success', fileContent: '', fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: 0 });
     }
 
     // Batch-load ALL clauses for ALL rules in a single query
@@ -2080,7 +2081,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     }
 
     if (rows.length >= EXPORT_MAX_ROWS) {
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'too_large',
         message: localeFormat(localeCopy.copy_7188e5ac79, [EXPORT_MAX_ROWS]),
         rowCount: rows.length,
@@ -2097,14 +2098,15 @@ router.post('/exportMeritListSummary', async (req, res) => {
       { key: 'workGroup', label: localeCopy.copy_be736f763d },
       { key: 'groupLabel', label: localeCopy.copy_9984065ffd }
     ];
-    const headerLabels = headers.map(h => h.label);
-    const dataRows = rows.map(row => headers.map(h => row[h.key]));
+    const publicHeaders = publicScoringHeaders(headers);
+    const headerLabels = publicHeaders.map(h => h.label);
+    const dataRows = rows.map(row => publicHeaders.map(h => row[h.key]));
     const sheetData = [headerLabels, ...dataRows];
     const buffer = await buildWorkbookBuffer(scoringCopy.exportMeritListSummary, sheetData);
     const fileContent = buffer.toString('base64');
 
-    res.json({ status: 'success', fileContent, fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: rows.length });
-  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+    respondScoringResponse(res, { status: 'success', fileContent, fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: rows.length });
+  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 module.exports = router;

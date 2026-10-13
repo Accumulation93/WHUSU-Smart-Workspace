@@ -4,6 +4,7 @@ const { format: localeFormat } = require('../../../locales/runtime');
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
+const { respondScoringResponse, publicScoringHeaders } = require('../utils/scoringPrivacy');
 const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
 const { nowMysqlUtc, getSystemDate, formatDateOnly } = require('../../../utils/dateTime');
 
@@ -412,7 +413,7 @@ router.post('/getRateTargets', async (req, res) => {
     let scorer = null;
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok) {
-      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'need_bind', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
 
     if (actorResult.actor.type === 'admin') {
@@ -427,10 +428,10 @@ router.post('/getRateTargets', async (req, res) => {
         ? scoringCopy.adminRoleSuper
         : scoringCopy.adminRoleRegular;
       scorer.identity = identityLabel;
-      return res.json({ status: 'success', scorer, targets: [] });
+      return respondScoringResponse(res, { status: 'success', scorer, targets: [] });
     }
     if (actorResult.actor.type !== 'user') {
-      return res.json({ status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
+      return respondScoringResponse(res, { status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
     }
 
     const currentActivity = await scoreActivityModel.getCurrent();
@@ -440,23 +441,23 @@ router.post('/getRateTargets', async (req, res) => {
     );
     const scorerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
     if (!scorerRecord) {
-      return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
+      return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     }
     scorer = normalizeHrPerson(scorerRecord, lookups);
     scorer.contextId = safeString(actorResult.actor.contextId);
     scorer.organizationId = safeString(orgId);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: localeCopy.copy_d9159d48b5 });
+      return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_d9159d48b5 });
     }
 
     if (!currentActivity) {
-      return res.json({ status: 'success', scorer, rule: null, currentActivity: null, targets: [] });
+      return respondScoringResponse(res, { status: 'success', scorer, rule: null, currentActivity: null, targets: [] });
     }
 
     // Validate activity is not paused
     if (currentActivity.is_paused) {
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'activity_paused',
         message: localeCopy.copy_5b46959129,
         scorer,
@@ -467,7 +468,7 @@ router.post('/getRateTargets', async (req, res) => {
 
     const activityWindowState = await getActivityWindowState(currentActivity);
     if (activityWindowState !== 'open') {
-      return res.json({
+      return respondScoringResponse(res, {
         status: activityWindowState,
         message: activityWindowState === 'activity_not_started'
           ? localeCopy.copy_d6213b5668
@@ -483,7 +484,7 @@ router.post('/getRateTargets', async (req, res) => {
     const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
 
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
+      return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -541,7 +542,7 @@ router.post('/getRateTargets', async (req, res) => {
     });
     const targetPresentation = participantService.decorateAssignmentDisambiguation(sortedTargets);
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success', scorer,
       rule: ruleFull,
       currentActivity: {
@@ -553,7 +554,7 @@ router.post('/getRateTargets', async (req, res) => {
       needsAssignmentDisambiguation: targetPresentation.needsAssignmentDisambiguation
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_a2d8fd888c });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_a2d8fd888c });
   }
 });
 
@@ -571,13 +572,13 @@ const RULE_SCOPE_LABEL_MAP = {
 router.post('/getScoreFormData', async (req, res) => {
   try {
     const targetId = safeString(req.body.targetId);
-    if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
+    if (!targetId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
 
     const activity = await scoreActivityModel.getCurrent();
-    if (!activity) return res.json({ status: 'missing_activity', message: localeCopy.copy_ff48e241fb });
+    if (!activity) return respondScoringResponse(res, { status: 'missing_activity', message: localeCopy.copy_ff48e241fb });
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
@@ -586,15 +587,15 @@ router.post('/getScoreFormData', async (req, res) => {
       participantService.resolveParticipant(orgId, targetId, granularity),
       fetchOrgLookups()
     ]);
-    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: localeCopy.copy_245da65c1c });
+    if (!scorerRecord) return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
+    if (!targetRecord) return respondScoringResponse(res, { status: 'target_not_found', message: localeCopy.copy_245da65c1c });
     const scorer = normalizeHrPerson(scorerRecord, lookups);
     scorer.contextId = safeString(actorResult.actor.contextId);
     scorer.organizationId = safeString(orgId);
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const historicalRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activity.id);
     if (historicalRecords.length) {
-      return res.json(await buildHistoricalScoreForm(historicalRecords[0], {
+      return respondScoringResponse(res, await buildHistoricalScoreForm(historicalRecords[0], {
         activity,
         granularity,
         scorer,
@@ -603,12 +604,12 @@ router.post('/getScoreFormData', async (req, res) => {
     }
 
     if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: localeCopy.copy_5b46959129 });
+      return respondScoringResponse(res, { status: 'activity_paused', message: localeCopy.copy_5b46959129 });
     }
 
     const activityWindowState = await getActivityWindowState(activity);
     if (activityWindowState !== 'open') {
-      return res.json({
+      return respondScoringResponse(res, {
         status: activityWindowState,
         message: activityWindowState === 'activity_not_started'
           ? localeCopy.copy_d6213b5668
@@ -619,7 +620,7 @@ router.post('/getScoreFormData', async (req, res) => {
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
+      return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -646,10 +647,10 @@ router.post('/getScoreFormData', async (req, res) => {
     }
 
     if (!matchedClauseEntries.length) {
-      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
+      return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
+      return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
     }
 
     const configuredClauseEntry = matchedClauseEntries.find(item =>
@@ -657,7 +658,7 @@ router.post('/getScoreFormData', async (req, res) => {
     );
 
     if (!configuredClauseEntry) {
-      return res.json({ status: 'missing_clause_config', message: localeCopy.copy_57a174b63c });
+      return respondScoringResponse(res, { status: 'missing_clause_config', message: localeCopy.copy_57a174b63c });
     }
 
     // Load templates and questions
@@ -672,7 +673,7 @@ router.post('/getScoreFormData', async (req, res) => {
       const templateDoc = templateDocs[i];
       const questions = questionsByTemplate[i];
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: localeCopy.copy_57a174b63c });
+        return respondScoringResponse(res, { status: 'missing_template', message: localeCopy.copy_57a174b63c });
       }
       const config = configuredClauseEntry.clause.templateConfigs[i];
       templatesById.set(templateIds[i], { ...templateDoc, questions });
@@ -706,7 +707,7 @@ router.post('/getScoreFormData', async (req, res) => {
       configuredClauseEntry.clause.templateConfigs, templatesById
     );
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success', scorer,
       target: configuredClauseEntry.person,
       currentActivity: { id: activity.id, name: activity.name, description: activity.description,
@@ -732,7 +733,7 @@ router.post('/getScoreFormData', async (req, res) => {
       }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_45de35fe1a });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_45de35fe1a });
   }
 });
 
@@ -786,21 +787,21 @@ async function updateExistingScoreRecord(options) {
   const currentAnswers = await scoreAnswerModel.getByRecordId(record.id);
   const templateBundle = buildHistoricalTemplateBundle(record, currentAnswers, activity.id);
   if (templateBundle.degraded) {
-    return res.json({
+    return respondScoringResponse(res, {
       status: 'score_revision_unavailable',
       readOnly: true,
       message: localeCopy.historicalRevisionUnavailable
     });
   }
   if (templateConfigSignature !== safeString(record.template_config_signature)) {
-    return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+    return respondScoringResponse(res, { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
   }
   const validation = validateSubmittedAnswers(answers, templateBundle.questions);
-  if (!validation.ok) return res.json(validation);
+  if (!validation.ok) return respondScoringResponse(res, validation);
 
   const expectedRecordId = safeString(req.body.existingRecordId) || safeString(record.id);
   if (expectedRecordId !== safeString(record.id)) {
-    return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+    return respondScoringResponse(res, { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
   }
 
   const { withTransaction } = require('../../../config/db');
@@ -882,7 +883,7 @@ async function updateExistingScoreRecord(options) {
   });
 
   await invalidateScoreResultCaches(activity.id, orgId);
-  return res.json(response);
+  return respondScoringResponse(res, response);
 }
 
 router.post('/submitScoreRecord', async (req, res) => {
@@ -893,20 +894,20 @@ router.post('/submitScoreRecord', async (req, res) => {
     const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
 
     if (!getAuthenticatedContext(req)) {
-      return res.json({ status: 'auth_failed', message: localeCopy.copy_0ee2356002 });
+      return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_0ee2356002 });
     }
     if (!targetId || !activityId || !templateConfigSignature || !answers.length) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_ba0ae586e3 });
+      return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_ba0ae586e3 });
     }
 
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) {
-      return res.json({ status: 'missing_activity', message: localeCopy.copy_4f0d449737 });
+      return respondScoringResponse(res, { status: 'missing_activity', message: localeCopy.copy_4f0d449737 });
     }
 
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+      return respondScoringResponse(res, { status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
@@ -916,8 +917,8 @@ router.post('/submitScoreRecord', async (req, res) => {
       fetchOrgLookups()
     ]);
 
-    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: localeCopy.copy_245da65c1c });
+    if (!scorerRecord) return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
+    if (!targetRecord) return respondScoringResponse(res, { status: 'target_not_found', message: localeCopy.copy_245da65c1c });
 
     const scorer = normalizeHrPerson(scorerRecord, lookups);
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
@@ -950,11 +951,11 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // 首次评分遵循活动开放状态；已有评分由上面的并发安全覆盖链路处理。
     if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
+      return respondScoringResponse(res, { status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
     }
     const activityWindowState = await getActivityWindowState(activity);
     if (activityWindowState !== 'open') {
-      return res.json({
+      return respondScoringResponse(res, {
         status: activityWindowState,
         message: activityWindowState === 'activity_not_started'
           ? localeCopy.copy_2c6c18b79b
@@ -965,7 +966,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: localeCopy.copy_50b40b1390 });
+      return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_50b40b1390 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -995,13 +996,13 @@ router.post('/submitScoreRecord', async (req, res) => {
     }
 
     if (!targetInScope) {
-      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
+      return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
+      return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
     }
     if (!matchedClause) {
-      return res.json({ status: 'missing_rule', message: localeCopy.copy_bce1328642 });
+      return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_bce1328642 });
     }
 
     // Build question bundle from templates (parallel)
@@ -1020,7 +1021,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       const [templateDoc, questions] = templateResults[ti];
 
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: localeCopy.copy_c0797ed4eb });
+        return respondScoringResponse(res, { status: 'missing_template', message: localeCopy.copy_c0797ed4eb });
       }
 
       templatesById.set(config.templateId, { ...templateDoc, questions });
@@ -1037,7 +1038,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // Verify signature
     if (buildTemplateConfigSignature(matchedClause.templateConfigs, templatesById) !== safeString(templateConfigSignature)) {
-      return res.json({ status: 'template_mismatch', message: localeCopy.copy_c0797ed4eb });
+      return respondScoringResponse(res, { status: 'template_mismatch', message: localeCopy.copy_c0797ed4eb });
     }
 
     questionBundle.sort((a, b) => {
@@ -1055,7 +1056,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     });
 
     const answerValidation = validateSubmittedAnswers(answers, questionBundle);
-    if (!answerValidation.ok) return res.json(answerValidation);
+    if (!answerValidation.ok) return respondScoringResponse(res, answerValidation);
     const normalizedAnswers = answerValidation.answers;
 
     // Save record — update existing or create new, then insert answers — all in a transaction
@@ -1202,23 +1203,23 @@ router.post('/submitScoreRecord', async (req, res) => {
       }, { status: 'success', recordId });
     });
 
-    if (concurrentSubmissionResponse) return res.json(concurrentSubmissionResponse);
+    if (concurrentSubmissionResponse) return respondScoringResponse(res, concurrentSubmissionResponse);
 
     // Invalidate publication score cache so next viewer sees fresh results
     await invalidateScoreResultCaches(activityId, orgId);
 
-    res.json(duplicateResponse || { status: 'success', recordId: resultRecordId });
+    respondScoringResponse(res, duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_534935765f });
+      return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_534935765f });
     }
     if (e && e.code === 'ER_DUP_ENTRY') {
-      return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+      return respondScoringResponse(res, { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
     }
     if (e && e.code === 'SCORE_REVISION_CONFLICT') {
-      return res.json({ status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
+      return respondScoringResponse(res, { status: 'score_revision_conflict', message: localeCopy.scoreRevisionConflict });
     }
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_fee6d129e3 });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_fee6d129e3 });
   }
 });
 
@@ -1227,17 +1228,17 @@ router.post('/submitScoreRecord', async (req, res) => {
 router.post('/getScorerTaskStatus', async (req, res) => {
   try {
     const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
     const offset = Math.max(0, Math.floor(toNumber(req.body.offset, 0)));
     const scorerKey = safeString(req.body.scorerKey);
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
 
     const activity = await scoreActivityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
+    if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
@@ -1292,7 +1293,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       (rule.clauses || []).forEach(clause => {
         if (!clause.templateConfigs || !clause.templateConfigs.length) return;
         scorers.forEach(sc => {
-          const sk = safeString(sc.id) || sc.studentId;
+          const sk = safeString(sc.id);
           if (!sk) return;
           if (!scorerMap.has(sk)) {
             scorerMap.set(sk, {
@@ -1373,7 +1374,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
     }
     if (keyword) {
       rows = rows.filter(r =>
-        [r.scorerName, r.scorerStudentId, r.department, r.identity, r.workGroup]
+        [r.scorerName, r.department, r.identity, r.workGroup]
           .join(' ').toLowerCase().includes(keyword)
       );
     }
@@ -1383,7 +1384,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       return String(a.scorerName).localeCompare(String(b.scorerName), 'zh-CN');
     });
 
-    res.json({
+    respondScoringResponse(res, {
       status: 'success',
       activityName: activity.name,
       stats: { totalPendingScorers: rows.length },
@@ -1397,7 +1398,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       pagination: { offset, nextOffset: offset + 50, total: rows.length, hasMore: offset + 50 < rows.length, returnedCount: Math.min(50, Math.max(0, rows.length - offset)) }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_36a1730e53 });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_36a1730e53 });
   }
 });
 
@@ -1406,6 +1407,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 
 function buildExportCsv(headers, rows) {
+  headers = publicScoringHeaders(headers);
   let escapeCsv = function (v) { let t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   let csvText = '﻿' + headers.map(function (h) { return escapeCsv(h.label); }).join(',') + '\r\n' +
     rows.map(function (r) { return headers.map(function (h) { return escapeCsv(r[h.key]); }).join(','); }).join('\r\n');
@@ -1413,6 +1415,7 @@ function buildExportCsv(headers, rows) {
 }
 
 async function buildExportXlsx(sheetName, headers, rows) {
+  headers = publicScoringHeaders(headers);
   let headerLabels = headers.map(function (h) { return h.label; });
   let dataRows = rows.map(function (row) { return headers.map(function (h) { return row[h.key]; }); });
   const buffer = await buildWorkbookBuffer(sheetName, [headerLabels].concat(dataRows));
@@ -1471,17 +1474,17 @@ function buildTaskExportReport(activityName, reportType, rows) {
 router.post('/exportScorerTaskStatus', async (req, res) => {
   try {
     const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'summary';
     const format = safeString(req.body.format) || 'csv';
     const filters = req.body.filters || {};
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
+    if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
 
     const activity = await scoreActivityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
+    if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
@@ -1536,7 +1539,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       (rule.clauses || []).forEach(clause => {
         if (!clause.templateConfigs || !clause.templateConfigs.length) return;
         scorers.forEach(sc => {
-          const sk = safeString(sc.id) || sc.studentId;
+          const sk = safeString(sc.id);
           if (!sk) return;
           if (!scorerMap.has(sk)) {
             scorerMap.set(sk, {
@@ -1618,7 +1621,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     }
     if (keyword) {
       rows = rows.filter(r =>
-        [r.scorerName, r.scorerStudentId, r.department, r.identity, r.workGroup]
+        [r.scorerName, r.department, r.identity, r.workGroup]
           .join(' ').toLowerCase().includes(keyword)
       );
     }
@@ -1630,7 +1633,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
 
     const EXPORT_MAX_ROWS = 50000;
     if (rows.length > EXPORT_MAX_ROWS) {
-      return res.json({
+      return respondScoringResponse(res, {
         status: 'too_large',
         message: localeFormat(localeCopy.copy_985bc885b8, [rows.length]),
         rowCount: rows.length,
@@ -1644,9 +1647,9 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     const fileContent = await buildExportXlsx(report.sheetName, report.headers, report.rows);
     const extension = 'xlsx';
 
-    res.json({ status: 'success', fileContent, fileName: report.fileName, extension });
+    respondScoringResponse(res, { status: 'success', fileContent, fileName: report.fileName, extension });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_88f78adc7a });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_88f78adc7a });
   }
 });
 
