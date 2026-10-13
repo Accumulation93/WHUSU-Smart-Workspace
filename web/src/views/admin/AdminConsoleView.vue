@@ -30,6 +30,7 @@
     </div>
 
     <AdminActivityPanel v-if="activeTab === 'activities'" :state="activityState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
+    <AdminTemplatePanel v-else-if="activeTab === 'templates'" :state="templateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo'" class="card stack">
       <div class="panel-head">
@@ -88,12 +89,14 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vu
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AdminDictionaryPanel from '@/components/AdminDictionaryPanel.vue';
 import AdminActivityPanel from '@/components/AdminActivityPanel.vue';
+import AdminTemplatePanel from '@/components/AdminTemplatePanel.vue';
 import copy from '@/locales/zh-CN/index.js';
 import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
 import accountCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { adminModule, adminTabs } from '@/runtime/adminNavigation.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import { emptyTemplateForm } from '@/runtime/templateQuestions.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -107,6 +110,7 @@ const permissionNotice = ref('');
 const profile = ref(null);
 const actionBusy = ref(false);
 const activityState = reactive({ form: { id: '', name: '', description: '', startDate: '', endDate: '' }, resetAfterRead: false });
+const templateState = reactive({ form: emptyTemplateForm(), resetAfterRead: false, expanded: null });
 const dictionaryStates = reactive(Object.fromEntries(['departments', 'workGroups', 'identities'].map(kind => [kind, {
   form: { id: '', name: '', description: '', departmentId: '' }, resetAfterRead: false
 }])));
@@ -204,6 +208,7 @@ async function loadPermissions() {
 watch(scope, () => {
   generation++; profile.value = null; activeTab.value = ''; rows.value = []; keyword.value = ''; loadNotice.value = '';
   Object.assign(activityState.form, { id: '', name: '', description: '', startDate: '', endDate: '' }); activityState.resetAfterRead = false;
+  Object.assign(templateState.form, emptyTemplateForm()); templateState.resetAfterRead = false; templateState.expanded = null;
   for (const state of Object.values(dictionaryStates)) {
     Object.assign(state.form, { id: '', name: '', description: '', departmentId: '' }); state.resetAfterRead = false;
   }

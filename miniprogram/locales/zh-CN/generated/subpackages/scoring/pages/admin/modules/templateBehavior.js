@@ -10,7 +10,7 @@ module.exports = Object.freeze({
   copy_266a08601e: '题：',
   copy_26eba7c49d: '-- 忽略 --',
   copy_2b61466286: '导出失败，请重试',
-  copy_4366ed3bb6: '最低分',
+  copy_4366ed3bb6: '起始分',
   copy_44db0286b0: '评分问题模板',
   copy_4b62966880: '分值间隔',
   copy_4c8603086a: '已导入 ',

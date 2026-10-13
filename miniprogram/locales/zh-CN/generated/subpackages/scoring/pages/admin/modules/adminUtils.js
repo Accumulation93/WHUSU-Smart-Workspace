@@ -43,7 +43,7 @@ module.exports = Object.freeze({
   copy_3f8754b30b: `最短 {0}`,
   copy_41b3f85916: '工作分工（职能组）',
   copy_424e9fe3b4: '需审核修改',
-  copy_4366ed3bb6: '最低分',
+  copy_4366ed3bb6: '起始分',
   copy_4462cb7b00: 'UTC-5 (纽约)',
   copy_451c378411: `最长 {0}`,
   copy_4570b42d70: 'UTC-11 (中途岛)',

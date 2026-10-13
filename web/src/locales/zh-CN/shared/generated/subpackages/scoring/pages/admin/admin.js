@@ -342,7 +342,7 @@ const sharedModule = Object.freeze({
   copy_6b9d23798a: "暂未显示评优名单",
   copy_6c0ce64188: "最低",
   copy_6c56cd8336: '超级管理员与当前组织管理员',
-  copy_6cc2ee6bc8: "最低分",
+  copy_6cc2ee6bc8: "起始分",
   copy_6ce8bf8393: "审批方式",
   copy_6d3911624a: '请选择活动',
   copy_6d4987d954: "可选成员",
