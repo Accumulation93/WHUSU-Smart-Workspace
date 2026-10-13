@@ -37,7 +37,7 @@ function invoke(handler, body) {
       body,
       get() { return ''; }
     };
-    const res = { json: resolve };
+    const res = { json: resolve, status() { return this; } };
     Promise.resolve(handler(req, res)).catch(reject);
   });
 }
@@ -54,13 +54,15 @@ function invoke(handler, body) {
         id VARCHAR(64) PRIMARY KEY,
         current_organization VARCHAR(64) NULL,
         timezone INT DEFAULT 8,
+        timezone_config_version INT NOT NULL DEFAULT 1,
         updated_at DATETIME NULL
       )`
     );
     await admin.query(
       `CREATE TABLE \`${database}\`.organizations (
         id VARCHAR(64) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL
+        name VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     );
     await admin.query(
@@ -102,9 +104,40 @@ function invoke(handler, body) {
     process.env.DB_NAME = database;
 
     const router = require('../src/core/routes/org');
+    const systemRouter = require('../src/core/routes/system');
     pool = require('../src/config/db');
+    const saveOrganization = findHandler(router, '/saveOrganization');
+    const listOrganizations = findHandler(router, '/listOrganizations');
+    const saveSystemConfig = findHandler(systemRouter, '/saveSystemConfig');
+    const getSystemConfig = findHandler(systemRouter, '/getSystemConfig');
     const switchOrganization = findHandler(router, '/switchOrganization');
     const deleteOrganization = findHandler(router, '/deleteOrganization');
+
+    // 网页和小程序的实际参数在隔离数据库保存，再通过原目录接口回读。
+    const created = await invoke(saveOrganization, { id: '', name: '组织 D' });
+    assert.strictEqual(created.status, 'success');
+    assert(created.organization.id);
+    const edited = await invoke(saveOrganization, { id: created.organization.id, name: '组织 D 修改' });
+    assert.strictEqual(edited.status, 'success');
+    const directory = await invoke(listOrganizations, {});
+    assert.strictEqual(directory.status, 'success');
+    assert.strictEqual(directory.list.find((item) => item.id === created.organization.id).name, '组织 D 修改');
+    assert.strictEqual((await invoke(saveOrganization, { name: '组织 D 修改' })).status, 'duplicate');
+    const [createdRows] = await pool.query('SELECT id FROM organizations WHERE name = ?', ['组织 D 修改']);
+    assert.strictEqual(createdRows.length, 1);
+
+    for (const timezone of [-12, 0, 8, 12]) {
+      const saved = await invoke(saveSystemConfig, { timezone });
+      assert.strictEqual(saved.status, 'success');
+      const read = await invoke(getSystemConfig, {});
+      assert.strictEqual(read.config.timezone, timezone);
+      assert.strictEqual(read.config.currentOrganization, 'org-a');
+      assert.strictEqual(read.systemTimezoneOffset, timezone);
+    }
+    for (const timezone of [-13, 15, 2.5]) {
+      assert.strictEqual((await invoke(saveSystemConfig, { timezone })).status, 'invalid_timezone');
+      assert.strictEqual((await invoke(getSystemConfig, {})).config.timezone, 12);
+    }
 
     const switched = await invoke(switchOrganization, {
       organizationId: 'org-b',

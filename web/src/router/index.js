@@ -174,7 +174,7 @@ const routes = [
   {
     path: '/system/config',
     name: 'systemConfig',
-    component: () => import('@/views/system/SystemConfigView.vue'),
+    redirect: { name: 'adminConsole', query: { subApp: 'system', tab: 'settings' } },
     meta: { requiresAuth: true, title: copy.system.configTitle }
   },
   {
