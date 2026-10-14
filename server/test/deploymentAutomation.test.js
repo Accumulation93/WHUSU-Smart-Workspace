@@ -144,6 +144,8 @@ function testDeploymentScriptContract() {
 
   // 网页静态产物必须与 release 一起构建和切换：产物缺失时失败关闭，不切换 current。
   assert.match(script, /diff --quiet "\$OLD_SHA" "\$TARGET_SHA" -- server web/);
+  assert.match(script, /':!web\/tests' ':!web\/playwright.config.js'/);
+  assert.match(script, /WHUSU_DEPLOY_RECHECK:-0/);
   assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" ci --no-audit --no-fund/);
   assert.match(script, /npm --prefix "\$NEW_RELEASE\/web" run build/);
   assert.match(script, /-s "\$NEW_RELEASE\/web\/dist\/index\.html"/);
@@ -159,8 +161,11 @@ function testDeploymentScriptContract() {
   );
   assert.match(workflow, /working-directory: web/);
   assert.match(workflow, /npx playwright install --with-deps chromium/);
-  assert.match(workflow, /npx playwright test/);
-  assert.match(workflow, /npm run build/);
+  assert.match(workflow, /node scripts\/ci\/run.js/);
+  const validation = fs.readFileSync(path.resolve(__dirname, '../../scripts/ci/run.js'), 'utf8');
+  assert.match(validation, /\['run', 'build'\]/);
+  assert.match(validation, /playwright\/test\/cli.js/);
+  assert.match(workflow, /needs: validation-complete/);
 }
 
 testMigrationDiscoveryAndLedger();

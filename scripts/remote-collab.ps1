@@ -52,7 +52,7 @@ curl --fail --silent --show-error "http://127.0.0.1:${port}/api/health"
       throw 'Latest main workflow is not complete; retry is blocked'
     }
     $jobs = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/jobs" -Headers @{ 'User-Agent' = 'WHUSU-Smart-Workspace-Remote-Collab' }
-    $qualityJob = @($jobs.jobs | Where-Object { $_.name -eq 'audit-and-test' })
+    $qualityJob = @($jobs.jobs | Where-Object { $_.name -eq 'validation-complete' })
     if ($qualityJob.Count -ne 1 -or $qualityJob[0].conclusion -ne 'success') {
       throw 'Latest main quality job has not passed; retry is blocked'
     }

@@ -29,7 +29,7 @@ export default defineConfig({
   timeout: 30000,
   expect: { timeout: 8000 },
   fullyParallel: false,
-  workers: 1,
+  workers: 2,
   reporter: [['list']],
   use: {
     baseURL: BASE_URL,

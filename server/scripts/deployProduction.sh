@@ -358,9 +358,9 @@ git -C "$REPO_DIR" switch "$BRANCH"
 git_with_timeout -C "$REPO_DIR" pull --ff-only origin "$BRANCH"
 [[ "$(git -C "$REPO_DIR" rev-parse HEAD)" == "$TARGET_SHA" ]] || { log "拉取结果与目标 SHA 不一致"; exit 1; }
 
-if [[ -n "$OLD_SHA" && "$OLD_SHA" =~ ^[0-9a-f]{40}$ ]] && git -C "$REPO_DIR" diff --quiet "$OLD_SHA" "$TARGET_SHA" -- server web; then
+if [[ -n "$OLD_SHA" && "$OLD_SHA" =~ ^[0-9a-f]{40}$ ]] && git -C "$REPO_DIR" diff --quiet "$OLD_SHA" "$TARGET_SHA" -- server web ':!server/test' ':!web/tests' ':!web/playwright.config.js' ':!server/scripts/deployProduction.sh'; then
   printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/repository_sha"
-  log "服务端与网页目录均未变化，仅同步远端仓库"
+  log "服务端与网页运行文件均未变化，仅同步远端仓库"
   exit 0
 fi
 
@@ -383,9 +383,13 @@ ln -s "$SHARED_DIR/uploads" "$NEW_RELEASE/server/uploads"
 
 log "安装锁定的生产依赖"
 timeout --signal=TERM --kill-after=30s 300s npm --prefix "$NEW_RELEASE/server" ci --omit=dev --no-audit --no-fund
-log "执行发布前语法与自动化检查"
-while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$NEW_RELEASE/server" -path '*/node_modules' -prune -o -name '*.js' -type f -print0)
-node "$NEW_RELEASE/server/test/deploymentAutomation.test.js"
+if [[ "${WHUSU_DEPLOY_RECHECK:-0}" == "1" ]]; then
+  log "按需执行服务器语法与自动化复核"
+  while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$NEW_RELEASE/server" -path '*/node_modules' -prune -o -name '*.js' -type f -print0)
+  node "$NEW_RELEASE/server/test/deploymentAutomation.test.js"
+else
+  log "采用发布前已通过的完整验证，不在生产机重复运行代码测试"
+fi
 
 # 网页以构建产物发布：在 release 内安装依赖并构建，产物缺失时直接失败，
 # 不切换到 current，线上继续使用上一个已验证的静态版本。

@@ -22,7 +22,7 @@ powershell -File scripts/remote-collab.ps1 attach
 2. 按 `AGENTS.md` 执行语法、兼容、安全、UI 和集成测试。
 3. 提交并推送当前 `main`。
 4. 记录新提交的完整 SHA 和 GitHub Actions 运行号。
-5. 等待 `audit-and-test` 成功；失败时读取对应 job 日志并在本地修复。
+5. 本机 CI 自动验证提交并推送签名证明；等待统一 `validation-complete` 成功。无有效证明或手动强制时才运行远端 `audit-and-test`。失败时读取对应日志并在本地修复，完整流程见 `docs/local-ci.md`。
 6. 等待 `deploy-production`；不要同时手工运行部署入口。
 7. 按 `SKILL.md` 的完成验证清单核对真实运行状态。
 

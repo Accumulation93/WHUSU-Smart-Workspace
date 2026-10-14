@@ -4,12 +4,36 @@ on:
   push:
     branches: [feature/audit, main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      force_remote:
+        description: 强制远端完整验证
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
+  validation-source:
+    runs-on: ubuntu-latest
+    outputs:
+      local: ${{ steps.proof.outputs.local }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Read signed local validation
+        id: proof
+        env:
+          FORCE_REMOTE: ${{ inputs.force_remote }}
+        run: |
+          git fetch origin refs/notes/local-ci:refs/notes/local-ci || true
+          node scripts/ci/proof.js
+
   audit-and-test:
+    needs: validation-source
+    if: needs.validation-source.outputs.local != 'true'
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -47,108 +71,38 @@ jobs:
       - name: Install locked dependencies
         working-directory: server
         run: npm ci
-      - name: Syntax and static audits
-        run: |
-          git ls-files -z '*.js' | xargs -0 -n1 node --check
-          node scripts/miniprogram-compat-audit.js
-          node scripts/wechat-template-runtime-audit.js
-          node scripts/sync-shared-modules.js
-          node scripts/locale-single-source-audit.js
-          node scripts/org-lifecycle-audit.js --strict
-          node scripts/security-audit.js --strict
-          node scripts/secret-audit.js --strict
-          node scripts/tenant-sql-audit.js
-          node scripts/performance-audit.js --strict
-          node scripts/submission-reference-audit.js
-          node scripts/submission-reference-audit.js --self-test
-          node scripts/submission-reference-audit.js --inventory
-          node scripts/time-system-audit.js --strict
-          node server/scripts/preflightUtcTimeMigration.js --schema server/db/init.sql --strict
-          node scripts/admin-route-permission-audit.js --strict
-          node scripts/ui-audit.js --strict
-          node scripts/dialog-scroll-contract-audit.js
-          node scripts/dialog-keyboard-audit.js
-          node scripts/user-visible-copy-audit.js --strict
-          node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
-          node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
-          node scripts/user-visible-copy-audit.js --localization-prefix=web/ --strict-localization
-          node scripts/user-visible-copy-audit.js --strict-guidance
-          node scripts/copy-quality-audit.js
-          git diff --check
-      - name: Unit and integration tests
-        run: |
-          node scripts/org-session-test.js
-          node scripts/auth-context-activation-test.js
-          node scripts/auth-context-recovery-test.js
-          node scripts/context-route-guard-test.js
-          node scripts/workspace-hero-test.js
-          node scripts/portal-back-logout-test.js
-          node scripts/native-navigation-test.js
-          node scripts/ui-navbar-test.js
-          node scripts/app-toast-fallback-test.js
-          node scripts/trusted-navigation-recovery-test.js
-          node scripts/hr-profile-layout-test.js
-          node scripts/button-alignment-test.js
-          node scripts/hr-governance-integration-test.js
-          node scripts/api-cancellation-test.js
-          node scripts/api-auth-recovery-test.js
-          node scripts/admin-activity-org-switch-test.js
-          node scripts/notification-org-switch-role-test.js
-          node scripts/publication-summary-refresh-test.js
-          node scripts/login-binding-refresh-test.js
-          node scripts/password-binding-offer-test.js
-          node scripts/login-auth-continuation-test.js
-          node scripts/wechat-login-timing-test.js
-          node scripts/shared-modules-test.js
-          node scripts/device-metadata-regression-test.js
-          node scripts/session-device-report-test.js
-          node scripts/stamp-grant-ui-test.js
-          node scripts/miniprogram-page-registration-test.js
-          node scripts/hr-profile-export-test.js
-          node scripts/hr-template-switch-suggestion-test.js
-          node scripts/hr-template-save-continuation-test.js
-          node scripts/personnel-picker-test.js
-          node scripts/message-performance-test.js
-          node scripts/submission-runtime-test.js
-          node scripts/login-layout-test.js
-          node scripts/ui-control-completeness-test.js
-          node scripts/venue-admin-time-selection-test.js
-          node scripts/venue-rule-display-test.js
-          node scripts/scoring-work-context-test.js
-          node scripts/scoring-home-lifecycle-test.js
-          node scripts/scoring-home-return-refresh-test.js
-          node scripts/scoring-publication-activity-selection-test.js
-          find miniprogram -type f -name '*.test.js' -print0 | sort -z | xargs -0 -n1 node
-          for test_file in server/test/*.test.js; do node "$test_file"; done
-          bash -n server/scripts/deployProduction.sh
-          bash -n server/scripts/deployEntrypoint.sh
-          bash -n server/scripts/setupCollabSession.sh
-          pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -Raw 'scripts/remote-collab.ps1')) | Out-Null"
-      - name: Dependency audit
-        run: |
-          node scripts/dependency-audit.js --self-test
-          node scripts/dependency-audit.js
-
       - name: Install web dependencies
         working-directory: web
         run: npm ci --no-audit --no-fund
-
-      - name: Build web client
-        working-directory: web
-        run: npm run build
-
       - name: Install browser for web tests
         working-directory: web
         run: npx playwright install --with-deps chromium
+      - name: Complete shared validation
+        run: node scripts/ci/run.js
 
-      - name: Web browser tests
-        working-directory: web
-        run: npx playwright test
+  validation-complete:
+    name: validation-complete
+    needs: [validation-source, audit-and-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful local or remote validation
+        env:
+          SOURCE_RESULT: ${{ needs.validation-source.result }}
+          LOCAL_VALID: ${{ needs.validation-source.outputs.local }}
+          REMOTE_RESULT: ${{ needs.audit-and-test.result }}
+        run: |
+          test "$SOURCE_RESULT" = success
+          if [ "$LOCAL_VALID" = true ]; then
+            test "$REMOTE_RESULT" = skipped
+          else
+            test "$REMOTE_RESULT" = success
+          fi
 
   deploy-production:
     name: deploy-production
-    needs: audit-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validation-complete
+    if: always() && needs.validation-complete.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     concurrency:
