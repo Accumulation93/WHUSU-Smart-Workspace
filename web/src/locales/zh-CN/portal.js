@@ -86,7 +86,7 @@ export default Object.freeze({
   navLoginAction: src_login.view.loginTitle,
   authUnavailable: src_main.portal.view.authUnavailable,
   authFrozen: src_main.portal.view.authFrozen,
-  authRetryAction: src_main.portal.view.authRetryAction,
+  authRetryAction: src_mySubmissions.retry,
   authLoginAction: src_main.portal.view.authLoginAction,
   noMatchingApps: src_main.portal.view.noMatchingApps,
   noApps: src_main.portal.view.noApps,

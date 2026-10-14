@@ -31,15 +31,18 @@ async function main() {
     require(name) {
       if (name === '../../../../utils/api') return { callFunction: async () => ({ status: 'success', previewMime: 'image/png', data: 'aW1hZ2U=', totalPages: 2 }) };
       if (name === '../../../../utils/orgSession') return { isCurrent: () => true };
-      if (name === '../../../../utils/auditPreviewFiles') return { removeExpiredPreviews: async () => 0, removePreview: async () => true };
+      if (name === '../../../../utils/auditPreviewFiles') return { removeExpiredPreviews: () => new Promise(() => {}), removePreview: () => new Promise(() => {}) };
       return ownRequire(name);
     }
   };
   vm.runInNewContext(fs.readFileSync(pageFile, 'utf8'), pageRuntime, { filename: pageFile });
   const page = { ...pageDefinition, data: { fileId: 'file-a', width: 0, height: 0 }, _alive: true, _validated: true, _scope: {},
-    _handoff: { draft: { locked: false } }, _fileDraft: { currentPage: 1 }, _previewPaths: [], _cache: {},
+    _handoff: { draft: { locked: false } }, _fileDraft: { currentPage: 1 }, _previewPaths: ['wxfile://usr/audit_canvas_1000000000000_test.png'], _cache: {},
     setData(values) { Object.assign(this.data, values); if (values.fileImage) Promise.resolve().then(() => this.onCanvasReady({ detail: { width: 1200, height: 1800 } })); } };
-  await page.loadPage(1);
+  let timeout;
+  try {
+    await Promise.race([page.loadPage(1), new Promise((resolve, reject) => { timeout = setTimeout(() => reject(new Error('清理回调停滞不应阻止打开文件')), 500); })]);
+  } finally { clearTimeout(timeout); }
   assert.strictEqual(page.data.ready, true);
   assert.strictEqual(page.data.width, 1200, '旧预览响应缺少尺寸时使用实际已解码图片尺寸');
   assert.strictEqual(page.data.height, 1800);

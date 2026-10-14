@@ -29,6 +29,7 @@ Page({
     statusFilter: '',
     statusFilterIndex: 0,
     loading: false,
+    loadError: '',
     activeWorkContext: null,
     hasActiveAssignment: false,
     statusOptions: [localeCopy.copy_31d4595959, localeCopy.copy_f6afc42806, localeCopy.copy_57b008f8c7, localeCopy.copy_0dc99cac16, localeCopy.copy_5d5af942c5, localeCopy.copy_2220286f1c, localeCopy.copy_282e15e226],
@@ -36,6 +37,7 @@ Page({
   },
 
   onShow() {
+    this._visible = true;
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
@@ -49,6 +51,24 @@ Page({
     this.loadData();
   },
 
+  onHide() {
+    this._visible = false;
+    this.cancelListLoad();
+    orgSession.invalidateRequests(this);
+    this.setData({ loading: false });
+  },
+
+  onUnload() {
+    this.onHide();
+  },
+
+  cancelListLoad() {
+    if (this._listTimer) clearTimeout(this._listTimer);
+    this._listTimer = null;
+    if (this._cancelListWait) this._cancelListWait();
+    this._cancelListWait = null;
+  },
+
   refreshActiveWorkContext() {
     const snapshot = orgSession.getSnapshot();
     const current = workContextView.normalizeCurrentWorkContext(
@@ -59,29 +79,50 @@ Page({
     this.setData({ activeWorkContext: current, hasActiveAssignment: current.hasAssignment });
   },
 
+  onSystemTimezoneChanged() {
+    if (this._visible === false) return;
+    this.setData({ submissions: this.data.submissions.map(item => Object.assign({}, item, {
+      createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus)
+    })) });
+  },
+
   async loadData() {
+    this.cancelListLoad();
     const request = orgSession.beginRequest(this, 'mySubmissions');
-    this.setData({ loading: true });
+    this._listRequest = request;
+    this.setData({ loading: true, loadError: '' });
     try {
-      const res = await callFunction({
+      const deadline = new Promise((resolve, reject) => {
+        this._cancelListWait = () => reject({ silent: true });
+        this._listTimer = setTimeout(() => reject(new Error(localeCopy.loadFailed)), 20000);
+      });
+      const res = await Promise.race([callFunction({
         name: 'listMySubmissions',
         data: { status: this.data.statusFilter, limit: 50, offset: 0 }
-      });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
+      }), deadline]);
+      if (orgSession.isRequestCurrent(this, request)) {
+        if (!res || res.status !== 'success') throw new Error((res && res.message) || localeCopy.loadFailed);
         this.setData({ submissions: (res.submissions || []).map((item) => Object.assign({}, item, {
           createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus)
         })) });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+      if (this._visible !== false && orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
+        this.setData({ loadError: getErrorText(e, localeCopy.loadFailed) });
+      }
     } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+      // 会话变化使响应失效时也要结束本请求的转圈，不能解除更新请求的加载状态。
+      if (this._listRequest === request) {
+        this.cancelListLoad();
+        this._listRequest = null;
+        if (this._visible !== false) this.setData({ loading: false });
+      }
     }
   },
 
   onStatusFilterChange(e) {
     const idx = parseInt(e.detail.value);
-    this.setData({ statusFilter: this.data.statusValues[idx] || '', statusFilterIndex: idx });
+    this.setData({ statusFilter: this.data.statusValues[idx] || '', statusFilterIndex: idx, submissions: [] });
     this.loadData();
   },
 

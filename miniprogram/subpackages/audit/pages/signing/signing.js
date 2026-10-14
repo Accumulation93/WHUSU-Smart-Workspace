@@ -14,6 +14,8 @@ Page({
     loading: true, ready: false, notice: '', saving: false, materialSize: 100, materialRotation: 0 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
+    // 可重建副本清理不参与打开文件；原生文件回调停滞不能挡住内存预览。
+    previewFiles.removeExpiredPreviews().catch(() => {});
     orgSession.consume(this);
     this._handoff = drafts.getHandoff();
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
@@ -70,11 +72,10 @@ Page({
     this.setData({ loading: true, ready: false, notice: '' });
     let phase = 'preview_request';
     try {
-      await previewFiles.removeExpiredPreviews();
       if (!this._alive || request !== this._request) return;
       // loading 已卸载旧画布；只保留当前页预览，笔画与撤销记录仍留在步骤内存。
       const previousPaths = this._previewPaths.splice(0);
-      await Promise.all(previousPaths.map(path => previewFiles.removePreview(path)));
+      previousPaths.forEach(path => previewFiles.removePreview(path));
       this._cache = {};
       let value = this._cache[page];
       if (!value) {

@@ -15,6 +15,23 @@ let cachedConfig = {
   reviewVersion: ''
 };
 let storedConfigRead = false;
+const APP_CONFIG_KEY = '__systemTimezoneConfig';
+
+function getSharedConfig() {
+  try {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    return app && app.globalData && app.globalData[APP_CONFIG_KEY];
+  } catch (_) { return null; }
+}
+
+function shareConfig(config) {
+  try {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (!app) return;
+    if (!app.globalData) app.globalData = {};
+    app.globalData[APP_CONFIG_KEY] = Object.assign({}, config);
+  } catch (_) {}
+}
 
 function isFiniteNumber(value) {
   return typeof value === 'number' && isFinite(value);
@@ -37,18 +54,25 @@ function normalizeSystemTimezoneOffset(value, fallback) {
 }
 
 function readStoredConfig() {
+  // 主包取得的系统时区必须跨分包共享，列表格式化不得等待同步存储桥。
+  const shared = getSharedConfig();
+  if (shared) {
+    cachedConfig = Object.assign({}, shared);
+    storedConfigRead = true;
+    return cachedConfig;
+  }
   if (storedConfigRead) return cachedConfig;
   storedConfigRead = true;
-  if (typeof wx === 'undefined' || typeof wx.getStorageSync !== 'function') return cachedConfig;
-  const stored = wx.getStorageSync(STORAGE_KEY);
-  if (!stored || typeof stored !== 'object') return cachedConfig;
-  cachedConfig = {
-    offset: normalizeSystemTimezoneOffset(stored.offset),
-    version: stored.version === undefined || stored.version === null ? '' : String(stored.version),
-    reviewRequired: stored.reviewRequired === true,
-    reviewVersion: stored.reviewVersion === undefined || stored.reviewVersion === null
-      ? '' : String(stored.reviewVersion)
-  };
+  if (typeof wx === 'undefined' || typeof wx.getStorage !== 'function') return cachedConfig;
+  const initial = cachedConfig;
+  try {
+    wx.getStorage({ key: STORAGE_KEY, success(result) {
+      const stored = result && result.data;
+      // 迟到的旧缓存不能覆盖本轮服务端下发或另一分包已取得的配置。
+      if (cachedConfig !== initial || getSharedConfig() || !stored || typeof stored !== 'object') return;
+      setSystemTimezoneConfig(stored.offset, stored.version, stored.reviewRequired, stored.reviewVersion);
+    } });
+  } catch (_) {}
   return cachedConfig;
 }
 
@@ -66,6 +90,7 @@ function setSystemTimezoneConfig(systemTimezoneOffset, configVersion, reviewRequ
     || cachedConfig.reviewVersion !== nextConfig.reviewVersion;
   cachedConfig = nextConfig;
   storedConfigRead = true;
+  shareConfig(cachedConfig);
   if (changed) eventBus.emit('time:configChanged', Object.assign({}, cachedConfig));
   return Object.assign({}, cachedConfig);
 }
@@ -83,8 +108,9 @@ function clearSystemTimezoneConfig() {
     reviewVersion: ''
   };
   storedConfigRead = true;
-  if (typeof wx !== 'undefined' && typeof wx.removeStorageSync === 'function') {
-    wx.removeStorageSync(STORAGE_KEY);
+  shareConfig(cachedConfig);
+  if (typeof wx !== 'undefined' && typeof wx.removeStorage === 'function') {
+    wx.removeStorage({ key: STORAGE_KEY });
   }
 }
 

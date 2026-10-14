@@ -74,6 +74,10 @@ async function run() {
     assert.equal((await post('listMyStamps', { includeImageData: false })).stamps[0].imageData, undefined);
     assert.equal((await post('listMyStamps', {})).stamps[0].imageData, imageData, '旧调用仍返回图片');
     assert.equal((await post('getMyStampImage', { stampId: 'stamp-a' })).imageData, imageData);
+    const preview = await post('getMyStampImage', { stampId: 'stamp-a', preview: true });
+    assert.equal(preview.status, 'success');
+    const previewMeta = await sharp(Buffer.from(preview.imageData.split(',')[1], 'base64')).metadata();
+    assert(previewMeta.width <= 512 && previewMeta.height <= 512);
     assert.equal((await post('getMyStampImage', { stampId: 'stamp-a' }, { 'X-Test-Assignment': 'assignment-b' })).status, 'forbidden');
     assert.equal((await post('getMyStampImage', { stampId: 'stamp-a' }, { 'X-Test-Anonymous': '1' })).status, 'forbidden');
     const fallback = { submissionId: 'submission-1', stepId: 'step-2', comment: '同意 2026-10-14', signatures: [{
@@ -87,6 +91,7 @@ async function run() {
     assert.equal((await admin.query('SELECT COUNT(*) AS n FROM audit_submission_signatures'))[0][0].n, 0);
     await admin.query("DELETE FROM stamp_assignment_grants WHERE id='grant-a'");
     assert.equal((await post('getMyStampImage', { stampId: 'stamp-a' })).status, 'forbidden', '图片读取重新复核授权');
+    assert.equal((await post('getMyStampImage', { stampId: 'stamp-a', preview: true })).status, 'forbidden', '预览命中也必须重新复核授权');
     assert.equal((await post('approveStep', payload)).status, 'approval_stamp_not_authorized', '正式审批再次复核授权');
     await admin.query("INSERT INTO stamp_assignment_grants (id,org_id,stamp_id,assignment_id,person_id) VALUES ('grant-a','org-a','stamp-a','assignment-a','person-a')");
     const saved = await post('approveStep', payload); assert.equal(saved.status, 'success', JSON.stringify(saved));

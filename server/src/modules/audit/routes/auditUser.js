@@ -2912,7 +2912,10 @@ router.post('/getMyStampImage', async (req, res) => {
     if (!stampId || stampId.length > 64) return res.json({ status: 'invalid_params', message: localeCopy.copy_4e84385ce1 });
     const rows = await stampGrantModel.getAuthorizedStamps(actor.assignment, [stampId]);
     if (!rows.length) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
-    return res.json({ status: 'success', stampId, imageData: rows[0].image_data || '' });
+    const imageData = req.body.preview === true
+      ? await require('../utils/stampPreview').stampPreview(await getCurrentOrgId(), stampId, rows[0].image_data)
+      : rows[0].image_data || '';
+    return res.json({ status: 'success', stampId, imageData });
   } catch (_) {
     return res.json({ status: 'error' });
   }

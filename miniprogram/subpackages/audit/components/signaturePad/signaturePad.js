@@ -16,7 +16,7 @@ Component({
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
     penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 3 }
   },
-  data: { copy, mode: 'pen', color: '#000000', penWidth: 3, erasing: false, custom: false,
+  data: { copy, mode: 'pen', color: '#000000', erasing: false, custom: false,
     red: 0, green: 0, blue: 0, colorInput: '#000000', ready: false, notice: '', undoable: false, redoable: false },
   lifetimes: {
     attached() {

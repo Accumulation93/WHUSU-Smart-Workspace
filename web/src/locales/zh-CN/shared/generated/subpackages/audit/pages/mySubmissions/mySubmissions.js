@@ -27,6 +27,8 @@ const sharedModule = Object.freeze({
   noAssignmentActionDescription: '当前没有可用于审核的岗位。你仍可查看申请记录。',
   switchWorkContext: '切换工作角色',
   cancel: '取消',
+  loadFailed: '申请加载失败，请重试',
+  retry: '重试',
   positionAvailable: '可发起',
   positionUnavailable: '仅查看',
   navigationTitle: "我的申请 - WHUSU智慧工作台"

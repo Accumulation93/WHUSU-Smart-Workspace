@@ -663,7 +663,7 @@
           <view wx:elif="{{stampNotice}}" class="stamp-empty">{{stampNotice}}<button class="secondary-btn" bindtap="loadAvailableStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
           <view wx:elif="{{!availableStamps.length}}" class="stamp-empty">{{signingCopy.stampEmpty}}</view>
           <view wx:if="{{stampImageBusy}}" class="stamp-empty">{{signingCopy.imageLoading}}</view>
-          <view wx:for="{{availableStamps}}" wx:key="id" wx:if="{{!stampLoading && !stampNotice}}"
+          <view wx:for="{{availableStamps}}" wx:key="id" wx:if="{{!stampLoading}}"
                 class="stamp-picker-item ui-motion-card"
                 data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
                 catchtap="onStampSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
