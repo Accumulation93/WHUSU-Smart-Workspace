@@ -32,6 +32,7 @@
     <AdminActivityPanel v-if="activeTab === 'activities'" :state="activityState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminTemplatePanel v-else-if="activeTab === 'templates'" :state="templateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminRulePanel v-else-if="activeTab === 'rules'" :state="ruleState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
+    <AdminResultPanel v-else-if="activeTab === 'results'" :state="resultState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminSettingsPanel v-else-if="activeTab === 'settings'" :state="settingsState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo'" class="card stack">
@@ -94,6 +95,8 @@ import AdminActivityPanel from '@/components/AdminActivityPanel.vue';
 import AdminTemplatePanel from '@/components/AdminTemplatePanel.vue';
 import AdminSettingsPanel from '@/components/AdminSettingsPanel.vue';
 import AdminRulePanel from '@/components/AdminRulePanel.vue';
+import AdminResultPanel from '@/components/AdminResultPanel.vue';
+import resultCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/resultBehavior.js';
 import copy from '@/locales/zh-CN/index.js';
 import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
 import accountCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
@@ -118,6 +121,8 @@ const activityState = reactive({ form: { id: '', name: '', description: '', star
 const templateState = reactive({ form: emptyTemplateForm(), resetAfterRead: false, expanded: null });
 const settingsState = reactive({ timezone: 8, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
 const ruleState = reactive({form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
+const emptyResultState = () => ({ filters: { department: resultCopy.copy_31d4595959, identity: resultCopy.copy_31d4595959, workGroup: resultCopy.copy_31d4595959, viewMode: 'overview', sortMode: 'score_desc' }, activityId: '', pending: false, target: null, department: '', scorer: null });
+const resultState = reactive(emptyResultState());
 const dictionaryStates = reactive(Object.fromEntries(['departments', 'workGroups', 'identities'].map(kind => [kind, {
   form: { id: '', name: '', description: '', departmentId: '' }, resetAfterRead: false
 }])));
@@ -218,6 +223,7 @@ watch(scope, () => {
   Object.assign(templateState.form, emptyTemplateForm()); templateState.resetAfterRead = false; templateState.expanded = null;
   Object.assign(settingsState, { timezone: 8, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
   Object.assign(ruleState, {form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
+  Object.assign(resultState, emptyResultState());
   for (const state of Object.values(dictionaryStates)) {
     Object.assign(state.form, { id: '', name: '', description: '', departmentId: '' }); state.resetAfterRead = false;
   }
