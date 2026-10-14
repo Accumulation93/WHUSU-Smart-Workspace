@@ -51,3 +51,12 @@ assert.match(workflow, /test "\$SOURCE_RESULT" = success/);
 assert.match(workflow, /test "\$REMOTE_RESULT" = success/);
 assert.match(workflow, /test "\$REMOTE_RESULT" = skipped/);
 console.log('本机 CI 证明验证通过：签名、提交、规则、期限、失败、未知设备及真实 Git notes 隔离');
+
+// Vite 会修改宿主 NODE_ENV；并行启动的服务端测试必须继续使用启动时环境。
+const originalMode = process.env.NODE_ENV;
+const { run } = require('../../scripts/ci/run');
+process.env.NODE_ENV = 'ci-parent-mutated';
+run(process.execPath, ['-e', 'require("node:assert/strict").equal(process.env.NODE_ENV, ' + JSON.stringify(originalMode) + ')'])
+  .then(() => console.log('并行 CI 子进程环境隔离验证通过'))
+  .catch(error => { console.error(error.message); process.exitCode = 1; })
+  .finally(() => { if (originalMode === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalMode; });

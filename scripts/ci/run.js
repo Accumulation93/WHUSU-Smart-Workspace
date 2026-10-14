@@ -8,9 +8,10 @@ const { pathToFileURL } = require('node:url');
 const { git } = require('./proof');
 const checks = require('./checks.json');
 const root = path.resolve(__dirname, '../..');
-function run(command, args, cwd = root) {
+const executionEnv = { ...process.env };
+function run(command, args, cwd = root, env = executionEnv) {
   return new Promise((resolve, reject) => {
-    const child = cp.spawn(command, args, { cwd, env: process.env, stdio: 'inherit', windowsHide: true });
+    const child = cp.spawn(command, args, { cwd, env, stdio: 'inherit', windowsHide: true });
     child.on('error', reject);
     child.on('exit', code => code === 0 ? resolve() : reject(new Error(command + ' ' + args.join(' ') + ' 退出码 ' + code)));
   });
@@ -37,10 +38,9 @@ async function browserChecks() {
   const port = Number(process.env.PLAYWRIGHT_PORT || 4173);
   const server = await vite.preview({ root: path.join(root, 'web'), configFile: path.join(root, 'web/vite.config.js'),
     preview: { host: '127.0.0.1', port, strictPort: true } });
-  process.env.PLAYWRIGHT_REUSE = '1';
   try {
     await run(process.execPath, ['scripts/parity-audit.mjs', 'http://127.0.0.1:' + port + '/web'], path.join(root, 'web'));
-    await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=2'], path.join(root, 'web'));
+    await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=2'], path.join(root, 'web'), { ...executionEnv, PLAYWRIGHT_REUSE: '1' });
   } finally {
     await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()));
   }
