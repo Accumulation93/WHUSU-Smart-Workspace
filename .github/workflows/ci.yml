@@ -102,7 +102,7 @@ jobs:
   deploy-production:
     name: deploy-production
     needs: validation-complete
-    if: always() && needs.validation-complete.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: always() && !cancelled() && needs.validation-complete.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     concurrency:

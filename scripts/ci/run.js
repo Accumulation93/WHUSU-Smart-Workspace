@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
+const { pathToFileURL } = require('node:url');
 const { git } = require('./proof');
 const checks = require('./checks.json');
 const root = path.resolve(__dirname, '../..');
@@ -32,8 +33,17 @@ async function codeChecks() {
 }
 async function browserChecks() {
   await npm(['run', 'build'], path.join(root, 'web'));
-  await run(process.execPath, ['scripts/parity-audit.mjs'], path.join(root, 'web'));
-  await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=2'], path.join(root, 'web'));
+  const vite = await import(pathToFileURL(path.join(root, 'web/node_modules/vite/dist/node/index.js')).href);
+  const port = Number(process.env.PLAYWRIGHT_PORT || 4173);
+  const server = await vite.preview({ root: path.join(root, 'web'), configFile: path.join(root, 'web/vite.config.js'),
+    preview: { host: '127.0.0.1', port, strictPort: true } });
+  process.env.PLAYWRIGHT_REUSE = '1';
+  try {
+    await run(process.execPath, ['scripts/parity-audit.mjs', 'http://127.0.0.1:' + port + '/web'], path.join(root, 'web'));
+    await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=2'], path.join(root, 'web'));
+  } finally {
+    await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()));
+  }
 }
 async function main() {
   if (!process.env.DEPLOY_TEST_DB_HOST || !process.env.SECURITY_TEST_DB_HOST) throw new Error('必须配置隔离数据库，禁止跳过集成测试');
