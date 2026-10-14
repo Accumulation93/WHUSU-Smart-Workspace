@@ -11,6 +11,11 @@ async function main() {
   const metadata = await sharp(preview).metadata();
   assert.equal(metadata.width, 512); assert.equal(metadata.height, 256); assert.equal(metadata.hasAlpha, true);
   assert(preview.length < source.length);
+  const high = await stampPreview('org-a', 'stamp-a', data, 2048);
+  const highMetadata = await sharp(Buffer.from(high.split(',')[1], 'base64')).metadata();
+  assert.equal(highMetadata.width, 2048);
+  assert.equal(highMetadata.height, 1024);
+  assert.notEqual(high, results[0], '高清工作区不能复用目录缩略图缓存');
   const pixels = await sharp(preview).raw().toBuffer();
   assert(pixels[3] > 120 && pixels[3] < 136, '保留透明度而非铺白底');
   const changed = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#0000ff' } }).png().toBuffer();

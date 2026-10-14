@@ -18,7 +18,7 @@
     <button class="secondary-btn sigpad-color {{color === '#ff0000' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.red}}" data-color="#ff0000" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-red"></view></button>
     <button class="secondary-btn sigpad-color" aria-label="{{copy.custom}}" bindtap="toggleCustom" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">#</button>
     <button class="{{erasing ? 'primary-btn' : 'secondary-btn'}}" bindtap="toggleEraser" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.erase}}</button>
-    <picker class="ui-field-control-host sigpad-width" value="{{penWidth === 2 ? 0 : (penWidth === 3 ? 1 : 2)}}" range="{{[copy.thin,copy.medium,copy.thick]}}" bindchange="setWidth"><view class="picker-display ui-field-control">{{penWidth === 2 ? copy.thin : (penWidth === 3 ? copy.medium : copy.thick)}}</view></picker>
+    <picker class="ui-field-control-host sigpad-width" value="{{penWidth === 1 ? 0 : (penWidth === 2 ? 1 : 2)}}" range="{{[copy.thin,copy.medium,copy.thick]}}" bindchange="setWidth"><view class="picker-display ui-field-control">{{penWidth === 1 ? copy.thin : (penWidth === 2 ? copy.medium : copy.thick)}}</view></picker>
   </view>
   <view wx:if="{{custom && mode === 'pen'}}" class="sigpad-colors">
     <view class="field-label">{{copy.hex}}</view><input class="field-input" value="{{colorInput}}" maxlength="7" bindchange="setHex" />

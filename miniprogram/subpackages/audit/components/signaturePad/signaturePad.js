@@ -14,7 +14,7 @@ Component({
     pdf: { type: Boolean, value: false }, initialMode: { type: String, value: 'pen' },
     activeId: { type: String, value: '', observer() { if (this._surface) this._render(); } },
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
-    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 3 }
+    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 2 }
   },
   data: { copy, mode: 'pen', color: '#000000', erasing: false, custom: false,
     red: 0, green: 0, blue: 0, colorInput: '#000000', ready: false, notice: '', undoable: false, redoable: false },
@@ -53,7 +53,7 @@ Component({
         if (!this._alive) return;
         if (!rows[0] || !rows[0].node || !rows[0].width || !rows[0].height || !rows[1] || !rows[1].node || !rows[2] || !rows[2].node) { this._imageFailure(); return; }
         this._surface = rows[0].node; this._rect = rows[0]; this._layer = rows[1].node; this._export = rows[2].node;
-        this._surface.width = Math.round(rows[0].width); this._surface.height = Math.round(rows[0].height);
+        this._resizeSurface();
         this._ctx = this._surface.getContext('2d'); this._inkCtx = this._layer.getContext('2d'); this._loadImage();
       });
     },
@@ -61,15 +61,18 @@ Component({
       wx.createSelectorQuery().in(this).select('#sigSurface').fields({ size: true, rect: true }).exec(rows => {
         if (this._alive && rows[0]) {
           this._rect = rows[0];
-          if (this._surface && (Math.round(rows[0].width) !== this._surface.width || Math.round(rows[0].height) !== this._surface.height)) {
-            this._surface.width = Math.max(1, Math.round(rows[0].width)); this._surface.height = Math.max(1, Math.round(rows[0].height));
-            const width = this._documentWidth || this.properties.documentWidth || 800, height = this._documentHeight || this.properties.documentHeight || 400;
-            const fit = Math.min(this._surface.width / width, this._surface.height / height);
-            this._layer.width = Math.max(1, Math.round(width * fit)); this._layer.height = Math.max(1, Math.round(height * fit));
-            this._render();
-          }
+          if (this._surface) { this._resizeSurface(); this._render(); }
         }
       });
+    },
+    _resizeSurface() {
+      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      const size = ink.surfaceSize(this._rect.width, this._rect.height, info.pixelRatio);
+      this._pixelRatio = size.ratio;
+      if (this._surface.width !== size.width) this._surface.width = size.width;
+      if (this._surface.height !== size.height) this._surface.height = size.height;
+      if (this._layer.width !== size.width) this._layer.width = size.width;
+      if (this._layer.height !== size.height) this._layer.height = size.height;
     },
     _image(src) {
       if (this._images[src]) return Promise.resolve(this._images[src]);
@@ -111,8 +114,7 @@ Component({
         const width = this.properties.documentWidth || this._background && this._background.width || 800;
         const height = this.properties.documentHeight || this._background && this._background.height || 400;
         this._documentWidth = width; this._documentHeight = height;
-        const fit = Math.min(this._surface.width / width, this._surface.height / height);
-        this._layer.width = Math.max(1, Math.round(width * fit)); this._layer.height = Math.max(1, Math.round(height * fit));
+        this._resizeSurface();
         this._zoom = 1; this._panX = 0; this._panY = 0; await this._loadMaterials();
         if (!this._alive || request !== this._request) return;
         this.setData({ ready: true }); this._syncHistory(); this._render(); this.triggerEvent('ready', { width, height });
@@ -141,11 +143,11 @@ Component({
       const draw = () => {
         this._frame = null; if (!this._alive) return;
         const width = this._documentWidth, height = this._documentHeight;
-        this._camera = ink.fitCamera(this._surface.width, this._surface.height, width, height, this._zoom, this._panX, this._panY);
-        ink.renderInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height, this._stroke);
+        this._camera = ink.fitCamera(this._rect.width, this._rect.height, width, height, this._zoom, this._panX, this._panY);
+        ink.renderViewportInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height, this._camera, this._pixelRatio, this._stroke);
         const ctx = this._ctx, camera = this._camera;
         ctx.clearRect(0, 0, this._surface.width, this._surface.height);
-        ctx.save(); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
+        ctx.save(); ctx.scale(this._pixelRatio, this._pixelRatio); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
         if (this._background) ctx.drawImage(this._background, 0, 0, width, height);
         else { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height); }
         (this.properties.materials || []).forEach(item => {
@@ -160,7 +162,7 @@ Component({
           if (item._idx === this.properties.activeId && this.data.mode === 'move') { ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2 / camera.scale; ctx.strokeRect(-box.width / 2, -box.height / 2, box.width, box.height); }
           ctx.restore();
         });
-        ctx.drawImage(this._layer, 0, 0, width, height); ctx.restore();
+        ctx.restore(); ctx.drawImage(this._layer, 0, 0);
       };
       if (this._surface.requestAnimationFrame) this._frame = this._surface.requestAnimationFrame(draw);
       else { this._frame = 1; this._timer = setTimeout(() => { this._timer = null; draw(); }, 16); }
@@ -193,7 +195,7 @@ Component({
         this._gesture = { kind: this.data.mode, x: touch.clientX, y: touch.clientY, panX: this._panX, panY: this._panY,
           offsetX: material ? point.x - material.positionX : 0, offsetY: material ? point.y - material.positionY : 0, moved: false };
         if (this.data.mode === 'pen') this._stroke = { page: this.properties.page, type: this.data.erasing ? 'erase' : 'draw',
-          color: this.data.color, width: (this.data.erasing ? this.data.penWidth * 5 : this.data.penWidth) / this._layer.width, points: [{ x: point.x, y: point.y }] };
+          color: this.data.color, width: ink.penWidthRatio(this.data.erasing ? this.data.penWidth * 5 : this.data.penWidth, this._camera), points: [{ x: point.x, y: point.y }] };
       } else if (this._gesture && this._gesture.kind !== 'pinch') {
         const g = this._gesture; g.moved = g.moved || Math.hypot(touch.clientX - g.x, touch.clientY - g.y) > 3;
         if (this._stroke) this._stroke.points.push({ x: point.x, y: point.y });
@@ -223,7 +225,7 @@ Component({
       const color = '#' + values.map(value => value.toString(16).padStart(2, '0')).join('');
       this.setData({ color, colorInput: color, red: values[0], green: values[1], blue: values[2], erasing: false });
     },
-    setWidth(event) { this.setData({ penWidth: [2, 3, 5][Number(event.detail.value)] }); },
+    setWidth(event) { this.setData({ penWidth: [1, 2, 3.5][Number(event.detail.value)] }); },
     toggleEraser() { this.setData({ erasing: !this.data.erasing }); },
     onUndo() { this._historyChange(false); }, onRedo() { this._historyChange(true); },
     _historyChange(forward) {
@@ -238,12 +240,15 @@ Component({
     zoomOut() { this._zoom = Math.max(1, this._zoom / 1.25); this._render(); },
     fit() { this._zoom = 1; this._panX = 0; this._panY = 0; this._render(); },
     async exportPage() {
+      const size = ink.exportSize(this._documentWidth, this._documentHeight);
+      this._layer.width = size.width; this._layer.height = size.height;
       ink.renderInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height);
       const width = this._layer.width, height = this._layer.height;
       const bounds = ink.alphaBounds(this._inkCtx.getImageData(0, 0, width, height).data, width, height);
-      if (!bounds) return null;
+      if (!bounds) { this._resizeSurface(); this._render(); return null; }
       const canvas = this._export; canvas.width = bounds.width; canvas.height = bounds.height;
       canvas.getContext('2d').drawImage(this._layer, bounds.left, bounds.top, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
+      this._resizeSurface(); this._render();
       const imageData = await new Promise((resolve, reject) => {
         wx.canvasToTempFilePath({ canvas, fileType: 'png', width: bounds.width, height: bounds.height,
           destWidth: bounds.width, destHeight: bounds.height, success: file => {

@@ -2156,7 +2156,7 @@ Page({
     if (this.data.stampImageBusy) return;
     this.setData({ stampImageBusy: true, stampNotice: '' });
     try {
-      const response = await callFunction({ name: 'getMyStampImage', data: { stampId, preview: true } });
+      const response = await callFunction({ name: 'getMyStampImage', data: { stampId, preview: true, previewMaxEdge: 2048 } });
       if (!orgSession.isCurrent(stampScope) || !this.data.stampPickerVisible || selectedFileId !== this.data.stampPickFileId) return;
       if (response.status !== 'success' || !response.imageData) throw new Error('stamp_unavailable');
       stampImage = response.imageData;

@@ -66,11 +66,33 @@ function drawPath(context, operation, width, height) {
 }
 function renderInk(context, history, page, width, height, active) {
   context.clearRect(0, 0, width, height);
-  history.operations.slice(0, history.cursor).forEach(operation => {
-    if (operation.type === 'clear') context.clearRect(0, 0, width, height);
-    else if (operation.page === page) drawPath(context, operation, width, height);
+  let start = 0;
+  for (let index = history.cursor - 1; index >= 0; index -= 1) {
+    if (history.operations[index].type === 'clear') { start = index + 1; break; }
+  }
+  history.operations.slice(start, history.cursor).forEach(operation => {
+    if (operation.page === page) drawPath(context, operation, width, height);
   });
   if (active && active.page === page) drawPath(context, active, width, height);
+}
+// 屏幕像素密度只用于画布采样；相机和触点始终使用 CSS 像素。
+function surfaceSize(width, height, pixelRatio) {
+  const ratio = Math.max(1, Number(pixelRatio) || 1);
+  return { width: Math.max(1, Math.round(width * ratio)), height: Math.max(1, Math.round(height * ratio)), ratio };
+}
+function exportSize(width, height) {
+  const scale = 4096 / Math.max(width, height);
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+function penWidthRatio(pixels, camera) { return pixels / camera.width; }
+// 在视口大小的透明层上直接重画路径，放大时不拉伸低清笔迹位图。
+function renderViewportInk(context, history, page, width, height, camera, ratio, active) {
+  context.clearRect(0, 0, width, height);
+  context.save();
+  context.scale(ratio, ratio);
+  context.translate(camera.left, camera.top);
+  renderInk(context, history, page, camera.width, camera.height, active);
+  context.restore();
 }
 function alphaBounds(data, width, height) {
   let left = width, top = height, right = -1, bottom = -1;
@@ -110,7 +132,7 @@ function createDraftStore() {
   }
   return { bind, open, file, reset };
 }
-const sharedModule = Object.freeze({ clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, alphaBounds, fitCamera, filePoint, createDraftStore });
+const sharedModule = Object.freeze({ clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, createDraftStore });
 
-export { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, alphaBounds, fitCamera, filePoint, createDraftStore };
+export { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, createDraftStore };
 export default sharedModule;

@@ -95,7 +95,8 @@ test('连续黑色笔画、三种预设与自定义颜色在画布和透明导�
   const continuity = await page.locator('.signing-export-canvas').evaluate(canvas => {
     const context = canvas.getContext('2d'), row = Math.floor(canvas.height / 2);
     let gaps = 0;
-    for (let x = Math.ceil(canvas.width * 0.22); x < canvas.width * 0.78; x++) {
+    const fileWidth = Math.min(canvas.width, canvas.height * 2), left = (canvas.width - fileWidth) / 2;
+    for (let x = Math.ceil(left + fileWidth * 0.22); x < left + fileWidth * 0.78; x++) {
       const data = context.getImageData(x, row - 2, 1, 5).data;
       if (![3, 7, 11, 15, 19].some(i => data[i] > 0)) gaps++;
     }
@@ -123,6 +124,32 @@ test('连续黑色笔画、三种预设与自定义颜色在画布和透明导�
     return { width: image.width, hasTransparentPixel: context.getImageData(0, 0, image.width, image.height).data.some((value, index) => index % 4 === 3 && value === 0) };
   }, material.imageData);
   expect(result.hasTransparentPixel).toBe(true);
+  expect(result.width).toBeGreaterThan(2000);
+});
+
+test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({ page }) => {
+  const state = await setup(page); await enter(page);
+  expect(state.calls.find(item => item.name === 'getAuditFilePreview').body.previewMaxEdge).toBe(4096);
+  const surface = page.locator('.signing-stage canvas');
+  const dimensions = await surface.evaluate(canvas => ({ width: canvas.width, css: canvas.getBoundingClientRect().width, dpr: devicePixelRatio }));
+  expect(Math.abs(dimensions.width - dimensions.css * dimensions.dpr)).toBeLessThanOrEqual(1);
+  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: text.zoomIn, exact: true }).click();
+  const measured = [];
+  for (const width of ['1', '2', '3.5']) {
+    await page.getByRole('combobox', { name: text.width, exact: true }).selectOption(width);
+    await stroke(page);
+    const coverage = await page.locator('.signing-export-canvas').evaluate(canvas => {
+      const data = canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), 0, 1, canvas.height).data;
+      let total = 0; for (let i = 3; i < data.length; i += 4) total += data[i] / 255;
+      return total / devicePixelRatio;
+    });
+    expect(Math.abs(coverage - Number(width))).toBeLessThan(0.6);
+    measured.push(coverage);
+    await page.getByRole('button', { name: text.undo, exact: true }).click();
+    await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
+  }
+  expect(measured[1]).toBeGreaterThan(measured[0] * 1.5);
+  expect(measured[2]).toBeGreaterThan(measured[1] * 1.5);
 });
 test('确认返回不清历史，重进立即撤销与重做；跨页撤销自动定位', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page);

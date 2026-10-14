@@ -77,7 +77,7 @@ function runWithPdfRenderSlot(task, signal) {
   });
 }
 
-async function renderPdfPageWithPdftoppm(filePath, page) {
+async function renderPdfPageWithPdftoppm(filePath, page, density) {
   const prefix = path.join(os.tmpdir(), 'audit_pdf_preview_' + generateId());
   const exe = process.env.PDFTOPPM_PATH || 'pdftoppm';
   await execFileAsync(exe, [
@@ -85,7 +85,7 @@ async function renderPdfPageWithPdftoppm(filePath, page) {
     '-l', String(page),
     '-png',
     '-singlefile',
-    '-r', '150',
+    '-r', String(density),
     filePath,
     prefix
   ], { windowsHide: true, timeout: 30000 });
@@ -96,7 +96,7 @@ async function renderPdfPageWithPdftoppm(filePath, page) {
   return buffer;
 }
 
-async function renderPdfPageWithPdfjs(filePath, page) {
+async function renderPdfPageWithPdfjs(filePath, page, density) {
   const { createCanvas, DOMMatrix, Path2D, ImageData } = require('@napi-rs/canvas');
   global.DOMMatrix = global.DOMMatrix || DOMMatrix;
   global.Path2D = global.Path2D || Path2D;
@@ -128,7 +128,7 @@ async function renderPdfPageWithPdfjs(filePath, page) {
   });
   const pdfDoc = await loadingTask.promise;
   const pdfPage = await pdfDoc.getPage(page);
-  const viewport = pdfPage.getViewport({ scale: 2 });
+  const viewport = pdfPage.getViewport({ scale: density / 72 });
   const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
   const canvasContext = canvas.getContext('2d');
   await pdfPage.render({ canvasContext, viewport, canvasFactory }).promise;
@@ -137,25 +137,25 @@ async function renderPdfPageWithPdfjs(filePath, page) {
   return pngBuffer;
 }
 
-async function renderPdfPageUnqueued(filePath, page) {
+async function renderPdfPageUnqueued(filePath, page, density) {
   const errors = [];
   try {
     const sharp = require('sharp');
-    const buffer = await sharp(filePath, { page: page - 1, density: 150 }).png().toBuffer();
+    const buffer = await sharp(filePath, { page: page - 1, density }).png().toBuffer();
     return { buffer, renderer: 'sharp' };
   } catch (sharpErr) {
     errors.push('sharp: ' + sharpErr.message);
   }
 
   try {
-    const buffer = await renderPdfPageWithPdfjs(filePath, page);
+    const buffer = await renderPdfPageWithPdfjs(filePath, page, density);
     return { buffer, renderer: 'pdfjs' };
   } catch (pdfjsErr) {
     errors.push('pdfjs: ' + pdfjsErr.message);
   }
 
   try {
-    const buffer = await renderPdfPageWithPdftoppm(filePath, page);
+    const buffer = await renderPdfPageWithPdftoppm(filePath, page, density);
     return { buffer, renderer: 'pdftoppm' };
   } catch (pdftoppmErr) {
     errors.push('pdftoppm: ' + pdftoppmErr.message);
@@ -166,8 +166,8 @@ async function renderPdfPageUnqueued(filePath, page) {
   throw err;
 }
 
-function renderPdfPage(filePath, page, signal) {
-  return runWithPdfRenderSlot(() => renderPdfPageUnqueued(filePath, page), signal);
+function renderPdfPage(filePath, page, signal, density = 150) {
+  return runWithPdfRenderSlot(() => renderPdfPageUnqueued(filePath, page, density), signal);
 }
 
 const upload = multer({
@@ -329,9 +329,13 @@ router.post('/getAuditFilePreview', async (req, res) => {
       try {
         totalPages = await getPdfPageCount(verifiedPreviewPath);
         const targetPage = Math.max(1, Math.min(page, totalPages));
-        const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal);
         const document = await require('pdf-lib').PDFDocument.load(stored.buffer, { updateMetadata: false });
         const pageSize = document.getPages()[targetPage - 1].getSize();
+        // 高清签署按有界像素预算重新栅格化 PDF，不把普通预览拉伸成大图。
+        const requestedEdge = Number(req.body.previewMaxEdge);
+        const edge = Number.isFinite(requestedEdge) && requestedEdge > 0 ? Math.min(4096, Math.max(1024, requestedEdge)) : 0;
+        const density = edge ? 72 * edge / Math.max(pageSize.width, pageSize.height) : 150;
+        const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal, density);
         return res.json({
           status: 'success',
           fileName: file.file_name,

@@ -48,8 +48,8 @@ async function run() {
     const snapshot = { ...context, assignmentNature: 'staff', assignmentLabel: '成员 · 部门甲', identityCategoryId: 'identity-a' };
     await admin.query("INSERT INTO audit_submissions (id,submission_number,submitted_by,submitted_person_id,submitted_assignment_id,submitted_context_snapshot,status,current_step_index,org_id) VALUES ('submission-1','SIGN-TEST','hr-a','person-a','assignment-a',?,'in_progress',1,'org-a')", [JSON.stringify(snapshot)]);
     await admin.query("INSERT INTO audit_submission_steps (id,submission_id,sort_order,action_type,step_conditions_json,org_id) VALUES ('step-2','submission-1',1,'both',?,'org-a')", [JSON.stringify([{ conditionType: 'identity_scope', departmentScope: 'all', workGroupScope: 'all', identityScope: 'all' }])]);
-    const pdf = await PDFDocument.create(); pdf.addPage([800, 400]); pdf.addPage([800, 400]);
-    const bytes = Buffer.from(await pdf.save()), filePath = path.join(root, 'uploads/document.pdf');
+    const contentFixture = require('./helpers/pdfContentFixture');
+    const bytes = await contentFixture.createDocument(), filePath = path.join(root, 'uploads/document.pdf');
     fs.mkdirSync(path.dirname(filePath), { recursive: true }); fs.writeFileSync(filePath, bytes);
     await admin.query("INSERT INTO audit_submission_files (id,submission_id,file_name,file_path,file_size,file_hash,mime_type,org_id) VALUES ('file-1','submission-1','document.pdf',?,?,?,'application/pdf','org-a')", [filePath, bytes.length, hashFile(bytes)]);
     const mark = await sharp({ create: { width: 100, height: 24, channels: 4, background: '#000000' } }).png().toBuffer();
@@ -67,10 +67,18 @@ async function run() {
       orgStorage.run(org, next);
     });
     app.use('/api', require('../src/modules/audit/routes/auditUser'));
+    app.use('/api', require('../src/modules/audit/routes/auditFile'));
     await new Promise(resolve => { server = app.listen(0, '127.0.0.1', resolve); });
     const post = async (name, body, headers = {}) => (await fetch('http://127.0.0.1:' + server.address().port + '/api/' + name, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body || {})
     })).json();
+    const documentPreview = await post('getAuditFilePreview', { fileId: 'file-1', page: 1, previewMaxEdge: 4096 });
+    assert.equal(documentPreview.status, 'success');
+    assert.equal(documentPreview.previewMime, 'image/png');
+    const previewDimensions = await sharp(Buffer.from(documentPreview.data, 'base64')).metadata();
+    assert.equal(previewDimensions.width, 4096);
+    assert.equal(previewDimensions.height, 2048);
+    assert.equal(documentPreview.pageWidth, 800, '高清像素不得改变原 PDF 坐标尺寸');
     assert.equal((await post('listMyStamps', { includeImageData: false })).stamps[0].imageData, undefined);
     assert.equal((await post('listMyStamps', {})).stamps[0].imageData, imageData, '旧调用仍返回图片');
     assert.equal((await post('getMyStampImage', { stampId: 'stamp-a' })).imageData, imageData);
@@ -102,6 +110,7 @@ async function run() {
     assert(Math.abs(handwritten.widthRatio - payload.signatures[0].widthRatio) <= 0.00000001);
     const storedFile = (await admin.query("SELECT * FROM audit_submission_files WHERE id='file-1'"))[0][0], finalBytes = fs.readFileSync(storedFile.file_path);
     assert.notDeepEqual(finalBytes, bytes); assert.deepEqual(fs.readFileSync(filePath), bytes, '旧原件保持原字节');
+    await contentFixture.assertPreserved(bytes, finalBytes);
     await orgStorage.run('org-a', async () => {
       const verified = await verifySubmissionFiles({ id: 'submission-1' }, { uploadedBytes: finalBytes });
       assert.equal(verified.valid, true, JSON.stringify(verified)); assert.equal(verified.files[0].steps.length, 1);

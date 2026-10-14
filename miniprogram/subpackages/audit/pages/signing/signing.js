@@ -81,7 +81,7 @@ Page({
       if (!value) {
         if (this._handoff.pad) value = { src: '', width: 800, height: 400, totalPages: 1 };
         else {
-          const response = await callFunction({ name: 'getAuditFilePreview', data: { fileId: this.data.fileId, page } });
+          const response = await callFunction({ name: 'getAuditFilePreview', data: { fileId: this.data.fileId, page, previewMaxEdge: 4096 } });
           console.info('[audit:signing:preview]', response.status, response.previewMime, Boolean(response.data), response.requestId || '');
           if (response.status !== 'success' || !response.data || !String(response.previewMime).startsWith('image/')) throw new Error('preview_unavailable');
           // 预览优先保留在内存，避免本地持久空间已满时整份文件打不开。
