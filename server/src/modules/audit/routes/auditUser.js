@@ -2913,7 +2913,7 @@ router.post('/getMyStampImage', async (req, res) => {
     const rows = await stampGrantModel.getAuthorizedStamps(actor.assignment, [stampId]);
     if (!rows.length) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
     const imageData = req.body.preview === true
-      ? await require('../utils/stampPreview').stampPreview(await getCurrentOrgId(), stampId, rows[0].image_data, req.body.previewMaxEdge)
+      ? await require('../utils/stampPreview').stampPreview(await getCurrentOrgId(), stampId, rows[0].image_data, req.body.previewMaxEdge, req.body.previewFormat)
       : rows[0].image_data || '';
     return res.json({ status: 'success', stampId, imageData });
   } catch (_) {

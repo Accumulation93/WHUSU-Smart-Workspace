@@ -16,6 +16,10 @@ async function main() {
   assert.equal(highMetadata.width, 2048);
   assert.equal(highMetadata.height, 1024);
   assert.notEqual(high, results[0], '高清工作区不能复用目录缩略图缓存');
+  const webp = await stampPreview('org-a', 'stamp-a', data, 2048, 'webp');
+  assert(webp.startsWith('data:image/webp;base64,'));
+  assert.deepEqual(await sharp(Buffer.from(webp.split(',')[1], 'base64')).raw().toBuffer(), await sharp(Buffer.from(high.split(',')[1], 'base64')).raw().toBuffer(), '无损传输必须保留像素和透明度');
+
   const pixels = await sharp(preview).raw().toBuffer();
   assert(pixels[3] > 120 && pixels[3] < 136, '保留透明度而非铺白底');
   const changed = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#0000ff' } }).png().toBuffer();

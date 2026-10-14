@@ -237,3 +237,38 @@ test('审批拒绝保留书写，成功后读取失败只重读且不能重复�
   await expect(page.getByRole('button', { name: copy.audit.actionApprove, exact: true })).toHaveCount(0);
   expect(state.calls.filter(item => item.name === 'approveStep')).toHaveLength(2);
 });
+
+
+test('逐笔图层可以改变遮挡顺序，确认导出与重进保持同一结果', async ({ page }) => {
+  const state = await setup(page); await enter(page);
+  await stroke(page);
+  await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
+  const layers = page.locator('.signing-layer-toolbar select');
+  await expect(layers.locator('option')).toHaveCount(2);
+  await layers.selectOption({ index: 0 });
+  await page.getByRole('button', { name: text.layerUp, exact: true }).click();
+  await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data))).toEqual([0,0,0,255]);
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await enter(page); await expect(layers.locator('option')).toHaveCount(2);
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
+  await expect.poll(() => state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
+  expect(state.calls.find(item=>item.name==='approveStep').body.signatures).toHaveLength(1);
+});
+
+test('撤回与驳回按轮次折叠，最后一轮撤回仍默认展开', async ({ page }) => {
+  const state = await setup(page);
+  state.detail.submission.status='withdrawn'; state.detail.canApproveCurrentStep=false;
+  const step=state.detail.steps[0];
+  state.detail.steps=[{...step,id:'step-r1',round:1,status:'approved'},{...step,id:'step-r2',round:2,status:'rejected'},{...step,id:'step-r3',round:3,status:'pending'}];
+  state.detail.events=[{id:'event-r1',round:1,eventType:'withdraw'},{id:'event-r2',round:2,eventType:'reject'},{id:'event-r3',round:3,eventType:'withdraw'}];
+  await page.reload();
+  const headings=page.locator('.audit-round-heading');
+  await expect(headings).toHaveCount(3);
+  await expect(headings.nth(0)).toHaveAttribute('aria-expanded','false');
+  await expect(headings.nth(1)).toHaveAttribute('aria-expanded','false');
+  await expect(headings.nth(2)).toHaveAttribute('aria-expanded','true');
+  await expect(headings.nth(0)).toContainText(text.roundStates.withdrawn);
+  await expect(headings.nth(1)).toContainText(text.roundStates.rejected);
+  await headings.nth(0).click(); await expect(headings.nth(0)).toHaveAttribute('aria-expanded','true');
+});

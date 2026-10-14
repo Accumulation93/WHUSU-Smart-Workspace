@@ -13,3 +13,7 @@
 .signing-adjustments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: var(--ui-inline-gap); }
 .signing-adjustments slider { margin: 0; }
 .signing-footer { margin: 0; flex: none; }
+.signing-layer-toolbar { display: flex; flex: none; align-items: center; gap: var(--ui-inline-gap); }
+.signing-layer-toolbar picker { flex: 1; min-width: 0; }
+.signing-layer-choice { min-height: var(--ui-compact-height); display: flex; align-items: center; font-size: var(--ui-type-meta); }
+.signing-layer-toolbar > button { flex: none; width: auto; min-width: 0; margin: 0; min-height: var(--ui-compact-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }

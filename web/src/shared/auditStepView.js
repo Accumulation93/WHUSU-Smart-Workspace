@@ -31,7 +31,29 @@ function signingStepCurrent(detail, target) {
     && Number(step.sortOrder) === Number(detail.submission.currentStepIndex)
     && !!file && file.fileHash === target.file.fileHash;
 }
-const sharedModule = Object.freeze({ presentAuditStep, signingStepCurrent });
+// 轮次归属来自记录本身；历史结果不能从当前申请状态反推。
+function groupAuditRounds(submission, steps, events) {
+  const groups = new Map();
+  function group(value) {
+    const round = Math.max(1, Number(value) || 1);
+    if (!groups.has(round)) groups.set(round, { round, steps: [], events: [] });
+    return groups.get(round);
+  }
+  (steps || []).forEach(step => group(step.round).steps.push(step));
+  (events || []).forEach(event => group(event.round).events.push(event));
+  if (!groups.size) return [];
+  const result = Array.from(groups.values()).sort((a, b) => a.round - b.round);
+  result.forEach((item, index) => {
+    item.current = index === result.length - 1;
+    const terminal = item.events.filter(event => ['withdraw', 'reject'].includes(event.eventType)).slice(-1)[0];
+    item.status = item.current ? submission.status : terminal ? (terminal.eventType === 'withdraw' ? 'withdrawn' : 'rejected')
+      : item.steps.some(step => step.status === 'rejected') ? 'rejected'
+        : item.steps.length && item.steps.every(step => step.status === 'approved') ? 'approved' : 'stopped';
+    item.expanded = item.current || !['withdrawn', 'rejected', 'stopped'].includes(item.status);
+  });
+  return result;
+}
+const sharedModule = Object.freeze({ presentAuditStep, signingStepCurrent, groupAuditRounds });
 
-export { presentAuditStep, signingStepCurrent };
+export { presentAuditStep, signingStepCurrent, groupAuditRounds };
 export default sharedModule;

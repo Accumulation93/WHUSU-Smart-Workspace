@@ -207,7 +207,7 @@
             <ui-icon
               name="{{submission.status === 'approved' ? 'check' : (submission.status === 'rejected' ? 'x' : (submission.status === 'draft' ? 'edit' : 'clock'))}}"
               tone="{{submission.status === 'approved' ? 'primary' : (submission.status === 'rejected' ? 'danger' : 'muted')}}"
-              size="22"
+              sizeRole="context-leading"
               ariaLabel="{{localeCopy.copy_9ecea0b582}}"
             />
           </view>
@@ -318,7 +318,7 @@
         <view class="section-title">{{localeCopy.copy_3bc010171a}}</view>
 
         <!-- Flow progress summary -->
-        <view class="audit-flow-summary" wx:if="{{submission.status !== 'withdrawn' || showWithdrawnHistory}}">
+        <view class="audit-flow-summary" wx:if="{{submission.status !== 'withdrawn'}}">
           <text class="flow-summary-text">{{localeCopy.copy_94988c2510}}</text>
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{flowProgressPercent}}%;"></view>
@@ -327,9 +327,14 @@
         </view>
 
         <!-- Flow timeline — lifecycle events + approval steps -->
-        <button wx:if="{{submission.status === 'withdrawn'}}" class="secondary-btn" bindtap="toggleWithdrawnHistory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{showWithdrawnHistory ? signingCopy.hideHistory : signingCopy.showHistory}}</button>
-        <view class="audit-flow" wx:if="{{flowTimeline.length && (submission.status !== 'withdrawn' || showWithdrawnHistory)}}">
-          <block wx:for="{{flowTimeline}}" wx:key="_key" wx:for-item="node">
+        <view wx:for="{{flowRounds}}" wx:key="round" wx:for-item="roundGroup" wx:for-index="roundIndex" class="audit-round">
+          <view class="audit-round-heading ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" role="button" aria-expanded="{{roundGroup.expanded}}" data-index="{{roundIndex}}" bindtap="toggleFlowRound">
+            <view class="audit-round-title">{{roundGroup.title}}</view>
+            <view class="audit-round-status">{{roundGroup.statusText}}</view>
+            <view class="audit-round-arrow {{roundGroup.expanded ? 'audit-round-arrow-open' : ''}}"><ui-icon name="chevron-right" sizeRole="context-trailing" /></view>
+          </view>
+        <view class="audit-flow" wx:if="{{roundGroup.expanded}}">
+          <block wx:for="{{roundGroup.nodes}}" wx:key="_key" wx:for-item="node">
 
             <!-- ── Remaining steps separator ── -->
             <view class="flow-separator" wx:if="{{node.type === 'separator'}}">
@@ -429,6 +434,16 @@
 
           </block>
         </view>
+      <!-- Signatures -->
+      <view wx:if="{{roundGroup.expanded && roundGroup.signatures.length}}">
+        <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{roundGroup.signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
+        <view class="audit-sig-card" wx:for="{{roundGroup.signatures}}" wx:key="id">
+          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
+          <view class="list-desc">{{item.signedAtText}}</view>
+        </view>
+      </view>
+
+        </view>
         <!-- Diagnostic: step count from server -->
         <view wx:if="{{rawStepCount === 0 && submission.status !== 'draft' && submission.status !== 'pending'}}" class="flow-diagnostic">
           <text class="flow-diagnostic-text">{{localeCopy.copy_84e125402d}}</text>
@@ -455,15 +470,6 @@
         </view>
       </view>
 
-      <!-- Signatures -->
-      <view class="card" wx:if="{{signatures.length}}">
-        <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
-        <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
-          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
-          <view class="list-desc">{{item.signedAtText}}</view>
-        </view>
-      </view>
-
       <!-- Description display (view mode) -->
       <view class="card" wx:if="{{submission.description}}">
         <view class="section-title">{{localeCopy.copy_25e1199dc3}}</view>
@@ -471,7 +477,7 @@
       </view>
 
       <!-- Actions — submitter-only buttons -->
-      <view class="card" wx:if="{{userIsSubmitter}}">
+      <view class="card" wx:if="{{userIsSubmitter && hasActiveAssignment && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn' || submission.status === 'in_progress')}}">
         <view class="section-title" wx:if="{{activeApprovalStepId}}">{{localeCopy.copy_e4a2b8faee}}</view>
         <view class="audit-btn-bar">
           <button class="secondary-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
@@ -670,7 +676,7 @@
             <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit" class="stamp-picker-thumb" />
             <view wx:else class="stamp-picker-placeholder"><view class="stamp-placeholder-mark"></view></view>
             <text class="stamp-picker-name">{{item.name}}</text>
-            <text class="stamp-picker-select">{{localeCopy.copy_896f105132}}</text>
+            <view class="stamp-picker-select">{{localeCopy.copy_896f105132}}</view>
           </view>
         </view>
       </scroll-view>
@@ -840,7 +846,7 @@
                 <view class="sig-source-item-name">{{item.name}}</view>
                 <view wx:if="{{item.isDefault}}" class="sig-source-default-badge">{{localeCopy.copy_4d6d7783a5}}</view>
               </view>
-              <text class="sig-source-use-btn">{{localeCopy.copy_8b55fdc995}}</text>
+              <view class="sig-source-use-btn">{{localeCopy.copy_8b55fdc995}}</view>
             </view>
           </view>
 

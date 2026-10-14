@@ -83,11 +83,17 @@
         </template>
       </section>
 
-      <section v-if="submission.status !== 'withdrawn' || showWithdrawnHistory" class="card stack">
+      <section class="card stack">
         <div class="section-title">{{ copy.audit.detailStepsTitle }}</div>
         <div v-if="!steps.length" class="empty-state">{{ copy.audit.detailEmptySteps }}</div>
-        <div v-else class="list">
-          <div v-for="step in steps" :key="step.id" class="list-row">
+        <div v-for="roundGroup in flowRounds" :key="roundGroup.round" class="audit-round">
+          <button class="audit-round-heading" :aria-expanded="roundExpanded[roundGroup.round] ?? roundGroup.expanded" @click="roundExpanded[roundGroup.round] = !(roundExpanded[roundGroup.round] ?? roundGroup.expanded)">
+            <span class="audit-round-title">{{ signing.roundTitle.replace('{0}', roundGroup.round) }}</span>
+            <span class="chip chip-sky">{{ signing.roundStates[roundGroup.status] || signing.stopped }}</span>
+            <span aria-hidden="true">{{ (roundExpanded[roundGroup.round] ?? roundGroup.expanded) ? '⌄' : '›' }}</span>
+          </button>
+        <div v-if="roundExpanded[roundGroup.round] ?? roundGroup.expanded" class="list">
+          <div v-for="step in roundGroup.steps" :key="step.id" class="list-row">
             <div class="list-row-main stack-tight">
               <span class="list-row-title">{{ stepTitle(step) }}</span>
               <span v-if="!['approved','rejected'].includes(step.status)" class="muted break-all">{{ step.approverDesc }}</span>
@@ -100,10 +106,16 @@
               <span v-if="stepPresentation(step).hasActor" class="soft">{{ stepPresentation(step).snapshot?.assignmentLabel || signing.assignmentUnknown }}</span>
             </div>
           </div>
+          <div v-for="event in roundGroup.events" :key="event.id" class="list-row">
+            <div class="list-row-main stack-tight">
+              <span class="list-row-title">{{ eventTitle(event) }}</span>
+              <span class="soft break-all">{{ event.operatorName || copy.audit.submitterLabel }} · {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}</span>
+              <span v-if="event.comment" class="muted break-all">{{ event.comment }}</span>
+            </div>
+          </div>
+        </div>
         </div>
       </section>
-
-      <button v-if="submission.status === 'withdrawn'" class="btn btn-secondary" @click="showWithdrawnHistory = !showWithdrawnHistory">{{ showWithdrawnHistory ? signing.hideHistory : signing.showHistory }}</button>
 
       <section class="card stack">
         <div class="section-title">{{ copy.audit.detailFilesTitle }}</div>
@@ -124,22 +136,6 @@
         </div>
       </section>
 
-      <section v-if="submission.status !== 'withdrawn' || showWithdrawnHistory" class="card stack">
-        <div class="section-title">{{ copy.audit.detailEventsTitle }}</div>
-        <div v-if="!events.length" class="empty-state">{{ copy.audit.emptyHistory }}</div>
-        <div v-else class="list">
-          <div v-for="event in events" :key="event.id" class="list-row">
-            <div class="list-row-main stack-tight">
-              <span class="list-row-title">{{ eventTitle(event) }}</span>
-              <span class="soft break-all">
-                {{ event.operatorName || copy.audit.submitterLabel }} ·
-                {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}
-              </span>
-              <span v-if="event.comment" class="muted break-all">{{ event.comment }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
       <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openSigning(materialFile,'pen'); materialFile=null" @select="addMaterial" />
       <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading">{{ copy.common.loading }}</p></PersonnelPicker>
 
@@ -171,11 +167,11 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AuditMaterialPicker from '@/components/AuditMaterialPicker.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import nativeCopy from '@/locales/zh-CN/shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
-import { clone } from '@/shared/auditInk.js';
+import { clone, nextLayerOrder } from '@/shared/auditInk.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 import signing from '@/locales/zh-CN/shared/auditSigning.js';
 import { stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
-import { presentAuditStep } from '@/shared/auditStepView.js';
+import { presentAuditStep, groupAuditRounds } from '@/shared/auditStepView.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import {
@@ -200,14 +196,15 @@ const loadNotice = ref('');
 const readFailed = ref(false);
 const approveComment = ref('');
 const rejectReason = ref('');
-const draft=ref(null), materialFile=ref(null), materialKind=ref(''), stampDirectory=ref(null), showWithdrawnHistory=ref(false);
+const draft=ref(null), materialFile=ref(null), materialKind=ref(''), stampDirectory=ref(null), roundExpanded=ref({});
+const flowRounds=computed(()=>groupAuditRounds(submission.value,steps.value,events.value));
 const pickerVisible=ref(false), pickerLoading=ref(false), pickerNotice=ref(''), pickerOptions=ref([]), selectedNext=ref([]);
 const requests=auditRequests();
 let alive=true,requestSequence=0;
-const draftMaterials=computed(()=>draft.value ? draft.value.materials.concat(...Object.values(draft.value.files).map(file=>file.exports||[])) : []);
+const draftMaterials=computed(()=>draft.value ? draft.value.materials.concat(...Object.values(draft.value.files).map(file=>file.exports||[])).sort((a,b)=>(a.layerOrder||0)-(b.layerOrder||0)) : []);
 function openSigning(file,mode,active,rollback){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;setSigningHandoff({draft:draft.value,file,mode,active,rollback,submissionId:submission.value.id,stepId:activeStep.value.id,round:activeStep.value.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}});router.push({name:'auditSigning'});}
 function openMaterial(file,kind){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;materialFile.value=file;materialKind.value=kind;}
-function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};draft.value.materials.push(material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
+function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};draft.value.materials.push(material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
 function removeMaterial(id){draft.value.materials=draft.value.materials.filter(item=>item._idx!==id);}
 
 const displayName = computed(() => {
@@ -434,6 +431,8 @@ onBeforeUnmount(()=>{alive=false;requestSequence+=1;requests.dispose();});
 </script>
 
 <style scoped>
+.audit-round-heading { display:flex; align-items:center; gap:var(--ui-inline-gap); width:100%; min-height:var(--ui-field-control-height); padding:var(--ui-control-padding-y) 0; background:transparent; border:0; color:var(--ui-text); text-align:left; }
+.audit-round-title { flex:1; min-width:0; font-size:var(--ui-type-section); font-weight:700; line-height:1.4; }
 .field-textarea {
   min-height: 84px;
   line-height: 1.5;

@@ -137,32 +137,46 @@ Component({
       this._render();
     },
     _materialSource(item) { return this._materialSources && this._materialSources[item._idx] || item.imageData || item.previewSrc; },
-    _syncHistory() { this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); },
+    _syncHistory() { this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
     _render() {
       if (!this._alive || this._hidden || !this._surface || this._frame != null) return;
       const draw = () => {
         this._frame = null; if (!this._alive) return;
         const width = this._documentWidth, height = this._documentHeight;
         this._camera = ink.fitCamera(this._rect.width, this._rect.height, width, height, this._zoom, this._panX, this._panY);
-        ink.renderViewportInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height, this._camera, this._pixelRatio, this._stroke);
         const ctx = this._ctx, camera = this._camera;
         ctx.clearRect(0, 0, this._surface.width, this._surface.height);
         ctx.save(); ctx.scale(this._pixelRatio, this._pixelRatio); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
         if (this._background) ctx.drawImage(this._background, 0, 0, width, height);
         else { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height); }
-        (this.properties.materials || []).forEach(item => {
-          if ((item.page || 1) !== this.properties.page) return;
+        ctx.restore();
+        const layers = ink.signingLayers(this._history, this.properties.materials, this.properties.page);
+        this._inkCtx.clearRect(0, 0, this._layer.width, this._layer.height);
+        if (!layers.some((layer, index) => layer.kind === 'material' || index > 0 && layers[index - 1].index > layer.index)) {
+          ink.renderViewportInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
+          ctx.drawImage(this._layer, 0, 0); return;
+        }
+        layers.forEach(layer => {
+          if (layer.kind === 'draw') {
+            ink.renderViewportLayer(this._inkCtx, this._history, layer, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
+            ctx.drawImage(this._layer, 0, 0); return;
+          }
+          const item = layer.material;
           const image = this._images[this._materialSource(item)]; if (!image) return;
           const box = signatureGeometry(item, width, height, image.width, image.height, this.properties.pdf);
           if (item.widthRatio != null && (Math.abs(item.positionX - box.centerX / width) > 1e-8 || Math.abs(item.positionY - box.centerY / height) > 1e-8)) {
             this.triggerEvent('geometry', { id: item._idx, x: box.centerX / width, y: box.centerY / height });
           }
-          ctx.save(); ctx.translate(box.centerX, box.centerY); ctx.rotate((item.rotation || 0) * Math.PI / 180);
+          ctx.save(); ctx.scale(this._pixelRatio, this._pixelRatio); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
+          ctx.translate(box.centerX, box.centerY); ctx.rotate((item.rotation || 0) * Math.PI / 180);
           ctx.drawImage(image, -box.width / 2, -box.height / 2, box.width, box.height);
           if (item._idx === this.properties.activeId && this.data.mode === 'move') { ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2 / camera.scale; ctx.strokeRect(-box.width / 2, -box.height / 2, box.width, box.height); }
           ctx.restore();
         });
-        ctx.restore(); ctx.drawImage(this._layer, 0, 0);
+        if (this._stroke && this._stroke.type === 'draw') {
+          ink.renderViewportInk(this._inkCtx, ink.createHistory(), this.properties.page, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
+          ctx.drawImage(this._layer, 0, 0);
+        }
       };
       if (this._surface.requestAnimationFrame) this._frame = this._surface.requestAnimationFrame(draw);
       else { this._frame = 1; this._timer = setTimeout(() => { this._timer = null; draw(); }, 16); }
@@ -239,10 +253,13 @@ Component({
     zoomIn() { this._zoom = Math.min(4, this._zoom * 1.25); this._render(); },
     zoomOut() { this._zoom = Math.max(1, this._zoom / 1.25); this._render(); },
     fit() { this._zoom = 1; this._panX = 0; this._panY = 0; this._render(); },
-    async exportPage() {
+    async exportPage(layer) {
       const size = ink.exportSize(this._documentWidth, this._documentHeight);
-      this._layer.width = size.width; this._layer.height = size.height;
-      ink.renderInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height);
+      const region = layer ? ink.groupExportRegion(layer, size.width, size.height) : { left: 0, top: 0, width: size.width, height: size.height };
+      this._layer.width = region.width; this._layer.height = region.height;
+      this._inkCtx.clearRect(0, 0, this._layer.width, this._layer.height);
+      if (layer) ink.renderExportGroup(this._inkCtx, this._export, this._history, layer, size.width, size.height, region);
+      else ink.renderInk(this._inkCtx, this._history, this.properties.page, this._layer.width, this._layer.height);
       const width = this._layer.width, height = this._layer.height;
       const bounds = ink.alphaBounds(this._inkCtx.getImageData(0, 0, width, height).data, width, height);
       if (!bounds) { this._resizeSurface(); this._render(); return null; }
@@ -258,8 +275,8 @@ Component({
           }, fail: reject }, this);
       });
       if (imageData.length > Math.ceil(2 * 1024 * 1024 * 4 / 3) + 64) throw new Error('too_large');
-      return { imageData, widthRatio: bounds.width / width, positionX: (bounds.left + bounds.width / 2) / width,
-        positionY: (bounds.top + bounds.height / 2) / height, page: this.properties.page };
+      return { imageData, widthRatio: bounds.width / size.width, positionX: (region.left + bounds.left + bounds.width / 2) / size.width,
+        positionY: (region.top + bounds.top + bounds.height / 2) / size.height, page: this.properties.page };
     },
     async onConfirm() {
       try { const exported = await this.exportPage(); if (!exported) { this.setData({ notice: copy.empty }); return; } this.triggerEvent('confirm', exported); }

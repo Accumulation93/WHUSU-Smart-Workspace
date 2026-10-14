@@ -26,14 +26,9 @@ const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
 const MAX_PDF_RENDER_CONCURRENCY = 2;
 let activePdfRenders = 0;
 const pdfRenderQueue = [];
+const previewPixels = require('../utils/previewPixelsCache').createPreviewPixelsCache();
 
 ensurePrivateDirectory(UPLOAD_DIR);
-
-async function getPdfPageCount(filePath) {
-  const { PDFDocument } = require('pdf-lib');
-  const pdfDoc = await PDFDocument.load(fs.readFileSync(filePath));
-  return pdfDoc.getPageCount() || 1;
-}
 
 async function assertSafeFileContent(buffer, mimeType) {
   if (mimeType === 'application/pdf') {
@@ -320,49 +315,57 @@ router.post('/getAuditFilePreview', async (req, res) => {
     }
 
     if (mimeType === 'application/pdf') {
-      const previewDirectory = path.join(UPLOAD_DIR, '_tmp');
-      ensurePrivateDirectory(previewDirectory);
-      const verifiedPreviewPath = path.join(previewDirectory, 'preview-' + generateId() + '.pdf');
-      fs.writeFileSync(verifiedPreviewPath, stored.buffer, { mode: 0o600 });
-      ensurePrivateFile(verifiedPreviewPath);
-      let totalPages = 1;
+      const requestedEdge = Number(req.body.previewMaxEdge);
+      const edge = Number.isFinite(requestedEdge) && requestedEdge > 0 ? Math.min(4096, Math.max(1024, requestedEdge)) : 0;
+      const format = req.body.previewFormat === 'webp' ? 'webp' : 'png';
+      const previewKey = JSON.stringify([file.org_id, file.id, file.file_hash, page, edge, format]);
       try {
-        totalPages = await getPdfPageCount(verifiedPreviewPath);
-        const targetPage = Math.max(1, Math.min(page, totalPages));
-        const document = await require('pdf-lib').PDFDocument.load(stored.buffer, { updateMetadata: false });
-        const pageSize = document.getPages()[targetPage - 1].getSize();
-        // 高清签署按有界像素预算重新栅格化 PDF，不把普通预览拉伸成大图。
-        const requestedEdge = Number(req.body.previewMaxEdge);
-        const edge = Number.isFinite(requestedEdge) && requestedEdge > 0 ? Math.min(4096, Math.max(1024, requestedEdge)) : 0;
-        const density = edge ? 72 * edge / Math.max(pageSize.width, pageSize.height) : 150;
-        const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal, density);
-        return res.json({
-          status: 'success',
-          fileName: file.file_name,
-          mimeType: 'application/pdf',
-          previewMime: 'image/png',
-          totalPages,
-          pageWidth: pageSize.width,
-          pageHeight: pageSize.height,
-          page: targetPage,
-          data: rendered.buffer.toString('base64'),
-          renderer: rendered.renderer
+        const result = await previewPixels.get(previewKey, async () => {
+          const previewDirectory = path.join(UPLOAD_DIR, '_tmp');
+          ensurePrivateDirectory(previewDirectory);
+          const verifiedPreviewPath = path.join(previewDirectory, 'preview-' + generateId() + '.pdf');
+          fs.writeFileSync(verifiedPreviewPath, stored.buffer, { mode: 0o600 });
+          ensurePrivateFile(verifiedPreviewPath);
+          let totalPages = 1;
+          try {
+            const document = await require('pdf-lib').PDFDocument.load(stored.buffer, { updateMetadata: false });
+            totalPages = document.getPageCount() || 1;
+            const targetPage = Math.max(1, Math.min(page, totalPages));
+            const pageSize = document.getPages()[targetPage - 1].getSize();
+            // 高清签署按有界像素预算重新栅格化 PDF，不把普通预览拉伸成大图。
+            const density = edge ? 72 * edge / Math.max(pageSize.width, pageSize.height) : 150;
+            const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal, density);
+            const pixels = format === 'webp' ? await require('sharp')(rendered.buffer).webp({ lossless: true, effort: 1 }).toBuffer() : rendered.buffer;
+            return {
+              status: 'success',
+              fileName: file.file_name,
+              mimeType: 'application/pdf',
+              previewMime: 'image/' + format,
+              totalPages,
+              pageWidth: pageSize.width,
+              pageHeight: pageSize.height,
+              page: targetPage,
+              data: pixels.toString('base64'),
+              renderer: rendered.renderer
+            };
+          } finally {
+            try { fs.unlinkSync(verifiedPreviewPath); } catch (_) { /* 维护任务会清理意外残留的预览副本。 */ }
+          }
         });
+        return res.json(Object.assign({}, result));
       } catch (e) {
         return res.json({
           status: 'success',
           fileName: file.file_name,
           mimeType: 'application/pdf',
           previewMime: 'application/pdf',
-          totalPages,
+          totalPages: 1,
           page: page,
           data: null,
           fallback: true,
           message: localeCopy.copy_3f63b19ec7,
           requestId: req.requestId || ''
         });
-      } finally {
-        try { fs.unlinkSync(verifiedPreviewPath); } catch (_) { /* 维护任务会清理意外残留的预览副本。 */ }
       }
     }
 

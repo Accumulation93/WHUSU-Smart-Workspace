@@ -7,11 +7,11 @@ const { createRequire } = require('node:module');
 async function main() {
   const file = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/submissionDetail/submissionDetail.js');
   const ownRequire = createRequire(file);
-  let definition, call, current = true, handoff;
+  let definition, call = async () => ({ status: 'success' }), current = true, handoff;
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), { Page(value) { definition = value; }, console,
     require(name) {
       if (name.endsWith('/utils/api')) return { callFunction: args => call(args), showShortToast() {} };
-      if (name.endsWith('/utils/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => current };
+      if (name.endsWith('/utils/orgSession')) return { getSnapshot: () => ({}), isCurrent: () => current, beginRequest: () => ({}), isRequestCurrent: () => current };
       if (name.endsWith('/utils/dialogKeyboard')) return { dialogKeyboardBehavior: {} };
       if (name.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute() {} };
       if (name.endsWith('/utils/auditSigningDrafts')) return { setHandoff(value) { handoff = value; } };

@@ -27,6 +27,11 @@
       <canvas ref="surfaceRef" :aria-label="text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
       <div v-if="busy || notice" class="signing-stage-state"><p>{{ busy ? text.loading : notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
     </div>
+    <div class="signing-toolbar signing-layer-toolbar">
+      <label class="field"><span class="field-label">{{ text.layers }}</span><select :value="selectedLayer || layers[0]?.id || ''" :disabled="!layers.length || saving" class="field-input" @change="selectedLayer=$event.target.value"><option v-for="(layer,index) in layers" :key="layer.id" :value="layer.id">{{ layer.kind === 'draw' ? text.stroke : layer.material.stampName || text.signature }} {{ index + 1 }}</option></select></label>
+      <button class="btn-quiet" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))===layers.length-1" @click="reorderLayer(1)">{{ text.layerUp }}</button>
+      <button class="btn-quiet" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))<=0" @click="reorderLayer(-1)">{{ text.layerDown }}</button>
+    </div>
     <div v-if="mode === 'move'" class="signing-objects">
       <span class="field-label">{{ text.objects }}</span>
       <button v-for="material in materials" :key="material._idx" class="btn-quiet" :aria-pressed="activeId === material._idx" @click="activeId = material._idx">{{ material.stampName || text.signature }} {{ materials.indexOf(material) + 1 }}</button>
@@ -44,11 +49,11 @@ import text from '@/locales/zh-CN/shared/auditSigning.js';
 import { callApi, requireSuccess } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
 import { signingDrafts, restoreDraft } from '@/runtime/signingDrafts.js';
-import { clone, normalizeColor, appendOperation, undo, redo, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, clamp } from '@/shared/auditInk.js';
+import { clone, normalizeColor, appendOperation, undo, redo, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, clamp, signingLayers, moveLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup } from '@/shared/auditInk.js';
 import { signatureGeometry } from '@/shared/auditSignatureGeometry.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 const requests = auditRequests();
-const props = defineProps({ draft: {type:Object,required:true}, file: {type:Object,required:true}, initialMode: {type:String,default:'browse'}, active: {type:String,default:''}, pad: Boolean, rollback: Object });
+const props = defineProps({ draft: {type:Object,required:true}, file: {type:Object,required:true}, initialMode: {type:String,default:'browse'}, active: {type:String,default:''}, pad: Boolean, rollback: Object, initialPreview: Object });
 const emit = defineEmits(['confirm','cancel']);
 const saved = clone(props.rollback || props.draft), fileDraft = reactive(signingDrafts.file(props.draft, props.file.id));
 const modes = ['browse','move','pen'], presets = [{label:'black',value:'#000000'},{label:'blue',value:'#0000ff'},{label:'red',value:'#ff0000'}];
@@ -58,8 +63,12 @@ const stageRef=ref(null), surfaceRef=ref(null), inkRef=ref(null);
 const channels=computed(()=>[1,3,5].map(offset=>parseInt(normalizeColor(color.value).slice(offset,offset+2),16)));
 const channelLabels=[text.redChannel,text.greenChannel,text.blueChannel];
 const materials=computed(()=>props.draft.materials.filter(item=>item.fileId===props.file.id));
+const layers=computed(()=>signingLayers(fileDraft.history,materials.value,page.value));
+const selectedLayer=ref('');
+function reorderLayer(direction){const id=selectedLayer.value||layers.value[0]?.id;if(moveLayer(fileDraft.history,materials.value,page.value,id,direction)){selectedLayer.value=id;render();}}
 const activeMaterial=computed(()=>materials.value.find(item=>item._idx===activeId.value));
 const cache=new Map(), images=new Map(), loadedImages=new Map(), pointers=new Map();
+let initialPreview=props.initialPreview;
 let alive=true, sequence=0, observer=null, frame=null, gesture=null, stroke=null, panX=0, panY=0, current=null, camera=null, finished=false;
 function applyColor(){ if(!/^#[0-9a-f]{6}$/i.test(colorInput.value)){exportNotice.value=text.colorInvalid;return;} color.value=normalizeColor(colorInput.value); erasing.value=false; exportNotice.value=''; }
 function setChannel(index,value){ const next=channels.value.slice();next[index]=Number(value);color.value='#'+next.map(channel=>channel.toString(16).padStart(2,'0')).join('');colorInput.value=color.value;erasing.value=false; }
@@ -68,7 +77,7 @@ async function pageData(number) {
   if(cache.has(number)) return cache.get(number);
   let value;
   if(props.pad){const canvas=document.createElement('canvas');canvas.width=800;canvas.height=400;const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,800,400);value={image:await imageOf(canvas.toDataURL()),width:800,height:400,total:1};}
-  else {const response=requireSuccess(await requests.call('getAuditFilePreview',{fileId:props.file.id,page:number,previewMaxEdge:4096}));if(!response.data || !String(response.previewMime).startsWith('image/'))throw Error('preview_unavailable');value={image:await imageOf('data:'+response.previewMime+';base64,'+response.data),width:response.pageWidth,height:response.pageHeight,total:response.totalPages};}
+  else {const prepared=initialPreview;initialPreview=null;const response=requireSuccess(prepared&&prepared.page===number?await prepared.promise:await requests.call('getAuditFilePreview',{fileId:props.file.id,page:number,previewMaxEdge:4096,previewFormat:'webp'}));if(!response.data || !String(response.previewMime).startsWith('image/'))throw Error('preview_unavailable');value={image:await imageOf('data:'+response.previewMime+';base64,'+response.data),width:response.pageWidth,height:response.pageHeight,total:response.totalPages};}
   value.width=value.width||value.image.width;value.height=value.height||value.image.height;
   if(!alive)throw Error('closed');
   cache.set(number,value);return value;
@@ -91,9 +100,13 @@ async function loadPage(number){
   finally{if(alive && request===sequence){busy.value=false;render();}}
 }
 function resize(){if(!current || !surfaceRef.value || !stageRef.value)return;const rect=stageRef.value.getBoundingClientRect();const size=surfaceSize(rect.width,rect.height,window.devicePixelRatio);surfaceRef.value.width=size.width;surfaceRef.value.height=size.height;inkRef.value.width=size.width;inkRef.value.height=size.height;render();}
-function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame(()=>{frame=null;if(!current || !surfaceRef.value)return;const surface=surfaceRef.value,context=surface.getContext('2d'),ink=inkRef.value;const rect=surface.getBoundingClientRect(),ratio=surface.width/rect.width;camera=fitCamera(rect.width,rect.height,current.width,current.height,zoom.value,panX,panY);renderViewportInk(ink.getContext('2d'),fileDraft.history,page.value,ink.width,ink.height,camera,ratio,stroke);context.clearRect(0,0,surface.width,surface.height);context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.drawImage(current.image,0,0,current.width,current.height);
-  for(const material of materials.value){if((material.page||1)!==page.value)continue;const image=loadedImages.get(material.previewSrc||material.imageData);if(!image)continue;const geometry=signatureGeometry(material,current.width,current.height,image.width,image.height,props.file.mimeType==='application/pdf');if(material.widthRatio!=null){const x=geometry.centerX/current.width,y=geometry.centerY/current.height;if(Math.abs(material.positionX-x)>1e-8)material.positionX=x;if(Math.abs(material.positionY-y)>1e-8)material.positionY=y;}context.save();context.translate(geometry.centerX,geometry.centerY);context.rotate((material.rotation||0)*Math.PI/180);context.drawImage(image,-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);if(activeId.value===material._idx && mode.value==='move'){context.strokeStyle='#2563eb';context.lineWidth=2*current.width/camera.width;context.strokeRect(-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);}context.restore();}
-  context.restore();context.drawImage(ink,0,0);});}
+function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame(()=>{frame=null;if(!current || !surfaceRef.value)return;const surface=surfaceRef.value,context=surface.getContext('2d'),ink=inkRef.value;const rect=surface.getBoundingClientRect(),ratio=surface.width/rect.width;camera=fitCamera(rect.width,rect.height,current.width,current.height,zoom.value,panX,panY);context.clearRect(0,0,surface.width,surface.height);context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.drawImage(current.image,0,0,current.width,current.height);
+  context.restore();
+  ink.getContext('2d').clearRect(0,0,ink.width,ink.height);
+  const hasMaterials=layers.value.some((layer,index)=>layer.kind==='material'||index>0&&layers.value[index-1].index>layer.index);
+  if(!hasMaterials){renderViewportInk(ink.getContext('2d'),fileDraft.history,page.value,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);return;}
+  for(const layer of layers.value){if(layer.kind==='draw'){renderViewportLayer(ink.getContext('2d'),fileDraft.history,layer,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);continue;}const material=layer.material;const image=loadedImages.get(material.previewSrc||material.imageData);if(!image)continue;const geometry=signatureGeometry(material,current.width,current.height,image.width,image.height,props.file.mimeType==='application/pdf');if(material.widthRatio!=null){const x=geometry.centerX/current.width,y=geometry.centerY/current.height;if(Math.abs(material.positionX-x)>1e-8)material.positionX=x;if(Math.abs(material.positionY-y)>1e-8)material.positionY=y;}context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.translate(geometry.centerX,geometry.centerY);context.rotate((material.rotation||0)*Math.PI/180);context.drawImage(image,-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);if(activeId.value===material._idx && mode.value==='move'){context.strokeStyle='#2563eb';context.lineWidth=2*current.width/camera.width;context.strokeRect(-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);}context.restore();}
+  if(stroke&&stroke.type==='draw'){renderViewportInk(ink.getContext('2d'),{operations:[],cursor:0},page.value,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);}});}
 function point(event){return filePoint(event.clientX,event.clientY,surfaceRef.value.getBoundingClientRect(),camera);}
 function distance(){const values=Array.from(pointers.values());return Math.hypot(values[0].x-values[1].x,values[0].y-values[1].y);}
 function midpoint(){const values=Array.from(pointers.values());return{x:(values[0].x+values[1].x)/2,y:(values[0].y+values[1].y)/2};}
@@ -106,7 +119,7 @@ function setZoom(value,fit){zoom.value=clamp(value,1,4);if(fit){panX=0;panY=0;}r
 function resizeMaterial(value){const material=activeMaterial.value;if(!material)return;const size=Number(value)/100;if(material.widthRatio!=null)material.widthRatio=clamp(material.widthRatio*size/(material.size||1),0.00000001,1);material.size=size;render();}
 async function changeHistory(forward){const target=(forward?redo:undo)(fileDraft.history);if(target===null)return;if(target!==page.value)await loadPage(target);else render();}
 async function clearInk(){if(await confirmAction({title:text.clearTitle,body:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
-async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);canvas.width=size.width;canvas.height=size.height;renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const imageData=crop.toDataURL('image/png');if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+number,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/canvas.width,positionX:(bounds.left+bounds.width/2)/canvas.width,positionY:(bounds.top+bounds.height/2)/canvas.height,size:1,rotation:0,page:number});}return exports;}
+async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);for(const layer of (props.pad?[null]:inkExportGroups(fileDraft.history,props.draft.materials.filter(item=>item.fileId===props.file.id),number))){const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);const region=layer?groupExportRegion(layer,size.width,size.height):{left:0,top:0,width:size.width,height:size.height};canvas.width=region.width;canvas.height=region.height;if(layer)renderExportGroup(ctx,document.createElement('canvas'),fileDraft.history,layer,size.width,size.height,region);else renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const imageData=crop.toDataURL('image/png');if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+(layer?layer.id:number),layerOrder:layer?layer.order:0,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/size.width,positionX:(region.left+bounds.left+bounds.width/2)/size.width,positionY:(region.top+bounds.top+bounds.height/2)/size.height,size:1,rotation:0,page:number});}}return exports;}
 async function confirm(){saving.value=true;exportNotice.value='';try{fileDraft.exports=await exportPages();if(props.pad&&!fileDraft.exports.length){exportNotice.value=text.empty;return;}finished=true;emit('confirm',fileDraft.exports);}catch(error){exportNotice.value=error.message==='too_large'?text.tooLarge:text.exportFailed;}finally{saving.value=false;}}
 function cancel(){restoreDraft(props.draft,saved);finished=true;emit('cancel');}
 onMounted(()=>{observer=new ResizeObserver(resize);observer.observe(stageRef.value);loadPage(page.value);});
@@ -116,7 +129,10 @@ watch(color,value=>{colorInput.value=value;});
 onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)observer.disconnect();if(frame!==null)cancelAnimationFrame(frame);if(!finished)restoreDraft(props.draft,saved);pointers.clear();});
 </script>
 <style scoped>
-.signing-workspace{display:flex;flex:1;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-inline-gap)}
+.signing-layer-toolbar{flex-wrap:nowrap}
+.signing-layer-toolbar .field{flex:1;min-width:0;flex-direction:row;align-items:center}
+.signing-layer-toolbar .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
+.signing-workspace{display:flex;flex:1;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
 .signing-workspace .panel-head{margin:0;flex:none}
 .signing-workspace .tabs{margin:0;flex:none;min-height:0;padding:var(--ui-signing-tool-gap)}
 .signing-workspace .tab{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);font-size:var(--ui-type-meta)}

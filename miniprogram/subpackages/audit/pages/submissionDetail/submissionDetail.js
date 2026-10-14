@@ -10,7 +10,7 @@ const workContextView = require('../../utils/workContextView');
 const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 const signingDrafts = require('../../../../utils/auditSigningDrafts');
 const signingCopy = require('../../../../locales/zh-CN/auditSigning');
-const { presentAuditStep } = require('../../utils/auditStepView');
+const { presentAuditStep, groupAuditRounds } = require('../../utils/auditStepView');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
@@ -61,6 +61,7 @@ Page({
     submission: null,
     steps: [],  // kept for backward compat; prefer flowTimeline
     flowTimeline: [],
+    flowRounds: [],
     files: [],
     signatures: [],
     loading: false,
@@ -216,7 +217,10 @@ Page({
 
   // Empty handler for catchtap to prevent event bubbling through popups
   noop() {},
-  toggleWithdrawnHistory() { this.setData({ showWithdrawnHistory: !this.data.showWithdrawnHistory }); },
+  toggleFlowRound(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    if (this.data.flowRounds[index]) this.setData({ ['flowRounds[' + index + '].expanded']: !this.data.flowRounds[index].expanded });
+  },
 
   refreshActiveWorkContext() {
     const snapshot = orgSession.getSnapshot();
@@ -1219,7 +1223,7 @@ Page({
         // Only show submit if there IS a submit event (not for drafts with no events)
         if (initialSubmit) {
           flowTimeline.push({
-            _key: 'lifecycle_submit',
+            _key: 'lifecycle_submit', round: initialSubmit.round || 1,
             type: 'lifecycle',
             event: 'submit',
             label: localeCopy.copy_c94eb77b73,
@@ -1264,7 +1268,7 @@ Page({
                 interStepLabel = localeCopy.copy_93c50c01c0 + interEvt.stepIndex + localeCopy.copy_493a127a99;
               }
               flowTimeline.push({
-                _key: 'lifecycle_inter_' + interEvt.id,
+                _key: 'lifecycle_inter_' + interEvt.id, round: interEvt.round || 1,
                 type: 'lifecycle',
                 event: interEvt.eventType,
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
@@ -1280,7 +1284,7 @@ Page({
             if (resubmitEvtIdx >= 0) {
               let resubmitEvt = lifecycleEvents[resubmitEvtIdx];
               flowTimeline.push({
-                _key: 'lifecycle_resubmit_r' + round,
+                _key: 'lifecycle_resubmit_r' + round, round,
                 type: 'lifecycle',
                 event: 'resubmit',
                 label: localeCopy.copy_aed5de2d69,
@@ -1295,7 +1299,7 @@ Page({
             } else {
               // Fallback: still show round marker even if no event
               flowTimeline.push({
-                _key: 'lifecycle_resubmit_r' + round,
+                _key: 'lifecycle_resubmit_r' + round, round,
                 type: 'lifecycle',
                 event: 'resubmit',
                 label: localeCopy.copy_aed5de2d69,
@@ -1495,7 +1499,7 @@ Page({
               }
               if (insertIdx > 0) {
                 flowTimeline.splice(insertIdx, 0, {
-                  _key: 'separator_r' + round + '_remaining',
+                  _key: 'separator_r' + round + '_remaining', round,
                   type: 'separator',
                   label: localeCopy.copy_361de3f050 + remainingCount + localeCopy.copy_239cbf0257
                 });
@@ -1513,7 +1517,7 @@ Page({
             continue;
           }
           flowTimeline.push({
-            _key: 'lifecycle_late_' + lateEvt.id,
+            _key: 'lifecycle_late_' + lateEvt.id, round: lateEvt.round || 1,
             type: 'lifecycle',
             event: lateEvt.eventType,
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
@@ -1535,7 +1539,7 @@ Page({
             }
           }
           flowTimeline.push({
-            _key: 'lifecycle_final_approved',
+            _key: 'lifecycle_final_approved', round: lastApproveEvt ? lastApproveEvt.round || 1 : Math.max(1, ...rawSteps.map(step => step.round || 1)),
             type: 'lifecycle',
             event: 'approved',
             label: localeCopy.copy_126a0e1f4c,
@@ -1658,6 +1662,12 @@ Page({
           signingReadFailed: false, pendingActionRead: false,
           submission: submissionView,
           flowTimeline: flowTimeline,
+          flowRounds: groupAuditRounds(submissionView, rawSteps, serverEvents).map(group => ({
+            round: group.round, title: signingCopy.roundTitle.replace('{0}', group.round),
+            status: group.status, statusText: signingCopy.roundStates[group.status] || signingCopy.stopped,
+            signatures: (res.signatures || []).filter(item => Number(item.round || 1) === group.round).map(item => Object.assign({}, item, { signedAtText: formatAuditDetailTime(item.signedAt, item.signedAtReviewStatus) })),
+            expanded: group.expanded, nodes: flowTimeline.filter(node => Number(node.round || 1) === group.round)
+          })),
           rawStepCount: rawSteps.length,
           steps: rawSteps,
           files: res.files || [],
@@ -1837,7 +1847,8 @@ Page({
   signingMaterials() {
     const draft = this._signingDraft;
     if (!draft) return [];
-    return draft.materials.concat(...Object.keys(draft.files).map(key => draft.files[key].exports || []));
+    return draft.materials.concat(...Object.keys(draft.files).map(key => draft.files[key].exports || []))
+      .sort((a, b) => (a.layerOrder || 0) - (b.layerOrder || 0));
   },
   signingMaterialViews() {
     return this.signingMaterials().map(item => {
@@ -1850,15 +1861,30 @@ Page({
     const draft = this.ensureSigningDraft();
     if (!draft) return;
     draft.materials = items.filter(item => !String(item._idx).startsWith('ink_'));
+    draft.materials.forEach(item => { if (item.layerOrder == null) item.layerOrder = require('../../../../utils/auditInk').nextLayerOrder(); });
     this.setData(Object.assign({}, extra || {}, { pendingSignatures: this.signingMaterialViews() }));
   },
   restoreSigningMaterials() { this.setData({ pendingSignatures: this.signingMaterialViews() }); this.updateApprovalWarning(); },
+  prepareSigningPreview(fileId) {
+    const file = (this.data.files || []).find(item => item.id === fileId);
+    if (!file) return null;
+    const page = this._signingDraft && this._signingDraft.files[fileId] ? this._signingDraft.files[fileId].currentPage || 1 : 1;
+    const preview = { fileId, fileHash: file.fileHash, page, scope: orgSession.getSnapshot() };
+    preview.promise = callFunction({ name: 'getAuditFilePreview', data: { fileId, page, previewMaxEdge: 4096, previewFormat: 'webp' } })
+      .then(response => ({ response }), () => ({ response: null }));
+    return preview;
+  },
   openSigningWorkspace(fileId, mode, active, autoOpened) {
     const draft = this.ensureSigningDraft(), file = (this.data.files || []).find(item => item.id === fileId);
     if (!draft || !file || draft.locked || draft.pendingRead) return;
     const rollback = require('../../../../utils/auditInk').clone(draft);
     if (autoOpened) rollback.materials = rollback.materials.filter(item => item._idx !== active);
+    const prepared = this._preparedSigningPreview;
+    const previewRequest = prepared && prepared.fileId === fileId && prepared.fileHash === file.fileHash && orgSession.isCurrent(prepared.scope)
+      ? prepared : this.prepareSigningPreview(fileId);
+    this._preparedSigningPreview = null;
     signingDrafts.setHandoff({ draft, file, mode: mode || 'browse', active: active || '', rollback,
+      previewRequest,
       submissionId: this.data.submissionId, stepId: this.data.activeApprovalStep.id, round: this.data.activeApprovalStep.round || 1,
       confirm: () => { if (this._pageActive && this._signingStepId === this.data.activeApprovalStepId) this.restoreSigningMaterials(); } });
     navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
@@ -2154,9 +2180,10 @@ Page({
     let stampImage = e.currentTarget.dataset.stampImage;
     const stampScope = orgSession.getSnapshot(), selectedFileId = this.data.stampPickFileId;
     if (this.data.stampImageBusy) return;
+    this._preparedSigningPreview = this.prepareSigningPreview(selectedFileId);
     this.setData({ stampImageBusy: true, stampNotice: '' });
     try {
-      const response = await callFunction({ name: 'getMyStampImage', data: { stampId, preview: true, previewMaxEdge: 2048 } });
+      const response = await callFunction({ name: 'getMyStampImage', data: { stampId, preview: true, previewMaxEdge: 2048, previewFormat: 'webp' } });
       if (!orgSession.isCurrent(stampScope) || !this.data.stampPickerVisible || selectedFileId !== this.data.stampPickFileId) return;
       if (response.status !== 'success' || !response.imageData) throw new Error('stamp_unavailable');
       stampImage = response.imageData;

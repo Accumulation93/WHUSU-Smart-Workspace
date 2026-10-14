@@ -1,6 +1,6 @@
 <template>
   <div class="page signing-page stack">
-    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :rollback="handoff.rollback" @confirm="done" @cancel="back" />
+    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :rollback="handoff.rollback" :initial-preview="initialPreview" @confirm="done" @cancel="back" />
     <section v-else class="card stack"><p>{{ checking ? text.loading : notice }}</p><button v-if="retryable" class="btn-quiet" @click="validate">{{ text.retry }}</button><button class="btn btn-secondary" @click="back">{{ text.back }}</button></section>
   </div>
 </template>
@@ -15,12 +15,15 @@ import { auditRequests } from '@/runtime/auditRequests.js';
 import text from '@/locales/zh-CN/shared/auditSigning.js';
 const router=useRouter(), handoff=getSigningHandoff();
 const requests=auditRequests(), valid=ref(false), checking=ref(false), retryable=ref(false), notice=ref(text.draftLost);
+let initialPreview=null;
 let alive=true;
 async function validate(){
   if(!handoff || handoff!==getSigningHandoff() || handoff.draft.locked)return;
   checking.value=true;retryable.value=false;
   try {
     if(handoff.pad){valid.value=true;return;}
+    const page=handoff.draft.files[handoff.file.id]?.currentPage||1;
+    initialPreview={page,promise:requests.call('getAuditFilePreview',{fileId:handoff.file.id,page,previewMaxEdge:4096,previewFormat:'webp'}).then(response=>response,()=>null)};
     const detail=requireSuccess(await requests.call('getSubmissionDetail',{submissionId:handoff.submissionId}));
     if(!alive || handoff!==getSigningHandoff())return;
     if(!signingStepCurrent(detail,handoff)){handoff.draft.locked=true;notice.value=text.stale;return;}

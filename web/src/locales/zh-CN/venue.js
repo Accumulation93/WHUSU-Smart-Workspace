@@ -1,7 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminPersonnel from './shared/adminPersonnel.js';
-import src_auditVerification from './shared/auditVerification.js';
+import src_auditSigning from './shared/auditSigning.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
@@ -26,8 +26,8 @@ export default Object.freeze({
   bookingAssignment: src_myVenueBookings.bookingAssignment,
   approvalCommentLabel: src_submissionDetail.copy_3b3b392755,
   statusPending: src_adminPersonnel.hrTemplateSwitchIncompatiblePending,
-  statusApproved: src_auditVerification.text.status.approved,
-  statusRejected: src_auditVerification.text.status.rejected,
+  statusApproved: src_auditSigning.roundStates.approved,
+  statusRejected: src_auditSigning.roundStates.rejected,
   statusCancelled: src_myVenueBookings.copy_fd4601c1f9,
   statusInUse: src_venueBooking.copy_1c5bbf664c,
   cancelAction: src_myVenueBookings.copy_059dd7bc2c,

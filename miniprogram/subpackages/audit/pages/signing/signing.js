@@ -11,7 +11,7 @@ const previewFiles = require('../../../../utils/auditPreviewFiles');
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, fileName: '', fileImage: '', fileId: '',
     page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '',
-    loading: true, ready: false, notice: '', saving: false, materialSize: 100, materialRotation: 0 },
+    loading: true, ready: false, notice: '', saving: false, materialSize: 100, materialRotation: 0, layers: [], layerIndex: 0 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
     // 可重建副本清理不参与打开文件；原生文件回调停滞不能挡住内存预览。
@@ -48,10 +48,28 @@ Page({
     const materials = this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId).map(item => ({
       _idx: item._idx, fileId: item.fileId, stampName: item.stampName || '', signatureType: item.signatureType,
       positionX: item.positionX, positionY: item.positionY, size: item.size, rotation: item.rotation,
-      page: item.page, widthRatio: item.widthRatio == null ? null : item.widthRatio
+      page: item.page, widthRatio: item.widthRatio == null ? null : item.widthRatio, layerOrder: item.layerOrder
     }));
     const active = materials.find(item => item._idx === this.data.activeId);
     this.setData({ materials, materialSize: active ? (active.size || 1) * 100 : 100, materialRotation: active ? active.rotation || 0 : 0 });
+    this.refreshLayers();
+  },
+  refreshLayers() {
+    if (!this._fileDraft || !this._fileDraft.history) return;
+    const layers = ink.signingLayers(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page)
+      .map((layer, index) => ({ id: layer.id, label: (layer.kind === 'draw' ? copy.stroke : layer.material.stampName || copy.signature) + ' ' + (index + 1) }));
+    this.setData({ layers, layerIndex: Math.max(0, layers.findIndex(layer => layer.id === this.data.activeId)) });
+  },
+  chooseLayer(event) {
+    const layer = this.data.layers[Number(event.detail.value)];
+    if (layer) { this.setData({ activeId: layer.id, layerIndex: Number(event.detail.value) }); this.refreshMaterials(); }
+  },
+  reorderLayer(event) {
+    const layer = this.data.layers[this.data.layerIndex];
+    if (!layer || !this.data.ready || this.data.saving) return;
+    if (ink.moveLayer(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page, layer.id, Number(event.currentTarget.dataset.direction))) {
+      this.setData({ activeId: layer.id }); this.refreshMaterials();
+    }
   },
   async validateStep() {
     if (!this._handoff || this._handoff !== drafts.getHandoff() || this._handoff.draft.locked) return;
@@ -81,7 +99,12 @@ Page({
       if (!value) {
         if (this._handoff.pad) value = { src: '', width: 800, height: 400, totalPages: 1 };
         else {
-          const response = await callFunction({ name: 'getAuditFilePreview', data: { fileId: this.data.fileId, page, previewMaxEdge: 4096 } });
+          const prepared = this._handoff.previewRequest;
+          this._handoff.previewRequest = null;
+          const response = prepared && prepared.fileId === this.data.fileId && prepared.page === page
+            ? (await prepared.promise).response
+            : await callFunction({ name: 'getAuditFilePreview', data: { fileId: this.data.fileId, page, previewMaxEdge: 4096, previewFormat: 'webp' } });
+          if (!response) throw new Error('preview_unavailable');
           console.info('[audit:signing:preview]', response.status, response.previewMime, Boolean(response.data), response.requestId || '');
           if (response.status !== 'success' || !response.data || !String(response.previewMime).startsWith('image/')) throw new Error('preview_unavailable');
           // 预览优先保留在内存，避免本地持久空间已满时整份文件打不开。
@@ -111,6 +134,7 @@ Page({
     this.setData({ ready: true, width: this.data.width || dimensions.width, height: this.data.height || dimensions.height });
     if (this._readyTimer) clearTimeout(this._readyTimer); this._readyTimer = null;
     if (this._waiter) { this._waiter.resolve(); this._waiter = null; }
+    this.refreshLayers();
   },
   onCanvasError() {
     if (this._readyTimer) clearTimeout(this._readyTimer); this._readyTimer = null;
@@ -153,8 +177,11 @@ Page({
       for (const page of pages) {
         if (page !== this.data.page) await this.loadPage(page);
         if (!this.data.ready) throw new Error('preview_unavailable');
-        const exported = await this.selectComponent('#signingPad').exportPage();
-        if (exported) exports.push(Object.assign({ _idx: 'ink_' + this.data.fileId + '_' + page, fileId: this.data.fileId, signatureType: 'signature', size: 1, rotation: 0 }, exported));
+        const layers = this._handoff.pad ? [null] : ink.inkExportGroups(history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), page);
+        for (const layer of layers) {
+          const exported = await this.selectComponent('#signingPad').exportPage(layer);
+          if (exported) exports.push(Object.assign({ _idx: 'ink_' + this.data.fileId + '_' + (layer ? layer.id : page), layerOrder: layer ? layer.order : 0, fileId: this.data.fileId, signatureType: 'signature', size: 1, rotation: 0 }, exported));
+        }
       }
       if (this._handoff.pad && !exports.length) { this.setData({ notice: copy.empty }); return; }
       this._fileDraft.exports = exports; this._finished = true;

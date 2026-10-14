@@ -15,6 +15,8 @@ module.exports = {
   stampLoading: '正在加载可用印章', stampEmpty: '暂无可用印章', stampFailed: '印章加载失败，请重试',
   imageLoading: '正在加载印章图片', imageFailed: '印章图片加载失败，请重试',
   processing: '处理中', future: '未到达', stopped: '已终止', withdrawn: '已撤回',
+  roundTitle: '第 {0} 轮', roundStates: { approved: '已通过', rejected: '已驳回', withdrawn: '已撤回', in_progress: '处理中', pending: '待提交', draft: '草稿', stopped: '已终止' },
+  layers: '图层', stroke: '笔迹', layerUp: '上移一层', layerDown: '下移一层',
   history: '撤回前记录', showHistory: '查看撤回前记录', hideHistory: '收起历史记录',
   actorUnknown: '历史处理人未记录', assignmentUnknown: '历史岗位信息缺失',
   details: '详细检查', digest: '技术信息', certificates: '证书信息', summary: '验证结果',
