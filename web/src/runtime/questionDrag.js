@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted, reactive, watch } from 'vue';
 
-export function useQuestionDrag(pane, questions, blocked, reorder) {
+export function useQuestionDrag(pane, questions, blocked, reorder, options = {}) {
   const state = reactive({ active: false, source: -1, target: -1, question: null, style: {} });
   let pending = null, timer = null, frame = null, pointer = null, originY = 0, latestY = 0, fingerOffset = 0;
   const clear = () => {
@@ -9,11 +9,12 @@ export function useQuestionDrag(pane, questions, blocked, reorder) {
   };
   function measure() {
     if (!state.active || !pane.value) return;
-    const bounds = pane.value.getBoundingClientRect();
+    const rawBounds = pane.value.getBoundingClientRect();
+    const bounds = options.pageScroll ? { top: Math.max(0, rawBounds.top), bottom: Math.min(window.innerHeight, rawBounds.bottom), height: Math.max(0, Math.min(window.innerHeight, rawBounds.bottom) - Math.max(0, rawBounds.top)) } : rawBounds;
     const edge = Math.min(70, bounds.height * 0.22);
     const delta = latestY < bounds.top + edge ? -Math.min(15, (bounds.top + edge - latestY) / 5)
       : latestY > bounds.bottom - edge ? Math.min(15, (latestY - bounds.bottom + edge) / 5) : 0;
-    if (delta) pane.value.scrollTop += delta;
+    if (delta) { if (options.pageScroll) window.scrollBy(0, delta); else pane.value.scrollTop += delta; }
     const cards = Array.from(pane.value.querySelectorAll('[data-question-key]'));
     let insertion = cards.length;
     for (let index = 0; index < cards.length; index++) {

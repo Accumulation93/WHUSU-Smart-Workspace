@@ -553,6 +553,7 @@ function buildRuleListItem(rule = {}) {
     scorerDepartment: String(rule.scorerDepartment || '').trim(),
     scorerIdentityId: String(rule.scorerIdentityId || '').trim(),
     scorerIdentity: String(rule.scorerIdentity || '').trim(),
+    allowSelfAssessment: rule.allowSelfAssessment !== false,
     clauses,
     ruleCount: clauses.length,
     clausesText: clauses.length

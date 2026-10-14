@@ -393,6 +393,7 @@ module.exports = Behavior({
             activityName: currentActivity.name || '',
             scorerDepartmentId: rule.scorerDepartmentId,
             scorerIdentityId: rule.scorerIdentityId,
+            allowSelfAssessment: rule.allowSelfAssessment !== false,
             clauses,
             mode: 'replace'
           }));

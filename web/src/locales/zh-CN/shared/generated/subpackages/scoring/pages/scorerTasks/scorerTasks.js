@@ -29,7 +29,7 @@ const sharedModule = Object.freeze({
   copy_8029e5c326: "刷新列表",
   copy_8dfeae7ced: "正在加载…",
   copy_937ade982a: "部门与身份类别",
-  copy_9ce810a320: "按姓名或学号搜索",
+  copy_9ce810a320: "按姓名或岗位信息搜索",
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_b0bf25e2b8: "导出当前名单",
   copy_b7c3654faa: "没有匹配的评分人",

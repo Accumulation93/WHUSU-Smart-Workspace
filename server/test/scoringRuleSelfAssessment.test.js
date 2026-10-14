@@ -1,0 +1,41 @@
+'use strict';
+const assert=require('node:assert/strict');
+const utils=require('../../miniprogram/subpackages/scoring/pages/admin/modules/adminUtils');
+let definition;
+global.Behavior=(value)=>{definition=value;return value;};
+global.wx={showToast(){},showLoading(){},hideLoading(){}};
+require('../../miniprogram/subpackages/scoring/pages/admin/modules/ruleBehavior');
+delete global.Behavior;
+const clause={scopeType:'all_people',targetIdentityId:'',requireAllComplete:false,templateConfigs:[{templateId:'template-a',templateName:'模板 A',weight:'1',sortOrder:'1',calculationMethod:'weighted_average',trimHighCount:0,trimLowCount:0}]};
+const row={id:'rule-a',activityId:'activity-a',scorerDepartmentId:'department-a',scorerDepartment:'部门 A',scorerIdentityId:'identity-a',scorerIdentity:'身份 A',allowSelfAssessment:false,clauses:[clause]};
+const page={data:{ruleList:[],ruleListView:[],ruleFilters:utils.emptyRuleFilters(),selectedRuleIds:[],currentActivityId:'activity-a',activityList:[{id:'activity-a',name:'活动 A'}],ruleForm:utils.emptyRuleForm()},setData(patch){Object.assign(this.data,patch);},setLoading(){},async loadRuleList(){}};
+page.setRuleListState=definition.methods.setRuleListState;
+page.setRuleListState([row],['rule-a']);
+assert.equal(page.data.ruleList[0].allowSelfAssessment,false);
+definition.methods.editRule.call(page,{currentTarget:{dataset:{id:'rule-a'}}});
+assert.equal(page.data.ruleForm.allowSelfAssessment,false);
+assert.equal(utils.buildRuleListItem({...row,allowSelfAssessment:true}).allowSelfAssessment,true);
+assert.equal(utils.buildRuleListItem({...row,allowSelfAssessment:undefined}).allowSelfAssessment,true);
+const calls=[];
+page.callCloud=async(name,data)=>{calls.push({name,data});return {status:'success'};};
+(async()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const webSource=fs.readFileSync(path.resolve(__dirname,'../../web/src/runtime/scoringRuleForm.js'),'utf8');
+ const lines=webSource.split('\n');
+ assert(lines[0].startsWith('import localeCopy from '));
+ lines[0]='const localeCopy='+JSON.stringify(require('../../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils'))+';';
+ const web=await import('data:text/javascript;base64,'+Buffer.from(lines.join('\n')).toString('base64'));
+ assert.deepEqual(web.emptyRuleForm(),utils.emptyRuleForm());
+ for(const scope of utils.RULE_SCOPE_OPTIONS){
+   const form={...utils.emptyRuleForm(),clauseScope:scope.value,clauseTargetIdentityId:'identity-b',clauseTargetIdentity:'身份 B',clauseTemplateId:'template-a',clauseTemplateName:'模板 A',clauseTemplateWeight:'2.5',clauseCalculationMethod:'trim_extremes',clauseTrimHighCount:1,clauseTrimLowCount:2};
+   assert.deepEqual(web.buildRuleClausesForSave(form),utils.buildRuleClausesForSave(form));
+   assert.deepEqual(web.buildRuleClausesForBatchApply({...form,clauses:[clause]}),utils.buildRuleClausesForBatchApply({...form,clauses:[clause]}));
+ }
+ await definition.methods.applyClausesToSelectedRules.call(page);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].name,'batchSaveRateRules');
+ assert.equal(calls[0].data.rules[0].allowSelfAssessment,false);
+ assert.equal(calls[0].data.rules[0].scorerDepartmentId,'department-a');
+ assert.deepEqual(calls[0].data.rules[0].clauses,page.data.ruleForm.clauses);
+ console.log('真实小程序类别读取、编辑与批量参数保留关闭自评，通过');
+})().catch(error=>{console.error(error);process.exitCode=1;});

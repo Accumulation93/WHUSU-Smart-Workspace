@@ -120,7 +120,7 @@
           <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
               <text class="ui-data-cell-label">{{localeCopy.copy_12cd162fda}}</text>
-              <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view><view class="task-meta">{{item.targetStudentId}}</view></view>
+              <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view></view>
             </view>
             <view class="popup-col popup-col-dept ui-data-cell">
               <text class="ui-data-cell-label">{{localeCopy.copy_937ade982a}}</text>

@@ -15,6 +15,13 @@ assert.deepEqual(clean,{name:'成员 A',nested:[{score:8}],submittedAt:now});
 assert.equal(original.student_id,secret,'不得修改计算或历史源对象');
 assert.equal(privacy.publicScoringHeaders([{key:'name'},{key:'studentId'},{key:'scorerStudentId'},{key:'score'}]).length,2);
 
+// 前端发布必须同时取消评分学号绑定，避免旧缓存或空值留下身份信息表面。
+const adminWxml=fs.readFileSync(path.resolve(__dirname,'../../miniprogram/subpackages/scoring/pages/admin/admin.wxml'),'utf8');
+const tasksWxml=fs.readFileSync(path.resolve(__dirname,'../../miniprogram/subpackages/scoring/pages/scorerTasks/scorerTasks.wxml'),'utf8');
+assert.equal(/\bitem\.(?:scorerStudentId|targetStudentId)|\bm\.studentId/.test(adminWxml),false,'评分与评优展示不得绑定学号');
+assert.equal(/studentId|StudentId/.test(tasksWxml),false,'未完成任务展示不得绑定学号');
+assert(adminWxml.includes('hrForm.studentId'),'本人及人事管理的合法输入仍须保留');
+
 let organization='org-a';
 const activity={id:'activity-a',name:'活动 A',org_id:'org-a'};
 const cache={historicalIntegrityVerified:true,activity,overviewRows:[{id:'assignment-a',name:'成员 A',studentId:secret,nested:{targetStudentId:secret},finalScore:8}],stats:{totalMembers:1},filterOptions:{}};
