@@ -16,6 +16,28 @@ const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
   {
+    source: 'shared/auditStepView.js',
+    targets: [
+      { path: 'miniprogram/subpackages/audit/utils/auditStepView.js' },
+      { path: 'web/src/shared/auditStepView.js', format: 'esm' }
+    ]
+  },
+  {
+    source: 'shared/auditSignatureGeometry.js',
+    targets: [
+      { path: 'miniprogram/subpackages/audit/utils/auditSignatureGeometry.js' },
+      { path: 'web/src/shared/auditSignatureGeometry.js', format: 'esm' },
+      { path: 'server/src/modules/audit/utils/auditSignatureGeometry.js' }
+    ]
+  },
+  {
+    source: 'shared/auditInk.js',
+    targets: [
+      { path: 'miniprogram/utils/auditInk.js' },
+      { path: 'web/src/shared/auditInk.js', format: 'esm' }
+    ]
+  },
+  {
     source: 'shared/venueAdminTimeSelection.js',
     targets: [
       { path: 'miniprogram/subpackages/venue/utils/adminTimeSelection.js' },

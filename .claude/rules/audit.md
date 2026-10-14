@@ -13,7 +13,7 @@ paths: "miniprogram/subpackages/audit/**"
 ```
 audit/
 ├── styles/blue-polish.wxss
-├── components/signaturePad/   # 普通 View 实时笔迹 + 隐藏 Canvas 1:1 导出器
+├── components/signaturePad/   # 独立页面 Canvas 2D 连续路径与透明手写层
 └── pages/
     ├── submissionDetail/       # 核心详情、审批与重提交页面
     ├── pendingApprovals/       # 待审批列表（30s 轮询）
@@ -75,15 +75,16 @@ audit/
 
 ---
 
-## 3. signaturePad 组件 — 视口绝对坐标契约
+## 3. signaturePad 组件 — 独立页面连续路径
 
-签名板固定使用普通视图实时笔迹，原生 Canvas 只负责隐藏导出：
+2026-10-14 按用户明确要求改为独立 signing 页面，签名组件使用 Canvas 2D 连续曲线。完整约束见 docs/ui-kit.md“签名板与文件定位坐标硬契约”。
 
-1. 可视白板为普通 `view`，实时线段也为普通 `view`；可视原生 Canvas 属于硬性违规。
-2. 白板 rect、`Touch.clientX/clientY` 和线段端点统一为视口 CSS px（逻辑像素）绝对坐标。线段事实数据保存 `screenX1/Y1/screenX2/Y2`，禁止 scrollTop、DPR、rpx 或固定偏移。
-3. 白板完成布局、尺寸变化或弹窗重新显示后重新测量 rect；普通视图渲染时才根据当前 rect 从绝对端点减一次 `left/top`，不得把旧 rect 推导的局部坐标写入事实数据。白板与笔迹层必须裁切。
-4. 隐藏 Canvas 不绑定触摸，只在确认时将绝对端点投影到白板局部坐标并导出 1:1 PNG；导出 buffer 按白板实际可视宽高统一取整，禁止 DPR 放大。
-5. 严格 UI 审计必须检查上述结构；改动后必须用真实鼠标/触控事件验证，禁止直接调用组件方法生成验收线。
+1. 可视画布仅位于独立签署页普通布局，禁止 Portal、祖先 transform 和入场位移动画；普通弹窗不得沿用此例外。
+2. 每次落笔只有一条路径；圆头、圆角曲线与单点保留，禁止 view 小线段。两端唯一模型为 shared/auditInk.js，实时与导出一致。
+3. 当前 viewport rect 与 clientX/clientY、文件相机转换一次为页内比例；不加 scrollTop、DPR 或经验偏移。尺寸变化和滚动后重新测量。
+4. 本步骤草稿只保存在当前登录内存；确认返回保留完整撤销历史，取消恢复，跨附件隔离、PDF 跨页定位；正式处理成功锁定。
+5. 透明手写层与文件、历史签章、印章对象分离；局部擦除和附件所有页清空均可撤销。默认纯黑，逐笔独立颜色。
+6. 必须以真实鼠标/触控验证连续笔迹、颜色、坐标及导出；同时核对最终文件与验签，不用程序绘图替代现场操作。
 
 ---
 

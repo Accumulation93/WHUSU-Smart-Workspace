@@ -4077,6 +4077,12 @@ scroll-view {
   border: 1rpx solid rgba(226,237,247,0.88);
   box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.04);
 }
+
+/* 验签标题短蓝条只占标题一行，和正文保持独立间距。 */
+.audit-verification-section .section-title,
+.audit-verification-section .list-title { padding-left: var(--ui-section-title-inset,20rpx); }
+.audit-verification-section .section-title::before,
+.audit-verification-section .list-title::before { top: 0.3em; height: 1em; width: 3px; transform: none; border-radius: 2px; box-shadow: none; }
 .audit-verify-result-badge {
   font-size: var(--ui-type-section); font-weight: 700; line-height: 1.4; margin-bottom: 10rpx;
 }

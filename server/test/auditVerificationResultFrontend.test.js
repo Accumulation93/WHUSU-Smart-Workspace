@@ -77,15 +77,21 @@ definition.methods.present.call(component, null);
 assert.equal(component.data.view, null);
 const fileMarkup = fs.readFileSync(path.join(root, 'miniprogram/components/audit-verification-result/audit-verification-result.wxml'), 'utf8');
 assert(!fileMarkup.includes('check.reasonCode'), '报告不得直接展示系统原因码');
-assert(!fileMarkup.includes('expanded'), '技术报告不是默认页内展开区');
+assert(fileMarkup.includes("report && expanded['checks_' + fileIndex]"), '详细检查必须同时要求独立报告模式与显式展开');
+assert(fileMarkup.includes("report && expanded['technical_' + fileIndex]"), '专业内容默认折叠，只在独立报告中展开');
+assert.deepEqual(Object.keys(component.data.expanded), [], '每份新结果都恢复默认折叠');
 assert(fileMarkup.includes('bindtap="openReport"'));
 for (const className of ['crypto-step-header', 'crypto-person-reference', 'crypto-organization', 'crypto-assignment', 'crypto-identity']) {
   assert(fileMarkup.includes(className), '逐步身份需要独立语义层级：' + className);
 }
 assert(!/avatar|initial/i.test(fileMarkup), '验签人不得恢复姓氏装饰头像');
-assert(fileMarkup.indexOf('copy.adobeTrustNotice') > fileMarkup.indexOf('wx:if="{{report}}" class="crypto-details"'), 'Adobe 信任说明仅在报告内');
-assert(fileMarkup.includes('wx:if="{{report && file.platformVerified}}" class="crypto-note">{{copy.hostedNotice}}'));
-assert(fileMarkup.includes('wx:if="{{file.platformVerified}}" class="crypto-details"'));
+assert(fileMarkup.indexOf('copy.adobeTrustNotice') > fileMarkup.indexOf("report && expanded['technical_' + fileIndex]"), 'Adobe 信任说明仅在报告技术区');
+assert(fileMarkup.includes('wx:if="{{file.platformVerified}}" class="crypto-note">{{copy.hostedNotice}}'));
+assert(fileMarkup.includes("file.platformVerified && expanded['certificates_' + fileIndex]"), '证书只在来源核实且明确展开后展示');
+definition.methods.present.call(component, { verificationVersion: 2, overallStatus: 'failed', files: [{ overallStatus: 'failed', checks: {
+  ...verifiedChecks, platformCertificate: { status: 'failed' }, externalTrust: { status: 'failed' }
+} }] });
+assert.equal(component.data.view.files[0].failures.length, 2, '专业检查中的失败也必须在默认摘要显示');
 for (const page of ['miniprogram/subpackages/audit/pages/verification/verification', 'miniprogram/subpackages/scoring/pages/admin/admin',
   'miniprogram/subpackages/audit/pages/verificationReport/verificationReport']) {
   const json = JSON.parse(fs.readFileSync(path.join(root, page + '.json'), 'utf8'));

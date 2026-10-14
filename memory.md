@@ -35,9 +35,9 @@ server/src/
 
 ### 签名板与文件定位
 
-- 可视白板和实时笔迹使用普通 `view`，隐藏原生 Canvas 只负责 1:1 导出。
-- 白板 rect、触点 `clientX/clientY`、线段端点统一使用视口 CSS px（逻辑像素）绝对坐标；禁止 `pageX/pageY`、scrollTop、DPR、rpx 和固定偏移。
-- 白板完成布局、尺寸变化或弹窗重新显示后重新测量 rect；事实数据只保存 `screenX/screenY` 绝对端点，样式生成时才根据当前 rect 减一次 `left/top`。
+- 历史普通 view 小线段方案已由 2026-10-14 用户明确要求替代：独立签署页使用共享 Canvas 2D 连续路径，当前完整约束以 docs/ui-kit.md 为准。
+- 白板 rect 与触点 `clientX/clientY` 统一使用视口 CSS px；连续路径经文件相机转换后保存页内比例坐标。禁止 `pageX/pageY`、scrollTop、DPR、rpx 和固定偏移。
+- 白板布局、尺寸变化与页面滚动后重新测量 viewport rect；clientX/clientY 经文件相机一次转换为文件页内比例，缩放不改路径。
 - 文件预览只保存 `positionX/positionY` 归一化中心点，图片保持宽高比；图片/PDF 合成和 PDF Widget 各自只做一次坐标转换。
 - 必须用真实鼠标/触控轨迹验证指针、白板和笔迹逐点重合，静态检查不能代替现场验证。
 

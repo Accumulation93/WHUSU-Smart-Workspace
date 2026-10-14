@@ -6,8 +6,10 @@
 .crypto-file-name,.crypto-person { font-size: var(--ui-type-emphasis); font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
 .crypto-file-state { margin-top: var(--ui-label-gap,8rpx); }
 .crypto-check-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-field-gap,16rpx); margin: var(--ui-field-gap,16rpx) 0; }
-.crypto-check { min-width: 0; padding-left: var(--ui-label-gap,8rpx); border-left: 2px solid rgba(147,197,253,0.64); }
+.crypto-check { min-width: 0; }
 .crypto-check-label { font-size: var(--ui-type-label); font-weight: 700; }
+.crypto-check .crypto-check-label { position: relative; padding-left: var(--ui-section-title-inset,20rpx); }
+.crypto-check .crypto-check-label::before { content: ''; position: absolute; left: 0; top: 0.3em; width: 3px; height: 1em; border-radius: 2px; background: linear-gradient(180deg,#2563eb,#60a5fa); }
 .crypto-state--passed { color: #15803d; }
 .crypto-state--failed { color: #b91c1c; }
 .crypto-state--indeterminate { color: #64748b; }

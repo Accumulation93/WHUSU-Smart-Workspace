@@ -5,7 +5,8 @@
   <view class="section-stack">
     <view class="card" wx:if="{{creating}}">
       <view class="section-title">{{editingSignature ? localeCopy.copy_ae48afe9fc : localeCopy.copy_c103b678f0}}</view>
-      <signature-pad initialImage="{{editingSignature.imageData || ''}}" bindconfirm="onSignatureDrawConfirm" />
+      <image wx:if="{{signatureDrawImage}}" src="{{signatureDrawImage}}" mode="widthFix" class="audit-sig-preview" />
+      <view class="audit-btn-bar"><button class="secondary-btn" bindtap="openSignatureWorkspace" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.rewrite}}</button><button class="primary-btn" disabled="{{!signatureDrawImage || loading}}" bindtap="saveDrawnSignature" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.saveTemplate}}</button></view>
       <view class="audit-btn-bar"><button class="secondary-btn ui-motion-button" bindtap="cancelCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button></view>
     </view>
 

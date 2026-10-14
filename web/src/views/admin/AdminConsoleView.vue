@@ -33,6 +33,10 @@
     <AdminTemplatePanel v-else-if="activeTab === 'templates'" :state="templateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminRulePanel v-else-if="activeTab === 'rules'" :state="ruleState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminResultPanel v-else-if="activeTab === 'results'" :state="resultState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
+    <AdminAuditTemplatePanel v-else-if="activeTab === 'auditTemplates'" :state="auditTemplateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
+    <AdminAuditStampPanel v-else-if="activeTab === 'auditStamps'" :state="auditStampState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
+    <AdminAuditVerificationPanel v-else-if="activeTab === 'auditVerification'" :state="auditVerificationState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
+    <AdminAuditSubmissionPanel v-else-if="activeTab === 'auditSubmissions'" />
     <AdminSettingsPanel v-else-if="activeTab === 'settings'" :state="settingsState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo'" class="card stack">
@@ -96,6 +100,10 @@ import AdminTemplatePanel from '@/components/AdminTemplatePanel.vue';
 import AdminSettingsPanel from '@/components/AdminSettingsPanel.vue';
 import AdminRulePanel from '@/components/AdminRulePanel.vue';
 import AdminResultPanel from '@/components/AdminResultPanel.vue';
+import AdminAuditTemplatePanel from '@/components/AdminAuditTemplatePanel.vue';
+import AdminAuditStampPanel from '@/components/AdminAuditStampPanel.vue';
+import AdminAuditVerificationPanel from '@/components/AdminAuditVerificationPanel.vue';
+import AdminAuditSubmissionPanel from '@/components/AdminAuditSubmissionPanel.vue';
 import resultCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/resultBehavior.js';
 import copy from '@/locales/zh-CN/index.js';
 import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
@@ -123,6 +131,10 @@ const settingsState = reactive({ timezone: 8, dirty: false, pending: false, clos
 const ruleState = reactive({form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
 const emptyResultState = () => ({ filters: { department: resultCopy.copy_31d4595959, identity: resultCopy.copy_31d4595959, workGroup: resultCopy.copy_31d4595959, viewMode: 'overview', sortMode: 'score_desc' }, activityId: '', pending: false, target: null, department: '', scorer: null });
 const resultState = reactive(emptyResultState());
+const emptyAuditTemplate=()=>({id:'',name:'',description:'',starterType:'conditions',starterConditions:[],resubmitMode:'fresh',steps:[]});
+const auditTemplateState=reactive({form:emptyAuditTemplate(),pending:false,resetAfterRead:false});
+const auditStampState=reactive({form:{id:'',name:'',imageData:''},pending:false,resetAfterRead:false});
+const auditVerificationState=reactive({grantee:null,pending:false});
 const dictionaryStates = reactive(Object.fromEntries(['departments', 'workGroups', 'identities'].map(kind => [kind, {
   form: { id: '', name: '', description: '', departmentId: '' }, resetAfterRead: false
 }])));
@@ -224,6 +236,9 @@ watch(scope, () => {
   Object.assign(settingsState, { timezone: 8, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
   Object.assign(ruleState, {form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
   Object.assign(resultState, emptyResultState());
+  Object.assign(auditTemplateState,{form:emptyAuditTemplate(),pending:false,resetAfterRead:false});
+  Object.assign(auditStampState,{form:{id:'',name:'',imageData:''},pending:false,resetAfterRead:false});
+  Object.assign(auditVerificationState,{grantee:null,pending:false});
   for (const state of Object.values(dictionaryStates)) {
     Object.assign(state.form, { id: '', name: '', description: '', departmentId: '' }); state.resetAfterRead = false;
   }

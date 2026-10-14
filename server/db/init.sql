@@ -817,6 +817,7 @@ CREATE TABLE IF NOT EXISTS audit_submission_signatures (
   position_x DECIMAL(10,4) NOT NULL DEFAULT 0,
   position_y DECIMAL(10,4) NOT NULL DEFAULT 0,
   signature_size DECIMAL(6,3) NOT NULL DEFAULT 1,
+  width_ratio DECIMAL(10,8) NULL,
   rotation_degrees DECIMAL(7,2) NOT NULL DEFAULT 0,
   page INT NOT NULL DEFAULT 1,
   signer_hr_id VARCHAR(64) NOT NULL,

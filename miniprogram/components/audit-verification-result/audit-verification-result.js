@@ -1,4 +1,5 @@
 const copy = require('../../locales/zh-CN/signingEvidence');
+const signing = require('../../locales/zh-CN/auditSigning');
 const { formatDetailTime } = require('../../utils/dateTime');
 const reportTransfer = require('../../utils/auditVerificationReport');
 const orgSession = require('../../utils/orgSession');
@@ -21,9 +22,14 @@ Component({
     resultJson: { type: String, value: '', observer: 'presentJson' },
     report: { type: Boolean, value: false }
   },
-  data: { copy, view: null, exporting: false },
+  data: { copy, signing, view: null, exporting: false, expanded: {} },
   lifetimes: { detached: function() { orgSession.invalidateRequests(this); } },
   methods: {
+    toggleDetails(event) {
+      const key = event.currentTarget.dataset.key;
+      if (!/^(checks|technical|certificates)_\d+$/.test(key)) return;
+      this.setData({ ['expanded.' + key]: !this.data.expanded[key] });
+    },
     presentJson: function(value) {
       if (!value) { this.present(null); return; }
       try { this.present(JSON.parse(value)); }
@@ -55,6 +61,8 @@ Component({
           const value = file.checks && file.checks[key] || {};
           return { key, label: copy.fileChecks[key], state: status(value.status), text: copy.simpleResults[key][status(value.status)] };
         }),
+        failures: ['platformCertificate', 'externalTrust'].filter(key => file.checks && file.checks[key] && file.checks[key].status === 'failed')
+          .map(key => ({ key, text: key === 'platformCertificate' ? signing.sourceFailure : signing.externalFailure })),
         certificates: (result.verificationVersion === 2 && platformIdentityVerified(file) && Array.isArray(file.certificates) ? file.certificates : []).filter(item => item
           && /^[a-f0-9]{64}$/.test(item.fingerprint) && typeof item.derBase64 === 'string'
           && item.derBase64.length <= 90000).map(item => ({ fingerprint: item.fingerprint, derBase64: item.derBase64 })),
@@ -76,7 +84,7 @@ Component({
       const fileSignatureValid = fileOnly && fileChecks.documentIntegrity && fileChecks.documentIntegrity.status === 'passed'
         && fileChecks.cmsSignature && fileChecks.cmsSignature.status === 'passed';
       const unsigned = fileOnly && fileChecks.cmsSignature && fileChecks.cmsSignature.reasonCode === 'pdf_unsigned';
-      this.setData({ view: { state: overall,
+      this.setData({ expanded: {}, view: { state: overall,
         title: fileSignatureValid ? copy.fileOnlyValid : unsigned ? copy.unsignedFile : copy.statuses[overall],
         notice: fileOnly ? copy.fileOnlyNotice : '',
         source: copy.sources[result.verificationSource] || copy.noFiles, files } });

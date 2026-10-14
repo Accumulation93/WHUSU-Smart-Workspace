@@ -1312,6 +1312,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         positionX: parseFloat(sig.position_x) || 0,
         positionY: parseFloat(sig.position_y) || 0,
         size: parseFloat(sig.signature_size) || 1,
+        widthRatio: sig.width_ratio == null ? null : Number(sig.width_ratio),
         rotation: parseFloat(sig.rotation_degrees) || 0,
         page: sig.page || 1,
         signerHrId: safeString(sig.signer_hr_id),
@@ -1589,7 +1590,8 @@ router.post('/approveStep', async (req, res) => {
         inputDigest: hashFile(file.approval_source_buffer), inputPath: file.file_path,
         buffer: finalBuffer, finalPdf: !nextStep && finalMimeType === 'application/pdf',
         materials: fileSignatures.map(material => ({ type: material.signatureType, digest: material.materialImageHash,
-          x: material.positionX, y: material.positionY, page: material.page })),
+          x: material.positionX, y: material.positionY, page: material.page,
+          ...(material.widthRatio == null ? {} : { widthRatio: material.widthRatio, size: material.size, rotation: material.rotation }) })),
         signaturePosition: latestPlacement ? { x: latestPlacement.positionX, y: latestPlacement.positionY, page: latestPlacement.page || 1 } : null
       });
       finalBuffer = evidence.buffer;
@@ -1662,6 +1664,7 @@ router.post('/approveStep', async (req, res) => {
         positionX: sigData.positionX,
         positionY: sigData.positionY,
         size: sigData.size,
+        widthRatio: sigData.widthRatio,
         rotation: sigData.rotation,
         page: sigData.page,
         signerHrId: hrId,
@@ -2883,11 +2886,12 @@ router.post('/listMyStamps', async (req, res) => {
       const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const stampRows = await stampGrantModel.getAuthorizedStamps(actorContext.assignment);
+    const metadataOnly = req.body.includeImageData === false;
+    const stampRows = await stampGrantModel.getAuthorizedStamps(actorContext.assignment, undefined, undefined, { metadataOnly });
     const stamps = stampRows.map(s => ({
       id: safeString(s.id),
       name: safeString(s.name),
-      imageData: s.image_data || ''
+      ...(metadataOnly ? {} : { imageData: s.image_data || '' })
     }));
 
     res.json({ status: 'success', stamps });
@@ -2899,6 +2903,20 @@ router.post('/listMyStamps', async (req, res) => {
 // ═══════════════════════════════════════════════════
 // Read Status Tracking
 // ═══════════════════════════════════════════════════
+
+router.post('/getMyStampImage', async (req, res) => {
+  try {
+    const actor = await resolveAuditAssignmentActor(req);
+    if (!actor.ok) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    const stampId = safeString(req.body.stampId);
+    if (!stampId || stampId.length > 64) return res.json({ status: 'invalid_params', message: localeCopy.copy_4e84385ce1 });
+    const rows = await stampGrantModel.getAuthorizedStamps(actor.assignment, [stampId]);
+    if (!rows.length) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    return res.json({ status: 'success', stampId, imageData: rows[0].image_data || '' });
+  } catch (_) {
+    return res.json({ status: 'error' });
+  }
+});
 
 // getUnreadCounts — returns unread counts for my submissions + pending count
 // Each section is independently fault-tolerant: one failure won't zero out the others

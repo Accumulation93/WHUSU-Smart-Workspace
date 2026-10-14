@@ -202,6 +202,9 @@ function commitContext(context) {
     || before.role !== afterWrite.role
     || before.contextId !== afterWrite.contextId
     || before.token !== afterWrite.token;
+  if (before.orgId !== afterWrite.orgId || before.role !== afterWrite.role || before.contextId !== afterWrite.contextId || !afterWrite.token) {
+    require('./auditSigningDrafts').reset();
+  }
   if (before.role !== afterWrite.role
     || before.contextId !== afterWrite.contextId
     || before.token !== afterWrite.token) {
@@ -219,6 +222,7 @@ function commitContext(context) {
 }
 
 function commitFastContext(context) {
+  require('./auditSigningDrafts').reset();
   require('./messageQueries').invalidate();
   const next = context || {};
   // 登录入口不得先读取散落的旧会话键。以当前绝对时间作为单调性足够的
@@ -261,6 +265,7 @@ function commitFastContext(context) {
 }
 
 function clearAuthentication(nextRole) {
+  require('./auditSigningDrafts').reset();
   require('./messageQueries').invalidate();
   const committed = commitContext({
     token: '',

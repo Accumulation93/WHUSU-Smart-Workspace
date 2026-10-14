@@ -4,7 +4,8 @@ const stampGrantModel = require('../models/stampAssignmentGrant');
 const {
   SIGNATURE_HASH_VERSION_V2,
   computeMaterialImageHash,
-  computeSignatureHashV2
+  computeSignatureHashV2,
+  computeSignatureHashV3
 } = require('../utils/hashChain');
 const { isValidAuditImageData } = require('../utils/auditImageData');
 
@@ -67,7 +68,13 @@ function normalizePlacement(raw, file) {
       fail('approval_material_invalid');
     }
   }
-  return { positionX, positionY, size, rotation, page };
+  const widthRatio = raw.widthRatio == null ? null : Number(raw.widthRatio);
+  if (widthRatio !== null && (!Number.isFinite(widthRatio) || widthRatio < 0.00000001 || widthRatio > 1)) {
+    fail('approval_material_invalid');
+  }
+  return { positionX: Number(positionX.toFixed(4)), positionY: Number(positionY.toFixed(4)),
+    size: Number(size.toFixed(3)), rotation: Number(rotation.toFixed(2)), page,
+    ...(widthRatio === null ? {} : { widthRatio: Number(widthRatio.toFixed(8)) }) };
 }
 
 async function loadApprovalFileFacts(currentFiles, options, runtimeOverrides) {
@@ -245,7 +252,8 @@ function buildSignatureChainRecords(options) {
   const signerSnapshot = opts.signerContextSnapshot || null;
   let previousHash = opts.previousSignatureHash || null;
   return materials.map((material) => {
-    const signatureDataHash = computeSignatureHashV2({
+    const hashVersion = material.widthRatio == null ? SIGNATURE_HASH_VERSION_V2 : 3;
+    const signatureDataHash = (hashVersion === 3 ? computeSignatureHashV3 : computeSignatureHashV2)({
       id: material.id,
       stepId: opts.stepId,
       signerHrId: opts.signerHrId,
@@ -255,6 +263,7 @@ function buildSignatureChainRecords(options) {
       signerAssignmentId: opts.signerAssignmentId,
       signerContextSnapshot: signerSnapshot,
       positionX: material.positionX,
+      widthRatio: material.widthRatio,
       positionY: material.positionY,
       size: material.size,
       rotation: material.rotation,
@@ -272,7 +281,7 @@ function buildSignatureChainRecords(options) {
       stampId: material.stampId || '',
       signerAssignmentId: opts.signerAssignmentId,
       signerContextSnapshot: signerSnapshot,
-      hashVersion: SIGNATURE_HASH_VERSION_V2
+      hashVersion
     };
     previousHash = signatureDataHash;
     return record;

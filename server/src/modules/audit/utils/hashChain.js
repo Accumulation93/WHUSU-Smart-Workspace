@@ -144,6 +144,11 @@ function computeSignatureHashV2({
   return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
 
+function computeSignatureHashV3(params) {
+  return crypto.createHash('sha256').update(['v3', computeSignatureHashV2(params),
+    Number(params.widthRatio).toFixed(8)].join('|'), 'utf8').digest('hex');
+}
+
 function computeLegacySignatureHash({ id, stepId, signerHrId, positionX, positionY, page, round, previousSignatureHash, documentHash, signedAt }) {
   const canonical = [
     id,
@@ -264,7 +269,7 @@ function verifySignatureChain(signatures, currentFileHashes = {}, options = {}) 
         : new Date(current.signed_at).toISOString();
       const hashVersion = Number(current.hash_version || 1);
       const computedHash = hashVersion >= SIGNATURE_HASH_VERSION_V2
-        ? computeSignatureHashV2({
+        ? (hashVersion === 3 ? computeSignatureHashV3 : computeSignatureHashV2)({
           id: current.id,
           stepId: current.step_id,
           signerHrId: current.signer_hr_id,
@@ -274,6 +279,7 @@ function verifySignatureChain(signatures, currentFileHashes = {}, options = {}) 
           signerAssignmentId: current.signer_assignment_id,
           signerContextSnapshot: current.signer_context_snapshot,
           positionX: parseFloat(current.position_x) || 0,
+          widthRatio: current.width_ratio,
           positionY: parseFloat(current.position_y) || 0,
           page: current.page || 1,
           size: parseFloat(current.signature_size) || 1,
@@ -310,9 +316,11 @@ function verifySignatureChain(signatures, currentFileHashes = {}, options = {}) 
         signedAt: typeof current.signed_at === 'string' ? current.signed_at : new Date(current.signed_at).toISOString()
       });
 
-      const hashMatches = hashVersion >= SIGNATURE_HASH_VERSION_V2
+      const widthValid = hashVersion !== 3 || (current.width_ratio != null && Number.isFinite(Number(current.width_ratio))
+        && Number(current.width_ratio) > 0 && Number(current.width_ratio) <= 1);
+      const hashMatches = widthValid && [1, 2, 3].includes(hashVersion) && (hashVersion >= SIGNATURE_HASH_VERSION_V2
         ? computedHash === current.signature_data_hash
-        : (computedHash === current.signature_data_hash || legacyHash === current.signature_data_hash);
+        : (computedHash === current.signature_data_hash || legacyHash === current.signature_data_hash));
       if (!hashMatches) {
         chainValid = false;
         brokenAt = current.id;
@@ -415,6 +423,7 @@ module.exports = {
   hashFile,
   computeSignatureHash,
   computeSignatureHashV2,
+  computeSignatureHashV3,
   computeLegacySignatureHash,
   orderSignatureGroupByLinks,
   verifySignatureChain,

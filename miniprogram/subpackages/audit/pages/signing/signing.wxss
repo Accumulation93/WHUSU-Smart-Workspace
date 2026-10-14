@@ -1,0 +1,15 @@
+@import '../../../main/styles/home.wxss';
+.signing-page { animation: none; transform: none; display: flex; padding: var(--ui-inline-gap); box-sizing: border-box; }
+.signing-card { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
+.signing-workspace { flex: 1; min-height: 0; display: block; }
+.signing-card > .section-title { flex: none; }
+.signing-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
+.signing-pages { display: flex; align-items: center; justify-content: center; gap: var(--ui-inline-gap); }
+.signing-pages > .secondary-btn { flex: 0 0 36px; min-width: 0; min-height: 36px; width: 36px; height: auto; margin: 0; padding: 4px; }
+.signing-pages > view { flex: 1; min-width: 0; text-align: center; white-space: nowrap; font-size: var(--ui-type-meta); }
+.signing-objects { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
+.signing-objects > .field-label { flex: none; }
+.signing-objects > button { margin: 0; min-height: var(--ui-compact-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
+.signing-adjustments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: var(--ui-inline-gap); }
+.signing-adjustments slider { margin: 0; }
+.signing-footer { margin: 0; flex: none; }

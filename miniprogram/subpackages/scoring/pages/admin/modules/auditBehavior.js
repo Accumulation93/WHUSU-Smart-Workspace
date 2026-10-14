@@ -50,6 +50,7 @@ module.exports = Behavior({
       editingIndex: -1
     },
     auditTemplateStepEditorVisible: false,
+    auditStepBodyHeight: 0,
 
     // ── Step Condition Editor (sub-editor within step popup) ──
     auditStepConditionEditorVisible: false,
@@ -183,7 +184,7 @@ module.exports = Behavior({
             hrId: String(person.id || ''),
             name: person.name || '',
             assignmentLabel: label,
-            extra: [person.studentId, label].filter(Boolean).join(' · '),
+            extra: label,
             deptId: String(assignment.departmentId || ''),
             identId: String(assignment.identityCategoryId || assignment.identityId || '')
           });
@@ -365,7 +366,8 @@ module.exports = Behavior({
             allowApproverDesignation: step.allowApproverDesignation === true,
             editingIndex: index
           },
-          auditTemplateStepEditorVisible: true
+          auditTemplateStepEditorVisible: true,
+          auditStepBodyHeight: 0, auditStepConditionEditorVisible: false
         });
       } else {
         this.setData({
@@ -376,9 +378,25 @@ module.exports = Behavior({
             allowApproverDesignation: false,
             editingIndex: -1
           },
-          auditTemplateStepEditorVisible: true
+          auditTemplateStepEditorVisible: true,
+          auditStepBodyHeight: 0, auditStepConditionEditorVisible: false
         });
       }
+      this.measureAuditStepBody();
+    },
+
+    measureAuditStepBody() {
+      wx.nextTick(() => {
+        if (!this.data.auditTemplateStepEditorVisible) return;
+        const query = wx.createSelectorQuery();
+        query.select('.audit-step-body-content').boundingClientRect();
+        query.select('.audit-step-scroll').boundingClientRect();
+        query.exec(rows => {
+          if (!this.data.auditTemplateStepEditorVisible || !rows[0] || !rows[1]) return;
+          const height = Math.ceil(rows[0].height + Math.max(0, rows[0].top - rows[1].top) * 2);
+          if (height !== this.data.auditStepBodyHeight) this.setData({ auditStepBodyHeight: height });
+        });
+      });
     },
 
     closeAuditTemplateStepEditor() {
@@ -476,14 +494,17 @@ module.exports = Behavior({
           _auditConditionTarget: 'step'
         });
       }
+      this.measureAuditStepBody();
     },
 
     closeStepConditionEditor() {
       this.setData({ auditStepConditionEditorVisible: false });
+      this.measureAuditStepBody();
     },
 
     onConditionTypeChange(e) {
       this.setData({ 'auditStepConditionForm.conditionType': ['identity_scope', 'person'][e.detail.value] || 'identity_scope' });
+      this.measureAuditStepBody();
     },
 
     onConditionScopeChange(e) {
@@ -492,6 +513,7 @@ module.exports = Behavior({
       let scopeLabels = [localeCopy.copy_31d4595959, localeCopy.copy_2aad29e5cf, localeCopy.copy_4b405169cb];
       let idx = parseInt(e.detail.value);
       this.setData({ ['auditStepConditionForm.' + field]: scopes[idx] || 'all' });
+      this.measureAuditStepBody();
     },
 
     confirmStepCondition() {
@@ -550,6 +572,7 @@ module.exports = Behavior({
         'auditTemplateStepForm.conditions': conditions,
         auditStepConditionEditorVisible: false
       });
+      this.measureAuditStepBody();
     },
 
     removeStepCondition(e) {
@@ -557,6 +580,7 @@ module.exports = Behavior({
       let conditions = [...this.data.auditTemplateStepForm.conditions];
       conditions.splice(index, 1);
       this.setData({ 'auditTemplateStepForm.conditions': conditions });
+      this.measureAuditStepBody();
     },
 
     // ── Build a human-readable summary for a single condition ──

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import copy from '../../src/locales/zh-CN/index.js';
+import signing from '../../src/locales/zh-CN/shared/auditSigning.js';
 import { callsOf, mockApi, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 const WEB_BASE = '/web';
@@ -94,13 +95,13 @@ test('驳回必须填写原因才会提交', async ({ page }) => {
   expect(callsOf(api.calls, 'rejectStep')[0].body.rejectionReason).toBe('材料不完整');
 });
 
-test('需要签名的步骤提示到小程序办理并且不提供审批按钮', async ({ page }) => {
+test('需要签名的步骤提供相同签署入口，缺少材料时不提交审批', async ({ page }) => {
   await mockApi(page, { detail: { actionType: 'sign' } });
   await login(page);
 
   await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
-  await expect(page.getByText(copy.audit.signatureRequiredTitle, { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: copy.audit.actionApprove })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: signing.addInk, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: copy.audit.actionApprove })).toBeEnabled();
 });
 
 test('提交人可以在审批中撤回申请', async ({ page }) => {
@@ -148,14 +149,18 @@ test('签名管理可以在画布上签名并保存', async ({ page }) => {
   await page.goto(`${WEB_BASE}/audit/signatures`);
   await page.getByRole('button', { name: copy.audit.signatureNew }).click();
 
-  const canvas = page.locator('canvas');
+  const canvas = page.locator('.signing-stage canvas');
   await expect(canvas).toBeVisible();
+  await expect(page.getByRole('button', { name: signing.confirm, exact: true })).toBeEnabled();
+  await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
-  await page.mouse.move(box.x + 30, box.y + 60);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + 120, box.y + 90, { steps: 8 });
-  await page.mouse.move(box.x + 200, box.y + 50, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2 + 10, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2, { steps: 8 });
   await page.mouse.up();
+  await page.getByRole('button', { name: signing.confirm, exact: true }).click();
+  await expect(page).toHaveURL(/audit\/signatures$/);
 
   await page.getByLabel(copy.audit.signatureNameLabel).fill('我的签名');
   await page.getByRole('button', { name: copy.audit.signatureSave }).click();

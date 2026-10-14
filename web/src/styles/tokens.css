@@ -8,6 +8,12 @@
  */
 
 :root {
+  --ui-signing-tool-height: 36px;
+  --ui-signing-tool-gap: 4px;
+  --ui-signing-swatch-size: 14px;
+  --ui-signing-stage-min-height: 120px;
+  --ui-option-selected-bg: linear-gradient(135deg, #dbeafe, #eff6ff);
+  --ui-signing-width-control: 120px;
   --ui-result-list-max-height: 44vh;
   --ui-result-label-bg: rgba(248,250,252,0.86);
   --ui-result-label-border: 1px solid rgba(226,232,240,0.88);
@@ -283,6 +289,7 @@
     --ui-compact-padding-y: 5px;
     --ui-compact-padding-x: 11px;
     --ui-tab-min-height: 40px;
+    --ui-signing-tool-height: 40px;
     --ui-tab-padding-y: 7px;
     --ui-tab-padding-x: 10px;
     --ui-admin-tab-font-size: var(--ui-type-label);
@@ -364,6 +371,7 @@
     --ui-type-page: 30px;
 
     --ui-tab-min-height: 50px;
+    --ui-signing-tool-height: 40px;
     --ui-tab-padding-y: 8px;
     --ui-tab-padding-x: 14px;
     --ui-admin-tab-padding-x: var(--ui-tab-padding-x);

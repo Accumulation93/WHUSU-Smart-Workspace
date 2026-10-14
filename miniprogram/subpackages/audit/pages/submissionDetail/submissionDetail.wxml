@@ -253,6 +253,7 @@
                       class="approval-file-btn-stamp ui-motion-chip"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
                       bindtap="addStampForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_31d6da5144}}</text>
+                <text wx:if="{{activeApprovalStep.actionType === 'sign' || activeApprovalStep.actionType === 'both'}}" class="approval-file-btn-sign ui-motion-chip" data-file-id="{{f.id}}" bindtap="directSignForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.addInk}}</text>
               </view>
             </view>
 
@@ -265,8 +266,8 @@
                 <text class="approval-sig-pos">{{sig.posText || localeCopy.copy_ee81f5d088}}</text>
               </view>
               <view class="approval-sig-actions">
-                <text class="approval-sig-action-adjust ui-motion-chip" data-sig-idx="{{index}}" bindtap="openPlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0887668fa5}}</text>
-                <text class="approval-sig-action-remove ui-motion-chip" data-sig-idx="{{index}}" bindtap="removePendingSign" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
+                <text class="approval-sig-action-adjust ui-motion-chip" data-sig-idx="{{index}}" bindtap="openPlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{sig.isInk ? signingCopy.signAgain : localeCopy.copy_0887668fa5}}</text>
+                <text wx:if="{{!sig.isInk}}" class="approval-sig-action-remove ui-motion-chip" data-sig-idx="{{index}}" bindtap="removePendingSign" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
             </view>
           </view>
@@ -305,9 +306,10 @@
         </view>
 
         <!-- Action buttons -->
+        <view wx:if="{{signingReadFailed || pendingActionRead}}" class="approval-warning">{{pendingActionRead ? signingCopy.pendingRead : signingCopy.failed}}<button class="secondary-btn" bindtap="loadDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
         <view class="button-row">
-          <button class="primary-btn approval-btn-approve ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
-          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</button>
+          <button class="primary-btn approval-btn-approve ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
+          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</button>
         </view>
       </view>
 
@@ -316,7 +318,7 @@
         <view class="section-title">{{localeCopy.copy_3bc010171a}}</view>
 
         <!-- Flow progress summary -->
-        <view class="audit-flow-summary">
+        <view class="audit-flow-summary" wx:if="{{submission.status !== 'withdrawn' || showWithdrawnHistory}}">
           <text class="flow-summary-text">{{localeCopy.copy_94988c2510}}</text>
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{flowProgressPercent}}%;"></view>
@@ -325,7 +327,8 @@
         </view>
 
         <!-- Flow timeline — lifecycle events + approval steps -->
-        <view class="audit-flow" wx:if="{{flowTimeline.length}}">
+        <button wx:if="{{submission.status === 'withdrawn'}}" class="secondary-btn" bindtap="toggleWithdrawnHistory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{showWithdrawnHistory ? signingCopy.hideHistory : signingCopy.showHistory}}</button>
+        <view class="audit-flow" wx:if="{{flowTimeline.length && (submission.status !== 'withdrawn' || showWithdrawnHistory)}}">
           <block wx:for="{{flowTimeline}}" wx:key="_key" wx:for-item="node">
 
             <!-- ── Remaining steps separator ── -->
@@ -351,7 +354,7 @@
                   <view class="flow-detail-text">
                     <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text>{{node.operatorName || localeCopy.copy_b121b80801}}
                   </view>
-                  <view class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                  <view wx:if="{{node.operatorName}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.operationAssignment}}</text>{{node.operatorAssignmentView.hasSnapshot ? node.operatorAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
                   </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
@@ -370,6 +373,7 @@
                 <view class="flow-dot {{node.flowDotClass}}">
                   <block wx:if="{{node.flowIcon === 'check'}}">✓</block>
                   <block wx:elif="{{node.flowIcon === 'cross'}}">✗</block>
+                  <block wx:elif="{{node.flowIcon === 'clock'}}"><ui-icon name="clock" sizeRole="context-leading" tone="primary" ariaLabel="{{signingCopy.processing}}" /></block>
                   <block wx:else>{{node.sortOrder}}</block>
                 </view>
                 <view class="flow-connector"></view>
@@ -377,11 +381,11 @@
               <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <!-- Collapsed: key info only -->
                 <view class="flow-step-label">{{node.stepName || (localeCopy.copy_93c50c01c0 + (node.sortOrder || '?') + localeCopy.copy_493a127a99)}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_29f6c07d3f}}</text></view>
-                <view class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
+                <view wx:if="{{node.flowIcon !== 'check' && node.flowIcon !== 'cross'}}" class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}} · {{node.processedAtText || ''}}
+                  {{node.operatorName || signingCopy.actorUnknown}} · {{node.processedAtText || ''}}
                 </view>
                 <!-- Expand indicator -->
                 <view class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
@@ -390,12 +394,12 @@
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text>{{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}}
+                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text>{{node.operatorName || signingCopy.actorUnknown}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
                   </view>
-                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                  <view wx:if="{{node.operatorName && (node.flowIcon === 'check' || node.flowIcon === 'cross')}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.processedAssignment}}</text>{{node.processedAssignmentView.hasSnapshot ? node.processedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
                   </view>
                   <!-- Approval comment -->
@@ -655,8 +659,11 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
-          <view wx:if="{{!availableStamps.length}}" class="stamp-empty">{{localeCopy.copy_da41cca7fe}}</view>
-          <view wx:for="{{availableStamps}}" wx:key="id"
+          <view wx:if="{{stampLoading}}" class="stamp-empty">{{signingCopy.stampLoading}}</view>
+          <view wx:elif="{{stampNotice}}" class="stamp-empty">{{stampNotice}}<button class="secondary-btn" bindtap="loadAvailableStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
+          <view wx:elif="{{!availableStamps.length}}" class="stamp-empty">{{signingCopy.stampEmpty}}</view>
+          <view wx:if="{{stampImageBusy}}" class="stamp-empty">{{signingCopy.imageLoading}}</view>
+          <view wx:for="{{availableStamps}}" wx:key="id" wx:if="{{!stampLoading && !stampNotice}}"
                 class="stamp-picker-item ui-motion-card"
                 data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
                 catchtap="onStampSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -852,17 +859,6 @@
           <!-- Draw new signature -->
           <view class="sig-source-draw-section">
             <view class="sig-source-draw-title">{{localeCopy.copy_01c2184200}}</view>
-            <!-- Save option -->
-            <view class="sig-source-save-row ui-motion-card" catchtap="onSigSaveToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-              <view style="width:36rpx;height:36rpx;border-radius:6rpx;border:2rpx solid {{sigSaveNew ? '#3b82f6' : '#cbd5e1'}};background:{{sigSaveNew ? '#3b82f6' : '#fff'}};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <text wx:if="{{sigSaveNew}}" class="sig-source-check-icon">✓</text>
-              </view>
-              <text class="sig-source-save-label">{{localeCopy.copy_777df8daa0}}</text>
-            </view>
-            <view wx:if="{{sigSaveNew}}" class="sig-source-save-input-wrap">
-              <input class="sig-source-save-input"
-                     placeholder="{{localeCopy.copy_1d953e38dc}}" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" adjust-position="{{false}}" cursor-spacing="24" />
-            </view>
             <button class="primary-btn sig-source-draw-btn ui-motion-button" catchtap="onOpenNewSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a9df85e7e6}}</button>
           </view>
         </view>
@@ -871,20 +867,6 @@
   </view>
   </viewport-portal>
 
-  <!-- Signature Pad Popup (with save-to-library controls) -->
-  <!-- Canvas 自己 catch 触摸；祖先不得拦截，否则会破坏连续笔迹。 -->
-  <view class="popup-mask ui-overlay ui-dialog-touch-lock signature-pad-overlay" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad">
-    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card signature-popup-card ui-dialog-touch-lock" catchtap="noop">
-      <view class="popup-header ui-dialog-header">
-        <view class="popup-title">{{localeCopy.copy_a9df85e7e6}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
-      </view>
-      <view class="ui-dialog-body ui-dialog-content ui-dialog-content--workspace signature-pad-dialog-body">
-        <signature-pad id="signaturePad" bindconfirm="onSignatureConfirm" />
-      </view>
-    </view>
-  </view>
 
     <!-- ═══ Shared personnel picker (multi-select) ═══ -->
   <personnel-picker visible="{{personPickerVisible}}" title="{{localeCopy.copy_759682a69b}}" options="{{personPickerEligibleList}}" value="{{personPickerSelectedList}}" selectionLevel="assignment" multiple="{{true}}" loading="{{personPickerLoading}}" contextText="{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}" bindconfirm="confirmSharedPersonPicker" bindcancel="closePersonPicker">

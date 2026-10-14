@@ -185,7 +185,6 @@ function groupEligibleCandidates(assignments) {
         hrId,
         personId: safeString(assignment.person_id),
         name: safeString(assignment.name),
-        studentId: safeString(assignment.student_id),
         eligibleAssignments: []
       });
     }

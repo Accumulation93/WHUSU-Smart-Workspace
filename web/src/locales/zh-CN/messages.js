@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_auditSigning from './shared/auditSigning.js';
 import src_common from './shared/common.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -61,7 +62,7 @@ export default Object.freeze({
   loading: src_admin.copy_a017932da1,
   crossOrganizationItem: src_main.portal.view.crossOrganization,
   switchDescription: src_main.portal.view.switchDescription,
-  cancel: src_common.actions.cancel,
+  cancel: src_auditSigning.cancel,
   switchAndView: src_main.portal.view.switchAndView,
   selectOrganizationScope: src_main.messageCenter.view.selectOrganizationScope,
   close: src_common.actions.close,

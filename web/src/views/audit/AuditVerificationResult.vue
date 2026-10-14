@@ -12,17 +12,17 @@
       <div class="crypto-file-name">{{ file.name }}</div>
       <div class="crypto-file-state" :class="'crypto-state-' + file.state">{{ file.stateText }}</div>
       <div v-if="!file.platformVerified" class="crypto-note">{{ copy.platformUnconfirmed }}</div>
-      <div v-if="report && file.platformVerified" class="crypto-note">{{ copy.hostedNotice }}</div>
-      <div v-if="report && !file.platformVerified" class="crypto-note">{{ copy.unconfirmedReportNotice }}</div>
 
-      <div v-if="!report" class="crypto-check-grid">
+      <div class="crypto-check-grid">
         <div v-for="check in file.summary" :key="check.key" class="crypto-check">
           <div class="crypto-check-label">{{ check.label }}</div>
           <div :class="'crypto-state-' + check.state">{{ check.text }}</div>
         </div>
       </div>
+      <p v-for="failure in file.failures" :key="failure.key" class="crypto-state--failed">{{ failure.text }}</p>
 
-      <div v-if="report" class="crypto-check-grid">
+      <button v-if="report" class="btn-quiet" :aria-expanded="!!expanded[file.key+'checks']" @click="expanded[file.key+'checks']=!expanded[file.key+'checks']">{{ signing.details }}</button>
+      <div v-if="report && expanded[file.key+'checks']" class="crypto-check-grid">
         <div v-for="check in file.checks" :key="check.key" class="crypto-check">
           <div class="crypto-check-label">{{ check.label }}</div>
           <div :class="'crypto-state-' + check.state">{{ check.stateText }}</div>
@@ -51,7 +51,7 @@
         </div>
         <div class="crypto-step-time crypto-note">{{ copy.timeLabel }} · {{ step.signedAtText }}</div>
 
-        <div v-if="report" class="crypto-details">
+        <div v-if="report && expanded[file.key+'technical']" class="crypto-details">
           <div class="crypto-note">{{ step.digestTypeText }}</div>
           <div v-for="field in step.fields" :key="field.key" class="crypto-detail-row">
             <div class="crypto-note">{{ field.label }}</div>
@@ -60,7 +60,10 @@
         </div>
       </div>
 
-      <div v-if="report" class="crypto-details">
+      <button v-if="report" class="btn-quiet" :aria-expanded="!!expanded[file.key+'technical']" @click="expanded[file.key+'technical']=!expanded[file.key+'technical']">{{ signing.digest }}</button>
+      <div v-if="report && expanded[file.key+'technical']" class="crypto-details">
+        <div v-if="file.platformVerified" class="crypto-note">{{ copy.hostedNotice }}</div>
+        <div v-else class="crypto-note">{{ copy.unconfirmedReportNotice }}</div>
         <div class="crypto-note">{{ copy.fileDigest }}</div>
         <code class="crypto-code">{{ file.fileDigest }}</code>
         <div v-for="cms in file.cms" :key="cms.key" class="crypto-detail-row">
@@ -71,7 +74,8 @@
           </div>
         </div>
 
-        <div v-if="file.platformVerified" class="crypto-details">
+        <button v-if="file.platformVerified" class="btn-quiet" :aria-expanded="!!expanded[file.key+'certificates']" @click="expanded[file.key+'certificates']=!expanded[file.key+'certificates']">{{ signing.certificates }}</button>
+        <div v-if="file.platformVerified && expanded[file.key+'certificates']" class="crypto-details">
           <div class="crypto-check-label">{{ copy.certificateTitle }}</div>
           <div class="crypto-report-guide">
             <div class="crypto-check-label">{{ copy.certificateScopeTitle }}</div>
@@ -105,7 +109,7 @@
         </div>
       </div>
 
-      <div v-if="report && file.platformVerified" class="crypto-note">{{ copy.timeNotice }}</div>
+      <div v-if="report && file.platformVerified && expanded[file.key+'technical']" class="crypto-note">{{ copy.timeNotice }}</div>
     </div>
 
     <button v-if="!report" type="button" class="btn btn-secondary crypto-details-toggle" @click="openReport">
@@ -115,9 +119,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/signingEvidence.js';
+import signing from '@/locales/zh-CN/shared/auditSigning.js';
+const expanded=reactive({});
 import { formatDetailTime } from '@/runtime/dateTime.js';
 import { showToast } from '@/runtime/notify.js';
 import { openVerificationReport } from '@/runtime/verification.js';
@@ -219,6 +225,8 @@ function present(result) {
         text: copy.simpleResults[key][stateOf(value.status)]
       };
     }),
+    failures: ['platformCertificate','externalTrust'].filter(key=>file.checks?.[key]?.status==='failed')
+      .map(key=>({key,text:key==='platformCertificate'?signing.sourceFailure:signing.externalFailure})),
     certificates: (result.verificationVersion === 2 && platformIdentityVerified(file) && Array.isArray(file.certificates)
       ? file.certificates
       : []).filter((item) => item

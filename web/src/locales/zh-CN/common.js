@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_auditSigning from './shared/auditSigning.js';
 import src_common from './shared/common.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
@@ -15,9 +16,9 @@ export default Object.freeze({
   webVersionLabel: src_web.common.webVersionLabel,
   retry: src_main.portal.view.authRetryAction,
   confirm: src_submissionDetail.copy_a58e97a9f8,
-  cancel: src_common.actions.cancel,
+  cancel: src_auditSigning.cancel,
   close: src_common.actions.close,
-  back: src_web.common.back,
+  back: src_auditSigning.back,
   refresh: src_pendingApprovals.copy_545113905f,
   loading: src_venueBookings.copy_70936c600a,
   empty: src_web.common.empty,

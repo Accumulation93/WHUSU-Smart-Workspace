@@ -305,12 +305,15 @@ router.post('/getAuditFilePreview', async (req, res) => {
 
     const mimeType = file.mime_type;
     if (mimeType && mimeType.startsWith('image/')) {
+      const dimensions = await require('sharp')(stored.buffer).metadata();
       return res.json({
         status: 'success',
         fileName: file.file_name,
         mimeType,
         previewMime: mimeType,
         totalPages: 1,
+        pageWidth: dimensions.width,
+        pageHeight: dimensions.height,
         page: 1,
         data: stored.buffer.toString('base64')
       });
@@ -327,12 +330,16 @@ router.post('/getAuditFilePreview', async (req, res) => {
         totalPages = await getPdfPageCount(verifiedPreviewPath);
         const targetPage = Math.max(1, Math.min(page, totalPages));
         const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal);
+        const document = await require('pdf-lib').PDFDocument.load(stored.buffer, { updateMetadata: false });
+        const pageSize = document.getPages()[targetPage - 1].getSize();
         return res.json({
           status: 'success',
           fileName: file.file_name,
           mimeType: 'application/pdf',
           previewMime: 'image/png',
           totalPages,
+          pageWidth: pageSize.width,
+          pageHeight: pageSize.height,
           page: targetPage,
           data: rendered.buffer.toString('base64'),
           renderer: rendered.renderer

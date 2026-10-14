@@ -1,25 +1,33 @@
 <view class="sigpad-wrap">
-  <view class="sigpad-canvas-border">
-    <view
-      id="sigSurface"
-      class="sigpad-surface"
-      catchtouchstart="onTouchStart"
-      catchtouchmove="onTouchMove"
-      catchtouchend="onTouchEnd"
-      catchtouchcancel="onTouchEnd"
-    >
-      <image wx:if="{{initialImageVisible}}" class="sigpad-initial-image" src="{{initialImage}}" mode="scaleToFill" />
-      <view class="sigpad-ink-layer">
-        <view class="sigpad-ink-segment" wx:for="{{segments}}" wx:key="id" style="{{item.style}}"></view>
-      </view>
-    </view>
+  <view class="sigpad-toolbar sigpad-modes">
+    <button class="{{mode === 'browse' ? 'primary-btn' : 'secondary-btn'}}" data-mode="browse" bindtap="setMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.browse}}</button>
+    <button class="{{mode === 'move' ? 'primary-btn' : 'secondary-btn'}}" data-mode="move" bindtap="setMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.move}}</button>
+    <button class="{{mode === 'pen' ? 'primary-btn' : 'secondary-btn'}}" data-mode="pen" bindtap="setMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.pen}}</button>
   </view>
-
-  <!-- 原生 Canvas 只负责最终导出，不参与屏幕显示和触摸。 -->
+  <view class="sigpad-toolbar sigpad-actions">
+    <button class="secondary-btn" aria-label="{{copy.undo}}" disabled="{{!undoable}}" bindtap="onUndo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">↶</button>
+    <button class="secondary-btn" aria-label="{{copy.redo}}" disabled="{{!redoable}}" bindtap="onRedo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">↷</button>
+    <button class="secondary-btn" aria-label="{{copy.clear}}" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⌫</button>
+    <button class="secondary-btn" aria-label="{{copy.zoomOut}}" bindtap="zoomOut" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">−</button>
+    <button class="secondary-btn" aria-label="{{copy.zoomIn}}" bindtap="zoomIn" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+</button>
+    <button class="secondary-btn" aria-label="{{copy.fit}}" bindtap="fit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⊡</button>
+  </view>
+  <view wx:if="{{mode === 'pen'}}" class="sigpad-toolbar sigpad-palette">
+    <button class="secondary-btn sigpad-color {{color === '#000000' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.black}}" data-color="#000000" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-black"></view></button>
+    <button class="secondary-btn sigpad-color {{color === '#0000ff' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.blue}}" data-color="#0000ff" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-blue"></view></button>
+    <button class="secondary-btn sigpad-color {{color === '#ff0000' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.red}}" data-color="#ff0000" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-red"></view></button>
+    <button class="secondary-btn sigpad-color" aria-label="{{copy.custom}}" bindtap="toggleCustom" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">#</button>
+    <button class="{{erasing ? 'primary-btn' : 'secondary-btn'}}" bindtap="toggleEraser" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.erase}}</button>
+    <picker class="ui-field-control-host sigpad-width" value="{{penWidth === 2 ? 0 : (penWidth === 3 ? 1 : 2)}}" range="{{[copy.thin,copy.medium,copy.thick]}}" bindchange="setWidth"><view class="picker-display ui-field-control">{{penWidth === 2 ? copy.thin : (penWidth === 3 ? copy.medium : copy.thick)}}</view></picker>
+  </view>
+  <view wx:if="{{custom && mode === 'pen'}}" class="sigpad-colors">
+    <view class="field-label">{{copy.hex}}</view><input class="field-input" value="{{colorInput}}" maxlength="7" bindchange="setHex" />
+    <view class="field-label">{{copy.redChannel}}</view><slider class="sigpad-channel" value="{{red}}" min="0" max="255" data-channel="0" bindchanging="setChannel" />
+    <view class="field-label">{{copy.greenChannel}}</view><slider class="sigpad-channel" value="{{green}}" min="0" max="255" data-channel="1" bindchanging="setChannel" />
+    <view class="field-label">{{copy.blueChannel}}</view><slider class="sigpad-channel" value="{{blue}}" min="0" max="255" data-channel="2" bindchanging="setChannel" />
+  </view>
+  <canvas type="2d" id="sigSurface" class="sigpad-surface" catchtouchstart="onTouchStart" catchtouchmove="onTouchMove" catchtouchend="onTouchEnd" catchtouchcancel="onTouchCancel"></canvas>
+  <view wx:if="{{notice}}" class="sigpad-notice">{{notice}}</view>
+  <canvas type="2d" id="sigInkCanvas" class="sigpad-export-canvas"></canvas>
   <canvas type="2d" id="sigExportCanvas" class="sigpad-export-canvas"></canvas>
-
-  <view class="sigpad-actions">
-    <button class="secondary-btn sigpad-btn sigpad-btn-secondary ui-motion-button" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</button>
-    <button class="primary-btn sigpad-btn sigpad-btn-primary ui-motion-button" bindtap="onConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_36b96c0240}}</button>
-  </view>
 </view>

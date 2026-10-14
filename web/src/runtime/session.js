@@ -2,6 +2,7 @@ import { computed, reactive } from 'vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess, setAuthenticationLostHandler } from './api.js';
 import { resetSystemTimezoneConfig } from './dateTime.js';
+import { signingDrafts, resetSigningDrafts } from './signingDrafts.js';
 
 /**
  * 登录状态与当前工作角色。
@@ -37,6 +38,8 @@ let authenticationLostHandled = false;
 
 function applyPayload(payload) {
   const data = payload && typeof payload === 'object' ? payload : {};
+  signingDrafts.bind(JSON.stringify([data.user && (data.user.id || data.user.personId),
+    data.context && data.context.organizationId, data.context && data.context.contextId]));
   session.context = data.context || null;
   session.contexts = Array.isArray(data.contexts) ? data.contexts : [];
   session.workContexts = Array.isArray(data.workContexts) ? data.workContexts : [];
@@ -52,11 +55,13 @@ function applyPayload(payload) {
 }
 
 export function applyLoginResult(payload) {
+  resetSigningDrafts();
   authenticationLostHandled = false;
   applyPayload(payload);
 }
 
 export function clearSession(notice) {
+  resetSigningDrafts();
   session.status = 'anonymous';
   session.context = null;
   session.contexts = [];

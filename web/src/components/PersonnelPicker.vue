@@ -13,14 +13,14 @@
     </div>
     <p class="muted">{{ ui.selectedCount(selected.length) }}</p>
     <div v-if="!filtered.length" class="empty-state">{{ query ? ui.noMatch : ui.empty }}</div>
-    <button v-for="item in filtered" :key="item.assignmentId" type="button" class="list-row personnel-option"
-      :class="{ 'personnel-option-selected': selected.includes(item.assignmentId) }"
-      :aria-pressed="selected.includes(item.assignmentId)" :disabled="busy" @click="toggle(item.assignmentId)">
-      <span class="stack-tight"><strong>{{ item.name }}</strong><span>{{ item.assignmentLabel }}</span></span>
+    <button v-for="item in filtered" :key="keyOf(item)" type="button" class="list-row personnel-option"
+      :class="{ 'personnel-option-selected': selected.includes(keyOf(item)) }"
+      :aria-pressed="selected.includes(keyOf(item))" :disabled="busy" @click="toggle(keyOf(item))">
+      <span class="stack-tight"><strong>{{ item.name }}</strong><span v-if="mode === 'assignment'">{{ item.assignmentLabel }}</span><span v-else v-for="assignment in item.assignments || []" :key="assignment.assignmentId">{{ assignment.assignmentLabel }}</span></span>
     </button>
     <template #footer>
       <button type="button" class="btn btn-secondary" :disabled="busy" @click="$emit('cancel')">{{ ui.cancelSelection }}</button>
-      <button type="button" class="btn btn-primary" :disabled="busy" @click="$emit('confirm', options.filter(item => selected.includes(item.assignmentId)))">{{ ui.confirm }}</button>
+      <button type="button" class="btn btn-primary" :disabled="busy" @click="$emit('confirm', options.filter(item => selected.includes(keyOf(item))))">{{ ui.confirm }}</button>
     </template>
   </GlassDialog>
 </template>
@@ -28,16 +28,18 @@
 import { computed, reactive, ref } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
-const props = defineProps({ title: String, busy: Boolean, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
+const props = defineProps({ title: String, busy: Boolean, multiple: {type:Boolean,default:true}, mode: { type: String, default: 'assignment' }, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
 defineEmits(['cancel', 'confirm']);
 const query = ref('');
-const selected = ref(props.value.map(item => item.assignmentId));
+const keyOf = item => props.mode === 'person' ? item.id : item.assignmentId;
+const selected = ref(props.value.map(keyOf));
 const filters = reactive({ department: '', identity: '', workGroup: '' });
 const filterDefinitions = [{ key: 'department', label: ui.department }, { key: 'identity', label: ui.identity }, { key: 'workGroup', label: ui.workGroup }];
-function choices(key) { return [...new Set(props.options.map(item => item[key]).filter(Boolean))]; }
-const filtered = computed(() => props.options.filter(item => Object.entries(filters).every(([key, value]) => !value || item[key] === value)
-  && [item.name, item.assignmentLabel].join(' ').toLowerCase().includes(query.value.trim().toLowerCase())));
-function toggle(id) { selected.value = selected.value.includes(id) ? selected.value.filter(value => value !== id) : [...selected.value, id]; }
+function tuples(item) { return props.mode === 'person' ? item.assignments || [] : [item]; }
+function choices(key) { return [...new Set(props.options.flatMap(item => tuples(item).map(tuple => tuple[key])).filter(Boolean))]; }
+const filtered = computed(() => props.options.filter(item => ((!Object.values(filters).some(Boolean)) || tuples(item).some(tuple => Object.entries(filters).every(([key, value]) => !value || tuple[key] === value)))
+  && [item.name, ...tuples(item).map(tuple => tuple.assignmentLabel)].join(' ').toLowerCase().includes(query.value.trim().toLowerCase())));
+function toggle(id) { selected.value = selected.value.includes(id) ? selected.value.filter(value => value !== id) : props.multiple ? [...selected.value, id] : [id]; }
 </script>
 <style scoped>
 .personnel-option { width: 100%; text-align: left; color: var(--ui-text); font: inherit; cursor: pointer; }

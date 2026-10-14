@@ -36,6 +36,7 @@
         "pages/pendingApprovals/pendingApprovals",
         "pages/myApprovalHistory/myApprovalHistory",
         "pages/signatureManager/signatureManager",
+        "pages/signing/signing",
         "pages/verification/verification",
         "pages/verificationReport/verificationReport"
       ]

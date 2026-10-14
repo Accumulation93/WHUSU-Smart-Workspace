@@ -665,7 +665,9 @@ function scanWorkspaceShellContracts() {
   const heroExceptions = new Set([
     'subpackages/main/pages/login/login',
     'subpackages/org/pages/switch/switch',
-    'subpackages/venue/pages/venueBookings/venueBookings'
+    'subpackages/venue/pages/venueBookings/venueBookings',
+    // 用户要求签署页以文件为主体，限定这一专业页面不显示身份 Hero。
+    'subpackages/audit/pages/signing/signing'
   ]);
   const findings = [];
 
@@ -1787,23 +1789,23 @@ const signaturePadStyle = fs.readFileSync(signaturePadStylePath, 'utf8');
 const signaturePageBase = path.join(MINI_ROOT, 'subpackages', 'audit', 'pages', 'submissionDetail', 'submissionDetail');
 const signaturePageSource = fs.readFileSync(`${signaturePageBase}.js`, 'utf8');
 const signatureCoordinateIssues = [];
-if (!/select\('#sigSurface'\)\.fields\(\{\s*size:\s*true,\s*rect:\s*true\s*\}\)/.test(signaturePadSource)) {
-  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名板必须读取普通视图白板的视口绝对 rect' });
+if (!/select\('#sigSurface'\)\.fields\(\{\s*node:\s*true,\s*size:\s*true,\s*rect:\s*true\s*\}\)/.test(signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '连续签名画布必须读取实际节点与视口 rect' });
 }
-if (!/screenX:\s*clamp\(screenX,\s*rect\.left,\s*rect\.right\)/.test(signaturePadSource) ||
-  !/screenY:\s*clamp\(screenY,\s*rect\.top,\s*rect\.bottom\)/.test(signaturePadSource) ||
-  !/screenX1:\s*from\.screenX/.test(signaturePadSource) || !/screenY2:\s*to\.screenY/.test(signaturePadSource)) {
-  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名触点和线段事实数据必须保存为视口绝对 screenX/screenY' });
+if (!/ink\.filePoint\(Number\(touch\.clientX\),\s*Number\(touch\.clientY\),\s*this\._rect,\s*this\._camera\)/.test(signaturePadSource) ||
+  !/ink\.renderInk\(/.test(signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '连续笔画必须经统一视口转换与共享路径引擎绘制' });
 }
 if (/Number\(t\.(?:x|y|pageX|pageY)\)/.test(signaturePadSource)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名板禁止直接使用 Touch.x/y 或 pageX/pageY' });
 }
-if (!/id="sigSurface"/.test(signaturePadWxml) || !/<view[\s\S]*class="sigpad-ink-segment"/.test(signaturePadWxml)) {
-  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '可视白板和实时笔迹必须使用普通 view' });
+if (!/<canvas[^>]*type="2d"[^>]*id="sigSurface"[^>]*catchtouchstart="onTouchStart"/.test(signaturePadWxml) ||
+  /sigpad-ink-segment|_createSegment/.test(signaturePadWxml + signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '独立签署页必须使用连续 Canvas 路径，禁止 view 小线段拼接' });
 }
 if (!/<canvas[^>]*id="sigExportCanvas"[^>]*class="sigpad-export-canvas"[^>]*><\/canvas>/.test(signaturePadWxml) ||
-  /<canvas[^>]*(?:touchstart|touchmove)/.test(signaturePadWxml)) {
-  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '原生 Canvas 只能作为不可交互的隐藏导出器' });
+  /<canvas[^>]*id="sig(?:Export|Ink)Canvas"[^>]*(?:touchstart|touchmove)/.test(signaturePadWxml)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '书写中间层与导出 Canvas 必须隐藏且不可交互' });
 }
 if (!/\.sigpad-export-canvas\s*\{[^}]*width:\s*1px;[^}]*height:\s*1px;[^}]*opacity:\s*0;/s.test(signaturePadStyle)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadStylePath), message: '导出 Canvas 必须保持 1px、透明且不可交互' });

@@ -45,6 +45,20 @@ function collectDictionaryReferences(condition) {
 // ═══════════════════════════════════════════════════
 
 // listAuditFlowTemplates
+router.post('/getAuditTemplateEditorData', async (req, res) => {
+  try {
+    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    return res.json({ status: 'success', data: await require('../models/auditEditorDirectory').templates() });
+  } catch (_) { return res.json({ status: 'error' }); }
+});
+
+router.post('/listAuditVerificationCandidates', async (req, res) => {
+  try {
+    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    return res.json({ status: 'success', candidates: await require('../models/auditEditorDirectory').people() });
+  } catch (_) { return res.json({ status: 'error' }); }
+});
+
 router.post('/listAuditFlowTemplates', async (req, res) => {
   try {
     const admin = await ensureAdmin(req);

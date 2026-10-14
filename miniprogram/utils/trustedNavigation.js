@@ -12,6 +12,7 @@ const TRUSTED_ROUTES = {
   '/subpackages/audit/pages/pendingApprovals/pendingApprovals': true,
   '/subpackages/audit/pages/myApprovalHistory/myApprovalHistory': true,
   '/subpackages/audit/pages/signatureManager/signatureManager': true,
+  '/subpackages/audit/pages/signing/signing': true,
   '/subpackages/audit/pages/verification/verification': true,
   '/subpackages/audit/pages/verificationReport/verificationReport': true,
   '/subpackages/venue/pages/venueManage/venueManage': true,

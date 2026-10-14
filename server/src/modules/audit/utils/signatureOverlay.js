@@ -3,6 +3,7 @@ const path = require('path');
 const sharp = require('sharp');
 const { PDFDocument } = require('pdf-lib');
 const { hashFile } = require('./hashChain');
+const { signatureGeometry } = require('./auditSignatureGeometry');
 
 function clamp01(value, fallback) {
   const n = Number(value);
@@ -40,6 +41,18 @@ async function overlayOnImageBuffer(sourceBuffer, signatures) {
   const composites = [];
 
   for (const sig of signatures) {
+    if (sig.widthRatio != null) {
+      const source = getImageBuffer(sig.imageData);
+      if (!source) continue;
+      const dimensions = await sharp(source).metadata();
+      const geometry = signatureGeometry(sig, imgWidth, imgHeight, dimensions.width, dimensions.height, false);
+      let ink = await sharp(source).resize({ width: Math.max(1, Math.round(geometry.width)) }).png().toBuffer();
+      if (sig.rotation) ink = await sharp(ink).rotate(sig.rotation, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      const inkSize = await sharp(ink).metadata();
+      composites.push({ input: ink, left: Math.max(0, Math.min(imgWidth - inkSize.width, Math.round(geometry.centerX - inkSize.width / 2))),
+        top: Math.max(0, Math.min(imgHeight - inkSize.height, Math.round(geometry.centerY - inkSize.height / 2))) });
+      continue;
+    }
     const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
     const rotation = clampNumber(sig.rotation, 0, -180, 180);
     const targetSigWidth = Math.max(48, Math.min(Math.round(imgWidth * 0.18 * size), Math.round(imgWidth * 0.55), 520));
@@ -83,6 +96,16 @@ async function overlayOnPdfBuffer(sourceBuffer, signatures) {
     const pageSize = page.getSize();
     const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
     const rotation = clampNumber(sig.rotation, 0, -180, 180);
+    if (sig.widthRatio != null) {
+      const sourceSize = await sharp(sigBuffer).metadata();
+      const geometry = signatureGeometry(sig, pageSize.width, pageSize.height, sourceSize.width, sourceSize.height, true);
+      const rotated = rotation ? await sharp(sigBuffer).rotate(rotation, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer() : sigBuffer;
+      const image = await pdfDoc.embedPng(rotated);
+      page.drawImage(image, { x: geometry.left, y: pageSize.height - geometry.top - geometry.rotatedHeight,
+        width: geometry.rotatedWidth, height: geometry.rotatedHeight, opacity: 1 });
+      applied += 1;
+      continue;
+    }
     const embedBuffer = rotation
       ? await sharp(sigBuffer).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer()
       : sigBuffer;

@@ -95,7 +95,7 @@ module.exports = { hour: hour };
 
 ### 3.3 `position: fixed` 在 scroll-view 中的行为
 
-`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。普通弹窗必须使用 `root-portal` 提升到页面根层，不能留在页面或组件的滚动、transform、flex 布局链中。签名板实时笔迹禁止使用可视原生 Canvas，详见 §3.13。
+`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。普通弹窗必须使用 `root-portal` 提升到页面根层，不能留在页面或组件的滚动、transform、flex 布局链中。普通弹窗禁止可视原生 Canvas；独立签署页的限定实现见 §3.13。
 
 ```xml
 <scroll-view>...</scroll-view>
@@ -161,11 +161,9 @@ self._lastUpdateTime = now;
 
 键盘面板、Ghost card 使用 `wx:if`。
 
-### 3.13 签名板视口绝对坐标
+### 3.13 独立签署页连续路径
 
-可视白板与实时笔迹必须使用普通 `view`。白板 rect、触点 `clientX/clientY` 和线段端点统一
-保存为视口 CSS px（逻辑像素）绝对坐标；禁止 scrollTop、DPR、rpx 和固定偏移。原生 Canvas 只能作为
-不可见导出器，确认时再把绝对端点投影到白板局部坐标。白板每次完成布局、尺寸变化或弹窗重新显示后都要重新测量 rect；线段事实数据不得保存旧 rect 推导的局部坐标。具体要求详见 `.claude/rules/audit.md` §3。
+用户在 2026-10-14 明确要求连续笔画，不允许普通 view 小线段。仅独立签署页普通布局使用可视 Canvas 2D，实时与导出共用 shared/auditInk.js。触点 clientX/clientY 与当前 viewport rect、文件相机一次转换为页内比例，不加 DPR、scrollTop 或经验偏移。禁止放在 Portal、祖先 transform 或入场位移动画内；普通弹窗仍禁止可视原生 Canvas。步骤内存草稿、颜色、局部擦除、撤销重做与附件/PDF 规则见 .claude/rules/audit.md 第 3 节及 docs/ui-kit.md。
 
 ### 3.14 编译器 runtime helper 缺失
 

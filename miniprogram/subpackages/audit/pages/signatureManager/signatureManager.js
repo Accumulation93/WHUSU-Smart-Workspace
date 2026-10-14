@@ -2,6 +2,9 @@ const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audi
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { formatAbsoluteDate } = require('../../../../utils/dateTime');
+const drafts = require('../../../../utils/auditSigningDrafts');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const signingCopy = require('../../../../locales/zh-CN/auditSigning');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 Page({
@@ -21,6 +24,7 @@ Page({
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
     localeCopy,
+    signingCopy, signatureDrawImage: '',
     signatures: [],
     loading: false,
     creating: false,
@@ -52,7 +56,8 @@ Page({
   },
 
   startCreate() {
-    this.setData({ creating: true, editingSignature: null });
+    this.setData({ creating: true, editingSignature: null, signatureDrawImage: '' });
+    this.openSignatureWorkspace();
   },
 
   editSignature(e) {
@@ -60,11 +65,25 @@ Page({
     const sig = this.data.signatures.find((s) => s.id === id);
     if (!sig) return;
     // Edit mode: load existing signature into the pad (or just show and allow redraw)
-    this.setData({ creating: true, editingSignature: sig });
+    this.setData({ creating: true, editingSignature: sig, signatureDrawImage: '' });
+    this.openSignatureWorkspace();
   },
 
+  openSignatureWorkspace() {
+    const snapshot = orgSession.getSnapshot();
+    drafts.store.bind(JSON.stringify([snapshot.orgId, snapshot.contextId, snapshot.role]));
+    const id = this.data.editingSignature ? this.data.editingSignature.id : 'new';
+    const draft = drafts.store.open('signature-template-' + id), file = { id: 'signature-template-' + id, fileName: signingCopy.padTitle };
+    drafts.setHandoff({ draft, file, pad: true, mode: 'pen', confirm: exports => {
+      if (!orgSession.isCurrent(snapshot)) return;
+      this.setData({ signatureDrawImage: exports[0].imageData, creating: true });
+    } });
+    navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
+  },
+  saveDrawnSignature() { if (this.data.signatureDrawImage) this.saveSignature(this.data.signatureDrawImage); },
+
   cancelCreate() {
-    this.setData({ creating: false, editingSignature: null });
+    this.setData({ creating: false, editingSignature: null, signatureDrawImage: '' });
   },
 
   onSignatureDrawConfirm(e) {
@@ -86,7 +105,9 @@ Page({
       });
       if (res.status === 'success') {
         showShortToast(editingSig ? localeCopy.copy_1c620d13e8 : localeCopy.copy_082505816e);
-        this.setData({ creating: false, editingSignature: null });
+        this.setData({ creating: false, editingSignature: null, signatureDrawImage: '' });
+        const transfer = drafts.getHandoff();
+        if (transfer && transfer.pad) transfer.draft.files = {};
         this.loadSignatures();
       } else {
         showShortToast(res.message || localeCopy.copy_215e3c57da);

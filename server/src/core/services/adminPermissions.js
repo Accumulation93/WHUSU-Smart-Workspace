@@ -191,6 +191,7 @@ mapRoutes('hr.identities', ['/saveIdentity', '/deleteIdentity']);
 mapRoutes('hr.work_groups', ['/saveWorkGroup', '/deleteWorkGroup']);
 
 mapRoutes('audit.templates', ['/listAuditFlowTemplates', '/saveAuditFlowTemplate', '/deleteAuditFlowTemplate']);
+mapRoutes('audit.templates', ['/getAuditTemplateEditorData']);
 mapRoutes('audit.stamps', ['/listStamps', '/saveStamp', '/deleteStamp', '/saveStampAssignments', '/listIdentityStamps', '/listStampCandidates', '/saveStampGrants']);
 mapRoutes('audit.submissions', ['/listAllAuditSubmissions', '/getAuditProgress']);
 mapRoutes('audit.submissions', ['/getSubmissionDetail'], { allowUserRole: true });
@@ -198,6 +199,7 @@ mapRoutes('audit.submissions', [
   '/getAuditFile', '/downloadAuditFile', '/getAuditFilePreview'
 ], { allowUserRole: true });
 mapRoutes('audit.verification', ['/listVerificationPermissions', '/saveVerificationPermission', '/verifyAuditFile']);
+mapRoutes('audit.verification', ['/listAuditVerificationCandidates']);
 mapRoutes('audit.verification', ['/getAuditVerificationAccess', '/verifySignatureChain'], { allowUserRole: true });
 
 mapAny(['/listVenues'], ['venue.resources', 'venue.bookings', 'venue.approvals']);

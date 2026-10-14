@@ -5,19 +5,19 @@
     <view wx:if="{{view.notice}}" class="crypto-note">{{view.notice}}</view>
   </view>
   <view wx:if="{{!view.files.length}}" class="crypto-note">{{copy.noFiles}}</view>
-  <view wx:for="{{view.files}}" wx:for-item="file" wx:key="key" class="crypto-file">
+  <view wx:for="{{view.files}}" wx:for-item="file" wx:for-index="fileIndex" wx:key="key" class="crypto-file">
     <view class="crypto-file-name">{{file.name}}</view>
     <view class="crypto-state--{{file.state}} crypto-file-state">{{file.stateText}}</view>
     <view wx:if="{{!file.platformVerified}}" class="crypto-note">{{copy.platformUnconfirmed}}</view>
-    <view wx:if="{{report && file.platformVerified}}" class="crypto-note">{{copy.hostedNotice}}</view>
-    <view wx:if="{{report && !file.platformVerified}}" class="crypto-note">{{copy.unconfirmedReportNotice}}</view>
-    <view wx:if="{{!report}}" class="crypto-check-grid">
+    <view wx:for="{{file.failures}}" wx:key="key" class="crypto-state--failed">{{item.text}}</view>
+    <view class="crypto-check-grid">
       <view wx:for="{{file.summary}}" wx:for-item="check" wx:key="key" class="crypto-check">
         <view class="crypto-check-label">{{check.label}}</view>
         <view class="crypto-state--{{check.state}}">{{check.text}}</view>
       </view>
     </view>
-    <view wx:if="{{report}}" class="crypto-check-grid">
+    <button wx:if="{{report}}" data-key="checks_{{fileIndex}}" class="secondary-btn crypto-details-toggle" bindtap="toggleDetails" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signing.details}}</button>
+    <view wx:if="{{report && expanded['checks_' + fileIndex]}}" class="crypto-check-grid">
       <view wx:for="{{file.checks}}" wx:for-item="check" wx:key="key" class="crypto-check">
         <view class="crypto-check-label">{{check.label}}</view>
         <view class="crypto-state--{{check.state}}">{{check.stateText}}</view>
@@ -43,14 +43,17 @@
         </view>
       </view>
       <view class="crypto-step-time crypto-note">{{copy.timeLabel}} · {{step.signedAtText}}</view>
-      <view wx:if="{{report}}" class="crypto-details">
+      <view wx:if="{{report && expanded['technical_' + fileIndex]}}" class="crypto-details">
         <view class="crypto-note">{{step.digestTypeText}}</view>
         <view wx:for="{{step.fields}}" wx:for-item="field" wx:key="key" class="crypto-detail-row">
           <view class="crypto-note">{{field.label}}</view><text selectable class="crypto-code">{{field.value}}</text>
         </view>
       </view>
     </view>
-    <view wx:if="{{report}}" class="crypto-details">
+    <button wx:if="{{report}}" data-key="technical_{{fileIndex}}" class="secondary-btn crypto-details-toggle" bindtap="toggleDetails" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signing.digest}}</button>
+    <view wx:if="{{report && expanded['technical_' + fileIndex]}}" class="crypto-details">
+      <view wx:if="{{file.platformVerified}}" class="crypto-note">{{copy.hostedNotice}}</view>
+      <view wx:else class="crypto-note">{{copy.unconfirmedReportNotice}}</view>
       <view class="crypto-note">{{copy.fileDigest}}</view><text selectable class="crypto-code">{{file.fileDigest}}</text>
       <view wx:for="{{file.cms}}" wx:for-item="cms" wx:key="key" class="crypto-detail-row">
         <view class="crypto-note">{{copy.wholeDocument}} · {{cms.coverage}}</view>
@@ -58,7 +61,8 @@
           <view class="crypto-note">{{field.label}}</view><text selectable class="crypto-code">{{field.value}}</text>
         </view>
       </view>
-      <view wx:if="{{file.platformVerified}}" class="crypto-details">
+      <button wx:if="{{file.platformVerified}}" data-key="certificates_{{fileIndex}}" class="secondary-btn crypto-details-toggle" bindtap="toggleDetails" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signing.certificates}}</button>
+      <view wx:if="{{file.platformVerified && expanded['certificates_' + fileIndex]}}" class="crypto-details">
         <view class="crypto-check-label">{{copy.certificateTitle}}</view>
         <view class="crypto-report-guide"><view class="crypto-check-label">{{copy.certificateScopeTitle}}</view><view class="crypto-note">{{copy.certificateNotice}}</view></view>
         <view class="crypto-report-guide"><view class="crypto-check-label">{{copy.certificateUseTitle}}</view><view class="crypto-note">{{copy.certificateGuide}}</view></view>
@@ -71,7 +75,7 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{report && file.platformVerified}}" class="crypto-note">{{copy.timeNotice}}</view>
+    <view wx:if="{{report && file.platformVerified && expanded['technical_' + fileIndex]}}" class="crypto-note">{{copy.timeNotice}}</view>
   </view>
   <button wx:if="{{!report}}" class="secondary-btn crypto-details-toggle ui-motion-button" bindtap="openReport" hover-class="ui-press-button" hover-stop-propagation="{{true}}" hover-start-time="0" hover-stay-time="160">{{copy.technical}}</button>
 </view>

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
+import signingCopy from '@/locales/zh-CN/shared/auditSigning.js';
 import { ensureSessionLoaded, session } from '@/runtime/session.js';
 import { adminModule } from '@/runtime/adminNavigation.js';
 
@@ -66,6 +67,12 @@ const routes = [
     name: 'auditCreate',
     component: () => import('@/views/AuditCreateView.vue'),
     meta: { requiresAuth: true, title: copy.audit.createTitle }
+  },
+  {
+    path: '/audit/signing',
+    name: 'auditSigning',
+    component: () => import('@/views/audit/AuditSigningView.vue'),
+    meta: { requiresAuth: true, title: signingCopy.title }
   },
   {
     path: '/audit/signatures',

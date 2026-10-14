@@ -1,7 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_auditSigning from './shared/auditSigning.js';
 import src_auditVerification from './shared/auditVerification.js';
-import src_common from './shared/common.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
@@ -33,9 +33,9 @@ export default Object.freeze({
   in_progress: src_auditVerification.text.status.in_progress,
   rejected: src_auditVerification.text.status.rejected,
   approved: src_auditVerification.text.status.approved,
-  withdrawn: src_auditVerification.text.status.withdrawn,
+  withdrawn: src_auditSigning.withdrawn,
   pass: src_pendingApprovals.copy_8e2f75159e,
-  sign: src_submissionDetail.copy_0c02992813,
+  sign: src_auditSigning.signature,
   skipped: src_web.audit.stepStatusLabels.skipped,
   emptySubmissions: src_mySubmissions.copy_a7f09dc2db,
   emptyPending: src_pendingApprovals.copy_a14c4e583b,
@@ -100,7 +100,7 @@ export default Object.freeze({
   createFilesLabel: src_web.audit.detailFilesTitle,
   createChooseFile: src_submissionDetail.copy_98aea69c53,
   createFilesRequired: src_web.audit.createFilesRequired,
-  createRemoveFile: src_submissionDetail.copy_c3e182f0c6,
+  createRemoveFile: src_auditSigning.remove,
   createSubmit: src_submissionDetail.copy_c07097f6db,
   createSubmitting: src_web.audit.createSubmitting,
   createDone: src_web.audit.createDone,
@@ -113,8 +113,8 @@ export default Object.freeze({
   signatureEmpty: src_signatureManager.copy_b9a2950b44,
   signatureNew: src_signatureManager.copy_c103b678f0,
   signatureClear: src_web.audit.signatureClear,
-  signatureSave: src_web.audit.signatureSave,
-  signatureCancel: src_common.actions.cancel,
+  signatureSave: src_auditSigning.saveTemplate,
+  signatureCancel: src_auditSigning.cancel,
   signatureNameLabel: src_web.audit.signatureNameLabel,
   signatureNamePlaceholder: src_web.audit.signatureNamePlaceholder,
   signatureNameRequired: src_web.audit.signatureNameRequired,

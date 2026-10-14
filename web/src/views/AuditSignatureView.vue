@@ -23,17 +23,9 @@
 
       <div v-if="padVisible" class="stack-tight">
         <p class="soft">{{ copy.audit.signatureHint }}</p>
-        <canvas
-          ref="padRef"
-          class="signature-pad"
-          @pointerdown="onPointerDown"
-          @pointermove="onPointerMove"
-          @pointerup="onPointerUp"
-          @pointercancel="onPointerUp"
-          @pointerleave="onPointerUp"
-        ></canvas>
+        <img v-if="newImage" class="signature-preview" :src="newImage" :alt="signing.padTitle" />
         <div class="row row-wrap">
-          <button type="button" class="btn-quiet" @click="clearPad">{{ copy.audit.signatureClear }}</button>
+          <button type="button" class="btn-quiet" @click="openPad">{{ signing.rewrite }}</button>
         </div>
         <label class="field">
           <span class="field-label">{{ copy.audit.signatureNameLabel }}</span>
@@ -81,7 +73,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
@@ -89,6 +81,8 @@ import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { detailTimeText } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import signing from '@/locales/zh-CN/shared/auditSigning.js';
+import { signingDrafts, setSigningHandoff, getSigningHandoff } from '@/runtime/signingDrafts.js';
 
 const router = useRouter();
 
@@ -98,10 +92,12 @@ const saving = ref(false);
 const loadNotice = ref('');
 const padVisible = ref(false);
 const newName = ref('');
-const padRef = ref(null);
 
-let drawing = false;
-let lastPoint = null;
+const newImage=ref('');
+function openPad(){const draft=signingDrafts.open('personal-signature-new');const handoff={kind:'template',draft,file:{id:'personal-signature-new',fileName:signing.padTitle},pad:true,mode:'pen',templateName:newName.value,back:{name:'auditSignatures'},result:null};handoff.confirm=exports=>{handoff.result=exports;};setSigningHandoff(handoff);router.push({name:'auditSigning'});}
+
+
+
 let hasStroke = false;
 
 const displayName = computed(() => {
@@ -121,83 +117,11 @@ function goWorkRole() {
   router.push({ name: 'workRole' });
 }
 
-function padContext() {
-  const canvas = padRef.value;
-  return canvas ? canvas.getContext('2d') : null;
-}
-
-/** 画布按显示尺寸和设备像素比设置后备像素，保证笔迹清晰且坐标一比一。 */
-function preparePad() {
-  const canvas = padRef.value;
-  if (!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.round((rect.width || 320) * ratio);
-  canvas.height = Math.round((rect.height || 160) * ratio);
-  const context = canvas.getContext('2d');
-  context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  context.lineWidth = 2.4;
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
-  context.strokeStyle = '#0f172a';
-}
-
-function pointOf(event) {
-  const canvas = padRef.value;
-  const rect = canvas.getBoundingClientRect();
-  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-}
-
-function onPointerDown(event) {
-  const context = padContext();
-  if (!context) return;
-  event.preventDefault();
-  if (typeof event.target.setPointerCapture === 'function') {
-    event.target.setPointerCapture(event.pointerId);
-  }
-  drawing = true;
-  hasStroke = true;
-  lastPoint = pointOf(event);
-  context.beginPath();
-  context.moveTo(lastPoint.x, lastPoint.y);
-  context.lineTo(lastPoint.x + 0.1, lastPoint.y + 0.1);
-  context.stroke();
-}
-
-function onPointerMove(event) {
-  if (!drawing) return;
-  const context = padContext();
-  if (!context) return;
-  event.preventDefault();
-  const point = pointOf(event);
-  context.beginPath();
-  context.moveTo(lastPoint.x, lastPoint.y);
-  context.lineTo(point.x, point.y);
-  context.stroke();
-  lastPoint = point;
-}
-
-function onPointerUp() {
-  drawing = false;
-  lastPoint = null;
-}
-
-function clearPad() {
-  const canvas = padRef.value;
-  if (!canvas) return;
-  const context = canvas.getContext('2d');
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  hasStroke = false;
-}
-
 function togglePad() {
   padVisible.value = !padVisible.value;
   loadNotice.value = '';
   if (padVisible.value) {
-    nextTick(() => {
-      preparePad();
-      clearPad();
-    });
+    openPad();
   }
 }
 
@@ -225,8 +149,8 @@ async function save() {
     loadNotice.value = copy.audit.signatureEmptyCanvas;
     return;
   }
-  const canvas = padRef.value;
-  const imageData = canvas ? canvas.toDataURL('image/png') : '';
+
+  const imageData = newImage.value;
   saving.value = true;
   loadNotice.value = '';
   try {
@@ -237,6 +161,9 @@ async function save() {
     });
     if (result.status !== 'success') throw new Error(result.message || '');
     showToast(copy.audit.signatureSaved);
+    const transfer = getSigningHandoff();
+    if (transfer?.kind === 'template') { transfer.result = null; transfer.draft.files = {}; }
+    newImage.value = ''; hasStroke = false;
     newName.value = '';
     padVisible.value = false;
     await load();
@@ -275,21 +202,10 @@ async function remove(signature) {
   }
 }
 
-onMounted(load);
+onMounted(()=>{const handoff=getSigningHandoff();if(handoff&&handoff.kind==='template'&&handoff.result){newImage.value=handoff.result[0].imageData;newName.value=handoff.templateName;padVisible.value=true;hasStroke=true;}load();});
 </script>
 
 <style scoped>
-.signature-pad {
-  display: block;
-  width: 100%;
-  height: 180px;
-  border: 1px dashed rgba(147, 197, 253, 0.9);
-  border-radius: var(--ui-field-radius);
-  background: rgba(255, 255, 255, 0.94);
-  touch-action: none;
-  cursor: crosshair;
-}
-
 .signature-preview {
   display: block;
   max-width: 200px;

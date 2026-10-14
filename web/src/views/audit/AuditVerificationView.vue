@@ -1,6 +1,6 @@
 <template>
   <div class="page stack">
-    <WorkspaceHero :page-name="copy.verify.pageName" />
+    <WorkspaceHero v-if="!embedded" :page-name="copy.verify.pageName" />
 
     <section class="card stack">
       <div class="section-title">{{ copy.verify.formTitle }}</div>
@@ -9,7 +9,7 @@
         <button
           type="button"
           class="tab"
-          :class="{ 'tab-active': mode === 'number' }"
+          :class="{ 'tab-active': mode === 'number' }" :disabled="busy"
           @click="setMode('number')"
         >
           {{ copy.verify.modeNumber }}
@@ -17,7 +17,7 @@
         <button
           type="button"
           class="tab"
-          :class="{ 'tab-active': mode === 'file' }"
+          :class="{ 'tab-active': mode === 'file' }" :disabled="busy"
           @click="setMode('file')"
         >
           {{ copy.verify.modeFile }}
@@ -28,6 +28,7 @@
         <span class="field-label">{{ copy.verify.numberLabel }}</span>
         <input
           v-model="submissionNumber"
+          :disabled="busy"
           class="field-input"
           type="text"
           :placeholder="copy.verify.numberPlaceholder"
@@ -39,7 +40,7 @@
         <span class="field-label">{{ copy.verify.fileLabel }}</span>
         <div class="row">
           <span class="value grow break-all">{{ fileName || copy.verify.filePlaceholder }}</span>
-          <button type="button" class="btn btn-secondary" @click="chooseFile">
+          <button type="button" class="btn btn-secondary" :disabled="busy" @click="chooseFile">
             {{ copy.verify.filePlaceholder }}
           </button>
         </div>
@@ -47,6 +48,7 @@
           ref="fileInput"
           class="visually-hidden"
           type="file"
+          :disabled="busy"
           @change="onFileChange"
         />
       </div>
@@ -102,13 +104,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onBeforeUnmount } from 'vue';
 import AuditVerificationResult from './AuditVerificationResult.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import matchCopy from '@/locales/zh-CN/auditVerification.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
 import { buildMatchVerificationParams, presentVerificationResponse } from '@/runtime/verification.js';
+import { auditRequests } from '@/runtime/auditRequests.js';
+defineProps({embedded:Boolean});
+const emit=defineEmits(['busy']);
+const requests=auditRequests();let alive=true;
 
 /**
  * 验签页：按申请编号或在浏览器里选择的文件核对签署。
@@ -176,7 +182,8 @@ async function runVerify(params) {
   busy.value = true;
   notice.value = '';
   try {
-    const response = await callApi('verifySignatureChain', params);
+    const response = await requests.call('verifySignatureChain', params);
+    if(!alive)return;
     if (response.status === 'success') {
       result.value = presentVerificationResponse(response);
       return;
@@ -189,11 +196,12 @@ async function runVerify(params) {
   } catch (error) {
     notice.value = errorText(error, copy.verify.verifyFailed);
   } finally {
-    busy.value = false;
+    if(alive)busy.value = false;
   }
 }
 
 function verify() {
+  if(busy.value)return;
   if (mode.value === 'number') {
     const number = submissionNumber.value.trim();
     if (!number) {
@@ -211,10 +219,13 @@ function verify() {
 }
 
 function selectMatch(submissionId) {
+  if(busy.value)return;
   const params = buildMatchVerificationParams(result.value, submissionId, fileBase64.value);
   if (!params || params.submissionId === String((result.value && result.value.submissionId) || '')) return;
   runVerify(params);
 }
+watch(busy,value=>emit('busy',value),{flush:'sync'});
+onBeforeUnmount(()=>{alive=false;requests.dispose();emit('busy',false);});
 </script>
 
 <style scoped>

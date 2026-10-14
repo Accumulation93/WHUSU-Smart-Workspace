@@ -2639,9 +2639,11 @@
       <viewport-portal wx:if="{{auditTemplateStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex audit-step-dialog" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_b79428bf57}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill audit-step-scroll" style="{{auditStepBodyHeight ? 'height:' + auditStepBodyHeight + 'px!important;' : ''}}">
+            <view class="ui-dialog-stack audit-step-body-content">
+            <block wx:if="{{!auditStepConditionEditorVisible}}">
             <!-- Step name -->
             <view class="field ui-dialog-inset">
               <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
@@ -2713,9 +2715,9 @@
                 <view class="audit-designation-option {{!auditTemplateStepForm.allowApproverDesignation ? 'audit-designation-option-active' : ''}} ui-motion-chip" data-enabled="false" catchtap="onStepApproverDesignationChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b750045581}}</view>
                 <view class="audit-designation-option {{auditTemplateStepForm.allowApproverDesignation ? 'audit-designation-option-active' : ''}} ui-motion-chip" data-enabled="true" catchtap="onStepApproverDesignationChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4c329a4071}}</view>
               </view>
-              <view class="field-help">{{localeCopy.copy_fcc739ca7b}}</view>
             </view>
 
+            </block>
             <!-- Condition editor (inline sub-panel) -->
             <view class="list-card nested-card audit-step-condition-editor audit-step-condition-editor--inset" wx:if="{{auditStepConditionEditorVisible}}">
               <view class="list-title">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_dc2056bbc9 : localeCopy.copy_4d3b682ec9}}</view>
@@ -2777,6 +2779,7 @@
               </view>
             </view>
 
+            </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer ui-dialog-inset">
             <button class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bb0ad94473}}</button>
@@ -2854,7 +2857,6 @@
     <view class="section-stack" wx:if="{{activeTab === 'auditStamps'}}">
       <view class="section-control-card">
         <view class="section-title">{{localeCopy.copy_82f17ccbef}}</view>
-        <view class="panel-note">{{stampCopy.scope}}</view>
       </view>
       <view class="edit-box">
         <view class="list-title">{{stampForm.id ? localeCopy.copy_211047f590 : localeCopy.copy_a44e21b978}}</view>
@@ -3015,7 +3017,7 @@
     </view>
 
     <!-- ══════════════ Audit: Verification ══════════════ -->
-    <view class="section-stack" wx:if="{{activeTab === 'auditVerification'}}">
+    <view class="section-stack audit-verification-section" wx:if="{{activeTab === 'auditVerification'}}">
       <view class="section-control-card">
         <view class="section-title">{{localeCopy.copy_ecfd21fdcd}}</view>
       </view>

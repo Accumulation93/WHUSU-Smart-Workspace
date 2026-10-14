@@ -90,7 +90,7 @@ async function replaceForStamp(stampId, value) {
   });
 }
 
-async function getAuthorizedStamps(assignment, stampIds, connection) {
+async function getAuthorizedStamps(assignment, stampIds, connection, options) {
   const actor = assignment || {};
   if (!actor.assignment_id || !actor.person_id) return [];
   const orgId = await getCurrentOrgId();
@@ -101,7 +101,7 @@ async function getAuthorizedStamps(assignment, stampIds, connection) {
   const clause = ids ? ` AND s.id IN (${ids.map(() => '?').join(',')})` : '';
   if (ids) params.push(...ids);
   const [rows] = await (connection || pool).query(
-    `SELECT s.id, s.name, s.image_data
+    `SELECT s.id, s.name${options && options.metadataOnly ? '' : ', s.image_data'}
       FROM stamps s
       JOIN stamp_assignment_grants g ON g.stamp_id = s.id AND g.org_id = s.org_id
       JOIN membership_assignments ma ON ma.id = g.assignment_id AND ma.org_id = g.org_id AND ma.status = 'active'
