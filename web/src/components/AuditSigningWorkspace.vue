@@ -132,6 +132,7 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-layer-toolbar{flex-wrap:nowrap}
 .signing-layer-toolbar .field{flex:1;min-width:0;flex-direction:row;align-items:center}
 .signing-layer-toolbar .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
+.signing-layer-toolbar .field-label,.signing-width .field-label{flex:none;white-space:nowrap}
 .signing-workspace{display:flex;flex:1;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
 .signing-workspace .panel-head{margin:0;flex:none}
 .signing-workspace .tabs{margin:0;flex:none;min-height:0;padding:var(--ui-signing-tool-gap)}
