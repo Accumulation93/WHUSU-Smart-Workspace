@@ -339,6 +339,11 @@ function guidanceJsFragments(file) {
 }
 
 function isExempt(file, text) {
+  if (file.includes('/package-resources/')) {
+    const resources = require('./miniprogram-package-resources');
+    if (!isExempt.resourcesVerified) { resources.sync(); isExempt.resourcesVerified = true; }
+    file = 'miniprogram/' + resources.canonical(file.slice('miniprogram/'.length));
+  }
   return EXEMPTIONS.some((entry) => entry.file === file && entry.pattern.test(text));
 }
 

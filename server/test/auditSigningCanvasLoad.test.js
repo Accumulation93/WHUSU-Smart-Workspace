@@ -31,7 +31,7 @@ async function main() {
     require(name) {
       if (name === '../../../../utils/api') return { callFunction: async () => ({ status: 'success', previewMime: 'image/png', data: 'aW1hZ2U=', totalPages: 2 }) };
       if (name === '../../../../utils/orgSession') return { isCurrent: () => true };
-      if (name === '../../../../utils/auditPreviewFiles') return { removeExpiredPreviews: () => new Promise(() => {}), removePreview: () => new Promise(() => {}) };
+      if (name === '../../package-resources/utils/auditPreviewFiles') return { removeExpiredPreviews: () => new Promise(() => {}), removePreview: () => new Promise(() => {}) };
       return ownRequire(name);
     }
   };
