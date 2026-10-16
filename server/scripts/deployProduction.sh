@@ -521,7 +521,8 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     timeout --signal=TERM --kill-after=30s 1200s \
       node "$NEW_RELEASE/server/scripts/normalizeScoreCalculationSnapshots.js" --verify
   fi
-  if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 || "$PENDING_COUNT" -gt 0 ]]; then
+  # 普通新增迁移不能重建仍在变化的历史时间账本；仅真正的 UTC 切换执行。
+  if [[ "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     log "物化逐记录历史时间待核对账本"
     timeout --signal=TERM --kill-after=30s 1200s node "$NEW_RELEASE/server/scripts/materializeUtcTimeReviews.js" --materialize
     log "执行 UTC 迁移逐记录语义校验"

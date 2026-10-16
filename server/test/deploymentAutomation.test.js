@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const migrationTools = require('../scripts/runDeploymentMigrations');
 const databaseTools = require('../scripts/deploymentDatabase');
@@ -168,6 +169,27 @@ function testDeploymentScriptContract() {
   assert.match(workflow, /needs: release-ready/);
 }
 
+function testUtcReviewExecutionBoundary() {
+  const script = fs.readFileSync(path.resolve(__dirname, '../scripts/deployProduction.sh'), 'utf8');
+  const marker = script.indexOf('log "物化逐记录历史时间待核对账本"');
+  const start = script.lastIndexOf('\n  if [[', marker);
+  const end = script.indexOf('\n  fi', marker) + '\n  fi'.length;
+  assert(start > 0 && end > start);
+  const branch = script.slice(start, end);
+  const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
+  for (const pending of [0, 1]) {
+    for (const cutover of [0, 1]) {
+      // 执行真实分支，仅替换外部命令；普通建表不得触碰历史账本，真正切换仍执行两项检查。
+      const harness = 'set -eu\nlog() { :; }\ntimeout() { printf "%s\\n" "$*"; }\n' + branch;
+      const output = execFileSync(bash, ['-c', harness], { encoding: 'utf8',
+        env: { ...process.env, PENDING_COUNT: String(pending), UTC_CUTOVER_REQUIRED: String(cutover), NEW_RELEASE: '/test-release' } });
+      assert.strictEqual(output.includes('--materialize'), cutover === 1);
+      assert.strictEqual(output.includes('--verify'), cutover === 1);
+    }
+  }
+}
+
+testUtcReviewExecutionBoundary();
 testMigrationDiscoveryAndLedger();
 testDatabaseCommandsDoNotExposePassword();
 testDeploymentScriptContract();
