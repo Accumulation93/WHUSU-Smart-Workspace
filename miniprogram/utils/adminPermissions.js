@@ -95,7 +95,7 @@ function filterTabs(tabs, profile, map) {
   const permissionMap = map || TAB_PERMISSION_MAP;
   return (tabs || []).filter(function(tab) {
     const keys = permissionMap[tab] || [];
-    return hasAny(profile, tab === 'pending' ? keys : keys.concat(keys.map(key => key + '.delete')));
+    return hasAny(profile, tab === 'pending' || tab === 'bookings' ? keys : keys.concat(keys.map(key => key + '.delete')));
   });
 }
 

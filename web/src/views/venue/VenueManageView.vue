@@ -85,7 +85,7 @@ const visibleTabs = computed(() => [
   { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals', 'venue.bookings_delete'] },
   { key: 'pending', label: ui.copy_e7f0a24301, permissions: ['venue.approvals'] },
   { key: 'purposes', label: ui.copy_8dcf3fcf0b, permissions: ['venue.purposes'] }
-].filter(tab => hasAny(tab.key === 'pending' ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));
+].filter(tab => hasAny(['pending', 'bookings'].includes(tab.key) ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));
 const allowed = computed(() => hasAny(['venue.resources', 'venue.resources.delete', 'venue.approvals', 'venue.approvals.delete']));
 const blocked = computed(() => busy.value || loading.value || permissionLoading.value || !!permissionNotice.value || !!loadNotice.value || savedAwaitingRead.value || !allowed.value);
 const displayName = computed(() => session.context?.name || session.user?.name || '');

@@ -13,6 +13,19 @@ const {
 } = require('../src/core/services/adminPermissions');
 
 (async () => {
+  const pageModule = { exports: {} };
+  require('node:vm').runInNewContext(require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../miniprogram/utils/adminPermissions.js'), 'utf8'), {
+    module: pageModule, require: () => ({})
+  });
+  const pagePermissions = pageModule.exports;
+  const pageTabs = ['venue', 'bookings', 'pending', 'purposes'];
+  for (const [permission, expected] of [
+    ['venue.approvals.delete', 'venue'], ['venue.bookings_delete', 'bookings'],
+    ['venue.approvals', 'venue,bookings,pending'], ['venue.purposes.delete', 'purposes']
+  ]) {
+    const profile = { adminLevel: 'admin', permissions: { [permission]: true } };
+    assert.strictEqual(pagePermissions.filterTabs(pageTabs, profile, pagePermissions.VENUE_TAB_PERMISSION_MAP).join(','), expected);
+  }
   assert(PERMISSION_DEFINITIONS.size >= 20, '权限目录必须保持细粒度');
   assert.strictEqual(isApplicable('permissions.manage_regular_admins', 'admin'), true);
   assert.strictEqual(isApplicable('permissions.manage_regular_admins', 'super_admin'), false);

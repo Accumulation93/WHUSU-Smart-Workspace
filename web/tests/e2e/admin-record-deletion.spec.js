@@ -2,6 +2,18 @@ import { test, expect } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import text from '../../src/locales/zh-CN/shared/adminGovernance.js';
 
+test('rule deletion alone cannot open booking records or approvals', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-admin' });
+  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.approvals.delete': true } } }));
+  await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [] } }));
+  const unauthorized = [];
+  page.on('request', request => { if (/\/(listAllVenueBookings|getPendingVenueApprovals)$/.test(request.url())) unauthorized.push(request.url()); });
+  await page.goto('/web/venue/manage');
+  await expect(page.locator('.venue-admin-tabs button')).toHaveCount(1);
+  await expect(page.locator('.venue-admin-tabs button')).toHaveAttribute('aria-pressed', 'true');
+  expect(unauthorized).toEqual([]);
+});
+
 for (const kind of ['audit', 'venue']) {
   test(kind + ' permanent deletion confirms target, cancels without writing, rejects safely and rereads success', async ({ page }) => {
     await mockApi(page, { activeContextId: 'ctx-admin' });
