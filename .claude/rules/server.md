@@ -97,7 +97,7 @@ paths: "server/**"
 
 - 生产只使用 `server/db/deploy/` 中的时间戳幂等迁移和 `schema_migrations` 账本；旧 `migrate.sh/migrate.bat` 只可作为历史兼容工具，不能声称覆盖当前全部迁移，也不得直接用于生产。
 - 有数据库结构或数据变更时新增迁移，不修改已执行迁移；纯前端、文档和样式改动不伪造迁移。
-- 修改后由本机优先 CI 执行测试、权限/租户审计、迁移预检和 `git diff --check`。GitHub 核验绑定提交的本机签名证明，无有效证明或手动强制时才运行 `audit-and-test`；统一 `validation-complete` 成功后部署，详见 `docs/local-ci.md`。部署后核对完整 SHA、release/current、PM2 进程、迁移账本和本地/公网健康接口。
+- 2026-10-16 起，涉及后端改动必须先询问用户是否运行 CI，明确同意后才执行，优先本机并复用同一提交的有效证明。不涉及后端不运行 CI。必要本地检查、生产迁移、密钥与健康检查仍保留，未执行 CI 不得标为通过。详见 AGENTS.md 第 3 节和 docs/local-ci.md。
 - CI 的 `GITHUB_TOKEN` 权限默认固定为 `contents: read`，第三方 Action 固定到经过核对的完整提交 SHA，并关闭 checkout 凭据持久化。部署锁必须在任何远端文件、Git、日志或软链接写入前取得；锁竞争失败的任务不得留下部分状态。
 
 ### 8.1 绝对时间与历史校正

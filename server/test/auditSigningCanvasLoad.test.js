@@ -29,6 +29,7 @@ async function main() {
   const pageRuntime = { Page(value) { pageDefinition = value; }, console, setTimeout, clearTimeout,
     wx: { env: { USER_DATA_PATH: 'wxfile://usr' }, getFileSystemManager() { return { readdir(options) { options.success({ files: [] }); } }; } },
     require(name) {
+      if (name === '../../../../utils/auditSigningAssets') return { preview: async () => ({ src: source, image: { width: 1200, height: 1800 }, response: { status: 'success', totalPages: 2 } }) };
       if (name === '../../../../utils/api') return { callFunction: async () => ({ status: 'success', previewMime: 'image/png', data: 'aW1hZ2U=', totalPages: 2 }) };
       if (name === '../../../../utils/orgSession') return { isCurrent: () => true };
       if (name === '../../package-resources/utils/auditPreviewFiles') return { removeExpiredPreviews: () => new Promise(() => {}), removePreview: () => new Promise(() => {}) };

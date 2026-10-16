@@ -76,9 +76,11 @@
 
 Scope 用具体模块名：`venue`, `audit`, `scoring`, `portal`, `auth`, `notification`, `ui` 等。
 
-### 3.3 自动提交 — 每次变更必须 commit + push
+### 3.3 主项目现场测试与按需 CI（2026-10-16）
 
-**每次代码修改完成后，自动 `git add -A && git commit -m "..." && git push`，不需要用户提醒或确认。** 这是强制性工作流，不得跳过。
+2026-10-16 用户明确调整：现场测试前必须先将本轮变更应用到主项目 D:\WeChat\WHUSUSmartWorkspace\WHUSUSmartWorkspaceServer，保留其他未提交改动，核对实际打开的路径和源码版本后再测试；不得让用户测试仍未同步的主项目。每轮完成允许中文提交和推送，但不自动运行 CI。不涉及后端时不运行 CI；涉及后端时先询问用户是否运行 CI，明确同意后才运行，默认优先本机。后端包括服务端运行代码、依赖、数据库迁移及被服务端使用的共享逻辑，不能只按目录名判断。必要的本地针对性检查不等于全量 CI；提交、推送、CI、生产部署分别报告，不得混称完成。
+
+不得直接 git add -A 混入其他任务改动。CI 授权规则见 AGENTS.md 第 3 节；自动化配置未同步前不得通过推送触发旧版自动 CI。
 
 ---
 
@@ -244,7 +246,7 @@ page {
 - ❌ WXML 中直接调用 `.split()` / `.replace()` / `.map()`
 - ❌ 未完成门禁、未核对远端 SHA 就直接向 `main` 提交
 - ❌ Toast 超过 7 个中文字符
-- ❌ 修改后不 commit + push
+- ❌ 把提交推送、CI 和生产部署混称完成；是否运行 CI 遵循第 3.3 节
 - ❌ 平板端不设 max-width 约束 → 按钮/卡片过度放大
 - ❌ 用 `Page(wrapper({...}))`、全局装饰器或公共开发夹具包装生产页面
 - ❌ 在 `nodeModules: false` 的原生小程序中直接依赖 `@swc/runtime` / `@babel/runtime`

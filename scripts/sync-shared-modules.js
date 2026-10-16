@@ -15,6 +15,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
+  { source: 'shared/auditSigningAssets.js', targets: [{ path: 'miniprogram/utils/auditSigningAssetsModel.js' }, { path: 'web/src/shared/auditSigningAssets.js', format: 'esm' }] },
   {
     source: 'shared/auditStepView.js',
     targets: [

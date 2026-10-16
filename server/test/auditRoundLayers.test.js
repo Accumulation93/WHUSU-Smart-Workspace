@@ -38,8 +38,8 @@ async function main() {
   assert.deepEqual(ink.signingLayers(history, [stamp], 1).map(layer => layer.id), ['stamp']);
   ink.undo(history); assert.equal(ink.signingLayers(history, [stamp], 1).length, 4);
   const many = ink.createHistory();
-  for (let i = 0; i < 200; i++) ink.appendOperation(many, stroke);
-  assert.equal(ink.inkExportGroups(many, [], 1).length, 1, '连续书写不会变成两百份提交材料');
+  for (let i = 0; i < 200; i++) ink.appendOperation(many, { ...stroke, layerId: i < 100 ? 'entry-one' : 'entry-two' });
+  assert.equal(ink.inkExportGroups(many, [], 1).length, 2, '两次进入各形成一个图层，不会变成两百份材料');
   const middle = { _idx: 'middle', page: 1, layerOrder: many.operations[99].layerOrder + 0.5 };
   const groups = ink.inkExportGroups(many, [middle], 1);
   assert.equal(groups.length, 2, '合并不得跨越印章');

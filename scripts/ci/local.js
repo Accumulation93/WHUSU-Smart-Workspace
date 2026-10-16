@@ -31,7 +31,7 @@ function install() {
   keys[config.device] = fs.readFileSync(path.join(deviceHome, 'public-key.pem'), 'utf8');
   fs.writeFileSync(publicPath, JSON.stringify(keys, null, 2) + '\n');
   git(root, ['config', '--local', 'core.hooksPath', '.githooks']);
-  console.log('本机已启用推送前验证，私钥只保存在当前用户目录');
+  console.log('本机已安装按需验证钩子，默认推送不运行 CI，私钥只保存在当前用户目录');
 }
 function validate(sha) {
   if (readVerified(root, sha)) { console.log('复用同一提交 24 小时内的本机验证'); return; }
@@ -66,7 +66,10 @@ async function main() {
   const targets = input.trim().split('\n').map(line => line.trim().split(/\s+/))
     .filter(parts => ['refs/heads/main', 'refs/heads/feature/audit'].includes(parts[2]) && !/^0+$/.test(parts[1]));
   if (!targets.length) return;
-  if (process.env.WHUSU_CI_MODE === 'remote') { console.log('已明确选择远端 CI'); return; }
+  if (process.env.WHUSU_CI_MODE !== 'local') {
+    console.log('本次推送不运行 CI；经用户同意后可显式执行本机验证或手动触发远端 CI');
+    return;
+  }
   for (const target of targets) validate(target[1]);
   // 先推证明，再推分支；证明缺失、冲突或推送失败时阻止分支推送。
   exec('git', ['push', process.argv[3], REF + ':' + REF]);

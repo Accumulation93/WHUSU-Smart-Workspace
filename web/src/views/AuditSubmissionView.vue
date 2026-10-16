@@ -47,7 +47,7 @@
               <div v-for="material in draftMaterials.filter(item=>item.fileId===file.id)" :key="material._idx" class="row row-wrap">
                 <span>{{ material.stampName || signing.signature }} · {{ signing.page }} {{ material.page || 1 }}</span>
                 <button class="btn-quiet" @click="openSigning(file,String(material._idx).startsWith('ink_')?'pen':'move',material._idx)">{{ String(material._idx).startsWith('ink_') ? signing.signAgain : signing.move }}</button>
-                <button v-if="!String(material._idx).startsWith('ink_')" class="btn-quiet btn-quiet-danger" @click="removeMaterial(material._idx)">{{ signing.remove }}</button>
+                <button class="btn-quiet btn-quiet-danger" @click="removeMaterial(material._idx)">{{ signing.remove }}</button>
               </div>
             </div>
           </div>
@@ -136,7 +136,7 @@
         </div>
       </section>
 
-      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openSigning(materialFile,'pen'); materialFile=null" @select="addMaterial" />
+      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openSigning(materialFile,'pen'); materialFile=null" @select="addMaterial" />
       <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading">{{ copy.common.loading }}</p></PersonnelPicker>
 
       <section v-if="canWithdraw" class="card stack">
@@ -161,7 +161,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, onBeforeUnmount, reactive, watch } from 'vue';
+import { nextTick, computed, onMounted, ref, onBeforeUnmount, reactive, watch } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AuditMaterialPicker from '@/components/AuditMaterialPicker.vue';
@@ -170,7 +170,9 @@ import nativeCopy from '@/locales/zh-CN/shared/generated/subpackages/audit/pages
 import { clone, nextLayerOrder } from '@/shared/auditInk.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 import signing from '@/locales/zh-CN/shared/auditSigning.js';
-import { stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
+import { signingAssets } from '@/runtime/signingAssets.js';
+import { addMaterial as recordMaterial, deleteLayer } from '@/shared/auditInk.js';
+import { signingDrafts, stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
 import { presentAuditStep, groupAuditRounds } from '@/shared/auditStepView.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -204,8 +206,8 @@ let alive=true,requestSequence=0;
 const draftMaterials=computed(()=>draft.value ? draft.value.materials.concat(...Object.values(draft.value.files).map(file=>file.exports||[])).sort((a,b)=>(a.layerOrder||0)-(b.layerOrder||0)) : []);
 function openSigning(file,mode,active,rollback){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;setSigningHandoff({draft:draft.value,file,mode,active,rollback,submissionId:submission.value.id,stepId:activeStep.value.id,round:activeStep.value.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}});router.push({name:'auditSigning'});}
 function openMaterial(file,kind){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;materialFile.value=file;materialKind.value=kind;}
-function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};draft.value.materials.push(material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
-function removeMaterial(id){draft.value.materials=draft.value.materials.filter(item=>item._idx!==id);}
+function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};recordMaterial(signingDrafts.file(draft.value,file.id).history,draft.value.materials,material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
+function removeMaterial(id){const material=draftMaterials.value.find(item=>item._idx===id);if(!material)return;const file=signingDrafts.file(draft.value,material.fileId);deleteLayer(file.history,draft.value.materials,material.page||1,String(id).startsWith('ink_')?material.inkLayerId||id.slice(('ink_'+material.fileId+'_').length):id);file.exports=file.exports.filter(item=>item._idx!==id);}
 
 const displayName = computed(() => {
   const context = session.context || {};
@@ -316,7 +318,9 @@ async function load() {
     if(activeStep.value){draft.value=reactive(stepDraft(submission.value,activeStep.value,files.value));
       approveComment.value=draft.value.comment||'';selectedNext.value=draft.value.designatedNext||[];
       if(draft.value.pendingRead){draft.value.pendingRead=false;}
-      if(['estamp','stamp','both'].includes(activeStep.value.actionType)){requests.call('listMyStamps',{includeImageData:false}).then(value=>{if(alive&&request===requestSequence&&value.status==='success')stampDirectory.value=value.stamps||[];}).catch(()=>{});}}
+      const assetDraft=draft.value;
+      nextTick(()=>{if(alive&&request===requestSequence)signingAssets.warm(assetDraft,files.value,[]);});
+      if(['estamp','stamp','both'].includes(activeStep.value.actionType)){signingAssets.directory(assetDraft).then(({response:value})=>{if(alive&&request===requestSequence&&value.status==='success'){stampDirectory.value=value.stamps||[];signingAssets.warm(assetDraft,[],stampDirectory.value);}}).catch(()=>{});}}
     else if(draft.value)draft.value.pendingRead=false;
     await completeMessageReceipt(route);
     try {

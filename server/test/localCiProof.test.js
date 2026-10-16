@@ -4,10 +4,19 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const cp = require('node:child_process');
 const { verify, git, expected, readVerified, REF } = require('../../scripts/ci/proof');
 const pair = crypto.generateKeyPairSync('ed25519');
 const keys = { device: pair.publicKey.export({ type: 'spki', format: 'pem' }) };
 const now = Date.now();
+const hookEnv = { ...process.env };
+delete hookEnv.WHUSU_CI_MODE;
+const hook = cp.spawnSync(process.execPath, [path.resolve(__dirname, '../../scripts/ci/local.js'), 'pre-push', 'origin'], {
+  input: 'refs/heads/main ' + 'a'.repeat(40) + ' refs/heads/main ' + 'b'.repeat(40) + '\n',
+  encoding: 'utf8', env: hookEnv, timeout: 5000, windowsHide: true
+});
+assert.equal(hook.status, 0, hook.stderr);
+assert.match(hook.stdout, /本次推送不运行 CI/);
 const target = { sha: 'a'.repeat(40), tree: 'b'.repeat(40), policy: 'c'.repeat(64) };
 function sign(extra = {}) {
   const payload = { version: 1, ...target, device: 'device', status: 'success', completedAt: now, ...extra };
@@ -45,8 +54,8 @@ assert.equal(readVerified(directory, '--invalid'), null);
 
 const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/ci.yml'), 'utf8');
 assert.match(workflow, /workflow_dispatch:[\s\S]*force_remote:/);
-assert.match(workflow, /needs: validation-complete/);
-assert.match(workflow, /needs.validation-complete.result == 'success'/);
+assert.match(workflow, /needs: release-ready/);
+assert.match(workflow, /needs.release-ready.result == 'success'/);
 assert.match(workflow, /test "\$SOURCE_RESULT" = success/);
 assert.match(workflow, /test "\$REMOTE_RESULT" = success/);
 assert.match(workflow, /test "\$REMOTE_RESULT" = skipped/);

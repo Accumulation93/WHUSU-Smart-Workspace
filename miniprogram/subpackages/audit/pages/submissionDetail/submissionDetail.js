@@ -1,3 +1,5 @@
+const signingAssets = require('../../../../utils/auditSigningAssets');
+const inkHistory = require('../../../../utils/auditInk');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
 const { callFunction, getErrorText, showShortToast, formatAuditTime, formatAuditDetailTime } = require('../../../../utils/api');
 const { openAuditFile } = require('../../package-resources/utils/filePreview');
@@ -1695,7 +1697,11 @@ Page({
         });
 
         // 阅读游标只属于当前岗位发起的申请；审批人和管理员查看详情时不写入。
-        if (res.canApproveCurrentStep && activeApprovalStep && ['estamp', 'both'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
+        if (res.canApproveCurrentStep && activeApprovalStep) {
+          const draft = this._signingDraft, files = res.files || [];
+          wx.nextTick(() => { if (this._pageActive && draft === this._signingDraft && !draft.locked) signingAssets.warm(draft, files, []); });
+          if (['stamp', 'estamp', 'both'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
+        }
         if (res.userIsSubmitter && orgSession.isRequestCurrent(this, request)) {
           try {
             await callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } });
@@ -1860,7 +1866,10 @@ Page({
   setSigningMaterials(items, extra) {
     const draft = this.ensureSigningDraft();
     if (!draft) return;
-    draft.materials = items.filter(item => !String(item._idx).startsWith('ink_'));
+    this._materialRollback = inkHistory.clone(draft);
+    items.filter(item => !String(item._idx).startsWith('ink_')).forEach(item => {
+      if (!draft.materials.some(row => row._idx === item._idx)) inkHistory.addMaterial(signingDrafts.store.file(draft, item.fileId).history, draft.materials, item);
+    });
     draft.materials.forEach(item => { if (item.layerOrder == null) item.layerOrder = require('../../../../utils/auditInk').nextLayerOrder(); });
     this.setData(Object.assign({}, extra || {}, { pendingSignatures: this.signingMaterialViews() }));
   },
@@ -1870,15 +1879,16 @@ Page({
     if (!file) return null;
     const page = this._signingDraft && this._signingDraft.files[fileId] ? this._signingDraft.files[fileId].currentPage || 1 : 1;
     const preview = { fileId, fileHash: file.fileHash, page, scope: orgSession.getSnapshot() };
-    preview.promise = callFunction({ name: 'getAuditFilePreview', data: { fileId, page, previewMaxEdge: 4096, previewFormat: 'webp' } })
-      .then(response => ({ response }), () => ({ response: null }));
+    const draft = this.ensureSigningDraft();
+    if (!draft) return null;
+    preview.promise = signingAssets.preview(draft, file, page).then(value => ({ response: value.response }), () => ({ response: null }));
     return preview;
   },
   openSigningWorkspace(fileId, mode, active, autoOpened) {
     const draft = this.ensureSigningDraft(), file = (this.data.files || []).find(item => item.id === fileId);
     if (!draft || !file || draft.locked || draft.pendingRead) return;
-    const rollback = require('../../../../utils/auditInk').clone(draft);
-    if (autoOpened) rollback.materials = rollback.materials.filter(item => item._idx !== active);
+    const rollback = autoOpened && this._materialRollback || inkHistory.clone(draft);
+    this._materialRollback = null;
     const prepared = this._preparedSigningPreview;
     const previewRequest = prepared && prepared.fileId === fileId && prepared.fileHash === file.fileHash && orgSession.isCurrent(prepared.scope)
       ? prepared : this.prepareSigningPreview(fileId);
@@ -2155,11 +2165,14 @@ Page({
   },
   async fetchAvailableStamps(request, started) {
     try {
-      let res = await callFunction({ name: 'listMyStamps', data: { includeImageData: false } });
+      const draft = this.ensureSigningDraft();
+      if (!draft) return;
+      const res = (await signingAssets.directory(draft)).response;
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         this._stampDirectoryAt = started;
         this.setData({ availableStamps: res.stamps || [] });
+        signingAssets.warm(draft, [], res.stamps || []);
       } else this.setData({ stampNotice: signingCopy.stampFailed });
     } catch (e) {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ stampNotice: signingCopy.stampFailed });
@@ -2183,7 +2196,7 @@ Page({
     this._preparedSigningPreview = this.prepareSigningPreview(selectedFileId);
     this.setData({ stampImageBusy: true, stampNotice: '' });
     try {
-      const response = await callFunction({ name: 'getMyStampImage', data: { stampId, preview: true, previewMaxEdge: 2048, previewFormat: 'webp' } });
+      const response = (await signingAssets.stamp(this.ensureSigningDraft(), stampId)).response;
       if (!orgSession.isCurrent(stampScope) || !this.data.stampPickerVisible || selectedFileId !== this.data.stampPickFileId) return;
       if (response.status !== 'success' || !response.imageData) throw new Error('stamp_unavailable');
       stampImage = response.imageData;
@@ -2223,12 +2236,13 @@ Page({
   removePendingSign(e) {
     let idx = parseInt(e.currentTarget.dataset.sigIdx);
     let sigs = this.signingMaterials();
-    if (idx >= 0 && idx < sigs.length) {
-      if (String(sigs[idx]._idx).startsWith('ink_')) { this.openSigningWorkspace(sigs[idx].fileId, 'pen'); return; }
-      sigs.splice(idx, 1);
+    if (idx >= 0 && idx < sigs.length && this._signingDraft) {
+      const material = sigs[idx], draft = this._signingDraft, file = signingDrafts.store.file(draft, material.fileId);
+      const id = String(material._idx).startsWith('ink_') ? material.inkLayerId || material._idx.slice(('ink_' + material.fileId + '_').length) : material._idx;
+      inkHistory.deleteLayer(file.history, draft.materials, material.page || 1, id);
+      file.exports = file.exports.filter(item => item._idx !== material._idx);
     }
-    if (this._signingDraft) this._signingDraft.materials = sigs.filter(item => !String(item._idx).startsWith('ink_'));
-    this.setSigningMaterials(sigs, { approvalWarning: '' });
+    this.setData({ pendingSignatures: this.signingMaterialViews(), approvalWarning: '' });
     this.updateApprovalWarning();
   },
 

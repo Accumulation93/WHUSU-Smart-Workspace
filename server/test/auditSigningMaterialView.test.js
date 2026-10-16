@@ -10,6 +10,7 @@ async function main() {
   let definition, call = async () => ({ status: 'success' }), current = true, handoff;
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), { Page(value) { definition = value; }, console,
     require(name) {
+      if (name.endsWith('/utils/auditSigningAssets')) return { warm() {}, preview: async () => ({ response: {} }), directory: async () => ({ response: await call({ name: 'listMyStamps' }) }) };
       if (name.endsWith('/utils/api')) return { callFunction: args => call(args), showShortToast() {} };
       if (name.endsWith('/utils/orgSession')) return { getSnapshot: () => ({}), isCurrent: () => current, beginRequest: () => ({}), isRequestCurrent: () => current };
       if (name.endsWith('/utils/dialogKeyboard')) return { dialogKeyboardBehavior: {} };

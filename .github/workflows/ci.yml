@@ -3,19 +3,23 @@ name: quality-gates
 on:
   push:
     branches: [feature/audit, main]
-  pull_request:
   workflow_dispatch:
     inputs:
+      run_ci:
+        description: 已获得用户同意，执行完整 CI
+        type: boolean
+        default: false
       force_remote:
         description: 强制远端完整验证
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   validation-source:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_ci
     runs-on: ubuntu-latest
     outputs:
       local: ${{ steps.proof.outputs.local }}
@@ -83,7 +87,7 @@ jobs:
   validation-complete:
     name: validation-complete
     needs: [validation-source, audit-and-test]
-    if: always()
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.run_ci
     runs-on: ubuntu-latest
     steps:
       - name: Require successful local or remote validation
@@ -99,10 +103,32 @@ jobs:
             test "$REMOTE_RESULT" = success
           fi
 
+  release-ready:
+    name: release-ready
+    needs: [validation-source, audit-and-test, validation-complete]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record requested validation policy
+        env:
+          CI_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.run_ci }}
+          VALIDATION_RESULT: ${{ needs.validation-complete.result }}
+          SOURCE_RESULT: ${{ needs.validation-source.result }}
+          REMOTE_RESULT: ${{ needs.audit-and-test.result }}
+        run: |
+          if [ "$CI_REQUESTED" = true ]; then
+            test "$VALIDATION_RESULT" = success
+          else
+            test "$SOURCE_RESULT" = skipped
+            test "$REMOTE_RESULT" = skipped
+            test "$VALIDATION_RESULT" = skipped
+            echo '本次未请求 CI；未执行完整验证，不代表验证通过。' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   deploy-production:
     name: deploy-production
-    needs: validation-complete
-    if: always() && !cancelled() && needs.validation-complete.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    needs: release-ready
+    if: always() && !cancelled() && needs.release-ready.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -119,7 +145,7 @@ jobs:
           chmod 600 "$HOME/.ssh/whusu-smart-workspace-production"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
-      - name: Deploy exact successful commit
+      - name: Deploy exact commit with production preflight
         timeout-minutes: 45
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}

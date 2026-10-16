@@ -6,7 +6,7 @@ import { mockApi, submissionDetail, STORED_PASSPHRASE, STORED_STUDENT_ID } from 
 
 async function setup(page, options = {}) {
   await mockApi(page);
-  const state = { detail: submissionDetail({ actionType: options.actionType || 'sign' }), calls: [], failRead: false, failPreview: false, refused: false };
+  const state = { detail: submissionDetail({ actionType: options.actionType || 'sign' }), calls: [], failRead: false, failPreview: options.failPreview || false, refused: false };
   if (options.twoFiles) state.detail.files.push({ ...state.detail.files[0], id: 'file-2', fileName: '第二附件.pdf', fileHash: 'hash-2' });
   await page.goto('/web/login');
   await page.getByLabel(copy.login.studentId).fill(STORED_STUDENT_ID);
@@ -215,10 +215,10 @@ test('重叠签章只移动明确选中的对象，拖动保持抓取位置并�
   const stamps = state.calls.find(item => item.name === 'approveStep').body.signatures.filter(item => item.signatureType === 'stamp');
   expect(stamps[0].positionX).toBe(0.5); expect(stamps[1].positionX).toBeCloseTo(0.7, 2);
   expect(state.calls.filter(item => item.name === 'listMyStamps').every(item => item.body.includeImageData === false)).toBe(true);
-  expect(state.calls.filter(item => item.name === 'getMyStampImage')).toHaveLength(2);
+  expect(state.calls.filter(item => item.name === 'getMyStampImage')).toHaveLength(1);
 });
 test('文件加载失败时禁止确认和落笔，原地重试恢复', async ({ page }) => {
-  const state = await setup(page); state.failPreview = true; await page.getByRole('button', { name: text.addInk, exact: true }).click();
+  const state = await setup(page, { failPreview: true }); await page.getByRole('button', { name: text.addInk, exact: true }).click();
   await expect(page.getByText(text.failed, { exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeDisabled();
   await stroke(page); expect((await pixels(page)).alpha).toBe(0);
   state.failPreview = false; await page.getByRole('button', { name: text.retry, exact: true }).click();
@@ -239,9 +239,11 @@ test('审批拒绝保留书写，成功后读取失败只重读且不能重复�
 });
 
 
-test('逐笔图层可以改变遮挡顺序，确认导出与重进保持同一结果', async ({ page }) => {
+test('每次进入形成一个图层，排序与撤销在重进和导出保持一致', async ({ page }) => {
   const state = await setup(page); await enter(page);
-  await stroke(page);
+  await stroke(page); await stroke(page, 0.48);
+  await expect(page.locator('.signing-layer-toolbar select option')).toHaveCount(1);
+  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
   await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
   const layers = page.locator('.signing-layer-toolbar select');
   await expect(layers.locator('option')).toHaveCount(2);
@@ -253,7 +255,7 @@ test('逐笔图层可以改变遮挡顺序，确认导出与重进保持同一�
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
-  expect(state.calls.find(item=>item.name==='approveStep').body.signatures).toHaveLength(1);
+  expect(state.calls.find(item=>item.name==='approveStep').body.signatures).toHaveLength(2);
 });
 
 test('撤回与驳回按轮次折叠，最后一轮撤回仍默认展开', async ({ page }) => {
@@ -271,4 +273,36 @@ test('撤回与驳回按轮次折叠，最后一轮撤回仍默认展开', async
   await expect(headings.nth(0)).toContainText(text.roundStates.withdrawn);
   await expect(headings.nth(1)).toContainText(text.roundStates.rejected);
   await headings.nth(0).click(); await expect(headings.nth(0)).toHaveAttribute('aria-expanded','true');
+});
+
+
+test('详情先预取图片，重复签署不重新请求；移动旋转删除均可撤销重做', async ({ page }) => {
+  const state=await setup(page,{actionType:'both'});
+  await expect.poll(()=>state.calls.filter(item=>item.name==='getMyStampImage').length).toBe(1);
+  await expect.poll(()=>state.calls.filter(item=>item.name==='getAuditFilePreview').length).toBe(1);
+  await page.getByRole('button',{name:text.stamp,exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'测试印章',exact:true}).click();
+  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  const canvas=page.locator('.signing-stage canvas'),box=await canvas.boundingBox();
+  await page.mouse.click(box.x+box.width*0.7,box.y+box.height*0.5);
+  await page.getByRole('button',{name:text.undo,exact:true}).click();
+  await page.getByRole('button',{name:text.redo,exact:true}).click();
+  const rotation=page.getByLabel(text.rotation,{exact:true});
+  await rotation.fill('45');await rotation.dispatchEvent('change');
+  await expect(rotation).toHaveValue('45');
+  await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('0');
+  await page.getByRole('button',{name:text.redo,exact:true}).click();await expect(rotation).toHaveValue('45');
+  await page.getByRole('button',{name:text.remove,exact:true}).click();
+  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(0);
+  await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('45');
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await enter(page);await stroke(page);await stroke(page,0.4);
+  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(2);
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();await enter(page);
+  await page.getByRole('button',{name:text.undo,exact:true}).click();await page.getByRole('button',{name:text.undo,exact:true}).click();
+  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(1);
+  await page.getByRole('button',{name:text.redo,exact:true}).click();
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  expect(state.calls.filter(item=>item.name==='getMyStampImage')).toHaveLength(1);
+  expect(state.calls.filter(item=>item.name==='getAuditFilePreview')).toHaveLength(1);
 });

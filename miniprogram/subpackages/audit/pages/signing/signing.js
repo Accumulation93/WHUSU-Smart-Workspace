@@ -1,5 +1,7 @@
 const copy = require('../../package-resources/locales/zh-CN/auditSigning');
 const common = require('../../../../locales/zh-CN/common');
+const { signatureGeometry } = require('../../utils/auditSignatureGeometry');
+const assets = require('../../../../utils/auditSigningAssets');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
 const orgSession = require('../../../../utils/orgSession');
@@ -20,6 +22,7 @@ Page({
     this._handoff = drafts.getHandoff();
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
     if (!this._handoff || this._handoff.draft.locked) { this.setData({ loading: false, notice: copy.draftLost }); return; }
+    this._handoff.entryLayerId = 'entry_' + ink.nextLayerOrder();
     this._saved = ink.clone(this._handoff.rollback || this._handoff.draft);
     this._fileDraft = drafts.store.file(this._handoff.draft, this._handoff.file.id);
     this.setData({ fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
@@ -45,7 +48,7 @@ Page({
     this._previewPaths.forEach(path => wx.getFileSystemManager().unlink({ filePath: path, fail() {} }));
   },
   refreshMaterials() {
-    const materials = this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId).map(item => ({
+    const materials = this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId).sort((a, b) => a.layerOrder - b.layerOrder).map(item => ({
       _idx: item._idx, fileId: item.fileId, stampName: item.stampName || '', signatureType: item.signatureType,
       positionX: item.positionX, positionY: item.positionY, size: item.size, rotation: item.rotation,
       page: item.page, widthRatio: item.widthRatio == null ? null : item.widthRatio, layerOrder: item.layerOrder
@@ -57,7 +60,7 @@ Page({
   refreshLayers() {
     if (!this._fileDraft || !this._fileDraft.history) return;
     const layers = ink.signingLayers(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page)
-      .map((layer, index) => ({ id: layer.id, label: (layer.kind === 'draw' ? copy.stroke : layer.material.stampName || copy.signature) + ' ' + (index + 1) }));
+      .map((layer, index) => ({ id: layer.id, label: (index + 1) + ' · ' + (layer.kind === 'draw' ? copy.stroke : layer.material.stampName || copy.signature) + ' ' + (layer.kind === 'draw' ? layer.number : '') }));
     this.setData({ layers, layerIndex: Math.max(0, layers.findIndex(layer => layer.id === this.data.activeId)) });
   },
   chooseLayer(event) {
@@ -68,7 +71,7 @@ Page({
     const layer = this.data.layers[this.data.layerIndex];
     if (!layer || !this.data.ready || this.data.saving) return;
     if (ink.moveLayer(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page, layer.id, Number(event.currentTarget.dataset.direction))) {
-      this.setData({ activeId: layer.id }); this.refreshMaterials();
+      this.setData({ activeId: layer.id }); this.refreshMaterials(); this.syncHistory();
     }
   },
   async validateStep() {
@@ -91,32 +94,18 @@ Page({
     let phase = 'preview_request';
     try {
       if (!this._alive || request !== this._request) return;
-      // loading 已卸载旧画布；只保留当前页预览，笔画与撤销记录仍留在步骤内存。
-      const previousPaths = this._previewPaths.splice(0);
-      previousPaths.forEach(path => previewFiles.removePreview(path));
-      this._cache = {};
-      let value = this._cache[page];
-      if (!value) {
-        if (this._handoff.pad) value = { src: '', width: 800, height: 400, totalPages: 1 };
-        else {
-          const prepared = this._handoff.previewRequest;
-          this._handoff.previewRequest = null;
-          const response = prepared && prepared.fileId === this.data.fileId && prepared.page === page
-            ? (await prepared.promise).response
-            : await callFunction({ name: 'getAuditFilePreview', data: { fileId: this.data.fileId, page, previewMaxEdge: 4096, previewFormat: 'webp' } });
-          if (!response) throw new Error('preview_unavailable');
-          console.info('[audit:signing:preview]', response.status, response.previewMime, Boolean(response.data), response.requestId || '');
-          if (response.status !== 'success' || !response.data || !String(response.previewMime).startsWith('image/')) throw new Error('preview_unavailable');
-          // 预览优先保留在内存，避免本地持久空间已满时整份文件打不开。
-          value = { src: 'data:' + response.previewMime + ';base64,' + response.data,
-            width: response.pageWidth || 0, height: response.pageHeight || 0, totalPages: response.totalPages || 1 };
-        }
-        this._cache[page] = value;
+      let value;
+      if (this._handoff.pad) value = { src: '', width: 800, height: 400, totalPages: 1 };
+      else {
+        const prepared = await assets.preview(this._handoff.draft, this._handoff.file, page);
+        const response = prepared.response;
+        value = { src: prepared.src, image: prepared.image, width: response.pageWidth || prepared.image.width,
+          height: response.pageHeight || prepared.image.height, totalPages: response.totalPages || 1 };
       }
       if (!this._alive || request !== this._request || !orgSession.isCurrent(this._scope)) return;
       this._fileDraft.currentPage = page;
       const previewKey = 'preview_' + request + '_' + page;
-      this._handoff.preview = { key: previewKey, src: value.src };
+      this._handoff.preview = { key: previewKey, src: value.src, image: value.image };
       phase = 'canvas_ready';
       return await new Promise((resolve, reject) => {
         this._waiter = { resolve, reject };
@@ -144,12 +133,20 @@ Page({
   retry() { if (!this._validated) this.validateStep(); else this.loadPage(this.data.page); },
   previous() { if (!this.data.saving && this.data.page > 1) this.loadPage(this.data.page - 1); },
   next() { if (!this.data.saving && this.data.page < this.data.totalPages) this.loadPage(this.data.page + 1); },
+  syncHistory() { const pad = this.selectComponent('#signingPad'); if (pad) { pad._syncHistory(); pad._render(); } },
+  historyChanged() { this.refreshMaterials(); },
+  removeLayer() {
+    const layer = this.data.layers[this.data.layerIndex];
+    if (!layer || !this.data.ready || this.data.saving) return;
+    ink.deleteLayer(this._fileDraft.history, this._handoff.draft.materials, this.data.page, layer.id);
+    this.refreshMaterials(); this.syncHistory();
+  },
   historyPage(event) { this.loadPage(event.detail.page); },
   workspaceMode(event) { this.setData({ mode: event.detail.mode }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
   chooseMaterial(event) { this.setData({ activeId: event.currentTarget.dataset.id }); this.refreshMaterials(); },
   moveMaterial(event) {
     const value = event.detail, material = this._handoff.draft.materials.find(item => item._idx === value.id);
-    if (!material) return; material.positionX = value.x; material.positionY = value.y; material.page = this.data.page; this.refreshMaterials();
+    if (!material) return; this.commitMaterial(material, { positionX: value.x, positionY: value.y, page: this.data.page }); this.refreshMaterials(); this.syncHistory();
   },
   materialGeometry(event) {
     const material = this._handoff.draft.materials.find(item => item._idx === event.detail.id);
@@ -159,15 +156,24 @@ Page({
     if (event.detail.y != null) material.positionY = event.detail.y;
     this.refreshMaterials();
   },
+  commitMaterial(material, values) {
+    const pad = this.selectComponent('#signingPad'), image = pad && pad._images[pad._materialSource(material)];
+    if (image) {
+      const box = signatureGeometry(Object.assign({}, material, values), this.data.width, this.data.height, image.width, image.height, this.data.pdf);
+      values.positionX = box.centerX / this.data.width; values.positionY = box.centerY / this.data.height;
+    }
+    ink.updateMaterial(this._fileDraft.history, this._handoff.draft.materials, material._idx, values);
+  },
   resizeMaterial(event) {
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
     const size = Number(event.detail.value) / 100;
-    if (material.widthRatio != null) material.widthRatio = ink.clamp(material.widthRatio * size / (material.size || 1), 0.00000001, 1);
-    material.size = size; this.refreshMaterials();
+    const values = { size };
+    if (material.widthRatio != null) values.widthRatio = ink.clamp(material.widthRatio * size / (material.size || 1), 0.00000001, 1);
+    this.commitMaterial(material, values); this.refreshMaterials(); this.syncHistory();
   },
   rotateMaterial(event) {
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
-    material.rotation = Number(event.detail.value); this.refreshMaterials();
+    this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.refreshMaterials(); this.syncHistory();
   },
   async confirm() {
     if (!this.data.ready || this.data.saving || this.data.notice) return;
@@ -180,7 +186,7 @@ Page({
         const layers = this._handoff.pad ? [null] : ink.inkExportGroups(history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), page);
         for (const layer of layers) {
           const exported = await this.selectComponent('#signingPad').exportPage(layer);
-          if (exported) exports.push(Object.assign({ _idx: 'ink_' + this.data.fileId + '_' + (layer ? layer.id : page), layerOrder: layer ? layer.order : 0, fileId: this.data.fileId, signatureType: 'signature', size: 1, rotation: 0 }, exported));
+          if (exported) exports.push(Object.assign({ _idx: 'ink_' + this.data.fileId + '_' + (layer ? layer.id + '_page_' + page : page), inkLayerId: layer ? layer.id : '', layerOrder: layer ? layer.order : 0, fileId: this.data.fileId, signatureType: 'signature', size: 1, rotation: 0 }, exported));
         }
       }
       if (this._handoff.pad && !exports.length) { this.setData({ notice: copy.empty }); return; }

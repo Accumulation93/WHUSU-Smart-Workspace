@@ -27,7 +27,7 @@ description: Connect and collaborate with the WHUSU Smart Workspace production s
 ## 本地与远端协作
 
 - 在本地完成代码修改、测试、提交和推送；不要在服务器上修补代码后反向复制。
-- 本设备推送 `main` 前优先通过本机 CI 并生成绑定提交的签名证明，详见 `docs/local-ci.md`。GitHub 核验证明后跳过重复全量；缺失/无效证明或手动强制时运行 `audit-and-test`。只有 `validation-complete` 成功才允许 `deploy-production` 连接生产。
+- CI 是否执行遵循 AGENTS.md 的 2026-10-16 规则：非后端改动不运行，涉及后端先询问用户；同意后优先本机。不允许推送隐式触发旧版完整 CI。提交推送与生产发布分别核对，跳过 CI 不表示检查通过，生产迁移、密钥和健康检查不得省略。
 - 让远端入口验证完整 SHA 与 `origin/main` 一致；过期提交必须跳过。
 - 服务端目录未变化时只同步仓库，不要求 PM2 重启。
 - 服务端变化时让部署系统创建独立 release、安装锁定依赖、执行检查并原子切换 `whusu-smart-workspace-current`；部署脚本会按其实际实现重建 API、通知 Worker 和备份进程，单独故障处理时不得扩大重启范围。
@@ -63,7 +63,7 @@ console.log(r[0]); await c.end();})();'
 每次生产部署后同时确认：
 
 1. 本地 HEAD、`origin/main`、远端同步仓库、`whusu-smart-workspace-current` 和部署状态完整 SHA 一致；`remote-collab.ps1 status` 的短 SHA 只能作为快速观察，不能代替完整 SHA 核对。
-2. GitHub Actions 的 `validation-complete` 与 `deploy-production` 均为 `success`；采用有效本机证明时 `audit-and-test` 应为 `skipped`，远端模式则必须为 `success`。
+2. GitHub Actions 的 `release-ready` 与 `deploy-production` 均为 `success`。未请求 CI 时三个验证任务必须按设计跳过，并明确记录未运行；已请求时 `validation-complete` 必须成功，采用有效本机证明时 `audit-and-test` 跳过，否则远端验证必须成功。
 3. `whusu-smart-workspace-api` 两个集群进程和 `whusu-smart-workspace-notification-worker` 均为 `online`，实际 cwd 指向当前 release。
 4. 本地与公网 `/api/health` 均成功，维护标志不存在。
 5. 最新部署日志以“部署成功”结束，部署后的错误日志没有新增异常。

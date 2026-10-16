@@ -1,4 +1,5 @@
 const copy = require('../../package-resources/locales/zh-CN/auditSigning');
+const assets = require('../../../../utils/auditSigningAssets');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
 const { signatureGeometry } = require('../../utils/auditSignatureGeometry');
@@ -22,6 +23,7 @@ Component({
     attached() {
       this._alive = true; this._queue = []; this._images = {}; this._imagePending = {}; this._imagePaths = []; this._zoom = 1; this._panX = 0; this._panY = 0;
       const handoff = drafts.getHandoff();
+      this._draft = handoff && handoff.draft; this._entryLayerId = handoff && handoff.entryLayerId;
       this._history = this.properties.fileId && handoff && handoff.file.id === this.properties.fileId
         ? drafts.store.file(handoff.draft, this.properties.fileId).history : ink.createHistory();
       this.setData({ mode: this.properties.initialMode, color: ink.normalizeColor(this.properties.penColor), penWidth: this.properties.penWidth });
@@ -78,6 +80,7 @@ Component({
       if (this._images[src]) return Promise.resolve(this._images[src]);
       if (this._imagePending[src]) return this._imagePending[src];
       const load = async () => {
+        if (this._draft) { try { const image = await assets.image(this._draft, src); this._images[src] = image; return image; } catch (_) { if (!this._alive) throw new Error('closed'); } }
         const decode = source => new Promise((resolve, reject) => {
           const image = this._surface.createImage();
           image.onload = () => { if (!this._alive) { reject(new Error('closed')); return; } this._images[src] = image; resolve(image); };
@@ -109,7 +112,7 @@ Component({
       try {
         const handoff = drafts.getHandoff(), preview = handoff && handoff.preview;
         const source = preview && preview.key === this.properties.fileImage ? preview.src : this.properties.fileImage;
-        this._background = source ? await this._image(source) : null;
+        this._background = preview && preview.image || (source ? await this._image(source) : null);
         if (!this._alive || request !== this._request) return;
         const width = this.properties.documentWidth || this._background && this._background.width || 800;
         const height = this.properties.documentHeight || this._background && this._background.height || 400;
@@ -161,10 +164,10 @@ Component({
             ink.renderViewportLayer(this._inkCtx, this._history, layer, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
             ctx.drawImage(this._layer, 0, 0); return;
           }
-          const item = layer.material;
+          const item = this._dragPreview && this._dragPreview.id === layer.material._idx ? Object.assign({}, layer.material, { positionX: this._dragPreview.x, positionY: this._dragPreview.y }) : layer.material;
           const image = this._images[this._materialSource(item)]; if (!image) return;
           const box = signatureGeometry(item, width, height, image.width, image.height, this.properties.pdf);
-          if (item.widthRatio != null && (Math.abs(item.positionX - box.centerX / width) > 1e-8 || Math.abs(item.positionY - box.centerY / height) > 1e-8)) {
+          if (!this._dragPreview && item.widthRatio != null && (Math.abs(item.positionX - box.centerX / width) > 1e-8 || Math.abs(item.positionY - box.centerY / height) > 1e-8)) {
             this.triggerEvent('geometry', { id: item._idx, x: box.centerX / width, y: box.centerY / height });
           }
           ctx.save(); ctx.scale(this._pixelRatio, this._pixelRatio); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
@@ -173,7 +176,7 @@ Component({
           if (item._idx === this.properties.activeId && this.data.mode === 'move') { ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2 / camera.scale; ctx.strokeRect(-box.width / 2, -box.height / 2, box.width, box.height); }
           ctx.restore();
         });
-        if (this._stroke && this._stroke.type === 'draw') {
+        if (this._stroke && this._stroke.type === 'draw' && !layers.some(layer => layer.id === this._stroke.layerId)) {
           ink.renderViewportInk(this._inkCtx, ink.createHistory(), this.properties.page, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
           ctx.drawImage(this._layer, 0, 0);
         }
@@ -191,13 +194,13 @@ Component({
     },
     onTouchMove(event) { if (this._preparing) this._queue.push({ type: 'move', event }); else this._touch('move', event); },
     onTouchEnd(event) { if (this._preparing) this._queue.push({ type: 'end', event }); else this._touch('end', event); },
-    onTouchCancel() { this._queue = []; this._preparing = false; this._stroke = null; this._gesture = null; this._render(); },
+    onTouchCancel() { this._dragPreview = null; this._queue = []; this._preparing = false; this._stroke = null; this._gesture = null; this._render(); },
     _touch(type, event) {
       if (!this._camera || !this.data.ready) return;
       const touches = event.touches || [], touch = touches[0] || (event.changedTouches || [])[0]; if (!touch) return;
       if (touches.length > 1) {
         const distance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-        this._stroke = null;
+        this._stroke = null; this._dragPreview = null;
         const midX = (touches[0].clientX + touches[1].clientX) / 2, midY = (touches[0].clientY + touches[1].clientY) / 2;
         if (!this._gesture || this._gesture.kind !== 'pinch') this._gesture = { kind: 'pinch', distance, zoom: this._zoom, midX, midY, panX: this._panX, panY: this._panY };
         else { this._zoom = ink.clamp(this._gesture.zoom * distance / Math.max(1, this._gesture.distance), 1, 4); this._panX = this._gesture.panX + midX - this._gesture.midX; this._panY = this._gesture.panY + midY - this._gesture.midY; }
@@ -208,17 +211,18 @@ Component({
         if (!point.inside) return;
         this._gesture = { kind: this.data.mode, x: touch.clientX, y: touch.clientY, panX: this._panX, panY: this._panY,
           offsetX: material ? point.x - material.positionX : 0, offsetY: material ? point.y - material.positionY : 0, moved: false };
-        if (this.data.mode === 'pen') this._stroke = { page: this.properties.page, type: this.data.erasing ? 'erase' : 'draw',
+        if (this.data.mode === 'pen') this._stroke = { layerId: this._entryLayerId, page: this.properties.page, type: this.data.erasing ? 'erase' : 'draw',
           color: this.data.color, width: ink.penWidthRatio(this.data.erasing ? this.data.penWidth * 5 : this.data.penWidth, this._camera), points: [{ x: point.x, y: point.y }] };
       } else if (this._gesture && this._gesture.kind !== 'pinch') {
         const g = this._gesture; g.moved = g.moved || Math.hypot(touch.clientX - g.x, touch.clientY - g.y) > 3;
         if (this._stroke) this._stroke.points.push({ x: point.x, y: point.y });
         else if (g.kind === 'browse') { this._panX = g.panX + touch.clientX - g.x; this._panY = g.panY + touch.clientY - g.y; }
         else if (g.kind === 'move' && material && (g.moved || type === 'end')) {
-          this.triggerEvent('placement', { id: material._idx, x: ink.clamp(point.x - (g.moved ? g.offsetX : 0), 0, 1), y: ink.clamp(point.y - (g.moved ? g.offsetY : 0), 0, 1) });
+          const position = { id: material._idx, x: ink.clamp(point.x - (g.moved ? g.offsetX : 0), 0, 1), y: ink.clamp(point.y - (g.moved ? g.offsetY : 0), 0, 1) };
+          if (type === 'end') { this._dragPreview = null; this.triggerEvent('placement', position); } else this._dragPreview = position;
         }
       }
-      if (type === 'end') { if (this._stroke) ink.appendOperation(this._history, this._stroke); this._stroke = null; this._gesture = null; this._syncHistory(); }
+      if (type === 'end') { if (this._stroke) ink.appendOperation(this._history, Object.assign({}, this._stroke, { layerId: this._entryLayerId })); this._stroke = null; this._gesture = null; this._syncHistory(); }
       this._render();
     },
     setMode(event) { this.onTouchCancel(); const mode = event.currentTarget.dataset.mode; this.setData({ mode }, () => this.measure()); this.triggerEvent('modechange', { mode }); },
@@ -243,7 +247,7 @@ Component({
     toggleEraser() { this.setData({ erasing: !this.data.erasing }); },
     onUndo() { this._historyChange(false); }, onRedo() { this._historyChange(true); },
     _historyChange(forward) {
-      this.onTouchCancel(); const page = (forward ? ink.redo : ink.undo)(this._history); this._syncHistory();
+      this.onTouchCancel(); const page = (forward ? ink.redo : ink.undo)(this._history, this._draft && this._draft.materials); this.triggerEvent('historychange'); this._syncHistory();
       if (page != null && page !== this.properties.page) this.triggerEvent('pagechange', { page }); else this._render();
     },
     onClear() { wx.showModal({ title: copy.clearTitle, content: copy.clearBody, success: result => {

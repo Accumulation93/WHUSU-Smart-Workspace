@@ -165,7 +165,7 @@ function testDeploymentScriptContract() {
   const validation = fs.readFileSync(path.resolve(__dirname, '../../scripts/ci/run.js'), 'utf8');
   assert.match(validation, /\['run', 'build'\]/);
   assert.match(validation, /playwright\/test\/cli.js/);
-  assert.match(workflow, /needs: validation-complete/);
+  assert.match(workflow, /needs: release-ready/);
 }
 
 testMigrationDiscoveryAndLedger();

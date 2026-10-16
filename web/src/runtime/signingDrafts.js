@@ -1,9 +1,10 @@
 import { createDraftStore, clone } from '@/shared/auditInk.js';
+import { signingAssets } from './signingAssets.js';
 export const signingDrafts = createDraftStore();
 let handoff = null;
 export function setSigningHandoff(value) { handoff = value; }
 export function getSigningHandoff() { return handoff; }
-export function resetSigningDrafts() { handoff = null; signingDrafts.reset(); }
+export function resetSigningDrafts() { handoff = null; signingDrafts.reset(); signingAssets.reset(); }
 export function stepDraft(submission, step, files) {
   const key = [submission.id, step.id, step.round || 1, ...files.map(file => file.id + ':' + file.fileHash)].join('|');
   return signingDrafts.open(key);

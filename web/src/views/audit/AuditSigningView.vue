@@ -5,6 +5,7 @@
   </div>
 </template>
 <script setup>
+import { signingAssets } from '@/runtime/signingAssets.js';
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AuditSigningWorkspace from '@/components/AuditSigningWorkspace.vue';
@@ -23,7 +24,7 @@ async function validate(){
   try {
     if(handoff.pad){valid.value=true;return;}
     const page=handoff.draft.files[handoff.file.id]?.currentPage||1;
-    initialPreview={page,promise:requests.call('getAuditFilePreview',{fileId:handoff.file.id,page,previewMaxEdge:4096,previewFormat:'webp'}).then(response=>response,()=>null)};
+    initialPreview={page,promise:signingAssets.preview(handoff.draft,handoff.file,page).then(value=>value.response,()=>null)};
     const detail=requireSuccess(await requests.call('getSubmissionDetail',{submissionId:handoff.submissionId}));
     if(!alive || handoff!==getSigningHandoff())return;
     if(!signingStepCurrent(detail,handoff)){handoff.draft.locked=true;notice.value=text.stale;return;}

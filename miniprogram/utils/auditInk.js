@@ -24,7 +24,7 @@ function appendOperation(history, operation) {
   history.operations.splice(history.cursor);
   const order = nextLayerOrder();
   history.operations.push({ page: Math.max(1, Number(operation.page) || 1),
-    layerId: 'stroke_' + order, layerOrder: order,
+    layerId: operation.layerId || 'stroke_' + order, layerOrder: (history.operations.find(item => item.type === 'draw' && item.layerId === operation.layerId && item.page === (Number(operation.page) || 1)) || {}).layerOrder || order,
     type: operation.type === 'erase' ? 'erase' : 'draw', color: normalizeColor(operation.color),
     width: operation.width, points });
   history.cursor = history.operations.length;
@@ -37,30 +37,84 @@ function signingLayers(history, materials, page) {
   const result = (materials || []).filter(item => (item.page || 1) === page).map((item, index) => ({
     id: item._idx, kind: 'material', order: item.layerOrder == null ? index : item.layerOrder, material: item
   }));
+  const groups = new Map(), numbers = new Map();
+  history.operations.forEach(item => { if (item.type === 'draw' && !numbers.has(item.layerId)) numbers.set(item.layerId, numbers.size + 1); });
   history.operations.slice(start, history.cursor).forEach((operation, index) => {
-    if (operation.type !== 'draw' || operation.page !== page) return;
+    if (operation.type !== 'draw' || operation.page !== page || operation.hidden) return;
     if (!operation.layerId) operation.layerId = 'legacy_stroke_' + (start + index);
-    result.push({ id: operation.layerId, kind: 'draw', order: operation.layerOrder == null ? (materials || []).length + index : operation.layerOrder,
-      operation, index: start + index });
+    let group = groups.get(operation.layerId);
+    if (!group) {
+      group = { id: operation.layerId, kind: 'draw', order: operation.layerOrder == null ? (materials || []).length + index : operation.layerOrder,
+        operation, number: numbers.get(operation.layerId), index: start + index, strokes: [] };
+      groups.set(operation.layerId, group); result.push(group);
+    }
+    group.strokes.push(operation);
   });
   return result.sort((a, b) => a.order - b.order);
+}
+// 编辑只记录发生变化的字段；移动一次不复制整个笔迹历史或图片。
+function applyEdit(history, materials, operation, forward) {
+  operation.changes.forEach(change => {
+    const value = forward ? change.after : change.before;
+    if (change.kind === 'ink') {
+      const indices = change.indices ? new Set(change.indices) : null;
+      history.operations.forEach((item, index) => { if (item.type === 'draw' && item.layerId === change.id && item.page === operation.page && (!indices || indices.has(index))) Object.assign(item, value); });
+    } else {
+      const index = materials.findIndex(item => item._idx === change.id);
+      if (value === null) { if (index >= 0) materials.splice(index, 1); }
+      else if (index < 0) materials.push(clone(value));
+      else Object.assign(materials[index], clone(value));
+    }
+  });
+}
+function edit(history, materials, page, changes) {
+  if (!changes.length) return false;
+  history.operations.splice(history.cursor);
+  // 固定本次编辑已有的笔画，重做不能误改同一次进入后续新增的笔画。
+  changes.forEach(change => {
+    if (change.kind === 'ink') change.indices = history.operations.reduce((indices, item, index) => {
+      if (item.type === 'draw' && item.layerId === change.id && item.page === page) indices.push(index);
+      return indices;
+    }, []);
+  });
+  const operation = { type: 'edit', page, changes };
+  applyEdit(history, materials, operation, true);
+  history.operations.push(operation); history.cursor = history.operations.length;
+  return true;
+}
+function updateMaterial(history, materials, id, values, page) {
+  const item = materials.find(row => row._idx === id); if (!item) return false;
+  const before = {}, after = {};
+  Object.keys(values).forEach(key => { if (item[key] !== values[key]) { before[key] = item[key] == null ? null : item[key]; after[key] = values[key]; } });
+  return edit(history, materials, page || item.page || 1, Object.keys(after).length ? [{ kind: 'material', id, before, after }] : []);
+}
+function addMaterial(history, materials, item) {
+  if (item.layerOrder == null) item.layerOrder = nextLayerOrder();
+  return edit(history, materials, item.page || 1, [{ kind: 'material', id: item._idx, before: null, after: clone(item) }]);
+}
+function deleteLayer(history, materials, page, id) {
+  const layer = signingLayers(history, materials, page).find(item => item.id === id);
+  if (!layer) return false;
+  return edit(history, materials, page, [layer.kind === 'material'
+    ? { kind: 'material', id, before: clone(layer.material), after: null }
+    : { kind: 'ink', id, before: { hidden: false }, after: { hidden: true } }]);
 }
 function moveLayer(history, materials, page, id, direction) {
   const layers = signingLayers(history, materials, page), index = layers.findIndex(layer => layer.id === id), target = index + direction;
   if (index < 0 || target < 0 || target >= layers.length) return false;
-  const value = layers[index]; layers[index] = layers[target]; layers[target] = value;
-  const base = nextLayerOrder();
-  layers.forEach((layer, offset) => { (layer.material || layer.operation).layerOrder = base + offset; });
-  layerSequence = base + layers.length;
-  return true;
+  const first = layers[index], second = layers[target];
+  return edit(history, materials, page, [first, second].map((layer, offset) => ({
+    kind: layer.kind === 'draw' ? 'ink' : 'material', id: layer.id,
+    before: { layerOrder: layer.order }, after: { layerOrder: offset ? first.order : second.order }
+  })));
 }
 function renderStrokeLayer(context, history, layer, width, height, active) {
-  drawPath(context, layer.operation, width, height);
-  for (let i = layer.index + 1; i < history.cursor; i += 1) {
+  const strokes = new Set(layer.strokes || [layer.operation]);
+  for (let i = layer.index; i < history.cursor; i += 1) {
     const operation = history.operations[i];
-    if (operation.type === 'erase' && operation.page === layer.operation.page) drawPath(context, operation, width, height);
+    if (strokes.has(operation) || operation.type === 'erase' && operation.page === layer.operation.page) drawPath(context, operation, width, height);
   }
-  if (active && active.type === 'erase' && active.page === layer.operation.page) drawPath(context, active, width, height);
+  if (active && active.page === layer.operation.page && (active.type === 'erase' || active.layerId === layer.id)) drawPath(context, active, width, height);
 }
 function renderViewportLayer(context, history, layer, width, height, camera, ratio, active) {
   context.clearRect(0, 0, width, height);
@@ -77,18 +131,18 @@ function strokeExportRegion(operation, width, height) {
   right = Math.min(width, Math.ceil(right + margin)); bottom = Math.min(height, Math.ceil(bottom + margin));
   return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
 }
-// 编辑保留逐笔图层；提交只合并相邻笔迹，绝不跨过印章改变遮挡顺序。
+// 一次进入形成一个手写图层；逐笔撤销保留，导出不跨图层合并。
 function inkExportGroups(history, materials, page) {
   const groups = []; let current = null;
   signingLayers(history, materials, page).forEach(layer => {
     if (layer.kind !== 'draw') { current = null; return; }
-    if (!current) { current = { id: layer.id, order: layer.order, layers: [] }; groups.push(current); }
+    if (!current || current.id !== layer.id) { current = { id: layer.id, order: layer.order, layers: [] }; groups.push(current); }
     current.layers.push(layer);
   });
   return groups;
 }
 function groupExportRegion(group, width, height) {
-  const regions = group.layers.map(layer => strokeExportRegion(layer.operation, width, height));
+  const regions = group.layers.flatMap(layer => (layer.strokes || [layer.operation]).map(operation => strokeExportRegion(operation, width, height)));
   const left = Math.min(...regions.map(item => item.left)), top = Math.min(...regions.map(item => item.top));
   return { left, top, width: Math.max(...regions.map(item => item.left + item.width)) - left,
     height: Math.max(...regions.map(item => item.top + item.height)) - top };
@@ -103,18 +157,22 @@ function renderExportGroup(context, scratch, history, group, width, height, regi
     context.drawImage(scratch, 0, 0);
   });
 }
-function undo(history) {
+function undo(history, materials) {
   if (!history.cursor) return null;
   history.cursor -= 1;
-  return history.operations[history.cursor].page;
+  const operation = history.operations[history.cursor];
+  if (operation.type === 'edit') applyEdit(history, materials || [], operation, false);
+  return operation.page;
 }
-function redo(history) {
+function redo(history, materials) {
   if (history.cursor >= history.operations.length) return null;
-  return history.operations[history.cursor++].page;
+  const operation = history.operations[history.cursor++];
+  if (operation.type === 'edit') applyEdit(history, materials || [], operation, true);
+  return operation.page;
 }
 function drawPath(context, operation, width, height) {
   const points = operation.points;
-  if (!points.length) return;
+  if (!points || !points.length || operation.hidden) return;
   context.save();
   context.globalCompositeOperation = operation.type === 'erase' ? 'destination-out' : 'source-over';
   context.globalAlpha = 1;
@@ -208,4 +266,4 @@ function createDraftStore() {
   }
   return { bind, open, file, reset };
 }
-module.exports = { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, createDraftStore, nextLayerOrder, signingLayers, moveLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };
+module.exports = { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };

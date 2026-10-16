@@ -3,7 +3,7 @@ const store = createDraftStore();
 let handoff = null;
 function setHandoff(value) { handoff = value; }
 function getHandoff() { return handoff; }
-function reset() { handoff = null; store.reset(); }
+function reset() { handoff = null; store.reset(); require('./auditSigningAssets').reset(); }
 function restore(draft, saved) {
   const locked = draft.locked, pendingRead = draft.pendingRead;
   Object.keys(draft).forEach(key => { delete draft[key]; });

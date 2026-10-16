@@ -9,11 +9,11 @@
 .signing-pages > view { flex: 1; min-width: 0; text-align: center; white-space: nowrap; font-size: var(--ui-type-meta); }
 .signing-objects { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
 .signing-objects > .field-label { flex: none; }
-.signing-objects > button { margin: 0; min-height: var(--ui-compact-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
+.signing-objects > button { margin: 0; min-height: var(--ui-control-height); height: auto; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
 .signing-adjustments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: var(--ui-inline-gap); }
 .signing-adjustments slider { margin: 0; }
 .signing-footer { margin: 0; flex: none; }
 .signing-layer-toolbar { display: flex; flex: none; align-items: center; gap: var(--ui-inline-gap); }
 .signing-layer-toolbar picker { flex: 1; min-width: 0; }
-.signing-layer-choice { min-height: var(--ui-compact-height); display: flex; align-items: center; font-size: var(--ui-type-meta); }
-.signing-layer-toolbar > button { flex: none; width: auto; min-width: 0; margin: 0; min-height: var(--ui-compact-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
+.signing-layer-choice { min-height: var(--ui-control-height); display: flex; align-items: center; font-size: var(--ui-type-meta); }
+.signing-layer-toolbar > button { flex: none; width: auto; min-width: var(--ui-control-height); margin: 0; min-height: var(--ui-control-height); height: auto; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
