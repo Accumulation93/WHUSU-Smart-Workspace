@@ -5,7 +5,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages
 
 async function setup(page, permission = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
-  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': permission } } }));
+  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': permission, 'venue.resources.delete': permission } } }));
 }
 
 test('venue editor uses native fields, preserves rejected input and reads back create and edit', async ({ page }) => {

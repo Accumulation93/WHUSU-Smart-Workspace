@@ -4,7 +4,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pag
 import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import departmentCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/departmentBehavior.js';
 
-async function setup(page, permissions = { 'hr.departments': true, 'hr.work_groups': true, 'hr.identities': true }) {
+async function setup(page, permissions = { 'hr.departments': true, 'hr.departments.delete': true, 'hr.work_groups': true, 'hr.work_groups.delete': true, 'hr.identities': true, 'hr.identities.delete': true }) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: {
     status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions
@@ -133,7 +133,7 @@ test('five native scoring tabs remain on one line and first and last can be sele
 });
 
 test('identity creation and successful deletion both reread the authoritative list', async ({ page }) => {
-  await setup(page, { 'hr.identities': true });
+  await setup(page, { 'hr.identities': true, 'hr.identities.delete': true });
   let rows = [];
   let reads = 0;
   await page.route('**/api/listIdentities', route => { reads++; return route.fulfill({ json: { status: 'success', identities: rows } }); });

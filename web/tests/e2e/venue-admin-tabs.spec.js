@@ -3,7 +3,7 @@ import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import copy from '../../src/locales/zh-CN/index.js';
 
-async function setup(page, permissions = { 'venue.resources': true, 'venue.bookings': true, 'venue.approvals': true, 'venue.purposes': true }) {
+async function setup(page, permissions = { 'venue.resources': true, 'venue.bookings': true, 'venue.approvals': true, 'venue.purposes': true, 'venue.purposes.delete': true }) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions } }));
   await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [{ id: 'v1', name: 'Room' }] } }));
@@ -58,7 +58,7 @@ test('native venue tabs preserve purpose drafts and successful writes reread wit
 });
 
 test('purpose edit accepts 200 unicode codepoints, rejects 201 and delete confirms target and preserves conflicts', async ({ page }) => {
-  await setup(page, { 'venue.purposes': true });
+  await setup(page, { 'venue.purposes': true, 'venue.purposes.delete': true });
   let purposes = [{ id: 'p1', text: 'Original' }], saves = 0, deletes = 0;
   await page.route('**/api/listVenueBookingPurposes', route => route.fulfill({ json: { status: 'success', purposes } }));
   await page.route('**/api/saveVenueBookingPurpose', route => {

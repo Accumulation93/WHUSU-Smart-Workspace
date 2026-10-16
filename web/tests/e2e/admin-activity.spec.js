@@ -8,7 +8,7 @@ import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 async function setup(page) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: {
-    status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'scoring.activities': true, 'scoring.templates': true }
+    status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'scoring.activities': true, 'scoring.activities.delete': true, 'scoring.templates': true }
   } }));
 }
 

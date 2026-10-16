@@ -10,7 +10,7 @@ const rule=(id='r1',department='Department A',allow=false)=>({id,activityId:'a1'
 async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});const state={rules:[rule(),rule('r2','Department B',true)],reads:0,writes:[],reject:false,failRead:false,current:true};
   const fulfill=(route,json)=>route.fulfill({json});
-  await page.route('**/api/getMyAdminPermissions',route=>fulfill(route,{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.rules':true,'scoring.templates':true,'scoring.activities':true}}));
+  await page.route('**/api/getMyAdminPermissions',route=>fulfill(route,{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.rules':true,'scoring.rules.delete':true,'scoring.templates':true,'scoring.activities':true}}));
   await page.route('**/api/listScoreActivities',route=>fulfill(route,{status:'success',currentActivityId:state.current?'a1':'',list:[{id:'a1',name:'Activity A',isCurrent:state.current}]}));
   await page.route('**/api/listDepartments',route=>fulfill(route,{status:'success',departments:[{id:'d1',name:'Department A'},{id:'d2',name:'Department B'}]}));
   await page.route('**/api/listIdentities',route=>fulfill(route,{status:'success',identities:[{id:'i1',name:'Identity A'}]}));

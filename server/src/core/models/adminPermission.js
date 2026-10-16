@@ -3,7 +3,7 @@ const pool = require('../../config/db');
 async function getOverrides(orgId, adminId, connection) {
   const db = connection || pool;
   const [rows] = await db.query(
-    'SELECT permission_key, granted FROM admin_permission_overrides WHERE org_id = ? AND admin_id = ?',
+    'SELECT permission_key, granted FROM admin_permission_overrides WHERE org_id = ? AND admin_id = ?' + (connection ? ' FOR UPDATE' : ''),
     [orgId, adminId]
   );
   return rows;

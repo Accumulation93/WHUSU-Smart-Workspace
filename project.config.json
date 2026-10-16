@@ -193,6 +193,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/adminGovernance.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/adminPersonnel.js"
       },
       {

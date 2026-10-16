@@ -13,6 +13,8 @@ const {
   buildMatchVerificationParams
 } = require('../../../package-resources/utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
+const eventBus = require('../../../../../utils/eventBus');
+const governanceCopy = require('../../../package-resources/locales/zh-CN/adminGovernance');
 const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
 const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../package-resources/utils/imageDataUrl');
 const {
@@ -26,6 +28,9 @@ const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
 
 module.exports = Behavior({
   data: {
+    governanceCopy,
+    canDeleteAuditSubmissions: false,
+    deletingAuditSubmission: '',
     verificationCopy,
     // ── Audit Flow Templates ──
     auditFlowTemplates: [],
@@ -1494,6 +1499,37 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
     // Audit Submissions (Admin View)
     // ═══════════════════════════════════════════════════════
+
+    async deleteAuditSubmission(e) {
+      if (!this.data.canDeleteAuditSubmissions || this.data.deletingAuditSubmission) return;
+      const id = e.currentTarget.dataset.id;
+      const request = orgSession.beginRequest(this, 'deleteAuditSubmission');
+      this.setData({ deletingAuditSubmission: id });
+      try {
+        const preview = await this.callCloud('previewAuditSubmissionDeletion', { id });
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (preview.status !== 'success') throw new Error(preview.message || governanceCopy.failed);
+        const confirmation = await new Promise(resolve => wx.showModal({ title: governanceCopy.deleteTitle,
+          content: governanceCopy.deleteBody.replace('{0}', preview.record.title),
+          confirmText: governanceCopy.deleteConfirm, cancelText: governanceCopy.cancel,
+          success: resolve, fail: () => resolve({ confirm: false }) }));
+        if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
+        const result = await this.callCloud('deleteAuditSubmission', { id, revision: preview.record.revision });
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (result.status !== 'success') throw new Error(result.message || governanceCopy.failed);
+        this.setData({ auditSubmissions: this.data.auditSubmissions.filter(item => item.id !== id) });
+        eventBus.emit('approval:done', { submissionId: id, deleted: true });
+        if (result.cleanupPending) wx.showModal({ title: governanceCopy.deleted, content: governanceCopy.cleanupPending, showCancel: false });
+        else showShortToast(governanceCopy.deleted);
+        await this.loadAuditSubmissions();
+      } catch (error) {
+        if (orgSession.isRequestCurrent(this, request) && !error.silent) {
+          wx.showModal({ title: governanceCopy.deleteTitle, content: getErrorText(error, governanceCopy.failed), showCancel: false });
+        }
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ deletingAuditSubmission: '' });
+      }
+    },
 
     async loadAuditSubmissions() {
       const request = orgSession.beginRequest(this, 'auditSubmissions');

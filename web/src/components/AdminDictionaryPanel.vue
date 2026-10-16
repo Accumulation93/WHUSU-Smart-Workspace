@@ -7,7 +7,7 @@
         <button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button>
       </div>
     </section>
-    <form ref="editor" class="card stack" @submit.prevent="save">
+    <form v-if="canWriteRecord" ref="editor" class="card stack" @submit.prevent="save">
       <span class="section-title">{{ form.id ? config.edit : config.create }}</span>
       <label class="field">
         <span class="field-label">{{ config.name }}</span>
@@ -42,8 +42,8 @@
             <span v-if="row.description" class="muted break-all">{{ row.description }}</span>
           </div>
           <div class="card-actions">
-            <button type="button" class="btn-quiet" :disabled="blocked" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
-            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(row)">{{ ui.copy_acc985cabc }}</button>
+            <button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
+            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button>
           </div>
         </article>
       </div>
@@ -63,6 +63,9 @@
 </template>
 
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability(() => ({ departments: 'hr.departments.delete', workGroups: 'hr.work_groups.delete', identities: 'hr.identities.delete' })[props.kind]);
+const canWriteRecord = useAdminCapability(() => ({ departments: 'hr.departments', workGroups: 'hr.work_groups', identities: 'hr.identities' })[props.kind]);
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import copy from '@/locales/zh-CN/index.js';

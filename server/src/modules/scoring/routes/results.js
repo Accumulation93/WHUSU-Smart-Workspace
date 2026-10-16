@@ -2243,24 +2243,27 @@ router.post('/revokeScoreRecord', async (req, res) => {
     const record = await scoreRecordModel.getById(recordId);
     if (!record) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_62fff082e2 });
 
-    // Delete answers and record atomically within a transaction
-    const { withTransaction } = require('../../../config/db');
+    // 复用永久删除事务，在提交时重新检查会话、管理授权与记录版本。
+    const deletion = require('../../../core/models/adminRecordDeletion');
+    const { actorFromRequest } = require('../../../core/services/adminDeletionActor');
     const { getCurrentOrgId } = require('../../../utils/orgContext');
     const orgId = await getCurrentOrgId();
-    await withTransaction(async (conn) => {
-      await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
-      await conn.query('DELETE FROM score_records WHERE id = ? AND org_id = ?', [recordId, orgId]);
-    });
+    const actor = actorFromRequest(req);
+    const preview = await deletion.preview(actor, 'score', recordId);
+    await deletion.remove(actor, 'score', recordId, preview.revision);
 
     const pubCache = require('../utils/pubCache');
-    await Promise.all([
+    await Promise.allSettled([
       pubCache.invalidate(record.activity_id, orgId),
       sharedCache.invalidatePrefix('overview_' + orgId + '_' + record.activity_id + '_')
     ]);
 
     respondScoringResponse(res, { status: 'success', message: localeCopy.copy_d08849e510 });
   } catch (e) {
-    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
+    const copy = require('../../../locales/zh-CN/adminGovernance');
+    const failures = { forbidden: copy.forbidden, not_found: copy.notFound, record_changed: copy.changed, invalid_params: copy.invalid };
+    if (!failures[e.code] && req.logger) req.logger.error('Score deletion failed', { error: e.message });
+    respondScoringResponse(res, { status: failures[e.code] ? e.code : 'error', message: failures[e.code] || copy.failed });
   }
 });
 

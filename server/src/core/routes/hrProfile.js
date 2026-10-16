@@ -396,7 +396,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
 // 共享模板库与当前组织快照
 router.post('/listHrProfileTemplates', async (req, res) => {
   try {
-    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.profile_templates.manage.delete']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     const [list, activeSnapshot] = await Promise.all([
       templateLibrary.listTemplates(), templateLibrary.getActiveSnapshot(context.orgId)
@@ -433,7 +433,7 @@ router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
 
 router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
   try {
-    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage.delete']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
   } catch (e) {

@@ -1,7 +1,7 @@
 <template>
   <div class="stack">
     <section v-if="loadNotice || loading || !activity" class="card stack"><p role="alert">{{ loadNotice || (loading ? copy.common.loading : messages.copy_4e36c10a9e) }}</p><button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button></section>
-    <section ref="categoryEditor" class="card stack">
+    <section v-if="canWriteRecord" ref="categoryEditor" class="card stack">
       <span class="list-row-title">{{ ui.copy_557a7fc9dc }}</span>
       <label class="field"><span class="field-label">{{ ui.copy_2c2a412327 }}</span><select v-model="form.scorerDepartmentId" class="field-input" :aria-label="ui.copy_2c2a412327" :disabled="blocked" @change="form.scorerDepartment=departments.find(row=>row.id===form.scorerDepartmentId)?.name || ''"><option value="">{{ ui.copy_eada426deb }}</option><option v-for="department in departments" :key="department.id" :value="department.id">{{ department.name }}</option></select></label>
       <label class="field"><span class="field-label">{{ ui.copy_bf4cf396ad }}</span><select v-model="form.scorerIdentityId" class="field-input" :aria-label="ui.copy_bf4cf396ad" :disabled="blocked" @change="form.scorerIdentity=identities.find(row=>row.id===form.scorerIdentityId)?.name || ''"><option value="">{{ ui.copy_d1856227b6 }}</option><option v-for="identity in identities" :key="identity.id" :value="identity.id">{{ identity.name }}</option></select></label>
@@ -9,7 +9,7 @@
       <div class="switch-row"><div class="stack-tight"><span class="field-label">{{ ui.copy_b2c24eb575 }}</span><span class="muted">{{ ui.copy_47cdc1cd32 }}</span></div><UiSwitch :checked="form.allowSelfAssessment" :label="ui.copy_b2c24eb575" :disabled="blocked" @change="form.allowSelfAssessment=$event.target.checked" /></div>
       <p v-if="actionNotice" role="alert">{{ actionNotice }}</p>
     </section>
-    <section class="card stack">
+    <section v-if="canWriteRecord" class="card stack">
       <div class="panel-head"><span class="list-row-title">{{ ui.copy_ec62916da5 }}</span><button type="button" class="btn-quiet" :disabled="blocked" @click="openClause()">{{ ui.copy_80708ed559 }}</button></div>
       <p v-if="!form.clauses.length" class="muted">{{ ui.copy_1f4cbedfa9 }}</p>
       <article v-for="(clause,index) in form.clauses" :key="index" class="list-row rule-row stack">
@@ -42,12 +42,15 @@
       <div class="panel-head"><span class="list-row-title">{{ ui.copy_fd2708bef0 }}</span><span class="muted">{{ filtered.length }} / {{ rows.length }}</span></div>
       <div class="rule-actions"><label class="field"><span class="field-label">{{ ui.copy_1a978b0d52 }}</span><select v-model="state.filters.department" class="field-input" :aria-label="ui.copy_1a978b0d52" :disabled="blocked"><option value="">{{ messages.copy_31d4595959 }}</option><option v-for="name in filterDepartments" :key="name">{{ name }}</option></select></label><label class="field"><span class="field-label">{{ ui.copy_12367d56b7 }}</span><select v-model="state.filters.identity" class="field-input" :aria-label="ui.copy_12367d56b7" :disabled="blocked"><option value="">{{ messages.copy_31d4595959 }}</option><option v-for="name in filterIdentities" :key="name">{{ name }}</option></select></label></div>
       <div class="rule-actions"><button type="button" class="btn btn-secondary" :disabled="blocked" @click="toggleAll">{{ allSelected ? ui.copy_cc82c2aee6 : ui.copy_e1d94e445d }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="invert">{{ ui.copy_cf96ec6e3a }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="state.filters={department:'',identity:''}">{{ ui.copy_cec32bdb96 }}</button></div>
-      <div class="list"><article v-for="row in filtered" :key="row.id" class="selection-option-card rule-row stack-tight" :class="{'selection-option-card-selected':state.selected.includes(row.id)}" role="checkbox" :aria-checked="state.selected.includes(row.id)" :aria-disabled="blocked" tabindex="0" @click="toggle(row.id)" @keydown.enter.self.prevent="toggle(row.id)" @keydown.space.self.prevent="toggle(row.id)"><strong>{{ row.scorerDepartment }} / {{ row.scorerIdentity }}</strong><span class="chip chip-blue">{{ row.clauses.length }} {{ ui.copy_7c4117217c }}</span><div class="card-actions" @click.stop><button type="button" class="btn-quiet" :disabled="blocked" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div></article><p v-if="!filtered.length && !loadNotice && !loading" class="empty-state">{{ ui.copy_9511306804 }}</p></div>
+      <div class="list"><article v-for="row in filtered" :key="row.id" class="selection-option-card rule-row stack-tight" :class="{'selection-option-card-selected':state.selected.includes(row.id)}" role="checkbox" :aria-checked="state.selected.includes(row.id)" :aria-disabled="blocked" tabindex="0" @click="toggle(row.id)" @keydown.enter.self.prevent="toggle(row.id)" @keydown.space.self.prevent="toggle(row.id)"><strong>{{ row.scorerDepartment }} / {{ row.scorerIdentity }}</strong><span class="chip chip-blue">{{ row.clauses.length }} {{ ui.copy_7c4117217c }}</span><div class="card-actions" @click.stop><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div></article><p v-if="!filtered.length && !loadNotice && !loading" class="empty-state">{{ ui.copy_9511306804 }}</p></div>
     </section>
     <Teleport to="body"><article v-if="drag.state.active" class="list-row question-ghost rule-row" :style="drag.state.style"><strong>{{ drag.state.question.templateName }}</strong></article></Teleport>
   </div>
 </template>
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('scoring.rules.delete');
+const canWriteRecord = useAdminCapability('scoring.rules');
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import UiSwitch from './UiSwitch.vue';
 import RuleTemplateEditor from './RuleTemplateEditor.vue';

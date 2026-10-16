@@ -17,13 +17,13 @@ const TAB_PERMISSION_MAP = {
   settings: ['system.settings', 'system.organizations'],
   auditTemplates: ['audit.templates'],
   auditStamps: ['audit.stamps'],
-  auditSubmissions: ['audit.submissions'],
+  auditSubmissions: ['audit.submissions', 'audit.submissions_delete'],
   auditVerification: ['audit.verification']
 };
 
 const VENUE_TAB_PERMISSION_MAP = {
-  venue: ['venue.resources'],
-  bookings: ['venue.bookings', 'venue.approvals'],
+  venue: ['venue.resources', 'venue.approvals', 'venue.approvals.delete'],
+  bookings: ['venue.bookings', 'venue.approvals', 'venue.bookings_delete'],
   pending: ['venue.approvals'],
   purposes: ['venue.purposes']
 };
@@ -32,8 +32,8 @@ const PORTAL_PERMISSION_MAP = {
   scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
   hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
-  audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
-  venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes'],
+  audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.submissions_delete', 'audit.verification'],
+  venue: ['venue.resources', 'venue.bookings', 'venue.bookings_delete', 'venue.approvals', 'venue.purposes'],
 };
 
 function getAdminProfile() {
@@ -94,7 +94,8 @@ async function refreshMyPermissions() {
 function filterTabs(tabs, profile, map) {
   const permissionMap = map || TAB_PERMISSION_MAP;
   return (tabs || []).filter(function(tab) {
-    return hasAny(profile, permissionMap[tab] || []);
+    const keys = permissionMap[tab] || [];
+    return hasAny(profile, tab === 'pending' ? keys : keys.concat(keys.map(key => key + '.delete')));
   });
 }
 
@@ -102,7 +103,8 @@ function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
     if (card.key === 'messages' || card.key === 'identitySwitch') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
-    return hasAny(profile, PORTAL_PERMISSION_MAP[card.key] || []);
+    const keys = PORTAL_PERMISSION_MAP[card.key] || [];
+    return hasAny(profile, keys.concat(keys.map(key => key + '.delete')));
   });
 }
 

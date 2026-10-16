@@ -1,12 +1,11 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
-import src_auditSigning from './shared/auditSigning.js';
+import src_adminGovernance from './shared/adminGovernance.js';
 import src_common from './shared/common.js';
 import src_workspace_hero from './shared/generated/components/workspace-hero/workspace-hero.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
-import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
 import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
@@ -45,7 +44,7 @@ export default Object.freeze({
   notification: src_hrInfoBehavior.hrDeletionCleanupNotification,
   todo: src_main.portal.messages.todo,
   readFailed: src_main.portal.messages.readFailed,
-  deleteFailed: src_signatureManager.copy_076bb5d383,
+  deleteFailed: src_adminGovernance.failed,
   incomplete: src_signaturePad.copy_bff49f783f,
   partialBulkAction: src_main.portal.messages.partialBulkAction,
   retryLater: src_common.actions.retryLater,
@@ -71,7 +70,7 @@ export default Object.freeze({
   markAllRead: src_mySubmissions.copy_6830671a51,
   noNotifications: src_main.portal.view.noNotifications,
   notificationType: src_main.portal.view.notificationType,
-  delete: src_signatureManager.copy_acc985cabc,
+  delete: src_adminGovernance.remove,
   servicesTitle: src_main.portal.pageName,
   grid: src_main.portal.view.grid,
   list: src_main.portal.view.list,
@@ -94,6 +93,6 @@ export default Object.freeze({
   logout: src_main.portal.view.logout,
   crossOrganization: src_main.portal.view.crossOrganization,
   switchDescription: src_main.portal.view.switchDescription,
-  cancel: src_auditSigning.cancel,
+  cancel: src_adminGovernance.cancel,
   switchAndView: src_main.portal.view.switchAndView,
 });

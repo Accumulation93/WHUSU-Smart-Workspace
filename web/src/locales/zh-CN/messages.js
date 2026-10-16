@@ -1,11 +1,10 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
-import src_auditSigning from './shared/auditSigning.js';
+import src_adminGovernance from './shared/adminGovernance.js';
 import src_common from './shared/common.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
-import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -37,7 +36,7 @@ export default Object.freeze({
   switchFailed: src_identitySwitch.copy_53d5e0a0c8,
   incomplete: src_signaturePad.copy_bff49f783f,
   partialBulkAction: src_main.portal.messages.partialBulkAction,
-  deleteFailed: src_signatureManager.copy_076bb5d383,
+  deleteFailed: src_adminGovernance.failed,
   clearFailed: src_main.messageCenter.messages.clearFailed,
   clearTitle: src_main.messageCenter.messages.clearTitle,
   clearDescription: src_main.messageCenter.messages.clearDescription,
@@ -62,7 +61,7 @@ export default Object.freeze({
   loading: src_admin.copy_a017932da1,
   crossOrganizationItem: src_main.portal.view.crossOrganization,
   switchDescription: src_main.portal.view.switchDescription,
-  cancel: src_auditSigning.cancel,
+  cancel: src_adminGovernance.cancel,
   switchAndView: src_main.portal.view.switchAndView,
   selectOrganizationScope: src_main.messageCenter.view.selectOrganizationScope,
   close: src_common.actions.close,

@@ -8,6 +8,8 @@ const { safeString } = require('../../utils/helpers');
 const adminPermissionModel = require('../models/adminPermission');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const { resolveCurrentAdmin } = require('../services/adminRequestContext');
+const { authorizePermission } = require('../services/adminTransactionAuthorization');
+const { actorFromRequest } = require('../services/adminDeletionActor');
 const {
   PERMISSION_DEFINITIONS,
   loadEffectivePermissions,
@@ -124,7 +126,6 @@ router.post('/saveAdminPermissions', async (req, res) => {
   let connection;
   try {
     const manager = await resolvePermissionManager(req);
-    const operator = manager.operator;
     const orgId = manager.orgId;
     const adminId = safeString(req.body.adminId);
     const submitted = req.body.permissions && typeof req.body.permissions === 'object' ? req.body.permissions : null;
@@ -134,7 +135,9 @@ router.post('/saveAdminPermissions', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
     // 在写事务内重新读取操作者权限，避免授权被撤销时旧快照继续写入。
-    const effective = await loadEffectivePermissions(operator, orgId, connection);
+    const { admin: operator, effective } = await authorizePermission(
+      connection, actorFromRequest(req), 'permissions.manage_regular_admins'
+    );
     const target = await adminPermissionModel.getTarget(orgId, adminId, connection, true);
     if (!canConfigureAdminPermissions(operator, effective, target, orgId)) {
       await connection.rollback();
@@ -194,6 +197,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
+    if (error.code === 'forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_1cf137dd0d });
     req.logger.error('Save admin permissions failed', { error: error.message });
     res.status(500).json({ status: 'error', message: localeCopy.copy_215e3c57da });
   } finally {

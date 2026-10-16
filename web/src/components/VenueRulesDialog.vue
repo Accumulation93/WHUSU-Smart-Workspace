@@ -8,16 +8,16 @@
       <p v-if="actionNotice && !editor" role="alert" class="notice-line">{{ actionNotice }}</p>
       <template v-if="active === 'bookingWindow'"><VenueBookingWindowFields :value="windowForm" :disabled="blocked" /></template>
       <template v-else>
-        <button type="button" class="btn btn-primary" :disabled="blocked" @click="edit()">{{ active === 'open' ? ui.copy_61960b0ff3 : ui.copy_c38d25de0f }}</button>
+        <button type="button" class="btn btn-primary" :disabled="blocked" v-if="canWriteRecord" @click="edit()">{{ active === 'open' ? ui.copy_61960b0ff3 : ui.copy_c38d25de0f }}</button>
         <p v-if="!loading && !loadNotice && !rows.length" class="muted">{{ active === 'open' ? ui.copy_5e2a277742 : ui.copy_06426d6c41 }}</p>
         <div v-for="row in rows" :key="row.id" class="list-row rule-row" :role="active === 'activity' ? 'button' : undefined" :tabindex="active === 'activity' ? 0 : undefined" @click="viewActivity(row)" @keydown.enter.self="viewActivity(row)">
           <strong class="break-all">{{ row.name || row.activity_name || (active === 'open' ? ui.copy_6e6ee2b747 : ui.copy_acd4c5c171) }}</strong>
           <span class="muted break-all">{{ cycleLabel(row.cycle_type, row.cycle_values) }} · {{ row.time_start }} - {{ row.time_end }}</span>
-          <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" @click.stop="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click.stop="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
+          <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click.stop="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click.stop="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
         </div>
       </template>
     </template>
-    <template v-if="active === 'bookingWindow'" #footer><button type="button" class="btn btn-primary" :disabled="blocked" @click="saveWindow">{{ ui.copy_ac9827b75d }}</button></template>
+    <template v-if="active === 'bookingWindow' && canWriteApprovals" #footer><button type="button" class="btn btn-primary" :disabled="blocked" @click="saveWindow">{{ ui.copy_ac9827b75d }}</button></template>
   </GlassDialog>
   <VenueCycleRuleEditor v-if="editor" :type="editor.type" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="editor = null" @save="saveRule">
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
@@ -25,6 +25,11 @@
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><strong>{{ activity.activity_name }}</strong><span>{{ venue.name }}</span><span>{{ cycleLabel(activity.cycle_type, activity.cycle_values) }}</span><span>{{ activity.time_start }} - {{ activity.time_end }}</span><span>{{ activityPeriodLabel(activity.cycle_type, activity.cycle_values) }}</span><p class="muted">{{ ui.copy_e90ee137d6 }}</p></GlassDialog>
 </template>
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('venue.resources.delete');
+const canWriteRecord = useAdminCapability('venue.resources');
+const canReadApprovals = useAdminCapability('venue.approvals.delete');
+const canWriteApprovals = useAdminCapability('venue.approvals');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import VenueCycleRuleEditor from '@/components/VenueCycleRuleEditor.vue';
@@ -41,7 +46,7 @@ const emit = defineEmits(['close', 'busy', 'editing']);
 const active = ref('open'), records = ref({ open: [], activity: [] }), windowForm = ref(bookingWindowForm(null));
 const editor = ref(null), activity = ref(null), loading = ref(false), busy = ref(false), loadNotice = ref(''), actionNotice = ref(''), awaitingRead = ref(false);
 const approvalBusy = ref(false), approvalEditing = ref(false);
-const tabs = computed(() => [{ key: 'open', label: ui.copy_caa70e7c13 }, { key: 'activity', label: ui.copy_6980750e90 }, ...(props.canApprove ? [{ key: 'booking', label: ui.copy_523e44b520 }, { key: 'bookingWindow', label: ui.copy_91fd6d9600 }] : [])]);
+const tabs = computed(() => [{ key: 'open', label: ui.copy_caa70e7c13 }, { key: 'activity', label: ui.copy_6980750e90 }, ...((props.canApprove || canReadApprovals.value) ? [{ key: 'booking', label: ui.copy_523e44b520 }, { key: 'bookingWindow', label: ui.copy_91fd6d9600 }] : [])]);
 const blocked = computed(() => busy.value || loading.value || !!loadNotice.value || awaitingRead.value);
 const rows = computed(() => records.value[active.value] || []);
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');

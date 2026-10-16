@@ -267,6 +267,7 @@ app.use('/api', require('./core/routes/workGroups'));
 app.use('/api', require('./core/routes/hr'));
 app.use('/api', require('./core/routes/admin'));
 app.use('/api', require('./core/routes/adminPermissions'));
+app.use('/api', require('./core/routes/adminRecordDeletion'));
 app.use('/api', require('./core/routes/user'));
 app.use('/api', require('./modules/scoring/routes/scoring'));
 app.use('/api', require('./modules/scoring/routes/activities'));

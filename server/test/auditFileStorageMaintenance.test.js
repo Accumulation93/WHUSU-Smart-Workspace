@@ -23,7 +23,9 @@ function writeOldFile(filePath, now) {
 function createDatabase(referencedPaths, activeTempNames, evidencePaths = []) {
   const references = new Set(referencedPaths);
   return {
+    async withTransaction(work) { return work(this); },
     async query(sql, params) {
+      if (sql.includes('FROM admin_record_file_cleanup')) return [[]];
       if (sql.includes('FROM audit_signing_evidence')) return [evidencePaths.filter(file => params.includes(file))
         .map(file => ({ input_file_path: file, output_file_path: file }))];
       if (sql.includes('SELECT file_path') && sql.includes("file_path <> ''")) {

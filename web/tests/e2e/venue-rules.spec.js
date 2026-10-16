@@ -7,7 +7,7 @@ import controls from '../../src/locales/zh-CN/shared/controlLayout.js';
 
 async function setup(page, canApprove = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
-  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': true, 'venue.approvals': canApprove } } }));
+  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': true, 'venue.resources.delete': true, 'venue.approvals': canApprove, 'venue.approvals.delete': canApprove } } }));
   await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [{ id: 'v1', name: 'Room' }] } }));
   const state = { open: [], activity: [], rules: [], flows: [], window: null, failRead: false };
   for (const [name, key] of [['listVenueOpenRules', 'open'], ['listVenueActivityRules', 'activity'], ['listVenueBookingRules', 'rules']]) {

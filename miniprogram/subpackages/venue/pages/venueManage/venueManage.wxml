@@ -21,7 +21,7 @@
           <view class="section-title">{{localeCopy.copy_efffdc0050}}</view>
           <view class="panel-note">{{localeCopy.copy_257b230e01}}</view>
         </view>
-        <button class="primary-btn panel-add-btn ui-motion-button" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4fd7b5de41}}</button>
+        <button class="primary-btn panel-add-btn ui-motion-button" wx:if="{{canEditVenueResources}}" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4fd7b5de41}}</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
@@ -35,8 +35,8 @@
               <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
-                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canEditVenueResources}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeleteVenueResources}}" bindtap="deleteVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
             </view>
           </view>
@@ -142,6 +142,9 @@
             <button class="primary-btn approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</button>
             <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
           </view>
+          <view class="card-actions" wx:if="{{canDeleteVenueBookings && item.adminCanDelete}}">
+            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" catchtap="deleteVenueBooking" disabled="{{!!deletingVenueBooking}}" loading="{{deletingVenueBooking === item.id}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{governanceCopy.deleteConfirm}}</button>
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -156,7 +159,7 @@
           <view class="panel-note">{{purposeEditId ? localeCopy.copy_c7be2409d1 : localeCopy.copy_d4d4bfdeda}}</view>
         </view>
       </view>
-      <view class="field">
+      <view class="field" wx:if="{{canEditVenuePurposes}}">
         <view class="field-label">{{localeCopy.copy_a97eb08acb}}</view>
         <view class="input-row purpose-input-row">
           <input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}" adjust-position="{{false}}" cursor-spacing="24" />
@@ -170,8 +173,8 @@
           <view class="list-main">
             <view class="list-name">{{item.text}}</view>
             <view class="inline-actions list-actions-below card-actions">
-              <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-              <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+              <text wx:if="{{canEditVenuePurposes}}" class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+              <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeleteVenuePurposes}}" bindtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
             </view>
           </view>
         </view>
@@ -188,12 +191,12 @@
       <view class="rules-tabs">
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_caa70e7c13}}</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6980750e90}}</view>
-        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_523e44b520}}</view>
+        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue || canDeleteVenueRules}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_523e44b520}}</view>
         <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_91fd6d9600}}</view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
+          <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{canEditVenueResources}}" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">{{localeCopy.copy_5e2a277742}}</view>
           <block wx:if="{{openRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
@@ -201,15 +204,15 @@
                 <view class="list-name">{{item.name || localeCopy.copy_6e6ee2b747}}</view>
                 <view class="list-desc">{{item._activitySummary || item._cycleLabel}}</view>
                 <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link ui-motion-chip" wx:if="{{canEditVenueResources}}" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" wx:if="{{canDeleteVenueResources}}" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
           </block>
         </block>
         <block wx:if="{{rulesTab === 'activity'}}">
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="activity" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c38d25de0f}}</button>
+          <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{canEditVenueResources}}" data-type="activity" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c38d25de0f}}</button>
           <view wx:if="{{!activityRules.length}}" class="empty-inline">{{localeCopy.copy_06426d6c41}}</view>
           <block wx:if="{{activityRules.length}}">
             <view class="list-item list-item-stacked ui-motion-card" wx:for="{{activityRules}}" wx:key="id" data-id="{{item.id}}" bindtap="viewActivityRuleDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -217,15 +220,15 @@
                 <view class="list-name">{{item.activity_name || localeCopy.copy_acd4c5c171}}</view>
                 <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
                 <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link ui-motion-chip" wx:if="{{canEditVenueResources}}" data-type="activity" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" wx:if="{{canDeleteVenueResources}}" data-type="activity" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
-          <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ {{localeCopy.copy_1aba371667}}</button>
+          <button class="secondary-btn rule-add-btn ui-motion-button" wx:if="{{canApproveVenue}}" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ {{localeCopy.copy_1aba371667}}</button>
           <view wx:if="{{!approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
           <block wx:if="{{approvalFlows.length}}">
             <view class="list-item list-item-stacked flow-meta-card ui-motion-card" wx:for="{{approvalFlows}}" wx:key="id">
@@ -233,26 +236,26 @@
                 <view class="list-name">{{item.name || localeCopy.copy_890d7f4874}}</view>
                 <view class="list-desc">{{item.steps.length}} {{localeCopy.copy_310413445b}} <text class="info-chip" wx:if="{{!item.steps.length}}">{{flowManagementCopy.incomplete}}</text></view>
                 <view class="flow-switch-row" catchtap="noop">
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateFirstApprover}}</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateNextApprover}}</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" disabled="{{!canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateFirstApprover}}</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" disabled="{{!canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateNextApprover}}</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" disabled="{{!canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
                 </view>
               </view>
               <view class="inline-actions list-actions-below card-actions">
-                <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteApprovalFlow">{{localeCopy.copy_acc985cabc}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canApproveVenue}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeleteVenueRules}}" catchtap="deleteApprovalFlow">{{localeCopy.copy_acc985cabc}}</text>
               </view>
             </view>
           </block>
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c013e80e7c}}</button>
+          <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{canApproveVenue}}" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c013e80e7c}}</button>
           <view wx:if="{{!bookingRules.length}}" class="empty-inline">{{localeCopy.copy_62a9684fcb}}</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item._ruleTypeLabel}}</view>
                 <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link ui-motion-chip" wx:if="{{canApproveVenue}}" data-type="booking" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" wx:if="{{canDeleteVenueRules}}" data-type="booking" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
@@ -760,7 +763,7 @@
                 <view class="list-name">{{item.text}}</view>
                 <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeleteVenuePurposes}}" catchtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>

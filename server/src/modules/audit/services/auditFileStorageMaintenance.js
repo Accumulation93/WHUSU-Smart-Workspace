@@ -118,6 +118,8 @@ function createAuditFileStorageMaintenance(options) {
     24 * 60 * 60 * 1000
   );
   let timer = null;
+  let deletionTimer = null;
+  let deletionPromise = null;
   let runningPromise = null;
 
   function securePermissions() {
@@ -160,6 +162,7 @@ function createAuditFileStorageMaintenance(options) {
   }
 
   async function executeRun(nowValue) {
+    await runDeletionCleanup();
     const now = Number.isFinite(Number(nowValue)) ? Number(nowValue) : Date.now();
     const cutoff = now - orphanGraceMs;
     const report = {
@@ -240,16 +243,29 @@ function createAuditFileStorageMaintenance(options) {
     });
   }
 
+  function runDeletionCleanup() {
+    if (!deletionPromise) {
+      deletionPromise = require('../../../core/services/adminRecordFileCleanup').processPending(null, { database, root: rootDir })
+        .catch(error => { serviceLogger.error('Admin attachment cleanup failed', { error: error.message }); })
+        .finally(() => { deletionPromise = null; });
+    }
+    return deletionPromise;
+  }
+
   function start() {
     if (timer) return;
     runSafely();
     timer = setInterval(runSafely, intervalMs);
     if (typeof timer.unref === 'function') timer.unref();
+    deletionTimer = setInterval(runDeletionCleanup, 30 * 1000);
+    if (typeof deletionTimer.unref === 'function') deletionTimer.unref();
   }
 
   function stop() {
     if (timer) clearInterval(timer);
     timer = null;
+    if (deletionTimer) clearInterval(deletionTimer);
+    deletionTimer = null;
   }
 
   return { runOnce, start, stop, securePermissions, rootDir, orphanGraceMs, intervalMs };

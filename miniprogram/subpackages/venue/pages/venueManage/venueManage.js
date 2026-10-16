@@ -4,6 +4,7 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
+const governanceCopy = require('../../package-resources/locales/zh-CN/adminGovernance');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueFlowManagement');
@@ -281,6 +282,9 @@ Page({
     activeTab: 'venue',  // 'venue' | 'bookings' | 'pending' | 'purposes'
     hasPermission: true,
     canApproveVenue: false,
+    canDeleteVenueBookings: false,
+    deletingVenueBooking: '',
+    governanceCopy,
     currentOrganizationName: '',
     adminDisplayName: localeCopy.copy_c01a9aef59,
     adminLevelLabel: localeCopy.copy_fd31650797,
@@ -499,7 +503,7 @@ Page({
         rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
         venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
         approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
-        loading: false, bookingsLoading: false
+        loading: false, bookingsLoading: false, deletingVenueBooking: ''
       });
     }
     let profile = adminPermissions.getAdminProfile();
@@ -521,6 +525,12 @@ Page({
       activeTab: activeTab,
       hasPermission: visibleTabs.length > 0,
       canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals']),
+      canEditVenueResources: adminPermissions.hasAny(profile, ['venue.resources']),
+      canEditVenuePurposes: adminPermissions.hasAny(profile, ['venue.purposes']),
+      canDeleteVenueBookings: adminPermissions.hasAny(profile, ['venue.bookings_delete']),
+      canDeleteVenueResources: adminPermissions.hasAny(profile, ['venue.resources.delete']),
+      canDeleteVenueRules: adminPermissions.hasAny(profile, ['venue.approvals.delete']),
+      canDeleteVenuePurposes: adminPermissions.hasAny(profile, ['venue.purposes.delete']),
       currentOrganizationName: orgSession.getSnapshot().orgName || '',
       adminDisplayName: profile && profile.name ? profile.name : localeCopy.copy_c01a9aef59,
       adminLevelLabel: profile && profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_fd31650797
@@ -685,9 +695,9 @@ Page({
     });
 
     const initialLoads = [this.loadOpenRules(), this.loadActivityRules()];
-    if (this.data.canApproveVenue) initialLoads.push(this.loadApprovalFlow());
+    if (this.data.canApproveVenue || this.data.canDeleteVenueRules) initialLoads.push(this.loadApprovalFlow());
     await Promise.all(initialLoads);
-    if (this.data.canApproveVenue && this.data.rulesVenueId === id) {
+    if ((this.data.canApproveVenue || this.data.canDeleteVenueRules) && this.data.rulesVenueId === id) {
       await this.loadBookingRules();
     }
   },
@@ -1282,6 +1292,34 @@ Page({
   },
 
   // ── Bookings tab (borrow management, ported from venueBookings) ──
+
+  async deleteVenueBooking(e) {
+    if (!this.data.canDeleteVenueBookings || this.data.deletingVenueBooking) return;
+    const id = e.currentTarget.dataset.id;
+    const request = orgSession.beginRequest(this, 'deleteVenueBooking');
+    this.setData({ deletingVenueBooking: id });
+    try {
+      const preview = await callFunction({ name: 'previewVenueBookingDeletion', data: { id } });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (preview.status !== 'success') throw new Error(preview.message || governanceCopy.failed);
+      const confirmation = await new Promise(resolve => wx.showModal({ title: governanceCopy.deleteTitle,
+        content: governanceCopy.deleteBody.replace('{0}', preview.record.title),
+        confirmText: governanceCopy.deleteConfirm, cancelText: governanceCopy.cancel,
+        success: resolve, fail: () => resolve({ confirm: false }) }));
+      if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
+      const result = await callFunction({ name: 'deleteVenueBooking', data: { id, revision: preview.record.revision } });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (result.status !== 'success') throw new Error(result.message || governanceCopy.failed);
+      this.setData({ bookings: this.data.bookings.filter(item => item.id !== id), selectedBooking: null });
+      eventBus.emit('venue:changed', { reason: 'deleted' });
+      showShortToast(governanceCopy.deleted);
+      await this.loadBookingsData();
+    } catch (error) {
+      if (orgSession.isRequestCurrent(this, request) && !error.silent) wx.showModal({ title: governanceCopy.deleteTitle, content: getErrorText(error, governanceCopy.failed), showCancel: false });
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ deletingVenueBooking: '' });
+    }
+  },
 
   async loadBookingsData() {
     const request = orgSession.beginRequest(this, 'manageBookings');

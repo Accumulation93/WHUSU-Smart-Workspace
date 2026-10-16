@@ -547,7 +547,7 @@ function deletionAuthorize(req, organizationId) {
     const access = await requireAdminOrganizationPermission(
       req,
       organizationId,
-      ['hr.people'],
+      ['hr.people.delete'],
       connection
     );
     return deletionActor(req, access);
@@ -592,7 +592,7 @@ function sendDeletionError(req, res, error) {
 router.post('/previewHrMemberDeletion', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
     const scope = safeString(req.body && req.body.scope) || hrMemberDeletionService.MEMBERSHIP_SCOPE;
     const preview = await hrMemberDeletionService.previewHrMemberDeletion(
       deletionRequestData(req, scope, organizationId),
@@ -607,7 +607,7 @@ router.post('/previewHrMemberDeletion', async (req, res) => {
 router.post('/deleteHrMembershipPermanently', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
     const result = await hrMemberDeletionService.deleteHrMembershipPermanently(
       deletionRequestData(req, hrMemberDeletionService.MEMBERSHIP_SCOPE, organizationId),
       deletionActor(req, access),
@@ -622,7 +622,7 @@ router.post('/deleteHrMembershipPermanently', async (req, res) => {
 router.post('/deletePersonPermanently', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people']);
+    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
     const result = await hrMemberDeletionService.deletePersonPermanently(
       deletionRequestData(req, hrMemberDeletionService.PERSON_SCOPE, organizationId),
       deletionActor(req, access),

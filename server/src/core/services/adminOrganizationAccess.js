@@ -52,11 +52,11 @@ async function listAdminOrganizationAccess(req) {
       isSuperAdmin: Boolean(effective.isSuper),
       permissionKeys,
       canReadPeople: Boolean(
-        permissions['hr.people'] || permissions['hr.profile_review']
+        permissions['hr.people'] || permissions['hr.people.delete'] || permissions['hr.profile_review']
         || permissions['auth.identity.verify'] || permissions['auth.accounts.recover']
         || permissions['auth.accounts.global_manage'] || permissions['auth.policy.manage']
       ),
-      canReadAssignments: Boolean(permissions['hr.people'] || permissions['hr.profile_review']),
+      canReadAssignments: Boolean(permissions['hr.people'] || permissions['hr.people.delete'] || permissions['hr.profile_review']),
       canEditAssignments: Boolean(permissions['hr.people']),
       canReadAdmins: Boolean(
         permissions['system.admin_accounts.read']

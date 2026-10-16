@@ -1,7 +1,7 @@
 <template>
   <section class="card stack">
     <div class="stack-tight"><span class="section-title">{{ ui.copy_d37b64cc9d }}</span><p class="muted">{{ state.id ? ui.copy_c7be2409d1 : ui.copy_d4d4bfdeda }}</p></div>
-    <form class="field" @submit.prevent="save">
+    <form v-if="canWriteRecord" class="field" @submit.prevent="save">
       <label for="venue-purpose" class="field-label">{{ ui.copy_a97eb08acb }}</label>
       <div class="purpose-input-row">
         <input id="venue-purpose" v-model="state.text" class="field-input" :placeholder="ui.copy_d4475123b9" :disabled="blocked" />
@@ -15,11 +15,14 @@
     <p v-else-if="!loading && !loadNotice && !rows.length" class="empty-state">{{ ui.copy_b55eac70b1 }}</p>
     <article v-for="row in rows" :key="row.id" class="list-row purpose-row">
       <span class="list-row-title break-all">{{ row.text }}</span>
-      <div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
+      <div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
     </article>
   </section>
 </template>
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('venue.purposes.delete');
+const canWriteRecord = useAdminCapability('venue.purposes');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
@@ -48,7 +51,7 @@ async function load() {
   finally { if (current()) loading.value = false; }
 }
 async function save() {
-  if (blocked.value) return;
+  if (blocked.value || !canWriteRecord.value) return;
   const text = props.state.text.trim();
   if (!text) { actionNotice.value = ui.copy_fdb45fb38f; return; }
   if (Array.from(text).length > 200) { actionNotice.value = ui.bookingPurposeTooLong; return; }
@@ -65,7 +68,7 @@ async function save() {
   finally { if (current()) busy.value = false; }
 }
 async function remove(row) {
-  if (blocked.value) return;
+  if (blocked.value || !canDeleteRecord.value) return;
   const target = { id: row.id, text: row.text }, expected = scope();
   const current = () => !disposed && expected === scope();
   busy.value = true; actionNotice.value = '';

@@ -88,6 +88,7 @@ Page({
     verificationCodeHours: VERIFICATION_CODE_VALIDITY_DAYS[DEFAULT_VERIFICATION_CODE_VALIDITY_INDEX] * 24,
     canRevokeScoreRecords: false,
     canManageHrPeople: false,
+    canDeleteHrPeople: false,
     canImportHr: false,
     canReviewHrProfile: false,
     canBrowseHrInfo: false,
@@ -643,7 +644,7 @@ Page({
         stamps: [],
         auditSubmissions: [],
         verificationPermissions: [],
-        loadingMap: {}
+        loadingMap: {}, deletingAuditSubmission: ''
       });
       this.clearScoreResultsState();
     }
@@ -958,7 +959,7 @@ Page({
       'system.admin_accounts.write'
     ]);
     const canWriteAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts.write']);
-    const canBrowseHrInfo = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
+    const canBrowseHrInfo = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.people.delete', 'hr.profile_review']);
     const activeOrgId = activeSession.orgId || '';
     const bootstrapKey = [
       this._subApp || 'scoring',
@@ -990,7 +991,9 @@ Page({
       canWriteAdmins,
       canExportScoreResults: adminPermissions.hasAny(adminProfile, ['scoring.results_export']),
       canRevokeScoreRecords: adminPermissions.hasAny(adminProfile, ['scoring.results_revoke']),
+      canDeleteAuditSubmissions: adminPermissions.hasAny(adminProfile, ['audit.submissions_delete']),
       canManageHrPeople: adminPermissions.hasAny(adminProfile, ['hr.people']),
+      canDeleteHrPeople: adminPermissions.hasAny(adminProfile, ['hr.people.delete']),
       canImportHr: adminPermissions.hasAny(adminProfile, ['hr.import']),
       canReviewHrProfile: adminPermissions.hasAny(adminProfile, ['hr.profile_review']),
       canBrowseHrInfo,

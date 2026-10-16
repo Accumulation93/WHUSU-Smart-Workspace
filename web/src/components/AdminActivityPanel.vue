@@ -7,7 +7,7 @@
         <button class="btn-quiet" type="button" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button>
       </div>
     </section>
-    <form ref="editor" class="card stack" @submit.prevent="save">
+    <form v-if="canWriteRecord" ref="editor" class="card stack" @submit.prevent="save">
       <span class="section-title">{{ form.id ? ui.copy_f6c2ad6b33 : ui.copy_1d3038647e }}</span>
       <label class="field"><span class="field-label">{{ ui.copy_a782814703 }}</span><input v-model="form.name" class="field-input" :placeholder="ui.copy_d6c7d5f681" :disabled="blocked" /></label>
       <label class="field"><span class="field-label">{{ ui.copy_cbdd390194 }}</span><textarea v-model="form.description" class="field-input" :placeholder="ui.copy_220954fc7a" :disabled="blocked" /></label>
@@ -34,10 +34,10 @@
             <span v-if="row.startDate || row.endDate" class="muted">{{ row.startDate }} {{ row.endDate }}</span>
           </div>
           <div class="card-actions">
-            <button v-if="!row.isCurrent" class="btn-quiet" type="button" :disabled="blocked" @click="act(row, 'current')">{{ ui.copy_726cfc3525 }}</button>
-            <button class="btn-quiet" type="button" :disabled="blocked" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
-            <button class="btn-quiet" type="button" :disabled="blocked" @click="act(row, 'pause')">{{ row.isPaused ? ui.copy_0735ccbfbd : ui.copy_74e00681c9 }}</button>
-            <button class="btn-quiet btn-quiet-danger" type="button" :disabled="blocked" @click="act(row, 'delete')">{{ ui.copy_acc985cabc }}</button>
+            <button v-if="canWriteRecord && !row.isCurrent" class="btn-quiet" type="button" :disabled="blocked" @click="act(row, 'current')">{{ ui.copy_726cfc3525 }}</button>
+            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
+            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canWriteRecord" @click="act(row, 'pause')">{{ row.isPaused ? ui.copy_0735ccbfbd : ui.copy_74e00681c9 }}</button>
+            <button class="btn-quiet btn-quiet-danger" type="button" :disabled="blocked" v-if="canDeleteRecord" @click="act(row, 'delete')">{{ ui.copy_acc985cabc }}</button>
           </div>
         </article>
       </div>
@@ -46,6 +46,9 @@
 </template>
 
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('scoring.activities.delete');
+const canWriteRecord = useAdminCapability('scoring.activities');
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/activityBehavior.js';

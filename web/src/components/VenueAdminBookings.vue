@@ -18,6 +18,7 @@
     </div></div>
     <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="busy || loading" @click="load">{{ copy.common.retry }}</button></template>
     <p v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</p>
+    <p v-if="deleteNotice" class="notice-line" role="status">{{ deleteNotice }}</p>
     <p v-else-if="!loading && !loadNotice && !rows.length" class="empty-state">{{ ui.copy_28981b382e }}</p>
     <article v-for="row in rows" :key="row.id" class="list-row booking-row" tabindex="0" @click="open(row)" @keydown.enter.self="open(row)">
       <div class="panel-head"><span class="list-row-title break-all">{{ row.title || ui.copy_9639901862 }}</span><span class="chip chip-blue">{{ venueStatusLabel(row) }}</span></div>
@@ -31,6 +32,7 @@
         <button type="button" class="btn btn-primary" :disabled="blocked" @click="open(row, 'approve')">{{ ui.copy_1bb7eb3e1a }}</button>
         <button type="button" class="btn btn-danger" :disabled="blocked" @click="open(row, 'reject')">{{ ui.copy_0c90eb0204 }}</button>
       </div>
+      <div v-if="canDelete && row.adminCanDelete" class="card-actions" @click.stop @keydown.stop><button type="button" class="btn btn-danger" :disabled="blocked" @click="remove(row)">{{ governance.deleteConfirm }}</button></div>
     </article>
   </section>
   <GlassDialog v-if="target" :title="action ? (action === 'approve' ? ui.copy_a63100b45d : ui.copy_689e8f08db) : copy.venue.detailTitle" :busy="busy" @close="close">
@@ -47,15 +49,17 @@ import VenueBookingDetail from '@/components/VenueBookingDetail.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { showToast } from '@/runtime/notify.js';
+import { showToast, confirmAction } from '@/runtime/notify.js';
+import governance from '@/locales/zh-CN/shared/adminGovernance.js';
 import { session } from '@/runtime/session.js';
 import { formatAbsoluteDate } from '@/runtime/dateTime.js';
 import { addDays } from '@/runtime/venueTime.js';
 import { venueStatus, venueStatusLabel, venueTimeRange } from '@/runtime/venuePresentation.js';
-const props = defineProps({ state: { type: Object, required: true }, canApprove: Boolean, disabled: Boolean });
+const props = defineProps({ state: { type: Object, required: true }, canApprove: Boolean, canDelete: Boolean, disabled: Boolean });
 const emit = defineEmits(['busy', 'editing']);
 const rows = ref([]), venues = ref([]), loading = ref(false), busy = ref(false), loadNotice = ref('');
 const target = ref(null), action = ref(''), comment = ref(''), actionNotice = ref('');
+const deleteNotice = ref('');
 const blocked = computed(() => props.disabled || loading.value || busy.value || !!loadNotice.value);
 const statuses = [
   { key: '', label: ui.copy_835048fcaf }, { key: 'pending', label: ui.copy_310d71700e },
@@ -111,6 +115,22 @@ async function submit() {
     target.value = null; action.value = ''; await load();
     if (current()) showToast(result.message);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_0531ed9e78); }
+  finally { if (current()) busy.value = false; }
+}
+async function remove(row) {
+  if (blocked.value || !props.canDelete || !row.adminCanDelete) return;
+  const expected = scope(), current = () => !disposed && expected === scope();
+  busy.value = true; deleteNotice.value = '';
+  try {
+    const preview = requireSuccess(await callApi('previewVenueBookingDeletion', { id: row.id }));
+    if (!current()) return;
+    if (!await confirmAction({ title: governance.deleteTitle, body: governance.deleteBody.replace('{0}', preview.record.title), confirmText: governance.deleteConfirm, cancelText: governance.cancel, danger: true }) || !current() || !props.canDelete) return;
+    const result = requireSuccess(await callApi('deleteVenueBooking', { id: row.id, revision: preview.record.revision }));
+    if (!current()) return;
+    rows.value = rows.value.filter(item => item.id !== row.id);
+    deleteNotice.value = result.message || governance.deleted;
+    await load();
+  } catch (error) { if (current()) deleteNotice.value = errorText(error, governance.failed); }
   finally { if (current()) busy.value = false; }
 }
 watch(busy, value => emit('busy', value), { flush: 'sync' });

@@ -12,7 +12,7 @@
     <section v-if="allowed && activeTab === 'venue'" class="card stack">
       <div class="panel-head">
         <div class="stack-tight"><span class="section-title">{{ ui.copy_efffdc0050 }}</span><p class="muted">{{ ui.copy_257b230e01 }}</p></div>
-        <button type="button" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
+        <button type="button" v-if="hasAny(['venue.resources'])" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
       </div>
       <p v-if="loadNotice" role="alert" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button>
@@ -29,14 +29,14 @@
           <div class="row row-wrap">
             <button type="button" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
             <button type="button" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
-            <button type="button" class="btn-quiet" :disabled="blocked" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
-            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
+            <button type="button" class="btn-quiet" :disabled="blocked" v-if="hasAny(['venue.resources'])" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
+            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="hasAny(['venue.resources.delete'])" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
           </div>
         </div>
       </div>
     </section>
-    <VenueAdminBookings v-if="activeTab === 'bookings' && hasAny(['venue.bookings', 'venue.approvals'])" :key="scope()" :state="bookingState" :can-approve="hasAny(['venue.approvals'])" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
-    <VenuePurposesPanel v-if="activeTab === 'purposes' && hasAny(['venue.purposes'])" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
+    <VenueAdminBookings v-if="activeTab === 'bookings' && hasAny(['venue.bookings', 'venue.approvals', 'venue.bookings_delete'])" :key="scope()" :state="bookingState" :can-approve="hasAny(['venue.approvals'])" :can-delete="hasAny(['venue.bookings_delete'])" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
+    <VenuePurposesPanel v-if="activeTab === 'purposes' && hasAny(['venue.purposes', 'venue.purposes.delete'])" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
     <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
   </div>
   <GlassDialog v-if="editing" :title="form.id ? ui.copy_1ba7eec34e : ui.copy_a78ce83cab" :busy="busy" @close="closeEditor">
@@ -62,6 +62,7 @@ import VenuePurposesPanel from '@/components/VenuePurposesPanel.vue';
 import VenueAdminBookings from '@/components/VenueAdminBookings.vue';
 import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueRulesDialog from '@/components/VenueRulesDialog.vue';
+import { provideAdminCapabilities } from '@/runtime/adminCapabilities.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -70,6 +71,7 @@ import { roleLabelOf, session } from '@/runtime/session.js';
 const router = useRouter();
 const venues = ref([]), loading = ref(false), loadNotice = ref(''), actionNotice = ref('');
 const permissionLoading = ref(true), permissionNotice = ref(''), profile = ref(null);
+provideAdminCapabilities(profile);
 const editing = ref(false), busy = ref(false), switchGuard = ref(false), savedAwaitingRead = ref(false);
 const form = reactive({ id: '', name: '', location: '', description: '' });
 const purposeState = reactive({ id: '', text: '', awaitingRead: false });
@@ -79,12 +81,12 @@ const scheduleVenue = ref(null), rulesVenue = ref(null);
 const allBusy = computed(() => busy.value || childBusy.value);
 const hasAny = keys => profile.value?.adminLevel === 'super_admin' || keys.some(key => profile.value?.permissions?.[key] === true);
 const visibleTabs = computed(() => [
-  { key: 'venue', label: ui.copy_ceffdfcdd7, permissions: ['venue.resources'] },
-  { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals'] },
+  { key: 'venue', label: ui.copy_ceffdfcdd7, permissions: ['venue.resources', 'venue.approvals', 'venue.approvals.delete'] },
+  { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals', 'venue.bookings_delete'] },
   { key: 'pending', label: ui.copy_e7f0a24301, permissions: ['venue.approvals'] },
   { key: 'purposes', label: ui.copy_8dcf3fcf0b, permissions: ['venue.purposes'] }
-].filter(tab => hasAny(tab.permissions)));
-const allowed = computed(() => profile.value?.adminLevel === 'super_admin' || profile.value?.permissions?.['venue.resources'] === true);
+].filter(tab => hasAny(tab.key === 'pending' ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));
+const allowed = computed(() => hasAny(['venue.resources', 'venue.resources.delete', 'venue.approvals', 'venue.approvals.delete']));
 const blocked = computed(() => busy.value || loading.value || permissionLoading.value || !!permissionNotice.value || !!loadNotice.value || savedAwaitingRead.value || !allowed.value);
 const displayName = computed(() => session.context?.name || session.user?.name || '');
 const orgName = computed(() => session.context?.organizationName || '');
@@ -103,7 +105,7 @@ function switchTab(key) {
   if (key === 'venue') load();
 }
 function edit(row = {}) {
-  if (blocked.value) return;
+  if (blocked.value || !hasAny(['venue.resources'])) return;
   Object.assign(form, { id: row.id || '', name: row.name || '', location: row.location || '', description: row.description || '' });
   actionNotice.value = ''; editing.value = true;
 }
@@ -139,7 +141,7 @@ async function loadPermissions() {
   if (current() && !permissionNotice.value && allowed.value) await load();
 }
 async function save() {
-  if (blocked.value) return;
+  if (blocked.value || !hasAny(['venue.resources'])) return;
   if (!form.name.trim()) { actionNotice.value = ui.copy_4514e50856; return; }
   const expected = scope();
   const current = () => !disposed && expected === scope();
@@ -155,7 +157,7 @@ async function save() {
   finally { if (current()) busy.value = false; }
 }
 async function remove(row) {
-  if (blocked.value) return;
+  if (blocked.value || !hasAny(['venue.resources.delete'])) return;
   const target = { id: row.id, name: row.name }, expected = scope();
   const current = () => !disposed && expected === scope();
   busy.value = true; actionNotice.value = '';

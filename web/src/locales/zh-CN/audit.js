@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
 import src_auditVerification from './shared/auditVerification.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -114,12 +115,12 @@ export default Object.freeze({
   signatureNew: src_signatureManager.copy_c103b678f0,
   signatureClear: src_web.audit.signatureClear,
   signatureSave: src_auditSigning.saveTemplate,
-  signatureCancel: src_auditSigning.cancel,
+  signatureCancel: src_adminGovernance.cancel,
   signatureNameLabel: src_web.audit.signatureNameLabel,
   signatureNamePlaceholder: src_web.audit.signatureNamePlaceholder,
   signatureNameRequired: src_web.audit.signatureNameRequired,
   signatureEmptyCanvas: src_web.audit.signatureEmptyCanvas,
-  signatureDelete: src_signatureManager.copy_acc985cabc,
+  signatureDelete: src_adminGovernance.remove,
   signatureSetDefault: src_admin.copy_fda919de66,
   signatureDefaultBadge: src_signatureManager.copy_7f8fe1554d,
   signatureDeleteConfirmTitle: src_web.audit.signatureDeleteConfirmTitle,

@@ -1,5 +1,5 @@
 <template>
-  <section class="card stack">
+  <section v-if="canWriteRecord" class="card stack">
     <span class="section-title">{{ native.copy_82f17ccbef }}</span>
     <label class="field"><span class="field-label">{{ native.copy_9395b8661f }}</span><input v-model="state.form.name" class="field-input" :disabled="blocked" /></label>
     <input ref="fileInput" type="file" accept="image/*" class="visually-hidden" :disabled="blocked" @change="readImage" />
@@ -8,10 +8,13 @@
     <p v-if="notice || actionNotice" class="notice-line">{{ notice || actionNotice }} <button v-if="notice" class="btn-quiet" :disabled="busy || loading" @click="load">{{ text.retry }}</button></p>
     <div class="stamp-actions"><button class="btn btn-secondary" :disabled="busy || state.pending" @click="reset">{{ copy.common.cancel }}</button><button class="btn btn-primary" :disabled="blocked" @click="save">{{ native.copy_2278d2da18 }}</button></div>
   </section>
-  <section class="card stack"><span class="section-title">{{ native.copy_8ef1f4695c }}</span><p v-if="loading">{{ copy.common.loading }}</p><p v-else-if="!notice && !rows.length">{{ native.copy_0596fc0dc8 }}</p><div v-for="row in rows" :key="row.id" class="list-row stamp-row"><strong>{{ row.name }}</strong><img :src="row.imageData" :alt="row.name" class="stamp-preview" /><span v-for="grant in row.assignedPeople" :key="grant.assignmentId" class="muted">{{ grant.name }} · {{ grant.assignmentLabel }}<span v-if="grant.available===false"> · {{ stamps.inactive }}</span></span><div class="card-actions"><button class="btn-quiet" :disabled="blocked" @click="edit(row)">{{ native.copy_e040ae3016 }}</button><button class="btn-quiet" :disabled="blocked" @click="openGrants(row)">{{ stamps.configure }}</button><button class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="remove(row)">{{ native.copy_acc985cabc }}</button></div></div></section>
+  <section class="card stack"><span class="section-title">{{ native.copy_8ef1f4695c }}</span><p v-if="loading">{{ copy.common.loading }}</p><p v-else-if="!notice && !rows.length">{{ native.copy_0596fc0dc8 }}</p><div v-for="row in rows" :key="row.id" class="list-row stamp-row"><strong>{{ row.name }}</strong><img :src="row.imageData" :alt="row.name" class="stamp-preview" /><span v-for="grant in row.assignedPeople" :key="grant.assignmentId" class="muted">{{ grant.name }} · {{ grant.assignmentLabel }}<span v-if="grant.available===false"> · {{ stamps.inactive }}</span></span><div class="card-actions"><button class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ native.copy_e040ae3016 }}</button><button class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="openGrants(row)">{{ stamps.configure }}</button><button class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ native.copy_acc985cabc }}</button></div></div></section>
   <PersonnelPicker v-if="grantTarget" :title="stamps.title" :options="candidates" :value="grantTarget.assignedPeople.filter(item=>item.available!==false)" :busy="busy" @cancel="grantTarget=null" @confirm="saveGrants"><p>{{ stamps.editorContext(grantTarget.name) }}</p><p v-if="grantTarget.assignedPeople.some(item=>item.available===false)" class="notice-line">{{ stamps.invalidRemoved }}</p><p v-if="actionNotice" class="notice-line">{{ actionNotice }}</p></PersonnelPicker>
 </template>
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('audit.stamps.delete');
+const canWriteRecord = useAdminCapability('audit.stamps');
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import copy from '@/locales/zh-CN/index.js';

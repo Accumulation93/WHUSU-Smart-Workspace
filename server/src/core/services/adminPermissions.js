@@ -1,5 +1,7 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/adminPermissions');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const governanceCopy = require('../../locales/zh-CN/adminGovernance');
+const { ACTION_GROUPS } = require('./adminPermissionActions');
 const PERMISSION_GROUPS = [
   {
     key: 'authentication',
@@ -59,6 +61,7 @@ const PERMISSION_GROUPS = [
       { key: 'audit.templates', label: localeCopy.copy_ad546eb2dc, description: localeCopy.copy_783f2b3012 },
       { key: 'audit.stamps', label: localeCopy.copy_1ceb23e763, description: localeCopy.copy_fc760da0ff },
       { key: 'audit.submissions', label: localeCopy.copy_83c3471991, description: localeCopy.copy_547867cecd },
+      { key: 'audit.submissions_delete', label: governanceCopy.auditRecordsDelete, description: governanceCopy.auditRecordsDeleteDescription },
       { key: 'audit.verification', label: localeCopy.copy_9e2295b6fc, description: localeCopy.copy_c25a6ae418 }
     ]
   },
@@ -69,6 +72,7 @@ const PERMISSION_GROUPS = [
     permissions: [
       { key: 'venue.resources', label: localeCopy.copy_eed42b6ab7, description: localeCopy.copy_33a1ff1645 },
       { key: 'venue.bookings', label: localeCopy.copy_20ba89a1cc, description: localeCopy.copy_2af5a1edc2 },
+      { key: 'venue.bookings_delete', label: governanceCopy.venueRecordsDelete, description: governanceCopy.venueRecordsDeleteDescription },
       { key: 'venue.approvals', label: localeCopy.copy_f46b4e54f4, description: localeCopy.copy_56333a8d42 },
       { key: 'venue.purposes', label: localeCopy.copy_8dcf3fcf0b, description: localeCopy.copy_69c1bbec34 }
     ]
@@ -86,6 +90,13 @@ const PERMISSION_GROUPS = [
   }
 ];
 
+// 已有管理权限保留读写范围，永久删除独立授权，不能由旧授权隐式获得。
+for (const action of ACTION_GROUPS) {
+  const group = PERMISSION_GROUPS.find(item => item.permissions.some(permission => permission.key === action.base));
+  const index = group.permissions.findIndex(item => item.key === action.base);
+  group.permissions.splice(index + 1, 0, { key: action.base + '.delete',
+    label: governanceCopy.deletePermissions[action.base], description: governanceCopy.deleteDescription });
+}
 const PERMISSION_DEFINITIONS = new Map();
 PERMISSION_GROUPS.forEach((group) => {
   group.permissions.forEach((permission) => {
@@ -193,7 +204,8 @@ mapRoutes('hr.work_groups', ['/saveWorkGroup', '/deleteWorkGroup']);
 mapRoutes('audit.templates', ['/listAuditFlowTemplates', '/saveAuditFlowTemplate', '/deleteAuditFlowTemplate']);
 mapRoutes('audit.templates', ['/getAuditTemplateEditorData']);
 mapRoutes('audit.stamps', ['/listStamps', '/saveStamp', '/deleteStamp', '/saveStampAssignments', '/listIdentityStamps', '/listStampCandidates', '/saveStampGrants']);
-mapRoutes('audit.submissions', ['/listAllAuditSubmissions', '/getAuditProgress']);
+mapAny(['/listAllAuditSubmissions', '/getAuditProgress'], ['audit.submissions', 'audit.submissions_delete']);
+mapRoutes('audit.submissions_delete', ['/previewAuditSubmissionDeletion', '/deleteAuditSubmission']);
 mapRoutes('audit.submissions', ['/getSubmissionDetail'], { allowUserRole: true });
 mapRoutes('audit.submissions', [
   '/getAuditFile', '/downloadAuditFile', '/getAuditFilePreview'
@@ -202,14 +214,15 @@ mapRoutes('audit.verification', ['/listVerificationPermissions', '/saveVerificat
 mapRoutes('audit.verification', ['/listAuditVerificationCandidates']);
 mapRoutes('audit.verification', ['/getAuditVerificationAccess', '/verifySignatureChain'], { allowUserRole: true });
 
-mapAny(['/listVenues'], ['venue.resources', 'venue.bookings', 'venue.approvals']);
+mapAny(['/listVenues'], ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.bookings_delete']);
 mapRoutes('venue.resources', [
   '/saveVenue', '/deleteVenue', '/listVenueOpenRules', '/saveVenueOpenRule', '/deleteVenueOpenRule',
   '/listVenueActivityRules', '/saveVenueActivityRule', '/deleteVenueActivityRule'
 ]);
 mapAny(['/getVenueSchedule'], ['venue.resources', 'venue.bookings'], { allowUserRole: true });
-mapAny(['/listAllVenueBookings'], ['venue.bookings', 'venue.approvals']);
+mapAny(['/listAllVenueBookings'], ['venue.bookings', 'venue.approvals', 'venue.bookings_delete']);
 mapRoutes('venue.bookings', ['/createAdminVenueBooking']);
+mapRoutes('venue.bookings_delete', ['/previewVenueBookingDeletion', '/deleteVenueBooking']);
 mapRoutes('venue.approvals', [
   '/listVenueBookingRules', '/saveVenueBookingWindow', '/saveVenueBookingRule', '/deleteVenueBookingRule',
   '/getVenueApprovalFlow', '/saveVenueApprovalFlow', '/deleteVenueApprovalFlow', '/saveVenueApprovalStep',
@@ -248,6 +261,15 @@ mapRoutes('auth.policy.manage', ['/admin/auth/policy']);
 mapAny(['/parseTableFile', '/buildTableFile'], [
   'hr.import', 'hr.people', 'hr.profile_review', 'scoring.templates'
 ]);
+
+for (const action of ACTION_GROUPS) {
+  mapRoutes(action.base + '.delete', action.remove);
+  for (const route of action.read) {
+    const rule = ROUTE_RULES.get(route);
+    if (!rule) throw new Error('Missing read permission rule: ' + route);
+    rule.anyOf = [...new Set(rule.anyOf.concat(action.base + '.delete'))];
+  }
+}
 
 function listPermissionKeys() {
   return Array.from(PERMISSION_DEFINITIONS.keys());
@@ -307,6 +329,8 @@ async function loadEffectivePermissions(admin, orgId, connection) {
   if (permissions['system.admin_accounts.write']) {
     permissions['system.admin_accounts.read'] = true;
   }
+  // 清理申请必须先能核对申请内容；此权限只增加读取，不授予审批。
+  if (permissions['audit.submissions_delete']) permissions['audit.submissions'] = true;
 
   const keys = Object.keys(permissions).filter((key) => permissions[key]);
   return {

@@ -15,6 +15,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
+  { source: 'shared/locales/zh-CN/adminGovernance.js', targets: [{ path: 'server/src/locales/zh-CN/adminGovernance.js' }] },
   { source: 'shared/auditSigningAssets.js', targets: [{ path: 'miniprogram/utils/auditSigningAssetsModel.js' }, { path: 'web/src/shared/auditSigningAssets.js', format: 'esm' }] },
   {
     source: 'shared/auditStepView.js',

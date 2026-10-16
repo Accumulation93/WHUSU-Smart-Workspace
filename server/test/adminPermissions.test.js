@@ -41,7 +41,7 @@ const {
     '/batchDeletePubViewRules',
     '/batchDeletePubMeritRules'
   ].forEach((route) => {
-    assert.deepStrictEqual(ROUTE_RULES.get(route).anyOf, ['scoring.publications']);
+    assert.deepStrictEqual(ROUTE_RULES.get(route).anyOf, [route.includes('Delete') ? 'scoring.publications.delete' : 'scoring.publications']);
   });
   assert(ROUTE_RULES.get('/saveOrganization').anyOf.includes('system.organizations'));
   assert.deepStrictEqual(ROUTE_RULES.get('/admin/health').anyOf, ['system.settings']);
@@ -52,7 +52,7 @@ const {
     ROUTE_RULES.get('/listHrInfo').anyOf,
     [
       'hr.people', 'hr.import', 'hr.profile_review', 'scoring.publications', 'venue.resources',
-      'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
+      'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification', 'hr.people.delete'
     ]
   );
   assert.deepStrictEqual(
@@ -63,17 +63,17 @@ const {
   assert.strictEqual(ROUTE_RULES.get('/listHrGovernance').anyOf.includes('auth.policy.manage'), false);
   assert.deepStrictEqual(
     ROUTE_RULES.get('/listHrProfileAdminData').anyOf,
-    ['hr.people', 'hr.profile_review']
+    ['hr.people', 'hr.profile_review', 'hr.people.delete']
   );
   assert.deepStrictEqual(
     ROUTE_RULES.get('/getHrPersonDetail').anyOf,
-    ['hr.people', 'hr.profile_review']
+    ['hr.people', 'hr.profile_review', 'hr.people.delete']
   );
   assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.people'), true);
   assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.profile_review'), true);
-  assert.deepStrictEqual(ROUTE_RULES.get('/listVenueBookingRules').anyOf, ['venue.approvals']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/listVenueBookingRules').anyOf, ['venue.approvals', 'venue.approvals.delete']);
   assert.deepStrictEqual(ROUTE_RULES.get('/saveVenueBookingRule').anyOf, ['venue.approvals']);
-  assert.deepStrictEqual(ROUTE_RULES.get('/deleteVenueBookingRule').anyOf, ['venue.approvals']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/deleteVenueBookingRule').anyOf, ['venue.approvals.delete']);
   assert.strictEqual(ROUTE_RULES.get('/listPendingVenueApprovals').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/listVenueApprovalHistory').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/getVenueApprovalHistoryDetail').allowUserRole, true);
@@ -109,6 +109,15 @@ const {
     rule.anyOf.forEach((key) => assert(PERMISSION_DEFINITIONS.has(key), '路由引用了未知权限: ' + key));
   });
 
+  // 所有独立删除动作只接受删除权限，旧编辑授权不自动升级。
+  const { ACTION_GROUPS } = require('../src/core/services/adminPermissionActions');
+  for (const action of ACTION_GROUPS) {
+    const key = action.base + '.delete';
+    assert(PERMISSION_DEFINITIONS.has(key));
+    assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get(key)), false);
+    action.remove.forEach(route => assert.deepStrictEqual(ROUTE_RULES.get(route).anyOf, [key]));
+    action.read.forEach(route => assert(ROUTE_RULES.get(route).anyOf.includes(key)));
+  }
   const orgId = 'org-44';
   const superAdmin = { id: 'super', admin_level: 'super_admin', org_id: '' };
   const manager = { id: 'manager', admin_level: 'admin', org_id: orgId };

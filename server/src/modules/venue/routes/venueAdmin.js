@@ -701,6 +701,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
       visibility: 'details',
       creatorOrgId: b.creator_org_id,
       approvalOrgId: b.approval_org_id,
+      adminCanDelete: (safeString(b.creator_org_id) === orgId || safeString(b.approval_org_id) === orgId)
+        && require('../../../core/services/adminPermissions').hasAnyPermission(req.adminPermissions, ['venue.bookings_delete']),
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',

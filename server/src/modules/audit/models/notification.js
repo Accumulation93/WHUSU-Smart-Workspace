@@ -29,9 +29,21 @@ async function batchCreate(items, conn) {
       item.targetType || null, item.targetId || null, item.targetUrl || null];
   });
   const write = async (db) => {
+    const validTargets = new Map();
+    for (const row of rows.slice().sort((a, b) => String(a[10] + ':' + a[11]).localeCompare(String(b[10] + ':' + b[11])))) {
+      const type = row[10], id = row[11], orgId = row[5];
+      if (!id || !['submission', 'booking'].includes(type)) continue;
+      const key = orgId + ':' + type + ':' + id;
+      if (validTargets.has(key)) continue;
+      const [targets] = type === 'submission'
+        ? await db.query('SELECT id FROM audit_submissions WHERE id = ? AND org_id = ? FOR UPDATE', [id, orgId])
+        : await db.query('SELECT id FROM venue_bookings WHERE id = ? AND (creator_org_id = ? OR approval_org_id = ?) FOR UPDATE', [id, orgId, orgId]);
+      validTargets.set(key, targets.length > 0);
+    }
+    const currentRows = rows.filter(row => validTargets.get(row[5] + ':' + row[10] + ':' + row[11]) !== false);
     let created = 0;
-    for (let start = 0; start < rows.length; start += 100) {
-      const chunk = rows.slice(start, start + 100);
+    for (let start = 0; start < currentRows.length; start += 100) {
+      const chunk = currentRows.slice(start, start + 100);
       // 单行也走多值 INSERT，使 MySQL 返回准确的 Records / Duplicates，
       // 不依赖 CLIENT_FOUND_ROWS 下无法区分新增和未改变重复项的 affectedRows。
       if (chunk.length === 1) chunk.push(chunk[0]);

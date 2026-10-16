@@ -2,16 +2,16 @@
   <p v-if="loading" class="muted">{{ copy.common.loading }}</p>
   <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   <p v-if="notice && !editor" role="alert" class="notice-line">{{ notice }}</p>
-  <button type="button" class="btn btn-secondary" :disabled="blocked" @click="editFlow()">+ {{ ui.copy_1aba371667 }}</button>
+  <button type="button" class="btn btn-secondary" :disabled="blocked" v-if="canWriteRecord" @click="editFlow()">+ {{ ui.copy_1aba371667 }}</button>
   <p v-if="!loading && !loadNotice && !flows.length" class="muted">{{ ui.copy_76c76a4d37 }}</p>
   <div v-for="flow in flows" :key="flow.id" class="list-row approval-row">
     <strong class="break-all">{{ flow.name }}</strong><span class="muted">{{ flow.steps.length }} {{ ui.copy_310413445b }}</span>
     <label v-for="flag in flags" :key="flag.key" class="row row-between"><span>{{ flag.label }}</span><UiSwitch :label="flag.label" :checked="Number(flow[flag.key]) === 1" :disabled="blocked" @change="toggleFlag(flow, flag.key, $event.target.checked)" /></label>
-    <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" @click="editFlow(flow)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="removeFlow(flow)">{{ ui.copy_acc985cabc }}</button></div>
+    <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="editFlow(flow)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="removeFlow(flow)">{{ ui.copy_acc985cabc }}</button></div>
   </div>
-  <button type="button" class="btn btn-primary" :disabled="blocked" @click="editRule()">{{ ui.copy_c013e80e7c }}</button>
+  <button type="button" class="btn btn-primary" :disabled="blocked" v-if="canWriteRecord" @click="editRule()">{{ ui.copy_c013e80e7c }}</button>
   <p v-if="!loading && !loadNotice && !rules.length" class="muted">{{ ui.copy_62a9684fcb }}</p>
-  <div v-for="rule in rules" :key="rule.id" class="list-row approval-row"><strong>{{ ruleLabels[rule.rule_type] }}</strong><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" @click="editRule(rule)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="removeRule(rule)">{{ ui.copy_acc985cabc }}</button></div></div>
+  <div v-for="rule in rules" :key="rule.id" class="list-row approval-row"><strong>{{ ruleLabels[rule.rule_type] }}</strong><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="editRule(rule)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="removeRule(rule)">{{ ui.copy_acc985cabc }}</button></div></div>
   <VenueFlowEditor v-if="editor?.type === 'flow'" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="closeEditor" @save="saveFlow"><p v-if="notice" role="alert" class="notice-line">{{ notice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template></VenueFlowEditor>
   <GlassDialog v-if="editor?.type === 'rule'" :title="(editor.id ? ui.copy_20f94d2c18 : ui.copy_766176221d) + ui.copy_a9a18dd6e8" :busy="busy || awaitingRead" @close="closeEditor">
     <label class="field"><span class="field-label">{{ ui.copy_c5ec30e07d }}</span><select v-model="editor.ruleType" class="field-input" :disabled="blocked"><option value="admin">{{ ui.copy_af20193574 }}</option><option value="direct">{{ ui.copy_4f15bb9939 }}</option></select></label>
@@ -20,6 +20,9 @@
   </GlassDialog>
 </template>
 <script setup>
+import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+const canDeleteRecord = useAdminCapability('venue.approvals.delete');
+const canWriteRecord = useAdminCapability('venue.approvals');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import UiSwitch from '@/components/UiSwitch.vue';

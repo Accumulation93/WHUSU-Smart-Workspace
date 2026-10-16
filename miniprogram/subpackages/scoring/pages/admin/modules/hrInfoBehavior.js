@@ -597,7 +597,7 @@ module.exports = Behavior({
     async previewPermanentHrDeletion(e) {
       const scope = String(e && e.currentTarget && e.currentTarget.dataset.scope || 'membership');
       const governance = this.data.detailHrGovernance || {};
-      if (!this.data.canManageHrPeople || this.data.hrPermanentDeletionLoading
+      if (!this.data.canDeleteHrPeople || this.data.hrPermanentDeletionLoading
         || (scope === 'person' && !this.data.isSuperAdmin)) return;
       const target = {
         scope,
@@ -899,7 +899,8 @@ module.exports = Behavior({
     },
 
     async loadHrProfileTemplates() {
-      if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
+      if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
+        && !this.data.isSuperAdmin && !(this.data.user.permissions || {})['hr.profile_templates.manage.delete']) return;
       const request = orgSession.beginRequest(this, 'hrTemplateCatalog');
       this.setLoading('hrProfileTemplates', true);
       try {

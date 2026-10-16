@@ -21,6 +21,7 @@
   "components/personnel-picker/personnel-picker.wxss",
   "components/personnel-picker/personnelPickerModel.js",
   "locales/runtime.js",
+  "locales/zh-CN/adminGovernance.js",
   "locales/zh-CN/adminPersonnel.js",
   "locales/zh-CN/auditSigning.js",
   "locales/zh-CN/auditVerification.js",

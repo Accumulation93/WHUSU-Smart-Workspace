@@ -14,7 +14,7 @@ async function setup(page){
     const name=new URL(route.request().url()).pathname.slice(5),body=route.request().postDataJSON();
     if(!['getMyAdminPermissions','listAuditFlowTemplates','getAuditTemplateEditorData','saveAuditFlowTemplate','deleteAuditFlowTemplate','listStamps','saveStamp','deleteStamp','listStampCandidates','saveStampGrants','listVerificationPermissions','listAuditVerificationCandidates','saveVerificationPermission','listAllAuditSubmissions'].includes(name))return route.fallback();
     state.calls.push({name,body});let result;
-    if(name==='getMyAdminPermissions')result={status:'success',organizationId:'org-1',adminLevel:'admin',permissions:Object.fromEntries(['audit.templates','audit.stamps','audit.submissions','audit.verification'].map(value=>[value,true]))};
+    if(name==='getMyAdminPermissions')result={status:'success',organizationId:'org-1',adminLevel:'admin',permissions:Object.fromEntries(['audit.templates','audit.templates.delete','audit.stamps','audit.stamps.delete','audit.submissions','audit.verification'].map(value=>[value,true]))};
     if(name==='getAuditTemplateEditorData')result={status:'success',data};
     if(name==='listAuditFlowTemplates')result=state.failRead?{status:'error',message:'Directory failed'}:{status:'success',templates:state.templates};
     if(name==='listStamps')result=state.failRead?{status:'error',message:'Directory failed'}:{status:'success',stamps:state.stamps};

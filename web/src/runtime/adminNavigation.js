@@ -22,7 +22,7 @@ export const ADMIN_TABS = Object.freeze({
   settings: { label: adminCopy.copy_a8792b30e7, permissions: ['system.settings', 'system.organizations'] },
   auditTemplates: { label: adminCopy.copy_7312ee863e, permissions: ['audit.templates'] },
   auditStamps: { label: adminCopy.copy_8ef1f4695c, permissions: ['audit.stamps'] },
-  auditSubmissions: { label: adminCopy.copy_be547ba4c7, permissions: ['audit.submissions'] },
+  auditSubmissions: { label: adminCopy.copy_be547ba4c7, permissions: ['audit.submissions', 'audit.submissions_delete'] },
   auditVerification: { label: adminCopy.copy_e68b797796, permissions: ['audit.verification'] }
 });
 
@@ -33,6 +33,6 @@ export function adminModule(key) {
 export function adminTabs(key, profile) {
   if (!profile) return [];
   return adminModule(key).tabs.filter(tab => profile.adminLevel === 'super_admin'
-    || ADMIN_TABS[tab].permissions.some(permission => profile.permissions?.[permission] === true))
+    || ADMIN_TABS[tab].permissions.some(permission => profile.permissions?.[permission] === true || profile.permissions?.[permission + '.delete'] === true))
     .map(key => ({ key, ...ADMIN_TABS[key] }));
 }

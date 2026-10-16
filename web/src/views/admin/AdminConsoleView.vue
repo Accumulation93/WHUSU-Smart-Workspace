@@ -36,7 +36,7 @@
     <AdminAuditTemplatePanel v-else-if="activeTab === 'auditTemplates'" :state="auditTemplateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
     <AdminAuditStampPanel v-else-if="activeTab === 'auditStamps'" :state="auditStampState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
     <AdminAuditVerificationPanel v-else-if="activeTab === 'auditVerification'" :state="auditVerificationState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
-    <AdminAuditSubmissionPanel v-else-if="activeTab === 'auditSubmissions'" />
+    <AdminAuditSubmissionPanel v-else-if="activeTab === 'auditSubmissions'" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
     <AdminSettingsPanel v-else-if="activeTab === 'settings'" :state="settingsState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo'" class="card stack">
@@ -113,6 +113,7 @@ import { adminModule, adminTabs } from '@/runtime/adminNavigation.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 import { emptyTemplateForm } from '@/runtime/templateQuestions.js';
 import { emptyRuleForm } from '@/runtime/scoringRuleForm.js';
+import { provideAdminCapabilities } from '@/runtime/adminCapabilities.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -124,6 +125,7 @@ const loadNotice = ref('');
 const permissionLoading = ref(false);
 const permissionNotice = ref('');
 const profile = ref(null);
+provideAdminCapabilities(profile);
 const actionBusy = ref(false);
 const activityState = reactive({ form: { id: '', name: '', description: '', startDate: '', endDate: '' }, resetAfterRead: false });
 const templateState = reactive({ form: emptyTemplateForm(), resetAfterRead: false, expanded: null });

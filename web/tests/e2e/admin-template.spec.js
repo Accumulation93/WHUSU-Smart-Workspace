@@ -9,7 +9,7 @@ const q = (question='Question A') => ({question,scoreLabel:'Explanation',minValu
 const initial = () => [{id:'t1',name:'Template A',description:'Description A',questions:[q()],questionCount:1}];
 async function setup(page, options={}) {
   const api=await mockApi(page,{activeContextId:'ctx-admin'});
-  await page.route('**/api/getMyAdminPermissions',route=>route.fulfill({json:{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.templates':true,'scoring.activities':true,...options.permissions}}}));
+  await page.route('**/api/getMyAdminPermissions',route=>route.fulfill({json:{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.templates':true,'scoring.templates.delete':true,'scoring.activities':true,...options.permissions}}}));
   const state={list:initial(),reads:0,writes:[],reject:false,failRead:false};
   await page.route('**/api/listScoreTemplates',route=>{state.reads++;return route.fulfill({json:state.failRead?{status:'forbidden',message:'Read rejected'}:{status:'success',list:state.list}});});
   await page.route('**/api/saveScoreTemplate',route=>{
