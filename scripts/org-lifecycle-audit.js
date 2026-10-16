@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const packageResources = require('./miniprogram-package-resources');
+packageResources.sync();
 
 const root = path.resolve(__dirname, '..');
 const miniRoot = path.join(root, 'miniprogram');
@@ -47,7 +49,7 @@ function walk(dir, extension, output = []) {
 
 for (const file of walk(miniRoot, '.js')) {
   const relativeFile = path.relative(miniRoot, file).replace(/\\/g, '/');
-  if (relativeFile === 'utils/api.js' || relativeFile === 'utils/filePreview.js') continue;
+  if (['utils/api.js', 'utils/filePreview.js'].includes(packageResources.canonical(relativeFile))) continue;
   const source = fs.readFileSync(file, 'utf8');
   if (/wx\.(?:request|downloadFile|uploadFile)\s*\(/.test(source) && !rawNetworkExempt.has(relativeFile)) {
     add('raw-network-call', relativeFile, '页面绕过统一请求客户端');

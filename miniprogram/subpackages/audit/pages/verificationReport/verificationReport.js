@@ -1,5 +1,5 @@
-const copy = require('../../../../locales/zh-CN/signingEvidence');
-const transfer = require('../../../../utils/auditVerificationReport');
+const copy = require('../../package-resources/locales/zh-CN/signingEvidence');
+const transfer = require('../../package-resources/utils/auditVerificationReport');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 

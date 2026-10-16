@@ -1,13 +1,13 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
-const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
-const personnelPickerCopy = require('../../../../locales/zh-CN/personnelPicker');
-const personnelPickerModel = require('../../../../components/personnel-picker/personnelPickerModel');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
+const personnelPickerCopy = require('../../package-resources/locales/zh-CN/personnelPicker');
+const personnelPickerModel = require('../../package-resources/components/personnel-picker/personnelPickerModel');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {

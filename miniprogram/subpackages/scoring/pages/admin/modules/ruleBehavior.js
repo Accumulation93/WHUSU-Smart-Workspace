@@ -1,5 +1,5 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior');
-const { format: localeFormat } = require('../../../../../locales/runtime');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior');
+const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 // Behavior: rule tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');

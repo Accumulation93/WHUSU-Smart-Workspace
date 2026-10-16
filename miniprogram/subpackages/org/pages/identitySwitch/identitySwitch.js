@@ -1,7 +1,7 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch');
 const { getErrorText } = require('../../../../utils/api');
 const authContext = require('../../../../utils/authContext');
-const contextRouteGuard = require('../../../../utils/contextRouteGuard');
+const contextRouteGuard = require('../../package-resources/utils/contextRouteGuard');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 

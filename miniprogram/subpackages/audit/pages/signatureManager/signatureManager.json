@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
-    "signature-pad": "../../components/signaturePad/signaturePad",
+    "signature-pad": "/subpackages/audit/components/signaturePad/signaturePad",
     "ui-icon": "/components/ui-icon/ui-icon",
     "ui-navbar": "/components/ui-navbar/ui-navbar"
   },

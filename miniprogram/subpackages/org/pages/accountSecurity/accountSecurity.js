@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/org/pages/accountSecurity/accountSecurity');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/accountSecurity/accountSecurity');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 

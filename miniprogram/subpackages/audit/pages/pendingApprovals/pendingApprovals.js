@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');

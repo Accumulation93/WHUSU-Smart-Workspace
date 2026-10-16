@@ -1,12 +1,12 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/verification/verification');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/verification/verification');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const {
   verificationCopy,
   presentVerificationResponse,
   buildMatchVerificationParams
-} = require('../../../../utils/auditVerification');
+} = require('../../package-resources/utils/auditVerification');
 const orgSession = require('../../../../utils/orgSession');
-const signingCopy = require('../../../../locales/zh-CN/signingEvidence');
+const signingCopy = require('../../package-resources/locales/zh-CN/signingEvidence');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 Page({

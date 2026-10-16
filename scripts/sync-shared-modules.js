@@ -81,6 +81,13 @@ const LOCALE_MIRROR = {
 
 // 唯一源路径在使用方目录里的落点。网页侧去掉 zh-CN/ 这一层，导入路径更短。
 function localeTargetPath(relative, target) {
+  // 网页专用和已退役文案保留共享源，但不再生成小程序副本。
+  if (target.path === 'miniprogram/locales' && [
+    'zh-CN/web.js',
+    'zh-CN/generated/utils/authContext.js',
+    'zh-CN/generated/utils/organizationActivation.js',
+    'zh-CN/generated/subpackages/audit/components/signaturePad/signaturePad.js'
+  ].includes(relative)) return '';
   if (!target.strip) return relative;
   if (relative.indexOf(target.strip) !== 0) return '';
   return relative.slice(target.strip.length);
@@ -225,6 +232,7 @@ function syncLocaleMirror(write) {
 function syncAll(write) {
   MANIFEST.forEach(function (entry) { syncModule(entry.source, write); });
   syncLocaleMirror(write);
+  require('./miniprogram-package-resources').sync(ROOT, write);
   return MANIFEST.length;
 }
 

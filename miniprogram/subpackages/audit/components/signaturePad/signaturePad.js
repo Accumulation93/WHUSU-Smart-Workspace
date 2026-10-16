@@ -1,8 +1,8 @@
-const copy = require('../../../../locales/zh-CN/auditSigning');
+const copy = require('../../package-resources/locales/zh-CN/auditSigning');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
 const { signatureGeometry } = require('../../utils/auditSignatureGeometry');
-const previewFiles = require('../../../../utils/auditPreviewFiles');
+const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 
 // 连续画布只用于普通布局工作区，禁止放入 Portal 或祖先变换弹窗。
 Component({

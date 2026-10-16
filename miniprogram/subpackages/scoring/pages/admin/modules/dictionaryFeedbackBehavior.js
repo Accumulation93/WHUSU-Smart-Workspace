@@ -1,6 +1,6 @@
 'use strict';
 
-const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPersonnel');
 const { normalizeUsageItems } = require('./dictionaryFeedbackView');
 
 module.exports = Behavior({

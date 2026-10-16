@@ -1,6 +1,6 @@
 'use strict';
 
-const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueRuleDisplay');
+const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/venueRuleDisplay');
 const BOOKING_RULE_LABELS = {
   admin: localeCopy.copy_af20193574,
   direct: localeCopy.copy_4f15bb9939,

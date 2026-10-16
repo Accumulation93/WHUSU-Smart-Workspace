@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
 // Behavior: activity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');

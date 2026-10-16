@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBookings/venueBookings');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueBookings/venueBookings');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 // 兼容旧入口：借用管理已统一并入场地管理页。

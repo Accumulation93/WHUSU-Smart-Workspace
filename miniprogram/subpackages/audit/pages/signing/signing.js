@@ -1,4 +1,4 @@
-const copy = require('../../../../locales/zh-CN/auditSigning');
+const copy = require('../../package-resources/locales/zh-CN/auditSigning');
 const common = require('../../../../locales/zh-CN/common');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
@@ -6,7 +6,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { callFunction } = require('../../../../utils/api');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { signingStepCurrent } = require('../../utils/auditStepView');
-const previewFiles = require('../../../../utils/auditPreviewFiles');
+const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, fileName: '', fileImage: '', fileId: '',

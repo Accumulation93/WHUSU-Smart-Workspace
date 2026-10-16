@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
  * Audit Workflow Behavior — Admin-side audit management
  *
@@ -6,15 +6,15 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
  */
 const utils = require('./adminUtils');
 const { formatAuditTime } = require('../../../../../utils/api');
-const { openAuditFile } = require('../../../../../utils/filePreview');
+const { openAuditFile } = require('../../../package-resources/utils/filePreview');
 const {
   verificationCopy,
   presentVerificationResponse,
   buildMatchVerificationParams
-} = require('../../../../../utils/auditVerification');
+} = require('../../../package-resources/utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
-const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
-const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../../../utils/imageDataUrl');
+const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
+const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../package-resources/utils/imageDataUrl');
 const {
   ALL_FILTER_KEY,
   buildAuditPersonnelFilterOptions,
@@ -1848,7 +1848,7 @@ module.exports = Behavior({
           if (!orgSession.isRequestCurrent(that, request)) return;
           const file = res.tempFiles[0];
           if (!file || file.size > 10 * 1024 * 1024) {
-            showShortToast(require('../../../../../locales/zh-CN/signingEvidence').fileTooLarge);
+            showShortToast(require('../../../package-resources/locales/zh-CN/signingEvidence').fileTooLarge);
             return;
           }
           // 文件字节直接交给服务端验证，不用哈希查询代替上传验真。

@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
-    "audit-verification-result": "/components/audit-verification-result/audit-verification-result",
+    "audit-verification-result": "/subpackages/audit/package-resources/components/audit-verification-result/audit-verification-result",
     "ui-navbar": "/components/ui-navbar/ui-navbar"
   },
   "navigationStyle": "custom"

@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/org/pages/switch/switch');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/switch/switch');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 Page({

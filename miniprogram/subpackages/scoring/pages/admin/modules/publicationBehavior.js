@@ -1,9 +1,9 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior');
-const { format: localeFormat } = require('../../../../../locales/runtime');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior');
+const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 // Behavior: publication tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
-const { saveAndShareFile } = require('../../../../../utils/tableFile');
+const { saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const designationCandidateView = require('./designationCandidateView');
 

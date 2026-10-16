@@ -1,9 +1,9 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
 const { callFunction, showShortToast, getErrorText, formatAuditTime, formatAuditDetailTime } = require('../../../../../utils/api');
 const authContext = require('../../../../../utils/authContext');
 const orgSession = require('../../../../../utils/orgSession');
 const dateTime = require('../../../../../utils/dateTime');
-const { buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
+const { buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 
 const DIRECTORY_LIMIT = 2000;
 

@@ -3,6 +3,6 @@
   "navigationBarTitleText": "",
   "usingComponents": {
     "ui-navbar": "/components/ui-navbar/ui-navbar",
-    "signature-pad": "../../components/signaturePad/signaturePad"
+    "signature-pad": "/subpackages/audit/components/signaturePad/signaturePad"
   }
 }

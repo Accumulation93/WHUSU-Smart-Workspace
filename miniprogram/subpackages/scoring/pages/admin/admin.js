@@ -1,8 +1,8 @@
-const generatedLocaleCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
-const personnelLocaleCopy = require('../../../../locales/zh-CN/adminPersonnel');
-const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
+const generatedLocaleCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const personnelLocaleCopy = require('../../package-resources/locales/zh-CN/adminPersonnel');
+const controlLayoutCopy = require('../../package-resources/locales/zh-CN/controlLayout');
 const localeCopy = Object.freeze(Object.assign({}, generatedLocaleCopy, personnelLocaleCopy));
-const { format: localeFormat } = require('../../../../locales/runtime');
+const { format: localeFormat } = require('../../package-resources/locales/runtime');
 // 认证码有效期由管理员手动选择，最小 1 天（24 小时）、最大 7 天（168 小时），
 // 与服务端的取值范围一致；默认 2 天（48 小时）。
 const VERIFICATION_CODE_VALIDITY_DAYS = [1, 2, 3, 4, 5, 6, 7];
@@ -11,7 +11,7 @@ const verificationCodeValidityOptions = Object.freeze(
   VERIFICATION_CODE_VALIDITY_DAYS.map((days) => localeFormat(localeCopy.verificationCodeValidityDays, [days]))
 );
 const { callFunction } = require('../../../../utils/api');
-const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
+const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../package-resources/utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
@@ -38,8 +38,8 @@ const stampGrantBehavior = require('./modules/stampGrantBehavior');
 const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
 const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
 const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
-const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
-const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
+const migrationCopy = require('../../package-resources/locales/zh-CN/hrProfileMigration');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 
 Page({
   // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。

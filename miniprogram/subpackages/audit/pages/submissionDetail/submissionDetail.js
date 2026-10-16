@@ -1,15 +1,15 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
 const { callFunction, getErrorText, showShortToast, formatAuditTime, formatAuditDetailTime } = require('../../../../utils/api');
-const { openAuditFile } = require('../../../../utils/filePreview');
+const { openAuditFile } = require('../../package-resources/utils/filePreview');
 const orgSession = require('../../../../utils/orgSession');
 const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const workContextView = require('../../utils/workContextView');
 const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 const signingDrafts = require('../../../../utils/auditSigningDrafts');
-const signingCopy = require('../../../../locales/zh-CN/auditSigning');
+const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 const { presentAuditStep, groupAuditRounds } = require('../../utils/auditStepView');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');

@@ -1,6 +1,6 @@
 'use strict';
 
-const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
 const orgSession = require('../../../../../utils/orgSession');
 const { showShortToast, getErrorText } = require('../../../../../utils/api');
 

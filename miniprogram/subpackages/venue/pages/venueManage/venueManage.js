@@ -1,13 +1,13 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
-const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
-const flowManagementCopy = require('../../../../locales/zh-CN/venueFlowManagement');
-const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
+const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueFlowManagement');
+const controlLayoutCopy = require('../../package-resources/locales/zh-CN/controlLayout');
 const adminTimeSelection = require('../../utils/adminTimeSelection');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');

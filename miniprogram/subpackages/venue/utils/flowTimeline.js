@@ -1,4 +1,4 @@
-const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
+const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
 const { formatDetailTime } = require('../../../utils/dateTime');
 /**

@@ -1,10 +1,10 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/signatureManager/signatureManager');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/signatureManager/signatureManager');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { formatAbsoluteDate } = require('../../../../utils/dateTime');
 const drafts = require('../../../../utils/auditSigningDrafts');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const signingCopy = require('../../../../locales/zh-CN/auditSigning');
+const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 Page({

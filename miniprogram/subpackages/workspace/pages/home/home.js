@@ -14,7 +14,7 @@ const {
   formatDateTimePickerDate,
   formatDateTimePickerTime,
   pickerToUtcIso
-} = require('../../../../utils/hrProfileDate');
+} = require('../../package-resources/utils/hrProfileDate');
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {

@@ -1,11 +1,11 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
-const personnelPickerCopy = require('../../../../locales/zh-CN/personnelPicker');
-const personnelPickerModel = require('../../../../components/personnel-picker/personnelPickerModel');
+const personnelPickerCopy = require('../../package-resources/locales/zh-CN/personnelPicker');
+const personnelPickerModel = require('../../package-resources/components/personnel-picker/personnelPickerModel');
 const orgSession = require('../../../../utils/orgSession');
-const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { formatSystemClock } = require('../../../../utils/dateTime');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');

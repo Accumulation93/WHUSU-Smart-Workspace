@@ -102,6 +102,358 @@
       {
         "value": "subpackages/main/pages/login/loginValidation.test.js",
         "type": "file"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-matches/audit-verification-matches.js"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-matches/audit-verification-matches.json"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-matches/audit-verification-matches.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-matches/audit-verification-matches.wxss"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-result/audit-verification-result.js"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-result/audit-verification-result.json"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-result/audit-verification-result.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/audit-verification-result/audit-verification-result.wxss"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-dialog/hr-profile-migration-dialog.js"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-dialog/hr-profile-migration-dialog.json"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-dialog/hr-profile-migration-dialog.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-dialog/hr-profile-migration-dialog.wxss"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-requests/hr-profile-migration-requests.js"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-requests/hr-profile-migration-requests.json"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-requests/hr-profile-migration-requests.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/hr-profile-migration-requests/hr-profile-migration-requests.wxss"
+      },
+      {
+        "type": "file",
+        "value": "components/personnel-picker/personnel-picker.js"
+      },
+      {
+        "type": "file",
+        "value": "components/personnel-picker/personnel-picker.json"
+      },
+      {
+        "type": "file",
+        "value": "components/personnel-picker/personnel-picker.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/personnel-picker/personnel-picker.wxss"
+      },
+      {
+        "type": "file",
+        "value": "components/personnel-picker/personnelPickerModel.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/runtime.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/adminPersonnel.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/auditSigning.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/auditVerification.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/controlLayout.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/signatureManager/signatureManager.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/audit/pages/verification/verification.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/org/pages/accountSecurity/accountSecurity.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/org/pages/adminPermissions/adminPermissions.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/org/pages/authManagement/authManagement.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/org/pages/switch/switch.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/admin.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminManagementBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/departmentBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/identityBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/settingsBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/templateBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/workGroupBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/score/score.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/scoring/pages/scorerTasks/scorerTasks.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueBookings/venueBookings.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/utils/flowTimeline.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/utils/venueRuleDisplay.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/utils/filePreview.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/generated/utils/tableFile.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/hrProfileMigration.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/hrTemplateFieldDisplay.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/hrTemplateSave.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/personnelPicker.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/signingEvidence.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/stampAuthorization.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/venueFlowManagement.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/auditPreviewFiles.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/auditVerification.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/auditVerificationReport.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/binaryBase64.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/contextRouteGuard.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/deletedPersonLabel.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/dialogKeyboard.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/filePreview.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/hrFieldMatching.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/hrProfileDate.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/hrProfileDateRules.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/imageDataUrl.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/tableFile.js"
       }
     ],
     "include": []

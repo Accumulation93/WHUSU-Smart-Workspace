@@ -1,11 +1,11 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
-const { format: localeFormat } = require('../../../../../locales/runtime');
-const fieldMatching = require('../../../../../utils/hrFieldMatching');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
+const { format: localeFormat } = require('../../../package-resources/locales/runtime');
+const fieldMatching = require('../../../package-resources/utils/hrFieldMatching');
 const {
   normalizeDateLiteral,
   normalizeDateTimeInstant,
   detectColumnDateType
-} = require('../../../../../utils/hrProfileDate');
+} = require('../../../package-resources/utils/hrProfileDate');
 // Auto-extracted pure utilities and constants from admin.js
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.

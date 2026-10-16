@@ -1,11 +1,11 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminManagementBehavior');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminManagementBehavior');
 // Behavior: adminManagement tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { emptyAdminForm } = utils;
-const { writeAndOpen } = require('../../../../../utils/filePreview');
+const { writeAndOpen } = require('../../../package-resources/utils/filePreview');
 const orgSession = require('../../../../../utils/orgSession');
-const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPersonnel');
 const { filterAdminCandidates } = require('./adminCandidateView');
 
 const ADMIN_CANDIDATE_RENDER_LIMIT = 80;

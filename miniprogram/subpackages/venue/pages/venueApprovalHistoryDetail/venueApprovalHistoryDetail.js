@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');

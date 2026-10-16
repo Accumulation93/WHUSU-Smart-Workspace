@@ -1,4 +1,4 @@
-const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const workContextView = require('../../utils/workContextView');

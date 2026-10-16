@@ -1,15 +1,15 @@
-const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
-const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
-const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
-const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
-const { format: localeFormat } = require('../../../../../locales/runtime');
+const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
+const templateSaveCopy = require('../../../package-resources/locales/zh-CN/hrTemplateSave');
+const personnelSwitchCopy = require('../../../package-resources/locales/zh-CN/adminPersonnel');
+const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const personnelViewModel = require('./personnelViewModel');
 const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, getErrorText, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
-const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
+const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
 const {
@@ -19,8 +19,8 @@ const {
   formatDateTimePickerDate,
   formatDateTimePickerTime,
   pickerToUtcIso
-} = require('../../../../../utils/hrProfileDate');
-const fieldMatching = require('../../../../../utils/hrFieldMatching');
+} = require('../../../package-resources/utils/hrProfileDate');
+const fieldMatching = require('../../../package-resources/utils/hrFieldMatching');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 // 人事目录列表随页面滚动，页面级触底与容器触底可能几乎同时到达；用短时间窗

@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const packageResources = require('./miniprogram-package-resources');
+packageResources.sync();
 
 const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
@@ -1435,7 +1437,8 @@ if (!/<viewport-portal\b/.test(personnelPickerMarkup) ||
 for (const pageBase of personnelPickerPages) {
   const markup = fs.readFileSync(path.join(MINI_ROOT, `${pageBase}.wxml`), 'utf8');
   const config = fs.readFileSync(path.join(MINI_ROOT, `${pageBase}.json`), 'utf8');
-  if (!/<personnel-picker\b/.test(markup) || !/"personnel-picker"\s*:\s*"\/components\/personnel-picker\/personnel-picker"/.test(config)) {
+  const pickerPath = (JSON.parse(config).usingComponents || {})['personnel-picker'] || '';
+  if (!/<personnel-picker\b/.test(markup) || packageResources.canonical(pickerPath.replace(/^\//, '')) !== 'components/personnel-picker/personnel-picker') {
     selectionCardIssues.push({
       file: `miniprogram/${pageBase}`,
       message: '人员选择页面必须注册并使用全局 personnel-picker，禁止恢复页面私有弹窗'

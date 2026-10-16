@@ -1,4 +1,4 @@
-const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
+const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
 const { formatListTime } = require('../../../utils/dateTime');
 const orgSession = require('../../../utils/orgSession');
 const authContext = require('../../../utils/authContext');

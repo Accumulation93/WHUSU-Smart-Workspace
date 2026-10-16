@@ -1,7 +1,7 @@
 const orgSession = require('../../../../../utils/orgSession');
-const copy = require('../../../../../locales/zh-CN/hrProfileMigration');
+const copy = require('../../../package-resources/locales/zh-CN/hrProfileMigration');
 const { showShortToast, getErrorText } = require('./adminUtils');
-const { formatDateTextOnly } = require('../../../../../utils/hrProfileDate');
+const { formatDateTextOnly } = require('../../../package-resources/utils/hrProfileDate');
 
 function sameNameMatch(source, targetFields) {
   const label = String(source.label || '').trim().toLowerCase();

@@ -1,5 +1,5 @@
 // 服务端建议只预填草稿；查看窗口不写入资料，用户仍需预检并确认应用。
-const displayCopy = require('../../../../../locales/zh-CN/hrTemplateFieldDisplay');
+const displayCopy = require('../../../package-resources/locales/zh-CN/hrTemplateFieldDisplay');
 
 function buildSwitchSources(sourceFields, targetFields, emptyLabel, formatSuggestion) {
   const drafts = sourceFields.map((source) => {
