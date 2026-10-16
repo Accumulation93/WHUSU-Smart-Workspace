@@ -6,8 +6,8 @@ const cleanup = require('../services/adminRecordFileCleanup');
 const { actorFromRequest } = require('../services/adminDeletionActor');
 const copy = require('../../locales/zh-CN/adminGovernance');
 
-function register(route, type, remove) {
-  router.post(route, async (req, res) => {
+function handler(type, remove) {
+  return async (req, res) => {
     const actor = actorFromRequest(req);
     const id = req.body && req.body.id;
     if (!actor) return res.status(403).json({ status: 'forbidden', message: copy.forbidden });
@@ -25,11 +25,11 @@ function register(route, type, remove) {
       if (code === 'error') req.logger.error('Admin record deletion failed', { type, error: error.message });
       return res.status(code === 'forbidden' ? 403 : code === 'error' ? 500 : code === 'invalid_params' ? 400 : code === 'not_found' ? 404 : 409).json({ status: code, message: messages[code] || copy.failed });
     }
-  });
+  };
 }
 
-register('/previewAuditSubmissionDeletion', 'audit', false);
-register('/deleteAuditSubmission', 'audit', true);
-register('/previewVenueBookingDeletion', 'booking', false);
-register('/deleteVenueBooking', 'booking', true);
+router.post('/previewAuditSubmissionDeletion', handler('audit', false));
+router.post('/deleteAuditSubmission', handler('audit', true));
+router.post('/previewVenueBookingDeletion', handler('booking', false));
+router.post('/deleteVenueBooking', handler('booking', true));
 module.exports = router;
