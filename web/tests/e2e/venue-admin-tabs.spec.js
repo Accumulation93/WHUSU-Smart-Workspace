@@ -149,7 +149,8 @@ test('management approval keeps failed comments and uses step endpoint with nati
     if (writes === 1) return route.fulfill({ json: { status: 'conflict', message: 'Approval rejected' } });
     saved = true; failRead = true; return route.fulfill({ json: { status: 'success' } });
   });
-  await page.goto('/web/venue/manage'); await page.locator('.booking-row').getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true }).click();
+  await page.goto('/web/venue/manage'); await tab(page, ui.copy_20ba89a1cc).click();
+  await page.locator('.booking-row').getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByLabel(ui.copy_bddb855314).fill('Approved comment');
   await dialog.getByRole('button', { name: ui.copy_49ef170f0b, exact: true }).click();
   await expect(dialog.getByRole('alert')).toHaveText('Approval rejected'); await expect(dialog.getByLabel(ui.copy_bddb855314)).toHaveValue('Approved comment');
