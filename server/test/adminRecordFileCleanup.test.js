@@ -33,8 +33,8 @@ const { safeFile, processPending } = require('../src/core/services/adminRecordFi
     }
   };
   try {
-    await assert.rejects(safeFile(outside, root), /cleanup_path_rejected/);
-    await assert.rejects(safeFile(root, root), /cleanup_path_rejected/);
+    await assert.rejects(safeFile(outside, root), { code: 'cleanup_path_rejected' });
+    await assert.rejects(safeFile(root, root), { code: 'cleanup_path_rejected' });
     assert.equal(await safeFile(path.join(root, 'missing.pdf'), root), null);
     const result = await processPending('deletion', { database, root });
     assert.deepEqual(result, { removed: 2, pending: 1 });
@@ -44,8 +44,8 @@ const { safeFile, processPending } = require('../src/core/services/adminRecordFi
     assert.equal(queue[0].file_path, outside);
     const link = path.join(root, 'linked');
     await fs.symlink(root, link, process.platform === 'win32' ? 'junction' : 'dir');
-    await assert.rejects(safeFile(path.join(link, 'shared.pdf'), root), /cleanup_symlink_rejected/);
-    await assert.rejects(safeFile(path.join(link, 'shared.pdf'), link), /cleanup_root_rejected/);
+    await assert.rejects(safeFile(path.join(link, 'shared.pdf'), root), { code: 'cleanup_symlink_rejected' });
+    await assert.rejects(safeFile(path.join(link, 'shared.pdf'), link), { code: 'cleanup_root_rejected' });
     await fs.unlink(link);
     console.log('附件永久清理、共享引用保留、越界拒绝、符号链接拒绝与失败延迟重试测试通过');
   } finally {

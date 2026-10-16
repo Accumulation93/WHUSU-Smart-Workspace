@@ -233,6 +233,8 @@ function testSourceClassificationAndMigrationContract() {
     'unclassified'
   );
   const nativeUtcColumns = {
+    admin_record_deletions: ['deleted_at'],
+    admin_record_file_cleanup: ['created_at', 'next_attempt_at'],
     security_rate_limit_buckets: [
       'window_started_at',
       'expires_at',

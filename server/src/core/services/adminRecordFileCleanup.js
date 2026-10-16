@@ -4,21 +4,22 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const pool = require('../../config/db');
 const ROOT = path.resolve(process.env.AUDIT_UPLOAD_DIR || path.resolve(__dirname, '../../../uploads/audit'));
+function rejectPath(code) { throw Object.assign(new Error(), { code }); }
 
 async function safeFile(candidate, root = ROOT) {
   root = path.resolve(root);
   const resolved = path.resolve(candidate);
   const relative = path.relative(root, resolved);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('cleanup_path_rejected');
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) rejectPath('cleanup_path_rejected');
   let current = root;
   const rootStat = await fs.lstat(root);
-  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) throw new Error('cleanup_root_rejected');
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) rejectPath('cleanup_root_rejected');
   for (const segment of relative.split(path.sep)) {
     current = path.join(current, segment);
     try {
       const stat = await fs.lstat(current);
-      if (stat.isSymbolicLink()) throw new Error('cleanup_symlink_rejected');
-      if (current === resolved && !stat.isFile()) throw new Error('cleanup_not_file');
+      if (stat.isSymbolicLink()) rejectPath('cleanup_symlink_rejected');
+      if (current === resolved && !stat.isFile()) rejectPath('cleanup_not_file');
     } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   }
   return resolved;

@@ -37,8 +37,23 @@ function strings(node) {
 }
 function inventory(source) {
   const ast = acorn.parse(source, { ecmaVersion: 'latest', locations: true });
-  const calls = [], routes = [], unresolved = [];
-  visit(ast, node => { if (node.type === 'CallExpression') calls.push(node); });
+  const calls = [], routes = [], unresolved = [], functions = new Map();
+  visit(ast, node => {
+    if (node.type === 'CallExpression') calls.push(node);
+    if (node.type === 'FunctionDeclaration' && node.id) functions.set(node.id.name, node);
+    if (node.type === 'VariableDeclarator' && ['ArrowFunctionExpression', 'FunctionExpression'].includes(node.init?.type)) functions.set(node.id.name, node.init);
+  });
+  function handlerSource(node, seen = new Set()) {
+    let body = source.slice(node.start, node.end);
+    visit(node, child => {
+      const name = child.type === 'CallExpression' && child.callee.type === 'Identifier' ? child.callee.name
+        : child.type === 'Identifier' ? child.name : '';
+      if (!functions.has(name) || seen.has(name)) return;
+      seen.add(name);
+      body += '\n' + handlerSource(functions.get(name), seen);
+    });
+    return body;
+  }
   visit(ast, (node, ancestors) => {
     if (node.type !== 'CallExpression' || node.callee.type !== 'MemberExpression'
       || node.callee.object.name !== 'router' || !['get', 'post', 'put', 'patch', 'delete'].includes(node.callee.property.name)) return;
@@ -48,7 +63,7 @@ function inventory(source) {
       const parameter = owner?.params.findIndex(item => item.name === node.arguments[0]?.name);
       if (owner && parameter >= 0) names = calls.filter(call => call.callee.name === owner.id.name).flatMap(call => strings(call.arguments[parameter]));
     }
-    const body = source.slice(node.start, node.end);
+    const body = handlerSource(node);
     const admin = /ensureAdmin\s*\(|requireAdmin\b|resolveRequestAdmin\s*\(|requireAdminOrganizationPermission\s*\(|resolvePermissionManager\s*\(|actorFromRequest\s*\(|req\.admin(?:Permissions)?\b/.test(body);
     if (!names.length) unresolved.push({ line: node.loc.start.line, admin });
     names.forEach(route => routes.push({ route, method: node.callee.property.name, line: node.loc.start.line, admin }));
@@ -61,6 +76,8 @@ if (process.argv.includes('--self-test')) {
   assert.deepEqual(example.routes.map(row => row.route), ['/one', '/two', '/three', '/four']);
   assert.equal(example.unresolved.length, 0);
   assert.ok(example.routes.every(row => row.admin));
+  const factory = inventory("function handler(){return (req,res)=>actorFromRequest(req);} const forwarded=(req,res)=>handler()(req,res); router.post('/factory', handler()); router.delete('/forward', forwarded);");
+  assert.ok(factory.routes.every(row => row.admin));
   console.log('路由数组、多种 HTTP 方法、注册函数及注释排除测试通过');
 }
 const missing = [], unresolved = [];

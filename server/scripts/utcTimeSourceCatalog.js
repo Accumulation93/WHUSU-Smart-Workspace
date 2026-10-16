@@ -3,6 +3,8 @@
 // 旧版本同时存在 mysql2 时区转换、SQL NOW/CURRENT_TIMESTAMP 和手工 Date 写入。
 // 在没有逐记录证明时，字段名或表名只能证明“这是绝对时间候选”，不能证明应统一平移。
 const NON_USER_VISIBLE_TABLES = new Set([
+  'admin_record_deletions',
+  'admin_record_file_cleanup',
   'schema_migrations',
   'organization_dictionary_locks',
   'request_deduplication',
@@ -22,6 +24,8 @@ const NON_USER_VISIBLE_TABLES = new Set([
 // 这两张内部安全表只会在 UTC 体系切换完成后创建，写入连接也固定为 UTC。
 // 必须逐列显式登记，避免 fresh schema 预检把 CURRENT_TIMESTAMP 误判成历史 +08:00 墙上时间。
 const NATIVE_UTC_INTERNAL_COLUMNS = new Map([
+  ['admin_record_deletions', new Set(['deleted_at'])],
+  ['admin_record_file_cleanup', new Set(['created_at', 'next_attempt_at'])],
   ['audit_signing_evidence', new Set(['signed_at'])],
   ['audit_signing_certificates', new Set(['created_at'])],
   ['security_rate_limit_buckets', new Set([
