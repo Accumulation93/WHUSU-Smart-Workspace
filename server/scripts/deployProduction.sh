@@ -388,7 +388,7 @@ if [[ "${WHUSU_DEPLOY_RECHECK:-0}" == "1" ]]; then
   while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$NEW_RELEASE/server" -path '*/node_modules' -prune -o -name '*.js' -type f -print0)
   node "$NEW_RELEASE/server/test/deploymentAutomation.test.js"
 else
-  log "采用发布前已通过的完整验证，不在生产机重复运行代码测试"
+  log "生产机未请求代码测试复核；完整 CI 是否执行以本次工作流记录为准"
 fi
 
 # 网页以构建产物发布：在 release 内安装依赖并构建，产物缺失时直接失败，
