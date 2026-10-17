@@ -24,7 +24,7 @@ function Invoke-Remote([string]$Command, [switch]$Interactive) {
 switch ($Action) {
   'monitor' {
     & node (Join-Path $PSScriptRoot 'deployment-health-monitor.js')
-    if ($LASTEXITCODE -ne 0) { throw '健康监测存在失败或限流，请检查采样记录' }
+    if ($LASTEXITCODE -ne 0) { throw 'Health monitor failed or was rate limited; inspect sample records' }
   }
   'status' {
     Invoke-Remote "printf 'repo='; git -C /home/ubuntu/whusu-smart-workspace rev-parse --short HEAD; printf 'server='; cat /home/ubuntu/whusu-smart-workspace-deploy/state/server_sha 2>/dev/null || echo legacy; pm2 status --no-color; tmux list-sessions 2>/dev/null || true"
