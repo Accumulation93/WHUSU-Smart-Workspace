@@ -8,6 +8,7 @@ const scope = () => [session.status, session.user?.id, session.context?.contextI
 export function cancelFileDialog() { const dialog=fileDialog.value; fileDialog.value=null; dialog?.resolve({status:'cancelled'}); }
 function selectMode(title, modes, perform) {
   cancelFileDialog();
+  if(!modes.length){showToast(copy.unavailable);return Promise.resolve({status:'unsupported'});}
   const expected=scope();
   return new Promise(resolve=>{fileDialog.value={title,modes,resolve,perform,expected};});
 }
@@ -15,14 +16,16 @@ export function runFileMode(mode) {
   const dialog=fileDialog.value;
   if(!dialog)return;
   fileDialog.value=null;
-  if(dialog.expected!==scope()){dialog.resolve({status:'cancelled'});return;}
+  if(dialog.expected!==scope()||!dialog.modes.includes(mode)){dialog.resolve({status:'cancelled'});return;}
   try { Promise.resolve(dialog.perform(mode)).then(dialog.resolve,error=>{const cancelled=error?.name==='AbortError';if(!cancelled)showToast(copy.failed);dialog.resolve({status:cancelled?'cancelled':'failed'});}); }
   catch(error){showToast(copy.failed);dialog.resolve({status:'failed'});}
 }
 export function inputFile(options={}) {
   if(options.files)return Promise.resolve({status:'success',files:Array.from(options.files)});
   const element=options.element;
-  return selectMode(copy.input,options.image?['browse','album','camera']:['browse'],mode=>{
+  const modes=element?.type==='file'&&!element.disabled?['browse']:[];
+  if(modes.length&&options.image&&'capture' in element)modes.push('camera');
+  return selectMode(copy.input,modes,mode=>{
     if(!element||element.disabled)return {status:'cancelled'};
     element.accept=mode==='browse' ? options.accept||'' : 'image/*';
     if(mode==='camera')element.setAttribute('capture','environment');else element.removeAttribute('capture');
@@ -33,9 +36,17 @@ export function inputFile(options={}) {
 export function outputFile({blob,fileName,modes=['preview','save','systemShare']}) {
   const safeName=String(fileName||'file').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_');
   const expected=scope();
-  return selectMode(copy.output,modes,async mode=>{
+  const files=typeof File==='function'?[new File([blob],safeName,{type:blob.type})]:[];
+  let share=false;
+  try{share=Boolean(files.length&&typeof navigator.share==='function'&&navigator.canShare?.({files}));}catch{}
+  const objectUrls=typeof URL.createObjectURL==='function';
+  const supported={
+    preview:objectUrls&&typeof window.open==='function'&&(/^(image\/(png|jpeg|gif|webp|bmp))$/.test(blob.type)||blob.type==='application/pdf'&&navigator.pdfViewerEnabled===true),
+    save:typeof window.showSaveFilePicker==='function'||objectUrls&&'download' in document.createElement('a'),
+    systemShare:share
+  };
+  return selectMode(copy.output,modes.filter(mode=>supported[mode]),async mode=>{
     if(mode==='systemShare') {
-      const files=[new File([blob],safeName,{type:blob.type})];
       if(!navigator.canShare?.({files})||!navigator.share){showToast(copy.unavailable);return {status:'unsupported'};}
       await navigator.share({files});return {status:'success',mode};
     }

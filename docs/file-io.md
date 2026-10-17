@@ -4,9 +4,11 @@
 
 输入按业务类型提供微信文件选择、相册、拍照；网页提供本地文件选择。微信官方目前没有通用手机本地文档浏览接口，小程序不再展示必然失败的“浏览本地文件”，也不把聊天选择冒充系统文件管理。PDF、DOC、DOCX、XLS、XLSX、PPT、PPTX 继续通过微信原生文件选择器加载，保留原文件名和原字节，校验业务允许的扩展名。
 
-输出包含预览、转发微信/系统分享、保存本地。小程序依据 API 是否存在、canIUse 和实际调用结果判断直接保存能力，不读取平台名称决定支持与否。明确不支持直接保存时，图片保存到相册；上述 7 类文档由用户确认后打开原生文档菜单，showMenu=true，并传入实际 fileType。菜单具体提供的保存、其他应用打开等动作由微信决定，打开菜单只返回 preview_opened，不触发“已保存”成功回调。取消、权限拒绝、磁盘错误不切换动作。浏览器另存为不可用时执行下载，但只报告已发起，不报告已保存。不跳转其他端。
+输入和输出菜单均先按当前设备能力、业务允许模式和文件类型取交集，不展示不支持的选项。小程序同时检查 API 存在性、canIUse（含相册/拍照来源）、官方设备限制；saveFileToDisk 明确限定 PC，因此移动端暴露同名空实现也不展示文档直接保存。手机图片按相册能力显示保存，PDF/Office 文档按 openDocument 能力显示预览，showMenu=true；不能把文档菜单未知的另存为能力包装成保存按钮。无可用项时提示一次，不打开空菜单。原生调用明确返回不支持时，本次运行内记住该能力；取消、权限拒绝与磁盘错误不作为永久不支持，不切换动作。
 
-文件上传及下载授权仍由原业务接口处理，两个统一入口不替代组织、角色及资源权限。相册保留原图，输出保留原字节，不转成预览图。返回状态区分 success、cancelled、unsupported、failed，小程序另有 preview_opened，网页另有 selection_started 与 download_started，不能当成已选取或已保存。
+网页输入保留浏览文件，只有 input.capture 可用时增加拍照，不用同一个通用文件选择器伪装独立相册入口。网页输出使用实际文件检查 navigator.canShare；PDF 预览检查 pdfViewerEnabled，Word 等无浏览器原生预览支持的类型隐藏预览；保存须有文件保存选择器或下载链接能力。无另存为接口但可下载时只报告已发起，不报告已保存。不跳转其他端。
+
+文件上传及下载授权仍由原业务接口处理，两个统一入口不替代组织、角色及资源权限。相册保留原图，输出保留原字节，不转成预览图。返回状态区分 success、cancelled、unsupported、failed，网页另有 selection_started 与 download_started，不能当成已选取或已保存。设备有接口不等于已经授予权限或每次调用都会成功，仍保留实际错误提示。
 
 能力依据：[微信官方 API 类型定义](https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.api.d.ts) 的 chooseMessageFile、saveFileToDisk、openDocument。官方仍将 saveFileToDisk 标为 PC 支持；运行时探测不代表手机已实测支持，也不能凭函数存在承诺系统保存。原生菜单的具体项目无法由小程序枚举或保证。
 
