@@ -60,6 +60,8 @@ console.log(r[0]); await c.end();})();'
 
 ## 完成验证
 
+发布期间如需连续公网采样，只运行 `node scripts/deployment-health-monitor.js`：串行间隔至少 15 秒、最多 5 分钟、同设备仅一个实例；网络或服务失败退避至 30/60 秒，429 立即停止并记录 Retry-After。禁止临时编写每秒公网轮询，禁止将限流当作停机或全部成功。现有部署回环启动检查与 tmux 10 秒巡检保留，不新增并行监测；公网成功不等于所有用户业务均成功，结论须结合对应时间段日志。
+
 每次生产部署后同时确认：
 
 1. 本地 HEAD、`origin/main`、远端同步仓库、`whusu-smart-workspace-current` 和部署状态完整 SHA 一致；`remote-collab.ps1 status` 的短 SHA 只能作为快速观察，不能代替完整 SHA 核对。
