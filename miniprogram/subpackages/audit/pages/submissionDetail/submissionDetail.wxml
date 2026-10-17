@@ -177,6 +177,7 @@
     <block wx:if="{{!loading && submission}}">
       <!-- Status -->
       <view class="card">
+        <view class="section-title">{{submission.title}}</view>
         <view class="info-grid">
           <view class="info-block">
             <view class="info-label">{{localeCopy.copy_8aee737e64}}</view>
