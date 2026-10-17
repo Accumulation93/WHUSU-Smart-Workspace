@@ -175,9 +175,12 @@
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
 
     <block wx:if="{{!loading && submission}}">
+      <view class="card submission-heading">
+        <view class="submission-heading-title">{{submission.title}}</view>
+        <view class="submission-heading-number" wx:if="{{submission.submissionNumber}}">{{submission.submissionNumber}}</view>
+      </view>
       <!-- Status -->
       <view class="card">
-        <view class="section-title">{{submission.title}}</view>
         <view class="info-grid">
           <view class="info-block">
             <view class="info-label">{{localeCopy.copy_8aee737e64}}</view>

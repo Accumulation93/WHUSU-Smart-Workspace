@@ -1,6 +1,22 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
+.submission-heading-title {
+  color: var(--ui-text);
+  font-size: var(--ui-type-page);
+  font-weight: 700;
+  line-height: var(--ui-leading-heading);
+  overflow-wrap: anywhere;
+}
+
+.submission-heading-number {
+  margin-top: var(--ui-label-gap);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-meta);
+  line-height: var(--ui-leading-body);
+  overflow-wrap: anywhere;
+}
+
 .work-context-guard {
   display: flex;
   align-items: center;
