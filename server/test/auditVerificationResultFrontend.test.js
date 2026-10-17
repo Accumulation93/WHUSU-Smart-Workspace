@@ -17,7 +17,9 @@ function load(relative, register, overrides) {
   return { definition, context };
 }
 let openedReport = null;
+let outputOptions, resolveOutput;
 const { definition, context: componentContext } = load('miniprogram/components/audit-verification-result/audit-verification-result.js', 'Component', {
+  '../../utils/fileIO': { outputFile(options) { outputOptions = options; return new Promise(resolve => { resolveOutput = resolve; }); } },
   '../../utils/dateTime': { formatDetailTime: () => '2026-09-06 08:00:00' },
   '../../utils/auditVerificationReport': { open: result => { openedReport = result; } },
   '../../utils/orgSession': { beginRequest: () => ({}), isRequestCurrent: () => true, invalidateRequests: () => {} }
@@ -100,56 +102,32 @@ for (const page of ['miniprogram/subpackages/audit/pages/verification/verificati
   assert(markup.includes('<audit-verification-result'));
   assert(markup.includes('result-json="{{'));
 }
-let written, shared, removed;
+(async () => {
+let written, removed;
 componentContext.wx = { env: { USER_DATA_PATH: '/tmp' },
-  getFileSystemManager: () => ({ writeFile: options => { written = options; options.success(); }, unlink: options => { removed = options.filePath; } }),
-  shareFileMessage: options => { shared = options; options.success(); } };
+  showModal() {},
+  getFileSystemManager: () => ({ writeFile: options => { written = options; options.success(); }, unlink: options => { removed = options.filePath; } }) };
 const certificate = { fingerprint: 'a'.repeat(64), derBase64: 'YWJj' };
 definition.methods.present.call(component, { verificationVersion: 2, overallStatus: 'passed', files: [{ overallStatus: 'passed', checks: verifiedChecks, certificates: [certificate] }] });
-definition.methods.exportCertificate.call(component, { currentTarget: { dataset: { file: '0', certificate: '0' } } });
-assert.equal(written.data, certificate.derBase64);
-assert.equal(written.encoding, 'base64');
-assert(shared.fileName.endsWith('.cer'));
-assert.equal(removed, written.filePath);
-assert.equal(component.data.exporting, false);
-let exportErrorCount = 0;
-componentContext.wx.showModal = () => { exportErrorCount += 1; };
-componentContext.wx.shareFileMessage = options => {
-  options.fail({ errMsg: 'shareFileMessage:fail unavailable' });
-};
-definition.methods.exportCertificate.call(component, { currentTarget: { dataset: { file: '0', certificate: '0' } } });
-assert.equal(exportErrorCount, 1, '分享不可用必须反馈失败，不得静默结束');
-assert.equal(component.data.exporting, false);
-componentContext.wx.shareFileMessage = options => {
-  options.fail({ errMsg: 'shareFileMessage:fail cancel' });
-};
-definition.methods.exportCertificate.call(component, { currentTarget: { dataset: { file: '0', certificate: '0' } } });
-assert.equal(exportErrorCount, 1, '主动取消不提示失败');
 const exportEvent = { currentTarget: { dataset: { file: '0', certificate: '0' } } };
-let saved = 0;
-componentContext.wx.saveFileToDisk = options => {
-  assert.equal(removed, null, '备用保存完成前不能删除临时证书');
-  saved += 1; options.success();
-};
-removed = null;
-componentContext.wx.shareFileMessage = options => options.fail({ errMsg: 'shareFileMessage:fail unsupported' });
-definition.methods.exportCertificate.call(component, exportEvent);
-assert.equal(saved, 1);
-assert.equal(removed, written.filePath);
-assert.equal(exportErrorCount, 1, '备用保存成功不显示错误');
-removed = null;
-componentContext.wx.getDeviceInfo = () => ({ platform: 'windows' });
-componentContext.wx.shareFileMessage = () => { throw new Error('电脑保存成功不应再次分享'); };
-definition.methods.exportCertificate.call(component, exportEvent);
-assert.equal(saved, 2, '电脑优先直接保存');
-componentContext.wx.getDeviceInfo = () => ({ platform: 'android' });
-componentContext.wx.shareFileMessage = options => options.fail({ errMsg: 'cancel' });
-definition.methods.exportCertificate.call(component, exportEvent);
-assert.equal(saved, 2, '用户取消后不得再次打开保存');
-removed = null;
-componentContext.wx.shareFileMessage = () => { throw new Error('unsupported'); };
-definition.methods.exportCertificate.call(component, exportEvent);
-assert.equal(saved, 3, '原生能力同步异常也应尝试备用导出');
+for (const status of ['success', 'cancelled', 'error']) {
+  removed = null; outputOptions = null;
+  definition.methods.exportCertificate.call(component, exportEvent);
+  assert.equal(written.data, certificate.derBase64);
+  assert.equal(written.encoding, 'base64');
+  assert(outputOptions.fileName.endsWith('.cer'));
+  assert.equal(outputOptions.filePath, written.filePath);
+  assert.deepEqual(Array.from(outputOptions.modes), ['share', 'save']);
+  assert.equal(removed, null, '用户选择输出模式期间保留临时证书');
+  assert.equal(component.data.exporting, true);
+  const pending = outputOptions;
+  definition.methods.exportCertificate.call(component, exportEvent);
+  assert.equal(outputOptions, pending, '导出期间禁止重复发起');
+  resolveOutput({ status }); await Promise.resolve();
+  assert.equal(removed, written.filePath);
+  assert.equal(component.data.exporting, false);
+  assert.equal(outputOptions, pending, '结束后不能自动切换其他输出方式');
+}
 let clipboard;
 componentContext.wx.setClipboardData = options => { clipboard = options.data; options.success(); };
 definition.methods.copyCertificate.call(component, exportEvent);
@@ -158,3 +136,5 @@ assert(clipboard.endsWith('\n-----END CERTIFICATE-----\n'));
 assert.equal(Buffer.from(clipboard.split('\n').slice(1, -2).join(''), 'base64').toString('base64'), certificate.derBase64);
 assert(!clipboard.includes('PRIVATE KEY'));
 console.log('统一验签组件测试通过：用户摘要、独立报告、原因码隐藏、隐私白名单、证书导出与两端注册');
+
+})().catch(error => { console.error(error); process.exitCode = 1; });
