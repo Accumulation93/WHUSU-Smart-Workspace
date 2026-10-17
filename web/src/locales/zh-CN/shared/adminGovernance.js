@@ -1,6 +1,7 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 
 const sharedModule = Object.freeze({
+  auditSubmitter: '发起人本人',
   read: '查看',
   remove: '删除',
   readDescription: '查看本组织的相关记录',

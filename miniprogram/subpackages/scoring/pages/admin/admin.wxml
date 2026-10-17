@@ -2531,7 +2531,8 @@
             <view class="list-desc">{{item.allowApproverDesignation ? (index === 0 ? localeCopy.copy_1af11a9ca5 : localeCopy.copy_5b18d7f5ee) : localeCopy.copy_a5674f1e5b}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view class="audit-condition-row" wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
-              <block wx:if="{{cond.conditionType === 'person'}}">
+              <view wx:if="{{cond.conditionType === 'submitter'}}" class="status-chip info-chip audit-condition-token">{{governanceCopy.auditSubmitter}}</view>
+              <block wx:elif="{{cond.conditionType === 'person'}}">
                 <block wx:if="{{cond._personNames && cond._personNames.length}}">
                   <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
                 </block>
@@ -2606,7 +2607,8 @@
                 </view>
                 <!-- Each condition as bubble chips -->
                 <view class="audit-resolved-condition-row" wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
-                  <block wx:if="{{cond.conditionType === 'person'}}">
+                  <view wx:if="{{cond.conditionType === 'submitter'}}" class="audit-cond-chip audit-cond-person">{{governanceCopy.auditSubmitter}}</view>
+                  <block wx:elif="{{cond.conditionType === 'person'}}">
                     <block wx:if="{{cond._personNames && cond._personNames.length}}">
                       <view wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" class="audit-cond-chip audit-cond-person">{{pname}}</view>
                     </block>
@@ -2653,13 +2655,13 @@
             <view class="list-title ui-dialog-inset">{{localeCopy.copy_28542c7241}}</view>
             <view class="list-item" wx:for="{{auditTemplateStepForm.conditions}}" wx:key="index" wx:for-item="cond">
               <view class="list-main">
-                <view class="list-name">{{cond.conditionType === 'person' ? localeCopy.copy_9beb04f4f6 : localeCopy.copy_0dc18b5a1e}}</view>
+                <view class="list-name">{{cond.conditionType === 'submitter' ? governanceCopy.auditSubmitter : (cond.conditionType === 'person' ? localeCopy.copy_9beb04f4f6 : localeCopy.copy_0dc18b5a1e)}}</view>
                 <view class="chip-row chip-row--wrap">
                   <block wx:if="{{cond.conditionType === 'person'}}">
                     <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
                     <view class="list-desc audit-condition-token" wx:if="{{!cond._personNames || !cond._personNames.length}}">{{localeCopy.copy_d80d3752da}}</view>
                   </block>
-                  <block wx:else>
+                  <block wx:elif="{{cond.conditionType === 'identity_scope'}}">
                     <!-- Department badges -->
                     <block wx:if="{{cond.departmentScope === 'own'}}">
                       <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_f3a3b597fe}}</view>
@@ -2723,8 +2725,8 @@
               <view class="list-title">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_dc2056bbc9 : localeCopy.copy_4d3b682ec9}}</view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
-                <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" value="{{auditStepConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onConditionTypeChange">
-                  <view class="picker-value">{{auditStepConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : localeCopy.copy_05970eea73}}</view>
+                <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73,governanceCopy.auditSubmitter]}}" value="{{auditStepConditionForm.conditionType === 'identity_scope' ? 0 : (auditStepConditionForm.conditionType === 'person' ? 1 : 2)}}" bindchange="onConditionTypeChange">
+                  <view class="picker-value">{{auditStepConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : (auditStepConditionForm.conditionType === 'person' ? localeCopy.copy_05970eea73 : governanceCopy.auditSubmitter)}}</view>
                 </picker>
               </view>
 
@@ -2738,7 +2740,7 @@
               </block>
 
               <!-- Identity scope condition fields -->
-              <block wx:else>
+              <block wx:elif="{{auditStepConditionForm.conditionType === 'identity_scope'}}">
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_e8ca7f8024}}</view>
                   <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" value="{{auditStepConditionForm.departmentScope === 'all' ? 0 : (auditStepConditionForm.departmentScope === 'specific' ? 1 : 2)}}" data-field="departmentScope" bindchange="onConditionScopeChange">

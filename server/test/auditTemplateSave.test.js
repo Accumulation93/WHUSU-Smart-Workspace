@@ -67,6 +67,8 @@ async function invoke(body) {
     assert.equal(result.status, 'success', `${actionType}: ${result.message}`);
     assert.ok(result.id);
     assert.deepEqual(calls.slice(-2), ['commit', 'release']);
+    body.steps[0].conditions = [{ conditionType: 'submitter' }];
+    assert.equal((await invoke(body)).status, 'success');
   }
   const edit = payload(); edit.id = 'existing';
   assert.equal((await invoke(edit)).status, 'success');
@@ -81,6 +83,9 @@ async function invoke(body) {
   }
   const badStarter = payload(); badStarter.starterConditions = [null];
   assert.equal((await invoke(badStarter)).status, 'invalid_params');
+  badStarter.starterConditions = [{ conditionType: 'submitter' }];
+  assert.equal((await invoke(badStarter)).status, 'invalid_params');
+  assert.ok(!calls.includes('acquire'));
   for (const legacy of [
     { approverType: 'identity', approverIdentityId: 'identity-test' },
     { approverType: 'specific_person', approverHrId: 'hr-test', approverAssignmentIds: 'assignment-test' }

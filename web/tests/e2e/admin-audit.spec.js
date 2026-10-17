@@ -5,6 +5,7 @@ import text from '../../src/locales/zh-CN/shared/auditSigning.js';
 import personnel from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import stampCopy from '../../src/locales/zh-CN/shared/stampAuthorization.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import governance from '../../src/locales/zh-CN/shared/adminGovernance.js';
 async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});
   const state={templates:[],stamps:[],permissions:[],calls:[],reject:false,failRead:false};
@@ -32,16 +33,28 @@ async function setup(page){
   });return state;
 }
 async function open(page,tab){await page.goto('/web/admin?subApp=audit&tab='+tab);await expect(page.getByRole('tab',{name:ui.copy_7312ee863e,exact:true})).toBeVisible();}
-async function createTemplate(page){
+async function createTemplate(page,self=false){
   await page.getByLabel(ui.copy_53adcabdff,{exact:true}).fill('New Flow');
   await page.getByRole('button',{name:ui.copy_a59dd7ae8d,exact:true}).click();
+  await expect(page.getByRole('dialog').locator('option[value="submitter"]')).toHaveCount(0);
   await page.getByRole('dialog').getByRole('button',{name:personnel.confirm,exact:true}).click();
   await page.getByRole('button',{name:ui.copy_b79428bf57,exact:true}).click();
   await page.getByRole('dialog').getByLabel(ui.copy_c5dd070c37).fill('Sign Step');
   await page.getByRole('dialog').getByRole('button',{name:ui.copy_d3da0e164a,exact:true}).click();
+  if(self){
+    await page.getByRole('dialog').locator('select').first().selectOption('submitter');
+    await expect(page.getByRole('dialog').getByLabel(personnel.department,{exact:true})).toHaveCount(0);
+  }
   await page.getByRole('dialog').getByRole('button',{name:personnel.confirm,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:ui.copy_bb0ad94473,exact:true}).click();
 }
+test('发起人本人作为独立步骤条件保存并回读',async({page})=>{
+  const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page,true);
+  await expect(page.getByText(governance.auditSubmitter,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();
+  await expect(page.locator('.audit-row').filter({hasText:'New Flow'})).toBeVisible();
+  expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body.steps[0].conditions).toEqual([{conditionType:'submitter'}]);
+});
 test('审核模板按原步骤参数保存，失败保留表单，成功后回读',async({page})=>{
   const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);
   state.reject=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText('Save rejected')).toBeVisible();await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('New Flow');

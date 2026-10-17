@@ -205,7 +205,13 @@ function matchesAnyCondition(conditions, approver, submitter) {
 
   for (const cond of effectiveConditions) {
     if (!validateConditionShape(cond).ok) return false;
-    if (cond.conditionType === 'person') {
+    if (cond.conditionType === 'submitter') {
+      // 本人绑定申请发起时的自然人与岗位，不能在换岗后扩大权限。
+      const submitters = Array.isArray(submitter) ? submitter : [submitter];
+      if (submitters.some(item => item && approver.person_id && approver.assignment_id
+        && String(item.person_id || '') === String(approver.person_id)
+        && String(item.assignment_id || '') === String(approver.assignment_id))) return true;
+    } else if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
       const personMatch = csvSet(cond.personHrIds).has(String(approver.id));
       const assignmentIds = csvSet(cond.assignmentIds || cond.personAssignmentIds);

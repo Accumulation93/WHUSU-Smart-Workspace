@@ -509,7 +509,7 @@ module.exports = Behavior({
     },
 
     onConditionTypeChange(e) {
-      this.setData({ 'auditStepConditionForm.conditionType': ['identity_scope', 'person'][e.detail.value] || 'identity_scope' });
+      this.setData({ 'auditStepConditionForm.conditionType': ['identity_scope', 'person', 'submitter'][e.detail.value] || 'identity_scope' });
       this.measureAuditStepBody();
     },
 
@@ -540,7 +540,7 @@ module.exports = Behavior({
         newCond.assignmentNames = newCond._assignmentNames.join('、');
         newCond.personHrNames = newCond.assignmentNames;
         newCond._personNames = newCond._assignmentNames.slice();
-      } else {
+      } else if (cond.conditionType === 'identity_scope') {
         // identity_scope — always resolve names from master lists, handling comma-separated IDs
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
@@ -592,6 +592,7 @@ module.exports = Behavior({
     // ── Build a human-readable summary for a single condition ──
     _auditConditionSummary(c) {
       if (!c) return localeCopy.copy_2dcf2e1cdf;
+      if (c.conditionType === 'submitter') return governanceCopy.auditSubmitter;
       if (c.conditionType === 'person') {
         if (c.assignmentIds) {
           let names = c.assignmentIds.split(',').map(function (id) {
@@ -629,6 +630,7 @@ module.exports = Behavior({
      */
     _auditResolveCondition(c) {
       let r = Object.assign({}, c);
+      if (c.conditionType === 'submitter') return { conditionType: 'submitter', _summary: governanceCopy.auditSubmitter };
       if (c.conditionType === 'person') {
         if (c.assignmentIds) {
           let ids = c.assignmentIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -1224,6 +1226,7 @@ module.exports = Behavior({
             name: s.name || '',
             conditions: s.conditions.map(function(c) {
               let cond = { conditionType: c.conditionType };
+              if (c.conditionType === 'submitter') return cond;
               if (c.conditionType === 'person') {
                 cond.personHrIds = c.personHrIds;
                 cond.assignmentIds = c.assignmentIds;

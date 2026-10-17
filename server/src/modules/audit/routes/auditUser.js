@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditUser');
+const governanceCopy = require('../../../locales/zh-CN/adminGovernance');
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
@@ -922,7 +923,9 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
 
   for (const cond of conditions) {
     let part = '';
-    if (cond.conditionType === 'person') {
+    if (cond.conditionType === 'submitter') {
+      part = governanceCopy.auditSubmitter;
+    } else if (cond.conditionType === 'person') {
       const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
       const names = ids.map(id => hrMap[id] || id).filter(Boolean);
       part = names.length ? '由 ' + names.join('、') + localeCopy.copy_7abed5378f : '由指定人员审批';
@@ -3333,7 +3336,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
     // 候选范围始终从当前组织的有效岗位目录计算。
     // Check if all conditions are effectively "all" (identity_scope with all scopes = 'all')
     const allAreOpen = conditions.every(function(c) {
-      if (c.conditionType === 'person') return false;
+      if (c.conditionType !== 'identity_scope') return false;
       return (c.departmentScope || 'all') === 'all' &&
              (c.workGroupScope || 'all') === 'all' &&
              (c.identityScope || 'all') === 'all';

@@ -1,13 +1,13 @@
 <template>
   <div class="stack">
-    <label class="field"><span class="field-label">{{ native.copy_937301fe27 }}</span><select v-model="form.conditionType" class="field-input"><option value="identity_scope">{{ native.copy_49b5b1ec92 }}</option><option value="person">{{ native.copy_05970eea73 }}</option></select></label>
+    <label class="field"><span class="field-label">{{ native.copy_937301fe27 }}</span><select v-model="form.conditionType" class="field-input"><option value="identity_scope">{{ native.copy_49b5b1ec92 }}</option><option value="person">{{ native.copy_05970eea73 }}</option><option v-if="allowSubmitter" value="submitter">{{ governance.auditSubmitter }}</option></select></label>
     <template v-if="form.conditionType === 'identity_scope'">
       <div v-for="field in scopes" :key="field.key" class="field">
         <label class="field"><span class="field-label">{{ field.label }}</span><select v-model="form[field.key+'Scope']" :aria-label="field.label" class="field-input"><option value="all">{{ personnel.all }}</option><option value="own">{{ native.copy_4b405169cb }}</option><option value="specific">{{ native.copy_2aad29e5cf }}</option></select></label>
         <button v-if="form[field.key+'Scope'] === 'specific'" class="btn-quiet" @click="chooseRange(field)">{{ rangeText(field) || personnel.choose }}</button>
       </div>
     </template>
-    <template v-else><button class="btn-quiet" @click="peopleVisible=true">{{ personnel.choose }}</button><span v-for="item in chosenPeople" :key="item.assignmentId" class="chip chip-blue">{{ item.name }} · {{ item.assignmentLabel }}</span></template>
+    <template v-else-if="form.conditionType === 'person'"><button class="btn-quiet" @click="peopleVisible=true">{{ personnel.choose }}</button><span v-for="item in chosenPeople" :key="item.assignmentId" class="chip chip-blue">{{ item.name }} · {{ item.assignmentLabel }}</span></template>
     <p v-if="notice" class="notice-line">{{ notice }}</p>
     <div class="dialog-footer-actions"><button class="btn btn-secondary" @click="$emit('cancel')">{{ personnel.cancelSelection }}</button><button class="btn btn-primary" @click="confirm">{{ personnel.confirm }}</button></div>
     <GlassDialog v-if="range" :title="range.label" @close="range=null"><button v-for="item in rangeOptions" :key="item.id" class="list-row personnel-option" :class="{'personnel-option-selected':rangeSelected.includes(item.id)}" :aria-pressed="rangeSelected.includes(item.id)" @click="toggleRange(item.id)">{{ item.name }}</button><template #footer><button class="btn btn-secondary" @click="range=null">{{ personnel.cancelSelection }}</button><button class="btn btn-primary" @click="confirmRange">{{ personnel.confirm }}</button></template></GlassDialog>
@@ -21,8 +21,9 @@ import PersonnelPicker from './PersonnelPicker.vue';
 import native from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/auditBehavior.js';
 import personnel from '@/locales/zh-CN/shared/personnelPicker.js';
+import governance from '@/locales/zh-CN/shared/adminGovernance.js';
 import { clone } from '@/shared/auditInk.js';
-const props=defineProps({value:Object,directory:Object});const emit=defineEmits(['confirm','cancel']);
+const props=defineProps({value:Object,directory:Object,allowSubmitter:Boolean});const emit=defineEmits(['confirm','cancel']);
 const form=reactive(Object.assign({conditionType:'identity_scope',departmentScope:'all',workGroupScope:'all',identityScope:'all',specificDepartmentId:'',specificWorkGroupId:'',specificIdentityId:'',personHrIds:'',assignmentIds:''},clone(props.value||{})));
 const scopes=[{key:'department',id:'specificDepartmentId',list:'departments',label:personnel.department},{key:'workGroup',id:'specificWorkGroupId',list:'workGroups',label:personnel.workGroup},{key:'identity',id:'specificIdentityId',list:'identities',label:personnel.identity}];
 const ids=value=>String(value||'').split(',').filter(Boolean);
@@ -36,6 +37,7 @@ function toggleRange(id){rangeSelected.value=rangeSelected.value.includes(id)?ra
 function confirmRange(){form[range.value.id]=rangeSelected.value.join(',');range.value=null;}
 function choosePeople(rows){form.assignmentIds=rows.map(item=>item.assignmentId).join(',');form.personHrIds=[...new Set(rows.map(item=>item.id))].join(',');peopleVisible.value=false;}
 function confirm(){
+  if(form.conditionType==='submitter'){if(props.allowSubmitter)emit('confirm',{conditionType:'submitter'});return;}
   if(form.conditionType==='person' && (!form.assignmentIds || chosenPeople.value.length!==ids(form.assignmentIds).length)){notice.value=messages.copy_4c3b518dca;return;}
   if(form.conditionType==='identity_scope' && scopes.some(field=>form[field.key+'Scope']==='specific'&&!ids(form[field.id]).length)){notice.value=messages.copy_4c3b518dca;return;}
   emit('confirm',clone(form));

@@ -89,4 +89,20 @@ assert.strictEqual(submissionStep.matchesAnyCondition(
   identityApprover
 ), false, '损坏的历史条件不得扩大审批权限');
 
-console.log('审核条件校验、OR 语义、指定收窄与重提恢复测试通过');
+const selfCondition = { conditionType: 'submitter' };
+const applicant = { person_id: 'person-applicant', assignment_id: 'assignment-applicant' };
+assert.equal(policy.validateConditionShape(selfCondition).ok, true);
+assert.equal(policy.validateStepShape({ actionType: 'pass', conditions: [selfCondition] }).ok, true);
+assert.equal(submissionStep.matchesAnyCondition([selfCondition], applicant, [applicant]), true);
+for (const other of [
+  { ...applicant, assignment_id: 'other-assignment' },
+  { ...applicant, person_id: 'other-person' },
+  { person_id: applicant.person_id },
+  { assignment_id: applicant.assignment_id }
+]) assert.equal(submissionStep.matchesAnyCondition([selfCondition], other, applicant), false);
+assert.equal(submissionStep.matchesAnyCondition([selfCondition], applicant, []), false);
+assert.equal(submissionStep.matchesAnyCondition([selfCondition, identityCondition], identityApprover, applicant), true);
+const selfNarrowed = policy.applyDesignationOverride([selfCondition], [personCondition]);
+assert.equal(submissionStep.matchesAnyCondition(selfNarrowed, applicant, applicant), false);
+assert.deepEqual(policy.stripDesignationOverrides(selfNarrowed), [selfCondition]);
+console.log('审核条件校验、发起人岗位绑定、OR 语义、指定收窄与重提恢复测试通过');

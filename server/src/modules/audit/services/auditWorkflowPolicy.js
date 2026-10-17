@@ -4,7 +4,7 @@ const { safeString } = require('../../../utils/helpers');
 
 const STEP_ACTION_TYPES = new Set(['pass', 'sign', 'estamp', 'both']);
 const RESUBMIT_MODES = new Set(['fresh', 'from_rejector']);
-const CONDITION_TYPES = new Set(['identity_scope', 'person']);
+const CONDITION_TYPES = new Set(['identity_scope', 'person', 'submitter']);
 const CONDITION_SCOPES = new Set(['all', 'own', 'specific']);
 
 function normalizeConditionType(value) {
@@ -21,6 +21,7 @@ function validateConditionShape(condition) {
   if (!CONDITION_TYPES.has(conditionType)) {
     return { ok: false, reason: 'condition_type_invalid' };
   }
+  if (conditionType === 'submitter') return { ok: true };
   if (conditionType === 'person') {
     const personHrIds = safeString(item.personHrIds || item.person_hr_ids);
     const assignmentIds = safeString(item.assignmentIds || item.assignment_ids || item.personAssignmentIds);

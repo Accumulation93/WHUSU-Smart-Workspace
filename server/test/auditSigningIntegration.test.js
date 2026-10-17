@@ -72,6 +72,14 @@ async function run() {
     const post = async (name, body, headers = {}) => (await fetch('http://127.0.0.1:' + server.address().port + '/api/' + name, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body || {})
     })).json();
+    await orgStorage.run('org-a', async () => {
+      await require('../src/modules/audit/models/auditFlowTemplate').create('self-template', { name: '本人审批', starterType: 'self' });
+      await require('../src/modules/audit/models/auditFlowTemplateStep').create('self-template-step', { templateId: 'self-template', sortOrder: 1, actionType: 'pass', allowApproverDesignation: true });
+      await require('../src/modules/audit/models/auditFlowTemplateStepCondition').create('self-condition', { templateStepId: 'self-template-step', conditionType: 'submitter' });
+    });
+    const candidates = await post('listEligibleApprovers', { templateId: 'self-template', stepIndex: 1 });
+    assert.equal(candidates.status, 'success', JSON.stringify(candidates));
+    assert.deepEqual(candidates.approvers.flatMap(item => item.eligibleAssignmentIds), ['assignment-a']);
     const documentPreview = await post('getAuditFilePreview', { fileId: 'file-1', page: 1, previewMaxEdge: 4096 });
     assert.equal(documentPreview.status, 'success');
     assert.equal(documentPreview.previewMime, 'image/png');
@@ -93,6 +101,9 @@ async function run() {
       size: 1, rotation: 0, page: 2, widthRatio: 0.61234567 }], designatedNextPersonIds: [], designatedNextAssignmentIds: [] };
     const payload = process.env.SIGNING_FRONTEND_PARAMETERS ? JSON.parse(fs.readFileSync(process.env.SIGNING_FRONTEND_PARAMETERS, 'utf8')) : fallback;
     payload.signatures.push({ fileId: 'file-1', signatureType: 'stamp', stampId: 'stamp-a', positionX: 0.7, positionY: 0.8, size: 1, rotation: 0, page: 2, widthRatio: 0.18 });
+    await admin.query("UPDATE audit_submission_steps SET step_conditions_json=? WHERE id='step-2'", [JSON.stringify([{ conditionType: 'submitter' }])]);
+    assert.notEqual((await post('approveStep', payload, { 'X-Test-Assignment': 'assignment-b' })).status, 'success', '同一发起人的其他岗位不得处理本人步骤');
+    assert.equal((await admin.query("SELECT status FROM audit_submission_steps WHERE id='step-2'"))[0][0].status, 'pending');
     const invalid = JSON.parse(JSON.stringify(payload)); invalid.signatures[0].widthRatio = 2;
     assert.equal((await post('approveStep', invalid)).status, 'approval_material_invalid');
     assert.equal((await admin.query("SELECT status FROM audit_submission_steps WHERE id='step-2'"))[0][0].status, 'pending');

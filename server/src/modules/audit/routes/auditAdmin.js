@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditAdmin');
+const governanceCopy = require('../../../locales/zh-CN/adminGovernance');
 const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
@@ -185,7 +186,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       starterCondition.personHrIds = binding.condition.personHrIds;
       starterCondition.assignmentIds = binding.condition.assignmentIds;
     }
-    if (starterConditions.some(function(condition) { return !validateConditionShape(condition).ok; })) {
+    if (starterConditions.some(function(condition) { return condition.conditionType === 'submitter' || !validateConditionShape(condition).ok; })) {
       return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
     }
 
@@ -715,7 +716,9 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
 
   for (const cond of conditions) {
     let part = '';
-    if (cond.conditionType === 'person') {
+    if (cond.conditionType === 'submitter') {
+      part = governanceCopy.auditSubmitter;
+    } else if (cond.conditionType === 'person') {
       const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
       const names = ids.map(id => hrMap[id] || id).filter(Boolean);
       part = names.length ? '由 ' + names.join('、') + localeCopy.copy_7abed5378f : '由指定人员审批';

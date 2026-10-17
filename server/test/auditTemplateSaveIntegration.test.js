@@ -52,7 +52,7 @@ const options = {
     const page = {
       data: { auditTemplateForm: { id: '', name: '模板测试', description: '', starterType: 'conditions',
         starterConditions: [condition], resubmitMode: 'fresh',
-        steps: ['pass', 'sign', 'estamp', 'both'].map(actionType => ({ name: actionType, actionType, conditions: [condition], allowApproverDesignation: true })) } },
+        steps: ['pass', 'sign', 'estamp', 'both'].map(actionType => ({ name: actionType, actionType, conditions: [{ conditionType: 'submitter' }], allowApproverDesignation: true })) } },
       setLoading() {}, startCreateAuditTemplate() {}, loadAuditFlowTemplates() {},
       async callCloud(name, body) { saved = await call(name, JSON.parse(JSON.stringify(body))); return saved; }
     };
@@ -73,6 +73,7 @@ const options = {
     assert.equal(edited.name, '仅修改第二条');
     assert.deepEqual(edited.steps.map(item => item.actionType), ['pass', 'sign', 'estamp', 'both']);
     assert.ok(edited.steps.every(item => item.allowApproverDesignation && item.conditions.length === 1));
+    assert.ok(edited.steps.every(item => item.conditions[0].conditionType === 'submitter'));
     assert.equal((await call('saveAuditFlowTemplate', page.data.auditTemplateForm, 'submit-b')).status, 'not_found');
     const invalid = JSON.parse(JSON.stringify(page.data.auditTemplateForm));
     invalid.steps[3].actionType = 'invalid';

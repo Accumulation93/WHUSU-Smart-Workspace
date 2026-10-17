@@ -1,4 +1,5 @@
 module.exports = {
+  auditSubmitter: '发起人本人',
   read: '查看',
   remove: '删除',
   readDescription: '查看本组织的相关记录',
