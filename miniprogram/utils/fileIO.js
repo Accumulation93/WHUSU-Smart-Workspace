@@ -1,6 +1,34 @@
 const copy = require('../locales/zh-CN/fileIO');
 const session = require('./orgSession');
 const unavailable = new Set();
+let namingQueue = Promise.resolve();
+let previewSequence = 0;
+
+function namedDocument(filePath, fileName) {
+  // 原生文档标题取路径末段。独立目录保留原名，不能覆盖同名的另一份文件。
+  let name = String(fileName || '').replace(/[\\/:*?"<>|\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/g, '_').trim().replace(/[. ]+$/, '');
+  if (!name || name === '.' || name === '..') return Promise.resolve(filePath);
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) name = '_' + name;
+  if (name.length > 80) { const dot = name.lastIndexOf('.'); const suffix = dot >= 0 ? name.slice(dot).slice(0, 12) : ''; name = name.slice(0, 80 - suffix.length) + suffix; }
+  if (String(filePath).split('/').pop() === name) return Promise.resolve(filePath);
+  const task = namingQueue.then(async () => {
+    const fs = wx.getFileSystemManager();
+    const call = (method, options) => new Promise((resolve, reject) => fs[method](Object.assign({}, options, { success: resolve, fail: reject })));
+    const root = wx.env.USER_DATA_PATH;
+    const entries = await call('readdir', { dirPath: root });
+    const owned = (entries.files || []).filter(entry => /^fileio_named_[0-9]{13}_[0-9]+$/.test(entry)).sort();
+    // 最多保留最近三份预览副本；只清理本模块创建的目录，不处理源附件。
+    for (const entry of owned.slice(0, Math.max(0, owned.length - 2))) await call('rmdir', { dirPath: root + '/' + entry, recursive: true });
+    const directory = root + '/fileio_named_' + Date.now() + '_' + (++previewSequence);
+    await call('mkdir', { dirPath: directory });
+    const target = directory + '/' + name;
+    try { await call('copyFile', { srcPath: filePath, destPath: target }); }
+    catch (error) { await call('rmdir', { dirPath: directory, recursive: true }).catch(() => {}); throw error; }
+    return target;
+  });
+  namingQueue = task.catch(() => {});
+  return task;
+}
 
 function available(name, key) {
   if (unavailable.has(key || name) || typeof wx[name] !== 'function') return false;
@@ -99,6 +127,10 @@ async function outputFile(options) {
     if (modes.indexOf(mode) < 0) throw { unsupported: true };
     let value;
     if (mode === 'preview') {
+      if (!image) {
+        preview.filePath = await namedDocument(filePath, fileName);
+        if (!session.isCurrent(snapshot)) return finish(config, { status: 'cancelled' });
+      }
       value = image
         ? await invoke('previewImage', { urls: [filePath], current: filePath })
         : await invoke('openDocument', preview);
