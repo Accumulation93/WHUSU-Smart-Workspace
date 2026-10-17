@@ -3,6 +3,7 @@
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
 import src_auditVerification from './shared/auditVerification.js';
+import src_fileIO from './shared/fileIO.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
@@ -99,7 +100,7 @@ export default Object.freeze({
   createDescLabel: src_web.audit.detailDescriptionLabel,
   createDescPlaceholder: src_web.audit.createDescPlaceholder,
   createFilesLabel: src_web.audit.detailFilesTitle,
-  createChooseFile: src_submissionDetail.copy_98aea69c53,
+  createChooseFile: src_fileIO.choose,
   createFilesRequired: src_web.audit.createFilesRequired,
   createRemoveFile: src_auditSigning.remove,
   createSubmit: src_submissionDetail.copy_c07097f6db,

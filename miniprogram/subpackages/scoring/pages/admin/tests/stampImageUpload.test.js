@@ -86,6 +86,7 @@ function loadStampUploadRuntime() {
   let behavior = null;
   const toasts = [];
   const vmRequire = (name) => {
+    if (name.endsWith('fileIO')) return { inputFile: options => sandbox.wx.chooseImage({ ...options, sizeType: ['original'] }) };
     if (name.endsWith('stampAuthorization')) return require('../../../../../locales/zh-CN/stampAuthorization');
     if (name.endsWith('imageDataUrl')) return require('../../../../../utils/imageDataUrl');
     if (name.endsWith('auditPersonnelView')) {

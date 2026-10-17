@@ -1,3 +1,4 @@
+const { outputFile, inputFile } = require('./fileIO');
 const localeCopy = require('../locales/zh-CN/generated/utils/tableFile');
 const { encodeBinaryBase64, decodeBinaryBase64 } = require('./binaryBase64');
 /**
@@ -292,57 +293,8 @@ function saveAndShareFile(content, fileName, extension) {
       resolve({ success: false, error: error || null });
     }
 
-    function saveToDisk(lastError) {
-      if (typeof wx.saveFileToDisk !== 'function') {
-        finishFailure(lastError);
-        return;
-      }
-      wx.saveFileToDisk({
-        filePath: filePath,
-        success: function() {
-          resolve({ success: true, mode: 'disk', filePath: filePath });
-        },
-        fail: finishFailure
-      });
-    }
-
-    function shareFile(lastError) {
-      if (typeof wx.shareFileMessage !== 'function') {
-        saveToDisk(lastError);
-        return;
-      }
-      wx.shareFileMessage({
-        filePath: filePath,
-        fileName: fullFileName,
-        success: function() {
-          resolve({ success: true, mode: 'share', filePath: filePath });
-        },
-        fail: function(error) {
-          if (/cancel/i.test(String(error && error.errMsg || ''))) {
-            resolve({ success: false, cancelled: true, error: error });
-            return;
-          }
-          saveToDisk(error || lastError);
-        }
-      });
-    }
-
     function openFile() {
-      if (typeof wx.openDocument !== 'function') {
-        shareFile();
-        return;
-      }
-      wx.openDocument({
-        filePath: filePath,
-        fileType: safeExtension,
-        showMenu: true,
-        success: function() {
-          resolve({ success: true, mode: 'open', filePath: filePath });
-        },
-        fail: function(error) {
-          shareFile(error);
-        }
-      });
+      outputFile({ filePath, fileName: fullFileName }).then(result => resolve(Object.assign({ success: result.status === 'success', filePath }, result)));
     }
 
     fs.writeFile({
@@ -371,7 +323,7 @@ function saveAndShareFile(content, fileName, extension) {
  */
 function chooseTableFile(callCloudFn) {
   return new Promise(function (resolve) {
-    wx.chooseMessageFile({
+    inputFile({
       count: 1,
       type: 'file',
       extension: ['csv', 'xlsx'],

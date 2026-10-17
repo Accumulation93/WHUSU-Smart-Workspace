@@ -1,3 +1,4 @@
+import fileIO from '../../src/locales/zh-CN/shared/fileIO.js';
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
 import { mockApi } from './fixtures.js';
@@ -8,6 +9,7 @@ import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 const q = (question='Question A') => ({question,scoreLabel:'Explanation',minValue:0,startValue:2,maxValue:10,stepValue:0.5});
 const initial = () => [{id:'t1',name:'Template A',description:'Description A',questions:[q()],questionCount:1}];
 async function setup(page, options={}) {
+  await page.addInitScript(()=>{window.showSaveFilePicker=undefined;});
   const api=await mockApi(page,{activeContextId:'ctx-admin'});
   await page.route('**/api/getMyAdminPermissions',route=>route.fulfill({json:{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.templates':true,'scoring.templates.delete':true,'scoring.activities':true,...options.permissions}}}));
   const state={list:initial(),reads:0,writes:[],reject:false,failRead:false};
@@ -82,7 +84,7 @@ test('CSV mapping distinguishes minimum and initial score, preserves multiline l
 test('CSV export roundtrips and Excel import selects a sheet using the existing server file interfaces',async({page})=>{
   const {state}=await setup(page);await open(page);await edit(page);
   await page.getByRole('button',{name:ui.copy_37b2d47dd4,exact:true}).click();
-  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:messages.copy_7ffcbc33aa,exact:true}).click();const download=await downloadPromise;
+  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:messages.copy_7ffcbc33aa,exact:true}).click();await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();const download=await downloadPromise;
   const text=await fs.readFile(await download.path(),'utf8');expect(text).toContain('问题内容,分值说明,最低分,起始分,最高分,分值间隔');expect(text).toContain('Question A,Explanation,0,2,10,0.5');
   await page.route('**/api/parseTableFile',route=>{expect(route.request().postDataJSON()).toMatchObject({fileName:'Questions.xlsx',fileBase64:'d29ya2Jvb2s='});return route.fulfill({json:{status:'success',sheets:[{name:'Sheet One',headers:['question'],rows:[['Wrong']]},{name:'Sheet Two',headers:['question','startValue'],rows:[['Correct','4']]}]}});});
   await page.locator('input[type=file]').setInputFiles({name:'Questions.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('workbook')});await page.getByRole('button',{name:'Sheet Two',exact:true}).click();
@@ -109,7 +111,7 @@ test('Excel export uses exact headers, retries failures and corrupt CSV cannot r
   await setup(page);let exports=0;
   await page.route('**/api/buildTableFile',route=>{exports++;const body=route.request().postDataJSON();expect(body.headers.map(item=>item.key)).toEqual(['question','scoreLabel','minValue','startValue','maxValue','stepValue']);expect(body.headers.find(item=>item.key==='startValue').label).toBe('起始分');expect(body.rows[0]).toMatchObject({question:'Question A',startValue:'2'});return route.fulfill({json:exports===1?{status:'forbidden',message:'Export rejected'}:{status:'success',fileBase64:'d29ya2Jvb2s='}});});
   await open(page);await edit(page);await page.getByRole('button',{name:ui.copy_37b2d47dd4,exact:true}).click();await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await expect(page.getByText('Export rejected')).toBeVisible();
-  const download=page.waitForEvent('download');await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();expect((await download).suggestedFilename()).toBe(messages.copy_44db0286b0+'.xlsx');
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();expect((await download).suggestedFilename()).toBe(messages.copy_44db0286b0+'.xlsx');
   await page.locator('input[type=file]').setInputFiles({name:'Corrupt.csv',mimeType:'text/csv',buffer:Buffer.from('question\n"Unclosed')});await expect(page.getByLabel(ui.copy_f7736be7ba)).toHaveValue('Question A');await expect(page.getByRole('dialog',{name:ui.copy_0601453416})).toHaveCount(0);
 });
 
@@ -119,5 +121,5 @@ test('malformed exported bytes show the shared failure inside the dialog and can
   await open(page);await edit(page);await page.getByRole('button',{name:ui.copy_37b2d47dd4,exact:true}).click();
   const dialog=page.getByRole('dialog',{name:ui.copy_37b2d47dd4});await dialog.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();
   await expect(dialog.getByRole('alert')).toHaveText(messages.copy_2b61466286);await expect(dialog).not.toContainText(/atob|InvalidCharacterError|encoded/);
-  const download=page.waitForEvent('download');await dialog.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await download;await expect(dialog).toHaveCount(0);await expect(page.getByLabel(ui.copy_a8f6e57e29,{exact:true})).toHaveValue('Template A');
+  const download=page.waitForEvent('download');await dialog.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();await download;await expect(dialog).toHaveCount(0);await expect(page.getByLabel(ui.copy_a8f6e57e29,{exact:true})).toHaveValue('Template A');
 });

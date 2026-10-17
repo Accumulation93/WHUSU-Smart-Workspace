@@ -1,3 +1,5 @@
+import { outputFile } from './fileIO.js';
+import { session } from './session.js';
 import copy from '@/locales/zh-CN/index.js';
 import { formatListTime } from './dateTime.js';
 import { WEB_CLIENT_VERSION } from './version.js';
@@ -79,6 +81,8 @@ export function readFileAsBase64(file) {
 
 /** 按服务端下发的文件名下载附件；凭证在 Cookie 里，浏览器自动携带。 */
 export async function downloadAuditFile(fileId, fileName) {
+  const scope=()=>[session.status,session.user?.id,session.context?.contextId,session.context?.organizationId].join('|');
+  const expected=scope();
   const response = await fetch('/api/downloadAuditFile?fileId=' + encodeURIComponent(fileId), {
     method: 'GET',
     credentials: 'same-origin',
@@ -89,12 +93,6 @@ export async function downloadAuditFile(fileId, fileName) {
   });
   if (!response.ok) throw new Error('download_failed');
   const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName || '';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+  if(expected!==scope())return {status:'cancelled'};
+  return outputFile({ blob, fileName });
 }

@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_fileIO from './shared/fileIO.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_verification from './shared/generated/subpackages/audit/pages/verification/verification.js';
 import src_signingEvidence from './shared/signingEvidence.js';
@@ -18,7 +19,7 @@ export default Object.freeze({
   numberPlaceholder: src_verification.copy_93eb240494,
   numberRequired: src_verification.copy_93eb240494,
   fileLabel: src_web.verify.fileLabel,
-  filePlaceholder: src_submissionDetail.copy_98aea69c53,
+  filePlaceholder: src_fileIO.choose,
   fileTooLarge: src_web.verify.fileTooLarge,
   fileReadFailed: src_submissionDetail.copy_03d69a9d28,
   fileRequired: src_verification.copy_cbf65b3559,

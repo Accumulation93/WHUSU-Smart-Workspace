@@ -1,3 +1,4 @@
+const { outputFile } = require('../../utils/fileIO');
 const copy = require('../../locales/zh-CN/signingEvidence');
 const signing = require('../../locales/zh-CN/auditSigning');
 const { formatDetailTime } = require('../../utils/dateTime');
@@ -97,9 +98,6 @@ Component({
       if (!certificate) return;
       const safeToken = String(certificate.fingerprint || '');
       if (!/^[a-f0-9]{64}$/.test(safeToken)) return;
-      if (typeof wx.shareFileMessage !== 'function' && typeof wx.saveFileToDisk !== 'function') {
-        wx.showModal({ title: copy.certificateTitle, content: copy.exportUnavailable, showCancel: false }); return;
-      }
       let fs;
       try {
         fs = wx.getFileSystemManager();
@@ -122,28 +120,9 @@ Component({
         if (orgSession.isRequestCurrent(this, request)) wx.showModal({ title: copy.certificateTitle, content: message, showCancel: false });
         finish();
       };
-      // 原生接口存在不代表当前运行端支持；电脑保存与手机分享互为备用路径。
-      let platform = '';
-      try { if (typeof wx.getDeviceInfo === 'function') platform = wx.getDeviceInfo().platform || ''; } catch (_) {}
-      const actions = /^(windows|mac|devtools)$/.test(platform)
-        ? ['saveFileToDisk', 'shareFileMessage'] : ['shareFileMessage', 'saveFileToDisk'];
-      const attempt = index => {
-        if (finished) return;
+      const attempt = () => {
         if (!orgSession.isRequestCurrent(this, request)) { finish(); return; }
-        if (index >= actions.length) { fail(copy.exportFailed); return; }
-        const action = actions[index];
-        if (typeof wx[action] !== 'function') { attempt(index + 1); return; }
-        let settled = false;
-        const failure = error => {
-          if (settled) return;
-          settled = true;
-          if (/cancel/i.test(String(error && (error.errMsg || error.message) || ''))) { finish(); return; }
-          attempt(index + 1);
-        };
-        try {
-          wx[action]({ filePath, ...(action === 'shareFileMessage' ? { fileName } : {}),
-            success: () => { if (!settled) { settled = true; finish(); } }, fail: failure });
-        } catch (error) { failure(error); }
+        outputFile({ filePath, fileName, modes: ['share', 'save'] }).then(finish);
       };
       try {
         fs.writeFile({ filePath, data: certificate.derBase64, encoding: 'base64',

@@ -1,3 +1,4 @@
+import fileIO from '../../src/locales/zh-CN/shared/fileIO.js';
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -6,6 +7,7 @@ import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import copy from '../../src/locales/zh-CN/index.js';
 const target = (id, name, score, department = 'Department A') => ({ id, targetId: id, name, finalScore: score, department, identity: 'Identity A', workGroup: department === 'Department A' ? 'Group A' : '', expectedScorerCount: 2, submittedScorerCount: 1 });
 async function setup(page) {
+  await page.addInitScript(()=>{window.showSaveFilePicker=undefined;});
   await mockApi(page, { activeContextId: 'ctx-admin' });
   const state = { requests: [], writes: [], exports: [], fail: '', reject: false, current: 'a1', revoked: false, permissions: { 'scoring.results': true, 'scoring.results_export': true, 'scoring.results_revoke': true, 'scoring.activities': true }, gate: null, readGate: null, count: 2 };
   const fulfill = (route, json) => route.fulfill({ json });
@@ -86,7 +88,7 @@ test('all three exports respect returned workbook extension and failed export ke
   const state = await setup(page); await open(page);
   for (const [reportType, label] of [['overview', ui.copy_03f903662b], ['detail', ui.copy_8b73330188], ['completion', ui.copy_779db553f1]]) {
     await page.getByRole('button', { name: label, exact: true }).click(); if (reportType === 'overview') { state.reject = true; await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); await expect(page.getByText('Export rejected')).toBeVisible(); state.reject = false; }
-    const download = page.waitForEvent('download'); await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); expect((await download).suggestedFilename()).toBe('Results.xlsx'); await expect(page.getByRole('dialog')).toHaveCount(0); expect(state.exports.at(-1)).toMatchObject({ activityId: 'a1', timezone: 8, reportType, format: 'csv' }); expect(state.exports.at(-1)).not.toHaveProperty('dataType');
+    const download = page.waitForEvent('download'); await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();expect((await download).suggestedFilename()).toBe('Results.xlsx'); await expect(page.getByRole('dialog')).toHaveCount(0); expect(state.exports.at(-1)).toMatchObject({ activityId: 'a1', timezone: 8, reportType, format: 'csv' }); expect(state.exports.at(-1)).not.toHaveProperty('dataType');
   }
 });
 

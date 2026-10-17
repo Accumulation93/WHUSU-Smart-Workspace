@@ -62,9 +62,9 @@
 
         <div class="stack-tight">
           <span class="field-label">{{ copy.audit.createFilesLabel }}</span>
-          <input
+          <FileInput
             class="field-input"
-            type="file"
+
             multiple
             @change="onFilesPicked"
           />
@@ -93,6 +93,7 @@
 </template>
 
 <script setup>
+import FileInput from '@/components/FileInput.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';

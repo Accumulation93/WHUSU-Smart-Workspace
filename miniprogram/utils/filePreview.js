@@ -1,3 +1,4 @@
+const { outputFile } = require('./fileIO');
 const localeCopy = require('../locales/zh-CN/generated/utils/filePreview');
 /**
  * Unified file opener — downloads any audit file via direct binary stream
@@ -74,22 +75,7 @@ function mimeFromName(fileName) {
  * Handles images with previewImage (better UX) and all other types with openDocument.
  */
 function openLocalFile(filePath, fileName) {
-  const mime = mimeFromName(fileName);
-  if (mime.startsWith('image/')) {
-    wx.previewImage({ urls: [filePath], current: filePath });
-  } else {
-    wx.openDocument({
-      filePath: filePath,
-      showMenu: true,
-      fail: function(err) {
-        wx.showModal({
-          title: localeCopy.copy_53de6ca47b,
-          content: localeCopy.copy_3bc4a9b5be + (fileName || localeCopy.copy_0c28c344e7),
-          showCancel: false
-        });
-      }
-    });
-  }
+  return outputFile({ filePath, fileName });
 }
 
 /**
@@ -261,27 +247,13 @@ function writeAndOpen(options) {
     data: data,
     encoding: encoding,
     success: function() {
-      wx.openDocument({
-        filePath: filePath,
-        fileType: fileType,
-        showMenu: true,
-        fail: function() {
-          wx.showToast({ title: localeCopy.copy_72fe3d5062, icon: 'none' });
-        }
-      });
+      outputFile({ filePath, fileName, fileType });
     },
     fail: function(err) {
       // Sync fallback
       try {
         fs.writeFileSync(filePath, data, encoding);
-        wx.openDocument({
-          filePath: filePath,
-          fileType: fileType,
-          showMenu: true,
-          fail: function() {
-            wx.showToast({ title: localeCopy.copy_72fe3d5062, icon: 'none' });
-          }
-        });
+        outputFile({ filePath, fileName, fileType });
       } catch (syncErr) {
         wx.showToast({ title: localeCopy.copy_8807a41511, icon: 'none' });
       }

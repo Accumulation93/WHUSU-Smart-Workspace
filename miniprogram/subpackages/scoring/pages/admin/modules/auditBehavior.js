@@ -1,3 +1,4 @@
+const { inputFile } = require('../../../package-resources/utils/fileIO');
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
  * Audit Workflow Behavior — Admin-side audit management
@@ -1356,7 +1357,7 @@ module.exports = Behavior({
     },
 
     chooseStampImage() {
-      wx.chooseImage({
+      inputFile({ type: 'image',
         count: 1,
         // 印章必须保留 PNG 透明通道：微信压缩会把透明 PNG 重新编码成白底 JPEG，只能用原图。
         sizeType: ['original'],
@@ -1877,7 +1878,7 @@ module.exports = Behavior({
     chooseVerifyFile() {
       const that = this;
       const request = orgSession.beginRequest(this, 'verificationFileRead');
-      wx.chooseMessageFile({
+      inputFile({
         count: 1,
         type: 'all',
         success: function(res) {

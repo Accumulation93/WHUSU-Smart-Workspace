@@ -27,7 +27,7 @@
       </div>
       <p v-if="actionNotice && !exportOpen" role="alert">{{ actionNotice }}</p>
       <div class="template-actions"><button type="button" class="btn btn-secondary" :disabled="blocked" @click="add">{{ ui.copy_9d31093860 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="fileInput.click()">{{ ui.copy_47f9d64667 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked || !form.questions.length" @click="startExport">{{ ui.copy_37b2d47dd4 }}</button><button type="submit" class="btn btn-primary" :disabled="blocked || drag.state.active">{{ busy ? copy.common.loading : ui.copy_7e4100d002 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="reset">{{ ui.copy_6888d59833 }}</button></div>
-      <input ref="fileInput" class="file-input" type="file" accept=".csv,.xlsx" @change="importFile" />
+      <FileInput ref="fileInput" hidden class="file-input"  accept=".csv,.xlsx" @change="importFile" />
     </form>
     <section class="card stack"><span class="section-title">{{ ui.copy_c0ad13da27 }}</span><p v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</p><div class="list"><article v-for="row in rows" :key="row.id" class="list-row question-card"><strong>{{ row.name }}</strong><span v-if="row.description" class="muted break-all">{{ row.description }}</span><span class="muted">{{ ui.copy_5b54c6c107 }}{{ row.questionCount }}</span><div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="act(row,'duplicate')">{{ ui.copy_fbf1856932 }}</button><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="act(row,'delete')">{{ ui.copy_acc985cabc }}</button></div></article></div></section>
     <GlassDialog v-if="sheets.length" :title="sourceName" @close="sheets=[]"><div class="stack"><button v-for="(sheet,index) in sheets" :key="index" type="button" class="selection-option-card" @click="chooseSheet(sheet)">{{ sheet.name }}</button></div></GlassDialog>
@@ -38,6 +38,7 @@
   </div>
 </template>
 <script setup>
+import FileInput from '@/components/FileInput.vue';
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
 const canDeleteRecord = useAdminCapability('scoring.templates.delete');
 const canWriteRecord = useAdminCapability('scoring.templates');

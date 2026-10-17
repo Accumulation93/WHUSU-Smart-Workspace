@@ -201,7 +201,7 @@ test('重叠签章只移动明确选中的对象，拖动保持抓取位置并�
     await page.getByRole('button', { name: text.confirm, exact: true }).click();
   }
   await add(); await add();
-  await page.getByRole('button', { name: text.move, exact: true }).nth(1).click();
+  await page.getByRole('button', { name: text.move, exact: true }).nth(0).click();
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
   await page.locator('.signing-stage canvas').scrollIntoViewIfNeeded();
   const box = await page.locator('.signing-stage canvas').boundingBox();

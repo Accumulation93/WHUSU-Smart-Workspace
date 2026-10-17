@@ -1,3 +1,4 @@
+const { inputFile } = require('../../package-resources/utils/fileIO');
 const signingAssets = require('../../../../utils/auditSigningAssets');
 const inkHistory = require('../../../../utils/auditInk');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
@@ -985,7 +986,7 @@ Page({
   // File upload
   chooseFile() {
     const that = this;
-    wx.chooseMessageFile({
+    inputFile({
       count: 3,
       type: 'file',
       success(res) {
@@ -996,7 +997,7 @@ Page({
 
   chooseImage() {
     const that = this;
-    wx.chooseImage({
+    inputFile({ type: 'image',
       count: 3,
       sizeType: ['original', 'compressed'],
       sourceType: ['album', 'camera'],
@@ -3111,7 +3112,7 @@ Page({
 
   editChooseFile() {
     let that = this;
-    wx.chooseMessageFile({
+    inputFile({
       count: 3,
       type: 'file',
       success: function(res) { that.uploadEditFiles(res.tempFiles); }
@@ -3120,7 +3121,7 @@ Page({
 
   editChooseImage() {
     let that = this;
-    wx.chooseImage({
+    inputFile({ type: 'image',
       count: 3,
       sizeType: ['original', 'compressed'],
       sourceType: ['album', 'camera'],

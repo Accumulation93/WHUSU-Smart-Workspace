@@ -1,3 +1,4 @@
+import { outputFile } from './fileIO.js';
 import fileCopy from '@/locales/zh-CN/shared/generated/utils/tableFile.js';
 import { callApi, requireSuccess } from './api.js';
 
@@ -34,7 +35,5 @@ export function downloadTable(content, name, extension) {
   const safeName = String(name || 'export').replace(/[\\/:*?"<>|\x00-\x1F]/g, '_').slice(0, 60);
   const bytes = extension === 'xlsx' ? Uint8Array.from(atob(content), char => char.charCodeAt(0)) : content;
   const blob = new Blob([bytes], { type: extension === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob), link = document.createElement('a');
-  link.href = url; link.download = safeName + '.' + extension; document.body.append(link); link.click(); link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return outputFile({ blob, fileName: safeName + '.' + extension });
 }

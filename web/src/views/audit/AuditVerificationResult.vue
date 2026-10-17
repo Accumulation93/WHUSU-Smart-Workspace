@@ -119,6 +119,7 @@
 </template>
 
 <script setup>
+import { outputFile } from '@/runtime/fileIO.js';
 import { computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/signingEvidence.js';
@@ -296,22 +297,11 @@ function exportCertificate(fileIndex, certificateIndex) {
   if (!certificate) return;
   const token = String(certificate.fingerprint || '');
   if (!/^[a-f0-9]{64}$/.test(token)) return;
-  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') {
-    showToast(copy.exportUnavailable);
-    return;
-  }
   try {
     const binary = atob(certificate.derBase64);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pkix-cert' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'WHUSU-' + token + '.cer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    outputFile({ blob: new Blob([bytes], { type: 'application/pkix-cert' }), fileName: 'WHUSU-' + token + '.cer', modes: ['save','systemShare'] });
   } catch (_) {
     showToast(copy.exportFailed);
   }

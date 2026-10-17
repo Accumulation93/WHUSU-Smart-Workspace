@@ -213,6 +213,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/fileIO.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js"
       },
       {
@@ -434,6 +438,10 @@
       {
         "type": "file",
         "value": "utils/dialogKeyboard.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/fileIO.js"
       },
       {
         "type": "file",

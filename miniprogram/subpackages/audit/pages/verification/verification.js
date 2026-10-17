@@ -1,3 +1,4 @@
+const { inputFile } = require('../../package-resources/utils/fileIO');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/verification/verification');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const {
@@ -62,7 +63,7 @@ Page({
   chooseVerifyFile() {
     const that = this;
     const request = orgSession.beginRequest(this, 'verificationFileRead');
-    wx.chooseMessageFile({
+    inputFile({
       count: 1,
       type: 'all',
       success: function(res) {

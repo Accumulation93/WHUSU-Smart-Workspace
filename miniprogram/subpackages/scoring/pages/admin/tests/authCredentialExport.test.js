@@ -31,6 +31,7 @@ function createHarness() {
   const state = { toasts: [], writes: [], actionSheetItems: null, actionSheetTapIndex: 0, modalCount: 0 };
   const realTableFile = require(tableFilePath);
   const wxStub = {
+    getStorageSync: () => '',
     env: { USER_DATA_PATH: '/tmp/wx-user-data' },
     getFileSystemManager: () => ({
       writeFile: (options) => {
@@ -39,6 +40,7 @@ function createHarness() {
       }
     }),
     showActionSheet: (options) => {
+      if (options.alertText) { options.success({ tapIndex: 0 }); return; }
       state.actionSheetItems = Array.from(options.itemList || []).map(String);
       if (options.success) options.success({ tapIndex: state.actionSheetTapIndex });
     },

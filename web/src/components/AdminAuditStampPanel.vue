@@ -2,7 +2,7 @@
   <section v-if="canWriteRecord" class="card stack">
     <span class="section-title">{{ native.copy_82f17ccbef }}</span>
     <label class="field"><span class="field-label">{{ native.copy_9395b8661f }}</span><input v-model="state.form.name" class="field-input" :disabled="blocked" /></label>
-    <input ref="fileInput" type="file" accept="image/*" class="visually-hidden" :disabled="blocked" @change="readImage" />
+    <FileInput ref="fileInput" hidden  accept="image/*" class="visually-hidden" :disabled="blocked" @change="readImage" />
     <button class="btn-quiet" :disabled="blocked" @click="fileInput.click()">{{ native.copy_393f873d06 }}</button>
     <img v-if="state.form.imageData" :src="state.form.imageData" :alt="state.form.name || text.stamp" class="stamp-preview" />
     <p v-if="notice || actionNotice" class="notice-line">{{ notice || actionNotice }} <button v-if="notice" class="btn-quiet" :disabled="busy || loading" @click="load">{{ text.retry }}</button></p>
@@ -12,6 +12,7 @@
   <PersonnelPicker v-if="grantTarget" :title="stamps.title" :options="candidates" :value="grantTarget.assignedPeople.filter(item=>item.available!==false)" :busy="busy" @cancel="grantTarget=null" @confirm="saveGrants"><p>{{ stamps.editorContext(grantTarget.name) }}</p><p v-if="grantTarget.assignedPeople.some(item=>item.available===false)" class="notice-line">{{ stamps.invalidRemoved }}</p><p v-if="actionNotice" class="notice-line">{{ actionNotice }}</p></PersonnelPicker>
 </template>
 <script setup>
+import FileInput from '@/components/FileInput.vue';
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
 const canDeleteRecord = useAdminCapability('audit.stamps.delete');
 const canWriteRecord = useAdminCapability('audit.stamps');

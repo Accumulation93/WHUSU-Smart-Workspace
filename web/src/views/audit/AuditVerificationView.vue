@@ -44,10 +44,10 @@
             {{ copy.verify.filePlaceholder }}
           </button>
         </div>
-        <input
-          ref="fileInput"
+        <FileInput
+          ref="fileInput" hidden
           class="visually-hidden"
-          type="file"
+
           :disabled="busy"
           @change="onFileChange"
         />
@@ -104,6 +104,7 @@
 </template>
 
 <script setup>
+import FileInput from '@/components/FileInput.vue';
 import { ref, watch, onBeforeUnmount } from 'vue';
 import AuditVerificationResult from './AuditVerificationResult.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';

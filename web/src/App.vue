@@ -9,11 +9,13 @@
   <RouterView v-else />
   <AppToaster />
   <AppDialog />
+  <FileIOHost />
 </template>
 
 <script setup>
 import { computed, watch } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
+import FileIOHost from '@/components/FileIOHost.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppToaster from '@/components/AppToaster.vue';
