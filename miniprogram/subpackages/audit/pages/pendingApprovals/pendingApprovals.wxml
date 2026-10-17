@@ -24,7 +24,7 @@
             <view class="pending-item-name">{{item.title || item.submissionNumber}}</view>
             <view class="pending-item-meta">
               <view class="audit-chip audit-chip-progress">{{localeCopy.copy_36be0dfa1c}}</view>
-              <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
+              <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? signingCopy.either : localeCopy.copy_a63d02480e)))}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
             </view>
             <view class="pending-item-info">{{localeCopy.copy_322d34ce9c}}{{item.submitterName}} · {{item.submissionNumber}}</view>
             <view class="pending-required-context" wx:if="{{item.requiredOrganizationName || item.eligibleContextLabels.length}}">

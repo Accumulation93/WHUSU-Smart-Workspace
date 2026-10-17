@@ -2467,14 +2467,6 @@
           <view class="field-label">{{localeCopy.copy_e53f7aae11}}</view>
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.description}}" placeholder="{{localeCopy.copy_87fcf63dd5}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
-        <view class="field field-row">
-        <view class="field field-half">
-          <view class="field-label">{{localeCopy.copy_a8c395216d}}</view>
-          <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" value="{{auditTemplateForm.resubmitMode === 'fresh' ? 0 : 1}}" bindchange="onResubmitModeChange">
-            <view class="picker-value">{{auditTemplateForm.resubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
-          </picker>
-        </view>
-      </view>
 
       <!-- Starter Conditions (multi-condition OR-ed) -->
       <view class="list-card nested-card audit-condition-card">
@@ -2527,7 +2519,7 @@
         <view class="list-title audit-section-title">{{localeCopy.copy_0e8673eda8}}{{auditTemplateForm.steps.length}}{{localeCopy.copy_16d27aa59e}}</view>
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
-            <view class="list-name">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
+            <view class="list-name">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? auditSigningCopy.either : localeCopy.copy_a63d02480e)))}}</view>
             <view class="list-desc">{{item.allowApproverDesignation ? (index === 0 ? localeCopy.copy_1af11a9ca5 : localeCopy.copy_5b18d7f5ee) : localeCopy.copy_a5674f1e5b}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view class="audit-condition-row" wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
@@ -2587,7 +2579,7 @@
           <view class="list-item audit-template-list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
             <view class="audit-template-toggle" data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand" hover-class="ui-press-chip ui-motion-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="list-main">
-                <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}{{localeCopy.copy_9e545997b0}} · {{item.resubmitMode === 'fresh' ? localeCopy.copy_bd83f7065b : localeCopy.copy_2313ec3016}})</text></view>
+                <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}{{localeCopy.copy_9e545997b0}})</text></view>
                 <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
               </view>
               <view class="audit-expand-toggle">
@@ -2603,7 +2595,7 @@
               <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" class="audit-template-step-preview">
                 <view class="audit-template-step-head">
                   <text class="audit-step-index">{{localeCopy.copy_ef8b7ffa9b}}{{si + 1}}{{localeCopy.copy_f09dcf0e17}}</text>
-                  <text class="audit-step-action">{{step.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (step.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (step.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</text>
+                  <text class="audit-step-action">{{step.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (step.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (step.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (step.actionType === 'either' ? auditSigningCopy.either : localeCopy.copy_a63d02480e)))}}</text>
                 </view>
                 <!-- Each condition as bubble chips -->
                 <view class="audit-resolved-condition-row" wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
@@ -2706,8 +2698,8 @@
             <!-- Action type -->
             <view class="field ui-dialog-inset">
               <view class="field-label">{{localeCopy.copy_6ce8bf8393}}</view>
-              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" value="{{auditTemplateStepForm.actionType === 'pass' ? 0 : (auditTemplateStepForm.actionType === 'sign' ? 1 : (auditTemplateStepForm.actionType === 'estamp' ? 2 : 3))}}" bindchange="onStepActionTypeChange">
-                <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (auditTemplateStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (auditTemplateStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
+              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e,auditSigningCopy.either]}}" value="{{auditTemplateStepForm.actionType === 'pass' ? 0 : (auditTemplateStepForm.actionType === 'sign' ? 1 : (auditTemplateStepForm.actionType === 'estamp' ? 2 : (auditTemplateStepForm.actionType === 'either' ? 4 : 3)))}}" bindchange="onStepActionTypeChange">
+                <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (auditTemplateStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (auditTemplateStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (auditTemplateStepForm.actionType === 'either' ? auditSigningCopy.either : localeCopy.copy_a63d02480e)))}}</view>
               </picker>
             </view>
 

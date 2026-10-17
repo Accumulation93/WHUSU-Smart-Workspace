@@ -585,7 +585,7 @@ Page({
   },
 
   onResubmitModeChange(e) {
-    this.setData({ resubmitMode: ['fresh', 'from_rejector'][e.detail.value] || 'fresh' });
+    this.setData({ resubmitMode: 'fresh' });
   },
 
   onTitleInput(e) {
@@ -630,7 +630,7 @@ Page({
   },
 
   onAdHocActionTypeChange(e) {
-    const val = ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass';
+    const val = ['pass', 'sign', 'estamp', 'both', 'either'][e.detail.value] || 'pass';
     this.setData({ 'adHocStepForm.actionType': val });
   },
 
@@ -765,7 +765,7 @@ Page({
   },
 
   onPersonPickerActionTypeChange(e) {
-    this.setData({ personPickerStepActionType: ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass' });
+    this.setData({ personPickerStepActionType: ['pass', 'sign', 'estamp', 'both', 'either'][e.detail.value] || 'pass' });
   },
 
   confirmPersonPicker() {
@@ -942,6 +942,7 @@ Page({
     if (actionType === 'pass') return localeCopy.copy_8e2f75159e;
     if (actionType === 'sign') return localeCopy.copy_49cbf30d6b;
     if (actionType === 'estamp') return localeCopy.copy_7e6630535d;
+    if (actionType === 'either') return signingCopy.either;
     if (actionType === 'both') return localeCopy.copy_a63d02480e;
     return actionType || localeCopy.copy_8e2f75159e;
   },
@@ -1371,9 +1372,9 @@ Page({
               }
             }
 
-            let actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
+            let actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, either: signingCopy.either, both: localeCopy.copy_a63d02480e };
             let actionLabel = actionMap[step.actionType] || step.actionType || localeCopy.copy_8e2f75159e;
-            let completedStepLabelMap = { pass: localeCopy.copy_8984f2dd04, sign: localeCopy.copy_3ef3c50164, estamp: localeCopy.copy_0657662c42, both: localeCopy.copy_db18a7c8cf };
+            let completedStepLabelMap = { pass: localeCopy.copy_8984f2dd04, sign: localeCopy.copy_3ef3c50164, estamp: localeCopy.copy_0657662c42, either: signingCopy.signedOrStamped, both: localeCopy.copy_db18a7c8cf };
             let completedStepLabel = completedStepLabelMap[step.actionType] || localeCopy.copy_8e66e528a2;
 
             if (step.status === 'rejected') {
@@ -1607,7 +1608,7 @@ Page({
         // (handles edge cases where the flowTimeline filtering skips the active step)
         let computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
         if (!activeApprovalStep && rawSteps.length > 0 && submissionStatus === 'in_progress') {
-          let actionMap2 = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
+          let actionMap2 = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, either: signingCopy.either, both: localeCopy.copy_a63d02480e };
           // Find max round first
           let maxRound2 = 0;
           for (let si3 = 0; si3 < rawSteps.length; si3++) {
@@ -1701,7 +1702,7 @@ Page({
         if (res.canApproveCurrentStep && activeApprovalStep) {
           const draft = this._signingDraft, files = res.files || [];
           wx.nextTick(() => { if (this._pageActive && draft === this._signingDraft && !draft.locked) signingAssets.warm(draft, files, []); });
-          if (['stamp', 'estamp', 'both'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
+          if (['stamp', 'estamp', 'both', 'either'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
         }
         if (res.userIsSubmitter && orgSession.isRequestCurrent(this, request)) {
           try {
@@ -2602,6 +2603,7 @@ Page({
     const hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
     if (actionType === 'sign' && !hasSignature) return localeCopy.copy_a6f8fa4809;
     if ((actionType === 'estamp' || actionType === 'stamp') && !hasStamp) return localeCopy.copy_472d3dfdab;
+    if (actionType === 'either' && !hasSignature && !hasStamp) return signingCopy.eitherRequired;
     if (actionType === 'both') {
       if (!hasSignature && !hasStamp) return localeCopy.copy_448b029911;
       if (!hasSignature) return localeCopy.copy_a6f8fa4809;
@@ -2810,7 +2812,7 @@ Page({
       editTitle: submission.title || '',
       editDesc: submission.description || '',
       editType: submission.type || 'template',
-      editResubmitMode: submission.resubmitMode || 'fresh',
+      editResubmitMode: 'fresh',
       editTemplateId: submission.templateId || '',
       templatePreviewSteps: [],
       templateStepOverrides: existingTemplateOverrides,
@@ -2865,7 +2867,7 @@ Page({
   },
 
   onEditResubmitModeChange(e) {
-    this.setData({ editResubmitMode: ['fresh', 'from_rejector'][e.detail.value] || 'fresh' });
+    this.setData({ editResubmitMode: 'fresh' });
   },
 
   // ── Edit: Ad-hoc step editor ──
@@ -2902,7 +2904,7 @@ Page({
   },
 
   onEditActionTypeChange(e) {
-    let val = ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass';
+    let val = ['pass', 'sign', 'estamp', 'both', 'either'][e.detail.value] || 'pass';
     this.setData({ 'editStepForm.actionType': val });
   },
 
@@ -3070,7 +3072,7 @@ Page({
   },
 
   onEditPersonPickerActionTypeChange(e) {
-    this.setData({ editPersonPickerStepActionType: ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass' });
+    this.setData({ editPersonPickerStepActionType: ['pass', 'sign', 'estamp', 'both', 'either'][e.detail.value] || 'pass' });
   },
 
   confirmEditPersonPicker() {

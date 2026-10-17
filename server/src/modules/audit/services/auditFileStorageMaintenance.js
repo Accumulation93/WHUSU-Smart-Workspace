@@ -93,9 +93,9 @@ async function hasDatabaseReference(database, filePath) {
   const [rows] = await database.query(
     `SELECT id
        FROM audit_submission_files
-      WHERE file_path = ?
+      WHERE file_path = ? OR original_file_path = ?
       LIMIT 1`,
-    [filePath]
+    [filePath, filePath]
   );
   return rows.length > 0;
 }
@@ -191,7 +191,9 @@ function createAuditFileStorageMaintenance(options) {
       database.query(
         `SELECT file_path
            FROM audit_submission_files
-          WHERE file_path IS NOT NULL AND file_path <> ''`
+          WHERE file_path IS NOT NULL AND file_path <> ''
+         UNION ALL SELECT original_file_path AS file_path FROM audit_submission_files
+          WHERE original_file_path IS NOT NULL AND original_file_path <> ''`
       ),
       database.query(
         `SELECT temp_name

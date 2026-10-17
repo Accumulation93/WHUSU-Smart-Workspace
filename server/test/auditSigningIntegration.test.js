@@ -23,7 +23,10 @@ async function run() {
     await admin.query("GRANT ALL ON `" + database + "`.* TO '" + testUser + "'@'%'");
     await admin.changeUser({ database });
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
-    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql']) {
+    // 先模拟升级前结构，再验证新增字段迁移的执行与重复执行。
+    await admin.query('ALTER TABLE audit_submission_files DROP COLUMN original_file_path, DROP COLUMN original_file_hash, DROP COLUMN original_file_size');
+    await admin.query('ALTER TABLE audit_submissions DROP COLUMN description');
+    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', migration), 'utf8'); await admin.query(sql); await admin.query(sql);
     }
     // 生产绝对时间字段已由 UTC 迁移升级为毫秒；隔离初始库补齐同一事实。
@@ -135,6 +138,65 @@ async function run() {
     const again = await post('approveStep', payload); assert.equal(again.idempotent, true);
     assert.equal((await admin.query('SELECT COUNT(*) AS n FROM audit_submission_signatures'))[0][0].n, 3, '重复请求不重复签署');
     assert.notEqual((await post('getSubmissionDetail', { submissionId: 'submission-1' }, { 'X-Test-Org': 'org-b' })).status, 'success');
+    // 构造已完成首步、等待第二步的旧模式申请，再通过真实接口驳回与重新提交。
+    await admin.query("UPDATE audit_submissions SET status='in_progress',current_step_index=2,resubmit_mode='from_rejector' WHERE id='submission-1'");
+    await admin.query("INSERT INTO audit_submission_steps (id,submission_id,sort_order,action_type,step_conditions_json,org_id) VALUES ('reject-step','submission-1',2,'either',?,'org-a')", [JSON.stringify([{conditionType:'submitter'}])]);
+    const rejected = await post('rejectStep', {submissionId:'submission-1',stepId:'reject-step',rejectionReason:'请修改'});
+    assert.equal(rejected.status, 'success', JSON.stringify(rejected));
+    assert.notEqual((await post('resubmitAudit', {submissionId:'submission-1'}, {'X-Test-Org':'org-b'})).status,'success');
+    const restarted = await post('resubmitAudit', {submissionId:'submission-1',resubmitMode:'from_rejector'});
+    assert.equal(restarted.status,'success',JSON.stringify(restarted));
+    assert.equal(restarted.resubmitMode,'fresh');
+    const current = (await admin.query("SELECT * FROM audit_submission_files WHERE submission_id='submission-1' AND is_current=1"))[0];
+    assert.equal(current.length,1); assert.notEqual(current[0].id,'file-1');
+    assert.equal(current[0].revision_round,2);
+    assert.deepEqual(fs.readFileSync(current[0].file_path),bytes,'新轮次必须使用原件');
+    assert.deepEqual(fs.readFileSync(storedFile.file_path),finalBytes,'旧轮次成品字节不变');
+    const roundSteps = (await admin.query("SELECT * FROM audit_submission_steps WHERE submission_id='submission-1' AND round=2 ORDER BY sort_order"))[0];
+    assert.equal(roundSteps.length,2); assert(roundSteps.every(step=>step.status==='pending'));
+    assert.equal((await admin.query("SELECT current_step_index FROM audit_submissions WHERE id='submission-1'"))[0][0].current_step_index,1);
+    const secondPayload = {...payload,stepId:roundSteps[0].id,signatures:payload.signatures.map(item=>({...item,fileId:current[0].id}))};
+    assert.equal((await post('approveStep',secondPayload)).status,'success');
+    const lastPayload = {...secondPayload,stepId:roundSteps[1].id,signatures:[secondPayload.signatures[0]]};
+    assert.equal((await post('approveStep',{...lastPayload,signatures:[]})).status,'approval_either_required');
+    const secondResult = await post('approveStep',lastPayload);
+    assert.equal(secondResult.status,'success',JSON.stringify(secondResult));
+    const secondFile = (await admin.query('SELECT * FROM audit_submission_files WHERE id=?',[current[0].id]))[0][0];
+    await contentFixture.assertPreserved(bytes,fs.readFileSync(secondFile.file_path));
+    await orgStorage.run('org-a',async()=>{
+      const verified = await verifySubmissionFiles({id:'submission-1'},{uploadedBytes:fs.readFileSync(secondFile.file_path)});
+      assert.equal(verified.valid,true,JSON.stringify(verified));
+    });
+    // 原件缺失必须整体失败，不能留下新轮次或把旧步骤改成被替代。
+    await admin.query("UPDATE audit_submissions SET status='withdrawn' WHERE id='submission-1'");
+    fs.renameSync(filePath,filePath+'.held');
+    const missing = await post('resubmitAudit',{submissionId:'submission-1'});
+    assert.equal(missing.status,'original_required',JSON.stringify(missing));
+    assert.equal((await admin.query("SELECT MAX(round) AS n FROM audit_submission_steps WHERE submission_id='submission-1'"))[0][0].n,2);
+    fs.renameSync(filePath+'.held',filePath);
+    const upload = await orgStorage.run('org-a',()=>require('../src/modules/audit/utils/fileSecurity').createTempUpload({
+      buffer:bytes,fileName:'replacement.pdf',mimeType:'application/pdf',accountId:'account-a'}));
+    const editBody={submissionId:'submission-1',title:'重新审核',type:'ad_hoc',resubmitMode:'from_rejector',
+      steps:[{name:'签章',actionType:'both',conditions:[{conditionType:'submitter'}]},
+        {name:'二选一',actionType:'either',conditions:[{conditionType:'submitter'}]}],
+      retainedFileIds:[current[0].id],files:[upload]};
+    const editedFiles=await post('updateAuditSubmission',editBody);
+    assert.equal(editedFiles.status,'success',JSON.stringify(editedFiles));
+    assert.equal((await admin.query('SELECT revision_round FROM audit_submission_files WHERE id=?',[current[0].id]))[0][0].revision_round,2,'编辑不改写历史文件轮次');
+    const third = await post('resubmitAudit',{submissionId:'submission-1'});
+    assert.equal(third.status,'success',JSON.stringify(third));
+    const thirdFiles=(await admin.query("SELECT * FROM audit_submission_files WHERE submission_id='submission-1' AND is_current=1 ORDER BY sort_order"))[0];
+    assert.equal(thirdFiles.length,2);assert(thirdFiles.every(file=>file.revision_round===3));
+    thirdFiles.forEach(file=>assert.deepEqual(fs.readFileSync(file.file_path),bytes));
+    assert.equal((await post('withdrawSubmission',{submissionId:'submission-1'})).status,'success');
+    assert.equal((await post('updateAuditSubmission',{...editBody,retainedFileIds:[thirdFiles[1].id],files:[]})).status,'success');
+    const fourth = await post('resubmitAudit',{submissionId:'submission-1'});
+    assert.equal(fourth.status,'success',JSON.stringify(fourth));
+    const fourthFiles=(await admin.query("SELECT * FROM audit_submission_files WHERE submission_id='submission-1' AND is_current=1"))[0];
+    assert.equal(fourthFiles.length,1);assert.equal(fourthFiles[0].revision_round,4);
+    assert.equal(fourthFiles[0].file_name,'replacement.pdf');
+    assert.deepEqual(fs.readFileSync(storedFile.file_path),finalBytes);
+
     console.log('签署真实 HTTP/MySQL 验收通过：两遍迁移、轻量目录、岗位授权重核、非法材料不写、审批回读、最终 PDF 验签、v3 几何及重复请求');
   } finally {
     if (server) await new Promise(resolve => server.close(resolve)); if (pool) await pool.end();

@@ -30,7 +30,7 @@ function fail(code) {
 function normalizeApprovalActionType(value) {
   const actionType = String(value || '').trim().toLowerCase();
   if (actionType === 'estamp') return 'stamp';
-  if (actionType === 'pass' || actionType === 'sign' || actionType === 'stamp' || actionType === 'both') {
+  if (actionType === 'pass' || actionType === 'sign' || actionType === 'stamp' || actionType === 'both' || actionType === 'either') {
     return actionType;
   }
   fail('approval_action_invalid');
@@ -150,6 +150,10 @@ function enforceMaterialRequirement(actionType, materialTypes) {
   if (actionType === 'stamp') {
     if (!hasStamp) fail('approval_stamp_required');
     if (hasSignature) fail('approval_material_not_allowed');
+    return;
+  }
+  if (actionType === 'either') {
+    if (!hasSignature && !hasStamp) fail('approval_either_required');
     return;
   }
   if (!hasSignature && !hasStamp) fail('approval_both_required');

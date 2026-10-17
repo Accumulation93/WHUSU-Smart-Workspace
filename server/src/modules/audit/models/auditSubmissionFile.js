@@ -109,15 +109,30 @@ async function create(id, data, conn) {
   await db.query(
     `INSERT INTO audit_submission_files
       (id, submission_id, file_name, mime_type, file_path, file_size, file_hash,
-       revision_round, is_current, sort_order, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       revision_round, is_current, sort_order, org_id, original_file_path, original_file_hash, original_file_size)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, submissionId, fileName || '', mimeType || null, filePath || '', fileSize || 0, fileHash || '',
-      Number(revisionRound) > 0 ? Number(revisionRound) : 1,
+      revisionRound != null && Number.isInteger(Number(revisionRound)) && Number(revisionRound) >= 0 ? Number(revisionRound) : 1,
       isCurrent === false || Number(isCurrent) === 0 ? 0 : 1,
-      sortOrder || 1, orgId
+      sortOrder || 1, orgId, data.originalFilePath || filePath || '',
+      data.originalFileHash || fileHash || '', data.originalFileSize == null ? (fileSize || 0) : data.originalFileSize
     ]
   );
+}
+
+async function getOriginalRecoveryFacts(submissionId, conn) {
+  const orgId = await getCurrentOrgId();
+  const [signatures] = await conn.query(
+    'SELECT DISTINCT file_id FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ?',
+    [submissionId, orgId]
+  );
+  const [evidence] = await conn.query(
+    `SELECT file_id, input_file_path, input_digest, legacy_prefix, round, step_index
+       FROM audit_signing_evidence WHERE submission_id = ? AND org_id = ?
+       ORDER BY round, step_index, id`, [submissionId, orgId]
+  );
+  return { signatures, evidence };
 }
 
 async function markCurrentAsHistorical(submissionId, conn) {
@@ -306,6 +321,7 @@ module.exports = {
   getCurrentById,
   getCurrentBySubmissionIdForUpdate,
   create,
+  getOriginalRecoveryFacts,
   markCurrentAsHistorical,
   markUnretainedCurrentAsHistorical,
   setCurrentRevisionRound,

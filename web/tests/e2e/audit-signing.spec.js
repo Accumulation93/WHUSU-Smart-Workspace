@@ -357,3 +357,21 @@ test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换�
     await page.screenshot({path:testInfo.outputPath('signing-'+size.width+'.png'),fullPage:true});
   }
 });
+
+for(const mode of ['signature','stamp','both'])test('签名或盖章允许 '+mode+' 并拒绝空材料',async({page})=>{
+  const state=await setup(page,{actionType:'either'});
+  await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
+  await expect(page.locator('.notice-line')).toContainText(text.eitherRequired);
+  expect(state.calls.filter(item=>item.name==='approveStep')).toHaveLength(0);
+  if(mode!=='stamp'){await enter(page);await stroke(page);await page.getByRole('button',{name:text.confirm,exact:true}).click();}
+  if(mode!=='signature'){
+    await page.getByRole('button',{name:text.stamp,exact:true}).click();
+    await page.getByRole('dialog').getByRole('button',{name:'测试印章',exact:true}).click();
+    await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+    await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  }
+  await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
+  await expect.poll(()=>state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
+  const materials=state.calls.find(item=>item.name==='approveStep').body.signatures;
+  expect(materials.map(item=>item.signatureType).sort()).toEqual(mode==='both'?['signature','stamp']:[mode]);
+});

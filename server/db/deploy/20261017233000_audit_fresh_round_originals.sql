@@ -1,0 +1,23 @@
+-- 新轮次保留原件来源；不推测历史签署前内容，不改写历史事件。
+SET @audit_description = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_submissions' AND COLUMN_NAME = 'description');
+SET @audit_original_sql = IF(@audit_description = 0, 'ALTER TABLE audit_submissions ADD COLUMN description TEXT NULL', 'SELECT 1');
+PREPARE audit_original_stmt FROM @audit_original_sql;
+EXECUTE audit_original_stmt;
+DEALLOCATE PREPARE audit_original_stmt;
+SET @audit_original_path = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_submission_files' AND COLUMN_NAME = 'original_file_path');
+SET @audit_original_sql = IF(@audit_original_path = 0, 'ALTER TABLE audit_submission_files ADD COLUMN original_file_path TEXT NULL', 'SELECT 1');
+PREPARE audit_original_stmt FROM @audit_original_sql;
+EXECUTE audit_original_stmt;
+DEALLOCATE PREPARE audit_original_stmt;
+SET @audit_original_hash = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_submission_files' AND COLUMN_NAME = 'original_file_hash');
+SET @audit_original_sql = IF(@audit_original_hash = 0, 'ALTER TABLE audit_submission_files ADD COLUMN original_file_hash VARCHAR(64) NULL', 'SELECT 1');
+PREPARE audit_original_stmt FROM @audit_original_sql;
+EXECUTE audit_original_stmt;
+DEALLOCATE PREPARE audit_original_stmt;
+SET @audit_original_size = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_submission_files' AND COLUMN_NAME = 'original_file_size');
+SET @audit_original_sql = IF(@audit_original_size = 0, 'ALTER TABLE audit_submission_files ADD COLUMN original_file_size BIGINT NULL', 'SELECT 1');
+PREPARE audit_original_stmt FROM @audit_original_sql;
+EXECUTE audit_original_stmt;
+DEALLOCATE PREPARE audit_original_stmt;
+UPDATE audit_flow_templates SET resubmit_mode = 'fresh', updated_at = updated_at WHERE resubmit_mode = 'from_rejector';
+UPDATE audit_submissions SET resubmit_mode = 'fresh', updated_at = updated_at WHERE resubmit_mode = 'from_rejector';

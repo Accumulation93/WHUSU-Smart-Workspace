@@ -22,6 +22,9 @@ const { SigningProtocolError } = require('../utils/signingProtocol');
 const signingCopy = require('../../../locales/zh-CN/auditSigningEvidence');
 const stampGrantModel = require('../models/stampAssignmentGrant');
 const { hashFile } = require('../utils/hashChain');
+const { prepareRoundFiles } = require('../services/auditRoundFiles');
+const { normalizeResubmitMode } = require('../services/auditWorkflowPolicy');
+const signingUiCopy = require('../../../locales/zh-CN/auditSigning');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnBuffer } = require('../utils/signatureOverlay');
 const {
@@ -361,7 +364,7 @@ router.post('/listMySubmissions', async (req, res) => {
         type: safeString(s.type),
         status: safeString(s.status),
         currentStepIndex: s.current_step_index,
-        resubmitMode: safeString(s.resubmit_mode),
+        resubmitMode: normalizeResubmitMode(s.resubmit_mode),
         createdAt: s.created_at,
         updatedAt: s.updated_at,
         isUnread
@@ -568,7 +571,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       description,
       status: 'in_progress',
       currentStepIndex: 1,
-      resubmitMode: template.resubmit_mode
+      resubmitMode: normalizeResubmitMode(template.resubmit_mode)
     }, conn);
 
     await attachUploadedFiles({ uploadedFiles, submissionId, accountId: req.authAccount && req.authAccount.id, conn });
@@ -719,7 +722,7 @@ router.post('/startAdHocAudit', async (req, res) => {
 
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
-    const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
+    const resubmitMode = normalizeResubmitMode(req.body.resubmitMode);
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
 
@@ -1192,7 +1195,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         submittedContextSnapshot: parseSnapshot(submission.submitted_context_snapshot),
         submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
-        resubmitMode: safeString(submission.resubmit_mode),
+        resubmitMode: normalizeResubmitMode(submission.resubmit_mode),
         previousRejectStepIndex: submission.previous_reject_step_index,
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
@@ -1396,6 +1399,7 @@ function approvalIntegrityFailure(error) {
     approval_stamp_required: localeCopy.approvalStampRequired,
     approval_stamp_not_authorized: localeCopy.approvalStampNotAuthorized,
     approval_both_required: localeCopy.approvalBothRequired,
+    approval_either_required: signingUiCopy.eitherRequired,
     approval_final_pdf_unavailable: localeCopy.approvalFinalPdfUnavailable
   };
   return {
@@ -1977,7 +1981,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const description = safeString(req.body.description);
     const newType = safeString(req.body.type) || submission.type;
     const newTemplateId = safeString(req.body.templateId) || null;
-    let newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
+    let newResubmitMode = normalizeResubmitMode(req.body.resubmitMode || submission.resubmit_mode);
     const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
     const retainedFileIds = Array.isArray(req.body.retainedFileIds)
@@ -2275,15 +2279,12 @@ router.post('/updateAuditSubmission', async (req, res) => {
             submissionId,
             accountId: req.authAccount && req.authAccount.id,
             conn,
-            sortOrderOffset: (retainedFileIds || []).length
+            sortOrderOffset: (retainedFileIds || []).length,
+            revisionRound: preserveHistoricalEvidence ? 0 : 1
           });
         }
       }
-      await submissionFileModel.setCurrentRevisionRound(
-        submissionId,
-        preserveHistoricalEvidence ? 0 : 1,
-        conn
-      );
+      if (!preserveHistoricalEvidence) await submissionFileModel.setCurrentRevisionRound(submissionId, 1, conn);
     }
 
     // Insert edit event
@@ -2311,6 +2312,9 @@ router.post('/updateAuditSubmission', async (req, res) => {
 // resubmitAudit — Resubmit after rejection
 router.post('/resubmitAudit', async (req, res) => {
   const conn = await pool.getConnection();
+  let roundFiles;
+  let committed = false;
+  let commitAttempted = false;
   try {
     const actorContext = await resolveAuditAssignmentActor(req, conn);
     if (!actorContext.ok) {
@@ -2321,6 +2325,9 @@ router.post('/resubmitAudit', async (req, res) => {
     const hrId = resubmitterAssignment.hr_id;
     const orgId = actorContext.orgId;
 
+    if (req.body.resubmitMode != null && !isValidResubmitMode(req.body.resubmitMode)) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
+    }
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
@@ -2398,8 +2405,6 @@ router.post('/resubmitAudit', async (req, res) => {
       await submissionModel.update(submissionId, updateData, conn);
     }
 
-    const isWithdrawn = submission.status === 'withdrawn';
-    const isPending = submission.status === 'pending';
 
     const allSteps = await submissionStepModel.getBySubmissionIdForUpdate(submissionId, conn);
     if (!allSteps.length) {
@@ -2415,15 +2420,8 @@ router.post('/resubmitAudit', async (req, res) => {
       [submissionId, orgId]
     );
 
-    // pending 也必须创建独立新轮次；禁止把旧步骤全部 superseded 后直接置为进行中。
-    const resubmitMode = (isWithdrawn || isPending) ? 'fresh' : submission.resubmit_mode;
-    const rejectStepIndex = (isWithdrawn || isPending) ? 1 : (submission.previous_reject_step_index || 1);
-    if (!isValidResubmitMode(resubmitMode)) {
-      throw new Error(localeCopy.copy_f428da1450);
-    }
-    if (requestedOverrides.length && resubmitMode === 'from_rejector' && Number(rejectStepIndex) !== 1) {
-      throw new Error(localeCopy.copy_670f4a48f1);
-    }
+    // 所有兼容请求统一从第一步重审。
+    if (!isValidResubmitMode(submission.resubmit_mode || 'fresh')) throw new Error(localeCopy.copy_f428da1450);
     // Use MAX round across ALL steps (not just the first one) to ensure
     // round numbers only ever increase, never decrease or repeat.
     let maxExistingRound = 1;
@@ -2452,52 +2450,14 @@ router.post('/resubmitAudit', async (req, res) => {
     const canonicalSteps = Object.keys(latestStepBySortOrder)
       .map(function(k) { return latestStepBySortOrder[k]; })
       .sort(function(a, b) { return a.sort_order - b.sort_order; });
-    if (!canonicalSteps.length) {
+    if (!canonicalSteps.length || canonicalSteps.some((step, index) => Number(step.sort_order) !== index + 1)) {
       throw new Error(localeCopy.copy_f428da1450);
     }
     if (requestedOverrides.length && Number(canonicalSteps[0].allow_approver_designation) !== 1) {
       throw new Error(localeCopy.copy_670f4a48f1);
     }
 
-    if (!isWithdrawn && resubmitMode === 'from_rejector') {
-      // Create new round entries for all steps from reject step onwards.
-      // Recreating only the reject step would leave subsequent steps stranded
-      // in the old round, causing the flow to terminate prematurely.
-      const remainingSteps = canonicalSteps
-        .filter(function(s) { return s.sort_order >= rejectStepIndex; })
-        .sort(function(a, b) { return a.sort_order - b.sort_order; });
-      for (let rsi = 0; rsi < remainingSteps.length; rsi++) {
-        let rs = remainingSteps[rsi];
-        let stepId = generateId();
-        let conditions = stripDesignationOverrides(parseConditionsJson(rs.step_conditions_json));
-        if (!conditions.length) throw new Error(localeCopy.historicalApprovalSnapshotMissing);
-        if (requestedOverrides.length && Number(rs.sort_order) === 1) {
-          conditions = await narrowTemplateStepConditions(
-            conditions,
-            requestedOverrides[0].personHrIds,
-            requestedOverrides[0].assignmentIds,
-            resubmitterAssignment,
-            orgId,
-            conn
-          );
-        }
-        assertValidWorkflowStep({ actionType: rs.action_type, conditions });
-        conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
-        await submissionStepModel.create(stepId, {
-          submissionId,
-          templateStepId: safeString(rs.template_step_id),
-          sortOrder: rs.sort_order,
-          approverType: rs.approver_type,
-          approverHrId: rs.approver_hr_id,
-          approverIdentityId: rs.approver_identity_id,
-          actionType: rs.action_type,
-          allowApproverDesignation: Number(rs.allow_approver_designation) === 1,
-          stepName: rs.step_name || rs.name || '',
-          round: newRound,
-          stepConditionsJson: conditions.length ? JSON.stringify(conditions) : null
-        }, conn);
-      }
-    } else {
+    {
       // Fresh mode: create new round entries for ALL steps
       const templateSteps = canonicalSteps;
       for (const ts of templateSteps) {
@@ -2542,8 +2502,9 @@ router.post('/resubmitAudit', async (req, res) => {
     }
 
     // 当前附件与正式步骤在同一事务内绑定到完全一致的新轮次。
-    await submissionFileModel.getAllBySubmissionId(submissionId, conn, true);
-    await submissionFileModel.setCurrentRevisionRound(submissionId, newRound, conn);
+    roundFiles = await prepareRoundFiles(submissionId, orgId, conn);
+    roundFiles.stage();
+    await roundFiles.persist(newRound);
     const [fileRoundRows] = await conn.query(
       `SELECT COUNT(*) AS total,
               SUM(CASE WHEN revision_round <> ? THEN 1 ELSE 0 END) AS mismatched
@@ -2556,7 +2517,7 @@ router.post('/resubmitAudit', async (req, res) => {
       throw new Error(localeCopy.resubmitFileRoundInvalid);
     }
 
-    const startStepIndex = resubmitMode === 'from_rejector' ? rejectStepIndex : 1;
+    const startStepIndex = 1;
     const [newFirstStepRows] = await conn.query(
       `SELECT COUNT(*) AS total
          FROM audit_submission_steps
@@ -2572,6 +2533,8 @@ router.post('/resubmitAudit', async (req, res) => {
     await submissionModel.update(submissionId, {
       status: 'in_progress',
       currentStepIndex: startStepIndex,
+      resubmitMode: 'fresh',
+      previousRejectStepIndex: null,
       submittedPersonId: resubmitterAssignment.person_id,
       submittedAssignmentId: resubmitterAssignment.assignment_id,
       submittedContextSnapshot: assignmentSnapshot(resubmitterAssignment, req.authContext)
@@ -2589,19 +2552,23 @@ router.post('/resubmitAudit', async (req, res) => {
       comment: null
     }, conn);
 
+    commitAttempted = true;
     await conn.commit();
+    committed = true;
+    roundFiles.finalize();
     // Notify approvers at the start step (fire-and-forget)
     res.json({
       status: 'success',
-      message: isWithdrawn
-        ? localeCopy.resubmittedFromStart
-        : (resubmitMode === 'from_rejector'
-          ? localeCopy.resubmittedFromRejector
-          : localeCopy.resubmittedFromStart)
+      resubmitMode: 'fresh',
+      message: localeCopy.resubmittedFromStart
     });
   } catch (e) {
-    await conn.rollback();
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (!committed) {
+      await conn.rollback();
+      if (roundFiles && !commitAttempted) roundFiles.rollback();
+    }
+    res.json(committed ? { status: 'success', resubmitMode: 'fresh' }
+      : { status: e.status === 'original_required' ? 'original_required' : 'error', message: e.status === 'original_required' ? signingUiCopy.originalRequired : undefined });
   } finally {
     if (conn) conn.release();
   }
@@ -2746,7 +2713,7 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
         name: safeString(t.name),
         description: safeString(t.description),
         stepCount: steps.length,
-        resubmitMode: safeString(t.resubmit_mode)
+        resubmitMode: normalizeResubmitMode(t.resubmit_mode)
       });
     }
     res.json({ status: 'success', templates: result });
@@ -2854,7 +2821,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
     // Build step preview
     const previewSteps = templateSteps.sort((a, b) => a.sort_order - b.sort_order).map(function(ts, idx) {
       const conds = stepConditionMap[ts.id] || [];
-      const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+      const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章', either: signingUiCopy.either };
       const actionLabel = actionMap[ts.action_type] || ts.action_type || localeCopy.copy_49cbf30d6b;
 
       // Build condition display using shared helper

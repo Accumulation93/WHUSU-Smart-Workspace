@@ -16,6 +16,7 @@ const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
   { source: 'shared/locales/zh-CN/adminGovernance.js', targets: [{ path: 'server/src/locales/zh-CN/adminGovernance.js' }] },
+  { source: 'shared/locales/zh-CN/auditSigning.js', targets: [{ path: 'server/src/locales/zh-CN/auditSigning.js' }] },
   { source: 'shared/auditSigningAssets.js', targets: [{ path: 'miniprogram/utils/auditSigningAssetsModel.js' }, { path: 'web/src/shared/auditSigningAssets.js', format: 'esm' }] },
   {
     source: 'shared/auditStepView.js',

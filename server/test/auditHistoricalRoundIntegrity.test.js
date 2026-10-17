@@ -96,12 +96,14 @@ assert(!resubmitRoute.includes('flowTemplateStepModel.getByTemplateId')
 assert(resubmitRoute.includes('DELETE FROM audit_submission_steps')
   && resubmitRoute.includes("round = 0 AND status = 'draft'"),
   '正式步骤创建成功后必须在同一事务清理编辑草稿');
-assert(resubmitRoute.includes('submissionFileModel.setCurrentRevisionRound(submissionId, newRound, conn)')
+assert(resubmitRoute.includes('await roundFiles.persist(newRound)')
   && resubmitRoute.includes('SUM(CASE WHEN revision_round <> ? THEN 1 ELSE 0 END) AS mismatched')
   && resubmitRoute.includes('localeCopy.resubmitFileRoundInvalid')
-  && resubmitRoute.indexOf('submissionFileModel.setCurrentRevisionRound(submissionId, newRound, conn)')
+  && resubmitRoute.indexOf('await roundFiles.persist(newRound)')
     < resubmitRoute.indexOf('await conn.commit()'),
-  '当前附件 revision_round 必须在提交前原子绑定到与新步骤完全一致的 newRound');
+  '当前附件必须从原件创建独立版本，并在提交前绑定到与新步骤完全一致的 newRound');
+assert(!resubmitRoute.includes('setCurrentRevisionRound') && !resubmitRoute.includes("resubmitMode === 'from_rejector'"),
+  '重新提交不得把历史成品改绑新轮次，也不得跳过前序步骤');
 assert(fileModelSource.includes('WHERE submission_id = ? AND org_id = ? AND is_current = 1'),
   '附件模型必须继续保留当前修订边界，旧附件不得混入当前详情');
 

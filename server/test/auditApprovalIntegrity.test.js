@@ -87,6 +87,11 @@ async function expectCode(promise, code, message) {
     'CMS 提取必须按 DER 声明长度保留签名末尾的合法 00 字节'
   );
 
+  await expectCode(resolve('either', []), 'approval_either_required');
+  assert.equal((await resolve('either', [material('signature')])).length, 1);
+  assert.equal((await resolve('either', [material('stamp')])).length, 1);
+  assert.equal((await resolve('either', [material('signature'), material('stamp')])).length, 2);
+  await expectCode(resolve('either', [material('stamp')], async () => []), 'approval_stamp_not_authorized');
   assert.deepStrictEqual(await resolve('pass', []), [], '纯通过步骤不应要求可见签署材料');
   await expectCode(
     resolve('pass', [material('signature')]),

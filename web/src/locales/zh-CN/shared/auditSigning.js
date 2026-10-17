@@ -1,6 +1,9 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
 const sharedModule = Object.freeze({
+  either: '签名或盖章', eitherRequired: '请至少添加签名或印章',
+  signedOrStamped: '已签名或盖章',
+  originalRequired: '无法读取签署前原件，请编辑申请并重新上传附件后提交。',
   title: '签署文件', padTitle: '手写签名', browse: '浏览', move: '移动', pen: '画笔',
   erase: '橡皮擦', undo: '撤销', redo: '重做', clear: '清空书写',
   black: '黑色', blue: '蓝色', red: '红色', custom: '自定义颜色', color: '笔迹颜色',

@@ -27,7 +27,8 @@ const {
 const {
   validateConditionShape,
   validateStepShape,
-  isValidResubmitMode
+  isValidResubmitMode,
+  normalizeResubmitMode
 } = require('../services/auditWorkflowPolicy');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const { inspectAuditImageData } = require('../utils/auditImageData');
@@ -96,7 +97,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           identityScope: safeString(c.identityScope),
           specificIdentityId: safeString(c.specificIdentityId)
         }; }),
-        resubmitMode: safeString(t.resubmit_mode),
+        resubmitMode: normalizeResubmitMode(t.resubmit_mode),
         isActive: t.is_active === 1,
         createdBy: safeString(t.created_by),
         stepCount: steps.length,
@@ -148,7 +149,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);
     const starterHrId = safeString(req.body.starterHrId);
-    const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
+    const resubmitMode = normalizeResubmitMode(req.body.resubmitMode);
     const starterConditions = Array.isArray(req.body.starterConditions) ? req.body.starterConditions : [];
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
 
@@ -682,7 +683,7 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
       submittedBy: safeString(s.submitted_by),
       submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
       currentStepIndex: s.current_step_index,
-      resubmitMode: safeString(s.resubmit_mode),
+      resubmitMode: normalizeResubmitMode(s.resubmit_mode),
       createdAt: s.created_at,
       updatedAt: s.updated_at
     }));
@@ -859,7 +860,7 @@ router.post('/getAuditProgress', async (req, res) => {
         submittedBy: safeString(submission.submitted_by),
         submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
-        resubmitMode: safeString(submission.resubmit_mode),
+        resubmitMode: normalizeResubmitMode(submission.resubmit_mode),
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
       },

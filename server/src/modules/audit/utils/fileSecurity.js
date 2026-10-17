@@ -333,7 +333,7 @@ async function resolveUploadedFile(uploadedFile, accountId) {
   };
 }
 
-async function attachUploadedFiles({ uploadedFiles, submissionId, accountId, conn, sortOrderOffset }) {
+async function attachUploadedFiles({ uploadedFiles, submissionId, accountId, conn, sortOrderOffset, revisionRound }) {
   if (!Array.isArray(uploadedFiles) || uploadedFiles.length > MAX_FILES_PER_SUBMISSION) {
     const err = new Error(localeCopy.copy_a0736fb41c);
     err.status = 'invalid_params';
@@ -375,6 +375,7 @@ async function attachUploadedFiles({ uploadedFiles, submissionId, accountId, con
         filePath: destPath,
         fileSize: meta.fileSize,
         fileHash: meta.fileHash,
+        revisionRound,
         sortOrder: Math.max(0, Number(sortOrderOffset) || 0) + i + 1
       }, conn);
       await auditTempUploadModel.remove(meta.fileId, conn);
@@ -457,6 +458,7 @@ module.exports = {
   UPLOAD_DIR,
   MAX_FILE_SIZE,
   ALLOWED_MIMES,
+  detectMime,
   MAX_FILE_NAME_CHARS,
   assertAllowedFile,
   normalizeUploadFileName,

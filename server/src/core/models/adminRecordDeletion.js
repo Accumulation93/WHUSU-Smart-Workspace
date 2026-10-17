@@ -29,7 +29,7 @@ async function readRecord(db, actor, type, id) {
   const record = rows[0];
   const files = [], evidence = [], steps = [];
   if (type === 'audit') {
-    const [fileRows] = await db.query('SELECT id, file_path, file_hash FROM audit_submission_files WHERE submission_id = ? AND org_id = ? ORDER BY id FOR UPDATE', [id, actor.orgId]);
+    const [fileRows] = await db.query('SELECT id, file_path, file_hash, original_file_path FROM audit_submission_files WHERE submission_id = ? AND org_id = ? ORDER BY id FOR UPDATE', [id, actor.orgId]);
     const [evidenceRows] = await db.query('SELECT id, input_file_path, output_file_path FROM audit_signing_evidence WHERE submission_id = ? AND org_id = ? ORDER BY id FOR UPDATE', [id, actor.orgId]);
     files.push(...fileRows); evidence.push(...evidenceRows);
     const [stepRows] = await db.query('SELECT * FROM audit_submission_steps WHERE submission_id = ? AND org_id = ? ORDER BY id FOR UPDATE', [id, actor.orgId]);
@@ -64,7 +64,7 @@ async function remove(actor, type, id, revision) {
     await db.query('INSERT INTO admin_record_deletions (id, org_id, record_type, record_id, operator_person_id, operator_grant_id) VALUES (?, ?, ?, ?, ?, ?)',
       [deletionId, actor.orgId, type, id, actor.personId, actor.grantId]);
     if (type === 'audit') {
-      const paths = new Set(value.files.map(row => row.file_path));
+      const paths = new Set(value.files.flatMap(row => [row.file_path, row.original_file_path]));
       value.evidence.forEach(row => { paths.add(row.input_file_path); paths.add(row.output_file_path); });
       for (const filePath of paths) {
         if (!filePath) continue;

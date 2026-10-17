@@ -39,9 +39,9 @@
             <div v-for="file in files" :key="file.id" class="list-row stack">
               <strong>{{ file.fileName }}</strong>
               <div class="row row-wrap">
-                <button v-if="['sign','both'].includes(activeStep.actionType)" class="btn-quiet" @click="openMaterial(file,'signature')">{{ signing.signature }}</button>
-                <button v-if="['estamp','stamp','both'].includes(activeStep.actionType)" class="btn-quiet" @click="openMaterial(file,'stamp')">{{ signing.stamp }}</button>
-                <button v-if="['sign','both'].includes(activeStep.actionType)" class="btn-quiet" @click="openSigning(file,'pen')">{{ signing.addInk }}</button>
+                <button v-if="['sign','both','either'].includes(activeStep.actionType)" class="btn-quiet" @click="openMaterial(file,'signature')">{{ signing.signature }}</button>
+                <button v-if="['estamp','stamp','both','either'].includes(activeStep.actionType)" class="btn-quiet" @click="openMaterial(file,'stamp')">{{ signing.stamp }}</button>
+                <button v-if="['sign','both','either'].includes(activeStep.actionType)" class="btn-quiet" @click="openSigning(file,'pen')">{{ signing.addInk }}</button>
                 <button class="btn-quiet" @click="openSigning(file,'browse')">{{ signing.browse }}</button>
               </div>
               <div v-for="material in draftMaterials.filter(item=>item.fileId===file.id).reverse()" :key="material._idx" class="row row-wrap">
@@ -320,7 +320,7 @@ async function load() {
       if(draft.value.pendingRead){draft.value.pendingRead=false;}
       const assetDraft=draft.value;
       nextTick(()=>{if(alive&&request===requestSequence)signingAssets.warm(assetDraft,files.value,[]);});
-      if(['estamp','stamp','both'].includes(activeStep.value.actionType)){signingAssets.directory(assetDraft).then(({response:value})=>{if(alive&&request===requestSequence&&value.status==='success'){stampDirectory.value=value.stamps||[];signingAssets.warm(assetDraft,[],stampDirectory.value);}}).catch(()=>{});}}
+      if(['estamp','stamp','both','either'].includes(activeStep.value.actionType)){signingAssets.directory(assetDraft).then(({response:value})=>{if(alive&&request===requestSequence&&value.status==='success'){stampDirectory.value=value.stamps||[];signingAssets.warm(assetDraft,[],stampDirectory.value);}}).catch(()=>{});}}
     else if(draft.value)draft.value.pendingRead=false;
     await completeMessageReceipt(route);
     try {
@@ -340,6 +340,7 @@ async function onApprove() {
   const hasSignature=draftMaterials.value.some(item=>item.signatureType==='signature'),hasStamp=draftMaterials.value.some(item=>item.signatureType==='stamp');
   if((step.actionType==='sign' && !hasSignature)||(step.actionType==='both' && !hasSignature && hasStamp)){loadNotice.value=nativeCopy.copy_a6f8fa4809;return;}
   if((['stamp','estamp'].includes(step.actionType) && !hasStamp)||(step.actionType==='both' && hasSignature && !hasStamp)){loadNotice.value=nativeCopy.copy_472d3dfdab;return;}
+  if(step.actionType==='either' && !hasSignature && !hasStamp){loadNotice.value=signing.eitherRequired;return;}
   if(step.actionType==='both' && !hasSignature && !hasStamp){loadNotice.value=nativeCopy.copy_448b029911;return;}
   submitting.value = true;
   loadNotice.value = '';

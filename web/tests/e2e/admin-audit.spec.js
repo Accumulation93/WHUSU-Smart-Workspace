@@ -94,3 +94,16 @@ test('审核四页签保留单行和长值，目录失败不显示空列表',asy
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);await expect(page.getByRole('tab')).toHaveCount(4);
   state.failRead=true;await page.getByRole('tab',{name:ui.copy_8ef1f4695c,exact:true}).click();await expect(page.getByText('Directory failed',{exact:false})).toBeVisible();await expect(page.getByText(ui.copy_0596fc0dc8,{exact:true})).toHaveCount(0);
 });
+
+test('步骤提供五种动作并保存签名或盖章，移除驳回续审设置',async({page})=>{
+  const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);
+  await expect(page.getByLabel(ui.copy_a8c395216d,{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:ui.copy_16fc906860,exact:true}).click();
+  const action=page.getByRole('dialog').getByRole('combobox',{name:ui.copy_6ce8bf8393,exact:true});
+  await expect(action.locator('option')).toHaveCount(5);await action.selectOption('either');
+  await page.getByRole('dialog').getByRole('button',{name:ui.copy_bb0ad94473,exact:true}).click();
+  await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();
+  expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body.steps[0].actionType).toBe('either');
+  await page.locator('.audit-row').filter({hasText:'New Flow'}).locator('summary').click();
+  await expect(page.getByText(text.either,{exact:true})).toBeVisible();
+});

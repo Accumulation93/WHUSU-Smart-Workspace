@@ -1,3 +1,4 @@
+const auditSigningCopy = require('../../../package-resources/locales/zh-CN/auditSigning');
 const { inputFile } = require('../../../package-resources/utils/fileIO');
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
@@ -29,6 +30,7 @@ const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
 
 module.exports = Behavior({
   data: {
+    auditSigningCopy,
     governanceCopy,
     canDeleteAuditSubmissions: false,
     deletingAuditSubmission: '',
@@ -331,7 +333,7 @@ module.exports = Behavior({
           starterHrId: template.starterHrId || '',
           starterHrName: this._auditHrName(template.starterHrId),
           starterConditions: starterConds,
-          resubmitMode: template.resubmitMode || 'fresh',
+          resubmitMode: 'fresh',
           steps: (template.steps || []).map(function(s) {
             return {
               name: s.name || '',
@@ -353,7 +355,7 @@ module.exports = Behavior({
 
     // Resubmit mode picker
     onResubmitModeChange(e) {
-      this.setData({ 'auditTemplateForm.resubmitMode': ['fresh', 'from_rejector'][e.detail.value] || 'fresh' });
+      this.setData({ 'auditTemplateForm.resubmitMode': 'fresh' });
     },
 
     // ═══════════════════════════════════════════════
@@ -410,7 +412,7 @@ module.exports = Behavior({
     },
 
     onStepActionTypeChange(e) {
-      this.setData({ 'auditTemplateStepForm.actionType': ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'sign' });
+      this.setData({ 'auditTemplateStepForm.actionType': ['pass', 'sign', 'estamp', 'both', 'either'][e.detail.value] || 'sign' });
     },
 
     onStepApproverDesignationChange(e) {
@@ -1686,7 +1688,7 @@ module.exports = Behavior({
                 }
               }
 
-              const actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
+              const actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, either: auditSigningCopy.either, both: localeCopy.copy_a63d02480e };
               const actionLabel = actionMap[s.actionType] || s.actionType || localeCopy.copy_8e2f75159e;
 
               if (s.status === 'rejected') {

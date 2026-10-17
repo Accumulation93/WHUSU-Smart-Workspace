@@ -50,8 +50,12 @@ const password = crypto.randomBytes(32).toString('hex');
       const bytes = Buffer.from(await pdf.save());
       await fs.writeFile(original, bytes); await fs.writeFile(signed, bytes);
       originals.push(original, signed);
+      const sourceOnly = path.join(root, 'source-only-' + round + '.pdf');
+      await fs.writeFile(sourceOnly, bytes);
+      originals.push(sourceOnly);
       await pool.query('INSERT INTO audit_submission_files (id,submission_id,file_name,file_path,file_hash,org_id,revision_round,is_current) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         ['file-' + round, 'record', 'document.pdf', signed, crypto.createHash('sha256').update(bytes).digest('hex'), 'org', round, round === 2 ? 1 : 0]);
+      await pool.query('UPDATE audit_submission_files SET original_file_path = ? WHERE id = ? AND org_id = ?', [sourceOnly, 'file-' + round, 'org']);
       await pool.query('INSERT INTO audit_submission_steps (id,submission_id,status,round,org_id) VALUES (?, ?, ?, ?, ?)', ['step-' + round, 'record', 'approved', round, 'org']);
       await pool.query(`INSERT INTO audit_signing_evidence (id,org_id,submission_id,step_id,step_index,round,event_id,file_id,person_id,assignment_id,action_type,key_version,certificate_fingerprint,identity_ciphertext,payload_json,cms_base64,receipt_digest,input_digest,output_digest,output_digest_type,final_file_digest,input_file_path,output_file_path,signed_at)
         VALUES (?, 'org','record',?,0,?, ?,?,'person','assignment','sign','fixture','fixture','fixture','{}','fixture','fixture','fixture','fixture','fixture','fixture',?,?,UTC_TIMESTAMP(3))`,

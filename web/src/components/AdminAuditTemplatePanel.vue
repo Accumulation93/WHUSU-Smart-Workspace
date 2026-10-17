@@ -3,7 +3,6 @@
     <span class="section-title">{{ native.copy_7312ee863e }}</span>
     <label class="field"><span class="field-label">{{ native.copy_53adcabdff }}</span><input v-model="state.form.name" class="field-input" :disabled="blocked" /></label>
     <label class="field"><span class="field-label">{{ native.copy_e53f7aae11 }}</span><textarea v-model="state.form.description" class="field-input" :disabled="blocked"></textarea></label>
-    <label class="field"><span class="field-label">{{ native.copy_a8c395216d }}</span><select v-model="state.form.resubmitMode" class="field-input" :disabled="blocked"><option value="fresh">{{ native.copy_3cd3d7a8c2 }}</option><option value="from_rejector">{{ native.copy_7897981e63 }}</option></select></label>
     <span class="field-label">{{ native.copy_e47b779507 }}</span>
     <p v-if="state.form.starterType !== 'conditions'" class="muted">{{ state.form.starterType === 'self' ? native.copy_ea0c75f8dd : conditionText({conditionType:'identity_scope',departmentScope:'all',workGroupScope:'all',identityScope:'specific',specificIdentityId:state.form.starterIdentityId}) }}</p>
     <div v-for="(condition,index) in state.form.starterConditions" :key="index" class="list-row audit-row"><span>{{ conditionText(condition) }}</span><div class="card-actions"><button class="btn-quiet" :disabled="blocked" @click="editStarter(index)">{{ native.copy_e040ae3016 }}</button><button class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="state.form.starterConditions.splice(index,1)">{{ native.copy_c3e182f0c6 }}</button></div></div>
@@ -41,11 +40,11 @@ import { confirmAction } from '@/runtime/notify.js';
 const props=defineProps({state:Object,disabled:Boolean});const emit=defineEmits(['busy']);
 const rows=ref([]),directory=ref({people:[],departments:[],identities:[],workGroups:[]}),loading=ref(true),busy=ref(false),notice=ref(''),actionNotice=ref(''),editor=ref(null);
 const stepForm=ref(null),stepIndex=ref(-1),conditionIndex=ref(null),starterIndex=ref(null),stepNotice=ref('');
-const requests=auditRequests(),actions=['pass','sign','estamp','both'];let alive=true,sequence=0;
+const requests=auditRequests(),actions=['pass','sign','estamp','both','either'];let alive=true,sequence=0;
 const blocked=computed(()=>props.disabled||loading.value||busy.value||!!notice.value||props.state.pending);
 const empty=()=>({id:'',name:'',description:'',starterType:'conditions',starterIdentityId:'',starterHrId:'',starterConditions:[],resubmitMode:'fresh',steps:[]});
 function reset(){props.state.form=empty();actionNotice.value='';}
-function actionName(action){return({pass:native.copy_8e2f75159e,sign:native.copy_49cbf30d6b,estamp:native.copy_7e6630535d,both:native.copy_a63d02480e})[action];}
+function actionName(action){return({pass:native.copy_8e2f75159e,sign:native.copy_49cbf30d6b,estamp:native.copy_7e6630535d,both:native.copy_a63d02480e,either:text.either})[action];}
 function conditionText(condition){
   if(condition.conditionType==='submitter')return governance.auditSubmitter;
   if(condition.conditionType==='person'){const wanted=String(condition.assignmentIds||'').split(',');return directory.value.people.flatMap(person=>person.assignments.filter(item=>wanted.includes(item.assignmentId)).map(item=>person.name+' · '+item.assignmentLabel)).join(messages.copy_17bcc41217)||messages.copy_b9283ec054;}

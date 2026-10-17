@@ -51,8 +51,8 @@ const options = {
     let saved;
     const page = {
       data: { auditTemplateForm: { id: '', name: '模板测试', description: '', starterType: 'conditions',
-        starterConditions: [condition], resubmitMode: 'fresh',
-        steps: ['pass', 'sign', 'estamp', 'both'].map(actionType => ({ name: actionType, actionType, conditions: [{ conditionType: 'submitter' }], allowApproverDesignation: true })) } },
+        starterConditions: [condition], resubmitMode: 'from_rejector',
+        steps: ['pass', 'sign', 'estamp', 'both', 'either'].map(actionType => ({ name: actionType, actionType, conditions: [{ conditionType: 'submitter' }], allowApproverDesignation: true })) } },
       setLoading() {}, startCreateAuditTemplate() {}, loadAuditFlowTemplates() {},
       async callCloud(name, body) { saved = await call(name, JSON.parse(JSON.stringify(body))); return saved; }
     };
@@ -71,14 +71,15 @@ const options = {
     assert.equal(listed.templates.find(item => item.id === ids[0]).name, '模板测试');
     const edited = listed.templates.find(item => item.id === ids[1]);
     assert.equal(edited.name, '仅修改第二条');
-    assert.deepEqual(edited.steps.map(item => item.actionType), ['pass', 'sign', 'estamp', 'both']);
+    assert.equal(edited.resubmitMode, 'fresh');
+    assert.deepEqual(edited.steps.map(item => item.actionType), ['pass', 'sign', 'estamp', 'both', 'either']);
     assert.ok(edited.steps.every(item => item.allowApproverDesignation && item.conditions.length === 1));
     assert.ok(edited.steps.every(item => item.conditions[0].conditionType === 'submitter'));
     assert.equal((await call('saveAuditFlowTemplate', page.data.auditTemplateForm, 'submit-b')).status, 'not_found');
     const invalid = JSON.parse(JSON.stringify(page.data.auditTemplateForm));
     invalid.steps[3].actionType = 'invalid';
     assert.equal((await call('saveAuditFlowTemplate', invalid)).status, 'invalid_params');
-    assert.equal((await call('listAuditFlowTemplates', {})).templates.find(item => item.id === ids[1]).steps.length, 4);
+    assert.equal((await call('listAuditFlowTemplates', {})).templates.find(item => item.id === ids[1]).steps.length, 5);
     for (const id of ids) assert.equal((await call('deleteAuditFlowTemplate', { id })).status, 'success');
     assert.equal((await call('listAuditFlowTemplates', {})).templates.length, 0);
     await require('./helpers/submissionCrudMatrix')(orgStorage);

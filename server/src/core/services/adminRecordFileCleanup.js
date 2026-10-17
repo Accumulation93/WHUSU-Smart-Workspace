@@ -33,7 +33,7 @@ async function processPending(deletionId, options = {}) {
     const [rows] = await db.query('SELECT id, file_path FROM admin_record_file_cleanup WHERE next_attempt_at <= UTC_TIMESTAMP(3)' + (deletionId ? ' AND deletion_id = ?' : '') + ' ORDER BY next_attempt_at, id LIMIT 100 FOR UPDATE SKIP LOCKED', deletionId ? [deletionId] : []);
     for (const row of rows) {
       try {
-        const [references] = await db.query('SELECT id FROM audit_submission_files WHERE file_path = ? UNION ALL SELECT id FROM audit_signing_evidence WHERE input_file_path = ? OR output_file_path = ? LIMIT 1', [row.file_path, row.file_path, row.file_path]);
+        const [references] = await db.query('SELECT id FROM audit_submission_files WHERE file_path = ? OR original_file_path = ? UNION ALL SELECT id FROM audit_signing_evidence WHERE input_file_path = ? OR output_file_path = ? LIMIT 1', [row.file_path, row.file_path, row.file_path, row.file_path]);
         // 共享引用必须保留，清理任务完成但不移除仍被引用的文件。
         if (!references.length) {
           const file = await safeFile(row.file_path, options.root || ROOT);

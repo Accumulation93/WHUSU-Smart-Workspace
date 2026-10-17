@@ -22,7 +22,7 @@ function validatePayload(p) {
     'materialsDigest', 'binding', 'identityCommitment'];
   if (!p || Object.keys(p).length !== expected.length || expected.some(key => !Object.prototype.hasOwnProperty.call(p, key))
     || p.version !== 2 || !/^[A-Za-z0-9._-]{1,32}$/.test(p.keyVersion)
-    || !['approve', 'pass', 'sign', 'stamp', 'both', 'estamp', 'reject'].includes(p.action)
+    || !['approve', 'pass', 'sign', 'stamp', 'both', 'either', 'estamp', 'reject'].includes(p.action)
     || !Number.isInteger(p.round) || p.round < 1 || !Number.isInteger(p.step) || p.step < 1 || p.step > 256
     || !['file_sha256', 'pdf_byte_range_sha256'].includes(p.outputDigestType) || p.inputDigestType !== 'file_sha256'
     || !['name', 'organization', 'assignment'].every(key => typeof p[key] === 'string' && p[key].length <= 1024)

@@ -26,7 +26,7 @@ for (const match of initSql.matchAll(/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?\s*\
 // 微信不得用于业务操作者发现；旧绑定仅允许显式恢复、迁移与清理路径。
 const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT id, file_path FROM admin_record_file_cleanup WHERE next_attempt_at <= UTC_TIMESTAMP\(3\)$/i, reason: '后台只领取已在授权删除事务中登记的附件任务，按时间分页且最多一百项' },
-  { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT id FROM audit_submission_files WHERE file_path = \? UNION ALL SELECT id FROM audit_signing_evidence WHERE input_file_path = \? OR output_file_path = \? LIMIT 1$/i, reason: '永久清理前检查所有组织对同一绝对文件路径的引用，存在任何引用都保留文件' },
+  { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT id FROM audit_submission_files WHERE file_path = \? OR original_file_path = \? UNION ALL SELECT id FROM audit_signing_evidence WHERE input_file_path = \? OR output_file_path = \? LIMIT 1$/i, reason: '永久清理前检查所有组织对同一绝对文件路径的引用，存在任何引用都保留文件' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^DELETE FROM admin_record_file_cleanup WHERE id = \?$/i, reason: '后台按本事务已锁定任务主键确认清理完成，不删除其他业务记录' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^UPDATE admin_record_file_cleanup SET next_attempt_at = TIMESTAMPADD\(SECOND, LEAST\(3600, 30 \* POW\(2, LEAST\(attempts, 7\)\)\), UTC_TIMESTAMP\(3\)\), attempts = attempts \+ 1 WHERE id = \?$/i, reason: '后台按已锁定任务主键登记失败和下次重试时间' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT COUNT\(\*\) AS total FROM admin_record_file_cleanup WHERE deletion_id = \?$/i, reason: '只汇总刚完成授权删除的服务端生成批次，不返回附件内容或路径' },

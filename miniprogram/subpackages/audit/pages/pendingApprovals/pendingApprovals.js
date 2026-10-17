@@ -1,3 +1,4 @@
+const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
@@ -22,6 +23,7 @@ Page({
     this.applyNavigationBarMetrics();
   },
   data: {
+    signingCopy,
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
     navRefreshing: false,

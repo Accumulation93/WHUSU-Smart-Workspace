@@ -2,7 +2,7 @@
 
 const { safeString } = require('../../../utils/helpers');
 
-const STEP_ACTION_TYPES = new Set(['pass', 'sign', 'estamp', 'both']);
+const STEP_ACTION_TYPES = new Set(['pass', 'sign', 'estamp', 'both', 'either']);
 const RESUBMIT_MODES = new Set(['fresh', 'from_rejector']);
 const CONDITION_TYPES = new Set(['identity_scope', 'person', 'submitter']);
 const CONDITION_SCOPES = new Set(['all', 'own', 'specific']);
@@ -68,6 +68,11 @@ function isValidResubmitMode(value) {
   return RESUBMIT_MODES.has(safeString(value));
 }
 
+function normalizeResubmitMode(value) {
+  const mode = safeString(value) || 'fresh';
+  return isValidResubmitMode(mode) ? 'fresh' : mode;
+}
+
 function stripDesignationOverrides(conditions) {
   return (Array.isArray(conditions) ? conditions : [])
     .filter(function(condition) {
@@ -101,6 +106,7 @@ module.exports = {
   validateConditionShape,
   validateStepShape,
   isValidResubmitMode,
+  normalizeResubmitMode,
   stripDesignationOverrides,
   applyDesignationOverride,
   effectiveConditionsForAuthorization
