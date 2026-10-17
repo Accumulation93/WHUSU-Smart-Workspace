@@ -164,42 +164,14 @@ function visibleWxmlFragments(file) {
 
 function jsStringLiterals(source) {
   const literals = [];
-  let cursor = 0;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (char === '/' && source[cursor + 1] === '/') {
-      const end = source.indexOf('\n', cursor + 2);
-      cursor = end < 0 ? source.length : end + 1;
-      continue;
-    }
-    if (char === '/' && source[cursor + 1] === '*') {
-      const end = source.indexOf('*/', cursor + 2);
-      cursor = end < 0 ? source.length : end + 2;
-      continue;
-    }
-    if (char !== '"' && char !== "'" && char !== '`') {
-      cursor += 1;
-      continue;
-    }
-    const quote = char;
-    const start = cursor;
-    cursor += 1;
-    let text = '';
-    while (cursor < source.length) {
-      const current = source[cursor];
-      if (current === '\\') {
-        text += current + (source[cursor + 1] || '');
-        cursor += 2;
-        continue;
-      }
-      if (current === quote) {
-        cursor += 1;
-        break;
-      }
-      text += current;
-      cursor += 1;
-    }
-    literals.push({ text: text.replace(/\$\{[\s\S]*?\}/g, ' ').replace(/\s+/g, ' ').trim(), offset: start, end: cursor });
+  // 词法解析区分正则、除法和字符串，不能把正则里的引号当作字符串起点。
+  const tokenizer = acorn.tokenizer(source, { ecmaVersion: 'latest', sourceType: 'module' });
+  for (const token of tokenizer) {
+    if (token.type.label !== 'string' && token.type.label !== 'template') continue;
+    const raw = token.type.label === 'string' ? source.slice(token.start + 1, token.end - 1) : source.slice(token.start, token.end);
+    literals.push({ text: raw.replace(/\s+/g, ' ').trim(),
+      offset: token.type.label === 'template' ? Math.max(0, token.start - 1) : token.start,
+      end: token.end });
   }
   return literals;
 }
@@ -345,6 +317,18 @@ function isExempt(file, text) {
     file = 'miniprogram/' + resources.canonical(file.slice('miniprogram/'.length));
   }
   return EXEMPTIONS.some((entry) => entry.file === file && entry.pattern.test(text));
+}
+
+if (process.argv.includes('--self-test')) {
+  const assert = require('node:assert/strict');
+  const sample = String.raw`const pattern = /["'<>]/g; // 中文注释不属于文案
+    const value = 8 / 2; showToast({ title: '真实提示' });
+    const escaped = '\\u4e00';`;
+  assert.deepEqual(jsStringLiterals(sample).map(item => item.text), ['真实提示', String.raw`\\u4e00`]);
+  assert.deepEqual(jsStringLiterals('const x = `前缀${"内部提示"}后缀`;').map(item => item.text), ['前缀', '内部提示', '后缀']);
+  const literal = jsStringLiterals(sample)[0];
+  assert.equal(sample.slice(literal.offset, literal.end), "'真实提示'");
+  console.log('文案词法扫描：正则引号、除法、注释、模板插值及原始位置测试通过');
 }
 
 const findings = [];
