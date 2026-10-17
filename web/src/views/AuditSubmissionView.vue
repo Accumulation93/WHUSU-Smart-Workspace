@@ -44,7 +44,7 @@
                 <button v-if="['sign','both'].includes(activeStep.actionType)" class="btn-quiet" @click="openSigning(file,'pen')">{{ signing.addInk }}</button>
                 <button class="btn-quiet" @click="openSigning(file,'browse')">{{ signing.browse }}</button>
               </div>
-              <div v-for="material in draftMaterials.filter(item=>item.fileId===file.id)" :key="material._idx" class="row row-wrap">
+              <div v-for="material in draftMaterials.filter(item=>item.fileId===file.id).reverse()" :key="material._idx" class="row row-wrap">
                 <span>{{ material.stampName || signing.signature }} · {{ signing.page }} {{ material.page || 1 }}</span>
                 <button class="btn-quiet" @click="openSigning(file,String(material._idx).startsWith('ink_')?'pen':'move',material._idx)">{{ String(material._idx).startsWith('ink_') ? signing.signAgain : signing.move }}</button>
                 <button class="btn-quiet btn-quiet-danger" @click="removeMaterial(material._idx)">{{ signing.remove }}</button>

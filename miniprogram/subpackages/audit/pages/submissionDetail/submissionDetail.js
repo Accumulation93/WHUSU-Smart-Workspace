@@ -1857,7 +1857,7 @@ Page({
       .sort((a, b) => (a.layerOrder || 0) - (b.layerOrder || 0));
   },
   signingMaterialViews() {
-    return this.signingMaterials().map(item => {
+    return this.signingMaterials().reverse().map(item => {
       const view = Object.assign({}, item, { isInk: String(item._idx).startsWith('ink_'), posText: this._computeSigPosText(item) });
       delete view.imageData; delete view.previewSrc;
       return view;

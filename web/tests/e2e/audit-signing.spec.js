@@ -247,8 +247,17 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
   const layers = page.locator('.signing-layer-strip');
   await expect(layers.getByRole('option')).toHaveCount(2);
-  await layers.getByRole('option').first().click();
+  await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 2');
+  await expect(layers.locator('.signing-layer-rank')).toHaveText(['1', '2']);
+  await layers.getByRole('option').last().click();
+  await expect(page.getByRole('button', { name: text.layerDown, exact: true })).toBeDisabled();
   await page.getByRole('button', { name: text.layerUp, exact: true }).click();
+  await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 1');
+  await expect(page.getByRole('button', { name: text.layerUp, exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: text.undo, exact: true }).click();
+  await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 2');
+  await page.getByRole('button', { name: text.redo, exact: true }).click();
+  await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 1');
   await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data))).toEqual([0,0,0,255]);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
   await enter(page); await expect(layers.getByRole('option')).toHaveCount(2);

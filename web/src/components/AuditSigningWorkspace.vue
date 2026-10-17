@@ -29,12 +29,12 @@
     </div>
     <div class="signing-toolbar signing-layer-toolbar">
       <div class="signing-layer-heading">{{ text.layers }}<span class="muted">{{ layers.length }}</span></div>
-      <button class="btn-quiet" :aria-label="text.layerUp" :title="text.layerUp" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))===layers.length-1" @click="reorderLayer(1)">↑</button>
-      <button class="btn-quiet" :aria-label="text.layerDown" :title="text.layerDown" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))<=0" @click="reorderLayer(-1)">↓</button>
+      <button class="btn-quiet" :aria-label="text.layerUp" :title="text.layerUp" :disabled="busy || saving || displayLayers.findIndex(layer=>layer.id===(selectedLayer||displayLayers[0]?.id))<=0" @click="reorderLayer(1)">↑</button>
+      <button class="btn-quiet" :aria-label="text.layerDown" :title="text.layerDown" :disabled="busy || saving || displayLayers.findIndex(layer=>layer.id===(selectedLayer||displayLayers[0]?.id))>=displayLayers.length-1" @click="reorderLayer(-1)">↓</button>
       <button class="btn-quiet btn-quiet-danger" :aria-label="text.remove" :disabled="busy || saving || !layers.length" @click="removeLayer">×</button>
     </div>
     <div class="signing-layer-strip" role="listbox" :aria-label="text.layers">
-      <div v-for="(layer,index) in layers" :key="layer.id" class="signing-layer-item" role="option" :aria-selected="(selectedLayer || layers[0]?.id) === layer.id" :aria-label="layerName(layer)" :tabindex="busy || saving ? -1 : 0" @click="chooseLayer(layer.id)" @keydown.enter.prevent="chooseLayer(layer.id)" @keydown.space.prevent="chooseLayer(layer.id)">
+      <div v-for="(layer,index) in displayLayers" :key="layer.id" class="signing-layer-item" role="option" :aria-selected="(selectedLayer || displayLayers[0]?.id) === layer.id" :aria-label="layerName(layer)" :tabindex="busy || saving ? -1 : 0" @click="chooseLayer(layer.id)" @keydown.enter.prevent="chooseLayer(layer.id)" @keydown.space.prevent="chooseLayer(layer.id)">
         <div class="signing-layer-preview"><div class="signing-layer-sheet"><span>{{ layer.kind === 'draw' ? '✎' : '◎' }}</span></div><span class="signing-layer-rank">{{ index + 1 }}</span></div>
         <span class="signing-layer-name" :title="layerName(layer)">{{ layerName(layer) }}</span>
       </div>
@@ -71,11 +71,12 @@ const channels=computed(()=>[1,3,5].map(offset=>parseInt(normalizeColor(color.va
 const channelLabels=[text.redChannel,text.greenChannel,text.blueChannel];
 const materials=computed(()=>props.draft.materials.filter(item=>item.fileId===props.file.id).sort((a,b)=>a.layerOrder-b.layerOrder));
 const layers=computed(()=>signingLayers(fileDraft.history,materials.value,page.value));
+const displayLayers=computed(()=>layers.value.slice().reverse());
 const selectedLayer=ref(props.active);
 const layerName=layer=>layer.kind==='draw'?text.stroke+' '+layer.number:layer.material.stampName||text.signature;
 function chooseLayer(id){if(busy.value||saving.value)return;activeId.value=id;selectedLayer.value=id;}
-function removeLayer(){const id=selectedLayer.value||layers.value[0]?.id;deleteLayer(fileDraft.history,props.draft.materials,page.value,id);render();}
-function reorderLayer(direction){const id=selectedLayer.value||layers.value[0]?.id;if(moveLayer(fileDraft.history,materials.value,page.value,id,direction)){selectedLayer.value=id;render();}}
+function removeLayer(){const id=selectedLayer.value||displayLayers.value[0]?.id;deleteLayer(fileDraft.history,props.draft.materials,page.value,id);render();}
+function reorderLayer(direction){const id=selectedLayer.value||displayLayers.value[0]?.id;if(moveLayer(fileDraft.history,materials.value,page.value,id,direction)){selectedLayer.value=id;render();}}
 const adjustment=ref(null);
 const displayedSize=computed(()=>adjustment.value?.values.size ?? activeMaterial.value?.size ?? 1);
 const displayedRotation=computed(()=>adjustment.value?.values.rotation ?? activeMaterial.value?.rotation ?? 0);
@@ -151,7 +152,7 @@ function cancel(){restoreDraft(props.draft,saved);finished=true;emit('cancel');}
 onMounted(()=>{observer=new ResizeObserver(resize);observer.observe(stageRef.value);loadPage(page.value);});
 watch([mode,activeId],()=>{cancelAdjustment();cancelGesture();render();});
 watch(materials,render,{deep:true});
-watch(layers,value=>{if(!value.some(layer=>layer.id===selectedLayer.value))selectedLayer.value=value[0]?.id||'';});
+watch(displayLayers,value=>{if(!value.some(layer=>layer.id===selectedLayer.value))selectedLayer.value=value[0]?.id||'';});
 watch(color,value=>{colorInput.value=value;});
 onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)observer.disconnect();if(frame!==null)cancelAnimationFrame(frame);if(!finished)restoreDraft(props.draft,saved);pointers.clear();});
 </script>

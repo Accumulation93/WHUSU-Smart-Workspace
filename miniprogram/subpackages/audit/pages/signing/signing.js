@@ -60,7 +60,7 @@ Page({
   refreshLayers() {
     if (!this._fileDraft || !this._fileDraft.history) return;
     const layers = ink.signingLayers(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page)
-      .map((layer, index) => { const name = layer.kind === 'draw' ? copy.stroke + ' ' + layer.number : layer.material.stampName || copy.signature; return { id: layer.id, kind: layer.kind, name, label: (index + 1) + ' · ' + name }; });
+      .reverse().map((layer, index) => { const name = layer.kind === 'draw' ? copy.stroke + ' ' + layer.number : layer.material.stampName || copy.signature; return { id: layer.id, kind: layer.kind, name, label: (index + 1) + ' · ' + name }; });
     this.setData({ layers, layerIndex: Math.max(0, layers.findIndex(layer => layer.id === this.data.activeId)) });
   },
   chooseLayer(event) {
