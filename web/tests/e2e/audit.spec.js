@@ -154,10 +154,13 @@ test('签名管理可以在画布上签名并保存', async ({ page }) => {
   await expect(page.getByRole('button', { name: signing.confirm, exact: true })).toBeEnabled();
   await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
-  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+  // 签名纸张保持 2:1，横屏画布两侧可能是纸张外的留白。
+  const fileWidth = Math.min(box.width, box.height * 2);
+  const fileLeft = box.x + (box.width - fileWidth) / 2;
+  await page.mouse.move(fileLeft + fileWidth * 0.2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2 + 10, { steps: 8 });
-  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2, { steps: 8 });
+  await page.mouse.move(fileLeft + fileWidth * 0.5, box.y + box.height / 2 + 10, { steps: 8 });
+  await page.mouse.move(fileLeft + fileWidth * 0.8, box.y + box.height / 2, { steps: 8 });
   await page.mouse.up();
   await page.getByRole('button', { name: signing.confirm, exact: true }).click();
   await expect(page).toHaveURL(/audit\/signatures$/);
