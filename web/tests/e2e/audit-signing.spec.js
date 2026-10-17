@@ -75,7 +75,7 @@ test('签署页以文件为主体，紧凑工具栏与底部操作完整可见',
   const sizes = [{ width: 310, height: 650 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 720 }];
   for (const size of sizes) {
     await page.setViewportSize(size);
-    await expect.poll(() => page.locator('.signing-stage').evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThan((size.height - 44) * 0.5);
+    await expect.poll(() => page.locator('.signing-stage').evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThan((size.height - 44) * 0.35);
     const layout = await page.evaluate(() => {
       const footer = document.querySelector('.signing-footer').getBoundingClientRect(), stage = document.querySelector('.signing-stage').getBoundingClientRect();
       return { footer: footer.bottom, stage: stage.bottom, horizontalOverflow: document.documentElement.scrollWidth > innerWidth };
@@ -242,16 +242,16 @@ test('审批拒绝保留书写，成功后读取失败只重读且不能重复�
 test('每次进入形成一个图层，排序与撤销在重进和导出保持一致', async ({ page }) => {
   const state = await setup(page); await enter(page);
   await stroke(page); await stroke(page, 0.48);
-  await expect(page.locator('.signing-layer-toolbar select option')).toHaveCount(1);
+  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
   await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
   await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
-  const layers = page.locator('.signing-layer-toolbar select');
-  await expect(layers.locator('option')).toHaveCount(2);
-  await layers.selectOption({ index: 0 });
+  const layers = page.locator('.signing-layer-strip');
+  await expect(layers.getByRole('option')).toHaveCount(2);
+  await layers.getByRole('option').first().click();
   await page.getByRole('button', { name: text.layerUp, exact: true }).click();
   await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data))).toEqual([0,0,0,255]);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
-  await enter(page); await expect(layers.locator('option')).toHaveCount(2);
+  await enter(page); await expect(layers.getByRole('option')).toHaveCount(2);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
@@ -293,16 +293,58 @@ test('详情先预取图片，重复签署不重新请求；移动旋转删除�
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('0');
   await page.getByRole('button',{name:text.redo,exact:true}).click();await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.remove,exact:true}).click();
-  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(0);
+  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(0);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.confirm,exact:true}).click();
   await enter(page);await stroke(page);await stroke(page,0.4);
-  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(2);
+  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(2);
   await page.getByRole('button',{name:text.confirm,exact:true}).click();await enter(page);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await page.getByRole('button',{name:text.undo,exact:true}).click();
-  await expect(page.locator('.signing-layer-toolbar option')).toHaveCount(1);
+  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
   await page.getByRole('button',{name:text.redo,exact:true}).click();
   await page.getByRole('button',{name:text.confirm,exact:true}).click();
   expect(state.calls.filter(item=>item.name==='getMyStampImage')).toHaveLength(1);
   expect(state.calls.filter(item=>item.name==='getAuditFilePreview')).toHaveLength(1);
+});
+
+
+test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换布局保持文件比例', async ({ page }, testInfo) => {
+  await setup(page, { actionType: 'both' });
+  await page.getByRole('button', { name: text.stamp, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '测试印章', exact: true }).click();
+  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  const sizes = [{width:310,height:650},{width:390,height:844},{width:768,height:1024},{width:1280,height:720}];
+  for (const size of sizes) {
+    await page.setViewportSize(size);
+    for (const mode of ['pen', 'browse', 'move']) {
+      await page.getByRole('tab', {name:text[mode],exact:true}).click();
+      await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => {
+        const rect=canvas.getBoundingClientRect();
+        return Math.max(Math.abs(canvas.width-rect.width*devicePixelRatio),Math.abs(canvas.height-rect.height*devicePixelRatio));
+      })).toBeLessThanOrEqual(1);
+      await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas=>{
+        const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+        let left=canvas.width,right=0,top=canvas.height,bottom=0;
+        for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++)if(data[(y*canvas.width+x)*4+3]>200){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}
+        return Math.abs((right-left+1)/(bottom-top+1)-2);
+      })).toBeLessThan(0.025);
+    }
+    const slider=page.getByRole('slider',{name:text.size,exact:true});
+    await slider.scrollIntoViewIfNeeded();
+    const geometry=await slider.evaluate(node=>{
+      const rect=node.getBoundingClientRect(),footer=document.querySelector('.signing-footer').getBoundingClientRect();
+      return {height:rect.height,gap:footer.top-rect.bottom,hit:document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)===node};
+    });
+    expect(geometry.height).toBeGreaterThanOrEqual(48);expect(geometry.gap).toBeGreaterThanOrEqual(12);expect(geometry.hit).toBe(true);
+    const old=await slider.inputValue(),box=await slider.boundingBox();
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+    await page.mouse.move(box.x+box.width*0.8,box.y+box.height/2,{steps:12});
+    const preview=await slider.inputValue();expect(preview).not.toBe(old);
+    await expect(page.locator('.signing-adjustment-label').first()).toContainText(preview+'%');
+    await page.mouse.up();
+    await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(slider).toHaveValue(old);
+    await page.getByRole('button',{name:text.redo,exact:true}).click();await expect(slider).toHaveValue(preview);
+    await page.getByRole('button',{name:text.undo,exact:true}).click();
+    await page.screenshot({path:testInfo.outputPath('signing-'+size.width+'.png'),fullPage:true});
+  }
 });

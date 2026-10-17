@@ -28,16 +28,20 @@
       <div v-if="busy || notice" class="signing-stage-state"><p>{{ busy ? text.loading : notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
     </div>
     <div class="signing-toolbar signing-layer-toolbar">
-      <label class="field"><span class="field-label">{{ text.layers }}</span><select :value="selectedLayer || layers[0]?.id || ''" :disabled="!layers.length || saving" class="field-input" @change="selectedLayer=$event.target.value; activeId=selectedLayer"><option v-for="(layer,index) in layers" :key="layer.id" :value="layer.id">{{ index + 1 }} · {{ layer.kind === 'draw' ? text.stroke + ' ' + layer.number : layer.material.stampName || text.signature }}</option></select></label>
+      <div class="signing-layer-heading">{{ text.layers }}<span class="muted">{{ layers.length }}</span></div>
       <button class="btn-quiet" :aria-label="text.layerUp" :title="text.layerUp" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))===layers.length-1" @click="reorderLayer(1)">↑</button>
       <button class="btn-quiet" :aria-label="text.layerDown" :title="text.layerDown" :disabled="busy || saving || layers.findIndex(layer=>layer.id===(selectedLayer||layers[0]?.id))<=0" @click="reorderLayer(-1)">↓</button>
       <button class="btn-quiet btn-quiet-danger" :aria-label="text.remove" :disabled="busy || saving || !layers.length" @click="removeLayer">×</button>
     </div>
-    <div v-if="mode === 'move'" class="signing-objects">
-      <span class="field-label">{{ text.objects }}</span>
-      <button v-for="material in materials" :key="material._idx" class="btn-quiet" :aria-pressed="activeId === material._idx" @click="activeId = material._idx; selectedLayer = material._idx">{{ material.stampName || text.signature }} {{ materials.indexOf(material) + 1 }}</button>
-      <label v-if="activeMaterial" class="field"><span class="field-label">{{ text.size }}</span><input type="range" min="50" max="220" step="5" :value="(activeMaterial.size || 1)*100" @change="resizeMaterial($event.target.value)" /></label>
-      <label v-if="activeMaterial" class="field"><span class="field-label">{{ text.rotation }}</span><input type="range" min="-180" max="180" step="5" :value="activeMaterial.rotation || 0" @change="rotateMaterial($event.target.value)" /></label>
+    <div class="signing-layer-strip" role="listbox" :aria-label="text.layers">
+      <div v-for="(layer,index) in layers" :key="layer.id" class="signing-layer-item" role="option" :aria-selected="(selectedLayer || layers[0]?.id) === layer.id" :aria-label="layerName(layer)" :tabindex="busy || saving ? -1 : 0" @click="chooseLayer(layer.id)" @keydown.enter.prevent="chooseLayer(layer.id)" @keydown.space.prevent="chooseLayer(layer.id)">
+        <div class="signing-layer-preview"><div class="signing-layer-sheet"><span>{{ layer.kind === 'draw' ? '✎' : '◎' }}</span></div><span class="signing-layer-rank">{{ index + 1 }}</span></div>
+        <span class="signing-layer-name" :title="layerName(layer)">{{ layerName(layer) }}</span>
+      </div>
+    </div>
+    <div v-if="mode === 'move' && activeMaterial" class="signing-adjustments">
+      <label class="field"><span class="signing-adjustment-label"><span>{{ text.size }}</span><span>{{ Math.round(displayedSize*100) }}%</span></span><input :aria-label="text.size" type="range" min="50" max="220" step="5" :disabled="busy || saving" :value="displayedSize*100" @input="previewAdjustment('size',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="resizeMaterial($event.target.value)" /></label>
+      <label class="field"><span class="signing-adjustment-label"><span>{{ text.rotation }}</span><span>{{ displayedRotation }}°</span></span><input :aria-label="text.rotation" type="range" min="-180" max="180" step="5" :disabled="busy || saving" :value="displayedRotation" @input="previewAdjustment('rotation',$event.target.value)" @pointercancel="cancelAdjustment" @change="rotateMaterial($event.target.value)" /></label>
     </div>
     <p v-if="exportNotice" class="notice-line">{{ exportNotice }}</p>
     <div class="signing-footer"><button class="btn btn-secondary" :disabled="saving" @click="cancel">{{ text.cancel }}</button><button class="btn btn-primary" :disabled="busy || !!notice || saving" @click="confirm">{{ text.confirm }}</button></div>
@@ -67,9 +71,16 @@ const channels=computed(()=>[1,3,5].map(offset=>parseInt(normalizeColor(color.va
 const channelLabels=[text.redChannel,text.greenChannel,text.blueChannel];
 const materials=computed(()=>props.draft.materials.filter(item=>item.fileId===props.file.id).sort((a,b)=>a.layerOrder-b.layerOrder));
 const layers=computed(()=>signingLayers(fileDraft.history,materials.value,page.value));
-const selectedLayer=ref('');
+const selectedLayer=ref(props.active);
+const layerName=layer=>layer.kind==='draw'?text.stroke+' '+layer.number:layer.material.stampName||text.signature;
+function chooseLayer(id){if(busy.value||saving.value)return;activeId.value=id;selectedLayer.value=id;}
 function removeLayer(){const id=selectedLayer.value||layers.value[0]?.id;deleteLayer(fileDraft.history,props.draft.materials,page.value,id);render();}
 function reorderLayer(direction){const id=selectedLayer.value||layers.value[0]?.id;if(moveLayer(fileDraft.history,materials.value,page.value,id,direction)){selectedLayer.value=id;render();}}
+const adjustment=ref(null);
+const displayedSize=computed(()=>adjustment.value?.values.size ?? activeMaterial.value?.size ?? 1);
+const displayedRotation=computed(()=>adjustment.value?.values.rotation ?? activeMaterial.value?.rotation ?? 0);
+function previewAdjustment(key,value){const material=activeMaterial.value;if(!material||busy.value||saving.value)return;const values={[key]:Number(value)};if(key==='size'&&material.widthRatio!=null)values.widthRatio=clamp(material.widthRatio*values.size/(material.size||1),0.00000001,1);adjustment.value={id:material._idx,values};render();}
+function cancelAdjustment(){adjustment.value=null;render();}
 const activeMaterial=computed(()=>materials.value.find(item=>item._idx===activeId.value));
 const loadedImages=new Map(), pointers=new Map();
 let alive=true, sequence=0, observer=null, frame=null, gesture=null, stroke=null, panX=0, panY=0, current=null, camera=null, finished=false;
@@ -101,13 +112,13 @@ async function loadPage(number){
   }catch(_){if(alive && request===sequence){notice.value=text.failed;current=null;}}
   finally{if(alive && request===sequence){busy.value=false;render();}}
 }
-function resize(){if(!current || !surfaceRef.value || !stageRef.value)return;const rect=stageRef.value.getBoundingClientRect();const size=surfaceSize(rect.width,rect.height,window.devicePixelRatio);surfaceRef.value.width=size.width;surfaceRef.value.height=size.height;inkRef.value.width=size.width;inkRef.value.height=size.height;render();}
-function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame(()=>{frame=null;if(!current || !surfaceRef.value)return;const surface=surfaceRef.value,context=surface.getContext('2d'),ink=inkRef.value;const rect=surface.getBoundingClientRect(),ratio=surface.width/rect.width;camera=fitCamera(rect.width,rect.height,current.width,current.height,zoom.value,panX,panY);context.clearRect(0,0,surface.width,surface.height);context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.drawImage(current.image,0,0,current.width,current.height);
+function resize(){render();}
+function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame(()=>{frame=null;if(!current || !surfaceRef.value)return;const surface=surfaceRef.value,context=surface.getContext('2d'),ink=inkRef.value;const rect=surface.getBoundingClientRect();if(!(rect.width>0&&rect.height>0))return;const size=surfaceSize(rect.width,rect.height,window.devicePixelRatio),ratio=size.ratio;for(const canvas of [surface,ink]){if(canvas.width!==size.width)canvas.width=size.width;if(canvas.height!==size.height)canvas.height=size.height;}camera=fitCamera(rect.width,rect.height,current.width,current.height,zoom.value,panX,panY);context.clearRect(0,0,surface.width,surface.height);context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.drawImage(current.image,0,0,current.width,current.height);
   context.restore();
   ink.getContext('2d').clearRect(0,0,ink.width,ink.height);
   const hasMaterials=layers.value.some((layer,index)=>layer.kind==='material'||index>0&&layers.value[index-1].index>layer.index);
   if(!hasMaterials){renderViewportInk(ink.getContext('2d'),fileDraft.history,page.value,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);return;}
-  for(const layer of layers.value){if(layer.kind==='draw'){renderViewportLayer(ink.getContext('2d'),fileDraft.history,layer,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);continue;}const material=layer.material;const image=loadedImages.get(material.previewSrc||material.imageData);if(!image)continue;const geometry=signatureGeometry(material,current.width,current.height,image.width,image.height,props.file.mimeType==='application/pdf');if(material.widthRatio!=null){const x=geometry.centerX/current.width,y=geometry.centerY/current.height;if(Math.abs(material.positionX-x)>1e-8)material.positionX=x;if(Math.abs(material.positionY-y)>1e-8)material.positionY=y;}context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.translate(geometry.centerX,geometry.centerY);context.rotate((material.rotation||0)*Math.PI/180);context.drawImage(image,-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);if(activeId.value===material._idx && mode.value==='move'){context.strokeStyle='#2563eb';context.lineWidth=2*current.width/camera.width;context.strokeRect(-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);}context.restore();}
+  for(const layer of layers.value){if(layer.kind==='draw'){renderViewportLayer(ink.getContext('2d'),fileDraft.history,layer,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);continue;}const material=adjustment.value?.id===layer.material._idx?{...layer.material,...adjustment.value.values}:layer.material;const image=loadedImages.get(material.previewSrc||material.imageData);if(!image)continue;const geometry=signatureGeometry(material,current.width,current.height,image.width,image.height,props.file.mimeType==='application/pdf');if(material.widthRatio!=null){const x=geometry.centerX/current.width,y=geometry.centerY/current.height;if(Math.abs(material.positionX-x)>1e-8)material.positionX=x;if(Math.abs(material.positionY-y)>1e-8)material.positionY=y;}context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.translate(geometry.centerX,geometry.centerY);context.rotate((material.rotation||0)*Math.PI/180);context.drawImage(image,-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);if(activeId.value===material._idx && mode.value==='move'){context.strokeStyle='#2563eb';context.lineWidth=2*current.width/camera.width;context.strokeRect(-geometry.width/2,-geometry.height/2,geometry.width,geometry.height);}context.restore();}
   if(stroke&&stroke.type==='draw'&&!layers.value.some(layer=>layer.id===stroke.layerId)){renderViewportInk(ink.getContext('2d'),{operations:[],cursor:0},page.value,ink.width,ink.height,camera,ratio,stroke);context.drawImage(ink,0,0);}});}
 function point(event){return filePoint(event.clientX,event.clientY,surfaceRef.value.getBoundingClientRect(),camera);}
 function distance(){const values=Array.from(pointers.values());return Math.hypot(values[0].x-values[1].x,values[0].y-values[1].y);}
@@ -130,15 +141,15 @@ function commitMaterial(material,values){
   if(image&&current){const box=signatureGeometry({...material,...values},current.width,current.height,image.width,image.height,props.file.mimeType==='application/pdf');values.positionX=box.centerX/current.width;values.positionY=box.centerY/current.height;}
   updateMaterial(fileDraft.history,props.draft.materials,material._idx,values);
 }
-function resizeMaterial(value){const material=activeMaterial.value;if(!material)return;const size=Number(value)/100,values={size};if(material.widthRatio!=null)values.widthRatio=clamp(material.widthRatio*size/(material.size||1),0.00000001,1);commitMaterial(material,values);render();}
-function rotateMaterial(value){if(activeMaterial.value)commitMaterial(activeMaterial.value,{rotation:Number(value)});render();}
+function resizeMaterial(value){adjustment.value=null;const material=activeMaterial.value;if(!material)return;const size=Number(value)/100,values={size};if(material.widthRatio!=null)values.widthRatio=clamp(material.widthRatio*size/(material.size||1),0.00000001,1);commitMaterial(material,values);render();}
+function rotateMaterial(value){adjustment.value=null;if(activeMaterial.value)commitMaterial(activeMaterial.value,{rotation:Number(value)});render();}
 async function changeHistory(forward){const target=(forward?redo:undo)(fileDraft.history,props.draft.materials);if(target===null)return;if(target!==page.value)await loadPage(target);else render();}
 async function clearInk(){if(await confirmAction({title:text.clearTitle,body:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
 async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);for(const layer of (props.pad?[null]:inkExportGroups(fileDraft.history,props.draft.materials.filter(item=>item.fileId===props.file.id),number))){const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);const region=layer?groupExportRegion(layer,size.width,size.height):{left:0,top:0,width:size.width,height:size.height};canvas.width=region.width;canvas.height=region.height;if(layer)renderExportGroup(ctx,document.createElement('canvas'),fileDraft.history,layer,size.width,size.height,region);else renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const imageData=crop.toDataURL('image/png');if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+(layer?layer.id+'_page_'+number:number),inkLayerId:layer?layer.id:'',layerOrder:layer?layer.order:0,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/size.width,positionX:(region.left+bounds.left+bounds.width/2)/size.width,positionY:(region.top+bounds.top+bounds.height/2)/size.height,size:1,rotation:0,page:number});}}return exports;}
 async function confirm(){saving.value=true;exportNotice.value='';try{fileDraft.exports=await exportPages();if(props.pad&&!fileDraft.exports.length){exportNotice.value=text.empty;return;}finished=true;emit('confirm',fileDraft.exports);}catch(error){exportNotice.value=error.message==='too_large'?text.tooLarge:text.exportFailed;}finally{saving.value=false;}}
 function cancel(){restoreDraft(props.draft,saved);finished=true;emit('cancel');}
 onMounted(()=>{observer=new ResizeObserver(resize);observer.observe(stageRef.value);loadPage(page.value);});
-watch([mode,activeId],()=>{cancelGesture();render();});
+watch([mode,activeId],()=>{cancelAdjustment();cancelGesture();render();});
 watch(materials,render,{deep:true});
 watch(layers,value=>{if(!value.some(layer=>layer.id===selectedLayer.value))selectedLayer.value=value[0]?.id||'';});
 watch(color,value=>{colorInput.value=value;});
@@ -150,7 +161,7 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-layer-toolbar .field{flex:1;min-width:0;flex-direction:row;align-items:center}
 .signing-layer-toolbar .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
 .signing-layer-toolbar .field-label,.signing-width .field-label{flex:none;white-space:nowrap}
-.signing-workspace{display:flex;flex:1;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
+.signing-workspace{display:flex;flex:1 0 auto;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
 .signing-workspace .panel-head{margin:0;flex:none}
 .signing-workspace .tabs{margin:0;flex:none;min-height:0;padding:0}
 .signing-workspace .tab{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);font-size:var(--ui-type-meta)}
@@ -164,12 +175,26 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-width{display:flex;flex-direction:row;align-items:center;gap:var(--ui-signing-tool-gap)}
 .signing-width .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
 .signing-width{min-width:0;max-width:var(--ui-signing-width-control)}
-.signing-stage{position:relative;flex:1;min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-field-bg)}
-.signing-stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.signing-stage{position:relative;flex:1 0 var(--ui-signing-stage-min-height);min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-field-bg)}
+.signing-stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
 .signing-stage-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--ui-field-bg)}
-.signing-footer{display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-action-gap)}
+.signing-footer{padding-top:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border);display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-action-gap)}
 .signing-export-canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .signing-color-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-field-gap)}
+.signing-color-panel input[type=range]{height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x}
 .signing-layer-toolbar .btn-quiet{min-width:var(--ui-control-height)}
 .signing-layer-toolbar .btn-quiet,.signing-layer-toolbar .field-input{min-height:var(--ui-control-height)}
+.signing-layer-heading{display:flex;flex:1;align-items:center;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
+.signing-layer-strip{display:flex;flex:none;gap:var(--ui-signing-control-gap);height:var(--ui-signing-layer-height);overflow-x:auto;overflow-y:hidden;padding:var(--ui-signing-tool-gap);box-sizing:border-box}
+.signing-layer-item{flex:0 0 auto;min-width:var(--ui-signing-layer-width);padding:var(--ui-signing-tool-gap);box-sizing:border-box;border-bottom:2px solid transparent;cursor:pointer}
+.signing-layer-item[aria-selected=true]{border-bottom-color:var(--ui-blue-700);background:var(--ui-option-selected-bg)}
+.signing-layer-preview{position:relative;display:flex;justify-content:center;height:var(--ui-signing-preview-height)}
+.signing-layer-sheet{display:flex;align-items:center;justify-content:center;width:var(--ui-signing-sheet-width);height:var(--ui-signing-sheet-height);border:var(--ui-result-label-border);background:var(--ui-field-bg);box-shadow:var(--ui-signing-sheet-shadow);color:var(--ui-text-muted);font-size:var(--ui-type-emphasis)}
+.signing-layer-item[aria-selected=true] .signing-layer-sheet{border-color:var(--ui-blue-700);color:var(--ui-blue-700)}
+.signing-layer-rank{position:absolute;right:0;bottom:0;font-size:var(--ui-type-micro);color:var(--ui-text-muted)}
+.signing-layer-name{display:block;white-space:nowrap;text-align:center;font-size:var(--ui-type-meta);line-height:var(--ui-leading-body)}
+.signing-adjustments{display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-signing-adjustment-gap);padding:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border)}
+.signing-adjustments .field{min-width:0;gap:0}
+.signing-adjustment-label{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
+.signing-adjustments input[type=range]{display:block;box-sizing:border-box;width:100%;height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x;accent-color:var(--ui-blue-700)}
 </style>

@@ -13,7 +13,7 @@ const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, fileName: '', fileImage: '', fileId: '',
     page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '',
-    loading: true, ready: false, notice: '', saving: false, materialSize: 100, materialRotation: 0, layers: [], layerIndex: 0 },
+    loading: true, ready: false, notice: '', saving: false, workspaceMinHeight: 240, materialSize: 100, materialRotation: 0, activeMaterialId: '', layers: [], layerIndex: 0 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
     // 可重建副本清理不参与打开文件；原生文件回调停滞不能挡住内存预览。
@@ -37,7 +37,7 @@ Page({
     } else if (this._waiter) this.startCanvasTimer();
   },
   onHide() { if (this._readyTimer) clearTimeout(this._readyTimer); this._readyTimer = null; },
-  onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); const pad = this.selectComponent('#signingPad'); if (pad) pad._initialize(); },
+  onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
   onPageScroll() { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); },
   onUnload() {
     this._alive = false; if (this._readyTimer) clearTimeout(this._readyTimer);
@@ -54,18 +54,21 @@ Page({
       page: item.page, widthRatio: item.widthRatio == null ? null : item.widthRatio, layerOrder: item.layerOrder
     }));
     const active = materials.find(item => item._idx === this.data.activeId);
-    this.setData({ materials, materialSize: active ? (active.size || 1) * 100 : 100, materialRotation: active ? active.rotation || 0 : 0 });
+    this.setData({ materials, activeMaterialId: active ? active._idx : '', materialSize: active ? (active.size || 1) * 100 : 100, materialRotation: active ? active.rotation || 0 : 0 });
     this.refreshLayers();
   },
   refreshLayers() {
     if (!this._fileDraft || !this._fileDraft.history) return;
     const layers = ink.signingLayers(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page)
-      .map((layer, index) => ({ id: layer.id, label: (index + 1) + ' · ' + (layer.kind === 'draw' ? copy.stroke : layer.material.stampName || copy.signature) + ' ' + (layer.kind === 'draw' ? layer.number : '') }));
+      .map((layer, index) => { const name = layer.kind === 'draw' ? copy.stroke + ' ' + layer.number : layer.material.stampName || copy.signature; return { id: layer.id, kind: layer.kind, name, label: (index + 1) + ' · ' + name }; });
     this.setData({ layers, layerIndex: Math.max(0, layers.findIndex(layer => layer.id === this.data.activeId)) });
   },
   chooseLayer(event) {
-    const layer = this.data.layers[Number(event.detail.value)];
-    if (layer) { this.setData({ activeId: layer.id, layerIndex: Number(event.detail.value) }); this.refreshMaterials(); }
+    if (this.data.saving || !this.data.ready) return;
+    this.cancelAdjustment();
+    const index = Number(event.currentTarget.dataset.index);
+    const layer = this.data.layers[index];
+    if (layer) { this.setData({ activeId: layer.id, layerIndex: index }); this.refreshMaterials(); }
   },
   reorderLayer(event) {
     const layer = this.data.layers[this.data.layerIndex];
@@ -142,7 +145,8 @@ Page({
     this.refreshMaterials(); this.syncHistory();
   },
   historyPage(event) { this.loadPage(event.detail.page); },
-  workspaceMode(event) { this.setData({ mode: event.detail.mode }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
+  workspaceLayout(event) { if (this.data.workspaceMinHeight !== event.detail.minimum) this.setData({ workspaceMinHeight: event.detail.minimum }); },
+  workspaceMode(event) { this.cancelAdjustment(); this.setData({ mode: event.detail.mode }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
   chooseMaterial(event) { this.setData({ activeId: event.currentTarget.dataset.id }); this.refreshMaterials(); },
   moveMaterial(event) {
     const value = event.detail, material = this._handoff.draft.materials.find(item => item._idx === value.id);
@@ -164,16 +168,30 @@ Page({
     }
     ink.updateMaterial(this._fileDraft.history, this._handoff.draft.materials, material._idx, values);
   },
+  previewSize(event) { this.previewAdjustment('size', Number(event.detail.value) / 100); },
+  previewRotation(event) { this.previewAdjustment('rotation', Number(event.detail.value)); },
+  previewAdjustment(key, value) {
+    if (this.data.saving || !this.data.ready) return;
+    const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId);
+    const pad = this.selectComponent('#signingPad'); if (!material || !pad) return;
+    const values = { [key]: value };
+    if (key === 'size' && material.widthRatio != null) values.widthRatio = ink.clamp(material.widthRatio * value / (material.size || 1), 0.00000001, 1);
+    pad.previewMaterial(material._idx, values);
+    this.setData(key === 'size' ? { materialSize: Math.round(value * 100) } : { materialRotation: value });
+  },
+  cancelAdjustment() { const pad = this.selectComponent('#signingPad'); if (pad) pad.previewMaterial('', null); this.refreshMaterials(); },
   resizeMaterial(event) {
+    if (this.data.saving || !this.data.ready) return;
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
     const size = Number(event.detail.value) / 100;
     const values = { size };
     if (material.widthRatio != null) values.widthRatio = ink.clamp(material.widthRatio * size / (material.size || 1), 0.00000001, 1);
-    this.commitMaterial(material, values); this.refreshMaterials(); this.syncHistory();
+    this.commitMaterial(material, values); this.cancelAdjustment(); this.syncHistory();
   },
   rotateMaterial(event) {
+    if (this.data.saving || !this.data.ready) return;
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
-    this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.refreshMaterials(); this.syncHistory();
+    this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.cancelAdjustment(); this.syncHistory();
   },
   async confirm() {
     if (!this.data.ready || this.data.saving || this.data.notice) return;

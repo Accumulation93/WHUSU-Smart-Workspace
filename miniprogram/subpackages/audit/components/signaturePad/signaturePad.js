@@ -10,6 +10,7 @@ Component({
   properties: {
     initialImage: { type: String, value: '' },
     fileImage: { type: String, value: '', observer() { if (this._surface) this._loadImage(); } },
+    layoutKey: { type: String, value: '', observer() { wx.nextTick(() => { if (this._alive && this._surface) this.measure(); }); } },
     fileId: { type: String, value: '' }, page: { type: Number, value: 1 },
     documentWidth: { type: Number, value: 800 }, documentHeight: { type: Number, value: 400 },
     pdf: { type: Boolean, value: false }, initialMode: { type: String, value: 'pen' },
@@ -60,12 +61,25 @@ Component({
       });
     },
     measure() {
-      wx.createSelectorQuery().in(this).select('#sigSurface').fields({ size: true, rect: true }).exec(rows => {
+      const query = wx.createSelectorQuery().in(this);
+      query.select('#sigSurface').fields({ size: true, rect: true });
+      query.selectAll('.sigpad-toolbar, .sigpad-colors, .sigpad-notice').boundingClientRect();
+      query.exec(rows => {
         if (this._alive && rows[0]) {
-          this._rect = rows[0];
-          if (this._surface) { this._resizeSurface(); this._render(); }
+          const controls = rows[1] || [];
+          const minimum = Math.ceil(120 + controls.reduce((sum, rect) => sum + rect.height + 4, 0));
+          if (minimum !== this._minimumHeight) { this._minimumHeight = minimum; this.triggerEvent('layoutchange', { minimum }); }
+          if (this._surface) { this._applyViewport(rows[0]); this._render(); }
         }
       });
+    },
+    _applyViewport(rect) {
+      if (!rect || !(rect.width > 0) || !(rect.height > 0)) return false;
+      // CSS 视口、像素缓冲与文件相机必须在同一次测量中同步，禁止拉伸旧缓冲。
+      this._rect = rect;
+      this._resizeSurface();
+      if (this._documentWidth && this._documentHeight) this._camera = ink.fitCamera(rect.width, rect.height, this._documentWidth, this._documentHeight, this._zoom, this._panX, this._panY);
+      return true;
     },
     _resizeSurface() {
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
@@ -139,12 +153,14 @@ Component({
       });
       this._render();
     },
+    previewMaterial(id, values) { this._controlPreview = values ? { id, values } : null; this._render(); },
     _materialSource(item) { return this._materialSources && this._materialSources[item._idx] || item.imageData || item.previewSrc; },
     _syncHistory() { this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
     _render() {
       if (!this._alive || this._hidden || !this._surface || this._frame != null) return;
       const draw = () => {
         this._frame = null; if (!this._alive) return;
+        this._resizeSurface();
         const width = this._documentWidth, height = this._documentHeight;
         this._camera = ink.fitCamera(this._rect.width, this._rect.height, width, height, this._zoom, this._panX, this._panY);
         const ctx = this._ctx, camera = this._camera;
@@ -164,10 +180,11 @@ Component({
             ink.renderViewportLayer(this._inkCtx, this._history, layer, this._layer.width, this._layer.height, camera, this._pixelRatio, this._stroke);
             ctx.drawImage(this._layer, 0, 0); return;
           }
-          const item = this._dragPreview && this._dragPreview.id === layer.material._idx ? Object.assign({}, layer.material, { positionX: this._dragPreview.x, positionY: this._dragPreview.y }) : layer.material;
+          const base = this._controlPreview && this._controlPreview.id === layer.material._idx ? Object.assign({}, layer.material, this._controlPreview.values) : layer.material;
+          const item = this._dragPreview && this._dragPreview.id === layer.material._idx ? Object.assign({}, base, { positionX: this._dragPreview.x, positionY: this._dragPreview.y }) : base;
           const image = this._images[this._materialSource(item)]; if (!image) return;
           const box = signatureGeometry(item, width, height, image.width, image.height, this.properties.pdf);
-          if (!this._dragPreview && item.widthRatio != null && (Math.abs(item.positionX - box.centerX / width) > 1e-8 || Math.abs(item.positionY - box.centerY / height) > 1e-8)) {
+          if (!this._dragPreview && !this._controlPreview && item.widthRatio != null && (Math.abs(item.positionX - box.centerX / width) > 1e-8 || Math.abs(item.positionY - box.centerY / height) > 1e-8)) {
             this.triggerEvent('geometry', { id: item._idx, x: box.centerX / width, y: box.centerY / height });
           }
           ctx.save(); ctx.scale(this._pixelRatio, this._pixelRatio); ctx.translate(camera.left, camera.top); ctx.scale(camera.scale, camera.scale);
@@ -188,13 +205,13 @@ Component({
     onTouchStart(event) {
       if (!this.data.ready) return; this._preparing = true; this._queue = [{ type: 'start', event }];
       wx.createSelectorQuery().in(this).select('#sigSurface').fields({ size: true, rect: true }).exec(rows => {
-        if (!this._alive || !rows[0]) return; this._rect = rows[0]; this._preparing = false;
+        if (!this._alive || !this._applyViewport(rows[0])) { this._queue = []; this._preparing = false; return; } this._preparing = false;
         const queue = this._queue; this._queue = []; queue.forEach(item => this._touch(item.type, item.event));
       });
     },
     onTouchMove(event) { if (this._preparing) this._queue.push({ type: 'move', event }); else this._touch('move', event); },
     onTouchEnd(event) { if (this._preparing) this._queue.push({ type: 'end', event }); else this._touch('end', event); },
-    onTouchCancel() { this._dragPreview = null; this._queue = []; this._preparing = false; this._stroke = null; this._gesture = null; this._render(); },
+    onTouchCancel() { this._controlPreview = null; this._dragPreview = null; this._queue = []; this._preparing = false; this._stroke = null; this._gesture = null; this._render(); },
     _touch(type, event) {
       if (!this._camera || !this.data.ready) return;
       const touches = event.touches || [], touch = touches[0] || (event.changedTouches || [])[0]; if (!touch) return;

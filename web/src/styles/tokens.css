@@ -8,6 +8,15 @@
  */
 
 :root {
+  --ui-signing-control-gap: 12px;
+  --ui-signing-adjustment-gap: 20px;
+  --ui-signing-slider-height: 48px;
+  --ui-signing-layer-height: 72px;
+  --ui-signing-layer-width: 88px;
+  --ui-signing-preview-height: 34px;
+  --ui-signing-sheet-width: 44px;
+  --ui-signing-sheet-height: 28px;
+  --ui-signing-sheet-shadow: 3px 3px 0 #e2e8f0;
   --ui-signing-tool-height: 36px;
   --ui-signing-tool-gap: 4px;
   --ui-signing-swatch-size: 14px;

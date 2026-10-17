@@ -9,9 +9,9 @@
 .sigpad-palette .sigpad-selected { border-color: #2563eb; background: linear-gradient(135deg,#dbeafe,#eff6ff); }
 .sigpad-width { flex: 1; min-width: 0; }
 .sigpad-width .picker-display { min-height: var(--ui-signing-tool-height); padding: var(--ui-signing-tool-gap); display: flex; align-items: center; justify-content: center; font-size: var(--ui-type-meta); }
-.sigpad-surface { display: block; flex: 1; min-height: 120px; width: 100%; height: auto; border-radius: var(--ui-field-radius); background: linear-gradient(135deg, #ffffff, #f8fbff); }
+.sigpad-surface { display: block; flex: 1 0 120px; min-height: 120px; width: 100%; height: auto; border-radius: var(--ui-field-radius); background: linear-gradient(135deg, #ffffff, #f8fbff); }
 .sigpad-export-canvas { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .sigpad-colors { display: grid; grid-template-columns: auto minmax(0,1fr); flex: none; align-items: center; gap: var(--ui-signing-tool-gap); }
-.sigpad-colors .sigpad-channel { margin: 0; }
+.sigpad-colors .sigpad-channel { height: 48px; margin: 0 12px; padding: 12px 0; box-sizing: border-box; }
 .sigpad-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
 @media (min-width: 520px) { .sigpad-wrap { --ui-signing-tool-height: 40px; } }

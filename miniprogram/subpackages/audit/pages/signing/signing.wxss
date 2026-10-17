@@ -1,19 +1,28 @@
 @import '../../../main/styles/home.wxss';
-.signing-page { animation: none; transform: none; display: flex; padding: var(--ui-inline-gap); box-sizing: border-box; }
-.signing-card { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
-.signing-workspace { flex: 1; min-height: 0; display: block; }
+.signing-page { animation: none; transform: none; display: flex; flex-direction: column; padding: var(--ui-inline-gap); padding-bottom: calc(var(--ui-inline-gap) + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.signing-card { display: flex; flex: 1 0 auto; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
+.signing-workspace { flex: 1 0 240px; min-height: 240px; display: block; }
 .signing-card > .section-title { flex: none; }
 .signing-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
 .signing-pages { display: flex; align-items: center; justify-content: center; gap: var(--ui-inline-gap); }
 .signing-pages > .secondary-btn { flex: 0 0 36px; min-width: 0; min-height: 36px; width: 36px; height: auto; margin: 0; padding: 4px; }
 .signing-pages > view { flex: 1; min-width: 0; text-align: center; white-space: nowrap; font-size: var(--ui-type-meta); }
-.signing-objects { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
-.signing-objects > .field-label { flex: none; }
-.signing-objects > button { margin: 0; min-height: var(--ui-control-height); height: auto; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
-.signing-adjustments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: var(--ui-inline-gap); }
-.signing-adjustments slider { margin: 0; }
-.signing-footer { margin: 0; flex: none; }
+/* 独立签署工作区：文件可收缩，调整区与底栏不得重叠。 */
 .signing-layer-toolbar { display: flex; flex: none; align-items: center; gap: var(--ui-inline-gap); }
-.signing-layer-toolbar picker { flex: 1; min-width: 0; }
-.signing-layer-choice { min-height: var(--ui-control-height); display: flex; align-items: center; font-size: var(--ui-type-meta); }
-.signing-layer-toolbar > button { flex: none; width: auto; min-width: var(--ui-control-height); margin: 0; min-height: var(--ui-control-height); height: auto; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); font-size: var(--ui-type-meta); }
+.signing-layer-heading { display: flex; flex: 1; align-items: center; gap: var(--ui-inline-gap); font-size: var(--ui-type-label); color: #334155; }
+.signing-layer-count { color: #64748b; font-size: var(--ui-type-meta); }
+.signing-layer-toolbar > button { display: flex; align-items: center; justify-content: center; text-align: center; flex: none; width: 40px; min-width: 40px; margin: 0; min-height: 40px; height: auto; padding: 6px; font-size: var(--ui-type-meta); }
+.signing-layer-strip { flex: none; width: 100%; height: 72px; white-space: nowrap; }
+.signing-layer-items { display: flex; gap: 12px; padding: 2px 4px; }
+.signing-layer-item { flex: 0 0 auto; min-width: 88px; padding: 4px; box-sizing: border-box; border-bottom: 2px solid transparent; }
+.signing-layer-item--active { border-bottom-color: #2563eb; background: linear-gradient(180deg,rgba(219,234,254,0.18),rgba(219,234,254,0.64)); }
+.signing-layer-preview { position: relative; display: flex; justify-content: center; height: 34px; }
+.signing-layer-sheet { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 28px; border: 1px solid #cbd5e1; background: linear-gradient(135deg,#ffffff,#f1f5f9); box-shadow: 3px 3px 0 #e2e8f0; color: #64748b; font-size: var(--ui-type-emphasis); }
+.signing-layer-item--active .signing-layer-sheet { border-color: #2563eb; color: #2563eb; }
+.signing-layer-rank { position: absolute; right: 0; bottom: 0; font-size: var(--ui-type-micro); color: #64748b; }
+.signing-layer-name { display: block; white-space: nowrap; text-align: center; font-size: var(--ui-type-meta); line-height: 1.5; color: #334155; }
+.signing-adjustments { display: grid; flex: none; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: 20px; padding: 8px 8px 12px; box-sizing: border-box; border-top: 1px solid #e2e8f0; }
+.signing-adjustment { min-width: 0; }
+.signing-adjustment-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--ui-type-label); line-height: 1.5; color: #475569; }
+.signing-adjustments slider { display: block; height: 48px; margin: 0 12px; }
+.signing-footer { margin: 0; flex: none; padding-top: 12px; border-top: 1px solid #e2e8f0; }

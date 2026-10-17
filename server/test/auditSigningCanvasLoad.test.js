@@ -23,6 +23,27 @@ async function main() {
   assert.strictEqual(image.width, 1200);
   assert.strictEqual(writes, 0, '持久空间已满时，受支持的内存图片不得转成持久文件');
   assert.strictEqual(await instance._image(source), image, '同页签章共享已解码图片');
+  // 布局切换后先同步缓冲与相机，再处理已经排队的触点。
+  const ink = require('../../shared/auditInk');
+  for (const pixelRatio of [1, 2, 3]) {
+    runtime.wx.getWindowInfo = () => ({ pixelRatio });
+    const surface = {}, layer = {};
+    const pad = { ...definition.methods, _alive: true, data: { ready: true }, _surface: surface, _layer: layer,
+      _documentWidth: 800, _documentHeight: 400, _zoom: 1, _panX: 0, _panY: 0 };
+    for (const rect of [{left:16,top:140,width:278,height:180},{left:20,top:190,width:728,height:540},{left:30,top:150,width:1180,height:220}]) {
+      const query = { in() { return this; }, select() { return this; }, fields() { return this; }, exec(callback) { callback([rect]); } };
+      runtime.wx.createSelectorQuery = () => query;
+      let point;
+      pad._touch = () => { point = pad._point({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }); };
+      pad.onTouchStart({ touches: [] });
+      const expected = ink.surfaceSize(rect.width, rect.height, pixelRatio);
+      assert.equal(surface.width, expected.width); assert.equal(surface.height, expected.height);
+      assert.equal(layer.width, expected.width); assert.equal(layer.height, expected.height);
+      assert.equal(pad._camera.width / pad._camera.height, 2, '布局改变不得拉伸文件比例');
+      assert(Math.abs(point.x - 0.5) < 1e-12); assert(Math.abs(point.y - 0.5) < 1e-12);
+    }
+    assert.equal(pad._applyViewport({ width: 0, height: 0 }), false);
+  }
   const pageFile = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/signing/signing.js');
   let pageDefinition;
   const ownRequire = createRequire(pageFile);
