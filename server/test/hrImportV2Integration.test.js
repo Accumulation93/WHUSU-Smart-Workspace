@@ -84,6 +84,38 @@ async function main() {
     await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id='a1'");
     console.log('PASS 跨部门同名职能组独立创建、绑定本部门编号及重复导入不再创建');
 
+    await admin.query("INSERT INTO persons (id,name,student_id,normalized_student_id) VALUES ('p-split','分开处理人员','090','090')");
+    await admin.query("INSERT INTO hr_info (id,name,student_id,org_id) VALUES ('h-split','分开处理人员','090','org-test')");
+    await admin.query("INSERT INTO organization_memberships (id,person_id,org_id,legacy_hr_id) VALUES ('m-split','p-split','org-test','h-split')");
+    await admin.query("INSERT INTO membership_assignments (id,membership_id,org_id,assignment_kind,department_id,identity_id) VALUES ('a-split','m-split','org-test','staff','d1','i1')");
+    const splitPage = createPage(async () => ({ status: 'success', fields: [] }), {
+      fileName: '分开处理.xlsx', headers: ['姓名', '学号', '职能组'], rows: [['测试甲', '001', '混合名称'], ['分开处理人员', '090', '混合名称']]
+    }).page;
+    await splitPage.chooseFile();
+    const splitPreview = await model.preview(JSON.parse(JSON.stringify(splitPage.payload())), actor, authorize);
+    const splitList = await model.details({ previewId: splitPreview.previewId, category: 'dictionary' }, actor);
+    assert.equal(splitList.items.length, 1);
+    const splitRows = await model.details({ previewId: splitPreview.previewId, issueId: splitList.items[0].id }, actor);
+    assert.equal(splitRows.items.length, 2);
+    assert(splitRows.items.every(item => item.actions.some(action => action.type === 'edit' && action.rowNumber === item.rowNumber)));
+    const scopedCreate = splitRows.items[1].actions.find(action => action.type === 'dictionary');
+    assert.deepEqual(scopedCreate.rowNumbers, [3]); splitPage.applyAction(scopedCreate);
+    splitPage._previewId = splitPreview.previewId;
+    const partial = await model.preview(JSON.parse(JSON.stringify(splitPage.payload())), actor, authorize);
+    const stillOpen = await model.details({ previewId: partial.previewId, category: 'dictionary' }, actor);
+    assert.deepEqual(stillOpen.items.map(item => item.rowNumbers), [[2]]);
+    await assert.rejects(model.execute({ previewId: partial.previewId, requestId: 'import_partial_01' }, actor, authorize), error => error.code === 'import_problems');
+    splitPage._decisions.rows[2] = { values: { workGroup: '组甲' } }; splitPage._previewId = partial.previewId;
+    const splitReady = await model.preview(JSON.parse(JSON.stringify(splitPage.payload())), actor, authorize);
+    assert.equal(splitReady.summary.canExecute, true);
+    await model.execute({ previewId: splitReady.previewId, requestId: 'import_split_001' }, actor, authorize);
+    const [splitSaved] = await admin.query("SELECT a.id,g.name FROM membership_assignments a JOIN work_groups g ON g.id=a.work_group_id WHERE a.id IN ('a1','a-split') ORDER BY a.id");
+    assert.equal(splitSaved.find(item => item.id === 'a1').name, '组甲');
+    assert.equal(splitSaved.find(item => item.id === 'a-split').name, '混合名称');
+    await assert.rejects(model.details({ previewId: splitReady.previewId, issueId: splitList.items[0].id }, Object.assign({}, actor, { organizationId: 'other' })), error => error.code === 'import_expired');
+    await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id='a1'");
+    console.log('PASS 同组逐行展开、仅部分确认不能提交、部分改字部分新建真实保存与组织隔离');
+
     const newInput = { schemaVersion: 2, headers: ['姓名','学号'], rows: [['新增无岗','002'], ['新增无岗','002']], basicMapping: { name: 0, studentId: 1 }, decisions: {} };
     const newPreview = await model.preview(newInput, actor, authorize);
     assert.equal(newPreview.summary.newMembers, 1);

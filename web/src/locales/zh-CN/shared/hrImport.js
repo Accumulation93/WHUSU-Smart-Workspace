@@ -61,7 +61,7 @@ const sharedModule = Object.freeze({
   profile: '生效补充资料', changeMember: '新增成员', changeAssignment: '新增岗位', changeUpdate: '修改岗位', changeProfile: '维护资料', unchanged: '无需变化',
   instructions: '空白保留原值，删行不删除岗位；修改已有值需要确认，清空请在预览中明确操作',
   issueFile: '人员导入问题', maintenanceFile: '岗位维护表', category: '问题类别', reason: '问题说明', rows: '原表行号', state: '处理状态', open: '待处理', done: '已处理', excluded: '已排除',
-  assignmentChoice: '选择本行要维护的岗位', rowEditor: '修改本行岗位资料', editNotice: '姓名和学号不能在这里更正；空白保持原值，职能组清空需单独确认',
+  assignmentChoice: '选择本行要维护的岗位', rowEditor: '修改这一行', editNotice: '只修改本次导入内容，确认导入后才保存到系统。修改姓名或学号后会重新匹配人员；岗位空白保留原值',
   versionNotice: '岗位表含识别信息，请保留识别码和原始版本；旧版本须先核对最新资料',
   columnSummary: '第 {0} 列：{1}', fieldLabel: '资料项：{0}',
   emptyFile: '文件没有可导入内容，请重新选择', errorDetails: '检查未完成，请保留当前内容并重试',
@@ -91,6 +91,9 @@ const sharedModule = Object.freeze({
   duplicateDetails: '“{0}”这个岗位已经存在，不能再建一份。请修改已有岗位，或排除多余行',
   departedMember: '此人已离开当前组织。请先在成员管理中将其重新加入，再导入资料',
   inactivePerson: '此人的人员记录已停用，不能导入。请先在成员管理中核对人员状态',
+  expandRows: '展开逐行处理', collapseRows: '收起逐行处理', singleRowAction: '第 {0} 行 · {1}：{2}',
+  chooseExisting: '选择已有名称', groupedNotice: '上方操作处理本组全部行；展开后可分别修改、确认或排除',
+  editGroup: '统一修改名称', groupRows: '本组 {0} 行', groupEditNotice: '这里只修改本组的这个名称，其他资料保持不变；只改部分人请返回并展开逐行处理',
   useSourceRow: '采用第 {0} 行内容', categoryNoProblems: '本类别没有待处理问题，请继续核对其他类别', restart: '开始下一次导入'
 });
 

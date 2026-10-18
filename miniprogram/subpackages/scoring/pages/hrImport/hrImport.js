@@ -16,7 +16,7 @@ function actionLabel(action) {
   if (action.type === 'source') return format(copy.useSourceRow, [action.value]);
   if (action.type === 'policy') return copy[action.value];
   return copy[{ exclude: 'excludeRelated', mode: action.value === 'new' ? 'newAssignment' : 'personOnly', select: 'selectAssignment',
-    dictionary: 'create', edit: 'edit', source: 'useRow', rebase: 'rebase', undo: 'restore' }[action.type]] || copy.save;
+    dictionary: 'create', edit: 'edit', editGroup: 'editGroup', source: 'useRow', rebase: 'rebase', undo: 'restore' }[action.type]] || copy.save;
 }
 function readable(value) {
   if (typeof value === 'string') return value || copy.empty;
@@ -49,12 +49,12 @@ Page({
     this.loadMetadata();
   },
   onHide() { this._active = false; orgSession.invalidateRequests(this); this.setData({ busy: false, pickerVisible: false, contextSwitchGuardVisible: false }); },
-  onUnload() { this._active = false; this._destroyed = true; orgSession.invalidateRequests(this); this._file = null; this._decisions = null; this.setData({ pickerVisible: false, contextSwitchGuardVisible: false }); },
+  onUnload() { this._active = false; this._destroyed = true; orgSession.invalidateRequests(this); this._file = null; this._sourceRows = null; this._decisions = null; this.setData({ pickerVisible: false, contextSwitchGuardVisible: false }); },
   onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onReachBottom() { if (this.data.hasMore && !this.data.busy) this.loadItems(true); },
   onPageScroll(event) { this._scrollTop = event.scrollTop; },
   resetSession() {
-    this._file = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._offsets = {};
+    this._file = null; this._sourceRows = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._offsets = {};
     this._metadata = null; this._mappingOptions = null;
     this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], fileSummary: '', editor: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
   },
@@ -85,6 +85,7 @@ Page({
       if (this._destroyed || !orgSession.isCurrent(request.snapshot) || !file) return;
       if (!file.rows.length) throw new Error(copy.emptyFile);
       this._file = file; this._previewId = '';
+      this._sourceRows = clone(file.rows);
       this._decisions = { rows: {}, dictionaries: [], sources: {} };
       const used = new Set();
       const mappings = file.headers.map((header, index) => {
@@ -215,9 +216,47 @@ Page({
     const item = this.data.items[Number(event.currentTarget.dataset.index)];
     const action = item && item.actions[Number(event.currentTarget.dataset.action)];
     if (!action) return;
+    if (action.type === 'editGroup') {
+      const values = { department: item.dictionaryDepartment || '', [action.field]: item.after };
+      this._editingRow = null;
+      this.setData({ editor: { group: true, rowNumbers: action.rowNumbers, field: action.field, fieldLabel: copy[action.field], values,
+        name: format(copy.groupRows, [action.rowNumbers.length]) }, editorOptions: this.editorOptions(values).filter(option => option.key === action.field) }, () => this.scrollToSection('#import-row-editor'));
+      return;
+    }
     if (action.type === 'refresh') return this.preview();
     if (action.type === 'select' || action.type === 'edit') return this.openRow(action.rowNumber, action.type);
     this.askActions([action], action.label);
+  },
+  async expandIssue(event) {
+    if (this.data.busy || this.data.requestId) return;
+    const index = Number(event.currentTarget.dataset.index);
+    const item = this.data.items[index];
+    if (!item) return;
+    if (item.expanded && !event.currentTarget.dataset.more) { this.setData({ ['items[' + index + '].expanded']: false }); return; }
+    const request = orgSession.beginRequest(this, 'issueRows');
+    this.setData({ busy: true });
+    try {
+      const offset = event.currentTarget.dataset.more ? (item.rows || []).length : 0;
+      const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.id, offset });
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+      const rows = result.items.map(row => Object.assign({}, row, { title: format(copy.issuePerson, [row.rowNumber, row.name]),
+        actions: row.actions.map(action => Object.assign({}, action, { label: actionLabel(action) })) }));
+      const patch = { ['items[' + index + '].expanded']: true, ['items[' + index + '].rowsMore']: result.hasMore };
+      if (offset) rows.forEach((row, rowIndex) => { patch['items[' + index + '].rows[' + (offset + rowIndex) + ']'] = row; });
+      else patch['items[' + index + '].rows'] = rows;
+      this.setData(patch);
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
+  },
+  performRowAction(event) {
+    if (this.data.busy || this.data.requestId) return;
+    const data = event.currentTarget.dataset;
+    const item = this.data.items[Number(data.index)];
+    const row = item && item.rows && item.rows[Number(data.row)];
+    const action = row && row.actions[Number(data.action)];
+    if (!action) return;
+    if (action.type === 'edit' || action.type === 'select') return this.openRow(action.rowNumber, action.type);
+    this.askActions([action], format(copy.singleRowAction, [row.rowNumber, row.name, action.label]));
   },
   batchAction(event) {
     if (this.data.busy) return;
@@ -249,12 +288,24 @@ Page({
     if (action.type === 'mode') row.mode = action.value;
     if (action.type === 'nature') row.values = Object.assign({}, row.values, { nature: action.value });
     if (action.type === 'policy') { if (!row.policies) row.policies = {}; row.policies[action.field] = action.value; }
-    if (action.type === 'dictionary' && !this._decisions.dictionaries.includes(action.value)) this._decisions.dictionaries.push(action.value);
+    if (action.type === 'dictionary') rows.forEach(number => {
+      const decision = this._decisions.rows[number] || (this._decisions.rows[number] = {});
+      decision.dictionaryApprovals = Object.assign({}, decision.dictionaryApprovals, { [action.value]: true });
+    });
     if (action.type === 'source') this._decisions.sources[action.key] = action.value;
     if (action.type === 'rebase') row.acceptVersion = action.value;
     if (action.type === 'undo') {
       rows.forEach(number => {
         const decision = this._decisions.rows[number];
+        if (action.dictionaryKey) {
+          const current = decision || (this._decisions.rows[number] = {});
+          current.dictionaryApprovals = Object.assign({}, current.dictionaryApprovals, { [action.dictionaryKey]: false });
+          return;
+        }
+        if (!action.policyKey && !action.version && !action.assignment && !action.sourceKey && this._sourceRows && this._file) {
+          const index = this._file.rowNumbers ? this._file.rowNumbers.indexOf(number) : number - 2;
+          if (this._sourceRows[index]) this._file.rows[index] = clone(this._sourceRows[index]);
+        }
         if (!decision) return;
         if (action.policyKey) {
           const policies = decision.policies || {};
@@ -263,7 +314,6 @@ Page({
         else if (action.assignment) { delete decision.mode; delete decision.assignmentIds; }
         else if (!action.dictionaryKey && !action.sourceKey) delete this._decisions.rows[number];
       });
-      if (action.dictionaryKey) this._decisions.dictionaries = this._decisions.dictionaries.filter(key => key !== action.dictionaryKey);
       if (action.sourceKey) delete this._decisions.sources[action.sourceKey];
     }
   },
@@ -284,7 +334,7 @@ Page({
           editor.profile.push({ id, label: field.label, required: field.required, value: (result.row.decision.profileValues || {})[id] == null ? this._file.rows[sourceIndex][item.index] : result.row.decision.profileValues[id] });
         });
         this._editorClears = {};
-        this.setData({ editor }, () => wx.pageScrollTo({ selector: '#import-row-editor', duration: 200 }));
+        this.setData({ editor, editorOptions: this.editorOptions(editor.values) }, () => this.scrollToSection('#import-row-editor'));
       }
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
@@ -297,7 +347,30 @@ Page({
     this._decisions.rows[number] = row;
     this.setData({ pickerVisible: false }); this.preview();
   },
-  editValue(event) { const field = event.currentTarget.dataset.field; if (this._editorClears) delete this._editorClears[field]; this.setData({ ['editor.values.' + field]: event.detail.value }); },
+  editorOptions(values) {
+    const metadata = this._metadata || {};
+    const row = this._editingRow || {};
+    const selected = (row.decision || {}).assignmentIds || [];
+    const candidates = (row.candidates || []).filter(item => !selected.length || selected.includes(item.assignmentId));
+    const department = values.department || (candidates.length === 1 ? candidates[0].departmentName : '');
+    return ['department', 'identity', 'workGroup'].map(key => {
+      const options = (metadata[{ department: 'departments', identity: 'identities', workGroup: 'workGroups' }[key]] || [])
+        .filter(item => key !== 'workGroup' || item.department === department).map(item => item.name);
+      options.unshift(copy.chooseExisting);
+      return { key, label: copy[key], options, selectedIndex: Math.max(0, options.indexOf(values[key])) };
+    });
+  },
+  editValue(event) { const field = event.currentTarget.dataset.field; if (this._editorClears) delete this._editorClears[field];
+    const values = Object.assign({}, this.data.editor.values, { [field]: event.detail.value });
+    const options = this.editorOptions(values).filter(item => !this.data.editor.group || item.key === this.data.editor.field);
+    this.setData({ 'editor.values': values, editorOptions: options }); },
+  chooseExisting(event) {
+    if (Number(event.detail.value) === 0) return;
+    const field = event.currentTarget.dataset.field;
+    const options = this.data.editorOptions.find(item => item.key === field);
+    const value = options && options.options[Number(event.detail.value)];
+    if (value != null) this.editValue({ currentTarget: { dataset: { field } }, detail: { value } });
+  },
   editProfile(event) { const index = Number(event.currentTarget.dataset.index); if (this._editorClears) delete this._editorClears[this.data.editor.profile[index].id]; this.setData({ ['editor.profile[' + index + '].value']: event.detail.value }); },
   editNature(event) { const index = Number(event.detail.value); this.setData({ 'editor.natureIndex': index, 'editor.values.nature': NATURES[index] }); },
   clearValue(event) {
@@ -308,7 +381,35 @@ Page({
   closeEditor() { this._editorClears = {}; this.setData({ editor: null }); },
   saveEditor() {
     const editor = this.data.editor; if (!editor || this.data.busy) return;
+    if (editor.group) {
+      editor.rowNumbers.forEach(number => {
+        const decision = this._decisions.rows[number] || (this._decisions.rows[number] = {});
+        decision.values = Object.assign({}, decision.values, { [editor.field]: editor.values[editor.field] || '' });
+      });
+      this.closeEditor(); this.preview(); return;
+    }
     const row = this._decisions.rows[editor.rowNumber] || {};
+    const sourceIndex = this._file.rowNumbers ? this._file.rowNumbers.indexOf(editor.rowNumber) : editor.rowNumber - 2;
+    let identityChanged = false;
+    ['name', 'studentId'].forEach(key => {
+      const mapping = this.data.mappings.find(item => item.target === key);
+      if (mapping && this._file.rows[sourceIndex][mapping.index] !== editor.values[key]) {
+        this._file.rows[sourceIndex][mapping.index] = editor.values[key] || ''; identityChanged = true;
+      }
+    });
+    if (identityChanged) {
+      ['assignmentId', 'assignmentVersion'].forEach(key => {
+        const mapping = this.data.mappings.find(item => item.target === key);
+        if (mapping) this._file.rows[sourceIndex][mapping.index] = '';
+      });
+      Object.keys(row).forEach(key => { delete row[key]; });
+      const oldStudent = String(this._editingRow.studentId || '').trim().toLowerCase();
+      const newStudent = String(editor.values.studentId || '').trim().toLowerCase();
+      const assignments = new Set((this._editingRow.candidates || []).map(item => item.assignmentId));
+      Object.keys(this._decisions.sources).forEach(key => {
+        if (key.startsWith(oldStudent + ':') || key.startsWith(newStudent + ':') || assignments.has(key)) delete this._decisions.sources[key];
+      });
+    }
     row.values = Object.fromEntries(['nature', 'department', 'identity', 'workGroup'].map(key => [key, editor.values[key] || '']));
     row.profileValues = Object.fromEntries(editor.profile.map(item => [item.id, item.value]));
     row.policies = row.policies || {};

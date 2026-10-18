@@ -103,6 +103,45 @@ async function main() {
   assert.equal(state.page._pendingActions.length, 1); assert.equal(state.page._pendingActions[0].rowNumber, 2);
   console.log('PASS 同类批量操作排除不适用问题');
 
+  state.page.applyAction({ type: 'dictionary', value: 'group-key', rowNumbers: [2, 3] });
+  state.page.applyAction({ type: 'undo', dictionaryKey: 'group-key', rowNumbers: [2] });
+  assert.equal(state.page._decisions.rows[2].dictionaryApprovals['group-key'], false);
+  assert.equal(state.page._decisions.rows[3].dictionaryApprovals['group-key'], true);
+  assert.equal(state.page._decisions.dictionaries.length, 0);
+  const edit = createPage(async () => ({ status: 'success', fields: [] }), file);
+  await edit.page.chooseFile(); edit.page.preview = () => {};
+  edit.page._editingRow = { studentId: '001', candidates: [{ assignmentId: 'a1' }] };
+  edit.page._decisions.sources = { '001:f1': 2, 'other:f1': 8 };
+  edit.page.data.editor = { rowNumber: 2, values: { name: '更正姓名', studentId: '009', workGroup: '组甲' }, profile: [] };
+  edit.page.saveEditor();
+  assert.equal(edit.page.payload().rows[0][0], '更正姓名'); assert.equal(edit.page.payload().rows[0][1], '009');
+  assert.equal(edit.page._decisions.sources['other:f1'], 8); assert.equal(edit.page._decisions.sources['001:f1'], undefined);
+  edit.page.applyAction({ type: 'undo', rowNumber: 2 });
+  assert.equal(edit.page.payload().rows[0][0], '测试甲'); assert.equal(edit.page.payload().rows[0][1], '001');
+  console.log('PASS 分行确认和撤销互不影响，身份更正重新匹配并可恢复原表');
+  edit.page._metadata = { departments: [{ name: '部门甲' }], identities: [{ name: '成员' }], workGroups: [{ name: '本部门组', department: '部门甲' }, { name: '其他组', department: '部门乙' }] };
+  edit.page.data.editor = { group: true, field: 'workGroup', rowNumbers: [2, 3], values: { department: '部门甲', workGroup: '错别字' } };
+  edit.page.editValue({ currentTarget: { dataset: { field: 'workGroup' } }, detail: { value: '改字' } });
+  assert.equal(edit.page.data.editorOptions.length, 1);
+  assert.deepEqual(Array.from(edit.page.data.editorOptions[0].options), [copy.chooseExisting, '本部门组']);
+  edit.page.chooseExisting({ currentTarget: { dataset: { field: 'workGroup' } }, detail: { value: 1 } });
+  edit.page._decisions.rows[3] = { values: { identity: '不改的身份' } };
+  edit.page.saveEditor();
+  assert.equal(edit.page._decisions.rows[2].values.workGroup, '本部门组');
+  assert.equal(edit.page._decisions.rows[3].values.workGroup, '本部门组');
+  assert.equal(edit.page._decisions.rows[3].values.identity, '不改的身份');
+  console.log('PASS 统一改名仅修改对应列，已有职能组选择限定本部门且首项可选');
+  const expanded = createPage(async ({ data }) => {
+    assert.equal(data.issueId, 'group-issue');
+    return { status: 'success', items: [{ rowNumber: 3, name: '测试乙', actions: [{ type: 'dictionary', value: 'key', rowNumbers: [3] }] }], hasMore: false };
+  });
+  expanded.page._previewId = 'preview'; expanded.page.data.items = [{ id: 'group-issue', rowNumbers: [2, 3] }];
+  await expanded.page.expandIssue({ currentTarget: { dataset: { index: 0 } } });
+  expanded.page.performRowAction({ currentTarget: { dataset: { index: 0, row: 0, action: 0 } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(expanded.page._pendingActions[0].rowNumbers)), [3]);
+  assert(expanded.page.data.confirmAction.text.includes('测试乙'));
+  console.log('PASS 展开按钮真实请求与单行按钮仅提交该行确认');
+
   let submissions = 0;
   const requests = [];
   const retry = createPage(async ({ name, data }) => {

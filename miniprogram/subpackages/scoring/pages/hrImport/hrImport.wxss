@@ -6,6 +6,7 @@
 .import-label { font-size: var(--ui-type-label); color: #334155; line-height: 1.6; }
 .import-note { font-size: var(--ui-type-meta); color: #64748b; line-height: 1.7; overflow-wrap: anywhere; }
 .import-error { font-size: var(--ui-type-body); color: #92400e; line-height: 1.7; }
+.import-split-row { margin-top: var(--ui-field-gap); padding-top: var(--ui-field-gap); border-top: 1rpx solid rgba(147,197,253,.35); }
 .import-field { margin-top: var(--ui-field-gap); min-width: 0; }
 .import-field .field-input { display: block; width: 100%; box-sizing: border-box; }
 .import-field .picker-display { min-height: var(--ui-field-control-height); height: auto; white-space: normal; line-height: 1.6; box-sizing: border-box; }

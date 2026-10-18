@@ -62,7 +62,11 @@
   </view>
 
   <view id="import-row-editor" class="import-card" wx:if="{{editor}}">
-    <view class="import-title">{{copy.rowEditor}} · {{editor.name}}</view><view class="import-note">{{copy.editNotice}}</view>
+    <view class="import-title">{{editor.group ? copy.editGroup : copy.rowEditor}} · {{editor.name}}</view><view class="import-note">{{editor.group ? copy.groupEditNotice : copy.editNotice}}</view>
+    <view wx:if="{{editor.group}}" class="import-field"><view class="import-label">{{editor.fieldLabel}}</view><input class="field-input" value="{{editor.values[editor.field]}}" data-field="{{editor.field}}" bindinput="editValue" /></view>
+    <block wx:if="{{!editor.group}}">
+    <view class="import-field"><view class="import-label">{{copy.name}}</view><input class="field-input" value="{{editor.values.name}}" data-field="name" bindinput="editValue" /></view>
+    <view class="import-field"><view class="import-label">{{copy.studentId}}</view><input class="field-input" value="{{editor.values.studentId}}" data-field="studentId" bindinput="editValue" /></view>
     <view class="import-field"><view class="import-label">{{copy.nature}}</view><picker range="{{natureOptions}}" value="{{editor.natureIndex}}" bindchange="editNature"><view class="picker-display">{{natureOptions[editor.natureIndex]}}</view></picker></view>
     <view class="import-field"><view class="import-label">{{copy.department}}</view><input class="field-input" value="{{editor.values.department}}" data-field="department" bindinput="editValue" /></view>
     <view class="import-field"><view class="import-label">{{copy.identity}}</view><input class="field-input" value="{{editor.values.identity}}" data-field="identity" bindinput="editValue" /></view>
@@ -73,6 +77,8 @@
       <view class="card-actions" wx:if="{{!item.required}}"><button class="secondary-btn" data-field="{{item.id}}" bindtap="clearValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clear}}</button></view>
     </view>
     <view class="import-note" wx:if="{{editor.clearNotice}}">{{editor.clearNotice}}</view>
+    </block>
+    <view class="import-field" wx:for="{{editorOptions}}" wx:key="key" wx:if="{{item.options.length > 1}}"><view class="import-label">{{item.label}}</view><picker range="{{item.options}}" value="{{item.selectedIndex}}" data-field="{{item.key}}" bindchange="chooseExisting"><view class="picker-display">{{copy.chooseExisting}}</view></picker></view>
     <view class="import-actions"><button class="secondary-btn" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" bindtap="saveEditor" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button></view>
   </view>
 
@@ -96,6 +102,17 @@
         <button wx:for="{{item.actions}}" wx:for-item="action" wx:for-index="actionIndex" wx:key="label" class="secondary-btn" data-index="{{index}}" data-action="{{actionIndex}}" catchtap="performAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{action.label}}</button>
       </view>
       <view class="import-actions" wx:if="{{item.otherCategories.length}}"><button wx:for="{{item.otherCategories}}" wx:key="key" class="secondary-btn" data-key="{{item.key}}" catchtap="changeCategory" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.title}}</button></view>
+      <view wx:if="{{item.rowNumbers.length > 1 && item.id && stage === 'review'}}">
+        <view class="import-note">{{copy.groupedNotice}}</view>
+        <view class="import-actions"><button class="secondary-btn" data-index="{{index}}" catchtap="expandIssue" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.expanded ? copy.collapseRows : copy.expandRows}}</button></view>
+        <view wx:if="{{item.expanded}}">
+          <view class="import-split-row" wx:for="{{item.rows}}" wx:for-item="sourceRow" wx:for-index="rowIndex" wx:key="rowNumber">
+            <view class="import-label">{{sourceRow.title}}</view><view class="import-note">{{sourceRow.content}}</view>
+            <view class="import-actions"><button class="secondary-btn" wx:for="{{sourceRow.actions}}" wx:for-item="rowAction" wx:for-index="rowActionIndex" wx:key="label" data-index="{{index}}" data-row="{{rowIndex}}" data-action="{{rowActionIndex}}" catchtap="performRowAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{rowAction.label}}</button></view>
+          </view>
+          <view class="import-actions" wx:if="{{item.rowsMore}}"><button class="secondary-btn" data-index="{{index}}" data-more="{{true}}" catchtap="expandIssue" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.more}}</button></view>
+        </view>
+      </view>
     </view>
     <view class="import-card" wx:if="{{!items.length && !busy}}"><view class="import-note">{{view === 'open' ? (canExecute ? copy.noProblems : copy.categoryNoProblems) : copy.noChanges}}</view></view>
     <view class="import-card" wx:if="{{hasMore}}"><button class="secondary-btn" bindtap="onReachBottom" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.more}}</button></view>

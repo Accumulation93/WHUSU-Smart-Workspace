@@ -166,4 +166,24 @@ test('未登记名称与缺失资料项具体说明，其他部门同名组不�
   const missingGroup = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), ctx).issues.find(item => item.category === 'dictionary');
   assert(missingGroup.message.includes('组乙')); assert(!missingGroup.message.includes('部门乙')); assert(missingGroup.message.includes('部门甲'));
 });
+test('同名问题逐行确认、改字、撤销和权限复核相互隔离', () => {
+  const ctx = context();
+  ctx.members.push(Object.assign({}, ctx.members[0], { personId: 'p2', studentId: '002', name: '测试乙', membershipId: 'm2', assignments: [Object.assign({}, assignment, { id: 'a2' })] }));
+  const data = payload([['测试甲', '001', '新名称'], ['测试乙', '002', '新名称']]);
+  let plan = buildPlan(data, ctx); const key = plan.dictionaries[0].key;
+  assert.equal(plan.issues[0].rowNumbers.length, 2);
+  data.decisions.rows = { 3: { dictionaryApprovals: { [key]: true } } };
+  plan = buildPlan(data, ctx);
+  assert.deepEqual(plan.issues.find(item => item.blocking).rowNumbers, [2]);
+  assert.deepEqual(plan.issues.find(item => !item.blocking).rowNumbers, [3]);
+  assert.equal(plan.summary.canExecute, false);
+  data.decisions.rows[2] = { values: { workGroup: '组甲' } };
+  plan = buildPlan(data, ctx); assert.equal(plan.summary.canExecute, true);
+  assert.equal(plan.assignments.find(item => item.studentId === '001').next.workGroup, '组甲');
+  assert.equal(plan.assignments.find(item => item.studentId === '002').next.workGroup, '新名称');
+  data.decisions.dictionaries = [key]; data.decisions.rows[3].dictionaryApprovals[key] = false;
+  assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+  data.decisions.rows[3].dictionaryApprovals[key] = true; ctx.permissions = [];
+  assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+});
 console.log(count + ' import planner tests passed');

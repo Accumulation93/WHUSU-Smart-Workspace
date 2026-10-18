@@ -152,6 +152,8 @@ function buildPlan(payload, context) {
     if (!cells.some(Boolean)) return;
     const rowNumber = input.rowNumbers[index];
     const decision = rowDecisions[rowNumber] || {};
+    if (decision.dictionaryApprovals && (typeof decision.dictionaryApprovals !== 'object' || Array.isArray(decision.dictionaryApprovals)
+      || Object.values(decision.dictionaryApprovals).some(value => typeof value !== 'boolean'))) fail(copy.invalidFile);
     if (decision.exclude === true) { excluded.push(rowNumber); return; }
     if (decision.mode && !['person', 'new', 'update'].includes(decision.mode)) fail(copy.invalidFile);
     const values = Object.fromEntries(BASIC.map(key => [key, input.basicMapping[key] == null ? '' : cells[input.basicMapping[key]]]));
@@ -322,10 +324,20 @@ function buildPlan(payload, context) {
   dictionaries.forEach(item => {
     const permission = { department: 'hr.departments', identity: 'hr.identities', workGroup: 'hr.work_groups' }[item.type];
     const allowed = context.permissions.includes(permission);
-    item.approved = allowed && (decisions.dictionaries || []).includes(item.key);
-    issue('dictionary', allowed ? 'newDictionary' : 'dictionaryForbidden', item.rowNumbers, { dictionaryKey: item.key, field: item.type, before: copy.noRegisteredValue, after: item.name,
-      message: format(copy[allowed ? 'newDictionary' : 'dictionaryForbidden'], [copy[item.type], item.name, item.department ? format(copy.departmentScope, [item.department]) : '']),
-      actions: allowed ? [action('dictionary', { value: item.key }), action('exclude', { rowNumbers: item.rowNumbers })] : [action('exclude', { rowNumbers: item.rowNumbers })] }, item.approved);
+    const approvedRows = item.rowNumbers.filter(number => {
+      const value = ((rowDecisions[number] || {}).dictionaryApprovals || {})[item.key];
+      return allowed && (value === true || value !== false && (decisions.dictionaries || []).includes(item.key));
+    });
+    const approvedSet = new Set(approvedRows);
+    item.approved = approvedRows.length === item.rowNumbers.length;
+    [false, true].forEach(approved => {
+      const rowNumbers = item.rowNumbers.filter(number => approvedSet.has(number) === approved);
+      if (!rowNumbers.length) return;
+      issue('dictionary', allowed ? 'newDictionary' : 'dictionaryForbidden', rowNumbers, { dictionaryKey: item.key, dictionaryDepartment: item.department, field: item.type, before: copy.noRegisteredValue, after: item.name,
+        message: format(copy[allowed ? 'newDictionary' : 'dictionaryForbidden'], [copy[item.type], item.name, item.department ? format(copy.departmentScope, [item.department]) : '']),
+        actions: (allowed ? [action('dictionary', { value: item.key, rowNumbers })] : []).concat(
+          rowNumbers.length === 1 ? [action('edit', { rowNumber: rowNumbers[0] })] : [], [action('exclude', { rowNumbers })]) }, approved);
+    });
   });
   const rowsByNumber = new Map(rowViews.map(row => [row.rowNumber, row]));
   const extensionColumns = new Map(input.extensionMapping.map(item => [item.fieldId, item.columnIndex]));

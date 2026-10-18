@@ -118,6 +118,7 @@ async function preview(payload, actor, authorize) {
       });
       // 分类或模板变化后重新确认创建，受影响人员的来源选择也重新处理。
       input.decisions.dictionaries = [];
+      Object.values(input.decisions.rows || {}).forEach(decision => { delete decision.dictionaryApprovals; });
       Object.keys(input.decisions.sources || {}).forEach(key => {
         if (Array.from(changedPeople).some(studentId => key.startsWith(studentId + ':')) || oldPlan.assignments.some(item => changedPeople.has(item.studentId) && item.targetId === key)) delete input.decisions.sources[key];
       });
@@ -130,6 +131,7 @@ async function preview(payload, actor, authorize) {
         const relevantRows = new Set(plan.rows.map(item => item.rowNumber));
         oldPlan.issues.forEach(item => {
           if (currentIds.has(item.id) || !item.rowNumbers.every(row => relevantRows.has(row))) return;
+          if (item.category === 'dictionary' && plan.issues.some(current => current.dictionaryKey === item.dictionaryKey)) return;
           const decisionExists = item.rowNumbers.some(row => input.decisions.rows && input.decisions.rows[row]);
           if (!decisionExists && !(input.decisions.dictionaries || []).includes(item.dictionaryKey) && !(input.decisions.sources || {})[item.targetId]) return;
           const undo = { type: 'undo', rowNumbers: item.rowNumbers };
@@ -165,6 +167,21 @@ async function readPreview(connection, id, actor, lock) {
 async function details(payload, actor) {
   const record = await readPreview(pool, payload.previewId, actor, false);
   const plan = json(record.plan_json);
+  if (payload.issueId) {
+    const issue = plan.issues.find(item => item.id === payload.issueId);
+    if (!issue) throw new ImportError('import_row_missing', copy.rowMissing);
+    const offset = Math.max(0, Number(payload.offset) || 0);
+    const rows = new Map(plan.rows.map(row => [row.rowNumber, row]));
+    const items = issue.rowNumbers.slice(offset, offset + 40).map(rowNumber => {
+      const row = rows.get(rowNumber);
+      const actions = issue.actions.filter(action => action.type !== 'edit' && action.type !== 'exclude'
+        && (!action.rowNumber || action.rowNumber === rowNumber) && (action.type !== 'source' || action.value === rowNumber))
+        .map(action => Object.assign({}, action, action.rowNumbers || action.type === 'dictionary' ? { rowNumbers: [rowNumber] } : {}));
+      actions.push({ type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] });
+      return { rowNumber, name: row && row.name || copy.unnamedPerson, content: row ? planner.label(row.values) : '', actions };
+    });
+    return { status: 'success', items, total: issue.rowNumbers.length, hasMore: offset + items.length < issue.rowNumbers.length };
+  }
   if (payload.rowNumber != null) {
     const row = plan.rows.find(item => item.rowNumber === Number(payload.rowNumber));
     if (!row) throw new ImportError('import_row_missing', copy.rowMissing);
@@ -176,7 +193,7 @@ async function details(payload, actor) {
   let list;
   if (payload.view === 'rows') list = plan.rows.slice().sort((a, b) => a.name.localeCompare(b.name) || a.studentId.localeCompare(b.studentId) || a.rowNumber - b.rowNumber)
     .map(row => ({ name: row.name, rowNumbers: [row.rowNumber], before: '', after: planner.label(row.values),
-      actions: [{ type: 'edit', rowNumber: row.rowNumber }, { type: 'exclude', rowNumbers: [row.rowNumber] }] }));
+      actions: [{ type: 'edit', rowNumber: row.rowNumber }, { type: 'exclude', rowNumbers: [row.rowNumber] }, { type: 'undo', rowNumber: row.rowNumber }] }));
   else if (payload.view === 'changes') list = plan.changes;
   else if (payload.view === 'excluded') list = plan.excluded.map(rowNumber => ({ rowNumbers: [rowNumber], state: 'excluded', actions: [{ type: 'undo', rowNumber }] }));
   else list = plan.issues.filter(item => (!payload.category || item.category === payload.category) && item.state === (payload.view === 'resolved' ? 'resolved' : 'open'))
@@ -191,7 +208,11 @@ async function details(payload, actor) {
     (item.rowNumbers || []).forEach(row => (rowCategories.get(row) || []).forEach(key => related.add(key)));
     const previous = list[list.indexOf(item) - 1];
     const groupKey = [item.reason, item.field].join(':');
-    return Object.assign({}, item, { groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
+    const actions = (item.actions || []).map(action => action.type === 'dictionary'
+      ? Object.assign({}, action, { rowNumbers: item.rowNumbers }) : action);
+    if (item.blocking && item.category === 'dictionary' && item.rowNumbers.length > 1) actions.push({ type: 'editGroup', field: item.field, rowNumbers: item.rowNumbers });
+    if (item.blocking && item.rowNumbers.length === 1 && !actions.some(action => action.type === 'edit')) actions.push({ type: 'edit', rowNumber: item.rowNumbers[0] });
+    return Object.assign({}, item, { actions, groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
       groupTitle: [item.fieldLabel, item.message].filter(Boolean).join(' · '),
       otherCategories: plan.categories.filter(category => category.key !== item.category && related.has(category.key)).map(category => ({ key: category.key, title: category.title })) });
   });
