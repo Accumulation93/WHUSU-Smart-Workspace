@@ -144,8 +144,8 @@ requireSourceContract('server/src/core/services/adminAuthorization.js', [
 ]);
 requireSourceContract('server/src/core/models/adminInfo.js', [
   {
-    rule: 'legacy-admin-invite-isolated',
-    test: source => source.includes('async function updateInvite(')
+    rule: 'legacy-admin-invite-retired',
+    test: source => !/\b(?:updateInvite|invite_code|invited_at|invite_expires_at|invite_consumed_at)\b/.test(source)
       && source.includes('module.exports')
   }
 ]);
