@@ -258,8 +258,13 @@ mapRoutes('auth.accounts.global_manage', [
 ]);
 mapRoutes('auth.accounts.audit', ['/admin/auth/audit']);
 mapRoutes('auth.policy.manage', ['/admin/auth/policy']);
-mapAny(['/parseTableFile', '/buildTableFile'], [
+mapAny(['/parseTableFile'], [
   'hr.import', 'hr.people', 'hr.profile_review', 'scoring.templates'
+]);
+// 认证与恢复操作已产生的表格也需转换为文件，不附带人员目录读取权限。
+mapAny(['/buildTableFile'], [
+  'hr.import', 'hr.people', 'hr.profile_review', 'scoring.templates',
+  'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'
 ]);
 
 for (const action of ACTION_GROUPS) {

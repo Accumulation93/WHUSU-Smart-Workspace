@@ -20,12 +20,15 @@ assert.ok(
   '大体积上限必须容纳 2MB 图片编码后的 base64 请求体'
 );
 
-for (const route of ['/api/saveStamp', '/api/saveSignature', '/api/approveStep']) {
+for (const route of ['/api/saveStamp', '/api/saveSignature', '/api/approveStep', '/api/buildTableFile']) {
   assert(LARGE_JSON_ROUTES.has(route), route + ' 携带图片 Data URL，必须登记到大体积白名单');
   assert.strictEqual(resolveJsonBodyLimit(route), LARGE_JSON_BODY_BYTES);
 }
 assert.strictEqual(resolveJsonBodyLimit('/api/listStamps'), DEFAULT_JSON_BODY_BYTES, '普通路由继续使用默认上限');
 assert.strictEqual(resolveJsonBodyLimit(''), DEFAULT_JSON_BODY_BYTES);
+for (const route of ['/api/parseTableFile', '/api/previewHrTableImport', '/api/importHrTable', '/api/buildTableFile']) {
+  assert.strictEqual(resolveJsonBodyLimit(route), LARGE_JSON_BODY_BYTES, '表格解析、预览、确认与导出容量必须一致：' + route);
+}
 
 // 防回归：任何读取 req.body.imageData / req.body.signatures 的路由都必须在白名单里。
 // 遗漏会导致 2MB 图片在进入路由前被 413 “请减少本次提交内容”拒绝。

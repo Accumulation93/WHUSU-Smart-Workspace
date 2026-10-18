@@ -84,6 +84,11 @@ const {
   );
   assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.people'), true);
   assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.profile_review'), true);
+  for (const key of ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage']) {
+    assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes(key), true);
+    assert.strictEqual(ROUTE_RULES.get('/parseTableFile').anyOf.includes(key), false);
+    assert.strictEqual(ROUTE_RULES.get('/listHrInfo').anyOf.includes(key), false);
+  }
   assert.deepStrictEqual(ROUTE_RULES.get('/listVenueBookingRules').anyOf, ['venue.approvals', 'venue.approvals.delete']);
   assert.deepStrictEqual(ROUTE_RULES.get('/saveVenueBookingRule').anyOf, ['venue.approvals']);
   assert.deepStrictEqual(ROUTE_RULES.get('/deleteVenueBookingRule').anyOf, ['venue.approvals.delete']);

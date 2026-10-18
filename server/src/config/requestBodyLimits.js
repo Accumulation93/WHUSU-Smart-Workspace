@@ -15,6 +15,10 @@ const LARGE_JSON_BODY_BYTES = 15 * 1024 * 1024;
 const LARGE_JSON_ROUTES = new Set([
   '/api/uploadAuditFile',
   '/api/parseTableFile',
+  // 成员资料、评分模板与认证表格导出会提交完整行列，不能按普通表单的 500KB 限制。
+  '/api/buildTableFile',
+  '/api/previewHrTableImport',
+  '/api/importHrTable',
   '/api/verifySignatureChain',
   '/api/verifyFileSignature',
   // 以下接口会接收最长 2MB 的图片 Data URL（印章、手写签名、签名模板）。

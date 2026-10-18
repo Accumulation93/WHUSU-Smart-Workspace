@@ -668,3 +668,12 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 会话列NOT NULL无默认，先新增INSTANT默认值兼容迁移，确认旧新会话均可用后发布兼容代码，再独立在线删列。邀请码唯一索引必须显式列出，校验全部索引列属于退役列后以INPLACE/LOCK=NONE先删索引，再INSTANT删列；元数据锁1秒，绝不自动停机或复制表。其他表同名引用使用逐文件源码摘要及用途说明，不接受通配或源码变化，不能把所有openid_hash一起删除。
 
 验证：adminInviteRetirementIntegration.test.js、scoringGranularityRetirementIntegration.test.js与auditTemplateSaveIntegration.test.js实际HTTP/页面参数/MySQL覆盖旧参数忽略、有列/缺列、保存回读及组织边界；会话覆盖口令、微信、旧会话延续与撤销；onlineColumnRetirement.test.js覆盖索引、同名源码变更拒绝、锁冲突、重复执行与账本。网页构建及87项视觉通过，微信主包与6分包真实编译2578703字节。手机/Pad实体未现场验证，不运行全量CI，生产分两阶段核对。
+
+
+### 坑 74：批量表格导出沿用普通请求体上限，认证导出缺少权限映射
+
+2026-10-18 10:57:18、10:57:25、10:58:16、10:58:30，生产Nginx记录4次buildTableFile请求均为413。成员导出已经经saveAndShareFile调用统一outputFile，失败发生在生成文件前：完整成员行列超过普通500000字节限制。复核表格调用方同时发现importHrTable确认与预览容量不一致，以及只有认证/恢复权限的管理员无法生成本次已发放号码的Excel。
+
+修复：buildTableFile与importHrTable使用既有15MiB表格额度，普通接口仍500000字节；保留认证先于大请求解析、行列/单元格限制与组织权限。buildTableFile单独允许认证、恢复、全局账号治理权限，不扩大parseTableFile或人员目录读取。审核签署工作区不修改。
+
+验证：tableFileLargeExport.test.js直接执行小程序成员导出方法，以800行×12列真实HTTP生成Excel和CSV并回读801行含标题、末行末列，验证403、普通接口413、15MiB上限及单元格超长拒绝；requestBodyLimits.test.js核对解析/预览/确认/导出容量一致；adminPermissions.test.js、274路由权限审计、统一文件入口审计、5项认证导出及fileIO.test.js通过。未运行全量CI；手机与开发者工具原生输出菜单未完成本轮现场验证。
