@@ -1,0 +1,31 @@
+'use strict';
+const assert = require('node:assert/strict');
+const policy = require('../src/core/services/contactDirectoryPolicy');
+const view = require('../../shared/contactDirectoryView');
+const assignment = (id, departmentId, identityCategoryId, workGroupId = '') => ({ id, departmentId, identityCategoryId, workGroupId });
+const people = [{ personId: 'viewer', assignments: [assignment('v1', 'd1', 'i1'), assignment('v2', 'd2', 'i2')] },
+  { personId: 'a', name: '同名', assignments: [assignment('a1', 'd1', 'i1'), assignment('a2', 'd2', 'i2')] },
+  { personId: 'b', name: '同名', assignments: [assignment('b1', 'd2', 'i1')] }, { personId: 'none', assignments: [] }];
+const catalog = { people, departmentIds: ['d1', 'd2'], identityCategoryIds: ['i1', 'i2'], workGroupIds: [], fields: [{ id: 'phone' }, { id: 'email' }] };
+const viewer = { personId: 'viewer', assignment: people[0].assignments[0] };
+const rule = overrides => Object.assign({ name: '规则', enabled: true, audience: [{ type: 'people', personIds: ['viewer'] }], targets: [{ type: 'self' }], fieldIds: [] }, overrides);
+const get = rules => policy.grants(rules, people, viewer, catalog);
+assert.deepEqual(get([]), []);
+assert.equal(get([rule({})]).length, 2);
+const separated = get([rule({ targets: [{ type: 'people', personIds: ['a'] }], fieldIds: ['phone'] }), rule({ targets: [{ type: 'people', personIds: ['b'] }], fieldIds: ['email'] })]);
+assert.deepEqual(separated.map(item => [item.person.personId, item.assignment.id, item.fieldIds]), [['a','a1',['phone']],['a','a2',['phone']],['b','b1',['email']]]);
+assert.equal(get([rule({ audience: [{ type: 'scope', departmentIds: ['d1'], identityCategoryIds: ['i2'] }] })]).length, 0);
+assert.equal(get([rule({ targets: [{ type: 'scope', departmentIds: ['d1'], identityCategoryIds: ['i2'] }] })]).length, 0);
+assert.deepEqual(get([rule({ targets: [{ type: 'scope', sameDepartment: true }] })]).map(item => item.assignment.id), ['v1', 'a1']);
+assert.equal(policy.grants([rule({ targets: [{ type: 'scope', sameDepartment: true }] })], people, { personId: 'viewer', assignment: null }, catalog).length, 0);
+assert.equal(get([rule({ audience: [{ type: 'scope', departmentIds: ['d2'] }, { type: 'people', personIds: ['viewer'] }] })]).length, 2);
+assert.equal(get([rule({ targets: [{ type: 'people', personIds: ['none'] }] })])[0].assignment, null);
+assert.deepEqual(get([rule({ targets: [{ type: 'people', personIds: ['a', 'departed'] }] })]).map(item => item.assignment.id), ['a1', 'a2']);
+assert.equal(get([rule({ targets: [{ type: 'people', personIds: ['departed'] }] })]).length, 0);
+for (const bad of [rule({ targets: [{ type: 'scope' }] }), rule({ targets: [{ type: 'unknown' }] }), rule({ targets: [{ type: 'scope', departmentIds: ['missing'] }] }), rule({ fieldIds: ['secret'] }), rule({ enabled: false }), rule({ audience: [{ type: 'self' }] })]) assert.equal(get([bad]).length, 0);
+const removed = policy.removePerson(rule({ targets: [{ type: 'people', personIds: ['a'] }] }), 'a');
+assert.equal(removed.enabled, false); assert.deepEqual(removed.targets, []); assert.equal(get([removed]).length, 0);
+const form = view.blankRule(); form.name = '真实表单'; form.audience[0].personIds = ['viewer'];
+assert.deepEqual(policy.normalizeRule(view.payload(form)).targets, [{ type: 'self' }]);
+assert.throws(() => policy.normalizeRule(rule({ targets: [{ type: 'scope', sameDepartment: true, departmentIds: ['d1'] }] })), policy.DirectoryError);
+console.log('PASS 通讯录逐岗位授权、逐人逐列隔离、未知条件关闭、无岗人员和前端参数');

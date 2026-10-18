@@ -1,0 +1,28 @@
+// 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
+'use strict';
+const sharedModule = Object.freeze({
+  title: '通讯录', profile: '本人资料', rules: '可见规则', permission: '通讯录规则管理',
+  permissionDescription: '配置通讯录的可见人员和资料列，不包含成员资料查看权。',
+  audience: '授权给谁', targets: '可以查看谁', columns: '可以查看哪些资料',
+  name: '规则名称', namePlaceholder: '填写便于辨认的名称', add: '新增规则', edit: '编辑', copy: '复制',
+  save: '保存', cancel: '取消', remove: '删除', enable: '启用', disable: '停用', enabled: '已启用', disabled: '已停用',
+  selectPeople: '指定人员', scope: '指定范围', self: '本人', addCondition: '添加条件组', removeCondition: '移除条件组',
+  department: '部门', identity: '身份类别', workGroup: '职能组', sameDepartment: '与查看者同部门',
+  sameIdentity: '与查看者同身份类别', sameWorkGroup: '与查看者同职能组',
+  any: '不限', explicit: '指定', same: '与查看者相同', choose: '选择人员', selected: '已选 {count} 人',
+  conditionHint: '条件组之间满足任意一组即可；同组中的不同类别须在同一岗位上同时满足。',
+  baseColumns: '姓名、部门、身份类别和职能组始终显示。', noFields: '暂无可授权的补充资料',
+  baseOnly: '仅基础信息', copyBasic: '复制基本信息',
+  empty: '暂无可见联系人', noRules: '暂无可见规则', search: '搜索可见的姓名、岗位或资料', noResults: '没有找到匹配的联系人',
+  noPosition: '暂无岗位', noDepartment: '未设置部门', otherPositions: '其他可见岗位', copyValue: '复制', call: '拨打电话',
+  loading: '正在加载通讯录', loadingRules: '正在加载可见规则', saving: '正在保存规则', deleting: '正在删除规则',
+  retry: '重试', loadFailed: '通讯录未能加载，请点击重试。', operationFailed: '操作未完成，请重试。',
+  forbidden: '你没有通讯录规则管理权限。', invalidRule: '请填写规则名称，并完整选择授权人群和可见人员。',
+  staleReferences: '所选人员、岗位分类或资料列已发生变化，请重新选择后保存。',
+  conflict: '这条规则已被修改或删除，请重新加载后再操作。',
+  confirmDelete: '确定删除以下 {count} 条规则？', deleteSelected: '删除已选', selectedRules: '已选 {count} 条规则',
+  selectAll: '全选', clearSelection: '取消全选', unnamed: '未填写', copied: '已复制', saved: '已保存',
+  blankValue: '未填写', peopleCount: '{count} 人', positionCount: '{count} 个岗位', ruleCount: '{count} 条规则'
+});
+
+export default sharedModule;

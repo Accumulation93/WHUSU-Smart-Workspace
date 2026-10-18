@@ -3,7 +3,7 @@
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
 import src_common from './shared/common.js';
-import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
+import src_contactDirectory from './shared/contactDirectory.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
@@ -15,7 +15,7 @@ export default Object.freeze({
   appName: src_common.brandName,
   organizationName: src_common.organizationName,
   webVersionLabel: src_web.common.webVersionLabel,
-  retry: src_mySubmissions.retry,
+  retry: src_contactDirectory.retry,
   confirm: src_submissionDetail.copy_a58e97a9f8,
   cancel: src_adminGovernance.cancel,
   close: src_common.actions.close,

@@ -1,6 +1,7 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/adminPermissions');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const governanceCopy = require('../../locales/zh-CN/adminGovernance');
+const directoryCopy = require('../../locales/zh-CN/contactDirectory');
 const { ACTION_GROUPS } = require('./adminPermissionActions');
 const PERMISSION_GROUPS = [
   {
@@ -44,6 +45,7 @@ const PERMISSION_GROUPS = [
     description: '',
     permissions: [
       { key: 'hr.people', label: localeCopy.copy_865032d8a0, description: localeCopy.copy_142b3cb095 },
+      { key: 'hr.directory.manage', label: directoryCopy.permission, description: directoryCopy.permissionDescription, targetLevels: ['admin'], defaultLevels: [] },
       { key: 'hr.import', label: localeCopy.copy_c809ebc5da, description: localeCopy.copy_9b9cb39d96 },
       { key: 'hr.profile_review', label: localeCopy.copy_46b341ec43, description: localeCopy.copy_9cae55038b },
       { key: 'hr.profile_templates.manage', label: localeCopy.copy_7cab7f5321, description: localeCopy.copy_f486291a2d },
@@ -179,6 +181,7 @@ mapAny(['/listPersonIdentities'], [
   'hr.people', 'hr.profile_review', 'system.admin_accounts.read', 'system.admin_accounts.write'
 ]);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
+mapRoutes('hr.directory.manage', ['/getContactDirectoryConfiguration', '/saveContactDirectoryRule', '/batchContactDirectoryRules']);
 mapRoutes('hr.import', ['/getHrImportPreview', '/getHrImportResult', '/getHrImportMetadata', '/exportHrImportIssues']);
 mapRoutes('hr.people', ['/exportHrAssignmentTable']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);

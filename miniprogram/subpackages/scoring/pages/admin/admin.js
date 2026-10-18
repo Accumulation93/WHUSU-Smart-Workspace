@@ -72,6 +72,10 @@ Page({
     hrProfileMigrationBehavior,
   ],
   data: {
+    directoryCopy: require('../../package-resources/locales/zh-CN/contactDirectory'),
+    directoryPickerVisible: false,
+    directoryBusy: false,
+    canManageDirectory: false,
     navigationTitle: localeCopy.copy_33a502217d + localeCopy.copy_61386762d9,
     navTopPx: 0,
     controlLayoutCopy,
@@ -133,6 +137,7 @@ Page({
     // 弹窗标志位清单：键盘守卫在页面卸载时统一复位，避免 page-meta 的
     // overflow:hidden 被泄漏的标志位永久锁住（与 admin.wxml 的 page-style 保持一致）。
     dialogLockKeys: [
+      'directoryPickerVisible',
       'dragActive',
       'showTemplateCsvDialog',
       'hrProfileExportVisible',
@@ -994,6 +999,8 @@ Page({
       canImportHr: adminPermissions.hasAny(adminProfile, ['hr.import']),
       canReviewHrProfile: adminPermissions.hasAny(adminProfile, ['hr.profile_review']),
       canBrowseHrInfo,
+      canManageDirectory: adminPermissions.hasAny(adminProfile, ['hr.directory.manage']),
+      hrInfoMode: !adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.people.delete', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage']) && adminPermissions.hasAny(adminProfile, ['hr.directory.manage']) ? 'directory' : this.data.hrInfoMode,
       canManageHrProfileTemplates: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage']),
       canSelectHrProfileTemplate: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.select']),
       canVerifyIdentity: adminPermissions.hasAny(adminProfile, ['auth.identity.verify']),
@@ -1103,10 +1110,16 @@ Page({
     });
   },
 
+  onDirectoryBusyChange(e) { this.setData({ directoryBusy: Boolean(e.detail.busy) }); },
+
+  onDirectoryPickerChange(e) { this.setData({ directoryPickerVisible: Boolean(e.detail.visible) }); },
+
   switchHrInfoMode(e) {
+    if (this.data.directoryBusy) return;
     const mode = String(e.currentTarget.dataset.mode || 'profiles');
     if (mode === this.data.hrInfoMode) return;
     this.setData({ hrInfoMode: mode });
+    if (mode === 'directory') return;
     if (mode === 'policy') {
       this.loadAuthPolicy().catch(() => {
         utils.showShortToast(localeCopy.copy_439c4fcf37);
@@ -1120,6 +1133,7 @@ Page({
   },
 
   switchTab(e) {
+    if (this.data.directoryBusy) return;
     const { tab } = e.currentTarget.dataset;
     if (TAB_LIST.indexOf(tab) === -1) {
       return;
@@ -1141,7 +1155,7 @@ Page({
         this.loadScoreResults({ reuseExisting: true });
       }
     }
-    if (tab === 'hrInfo') {
+    if (tab === 'hrInfo' && this.data.hrInfoMode !== 'directory') {
       if (this.data.hrInfoMode === 'policy') {
         this.loadAuthPolicy().catch(() => {
           utils.showShortToast(localeCopy.copy_439c4fcf37);

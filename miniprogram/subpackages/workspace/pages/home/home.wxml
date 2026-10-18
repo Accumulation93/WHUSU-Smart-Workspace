@@ -277,6 +277,7 @@
     </view>
   </view>
 
+  <contact-directory wx:if="{{hasUser && !isAdminRole && activeTab === 'directory'}}" />
   <view class="panel {{activeTab === 'profile' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'profile'}}">
     <view class="card profile-card">
       <view class="info-head">

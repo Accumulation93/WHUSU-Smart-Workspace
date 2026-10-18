@@ -2,6 +2,7 @@
   "navigationBarTitleText": "",
   "navigationStyle": "custom",
   "usingComponents": {
+    "contact-directory": "/subpackages/workspace/package-resources/components/contact-directory/contact-directory",
     "ui-icon": "/components/ui-icon/ui-icon",
     "personnel-picker": "/subpackages/workspace/package-resources/components/personnel-picker/personnel-picker",
     "ui-navbar": "/components/ui-navbar/ui-navbar"

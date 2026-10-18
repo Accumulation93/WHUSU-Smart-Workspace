@@ -13,7 +13,7 @@ export const ADMIN_TABS = Object.freeze({
   rules: { label: adminCopy.copy_9ad6311419, permissions: ['scoring.rules'] },
   results: { label: adminCopy.copy_ade4fb64f7, permissions: ['scoring.results'] },
   publications: { label: adminCopy.copy_414b7d9da7, permissions: ['scoring.publications'] },
-  hrInfo: { label: adminCopy.copy_166a418985, permissions: ['hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'] },
+  hrInfo: { label: adminCopy.copy_166a418985, permissions: ['hr.directory.manage', 'hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'] },
   hrTemplates: { label: adminCopy.copy_a0d495faa0, permissions: ['hr.profile_templates.manage', 'hr.profile_templates.select'] },
   departments: { label: adminCopy.copy_c15260b37c, permissions: ['hr.departments'] },
   workGroups: { label: adminCopy.copy_303b7a8611, permissions: ['hr.work_groups'] },

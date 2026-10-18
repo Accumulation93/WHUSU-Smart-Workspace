@@ -888,7 +888,7 @@ async function scanRuleImpact(connection, target, lock) {
   const targetAssignmentIds = new Set(uniqueStrings(target.assignmentIds));
   if (!orgId || (!targetHrIds.size && !targetAssignmentIds.size)) return [];
   const lockSql = lock ? ' FOR UPDATE' : '';
-  const impact = [];
+  const impact = await require('./contactDirectory').deletionImpact(connection, safeString(target.personId), orgId, lock);
 
   const [conditions] = await connection.query(
     `SELECT condition_row.id, condition_row.template_step_id, condition_row.person_hr_ids,
@@ -1476,6 +1476,7 @@ async function cleanupMembershipArtifacts(connection, target) {
   const counts = {};
   const record = (key, result) => { counts[key] = Number(result && result.affectedRows || 0); };
   counts.importPreviews = await cleanupHrImportPreviews(connection, target);
+  counts.directoryRules = await require('./contactDirectory').cleanupPerson(connection, personId, orgId);
   counts.absoluteTimeReviews = await cleanupMembershipAbsoluteTimeReviews(connection, target);
 
   const disabledRules = await cleanupRuleReferences(connection, target);
@@ -1597,6 +1598,7 @@ async function cleanupGlobalPersonArtifacts(connection, target, deletionDigest) 
   const counts = {};
   const record = (key, result) => { counts[key] = Number(result && result.affectedRows || 0); };
   counts.importPreviews = await cleanupHrImportPreviews(connection, Object.assign({}, target, { organizationId: '' }));
+  counts.directoryRules = await require('./contactDirectory').cleanupPerson(connection, safeString(target.personId), '');
   let result;
   counts.absoluteTimeReviews = await cleanupPersonAbsoluteTimeReviews(connection, target);
   let invalidatedCaches = 0;

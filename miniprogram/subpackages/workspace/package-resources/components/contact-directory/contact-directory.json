@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "personnel-picker": "/subpackages/workspace/package-resources/components/personnel-picker/personnel-picker",
+    "app-loading": "/components/app-loading/app-loading"
+  }
+}

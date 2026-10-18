@@ -137,6 +137,22 @@
       },
       {
         "type": "file",
+        "value": "components/contact-directory/contact-directory.js"
+      },
+      {
+        "type": "file",
+        "value": "components/contact-directory/contact-directory.json"
+      },
+      {
+        "type": "file",
+        "value": "components/contact-directory/contact-directory.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/contact-directory/contact-directory.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/hr-profile-migration-dialog/hr-profile-migration-dialog.js"
       },
       {
@@ -206,6 +222,10 @@
       {
         "type": "file",
         "value": "locales/zh-CN/auditVerification.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/contactDirectory.js"
       },
       {
         "type": "file",
@@ -430,6 +450,10 @@
       {
         "type": "file",
         "value": "utils/binaryBase64.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/contactDirectoryView.js"
       },
       {
         "type": "file",

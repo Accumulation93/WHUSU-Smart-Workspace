@@ -1,6 +1,6 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
-<page-meta page-style="{{(dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<page-meta page-style="{{(directoryPickerVisible || dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
@@ -859,7 +859,8 @@
       <view class="section-control-card section-control-card--stacked">
         <view class="section-title">{{activeTab === 'hrTemplates' ? localeCopy.copy_7cab7f5321 : localeCopy.copy_eb65126cfe}}</view>
         <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
-          <view class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
+          <view wx:if="{{canBrowseHrInfo || canImportHr || canVerifyIdentity || canRecoverAccounts || canGlobalAccountManage}}" class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
+          <view wx:if="{{canManageDirectory}}" class="feature-tab {{hrInfoMode === 'directory' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="directory" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{directoryCopy.title}}</view>
           <view class="feature-tab {{hrInfoMode === 'policy' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="policy" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canManageAuthPolicy}}">{{localeCopy.copy_1e4c43d5d1}}</view>
         </view>
         <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
@@ -870,6 +871,7 @@
         </view>
       </view>
 
+      <contact-directory wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'directory' && canManageDirectory}}" admin="{{true}}" bindpickerchange="onDirectoryPickerChange" bindbusychange="onDirectoryBusyChange" />
       <view class="edit-box" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles' && showAddEditForm && canManageHrPeople}}">
         <view class="edit-box-header">
           <view>
@@ -3303,4 +3305,4 @@
 </view>
 
 <!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->
-<app-toast />
+<app-toast loading="{{directoryBusy}}" loadingText="{{directoryCopy.saving}}" />

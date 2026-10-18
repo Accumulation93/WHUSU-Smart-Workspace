@@ -8,7 +8,9 @@
       @switch="goWorkRole"
     />
 
-    <form class="card stack" @submit.prevent="save">
+    <div class="tabs" role="tablist"><button class="tab" :class="{ 'tab-active': hrTab === 'profile' }" :disabled="saving" @click="hrTab = 'profile'">{{ directoryCopy.profile }}</button><button class="tab" :class="{ 'tab-active': hrTab === 'directory' }" :disabled="saving" @click="hrTab = 'directory'">{{ directoryCopy.title }}</button></div>
+    <ContactDirectory v-if="hrTab === 'directory'" />
+    <form v-else class="card stack" @submit.prevent="save">
       <div class="panel-head">
         <span class="section-title">{{ homeCopy.hr }}</span>
         <span v-if="profileData && !loadNotice" class="chip chip-sky">{{ profileData.template?.modeText || homeCopy.noTemplate }}</span>
@@ -56,6 +58,8 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import ContactDirectory from '@/components/ContactDirectory.vue';
+import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import HrDateField from '@/components/HrDateField.vue';
 import copy from '@/locales/zh-CN/index.js';
 import homeLocale from '@/locales/zh-CN/shared/home.js';
@@ -63,6 +67,7 @@ import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
+const hrTab = ref('profile');
 const homeCopy = homeLocale.text;
 const loading = ref(true);
 const loadNotice = ref('');

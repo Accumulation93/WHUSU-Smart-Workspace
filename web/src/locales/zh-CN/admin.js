@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_contactDirectory from './shared/contactDirectory.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
@@ -32,11 +33,11 @@ export default Object.freeze({
   permissionsCountSuffix: src_submissionDetail.copy_2370e6144f,
   permissionsUnnamed: src_adminPermissions.copy_06e8d3a970,
   permissionsStudentId: src_adminPermissions.copy_80fba348b7,
-  permissionsNotFilled: src_adminPermissions.copy_4dbdbf9dcd,
-  permissionsEnabled: src_adminPermissions.copy_9c0ceb5c90,
+  permissionsNotFilled: src_contactDirectory.unnamed,
+  permissionsEnabled: src_contactDirectory.enabled,
   permissionsOf: src_adminPermissions.copy_0278c19d5a,
   permissionsAll: src_mySubmissions.copy_31d4595959,
-  permissionsSave: src_adminPermissions.copy_71db23a36b,
+  permissionsSave: src_contactDirectory.save,
   permissionsSaving: src_web.admin.permissionsSaving,
   permissionsSaved: src_adminPermissions.copy_e47065f3f1,
   permissionsSaveFailed: src_signatureManager.copy_215e3c57da,

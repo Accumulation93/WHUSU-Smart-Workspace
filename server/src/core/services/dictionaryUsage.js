@@ -65,14 +65,20 @@ const OPTIONAL_DIRECT_USAGE = {
 
 const JSON_USAGE = {
   department: [
+    ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
+    ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
     ['audit_submission_steps', 'step_conditions_json', 'audit_history']
   ],
   identity: [
+    ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
+    ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
     ['audit_submission_steps', 'step_conditions_json', 'audit_history']
   ],
   work_group: [
+    ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
+    ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
     ['audit_submission_steps', 'step_conditions_json', 'audit_history']
   ]

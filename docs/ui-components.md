@@ -17,6 +17,8 @@
 
 ## 共享组件
 
+人事通讯录复用 `miniprogram/components/contact-directory/` 与网页 `ContactDirectory.vue`、`ContactDirectoryAdmin.vue`。用户结果与管理配置独立加载；规则编辑采用页面内三段结构，人员使用共享选择器。权限、接口与验证见 [通讯录说明](contact-directory.md)。
+
 | 组件 | 路径 | 用途 | 必须保留的差异 |
 | --- | --- | --- | --- |
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |

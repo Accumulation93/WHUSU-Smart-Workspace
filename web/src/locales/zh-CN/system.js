@@ -1,7 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminPersonnel from './shared/adminPersonnel.js';
-import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import src_contactDirectory from './shared/contactDirectory.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
 import src_web from './shared/web.js';
@@ -19,8 +19,8 @@ export default Object.freeze({
   adminLevelLabel: src_web.system.adminLevelLabel,
   permissionListTitle: src_web.system.permissionListTitle,
   noPermission: src_web.system.noPermission,
-  departmentTitle: src_submissionDetail.copy_02419589be,
-  identityTitle: src_submissionDetail.copy_c1965e0690,
+  departmentTitle: src_contactDirectory.department,
+  identityTitle: src_contactDirectory.identity,
   workGroupTitle: src_adminPersonnel.dictionaryUsageCategories.work_groups,
   dictionaryNote: src_web.system.dictionaryNote,
   templateStepCount: src_web.system.templateStepCount,

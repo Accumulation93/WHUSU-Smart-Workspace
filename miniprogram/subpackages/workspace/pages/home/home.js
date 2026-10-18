@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
+const directoryCopy = require('../../package-resources/locales/zh-CN/contactDirectory');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
@@ -500,7 +501,7 @@ Page({
     const subApp = this._subApp || 'scoring';
     const SUB_APP_USER_TABS = {
       scoring: ['scoring', 'results', 'meritList'],
-      hr: ['profile'],
+      hr: ['profile', 'directory'],
       audit: ['audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
@@ -520,7 +521,8 @@ Page({
     if (allowed.indexOf('meritList') !== -1 && (this.data.hasMeritPerm || this.data.publicationAccessLoading)) {
       tabs.push({ key: 'meritList', label: copy.text.meritList });
     }
-    if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: copy.text.hr });
+    if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: directoryCopy.profile });
+    if (allowed.indexOf('directory') !== -1) tabs.push({ key: 'directory', label: directoryCopy.title });
     // Always add audit tab for users with HR info
     if (allowed.indexOf('audit') !== -1 && this.data.hasUser) {
       tabs.push({ key: 'audit', label: copy.text.audit });
@@ -531,7 +533,7 @@ Page({
     let activeTab = this.data.activeTab;
     if (preferredAvailable) {
       activeTab = preferredTab;
-    } else if (tabs.length === 1 || (finalizeOrgFallback && !currentAvailable)) {
+    } else if (tabs.length === 1 || ((finalizeOrgFallback || this._subApp === 'hr') && !currentAvailable)) {
       activeTab = tabs.length ? tabs[0].key : 'scoring';
     }
     if (finalizeOrgFallback) {

@@ -2,6 +2,7 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_common from './shared/common.js';
+import src_contactDirectory from './shared/contactDirectory.js';
 import src_workspace_hero from './shared/generated/components/workspace-hero/workspace-hero.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -85,7 +86,7 @@ export default Object.freeze({
   navLoginAction: src_login.view.loginTitle,
   authUnavailable: src_main.portal.view.authUnavailable,
   authFrozen: src_main.portal.view.authFrozen,
-  authRetryAction: src_mySubmissions.retry,
+  authRetryAction: src_contactDirectory.retry,
   authLoginAction: src_main.portal.view.authLoginAction,
   noMatchingApps: src_main.portal.view.noMatchingApps,
   noApps: src_main.portal.view.noApps,

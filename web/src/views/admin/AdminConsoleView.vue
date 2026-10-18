@@ -29,6 +29,8 @@
       </button>
     </div>
 
+    <div v-if="activeTab === 'hrInfo'" class="tabs"><button v-if="canMembers" class="tab" :class="{ 'tab-active': hrMode === 'profiles' }" :disabled="actionBusy" @click="hrMode = 'profiles'">{{ copy.admin.tabHr }}</button><button v-if="canDirectory" class="tab" :class="{ 'tab-active': hrMode === 'directory' }" :disabled="actionBusy" @click="hrMode = 'directory'">{{ directoryCopy.title }}</button></div>
+    <ContactDirectoryAdmin v-if="activeTab === 'hrInfo' && hrMode === 'directory' && canDirectory" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminActivityPanel v-if="activeTab === 'activities'" :state="activityState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminTemplatePanel v-else-if="activeTab === 'templates'" :state="templateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminRulePanel v-else-if="activeTab === 'rules'" :state="ruleState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
@@ -39,7 +41,7 @@
     <AdminAuditSubmissionPanel v-else-if="activeTab === 'auditSubmissions'" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy=$event" />
     <AdminSettingsPanel v-else-if="activeTab === 'settings'" :state="settingsState" :profile="profile" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
-    <section v-else-if="activeTab === 'hrInfo'" class="card stack">
+    <section v-else-if="activeTab === 'hrInfo' && hrMode === 'profiles' && canMembers" class="card stack">
       <div class="panel-head">
         <div class="stack-tight">
           <span class="section-title">{{ copy.admin.tabHr }}</span>
@@ -82,7 +84,7 @@
       </div>
     </section>
 
-    <section v-else-if="activeTab" class="card stack">
+    <section v-else-if="activeTab && activeTab !== 'hrInfo'" class="card stack">
       <span class="section-title">{{ activeLabel }}</span>
       <p class="notice-line">{{ copy.admin.consoleNote }}</p>
     </section>
@@ -93,6 +95,8 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
+import ContactDirectoryAdmin from '@/components/ContactDirectoryAdmin.vue';
+import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AdminDictionaryPanel from '@/components/AdminDictionaryPanel.vue';
 import AdminActivityPanel from '@/components/AdminActivityPanel.vue';
@@ -125,6 +129,9 @@ const loadNotice = ref('');
 const permissionLoading = ref(false);
 const permissionNotice = ref('');
 const profile = ref(null);
+const hrMode = ref('profiles');
+const canDirectory = computed(() => profile.value?.adminLevel === 'super_admin' || profile.value?.permissions?.['hr.directory.manage']);
+const canMembers = computed(() => profile.value?.adminLevel === 'super_admin' || ['hr.people', 'hr.people.delete', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'].some(key => profile.value?.permissions?.[key]));
 provideAdminCapabilities(profile);
 const actionBusy = ref(false);
 const activityState = reactive({ form: { id: '', name: '', description: '', startDate: '', endDate: '' }, resetAfterRead: false });
@@ -195,7 +202,7 @@ function selectTab(key) {
 }
 
 async function load() {
-  if (activeTab.value !== 'hrInfo' || permissionNotice.value || permissionLoading.value) return;
+  if (activeTab.value !== 'hrInfo' || hrMode.value !== 'profiles' || !canMembers.value || permissionNotice.value || permissionLoading.value) return;
   const request = ++generation;
   const expected = scope();
   const current = () => !disposed && request === generation && expected === scope() && activeTab.value === 'hrInfo';
@@ -225,6 +232,7 @@ async function loadPermissions() {
     if (!current()) return;
     if (result.organizationId && result.organizationId !== session.context?.organizationId) throw new Error(copy.errors.permissionDenied);
     profile.value = result;
+    if (!canMembers.value && canDirectory.value) hrMode.value = 'directory';
     const requested = route.query.tab;
     activeTab.value = tabs.value.some(tab => tab.key === requested) ? requested
       : tabs.value.some(tab => tab.key === activeTab.value) ? activeTab.value : tabs.value[0]?.key || '';
@@ -247,7 +255,7 @@ watch(scope, () => {
   loadPermissions();
 }, { immediate: true });
 watch(() => route.query.tab, key => { if (tabs.value.some(tab => tab.key === key)) activeTab.value = key; });
-watch([activeTab, permissionLoading], () => { generation++; if (activeTab.value === 'hrInfo' && !permissionLoading.value) load(); });
+watch([activeTab, hrMode, permissionLoading], () => { generation++; if (activeTab.value === 'hrInfo' && !permissionLoading.value) load(); });
 onBeforeUnmount(() => { disposed = true; generation++; permissionGeneration++; });
 onBeforeRouteLeave(() => session.status !== 'authenticated' || !actionBusy.value);
 onBeforeRouteUpdate(() => session.status !== 'authenticated' || !actionBusy.value);

@@ -7,7 +7,7 @@ const TAB_PERMISSION_MAP = {
   rules: ['scoring.rules'],
   results: ['scoring.results'],
   publications: ['scoring.publications'],
-  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
+  hrInfo: ['hr.directory.manage', 'hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   hrAccounts: ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   hrTemplates: ['hr.profile_templates.manage', 'hr.profile_templates.select'],
   departments: ['hr.departments'],
@@ -30,7 +30,7 @@ const VENUE_TAB_PERMISSION_MAP = {
 
 const PORTAL_PERMISSION_MAP = {
   scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
-  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
+  hr: ['hr.directory.manage', 'hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'],
   system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
   audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.submissions_delete', 'audit.verification'],
   venue: ['venue.resources', 'venue.bookings', 'venue.bookings_delete', 'venue.approvals', 'venue.purposes'],
