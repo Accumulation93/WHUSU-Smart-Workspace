@@ -18,7 +18,7 @@
       </div>
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!loadNotice && !items.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
       <div v-else class="list">
         <div v-for="item in items" :key="item.id" class="list-row" role="button" tabindex="0" :aria-label="item.title || item.venueName" @click="openDetail(item)" @keydown.enter.self="openDetail(item)" @keydown.space.self.prevent="openDetail(item)">

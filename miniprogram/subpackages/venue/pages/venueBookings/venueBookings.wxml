@@ -1,7 +1,7 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="redirect-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <view class="redirect-card">
-    <view class="redirect-spinner" aria-role="img" aria-label="{{localeCopy.copy_70936c600a}}"></view>
+    <app-loading compact="{{true}}" text="{{localeCopy.copy_70936c600a}}" />
     <view class="redirect-title">{{localeCopy.copy_b1585d96c0}}</view>
     <view class="redirect-desc">{{localeCopy.copy_0696de3430}}</view>
   </view>

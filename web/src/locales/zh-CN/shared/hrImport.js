@@ -2,6 +2,7 @@
 'use strict';
 
 const sharedModule = Object.freeze({
+  checking: '正在检查导入内容', processing: '正在处理所选问题', importing: '正在导入成员资料', exporting: '正在生成表格',
   title: '人员导入', navigationTitle: '人员导入 - WHUSU智慧工作台', appName: '人事信息',
   peopleView: '按人员查看',
   involvedPeopleRows: '涉及 {0} 人，共 {1} 行',

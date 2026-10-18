@@ -15,7 +15,7 @@
         <button type="button" class="btn-quiet" @click="load">{{ copy.audit.actionRefresh }}</button>
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else class="list">
         <div class="list-row">
           <div class="list-row-main stack-tight">

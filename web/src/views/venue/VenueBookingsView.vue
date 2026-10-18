@@ -16,7 +16,7 @@
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
       <div v-if="!session.context?.assignmentId" class="notice-line"><p>{{ venueCopy.noActiveAssignmentNotice }}</p><button type="button" class="btn-quiet" @click="goWorkRole">{{ venueCopy.switchWorkContext }}</button></div>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!venues.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a60fcec226 }}</div>
       <div v-else class="list">
         <div v-for="venue in venues" :key="venue.id" class="list-row venue-card">

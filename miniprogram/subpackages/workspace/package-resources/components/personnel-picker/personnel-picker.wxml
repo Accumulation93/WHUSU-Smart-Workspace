@@ -46,7 +46,7 @@
 
           <view class="personnel-picker-section ui-dialog-list-panel">
             <view class="personnel-picker-section-head">{{candidateHeading}}</view>
-            <view class="personnel-picker-empty" wx:if="{{loading}}">{{localeCopy.loading}}</view>
+            <view class="personnel-picker-empty" wx:if="{{loading}}"><app-loading text="{{localeCopy.loading}}" /></view>
             <view class="personnel-picker-error" wx:elif="{{errorText}}"><text>{{errorText}}</text><text class="link ui-motion-chip" catchtap="retry" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.retry}}</text></view>
             <scroll-view wx:else enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="personnel-picker-list personnel-picker-option-list ui-dialog-scroll--pane ui-dialog-selection-options">
               <view class="personnel-picker-card selection-option-card ui-motion-chip {{item._selected ? 'personnel-picker-card-selected' : ''}}" wx:for="{{filteredOptions}}" wx:key="selectionKey" data-key="{{item.selectionKey}}" catchtap="toggleOption" aria-role="checkbox" aria-checked="{{item._selected}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -70,7 +70,7 @@
 
       <view class="personnel-picker-footer button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="cancelSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.close}}</button>
-        <button class="primary-btn ui-motion-button" loading="{{confirmLoading}}" catchtap="confirmSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.confirm}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{confirmLoading}}" catchtap="confirmSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{confirmLoading}}" />{{localeCopy.confirm}}</button>
       </view>
     </view>
   </view>

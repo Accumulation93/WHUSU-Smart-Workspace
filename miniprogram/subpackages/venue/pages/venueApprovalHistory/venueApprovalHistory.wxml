@@ -12,7 +12,7 @@
         </view>
       <view class="history-context">{{currentContextText}}</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="history-scroll ui-dialog-scroll--pane" scroll-y>
-        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
         <block wx:if="{{!loading}}">
           <view class="history-item ui-motion-card" wx:for="{{history}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="history-item-head">

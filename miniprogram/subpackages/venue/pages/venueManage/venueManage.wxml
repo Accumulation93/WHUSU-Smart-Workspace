@@ -24,7 +24,7 @@
         <button class="primary-btn panel-add-btn ui-motion-button" wx:if="{{canEditVenueResources}}" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4fd7b5de41}}</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
         <view class="empty-inline" wx:if="{{!loading && !venues.length}}">{{localeCopy.copy_5e9f82c1cf}}</view>
         <block wx:if="{{venues.length}}">
           <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id">
@@ -65,7 +65,7 @@
       </scroll-view>
       <view class="venue-edit-actions ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="saveVenue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c701dd2fcc}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" catchtap="saveVenue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_c701dd2fcc}}</button>
       </view>
     </view>
   </view>
@@ -80,7 +80,7 @@
           <view class="panel-note">{{localeCopy.copy_644b2a280c}}</view>
         </view>
       </view>
-      <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
+      <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><app-loading compact="{{true}}" /></view>
 
       <!-- Time filter row -->
       <view class="filter-group">
@@ -143,7 +143,7 @@
             <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
           </view>
           <view class="card-actions" wx:if="{{canDeleteVenueBookings && item.adminCanDelete}}">
-            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" catchtap="deleteVenueBooking" disabled="{{!!deletingVenueBooking}}" loading="{{deletingVenueBooking === item.id}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{governanceCopy.deleteConfirm}}</button>
+            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" catchtap="deleteVenueBooking" disabled="{{!!deletingVenueBooking}}"  hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{deletingVenueBooking === item.id}}" />{{governanceCopy.deleteConfirm}}</button>
           </view>
         </view>
       </scroll-view>
@@ -739,7 +739,7 @@
         </view>
       </scroll-view>
       <view class="button-row admin-booking-actions ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_df031d471b}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_df031d471b}}</button>
       </view>
     </view>
   </view>
@@ -877,7 +877,7 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" disabled="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />
           {{approvalPopupAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}
         </button>
       </view>

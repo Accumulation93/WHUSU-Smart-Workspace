@@ -5,8 +5,8 @@
  *
  * 目标：所有状态提示（成功打钩、加载转圈、错误、普通提示）走同一个自绘弹框，
  * 文案不再受微信自带提示的字数限制。实现方式是把 wx.showToast / wx.showLoading /
- * wx.hideLoading / wx.hideToast 接到自绘组件上，调用点无需逐个改写；没有挂载
- * 组件实例时自动回退到微信原生实现，避免影响启动早期或未挂载的页面。
+ * wx.hideLoading / wx.hideToast 接到自绘组件上，调用点无需逐个改写。
+ * 加载早于组件挂载时暂存，挂载后交给同一标准件，避免出现原生加载框。
  */
 
 const LOADING_SAFETY_MS = 20000;
@@ -18,6 +18,8 @@ let currentState = '';
 let hideTimer = null;
 let safetyTimer = null;
 let installed = false;
+let pendingLoading = null;
+let renderedInstance = null;
 const native = {};
 
 function trimmed(value) {
@@ -49,12 +51,16 @@ function normalizeState(value) {
 
 function registerInstance(instance) {
   if (instance && instances.indexOf(instance) === -1) instances.push(instance);
+  if (pendingLoading) {
+    const payload = pendingLoading;
+    if (show(payload)) pendingLoading = null;
+  }
 }
 
 function unregisterInstance(instance) {
   const index = instances.indexOf(instance);
   if (index >= 0) instances.splice(index, 1);
-  if (!instances.length) clearTimers();
+  if (renderedInstance === instance) { renderedInstance = null; currentState = ''; clearTimers(); }
 }
 
 function clearTimers() {
@@ -103,6 +109,7 @@ function show(options) {
   let rendered = false;
   for (let index = instances.length - 1; index >= 0; index -= 1) {
     if (renderOn(instances[index], payload)) {
+      renderedInstance = instances[index];
       rendered = true;
       break;
     }
@@ -132,13 +139,16 @@ function showLoading(text, options) {
 
 function hideToast() {
   clearTimers();
+  pendingLoading = null;
   currentState = '';
-  const instance = activeInstance();
+  const instance = renderedInstance || activeInstance();
+  renderedInstance = null;
   if (!instance) return false;
   return renderOn(instance, { text: '', state: 'info', blocking: false });
 }
 
 function hideLoading() {
+  if (pendingLoading) { pendingLoading = null; return true; }
   // 与微信原生一致：没有加载态时 hideLoading 不产生任何效果。
   if (currentState !== 'loading') return false;
   return hideToast();
@@ -174,7 +184,8 @@ function installAppToast() {
       fireCallbacks(settings);
       return undefined;
     }
-    if (native.showLoading) return native.showLoading(settings);
+    pendingLoading = { text: settings.title, state: 'loading', blocking: settings.mask !== false };
+    fireCallbacks(settings);
     return undefined;
   };
 

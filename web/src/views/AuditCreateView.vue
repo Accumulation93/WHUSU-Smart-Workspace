@@ -19,7 +19,7 @@
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
-      <div v-if="loadingTemplates" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loadingTemplates" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!templates.length" class="empty-state">{{ copy.audit.createNoTemplate }}</div>
 
       <template v-else>

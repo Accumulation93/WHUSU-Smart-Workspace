@@ -142,8 +142,8 @@
   </view>
   <view class="button-row hr-template-editor-actions hr-template-editor-actions-sticky">
     <button class="secondary-btn hr-template-editor-btn ui-motion-button" bindtap="onAddField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e0e7db5698}}</button>
-    <button class="secondary-btn hr-template-editor-btn ui-motion-button" loading="{{importing}}" bindtap="onImportFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e39d601eb0}}</button>
-    <button class="primary-btn template-save-btn hr-template-editor-btn hr-template-editor-save ui-motion-button" loading="{{saving}}" bindtap="onSave" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_41e8060a1f}}</button>
+    <button class="secondary-btn hr-template-editor-btn ui-motion-button" disabled="{{importing}}" bindtap="onImportFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{importing}}" />{{localeCopy.copy_e39d601eb0}}</button>
+    <button class="primary-btn template-save-btn hr-template-editor-btn hr-template-editor-save ui-motion-button" disabled="{{saving}}" bindtap="onSave" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{saving}}" />{{localeCopy.copy_41e8060a1f}}</button>
   </view>
 </view>
 <view class="hr-field-drag-ghost" wx:if="{{ghostVisible}}" style="top: {{ghostTop}}px; left: {{ghostLeft}}px; width: {{ghostWidth}}px;">

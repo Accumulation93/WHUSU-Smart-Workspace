@@ -54,7 +54,7 @@
         <view class="status-banner-text">{{copy.activityPaused}}</view>
       </view>
 
-      <view class="target-state" wx:if="{{targetsLoading}}">{{copy.loadingDots}}</view>
+      <view class="target-state" wx:if="{{targetsLoading}}"><app-loading text="{{copy.loadingDots}}" /></view>
 
       <scroll-view class="target-scroll" scroll-y wx:if="{{!targetsLoading && targetGroups.length}}">
         <block wx:for="{{targetGroups}}" wx:key="identity">
@@ -91,7 +91,7 @@
   <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
     <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
-      <view class="empty-title">{{copy.loadingDots}}</view>
+      <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
     <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
@@ -224,7 +224,7 @@
   <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
     <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
-      <view class="empty-title">{{copy.loadingDots}}</view>
+      <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
     <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
@@ -321,7 +321,7 @@
 
       <view class="readonly-tip">{{copy.profileManagedByAdmin}}</view>
 
-      <view class="target-state" wx:if="{{hrProfile.loading}}">{{copy.loadingProfile}}</view>
+      <view class="target-state" wx:if="{{hrProfile.loading}}"><app-loading text="{{copy.loadingProfile}}" /></view>
       <view class="profile-load-error" wx:if="{{!hrProfile.loading && hrProfile.errorText}}">
         <view class="profile-load-error-text">{{hrProfile.errorText}}</view>
         <button class="secondary-btn profile-retry-btn ui-motion-button" bindtap="retryUserHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
@@ -436,9 +436,9 @@
         <button
           class="primary-btn profile-submit-btn {{hrProfile.template.editMode === 'audit' ? 'profile-submit-btn-audit' : ''}} ui-motion-button"
           bindtap="submitHrProfile"
-          loading="{{hrProfile.saving}}"
+
           disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
-         hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+         hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{hrProfile.saving}}" />
           {{hrProfile.template.editMode === 'audit' ? copy.submitReview : copy.saveProfile}}
         </button>
       </view>
@@ -452,7 +452,7 @@
           <view class="profile-account-status" wx:if="{{accountSecurity.account}}">{{copy.verified}}</view>
         </view>
 
-        <view class="target-state" wx:if="{{accountSecurity.loading}}">{{copy.loadingAccount}}</view>
+        <view class="target-state" wx:if="{{accountSecurity.loading}}"><app-loading text="{{copy.loadingAccount}}" /></view>
         <block wx:elif="{{accountSecurity.loaded}}">
           <view class="profile-account-summary" wx:if="{{accountSecurity.account}}">
             <view class="info-block"><view class="info-label">{{copy.name}}</view><view class="info-value">{{accountSecurity.account.name}}</view></view>
@@ -465,7 +465,7 @@
             <view class="profile-credential-card" wx:if="{{accountSecurity.allowRecoveryCode}}">
               <view class="profile-credential-head">
                 <view><view class="profile-credential-title">{{copy.recoveryCode}}</view><view class="profile-credential-note">{{copy.recoveryCodeWarning}}</view></view>
-                <button class="secondary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="rotateAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.generateCode}}</button>
+                <button class="secondary-btn profile-account-action ui-motion-button" disabled="{{accountSecurity.savingCredential}}" bindtap="rotateAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{accountSecurity.savingCredential}}" />{{copy.generateCode}}</button>
               </view>
               <view class="profile-recovery-code" wx:if="{{accountSecurity.recoveryCode}}">
                 <view class="profile-recovery-value">{{accountSecurity.recoveryCode}}</view>
@@ -478,7 +478,7 @@
               <view class="profile-credential-note">{{copy.passphraseDescription}}</view>
               <view class="profile-passphrase-form">
                 <input class="field-input profile-passphrase-input" password="{{true}}" value="{{accountSecurity.passphrase}}" bindinput="onAccountPassphraseInput" placeholder="{{copy.passphrasePlaceholder}}" />
-                <button class="primary-btn profile-submit-btn profile-passphrase-submit ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.savePassphrase}}</button>
+                <button class="primary-btn profile-submit-btn profile-passphrase-submit ui-motion-button" disabled="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{accountSecurity.savingCredential}}" />{{copy.savePassphrase}}</button>
               </view>
             </view>
           </view>
@@ -493,7 +493,7 @@
                   <view class="profile-credential-note">{{copy.recentActivity}} {{item.lastSeenText}}</view>
                 </view>
                 <view class="profile-account-status" wx:if="{{item.currentDevice}}">{{copy.current}}</view>
-                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" loading="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.signOutDevice}}</button>
+                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" disabled="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{accountSecurity.revokingDeviceKey === item._rowKey}}" />{{copy.signOutDevice}}</button>
               </view>
               <view class="empty-inline" wx:if="{{!accountSecurity.devices.length}}">{{copy.noDevices}}</view>
             </view>

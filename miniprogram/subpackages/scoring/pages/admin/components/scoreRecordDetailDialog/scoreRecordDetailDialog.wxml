@@ -28,7 +28,7 @@
           </view>
         </view>
       </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-      <view class="card-loading-overlay" wx:if="{{!recordDetail}}"><view class="card-loading-spinner"></view></view>
+      <view class="card-loading-overlay" wx:if="{{!recordDetail}}"><app-loading compact="{{true}}" /></view>
     </view>
   </view>
 </viewport-portal>

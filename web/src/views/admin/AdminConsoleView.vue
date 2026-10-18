@@ -10,7 +10,7 @@
     />
 
     <section v-if="permissionLoading || permissionNotice || !tabs.length" class="card stack">
-      <span class="notice-line">{{ permissionLoading ? copy.common.loading : permissionNotice || copy.errors.permissionDenied }}</span>
+      <AppLoading v-if="permissionLoading" /><span v-else class="notice-line">{{ permissionNotice || copy.errors.permissionDenied }}</span>
       <button v-if="permissionNotice" type="button" class="btn-quiet" @click="loadPermissions">{{ personnel.dictionaryRetry }}</button>
     </section>
     <div v-if="tabs.length" class="tabs admin-tabs" role="tablist" :aria-label="module.label">
@@ -61,7 +61,7 @@
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
-      <div v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!loadNotice && !filteredRows.length" class="empty-state">{{ copy.admin.memberEmpty }}</div>
       <div v-else class="list">
         <div v-for="row in filteredRows" :key="row.hrId || row.id" class="list-row">

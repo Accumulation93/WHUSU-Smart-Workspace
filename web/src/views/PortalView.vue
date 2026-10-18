@@ -21,7 +21,7 @@
         </span>
       </div>
       <div v-if="todoError" class="stack-tight"><p role="alert" class="notice-line">{{ todoError }}</p><button type="button" class="btn-quiet" @click="loadPreview">{{ copy.common.retry }}</button></div>
-      <div v-if="todosLoading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="todosLoading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!todos.length && !todoError" class="notification-empty">
         <span class="notification-empty-text">{{ copy.portal.view.noTodos }}</span>
       </div>
@@ -58,7 +58,7 @@
         </span>
       </div>
       <div v-if="notificationError" class="stack-tight"><p role="alert" class="notice-line">{{ notificationError }}</p><button type="button" class="btn-quiet" @click="loadPreview">{{ copy.common.retry }}</button></div>
-      <div v-if="notificationsLoading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="notificationsLoading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!notifications.length && !notificationError" class="notification-empty">
         <span class="notification-empty-text">{{ copy.portal.view.noNotifications }}</span>
       </div>

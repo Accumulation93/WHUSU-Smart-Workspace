@@ -9,7 +9,7 @@
   </view>
 
   <view class="card">
-    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
     <view class="section-title">{{localeCopy.copy_decce2c059}}（{{bookings.length}}）</view>
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
       <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-text">{{localeCopy.copy_28981b382e}}</view></view>

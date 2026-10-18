@@ -18,7 +18,7 @@
       </div>
       <label class="field"><span class="field-label">{{ ui.copy_caeab5d89c }}</span><select class="field-input" :aria-label="ui.copy_caeab5d89c" :value="filters.sortMode" :disabled="controlsBlocked" @change="change('sortMode', $event.target.value)"><option v-for="item in sorts" :key="item[0]" :value="item[0]">{{ item[1] }}</option></select></label>
       <button type="button" class="btn btn-secondary" :disabled="props.disabled || loading.main || busy" @click="refresh">{{ ui.copy_e15d9ac2ee }}</button>
-      <span v-if="loading.main" class="muted" role="status">{{ ui.copy_be942e85d1 }}</span>
+      <span v-if="loading.main" class="muted" role="status"><AppLoading :text="ui.copy_be942e85d1" /></span>
     </section>
     <template v-if="canExport"><section v-for="item in reports" :key="item[0]" class="card stack"><strong>{{ item[1] }}</strong><button type="button" class="btn btn-secondary" :disabled="blocked || !activity" @click="exportReport = item">{{ item[1] }}</button></section></template>
     <section v-if="filters.viewMode === 'overview'" class="card stack">
@@ -31,7 +31,7 @@
     <section v-if="filters.viewMode === 'overview' && state.target" ref="targetPanel" class="card stack">
       <div class="panel-head"><strong>{{ state.target.name }}{{ ui.copy_a859dc349b }} {{ targetRows.length }}</strong><button type="button" class="btn-quiet" :disabled="busy" @click="closeTarget">{{ ui.copy_8ec888d575 }}</button></div>
       <div v-if="notice.target" class="stack-tight" role="alert"><span class="notice-line">{{ notice.target }}</span><button type="button" class="btn-quiet" :disabled="loading.target || busy" @click="retry('target')">{{ personnel.dictionaryRetry }}</button></div>
-      <span v-if="loading.target" class="muted">{{ ui.copy_80c4bdb2f5 }}</span>
+      <span v-if="loading.target" class="muted"><AppLoading :text="ui.copy_80c4bdb2f5" /></span>
       <div class="result-scroll list">
         <button v-for="row in targetRows" :key="row.scorerKey" type="button" class="list-row result-record" :disabled="blocked || loading.target || !!notice.target || !canView(row)" @click="openDetail(row.recordId)">
           <UiIcon name="user" /><span class="list-row-main stack-tight"><span class="panel-head"><strong>{{ row.scorerName }}</strong><span class="chip" :class="statusClass(row)">{{ row.statusText }}</span></span><span class="row row-wrap"><span v-if="row.departmentText" class="chip chip-blue">{{ row.departmentText }}</span><span v-if="row.identityText" class="chip chip-sky">{{ row.identityText }}</span><span v-if="row.workGroupText" class="chip chip-orange">{{ row.workGroupText }}</span></span><span v-if="row.submittedAt" class="muted">{{ formatListTime(row.submittedAt, row.submittedAtReviewStatus) }}</span></span><UiIcon v-if="canView(row)" name="chevron-right" />
@@ -47,7 +47,7 @@
     <section v-if="filters.viewMode === 'completion' && state.department" ref="departmentPanel" class="card stack">
       <div class="panel-head"><strong>{{ state.department }}{{ ui.copy_49237813f2 }}</strong><button type="button" class="btn-quiet" :disabled="busy" @click="closeDepartment">{{ ui.copy_8ec888d575 }}</button></div>
       <div v-if="notice.department" class="stack-tight" role="alert"><span class="notice-line">{{ notice.department }}</span><button type="button" class="btn-quiet" :disabled="loading.department || busy" @click="retry('department')">{{ personnel.dictionaryRetry }}</button></div>
-      <span v-if="loading.department" class="muted">{{ copy.common.loading }}</span>
+      <span v-if="loading.department" class="muted"><AppLoading :text="copy.common.loading" /></span>
       <div class="result-table-head"><strong>{{ ui.copy_b9b9929aee }}</strong><strong>{{ ui.copy_4727505bbd }}</strong><strong>{{ ui.copy_12b44cbb96 }}</strong><strong>{{ ui.copy_8aee737e64 }}</strong></div>
       <button v-for="row in departmentRows" :key="row.scorerKey" type="button" class="list-row result-table-row result-data-row" :disabled="blocked || loading.department || !!notice.department" @click="openScorer(row)">
         <span class="stack-tight"><span class="cell-label">{{ ui.copy_b9b9929aee }}</span><strong>{{ row.scorerName }}</strong></span><span class="stack-tight"><span class="cell-label">{{ ui.copy_4727505bbd }}</span><span>{{ row.detailText }}</span></span><span class="stack-tight"><span class="cell-label">{{ ui.copy_12b44cbb96 }}</span><ScoringProgress :submitted="count(row.submittedCount)" :expected="count(row.expectedCount)" /></span><span class="stack-tight"><span class="cell-label">{{ ui.copy_8aee737e64 }}</span><span class="chip" :class="row.pendingCount ? 'chip-orange' : 'chip-green'">{{ row.statusText }}</span></span>
@@ -57,7 +57,7 @@
     <GlassDialog v-if="state.scorer" :title="messages.copy_abb0a3f46c.replace('{0}', state.scorer.scorerName)" :busy="busy" @close="closeScorer">
       <div class="stack">
         <div v-if="notice.scorer" class="stack-tight" role="alert"><span class="notice-line">{{ notice.scorer }}</span><button type="button" class="btn-quiet" :disabled="loading.scorer || busy" @click="retry('scorer')">{{ personnel.dictionaryRetry }}</button></div>
-        <span v-if="loading.scorer" class="muted">{{ copy.common.loading }}</span>
+        <span v-if="loading.scorer" class="muted"><AppLoading :text="copy.common.loading" /></span>
         <div class="scorer-target-head"><strong>{{ ui.copy_00ed459adb }}</strong><strong>{{ ui.copy_4727505bbd }}</strong><strong>{{ ui.copy_8aee737e64 }}</strong></div>
         <button v-for="row in scorerRows" :key="row.targetId" type="button" class="list-row scorer-target-row result-data-row" :disabled="blocked || loading.scorer || !!notice.scorer || row.status !== 'submitted' || !row.recordId" @click="openDetail(row.recordId)"><span class="stack-tight"><span class="cell-label">{{ ui.copy_00ed459adb }}</span><strong>{{ row.targetName }}</strong></span><span class="stack-tight"><span class="cell-label">{{ ui.copy_4727505bbd }}</span><span>{{ row.detailText }}</span></span><span class="stack-tight"><span class="cell-label">{{ ui.copy_8aee737e64 }}</span><span class="chip" :class="statusClass(row)">{{ row.statusText }}</span></span></button>
         <span v-if="!loading.scorer && !notice.scorer && !scorerRows.length" class="empty-state">{{ ui.copy_11ca2ae839 }}</span>
@@ -66,7 +66,7 @@
     <GlassDialog v-if="recordId" :title="ui.copy_0e17af2227" :busy="busy" @close="closeDetail">
       <div class="stack">
         <div v-if="notice.detail" class="stack-tight" role="alert"><span class="notice-line">{{ notice.detail }}</span><button type="button" class="btn-quiet" :disabled="loading.detail || busy" @click="readDetail">{{ personnel.dictionaryRetry }}</button></div>
-        <span v-if="loading.detail" class="muted">{{ copy.common.loading }}</span>
+        <span v-if="loading.detail" class="muted"><AppLoading :text="copy.common.loading" /></span>
         <template v-if="detail">
           <section class="list-row stack"><div class="result-fields"><div class="stack-tight"><span class="muted">{{ ui.copy_b9b9929aee }}</span><strong>{{ detail.scorer.name }}</strong></div><div class="stack-tight"><span class="muted">{{ ui.copy_12cd162fda }}</span><strong>{{ detail.target.name }}</strong></div></div><span class="muted">{{ formatDetailTime(detail.submittedAt, detail.submittedAtReviewStatus) }}</span><button v-if="canRevoke" type="button" class="btn btn-secondary" :disabled="blocked || loading.detail || !!notice.detail" @click="revoke">{{ ui.copy_96380cec9a }}</button><span v-if="actionNotice" class="notice-line" role="alert">{{ actionNotice }}</span></section>
           <section v-for="template in detail.templates" :key="template.templateId" class="list-row stack"><strong>{{ template.templateName }}</strong><div class="row row-wrap"><span class="chip chip-blue">{{ ui.copy_4675a7e226 }} {{ template.score }}</span><span class="chip chip-sky">{{ ui.copy_30e235fb56 }} {{ template.weight }}</span><span class="chip chip-green">{{ ui.copy_01fb465b6e }} {{ template.weightedScore }}</span></div><article v-for="question in template.questions" :key="question.questionIndex" class="detail-question stack-tight"><div class="panel-head"><strong>{{ question.question }}</strong><span>{{ question.score }} / {{ question.maxValue }}</span></div><button v-if="question.scoreLabel" type="button" class="btn-quiet" :disabled="busy" :aria-expanded="question.expanded" @click="question.expanded = !question.expanded">{{ question.expanded ? ui.copy_1e28fe0260 : ui.copy_b66760c55a }}</button><span v-if="question.scoreLabel && question.expanded" class="score-label-box preserve-lines">{{ question.scoreLabel }}</span></article></section>

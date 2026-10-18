@@ -20,7 +20,7 @@
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!rows.length" class="empty-state">{{ copy.audit.emptyPending }}</div>
       <div v-else class="list">
         <div v-for="row in rows" :key="row.id" class="list-row">

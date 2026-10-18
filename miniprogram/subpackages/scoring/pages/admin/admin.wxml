@@ -6,7 +6,7 @@
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="admin"></workspace-hero>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
-    <view class="empty-title" wx:if="{{!permissionChecked}}">{{localeCopy.copy_a017932da1}}</view>
+    <view class="empty-title" wx:if="{{!permissionChecked}}"><app-loading text="{{localeCopy.copy_a017932da1}}" /></view>
     <block wx:else>
       <view class="empty-title">{{localeCopy.copy_0da26e8c6e}}{{subAppLabel || localeCopy.copy_7d4f155111}}{{localeCopy.copy_214161848a}}</view>
       <view class="empty-desc">{{localeCopy.copy_b6e35653ea}}</view>
@@ -72,7 +72,7 @@
           <view class="field-help">{{localeCopy.copy_9c8b8eb1de}}</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveActivity}}" bindtap="saveActivity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_189d8358eb}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveActivity}}" bindtap="saveActivity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveActivity}}" />{{localeCopy.copy_189d8358eb}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateActivity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_336944985b}}</button>
         </view>
       </view>
@@ -81,7 +81,7 @@
         <view class="list-title">{{localeCopy.copy_01e16cdd90}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.activities}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{activityList}}" wx:key="id">
@@ -233,7 +233,7 @@
           <button class="secondary-btn ui-motion-button" bindtap="addTemplateQuestion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9d31093860}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="importTableTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_47f9d64667}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="exportTemplate" disabled="{{!templateForm.questions.length}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_37b2d47dd4}}</button>
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveTemplate}}" bindtap="saveTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7e4100d002}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveTemplate}}" bindtap="saveTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveTemplate}}" />{{localeCopy.copy_7e4100d002}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6888d59833}}</button>
         </view>
       </view>
@@ -242,7 +242,7 @@
         <view class="list-title">{{localeCopy.copy_c0ad13da27}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.templates}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{templateList}}" wx:key="id">
@@ -333,7 +333,7 @@
           <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.scorerIdentityId)}}" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.scorerIdentity || localeCopy.copy_d1856227b6}}</view></picker>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_04d8c1a10d}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveRule}}" />{{localeCopy.copy_04d8c1a10d}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_32d3256b22}}</button>
           <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.batchSaveRules}}" bindtap="applyClausesToSelectedRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_08b30a529d}}</button>
           <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generateRules}}" bindtap="generateRuleCategoriesFinal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_40f8a2873c}}</button>
@@ -562,7 +562,7 @@
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.rules}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item rule-list-item selection-rule-card selection-option-card {{selectedRuleIdMap[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="toggleRuleSelection" aria-role="checkbox" aria-checked="{{!!selectedRuleIdMap[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{ruleListView}}" wx:key="id">
@@ -656,33 +656,30 @@
           </picker>
         </view>
         <view class="button-row compact-row">
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.results}}" bindtap="reloadScoreResults" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e15d9ac2ee}}</button>
+          <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.results}}" bindtap="reloadScoreResults" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.results}}" />{{localeCopy.copy_e15d9ac2ee}}</button>
 
         </view>
-        <view class="filter-loading-bar" wx:if="{{loadingMap.results}}">
-          <view class="filter-loading-spinner"></view>
-          <text class="filter-loading-text">{{localeCopy.copy_be942e85d1}}</text>
-        </view>
+        <view class="filter-loading-bar" wx:if="{{loadingMap.results}}"><app-loading text="{{localeCopy.copy_be942e85d1}}" /></view>
       </view>
 
       <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">{{localeCopy.copy_03f903662b}}</view>
         <view class="button-row">
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_overview}}" data-report="overview" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_03f903662b}}</button>
+          <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.export_overview}}" data-report="overview" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.export_overview}}" />{{localeCopy.copy_03f903662b}}</button>
         </view>
       </view>
 
       <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">{{localeCopy.copy_8b73330188}}</view>
         <view class="button-row">
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_detail}}" data-report="detail" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8b73330188}}</button>
+          <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.export_detail}}" data-report="detail" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.export_detail}}" />{{localeCopy.copy_8b73330188}}</button>
         </view>
       </view>
 
       <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">{{localeCopy.copy_779db553f1}}</view>
         <view class="button-row">
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_completion}}" data-report="completion" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_779db553f1}}</button>
+          <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.export_completion}}" data-report="completion" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.export_completion}}" />{{localeCopy.copy_779db553f1}}</button>
         </view>
       </view>
 
@@ -693,7 +690,7 @@
           scroll-y
         >
           <view class="card-loading-overlay" wx:if="{{loadingMap.results}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
             <!-- Card-based layout with staggered entrance animations (matches user-side style) -->
@@ -778,7 +775,7 @@
               <ui-icon name="chevron-right" tone="muted" sizeRole="context-trailing" ariaLabel="{{item.scorerName}}" />
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{targetRecordLoading}}">{{localeCopy.copy_80c4bdb2f5}}</view>
+          <view class="empty-inline" wx:if="{{targetRecordLoading}}"><app-loading text="{{localeCopy.copy_80c4bdb2f5}}" /></view>
           <view class="empty-inline" wx:if="{{!targetRecordLoading && !targetRecordRows.length}}">{{localeCopy.copy_600dad22eb}}</view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
       </view>
@@ -786,7 +783,7 @@
       <view class="list-card" wx:if="{{resultFilters.viewMode === 'completion'}}">
         <view class="list-title">{{localeCopy.copy_da7c6bfe5c}}</view>
         <view class="card-loading-overlay" wx:if="{{loadingMap.results}}">
-          <view class="card-loading-spinner"></view>
+          <app-loading compact="{{true}}" />
         </view>
         <block wx:else>
           <view class="stats-grid stats-grid-completion">
@@ -815,7 +812,7 @@
           <text class="popup-close ui-motion-chip" bindtap="closeDepartmentScorers" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8ec888d575}}</text>
         </view>
         <view class="card-loading-overlay" wx:if="{{departmentScorerLoading}}">
-          <view class="card-loading-spinner"></view>
+          <app-loading compact="{{true}}" />
         </view>
         <block wx:else>
           <view class="result-table ui-data-grid--complex">
@@ -867,8 +864,8 @@
         </view>
         <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
           <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7e9a5945ed}}</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_47f9d64667}}</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="checkHrDictionaryIntegrity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrIntegrityCheck}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" disabled="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.importCsv}}" />{{localeCopy.copy_47f9d64667}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" disabled="{{loadingMap.batchMaintain}}" bindtap="checkHrDictionaryIntegrity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.batchMaintain}}" />{{localeCopy.hrIntegrityCheck}}</button>
           <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
         </view>
       </view>
@@ -890,7 +887,7 @@
           <input class="field-input" data-field="studentId" bindinput="onHrFieldInput" value="{{hrForm.studentId}}" placeholder="{{localeCopy.copy_f4094dd21d}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row compact-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveHr}}" bindtap="saveHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6ee4bd4f78}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveHr}}" bindtap="saveHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveHr}}" />{{localeCopy.copy_6ee4bd4f78}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetHrForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a7f220a4a7}}</button>
         </view>
       </view>
@@ -936,7 +933,7 @@
               </picker>
               <view class="field-hint">{{activeHrProfileSnapshot.editModeHint}}</view>
             </view>
-            <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" loading="{{loadingMap.saveActiveHrProfileSettings}}" bindtap="saveActiveHrProfileSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_71446eee47}}</button>
+            <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" disabled="{{loadingMap.saveActiveHrProfileSettings}}" bindtap="saveActiveHrProfileSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.saveActiveHrProfileSettings}}" />{{localeCopy.copy_71446eee47}}</button>
           </block>
         </view>
 
@@ -960,7 +957,7 @@
             <view class="hr-template-actions" wx:if="{{!showHrTemplateEditor || hrProfileTemplateForm.id !== item.id}}">
               <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" disabled="{{showHrTemplateEditor}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{hrTemplateCopy.viewEditAction}}</button>
               <button class="secondary-btn hr-template-action ui-motion-button" wx:elif="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" bindtap="toggleHrTemplatePreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hrTemplatePreviewId === item.id ? hrTemplateCopy.collapseAction : hrTemplateCopy.previewAction}}</button>
-              <button class="primary-btn hr-template-action hr-template-action-primary ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" loading="{{loadingMap.hrTemplateSwitch}}" bindtap="startHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_adabb47646}}</button>
+              <button class="primary-btn hr-template-action hr-template-action-primary ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" disabled="{{loadingMap.hrTemplateSwitch}}" bindtap="startHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.hrTemplateSwitch}}" />{{localeCopy.copy_adabb47646}}</button>
               <button class="secondary-btn hr-template-action ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="duplicateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_fbf1856932}}</button>
               <button class="danger-btn hr-template-action hr-template-action-danger ui-motion-button" wx:if="{{isSuperAdmin || user.permissions['hr.profile_templates.manage.delete']}}" data-id="{{item.id}}" bindtap="deleteHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_acc985cabc}}</button>
             </view>
@@ -1045,7 +1042,7 @@
         <view class="list-card-header"><view class="field-hint">{{hrProfileResultSummary}}</view></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreHrProfileRows">
           <view class="card-loading-overlay" wx:if="{{loadingMap.profile}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="hr-member-card selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}} ui-motion-card" wx:for="{{hrProfileRows}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onHrMemberCardTap" aria-role="{{canVerifyIdentity || canGlobalAccountManage ? 'checkbox' : 'button'}}" aria-checked="{{!!item.selected}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -1068,7 +1065,7 @@
             <view class="hr-member-actions card-actions" catchtap="noop">
               <text class="link hr-action-chip ui-motion-chip" wx:if="{{canBrowseHrInfo || canVerifyIdentity || canRecoverAccounts || canGlobalAccountManage}}" data-hr-id="{{item.id}}" catchtap="openHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.isFormer ? localeCopy.hrViewDetail : (canBrowseHrInfo && canManageHrPeople ? localeCopy.copy_00cb20b85e : localeCopy.hrViewDetail)}}</text>
               <text class="link danger hr-action-chip ui-motion-chip" wx:if="{{canManageHrPeople && !item.isFormer}}" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrLeaveOrganization}}</text>
-              <button class="secondary-btn compact-action hr-action-chip ui-motion-button" wx:if="{{canManageHrPeople && item.isFormer}}" data-hr-id="{{item.id}}" disabled="{{reactivatingHrId}}" loading="{{reactivatingHrId === item.id}}" catchtap="reactivateHrMembership" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrReactivateMembershipInline}}</button>
+              <button class="secondary-btn compact-action hr-action-chip ui-motion-button" wx:if="{{canManageHrPeople && item.isFormer}}" data-hr-id="{{item.id}}" disabled="{{reactivatingHrId}}"  catchtap="reactivateHrMembership" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{reactivatingHrId === item.id}}" />{{localeCopy.hrReactivateMembershipInline}}</button>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!loadingMap.profile && !hrProfileRows.length}}">{{localeCopy.copy_e4b2684dfe}}</view>
@@ -1082,10 +1079,7 @@
             <view class="field-hint">{{localeCopy.copy_7badfe9830}}</view>
           </view>
         </view>
-        <view class="auth-personnel-loading" wx:if="{{authPolicyLoading}}">
-          <view class="card-loading-spinner"></view>
-          <text>{{localeCopy.copy_b969caec7c}}</text>
-        </view>
+        <view class="auth-personnel-loading" wx:if="{{authPolicyLoading}}"><app-loading text="{{localeCopy.copy_b969caec7c}}" /></view>
         <view class="auth-policy-load-error" wx:elif="{{authPolicyLoadFailed || !authPolicy}}">
           <view class="empty-inline">{{localeCopy.copy_dc077c17cf}}</view>
           <button class="secondary-btn compact-action ui-motion-button" bindtap="retryAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_8b4ae14b7b}}</button>
@@ -1105,7 +1099,7 @@
             <view class="auth-policy-head"><view><view class="list-title">{{localeCopy.copy_c318ac62ef}}</view><view class="auth-group-note">{{localeCopy.copy_19812618bf}}</view></view><switch color="#3b82f6" checked="{{authPolicy.allowRecoveryCode}}" data-field="allowRecoveryCode" bindchange="onAuthPolicySwitch" /></view>
             <view class="auth-policy-head"><view><view class="list-title">{{localeCopy.copy_563acb4455}}</view><view class="auth-group-note">{{localeCopy.copy_36ed272af5}}</view></view><switch color="#3b82f6" checked="{{authPolicy.allowPassphrase}}" data-field="allowPassphrase" bindchange="onAuthPolicySwitch" /></view>
           </view>
-          <button class="primary-btn auth-policy-save ui-motion-button" loading="{{authActionLoadingKey === 'policy-save'}}" bindtap="saveAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_9b5f84bf27}}</button>
+          <button class="primary-btn auth-policy-save ui-motion-button" disabled="{{authActionLoadingKey === 'policy-save'}}" bindtap="saveAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'policy-save'}}" />{{localeCopy.copy_9b5f84bf27}}</button>
         </view>
       </view>
     </view>
@@ -1153,7 +1147,7 @@
         </scroll-view>
         <view class="button-row hr-profile-export-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.exportHrProfiles}}" disabled="{{!hrProfileExportSelectedCount}}" catchtap="confirmHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8bad1e0cda}}</button>
+          <button class="primary-btn ui-motion-button"  disabled="{{!hrProfileExportSelectedCount}}" catchtap="confirmHrProfileExport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.exportHrProfiles}}" />{{localeCopy.copy_8bad1e0cda}}</button>
         </view>
       </view>
     </view>
@@ -1209,7 +1203,7 @@
         </scroll-view>
         <view class="button-row hr-template-switch-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" bindtap="closeHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.previewHrTemplateSwitch || loadingMap.applyHrTemplateSwitch}}" bindtap="previewHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4a0e80e55b}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.previewHrTemplateSwitch || loadingMap.applyHrTemplateSwitch}}" bindtap="previewHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.previewHrTemplateSwitch || loadingMap.applyHrTemplateSwitch}}" />{{localeCopy.copy_4a0e80e55b}}</button>
         </view>
       </view>
     </view>
@@ -1240,7 +1234,7 @@
         </scroll-view>
         <view class="button-row hr-template-switch-block-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" bindtap="closeHrTemplateSwitchBlock" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrTemplateSwitchIncompatibleBackToEdit}}</button>
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.applyHrTemplateSwitch}}" bindtap="applyHrTemplateSwitchIgnoringInvalid" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrTemplateSwitchIncompatibleApplyAnyway}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.applyHrTemplateSwitch}}" bindtap="applyHrTemplateSwitchIgnoringInvalid" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.applyHrTemplateSwitch}}" />{{localeCopy.hrTemplateSwitchIncompatibleApplyAnyway}}</button>
         </view>
       </view>
     </view>
@@ -1282,7 +1276,7 @@
             <view class="detail-loading-line detail-loading-line-title"></view>
             <view class="detail-loading-line"></view>
             <view class="detail-loading-line"></view>
-            <view class="loading-inline">{{localeCopy.copy_a017932da1}}</view>
+            <view class="loading-inline"><app-loading text="{{localeCopy.copy_a017932da1}}" /></view>
           </view>
           <block wx:if="{{!loadingDetailHr}}">
           <view class="detail-section detail-basic-section">
@@ -1341,7 +1335,7 @@
               <view class="hr-account-security-form" wx:if="{{showDetailPassphraseForm}}">
                 <input class="field-input" password="{{true}}" value="{{detailHrPassphraseInput}}" bindinput="onDetailPassphraseInput" placeholder="{{localeCopy.copy_10c21cf3bc}}" adjust-position="{{false}}" cursor-spacing="24" />
                 <view class="button-row hr-account-security-form-actions">
-                  <button class="primary-btn ui-motion-button" loading="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.savePassphrase}}</button>
+                  <button class="primary-btn ui-motion-button" disabled="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'member-passphrase-save'}}" />{{localeCopy.savePassphrase}}</button>
                   <button class="secondary-btn ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
                 </view>
               </view>
@@ -1357,13 +1351,13 @@
             </view>
             <view class="hr-account-actions" wx:if="{{!detailHrReadOnly}}">
               <view class="field-hint" wx:if="{{canVerifyIdentity}}">{{localeCopy.verificationCodeValidity}} {{verificationCodeValidityOptions[verificationCodeValidityIndex]}}</view>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canIssueVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasActiveClaimCode || detailHrGovernance.auth.hasActiveInvite ? localeCopy.copy_85f42e4ef8 : localeCopy.copy_eee2fd643a}}</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canRevokeVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_265032194a}}</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canIssueRecovery}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-recovery-' + detailHrGovernance.id}}" catchtap="issueHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasRecoveryCode ? localeCopy.copy_43229676c3 : localeCopy.copy_2098fca507}}</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canRevokeRecovery}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-recovery-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_1cda406196}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canIssueVerification}}" data-hr-id="{{detailHrGovernance.id}}" disabled="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" />{{detailHrGovernance.auth.hasActiveClaimCode || detailHrGovernance.auth.hasActiveInvite ? localeCopy.copy_85f42e4ef8 : localeCopy.copy_eee2fd643a}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canRevokeVerification}}" data-hr-id="{{detailHrGovernance.id}}" disabled="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" />{{localeCopy.copy_265032194a}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canIssueRecovery}}" data-hr-id="{{detailHrGovernance.id}}" disabled="{{authActionLoadingKey === 'member-recovery-' + detailHrGovernance.id}}" catchtap="issueHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'member-recovery-' + detailHrGovernance.id}}" />{{detailHrGovernance.auth.hasRecoveryCode ? localeCopy.copy_43229676c3 : localeCopy.copy_2098fca507}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canRevokeRecovery}}" data-hr-id="{{detailHrGovernance.id}}" disabled="{{authActionLoadingKey === 'member-recovery-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'member-recovery-revoke-' + detailHrGovernance.id}}" />{{localeCopy.copy_1cda406196}}</button>
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.auth.pendingRecoveryId}}" data-id="{{detailHrGovernance.auth.pendingRecoveryId}}" catchtap="openAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_0dc88c21dc}}</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.personId && detailHrGovernance.accountId}}" data-id="{{detailHrGovernance.personId}}" data-hr-id="{{detailHrGovernance.id}}" data-frozen="{{detailHrGovernance.auth.status === 'frozen'}}" loading="{{authActionLoadingKey === 'freeze-' + detailHrGovernance.personId}}" catchtap="requestAuthAccountFreeze" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.status === 'frozen' ? localeCopy.copy_b059d32042 : localeCopy.copy_eb1ebe5d11}}</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canUnbindWechat}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'unbind-' + detailHrGovernance.id}}" catchtap="requestHrWechatUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_b9d18e854e}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.personId && detailHrGovernance.accountId}}" data-id="{{detailHrGovernance.personId}}" data-hr-id="{{detailHrGovernance.id}}" data-frozen="{{detailHrGovernance.auth.status === 'frozen'}}" disabled="{{authActionLoadingKey === 'freeze-' + detailHrGovernance.personId}}" catchtap="requestAuthAccountFreeze" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'freeze-' + detailHrGovernance.personId}}" />{{detailHrGovernance.auth.status === 'frozen' ? localeCopy.copy_b059d32042 : localeCopy.copy_eb1ebe5d11}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canGlobalAccountManage && detailHrGovernance.canUnbindWechat}}" data-hr-id="{{detailHrGovernance.id}}" disabled="{{authActionLoadingKey === 'unbind-' + detailHrGovernance.id}}" catchtap="requestHrWechatUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'unbind-' + detailHrGovernance.id}}" />{{localeCopy.copy_b9d18e854e}}</button>
             </view>
           </view>
           <view class="identity-overview-section ui-dialog-stack" id="hr-assignment-section" wx:if="{{canBrowseHrInfo}}">
@@ -1379,7 +1373,7 @@
                   <view class="identity-group-title">{{localeCopy.copy_b642bafb60}}</view>
                   <view class="identity-group-note">{{localeCopy.copy_c3602a8c91}}</view>
                 </view>
-                <button class="secondary-btn compact-action-btn ui-motion-button" wx:if="{{!detailHrReadOnly && canAddGlobalSuperAdmin}}" loading="{{loadingMap.savePersonAdminIdentity}}" catchtap="addPersonSuperAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_859af29a3b}}</button>
+                <button class="secondary-btn compact-action-btn ui-motion-button" wx:if="{{!detailHrReadOnly && canAddGlobalSuperAdmin}}" disabled="{{loadingMap.savePersonAdminIdentity}}" catchtap="addPersonSuperAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.savePersonAdminIdentity}}" />{{localeCopy.copy_859af29a3b}}</button>
               </view>
               <view class="admin-identity-card" wx:for="{{globalAdminIdentities}}" wx:key="grantId" wx:for-item="adminIdentity">
                 <view class="admin-identity-main">
@@ -1448,7 +1442,7 @@
               <view class="identity-subsection" wx:if="{{orgItem.canReadAdmins}}">
                 <view class="identity-subsection-head">
                   <view class="identity-subsection-title">{{localeCopy.copy_3704f9b212}}</view>
-                  <button class="secondary-btn compact-action-btn ui-motion-button" wx:if="{{!detailHrReadOnly && orgItem.canAddAdmin}}" loading="{{loadingMap.savePersonAdminIdentity}}" data-org-index="{{orgIndex}}" catchtap="addPersonAdminIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_e4e74de4c6}}</button>
+                  <button class="secondary-btn compact-action-btn ui-motion-button" wx:if="{{!detailHrReadOnly && orgItem.canAddAdmin}}" disabled="{{loadingMap.savePersonAdminIdentity}}" data-org-index="{{orgIndex}}" catchtap="addPersonAdminIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.savePersonAdminIdentity}}" />{{localeCopy.copy_e4e74de4c6}}</button>
                 </view>
                 <view class="admin-identity-card" wx:for="{{orgItem.adminIdentities}}" wx:key="grantId" wx:for-item="adminIdentity">
                   <view class="admin-identity-main">
@@ -1489,7 +1483,7 @@
               </view>
               </view>
               <view class="button-row compact-row">
-                <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveMembershipAssignment}}" catchtap="saveMembershipAssignment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1b38edadcc}}</button>
+                <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveMembershipAssignment}}" catchtap="saveMembershipAssignment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveMembershipAssignment}}" />{{localeCopy.copy_1b38edadcc}}</button>
                 <button class="secondary-btn ui-motion-button" catchtap="cancelMembershipAssignmentEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
               </view>
             </view>
@@ -1599,16 +1593,16 @@
             <view class="detail-section-title hr-danger-title">{{localeCopy.hrDangerZone}}</view>
             <view class="hr-danger-hint">{{localeCopy.hrPermanentDeletionHint}}</view>
             <view class="button-row compact-row hr-danger-actions">
-              <button class="danger-btn ui-motion-button" wx:if="{{isSuperAdmin || user.permissions['hr.people.delete']}}" data-scope="membership" disabled="{{hrPermanentDeletionLoading}}" loading="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'membership'}}" catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrDeleteMembershipPermanently}}</button>
-              <button class="danger-btn ui-motion-button" wx:if="{{isSuperAdmin}}" data-scope="person" disabled="{{hrPermanentDeletionLoading}}" loading="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'person'}}" catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrDeletePersonPermanently}}</button>
+              <button class="danger-btn ui-motion-button" wx:if="{{isSuperAdmin || user.permissions['hr.people.delete']}}" data-scope="membership" disabled="{{hrPermanentDeletionLoading}}"  catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'membership'}}" />{{localeCopy.hrDeleteMembershipPermanently}}</button>
+              <button class="danger-btn ui-motion-button" wx:if="{{isSuperAdmin}}" data-scope="person" disabled="{{hrPermanentDeletionLoading}}"  catchtap="previewPermanentHrDeletion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{hrPermanentDeletionLoading && hrPermanentDeletionScope === 'person'}}" />{{localeCopy.hrDeletePersonPermanently}}</button>
             </view>
           </view>
           <view class="scroll-tail-space hr-detail-scroll-tail"></view>
           </block>
         </scroll-view>
         <view class="button-row detail-buttons ui-dialog-footer" wx:if="{{!loadingDetailHr}}">
-          <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && !detailHrReadOnly}}" loading="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_71db23a36b}}</button>
-          <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && detailHrReadOnly}}" data-hr-id="{{detailHrId}}" disabled="{{reactivatingHrId}}" loading="{{reactivatingHrId === detailHrId}}" catchtap="reactivateHrMembership" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrReactivateMembershipInline}}</button>
+          <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && !detailHrReadOnly}}" disabled="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{savingDetailHr}}" />{{localeCopy.copy_71db23a36b}}</button>
+          <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && detailHrReadOnly}}" data-hr-id="{{detailHrId}}" disabled="{{reactivatingHrId}}"  catchtap="reactivateHrMembership" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{reactivatingHrId === detailHrId}}" />{{localeCopy.hrReactivateMembershipInline}}</button>
           <button class="secondary-btn ui-motion-button" catchtap="closeHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         </view>
       </view>
@@ -1654,7 +1648,7 @@
           </scroll-view>
           <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closeProfileRejectDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
-            <button class="danger-btn ui-motion-button" loading="{{loadingMap.reviewHrProfile}}" catchtap="confirmProfileRejection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrSubmitRejection}}</button>
+            <button class="danger-btn ui-motion-button" disabled="{{loadingMap.reviewHrProfile}}" catchtap="confirmProfileRejection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.reviewHrProfile}}" />{{localeCopy.hrSubmitRejection}}</button>
           </view>
         </view>
       </view>
@@ -1726,7 +1720,7 @@
           </scroll-view>
           <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closePersonCorrection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
-            <button class="{{personCorrectionPreview.mergeRequired ? 'danger-btn' : 'primary-btn'}} ui-motion-button" loading="{{savingDetailHr}}" disabled="{{!personCorrectionConfirmed}}" catchtap="confirmPersonCorrection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{personCorrectionPreview.mergeRequired ? localeCopy.hrCorrectionMerge : localeCopy.hrCorrectionApply}}</button>
+            <button class="{{personCorrectionPreview.mergeRequired ? 'danger-btn' : 'primary-btn'}} ui-motion-button"  disabled="{{!personCorrectionConfirmed}}" catchtap="confirmPersonCorrection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{savingDetailHr}}" />{{personCorrectionPreview.mergeRequired ? localeCopy.hrCorrectionMerge : localeCopy.hrCorrectionApply}}</button>
           </view>
         </view>
       </view>
@@ -1783,7 +1777,7 @@
         </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-          <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_72a40b3f52}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{csvImportLoading}}" />{{localeCopy.copy_72a40b3f52}}</button>
         </view>
       </view>
     </view>
@@ -1875,7 +1869,7 @@
         </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_034ae84999}}</button>
-          <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}" loading="{{csvImportLoading}}" catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b35531a5fd}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}"  catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{csvImportLoading}}" />{{localeCopy.copy_b35531a5fd}}</button>
         </view>
       </view>
     </view>
@@ -1915,7 +1909,7 @@
         <view class="section-title">{{localeCopy.copy_72d3c6f7c2}}</view>
         <view class="button-row compact-row" wx:if="{{canReadAdmins}}">
           <button class="secondary-btn ui-motion-button" wx:if="{{canWriteAdmins}}" bindtap="startCreateAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a6b6f71690}}</button>
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportAdmins}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_49a7fb10d7}}</button>
+          <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.exportAdmins}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.exportAdmins}}" />{{localeCopy.copy_49a7fb10d7}}</button>
         </view>
       </view>
       <view class="edit-box" wx:if="{{canWriteAdmins && adminFormVisible}}">
@@ -1951,7 +1945,7 @@
           bindselect="pickAdminCandidate"
         />
         <view class="button-row compact-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? localeCopy.copy_cc7425f62e : localeCopy.copy_cc6356670c}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveAdmin}}" />{{adminForm.id ? localeCopy.copy_cc7425f62e : localeCopy.copy_cc6356670c}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         </view>
       </view>
@@ -1960,7 +1954,7 @@
         <view class="list-title">{{isSuperAdmin ? localeCopy.copy_6c56cd8336 : localeCopy.copy_af99ad1b75}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.admins}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{adminList}}" wx:key="id">
@@ -2001,7 +1995,7 @@
         <view class="modal-card auth-recovery-dialog ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
           <view class="modal-header ui-dialog-header"><view class="modal-title">{{localeCopy.copy_d98f6ae430}}</view><text class="modal-close ui-motion-chip" catchtap="closeAuthRecoveryDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</text></view>
           <view class="ui-dialog-body ui-dialog-content ui-dialog-compact-content"><view class="auth-recovery-person">{{pendingAuthRecovery.name}} · {{pendingAuthRecovery.studentId}}</view><view class="auth-dialog-subtitle">{{localeCopy.copy_67b12abfd3}}</view></view>
-          <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="closeAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button><button class="primary-btn ui-motion-button" loading="{{authActionLoadingKey === 'recovery-' + pendingAuthRecovery.id}}" bindtap="approveAuthRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a25637362e}}</button></view>
+          <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="closeAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button><button class="primary-btn ui-motion-button" disabled="{{authActionLoadingKey === 'recovery-' + pendingAuthRecovery.id}}" bindtap="approveAuthRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{authActionLoadingKey === 'recovery-' + pendingAuthRecovery.id}}" />{{localeCopy.copy_a25637362e}}</button></view>
         </view>
       </view>
     </viewport-portal>
@@ -2041,7 +2035,7 @@
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onDepartmentFieldInput" value="{{departmentForm.description}}" placeholder="{{localeCopy.copy_91459a2ebc}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveDepartment}}" bindtap="saveDepartment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9d34006a03}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveDepartment}}" bindtap="saveDepartment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveDepartment}}" />{{localeCopy.copy_9d34006a03}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateDepartment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_01ed24e9b5}}</button>
         </view>
       </view>
@@ -2057,7 +2051,7 @@
         />
         <scroll-view wx:if="{{dictionaryLoadState.departments.status !== 'error' || departmentList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.departments}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{departmentList}}" wx:key="id">
@@ -2097,7 +2091,7 @@
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.description}}" placeholder="{{localeCopy.copy_88ae76e6fe}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveWorkGroup}}" bindtap="saveWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_397a0808d4}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveWorkGroup}}" bindtap="saveWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveWorkGroup}}" />{{localeCopy.copy_397a0808d4}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4b357a97b6}}</button>
         </view>
       </view>
@@ -2113,7 +2107,7 @@
         />
         <scroll-view wx:if="{{dictionaryLoadState.workGroups.status !== 'error' || workGroupList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.workGroups}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{workGroupList}}" wx:key="id">
@@ -2148,7 +2142,7 @@
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onIdentityFieldInput" value="{{identityForm.description}}" placeholder="{{localeCopy.copy_14671f2231}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveIdentity}}" bindtap="saveIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_637d8a9907}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveIdentity}}" bindtap="saveIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveIdentity}}" />{{localeCopy.copy_637d8a9907}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b0588a53d}}</button>
         </view>
       </view>
@@ -2164,7 +2158,7 @@
         />
         <scroll-view wx:if="{{dictionaryLoadState.identities.status !== 'error' || identityList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.identities}}">
-            <view class="card-loading-spinner"></view>
+            <app-loading compact="{{true}}" />
           </view>
           <block wx:else>
           <view class="list-item list-item-stacked" wx:for="{{identityList}}" wx:key="id">
@@ -2189,7 +2183,7 @@
       </view>
 
       <view class="card-loading-overlay" wx:if="{{loadingMap.settings}}">
-        <view class="card-loading-spinner"></view>
+        <app-loading compact="{{true}}" />
       </view>
       <block wx:else>
 
@@ -2231,7 +2225,7 @@
           </picker>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveSystemConfig}}" bindtap="saveSystemConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_71db23a36b}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveSystemConfig}}" bindtap="saveSystemConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveSystemConfig}}" />{{localeCopy.copy_71db23a36b}}</button>
         </view>
       </view>
       </block>
@@ -2239,14 +2233,14 @@
 
     <view class="section-stack" wx:if="{{activeTab === 'publications'}}">
       <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
-        <view class="card-loading-spinner"></view>
+        <app-loading compact="{{true}}" />
       </view>
       <view class="rule-panel">
         <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_2e6a7d24f3}}</view></view>
         <view class="field"><view class="field-label">{{localeCopy.copy_5aa4cb13ec}}</view><picker range="{{activityList}}" range-key="name" value="{{pk.idx(activityList, publicationForm.activityId)}}" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || localeCopy.copy_6d3911624a}}</view></picker></view>
         <view wx:if="{{publicationForm.activityId && (isSuperAdmin || user.permissions['scoring.publications'])}}">
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_e5c0e22c49}}</view></view><switch checked="{{!!publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
-          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePublication}}" bindtap="savePublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a7cce01d43}}</button></view>
+          <view class="button-row"><button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePublication}}" bindtap="savePublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePublication}}" />{{localeCopy.copy_a7cce01d43}}</button></view>
         </view>
       </view>
 
@@ -2256,7 +2250,7 @@
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_a8bca898cb}}</view></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubViewRuleForm.granteeDepartmentId)}}" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
-          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
+          <view class="button-row"><button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubViewRule}}" />{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId}}">
@@ -2326,7 +2320,7 @@
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_09bf239b61}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_10eaadc5f1}}</view></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubMeritRuleForm.granteeDepartmentId)}}" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
-          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
+          <view class="button-row"><button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubMeritRule}}" />{{localeCopy.copy_95a84a25aa}}</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button></view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId}}">
@@ -2373,7 +2367,7 @@
           <view class="merit-summary-head-bar" wx:if="{{meritSummaryGroups.length}}">
             <view class="merit-summary-total-chip">{{localeCopy.copy_b4c3e73028}} {{meritSummaryGroups.length}} {{localeCopy.copy_f97b69cf97}}</view>
             <view class="merit-export-btn-wrap">
-              <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_37b2d47dd4}}</button>
+              <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.exportMeritSummary}}" />{{localeCopy.copy_37b2d47dd4}}</button>
             </view>
           </view>
         </view>
@@ -2401,7 +2395,7 @@
         </view>
 
         <view class="rule-empty glass-empty merit-summary-loading" wx:if="{{meritSummaryLoading}}">
-          <view class="empty-desc">{{localeCopy.copy_2c969d9302}}</view>
+          <view class="empty-desc"><app-loading text="{{localeCopy.copy_2c969d9302}}" /></view>
         </view>
 
         <view class="rule-empty glass-empty" wx:elif="{{meritSummaryLoadFailed}}">
@@ -2566,7 +2560,7 @@
           <button class="secondary-btn ui-motion-button" bindtap="openAuditTemplateStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9595c13a29}}</button>
         </view>
         <view class="button-row audit-button-row--spaced">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAuditTemplate}}" bindtap="saveAuditFlowTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c34e8a16c0}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveAuditTemplate}}" bindtap="saveAuditFlowTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveAuditTemplate}}" />{{localeCopy.copy_c34e8a16c0}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateAuditTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1f48adb58b}}</button>
         </view>
       </view>
@@ -2574,7 +2568,7 @@
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_e12c6d6080}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
-          <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><view class="card-loading-spinner"></view></view>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><app-loading compact="{{true}}" /></view>
           <block wx:else>
           <view class="list-item audit-template-list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
             <view class="audit-template-toggle" data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand" hover-class="ui-press-chip ui-motion-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -2861,11 +2855,11 @@
         <view class="field">
           <view class="field-label">{{localeCopy.copy_6eeaccbeca}}</view>
           <image wx:if="{{stampImagePreview}}" src="{{stampImagePreview}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--large" />
-          <button class="secondary-btn ui-motion-button" loading="{{stampImageReading}}" disabled="{{stampImageReading}}" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampImageReading ? stampCopy.imageReading : (stampImagePreview ? localeCopy.copy_cb81018d6d : localeCopy.copy_393f873d06)}}</button>
+          <button class="secondary-btn ui-motion-button"  disabled="{{stampImageReading}}" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{stampImageReading}}" />{{stampImageReading ? stampCopy.imageReading : (stampImagePreview ? localeCopy.copy_cb81018d6d : localeCopy.copy_393f873d06)}}</button>
           <view class="field-hint stamp-form-error" wx:if="{{stampFormError}}">{{stampFormError}}</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveStamp}}" bindtap="saveStamp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2278d2da18}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveStamp}}" bindtap="saveStamp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveStamp}}" />{{localeCopy.copy_2278d2da18}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateStamp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_21c539e0f9}}</button>
         </view>
       </view>
@@ -2877,7 +2871,7 @@
           <button class="secondary-btn ui-motion-button" bindtap="loadStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampCopy.retry}}</button>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
-          <view class="card-loading-overlay" wx:if="{{loadingMap.auditStamps}}"><view class="card-loading-spinner"></view></view>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditStamps}}"><app-loading compact="{{true}}" /></view>
           <block wx:else>
           <view class="list-item list-item-stacked audit-stamp-card" wx:for="{{stamps}}" wx:key="id">
             <view class="list-main">
@@ -2912,7 +2906,7 @@
       <view class="card">
         <view class="section-title">{{localeCopy.copy_a0f9ac898a}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-          <view class="card-loading-overlay" wx:if="{{loadingMap.auditSubmissions}}"><view class="card-loading-spinner"></view></view>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditSubmissions}}"><app-loading compact="{{true}}" /></view>
           <block wx:else>
           <view wx:for="{{auditSubmissions}}" wx:key="id">
           <view class="audit-submission-admin-item ui-motion-card" data-id="{{item.id}}" bindtap="viewAuditProgress" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -2926,7 +2920,7 @@
             <view class="audit-submission-admin-arrow">›</view>
           </view>
           <view class="card-actions" wx:if="{{canDeleteAuditSubmissions}}">
-            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" bindtap="deleteAuditSubmission" disabled="{{!!deletingAuditSubmission}}" loading="{{deletingAuditSubmission === item.id}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{governanceCopy.deleteConfirm}}</button>
+            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" bindtap="deleteAuditSubmission" disabled="{{!!deletingAuditSubmission}}"  hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{deletingAuditSubmission === item.id}}" />{{governanceCopy.deleteConfirm}}</button>
           </view>
           </view>
           <view class="audit-empty-state" wx:if="{{!auditSubmissions.length}}">
@@ -2944,7 +2938,7 @@
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_6853ab11f7}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:if="{{auditSubmissionDetail}}">
-            <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><view class="card-loading-spinner"></view></view>
+            <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><app-loading compact="{{true}}" /></view>
             <block wx:else>
             <!-- Header -->
             <view class="audit-progress-header ui-dialog-summary">
@@ -3034,7 +3028,7 @@
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_2aaf72c584}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
-          <view class="card-loading-overlay" wx:if="{{loadingMap.auditVerification}}"><view class="card-loading-spinner"></view></view>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditVerification}}"><app-loading compact="{{true}}" /></view>
           <block wx:else>
           <view class="list-item" wx:for="{{verificationPermissions}}" wx:key="id">
             <view class="list-main"><view class="list-name">{{item.granteeName}}</view></view>
@@ -3064,7 +3058,7 @@
           <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{verificationFileName || localeCopy.copy_fb4bf20470}}</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b49d7af0bd}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.verifyChain}}" />{{localeCopy.copy_b49d7af0bd}}</button>
         </view>
         <view wx:if="{{verificationResult}}" class="audit-verify-result-card">
           <audit-verification-matches
@@ -3184,8 +3178,8 @@
           <input class="field-input" bindinput="onOrgFieldInput" value="{{orgFormData.name}}" placeholder="{{localeCopy.copy_f3bb9fa262}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
         <view class="button-row compact-row ui-dialog-footer">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0ee803a476}}</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f489226f00}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveOrganization}}" />{{localeCopy.copy_0ee803a476}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" disabled="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.switchOrganization}}" />{{localeCopy.copy_f489226f00}}</button>
         </view>
       </view>
     </view>
@@ -3201,7 +3195,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closeScorerTargetPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <view class="popup-loading-overlay" wx:if="{{scorerTargetPopupLoading}}">
-        <view class="card-loading-spinner"></view>
+        <app-loading compact="{{true}}" />
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:else>
         <view class="result-table ui-data-grid--complex">

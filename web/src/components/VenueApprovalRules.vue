@@ -1,5 +1,5 @@
 <template>
-  <p v-if="loading" class="muted">{{ copy.common.loading }}</p>
+  <p v-if="loading" class="muted"><AppLoading :text="copy.common.loading" /></p>
   <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   <p v-if="notice && !editor" role="alert" class="notice-line">{{ notice }}</p>
   <button type="button" class="btn btn-secondary" :disabled="blocked" v-if="canWriteRecord" @click="editFlow()">+ {{ ui.copy_1aba371667 }}</button>

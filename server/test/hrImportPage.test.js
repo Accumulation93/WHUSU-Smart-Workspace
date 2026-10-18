@@ -233,6 +233,34 @@ async function main() {
   assert(!headings.page.data.items[0].cardTitle.includes('第一个人'));
   console.log('PASS 多人问题按字段和问题命名，人数行数准确，不用首人姓名冒充组标题');
 
+  let releasePreview; let releaseItems;
+  const waiting = createPage(async ({ name }) => {
+    if (name === 'getHrImportMetadata') return { status: 'success', fields: [] };
+    if (name === 'previewHrTableImport') return new Promise(resolve => { releasePreview = resolve; });
+    return new Promise(resolve => { releaseItems = resolve; });
+  }, file);
+  await waiting.page.chooseFile();
+  const changes = []; const update = waiting.page.setData;
+  waiting.page.setData = (patch, done) => { changes.push(patch); update(patch, done); };
+  const checking = waiting.page.preview();
+  assert.equal(waiting.page.data.busy, true); assert.equal(waiting.page.data.busyText, copy.checking);
+  await Promise.resolve(); await Promise.resolve();
+  releasePreview({ status: 'success', previewId: 'waiting', categories: [], summary: { canExecute: true, problemCount: 0, problemRowCount: 0, resolvedCount: 0 } });
+  for (let i = 0; i < 6; i++) await Promise.resolve();
+  assert.equal(waiting.page.data.busy, true); assert.equal(waiting.page.data.busyText, copy.loading);
+  assert(!changes.some(patch => patch.busy === false), '检查与列表回读之间不得提前关闭加载');
+  releaseItems({ status: 'success', items: [], total: 0, hasMore: false }); await checking;
+  assert.equal(waiting.page.data.busy, false);
+  waiting.page._pendingActions = [{ type: 'exclude', rowNumbers: [2] }];
+  const processing = waiting.page.confirmAction(); assert.equal(waiting.page.data.busy, true); assert.equal(waiting.page.data.busyText, copy.processing);
+  await Promise.resolve(); await Promise.resolve();
+  releasePreview({ status: 'invalid_import', message: '测试检查失败' }); await processing;
+  assert.equal(waiting.page.data.busy, false); assert.equal(waiting.page.data.error, '测试检查失败');
+  const hidden = waiting.page.preview(); waiting.page.onHide(); await hidden;
+  assert.equal(waiting.page.data.busy, false); assert.equal(waiting.page.data.metadataLoading, false);
+  assert(wxml.includes('<app-toast loading="{{busy || metadataLoading}}"'));
+  console.log('PASS 检查立即反馈、单人处理提示、列表回读不断档及失败离页清理');
+
   let submissions = 0;
   const requests = [];
   const retry = createPage(async ({ name, data }) => {

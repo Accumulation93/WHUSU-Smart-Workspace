@@ -23,7 +23,7 @@
   </view>
 
   <view class="card" wx:if="{{loading}}">
-    <view class="empty-text">{{localeCopy.copy_a017932da1}}</view>
+    <view class="empty-text"><app-loading text="{{localeCopy.copy_a017932da1}}" /></view>
   </view>
 
   <view class="card load-error-card" wx:if="{{!loading && loadFailed}}">
@@ -131,7 +131,7 @@
     </view>
 
     <view class="page-submit-bar" wx:if="{{!readOnly && !loading && !loadFailed && questionList.length > 0}}">
-      <button class="primary-btn page-submit-btn ui-motion-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submitScore" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4d39b37cc5}}</button>
+      <button class="primary-btn page-submit-btn ui-motion-button"  disabled="{{submitting}}" bindtap="submitScore" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{submitting}}" />{{localeCopy.copy_4d39b37cc5}}</button>
     </view>
   </view>
 
@@ -184,7 +184,7 @@
 
       <view class="kb-nav-btn kb-nav-btn-submit {{submitting ? 'kb-nav-btn-disabled' : ''}} {{physicalKeyActive === 'submit' ? 'kb-nav-btn-submit-active' : ''}} ui-motion-chip" bindtap="submitScore" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="kb-submit-inner" wx:if="{{submitting}}">
-          <text class="kb-submit-spinner"></text>
+          <app-loading compact="{{true}}" />
         </view>
         <block wx:else>
           <text class="kb-nav-label">{{localeCopy.copy_e507a2cd28}}</text>

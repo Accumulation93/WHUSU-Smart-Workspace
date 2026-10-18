@@ -3,7 +3,7 @@
     <label class="field"><span class="field-label">{{ ui.copy_bbb0cc00c9 }}</span><input v-model="title" class="field-input" :placeholder="ui.copy_cb696a9796" :disabled="busy" /></label>
     <div v-if="purposes.length" class="row row-wrap"><button v-for="purpose in purposes" :key="purpose.id" type="button" class="btn-quiet" :disabled="busy" @click="title = purpose.text">{{ purpose.text }}</button></div>
     <div class="field"><span class="field-label">{{ ui.copy_39fcaa02ad }}</span><span class="field-input">{{ date }} · {{ ui.copy_8a0b0acde8 }}</span></div>
-    <p v-if="loading" class="muted">{{ copy.common.loading }}</p>
+    <p v-if="loading" class="muted"><AppLoading :text="copy.common.loading" /></p>
     <template v-if="day?.openSlots?.length">
       <div class="field"><span class="field-label">{{ ui.copy_ec235d40d8 }}</span><p class="muted">{{ ui.copy_33109cf15b }}</p></div>
       <div ref="track" class="admin-timeline">

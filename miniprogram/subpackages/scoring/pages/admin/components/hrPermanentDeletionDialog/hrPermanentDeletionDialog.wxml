@@ -60,7 +60,7 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" disabled="{{loading}}" catchtap="emitClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{result ? localeCopy.hrDeletionFinish : localeCopy.copy_06dbb49961}}</button>
-        <button class="danger-btn ui-motion-button" wx:if="{{!result}}" disabled="{{!(preview.eligible || (canForce && forceAccepted)) || (cleanup.length && !cleanupAccepted) || (scope === 'person' && confirmation !== preview.target.studentId)}}" loading="{{loading}}" catchtap="emitConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{canForce && forceAccepted && !preview.eligible ? localeCopy.hrDeletionForceConfirm : localeCopy.hrConfirmPermanentDeletion}}</button>
+        <button class="danger-btn ui-motion-button" wx:if="{{!result}}" disabled="{{!(preview.eligible || (canForce && forceAccepted)) || (cleanup.length && !cleanupAccepted) || (scope === 'person' && confirmation !== preview.target.studentId)}}"  catchtap="emitConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loading}}" />{{canForce && forceAccepted && !preview.eligible ? localeCopy.hrDeletionForceConfirm : localeCopy.hrConfirmPermanentDeletion}}</button>
       </view>
     </view>
   </view>

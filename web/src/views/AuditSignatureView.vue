@@ -37,11 +37,11 @@
           />
         </label>
         <button type="button" class="btn btn-primary" :disabled="saving" @click="save">
-          {{ saving ? copy.common.loading : copy.audit.signatureSave }}
+          <AppLoading v-if="saving" compact />{{ copy.audit.signatureSave }}
         </button>
       </div>
 
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!signatures.length" class="empty-state">{{ copy.audit.signatureEmpty }}</div>
       <div v-else class="list">
         <div v-for="signature in signatures" :key="signature.id" class="list-row">

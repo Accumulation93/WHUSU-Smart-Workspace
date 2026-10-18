@@ -5,7 +5,7 @@
   <view class="section-host">
     <view class="card detail-shell">
       <view class="section-title">{{localeCopy.copy_40d594ac66}}</view>
-      <view class="detail-loading" wx:if="{{loading}}"><view class="card-loading-spinner"></view><text>{{localeCopy.copy_4ed1cce37c}}</text></view>
+      <view class="detail-loading" wx:if="{{loading}}"><app-loading text="{{localeCopy.copy_4ed1cce37c}}" /></view>
       <view class="detail-error" wx:elif="{{errorText}}">
         <view class="detail-error-title">{{localeCopy.copy_80f4fbb3c6}}</view>
         <view class="detail-error-text">{{errorText}}</view>

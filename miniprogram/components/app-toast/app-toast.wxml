@@ -6,11 +6,11 @@
       aria-role="alert"
       aria-label="{{text}}"
     >
-      <view class="app-toast-leading">
-        <view class="app-toast-spinner" wx:if="{{state === 'loading'}}"></view>
-        <ui-icon wx:else name="{{iconName}}" tone="white" size-role="toast-leading" />
+      <app-loading wx:if="{{state === 'loading'}}" toast="{{true}}" text="{{text}}" />
+      <view wx:else class="app-toast-leading">
+        <ui-icon name="{{iconName}}" tone="white" size-role="toast-leading" />
       </view>
-      <view class="app-toast-text">{{text}}</view>
+      <view wx:if="{{state !== 'loading'}}" class="app-toast-text">{{text}}</view>
     </view>
   </view>
 </viewport-portal>

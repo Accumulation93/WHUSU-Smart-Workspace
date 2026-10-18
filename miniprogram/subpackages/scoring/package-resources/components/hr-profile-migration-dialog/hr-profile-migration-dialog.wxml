@@ -79,9 +79,9 @@
     </scroll-view>
     <view class="button-row hr-template-switch-footer ui-dialog-footer">
       <button class="secondary-btn ui-motion-button" bindtap="onClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancelText}}</button>
-      <button class="primary-btn ui-motion-button" wx:if="{{report.length}}" loading="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
-      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && !hasToken}}" disabled="{{!fieldPlan.length}}" loading="{{loading}}" bindtap="onPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.preview}}</button>
-      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && hasToken}}" loading="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{report.length}}" disabled="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{submitting}}" />{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && !hasToken}}" disabled="{{!fieldPlan.length}}"  bindtap="onPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.preview}}</button>
+      <button class="primary-btn ui-motion-button" wx:if="{{!report.length && hasToken}}" disabled="{{submitting}}" bindtap="onApply" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{submitting}}" />{{canDirect ? copy.applyDirect : copy.submitRequest}}</button>
     </view>
   </view>
 </view>

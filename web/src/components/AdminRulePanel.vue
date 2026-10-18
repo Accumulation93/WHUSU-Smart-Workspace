@@ -1,6 +1,6 @@
 <template>
   <div class="stack">
-    <section v-if="loadNotice || loading || !activity" class="card stack"><p role="alert">{{ loadNotice || (loading ? copy.common.loading : messages.copy_4e36c10a9e) }}</p><button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button></section>
+    <section v-if="loadNotice || loading || !activity" class="card stack"><AppLoading v-if="loading && !loadNotice" /><p v-else role="alert">{{ loadNotice || messages.copy_4e36c10a9e }}</p><button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button></section>
     <section v-if="canWriteRecord" ref="categoryEditor" class="card stack">
       <span class="list-row-title">{{ ui.copy_557a7fc9dc }}</span>
       <label class="field"><span class="field-label">{{ ui.copy_2c2a412327 }}</span><select v-model="form.scorerDepartmentId" class="field-input" :aria-label="ui.copy_2c2a412327" :disabled="blocked" @change="form.scorerDepartment=departments.find(row=>row.id===form.scorerDepartmentId)?.name || ''"><option value="">{{ ui.copy_eada426deb }}</option><option v-for="department in departments" :key="department.id" :value="department.id">{{ department.name }}</option></select></label>

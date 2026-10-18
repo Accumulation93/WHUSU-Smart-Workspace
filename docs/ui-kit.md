@@ -97,6 +97,8 @@
 
 ## 状态提示（统一替代微信自带 Toast）
 
+- 区域加载与按钮内加载分别使用共享 `app-loading` / 网页 `AppLoading` 的普通与 compact 形态，不新增页面私有转圈；阻断操作仍使用 `app-toast`。长任务以 `loading` / `loading-text` 属性绑定实际任务，直到结果渲染完成才关闭，不受命令式提示的 20 秒保护时间影响。组件挂载前的命令式加载暂存，结束则取消，不再回退原生加载框。
+
 - 全仓状态提示统一由 `miniprogram/components/app-toast/` 自绘，`miniprogram/utils/appToast.js` 在启动时接管 `wx.showToast` / `wx.showLoading` / `wx.hideToast` / `wx.hideLoading`；业务代码继续使用原生签名，页面只需在 WXML 末尾挂 `<app-toast />`，不得自行拼第二套提示层或按页面改样式。
 - 视觉对齐微信原生：纯黑半透明（`rgba(0, 0, 0, 0.72)`）圆角块，状态图标在上、白色正文在下、整体居中；`success` 打钩、`error` 叉号、其余为信息图标，加载态使用自绘转圈。状态图标与正文必须保持原生比例（图标位 40px，正文按 12 / 13 / 13.5px 分档），禁止出现「图标比正文还小」或相反的比例失配。
 - 与原生唯一的差别是字数不受限：正文 `white-space: normal` + `overflow-wrap: anywhere`，按内容自然换行、行数不限；卡片超出视口上限时才在正文内滚动，禁止省略号、固定高度或裁切。停留时长按可读字数自适应（1.8–6 秒），加载态由业务 `hideLoading` 结束并有 20 秒兜底。

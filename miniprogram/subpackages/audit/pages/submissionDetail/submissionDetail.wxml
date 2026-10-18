@@ -108,7 +108,7 @@
         <button class="secondary-btn ui-motion-button" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_98aea69c53}}</button>
       </view>
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c07097f6db}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_c07097f6db}}</button>
       </view>
     </view>
 
@@ -166,7 +166,7 @@
 
   <!-- ═══════════ View Mode ═══════════ -->
   <view class="section-stack" wx:if="{{action === 'view'}}">
-    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
 
     <block wx:if="{{!loading && submission}}">
       <view class="card submission-heading">
@@ -306,8 +306,8 @@
         <!-- Action buttons -->
         <view wx:if="{{signingReadFailed || pendingActionRead}}" class="approval-warning">{{pendingActionRead ? signingCopy.pendingRead : signingCopy.failed}}<button class="secondary-btn" bindtap="loadDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
         <view class="button-row">
-          <button class="primary-btn approval-btn-approve ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
-          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</button>
+          <button class="primary-btn approval-btn-approve ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}"  bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
+          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}"  bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />✗ {{localeCopy.copy_0c90eb0204}}</button>
         </view>
       </view>
 
@@ -579,7 +579,7 @@
 
         <view class="card">
           <view class="audit-btn-bar">
-            <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="saveEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7214028117}}</button>
+            <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="saveEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_7214028117}}</button>
             <button class="secondary-btn ui-motion-button" bindtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           </view>
         </view>
@@ -657,10 +657,10 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
-          <view wx:if="{{stampLoading}}" class="stamp-empty">{{signingCopy.stampLoading}}</view>
+          <view wx:if="{{stampLoading}}" class="stamp-empty"><app-loading text="{{signingCopy.stampLoading}}" /></view>
           <view wx:elif="{{stampNotice}}" class="stamp-empty">{{stampNotice}}<button class="secondary-btn" bindtap="loadAvailableStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
           <view wx:elif="{{!availableStamps.length}}" class="stamp-empty">{{signingCopy.stampEmpty}}</view>
-          <view wx:if="{{stampImageBusy}}" class="stamp-empty">{{signingCopy.imageLoading}}</view>
+          <view wx:if="{{stampImageBusy}}" class="stamp-empty"><app-loading text="{{signingCopy.imageLoading}}" /></view>
           <view wx:for="{{availableStamps}}" wx:key="id" wx:if="{{!stampLoading}}"
                 class="stamp-picker-item ui-motion-card"
                 data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
@@ -805,7 +805,7 @@
         </view>
       </scroll-view>
       <view class="audit-btn-bar ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cd42af3f87}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_cd42af3f87}}</button>
       </view>
     </view>
   </view>

@@ -64,3 +64,29 @@ onlyBroken.wx.showToast({ title: '回退提示', icon: 'none' });
 assert.strictEqual(onlyBroken.nativeCalls.length, 1, '没有可用实例时必须回退微信原生提示');
 
 console.log('统一状态提示标准件回归通过：渲染失败不注销实例、无实例才回退原生。');
+
+const early = loadAppToast(); early.appToast.installAppToast();
+early.wx.showLoading({ title: '正在检查导入内容' });
+assert.equal(early.nativeCalls.length, 0, '组件未挂载也不能出现原生加载框');
+const pending = []; const instance = { render(value) { pending.push(value); } };
+early.appToast.registerInstance(instance);
+assert.equal(pending[0].state, 'loading');
+early.wx.hideLoading(); assert.equal(pending.at(-1).text, '');
+early.appToast.unregisterInstance(instance);
+early.wx.showLoading({ title: '正在读取' }); early.wx.hideLoading();
+early.appToast.registerInstance(instance);
+assert.equal(pending.at(-1).text, '', '已结束的挂载前加载不能重新显示');
+early.appToast.unregisterInstance(instance);
+
+let component;
+vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/components/app-toast/app-toast.js'), 'utf8'), {
+  Component(value) { component = value; }, require() { return early.appToast; }
+});
+const host = { properties: { loading: true, loadingText: '正在处理所选问题' }, data: {}, setData(value) { Object.assign(this.data, value); }, ...component.methods };
+host.render(null); assert.equal(host.data.visible, true); assert.equal(host.data.state, 'loading');
+host.render({ text: '', state: 'info' }); assert.equal(host.data.visible, true, '命令式hide不能提前结束声明式任务');
+host.properties.loading = false; component.observers['loading, loadingText'].call(host); assert.equal(host.data.visible, false);
+host.properties.loading = true; component.pageLifetimes.hide.call(host); assert.equal(host.data.visible, false);
+host.properties.loading = false; component.pageLifetimes.show.call(host); assert.equal(host.data.visible, false);
+component.lifetimes.detached.call(host);
+console.log('加载挂载前排队、结束取消、声明式状态与离页恢复检查通过');

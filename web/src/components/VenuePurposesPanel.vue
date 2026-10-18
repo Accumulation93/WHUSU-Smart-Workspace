@@ -11,7 +11,7 @@
     </form>
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p>
     <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="busy || loading" @click="load">{{ copy.common.retry }}</button></template>
-    <p v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</p>
+    <p v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></p>
     <p v-else-if="!loading && !loadNotice && !rows.length" class="empty-state">{{ ui.copy_b55eac70b1 }}</p>
     <article v-for="row in rows" :key="row.id" class="list-row purpose-row">
       <span class="list-row-title break-all">{{ row.text }}</span>

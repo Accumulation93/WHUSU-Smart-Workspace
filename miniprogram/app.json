@@ -74,6 +74,7 @@
     "navigationBarBackgroundColor": "#ffffff"
   },
   "usingComponents": {
+    "app-loading": "/components/app-loading/app-loading",
     "workspace-hero": "/components/workspace-hero/workspace-hero",
     "viewport-portal": "/components/viewport-portal/viewport-portal",
     "app-toast": "/components/app-toast/app-toast"

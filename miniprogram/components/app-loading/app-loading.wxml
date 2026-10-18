@@ -1,0 +1,4 @@
+<view wx:if="{{active}}" class="app-loading {{compact ? 'is-compact' : ''}} {{toast ? 'is-toast' : ''}}" aria-role="status" aria-label="{{text || copy.loading}}">
+  <view class="app-loading-spinner"></view>
+  <text wx:if="{{!compact}}" class="app-loading-text">{{text || copy.loading}}</text>
+</view>

@@ -26,7 +26,7 @@
       </div>
       <div class="editor-actions"><button type="button" class="btn btn-secondary" :disabled="disabled" @click="condition = null">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" :disabled="disabled || referenceLoading || !!referenceNotice" @click="saveCondition">{{ ui.copy_f7597cecf5 }}</button></div>
     </div>
-    <p v-if="referenceLoading" class="muted">{{ copy.common.loading }}</p><template v-if="referenceNotice"><p role="alert" class="notice-line">{{ referenceNotice }}</p><button type="button" class="btn-quiet" :disabled="referenceLoading || busy" @click="loadReferences">{{ copy.common.retry }}</button></template>
+    <p v-if="referenceLoading" class="muted"><AppLoading :text="copy.common.loading" /></p><template v-if="referenceNotice"><p role="alert" class="notice-line">{{ referenceNotice }}</p><button type="button" class="btn-quiet" :disabled="referenceLoading || busy" @click="loadReferences">{{ copy.common.retry }}</button></template>
     <p v-if="notice" role="alert" class="notice-line">{{ notice }}</p><slot />
     <template #footer><button type="button" class="btn btn-primary" :disabled="disabled || !!step || !!condition || referenceLoading || !!referenceNotice" @click="$emit('save')">{{ ui.copy_f7597cecf5 }}</button></template>
   </GlassDialog>

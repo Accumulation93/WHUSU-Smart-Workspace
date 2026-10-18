@@ -14,9 +14,14 @@ test('notifications load independently and todo failure is not an empty result',
   try {
     await page.goto('/web/portal');
     await expect(page.getByText('Independent notification')).toBeVisible();
+    const loading = page.getByRole('status', { name: copy.common.loading });
+    await expect(loading).toBeVisible();
+    await expect(loading.locator('.spinner')).toBeVisible();
+    expect(await loading.locator('.spinner').evaluate(node => getComputedStyle(node).animationName)).toBe('sharedSpin');
     await expect(page.getByText(copy.portal.view.noTodos, { exact: true })).toHaveCount(0);
   } finally { release(); }
   await expect(page.getByRole('alert')).toHaveText('Todo request failed');
+  await expect(page.getByRole('status', { name: copy.common.loading })).toHaveCount(0);
   await expect(page.getByText(copy.portal.view.noTodos, { exact: true })).toHaveCount(0);
   await page.route('**/api/listTodos', route => route.fulfill({ json: { status: 'success', items: [], total: 0 } }));
   await page.getByRole('button', { name: copy.common.retry, exact: true }).click();

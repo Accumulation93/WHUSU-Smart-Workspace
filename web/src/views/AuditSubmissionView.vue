@@ -1,7 +1,7 @@
 <template>
   <div class="page stack">
     <section v-if="loading" class="card">
-      <div class="empty-state">{{ copy.common.loading }}</div>
+      <div class="empty-state"><AppLoading :text="copy.common.loading" /></div>
     </section>
 
     <template v-else-if="detail">
@@ -137,7 +137,7 @@
       </section>
 
       <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openSigning(materialFile,'pen'); materialFile=null" @select="addMaterial" />
-      <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading">{{ copy.common.loading }}</p></PersonnelPicker>
+      <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading"><AppLoading :text="copy.common.loading" /></p></PersonnelPicker>
 
       <section v-if="canWithdraw" class="card stack">
         <button type="button" class="btn btn-secondary" :disabled="submitting" @click="onWithdraw">

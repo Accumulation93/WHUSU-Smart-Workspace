@@ -86,7 +86,7 @@
           <view class="message-delete ui-motion-chip" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><ui-icon name="trash" tone="danger" size="28" ariaLabel="{{copy.deleteNotification}}" /></view>
         </view>
       </view>
-      <view class="message-loading" wx:if="{{loadingMore || (activeTab === 'todos' ? todoLoading : notificationLoading)}}">{{copy.loading}}</view>
+      <view class="message-loading" wx:if="{{loadingMore || (activeTab === 'todos' ? todoLoading : notificationLoading)}}"><app-loading text="{{copy.loading}}" /></view>
     </scroll-view>
   </view>
 
@@ -102,7 +102,7 @@
       </scroll-view>
       <view class="message-switch-actions ui-dialog-footer">
         <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
-        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" loading="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.switchAndView}}</button>
+        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{switchingOrganization}}" />{{copy.switchAndView}}</button>
       </view>
     </view>
   </view>

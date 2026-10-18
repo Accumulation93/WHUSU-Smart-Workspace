@@ -8,7 +8,7 @@
       </div>
       <p v-if="notice" role="alert">{{ notice }}</p>
       <button v-if="notice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!notice" class="schedule-scroll">
         <div class="schedule-grid">
           <div><div class="schedule-heading">{{ ui.copy_4202a27ca6 }}</div><div v-for="hour in 24" :key="hour" class="schedule-hour">{{ toTime((hour - 1) * 60) }}</div></div>

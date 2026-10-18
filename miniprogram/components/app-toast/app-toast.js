@@ -14,6 +14,13 @@ Component({
     styleIsolation: 'apply-shared',
     multipleSlots: false
   },
+  properties: {
+    loading: { type: Boolean, value: false },
+    loadingText: { type: String, value: '' }
+  },
+  observers: {
+    'loading, loadingText': function () { this.render(this._payload); }
+  },
   data: {
     visible: false,
     text: '',
@@ -24,22 +31,29 @@ Component({
   lifetimes: {
     attached() {
       appToast.registerInstance(this);
+      this.render(this._payload);
     },
     detached() {
       appToast.unregisterInstance(this);
     }
   },
+  pageLifetimes: {
+    show() { appToast.registerInstance(this); this.render(this._payload); },
+    hide() { appToast.unregisterInstance(this); this._payload = null; this.setData({ visible: false }); }
+  },
   methods: {
     render(payload) {
-      const visible = !!(payload && payload.text);
-      const text = visible ? String(payload.text) : '';
-      const state = (payload && payload.state) || 'info';
+      this._payload = payload || null;
+      const loading = this.properties.loading;
+      const visible = loading || !!(payload && payload.text);
+      const text = loading ? this.properties.loadingText : visible ? String(payload.text) : '';
+      const state = loading ? 'loading' : (payload && payload.state) || 'info';
       this.setData({
         visible,
         text,
         state,
         iconName: ICON_BY_STATE[state] || ICON_BY_STATE.info,
-        blocking: !!(payload && payload.blocking)
+        blocking: loading || !!(payload && payload.blocking)
       });
     },
     // 遮罩层只拦截触摸移动，避免阻塞状态下还能拖动背后页面。

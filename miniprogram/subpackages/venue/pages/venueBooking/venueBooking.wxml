@@ -31,7 +31,7 @@ module.exports = { hour: hour, min: min };
   <!-- ═══════════════════ BROWSE TAB ═══════════════════ -->
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'browse'}}">
     <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+      <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
       <view class="section-title">{{localeCopy.copy_b210c95498}}</view>
       <view class="work-context-notice" wx:if="{{!hasActiveAssignment}}">
         <view class="work-context-notice-text">{{localeCopy.noActiveAssignmentNotice}}</view>
@@ -63,7 +63,7 @@ module.exports = { hour: hour, min: min };
   <!-- ═══════════════════ BOOKINGS TAB ═══════════════════ -->
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'bookings'}}">
     <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+      <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
       <view class="section-title">{{localeCopy.copy_decce2c059}}</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!myBookings.length}}">
@@ -91,7 +91,7 @@ module.exports = { hour: hour, min: min };
   <!-- ═══════════════════ APPROVALS TAB ═══════════════════ -->
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'approvals'}}">
     <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+      <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
       <view class="approval-section-head">
         <view class="section-title">{{localeCopy.copy_5aaf844f1e}}</view>
         <text class="link ui-motion-chip" bindtap="goApprovalHistory" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8650ae5bf6}}</text>
@@ -347,7 +347,7 @@ module.exports = { hour: hour, min: min };
         </view>
       </scroll-view>
       <view class="button-row booking-form-actions ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_02ef2f799d}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" catchtap="submitBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_02ef2f799d}}</button>
       </view>
     </view>
     </view>
@@ -427,7 +427,7 @@ module.exports = { hour: hour, min: min };
       </scroll-view>
       <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
         <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" disabled="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{approvalSubmitting}}" />
           {{approvalAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}
         </button>
       </view>

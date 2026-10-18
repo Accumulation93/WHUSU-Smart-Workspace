@@ -13,7 +13,7 @@
     <section v-if="panelError" class="card row row-wrap">
       <p class="notice-line">{{ panelError }}</p><button type="button" class="btn-quiet" :disabled="loading || saving" @click="refresh">{{ home.reloadProfile }}</button>
     </section>
-    <section v-if="loading && !panelData" class="card empty-state">{{ home.loadingDots }}</section>
+    <section v-if="loading && !panelData" class="card empty-state"><AppLoading :text="home.loadingDots" /></section>
     <template v-if="tab === 'results' && results?.status === 'success'">
       <section v-if="!members.length" class="card empty-state">{{ home.noVisibleResults }}</section>
       <section v-else class="card stack results-panel-card">

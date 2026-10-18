@@ -45,15 +45,15 @@
         </picker>
       </view>
       <view class="button-row compact-row scorer-filter-actions">
-        <button class="secondary-btn ui-motion-button" loading="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8029e5c326}}</button>
+        <button class="secondary-btn ui-motion-button" disabled="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_8029e5c326}}</button>
       </view>
     </view>
 
     <view class="edit-box">
       <view class="list-title">{{localeCopy.copy_b0bf25e2b8}}</view>
       <view class="button-row scorer-export-actions">
-        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3f8bff9fcf}}</button>
-        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e47f95e658}}</button>
+        <button class="secondary-btn ui-motion-button" disabled="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{exportLoadingMap.summary}}" />{{localeCopy.copy_3f8bff9fcf}}</button>
+        <button class="secondary-btn ui-motion-button" disabled="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{exportLoadingMap.detail}}" />{{localeCopy.copy_e47f95e658}}</button>
       </view>
     </view>
 
@@ -108,10 +108,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}">
-          <view class="popup-loading-spinner"></view>
-          <text class="popup-loading-text">{{localeCopy.copy_8dfeae7ced}}</text>
-        </view>
+        <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}"><app-loading text="{{localeCopy.copy_8dfeae7ced}}" /></view>
         <view class="popup-table ui-data-grid--complex" wx:else>
           <view class="popup-table-head ui-data-row ui-data-row--header">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">{{localeCopy.copy_12cd162fda}}</view>

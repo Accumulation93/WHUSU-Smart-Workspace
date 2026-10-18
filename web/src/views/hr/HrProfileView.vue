@@ -26,7 +26,7 @@
         </div>
       </div>
       <p class="muted">{{ homeCopy.profileManagedByAdmin }}</p>
-      <div v-if="loading" class="empty-state">{{ homeCopy.loadingProfile }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="homeCopy.loadingProfile" /></div>
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ homeCopy.reloadProfile }}</button>
       <div v-if="profileData" class="stack">
@@ -45,7 +45,7 @@
       </div>
       <p v-if="saveNotice" class="notice-line" role="status">{{ saveNotice }}</p>
       <button v-if="!readonly && profileData.template?.fields?.length" class="btn btn-primary" type="submit" :disabled="saving || loading || !!loadNotice">
-        {{ saving ? copy.common.loading : profileData.template.editMode === 'audit' ? homeCopy.submitReview : homeCopy.saveProfile }}
+        <AppLoading v-if="saving" compact />{{ profileData.template.editMode === 'audit' ? homeCopy.submitReview : homeCopy.saveProfile }}
       </button>
       </div>
     </form>

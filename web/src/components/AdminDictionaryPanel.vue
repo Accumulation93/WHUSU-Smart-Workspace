@@ -26,13 +26,13 @@
       </label>
       <p v-if="actionNotice" class="notice-line" role="alert">{{ actionNotice }}</p>
       <div class="button-row">
-        <button type="submit" class="btn btn-primary" :disabled="blocked">{{ busy ? copy.common.loading : config.save }}</button>
+        <button type="submit" class="btn btn-primary" :disabled="blocked"><AppLoading v-if="busy" compact />{{ config.save }}</button>
         <button type="button" class="btn btn-secondary" :disabled="blocked" @click="reset">{{ config.create }}</button>
       </div>
     </form>
     <section class="card stack">
       <span class="section-title">{{ config.list }}</span>
-      <div v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!loadNotice && !rows.length" class="empty-state">{{ config.empty }}</div>
       <div v-else class="list">
         <article v-for="row in rows" :key="row.id" class="list-row dictionary-row">

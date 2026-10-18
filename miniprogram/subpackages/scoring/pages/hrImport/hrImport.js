@@ -26,7 +26,7 @@ function readable(value) {
 
 Page({
   data: {
-    copy, navigationTitle: copy.navigationTitle, navTopPx: 0, busy: false, error: '', stage: 'file', fileSummary: '',
+    copy, navigationTitle: copy.navigationTitle, navTopPx: 0, busy: false, metadataLoading: false, busyText: '', error: '', stage: 'file', fileSummary: '',
     mappings: [], mappingOptions: [], natureOptions: NATURES.map(key => key ? copy[key] : copy.chooseNature), natureIndex: 0,
     fields: [], categories: [], category: '', view: 'open', items: [], hasMore: false, total: 0,
     summaryText: '', executionText: '', canExecute: false, selectedCount: 0, selectedText: '', batchOptions: [],
@@ -48,7 +48,7 @@ Page({
     if (state.changed) this.resetSession();
     this.loadMetadata();
   },
-  onHide() { this._active = false; orgSession.invalidateRequests(this); this.setData({ busy: false, pickerVisible: false, contextSwitchGuardVisible: false }); },
+  onHide() { this._active = false; orgSession.invalidateRequests(this); this.setData({ busy: false, metadataLoading: false, pickerVisible: false, contextSwitchGuardVisible: false }); },
   onUnload() { this._active = false; this._destroyed = true; this._completeIssueRows.clear(); orgSession.invalidateRequests(this); this._file = null; this._sourceRows = null; this._decisions = null; this.setData({ pickerVisible: false, contextSwitchGuardVisible: false }); },
   onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onReachBottom() { if (this.data.hasMore && !this.data.busy) this.loadItems(true); },
@@ -67,6 +67,7 @@ Page({
   },
   async loadMetadata() {
     const request = orgSession.beginRequest(this, 'metadata');
+    this.setData({ metadataLoading: !this._metadata });
     try {
       const result = await this.api('getHrImportMetadata');
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -74,12 +75,13 @@ Page({
       this._mappingOptions = [{ key: '', label: copy.ignore }].concat(BASIC.map(key => ({ key, label: copy[key] })), result.fields.map(field => ({ key: 'profile:' + field.id, label: field.label })));
       this.setData({ mappingOptions: this._mappingOptions, fields: result.fields });
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ metadataLoading: false }); }
   },
   async chooseFile() {
     if (this.data.busy || this.data.requestId) return;
     if (!this._mappingOptions) { await this.loadMetadata(); if (!this._mappingOptions) return; }
     const request = orgSession.beginRequest(this, 'file');
-    this.setData({ busy: true, error: '' });
+    this.setData({ busy: true, busyText: copy.loading, error: '' });
     try {
       const file = await chooseTableFile((name, data) => this.api(name, data));
       // 微信文件选择可能暂时隐藏页面；返回后只接受原账号及工作角色的结果。
@@ -123,12 +125,12 @@ Page({
     return { schemaVersion: 2, headers: this._file.headers, rows: this._file.rows, rowNumbers: this._file.rowNumbers, basicMapping, extensionMapping,
       defaultNature: NATURES[this.data.natureIndex], decisions: this._decisions, previousPreviewId: this._previewId || '' };
   },
-  async preview() {
+  async preview(progressText) {
     if (this.data.busy || !this._file || this.data.requestId) return;
     const request = orgSession.beginRequest(this, 'preview');
-    this.setData({ busy: true, error: '', canExecute: false });
-    let accepted = false;
+    await new Promise(resolve => this.setData({ busy: true, busyText: typeof progressText === 'string' ? progressText : copy.checking, error: '', canExecute: false }, resolve));
     try {
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const result = await this.api('previewHrTableImport', this.payload());
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       this._previewId = result.previewId;
@@ -144,16 +146,15 @@ Page({
       this.setData({ stage: 'review', categories, category, canExecute: summary.canExecute, selectedCount: 0, selectedText: '',
         summaryText: format(copy.summary, [summary.problemCount, summary.problemRowCount, summary.resolvedCount]),
         executionText: format(copy.executionSummary, [summary.newMembers, summary.newAssignments, summary.updatedAssignments, summary.profileValues, summary.newDictionaries, summary.excludedRows]) });
-      accepted = true;
+      await this.loadItems(false, true);
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
-    if (accepted) await this.loadItems(false);
   },
-  async loadItems(append) {
-    if (!this._previewId || this.data.busy || this._staleIssue) return;
+  async loadItems(append, continuingPreview) {
+    if (!this._previewId || (this.data.busy && !continuingPreview) || this._staleIssue) return;
     const request = orgSession.beginRequest(this, 'items');
     const offset = append ? this.data.items.length : 0;
-    this.setData({ busy: true });
+    this.setData({ busy: true, busyText: copy.loading });
     try {
       const result = await this.api('getHrImportPreview', { previewId: this._previewId, category: this.data.category, view: this.data.view, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -173,7 +174,7 @@ Page({
       else patch.items = items;
       await new Promise(resolve => this.setData(patch, resolve));
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
-    finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
+    finally { if (!continuingPreview && this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   switchList(patch) {
     if (this.data.busy || this._staleIssue) return;
@@ -239,7 +240,7 @@ Page({
     if (item.expanded && !event.currentTarget.dataset.more) { this.setData({ ['items[' + index + '].expanded']: false }); return; }
     if (item.rows && !event.currentTarget.dataset.more) { this.setData({ ['items[' + index + '].expanded']: true }); return; }
     const request = orgSession.beginRequest(this, 'issueRows');
-    this.setData({ busy: true });
+    this.setData({ busy: true, busyText: copy.loading });
     try {
       const offset = event.currentTarget.dataset.more ? (item.rows || []).length : 0;
       const complete = this._completeIssueRows.get(this.issueSelectionKey(item));
@@ -314,7 +315,7 @@ Page({
       this.updateIssueSelection(index, []); return;
     }
     const request = orgSession.beginRequest(this, 'issueRows');
-    this.setData({ busy: true, error: '' });
+    this.setData({ busy: true, busyText: copy.loading, error: '' });
     try {
       const rows = (this._completeIssueRows.get(key) || item.rows || []).map(row => Object.assign({}, row));
       while (rows.length < item.rowNumbers.length) {
@@ -402,7 +403,7 @@ Page({
   confirmAction() {
     if (this.data.busy || !this._pendingActions) return;
     this._pendingActions.forEach(action => this.applyAction(action));
-    this.cancelAction(); this.preview();
+    this.cancelAction(); return this.preview(copy.processing);
   },
   applyAction(action) {
     const rows = action.rowNumbers || (action.rowNumber ? [action.rowNumber] : []);
@@ -450,7 +451,7 @@ Page({
   },
   async openRow(rowNumber, mode) {
     const request = orgSession.beginRequest(this, 'row');
-    this.setData({ busy: true });
+    this.setData({ busy: true, busyText: copy.loading });
     try {
       const result = await this.api('getHrImportPreview', { previewId: this._previewId, rowNumber });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -548,7 +549,7 @@ Page({
     row.policies = row.policies || {};
     Object.keys(this._editorClears || {}).forEach(key => { row.policies[key] = 'clear'; });
     this._decisions.rows[editor.rowNumber] = row;
-    this.closeEditor(); this.preview();
+    this.closeEditor(); return this.preview(copy.processing);
   },
   goMapping() { if (!this.data.busy && !this.data.requestId) this.setData({ stage: 'mapping' }); },
   goConfirm() { if (this.data.canExecute && !this.data.busy && !this.data.editor && !this.data.confirmAction) { this.setData({ stage: 'confirm', view: 'changes' }); this.loadItems(false); } },
@@ -565,7 +566,7 @@ Page({
   },
   async queryResult() { if (!this.data.busy && this.data.requestId) await this.submitExecution('getHrImportResult', { requestId: this.data.requestId }); },
   async submitExecution(name, data) {
-    const request = orgSession.beginRequest(this, 'execute'); this.setData({ busy: true, error: '' });
+    const request = orgSession.beginRequest(this, 'execute'); this.setData({ busy: true, busyText: name === 'getHrImportResult' ? copy.loading : copy.importing, error: '' });
     this._lastExecutionError = '';
     try {
       const result = await this.api(name, data);
@@ -594,7 +595,7 @@ Page({
   async exportFile(event) {
     if (this.data.busy) return;
     const issues = event.currentTarget.dataset.type === 'issues';
-    const request = orgSession.beginRequest(this, 'export'); this.setData({ busy: true, error: '' });
+    const request = orgSession.beginRequest(this, 'export'); this.setData({ busy: true, busyText: copy.exporting, error: '' });
     try {
       const result = await this.api(issues ? 'exportHrImportIssues' : 'exportHrAssignmentTable', { previewId: this._previewId, includeProfile: this.data.includeProfile, format: 'xlsx' });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;

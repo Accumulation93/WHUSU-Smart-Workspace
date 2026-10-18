@@ -10,7 +10,7 @@
     <label class="field"><span class="field-label">{{ native.copy_39fcaa02ad }}</span>
       <input v-model="date" type="date" class="field-input" :min="today" :disabled="submitting" />
     </label>
-    <p v-if="loading" class="muted">{{ native.copy_96eaa4c0be }}</p>
+    <p v-if="loading" class="muted"><AppLoading :text="native.copy_96eaa4c0be" /></p>
     <template v-else-if="day?.openSlots?.length">
       <p class="muted">{{ native.copy_b71db2ea6f }}</p>
       <div ref="track" class="booking-timeline">

@@ -25,7 +25,7 @@
     <div class="signing-toolbar" v-if="totalPages > 1"><button class="btn-quiet" :disabled="page <= 1 || busy" @click="loadPage(page - 1)">◀</button><span>{{ text.page }} {{ page }} / {{ totalPages }}</span><button class="btn-quiet" :disabled="page >= totalPages || busy" @click="loadPage(page + 1)">▶</button></div>
     <div class="signing-stage" ref="stageRef">
       <canvas ref="surfaceRef" :aria-label="text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
-      <div v-if="busy || notice" class="signing-stage-state"><p>{{ busy ? text.loading : notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
+      <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
     </div>
     <div class="signing-toolbar signing-layer-toolbar">
       <div class="signing-layer-heading">{{ text.layers }}<span class="muted">{{ layers.length }}</span></div>

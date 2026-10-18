@@ -17,7 +17,7 @@
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
 
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!loadNotice && !bookings.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
       <div v-else class="list">
         <div v-for="booking in bookings" :key="booking.id" class="list-row booking-card" role="button" tabindex="0" :aria-label="booking.title || booking.venueName" @click="detail = booking" @keydown.enter.self="detail = booking" @keydown.space.self.prevent="detail = booking">

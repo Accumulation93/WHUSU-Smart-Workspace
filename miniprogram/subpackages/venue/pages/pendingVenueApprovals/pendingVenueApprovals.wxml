@@ -14,7 +14,7 @@
         </view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
         <block wx:else>
         <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="pending-item-main">
@@ -121,7 +121,7 @@
       </scroll-view>
       <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
         <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" disabled="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{approvalSubmitting}}" />
           {{approvalAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}
         </button>
       </view>

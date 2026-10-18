@@ -7,7 +7,6 @@
     <view class="import-note">{{copy.instructions}}</view>
     <view wx:if="{{fileSummary}}" class="import-note">{{fileSummary}}</view>
     <view wx:if="{{error}}" class="import-error">{{error}}</view>
-    <view wx:if="{{busy}}" class="import-note">{{copy.loading}}</view>
     <view class="import-actions" wx:if="{{!requestId}}">
       <button class="primary-btn" disabled="{{busy}}" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.chooseFile}}</button>
       <button class="secondary-btn" disabled="{{busy}}" data-type="table" bindtap="exportFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.exportTable}}</button>
@@ -34,7 +33,6 @@
     <view class="import-title">{{summaryText}}</view>
     <view class="import-note">{{fileSummary}}</view>
     <view wx:if="{{error}}" class="import-error">{{error}}</view>
-    <view wx:if="{{busy}}" class="import-note">{{copy.loading}}</view>
     <view class="import-note">{{executionText}}</view>
     <view class="import-actions" wx:if="{{stage === 'review' && !requestId}}">
       <button class="secondary-btn" bindtap="goMapping" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.back}}</button>
@@ -143,4 +141,4 @@
   <view class="import-card" wx:if="{{stage === 'result'}}"><view class="import-title">{{resultText}}</view><view class="import-note">{{executionText}}</view><view class="import-actions"><button class="primary-btn" bindtap="restart" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.restart}}</button></view></view>
 </view>
 <personnel-picker visible="{{pickerVisible}}" title="{{copy.assignmentChoice}}" options="{{pickerOptions}}" value="{{pickerValue}}" selection-level="assignment" multiple="{{true}}" context-text="{{pickerContext}}" bindconfirm="confirmPicker" bindcancel="closePicker" />
-<app-toast />
+<app-toast loading="{{busy || metadataLoading}}" loading-text="{{busyText || copy.loading}}" />

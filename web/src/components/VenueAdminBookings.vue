@@ -17,7 +17,7 @@
       <button v-for="venue in venues" :key="venue.id" type="button" class="btn-quiet" :class="{ 'btn-quiet-primary': state.venueId === venue.id }" :aria-pressed="state.venueId === venue.id" :disabled="busy || disabled" @click="filter('venueId', venue.id)">{{ venue.name }}</button>
     </div></div>
     <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="busy || loading" @click="load">{{ copy.common.retry }}</button></template>
-    <p v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</p>
+    <p v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></p>
     <p v-if="deleteNotice" class="notice-line" role="status">{{ deleteNotice }}</p>
     <p v-else-if="!loading && !loadNotice && !rows.length" class="empty-state">{{ ui.copy_28981b382e }}</p>
     <article v-for="row in rows" :key="row.id" class="list-row booking-row" tabindex="0" @click="open(row)" @keydown.enter.self="open(row)">

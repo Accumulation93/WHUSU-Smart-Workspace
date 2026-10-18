@@ -16,7 +16,7 @@
       <view class="permission-search-clear ui-motion-chip" wx:if="{{keyword}}" bindtap="clearKeyword" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="28" ariaLabel="{{localeCopy.copy_2a0e50c5f6}}" /></view>
     </view>
 
-    <view class="permission-loading" wx:if="{{loading}}">{{localeCopy.copy_d576d9e120}}</view>
+    <view class="permission-loading" wx:if="{{loading}}"><app-loading text="{{localeCopy.copy_d576d9e120}}" /></view>
     <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">{{keyword ? localeCopy.searchEmpty : localeCopy.copy_6214a926a3}}</view>
     <view class="permission-admin-list" wx:else>
       <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
@@ -73,7 +73,7 @@
       </scroll-view>
       <view class="permission-dialog-footer ui-dialog-footer">
         <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_71db23a36b}}</button>
+        <button class="primary-btn permission-primary ui-motion-button" disabled="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{saving}}" />{{localeCopy.copy_71db23a36b}}</button>
       </view>
     </view>
   </view>

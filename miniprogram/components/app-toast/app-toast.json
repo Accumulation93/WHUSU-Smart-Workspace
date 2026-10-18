@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "app-loading": "/components/app-loading/app-loading",
     "ui-icon": "/components/ui-icon/ui-icon",
     "viewport-portal": "/components/viewport-portal/viewport-portal"
   }

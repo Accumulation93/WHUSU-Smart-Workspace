@@ -16,7 +16,7 @@
       </div>
       <p class="notice-line">{{ copy.admin.consoleNote }}</p>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!rows.length" class="empty-state">{{ copy.admin.memberEmpty }}</div>
       <div v-else class="list">
         <div v-for="row in rows" :key="row.hrId || row.id" class="list-row">

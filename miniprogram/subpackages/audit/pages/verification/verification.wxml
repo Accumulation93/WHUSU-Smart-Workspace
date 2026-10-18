@@ -27,7 +27,7 @@
       </view>
 
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verify" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b49d7af0bd}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="verify" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_b49d7af0bd}}</button>
       </view>
     </view>
 

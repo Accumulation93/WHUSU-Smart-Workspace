@@ -16,7 +16,7 @@
         <view class="section-title">{{copy.loginTitle}}</view>
         <view class="card-desc">{{copy.useOwnWechat}}</view>
         <view class="login-entry-actions">
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.wechatLogin}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.wechatLogin}}</button>
           <view class="login-secondary-link ui-motion-chip" bindtap="openPasswordLogin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.passwordLogin}}</view>
         </view>
       </view>
@@ -57,8 +57,8 @@
           <input class="field-input" placeholder="{{copy.studentIdPlaceholder}}" bindinput="onStudentId" value="{{studentId}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
 
-        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button" loading="{{loading}}" disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{claimAvailable ? copy.continueAction : copy.claimUnavailable}}</button>
-        <button wx:else class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="startRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.submitRecovery}}</button>
+        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button"  disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{claimAvailable ? copy.continueAction : copy.claimUnavailable}}</button>
+        <button wx:else class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="startRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.submitRecovery}}</button>
 
         <view class="sheet-link ui-motion-chip" wx:if="{{stage === 'claim'}}" bindtap="switchToRecovery" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.changeWechat}}</view>
         <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToClaim}}</view>
@@ -68,14 +68,14 @@
           <view class="sheet-note">{{copy.passwordNote}}</view>
           <view class="field"><view class="field-label">{{copy.studentId}}</view><input class="field-input" placeholder="{{copy.studentIdPlaceholder}}" bindinput="onPasswordStudentId" value="{{passwordStudentId}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="field"><view class="field-label">{{copy.passphrase}}</view><input class="field-input" password="{{true}}" placeholder="{{copy.passphrasePlaceholder}}" bindinput="onPasswordInput" value="{{password}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.loginAction}}</button>
+          <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.loginAction}}</button>
           <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToWechat}}</view>
         </view>
         <view wx:elif="{{stage === 'passwordBinding'}}">
           <view class="sheet-note">{{bindingOffer.available ? copy.passwordBindingNote : copy.passwordBindingBlockedNote}}</view>
-          <button wx:if="{{bindingOffer.available}}" class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="bindPasswordWechat" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.bindPasswordWechat}}</button>
+          <button wx:if="{{bindingOffer.available}}" class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="bindPasswordWechat" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.bindPasswordWechat}}</button>
           <view wx:if="{{bindingOffer.available}}" class="sheet-link ui-motion-chip" bindtap="skipPasswordBinding" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.skipPasswordBinding}}</view>
-          <button wx:else class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="skipPasswordBinding" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.enterAfterTemporaryLogin}}</button>
+          <button wx:else class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="skipPasswordBinding" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.enterAfterTemporaryLogin}}</button>
         </view>
         <view wx:elif="{{stage === 'verify'}}">
         <view class="sheet-note">{{copy.verificationNote}}</view>
@@ -83,7 +83,7 @@
           <view class="field-label">{{copy.verificationCode}}</view>
           <input class="field-input verification-input" maxlength="12" placeholder="{{copy.verificationPlaceholder}}" bindinput="onVerificationCode" value="{{verificationCode}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verifyClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.finishClaim}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="verifyClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.finishClaim}}</button>
         <view class="sheet-link ui-motion-chip" bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToProfile}}</view>
       </view>
 
@@ -99,7 +99,7 @@
           <view class="field-label">{{recoveryMethodLabel}}</view>
           <input class="field-input" password="{{recoveryMethod === 'passphrase'}}" placeholder="{{copy.recoveryPlaceholder}}" bindinput="onRecoveryCredential" value="{{recoveryCredential}}" adjust-position="{{false}}" cursor-spacing="24" />
         </view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.confirmWechatChange}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{copy.confirmWechatChange}}</button>
         <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.waitForReview}}</view>
       </view>
         <view wx:elif="{{stage === 'recoveryRotated'}}">

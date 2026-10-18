@@ -2,7 +2,7 @@
   <p v-if="loading">{{ kind === 'stamp' ? text.stampLoading : text.signatureLoading }}</p>
   <template v-else-if="notice"><p class="notice-line">{{ notice }}</p><button class="btn-quiet" @click="load">{{ text.retry }}</button></template>
   <template v-else><button v-if="kind === 'signature'" class="btn btn-primary" @click="$emit('draw')">{{ text.addInk }}</button><p v-if="!rows.length">{{ kind === 'stamp' ? text.stampEmpty : text.signatureEmpty }}</p><button v-for="row in rows" :key="row.id" class="list-row" :disabled="selecting" @click="select(row)"><span>{{ row.name }}</span><img v-if="row.imageData" class="material-preview" :src="row.imageData" :alt="row.name" /></button></template>
-  <p v-if="imageNotice" class="notice-line">{{ imageNotice }}</p><p v-if="selecting">{{ text.imageLoading }}</p>
+  <p v-if="imageNotice" class="notice-line">{{ imageNotice }}</p><p v-if="selecting"><AppLoading :text="text.imageLoading" /></p>
 </GlassDialog></template>
 <script setup>
 import { signingAssets } from '@/runtime/signingAssets.js';

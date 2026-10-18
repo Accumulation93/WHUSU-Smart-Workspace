@@ -9,7 +9,7 @@
     />
 
     <section v-if="loading" class="card">
-      <div class="empty-state">{{ copy.common.loading }}</div>
+      <div class="empty-state"><AppLoading :text="copy.common.loading" /></div>
     </section>
 
     <div v-else-if="form" class="score-workspace stack">

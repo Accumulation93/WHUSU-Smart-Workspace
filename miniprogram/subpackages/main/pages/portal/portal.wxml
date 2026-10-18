@@ -57,7 +57,7 @@
         </view>
         <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
       </view>
-      <view class="message-loading-more" wx:if="{{todoLoadingMore}}">{{copy.loadingMore}}</view>
+      <view class="message-loading-more" wx:if="{{todoLoadingMore}}"><app-loading text="{{copy.loadingMore}}" /></view>
     </scroll-view>
   </view>
 
@@ -107,7 +107,7 @@
         </view>
         <view class="notification-delete ui-motion-chip" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.delete}}</view>
       </view>
-      <view class="message-loading-more" wx:if="{{notificationLoadingMore}}">{{copy.loadingMore}}</view>
+      <view class="message-loading-more" wx:if="{{notificationLoadingMore}}"><app-loading text="{{copy.loadingMore}}" /></view>
     </scroll-view>
   </view>
 
@@ -210,7 +210,7 @@
       </scroll-view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeMessageSwitchDialog" disabled="{{messageSwitchLoading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
-        <button class="primary-btn dialog-btn ui-motion-button" loading="{{messageSwitchLoading}}" bindtap="confirmMessageOrganizationSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.switchAndView}}</button>
+        <button class="primary-btn dialog-btn ui-motion-button" disabled="{{messageSwitchLoading}}" bindtap="confirmMessageOrganizationSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{messageSwitchLoading}}" />{{copy.switchAndView}}</button>
       </view>
     </view>
   </view>

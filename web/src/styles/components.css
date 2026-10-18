@@ -439,6 +439,9 @@ button:disabled,
   animation: sharedSpin 0.9s linear infinite;
 }
 
+.app-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-inline-gap); color: var(--ui-blue-700); min-width: 0; }
+.app-loading .spinner { flex: none; }
+
 @keyframes sharedSpin {
   to {
     transform: rotate(360deg);

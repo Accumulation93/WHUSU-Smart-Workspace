@@ -19,7 +19,7 @@
     <view class="card">
       <view class="section-title">{{localeCopy.copy_e92a06d5bf}}</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
         <block wx:else>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
           <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" class="audit-chip audit-chip-approved audit-chip--inline">{{localeCopy.copy_7f8fe1554d}}</text></view>

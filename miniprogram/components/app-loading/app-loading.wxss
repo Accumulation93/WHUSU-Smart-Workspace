@@ -1,0 +1,11 @@
+.app-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: #2563eb; min-width: 0; }
+.app-loading-spinner { flex: none; width: 18px; height: 18px; box-sizing: border-box; border: 2px solid rgba(37,99,235,.18); border-top-color: currentColor; border-radius: 50%; animation: appLoadingSpin .72s linear infinite; }
+.app-loading-text { font-size: var(--ui-type-meta, 13px); line-height: 1.5; min-width: 0; white-space: normal; word-break: break-word; }
+.app-loading.is-compact { display: inline-flex; margin-right: 8px; color: inherit; }
+.is-compact .app-loading-spinner { border-color: currentColor; border-right-color: transparent; }
+.app-loading.is-toast { flex-direction: column; gap: 10px; color: #fff; width: 100%; }
+.is-toast .app-loading-spinner { width: 34px; height: 34px; border-width: 3px; border-color: rgba(255,255,255,.28); border-top-color: #fff; }
+.is-toast .app-loading-text { font-size: var(--app-toast-text-size, 12px); text-align: center; max-height: 54vh; overflow-y: auto; }
+@media (min-width: 520px) { .is-toast { --app-toast-text-size: 13px; } }
+@media (min-width: 900px) { .is-toast { --app-toast-text-size: 13.5px; } }
+@keyframes appLoadingSpin { to { transform: rotate(360deg); } }

@@ -18,13 +18,13 @@
       <div class="field"><span class="field-label">{{ ui.copy_dbeac75f6f }}</span><span class="chip chip-blue">{{ ui.copy_9fc4793280 }}</span><span class="muted">{{ ui.copy_9c8b8eb1de }}</span></div>
       <p v-if="actionNotice" class="notice-line" role="alert">{{ actionNotice }}</p>
       <div class="activity-actions">
-        <button class="btn btn-primary" type="submit" :disabled="blocked">{{ busy ? copy.common.loading : ui.copy_189d8358eb }}</button>
+        <button class="btn btn-primary" type="submit" :disabled="blocked"><AppLoading v-if="busy" compact />{{ ui.copy_189d8358eb }}</button>
         <button class="btn btn-secondary" type="button" :disabled="blocked" @click="reset">{{ ui.copy_336944985b }}</button>
       </div>
     </form>
     <section class="card stack">
       <span class="section-title">{{ ui.copy_01e16cdd90 }}</span>
-      <p v-if="loading && !rows.length" class="empty-state">{{ copy.common.loading }}</p>
+      <p v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></p>
       <div v-else class="list">
         <article v-for="row in rows" :key="row.id" class="list-row activity-row">
           <div class="list-row-main stack-tight">

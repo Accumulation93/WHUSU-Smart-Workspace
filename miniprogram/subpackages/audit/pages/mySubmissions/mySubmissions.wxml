@@ -29,11 +29,11 @@
         <text class="mark-all-read ui-motion-chip" bindtap="markAllRead" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6830671a51}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="card-loading-overlay" wx:if="{{loading && !submissions.length}}"><view class="card-loading-spinner"></view></view>
+        <view class="card-loading-overlay" wx:if="{{loading && !submissions.length}}"><app-loading compact="{{true}}" /></view>
         <block wx:else>
         <view class="audit-empty-state" wx:if="{{loadError}}">
           <view class="audit-empty-text">{{loadError}}</view>
-          <button class="secondary-btn ui-motion-button" bindtap="loadData" loading="{{loading}}" disabled="{{loading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.retry}}</button>
+          <button class="secondary-btn ui-motion-button" bindtap="loadData"  disabled="{{loading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.retry}}</button>
         </view>
         <view class="audit-submission-item {{item.isUnread ? 'audit-submission-unread' : ''}} ui-motion-card" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="audit-submission-main">

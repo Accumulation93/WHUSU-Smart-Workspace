@@ -20,7 +20,7 @@
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <p v-if="activityNotice" class="notice-line">{{ activityNotice }}</p>
-      <div v-if="loading && !targets.length" class="empty-state">{{ home.loadingTargets }}</div>
+      <div v-if="loading && !targets.length" class="empty-state"><AppLoading :text="home.loadingTargets" /></div>
       <div v-else-if="!loadNotice && !activityNotice && !targets.length" class="empty-state">{{ home.noTargets }}</div>
       <div v-for="group in groups" :key="group.identity" class="stack target-group">
         <span class="chip target-group-label">{{ group.identity }}</span>

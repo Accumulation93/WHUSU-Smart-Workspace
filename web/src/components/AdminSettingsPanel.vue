@@ -3,7 +3,7 @@
     <section class="card stack">
       <span class="section-title">{{ ui.copy_a8792b30e7 }}</span>
       <div v-if="notice" class="stack-tight" role="alert"><span>{{ notice }}</span><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ personnel.dictionaryRetry }}</button></div>
-      <p v-if="loading && !ready" class="empty-state">{{ copy.common.loading }}</p>
+      <p v-if="loading && !ready" class="empty-state"><AppLoading :text="copy.common.loading" /></p>
     </section>
     <section v-if="canManageOrganizations" class="card stack">
       <span class="list-row-title">{{ ui.copy_dfe3ef46ab }}</span>
@@ -25,7 +25,7 @@
     <form v-if="canManageSettings" class="card stack" @submit.prevent="saveTimezone">
       <span class="list-row-title">{{ ui.copy_150ec897d6 }}</span>
       <label class="field"><span class="field-label">{{ ui.copy_bed2e70b8f }}</span><select class="field-input" :aria-label="ui.copy_bed2e70b8f" :value="state.timezone" :disabled="blocked" @change="state.timezone=Number($event.target.value);state.dirty=true"><option v-if="state.timezone > 12" :value="state.timezone">{{ 'UTC+' + state.timezone }}</option><option v-for="option in timezoneOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
-      <button type="submit" class="btn btn-primary" :disabled="blocked">{{ busy ? copy.common.loading : ui.copy_71db23a36b }}</button>
+      <button type="submit" class="btn btn-primary" :disabled="blocked"><AppLoading v-if="busy" compact />{{ ui.copy_71db23a36b }}</button>
     </form>
     <p v-if="actionNotice && !state.form" class="notice-line" role="alert">{{ actionNotice }}</p>
     <GlassDialog v-if="state.form" compact :busy="busy || loading || state.pending" :title="state.form.id ? ui.copy_363e007ade : ui.copy_447b221a5e" @close="closeOrganization">

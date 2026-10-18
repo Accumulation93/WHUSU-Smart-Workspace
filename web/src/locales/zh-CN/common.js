@@ -8,7 +8,6 @@ import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pen
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
-import src_venueBookings from './shared/generated/subpackages/venue/pages/venueBookings/venueBookings.js';
 import src_main from './shared/main.js';
 import src_web from './shared/web.js';
 
@@ -22,7 +21,7 @@ export default Object.freeze({
   close: src_common.actions.close,
   back: src_auditSigning.back,
   refresh: src_pendingApprovals.copy_545113905f,
-  loading: src_venueBookings.copy_70936c600a,
+  loading: src_common.loading,
   empty: src_web.common.empty,
   search: src_adminPermissions.copy_cea1da7603,
   searchPlaceholder: src_web.common.searchPlaceholder,

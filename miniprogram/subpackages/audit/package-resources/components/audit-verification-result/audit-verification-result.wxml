@@ -70,7 +70,7 @@
         <view class="crypto-report-guide"><view class="crypto-check-label">{{copy.certificatePublicTrustTitle}}</view><view class="crypto-note">{{copy.certificatePublicTrust}}</view></view>
         <view wx:if="{{!file.certificates.length}}" class="crypto-note">{{copy.noCertificate}}</view>
         <view wx:for="{{file.certificates}}" wx:for-item="certificate" wx:for-index="certificateIndex" wx:key="fingerprint" class="crypto-certificate-actions">
-          <button data-file="{{file.key}}" data-certificate="{{certificateIndex}}" class="secondary-btn crypto-details-toggle ui-motion-button" bindtap="exportCertificate" loading="{{exporting}}" disabled="{{exporting}}" hover-class="ui-press-button" hover-stop-propagation="{{true}}" hover-start-time="0" hover-stay-time="160">{{copy.exportCertificate}}</button>
+          <button data-file="{{file.key}}" data-certificate="{{certificateIndex}}" class="secondary-btn crypto-details-toggle ui-motion-button" bindtap="exportCertificate"  disabled="{{exporting}}" hover-class="ui-press-button" hover-stop-propagation="{{true}}" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{exporting}}" />{{copy.exportCertificate}}</button>
           <button data-file="{{file.key}}" data-certificate="{{certificateIndex}}" class="secondary-btn crypto-details-toggle ui-motion-button" bindtap="copyCertificate" disabled="{{exporting}}" hover-class="ui-press-button" hover-stop-propagation="{{true}}" hover-start-time="0" hover-stay-time="160">{{copy.copyCertificate}}</button>
         </view>
       </view>

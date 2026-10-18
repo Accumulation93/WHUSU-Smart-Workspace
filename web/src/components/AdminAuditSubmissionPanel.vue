@@ -4,7 +4,7 @@
     <label class="field"><span class="field-label">{{ copy.audit.detailStepsTitle }}</span><select v-model="status" class="field-input" :disabled="loading || busy" @change="load(false)"><option value="">{{ native.copy_31d4595959 }}</option><option v-for="value in statuses" :key="value" :value="value">{{ statusLabel(value) }}</option></select></label>
     <p v-if="notice" class="notice-line">{{ notice }}<button class="btn-quiet" :disabled="busy || loading" @click="load(false)">{{ text.retry }}</button></p>
     <p v-if="actionNotice" class="notice-line" role="status">{{ actionNotice }}</p>
-    <p v-if="loading && !rows.length">{{ copy.common.loading }}</p>
+    <p v-if="loading && !rows.length"><AppLoading :text="copy.common.loading" /></p>
     <p v-else-if="!notice && !rows.length">{{ copy.audit.emptySubmissions }}</p>
     <article v-for="row in rows" :key="row.id" class="stack-tight">
       <button class="list-row audit-submission" :disabled="busy" @click="router.push({name:'auditSubmission',params:{id:row.id}})"><span class="stack-tight"><strong>{{ row.title }}</strong><span>{{ row.submitterName }} · {{ row.submissionNumber }}</span><span class="soft">{{ detailTimeText(row.createdAt,row.createdAtReviewStatus) }}</span></span><span class="chip chip-blue">{{ statusLabel(row.status) }}</span></button>

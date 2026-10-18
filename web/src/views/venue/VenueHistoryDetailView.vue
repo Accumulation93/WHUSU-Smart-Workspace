@@ -3,7 +3,7 @@
     <WorkspaceHero :page-name="copy.venue.detailTitle" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="router.push({ name: 'workRole' })" />
     <VenueNav active="history" />
     <section class="card stack">
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <VenueBookingDetail v-if="booking" :booking="booking" />
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>

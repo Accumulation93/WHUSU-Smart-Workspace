@@ -2,7 +2,7 @@
   <div class="page stack">
     <WorkspaceHero tone="admin" :page-name="ui.copy_9ba3b8c8a9 + ' · ' + ui.copy_02719d6557" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
     <section v-if="permissionLoading || permissionNotice || !visibleTabs.length" class="card stack">
-      <p v-if="permissionLoading" class="muted">{{ copy.common.loading }}</p>
+      <p v-if="permissionLoading" class="muted"><AppLoading :text="copy.common.loading" /></p>
       <template v-else-if="permissionNotice"><p role="alert">{{ permissionNotice }}</p><button type="button" class="btn btn-secondary" @click="loadPermissions">{{ copy.common.retry }}</button></template>
       <p v-else class="muted">{{ ui.copy_0de5656de5 }}</p>
     </section>
@@ -17,7 +17,7 @@
       <p v-if="loadNotice" role="alert" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button>
       <p v-if="actionNotice && !editing" role="alert" class="notice-line">{{ actionNotice }}</p>
-      <div v-if="loading && !venues.length" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading && !venues.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!loading && !loadNotice && !venues.length" class="empty-state">{{ ui.copy_5e9f82c1cf }}</div>
       <div class="list">
         <div v-for="venue in venues" :key="venue.id" class="list-row venue-resource">

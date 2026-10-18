@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  loading: '正在加载',
   brandName: 'WHUSU智慧工作台',
   organizationName: '武汉大学学生会',
   actions: Object.freeze({

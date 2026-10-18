@@ -55,7 +55,7 @@
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
-      <div v-if="loading && !items.length" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading && !items.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!items.length" class="empty-state">
         {{ activeTab === 'todos' ? copy.messages.view.noTodos : copy.messages.view.noNotifications }}
       </div>
@@ -87,7 +87,7 @@
         :disabled="loading"
         @click="loadMore"
       >
-        {{ loading ? copy.common.loading : copy.messages.view.loading }}
+        <AppLoading v-if="loading" compact />{{ copy.messages.view.loading }}
       </button>
     </section>
   </div>

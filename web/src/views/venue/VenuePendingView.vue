@@ -17,7 +17,7 @@
         <button type="button" class="btn-quiet" @click="router.push({ name: 'venueHistory' })">{{ copy.venue.historyTitle }}</button>
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
-      <div v-if="loading" class="empty-state">{{ copy.common.loading }}</div>
+      <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!items.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a14c4e583b }}</div>
       <div v-else class="list">
         <div v-for="item in items" :key="item.bookingId || item.id" class="list-row" tabindex="0" @click="openDetail(item)" @keydown.enter.self="openDetail(item)">
