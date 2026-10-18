@@ -1,5 +1,16 @@
 @import '../../../main/styles/home.wxss';
 
+/* 普通布局不施加吸顶偏移；只有横屏工作区启用吸顶时才避让导航栏。 */
+.workspace-tabs {
+  top: auto;
+}
+
+@media (min-width: 900px) {
+  .workspace-tabs {
+    top: var(--workspace-tabs-sticky-top);
+  }
+}
+
 .profile-passphrase-form {
   display: flex;
   flex-direction: column;

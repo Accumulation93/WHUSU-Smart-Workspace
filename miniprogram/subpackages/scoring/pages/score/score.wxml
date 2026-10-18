@@ -1,5 +1,5 @@
 <ui-navbar title="{{navigationTitle}}" />
-<view class="page {{readOnly ? 'page-readonly' : 'page-with-keyboard'}}" style="min-height: calc(100vh - {{navTopPx}}px)">
+<view class="page {{readOnly ? 'page-readonly' : 'page-with-keyboard'}}" style="min-height: calc(100vh - {{navTopPx}}px); --ui-navbar-height: {{navTopPx}}px;">
   <input
     wx:if="{{!readOnly}}"
     class="physical-keyboard-capture"

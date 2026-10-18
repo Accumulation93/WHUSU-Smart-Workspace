@@ -37,7 +37,7 @@
 - 标题带“ - WHUSU智慧工作台”后缀，全站**统一 12px**（令牌 `--ui-type-meta`）；这是能让最长标题（「场地借用审批详情 - WHUSU智慧工作台」）在 360px 以上手机完整显示的最大字号。放不下时先把标题往左借一点空间让开返回键，不再按标题长度改字号；只有 320px 级极窄屏才由省略号兜底。
 - 返回键默认 `back-mode="auto"`，与微信原生一致（有上一页才显示），点击退一页，退不了才回到门户；门户这类落地页用 `left-mode="slot"` 放自己的左侧控件（例如登录/退出登录图标键），并用 `back-mode="never"` 关掉返回键。
 - `app.wxss` 的全局 `.page { min-height: 100vh }` 在自绘顶栏后会让页面底部多出顶栏高度的空白，页面最外层容器必须补偿：`style="min-height: calc(100vh - {{navTopPx}}px)"`（容器本身是 `height: 100vh` 时改用 `height:`）。`navTopPx` 来自 `miniprogram/utils/navigationBarMetrics.js`，并在 `onResize` 里随横竖屏重算。
-- 贴视口顶部的固定元素（`position: fixed; top: 0`）同样要加 `style="top: {{navTopPx}}px"`；定位祖先是页面本身的 `position: sticky` 元素，`top` 值也要加上 `navTopPx`，避免滚动时钻到顶栏下面。
+- 贴视口顶部的固定元素（`position: fixed; top: 0`）同样要加 `style="top: {{navTopPx}}px"`；定位祖先是页面本身的 `position: sticky` 元素，`top` 值也要加上 `navTopPx`，避免滚动时钻到顶栏下面。仅部分断点启用 sticky 时，动态高度通过 CSS 变量传入，只在同一断点设置 top；普通 relative 布局保持 top:auto，禁止内联 top 把控件移动到下一张卡片上。卡片间距继续由既有 margin/gap 唯一承担，不加占位补偿。
 - 使用 `enablePullDownRefresh` 的页面给 `<ui-navbar refreshing="{{navRefreshing}}">`，刷新期间显示“正在刷新…”，因为微信自带的转圈动画会被顶栏挡住。
 
 `scripts/native-navigation-test.js` 与 `scripts/ui-navbar-test.js` 是这道契约的门禁：前者核对每个页面的导航声明、组件注册、标题绑定、顶部高度补偿与 `navTopPx`，后者核对顶栏几何、标题、返回键与槽位行为。

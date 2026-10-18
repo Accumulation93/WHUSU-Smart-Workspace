@@ -1390,12 +1390,12 @@ page {
     position: sticky;
     grid-column: 2;
     grid-row: 2 / span 4;
-    top: 24px;
+    top: calc(var(--ui-navbar-height) + var(--ui-card-gap));
     left: auto;
     right: auto;
     bottom: auto;
     width: 100%;
-    max-height: calc(100vh - 48px);
+    max-height: calc(100vh - var(--ui-navbar-height) - var(--ui-card-gap) * 2);
     overflow-y: auto;
     border: 1px solid rgba(147, 197, 253, 0.52);
     border-radius: 24px;
