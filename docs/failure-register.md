@@ -650,3 +650,12 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 修复：模板与申请模型删除 resubmit_mode 的全部读写，路由不再校验 resubmitMode；不传、旧枚举、未知字符串或对象均忽略，业务授权与步骤校验照常执行。固定响应 fresh 仅维持旧客户端兼容。20261018010000_audit_drop_resubmit_mode.sql 条件删除两列，重复执行不报错；历史迁移不改写，init.sql 保留可重放的历史建库基线，新库须执行完整迁移。
 
 检查：auditTemplateSaveIntegration.test.js 在实际删列后覆盖六类兼容输入及真实前端保存回读；auditSigningIntegration.test.js 在删列后的库完成旧字段重新提交、无字段重新提交、编辑附件、签署及验签；auditAssignmentContext.test.js、auditWorkflowPolicy.test.js、auditTemplateSave.test.js、auditHistoricalRoundIntegrity.test.js 与部署迁移检查。删列按破坏性迁移备份和维护流程执行，不声明零中断，不运行全量 CI。
+
+
+### 坑 72：已废弃列仍触发自动停机，停止后固定空等
+
+2026-10-18 10:31:25–10:32:26，删两列发布进入维护约 61 秒。脚本将全部 DROP COLUMN 分类为停机，进程退出后仍 sleep 35，再备份、迁移、检查与启动；没有单独 DDL 时长，不能将 61 秒归为删列耗时。
+
+修复：普通推送的破坏性迁移或 UTC 切换必须先有当前完整 SHA 的明确维护批准，否则保持原服务并停止发布。兼容代码先独立上线，再使用单行 online-drop-columns 声明在线退役列；验证运行、回退与目标版本均包含兼容提交且源码无列引用，严格拒绝附加 SQL。保持一致性备份，InnoDB 使用 INSTANT，元数据锁最多等待 1 秒，失败不得降级或停机恢复。无迁移采用滚动回退，尚未修改状态的准备失败不得停业务。删除进程退出后的固定 35 秒空等。
+
+验证：onlineColumnRetirement.test.js 在临时 Git 仓库验证版本与格式拒绝，在隔离 MySQL 验证元数据锁超时后业务仍可写、真实迁移计划/执行/账本、重复执行、数据保留；deploymentAutomation.test.js 与 frontendDeployment.test.js 继续验证原发布及前端回退。未在生产制造阻塞或删列测试，未运行全量 CI。运行规范见服务端协作技能及 runbooks。

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const mysql = require('mysql2/promise');
+const { parseRetirement, verifyRelease, retireColumns } = require('./onlineColumnRetirement');
 
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
@@ -33,6 +34,7 @@ function discoverMigrations(directory = DEFAULT_DIRECTORY) {
         name,
         path: filePath,
         checksum: checksum(content),
+        onlineRetirement: parseRetirement(content.toString('utf8')),
         destructive: isDestructiveMigration(content.toString('utf8'))
       };
     })
@@ -114,7 +116,17 @@ async function planMigrations(directory = DEFAULT_DIRECTORY) {
   const connection = await mysql.createConnection(config);
   try {
     await connection.query("SET SESSION time_zone = '+00:00'");
-    return buildPlan(discoverMigrations(directory), await readApplied(connection));
+    const migrations = discoverMigrations(directory);
+    const applied = await readApplied(connection);
+    for (const migration of migrations) {
+      if (migration.onlineRetirement && !applied.has(migration.name)) verifyRelease(migration.onlineRetirement, {
+        repo: process.env.WHUSU_RETIRE_REPO,
+        currentSha: process.env.WHUSU_RETIRE_CURRENT_SHA,
+        rollbackSha: process.env.WHUSU_RETIRE_ROLLBACK_SHA,
+        targetSha: process.env.WHUSU_RETIRE_TARGET_SHA
+      });
+    }
+    return buildPlan(migrations, applied);
   } finally {
     await connection.end();
   }
@@ -138,7 +150,17 @@ async function applyMigrations({ directory = DEFAULT_DIRECTORY, deployedSha = ''
     `);
     for (const migration of initialPlan.pending) {
       console.log(`[migration] 执行 ${migration.name}${migration.destructive ? '（破坏性）' : ''}`);
-      await runMysqlFile(migration, config);
+      if (migration.onlineRetirement) {
+        verifyRelease(migration.onlineRetirement, {
+          repo: process.env.WHUSU_RETIRE_REPO,
+          currentSha: process.env.WHUSU_RETIRE_CURRENT_SHA,
+          rollbackSha: process.env.WHUSU_RETIRE_ROLLBACK_SHA,
+          targetSha: process.env.WHUSU_RETIRE_TARGET_SHA
+        });
+        await retireColumns(connection, migration.onlineRetirement);
+      } else {
+        await runMysqlFile(migration, config);
+      }
       await connection.query(
         'INSERT INTO schema_migrations (name, checksum, deployed_sha) VALUES (?, ?, ?)',
         [migration.name, migration.checksum, deployedSha]

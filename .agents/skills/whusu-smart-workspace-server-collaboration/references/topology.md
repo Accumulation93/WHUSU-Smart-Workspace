@@ -52,7 +52,7 @@ Host whusu-smart-workspace-prod
 - `/home/ubuntu/whusu-smart-workspace-deploy/backups`：数据库快照。
 - `/var/lib/whusu-smart-workspace-deploy/maintenance.flag`：仅评分 API 使用的维护标志。
 
-部署使用 `/home/ubuntu/whusu-smart-workspace-deploy/deploy.lock` 的非阻塞 `flock`，默认等待请求排空 35 秒并保留最近 5 个 release。部署入口从目标提交读取并校验脚本，拒绝短 SHA、脏工作区、非快进结果和已被新分支头替代的任务。
+部署使用 `/home/ubuntu/whusu-smart-workspace-deploy/deploy.lock` 的非阻塞 `flock`，逐一确认目标进程退出，不再固定空等 35 秒，并保留最近 5 个 release。部署入口从目标提交读取并校验脚本，拒绝短 SHA、脏工作区、非快进结果和已被新分支头替代的任务。
 
 ## 进程与会话
 

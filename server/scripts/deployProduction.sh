@@ -14,7 +14,6 @@ LOG_DIR="$DEPLOY_DIR/logs"
 BACKUP_DIR="$DEPLOY_DIR/backups"
 MAINTENANCE_FLAG="${WHUSU_SMART_WORKSPACE_MAINTENANCE_FLAG:-/var/lib/whusu-smart-workspace-deploy/maintenance.flag}"
 LOCK_FILE="$DEPLOY_DIR/deploy.lock"
-DRAIN_SECONDS="${WHUSU_SMART_WORKSPACE_DRAIN_SECONDS:-35}"
 PUBLIC_HEALTH_URL="${WHUSU_SMART_WORKSPACE_PUBLIC_HEALTH_URL:-https://accumulation93.com/api/health}"
 RELEASE_KEEP_COUNT="${WHUSU_SMART_WORKSPACE_RELEASE_KEEP_COUNT:-5}"
 GIT_TIMEOUT_SECONDS="${WHUSU_SMART_WORKSPACE_GIT_TIMEOUT_SECONDS:-90}"
@@ -234,6 +233,11 @@ rollback() {
   trap - ERR TERM INT HUP
   set +e
   stop_preflight
+  # 构建、计划或兼容性检查失败且尚未改库/切流时，禁止停掉原服务。
+  if [[ "$MIGRATION_STARTED" -eq 0 && "$RELEASE_SWITCHED" -eq 0 && "$API_STOPPED" -eq 0 && "$MAINTENANCE_ACTIVE" -eq 0 ]]; then
+    log "发布准备失败，原服务保持运行，未改动数据库"
+    exit 1
+  fi
   # 网页独立发布只回退静态目录，不触碰仍在旧 release 中运行的服务进程。
   if [[ "$FRONTEND_ONLY" -eq 1 ]]; then
     if [[ "$RELEASE_SWITCHED" -eq 1 ]]; then
@@ -416,6 +420,10 @@ log "初始化或核验平台签署密钥与恢复副本"
 timeout --signal=TERM --kill-after=10s 120s node "$NEW_RELEASE/server/scripts/provisionSigningEvidence.js"
 timeout --signal=TERM --kill-after=10s 60s node "$NEW_RELEASE/server/scripts/preflightSigningEvidence.js"
 
+export WHUSU_RETIRE_REPO="$REPO_DIR"
+export WHUSU_RETIRE_CURRENT_SHA="$(cat "$STATE_DIR/server_sha" 2>/dev/null || true)"
+export WHUSU_RETIRE_ROLLBACK_SHA="$OLD_SHA"
+export WHUSU_RETIRE_TARGET_SHA="$TARGET_SHA"
 PLAN_JSON="$(node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" plan | tail -n 1)"
 PENDING_COUNT="$(printf '%s' "$PLAN_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).pendingCount)))")"
 if [[ "$FRONTEND_ONLY" -eq 1 ]]; then
@@ -476,6 +484,9 @@ PLAN_DESTRUCTIVE="$(printf '%s' "$PLAN_JSON" | node -e "
     catch (error) { process.stdout.write('1'); }
   });
 ")"
+if [[ "$PLAN_DESTRUCTIVE" -eq 0 && "$UTC_CUTOVER_REQUIRED" -eq 0 ]]; then
+  ONLINE_DEPLOY=1
+fi
 if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
   if [[ "$PENDING_COUNT" -gt 0 && "$UTC_CUTOVER_REQUIRED" -eq 0 && "$PLAN_DESTRUCTIVE" -eq 0 ]]; then
@@ -486,6 +497,11 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     log "检测到 $PENDING_COUNT 个待执行迁移且全部为非破坏性，保持在线发布（不进入维护状态）"
     timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
   else
+    # 维护必须明确批准到本次提交，普通推送不再自动中断线上用户。
+    if [[ "${WHUSU_APPROVED_MAINTENANCE_SHA:-}" != "$TARGET_SHA" ]]; then
+      log "本次变更需要维护但尚未批准，停止发布并保持原服务运行；请拆分兼容版本与在线清理"
+      exit 1
+    fi
     log "检测到 $PENDING_COUNT 个待执行迁移（破坏性=$PLAN_DESTRUCTIVE），UTC 切换待恢复=$UTC_CUTOVER_REQUIRED，进入维护状态"
     touch "$MAINTENANCE_FLAG"
     MAINTENANCE_ACTIVE=1
@@ -495,7 +511,7 @@ if [[ "$PENDING_COUNT" -gt 0 || "$UTC_CUTOVER_REQUIRED" -eq 1 ]]; then
     WORKER_STOPPED=1
     stop_process_group whusu-smart-workspace-backup
     BACKUP_STOPPED=1
-    sleep "$DRAIN_SECONDS"
+    # stop_process_group 已核实全部目标进程退出，无需再固定空等 35 秒。
     timeout --signal=TERM --kill-after=30s 600s node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
   fi
   if [[ "$PLAN_JSON" == *"20260913120000_retire_global_profile_values.sql"* ]]; then
