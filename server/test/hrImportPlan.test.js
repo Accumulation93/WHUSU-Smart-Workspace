@@ -45,7 +45,7 @@ test('不允许清空岗位必需项', () => {
 test('姓名冲突和离任分到不同类别', () => {
   const ctx = context(); ctx.members.push(Object.assign({}, ctx.members[0], { name: '测试乙', studentId: '002', status: 'left' }));
   const plan = buildPlan(payload([['不同姓名', '001', ''], ['测试乙', '002', '']]), ctx);
-  assert.deepEqual(plan.categories.map(item => item.key), ['identity_conflict', 'unavailable']); assert.equal(plan.summary.problemRowCount, 2);
+  assert.deepEqual(plan.categories.map(item => item.key), ['name_difference', 'member_departed']); assert.equal(plan.summary.problemRowCount, 2);
 });
 test('新增无岗位成员与完全重复行归并', () => {
   const plan = buildPlan(payload([['新人', '009', ''], ['新人', '009', '']]), context());
@@ -185,5 +185,21 @@ test('同名问题逐行确认、改字、撤销和权限复核相互隔离', ()
   assert.equal(buildPlan(data, ctx).summary.canExecute, false);
   data.decisions.rows[3].dictionaryApprovals[key] = true; ctx.permissions = [];
   assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+});
+test('展示分类拆分缺失与待确认、离任与停用，并保留处理类型', () => {
+  const { categoryTitle } = require('../src/core/services/hrImportPresentation');
+  const ctx = context(); ctx.members[0].assignments = [];
+  const complete = { schemaVersion: 2, headers: ['姓名', '学号', '部门', '身份'], rows: [['测试甲', '001', '部门甲', '成员']], basicMapping: { name: 0, studentId: 1, department: 2, identity: 3 }, defaultNature: 'staff' };
+  const pending = buildPlan(complete, ctx); assert.equal(pending.categories[0].title, '待确认新增岗位'); assert.equal(pending.issues[0].category, 'incomplete');
+  const missing = buildPlan(payload(), ctx); assert(missing.categories.some(item => item.title === '岗位信息缺失'));
+  const stopped = context(); stopped.members[0].personStatus = 'inactive'; assert.equal(buildPlan(payload(), stopped).categories[0].title, '人员已停用');
+  const left = context(); left.members[0].status = 'inactive'; assert.equal(buildPlan(payload(), left).categories[0].title, '成员已离任');
+  assert.equal(buildPlan(payload([['', '001', '']]), context()).categories[0].title, '必填内容缺失');
+  assert.equal(buildPlan(payload([['测试甲', '#N/A', '']]), context()).categories[0].title, '填写内容有误');
+  assert.equal(categoryTitle({ category: 'identity_conflict', field: 'name' }), '姓名不一致');
+  assert.equal(categoryTitle({ category: 'identity_conflict' }), '同学号姓名不一致');
+  assert.equal(categoryTitle({ category: 'unavailable', reason: 'unavailableAssignment' }), '原岗位已失效');
+  for (const [field, expected] of [['department', '部门未登记'], ['identity', '身份未登记'], ['workGroup', '职能组未登记']]) assert.equal(categoryTitle({ category: 'dictionary', field }), expected);
+  for (const [category, expected] of [['ambiguous', '待选择对应岗位'], ['intent', '待确认岗位变更'], ['value_conflict', '与系统内容不一致'], ['row_conflict', '表内多行内容不一致'], ['duplicate', '岗位重复'], ['stale', '系统资料已更新']]) assert.equal(categoryTitle({ category }), expected);
 });
 console.log(count + ' import planner tests passed');

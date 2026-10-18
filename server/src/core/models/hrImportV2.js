@@ -5,6 +5,7 @@ const { generateId } = require('../../utils/helpers');
 const identity = require('./unifiedIdentity');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const planner = require('../services/hrImportPlan');
+const presentation = require('../services/hrImportPresentation');
 const copy = require('../../locales/zh-CN/hrImport');
 const { buildWorkbookBuffer } = require('../../utils/excelFile');
 
@@ -140,11 +141,7 @@ async function preview(payload, actor, authorize) {
           if (item.category === 'row_conflict') undo.sourceKey = item.targetId;
           plan.issues.push(Object.assign({}, item, { blocking: false, state: 'resolved', actions: [undo] }));
         });
-        plan.categories = planner.CATEGORIES.map(key => {
-          const items = plan.issues.filter(item => item.category === key);
-          const open = items.filter(item => item.blocking);
-          return { key, title: copy[key], total: items.length, count: open.length, rowCount: new Set(open.flatMap(item => item.rowNumbers)).size, resolved: items.length - open.length };
-        }).filter(item => item.total);
+        plan.categories = presentation.categories(plan.issues);
         plan.summary.resolvedCount = plan.issues.filter(item => !item.blocking).length;
       }
     }
@@ -203,13 +200,14 @@ async function details(payload, actor) {
       actions: [{ type: 'edit', rowNumber: row.rowNumber }, { type: 'exclude', rowNumbers: [row.rowNumber] }, { type: 'undo', rowNumber: row.rowNumber }] }));
   else if (payload.view === 'changes') list = plan.changes;
   else if (payload.view === 'excluded') list = plan.excluded.map(rowNumber => ({ rowNumbers: [rowNumber], state: 'excluded', actions: [{ type: 'undo', rowNumber }] }));
-  else list = plan.issues.filter(item => (!payload.category || item.category === payload.category) && item.state === (payload.view === 'resolved' ? 'resolved' : 'open'))
+  else list = plan.issues.filter(item => (!payload.category || item.category === payload.category || presentation.categoryKey(item) === payload.category) && item.state === (payload.view === 'resolved' ? 'resolved' : 'open'))
     .sort((left, right) => (left.reason + ':' + (left.field || '')).localeCompare(right.reason + ':' + (right.field || '')) || left.rowNumbers[0] - right.rowNumbers[0]);
   const rowCategories = new Map();
   plan.issues.filter(item => item.blocking).forEach(item => item.rowNumbers.forEach(row => {
     if (!rowCategories.has(row)) rowCategories.set(row, new Set());
-    rowCategories.get(row).add(item.category);
+    rowCategories.get(row).add(presentation.categoryKey(item));
   }));
+  const displayedCategories = presentation.categories(plan.issues);
   const page = list.slice(offset, offset + 40).map(item => {
     const related = new Set();
     (item.rowNumbers || []).forEach(row => (rowCategories.get(row) || []).forEach(key => related.add(key)));
@@ -220,9 +218,9 @@ async function details(payload, actor) {
       action.type === 'dictionary' ? { rowNumbers: item.rowNumbers } : {}));
     if (item.blocking && item.category === 'dictionary' && item.rowNumbers.length > 1) actions.push({ type: 'editGroup', field: item.field, rowNumbers: item.rowNumbers });
     if (item.blocking && item.rowNumbers.length === 1 && !actions.some(action => action.type === 'edit')) actions.push({ type: 'edit', rowNumber: item.rowNumbers[0] });
-    return Object.assign({}, item, { actions, issueRef: item.id || '', canExpand: Boolean(item.rowNumbers && item.rowNumbers.length), groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
+    return Object.assign({}, item, { categoryTitle: item.category ? presentation.categoryTitle(item) : '', actions, issueRef: item.id || '', canExpand: Boolean(item.rowNumbers && item.rowNumbers.length), groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
       groupTitle: [item.fieldLabel, item.message].filter(Boolean).join(' · '),
-      otherCategories: plan.categories.filter(category => category.key !== item.category && related.has(category.key)).map(category => ({ key: category.key, title: category.title })) });
+      otherCategories: displayedCategories.filter(category => category.key !== presentation.categoryKey(item) && related.has(category.key)).map(category => ({ key: category.key, title: category.title })) });
   });
   return { status: 'success', items: page, total: list.length, offset, hasMore: offset + page.length < list.length };
 }
@@ -383,7 +381,7 @@ async function exportIssues(payload, actor) {
   const record = await readPreview(pool, payload.previewId, actor, false);
   const plan = json(record.plan_json);
   return exportResponse(payload, { status: 'success', headers: [copy.category, copy.reason, copy.rows, copy.name, copy.state, copy.before, copy.after],
-    rows: plan.issues.map(item => [copy[item.category], item.message, item.rowNumbers.join(' / '), item.name, item.blocking ? copy.open : copy.done,
+    rows: plan.issues.map(item => [presentation.categoryTitle(item), item.message, item.rowNumbers.join(' / '), item.name, item.blocking ? copy.open : copy.done,
       typeof item.before === 'string' ? item.before : JSON.stringify(item.before), typeof item.after === 'string' ? item.after : JSON.stringify(item.after)])
       .concat(plan.excluded.map(row => [copy.excluded, copy.excludeNotice, String(row), '', copy.excluded, '', ''])) }, copy.issueFile);
 }

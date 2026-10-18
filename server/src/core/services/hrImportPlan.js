@@ -5,8 +5,9 @@ const crypto = require('crypto');
 const copy = require('../../locales/zh-CN/hrImport');
 const { format } = require('../../locales/runtime');
 const { normalizeDateValue, normalizeDateTimeValue } = require('../../utils/dateValue');
+const presentation = require('./hrImportPresentation');
 
-const CATEGORIES = ['identity_conflict', 'unavailable', 'ambiguous', 'intent', 'incomplete', 'group_mismatch', 'dictionary', 'value_conflict', 'row_conflict', 'invalid', 'duplicate', 'stale'];
+const CATEGORIES = ['identity_conflict', 'unavailable', 'ambiguous', 'intent', 'incomplete', 'dictionary', 'value_conflict', 'row_conflict', 'invalid', 'duplicate', 'stale'];
 const BASIC = ['name', 'studentId', 'nature', 'department', 'identity', 'workGroup', 'assignmentId', 'assignmentVersion'];
 const NATURES = ['staff', 'liaison', 'other'];
 const text = (value) => String(value == null ? '' : value).trim();
@@ -173,12 +174,12 @@ function buildPlan(payload, context) {
       return;
     }
     if (!values.studentId || !values.name || Array.from(values.studentId).length > 32 || Array.from(values.name).length > 100) {
-      issue('invalid', 'missingIdentity', [rowNumber]); return;
+      issue('invalid', 'missingIdentity', [rowNumber], { missingRequired: !values.studentId || !values.name }); return;
     }
     if (existing && existing.name !== values.name) { issue('identity_conflict', 'identityMismatch', [rowNumber], { field: 'name', before: existing.name, after: values.name,
       message: format(copy.nameDifference, [existing.name, values.name]) }); return; }
     if (existing && (existing.personStatus !== 'active' || (existing.membershipId && existing.status !== 'active'))) {
-      issue('unavailable', 'unavailableMember', [rowNumber]); return;
+      issue('unavailable', 'unavailableMember', [rowNumber], { unavailableKind: existing.personStatus !== 'active' ? 'inactive' : 'departed' }); return;
     }
     let person = people.get(values.studentId);
     if (!person) {
@@ -420,12 +421,7 @@ function buildPlan(payload, context) {
     }
   });
   const open = issues.filter(item => item.blocking);
-  const categories = CATEGORIES.map(category => {
-    const items = issues.filter(item => item.category === category);
-    const pending = items.filter(item => item.blocking);
-    return { key: category, title: copy[category], count: pending.length, rowCount: new Set(pending.flatMap(item => item.rowNumbers)).size,
-      resolved: items.length - pending.length, total: items.length };
-  }).filter(item => item.total);
+  const categories = presentation.categories(issues);
   const personList = Array.from(people.values());
   const changes = [];
   personList.forEach(person => {

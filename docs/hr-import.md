@@ -67,18 +67,28 @@
 
 | 键 | 管理员看到的类别 |
 | --- | --- |
-| identity_conflict | 人员身份不一致 |
-| unavailable | 成员或岗位当前不可操作 |
-| ambiguous | 岗位无法唯一确定 |
-| intent | 需要确定新增还是修改 |
-| incomplete | 岗位信息不完整 |
-| group_mismatch | 部门与职能组不匹配 |
-| dictionary | 需要创建新分类 |
-| value_conflict | 已有值与导入值不同 |
-| row_conflict | 同一人员或岗位的多行内容冲突 |
-| invalid | 资料格式或必填项不符合要求 |
-| duplicate | 修改后会出现重复岗位 |
-| stale | 数据已变化，需要重新核对 |
+| name_difference | 姓名不一致 |
+| row_name_difference | 同学号姓名不一致 |
+| member_departed | 成员已离任 |
+| person_inactive | 人员已停用 |
+| assignment_unavailable | 原岗位已失效 |
+| ambiguous | 待选择对应岗位 |
+| intent | 待确认岗位变更 |
+| assignment_incomplete | 岗位信息缺失 |
+| new_assignment | 待确认新增岗位 |
+| department_unregistered | 部门未登记 |
+| identity_unregistered | 身份未登记 |
+| work_group_unregistered | 职能组未登记 |
+| value_conflict | 与系统内容不一致 |
+| row_conflict | 表内多行内容不一致 |
+| required_missing | 必填内容缺失 |
+| invalid_content | 填写内容有误 |
+| duplicate | 岗位重复 |
+| stale | 系统资料已更新 |
+
+以上为展示分类；问题的原始 `category/reason/actions` 保留以兼容原有处理与撤销逻辑。服务端统一生成分类统计、详情 `categoryTitle`、其他问题跳转和导出名称。旧 `identity_conflict/unavailable/incomplete/dictionary/invalid` 筛选仍接受，新拆分类使用独立键，避免新类别筛选误返回整个旧大类。旧计划未记录人员失效原因时仅显示“人员状态待核对”（`legacy_unavailable`），不猜测离任或停用。
+
+分类名称简短，正文继续包含姓名、原表行号、实际表头和列号，说明具体问题及可用操作。已有预览保存生成时的正文；重新检查后使用新版提示，不在只读请求中改写计划或处理决定。网页当前未接入新版导入界面，共享文案副本仍同步生成。
 
 分类返回 `count`（待处理问题）、`rowCount`（待处理的去重行数）、`resolved` 和 `total`。汇总为 `problemCount/problemRowCount/resolvedCount/newMembers/newAssignments/updatedAssignments/profileValues/newDictionaries/excludedRows/totalRows/canExecute`。问题数、行数和人数不能混用。
 

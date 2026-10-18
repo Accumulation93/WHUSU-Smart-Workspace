@@ -160,7 +160,7 @@ Page({
       const personKeys = this.importPersonKeys();
       const items = result.items.map((item, index) => Object.assign({}, item, {
         id: item.id || this.data.view + ':' + (offset + index), index: offset + index, title: item.message || copy[item.type] || (this.data.view === 'rows' ? copy.peopleView : copy.excluded),
-        cardTitle: item.category ? [item.fieldLabel, copy[item.category] || copy.problems].filter(Boolean).join(' · ') : item.name || copy[item.type] || copy.excluded,
+        cardTitle: item.category === 'dictionary' && item.categoryTitle ? item.categoryTitle : item.category ? [item.fieldLabel, item.categoryTitle || copy[item.category] || copy.problems].filter(Boolean).join(' · ') : item.name || copy[item.type] || copy.excluded,
         scopeText: format(copy.involvedPeopleRows, [new Set(item.rowNumbers.map(number => personKeys.get(number) || 'row:' + number)).size, item.rowNumbers.length]),
         rowText: format(copy.rowLabel, [item.rowNumbers.join(' / ')]), beforeText: readable(item.before), afterText: readable(item.after),
         showComparison: item.showComparison !== false && Boolean(item.before || item.after),

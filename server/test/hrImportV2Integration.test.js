@@ -196,6 +196,22 @@ async function main() {
     assert.deepEqual(concurrent[0], concurrent[1]);
     console.log('PASS Excel文本学号、导出回导和并发重复请求');
     const issues = await model.exportIssues({ previewId: invalidPreview.previewId }, actor); assert.equal(issues.rows[0][2], '3');
+    const labelsInput = { schemaVersion: 2, headers: ['姓名', '学号', '职能组'], rows: [['测试甲', '001', '待登记组'], ['', '009', ''], ['错误学号', '#N/A', ''], ['不同姓名', '001', '']], basicMapping: { name: 0, studentId: 1, workGroup: 2 } };
+    const labelsPreview = await model.preview(labelsInput, actor, authorize);
+    for (const category of labelsPreview.categories) {
+      const list = await model.details({ previewId: labelsPreview.previewId, category: category.key }, actor);
+      assert.equal(list.total, category.count); assert(list.items.every(item => item.categoryTitle === category.title));
+    }
+    const newGroupList = await model.details({ previewId: labelsPreview.previewId, category: 'work_group_unregistered' }, actor);
+    const oldGroupList = await model.details({ previewId: labelsPreview.previewId, category: 'dictionary' }, actor);
+    assert(newGroupList.total > 0); assert.deepEqual(newGroupList.items.map(item => item.id), oldGroupList.items.map(item => item.id));
+    const legacyInvalid = await model.details({ previewId: labelsPreview.previewId, category: 'invalid' }, actor);
+    assert.equal(legacyInvalid.total, 2);
+    assert.deepEqual(new Set(legacyInvalid.items.map(item => item.categoryTitle)), new Set(['必填内容缺失', '填写内容有误']));
+    const labelsExport = await model.exportIssues({ previewId: labelsPreview.previewId }, actor);
+    assert(labelsExport.rows.some(row => row[0] === '职能组未登记')); assert(labelsExport.rows.some(row => row[0] === '必填内容缺失'));
+    assert(labelsExport.rows.some(row => row[1].includes('第 3 列') && row[1].includes('待登记组')));
+    console.log('PASS 新分类列表数量和导出同名，旧分类筛选兼容且具体行列提示保留');
     await admin.query("UPDATE hr_import_previews SET expires_at = DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 DAY) WHERE id=?", [invalidPreview.previewId]);
     await model.cleanup(); await assert.rejects(model.details({ previewId: invalidPreview.previewId }, actor), error => error.code === 'import_expired');
     console.log('PASS 专用导出、问题行号及过期清理');
