@@ -1,4 +1,7 @@
 const assert = require('assert');
+// 所有查询均使用本测试传入的连接，禁止创建真实数据库连接。
+const dbPath = require.resolve('../src/config/db');
+require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {} };
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'hr-member-deletion-model-test-secret';
 process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'hr-member-deletion-model-identity-secret';
 const model = require('../src/core/models/hrMemberDeletion');
@@ -286,6 +289,7 @@ function inactiveFallbackCandidateConnection(calls, preview) {
     async query(sql, params) {
       const normalized = normalizeSql(sql);
       calls.push({ sql: normalized, params });
+      if (normalized.includes('FROM information_schema.tables') && params[0] === 'hr_contact_directory_rules') return [[]];
       if (normalized.startsWith('SELECT condition_row.id')) return [[]];
       if (normalized.includes('FROM audit_flow_template_step_conditions')
         && normalized.startsWith('SELECT person_hr_ids')) return [[]];
