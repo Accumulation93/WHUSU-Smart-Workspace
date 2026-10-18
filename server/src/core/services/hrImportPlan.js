@@ -166,10 +166,16 @@ function buildPlan(payload, context) {
     const existing = members.get(values.studentId);
     const row = { rowNumber, name: values.name, studentId: values.studentId, values, decision };
     rowViews.push(row);
+    if (/^#(?:N\/A|VALUE!|REF!|DIV\/0!|NUM!|NAME\?|NULL!|SPILL!|CALC!)$/i.test(values.studentId)) {
+      issue('invalid', 'spreadsheetIdentityError', [rowNumber], { field: 'studentId', after: cells[input.basicMapping.studentId],
+        message: format(copy.spreadsheetIdentityError, [cells[input.basicMapping.studentId]]), actions: [] });
+      return;
+    }
     if (!values.studentId || !values.name || Array.from(values.studentId).length > 32 || Array.from(values.name).length > 100) {
       issue('invalid', 'missingIdentity', [rowNumber]); return;
     }
-    if (existing && existing.name !== values.name) { issue('identity_conflict', 'identityMismatch', [rowNumber]); return; }
+    if (existing && existing.name !== values.name) { issue('identity_conflict', 'identityMismatch', [rowNumber], { field: 'name', before: existing.name, after: values.name,
+      message: format(copy.nameDifference, [existing.name, values.name]) }); return; }
     if (existing && (existing.personStatus !== 'active' || (existing.membershipId && existing.status !== 'active'))) {
       issue('unavailable', 'unavailableMember', [rowNumber]); return;
     }
@@ -223,7 +229,8 @@ function buildPlan(payload, context) {
       if (!ids.length || targets.some(item => !item)) { issue('unavailable', 'unavailableAssignment', [rowNumber]); return; }
     } else if (!active.length) {
       const reason = values.department && values.identity && (values.nature || input.defaultNature) ? 'confirmNewAssignment' : 'missingAssignment';
-      issue('incomplete', reason, [rowNumber], { actions: [action('mode', { rowNumber, value: 'new' }), action('mode', { rowNumber, value: 'person' }), action('edit', { rowNumber })] });
+      issue('incomplete', reason, [rowNumber], { after: label(values), before: copy.noAssignment,
+        actions: [action('mode', { rowNumber, value: 'new' }), action('mode', { rowNumber, value: 'person' }), action('edit', { rowNumber })] });
       return;
     } else {
       const exact = active.filter(item => values.nature && values.department && values.identity && tuple(item) === tuple(values));
@@ -237,6 +244,9 @@ function buildPlan(payload, context) {
       else {
         const ambiguous = candidates.length > 1 && !(values.nature && values.department && values.identity);
         issue(ambiguous ? 'ambiguous' : 'intent', ambiguous ? 'ambiguousAssignment' : 'chooseIntent', [rowNumber], {
+          before: active.map(label).join('\n'), after: label(values),
+          message: ambiguous ? copy.assignmentAmbiguous : format(copy.assignmentDifference, [
+            ['nature', 'department', 'identity', 'workGroup'].filter(key => values[key] && !active.some(item => item[key] === values[key])).map(key => copy[key]).join(copy.listSeparator) || copy.target]),
           actions: [action('select', { rowNumber }), action('mode', { rowNumber, value: 'new' }), action('mode', { rowNumber, value: 'person' })]
         }); return;
       }
@@ -256,7 +266,8 @@ function buildPlan(payload, context) {
       }
       const namedGroups = groupByName.get(next.workGroup) || [];
       if (next.workGroup && namedGroups.length && !namedGroups.some(group => group.department === next.department)) {
-        issue('group_mismatch', 'wrongGroup', [rowNumber], { targetId, before: namedGroups.map(item => item.department).join(' / '), after: next.department,
+        issue('group_mismatch', 'wrongGroup', [rowNumber], { targetId, field: 'department', before: namedGroups.map(item => item.department).join(' / '), after: next.department,
+          message: format(copy.groupDepartmentDifference, [next.workGroup, namedGroups.map(item => item.department).join(' / '), next.department]),
           actions: [action('edit', { rowNumber })] }); return;
       }
       const key = targetId || values.studentId + ':' + tuple(next);
@@ -284,7 +295,8 @@ function buildPlan(payload, context) {
     }
     const mergedGroups = groupByName.get(chosen.next.workGroup) || [];
     if (chosen.next.workGroup && mergedGroups.length && !mergedGroups.some(group => group.department === chosen.next.department)) {
-      issue('group_mismatch', 'wrongGroup', sources.map(item => item.rowNumber), { targetId: chosen.targetId, before: mergedGroups.map(group => group.department).join(' / '), after: chosen.next.department,
+      issue('group_mismatch', 'wrongGroup', sources.map(item => item.rowNumber), { targetId: chosen.targetId, field: 'department', before: mergedGroups.map(group => group.department).join(' / '), after: chosen.next.department,
+        message: format(copy.groupDepartmentDifference, [chosen.next.workGroup, mergedGroups.map(group => group.department).join(' / '), chosen.next.department]),
         actions: sources.map(item => action('edit', { rowNumber: item.rowNumber })) });
     }
     const person = people.get(chosen.studentId);
@@ -327,7 +339,8 @@ function buildPlan(payload, context) {
     const permission = { department: 'hr.departments', identity: 'hr.identities', workGroup: 'hr.work_groups' }[item.type];
     const allowed = context.permissions.includes(permission);
     item.approved = allowed && (decisions.dictionaries || []).includes(item.key);
-    issue('dictionary', allowed ? 'newDictionary' : 'dictionaryForbidden', item.rowNumbers, { dictionaryKey: item.key, field: item.type, before: item.department, after: item.name,
+    issue('dictionary', allowed ? 'newDictionary' : 'dictionaryForbidden', item.rowNumbers, { dictionaryKey: item.key, field: item.type, before: copy.noRegisteredValue, after: item.name,
+      message: format(copy[allowed ? 'newDictionary' : 'dictionaryForbidden'], [copy[item.type], item.name, item.department ? format(copy.departmentScope, [item.department]) : '']),
       actions: allowed ? [action('dictionary', { value: item.key }), action('exclude', { rowNumbers: item.rowNumbers })] : [action('exclude', { rowNumbers: item.rowNumbers })] }, item.approved);
   });
   const rowsByNumber = new Map(rowViews.map(row => [row.rowNumber, row]));
@@ -338,6 +351,24 @@ function buildPlan(payload, context) {
     item.studentId = first ? first.studentId : '';
     item.fieldLabel = copy[item.field] || (fields.get(item.field) || {}).label || '';
     item.targetLabel = assignmentLabels.get(item.targetId) || '';
+    if (item.reason === 'spreadsheetIdentityError') item.actions = item.actions.filter(entry => entry.type !== 'edit');
+    if (item.reason === 'confirmNewAssignment') item.message = copy.newAssignmentDetails;
+    if (item.reason === 'missingAssignment' && first) {
+      const member = members.get(first.studentId);
+      const target = member && member.assignments.find(entry => entry.id === item.targetId);
+      const missing = ['nature', 'department', 'identity'].filter(key => !(first.values[key] || (target && target[key]) || (key === 'nature' && input.defaultNature)));
+      item.message = format(copy.missingAssignmentFields, [missing.map(key => input.basicMapping[key] == null && key !== 'nature' ? format(copy.missingColumn, [copy[key]]) : copy[key]).join(copy.listSeparator) || copy.nature]);
+      item.after = label(first.values);
+    }
+    if (item.reason === 'differentValue') item.message = format(copy.fieldValueDifference, [item.fieldLabel]);
+    if (item.category === 'invalid' && item.fieldLabel && item.reason !== 'spreadsheetIdentityError') item.message = format(copy.fieldInvalid, [item.fieldLabel, item.message]);
+    if (item.reason === 'identityMismatch' && !item.field) {
+      item.message = format(copy.rowNameDifference, [item.rowNumbers.map(number => { const row = rowsByNumber.get(number); return format(copy.rowLabel, [number]) + ' ' + (row ? row.name : ''); }).join(copy.listSeparator)]);
+    }
+    item.showComparison = Boolean(item.before || item.after);
+    if (['intent', 'ambiguous', 'incomplete'].includes(item.category)) {
+      item.beforeLabel = copy.existingAssignments; item.afterLabel = copy.importedAssignment;
+    }
     if (item.state === 'resolved') {
       let undo = { rowNumbers: item.rowNumbers };
       if (item.category === 'value_conflict') undo.policyKey = item.targetId ? item.targetId + ':' + item.field : item.field;

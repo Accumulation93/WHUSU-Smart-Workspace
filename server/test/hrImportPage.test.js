@@ -12,6 +12,11 @@ function createPage(call, file) {
   const session = { beginRequest: () => ({ snapshot: {} }), isRequestCurrent: () => sessionCurrent, isCurrent: () => sessionCurrent,
     consume: () => ({ changed: false }), invalidateRequests: () => {} };
   const files = { chooseTableFile: async () => file, saveAndShareFile: async () => {} };
+  const scrolls = [];
+  const wx = { pageScrollTo(value) { scrolls.push(value); }, createSelectorQuery() {
+    const query = { select() { return query; }, boundingClientRect() { return query; }, selectViewport() { return query; }, scrollOffset() { return query; },
+      exec(done) { done([{ top: 340 }, { scrollTop: 610 }]); } }; return query;
+  } };
   const format = (value, args) => value.replace(/\{(\d+)\}/g, (_, index) => String(args[index]));
   const imports = {
     '../../package-resources/locales/zh-CN/hrImport': copy, '../../package-resources/locales/runtime': { format },
@@ -20,7 +25,7 @@ function createPage(call, file) {
     '../../../../utils/messageQueries': { invalidate() {} },
     '../../../../utils/navigationBarMetrics': { getNavigationBarMetrics: () => ({ totalHeight: 88 }) }
   };
-  vm.runInNewContext(source, { require: name => { assert(imports[name], name); return imports[name]; }, Page: value => { definition = value; }, wx: { pageScrollTo() {} }, setTimeout, clearTimeout });
+  vm.runInNewContext(source, { require: name => { assert(imports[name], name); return imports[name]; }, Page: value => { definition = value; }, wx, setTimeout, clearTimeout });
   const page = Object.assign({}, definition, { data: JSON.parse(JSON.stringify(definition.data)) });
   page.setData = (changes, done) => {
     Object.entries(changes).forEach(([key, value]) => {
@@ -31,7 +36,7 @@ function createPage(call, file) {
     if (done) done();
   };
   page.onLoad();
-  return { page, session, files, changeSession: () => { sessionCurrent = false; } };
+  return { page, session, files, scrolls, changeSession: () => { sessionCurrent = false; } };
 }
 
 async function main() {
@@ -54,6 +59,30 @@ async function main() {
   assert.equal(state.page.payload().decisions.rows[2].policies['a1:workGroup'], 'replace');
   state.page.applyAction({ type: 'undo', rowNumbers: [2] }); assert.equal(state.page.payload().decisions.rows[2], undefined);
   console.log('PASS 真实页面构建三列请求、确认替换和撤销');
+  for (const group of ['职能组（全称）', '工作分工（职能组）', ' 工作分工(职能组) ']) {
+    const aliases = createPage(async () => ({ status: 'success', fields: [] }), {
+      fileName: 'aliases.xlsx', headers: ['姓名', '学号', '身份', group], rows: [['测试甲', '001', '身份甲', '组甲']]
+    });
+    await aliases.page.chooseFile();
+    assert.deepEqual(JSON.parse(JSON.stringify(aliases.page.payload().basicMapping)), { name: 0, studentId: 1, identity: 2, workGroup: 3 });
+    aliases.page.scrollToSection('#import-issue-list');
+    assert.equal(aliases.scrolls[0].scrollTop, 862);
+    aliases.changeSession(); aliases.page._active = false; aliases.page.scrollToSection('#import-issue-list');
+    assert.equal(aliases.scrolls.length, 1);
+  }
+  assert(wxml.includes('id="import-issue-list"'));
+  assert(wxml.includes('wx:if="{{item.showComparison}}"'));
+  console.log('PASS 表头别名匹配、按标题实测位置扣除导航栏滚动及离页拦截');
+
+  const categories = createPage(async () => ({ status: 'success', items: [], total: 0, hasMore: false }));
+  categories.page._previewId = 'preview';
+  categories.page.data.listTitle = '首个类别';
+  const initialCategory = categories.page.data.category;
+  categories.page.switchList({ category: 'dictionary' });
+  await new Promise(resolve => setImmediate(resolve));
+  categories.page.switchList({ category: initialCategory });
+  assert.equal(categories.page.data.listTitle, '首个类别');
+  assert.equal(categories.scrolls.length, 2);
 
   state.files.chooseTableFile = async () => { state.page.onHide(); return file; };
   await state.page.chooseFile(); assert.equal(state.page.data.stage, 'mapping'); assert.equal(state.page.data.busy, false);

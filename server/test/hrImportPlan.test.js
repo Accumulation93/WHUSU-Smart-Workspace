@@ -117,4 +117,35 @@ test('修改后重复岗位阻止写入，多目标逐岗校验部门', () => {
   plan = buildPlan(payload(null, { rows: { 2: { mode: 'update', assignmentIds: ['a1', 'a2'] } } }), ctx);
   assert(plan.issues.some(item => item.category === 'group_mismatch' && item.targetId === 'a2'));
 });
+test('表格错误值不作为学号合并人员或产生岗位问题', () => {
+  const errors = ['#N/A', '#VALUE!', '#REF!', '#DIV/0!', '#NUM!', '#NAME?', '#NULL!', '#SPILL!', '#CALC!'];
+  const data = payload(errors.map((value, index) => ['人员' + index, value, '组甲']));
+  const plan = buildPlan(data, context());
+  assert.equal(plan.people.length, 0); assert.equal(plan.assignments.length, 0);
+  assert.equal(plan.issues.length, errors.length);
+  plan.issues.forEach((item, index) => {
+    assert.equal(item.reason, 'spreadsheetIdentityError'); assert(item.message.includes(errors[index]));
+    assert.equal(item.rowNumbers.length, 1); assert(!item.actions.some(action => action.type === 'edit'));
+  });
+});
+test('岗位差异明确列出资料项和两边岗位，空信息不画伪比较', () => {
+  const data = { schemaVersion: 2, headers: ['姓名', '学号', '部门', '身份', '职能组（全称）'],
+    rows: [['测试甲', '001', '部门乙', '身份甲', '组乙']], basicMapping: { name: 0, studentId: 1, department: 2, identity: 3, workGroup: 4 }, defaultNature: 'staff' };
+  const plan = buildPlan(data, context()); const issue = plan.issues.find(item => item.category === 'intent');
+  assert(issue.message.includes(copy.department)); assert(issue.before.includes('部门甲')); assert(issue.after.includes('部门乙'));
+  assert.equal(issue.showComparison, true);
+  const invalid = buildPlan(payload([['', '001', '']]), context()).issues[0];
+  assert.equal(invalid.showComparison, false);
+});
+test('未登记名称、缺失资料项和跨部门职能组均可读', () => {
+  const ctx = context();
+  const plan = buildPlan(payload([['测试甲', '001', '新组']]), ctx);
+  const dictionary = plan.issues.find(item => item.category === 'dictionary');
+  assert(dictionary.message.includes(copy.workGroup)); assert(dictionary.message.includes('新组')); assert(dictionary.message.includes('部门甲'));
+  assert.equal(dictionary.before, copy.noRegisteredValue);
+  const incomplete = buildPlan(payload([['新人', '009', '组甲']]), ctx).issues[0];
+  assert(incomplete.message.includes(copy.identity)); assert(incomplete.message.includes(copy.department));
+  const mismatch = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), ctx).issues.find(item => item.category === 'group_mismatch');
+  assert(mismatch.message.includes('组乙')); assert(mismatch.message.includes('部门乙')); assert(mismatch.message.includes('部门甲'));
+});
 console.log(count + ' import planner tests passed');

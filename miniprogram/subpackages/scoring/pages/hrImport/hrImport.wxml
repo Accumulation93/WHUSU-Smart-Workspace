@@ -2,7 +2,7 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="import-page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.title}}" tone="admin" />
-  <view class="section-control-card import-card">
+  <view class="section-control-card import-card" wx:if="{{stage === 'file' || stage === 'mapping'}}">
     <view class="import-title">{{copy.title}}</view>
     <view class="import-note">{{copy.instructions}}</view>
     <view wx:if="{{fileSummary}}" class="import-note">{{fileSummary}}</view>
@@ -32,6 +32,9 @@
 
   <view class="section-control-card import-card" wx:if="{{stage === 'review' || stage === 'confirm'}}">
     <view class="import-title">{{summaryText}}</view>
+    <view class="import-note">{{fileSummary}}</view>
+    <view wx:if="{{error}}" class="import-error">{{error}}</view>
+    <view wx:if="{{busy}}" class="import-note">{{copy.loading}}</view>
     <view class="import-note">{{executionText}}</view>
     <view class="import-actions" wx:if="{{stage === 'review' && !requestId}}">
       <button class="secondary-btn" bindtap="goMapping" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.back}}</button>
@@ -79,15 +82,16 @@
     <view class="import-actions"><button class="secondary-btn" bindtap="cancelAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" bindtap="confirmAction" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button></view>
   </view>
 
-  <view wx:if="{{stage === 'review' || stage === 'confirm'}}">
+  <view id="import-issue-list" wx:if="{{stage === 'review' || stage === 'confirm'}}">
+    <view class="section-control-card import-list-heading"><view class="import-title">{{listTitle || copy.issueList}}</view></view>
     <view class="import-card selection-option-card {{item.selected ? 'selection-option-card-selected import-active' : ''}}" wx:for="{{items}}" wx:key="id" aria-checked="{{item.selected}}" data-index="{{index}}" catchtap="toggleProblem" hover-class="{{item.blocking ? 'ui-press-card' : 'none'}}" hover-start-time="0" hover-stay-time="160">
-      <view wx:if="{{item.groupStart}}" class="import-label">{{item.groupTitle}}</view>
-      <view class="import-title">{{item.title}}</view><view class="import-label">{{item.name}}</view><view class="import-note">{{item.rowText}}</view>
+      <view class="import-issue-head"><view class="import-title">{{item.name}}</view><view class="import-note">{{item.rowText}}</view></view>
+      <view class="import-reason">{{item.title}}</view>
       <view wx:if="{{item.targetLabel}}" class="import-note">{{item.targetLabel}}</view>
       <view wx:if="{{item.resolutionLabel}}" class="import-label">{{item.resolutionLabel}}</view>
       <view class="import-label" wx:if="{{item.fieldLabel}}">{{item.fieldLabel}}</view>
       <view class="import-note" wx:if="{{item.requirements}}">{{item.requirements}}</view>
-      <view class="import-diff"><view><view class="import-note">{{copy.before}}</view><view class="import-value">{{item.beforeText}}</view></view><view><view class="import-note">{{copy.after}}</view><view class="import-value">{{item.afterText}}</view></view></view>
+      <view class="import-diff" wx:if="{{item.showComparison}}"><view class="import-diff-cell"><view class="import-note">{{item.beforeLabel || copy.before}}</view><view class="import-value">{{item.beforeText}}</view></view><view class="import-diff-cell"><view class="import-note">{{item.afterLabel || copy.after}}</view><view class="import-value">{{item.afterText}}</view></view></view>
       <view class="card-actions import-actions" wx:if="{{stage === 'review'}}">
         <button wx:for="{{item.actions}}" wx:for-item="action" wx:for-index="actionIndex" wx:key="label" class="secondary-btn" data-index="{{index}}" data-action="{{actionIndex}}" catchtap="performAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{action.label}}</button>
       </view>

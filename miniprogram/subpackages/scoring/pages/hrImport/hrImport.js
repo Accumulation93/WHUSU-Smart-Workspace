@@ -10,6 +10,7 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const BASIC = ['name', 'studentId', 'nature', 'department', 'identity', 'workGroup', 'assignmentId', 'assignmentVersion'];
 const NATURES = ['', 'staff', 'liaison', 'other'];
 const clone = value => JSON.parse(JSON.stringify(value));
+const normalizedHeader = value => String(value || '').trim().replace(/\s+/g, '').replace(/（/g, '(').replace(/）/g, ')');
 function actionLabel(action) {
   if (action.type === 'refresh') return copy.refresh;
   if (action.type === 'source') return format(copy.useSourceRow, [action.value]);
@@ -87,7 +88,10 @@ Page({
       this._decisions = { rows: {}, dictionaries: [], sources: {} };
       const used = new Set();
       const mappings = file.headers.map((header, index) => {
-        let selectedIndex = this._mappingOptions.findIndex(item => item.key && item.label === header && !used.has(item.key));
+        const normalized = normalizedHeader(header);
+        const aliasKey = BASIC.find(key => (copy.headerAliases[key] || [copy[key]]).some(label => normalizedHeader(label) === normalized));
+        let selectedIndex = this._mappingOptions.findIndex(item => item.key && !used.has(item.key)
+          && (aliasKey ? item.key === aliasKey : normalizedHeader(item.label) === normalized));
         if (selectedIndex < 0) selectedIndex = 0;
         if (selectedIndex) used.add(this._mappingOptions[selectedIndex].key);
         return { index, header, label: format(copy.columnSummary, [index + 1, header]), selectedIndex, target: this._mappingOptions[selectedIndex].key, targetLabel: this._mappingOptions[selectedIndex].label };
@@ -131,7 +135,7 @@ Page({
       this._views = {};
       this._summary = result.summary;
       this._selected.clear();
-      const categories = result.categories.map(item => Object.assign({}, item, { summaryText: format(copy.groupSummary, [item.count, item.rowCount, item.resolved]) }));
+      const categories = result.categories.map(item => Object.assign({}, item, { summaryText: format(copy.categoryCount, [item.count]) }));
       const current = categories.find(item => item.key === this.data.category);
       const category = current ? current.key : (categories.find(item => item.count) || categories[0] || {}).key || '';
       const summary = result.summary;
@@ -154,12 +158,15 @@ Page({
       const items = result.items.map((item, index) => Object.assign({}, item, {
         id: item.id || this.data.view + ':' + (offset + index), index: offset + index, title: item.message || copy[item.type] || (this.data.view === 'rows' ? copy.peopleView : copy.excluded),
         rowText: format(copy.rowLabel, [item.rowNumbers.join(' / ')]), beforeText: readable(item.before), afterText: readable(item.after),
+        showComparison: item.showComparison !== false && Boolean(item.before || item.after),
         selected: this._selected.has(item.id), actions: (item.actions || []).map(action => Object.assign({}, action, { label: actionLabel(action) }))
       }));
-      const patch = { total: result.total, hasMore: result.hasMore };
+      const category = this.data.categories.find(item => item.key === this.data.category);
+      const patch = { total: result.total, hasMore: result.hasMore, listTitle: format(copy.currentCategory, [
+        ['open', 'resolved'].includes(this.data.view) && category ? category.title : (this.data.viewOptions.find(item => item.key === this.data.view) || {}).label || copy.issueList, result.total]) };
       if (append) items.forEach((item, index) => { patch['items[' + (offset + index) + ']'] = item; });
       else patch.items = items;
-      this.setData(patch);
+      await new Promise(resolve => this.setData(patch, resolve));
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
@@ -167,13 +174,24 @@ Page({
     if (this.data.busy || this._staleIssue) return;
     const oldKey = this.data.view + ':' + this.data.category;
     this._offsets[oldKey] = this._scrollTop || 0;
-    this._views[oldKey] = { items: this.data.items.map(item => Object.assign({}, item, { selected: false })), total: this.data.total, hasMore: this.data.hasMore };
+    this._views[oldKey] = { items: this.data.items.map(item => Object.assign({}, item, { selected: false })), total: this.data.total, hasMore: this.data.hasMore, listTitle: this.data.listTitle };
     this._selected.clear();
-    const key = (patch.view || this.data.view) + ':' + (patch.category || this.data.category);
+    const key = (patch.view == null ? this.data.view : patch.view) + ':' + (patch.category == null ? this.data.category : patch.category);
     const cached = this._views[key];
     this.setData(Object.assign({ selectedCount: 0, selectedText: '' }, patch, cached || { items: [], hasMore: false }), async () => {
       if (!cached) await this.loadItems(false);
-      if (this._active) wx.pageScrollTo({ scrollTop: this._offsets[key] || 0, duration: 0 });
+      this.scrollToSection('#import-issue-list');
+    });
+  },
+  scrollToSection(selector) {
+    if (!this._active || !wx.createSelectorQuery) return;
+    const request = orgSession.beginRequest(this, 'scroll');
+    const query = wx.createSelectorQuery();
+    query.select(selector).boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec(results => {
+      if (!this._active || !orgSession.isRequestCurrent(this, request) || !results[0] || !results[1]) return;
+      wx.pageScrollTo({ scrollTop: Math.max(0, results[1].scrollTop + results[0].top - this.data.navTopPx), duration: 200 });
     });
   },
   changeCategory(event) { this.switchList({ category: event.currentTarget.dataset.key }); },
