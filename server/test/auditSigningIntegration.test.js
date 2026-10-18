@@ -26,7 +26,7 @@ async function run() {
     // 先模拟升级前结构，再验证新增字段迁移的执行与重复执行。
     await admin.query('ALTER TABLE audit_submission_files DROP COLUMN original_file_path, DROP COLUMN original_file_hash, DROP COLUMN original_file_size');
     await admin.query('ALTER TABLE audit_submissions DROP COLUMN description');
-    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql']) {
+    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql', '20261018010000_audit_drop_resubmit_mode.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', migration), 'utf8'); await admin.query(sql); await admin.query(sql);
     }
     // 生产绝对时间字段已由 UTC 迁移升级为毫秒；隔离初始库补齐同一事实。
@@ -139,7 +139,7 @@ async function run() {
     assert.equal((await admin.query('SELECT COUNT(*) AS n FROM audit_submission_signatures'))[0][0].n, 3, '重复请求不重复签署');
     assert.notEqual((await post('getSubmissionDetail', { submissionId: 'submission-1' }, { 'X-Test-Org': 'org-b' })).status, 'success');
     // 构造已完成首步、等待第二步的旧模式申请，再通过真实接口驳回与重新提交。
-    await admin.query("UPDATE audit_submissions SET status='in_progress',current_step_index=2,resubmit_mode='from_rejector' WHERE id='submission-1'");
+    await admin.query("UPDATE audit_submissions SET status='in_progress',current_step_index=2 WHERE id='submission-1'");
     await admin.query("INSERT INTO audit_submission_steps (id,submission_id,sort_order,action_type,step_conditions_json,org_id) VALUES ('reject-step','submission-1',2,'either',?,'org-a')", [JSON.stringify([{conditionType:'submitter'}])]);
     const rejected = await post('rejectStep', {submissionId:'submission-1',stepId:'reject-step',rejectionReason:'请修改'});
     assert.equal(rejected.status, 'success', JSON.stringify(rejected));

@@ -125,18 +125,17 @@ async function create(id, data, conn) {
     title,
     description,
     status,
-    resubmitMode,
     currentStepIndex
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const columns = [
     'id', 'submission_number', 'submitted_by', 'type', 'template_id', 'title', 'description',
-    'status', 'current_step_index', 'resubmit_mode'
+    'status', 'current_step_index'
   ];
   const values = [
     id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', description || null,
-    status || 'draft', currentStepIndex !== undefined ? currentStepIndex : 0, resubmitMode || 'fresh'
+    status || 'draft', currentStepIndex !== undefined ? currentStepIndex : 0
   ];
   const availableColumns = await getColumns('audit_submissions', db);
   if (availableColumns.has('submitted_person_id')) {
@@ -166,7 +165,6 @@ async function update(id, data, conn) {
     description,
     type,
     templateId,
-    resubmitMode,
     status,
     currentStepIndex,
     previousRejectStepIndex,
@@ -183,7 +181,6 @@ async function update(id, data, conn) {
   if (description !== undefined) { fields.push('description = ?'); params.push(description); }
   if (type !== undefined) { fields.push('type = ?'); params.push(type); }
   if (templateId !== undefined) { fields.push('template_id = ?'); params.push(templateId); }
-  if (resubmitMode !== undefined) { fields.push('resubmit_mode = ?'); params.push(resubmitMode); }
   if (status !== undefined) { fields.push('status = ?'); params.push(status); }
   if (currentStepIndex !== undefined) { fields.push('current_step_index = ?'); params.push(currentStepIndex); }
   if (previousRejectStepIndex !== undefined) { fields.push('previous_reject_step_index = ?'); params.push(previousRejectStepIndex); }

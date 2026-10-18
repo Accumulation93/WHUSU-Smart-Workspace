@@ -107,7 +107,4 @@ assert.equal(submissionStep.matchesAnyCondition(selfNarrowed, applicant, applica
 assert.deepEqual(policy.stripDesignationOverrides(selfNarrowed), [selfCondition]);
 console.log('审核条件校验、发起人岗位绑定、OR 语义、指定收窄与重提恢复测试通过');
 
-assert.equal(policy.normalizeResubmitMode('from_rejector'), 'fresh');
-assert.equal(policy.normalizeResubmitMode('fresh'), 'fresh');
-assert.equal(policy.isValidResubmitMode(policy.normalizeResubmitMode('unknown')), false);
 assert.equal(policy.validateStepShape({actionType:'either',conditions:[identityCondition]}).ok, true);

@@ -23,7 +23,6 @@ const signingCopy = require('../../../locales/zh-CN/auditSigningEvidence');
 const stampGrantModel = require('../models/stampAssignmentGrant');
 const { hashFile } = require('../utils/hashChain');
 const { prepareRoundFiles } = require('../services/auditRoundFiles');
-const { normalizeResubmitMode } = require('../services/auditWorkflowPolicy');
 const signingUiCopy = require('../../../locales/zh-CN/auditSigning');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnBuffer } = require('../utils/signatureOverlay');
@@ -65,7 +64,6 @@ const {
 const {
   validateConditionShape,
   validateStepShape,
-  isValidResubmitMode,
   stripDesignationOverrides,
   applyDesignationOverride,
   effectiveConditionsForAuthorization
@@ -364,7 +362,7 @@ router.post('/listMySubmissions', async (req, res) => {
         type: safeString(s.type),
         status: safeString(s.status),
         currentStepIndex: s.current_step_index,
-        resubmitMode: normalizeResubmitMode(s.resubmit_mode),
+        resubmitMode: 'fresh',
         createdAt: s.created_at,
         updatedAt: s.updated_at,
         isUnread
@@ -481,9 +479,6 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (!template.is_active) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_479f3dbce7 });
     }
-    if (!isValidResubmitMode(safeString(template.resubmit_mode))) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
-    }
 
     // Parse starter conditions
     let starterConditions = [];
@@ -529,7 +524,6 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (!Array.isArray(starterConditions)) starterConditions = [];
     templateSteps = template ? await flowTemplateStepModel.getByTemplateId(templateId, conn) : [];
     if (!submitterFull || !template || !template.is_active
-      || !isValidResubmitMode(safeString(template.resubmit_mode))
       || !templateSteps.length
       || !matchesStarter(template, starterConditions, submitterFull)) {
       await conn.rollback();
@@ -570,8 +564,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       title,
       description,
       status: 'in_progress',
-      currentStepIndex: 1,
-      resubmitMode: normalizeResubmitMode(template.resubmit_mode)
+      currentStepIndex: 1
     }, conn);
 
     await attachUploadedFiles({ uploadedFiles, submissionId, accountId: req.authAccount && req.authAccount.id, conn });
@@ -722,16 +715,12 @@ router.post('/startAdHocAudit', async (req, res) => {
 
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
-    const resubmitMode = normalizeResubmitMode(req.body.resubmitMode);
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
 
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_625e93775b });
     if (!steps.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_72870ab41e });
     if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
-    if (!isValidResubmitMode(resubmitMode)) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
-    }
 
     await conn.beginTransaction();
     submitterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
@@ -774,7 +763,6 @@ router.post('/startAdHocAudit', async (req, res) => {
       description,
       status: 'in_progress',
       currentStepIndex: 1,
-      resubmitMode
     }, conn);
 
     await attachUploadedFiles({ uploadedFiles, submissionId, accountId: req.authAccount && req.authAccount.id, conn });
@@ -1195,7 +1183,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         submittedContextSnapshot: parseSnapshot(submission.submitted_context_snapshot),
         submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
-        resubmitMode: normalizeResubmitMode(submission.resubmit_mode),
+        resubmitMode: 'fresh',
         previousRejectStepIndex: submission.previous_reject_step_index,
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
@@ -1981,7 +1969,6 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const description = safeString(req.body.description);
     const newType = safeString(req.body.type) || submission.type;
     const newTemplateId = safeString(req.body.templateId) || null;
-    let newResubmitMode = normalizeResubmitMode(req.body.resubmitMode || submission.resubmit_mode);
     const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
     const retainedFileIds = Array.isArray(req.body.retainedFileIds)
@@ -1990,7 +1977,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_b99e01d38c });
-    if (!['template', 'ad_hoc'].includes(newType) || !isValidResubmitMode(newResubmitMode)) {
+    if (!['template', 'ad_hoc'].includes(newType)) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
     }
 
@@ -2027,10 +2014,6 @@ router.post('/updateAuditSubmission', async (req, res) => {
         || !matchesStarter(templateForEdit, starterConditionsForEdit, editorAssignment)) {
         return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
-      if (!isValidResubmitMode(safeString(templateForEdit.resubmit_mode))) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
-      }
-      newResubmitMode = templateForEdit.resubmit_mode;
       templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId);
       if (!templateStepsForEdit.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_f9f6b991ba });
       templateConditionsForEdit = buildTemplateConditionMap(
@@ -2055,13 +2038,11 @@ router.post('/updateAuditSubmission', async (req, res) => {
         try { starterConditionsForEdit = JSON.parse(templateForEdit.starter_conditions_json); } catch (_) { starterConditionsForEdit = []; }
       }
       if (!templateForEdit || !templateForEdit.is_active
-        || !isValidResubmitMode(safeString(templateForEdit.resubmit_mode))
         || !Array.isArray(starterConditionsForEdit)
         || !matchesStarter(templateForEdit, starterConditionsForEdit, editorAssignment)) {
         await conn.rollback();
         return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
-      newResubmitMode = templateForEdit.resubmit_mode;
       templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId, conn);
       if (!templateStepsForEdit.length) {
         await conn.rollback();
@@ -2110,7 +2091,6 @@ router.post('/updateAuditSubmission', async (req, res) => {
       description,
       type: newType,
       templateId: newType === 'template' ? newTemplateId : null,
-      resubmitMode: newResubmitMode
     }, conn);
 
     // 历史步骤必须与申请行在同一事务内锁定，避免审批动作与编辑并发改写证据。
@@ -2325,9 +2305,6 @@ router.post('/resubmitAudit', async (req, res) => {
     const hrId = resubmitterAssignment.hr_id;
     const orgId = actorContext.orgId;
 
-    if (req.body.resubmitMode != null && !isValidResubmitMode(req.body.resubmitMode)) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
-    }
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
@@ -2421,7 +2398,6 @@ router.post('/resubmitAudit', async (req, res) => {
     );
 
     // 所有兼容请求统一从第一步重审。
-    if (!isValidResubmitMode(submission.resubmit_mode || 'fresh')) throw new Error(localeCopy.copy_f428da1450);
     // Use MAX round across ALL steps (not just the first one) to ensure
     // round numbers only ever increase, never decrease or repeat.
     let maxExistingRound = 1;
@@ -2533,7 +2509,6 @@ router.post('/resubmitAudit', async (req, res) => {
     await submissionModel.update(submissionId, {
       status: 'in_progress',
       currentStepIndex: startStepIndex,
-      resubmitMode: 'fresh',
       previousRejectStepIndex: null,
       submittedPersonId: resubmitterAssignment.person_id,
       submittedAssignmentId: resubmitterAssignment.assignment_id,
@@ -2713,7 +2688,7 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
         name: safeString(t.name),
         description: safeString(t.description),
         stepCount: steps.length,
-        resubmitMode: normalizeResubmitMode(t.resubmit_mode)
+        resubmitMode: 'fresh'
       });
     }
     res.json({ status: 'success', templates: result });

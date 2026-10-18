@@ -27,8 +27,6 @@ const {
 const {
   validateConditionShape,
   validateStepShape,
-  isValidResubmitMode,
-  normalizeResubmitMode
 } = require('../services/auditWorkflowPolicy');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const { inspectAuditImageData } = require('../utils/auditImageData');
@@ -97,7 +95,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           identityScope: safeString(c.identityScope),
           specificIdentityId: safeString(c.specificIdentityId)
         }; }),
-        resubmitMode: normalizeResubmitMode(t.resubmit_mode),
+        resubmitMode: 'fresh',
         isActive: t.is_active === 1,
         createdBy: safeString(t.created_by),
         stepCount: steps.length,
@@ -149,7 +147,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);
     const starterHrId = safeString(req.body.starterHrId);
-    const resubmitMode = normalizeResubmitMode(req.body.resubmitMode);
     const starterConditions = Array.isArray(req.body.starterConditions) ? req.body.starterConditions : [];
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
 
@@ -163,7 +160,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
     }
     if (!['conditions', 'self', 'identity'].includes(starterType)
-      || !isValidResubmitMode(resubmitMode)
       || (starterType === 'conditions' && !starterConditions.length)
       || (starterType !== 'conditions' && starterConditions.length)
       || (starterType === 'identity' && !starterIdentityId)) {
@@ -316,7 +312,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           starterIdentityId: starterIdentityId || null,
           starterHrId: starterHrId || null,
           starterConditionsJson,
-          resubmitMode,
           isActive: true
         }, conn);
         // Remove old steps, re-insert
@@ -328,7 +323,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           starterIdentityId: starterIdentityId || null,
           starterHrId: starterHrId || null,
           starterConditionsJson,
-          resubmitMode,
           createdBy: admin.id
         }, conn);
       }
@@ -683,7 +677,7 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
       submittedBy: safeString(s.submitted_by),
       submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
       currentStepIndex: s.current_step_index,
-      resubmitMode: normalizeResubmitMode(s.resubmit_mode),
+      resubmitMode: 'fresh',
       createdAt: s.created_at,
       updatedAt: s.updated_at
     }));
@@ -860,7 +854,7 @@ router.post('/getAuditProgress', async (req, res) => {
         submittedBy: safeString(submission.submitted_by),
         submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
-        resubmitMode: normalizeResubmitMode(submission.resubmit_mode),
+        resubmitMode: 'fresh',
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
       },

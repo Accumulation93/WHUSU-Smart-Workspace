@@ -154,3 +154,5 @@ await callFunction({ name: 'markAllSubmissionsRead' });
 - ❌ 签名定位弹窗取消后不恢复 `_placementSnapshot`
 - ❌ 审批后忘记 `markSubmissionRead`
 - 审批人员选择统一复用共享组件；以 `assignmentId` 选中，一岗一卡、同岗位元组筛选；整卡科技蓝选中，不保留姓氏圆圈与独立勾选。
+
+2026-10-18：resubmit_mode 已退役，删除模板与申请两表中的列。所有入口忽略可选的 resubmitMode 请求字段（含未知值），不参与校验、保存或流程决策；响应 fresh 仅供旧客户端兼容。init.sql 作为历史迁移基线保留旧列，完整迁移的最后删除，禁止修改已执行的旧迁移。

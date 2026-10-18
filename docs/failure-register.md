@@ -643,3 +643,10 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 修复：统一 scripts/deployment-health-monitor.js 与 remote-collab.ps1 monitor 入口，公网串行最少 15 秒，最多 5 分钟、20 次；失败退避 30/60 秒，429 立即停止并保留 Retry-After，同设备文件锁禁止并行。已有部署回环启动检查与 tmux 10 秒巡检维持原状，不提高限流额度、不跳过鉴权或健康检查。服务端协作技能明确禁止每秒公网临时轮询。
 
 检查：scripts/deployment-health-monitor.test.js 使用虚拟时间验证健康采样次数与间隔、503 退避恢复和 429 停止；deploymentAutomation.test.js 验证原发布流程。此次仅运维脚本与规范变更，不运行全量 CI，不涉及数据库迁移和小程序编译。
+
+
+### 坑 71：废弃审核模式仍参与持久化和校验
+
+修复：模板与申请模型删除 resubmit_mode 的全部读写，路由不再校验 resubmitMode；不传、旧枚举、未知字符串或对象均忽略，业务授权与步骤校验照常执行。固定响应 fresh 仅维持旧客户端兼容。20261018010000_audit_drop_resubmit_mode.sql 条件删除两列，重复执行不报错；历史迁移不改写，init.sql 保留可重放的历史建库基线，新库须执行完整迁移。
+
+检查：auditTemplateSaveIntegration.test.js 在实际删列后覆盖六类兼容输入及真实前端保存回读；auditSigningIntegration.test.js 在删列后的库完成旧字段重新提交、无字段重新提交、编辑附件、签署及验签；auditAssignmentContext.test.js、auditWorkflowPolicy.test.js、auditTemplateSave.test.js、auditHistoricalRoundIntegrity.test.js 与部署迁移检查。删列按破坏性迁移备份和维护流程执行，不声明零中断，不运行全量 CI。

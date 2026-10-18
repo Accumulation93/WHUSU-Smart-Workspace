@@ -24,7 +24,14 @@ const options = {
     await admin.query(`CREATE USER '${user}'@'%' IDENTIFIED BY ?`, [password]);
     await admin.query(`GRANT ALL ON \`${database}\`.* TO '${user}'@'%'`);
     const fixture = await mysql.createConnection({ ...options, database, multipleStatements: true });
-    try { await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8')); }
+    try {
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      const migration = fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018010000_audit_drop_resubmit_mode.sql'), 'utf8');
+      await fixture.query(migration);
+      await fixture.query(migration);
+      const [columns] = await fixture.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND COLUMN_NAME='resubmit_mode'", [database]);
+      assert.equal(columns.length, 0);
+    }
     finally { await fixture.end(); }
     Object.assign(process.env, { DB_HOST: options.host, DB_PORT: String(options.port), DB_USER: user, DB_PASSWORD: password,
       DB_NAME: database, AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex') });
@@ -75,6 +82,12 @@ const options = {
     assert.deepEqual(edited.steps.map(item => item.actionType), ['pass', 'sign', 'estamp', 'both', 'either']);
     assert.ok(edited.steps.every(item => item.allowApproverDesignation && item.conditions.length === 1));
     assert.ok(edited.steps.every(item => item.conditions[0].conditionType === 'submitter'));
+    for (const legacyValue of [undefined, null, 'from_rejector', 'fresh', 'obsolete', { ignored: true }]) {
+      const compatible = { ...page.data.auditTemplateForm };
+      if (legacyValue === undefined) delete compatible.resubmitMode;
+      else compatible.resubmitMode = legacyValue;
+      assert.equal((await call('saveAuditFlowTemplate', compatible)).status, 'success');
+    }
     assert.equal((await call('saveAuditFlowTemplate', page.data.auditTemplateForm, 'submit-b')).status, 'not_found');
     const invalid = JSON.parse(JSON.stringify(page.data.auditTemplateForm));
     invalid.steps[3].actionType = 'invalid';

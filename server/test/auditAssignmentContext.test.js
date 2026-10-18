@@ -248,7 +248,7 @@ assert.strictEqual(historicalAssignment.department_id, 'department-a');
 
   const baseSubmissionColumns = [
     'id', 'submission_number', 'submitted_by', 'type', 'template_id', 'title', 'description',
-    'status', 'current_step_index', 'resubmit_mode', 'org_id'
+    'status', 'current_step_index', 'org_id'
   ];
   let legacyInsertSql = '';
   const legacySchemaDb = {

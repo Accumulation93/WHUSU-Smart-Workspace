@@ -30,24 +30,24 @@ async function getActive() {
 }
 
 async function create(id, data, conn) {
-  const { name, description, starterType, starterIdentityId, starterHrId, resubmitMode, createdBy, starterConditionsJson } = data;
+  const { name, description, starterType, starterIdentityId, starterHrId, createdBy, starterConditionsJson } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO audit_flow_templates (id, name, description, starter_type, starter_identity_id, starter_hr_id, resubmit_mode, starter_conditions_json, org_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, resubmitMode || 'fresh', starterConditionsJson || null, orgId, createdBy || null]
+    `INSERT INTO audit_flow_templates (id, name, description, starter_type, starter_identity_id, starter_hr_id, starter_conditions_json, org_id, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, starterConditionsJson || null, orgId, createdBy || null]
   );
 }
 
 async function update(id, data, conn) {
-  const { name, description, starterType, starterIdentityId, starterHrId, resubmitMode, isActive, starterConditionsJson } = data;
+  const { name, description, starterType, starterIdentityId, starterHrId, isActive, starterConditionsJson } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
     `UPDATE audit_flow_templates SET name = ?, description = ?, starter_type = ?, starter_identity_id = ?,
-     starter_hr_id = ?, starter_conditions_json = ?, resubmit_mode = ?, is_active = ? WHERE id = ? AND org_id = ?`,
-    [name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, starterConditionsJson !== undefined ? starterConditionsJson : null, resubmitMode || 'fresh', isActive != null ? (isActive ? 1 : 0) : 1, id, orgId]
+     starter_hr_id = ?, starter_conditions_json = ?, is_active = ? WHERE id = ? AND org_id = ?`,
+    [name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, starterConditionsJson !== undefined ? starterConditionsJson : null, isActive != null ? (isActive ? 1 : 0) : 1, id, orgId]
   );
 }
 

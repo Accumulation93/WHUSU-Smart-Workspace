@@ -114,4 +114,4 @@ Acrobat 的“至少一个签名有问题”是汇总提示，也可能对应“
 
 每份新附件持有 original_file_path、original_file_hash、original_file_size。新轮次使用核验过的原件创建新 fileId 和独立磁盘版本，不复制旧凭证、签章材料或私钥。历史附件来源缺失时，仅允许从本文件最早且不带 legacy_prefix 的签署输入及摘要恢复；没有签署记录的文件可使用其完整性核验后的当前字节。无法证明来源时返回 original_required，要求重新上传，整个新轮次回滚。上传文件自带的签章属于原件内容，不自动删除。
 
-步骤动作新增 either，签名或授权印章至少一种，也允许两种；沿用 approveStep 的 signatures 数组和平台凭证 v2，材料摘要仍绑定实际提交内容。模板与申请接口继续接收 resubmitMode，但只保存和返回 fresh；其他未知值拒绝。迁移 20261017233000_audit_fresh_round_originals.sql 新增可空来源字段并归一化配置，不改写历史事件。
+步骤动作新增 either，签名或授权印章至少一种，也允许两种；沿用 approveStep 的 signatures 数组和平台凭证 v2，材料摘要仍绑定实际提交内容。模板与申请接口忽略可选的旧 resubmitMode 请求字段，不校验其值、不持久化；响应中的 fresh 仅为旧客户端兼容常量。20261018010000_audit_drop_resubmit_mode.sql 删除两张表的旧列；init.sql 保留历史建库形态以供既有迁移顺序执行，新建库须执行完整迁移后使用。迁移 20261017233000_audit_fresh_round_originals.sql 新增可空来源字段并归一化配置，不改写历史事件。
