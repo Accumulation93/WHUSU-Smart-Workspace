@@ -150,6 +150,12 @@ async function run() {
       path.resolve(__dirname, '../db/deploy/20260729100000_unified_identity_auth.sql'),
       'utf8'
     ));
+    // 旧库升级后的运行模型不再写入会话微信摘要，先执行已发布的兼容迁移。
+    const sessionCompatibility = fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20261018120000_auth_session_legacy_hash_default.sql'), 'utf8'
+    );
+    await database.query(sessionCompatibility);
+    await database.query(sessionCompatibility);
     // 设备字段由后续独立迁移负责；在本测试夹具中补齐它们，验证统一身份模型
     // 在旧库完成身份迁移后也能安全创建带设备信息的会话。
     await database.query(`
