@@ -555,12 +555,6 @@
             <button class="secondary-btn ui-motion-button" bindtap="openEditStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_751c159dd2}}</button>
             <button class="secondary-btn ui-motion-button" bindtap="openEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b61c482f3}}</button>
           </view>
-          <view class="field field-mt-16">
-            <view class="field-label">{{localeCopy.copy_8d3aac9d85}}</view>
-            <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" value="{{editResubmitMode === 'fresh' ? 0 : 1}}" bindchange="onEditResubmitModeChange">
-              <view class="picker-value">{{editResubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
-            </picker>
-          </view>
         </view>
 
         <!-- Files -->

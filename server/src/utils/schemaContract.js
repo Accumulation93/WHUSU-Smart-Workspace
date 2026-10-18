@@ -1,9 +1,6 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/schemaContract');
 const { usableLoginCredentialSql } = require('../core/models/accountLoginState');
 const REQUIRED_COLUMNS = [
-  ['admin_info', 'invite_code'],
-  ['admin_info', 'invite_expires_at'],
-  ['admin_info', 'invite_consumed_at'],
   ['venue_bookings', 'creator_org_id'],
   ['venue_bookings', 'approval_org_id'],
   ['notifications', 'org_id'],
@@ -26,7 +23,6 @@ const REQUIRED_COLUMNS = [
   ['auth_sessions', 'device_model'],
   ['auth_sessions', 'binding_mode'],
   ['auth_sessions', 'openid_ciphertext']
-  ,['score_activities', 'participant_granularity']
   ,['score_question_templates', 'org_id']
   ,['score_records', 'scorer_person_id']
   ,['score_records', 'scorer_assignment_id']
@@ -135,7 +131,6 @@ const REQUIRED_INDEXES = [
   ['notifications', 'idx_notification_recipient_page'],
   ['notification_outbox', 'uk_notification_outbox_event'],
   ['admin_permission_overrides', 'uk_admin_permission'],
-  ['admin_info', 'uk_ai_invite_code'],
   ['hr_profile_templates', 'idx_hpt_name'],
   ['org_hr_profile_template_snapshots', 'uk_ohpts_org'],
   ['hr_profile_record_values', 'uk_hprv_value']

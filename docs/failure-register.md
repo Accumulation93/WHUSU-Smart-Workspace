@@ -659,3 +659,12 @@ CI 补充：旧测试在卡片入场动画期间分三次测量字段坐标，�
 修复：普通推送的破坏性迁移或 UTC 切换必须先有当前完整 SHA 的明确维护批准，否则保持原服务并停止发布。兼容代码先独立上线，再使用单行 online-drop-columns 声明在线退役列；验证运行、回退与目标版本均包含兼容提交且源码无列引用，严格拒绝附加 SQL。保持一致性备份，InnoDB 使用 INSTANT，元数据锁最多等待 1 秒，失败不得降级或停机恢复。无迁移采用滚动回退，尚未修改状态的准备失败不得停业务。删除进程退出后的固定 35 秒空等。
 
 验证：onlineColumnRetirement.test.js 在临时 Git 仓库验证版本与格式拒绝，在隔离 MySQL 验证元数据锁超时后业务仍可写、真实迁移计划/执行/账本、重复执行、数据保留；deploymentAutomation.test.js 与 frontendDeployment.test.js 继续验证原发布及前端回退。未在生产制造阻塞或删列测试，未运行全量 CI。运行规范见服务端协作技能及 runbooks。
+
+
+### 坑 73：废弃列残留写入，新客户端回传旧响应字段
+
+全量结构索引102表1028列，模块人工复核确认7列退役：管理员邀请码4列、会话冗余openid_hash、评分participant_granularity、审核related_relation。其余低引用列仍用于约束、历史、授权或迁移；详见docs/deprecated-column-audit.md与逐列结构清单。两端新提交使用明确字段列表，剔除旧响应中的resubmitMode；旧请求值忽略，不再INSERT/UPDATE废弃列。
+
+会话列NOT NULL无默认，先新增INSTANT默认值兼容迁移，确认旧新会话均可用后发布兼容代码，再独立在线删列。邀请码唯一索引必须显式列出，校验全部索引列属于退役列后以INPLACE/LOCK=NONE先删索引，再INSTANT删列；元数据锁1秒，绝不自动停机或复制表。其他表同名引用使用逐文件源码摘要及用途说明，不接受通配或源码变化，不能把所有openid_hash一起删除。
+
+验证：adminInviteRetirementIntegration.test.js、scoringGranularityRetirementIntegration.test.js与auditTemplateSaveIntegration.test.js实际HTTP/页面参数/MySQL覆盖旧参数忽略、有列/缺列、保存回读及组织边界；会话覆盖口令、微信、旧会话延续与撤销；onlineColumnRetirement.test.js覆盖索引、同名源码变更拒绝、锁冲突、重复执行与账本。网页构建及87项视觉通过，微信主包与6分包真实编译2578703字节。手机/Pad实体未现场验证，不运行全量CI，生产分两阶段核对。

@@ -1122,7 +1122,7 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
     await connection.query(
       `UPDATE admin_info
           SET openid = ?, bind_status = 'active', bound_at = COALESCE(bound_at, NOW()),
-              invite_code = NULL, invite_expires_at = NULL, updated_at = NOW()
+              updated_at = NOW()
         WHERE id = ?`,
       [openid, admin.id]
     );
@@ -1372,7 +1372,6 @@ async function createSession(account, requestedSelection, metadata, options) {
     const activeAccount = accountRows[0];
     if (!activeAccount) throw new IdentityError('account_unavailable', localeCopy.copy_0995192dbd, 401);
     const bindingOpenidHash = safeString(activeAccount.binding_openid_hash);
-    const temporaryOpenidHash = safeString(options && options.openidHash);
     const temporaryOpenidCiphertext = safeString(options && options.openidCiphertext);
     if (!temporary && !bindingOpenidHash) {
       throw new IdentityError('binding_missing', localeCopy.copy_518fa5022c, 401);
@@ -1385,20 +1384,17 @@ async function createSession(account, requestedSelection, metadata, options) {
     const activeContext = resolvedSelection.context;
     if (!activeContext) throw new IdentityError('no_context', localeCopy.copy_13f29f572b, 403);
     const id = generateId();
-    // 口令会话的旧字段仅保存随机占位摘要；不能用于定位人员或扩大权限。
-    const openidHash = temporary ? temporaryOpenidHash || crypto.randomBytes(32).toString('hex') : bindingOpenidHash;
     const bindingMode = temporary ? 'temporary' : 'bound';
     const openidCiphertext = temporary ? temporaryOpenidCiphertext : null;
     await connection.query(
       `INSERT INTO auth_sessions
-         (id, account_id, openid_hash, binding_mode, openid_ciphertext,
+         (id, account_id, binding_mode, openid_ciphertext,
           context_id, context_type, context_subject_id,
           organization_id, role, token_version, status, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
       [
         id,
         activeAccount.id,
-        openidHash,
         bindingMode,
         openidCiphertext,
         activeContext.contextId,
@@ -1554,7 +1550,7 @@ async function syncLegacyBindings(connection, accountId, openidOrLoader) {
             CONVERT(ai.id USING utf8mb4) COLLATE utf8mb4_unicode_ci
        JOIN accounts a ON a.person_id = ag.person_id
         SET ai.openid = ?, ai.bind_status = 'active', ai.bound_at = COALESCE(ai.bound_at, NOW()),
-            ai.invite_code = NULL, ai.invite_expires_at = NULL, ai.updated_at = NOW()
+            ai.updated_at = NOW()
       WHERE a.id = ? AND ag.status = 'active'`,
     [openid, accountId]
   );

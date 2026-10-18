@@ -81,7 +81,6 @@ Page({
     adHocSteps: [],
     adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
     adHocStepEditorVisible: false,
-    resubmitMode: 'fresh',
 
     // Reference data for approver picker
     allDepartments: [],
@@ -127,7 +126,6 @@ Page({
     editTitle: '',
     editDesc: '',
     editType: '',        // 'template' or 'ad_hoc'
-    editResubmitMode: 'fresh',
     editTemplateId: '',
     editSteps: [],       // for ad_hoc type
     editFiles: [],       // current files (display)
@@ -582,10 +580,6 @@ Page({
 
   onCreateModeChange(e) {
     this.setData({ createMode: e.currentTarget.dataset.mode });
-  },
-
-  onResubmitModeChange(e) {
-    this.setData({ resubmitMode: 'fresh' });
   },
 
   onTitleInput(e) {
@@ -1070,7 +1064,7 @@ Page({
 
   async submitAudit() {
     if (!this.ensureActiveAssignment()) return;
-    const { createMode, selectedTemplateId, createTitle, uploadedFiles, adHocSteps, resubmitMode } = this.data;
+    const { createMode, selectedTemplateId, createTitle, uploadedFiles, adHocSteps } = this.data;
 
     if (!createTitle) { showShortToast(localeCopy.copy_b99e01d38c); return; }
     if (!uploadedFiles.length) { showShortToast(localeCopy.copy_88218650ba); return; }
@@ -1137,7 +1131,7 @@ Page({
         }));
         res = await callFunction({
           name: 'startAdHocAudit',
-          data: { title: createTitle, description: this.data.createDesc, resubmitMode, steps: cleanSteps, files: serverFiles }
+          data: { title: createTitle, description: this.data.createDesc, steps: cleanSteps, files: serverFiles }
         });
       }
 
@@ -2812,7 +2806,6 @@ Page({
       editTitle: submission.title || '',
       editDesc: submission.description || '',
       editType: submission.type || 'template',
-      editResubmitMode: 'fresh',
       editTemplateId: submission.templateId || '',
       templatePreviewSteps: [],
       templateStepOverrides: existingTemplateOverrides,
@@ -2864,10 +2857,6 @@ Page({
     if (editType === 'template' && this.data.editTemplateId) {
       this.loadTemplatePreview(this.data.editTemplateId, this.data.templateStepOverrides);
     }
-  },
-
-  onEditResubmitModeChange(e) {
-    this.setData({ editResubmitMode: 'fresh' });
   },
 
   // ── Edit: Ad-hoc step editor ──
@@ -3264,7 +3253,6 @@ Page({
           description: this.data.editDesc,
           type: this.data.editType,
           templateId: this.data.editTemplateId || '',
-          resubmitMode: this.data.editResubmitMode,
           stepOverrides: stepOverrides,
           steps: stepsData,
           files: serverNewFiles,

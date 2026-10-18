@@ -119,9 +119,6 @@ Page({
     numberRuleOptions: utils.NUMBER_RULE_OPTIONS,
     adminLevelOptions: [localeCopy.copy_fd31650797],
     adminLevelValues: ['admin'],
-    participantGranularityOptions: [
-      { value: 'assignment', label: localeCopy.copy_9fc4793280 }
-    ],
     adminCandidateKeyword: '',
     adminCandidateList: [],
     activityForm: emptyActivityForm(),

@@ -57,15 +57,14 @@ async function listByIdsInOrg(ids, orgId) {
 
 async function create(id, data, connection) {
   const db = connection || pool;
-  const { name, studentId, openid, adminLevel, bindStatus, inviteCode, invitedAt, inviteExpiresAt } = data;
+  const { name, studentId, openid, adminLevel, bindStatus } = data;
   const orgId = adminLevel === 'super_admin' ? '' : (data.orgId || await getCurrentOrgId());
   await db.query(
     `INSERT INTO admin_info
-      (id, name, student_id, openid, admin_level, bind_status, invite_code,
-       invited_at, invite_expires_at, invite_consumed_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+      (id, name, student_id, openid, admin_level, bind_status, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [id, name || '', studentId || '', openid || '', adminLevel || 'admin',
-     bindStatus || 'invited', inviteCode || null, invitedAt || null, inviteExpiresAt || null, orgId]
+     bindStatus || 'invited', orgId]
   );
 }
 
@@ -73,7 +72,6 @@ async function update(id, data) {
   const fields = [];
   const values = [];
   const allowedFields = ['name', 'student_id', 'openid', 'bind_status',
-    'invite_code', 'invited_at', 'invite_expires_at', 'invite_consumed_at',
     'bound_at', 'updated_at'];
 
   for (const [key, value] of Object.entries(data)) {
@@ -119,20 +117,6 @@ async function updateProfile(connection, target, data) {
   return result.affectedRows === 1;
 }
 
-async function updateInvite(connection, target, invite) {
-  const [result] = await connection.query(
-    `UPDATE admin_info
-        SET invite_code = ?, invited_at = ?, invite_expires_at = ?,
-            invite_consumed_at = NULL,
-            openid = IF(bind_status = 'invited', NULL, openid),
-            updated_at = NOW()
-      WHERE id = ? AND admin_level = ? AND org_id = ?`,
-    [invite.inviteCode, invite.invitedAt, invite.inviteExpiresAt,
-      target.id, target.admin_level, target.org_id]
-  );
-  return result.affectedRows === 1;
-}
-
 async function removeExact(connection, target) {
   const [result] = await connection.query(
     'DELETE FROM admin_info WHERE id = ? AND admin_level = ? AND org_id = ?',
@@ -146,19 +130,6 @@ async function lockSuperAdmins(connection) {
     "SELECT id, bind_status FROM admin_info WHERE admin_level = 'super_admin' AND org_id = '' FOR UPDATE"
   );
   return rows;
-}
-
-async function getByInviteCode(inviteCode) {
-  const [rows] = await pool.query(
-    `SELECT * FROM admin_info
-      WHERE invite_code = ?
-        AND bind_status = 'invited'
-        AND invite_consumed_at IS NULL
-        AND invite_expires_at > NOW()
-      LIMIT 1`,
-    [inviteCode]
-  );
-  return rows[0] || null;
 }
 
 async function getSuperAdmin() {
@@ -202,6 +173,6 @@ async function getActiveGrantForAccountInOrganization(accountId, personId, orgId
 module.exports = {
   getActiveGrantForAccountInOrganization,
   getById, getByIdGlobal,
-  listVisible, getAll, listByIdsInOrg, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
-  lockSuperAdmins, getByInviteCode, getSuperAdmin, getByAdminLevel
+  listVisible, getAll, listByIdsInOrg, create, update, remove, studentExists, updateProfile, removeExact,
+  lockSuperAdmins, getSuperAdmin, getByAdminLevel
 };

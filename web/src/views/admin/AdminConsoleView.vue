@@ -133,7 +133,7 @@ const settingsState = reactive({ timezone: 8, dirty: false, pending: false, clos
 const ruleState = reactive({form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
 const emptyResultState = () => ({ filters: { department: resultCopy.copy_31d4595959, identity: resultCopy.copy_31d4595959, workGroup: resultCopy.copy_31d4595959, viewMode: 'overview', sortMode: 'score_desc' }, activityId: '', pending: false, target: null, department: '', scorer: null });
 const resultState = reactive(emptyResultState());
-const emptyAuditTemplate=()=>({id:'',name:'',description:'',starterType:'conditions',starterConditions:[],resubmitMode:'fresh',steps:[]});
+const emptyAuditTemplate=()=>({id:'',name:'',description:'',starterType:'conditions',starterConditions:[],steps:[]});
 const auditTemplateState=reactive({form:emptyAuditTemplate(),pending:false,resetAfterRead:false});
 const auditStampState=reactive({form:{id:'',name:'',imageData:''},pending:false,resetAfterRead:false});
 const auditVerificationState=reactive({grantee:null,pending:false});

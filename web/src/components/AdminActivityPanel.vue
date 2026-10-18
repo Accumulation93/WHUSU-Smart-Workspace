@@ -101,7 +101,8 @@ async function load() {
 async function save() {
   if (blocked.value) return;
   if (!form.value.name.trim()) { actionNotice.value = messages.copy_e394895492; return; }
-  const payload = { ...form.value, name: form.value.name.trim(), participantGranularity: 'assignment' };
+  const { id, description, startDate, endDate } = form.value;
+  const payload = { id, name: form.value.name.trim(), description, startDate, endDate };
   const expected = scope();
   busy.value = true; actionNotice.value = '';
   try {

@@ -1258,7 +1258,7 @@ router.post('/getScoreResults', async (req, res) => {
       }
       if (cached) await sharedCache.invalidateKey(cacheKey);
       // Cache miss — compute via unified scoring engine (same as user-side, millisecond-fast)
-      const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
+      const granularity = participantService.normalizeGranularity();
       const [memRaw, orgLk] = await Promise.all([
         participantService.listParticipants(orgId, granularity),
         fetchOrgLookups(orgId)
@@ -1400,7 +1400,7 @@ router.post('/getScoreResults', async (req, res) => {
       if (!recordRow || safeString(recordRow.activity_id) !== activityId) {
         return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c173b07ef3 });
       }
-      const detailGranularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
+      const detailGranularity = participantService.normalizeGranularity();
       const answerRows = await scoreAnswerModel.getByRecordIds([recordId]);
       const recordWithAnswers = enrichScoreRecords([Object.assign({}, recordRow, {
         answers: answerRows.map((item) => ({
@@ -1546,7 +1546,7 @@ router.post('/getScoreResults', async (req, res) => {
       });
     }
 
-    const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       scoreRecordModel.getByActivity(activityId),
@@ -2082,7 +2082,7 @@ router.post('/exportScoreResults', async (req, res) => {
     const activity = await activityModel.getById(activityId);
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       scoreRecordModel.getByActivity(activityId),

@@ -63,19 +63,6 @@ module.exports = Behavior({
       });
     },
 
-    onActivityGranularityChange(e) {
-      const options = this.data.participantGranularityOptions || [];
-      const index = Math.max(0, Number(e.detail.value) || 0);
-      const selected = options[index] || options[0] || { value: 'assignment' };
-      this.setData({
-        activityForm: {
-          ...this.data.activityForm,
-          participantGranularity: selected.value,
-          participantGranularityIndex: index
-        }
-      });
-    },
-
     resetActivityForm() {
       this.setData({
         activityForm: emptyActivityForm()
@@ -95,9 +82,7 @@ module.exports = Behavior({
           name: item.name,
           description: item.description || '',
           startDate: item.startDate || '',
-          endDate: item.endDate || '',
-          participantGranularity: 'assignment',
-          participantGranularityIndex: 0
+          endDate: item.endDate || ''
         },
         activeTab: 'activities'
       });
@@ -120,7 +105,8 @@ module.exports = Behavior({
   
       this.setLoading('saveActivity', true);
       try {
-        const result = await this.callCloud('saveScoreActivity', form);
+        const { id, name, description, startDate, endDate } = form;
+        const result = await this.callCloud('saveScoreActivity', { id, name, description, startDate, endDate });
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,

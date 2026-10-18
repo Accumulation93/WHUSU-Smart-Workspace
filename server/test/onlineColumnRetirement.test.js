@@ -17,7 +17,7 @@ async function run() {
     const oldSha = git('rev-parse', 'HEAD');
     fs.writeFileSync(source, 'const field = "active_value";'); git('add', '.'); git('commit', '-m', 'compatible');
     const compatibleSince = git('rev-parse', 'HEAD');
-    const declaration = { table: 'retirement_test', columns: ['retired_value'], compatibleSince };
+    const declaration = { table: 'retirement_test', columns: ['retired_value'], indexes: ['retired_index'], compatibleSince };
     const text = '-- @online-drop-columns ' + JSON.stringify(declaration);
     assert.deepEqual(parseRetirement(text), declaration);
     assert.throws(() => parseRetirement(text + '\nDROP TABLE users;'));
@@ -30,6 +30,20 @@ async function run() {
     assert.throws(() => verifyRelease(declaration, { ...context, currentSha: oldSha }));
     assert.throws(() => verifyRelease(declaration, { ...context, rollbackSha: oldSha }));
     assert.throws(() => verifyRelease(declaration, { ...context, currentSha: targetSha }));
+    const crypto = require('crypto');
+    const otherSource = 'const otherTable = "retired_value";';
+    fs.writeFileSync(path.join(root, 'server/src/other.js'), otherSource);
+    git('add', '.'); git('commit', '-m', 'other table');
+    const otherSha = git('rev-parse', 'HEAD');
+    assert.throws(() => verifyRelease(declaration, { ...context, targetSha: otherSha }));
+    const reviewed = { ...declaration, sharedReferences: [{ file: 'server/src/other.js',
+      sha256: crypto.createHash('sha256').update(otherSource).digest('hex'), reason: '其他表的同名列仍参与实际业务' }] };
+    verifyRelease(reviewed, { ...context, targetSha: otherSha });
+    fs.appendFileSync(path.join(root, 'server/src/other.js'), '\nconst changed = true;');
+    git('add', '.'); git('commit', '-m', 'changed reference');
+    assert.throws(() => verifyRelease(reviewed, { ...context, targetSha: git('rev-parse', 'HEAD') }));
+    assert.throws(() => parseRetirement('-- @online-drop-columns ' + JSON.stringify({ ...reviewed,
+      sharedReferences: [{ ...reviewed.sharedReferences[0], file: 'server/src/../outside.js' }] })));
     const migrations = discoverMigrations(migrationDir);
     assert.equal(buildPlan(migrations, new Map()).destructive, false);
     assert.throws(() => buildPlan(migrations, new Map([[migrations[0].name, 'changed']])));
@@ -56,7 +70,7 @@ async function run() {
     const db = await mysql.createConnection(config); let blocker;
     try {
       await db.query('CREATE DATABASE `' + dbName + '`'); await db.changeUser({ database: dbName });
-      await db.query('CREATE TABLE retirement_test (id INT PRIMARY KEY, active_value VARCHAR(20), retired_value INT) ENGINE=InnoDB');
+      await db.query('CREATE TABLE retirement_test (id INT PRIMARY KEY, active_value VARCHAR(20), retired_value INT, UNIQUE INDEX retired_index(retired_value)) ENGINE=InnoDB');
       await db.query("INSERT INTO retirement_test VALUES (1,'preserved',2)");
       blocker = await mysql.createConnection({ ...config, database: dbName });
       await blocker.beginTransaction(); await blocker.query('SELECT * FROM retirement_test');

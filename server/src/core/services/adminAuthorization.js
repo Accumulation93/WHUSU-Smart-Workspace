@@ -1,21 +1,6 @@
-const crypto = require('crypto');
-
 const SUPER_ADMIN_LEVEL = 'super_admin';
 const REGULAR_ADMIN_LEVEL = 'admin';
 const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL, REGULAR_ADMIN_LEVEL];
-const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
-
-function createInviteCredential() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let inviteCode = '';
-  for (let i = 0; i < 8; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
-  return {
-    inviteCode,
-    invitedAt: new Date(),
-    inviteExpiresAt: new Date(Date.now() + INVITE_TTL_MS)
-  };
-}
-
 function isSuperAdmin(admin) {
   return Boolean(admin && admin.admin_level === SUPER_ADMIN_LEVEL);
 }
@@ -54,7 +39,6 @@ module.exports = {
   SUPER_ADMIN_LEVEL,
   REGULAR_ADMIN_LEVEL,
   ADMIN_LEVELS,
-  createInviteCredential,
   isSuperAdmin,
   canViewTarget,
   canManageTarget,

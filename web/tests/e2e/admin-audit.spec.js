@@ -23,7 +23,7 @@ async function setup(page){
     if(name==='listStampCandidates')result={status:'success',candidates:[{...assignment,departmentName:'Office',identityCategoryName:'Member',workGroupName:'Group',name:'Person A',personId:'person-a'}]};
     if(name==='listAuditVerificationCandidates')result={status:'success',candidates:data.people};
     if(name==='listAllAuditSubmissions')result={status:'success',submissions:[]};
-    if(name==='saveAuditFlowTemplate'){result=state.reject?{status:'forbidden',message:'Save rejected'}:{status:'success',id:'template-new'};if(!state.reject)state.templates=[{...body,id:body.id||'template-new',steps:body.steps.map((step,index)=>({...step,id:'step-'+index}))}];}
+    if(name==='saveAuditFlowTemplate'){result=state.reject?{status:'forbidden',message:'Save rejected'}:{status:'success',id:'template-new'};if(!state.reject)state.templates=[{...body,resubmitMode:'fresh',id:body.id||'template-new',steps:body.steps.map((step,index)=>({...step,id:'step-'+index}))}];}
     if(name==='deleteAuditFlowTemplate'){result={status:'success'};state.templates=state.templates.filter(row=>row.id!==body.id);}
     if(name==='saveStamp'){result=state.reject?{status:'forbidden',message:'Save rejected'}:{status:'success',id:'stamp-new'};if(!state.reject)state.stamps=[{...body,id:body.id||'stamp-new',assignedPeople:[]}];}
     if(name==='deleteStamp'){result={status:'success'};state.stamps=[];}
@@ -60,8 +60,13 @@ test('审核模板按原步骤参数保存，失败保留表单，成功后回�
   state.reject=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText('Save rejected')).toBeVisible();await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('New Flow');
   state.reject=false;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.locator('.audit-row').filter({hasText:'New Flow'})).toBeVisible();
   const saved=state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body;
+  expect(saved).not.toHaveProperty('resubmitMode');
   expect(saved.starterType).toBe('conditions');expect(saved.starterConditions[0].identityScope).toBe('all');expect(saved.steps[0]).toMatchObject({name:'Sign Step',actionType:'sign',allowApproverDesignation:false});
   await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('');
+  await page.locator('.audit-row').filter({hasText:'New Flow'}).getByRole('button',{name:ui.copy_e040ae3016,exact:true}).click();
+  await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();
+  await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('');
+  expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body).not.toHaveProperty('resubmitMode');
 });
 test('步骤窗口短内容自然高度，条件编辑互斥，指定条件显示真实名称',async({page})=>{
   await setup(page);await open(page,'auditTemplates');await page.getByRole('button',{name:ui.copy_b79428bf57,exact:true}).click();

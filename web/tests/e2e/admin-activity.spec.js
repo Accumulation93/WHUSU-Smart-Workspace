@@ -20,7 +20,8 @@ test('activity saves native parameters, rereads results and keeps an unfinished 
   await page.route('**/api/saveScoreActivity', route => {
     const body = route.request().postDataJSON();
     writes++;
-    expect(body).toMatchObject({ id: '', name: 'Activity', description: 'Description', startDate: '2026-10-09', endDate: '2026-10-10', participantGranularity: 'assignment' });
+    expect(body).toMatchObject({ id: '', name: 'Activity', description: 'Description', startDate: '2026-10-09', endDate: '2026-10-10' });
+    expect(body).not.toHaveProperty('participantGranularity');
     expect(body).not.toHaveProperty('isPaused');
     if (writes === 1) return route.fulfill({ json: { status: 'duplicate', message: 'Rejected activity' } });
     list = [{ ...body, id: 'a1', isCurrent: false, isPaused: false }];

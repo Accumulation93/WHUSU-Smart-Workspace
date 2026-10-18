@@ -68,7 +68,6 @@ router.post('/saveScoreActivity', async (req, res) => {
     const endDate = safeString(req.body.endDate);
     const hasPausedValue = Object.prototype.hasOwnProperty.call(req.body, 'isPaused');
     const requestedPaused = req.body.isPaused === true || req.body.isPaused === 1 ? 1 : 0;
-    const participantGranularity = 'assignment';
 
     if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_e394895492 });
     if ((startDate && !formatDateOnly(startDate)) || (endDate && !formatDateOnly(endDate))) {
@@ -90,20 +89,10 @@ router.post('/saveScoreActivity', async (req, res) => {
       if (duplicates.length) {
         return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
       }
-      if (current && current.participant_granularity !== participantGranularity) {
-        const [recordRows] = await pool.query(
-          'SELECT 1 FROM score_records WHERE activity_id = ? AND org_id = ? LIMIT 1',
-          [id, orgId]
-        );
-        if (recordRows.length) {
-          return res.json({ status: 'conflict', message: localeCopy.copy_48f70c55c9 });
-        }
-      }
       await activityModel.update(id, {
         name, description, startDate: startDate || null, endDate: endDate || null,
         isCurrent: current ? !!current.is_current : false,
         isPaused: hasPausedValue ? requestedPaused : Boolean(current.is_paused),
-        participantGranularity,
         updatedBy: admin.id, updatedAt: nowUtc
       });
     } else {
@@ -115,7 +104,7 @@ router.post('/saveScoreActivity', async (req, res) => {
         const newId = generateId();
         await activityModel.create(newId, {
           name, description, startDate: startDate || null, endDate: endDate || null,
-          isCurrent: false, isPaused: requestedPaused, participantGranularity, createdBy: admin.id
+          isCurrent: false, isPaused: requestedPaused, createdBy: admin.id
         });
       }
     }

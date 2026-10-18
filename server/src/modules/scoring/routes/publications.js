@@ -1017,7 +1017,7 @@ router.post('/getPublicResults', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const activity = await activityModel.getById(activityId);
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });

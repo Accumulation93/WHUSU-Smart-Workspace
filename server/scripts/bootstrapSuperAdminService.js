@@ -373,8 +373,7 @@ async function ensureLegacyAdmin(connection, config, openid, globalState, genera
       await connection.query(
         `/* bootstrap:activate-legacy-admin */
          UPDATE admin_info
-            SET openid = ?, bind_status = 'active', invite_code = NULL,
-                invited_at = NULL, invite_expires_at = NULL, invite_consumed_at = NULL,
+            SET openid = ?, bind_status = 'active',
                 bound_at = COALESCE(bound_at, NOW()), updated_at = NOW()
           WHERE id = ? AND org_id = '' AND admin_level = 'super_admin'`,
         [openid, existing.id]
@@ -388,9 +387,8 @@ async function ensureLegacyAdmin(connection, config, openid, globalState, genera
   await connection.query(
     `/* bootstrap:create-legacy-admin */
      INSERT INTO admin_info
-       (id, name, student_id, openid, admin_level, bind_status, invite_code,
-        invited_at, invite_expires_at, invite_consumed_at, bound_at, org_id)
-     VALUES (?, ?, ?, ?, 'super_admin', 'active', NULL, NULL, NULL, NULL, NOW(), '')`,
+       (id, name, student_id, openid, admin_level, bind_status, bound_at, org_id)
+     VALUES (?, ?, ?, ?, 'super_admin', 'active', NOW(), '')`,
     [legacyAdminId, config.name, config.studentId, openid]
   );
   changes.legacyAdmin = true;

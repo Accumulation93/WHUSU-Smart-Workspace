@@ -85,10 +85,7 @@ async function createAdminRecord(connection, operator, orgId, body) {
     studentId,
     adminLevel,
     orgId: targetOrgId,
-    bindStatus: 'invited',
-    inviteCode: null,
-    invitedAt: null,
-    inviteExpiresAt: null
+    bindStatus: 'invited'
   }, connection);
   await unifiedIdentityModel.syncLegacyAdminGrant(connection, id);
   return { id };

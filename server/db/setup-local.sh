@@ -111,43 +111,9 @@ echo "----------------------------------------------"
 if [ "$SUPER_ADMIN_COUNT" -ge 1 ] 2>/dev/null; then
   echo "       SKIPPED ($SUPER_ADMIN_COUNT super admin(s) already exist)"
 else
-  read -p "Create a super admin account? (y/N): " CREATE_ADMIN
-  if [ "$CREATE_ADMIN" = "y" ] || [ "$CREATE_ADMIN" = "Y" ] || [ "$CREATE_ADMIN" = "yes" ] || [ "$CREATE_ADMIN" = "YES" ]; then
-
-    while true; do
-      read -p "  Name:                 " ADMIN_NAME
-      [ -n "$ADMIN_NAME" ] && break
-      echo "[ERROR] Name cannot be empty."
-    done
-
-    while true; do
-      read -p "  Student ID:          " ADMIN_STUDENT_ID
-      [ -n "$ADMIN_STUDENT_ID" ] && break
-      echo "[ERROR] Student ID cannot be empty."
-    done
-
-    while true; do
-      read -p "  Invite code:         " ADMIN_INVITE_CODE
-      [ -n "$ADMIN_INVITE_CODE" ] && break
-      echo "[ERROR] Invite code cannot be empty."
-    done
-
-    echo ""
-    echo "Creating super admin: $ADMIN_NAME ($ADMIN_STUDENT_ID)"
-
-    # Escape single quotes for SQL
-    ESC_NAME="$(printf '%s' "$ADMIN_NAME" | sed "s/'/''/g")"
-    ESC_STUDENT="$(printf '%s' "$ADMIN_STUDENT_ID" | sed "s/'/''/g")"
-    ESC_INVITE="$(printf '%s' "$ADMIN_INVITE_CODE" | sed "s/'/''/g")"
-
-    if $MYSQL_CMD "$DB_NAME" -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '$ESC_NAME', '$ESC_STUDENT', 'super_admin', 'invited', UPPER('$ESC_INVITE'), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1; then
-      echo "       Super admin created successfully."
-    else
-      echo "[ERROR] Failed to create super admin."
-    fi
-  else
-    echo "       Skipped."
-  fi
+  echo "Use the unified offline bootstrap after configuring server/.env:"
+  echo "  cd server && npm run security:bootstrap-super"
+  echo "See docs/offline-super-admin-bootstrap.md for required protected inputs."
 fi
 
 # ---------- [5/5] Show tables ----------

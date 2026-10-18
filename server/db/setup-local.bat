@@ -102,50 +102,9 @@ if %SUPER_ADMIN_COUNT% GEQ 1 (
     goto :show_tables
 )
 
-set /p CREATE_ADMIN="Create a super admin account? (y/N): "
-if /i "%CREATE_ADMIN%"=="y" goto :create_admin
-if /i "%CREATE_ADMIN%"=="yes" goto :create_admin
-echo        Skipped.
-goto :show_tables
-
-:create_admin
-set ADMIN_NAME=
-set ADMIN_STUDENT_ID=
-set ADMIN_INVITE_CODE=
-
-set /p ADMIN_NAME="  Name:                 "
-if "%ADMIN_NAME%"=="" (
-    echo [ERROR] Name cannot be empty.
-    goto :create_admin
-)
-
-set /p ADMIN_STUDENT_ID="  Student ID:          "
-if "%ADMIN_STUDENT_ID%"=="" (
-    echo [ERROR] Student ID cannot be empty.
-    goto :create_admin
-)
-
-set /p ADMIN_INVITE_CODE="  Invite code:         "
-if "%ADMIN_INVITE_CODE%"=="" (
-    echo [ERROR] Invite code cannot be empty.
-    goto :create_admin
-)
-
-echo.
-echo Creating super admin: %ADMIN_NAME% ^(%ADMIN_STUDENT_ID%^)
-REM Escape single quotes for SQL
-setlocal enabledelayedexpansion
-set ESC_NAME=!ADMIN_NAME:'=''!
-set ESC_STUDENT=!ADMIN_STUDENT_ID:'=''!
-set ESC_INVITE=!ADMIN_INVITE_CODE:'=''!
-mysql -u !DB_USER! -p!DB_PASS! -h !DB_HOST! -P !DB_PORT! !DB_NAME! -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '!ESC_NAME!', '!ESC_STUDENT!', 'super_admin', 'invited', UPPER('!ESC_INVITE!'), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1
-if !ERRORLEVEL! NEQ 0 (
-    endlocal
-    echo [ERROR] Failed to create super admin.
-) else (
-    endlocal
-    echo        Super admin created successfully.
-)
+echo Use the unified offline bootstrap after configuring server/.env:
+echo   cd server ^&^& npm run security:bootstrap-super
+echo See docs/offline-super-admin-bootstrap.md for required protected inputs.
 
 :show_tables
 echo.

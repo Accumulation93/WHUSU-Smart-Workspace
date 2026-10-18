@@ -124,7 +124,7 @@ async function testSameOrganizationMergePreservesLegacyHistory() {
   assert(executed.some((item) => item.sql.includes("SET status = 'revoked'")
     && item.sql.includes('identity_verification_invites')));
   assert(executed.some((item) => item.sql.includes('UPDATE admin_info ai')
-    && item.sql.includes('invite_code = NULL')));
+    && item.sql.includes("ai.bind_status = 'invited'")));
   assert(executed.some((item) => item.sql.includes('account_recovery_requests')
     && item.sql.includes("status = 'superseded'")));
   assert(executed.some((item) => item.sql.includes('UPDATE hr_profile_review_events SET record_id = ?')));

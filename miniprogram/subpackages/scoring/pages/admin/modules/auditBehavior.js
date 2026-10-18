@@ -47,7 +47,6 @@ module.exports = Behavior({
       starterHrId: '',
       starterHrName: '',
       starterConditions: [],   // multi-condition starter OR-ed
-      resubmitMode: 'fresh',
       steps: []
     },
     auditTemplateStepForm: {
@@ -300,7 +299,6 @@ module.exports = Behavior({
           starterIdentityId: '', starterIdentityName: '',
           starterHrId: '', starterHrName: '',
           starterConditions: [],
-          resubmitMode: 'fresh',
           steps: []
         },
         auditTemplateStepForm: {
@@ -333,7 +331,6 @@ module.exports = Behavior({
           starterHrId: template.starterHrId || '',
           starterHrName: this._auditHrName(template.starterHrId),
           starterConditions: starterConds,
-          resubmitMode: 'fresh',
           steps: (template.steps || []).map(function(s) {
             return {
               name: s.name || '',
@@ -351,11 +348,6 @@ module.exports = Behavior({
     // Starter type picker
     onStarterTypeChange(e) {
       this.setData({ 'auditTemplateForm.starterType': ['self', 'identity', 'specific_person'][e.detail.value] || 'self' });
-    },
-
-    // Resubmit mode picker
-    onResubmitModeChange(e) {
-      this.setData({ 'auditTemplateForm.resubmitMode': 'fresh' });
     },
 
     // ═══════════════════════════════════════════════
@@ -1271,7 +1263,6 @@ module.exports = Behavior({
           starterIdentityId: form.starterIdentityId,
           starterHrId: form.starterHrId,
           starterConditions: starterCondsToSend,
-          resubmitMode: form.resubmitMode,
           steps: stepsToSend
         });
         if (res.status === 'success') {

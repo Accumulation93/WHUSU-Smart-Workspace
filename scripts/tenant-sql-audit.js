@@ -32,7 +32,6 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT COUNT\(\*\) AS total FROM admin_record_file_cleanup WHERE deletion_id = \?$/i, reason: '只汇总刚完成授权删除的服务端生成批次，不返回附件内容或路径' },
   { file: 'server/src/modules/audit/models/signingEvidence.js', sql: /SELECT input_file_path, output_file_path FROM audit_signing_evidence\s+WHERE input_file_path IN/i, reason: '后台全组织附件清理只按绝对候选路径交集检查历史凭证引用，不返回业务或身份信息' },
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE id = \? AND admin_level IN/i, reason: '权限管理精确主键锁定' },
-  { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info\s+WHERE invite_code = \?/i, reason: '一次性邀请码查找' },
   { file: 'server/src/core/models/hrInfo.js', sql: /FROM hr_info WHERE student_id = \?/i, reason: '登录时跨组织身份匹配' },
   { file: 'server/src/core/models/userInfo.js', sql: /DELETE FROM user_info WHERE openid IN/i, reason: '管理员按已锁定 OpenID 从所有组织解绑普通用户微信' },
   { file: 'server/src/modules/venue/routes/venueUser.js', sql: /SELECT id, name FROM admin_info WHERE id IN/i, reason: '全局场地记录展示创建管理员名称' },

@@ -278,9 +278,7 @@ function emptyActivityForm() {
     name: '',
     description: '',
     startDate: '',
-    endDate: '',
-    participantGranularity: 'assignment',
-    participantGranularityIndex: 0
+    endDate: ''
   };
 }
 

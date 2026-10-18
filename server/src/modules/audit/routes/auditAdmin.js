@@ -106,7 +106,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           approverType: safeString(s.approver_type),
           approverIdentityId: safeString(s.approver_identity_id),
           approverHrId: safeString(s.approver_hr_id),
-          relatedRelation: safeString(s.related_relation),
+          relatedRelation: '',
           actionType: safeString(s.action_type),
           allowApproverDesignation: s.allow_approver_designation === 1,
           conditions: (s.conditions || []).map((c) => ({

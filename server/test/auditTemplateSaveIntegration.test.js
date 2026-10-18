@@ -61,7 +61,7 @@ const options = {
         starterConditions: [condition], resubmitMode: 'from_rejector',
         steps: ['pass', 'sign', 'estamp', 'both', 'either'].map(actionType => ({ name: actionType, actionType, conditions: [{ conditionType: 'submitter' }], allowApproverDesignation: true })) } },
       setLoading() {}, startCreateAuditTemplate() {}, loadAuditFlowTemplates() {},
-      async callCloud(name, body) { saved = await call(name, JSON.parse(JSON.stringify(body))); return saved; }
+      async callCloud(name, body) { assert.equal(Object.hasOwn(body, 'resubmitMode'), false); saved = await call(name, JSON.parse(JSON.stringify(body))); return saved; }
     };
     // 实际前端保存方法 -> JSON 传参 -> 实际路由 -> 实际 MySQL。
     await behavior.methods.saveAuditFlowTemplate.call(page);

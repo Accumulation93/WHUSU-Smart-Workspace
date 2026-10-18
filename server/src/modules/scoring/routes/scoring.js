@@ -436,9 +436,7 @@ router.post('/getRateTargets', async (req, res) => {
 
     const currentActivity = await scoreActivityModel.getCurrent();
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(
-      currentActivity && currentActivity.participant_granularity
-    );
+    const granularity = participantService.normalizeGranularity();
     const scorerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
     if (!scorerRecord) {
       return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
@@ -581,7 +579,7 @@ router.post('/getScoreFormData', async (req, res) => {
       return respondScoringResponse(res, { status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [scorerRecord, targetRecord, lookups] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
       participantService.resolveParticipant(orgId, targetId, granularity),
@@ -910,7 +908,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       return respondScoringResponse(res, { status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [scorerRecord, targetRecord, lookups] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
       participantService.resolveParticipant(orgId, targetId, granularity),
@@ -1240,7 +1238,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       rateRuleModel.getByActivity(activityId),
@@ -1486,7 +1484,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
-    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const granularity = participantService.normalizeGranularity();
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       rateRuleModel.getByActivity(activityId),

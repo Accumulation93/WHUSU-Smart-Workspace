@@ -222,9 +222,6 @@ async function cancelPendingIdentityFlows(connection, sourcePersonId) {
           SET ai.openid = NULL,
               ai.bind_status = 'invited',
               ai.bound_at = NULL,
-              ai.invite_code = NULL,
-              ai.invite_expires_at = NULL,
-              ai.invite_consumed_at = NULL,
               ai.updated_at = NOW()
         WHERE ag.person_id = ?`,
     [sourcePersonId]

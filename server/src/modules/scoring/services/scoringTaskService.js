@@ -114,7 +114,7 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
   const work = getState();
   if (work && midnight) work.nextBusinessBoundary = Math.min(work.nextBusinessBoundary || Infinity, midnight.getTime() + 86400000);
   if (!isActivityActionable(activity, now, timezoneOffset)) return null;
-  const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+  const granularity = participantService.normalizeGranularity();
   const actor = actorOverride;
   const scorer = await participantService.resolveActorParticipant(orgId, actor, granularity);
   if (!scorer) return null;
