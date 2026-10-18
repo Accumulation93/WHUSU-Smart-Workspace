@@ -39,7 +39,7 @@ Page({
     this._decisions = { rows: {}, dictionaries: [], sources: {} };
     this._selected = new Set();
     this._offsets = {};
-    this._views = {};
+    this._views = {}; this._completeIssueRows = new Map();
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
   },
   onShow() {
@@ -49,12 +49,12 @@ Page({
     this.loadMetadata();
   },
   onHide() { this._active = false; orgSession.invalidateRequests(this); this.setData({ busy: false, pickerVisible: false, contextSwitchGuardVisible: false }); },
-  onUnload() { this._active = false; this._destroyed = true; orgSession.invalidateRequests(this); this._file = null; this._sourceRows = null; this._decisions = null; this.setData({ pickerVisible: false, contextSwitchGuardVisible: false }); },
+  onUnload() { this._active = false; this._destroyed = true; this._completeIssueRows.clear(); orgSession.invalidateRequests(this); this._file = null; this._sourceRows = null; this._decisions = null; this.setData({ pickerVisible: false, contextSwitchGuardVisible: false }); },
   onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onReachBottom() { if (this.data.hasMore && !this.data.busy) this.loadItems(true); },
   onPageScroll(event) { this._scrollTop = event.scrollTop; },
   resetSession() {
-    this._file = null; this._sourceRows = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._offsets = {};
+    this._file = null; this._sourceRows = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._completeIssueRows = new Map(); this._offsets = {};
     this._metadata = null; this._mappingOptions = null;
     this._pendingActions = null; this._pendingScope = null; this._editingRow = null; this._editorClears = {};
     this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], fileSummary: '', editor: null, editorOptions: [], confirmAction: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
@@ -134,7 +134,7 @@ Page({
       this._previewId = result.previewId;
       this._staleIssue = false;
       if (result.decisions) this._decisions = result.decisions;
-      this._views = {};
+      this._views = {}; this._completeIssueRows = new Map();
       this._summary = result.summary;
       this._selected.clear();
       const categories = result.categories.map(item => Object.assign({}, item, { summaryText: format(copy.categoryCount, [item.count]) }));
@@ -239,7 +239,9 @@ Page({
     this.setData({ busy: true });
     try {
       const offset = event.currentTarget.dataset.more ? (item.rows || []).length : 0;
-      const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset });
+      const complete = this._completeIssueRows.get(this.issueSelectionKey(item));
+      const result = complete ? { items: complete.slice(offset, offset + 40), hasMore: offset + 40 < complete.length }
+        : await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const rows = result.items.map(row => Object.assign({}, row, { title: format(copy.issuePerson, [row.rowNumber, row.name]),
         actions: row.actions.map(action => Object.assign({}, action, { label: actionLabel(action) })) }));
@@ -265,20 +267,68 @@ Page({
     const index = Number(event.currentTarget.dataset.index); const rowIndex = Number(event.currentTarget.dataset.row);
     const item = this.data.items[index]; const row = item && item.rows && item.rows[rowIndex];
     if (!row) return;
-    const selected = item.rows.filter((entry, position) => position === rowIndex ? !row.selected : entry.selected);
+    const rows = this._completeIssueRows.get(this.issueSelectionKey(item)) || item.rows;
+    const selected = rows.filter(entry => entry.rowNumber === row.rowNumber ? !row.selected : entry.selected);
+    rows.forEach(entry => { if (entry.rowNumber === row.rowNumber) entry.selected = !row.selected; });
+    this.updateIssueSelection(index, selected);
+  },
+  issueSelectionKey(item) { return this._previewId + ':' + (item.issueRef || item.id || (item.rowNumbers || []).join(',')); },
+  updateIssueSelection(index, selected) {
+    const item = this.data.items[index];
+    const numbers = new Set(selected.map(row => row.rowNumber));
+    const mapping = this.data.mappings.find(entry => entry.target === 'studentId');
+    const identities = new Map();
+    if (this._file && mapping) this._file.rows.forEach((cells, position) => {
+      const number = this._file.rowNumbers ? this._file.rowNumbers[position] : position + 2;
+      const decision = this._decisions.rows[number];
+      const value = String(decision && decision.values && decision.values.studentId != null ? decision.values.studentId : cells[mapping.index] || '').trim().toLowerCase();
+      identities.set(number, value && value.length <= 32 && !/^#(?:n\/a|value!|ref!|div\/0!|num!|name\?|null!|spill!|calc!)$/i.test(value) ? 'person:' + value : 'row:' + number);
+    });
+    const people = new Set(selected.map(row => identities.get(row.rowNumber) || 'row:' + row.rowNumber));
+    const patch = {};
+    (item.rows || []).forEach((entry, position) => { patch['items[' + index + '].rows[' + position + '].selected'] = numbers.has(entry.rowNumber); });
     const options = [{ type: 'dictionary', label: copy.create }, { type: 'keep', label: copy.keep }, { type: 'replace', label: copy.replace },
       { type: 'exclude', label: copy.excludeRelated }, { type: 'undo', label: copy.restore }].filter(option => selected.length && selected.every(entry =>
       entry.actions.some(action => !action.sourceKey && !action.affectedRows && ((option.type === 'keep' || option.type === 'replace')
         ? action.type === 'policy' && action.value === option.type : action.type === option.type))));
-    this.setData({ ['items[' + index + '].rows[' + rowIndex + '].selected']: !row.selected,
+    this.setData(Object.assign(patch, {
       ['items[' + index + '].selectedRowCount']: selected.length, ['items[' + index + '].rowBatchOptions']: options,
-      ['items[' + index + '].selectedRowText']: format(copy.selectedRows, [selected.length]),
-      ['items[' + index + '].rowsEditable']: selected.length > 0 && selected.every(entry => entry.actions.some(action => action.type === 'edit')) });
+      ['items[' + index + '].selectedRowText']: format(copy.selectedPeopleRows, [people.size, selected.length]),
+      ['items[' + index + '].rowsEditable']: selected.length > 0 && selected.every(entry => entry.actions.some(action => action.type === 'edit')) }));
+  },
+  async selectIssueRows(event) {
+    if (this.data.busy || this.data.requestId) return;
+    const index = Number(event.currentTarget.dataset.index); const mode = event.currentTarget.dataset.mode;
+    const item = this.data.items[index];
+    if (!item || !['all', 'none', 'invert'].includes(mode)) return;
+    const key = this.issueSelectionKey(item);
+    if (mode === 'none') {
+      (this._completeIssueRows.get(key) || []).forEach(row => { row.selected = false; });
+      this.updateIssueSelection(index, []); return;
+    }
+    const request = orgSession.beginRequest(this, 'issueRows');
+    this.setData({ busy: true, error: '' });
+    try {
+      const rows = (this._completeIssueRows.get(key) || item.rows || []).map(row => Object.assign({}, row));
+      while (rows.length < item.rowNumbers.length) {
+        const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset: rows.length });
+        if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+        if (!result.items || !result.items.length) throw new Error(copy.errorDetails);
+        rows.push(...result.items);
+      }
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+      const expected = new Set(item.rowNumbers);
+      if (rows.length !== expected.size || new Set(rows.map(row => row.rowNumber)).size !== expected.size || rows.some(row => !expected.has(row.rowNumber))) throw new Error(copy.errorDetails);
+      rows.forEach(row => { row.selected = mode === 'all' || !row.selected; });
+      this._completeIssueRows.set(key, rows);
+      this.updateIssueSelection(index, rows.filter(row => row.selected));
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   batchIssueRows(event) {
     if (this.data.busy || this.data.requestId) return;
     const item = this.data.items[Number(event.currentTarget.dataset.index)];
-    const rows = item && (item.rows || []).filter(row => row.selected);
+    const rows = item && (this._completeIssueRows.get(this.issueSelectionKey(item)) || item.rows || []).filter(row => row.selected);
     if (!rows || !rows.length) return;
     const type = event.currentTarget.dataset.type;
     if (type === 'edit') {

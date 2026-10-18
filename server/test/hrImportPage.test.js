@@ -186,6 +186,43 @@ async function main() {
   subset.page.resetSession(); assert.equal(subset.page.data.confirmAction, null); assert.equal(subset.page._pendingScope, null);
   console.log('PASS 必填列不允许批量清空，可选列明确确认清空，角色变化清除确认名单');
 
+  const groupRows = Array.from({ length: 85 }, (_, index) => ['同名人员', String(1000 + Math.floor(index / 2)), '组甲']);
+  let groupCalls = 0; let failGroup = false;
+  const whole = createPage(async ({ name, data }) => {
+    if (name === 'getHrImportMetadata') return { status: 'success', fields: [] };
+    groupCalls += 1;
+    if (failGroup) throw new Error('测试读取失败');
+    return { status: 'success', items: groupRows.slice(data.offset, data.offset + 40).map((row, offset) => ({
+      rowNumber: data.offset + offset + 2, name: row[0], actions: [{ type: 'edit', rowNumber: data.offset + offset + 2 }, { type: 'exclude', rowNumbers: [data.offset + offset + 2] }]
+    })), hasMore: data.offset + 40 < groupRows.length };
+  }, { fileName: 'whole.xlsx', headers: ['姓名', '学号', '职能组'], rows: groupRows });
+  await whole.page.chooseFile(); whole.page._previewId = 'whole'; whole.page.preview = () => {};
+  whole.page.data.items = [{ id: 'whole-issue', rowNumbers: groupRows.map((_, index) => index + 2) }];
+  await whole.page.expandIssue(indexEvent);
+  whole.page.toggleIssueRow({ currentTarget: { dataset: { index: 0, row: 0 } } });
+  const groupEvent = mode => ({ currentTarget: { dataset: { index: 0, mode } } });
+  failGroup = true; await whole.page.selectIssueRows(groupEvent('all'));
+  assert.equal(whole.page.data.items[0].selectedRowCount, 1); assert.equal(whole.page._completeIssueRows.size, 0);
+  failGroup = false; await whole.page.selectIssueRows(groupEvent('all'));
+  assert.equal(whole.page.data.items[0].rows.length, 40); assert.equal(whole.page.data.items[0].selectedRowCount, 85);
+  assert.equal(whole.page.data.items[0].selectedRowText, '已选 43 人，共 85 行');
+  whole.page.batchIssueRows({ currentTarget: { dataset: { index: 0, type: 'exclude' } } });
+  assert.equal(whole.page._pendingActions.length, 85); assert.equal(whole.page.data.confirmAction.totalRows, 85);
+  whole.page.cancelAction();
+  const beforeCache = groupCalls;
+  await whole.page.expandIssue({ currentTarget: { dataset: { index: 0, more: true } } });
+  assert.equal(groupCalls, beforeCache); assert(whole.page.data.items[0].rows.every(row => row.selected));
+  whole.page.toggleIssueRow({ currentTarget: { dataset: { index: 0, row: 0 } } });
+  await whole.page.selectIssueRows(groupEvent('invert'));
+  assert.equal(whole.page.data.items[0].selectedRowText, '已选 1 人，共 1 行');
+  assert.equal(whole.page.data.items[0].rows[0].selected, true);
+  await whole.page.selectIssueRows(groupEvent('none'));
+  assert.equal(whole.page.data.items[0].selectedRowText, '已选 0 人，共 0 行');
+  await whole.page.selectIssueRows(groupEvent('invert'));
+  assert.equal(whole.page.data.items[0].selectedRowCount, 85); assert.equal(groupCalls, beforeCache);
+  whole.page.resetSession(); assert.equal(whole.page._completeIssueRows.size, 0);
+  console.log('PASS 全组选中85行含未加载页，43人去重，反选取消缓存及失败保留原选择');
+
   let submissions = 0;
   const requests = [];
   const retry = createPage(async ({ name, data }) => {

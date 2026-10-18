@@ -95,7 +95,8 @@ module.exports = {
   editGroup: '统一修改内容', groupRows: '本次选定 {0} 行', groupEditNotice: '仅修改选定行的这一列。保存后先核对姓名、行号和新值，再确认；其他行和其他资料保持不变',
   editSelected: '修改已选行', selectedRows: '已选 {0} 行', affectedRows: '本次影响 {0} 行，名单如下', batchChange: '将导入的“{0}”改为“{1}”',
   batchRequired: '“{0}”不能留空，请填写后继续', batchClear: '清空选定行的“{0}”',
-  batchField: '要修改哪一列', selectionHint: '点击人员行可勾选，再次点击取消；未加载的行不会自动选中',
+  batchField: '要修改哪一列', selectionHint: '全选、取消全选和反选均作用于整组，包括尚未展开的行；点击单行可单独调整',
+  selectGroupAll: '全选', selectGroupNone: '取消全选', selectGroupInvert: '反选', selectedPeopleRows: '已选 {0} 人，共 {1} 行', selectedPeopleRowsEmpty: '已选 0 人，共 0 行',
   scopeMore: '继续查看受影响名单', operationValue: '{0}：“{1}”',
   useSourceRow: '采用第 {0} 行内容', categoryNoProblems: '本类别没有待处理问题，请继续核对其他类别', restart: '开始下一次导入'
 };

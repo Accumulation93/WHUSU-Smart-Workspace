@@ -113,8 +113,13 @@
         <view class="import-actions"><button class="secondary-btn" data-index="{{index}}" catchtap="expandIssue" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.expanded ? copy.collapseRows : copy.expandRows}}</button></view>
         <view wx:if="{{item.expanded}}">
           <view class="import-note">{{copy.selectionHint}}</view>
+          <view class="import-actions">
+            <button class="secondary-btn" data-index="{{index}}" data-mode="all" catchtap="selectIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.selectGroupAll}}</button>
+            <button class="secondary-btn" data-index="{{index}}" data-mode="none" catchtap="selectIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.selectGroupNone}}</button>
+            <button class="secondary-btn" data-index="{{index}}" data-mode="invert" catchtap="selectIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.selectGroupInvert}}</button>
+          </view>
+          <view class="import-label">{{item.selectedRowText || copy.selectedPeopleRowsEmpty}}</view>
           <view wx:if="{{item.selectedRowCount}}">
-            <view class="import-label">{{item.selectedRowText}}</view>
             <view class="import-actions"><button wx:if="{{item.rowsEditable}}" class="secondary-btn" data-index="{{index}}" data-type="edit" catchtap="batchIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.editSelected}}</button><button class="secondary-btn" wx:for="{{item.rowBatchOptions}}" wx:for-item="batchOption" wx:key="type" data-index="{{index}}" data-type="{{batchOption.type}}" catchtap="batchIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{batchOption.label}}</button></view>
           </view>
           <view class="import-split-row selection-option-card {{sourceRow.selected ? 'selection-option-card-selected import-active' : ''}}" wx:for="{{item.rows}}" wx:for-item="sourceRow" wx:for-index="rowIndex" wx:key="rowNumber" aria-checked="{{sourceRow.selected}}" data-index="{{index}}" data-row="{{rowIndex}}" catchtap="toggleIssueRow" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
