@@ -55,9 +55,21 @@ test('新成员的部分岗位信息不能悄悄丢弃', () => {
   assert.equal(buildPlan(payload([['新人', '009', '组甲']]), context()).summary.canExecute, false);
   assert.equal(buildPlan(payload([['新人', '009', '组甲']], { rows: { 2: { mode: 'person' } } }), context()).summary.canExecute, true);
 });
-test('跨部门职能组不得自动创建同名组', () => {
-  const plan = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), context());
-  assert(plan.issues.some(item => item.category === 'group_mismatch')); assert.equal(plan.summary.newDictionaries, 0);
+test('其他部门同名组不影响本部门匹配和确认新建', () => {
+  const data = payload([['测试甲', '001', '组乙']]);
+  const ctx = context();
+  const plan = buildPlan(data, ctx);
+  assert(!plan.issues.some(item => item.category === 'group_mismatch'));
+  assert.equal(plan.assignments[0].targetId, 'a1');
+  assert.equal(plan.dictionaries[0].department, '部门甲');
+  assert.equal(plan.dictionaries[0].name, '组乙');
+  data.decisions.dictionaries = [plan.dictionaries[0].key];
+  assert.equal(buildPlan(data, ctx).summary.canExecute, true);
+  ctx.permissions = []; assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+  ctx.workGroups.push({ id: 'g3', name: '组乙', department: '部门甲' });
+  assert.equal(buildPlan(data, ctx).dictionaries.length, 0);
+  ctx.members[0].assignments.push(Object.assign({}, assignment, { id: 'a2', department: '部门乙' }));
+  assert(buildPlan(data, ctx).issues.some(item => item.category === 'ambiguous'));
 });
 test('新分类按名称集中确认且受权限限制', () => {
   const data = payload([['测试甲', '001', '新组']]); let plan = buildPlan(data, context());
@@ -115,7 +127,8 @@ test('修改后重复岗位阻止写入，多目标逐岗校验部门', () => {
   assert(plan.issues.some(item => item.category === 'duplicate')); assert.equal(plan.summary.canExecute, false);
   ctx.members[0].assignments[1].department = '部门乙'; ctx.members[0].assignments[1].workGroup = '';
   plan = buildPlan(payload(null, { rows: { 2: { mode: 'update', assignmentIds: ['a1', 'a2'] } } }), ctx);
-  assert(plan.issues.some(item => item.category === 'group_mismatch' && item.targetId === 'a2'));
+  assert(!plan.issues.some(item => item.category === 'group_mismatch'));
+  assert(plan.dictionaries.some(item => item.name === '组甲' && item.department === '部门乙'));
 });
 test('表格错误值不作为学号合并人员或产生岗位问题', () => {
   const errors = ['#N/A', '#VALUE!', '#REF!', '#DIV/0!', '#NUM!', '#NAME?', '#NULL!', '#SPILL!', '#CALC!'];
@@ -142,7 +155,7 @@ test('岗位差异明确列出资料项和两边岗位，空信息不画伪比�
   assert.equal(invalid.showComparison, false);
   assert(invalid.message.includes('第 1 列“姓名”')); assert(invalid.message.includes('姓名没有填写'));
 });
-test('未登记名称、缺失资料项和跨部门职能组均可读', () => {
+test('未登记名称与缺失资料项具体说明，其他部门同名组不进入提示', () => {
   const ctx = context();
   const plan = buildPlan(payload([['测试甲', '001', '新组']]), ctx);
   const dictionary = plan.issues.find(item => item.category === 'dictionary');
@@ -150,7 +163,7 @@ test('未登记名称、缺失资料项和跨部门职能组均可读', () => {
   assert.equal(dictionary.before, copy.noRegisteredValue);
   const incomplete = buildPlan(payload([['新人', '009', '组甲']]), ctx).issues[0];
   assert(incomplete.message.includes(copy.identity)); assert(incomplete.message.includes(copy.department));
-  const mismatch = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), ctx).issues.find(item => item.category === 'group_mismatch');
-  assert(mismatch.message.includes('组乙')); assert(mismatch.message.includes('部门乙')); assert(mismatch.message.includes('部门甲'));
+  const missingGroup = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), ctx).issues.find(item => item.category === 'dictionary');
+  assert(missingGroup.message.includes('组乙')); assert(!missingGroup.message.includes('部门乙')); assert(missingGroup.message.includes('部门甲'));
 });
 console.log(count + ' import planner tests passed');

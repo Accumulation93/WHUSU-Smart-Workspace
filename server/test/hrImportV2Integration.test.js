@@ -62,6 +62,28 @@ async function main() {
     await assert.rejects(model.execute({ previewId: second.previewId, requestId: 'import_stale_0001' }, actor, authorize), error => error.code === 'import_stale');
     console.log('PASS 请求冲突、组织隔离、执行授权和预览失效');
 
+    await admin.query("INSERT INTO departments (id,name,org_id) VALUES ('d-same','同名组所在其他部门','org-test')");
+    await admin.query("INSERT INTO work_groups (id,name,department_id,org_id) VALUES ('g-other','同名职能组','d-same','org-test')");
+    const sameNameInput = Object.assign({}, input, { rows: [['测试甲', '001', '同名职能组']], decisions: {} });
+    const sameNamePreview = await model.preview(sameNameInput, actor, authorize);
+    const [storedPlan] = await admin.query('SELECT plan_json FROM hr_import_previews WHERE id=?', [sameNamePreview.previewId]);
+    const sameNamePlan = typeof storedPlan[0].plan_json === 'string' ? JSON.parse(storedPlan[0].plan_json) : storedPlan[0].plan_json;
+    assert(!sameNamePlan.issues.some(item => item.category === 'group_mismatch'));
+    const sameNameDictionary = sameNamePlan.dictionaries.find(item => item.name === '同名职能组');
+    assert.equal(sameNameDictionary.department, '部门甲');
+    sameNameInput.decisions.dictionaries = [sameNameDictionary.key];
+    const approvedSameName = await model.preview(sameNameInput, actor, authorize);
+    assert.equal(approvedSameName.summary.canExecute, true);
+    await model.execute({ previewId: approvedSameName.previewId, requestId: 'import_same_name_01' }, actor, authorize);
+    const [sameNameGroups] = await admin.query("SELECT g.id,g.department_id FROM work_groups g WHERE g.name='同名职能组' AND g.org_id='org-test' ORDER BY g.department_id");
+    assert.equal(sameNameGroups.length, 2);
+    const localGroup = sameNameGroups.find(item => item.department_id === 'd1');
+    assert(localGroup); assert.notEqual(localGroup.id, 'g-other');
+    assert.equal((await admin.query("SELECT work_group_id FROM membership_assignments WHERE id='a1'"))[0][0].work_group_id, localGroup.id);
+    assert.equal((await model.preview(sameNameInput, actor, authorize)).summary.newDictionaries, 0);
+    await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id='a1'");
+    console.log('PASS 跨部门同名职能组独立创建、绑定本部门编号及重复导入不再创建');
+
     const newInput = { schemaVersion: 2, headers: ['姓名','学号'], rows: [['新增无岗','002'], ['新增无岗','002']], basicMapping: { name: 0, studentId: 1 }, decisions: {} };
     const newPreview = await model.preview(newInput, actor, authorize);
     assert.equal(newPreview.summary.newMembers, 1);

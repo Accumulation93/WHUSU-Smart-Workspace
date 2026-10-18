@@ -100,8 +100,7 @@ function buildPlan(payload, context) {
   const members = new Map(context.members.map(member => [studentKey(member.studentId), member]));
   const fields = new Map(context.fields.map(field => [field.id, field]));
   const dicts = { department: new Map(context.departments.map(item => [item.name, item])), identity: new Map(context.identities.map(item => [item.name, item])) };
-  const groupByName = new Map();
-  context.workGroups.forEach(item => { const entries = groupByName.get(item.name) || []; entries.push(item); groupByName.set(item.name, entries); });
+  const groupKeys = new Set(context.workGroups.map(item => JSON.stringify([item.department, item.name])));
   const issues = [];
   const issueById = new Map();
   const rowViews = [];
@@ -141,7 +140,7 @@ function buildPlan(payload, context) {
   function ensureDictionary(type, name, department, rowNumber) {
     if (!name) return;
     const exists = type === 'workGroup'
-      ? (groupByName.get(name) || []).some(item => item.department === department)
+      ? groupKeys.has(JSON.stringify([department, name]))
       : dicts[type].has(name);
     if (exists) return;
     const key = dictKey(type, name, department);
@@ -234,11 +233,7 @@ function buildPlan(payload, context) {
       return;
     } else {
       const exact = active.filter(item => values.nature && values.department && values.identity && tuple(item) === tuple(values));
-      let candidates = active.filter(item => ['nature', 'department', 'identity'].every(key => !values[key] || values[key] === item[key]));
-      if (!values.department && values.workGroup && groupByName.has(values.workGroup)) {
-        const departments = new Set(groupByName.get(values.workGroup).map(item => item.department));
-        candidates = candidates.filter(item => departments.has(item.department));
-      }
+      const candidates = active.filter(item => ['nature', 'department', 'identity'].every(key => !values[key] || values[key] === item[key]));
       if (exact.length === 1) targets = exact;
       else if (candidates.length === 1 && !(values.nature && values.department && values.identity)) targets = candidates;
       else {
@@ -261,14 +256,9 @@ function buildPlan(payload, context) {
       if (!NATURES.includes(next.nature) || !next.department || !next.identity) {
         issue('incomplete', 'missingAssignment', [rowNumber], { targetId, actions: [action('edit', { rowNumber }), action('mode', { rowNumber, value: 'person' })] }); return;
       }
-      if (['department', 'identity', 'workGroup'].some(key => Array.from(next[key]).length > 100)) {
-        issue('invalid', 'invalidValue', [rowNumber], { targetId, field: 'nature', message: format(copy.invalidNature, [next.nature]) }); return;
-      }
-      const namedGroups = groupByName.get(next.workGroup) || [];
-      if (next.workGroup && namedGroups.length && !namedGroups.some(group => group.department === next.department)) {
-        issue('group_mismatch', 'wrongGroup', [rowNumber], { targetId, field: 'department', before: namedGroups.map(item => item.department).join(' / '), after: next.department,
-          message: format(copy.groupDepartmentDifference, [next.workGroup, namedGroups.map(item => item.department).join(' / '), next.department]),
-          actions: [action('edit', { rowNumber })] }); return;
+      const longField = ['department', 'identity', 'workGroup'].find(key => Array.from(next[key]).length > 100);
+      if (longField) {
+        issue('invalid', 'invalidValue', [rowNumber], { targetId, field: longField, message: format(copy.longCell, [copy[longField], 100]) }); return;
       }
       const key = targetId || values.studentId + ':' + tuple(next);
       if (!proposals.has(key)) proposals.set(key, []);
@@ -292,12 +282,6 @@ function buildPlan(payload, context) {
       const next = Object.assign({}, chosen.next);
       sources.forEach(item => item.touched.forEach(field => { next[field] = item.next[field]; }));
       chosen = Object.assign({}, chosen, { next });
-    }
-    const mergedGroups = groupByName.get(chosen.next.workGroup) || [];
-    if (chosen.next.workGroup && mergedGroups.length && !mergedGroups.some(group => group.department === chosen.next.department)) {
-      issue('group_mismatch', 'wrongGroup', sources.map(item => item.rowNumber), { targetId: chosen.targetId, field: 'department', before: mergedGroups.map(group => group.department).join(' / '), after: chosen.next.department,
-        message: format(copy.groupDepartmentDifference, [chosen.next.workGroup, mergedGroups.map(group => group.department).join(' / '), chosen.next.department]),
-        actions: sources.map(item => action('edit', { rowNumber: item.rowNumber })) });
     }
     const person = people.get(chosen.studentId);
     const other = (person.existing && person.existing.assignments || []).find(item => item.status === 'active' && item.id !== chosen.targetId && tuple(item) === tuple(chosen.next));
