@@ -64,6 +64,12 @@ async function main() {
     await model.batch({action:'enable',rules:[{id:updated.id,version:3}]},'org',authorize);
     const dynamic = Object.assign({},input,{name:'同部门',targets:[{type:'scope',sameDepartment:true}],fieldIds:[]});
     const third = await model.save(dynamic,'org',authorize);
+    const impact = await pool.withTransaction(connection => model.deletionImpact(connection, 'v', 'org', true));
+    assert(impact.some(item => item.id === third.id && item.wouldDisable));
+    const dictionaryRule = await model.save({...dynamic,name:'分类引用',targets:[{type:'scope',departmentIds:['d1']} ]},'org',authorize);
+    const usage = await require('../src/core/services/dictionaryUsage').countUsage('department','d1','org');
+    assert(usage.some(item => item.category === 'directory_rules' && item.count === 1));
+    await model.batch({action:'delete',rules:[{id:dictionaryRule.id,version:1}]},'org',authorize);
     await model.batch({action:'delete',rules:[{id:updated.id,version:4},{id:second.id,version:1}]},'org',authorize);
     cards = (await model.read(actor)).groups.flatMap(group=>group.items); assert.equal(cards.length,2); assert(cards.every(card=>!card.fields.length));
     await admin.query("UPDATE membership_assignments SET department_id='d2' WHERE id='v1'");

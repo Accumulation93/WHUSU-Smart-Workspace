@@ -26,6 +26,7 @@ const options = {
     const fixture = await mysql.createConnection({ ...options, database, multipleStatements: true });
     try {
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018230000_hr_contact_directory.sql'), 'utf8'));
       const migration = fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018010000_audit_drop_resubmit_mode.sql'), 'utf8');
       await fixture.query(migration);
       await fixture.query(migration);
