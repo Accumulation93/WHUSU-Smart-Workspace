@@ -116,6 +116,33 @@ async function main() {
     await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id='a1'");
     console.log('PASS 同组逐行展开、仅部分确认不能提交、部分改字部分新建真实保存与组织隔离');
 
+    await admin.query("UPDATE membership_assignments SET work_group_id=? WHERE id IN ('a1','a-split')", [localGroup.id]);
+    const conflictPage = createPage(async () => ({ status: 'success', fields: [] }), {
+      fileName: '相同值分组.xlsx', headers: ['姓名', '学号', '职能组'], rows: [['测试甲', '001', '组甲'], ['分开处理人员', '090', '组甲']]
+    }).page;
+    await conflictPage.chooseFile();
+    const groupedPreview = await model.preview(conflictPage.payload(), actor, authorize);
+    assert.equal(groupedPreview.summary.problemCount, 1); assert.equal(groupedPreview.summary.problemRowCount, 2);
+    const groupedList = await model.details({previewId:groupedPreview.previewId, category:'value_conflict'}, actor);
+    assert.equal(groupedList.items.length, 1); assert.equal(groupedList.items[0].memberIssues, undefined);
+    const groupedRows = await model.details({previewId:groupedPreview.previewId, issueId:groupedList.items[0].id}, actor);
+    assert.equal(groupedRows.items.length, 2);
+    assert(groupedRows.items[0].content.includes('测试甲')); assert(groupedRows.items[1].content.includes('分开处理人员'));
+    const firstReplace = groupedRows.items[0].actions.find(action => action.type === 'policy' && action.value === 'replace');
+    assert.equal(firstReplace.field, 'a1:workGroup'); conflictPage.applyAction(firstReplace);
+    conflictPage._previewId = groupedPreview.previewId;
+    const partialConflict = await model.preview(conflictPage.payload(), actor, authorize);
+    assert.deepEqual((await model.details({previewId:partialConflict.previewId,category:'value_conflict'},actor)).items.map(item=>item.rowNumbers), [[3]]);
+    await assert.rejects(model.execute({previewId:partialConflict.previewId,requestId:'group_partial_01'},actor,authorize), error=>error.code==='import_problems');
+    conflictPage.applyAction(groupedRows.items[1].actions.find(action=>action.type==='policy' && action.value==='keep'));
+    const completeConflict = await model.preview(conflictPage.payload(),actor,authorize);
+    assert.equal(completeConflict.summary.canExecute,true);
+    await model.execute({previewId:completeConflict.previewId,requestId:'group_complete_01'},actor,authorize);
+    const [groupSaved] = await admin.query("SELECT id,work_group_id FROM membership_assignments WHERE id IN ('a1','a-split') ORDER BY id");
+    assert.deepEqual(groupSaved.map(item=>[item.id,item.work_group_id]), [['a-split',localGroup.id],['a1','g1']]);
+    await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id IN ('a1','a-split')");
+    console.log('PASS 同值跨人归组、逐人岗位动作、部分处理隔离及实际保存回读');
+
     const pagedInput = Object.assign({}, input, { rows: Array.from({ length: 41 }, () => ['测试甲', '001', '分页新组']), rowNumbers: undefined, decisions: {} });
     const pagedPreview = await model.preview(pagedInput, actor, authorize);
     const pagedIssues = await model.details({ previewId: pagedPreview.previewId, category: 'dictionary' }, actor);

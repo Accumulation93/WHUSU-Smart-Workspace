@@ -403,6 +403,15 @@ function buildPlan(payload, context) {
     }
     if (item.reason === 'duplicateAssignment') item.message = format(copy.duplicateDetails, [item.after || item.before]);
     if (!issueFields.length) issueFields = ['name', 'studentId'];
+    // 分组依据使用问题本身，不能把人员姓名和行号拼入相同值的分组键。
+    item.issueFields = issueFields;
+    item.columnText = issueFields.map(columnLabel).join(copy.listSeparator);
+    item.detailMessage = item.message;
+    if (issueFields.includes('workGroup') && first) {
+      const member = members.get(first.studentId);
+      const target = member && member.assignments.find(entry => entry.id === item.targetId);
+      item.scopeDepartment = item.dictionaryDepartment || first.values.department || target && target.department || '';
+    }
     item.message = format(copy.issueLocation, [item.rowNumbers.map(number => {
       const row = rowsByNumber.get(number); return format(copy.issuePerson, [number, row && row.name || copy.unnamedPerson]);
     }).join(copy.listSeparator), issueFields.map(columnLabel).join(copy.listSeparator), item.message]);

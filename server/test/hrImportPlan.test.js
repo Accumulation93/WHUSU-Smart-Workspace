@@ -202,4 +202,31 @@ test('展示分类拆分缺失与待确认、离任与停用，并保留处理�
   for (const [field, expected] of [['department', '部门未登记'], ['identity', '身份未登记'], ['workGroup', '职能组未登记']]) assert.equal(categoryTitle({ category: 'dictionary', field }), expected);
   for (const [category, expected] of [['ambiguous', '待选择对应岗位'], ['intent', '待确认岗位变更'], ['value_conflict', '与系统内容不一致'], ['row_conflict', '表内多行内容不一致'], ['duplicate', '岗位重复'], ['stale', '系统资料已更新']]) assert.equal(categoryTitle({ category }), expected);
 });
+test('同字段同值跨人归组，逐行动作及部门边界保留', () => {
+  const { groupIssues } = require('../src/core/services/hrImportPresentation');
+  const ctx = context(); ctx.members[0].assignments[0].workGroup = '原组';
+  ctx.workGroups.push({ id: 'g-old', name: '原组', department: '部门甲' });
+  ctx.members.push(Object.assign({}, ctx.members[0], { personId: 'p2', name: '测试乙', studentId: '002', assignments: [Object.assign({}, ctx.members[0].assignments[0], { id: 'a2' })] }));
+  const input = payload([['测试甲', '001', '组甲'], ['测试乙', '002', '组甲']]);
+  const raw = buildPlan(input, ctx).issues; const grouped = groupIssues(raw);
+  assert.equal(raw.length, 2); assert.equal(grouped.length, 1); assert.deepEqual(grouped[0].rowNumbers, [2, 3]);
+  assert.deepEqual(grouped[0].memberIssues.map(item => item.actions[0].field), ['a1:workGroup', 'a2:workGroup']);
+  assert(!grouped[0].message.includes('测试甲')); assert(grouped[0].message.includes('职能组'));
+  input.decisions = { rows: { 2: { policies: { 'a1:workGroup': 'replace' } } } };
+  const partial = groupIssues(buildPlan(input, ctx).issues);
+  assert.equal(partial.length, 2); assert.deepEqual(partial.find(item => item.blocking).rowNumbers, [3]);
+  assert.equal(groupIssues([raw[0], Object.assign({}, raw[1], { scopeDepartment: '部门乙' })]).length, 2);
+  assert.equal(groupIssues([raw[0], Object.assign({}, raw[1], { before: '另一原值' })]).length, 2);
+  assert.equal(groupIssues([raw[0], Object.assign({}, raw[1], { rowNumbers: [2] })]).length, 2);
+});
+test('相同非法值超过一页仍归组，不同值分开', () => {
+  const { groupIssues } = require('../src/core/services/hrImportPresentation');
+  const ctx = context(); ctx.fields = [{ id: 'phone', label: '手机', type: 'phone', required: true }];
+  const data = { schemaVersion: 2, headers: ['姓名', '学号', '手机'], basicMapping: {name:0, studentId:1}, extensionMapping:[{fieldId:'phone',columnIndex:2}],
+    rows: Array.from({length:85}, (_, i) => ['人员'+i, 'test'+i, '123']) };
+  const plan = buildPlan(data, ctx); const groups = groupIssues(plan.issues);
+  assert.equal(groups.length, 1); assert.equal(groups[0].rowNumbers.length, 85);
+  data.rows[84][2] = '456'; assert.equal(groupIssues(buildPlan(data, ctx).issues).length, 2);
+  assert.equal(groupIssues([plan.issues[0], Object.assign({}, plan.issues[1], {field:'email'})]).length, 2);
+});
 console.log(count + ' import planner tests passed');
