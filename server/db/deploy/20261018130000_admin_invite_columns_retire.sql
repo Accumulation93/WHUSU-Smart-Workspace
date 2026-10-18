@@ -1,0 +1,1 @@
+-- @online-drop-columns {"table":"admin_info","columns":["invite_code","invited_at","invite_expires_at","invite_consumed_at"],"indexes":["uk_ai_invite_code"],"compatibleSince":"59115bd21332b65888c9d8c452d8a3cf19554c6f"}

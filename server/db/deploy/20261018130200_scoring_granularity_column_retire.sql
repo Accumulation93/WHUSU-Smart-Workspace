@@ -1,0 +1,1 @@
+-- @online-drop-columns {"table":"score_activities","columns":["participant_granularity"],"compatibleSince":"59115bd21332b65888c9d8c452d8a3cf19554c6f"}
