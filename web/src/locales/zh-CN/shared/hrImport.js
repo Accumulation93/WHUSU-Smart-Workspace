@@ -4,6 +4,7 @@
 const sharedModule = Object.freeze({
   title: '人员导入', navigationTitle: '人员导入 - WHUSU智慧工作台', appName: '人事信息',
   peopleView: '按人员查看',
+  involvedPeopleRows: '涉及 {0} 人，共 {1} 行',
   chooseFile: '选择文件', mapColumns: '确认列对应', preview: '检查导入内容', problems: '待处理问题', changes: '本次变更', resolved: '已处理',
   next: '继续检查', back: '返回修改', execute: '确认导入', retry: '重新检查', refresh: '读取最新内容',
   exportTable: '导出岗位表', exportIssues: '导出问题表', includeProfile: '包含生效补充资料',

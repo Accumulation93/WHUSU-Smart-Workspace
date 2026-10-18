@@ -97,7 +97,7 @@
   <view id="import-issue-list" wx:if="{{stage === 'review' || stage === 'confirm'}}">
     <view class="section-control-card import-list-heading"><view class="import-title">{{listTitle || copy.issueList}}</view></view>
     <view class="import-card selection-option-card {{item.selected ? 'selection-option-card-selected import-active' : ''}}" wx:for="{{items}}" wx:key="id" aria-checked="{{item.selected}}" data-index="{{index}}" catchtap="toggleProblem" hover-class="{{item.blocking ? 'ui-press-card' : 'none'}}" hover-start-time="0" hover-stay-time="160">
-      <view class="import-issue-head"><view class="import-title">{{item.name}}</view><view class="import-note">{{item.rowText}}</view></view>
+      <view class="import-issue-head"><view class="import-title">{{item.cardTitle || copy.problems}}</view><view class="import-note">{{item.scopeText || item.rowText}}</view></view>
       <view class="import-reason">{{item.title}}</view>
       <view wx:if="{{item.targetLabel}}" class="import-note">{{item.targetLabel}}</view>
       <view wx:if="{{item.resolutionLabel}}" class="import-label">{{item.resolutionLabel}}</view>

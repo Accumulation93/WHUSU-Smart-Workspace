@@ -216,10 +216,7 @@
   line-height: 1;
 }
 
-.hr-template-option-move.is-disabled {
-  color: #cbd5e1;
-  background: rgba(241, 245, 249, 0.9);
-}
+
 
 .hr-template-option-toggle-row {
   display: flex;

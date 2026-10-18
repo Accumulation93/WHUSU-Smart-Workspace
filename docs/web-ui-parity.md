@@ -260,3 +260,7 @@ color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; line-height
 2. 卡片、列表行、状态标签、按钮、页签的最终生效值来自令牌，源码里没有裸色值。
 3. 页面没有大白块、没有胖胶囊、没有大面积空留白、没有营销页式标题。
 4. 触碰 JS 时运行 `node --check`，收尾运行 `git diff --check`。
+
+## 禁用按钮与小程序同步（2026-10-18）
+
+所有 `button:disabled` 与语义 `role=button/aria-disabled=true` 使用相同灰蓝禁用令牌：文字 #65758b，背景 #f3f7fc→#e5edf6，边框 #d5dfeb，内高光 `inset 0 0.5px 0 rgba(255,255,255,0.92)`。禁用态opacity=1、filter/transform/animation均为none，不再将整块按钮淡化；默认、主要、危险、紧凑按钮均覆盖。CSS不代替原生disabled或业务事件权限检查。

@@ -223,6 +223,16 @@ async function main() {
   whole.page.resetSession(); assert.equal(whole.page._completeIssueRows.size, 0);
   console.log('PASS 全组选中85行含未加载页，43人去重，反选取消缓存及失败保留原选择');
 
+  const headings = createPage(async ({ name }) => name === 'getHrImportMetadata' ? { status: 'success', fields: [] } : {
+    status: 'success', total: 1, hasMore: false, items: [{ id: 'group', name: '第一个人', category: 'dictionary', fieldLabel: copy.workGroup,
+      rowNumbers: [2, 3, 4], message: '具体问题', actions: [] }]
+  }, { fileName: 'headings.xlsx', headers: ['姓名', '学号'], rows: [['第一个人', '001'], ['第一个人', '001'], ['第二个人', '002']] });
+  await headings.page.chooseFile(); headings.page._previewId = 'headings'; await headings.page.loadItems(false);
+  assert.equal(headings.page.data.items[0].cardTitle, '职能组 · 系统中没有这个名称');
+  assert.equal(headings.page.data.items[0].scopeText, '涉及 2 人，共 3 行');
+  assert(!headings.page.data.items[0].cardTitle.includes('第一个人'));
+  console.log('PASS 多人问题按字段和问题命名，人数行数准确，不用首人姓名冒充组标题');
+
   let submissions = 0;
   const requests = [];
   const retry = createPage(async ({ name, data }) => {

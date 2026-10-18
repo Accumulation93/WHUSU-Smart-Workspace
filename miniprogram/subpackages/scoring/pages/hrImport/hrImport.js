@@ -157,8 +157,11 @@ Page({
     try {
       const result = await this.api('getHrImportPreview', { previewId: this._previewId, category: this.data.category, view: this.data.view, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+      const personKeys = this.importPersonKeys();
       const items = result.items.map((item, index) => Object.assign({}, item, {
         id: item.id || this.data.view + ':' + (offset + index), index: offset + index, title: item.message || copy[item.type] || (this.data.view === 'rows' ? copy.peopleView : copy.excluded),
+        cardTitle: item.category ? [item.fieldLabel, copy[item.category] || copy.problems].filter(Boolean).join(' · ') : item.name || copy[item.type] || copy.excluded,
+        scopeText: format(copy.involvedPeopleRows, [new Set(item.rowNumbers.map(number => personKeys.get(number) || 'row:' + number)).size, item.rowNumbers.length]),
         rowText: format(copy.rowLabel, [item.rowNumbers.join(' / ')]), beforeText: readable(item.before), afterText: readable(item.after),
         showComparison: item.showComparison !== false && Boolean(item.before || item.after),
         selected: this._selected.has(item.id), actions: (item.actions || []).map(action => Object.assign({}, action, { label: actionLabel(action) }))
@@ -273,9 +276,7 @@ Page({
     this.updateIssueSelection(index, selected);
   },
   issueSelectionKey(item) { return this._previewId + ':' + (item.issueRef || item.id || (item.rowNumbers || []).join(',')); },
-  updateIssueSelection(index, selected) {
-    const item = this.data.items[index];
-    const numbers = new Set(selected.map(row => row.rowNumber));
+  importPersonKeys() {
     const mapping = this.data.mappings.find(entry => entry.target === 'studentId');
     const identities = new Map();
     if (this._file && mapping) this._file.rows.forEach((cells, position) => {
@@ -284,6 +285,12 @@ Page({
       const value = String(decision && decision.values && decision.values.studentId != null ? decision.values.studentId : cells[mapping.index] || '').trim().toLowerCase();
       identities.set(number, value && value.length <= 32 && !/^#(?:n\/a|value!|ref!|div\/0!|num!|name\?|null!|spill!|calc!)$/i.test(value) ? 'person:' + value : 'row:' + number);
     });
+    return identities;
+  },
+  updateIssueSelection(index, selected) {
+    const item = this.data.items[index];
+    const numbers = new Set(selected.map(row => row.rowNumber));
+    const identities = this.importPersonKeys();
     const people = new Set(selected.map(row => identities.get(row.rowNumber) || 'row:' + row.rowNumber));
     const patch = {};
     (item.rows || []).forEach((entry, position) => { patch['items[' + index + '].rows[' + position + '].selected'] = numbers.has(entry.rowNumber); });

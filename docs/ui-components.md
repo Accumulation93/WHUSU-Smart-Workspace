@@ -2,6 +2,8 @@
 
 ## 全局动作按钮接入契约
 
+- 禁用按钮配色统一使用 UI Kit 的灰蓝禁用令牌，不在组件内降低整体 opacity；文字保持可读，禁用时无按压位移，正常状态的大小与权限规则不变。
+
 - 原生 `button` 和模拟动作按钮的 `view/text` 都遵循 [UI Kit](ui-kit.md) 的双轴居中契约：真实点击表面为 flex/inline-flex，`align-items:center; justify-content:center; text-align:center`。`.primary-btn`、`.secondary-btn`、`.danger-btn` 与紧凑操作均适用；按钮组的排列对齐不能替代按钮内部对齐。
 - 复用标准/紧凑控件令牌，以自然高度、最小高度、对称 padding、无单位语义行高构成盒模型。加载圈与文字整体居中，禁用不改几何；长文案自然增高。禁止 `height = line-height` 配共享 padding、绝对位移顶字或为居中裁掉文字。
 - 保持语义边界：输入框仍为 block；人员岗位选择卡、左对齐选择值及带说明业务卡仍按信息层级排版，不属于整卡文字居中的动作按钮。卡内独立操作按钮才执行本契约，并隔离事件。

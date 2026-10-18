@@ -44,7 +44,7 @@
   border-color:rgba(253,186,116,0.58);
 }
 .venue-actions { display:flex; flex-direction:row; gap:12rpx; flex-shrink:0; align-items:center; }
-.action-btn-disabled { opacity: 0.52; filter: saturate(0.56); }
+
 .work-context-notice {
   display: flex;
   align-items: center;
@@ -966,16 +966,6 @@ page {
 .time-kb-key:active {
   transform: scale(0.94);
   background: rgba(241,245,249,0.92);
-}
-.time-kb-key-gray {
-  background: rgba(241,245,249,0.55);
-  color: #cbd5e1;
-  border-color: rgba(226,232,240,0.35);
-  box-shadow: none;
-}
-.time-kb-key-gray:active {
-  transform: none;
-  background: rgba(241,245,249,0.55);
 }
 .time-kb-key-colon {
   color: #2563eb; font-size: var(--ui-type-dialog);

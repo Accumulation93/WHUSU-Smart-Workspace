@@ -19,6 +19,10 @@ page,
   --ui-text-body: #334155;
   --ui-text-muted: #64748b;
   --ui-text-soft: #94a3b8;
+  --ui-disabled-text: #65758b;
+  --ui-disabled-bg: linear-gradient(135deg, #f3f7fc, #e5edf6);
+  --ui-disabled-border: #d5dfeb;
+  --ui-disabled-shadow: inset 0 1rpx 0 rgba(255,255,255,0.92);
   --ui-line: rgba(226, 237, 247, 0.96);
   --ui-line-blue: rgba(147, 197, 253, 0.64);
   --ui-danger: #ef4444;
@@ -589,12 +593,26 @@ page .picker-value {
     inset 0 1rpx 0 rgba(255,255,255,0.22);
 }
 
+/* 禁用只降低操作强调，不降低文字可读性；统一覆盖业务按钮和按压反馈。 */
 button[disabled],
-.disabled,
-.button-disabled {
-  opacity: 0.48;
-  filter: grayscale(0.12) saturate(0.72);
-  transform: none;
+view.disabled,
+text.disabled,
+.button-disabled,
+.action-btn-disabled,
+.kb-nav-btn-disabled,
+.time-kb-key-gray,
+.sort-arrow-disabled,
+.order-btn-disabled,
+.hr-template-option-move.is-disabled,
+.hr-member-select.is-disabled {
+  color: var(--ui-disabled-text, #65758b) !important;
+  background: var(--ui-disabled-bg, linear-gradient(135deg, #f3f7fc, #e5edf6)) !important;
+  border-color: var(--ui-disabled-border, #d5dfeb) !important;
+  box-shadow: var(--ui-disabled-shadow, inset 0 1rpx 0 rgba(255,255,255,0.92)) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  animation: none !important;
 }
 
 /* 小型操作与选择控件 */

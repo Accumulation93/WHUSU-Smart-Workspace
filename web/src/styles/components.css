@@ -230,9 +230,17 @@ a {
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.btn:disabled {
-  cursor: default;
-  opacity: 0.62;
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  color: var(--ui-disabled-text) !important;
+  background: var(--ui-disabled-bg) !important;
+  border-color: var(--ui-disabled-border) !important;
+  box-shadow: var(--ui-disabled-shadow) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  animation: none !important;
+  cursor: not-allowed;
 }
 
 .btn:not(:disabled):active {
@@ -278,11 +286,6 @@ a {
   line-height: var(--ui-leading-control);
   text-align: center;
   cursor: pointer;
-}
-
-.btn-quiet:disabled {
-  cursor: default;
-  opacity: 0.6;
 }
 
 .btn-quiet-primary {
