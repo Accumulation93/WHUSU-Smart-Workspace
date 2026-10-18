@@ -105,7 +105,7 @@ async function main() {
     const stillOpen = await model.details({ previewId: partial.previewId, category: 'dictionary' }, actor);
     assert.deepEqual(stillOpen.items.map(item => item.rowNumbers), [[2]]);
     await assert.rejects(model.execute({ previewId: partial.previewId, requestId: 'import_partial_01' }, actor, authorize), error => error.code === 'import_problems');
-    splitPage._decisions.rows[2] = { values: { workGroup: '组甲' } }; splitPage._previewId = partial.previewId;
+    splitPage.applyAction({ type: 'editValues', rowNumbers: [2], field: 'workGroup', value: '组甲' }); splitPage._previewId = partial.previewId;
     const splitReady = await model.preview(JSON.parse(JSON.stringify(splitPage.payload())), actor, authorize);
     assert.equal(splitReady.summary.canExecute, true);
     await model.execute({ previewId: splitReady.previewId, requestId: 'import_split_001' }, actor, authorize);
@@ -115,6 +115,21 @@ async function main() {
     await assert.rejects(model.details({ previewId: splitReady.previewId, issueId: splitList.items[0].id }, Object.assign({}, actor, { organizationId: 'other' })), error => error.code === 'import_expired');
     await admin.query("UPDATE membership_assignments SET work_group_id=NULL WHERE id='a1'");
     console.log('PASS 同组逐行展开、仅部分确认不能提交、部分改字部分新建真实保存与组织隔离');
+
+    const pagedInput = Object.assign({}, input, { rows: Array.from({ length: 41 }, () => ['测试甲', '001', '分页新组']), rowNumbers: undefined, decisions: {} });
+    const pagedPreview = await model.preview(pagedInput, actor, authorize);
+    const pagedIssues = await model.details({ previewId: pagedPreview.previewId, category: 'dictionary' }, actor);
+    assert.equal(pagedIssues.items[0].canExpand, true);
+    const firstRows = await model.details({ previewId: pagedPreview.previewId, issueId: pagedIssues.items[0].issueRef }, actor);
+    const lastRows = await model.details({ previewId: pagedPreview.previewId, issueId: pagedIssues.items[0].issueRef, offset: 40 }, actor);
+    assert.equal(firstRows.items.length, 40); assert.equal(firstRows.hasMore, true);
+    assert.equal(lastRows.items.length, 1); assert.equal(lastRows.items[0].rowNumber, 42);
+    const personRows = await model.details({ previewId: pagedPreview.previewId, view: 'rows' }, actor);
+    assert(personRows.items.every(item => item.canExpand && item.issueRef === ''));
+    const onePerson = await model.details({ previewId: pagedPreview.previewId, rowNumbers: [2] }, actor);
+    assert.equal(onePerson.items[0].name, '测试甲');
+    await assert.rejects(model.details({ previewId: pagedPreview.previewId, rowNumbers: [99999] }, actor), error => error.code === 'import_row_missing');
+    console.log('PASS 单行与人员视图均可展开，41行分两页且拒绝无关行');
 
     const newInput = { schemaVersion: 2, headers: ['姓名','学号'], rows: [['新增无岗','002'], ['新增无岗','002']], basicMapping: { name: 0, studentId: 1 }, decisions: {} };
     const newPreview = await model.preview(newInput, actor, authorize);

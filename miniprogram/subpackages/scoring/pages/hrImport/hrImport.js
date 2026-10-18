@@ -56,7 +56,8 @@ Page({
   resetSession() {
     this._file = null; this._sourceRows = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._offsets = {};
     this._metadata = null; this._mappingOptions = null;
-    this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], fileSummary: '', editor: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
+    this._pendingActions = null; this._pendingScope = null; this._editingRow = null; this._editorClears = {};
+    this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], fileSummary: '', editor: null, editorOptions: [], confirmAction: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
   },
   restart() { if (this.data.completed) this.resetSession(); },
   async api(name, data) {
@@ -225,7 +226,7 @@ Page({
     }
     if (action.type === 'refresh') return this.preview();
     if (action.type === 'select' || action.type === 'edit') return this.openRow(action.rowNumber, action.type);
-    this.askActions([action], action.label);
+    this.askActions([Object.assign({}, action, action.type === 'source' || action.sourceKey ? { affectedRows: item.rowNumbers } : {})], action.label);
   },
   async expandIssue(event) {
     if (this.data.busy || this.data.requestId) return;
@@ -233,11 +234,12 @@ Page({
     const item = this.data.items[index];
     if (!item) return;
     if (item.expanded && !event.currentTarget.dataset.more) { this.setData({ ['items[' + index + '].expanded']: false }); return; }
+    if (item.rows && !event.currentTarget.dataset.more) { this.setData({ ['items[' + index + '].expanded']: true }); return; }
     const request = orgSession.beginRequest(this, 'issueRows');
     this.setData({ busy: true });
     try {
       const offset = event.currentTarget.dataset.more ? (item.rows || []).length : 0;
-      const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.id, offset });
+      const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const rows = result.items.map(row => Object.assign({}, row, { title: format(copy.issuePerson, [row.rowNumber, row.name]),
         actions: row.actions.map(action => Object.assign({}, action, { label: actionLabel(action) })) }));
@@ -258,6 +260,51 @@ Page({
     if (action.type === 'edit' || action.type === 'select') return this.openRow(action.rowNumber, action.type);
     this.askActions([action], format(copy.singleRowAction, [row.rowNumber, row.name, action.label]));
   },
+  toggleIssueRow(event) {
+    if (this.data.busy || this.data.requestId) return;
+    const index = Number(event.currentTarget.dataset.index); const rowIndex = Number(event.currentTarget.dataset.row);
+    const item = this.data.items[index]; const row = item && item.rows && item.rows[rowIndex];
+    if (!row) return;
+    const selected = item.rows.filter((entry, position) => position === rowIndex ? !row.selected : entry.selected);
+    const options = [{ type: 'dictionary', label: copy.create }, { type: 'keep', label: copy.keep }, { type: 'replace', label: copy.replace },
+      { type: 'exclude', label: copy.excludeRelated }, { type: 'undo', label: copy.restore }].filter(option => selected.length && selected.every(entry =>
+      entry.actions.some(action => !action.sourceKey && !action.affectedRows && ((option.type === 'keep' || option.type === 'replace')
+        ? action.type === 'policy' && action.value === option.type : action.type === option.type))));
+    this.setData({ ['items[' + index + '].rows[' + rowIndex + '].selected']: !row.selected,
+      ['items[' + index + '].selectedRowCount']: selected.length, ['items[' + index + '].rowBatchOptions']: options,
+      ['items[' + index + '].selectedRowText']: format(copy.selectedRows, [selected.length]),
+      ['items[' + index + '].rowsEditable']: selected.length > 0 && selected.every(entry => entry.actions.some(action => action.type === 'edit')) });
+  },
+  batchIssueRows(event) {
+    if (this.data.busy || this.data.requestId) return;
+    const item = this.data.items[Number(event.currentTarget.dataset.index)];
+    const rows = item && (item.rows || []).filter(row => row.selected);
+    if (!rows || !rows.length) return;
+    const type = event.currentTarget.dataset.type;
+    if (type === 'edit') {
+      const fields = ['department', 'identity', 'workGroup', 'nature'].map(key => ({ key, label: copy[key] }))
+        .concat(this.data.fields.filter(field => this.data.mappings.some(mapping => mapping.target === 'profile:' + field.id)).map(field => ({ key: field.id, label: field.label, profile: true })));
+      const fieldIndex = Math.max(0, fields.findIndex(field => field.key === item.field));
+      const field = fields[fieldIndex];
+      const values = { department: item.dictionaryDepartment || '', [field.key]: typeof item.after === 'string' ? item.after : '' };
+      this._editingRow = null;
+      this.setData({ editor: { group: true, rowNumbers: rows.map(row => row.rowNumber), field: field.key, fieldLabel: field.label, profileField: Boolean(field.profile),
+        values, fieldOptions: fields, fieldIndex, name: format(copy.groupRows, [rows.length]) },
+        editorOptions: this.editorOptions(values).filter(option => option.key === field.key) }, () => this.scrollToSection('#import-row-editor'));
+      return;
+    }
+    const actions = rows.map(row => row.actions.find(action => !action.sourceKey && !action.affectedRows && ((type === 'keep' || type === 'replace')
+      ? action.type === 'policy' && action.value === type : action.type === type)));
+    if (actions.some(action => !action)) return;
+    this.askActions(actions, actionLabel(actions[0]));
+  },
+  changeBatchField(event) {
+    const index = Number(event.detail.value); const editor = this.data.editor;
+    const field = editor && editor.fieldOptions && editor.fieldOptions[index];
+    if (!field) return;
+    this.setData({ 'editor.fieldIndex': index, 'editor.field': field.key, 'editor.fieldLabel': field.label, 'editor.profileField': Boolean(field.profile), 'editor.error': '',
+      ['editor.values.' + field.key]: '', editorOptions: this.editorOptions(Object.assign({}, editor.values, { [field.key]: '' })).filter(option => option.key === field.key) });
+  },
   batchAction(event) {
     if (this.data.busy) return;
     const type = event.currentTarget.dataset.type;
@@ -273,9 +320,28 @@ Page({
   },
   askActions(actions, label) {
     this._pendingActions = clone(actions);
-    this.setData({ confirmAction: { text: format(copy.confirmAction, [actions.length, label]), exclude: actions.some(item => item.type === 'exclude') } }, () => wx.pageScrollTo({ selector: '#import-confirm-action', duration: 200 }));
+    const numbers = Array.from(new Set(actions.flatMap(action => action.affectedRows || action.rowNumbers || (action.rowNumber ? [action.rowNumber] : [])))).sort((a, b) => a - b);
+    const nameMapping = this.data.mappings.find(mapping => mapping.target === 'name');
+    const sourceIndexes = new Map((this._file && this._file.rowNumbers || []).map((number, index) => [number, index]));
+    const loadedRows = new Map(this.data.items.flatMap(item => item.rows || []).map(row => [row.rowNumber, row]));
+    this._pendingScope = numbers.map(number => {
+      const index = this._file && this._file.rowNumbers ? sourceIndexes.get(number) : number - 2;
+      const name = this._file && nameMapping && this._file.rows[index] && this._file.rows[index][nameMapping.index];
+      const loaded = loadedRows.get(number);
+      return format(copy.issuePerson, [number, name || loaded && loaded.name || copy.unnamedPerson]);
+    });
+    this.setData({ confirmAction: { text: format(copy.confirmAction, [actions.length, label]), exclude: actions.some(item => item.type === 'exclude'),
+      scope: this._pendingScope.slice(0, 40), totalRows: numbers.length, scopeTitle: format(copy.affectedRows, [numbers.length]), scopeMore: numbers.length > 40,
+      change: Array.from(new Set(actions.map(action => action.type === 'editValues' ? (action.clear ? format(copy.batchClear, [action.fieldLabel]) : format(copy.batchChange, [action.fieldLabel, action.value || copy.empty]))
+        : action.fieldLabel && typeof action.displayValue === 'string' && ['dictionary', 'policy'].includes(action.type)
+          ? format(copy.operationValue, [action.fieldLabel, action.displayValue || copy.empty]) : '').filter(Boolean))).join('\n') } }, () => this.scrollToSection('#import-confirm-action'));
   },
-  cancelAction() { this._pendingActions = null; this.setData({ confirmAction: null }); },
+  moreActionScope() {
+    const confirmation = this.data.confirmAction; if (!confirmation || !this._pendingScope) return;
+    const offset = confirmation.scope.length; const patch = { 'confirmAction.scopeMore': offset + 40 < this._pendingScope.length };
+    this._pendingScope.slice(offset, offset + 40).forEach((value, index) => { patch['confirmAction.scope[' + (offset + index) + ']'] = value; }); this.setData(patch);
+  },
+  cancelAction() { this._pendingActions = null; this._pendingScope = null; this.setData({ confirmAction: null }); },
   confirmAction() {
     if (this.data.busy || !this._pendingActions) return;
     this._pendingActions.forEach(action => this.applyAction(action));
@@ -287,6 +353,14 @@ Page({
     if (action.type === 'exclude') rows.forEach(number => { this._decisions.rows[number] = Object.assign({}, this._decisions.rows[number], { exclude: true }); });
     if (action.type === 'mode') row.mode = action.value;
     if (action.type === 'nature') row.values = Object.assign({}, row.values, { nature: action.value });
+    if (action.type === 'editValues') rows.forEach(number => {
+      const decision = this._decisions.rows[number] || (this._decisions.rows[number] = {});
+      const target = action.profileField ? 'profileValues' : 'values';
+      decision[target] = Object.assign({}, decision[target], { [action.field]: action.value });
+      const policies = decision.policies || (decision.policies = {});
+      Object.keys(policies).forEach(key => { if (key === action.field || key.endsWith(':' + action.field)) delete policies[key]; });
+      if (action.clear) policies[action.field] = 'clear';
+    });
     if (action.type === 'policy') { if (!row.policies) row.policies = {}; row.policies[action.field] = action.value; }
     if (action.type === 'dictionary') rows.forEach(number => {
       const decision = this._decisions.rows[number] || (this._decisions.rows[number] = {});
@@ -363,7 +437,7 @@ Page({
   editValue(event) { const field = event.currentTarget.dataset.field; if (this._editorClears) delete this._editorClears[field];
     const values = Object.assign({}, this.data.editor.values, { [field]: event.detail.value });
     const options = this.editorOptions(values).filter(item => !this.data.editor.group || item.key === this.data.editor.field);
-    this.setData({ 'editor.values': values, editorOptions: options }); },
+    this.setData({ 'editor.values': values, 'editor.error': '', editorOptions: options }); },
   chooseExisting(event) {
     if (Number(event.detail.value) === 0) return;
     const field = event.currentTarget.dataset.field;
@@ -382,11 +456,13 @@ Page({
   saveEditor() {
     const editor = this.data.editor; if (!editor || this.data.busy) return;
     if (editor.group) {
-      editor.rowNumbers.forEach(number => {
-        const decision = this._decisions.rows[number] || (this._decisions.rows[number] = {});
-        decision.values = Object.assign({}, decision.values, { [editor.field]: editor.values[editor.field] || '' });
-      });
-      this.closeEditor(); this.preview(); return;
+      const value = String(editor.values[editor.field] || '').trim();
+      const profile = this.data.fields.find(field => field.id === editor.field);
+      const canClear = editor.field === 'workGroup' || editor.profileField && profile && !profile.required;
+      if (!value && !canClear) { this.setData({ 'editor.error': format(copy.batchRequired, [editor.fieldLabel]) }); return; }
+      const action = { type: 'editValues', rowNumbers: editor.rowNumbers, field: editor.field, fieldLabel: editor.fieldLabel,
+        profileField: Boolean(editor.profileField), value, clear: !value };
+      this.closeEditor(); this.askActions([action], copy.editSelected); return;
     }
     const row = this._decisions.rows[editor.rowNumber] || {};
     const sourceIndex = this._file.rowNumbers ? this._file.rowNumbers.indexOf(editor.rowNumber) : editor.rowNumber - 2;
@@ -451,7 +527,7 @@ Page({
           Object.assign(patch, { view: 'open', category: 'stale', hasMore: false, total: 1, selectedCount: 0,
             categories: [{ key: 'stale', title: copy.stale, count: 1, summaryText: format(copy.groupSummary, [1, item.rowNumbers.length, 0]) }],
             summaryText: format(copy.summary, [1, item.rowNumbers.length, 0]),
-            items: [Object.assign({}, item, { title: item.message, rowText: format(copy.rowLabel, [item.rowNumbers.join(' / ')]), beforeText: copy.empty, afterText: copy.empty,
+            items: [Object.assign({}, item, { canExpand: true, issueRef: '', title: item.message, rowText: format(copy.rowLabel, [item.rowNumbers.join(' / ')]), beforeText: copy.empty, afterText: copy.empty,
               actions: item.actions.map(action => Object.assign({}, action, { label: actionLabel(action) })) })] });
         }
         this.setData(patch);

@@ -63,6 +63,8 @@
 
   <view id="import-row-editor" class="import-card" wx:if="{{editor}}">
     <view class="import-title">{{editor.group ? copy.editGroup : copy.rowEditor}} · {{editor.name}}</view><view class="import-note">{{editor.group ? copy.groupEditNotice : copy.editNotice}}</view>
+    <view wx:if="{{editor.error}}" class="import-error">{{editor.error}}</view>
+    <view wx:if="{{editor.fieldOptions}}" class="import-field"><view class="import-label">{{copy.batchField}}</view><picker range="{{editor.fieldOptions}}" range-key="label" value="{{editor.fieldIndex}}" bindchange="changeBatchField"><view class="picker-display">{{editor.fieldLabel}}</view></picker></view>
     <view wx:if="{{editor.group}}" class="import-field"><view class="import-label">{{editor.fieldLabel}}</view><input class="field-input" value="{{editor.values[editor.field]}}" data-field="{{editor.field}}" bindinput="editValue" /></view>
     <block wx:if="{{!editor.group}}">
     <view class="import-field"><view class="import-label">{{copy.name}}</view><input class="field-input" value="{{editor.values.name}}" data-field="name" bindinput="editValue" /></view>
@@ -84,6 +86,10 @@
 
   <view id="import-confirm-action" class="import-card" wx:if="{{confirmAction}}">
     <view class="import-title">{{copy.confirmTitle}}</view><view class="import-note">{{confirmAction.text}}</view>
+    <view class="import-label" wx:if="{{confirmAction.change}}">{{confirmAction.change}}</view>
+    <view class="import-label">{{confirmAction.scopeTitle}}</view>
+    <view class="import-note" wx:for="{{confirmAction.scope}}" wx:key="*this">{{item}}</view>
+    <view class="import-actions" wx:if="{{confirmAction.scopeMore}}"><button class="secondary-btn" catchtap="moreActionScope" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.scopeMore}}</button></view>
     <view wx:if="{{confirmAction.exclude}}" class="import-note">{{copy.excludeNotice}}</view>
     <view class="import-actions"><button class="secondary-btn" bindtap="cancelAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" bindtap="confirmAction" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button></view>
   </view>
@@ -102,11 +108,16 @@
         <button wx:for="{{item.actions}}" wx:for-item="action" wx:for-index="actionIndex" wx:key="label" class="secondary-btn" data-index="{{index}}" data-action="{{actionIndex}}" catchtap="performAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{action.label}}</button>
       </view>
       <view class="import-actions" wx:if="{{item.otherCategories.length}}"><button wx:for="{{item.otherCategories}}" wx:key="key" class="secondary-btn" data-key="{{item.key}}" catchtap="changeCategory" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.title}}</button></view>
-      <view wx:if="{{item.rowNumbers.length > 1 && item.id && stage === 'review'}}">
+      <view wx:if="{{item.canExpand && stage === 'review'}}">
         <view class="import-note">{{copy.groupedNotice}}</view>
         <view class="import-actions"><button class="secondary-btn" data-index="{{index}}" catchtap="expandIssue" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.expanded ? copy.collapseRows : copy.expandRows}}</button></view>
         <view wx:if="{{item.expanded}}">
-          <view class="import-split-row" wx:for="{{item.rows}}" wx:for-item="sourceRow" wx:for-index="rowIndex" wx:key="rowNumber">
+          <view class="import-note">{{copy.selectionHint}}</view>
+          <view wx:if="{{item.selectedRowCount}}">
+            <view class="import-label">{{item.selectedRowText}}</view>
+            <view class="import-actions"><button wx:if="{{item.rowsEditable}}" class="secondary-btn" data-index="{{index}}" data-type="edit" catchtap="batchIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.editSelected}}</button><button class="secondary-btn" wx:for="{{item.rowBatchOptions}}" wx:for-item="batchOption" wx:key="type" data-index="{{index}}" data-type="{{batchOption.type}}" catchtap="batchIssueRows" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{batchOption.label}}</button></view>
+          </view>
+          <view class="import-split-row selection-option-card {{sourceRow.selected ? 'selection-option-card-selected import-active' : ''}}" wx:for="{{item.rows}}" wx:for-item="sourceRow" wx:for-index="rowIndex" wx:key="rowNumber" aria-checked="{{sourceRow.selected}}" data-index="{{index}}" data-row="{{rowIndex}}" catchtap="toggleIssueRow" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="import-label">{{sourceRow.title}}</view><view class="import-note">{{sourceRow.content}}</view>
             <view class="import-actions"><button class="secondary-btn" wx:for="{{sourceRow.actions}}" wx:for-item="rowAction" wx:for-index="rowActionIndex" wx:key="label" data-index="{{index}}" data-row="{{rowIndex}}" data-action="{{rowActionIndex}}" catchtap="performRowAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{rowAction.label}}</button></view>
           </view>

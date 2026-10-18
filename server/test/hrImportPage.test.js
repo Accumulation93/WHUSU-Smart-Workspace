@@ -127,6 +127,8 @@ async function main() {
   edit.page.chooseExisting({ currentTarget: { dataset: { field: 'workGroup' } }, detail: { value: 1 } });
   edit.page._decisions.rows[3] = { values: { identity: '不改的身份' } };
   edit.page.saveEditor();
+  assert.equal(edit.page._pendingActions[0].type, 'editValues');
+  edit.page.confirmAction();
   assert.equal(edit.page._decisions.rows[2].values.workGroup, '本部门组');
   assert.equal(edit.page._decisions.rows[3].values.workGroup, '本部门组');
   assert.equal(edit.page._decisions.rows[3].values.identity, '不改的身份');
@@ -141,6 +143,48 @@ async function main() {
   assert.deepEqual(JSON.parse(JSON.stringify(expanded.page._pendingActions[0].rowNumbers)), [3]);
   assert(expanded.page.data.confirmAction.text.includes('测试乙'));
   console.log('PASS 展开按钮真实请求与单行按钮仅提交该行确认');
+  const scopeRows = Array.from({ length: 45 }, (_, index) => ['人员' + index, String(100 + index), '原名称']);
+  let detailCalls = 0;
+  const subset = createPage(async ({ name, data }) => {
+    if (name === 'getHrImportMetadata') return { status: 'success', fields: [] };
+    detailCalls += 1;
+    const entries = scopeRows.slice(data.offset, data.offset + 40).map((row, index) => {
+      const rowNumber = data.offset + index + 2;
+      return { rowNumber, name: row[0], actions: [{ type: 'dictionary', value: 'k', rowNumbers: [rowNumber] }, { type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] }] };
+    });
+    return { status: 'success', items: entries, hasMore: data.offset + entries.length < 45 };
+  }, { fileName: 'subset.xlsx', headers: ['姓名', '学号', '职能组'], rows: scopeRows });
+  await subset.page.chooseFile(); subset.page._previewId = 'preview'; subset.page.preview = () => {};
+  subset.page.data.items = [{ id: 'issue', issueRef: 'issue', rowNumbers: scopeRows.map((_, index) => index + 2), field: 'workGroup', after: '新名称' }];
+  const indexEvent = { currentTarget: { dataset: { index: 0 } } };
+  await subset.page.expandIssue(indexEvent);
+  [0, 2].forEach(row => subset.page.toggleIssueRow({ currentTarget: { dataset: { index: 0, row } } }));
+  subset.page.batchIssueRows({ currentTarget: { dataset: { index: 0, type: 'dictionary' } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(subset.page._pendingActions.map(action => action.rowNumbers))), [[2], [4]]);
+  assert.equal(subset.page.data.confirmAction.totalRows, 2); assert(subset.page.data.confirmAction.scope[1].includes('人员2'));
+  subset.page.cancelAction(); await subset.page.expandIssue(indexEvent); await subset.page.expandIssue(indexEvent);
+  assert.equal(detailCalls, 1); assert.equal(subset.page.data.items[0].selectedRowCount, 2);
+  await subset.page.expandIssue({ currentTarget: { dataset: { index: 0, more: true } } });
+  assert.equal(subset.page.data.items[0].rows.length, 45); assert.equal(subset.page.data.items[0].selectedRowCount, 2);
+  subset.page.toggleIssueRow({ currentTarget: { dataset: { index: 0, row: 44 } } });
+  subset.page.batchIssueRows({ currentTarget: { dataset: { index: 0, type: 'edit' } } });
+  subset.page.saveEditor(); assert.equal(subset.page.data.confirmAction.totalRows, 3);
+  subset.page.confirmAction();
+  assert.equal(subset.page._decisions.rows[46].values.workGroup, '新名称');
+  assert.equal(subset.page._decisions.rows[3], undefined); assert.equal(subset.page._decisions.rows[45], undefined);
+  subset.page.askActions([{ type: 'exclude', rowNumbers: scopeRows.map((_, index) => index + 2) }], copy.excludeRelated);
+  assert.equal(subset.page.data.confirmAction.scope.length, 40); subset.page.moreActionScope();
+  assert.equal(subset.page.data.confirmAction.scope.length, 45); assert.equal(subset.page.data.confirmAction.scopeMore, false);
+  console.log('PASS 部分勾选跨分页保持，确认名单完整且批量修改不影响未选行');
+  subset.page.cancelAction();
+  subset.page.data.editor = { group: true, rowNumbers: [2, 4], field: 'department', fieldLabel: copy.department, values: { department: '' } };
+  subset.page.saveEditor(); assert(subset.page.data.editor.error); assert.equal(subset.page._pendingActions, null);
+  subset.page.data.editor = { group: true, rowNumbers: [2], field: 'workGroup', fieldLabel: copy.workGroup, values: { workGroup: '' } };
+  subset.page.saveEditor(); assert.equal(subset.page._pendingActions[0].clear, true);
+  subset.page.confirmAction(); assert.equal(subset.page._decisions.rows[2].policies.workGroup, 'clear');
+  subset.page.askActions([{ type: 'exclude', rowNumbers: [2] }], copy.excludeRelated);
+  subset.page.resetSession(); assert.equal(subset.page.data.confirmAction, null); assert.equal(subset.page._pendingScope, null);
+  console.log('PASS 必填列不允许批量清空，可选列明确确认清空，角色变化清除确认名单');
 
   let submissions = 0;
   const requests = [];

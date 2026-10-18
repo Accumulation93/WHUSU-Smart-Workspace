@@ -167,18 +167,25 @@ async function readPreview(connection, id, actor, lock) {
 async function details(payload, actor) {
   const record = await readPreview(pool, payload.previewId, actor, false);
   const plan = json(record.plan_json);
-  if (payload.issueId) {
-    const issue = plan.issues.find(item => item.id === payload.issueId);
+  if (payload.issueId || Array.isArray(payload.rowNumbers)) {
+    const requested = Array.isArray(payload.rowNumbers) ? Array.from(new Set(payload.rowNumbers)) : [];
+    const allowedRows = new Set(plan.input.rowNumbers);
+    if (requested.some(number => !Number.isInteger(number) || !allowedRows.has(number))) throw new ImportError('import_row_missing', copy.rowMissing);
+    const issue = payload.issueId ? plan.issues.find(item => item.id === payload.issueId) : { rowNumbers: requested, actions: [] };
     if (!issue) throw new ImportError('import_row_missing', copy.rowMissing);
     const offset = Math.max(0, Number(payload.offset) || 0);
     const rows = new Map(plan.rows.map(row => [row.rowNumber, row]));
     const items = issue.rowNumbers.slice(offset, offset + 40).map(rowNumber => {
       const row = rows.get(rowNumber);
+      const sourceIndex = plan.input.rowNumbers.indexOf(rowNumber);
+      const sourceName = plan.input.rows[sourceIndex] && plan.input.rows[sourceIndex][plan.input.basicMapping.name];
       const actions = issue.actions.filter(action => action.type !== 'edit' && action.type !== 'exclude'
         && (!action.rowNumber || action.rowNumber === rowNumber) && (action.type !== 'source' || action.value === rowNumber))
-        .map(action => Object.assign({}, action, action.rowNumbers || action.type === 'dictionary' ? { rowNumbers: [rowNumber] } : {}));
-      actions.push({ type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] });
-      return { rowNumber, name: row && row.name || copy.unnamedPerson, content: row ? planner.label(row.values) : '', actions };
+        .map(action => Object.assign({}, action, { fieldLabel: issue.fieldLabel || copy[issue.field] || '', displayValue: action.type === 'policy' && action.value === 'keep' ? issue.before : issue.after }, action.rowNumbers || action.type === 'dictionary' ? { rowNumbers: [rowNumber] } : {},
+          action.type === 'source' || action.sourceKey ? { affectedRows: issue.rowNumbers } : {}));
+      if (row) actions.push({ type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] });
+      else actions.push({ type: 'undo', rowNumber });
+      return { rowNumber, name: row && row.name || sourceName || copy.unnamedPerson, content: row ? planner.label(row.values) : '', actions };
     });
     return { status: 'success', items, total: issue.rowNumbers.length, hasMore: offset + items.length < issue.rowNumbers.length };
   }
@@ -208,11 +215,12 @@ async function details(payload, actor) {
     (item.rowNumbers || []).forEach(row => (rowCategories.get(row) || []).forEach(key => related.add(key)));
     const previous = list[list.indexOf(item) - 1];
     const groupKey = [item.reason, item.field].join(':');
-    const actions = (item.actions || []).map(action => action.type === 'dictionary'
-      ? Object.assign({}, action, { rowNumbers: item.rowNumbers }) : action);
+    const actions = (item.actions || []).map(action => Object.assign({}, action,
+      { fieldLabel: item.fieldLabel || copy[item.field] || '', displayValue: action.type === 'policy' && action.value === 'keep' ? item.before : item.after },
+      action.type === 'dictionary' ? { rowNumbers: item.rowNumbers } : {}));
     if (item.blocking && item.category === 'dictionary' && item.rowNumbers.length > 1) actions.push({ type: 'editGroup', field: item.field, rowNumbers: item.rowNumbers });
     if (item.blocking && item.rowNumbers.length === 1 && !actions.some(action => action.type === 'edit')) actions.push({ type: 'edit', rowNumber: item.rowNumbers[0] });
-    return Object.assign({}, item, { actions, groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
+    return Object.assign({}, item, { actions, issueRef: item.id || '', canExpand: Boolean(item.rowNumbers && item.rowNumbers.length), groupStart: !previous || [previous.reason, previous.field].join(':') !== groupKey,
       groupTitle: [item.fieldLabel, item.message].filter(Boolean).join(' · '),
       otherCategories: plan.categories.filter(category => category.key !== item.category && related.has(category.key)).map(category => ({ key: category.key, title: category.title })) });
   });

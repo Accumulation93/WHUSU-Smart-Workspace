@@ -93,7 +93,11 @@ const sharedModule = Object.freeze({
   inactivePerson: '此人的人员记录已停用，不能导入。请先在成员管理中核对人员状态',
   expandRows: '展开逐行处理', collapseRows: '收起逐行处理', singleRowAction: '第 {0} 行 · {1}：{2}',
   chooseExisting: '选择已有名称', groupedNotice: '上方操作处理本组全部行；展开后可分别修改、确认或排除',
-  editGroup: '统一修改名称', groupRows: '本组 {0} 行', groupEditNotice: '这里只修改本组的这个名称，其他资料保持不变；只改部分人请返回并展开逐行处理',
+  editGroup: '统一修改内容', groupRows: '本次选定 {0} 行', groupEditNotice: '仅修改选定行的这一列。保存后先核对姓名、行号和新值，再确认；其他行和其他资料保持不变',
+  editSelected: '修改已选行', selectedRows: '已选 {0} 行', affectedRows: '本次影响 {0} 行，名单如下', batchChange: '将导入的“{0}”改为“{1}”',
+  batchRequired: '“{0}”不能留空，请填写后继续', batchClear: '清空选定行的“{0}”',
+  batchField: '要修改哪一列', selectionHint: '点击人员行可勾选，再次点击取消；未加载的行不会自动选中',
+  scopeMore: '继续查看受影响名单', operationValue: '{0}：“{1}”',
   useSourceRow: '采用第 {0} 行内容', categoryNoProblems: '本类别没有待处理问题，请继续核对其他类别', restart: '开始下一次导入'
 });
 
