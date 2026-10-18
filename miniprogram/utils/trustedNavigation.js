@@ -6,6 +6,7 @@ const TRUSTED_ROUTES = {
   '/subpackages/workspace/pages/home/home': true,
   '/subpackages/scoring/pages/score/score': true,
   '/subpackages/scoring/pages/admin/admin': true,
+  '/subpackages/scoring/pages/hrImport/hrImport': true,
   '/subpackages/scoring/pages/scorerTasks/scorerTasks': true,
   '/subpackages/audit/pages/mySubmissions/mySubmissions': true,
   '/subpackages/audit/pages/submissionDetail/submissionDetail': true,

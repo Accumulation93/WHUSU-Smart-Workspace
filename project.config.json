@@ -385,6 +385,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/hrImport.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/hrProfileMigration.js"
       },
       {

@@ -1,5 +1,11 @@
 # 提交入口故障排查与验收记录
 
+## 2026-10-09 多岗位导入
+
+新版 `hrImport` 页面的动态接口已逐项展开：`getHrImportMetadata`、`previewHrTableImport`、`getHrImportPreview`、`importHrTable`、`getHrImportResult`、`exportHrAssignmentTable`、`exportHrImportIssues`。参数、状态及 12 个问题类别见 `docs/hr-import.md`。执行只提交服务端计划编号和固定请求编号，不接受客户端临时拼出的写入计划。
+
+`hrImportV2Integration.test.js` 使用真实小程序方法构建三列请求，经实际模型、HTTP 路由及数据库权限校验，完成岗位增补并回读。另覆盖新成员无岗位、同人多岗、新分类事务创建、待审值不变、后续非法项零写入、真实事务失败回滚、并发原请求和导出回导。生产不创建夹具；开发者工具冷编译及三档设备现场操作仍未确认。
+
 更新时间：2026-09-11。本记录是进行中的清单，不是全仓零故障声明。
 
 ## 2026-09-11 继续验收

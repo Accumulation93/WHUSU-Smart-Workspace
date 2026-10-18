@@ -1,0 +1,120 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { performance } = require('node:perf_hooks');
+const { buildPlan, assignmentVersion } = require('../src/core/services/hrImportPlan');
+const copy = require('../src/locales/zh-CN/hrImport');
+const assignment = { id: 'a1', nature: 'staff', department: '部门甲', identity: '成员', workGroup: '', status: 'active' };
+function context() {
+  return { departments: [{ id: 'd1', name: '部门甲' }, { id: 'd2', name: '部门乙' }], identities: [{ id: 'i1', name: '成员' }],
+    workGroups: [{ id: 'g1', name: '组甲', department: '部门甲' }, { id: 'g2', name: '组乙', department: '部门乙' }],
+    fields: [{ id: 'f1', label: '学院', type: 'text', required: false }], permissions: ['hr.departments', 'hr.identities', 'hr.work_groups'],
+    members: [{ personId: 'p1', name: '测试甲', studentId: '001', personStatus: 'active', membershipId: 'm1', hrId: 'h1', status: 'active',
+      assignments: [Object.assign({}, assignment)], profile: {}, pending: {}, recordStatus: 'none' }] };
+}
+function payload(rows, decisions) {
+  return { schemaVersion: 2, headers: [copy.name, copy.studentId, copy.workGroup], rows: rows || [['测试甲', '001', '组甲']],
+    basicMapping: { name: 0, studentId: 1, workGroup: 2 }, decisions: decisions || {} };
+}
+let count = 0;
+function test(name, run) { run(); count += 1; console.log('PASS ' + name); }
+test('三列补空定位唯一岗位并保留岗位编号', () => {
+  const plan = buildPlan(payload(), context()); assert.equal(plan.summary.canExecute, true); assert.equal(plan.assignments[0].targetId, 'a1'); assert.equal(plan.assignments[0].next.workGroup, '组甲');
+});
+test('多岗位需要明确选择，之后重新分类', () => {
+  const ctx = context(); ctx.members[0].assignments.push(Object.assign({}, assignment, { id: 'a2' }));
+  let plan = buildPlan(payload(), ctx); assert.equal(plan.issues[0].category, 'ambiguous'); assert.equal(plan.summary.canExecute, false);
+  plan = buildPlan(payload(null, { rows: { 2: { mode: 'update', assignmentIds: ['a2'] } } }), ctx);
+  assert.equal(plan.assignments[0].targetId, 'a2'); assert.equal(plan.summary.canExecute, true);
+});
+test('已有值保留直到确认替换', () => {
+  const ctx = context(); ctx.members[0].assignments[0].workGroup = '原组';
+  const plan = buildPlan(payload(), ctx); assert.equal(plan.issues[0].category, 'value_conflict'); assert.equal(plan.assignments[0].next.workGroup, '原组');
+  const changed = buildPlan(payload(null, { rows: { 2: { policies: { 'a1:workGroup': 'replace' } } } }), ctx);
+  assert.equal(changed.assignments[0].next.workGroup, '组甲'); assert.equal(changed.summary.canExecute, true);
+});
+test('空白保留，明确清空才删除职能组', () => {
+  const ctx = context(); ctx.members[0].assignments[0].workGroup = '组甲';
+  const plan = buildPlan(payload([['测试甲', '001', '']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'], policies: { workGroup: 'clear' } } } }), ctx);
+  assert.equal(plan.assignments[0].next.workGroup, ''); assert.equal(plan.summary.canExecute, true);
+  assert.equal(buildPlan(payload([['测试甲', '001', '']]), ctx).summary.updatedAssignments, 0);
+});
+test('不允许清空岗位必需项', () => {
+  const plan = buildPlan(payload(null, { rows: { 2: { policies: { department: 'clear' } } } }), context());
+  assert.equal(plan.summary.canExecute, false); assert(plan.issues.some(item => item.category === 'invalid'));
+});
+test('姓名冲突和离任分到不同类别', () => {
+  const ctx = context(); ctx.members.push(Object.assign({}, ctx.members[0], { name: '测试乙', studentId: '002', status: 'left' }));
+  const plan = buildPlan(payload([['不同姓名', '001', ''], ['测试乙', '002', '']]), ctx);
+  assert.deepEqual(plan.categories.map(item => item.key), ['identity_conflict', 'unavailable']); assert.equal(plan.summary.problemRowCount, 2);
+});
+test('新增无岗位成员与完全重复行归并', () => {
+  const plan = buildPlan(payload([['新人', '009', ''], ['新人', '009', '']]), context());
+  assert.equal(plan.summary.newMembers, 1); assert.equal(plan.summary.newAssignments, 0); assert.equal(plan.summary.canExecute, true);
+});
+test('新成员的部分岗位信息不能悄悄丢弃', () => {
+  assert.equal(buildPlan(payload([['新人', '009', '组甲']]), context()).summary.canExecute, false);
+  assert.equal(buildPlan(payload([['新人', '009', '组甲']], { rows: { 2: { mode: 'person' } } }), context()).summary.canExecute, true);
+});
+test('跨部门职能组不得自动创建同名组', () => {
+  const plan = buildPlan(payload([['测试甲', '001', '组乙']], { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), context());
+  assert(plan.issues.some(item => item.category === 'group_mismatch')); assert.equal(plan.summary.newDictionaries, 0);
+});
+test('新分类按名称集中确认且受权限限制', () => {
+  const data = payload([['测试甲', '001', '新组']]); let plan = buildPlan(data, context());
+  const dictionary = plan.issues.find(item => item.category === 'dictionary'); assert(dictionary);
+  data.decisions.dictionaries = [dictionary.dictionaryKey]; assert.equal(buildPlan(data, context()).summary.canExecute, true);
+  const ctx = context(); ctx.permissions = []; assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+});
+test('识别码必须匹配人员和版本，不能退回模糊匹配', () => {
+  const ctx = context(); const data = payload(); data.headers.push(copy.assignmentId, copy.assignmentVersion); data.basicMapping.assignmentId = 3; data.basicMapping.assignmentVersion = 4;
+  data.rows[0].push('a1', 'old'); let plan = buildPlan(data, ctx); assert(plan.issues.some(item => item.category === 'stale'));
+  data.rows[0][4] = assignmentVersion(ctx.members[0], ctx.members[0].assignments[0]); assert.equal(buildPlan(data, ctx).summary.canExecute, true);
+  data.rows[0][3] = 'other-person'; plan = buildPlan(data, ctx); assert.equal(plan.assignments.length, 0); assert.equal(plan.issues[0].category, 'unavailable');
+});
+test('多行资料冲突可选择来源，不采用最后一行', () => {
+  const data = payload([['测试甲', '001', '组甲', '学院甲'], ['测试甲', '001', '组甲', '学院乙']]);
+  data.headers.push('学院'); data.extensionMapping = [{ columnIndex: 3, fieldId: 'f1' }];
+  let plan = buildPlan(data, context()); const issue = plan.issues.find(item => item.category === 'row_conflict'); assert(issue);
+  data.decisions.sources = { [issue.targetId]: 3 }; plan = buildPlan(data, context()); assert.equal(plan.people[0].profile.f1, '学院乙'); assert.equal(plan.summary.canExecute, true);
+});
+test('排除问题行后重新统计，不重复计数人员', () => {
+  const data = payload([['新人', '009', ''], ['错名', '001', '']], { rows: { 3: { exclude: true } } });
+  const plan = buildPlan(data, context()); assert.equal(plan.summary.newMembers, 1); assert.equal(plan.summary.excludedRows, 1); assert.equal(plan.summary.problemCount, 0);
+});
+test('完整岗位组合不同必须明确新增或修改', () => {
+  const data = payload([['测试甲', '001', '组甲', 'staff', '部门甲', '成员']]);
+  data.headers.push(copy.nature, copy.department, copy.identity);
+  Object.assign(data.basicMapping, { nature: 3, department: 4, identity: 5 });
+  assert(buildPlan(data, context()).issues.some(item => item.category === 'intent'));
+  data.decisions.rows = { 2: { mode: 'update', assignmentIds: ['a1'] } };
+  assert.equal(buildPlan(data, context()).summary.canExecute, true);
+});
+test('同岗多行兼容补充合并，真正矛盾才要求选择来源', () => {
+  const data = payload([['测试甲', '001', '组甲', ''], ['测试甲', '001', '', '新身份']]);
+  data.headers.push(copy.identity); data.basicMapping.identity = 3;
+  data.decisions.rows = { 2: { mode: 'update', assignmentIds: ['a1'] }, 3: { mode: 'update', assignmentIds: ['a1'], policies: { 'a1:identity': 'replace' } } };
+  const plan = buildPlan(data, context());
+  assert.equal(plan.assignments.length, 1); assert.equal(plan.assignments[0].next.workGroup, '组甲');
+  assert.equal(plan.assignments[0].next.identity, '新身份'); assert(!plan.issues.some(item => item.category === 'row_conflict'));
+});
+test('原表空行不改变问题行号，同一行多问题分别统计', () => {
+  const data = payload([['测试甲', '001', '新组', '非法数字']]); data.rowNumbers = [7];
+  data.headers.push('资料'); data.extensionMapping = [{ columnIndex: 3, fieldId: 'f1' }];
+  const ctx = context(); ctx.fields[0].type = 'number';
+  const plan = buildPlan(data, ctx); assert.equal(plan.summary.problemCount, 2); assert.equal(plan.summary.problemRowCount, 1);
+  assert(plan.issues.every(item => item.rowNumbers[0] === 7));
+});
+test('五千行归并与分类规模', () => {
+  const data = payload(Array.from({ length: 5000 }, (_, index) => ['测试' + index, String(10000 + index), '']));
+  const start = performance.now(); const plan = buildPlan(data, context()); assert.equal(plan.summary.newMembers, 5000);
+  console.log('5000 rows planner ms=' + Math.round(performance.now() - start));
+});
+test('修改后重复岗位阻止写入，多目标逐岗校验部门', () => {
+  const ctx = context(); ctx.members[0].assignments.push(Object.assign({}, assignment, { id: 'a2', workGroup: '组甲' }));
+  let plan = buildPlan(payload(null, { rows: { 2: { mode: 'update', assignmentIds: ['a1'] } } }), ctx);
+  assert(plan.issues.some(item => item.category === 'duplicate')); assert.equal(plan.summary.canExecute, false);
+  ctx.members[0].assignments[1].department = '部门乙'; ctx.members[0].assignments[1].workGroup = '';
+  plan = buildPlan(payload(null, { rows: { 2: { mode: 'update', assignmentIds: ['a1', 'a2'] } } }), ctx);
+  assert(plan.issues.some(item => item.category === 'group_mismatch' && item.targetId === 'a2'));
+});
+console.log(count + ' import planner tests passed');

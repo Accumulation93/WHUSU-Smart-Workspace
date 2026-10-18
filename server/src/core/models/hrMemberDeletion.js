@@ -279,6 +279,7 @@ function buildTargetScope(person, memberships, assignments, organizationId) {
   const scopedAssignments = assignments.filter((item) => membershipIds.has(safeString(item.membership_id)));
   return {
     personId: safeString(person.person_id),
+    studentId: safeString(person.normalized_student_id || person.student_id).toLowerCase(),
     accountId: safeString(person.account_id),
     organizationId: orgId,
     organizationIds: uniqueStrings(scopedMemberships.map((item) => safeString(item.org_id))),
@@ -1440,12 +1441,41 @@ async function redactDeletedPersonReferences(connection, target, options) {
   return counts;
 }
 
+async function cleanupHrImportPreviews(connection, target) {
+  const personId = safeString(target.personId);
+  const studentId = safeString(target.studentId).toLowerCase();
+  const orgId = safeString(target.organizationId);
+  if (!personId) return 0;
+  // 只匹配指定结构中的自然人和映射后的学号列，不能对整个 JSON 搜索任意同名文本。
+  const [rows] = await connection.query(
+    `SELECT preview_row.id FROM hr_import_previews preview_row
+      WHERE (? = '' OR preview_row.org_id = ?)
+        AND (preview_row.actor_person_id = ?
+          OR JSON_CONTAINS(JSON_EXTRACT(preview_row.plan_json, '$.people[*].existing.personId'), JSON_QUOTE(?))
+          OR JSON_CONTAINS(JSON_EXTRACT(preview_row.result_json, '$.saved[*].personId'), JSON_QUOTE(?))
+          OR (? <> '' AND EXISTS (
+            SELECT 1 FROM JSON_TABLE(preview_row.input_json, '$.rows[*]' COLUMNS(cells JSON PATH '$')) input_row
+             WHERE LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(input_row.cells,
+               CONCAT('$[', JSON_UNQUOTE(JSON_EXTRACT(preview_row.input_json, '$.basicMapping.studentId')), ']'))))) = ?
+          ))) FOR UPDATE`,
+    [orgId, orgId, personId, personId, personId, studentId, studentId]
+  );
+  const ids = uniqueStrings(rows.map(row => row.id));
+  if (!ids.length) return 0;
+  const [result] = await connection.query(
+    `DELETE FROM hr_import_previews WHERE id IN (${placeholders(ids)}) AND (? = '' OR org_id = ?)`,
+    [...ids, orgId, orgId]
+  );
+  return Number(result.affectedRows || 0);
+}
+
 async function cleanupMembershipArtifacts(connection, target) {
   const orgId = safeString(target.organizationId);
   const personId = safeString(target.personId);
   const hrIds = uniqueStrings(target.legacyHrIds);
   const counts = {};
   const record = (key, result) => { counts[key] = Number(result && result.affectedRows || 0); };
+  counts.importPreviews = await cleanupHrImportPreviews(connection, target);
   counts.absoluteTimeReviews = await cleanupMembershipAbsoluteTimeReviews(connection, target);
 
   const disabledRules = await cleanupRuleReferences(connection, target);
@@ -1566,6 +1596,7 @@ async function cleanupGlobalPersonArtifacts(connection, target, deletionDigest) 
   const accountId = safeString(target.accountId);
   const counts = {};
   const record = (key, result) => { counts[key] = Number(result && result.affectedRows || 0); };
+  counts.importPreviews = await cleanupHrImportPreviews(connection, Object.assign({}, target, { organizationId: '' }));
   let result;
   counts.absoluteTimeReviews = await cleanupPersonAbsoluteTimeReviews(connection, target);
   let invalidatedCaches = 0;
@@ -1712,6 +1743,7 @@ module.exports = {
   scanRuleImpact,
   cleanupRuleReferences,
   cleanupMembershipArtifacts,
+  cleanupHrImportPreviews,
   cleanupGlobalPersonArtifacts,
   redactDeletedPersonReferences,
   deleteAbsoluteTimeReviewsForRows,

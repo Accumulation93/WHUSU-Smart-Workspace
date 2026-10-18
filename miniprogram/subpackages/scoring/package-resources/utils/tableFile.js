@@ -36,6 +36,8 @@ function parseCsvContent(text) {
   let raw = String(text || '');
   raw = raw.replace(/^﻿/, '');
   let allRows = [];
+  const allRowNumbers = [];
+  let recordNumber = 1;
   let row = [];
   let current = '';
   let inQuotes = false;
@@ -59,7 +61,8 @@ function parseCsvContent(text) {
     if ((ch === '\r' || ch === '\n') && !inQuotes) {
       if (ch === '\r' && next === '\n') i++;
       row.push(current.trim());
-      if (row.some(function (cell) { return !!cell; })) allRows.push(row);
+      if (row.some(function (cell) { return !!cell; })) { allRows.push(row); allRowNumbers.push(recordNumber); }
+      recordNumber += 1;
       row = [];
       current = '';
       continue;
@@ -69,7 +72,7 @@ function parseCsvContent(text) {
   if (inQuotes) throw new Error(localeCopy.copy_5a491fdc30);
   if (current || row.length) {
     row.push(current.trim());
-    if (row.some(function (cell) { return !!cell; })) allRows.push(row);
+    if (row.some(function (cell) { return !!cell; })) { allRows.push(row); allRowNumbers.push(recordNumber); }
   }
   if (allRows.length === 0) return { headers: [], rows: [] };
   let headers = allRows[0];
@@ -80,7 +83,8 @@ function parseCsvContent(text) {
   });
   return {
     headers: headers,
-    rows: rows
+    rows: rows,
+    rowNumbers: allRowNumbers.slice(1)
   };
 }
 
@@ -353,6 +357,7 @@ function chooseTableFile(callCloudFn) {
                   type: 'csv',
                   headers: parsed.headers,
                   rows: parsed.rows,
+                  rowNumbers: parsed.rowNumbers,
                   rawContent: String(readRes.data || '').replace(/^﻿/, ''),
                   fileName: fileName
                 });
@@ -409,6 +414,7 @@ function chooseTableFile(callCloudFn) {
                       type: 'csv',
                       headers: parsed.headers,
                       rows: parsed.rows,
+                      rowNumbers: parsed.rowNumbers,
                       rawContent: String(textRes.data || '').replace(/^﻿/, ''),
                       fileName: fileName
                     });
@@ -520,6 +526,7 @@ function buildExcelResult(sheet, fileName) {
     type: 'excel',
     headers: headers,
     rows: rows,
+    rowNumbers: sheet.rowNumbers || rows.map(function (_, index) { return index + 2; }),
     rawContent: rowsToCsvRaw(headers, rows),
     fileName: fileName,
     sheetName: sheet.name

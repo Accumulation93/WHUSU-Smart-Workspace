@@ -3280,6 +3280,13 @@ module.exports = Behavior({
     },
 
     chooseTable() {
+      // 返回导入入口后重新读取人员、岗位及分类，不能复用导入前的目录。
+      this._bootstrapComplete = false;
+      this._bootstrapKey = '';
+      wx.navigateTo({ url: '/subpackages/scoring/pages/hrImport/hrImport' });
+    },
+
+    chooseLegacyTable() {
       let self = this;
       self._csvImportActive = true;
   

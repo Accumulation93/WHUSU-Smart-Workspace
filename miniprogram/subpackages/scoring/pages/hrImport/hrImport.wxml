@@ -1,0 +1,109 @@
+<page-meta page-style="{{(pickerVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<ui-navbar title="{{navigationTitle}}" />
+<view class="import-page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.title}}" tone="admin" />
+  <view class="section-control-card import-card">
+    <view class="import-title">{{copy.title}}</view>
+    <view class="import-note">{{copy.instructions}}</view>
+    <view wx:if="{{fileSummary}}" class="import-note">{{fileSummary}}</view>
+    <view wx:if="{{error}}" class="import-error">{{error}}</view>
+    <view wx:if="{{busy}}" class="import-note">{{copy.loading}}</view>
+    <view class="import-actions" wx:if="{{!requestId}}">
+      <button class="primary-btn" disabled="{{busy}}" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.chooseFile}}</button>
+      <button class="secondary-btn" disabled="{{busy}}" data-type="table" bindtap="exportFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.exportTable}}</button>
+    </view>
+    <view class="import-switch"><text>{{copy.includeProfile}}</text><switch checked="{{includeProfile}}" bindchange="onIncludeProfile" disabled="{{busy}}" /></view>
+    <view class="import-note">{{copy.versionNotice}}</view>
+  </view>
+
+  <view class="import-card" wx:if="{{stage === 'mapping'}}">
+    <view class="import-title">{{copy.mappings}}</view>
+    <view class="import-field" wx:for="{{mappings}}" wx:key="index">
+      <view class="import-label">{{item.label}}</view>
+      <picker range="{{mappingOptions}}" range-key="label" value="{{item.selectedIndex}}" data-index="{{index}}" bindchange="onMappingChange" disabled="{{busy}}">
+        <view class="picker-display">{{item.targetLabel}}</view>
+      </picker>
+    </view>
+    <view class="import-field"><view class="import-label">{{copy.nature}}</view>
+      <picker range="{{natureOptions}}" value="{{natureIndex}}" bindchange="onNatureChange" disabled="{{busy}}"><view class="picker-display">{{natureOptions[natureIndex]}}</view></picker>
+    </view>
+    <view class="import-actions"><button class="primary-btn" bindtap="preview" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.preview}}</button></view>
+  </view>
+
+  <view class="section-control-card import-card" wx:if="{{stage === 'review' || stage === 'confirm'}}">
+    <view class="import-title">{{summaryText}}</view>
+    <view class="import-note">{{executionText}}</view>
+    <view class="import-actions" wx:if="{{stage === 'review' && !requestId}}">
+      <button class="secondary-btn" bindtap="goMapping" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.back}}</button>
+      <button class="secondary-btn" bindtap="preview" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retry}}</button>
+    </view>
+    <view class="import-views" wx:if="{{stage === 'review'}}">
+      <button wx:for="{{viewOptions}}" wx:key="key" class="secondary-btn {{view === item.key ? 'import-active' : ''}}" data-key="{{item.key}}" bindtap="changeView" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</button>
+    </view>
+    <view wx:if="{{stage === 'review' && (view === 'open' || view === 'resolved')}}" class="import-categories">
+      <view wx:for="{{categories}}" wx:key="key" class="import-category selection-option-card {{category === item.key ? 'selection-option-card-selected import-active' : ''}}" aria-checked="{{category === item.key}}" data-key="{{item.key}}" catchtap="changeCategory" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+        <view class="import-label">{{item.title}}</view><view class="import-note">{{item.summaryText}}</view>
+      </view>
+    </view>
+    <view wx:if="{{selectedCount && stage === 'review'}}">
+      <view class="ui-action-summary">{{selectedText}}</view>
+      <view class="import-actions">
+        <button class="secondary-btn" wx:for="{{batchOptions}}" wx:key="type" data-type="{{item.type}}" bindtap="batchAction" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</button>
+      </view>
+      <view wx:if="{{canBatchNature}}" class="import-field"><picker range="{{natureOptions}}" value="{{natureIndex}}" bindchange="onNatureChange"><view class="picker-display">{{natureOptions[natureIndex]}}</view></picker><view class="import-actions"><button class="secondary-btn" data-type="nature" bindtap="batchAction" disabled="{{busy || !natureIndex}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.batchNature}}</button></view></view>
+    </view>
+    <view class="import-actions" wx:if="{{stage === 'review'}}">
+      <button class="secondary-btn" data-type="issues" bindtap="exportFile" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.exportIssues}}</button>
+      <button class="primary-btn" bindtap="goConfirm" disabled="{{busy || !canExecute || requestId || editor || confirmAction}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.next}}</button>
+    </view>
+  </view>
+
+  <view id="import-row-editor" class="import-card" wx:if="{{editor}}">
+    <view class="import-title">{{copy.rowEditor}} · {{editor.name}}</view><view class="import-note">{{copy.editNotice}}</view>
+    <view class="import-field"><view class="import-label">{{copy.nature}}</view><picker range="{{natureOptions}}" value="{{editor.natureIndex}}" bindchange="editNature"><view class="picker-display">{{natureOptions[editor.natureIndex]}}</view></picker></view>
+    <view class="import-field"><view class="import-label">{{copy.department}}</view><input class="field-input" value="{{editor.values.department}}" data-field="department" bindinput="editValue" /></view>
+    <view class="import-field"><view class="import-label">{{copy.identity}}</view><input class="field-input" value="{{editor.values.identity}}" data-field="identity" bindinput="editValue" /></view>
+    <view class="import-field"><view class="import-label">{{copy.workGroup}}</view><input class="field-input" value="{{editor.values.workGroup}}" data-field="workGroup" bindinput="editValue" />
+      <view class="card-actions"><button class="secondary-btn" data-field="workGroup" bindtap="clearValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clear}}</button></view>
+    </view>
+    <view class="import-field" wx:for="{{editor.profile}}" wx:key="id"><view class="import-label">{{item.label}}</view><input class="field-input" value="{{item.value}}" data-index="{{index}}" bindinput="editProfile" />
+      <view class="card-actions" wx:if="{{!item.required}}"><button class="secondary-btn" data-field="{{item.id}}" bindtap="clearValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clear}}</button></view>
+    </view>
+    <view class="import-note" wx:if="{{editor.clearNotice}}">{{editor.clearNotice}}</view>
+    <view class="import-actions"><button class="secondary-btn" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" bindtap="saveEditor" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button></view>
+  </view>
+
+  <view id="import-confirm-action" class="import-card" wx:if="{{confirmAction}}">
+    <view class="import-title">{{copy.confirmTitle}}</view><view class="import-note">{{confirmAction.text}}</view>
+    <view wx:if="{{confirmAction.exclude}}" class="import-note">{{copy.excludeNotice}}</view>
+    <view class="import-actions"><button class="secondary-btn" bindtap="cancelAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" bindtap="confirmAction" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button></view>
+  </view>
+
+  <view wx:if="{{stage === 'review' || stage === 'confirm'}}">
+    <view class="import-card selection-option-card {{item.selected ? 'selection-option-card-selected import-active' : ''}}" wx:for="{{items}}" wx:key="id" aria-checked="{{item.selected}}" data-index="{{index}}" catchtap="toggleProblem" hover-class="{{item.blocking ? 'ui-press-card' : 'none'}}" hover-start-time="0" hover-stay-time="160">
+      <view wx:if="{{item.groupStart}}" class="import-label">{{item.groupTitle}}</view>
+      <view class="import-title">{{item.title}}</view><view class="import-label">{{item.name}}</view><view class="import-note">{{item.rowText}}</view>
+      <view wx:if="{{item.targetLabel}}" class="import-note">{{item.targetLabel}}</view>
+      <view wx:if="{{item.resolutionLabel}}" class="import-label">{{item.resolutionLabel}}</view>
+      <view class="import-label" wx:if="{{item.fieldLabel}}">{{item.fieldLabel}}</view>
+      <view class="import-note" wx:if="{{item.requirements}}">{{item.requirements}}</view>
+      <view class="import-diff"><view><view class="import-note">{{copy.before}}</view><view class="import-value">{{item.beforeText}}</view></view><view><view class="import-note">{{copy.after}}</view><view class="import-value">{{item.afterText}}</view></view></view>
+      <view class="card-actions import-actions" wx:if="{{stage === 'review'}}">
+        <button wx:for="{{item.actions}}" wx:for-item="action" wx:for-index="actionIndex" wx:key="label" class="secondary-btn" data-index="{{index}}" data-action="{{actionIndex}}" catchtap="performAction" disabled="{{busy || requestId}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{action.label}}</button>
+      </view>
+      <view class="import-actions" wx:if="{{item.otherCategories.length}}"><button wx:for="{{item.otherCategories}}" wx:key="key" class="secondary-btn" data-key="{{item.key}}" catchtap="changeCategory" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.title}}</button></view>
+    </view>
+    <view class="import-card" wx:if="{{!items.length && !busy}}"><view class="import-note">{{view === 'open' ? (canExecute ? copy.noProblems : copy.categoryNoProblems) : copy.noChanges}}</view></view>
+    <view class="import-card" wx:if="{{hasMore}}"><button class="secondary-btn" bindtap="onReachBottom" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.more}}</button></view>
+  </view>
+
+  <view class="import-card" wx:if="{{stage === 'confirm'}}">
+    <view class="import-title">{{copy.confirmImport}}</view><view class="import-note">{{executionText}}</view>
+    <view class="import-note" wx:if="{{requestId}}">{{copy.queryHint}}</view>
+    <view class="import-actions" wx:if="{{!requestId}}"><button class="secondary-btn" bindtap="backReview" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.back}}</button><button class="primary-btn" bindtap="execute" disabled="{{busy || !canExecute}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.execute}}</button></view>
+    <view class="import-actions" wx:else><button class="secondary-btn" bindtap="queryResult" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.queryResult}}</button><button class="primary-btn" bindtap="execute" disabled="{{busy}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retryExecution}}</button></view>
+  </view>
+  <view class="import-card" wx:if="{{stage === 'result'}}"><view class="import-title">{{resultText}}</view><view class="import-note">{{executionText}}</view><view class="import-actions"><button class="primary-btn" bindtap="restart" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.restart}}</button></view></view>
+</view>
+<personnel-picker visible="{{pickerVisible}}" title="{{copy.assignmentChoice}}" options="{{pickerOptions}}" value="{{pickerValue}}" selection-level="assignment" multiple="{{true}}" context-text="{{pickerContext}}" bindconfirm="confirmPicker" bindcancel="closePicker" />
+<app-toast />

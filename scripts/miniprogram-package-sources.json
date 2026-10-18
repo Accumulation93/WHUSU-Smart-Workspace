@@ -69,6 +69,7 @@
   "locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation.js",
   "locales/zh-CN/generated/utils/filePreview.js",
   "locales/zh-CN/generated/utils/tableFile.js",
+  "locales/zh-CN/hrImport.js",
   "locales/zh-CN/hrProfileMigration.js",
   "locales/zh-CN/hrTemplateFieldDisplay.js",
   "locales/zh-CN/hrTemplateSave.js",

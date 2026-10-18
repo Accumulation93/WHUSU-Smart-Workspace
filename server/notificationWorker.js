@@ -70,6 +70,9 @@ async function tick() {
       await outboxModel.cleanupDead(90);
       await requestDeduplication.cleanupOld(pool, { retentionDays: 90, batchSize: 500, maxBatches: 20 });
       await cleanupAuditTemp({ maxAgeMs: 24 * 60 * 60 * 1000 });
+      for (let batch = 0; batch < 20; batch += 1) {
+        if (await require('./src/core/models/hrImportV2').cleanup() < 200) break;
+      }
       lastMaintenanceDay = maintenanceDay;
     }
   } catch (error) {

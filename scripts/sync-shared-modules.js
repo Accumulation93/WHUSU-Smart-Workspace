@@ -48,6 +48,10 @@ const MANIFEST = [
     ]
   },
   {
+    source: 'shared/locales/zh-CN/hrImport.js',
+    targets: [{ path: 'server/src/locales/zh-CN/hrImport.js' }]
+  },
+  {
     source: 'shared/hrProfileDate.js',
     targets: [
       { path: 'miniprogram/utils/hrProfileDateRules.js' },

@@ -37,9 +37,9 @@ router.post('/parseTableFile', async (req, res) => {
 
       const headers = data[0].map(cell => String(cell == null ? '' : cell).trim());
       const columnCount = headers.length;
-      const rows = data.slice(1)
-        .filter(row => row.some(cell => String(cell == null ? '' : cell).trim() !== ''))
-        .map(row => {
+      const sourceRows = data.slice(1).map((row, index) => ({ row, rowNumber: index + 2 }))
+        .filter(item => item.row.some(cell => String(cell == null ? '' : cell).trim() !== ''));
+      const rows = sourceRows.map(({ row }) => {
           const cells = [];
           for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
             cells.push(String(row[columnIndex] == null ? '' : row[columnIndex]));
@@ -52,7 +52,7 @@ router.post('/parseTableFile', async (req, res) => {
         header
       }));
 
-      sheets.push({ name, headers, columns, rows });
+      sheets.push({ name, headers, columns, rows, rowNumbers: sourceRows.map(item => item.rowNumber) });
     }
 
     res.json({

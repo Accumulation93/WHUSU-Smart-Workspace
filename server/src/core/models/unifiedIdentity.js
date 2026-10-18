@@ -3109,6 +3109,8 @@ module.exports = {
   normalizeStudentId,
   listClaimOrganizations,
   syncLegacyHrRecords,
+  validateAssignmentReferences,
+  refreshLegacyHrCompatibilitySnapshot,
   listMembershipAssignments,
   listMembershipAssignmentSummaries,
   listDirectoryAssignmentSummaries,

@@ -179,6 +179,8 @@ mapAny(['/listPersonIdentities'], [
   'hr.people', 'hr.profile_review', 'system.admin_accounts.read', 'system.admin_accounts.write'
 ]);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
+mapRoutes('hr.import', ['/getHrImportPreview', '/getHrImportResult', '/getHrImportMetadata', '/exportHrImportIssues']);
+mapRoutes('hr.people', ['/exportHrAssignmentTable']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);
 mapAny(['/getHrPersonDetail'], ['hr.people', 'hr.profile_review']);
 mapRoutes('hr.people', ['/saveHrPersonFull']);

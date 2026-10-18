@@ -24,7 +24,9 @@ const {
 const hrInfoModel = require('../models/hrInfo');
 
 const { resolveRequestAdmin } = require('../services/adminRequestContext');
+const hrImportV2 = require('../models/hrImportV2');
 const hrTableImportModel = require('../models/hrTableImport');
+const importCopy = require('../../locales/zh-CN/hrImport');
 const pool = require('../../config/db');
 
 function authenticationStatus(row) {
@@ -696,35 +698,62 @@ router.post('/mergePersons', async (req, res) => {
 
 async function handleStructuredHrImport(req, res, previewOnly) {
   try {
-    const admin = await resolveRequestAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
-    // 导入同样要留痕：把操作管理员带进资料写入，导出才能显示“谁导入的”。
-    const actor = {
-      personId: safeString(admin.person_id),
-      contextId: safeString(admin.context_id)
-    };
+    if (req.body.schemaVersion == null) {
+      await requireAdminOrganizationPermission(req, orgId, ['hr.import']);
+      const actor = importActor(req, orgId);
+      const result = previewOnly
+        ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
+        : await hrTableImportModel.importHrTable(req.body, orgId, actor);
+      return res.json(result);
+    }
+    if (req.body.schemaVersion !== 2) return res.json({ status: 'import_upgrade_required', message: importCopy.upgrade });
+    const actor = importActor(req, orgId);
+    const authorize = connection => requireAdminOrganizationPermission(req, orgId, ['hr.import'], connection);
     const result = previewOnly
-      ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
-      : await hrTableImportModel.importHrTable(req.body, orgId, actor);
+      ? await hrImportV2.preview(req.body, actor, authorize)
+      : await hrImportV2.execute(req.body, actor, authorize);
     return res.json(result);
   } catch (error) {
-    const isExpectedImportError = error instanceof hrTableImportModel.HrTableImportError;
-    if (req.logger) {
-      req.logger.error('hr table import failed', {
-        endpoint: previewOnly ? 'previewHrTableImport' : 'importHrTable',
-        status: safeString(error.status) || 'error',
-        error: safeString(error.message),
-        stack: error.stack
-      });
+    if (error instanceof hrTableImportModel.HrTableImportError) {
+      return res.json({ status: safeString(error.status), message: safeString(error.message), requestId: req.requestId || '' });
     }
-    return res.json({
-      status: isExpectedImportError ? safeString(error.status) : 'error',
-      message: isExpectedImportError ? safeString(error.message) : localeCopy.copy_5840966982,
-      requestId: req.requestId || ''
-    });
+    return sendImportFailure(req, res, error);
   }
 }
+
+function importActor(req, orgId) {
+  return { personId: safeString(req.authAccount && req.authAccount.personId),
+    contextId: safeString(req.authContext && req.authContext.contextId), organizationId: orgId };
+}
+
+function sendImportFailure(req, res, error) {
+  const expected = error instanceof hrImportV2.ImportError || error instanceof AdminOrganizationAccessError
+    || error instanceof unifiedIdentityModel.IdentityError || error.code === 'invalid_import';
+  if (!expected && req.logger) req.logger.error('HR import failed', { endpoint: req.path, code: safeString(error.code) });
+  return res.json({ status: expected ? error.code : 'import_failed', message: expected ? error.message : importCopy.failed,
+    issues: error instanceof hrImportV2.ImportError ? error.issues || [] : [] });
+}
+
+async function handleImportRead(req, res, method, permission) {
+  try {
+    const orgId = await getCurrentOrgId();
+    const authorize = connection => requireAdminOrganizationPermission(req, orgId, [permission || 'hr.import'], connection);
+    await authorize();
+    return res.json(await hrImportV2[method](req.body, importActor(req, orgId), authorize));
+  } catch (error) { return sendImportFailure(req, res, error); }
+}
+
+router.post('/getHrImportPreview', (req, res) => handleImportRead(req, res, 'details'));
+router.post('/getHrImportResult', (req, res) => handleImportRead(req, res, 'result'));
+router.post('/exportHrImportIssues', (req, res) => handleImportRead(req, res, 'exportIssues'));
+router.post('/exportHrAssignmentTable', (req, res) => handleImportRead(req, res, 'exportTable', 'hr.people'));
+router.post('/getHrImportMetadata', async (req, res) => {
+  try {
+    const orgId = await getCurrentOrgId();
+    return res.json(await hrImportV2.metadata(importActor(req, orgId), connection => requireAdminOrganizationPermission(req, orgId, ['hr.import'], connection)));
+  } catch (error) { return sendImportFailure(req, res, error); }
+});
 
 router.post('/previewHrTableImport', async (req, res) => {
   await handleStructuredHrImport(req, res, true);

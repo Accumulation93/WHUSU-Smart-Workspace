@@ -24,6 +24,7 @@
       "pages": [
         "pages/score/score",
         "pages/admin/admin",
+        "pages/hrImport/hrImport",
         "pages/scorerTasks/scorerTasks"
       ]
     },

@@ -30,6 +30,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^DELETE FROM admin_record_file_cleanup WHERE id = \?$/i, reason: '后台按本事务已锁定任务主键确认清理完成，不删除其他业务记录' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^UPDATE admin_record_file_cleanup SET next_attempt_at = TIMESTAMPADD\(SECOND, LEAST\(3600, 30 \* POW\(2, LEAST\(attempts, 7\)\)\), UTC_TIMESTAMP\(3\)\), attempts = attempts \+ 1 WHERE id = \?$/i, reason: '后台按已锁定任务主键登记失败和下次重试时间' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT COUNT\(\*\) AS total FROM admin_record_file_cleanup WHERE deletion_id = \?$/i, reason: '只汇总刚完成授权删除的服务端生成批次，不返回附件内容或路径' },
+  { file: 'server/src/core/models/hrImportV2.js', sql: /^DELETE FROM hr_import_previews WHERE expires_at < UTC_TIMESTAMP\(3\) LIMIT 200$/i, reason: '后台按保留期分批清理过期导入计划，仅返回删除数量；隔离数据库覆盖过期与未过期记录' },
   { file: 'server/src/modules/audit/models/signingEvidence.js', sql: /SELECT input_file_path, output_file_path FROM audit_signing_evidence\s+WHERE input_file_path IN/i, reason: '后台全组织附件清理只按绝对候选路径交集检查历史凭证引用，不返回业务或身份信息' },
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE id = \? AND admin_level IN/i, reason: '权限管理精确主键锁定' },
   { file: 'server/src/core/models/hrInfo.js', sql: /FROM hr_info WHERE student_id = \?/i, reason: '登录时跨组织身份匹配' },
