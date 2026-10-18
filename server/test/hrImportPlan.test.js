@@ -125,6 +125,8 @@ test('表格错误值不作为学号合并人员或产生岗位问题', () => {
   assert.equal(plan.issues.length, errors.length);
   plan.issues.forEach((item, index) => {
     assert.equal(item.reason, 'spreadsheetIdentityError'); assert(item.message.includes(errors[index]));
+    assert(item.message.includes('第 ' + (index + 2) + ' 行')); assert(item.message.includes('人员' + index));
+    assert(item.message.includes('第 2 列“学号”'));
     assert.equal(item.rowNumbers.length, 1); assert(!item.actions.some(action => action.type === 'edit'));
   });
 });
@@ -133,9 +135,12 @@ test('岗位差异明确列出资料项和两边岗位，空信息不画伪比�
     rows: [['测试甲', '001', '部门乙', '身份甲', '组乙']], basicMapping: { name: 0, studentId: 1, department: 2, identity: 3, workGroup: 4 }, defaultNature: 'staff' };
   const plan = buildPlan(data, context()); const issue = plan.issues.find(item => item.category === 'intent');
   assert(issue.message.includes(copy.department)); assert(issue.before.includes('部门甲')); assert(issue.after.includes('部门乙'));
+  assert(issue.message.includes('测试甲')); assert(issue.message.includes('第 3 列“部门”'));
+  assert(issue.message.includes('系统里是“部门甲”')); assert(issue.message.includes('表格填的是“部门乙”'));
   assert.equal(issue.showComparison, true);
   const invalid = buildPlan(payload([['', '001', '']]), context()).issues[0];
   assert.equal(invalid.showComparison, false);
+  assert(invalid.message.includes('第 1 列“姓名”')); assert(invalid.message.includes('姓名没有填写'));
 });
 test('未登记名称、缺失资料项和跨部门职能组均可读', () => {
   const ctx = context();

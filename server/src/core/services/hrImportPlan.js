@@ -194,7 +194,7 @@ function buildPlan(payload, context) {
       if (Object.prototype.hasOwnProperty.call(profileEdit, mapping.fieldId)) value = text(profileEdit[mapping.fieldId]);
       if (!field || !validateProfile(field, value || (existing && existing.profile[mapping.fieldId]) || '')) {
         const finalValue = value || (existing && existing.profile[mapping.fieldId]) || '';
-        const reason = field && field.required && !finalValue ? 'requiredValue' : ({ text: 'lengthValue', number: 'numberValue', sequence: 'sequenceValue', date: 'dateValue', datetime: 'datetimeValue' }[field && field.type] || 'invalidValue');
+        const reason = field && field.required && !finalValue ? 'requiredValue' : ({ text: 'lengthValue', number: 'numberValue', sequence: 'sequenceValue', date: 'dateValue', datetime: 'datetimeValue', phone: 'phoneValue', email: 'emailValue' }[field && field.type] || 'invalidValue');
         issue('invalid', reason, [rowNumber], { field: mapping.fieldId, after: value, requirements: profileRequirement(field) }); return;
       }
       if (field.type === 'date' && value) value = normalizeDateValue(value);
@@ -262,7 +262,7 @@ function buildPlan(payload, context) {
         issue('incomplete', 'missingAssignment', [rowNumber], { targetId, actions: [action('edit', { rowNumber }), action('mode', { rowNumber, value: 'person' })] }); return;
       }
       if (['department', 'identity', 'workGroup'].some(key => Array.from(next[key]).length > 100)) {
-        issue('invalid', 'invalidValue', [rowNumber], { targetId }); return;
+        issue('invalid', 'invalidValue', [rowNumber], { targetId, field: 'nature', message: format(copy.invalidNature, [next.nature]) }); return;
       }
       const namedGroups = groupByName.get(next.workGroup) || [];
       if (next.workGroup && namedGroups.length && !namedGroups.some(group => group.department === next.department)) {
@@ -344,6 +344,12 @@ function buildPlan(payload, context) {
       actions: allowed ? [action('dictionary', { value: item.key }), action('exclude', { rowNumbers: item.rowNumbers })] : [action('exclude', { rowNumbers: item.rowNumbers })] }, item.approved);
   });
   const rowsByNumber = new Map(rowViews.map(row => [row.rowNumber, row]));
+  const extensionColumns = new Map(input.extensionMapping.map(item => [item.fieldId, item.columnIndex]));
+  const columnLabel = key => {
+    const index = input.basicMapping[key] == null ? extensionColumns.get(key) : input.basicMapping[key];
+    return index == null ? format(copy.unmappedColumn, [copy[key] || (fields.get(key) || {}).label || key])
+      : format(copy.issueColumn, [index + 1, input.headers[index]]);
+  };
   const assignmentLabels = new Map(context.members.flatMap(member => member.assignments.map(item => [item.id, label(item)])));
   issues.forEach(item => {
     const first = rowsByNumber.get(item.rowNumbers[0]);
@@ -365,7 +371,45 @@ function buildPlan(payload, context) {
     if (item.reason === 'identityMismatch' && !item.field) {
       item.message = format(copy.rowNameDifference, [item.rowNumbers.map(number => { const row = rowsByNumber.get(number); return format(copy.rowLabel, [number]) + ' ' + (row ? row.name : ''); }).join(copy.listSeparator)]);
     }
-    item.showComparison = Boolean(item.before || item.after);
+    let issueFields = item.field ? [item.field] : ['department', 'identity', 'workGroup'].filter(key => input.basicMapping[key] != null);
+    if (item.reason === 'missingAssignment' && first) {
+      const member = members.get(first.studentId);
+      const target = member && member.assignments.find(entry => entry.id === item.targetId);
+      issueFields = ['nature', 'department', 'identity'].filter(key => !(first.values[key] || target && target[key] || key === 'nature' && input.defaultNature));
+    }
+    if (item.reason === 'unavailableMember' && first) {
+      const member = members.get(first.studentId);
+      item.message = member && member.personStatus !== 'active' ? copy.inactivePerson : copy.departedMember;
+      issueFields = ['name', 'studentId'];
+    }
+    if (item.reason === 'staleAssignment' || item.reason === 'unavailableAssignment') issueFields = ['assignmentId'];
+    if (item.reason === 'spreadsheetIdentityError') item.showComparison = false;
+    if (item.reason === 'missingIdentity' && first) {
+      issueFields = ['name', 'studentId'].filter(key => !first.values[key] || Array.from(first.values[key]).length > (key === 'name' ? 100 : 32));
+      item.message = issueFields.map(key => !first.values[key] ? format(copy.missingCell, [copy[key]])
+        : format(copy.longCell, [copy[key], key === 'name' ? 100 : 32])).join(copy.listSeparator);
+    }
+    if (item.reason === 'identityMismatch') issueFields = ['name', 'studentId'];
+    if (item.reason === 'chooseIntent' && first) {
+      const member = members.get(first.studentId);
+      const active = member ? member.assignments.filter(entry => entry.status === 'active') : [];
+      issueFields = ['nature', 'department', 'identity', 'workGroup'].filter(key => first.values[key] && !active.some(entry => entry[key] === first.values[key]));
+      if (!issueFields.length) issueFields = ['department', 'identity', 'workGroup'].filter(key => first.values[key]);
+      item.message = format(copy.assignmentDifference, [issueFields.map(key => format(copy.valueDifference, [copy[key],
+        [...new Set(active.map(entry => key === 'nature' ? copy[entry[key]] : entry[key]))].filter(Boolean).join(copy.listSeparator) || copy.cellEmpty,
+        key === 'nature' ? copy[first.values[key]] : first.values[key]])).join(copy.listSeparator)]);
+    }
+    if (item.reason === 'wrongGroup') issueFields = ['department', 'workGroup'];
+    if (item.reason === 'multipleValues' && Array.isArray(item.before)) {
+      item.message = format(copy.conflictingRows, [item.before.map(entry => format(copy.rowContents, [entry.rowNumber,
+        entry.value == null ? label(entry.next || entry) : entry.value])).join(copy.listSeparator)]);
+    }
+    if (item.reason === 'duplicateAssignment') item.message = format(copy.duplicateDetails, [item.after || item.before]);
+    if (!issueFields.length) issueFields = ['name', 'studentId'];
+    item.message = format(copy.issueLocation, [item.rowNumbers.map(number => {
+      const row = rowsByNumber.get(number); return format(copy.issuePerson, [number, row && row.name || copy.unnamedPerson]);
+    }).join(copy.listSeparator), issueFields.map(columnLabel).join(copy.listSeparator), item.message]);
+    item.showComparison = item.showComparison !== false && Boolean(item.before || item.after);
     if (['intent', 'ambiguous', 'incomplete'].includes(item.category)) {
       item.beforeLabel = copy.existingAssignments; item.afterLabel = copy.importedAssignment;
     }

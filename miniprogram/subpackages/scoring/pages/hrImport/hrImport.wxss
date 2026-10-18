@@ -17,7 +17,7 @@
 .import-category .import-note { flex: none; }
 .import-list-heading { padding: var(--ui-list-padding-y) var(--ui-list-padding-x); margin-bottom: var(--ui-card-gap); }
 .import-issue-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--ui-inline-gap); }
-.import-reason { margin-top: var(--ui-label-gap); font-size: var(--ui-type-body); color: #334155; line-height: 1.65; overflow-wrap: anywhere; }
+.import-reason { margin-top: var(--ui-label-gap); font-size: var(--ui-type-body); color: #334155; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
 .import-active { border-color: #3b82f6; background: linear-gradient(135deg, rgba(219,234,254,.85), rgba(239,246,255,.9)); }
 .import-value { font-size: var(--ui-type-body); color: #0f172a; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .import-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); margin-top: var(--ui-field-gap); }
