@@ -54,32 +54,39 @@ function normalizeRule(input) {
 }
 function matches(clause, personId, assignment, viewer) {
   if (clause.type === 'self') return personId === viewer.personId;
-  if (clause.type === 'people') return clause.personIds.includes(personId);
+  if (clause.type === 'people') return clause.personSet ? clause.personSet.has(personId) : clause.personIds.includes(personId);
   if (clause.type !== 'scope' || !assignment) return false;
   return DIMENSIONS.every(([plural, singular, same]) => {
     if (clause[same]) return Boolean(viewer.assignment && viewer.assignment[singular]) && assignment[singular] === viewer.assignment[singular];
-    return !clause[plural].length || clause[plural].includes(assignment[singular]);
+    return !clause[plural].length || (clause.valueSets ? clause.valueSets[plural].has(assignment[singular]) : clause[plural].includes(assignment[singular]));
   });
 }
 function referenceIds(rule) {
   return Array.from(new Set(rule.audience.concat(rule.targets).flatMap(clause => clause.type === 'people' ? clause.personIds : []))).sort();
 }
-function validateReferences(rule, catalog) {
-  const people = new Set(catalog.people.map(person => person.personId));
+function referenceIndex(catalog) {
+  return { people: new Set(catalog.people.map(person => person.personId)), fields: new Set(catalog.fields.map(field => field.id)),
+    departmentIds: new Set(catalog.departmentIds), identityCategoryIds: new Set(catalog.identityCategoryIds), workGroupIds: new Set(catalog.workGroupIds) };
+}
+function validateReferences(rule, catalog, index = referenceIndex(catalog)) {
+  const people = index.people;
   if (referenceIds(rule).some(id => !people.has(id))) fail('staleReferences');
   for (const clause of rule.audience.concat(rule.targets)) {
     if (clause.type !== 'scope') continue;
     for (const [plural] of DIMENSIONS) {
-      const allowed = new Set(catalog[plural]);
+      const allowed = index[plural];
       if (clause[plural].some(id => !allowed.has(id))) fail('staleReferences');
     }
   }
-  const fields = new Set(catalog.fields.map(field => field.id));
+  const fields = index.fields;
   if (rule.fieldIds.some(id => !fields.has(id))) fail('staleReferences');
 }
 function grants(rules, people, viewer, catalog) {
   const matched = [];
-  const activePeople = new Set(catalog.people.map(person => person.personId));
+  const index = referenceIndex(catalog);
+  const activePeople = index.people;
+  const prepare = clause => Object.assign({}, clause, clause.type === 'people' ? { personSet: new Set(clause.personIds) }
+    : clause.type === 'scope' ? { valueSets: Object.fromEntries(DIMENSIONS.map(([plural]) => [plural, new Set(clause[plural])])) } : {});
   const activeClauses = clauses => clauses.map(clause => clause.type === 'people'
     ? Object.assign({}, clause, { personIds: clause.personIds.filter(id => activePeople.has(id)) }) : clause)
     .filter(clause => clause.type !== 'people' || clause.personIds.length);
@@ -89,7 +96,9 @@ function grants(rules, people, viewer, catalog) {
       const rule = normalizeRule(raw);
       rule.audience = activeClauses(rule.audience);
       rule.targets = activeClauses(rule.targets);
-      validateReferences(rule, catalog);
+      validateReferences(rule, catalog, index);
+      rule.audience = rule.audience.map(prepare);
+      rule.targets = rule.targets.map(prepare);
       if (rule.audience.some(clause => matches(clause, viewer.personId, viewer.assignment, viewer))) matched.push(rule);
     } catch (error) {
       if (!(error instanceof DirectoryError)) throw error;

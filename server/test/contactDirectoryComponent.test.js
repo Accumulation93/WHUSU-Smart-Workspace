@@ -47,6 +47,25 @@ async function main() {
   c.clearPrivate();assert.equal(f.listeners.size,0);assert.equal(c.data.people.length,0);
   let resolveRead;const late=fixture(()=>new Promise(resolve=>{resolveRead=resolve;}));late.component.activate();late.component.clearPrivate();resolveRead(config);await new Promise(resolve=>setImmediate(resolve));
   assert.equal(late.component.data.people.length,0);
+  let finishDetail;
+  const basic = { key:'entry',name:'联系人',departmentName:'部门',identityCategoryName:'成员',fields:[],relatedKeys:[] };
+  const lazyCalls=[];
+  const lazy = fixture(input => {
+    lazyCalls.push(input);
+    return input.data.key ? new Promise(resolve=>{finishDetail=resolve;}) : Promise.resolve({status:'success',groups:[{key:'group',name:'部门',items:[basic]}]});
+  });
+  lazy.component.data.admin=false; lazy.component.activate(); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(lazyCalls[0].data.summaryOnly,true);
+  assert.equal(lazyCalls.length,1);
+  const opening=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
+  assert.equal(lazy.component.data.detailLoading,true);
+  lazy.component.closeContact();
+  finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await opening;
+  assert.equal(lazy.component.data.contact,null);
+  const secondOpen=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
+  finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await secondOpen;
+  assert(lazy.component.data.contact.copyText.includes('电话：13800138000'));
+  lazy.component.clearPrivate(); assert.equal(lazy.component.data.contact,null);
   console.log('PASS 小程序真实保存参数、人员确认、删除取消/确认、处理提示、隐藏清理和迟到响应丢弃');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

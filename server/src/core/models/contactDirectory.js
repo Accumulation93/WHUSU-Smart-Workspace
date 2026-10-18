@@ -6,6 +6,8 @@ const identity = require('./unifiedIdentity');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const policy = require('../services/contactDirectoryPolicy');
 const copy = require('../../locales/zh-CN/contactDirectory');
+const { hmac } = require('../services/identityCrypto');
+const crypto = require('crypto');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 const placeholders = values => values.map(() => '?').join(',');
 
@@ -104,18 +106,32 @@ async function batch(input, orgId, authorize) {
     return { count: rows.length };
   });
 }
-async function read(actor) {
+function contactKey(actor, item, nonce) {
+  return nonce + hmac(JSON.stringify(['contact-directory-v1', actor.organizationId, actor.contextId,
+    actor.personId, actor.assignmentId || '', nonce, item.person.personId, item.assignment && item.assignment.id]));
+}
+async function read(actor, options = {}) {
+  const detail = options.key !== undefined;
+  if (detail && (typeof options.key !== 'string' || !/^[a-f0-9]{96}$/.test(options.key))) throw new policy.DirectoryError('contactUnavailable');
+  const nonce = detail ? options.key.slice(0, 32) : crypto.randomBytes(16).toString('hex');
   return pool.withTransaction(async connection => {
+    const rules = (await list(connection, actor.organizationId)).filter(rule => rule.enabled);
+    const empty = () => { if (detail) throw new policy.DirectoryError('contactUnavailable'); return { groups: [] }; };
+    if (!rules.length) return empty();
     const data = await catalog(connection, actor.organizationId);
     const viewerPerson = data.people.find(person => person.personId === actor.personId);
-    if (!viewerPerson) return { groups: [] };
+    if (!viewerPerson) return empty();
     const viewer = { personId: actor.personId, assignment: viewerPerson.assignments.find(assignment => assignment.id === actor.assignmentId) || null };
     // 当前岗位已失效时，不得悄悄改用其他岗位匹配。
-    if (actor.assignmentId && !viewer.assignment) return { groups: [] };
-    const visible = policy.grants(await list(connection, actor.organizationId), data.people, viewer, data);
+    if (actor.assignmentId && !viewer.assignment) return empty();
+    let visible = policy.grants(rules, data.people, viewer, data);
+    if (detail) {
+      visible = visible.filter(item => contactKey(actor, item, nonce) === options.key);
+      if (!visible.length) throw new policy.DirectoryError('contactUnavailable');
+    }
     if (!visible.length) return { groups: [] };
     const hrIds = Array.from(new Set(visible.map(item => item.person.hrId)));
-    const fieldIds = Array.from(new Set(visible.flatMap(item => item.fieldIds)));
+    const fieldIds = options.summaryOnly === true && !detail ? [] : Array.from(new Set(visible.flatMap(item => item.fieldIds)));
     const values = fieldIds.length ? (await connection.query(`SELECT r.hr_id AS hrId, v.field_id AS fieldId, v.field_value AS value
       FROM hr_profile_records r JOIN hr_profile_record_values v ON v.record_id = r.id AND v.org_id = r.org_id
       WHERE r.org_id = ? AND v.is_pending = 0 AND r.hr_id IN (${placeholders(hrIds)}) AND v.field_id IN (${placeholders(fieldIds)})`,
@@ -133,9 +149,9 @@ async function read(actor) {
       const department = assignment ? assignment.departmentName : copy.noPosition;
       const groupKey = assignment ? assignment.departmentId : '';
       const group = groups.get(groupKey) || { key: generateId(), name: department, items: [] };
-      const card = { key: generateId(), name: item.person.name, departmentName: department,
+      const card = { key: contactKey(actor, item, nonce), name: item.person.name, departmentName: department,
         identityCategoryName: assignment ? assignment.identityCategoryName : '', workGroupName: assignment ? assignment.workGroupName || '' : '',
-        fields: item.fieldIds.map(id => ({ label: fieldById.get(id).label, type: fieldById.get(id).type,
+        fields: (options.summaryOnly === true && !detail ? [] : item.fieldIds).map(id => ({ label: fieldById.get(id).label, type: fieldById.get(id).type,
           value: String(byValue.get(JSON.stringify([item.person.hrId, id])) || '') })), relatedKeys: [] };
       group.items.push(card);
       groups.set(groupKey, group);
@@ -144,6 +160,7 @@ async function read(actor) {
       relations.set(item.person.personId, related);
     }
     relations.forEach(cards => cards.forEach(card => { card.relatedKeys = cards.filter(other => other !== card).map(other => other.key); }));
+    if (detail) return { contact: Array.from(groups.values())[0].items[0] };
     return { groups: Array.from(groups.values()) };
   });
 }

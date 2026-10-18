@@ -29,7 +29,7 @@ function peopleOptions(people) {
 function filterGroups(groups, query) {
   const needle = String(query || '').trim().toLocaleLowerCase();
   return (groups || []).map(group => Object.assign({}, group, { items: group.items.filter(item =>
-    [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].concat(item.fields.map(field => field.value)).join(' ').toLocaleLowerCase().includes(needle)) }))
+    [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].join(' ').toLocaleLowerCase().includes(needle)) }))
     .filter(group => group.items.length);
 }
 function decorateGroups(groups, dateFormatter) {
@@ -38,12 +38,17 @@ function decorateGroups(groups, dateFormatter) {
   return groups.map(group => Object.assign({}, group, { items: group.items.map(item => Object.assign({}, item, {
     positionText: [item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean).join(' · '),
     basicText: [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean).join(' · '),
-    fields: item.fields.map(field => Object.assign({}, field, {
+    fields: (item.fields || []).map(field => Object.assign({}, field, {
       value: dateFormatter && field.type === 'date' ? dateFormatter.formatDateTextOnly(field.value)
         : dateFormatter && field.type === 'datetime' ? dateFormatter.formatDateTimeText(field.value) : field.value,
       phone: field.type === 'phone' && /^\+?[\d ()-]{3,30}$/.test(field.value) ? field.value : '' })),
-    related: item.relatedKeys.filter(key => index.has(key)).map(key => ({ key, label: [index.get(key).departmentName, index.get(key).identityCategoryName, index.get(key).workGroupName].filter(Boolean).join(' · ') }))
+    related: (item.relatedKeys || []).filter(key => index.has(key)).map(key => ({ key, label: [index.get(key).departmentName, index.get(key).identityCategoryName, index.get(key).workGroupName].filter(Boolean).join(' · ') }))
   })) }));
+}
+function decorateContact(contact, dateFormatter) {
+  const item = decorateGroups([{ items: [contact] }], dateFormatter)[0].items[0];
+  item.copyText = [item.basicText].concat(item.fields.filter(field => field.value).map(field => field.label + '：' + field.value)).join('\n');
+  return item;
 }
 function ruleSummary(rule, metadata, copy) {
   const clauseText = clause => {
@@ -60,7 +65,7 @@ function ruleSummary(rule, metadata, copy) {
   return ['audience', 'targets'].map(key => copy[key] + '：' + rule[key].map(clauseText).join('；'))
     .concat([copy.columns + '：' + (rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly)]);
 }
-const sharedModule = Object.freeze({ blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, ruleSummary });
+const sharedModule = Object.freeze({ blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary });
 
-export { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, ruleSummary };
+export { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary };
 export default sharedModule;

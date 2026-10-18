@@ -21,7 +21,7 @@ function handler(work) {
     }
   };
 }
-router.post('/getContactDirectory', handler((body, actor) => model.read(actor)));
+router.post('/getContactDirectory', handler((body, actor) => model.read(actor, body)));
 function authorize(req, actor) {
   return connection => requireAdminOrganizationPermission(req, actor.organizationId, ['hr.directory.manage'], connection);
 }

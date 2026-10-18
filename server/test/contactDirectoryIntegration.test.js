@@ -8,6 +8,7 @@ const view = require('../../shared/contactDirectoryView');
 async function main() {
   const host = process.env.DIRECTORY_TEST_DB_HOST || process.env.DEPLOY_TEST_DB_HOST || '127.0.0.1', port = Number(process.env.DIRECTORY_TEST_DB_PORT || process.env.DEPLOY_TEST_DB_PORT || 3362);
   const database = 'directory_test_' + process.pid + '_' + Date.now(), username = 'dir_' + process.pid, password = crypto.randomBytes(24).toString('hex');
+  process.env.AUTH_IDENTITY_SECRET = crypto.randomBytes(32).toString('hex');
   const admin = await mysql.createConnection({ host, port, user: process.env.TEST_DB_ADMIN_USER || 'root', password: process.env.TEST_DB_ADMIN_PASSWORD || '', multipleStatements: true });
   let pool;
   try {
@@ -52,6 +53,17 @@ async function main() {
     assert.equal(cards.length,3); assert.equal(cards.filter(card=>card.relatedKeys.length).length,2);
     assert.deepEqual(cards.map(card=>card.fields.map(field=>field.value)).sort(), [['a-phone'],['a-phone'],['b-email']]);
     assert(!JSON.stringify(cards).includes('pending-secret')); assert(!JSON.stringify(cards).includes('personId')); assert(!JSON.stringify(cards).includes('student'));
+    const summary = await model.read(actor, { summaryOnly: true });
+    const summaries = summary.groups.flatMap(group => group.items);
+    assert(summaries.every(card => card.fields.length === 0));
+    assert(!JSON.stringify(summary).includes('a-phone'));
+    const key = summaries[0].key;
+    const detail = await model.read(actor, { key });
+    assert.equal(detail.contact.fields.length, 1);
+    assert.equal(detail.contact.key, key);
+    await assert.rejects(model.read({ ...actor, contextId: 'different' }, { key }), error => error.code === 'contactUnavailable');
+    await assert.rejects(model.read({ ...actor, organizationId: 'other' }, { key }), error => error.code === 'contactUnavailable');
+    await assert.rejects(model.read(actor, { key: key.slice(0, -1) + (key.endsWith('0') ? '1' : '0') }), error => error.code === 'contactUnavailable');
     await assert.rejects(model.save(Object.assign({},saved,{fieldIds:['secret']}),'org',authorize),error=>error.code==='staleReferences');
     await assert.rejects(model.save(saved,'other',authorize),error=>['staleReferences','work_context_required'].includes(error.code));
     await assert.rejects(model.save(input,'org',async()=>{throw new Error('denied');}),/denied/);
@@ -60,6 +72,8 @@ async function main() {
     await assert.rejects(model.batch({action:'delete',rules:[{id:updated.id,version:2},{id:second.id,version:99}]},'org',authorize),error=>error.code==='conflict');
     assert.equal((await model.configuration('org',authorize)).rules.length,2);
     await model.batch({action:'disable',rules:[{id:updated.id,version:2}]},'org',authorize);
+    const withdrawnKey = summaries.find(card => card.relatedKeys.length).key;
+    await assert.rejects(model.read(actor, { key: withdrawnKey }), error => error.code === 'contactUnavailable');
     assert.equal((await model.read(actor)).groups.flatMap(group=>group.items).length,1);
     await model.batch({action:'enable',rules:[{id:updated.id,version:3}]},'org',authorize);
     const dynamic = Object.assign({},input,{name:'同部门',targets:[{type:'scope',sameDepartment:true}],fieldIds:[]});
@@ -85,6 +99,23 @@ async function main() {
     assert.deepEqual(await model.read(actor),{groups:[]});
     await model.batch({action:'delete',rules:(await model.configuration('org',authorize)).rules.map(rule=>({id:rule.id,version:rule.version}))},'org',authorize);
     assert.equal((await model.configuration('org',authorize)).rules.length,0);
+    const count = 1000;
+    const generated = Array.from({ length: count }, (_, index) => ['bench' + index, '联系人' + index]);
+    await admin.query('INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ?', [generated.map(([id,name]) => [id,name,id,id])]);
+    await admin.query('INSERT INTO hr_info(id,name,student_id,org_id) VALUES ?', [generated.map(([id,name]) => ['h'+id,name,id,'org'])]);
+    await admin.query('INSERT INTO organization_memberships(id,person_id,legacy_hr_id,org_id) VALUES ?', [generated.map(([id]) => ['m'+id,id,'h'+id,'org'])]);
+    await admin.query('INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id) VALUES ?', [generated.map(([id]) => ['a'+id,'m'+id,'org','staff','d1','i1'])]);
+    await model.save({ ...input, name: '规模验证', targets: [{type:'scope',departmentIds:['d1']}], fieldIds:['phone'] }, 'org', authorize);
+    const samples = [];
+    for (let sample = 0; sample < 10; sample++) {
+      const start = performance.now();
+      const result = await model.read(actor, { summaryOnly: true });
+      samples.push(performance.now() - start);
+      assert(result.groups.flatMap(group => group.items).length >= count);
+      assert(result.groups.every(group => group.items.every(card => card.fields.length === 0)));
+    }
+    samples.sort((a,b) => a-b);
+    console.log('通讯录 1000 人隔离数据库 Model 读取 10 次：P50=' + samples[4].toFixed(1) + 'ms，P95=' + samples[9].toFixed(1) + 'ms（不含 HTTP、公网和设备渲染）');
     assert(third.id);
     console.log('PASS 通讯录真实表单新增/编辑/复制参数、启停删除、逐列隐私、同名多岗、调岗离任、并发版本和批量回滚');
   } finally {

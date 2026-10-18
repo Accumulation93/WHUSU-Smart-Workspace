@@ -1,1 +1,1 @@
-{"component":true,"usingComponents":{"personnel-picker":"../personnel-picker/personnel-picker","app-loading":"../app-loading/app-loading"}}
+{"component":true,"usingComponents":{"personnel-picker":"../personnel-picker/personnel-picker","app-loading":"../app-loading/app-loading","ui-icon":"../ui-icon/ui-icon"}}

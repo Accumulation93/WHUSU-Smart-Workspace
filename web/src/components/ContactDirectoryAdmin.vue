@@ -36,23 +36,24 @@
             <button type="button" class="btn btn-secondary" :disabled="blocked" @click="picker = { section, index }">{{ copy.choose }}</button>
           </template>
           <template v-if="clause.type === 'scope'">
-            <div v-for="dimension in dimensions" :key="dimension.key" class="stack-tight">
-              <span class="field-label">{{ copy[dimension.label] }}</span>
+            <details v-for="dimension in dimensions" :key="dimension.key" class="directory-filter stack-tight">
+              <summary><span class="field-label">{{ copy[dimension.label] }}</span><span class="muted">{{ clause[dimension.same] ? copy[dimension.same] : (clause[dimension.key].length ? format(copy.selectedOptions, clause[dimension.key].length) : copy.any) }}</span></summary>
               <label v-if="section === 'targets'" class="row"><input v-model="clause[dimension.same]" type="checkbox" :disabled="blocked" @change="clause[dimension.key] = []" />{{ copy[dimension.same] }}</label>
               <div v-if="!clause[dimension.same]" class="directory-options">
                 <label v-for="option in metadata[dimension.options] || []" :key="option.id" class="selection-option-card" :class="{ 'personnel-option-selected': clause[dimension.key].includes(option.id) }">
                   <input v-model="clause[dimension.key]" type="checkbox" :value="option.id" :disabled="blocked" />{{ option.name }}<span v-if="option.departmentId"> · {{ departmentName(option.departmentId) }}</span>
                 </label>
               </div>
-            </div>
+            </details>
           </template>
           <button type="button" class="btn btn-secondary" :disabled="blocked || draft[section].length === 1" @click="draft[section].splice(index, 1)">{{ copy.removeCondition }}</button>
         </div>
         <button type="button" class="btn btn-secondary" :disabled="blocked" @click="draft[section].push(view.blankClause('scope'))">{{ copy.addCondition }}</button>
       </section>
-      <h3 class="section-title">{{ copy.columns }}</h3><p class="muted">{{ copy.baseColumns }}</p>
+      <details class="directory-filter stack-tight"><summary><span class="field-label">{{ copy.columns }}</span><span class="muted">{{ format(copy.selectedOptions, draft.fieldIds.length) }}</span></summary><p class="muted">{{ copy.baseColumns }}</p>
       <p v-if="!metadata.fields.length" class="muted">{{ copy.noFields }}</p>
       <div class="directory-options"><label v-for="field in metadata.fields" :key="field.id" class="selection-option-card" :class="{ 'personnel-option-selected': draft.fieldIds.includes(field.id) }"><input v-model="draft.fieldIds" type="checkbox" :value="field.id" :disabled="blocked" />{{ field.label }}</label></div>
+      </details>
       <label class="row"><input v-model="draft.enabled" type="checkbox" :disabled="blocked" />{{ copy.enable }}</label>
       <div class="card-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="draft = null">{{ copy.cancel }}</button><button class="btn btn-primary" :disabled="blocked">{{ copy.save }}</button></div>
     </form>
@@ -126,6 +127,11 @@ onBeforeUnmount(() => { disposed = true; clear(); emit('busy', false); document.
 .directory-head > .section-title { flex: 1 1 auto; }
 .directory-head > .btn { flex: 0 0 auto; width: auto; }
 .directory-options { display: grid; gap: var(--ui-field-gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
-.selection-option-card { display: flex; align-items: center; gap: var(--ui-field-gap); padding: var(--ui-card-padding-y) var(--ui-card-padding-x); border: 1px solid var(--ui-line); border-radius: var(--ui-field-radius); cursor: pointer; }
+.selection-option-card { display: flex; align-items: center; gap: var(--ui-field-gap); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); min-height: var(--ui-control-height); box-sizing: border-box; border: 1px solid var(--ui-line-blue); border-radius: var(--ui-compact-radius); background: var(--ui-field-bg); cursor: pointer; overflow-wrap: anywhere; }
 .personnel-option-selected { border-color: var(--ui-blue-700); background: var(--ui-chip-blue-bg); }
+.directory-filter { border: var(--ui-field-border); border-radius: var(--ui-field-radius); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); background: var(--ui-field-bg); }
+.directory-filter > summary { cursor: pointer; line-height: var(--ui-leading-body); }
+.directory-filter > summary > span + span { margin-left: var(--ui-field-gap); }
+.directory-filter[open] > summary { margin-bottom: var(--ui-field-gap); }
+.stack > .btn { flex: none; height: auto; }
 </style>

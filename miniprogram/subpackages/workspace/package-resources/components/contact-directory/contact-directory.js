@@ -15,6 +15,7 @@ Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false } },
   data: { copy, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
+    contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
     attached: function() { this.activate(); },
@@ -35,7 +36,7 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', busy: false, deleteTargets: null });
+      this.setData({ groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
@@ -44,7 +45,7 @@ Component({
       const request = session.beginRequest(this, 'directory');
       this.setData({ loading: true, notice: '', groups: [] });
       try {
-        const result = await callFunction({ name: this.data.admin ? 'getContactDirectoryConfiguration' : 'getContactDirectory', data: {} });
+        const result = await callFunction({ name: this.data.admin ? 'getContactDirectoryConfiguration' : 'getContactDirectory', data: this.data.admin ? {} : { summaryOnly: true } });
         if (!this.current(request)) return;
         if (result.status !== 'success') throw result;
         if (this.data.admin) {
@@ -58,12 +59,37 @@ Component({
       finally { if (this.current(request)) this.setData({ loading: false }); }
     },
     search: function(event) { const query = event.detail.value; this.setData({ query, groups: view.filterGroups(this._groups || [], query) }); },
+    openContact: async function(event) {
+      const key = event.currentTarget.dataset.key || this.data.detailKey;
+      const basic = (this._groups || []).flatMap(group => group.items).find(item => item.key === key);
+      if (!basic) return;
+      const request = session.beginRequest(this, 'contactDetail');
+      this.setData({ detailKey: key, contact: basic, detailLoading: true, detailNotice: '' }, () => this.scrollTo('#directory-detail'));
+      try {
+        const result = await callFunction({ name: 'getContactDirectory', data: { key } });
+        if (!this.current(request) || this.data.detailKey !== key) return;
+        if (result.status !== 'success' || !result.contact) throw result;
+        this.setData({ contact: Object.assign(view.decorateContact(result.contact, dateFormatter), { related: basic.related }) });
+      } catch (error) { if (this.current(request) && this.data.detailKey === key) this.setData({ detailNotice: getErrorText(error, copy.loadFailed) }); }
+      finally { if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false }); }
+    },
+    closeContact: function() {
+      const key = this.data.detailKey;
+      session.beginRequest(this, 'contactDetail');
+      this.setData({ contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
+    },
+    toggleFilter: function(event) {
+      const key = event.currentTarget.dataset.filter;
+      this.setData({ ['expandedFilters.' + key]: !this.data.expandedFilters[key] }, () => this.refreshEditor());
+    },
+    toggleFields: function() { this.setData({ fieldsExpanded: !this.data.fieldsExpanded }); },
     copyValue: function(event) { wx.setClipboardData({ data: event.currentTarget.dataset.value, success: () => showShortToast(copy.copied) }); },
     callPhone: function(event) { wx.makePhoneCall({ phoneNumber: event.currentTarget.dataset.phone }); },
     locate: function(event) {
       const key = event.currentTarget.dataset.key;
       if (!(this._groups || []).some(group => group.items.some(item => item.key === key))) return;
-      this.setData({ query: '', groups: this._groups }, () => this.scrollTo('#contact-' + key));
+      session.beginRequest(this, 'contactDetail');
+      this.setData({ query: '', groups: this._groups, contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
     },
     toggleRelated: function(event) {
       const group = Number(event.currentTarget.dataset.group), index = Number(event.currentTarget.dataset.index);
@@ -83,7 +109,7 @@ Component({
       const existing = this.data.rules.find(rule => rule.id === id);
       const draft = existing ? view.payload(existing) : view.blankRule();
       if (event.currentTarget.dataset.copy) { delete draft.id; delete draft.version; }
-      this.setData({ draft }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
+      this.setData({ draft, expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
     },
     refreshEditor: function() {
       const draft = this.data.draft, metadata = this._metadata;
@@ -96,6 +122,9 @@ Component({
         selectedText: copy.selected.replace('{count}', String((clause.personIds || []).length)),
         names: (clause.personIds || []).map(id => peopleById.get(id) || copy.unnamed).join('、'),
         dimensions: dimensions.map(dimension => Object.assign({}, dimension, {
+          filterKey: key + '-' + index + '-' + dimension.key,
+          expanded: Boolean(this.data.expandedFilters[key + '-' + index + '-' + dimension.key]),
+          summary: clause[dimension.same] ? copy[dimension.same] : ((clause[dimension.key] || []).length ? copy.selectedOptions.replace('{count}', String(clause[dimension.key].length)) : copy.any),
           sameLabel: copy[dimension.same], isSame: Boolean(clause[dimension.same]),
           choices: metadata[dimension.options].map(option => ({ id: option.id,
             name: option.name + (option.departmentId ? ' · ' + (departments.get(option.departmentId) || '') : ''),
