@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/identityCard.js';
 import { createRequire } from 'node:module';
-const verificationImage = await createRequire(import.meta.url)('../../../server/node_modules/qrcode').toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32), {width:1024,margin:4,errorCorrectionLevel:'H'});
+const verificationImage = await createRequire(import.meta.url)('../../../server/node_modules/qrcode').toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32), {width:1024,margin:4,errorCorrectionLevel:'H',color:{dark:'#000000ff',light:'#ffffff00'}});
 const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active};
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
 test('hero opens identity card while work-role button keeps its action', async ({page}, info) => {
@@ -19,6 +19,10 @@ test('hero opens identity card while work-role button keeps its action', async (
   await expect(page.locator('.workspace-hero .workspace-person-name')).toHaveText(card.name);
   await expect(page.locator('.identity-header')).toHaveCount(0);
   await expect(page.locator('.identity-image')).toHaveAttribute('src',verificationImage);
+  expect(await page.locator('.identity-image').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
+  const pixels = createRequire(import.meta.url)('../../../server/node_modules/pngjs').PNG.sync.read(await page.locator('.identity-image').screenshot({animations:'disabled'}));
+  const decoded = createRequire(import.meta.url)('../../../server/node_modules/jsqr')(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
+  expect(decoded?.data).toBe('https://accumulation93.com/web/identity-card/verify?token='+'a'.repeat(32));
   await page.getByRole('button',{name:copy.miniProgramCode,exact:true}).click();
   await expect(page.locator('.identity-image')).toHaveAttribute('src',image);
   await page.getByRole('button',{name:copy.verificationCode,exact:true}).click();
