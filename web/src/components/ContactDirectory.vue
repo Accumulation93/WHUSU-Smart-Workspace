@@ -22,20 +22,22 @@
         </div>
       </section>
     </template>
-    <section v-else ref="detailPanel" class="card stack">
+    <section v-else ref="detailPanel" class="stack">
       <div class="card-actions"><button class="btn btn-secondary" @click="closeContact">{{ copy.back }}</button></div>
-      <h2 class="section-title">{{ contact?.name }}</h2><p class="muted">{{ contact?.positionText }}</p>
+      <div class="card directory-identity"><div class="stack-tight"><span class="muted">{{ copy.details }}</span><h2 class="section-title">{{ contact?.name }}</h2><div class="directory-tags"><span class="chip chip-blue">{{ contact?.departmentName }}</span><span v-if="contact?.identityCategoryName" class="chip">{{ contact.identityCategoryName }}</span><span v-if="contact?.workGroupName" class="chip">{{ contact.workGroupName }}</span></div></div><button v-if="!detailLoading && !detailNotice" class="btn btn-secondary directory-icon-action" :aria-label="copy.copyContact" :title="copy.copyContact" @click="copyValue(contact.copyText)"><UiIcon name="copy" size-role="context-leading" /></button></div>
       <AppLoading v-if="detailLoading" :text="copy.loadingDetail" />
       <p v-if="detailNotice" class="notice-line" role="alert">{{ detailNotice }}</p>
       <div v-if="detailNotice" class="card-actions"><button class="btn btn-secondary" @click="openContact(detailKey)">{{ copy.retry }}</button></div>
       <template v-if="!detailLoading && !detailNotice">
-        <div v-for="(field, index) in contact.fields" :key="index" class="directory-field">
-          <div class="stack-tight"><span class="muted">{{ field.label }}</span><span class="break-all">{{ field.value || copy.blankValue }}</span></div>
-          <div v-if="field.value" class="card-actions">
-            <a v-if="field.phone" class="btn btn-secondary" :href="'tel:' + field.phone">{{ copy.call }}</a>
+        <div class="directory-fields">
+          <div v-for="(field, index) in contact.fields" :key="index" class="card directory-field" :class="{'directory-field-phone': field.phone}">
+            <div class="stack-tight directory-field-content"><span class="muted">{{ field.label }}</span><span class="directory-field-value" :class="{'muted': !field.value}">{{ field.value || copy.blankValue }}</span></div>
+            <div v-if="field.value" class="directory-field-actions">
+              <a v-if="field.phone" class="btn btn-secondary directory-icon-action" :href="'tel:' + field.phone" :aria-label="copy.call" :title="copy.call"><UiIcon name="phone" size-role="context-leading" /></a>
+              <button class="btn btn-secondary directory-icon-action" :aria-label="copy.copyValue + ' ' + field.label" :title="copy.copyValue + ' ' + field.label" @click="copyValue(field.value)"><UiIcon name="copy" size-role="context-leading" /></button>
+            </div>
           </div>
         </div>
-        <div class="card-actions"><button class="btn btn-secondary" @click="copyValue(contact.copyText)">{{ copy.copyContact }}</button></div>
         <details v-if="contact.related.length" class="stack-tight">
           <summary>{{ copy.otherPositions }}</summary>
           <button v-for="related in contact.related" :key="related.key" class="btn btn-secondary" @click="locate(related.key)">{{ related.label }}</button>
@@ -109,7 +111,14 @@ onBeforeUnmount(() => { disposed = true; generation++; clearDetail(); groups.val
 .directory-position { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap); cursor: pointer; margin: 0; }
 .directory-position > div { min-width: 0; overflow-wrap: anywhere; }
 .directory-position:focus-visible { outline: 2px solid var(--ui-blue-700); outline-offset: 2px; }
-.directory-field { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--ui-field-gap); }
-.directory-field > div { min-width: 0; }
+.directory-identity, .directory-field { display: flex; justify-content: space-between; align-items: center; gap: var(--ui-field-gap); margin: 0; }
+.directory-identity > div, .directory-field-content { min-width: 0; flex: 1; }
+.directory-tags, .directory-field-actions { display: flex; flex-wrap: wrap; gap: var(--ui-field-gap); }
+.directory-fields { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-card-gap); }
+.directory-field-value { font-size: var(--ui-type-value); line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.directory-field-phone { background: var(--ui-option-selected-bg); }
+.directory-field-actions { flex: none; }
+.directory-icon-action.btn { flex: none; width: var(--ui-control-height); min-width: var(--ui-control-height); min-height: var(--ui-control-height); padding: 0; border-radius: var(--ui-compact-radius); }
+@media (min-width: 520px) { .directory-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 520px) { .directory-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 </style>

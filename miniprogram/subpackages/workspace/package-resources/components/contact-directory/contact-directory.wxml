@@ -76,15 +76,25 @@
       </view>
     </view>
   </block>
-  <view wx:if="{{detailKey}}" id="directory-detail" class="directory-card directory-stack">
+  <view wx:if="{{detailKey}}" id="directory-detail" class="directory-stack">
     <view class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" bindtap="closeContact" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.back}}</button></view>
-    <view class="directory-heading">{{contact.name}}</view><view class="directory-note">{{contact.positionText}}</view>
+    <view class="directory-card directory-identity">
+      <view class="directory-person-body directory-stack"><view class="directory-note">{{copy.details}}</view><view class="directory-heading">{{contact.name}}</view><view class="directory-tags"><text class="directory-department">{{contact.departmentName}}</text><text wx:if="{{contact.identityCategoryName}}" class="directory-note">{{contact.identityCategoryName}}</text><text wx:if="{{contact.workGroupName}}" class="directory-note">{{contact.workGroupName}}</text></view></view>
+      <button wx:if="{{!detailLoading && !detailNotice}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyContact}}" data-value="{{contact.copyText}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>
+    </view>
     <app-loading wx:if="{{detailLoading}}" text="{{copy.loadingDetail}}" />
     <view wx:if="{{detailNotice}}" class="directory-note">{{detailNotice}}</view>
     <view wx:if="{{detailNotice}}" class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" bindtap="openContact" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>
     <block wx:if="{{!detailLoading && !detailNotice}}">
-      <view wx:for="{{contact.fields}}" wx:key="label" class="directory-detail-field"><view class="directory-note">{{item.label}}</view><text class="directory-content" user-select="{{true}}">{{item.value || copy.blankValue}}</text><view wx:if="{{item.phone}}" class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" data-phone="{{item.phone}}" bindtap="callPhone" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.call}}</button></view></view>
-      <view class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" data-value="{{contact.copyText}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.copyContact}}</button></view>
+      <view class="directory-fields">
+        <view wx:for="{{contact.fields}}" wx:key="label" class="directory-card directory-detail-field {{item.phone ? 'directory-detail-field-phone' : ''}}">
+          <view class="directory-person-body"><view class="directory-note">{{item.label}}</view><text class="directory-field-value {{!item.value ? 'directory-note' : ''}}" user-select="{{true}}">{{item.value || copy.blankValue}}</text></view>
+          <view wx:if="{{item.value}}" class="directory-field-actions">
+            <button wx:if="{{item.phone}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.call}}" data-phone="{{item.phone}}" bindtap="callPhone" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="phone" sizeRole="context-leading" /></button>
+            <button class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyValue + ' ' + item.label}}" data-value="{{item.value}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>
+          </view>
+        </view>
+      </view>
       <view wx:if="{{contact.related.length}}" class="directory-note">{{copy.otherPositions}}</view>
       <view wx:for="{{contact.related}}" wx:key="key" class="directory-filter-head" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" data-key="{{item.key}}" bindtap="locate"><text class="directory-content">{{item.label}}</text><ui-icon name="chevron-right" sizeRole="context-trailing" /></view>
     </block>

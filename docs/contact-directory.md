@@ -41,6 +41,8 @@ audience 与 targets 是条件数组，各组之间 OR。同一个 scope 中不�
 
 ## 验证清单
 
+联系人详情采用姓名岗位摘要和独立字段卡，电话字段浅蓝强调；拨号、单字段复制及完整联系人复制均使用带无障碍名称的图标操作，不显示文字按钮。空字段隐藏动作，长值自然换行，Pad使用双列资料卡。
+
 - `server/test/contactDirectoryRoutes.test.js`：真实 HTTP 入口拒绝未授权管理操作，不能通过请求参数替换认证身份。
 
 - `server/test/contactDirectoryPolicy.test.js`：同岗位条件、逐人逐列、未知条件、无岗位及前端参数。

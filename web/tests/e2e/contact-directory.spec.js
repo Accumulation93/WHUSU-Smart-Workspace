@@ -39,6 +39,19 @@ test('directory only renders granted values and navigates visible positions', as
   await page.locator('#contact-a').click();
   await expect(page.getByRole('link', { name: ui.call })).toHaveAttribute('href', 'tel:13800138000');
   expect(detailReads).toBe(1);
+  const phoneAction = page.getByRole('link', { name: ui.call });
+  await expect(phoneAction).toHaveText('');
+  await expect(phoneAction.locator('img')).toHaveAttribute('src', /phone\.svg/);
+  const copyAction = page.getByRole('button', { name: ui.copyValue + ' Phone', exact: true });
+  await expect(copyAction).toHaveText('');
+  await expect(copyAction.locator('img')).toHaveAttribute('src', /copy\.svg/);
+  for (const action of [phoneAction, copyAction]) {
+    const box = await action.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(40);
+    expect(box.height).toBeGreaterThanOrEqual(40);
+    expect(await action.locator('img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+  }
+  await page.screenshot({path:testInfo.outputPath('contact-detail.png'),fullPage:true,animations:'disabled'});
   await expect(page.getByRole('button', { name: ui.copyContact, exact: true })).toHaveCount(1);
   await page.locator('summary').click();
   await page.getByRole('button', { name: 'Department B · Leader', exact: true }).click();
