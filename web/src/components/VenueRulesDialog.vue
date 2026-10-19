@@ -22,7 +22,7 @@
   <VenueCycleRuleEditor v-if="editor" :type="editor.type" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="editor = null" @save="saveRule">
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   </VenueCycleRuleEditor>
-  <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><strong>{{ activity.activity_name }}</strong><span>{{ venue.name }}</span><span>{{ cycleLabel(activity.cycle_type, activity.cycle_values) }}</span><span>{{ activity.time_start }} - {{ activity.time_end }}</span><span>{{ activityPeriodLabel(activity.cycle_type, activity.cycle_values) }}</span><p class="muted">{{ ui.copy_e90ee137d6 }}</p></GlassDialog>
+  <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><VenueActivityDetail :name="activity.activity_name" :venue="venue.name" :time="activity.time_start + ' - ' + activity.time_end" :cycle="cycleLabel(activity.cycle_type, activity.cycle_values)" :period="activityPeriodLabel(activity.cycle_type, activity.cycle_values)" :note="ui.copy_e90ee137d6" /></GlassDialog>
 </template>
 <script setup>
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
@@ -32,6 +32,7 @@ const canReadApprovals = useAdminCapability('venue.approvals.delete');
 const canWriteApprovals = useAdminCapability('venue.approvals');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
+import VenueActivityDetail from '@/components/VenueActivityDetail.vue';
 import VenueCycleRuleEditor from '@/components/VenueCycleRuleEditor.vue';
 import VenueBookingWindowFields from '@/components/VenueBookingWindowFields.vue';
 import VenueApprovalRules from '@/components/VenueApprovalRules.vue';

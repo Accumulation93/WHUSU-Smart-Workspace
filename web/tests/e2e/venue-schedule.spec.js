@@ -3,7 +3,7 @@ import { mockApi, callsOf } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import copy from '../../src/locales/zh-CN/index.js';
 
-test('weekly schedule preserves privacy, opens details and carries selected free time into booking', async ({ page }) => {
+test('weekly schedule preserves privacy, opens details and carries selected free time into booking', async ({ page }, info) => {
   const api = await mockApi(page);
   await page.clock.setFixedTime(new Date('2035-01-01T00:00:00Z'));
   const requests = [];
@@ -45,6 +45,10 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   const activity = page.getByRole('dialog', { name: ui.copy_c4df6642e3 });
   await expect(activity.getByText('Planned activity')).toBeVisible();
   await expect(activity.getByText('2035-01-01 16:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 17:00:00', { exact: true })).toBeVisible();
+  await expect(activity.locator('.chip-sky')).toHaveText('Room A');
+  const bounds = await activity.locator('.activity-detail').evaluate(element => ({width:element.clientWidth,scroll:element.scrollWidth}));
+  expect(bounds.scroll).toBeLessThanOrEqual(bounds.width + 1);
+  await page.screenshot({path:info.outputPath('activity-detail.png'),fullPage:true,animations:'disabled'});
   await activity.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
   await schedule.getByRole('button', { name: '›', exact: true }).click();
   await expect.poll(() => requests.at(-1).dateFrom).toBe('2035-01-08');

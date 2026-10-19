@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
+    "venue-activity-detail": "/subpackages/venue/components/venueActivityDetail/venueActivityDetail",
     "ui-icon": "/components/ui-icon/ui-icon",
     "personnel-picker": "/subpackages/venue/package-resources/components/personnel-picker/personnel-picker",
     "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail",

@@ -17,6 +17,8 @@
 
 ## 共享组件
 
+周期活动详情在场地分包内复用 `components/venueActivityDetail/`，网页复用 `VenueActivityDetail.vue`。日程与规则入口共用活动摘要、场地标签、本次占用或每日时段、重复规则和简短说明；组件只展示已格式化数据，不读取接口、不计算周期，不改变外层弹窗滚动与关闭逻辑。
+
 人事通讯录复用 `miniprogram/components/contact-directory/` 与网页 `ContactDirectory.vue`、`ContactDirectoryAdmin.vue`。用户结果与管理配置独立加载；规则编辑采用页面内三段结构，人员使用共享选择器。权限、接口与验证见 [通讯录说明](contact-directory.md)。
 
 | 组件 | 路径 | 用途 | 必须保留的差异 |

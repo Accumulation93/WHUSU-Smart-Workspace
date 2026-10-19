@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "",
   "usingComponents": {
+    "venue-activity-detail": "/subpackages/venue/components/venueActivityDetail/venueActivityDetail",
     "ui-icon": "/components/ui-icon/ui-icon",
     "ui-navbar": "/components/ui-navbar/ui-navbar"
   },

@@ -29,7 +29,7 @@
   <GlassDialog v-if="detail" :title="ui.copy_40d594ac66" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   <GlassDialog v-if="occupied" compact :title="ui.copy_a1f843d887" @close="occupied = null"><p>{{ occupied.timeStart }} {{ ui.copy_e8d9493a44 }} {{ occupied.timeEnd }}</p><p>{{ ui.copy_c46b04a9c5 }}</p></GlassDialog>
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null">
-    <div class="stack"><strong>{{ activity.activity?.name || activity.ruleName || ui.copy_acd4c5c171 }}</strong><span>{{ venue.name }}</span><span>{{ activityTime('Start') }} {{ ui.copy_e8d9493a44 }} {{ activityTime('End') }}</span><span>{{ activityCycle(activity.activity) }}</span><p>{{ ui.copy_c1ce05d451 }}</p></div>
+    <VenueActivityDetail :name="activity.activity?.name || activity.ruleName" :venue="venue.name" :occurrence="activityTime('Start') + ' ' + ui.copy_e8d9493a44 + ' ' + activityTime('End')" :cycle="activityCycle(activity.activity)" :note="ui.copy_c1ce05d451" />
   </GlassDialog>
   <VenueAdminBookingDialog v-if="adminBooking" :venue="venue" :date="adminBooking.date" :initial-time="adminBooking.time" @close="adminBooking = null" @busy="bookingBusy = $event" @saved="bookingSaved" />
 </template>
@@ -37,6 +37,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import VenueBookingDetail from './VenueBookingDetail.vue';
+import VenueActivityDetail from './VenueActivityDetail.vue';
 import VenueAdminBookingDialog from './VenueAdminBookingDialog.vue';
 import adminTime from '@/shared/venueAdminTimeSelection.js';
 import copy from '@/locales/zh-CN/index.js';
