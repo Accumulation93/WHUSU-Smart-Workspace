@@ -112,8 +112,11 @@ function createPage(options) {
       setClipboardData: (value) => calls.clipboard.push(value && value.data),
       scanCode: (value) => {
         calls.scanned.push(value);
+        if (settings.scanResponse) { value.success(settings.scanResponse); return; }
         if (settings.scanResult) value.success({ result: settings.scanResult });
       },
+      getAccountInfoSync: () => ({miniProgram:{envVersion:settings.envVersion || 'release'}}),
+      navigateToMiniProgram: () => { throw new Error('扫码不得重新打开其他版本'); },
       showToast: () => {},
       login: () => {},
       request: () => {}
@@ -241,6 +244,25 @@ function createPage(options) {
   assert.strictEqual(harness.calls.modal.length, 1);
 
   // 两个入口都走同一段扫描逻辑
+  for (const envVersion of ['develop','trial','release']) {
+    for (const prefix of ['', '/']) {
+      const target='subpackages/org/pages/identityCard/identityCard?scene='+'a'.repeat(32)+'&scancode_time=123';
+      harness=createPage({envVersion,scanResponse:{scanType:'WX_CODE',path:prefix+target,result:'https://weixin.qq.com/opaque-code'}});
+      harness.page.onScanQuickTap();
+      assert.deepStrictEqual(plain(harness.calls.scanned[0].scanType),['qrCode','barCode','wxCode']);
+      assert.equal(harness.calls.scanned[0].onlyFromCamera,false);
+      assert.deepStrictEqual(harness.calls.navigate,['/'+target]);
+      assert.equal(harness.calls.modal.length,0);
+    }
+    harness=createPage({envVersion,scanResponse:{scanType:'WX_CODE',path:'subpackages/venue/pages/venueBooking/venueBooking',result:''}});
+    harness.page.startScan();
+    assert.deepStrictEqual(harness.calls.navigate,['/subpackages/venue/pages/venueBooking/venueBooking']);
+  }
+  harness=createPage({scanResponse:{scanType:'WX_CODE',path:'subpackages/unknown/page',result:'untrusted'}});
+  harness.page.startScan();
+  assert.equal(harness.calls.navigate.length,0);
+  assert.equal(harness.calls.modal.length,1);
+
   harness = createPage({ scanResult: '/subpackages/message/pages/messageCenter/messageCenter' });
   harness.page.onScanQuickTap();
   assert.strictEqual(harness.calls.scanned.length, 1, '快捷键入口必须能唤起相机');

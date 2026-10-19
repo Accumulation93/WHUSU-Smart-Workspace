@@ -478,12 +478,14 @@ Page({
     if (this._scanRunning) return;
     this._scanRunning = true;
     wx.scanCode({
-      scanType: ['qrCode', 'barCode'],
+      scanType: ['qrCode', 'barCode', 'wxCode'],
+      onlyFromCamera: false,
       success: (result) => {
         this._scanRunning = false;
         if (result && typeof result.path === 'string') {
           const path = '/' + result.path.replace(/^\//, '');
-          if (path.indexOf('/subpackages/org/pages/identityCard/identityCard?') === 0 && isTrustedRoute(path)) { navigateToTrustedRoute(path); return; }
+          // 使用当前代码包内导航，保留扫码者的开发版、体验版或正式版。
+          if (isTrustedRoute(path)) { navigateToTrustedRoute(path); return; }
         }
         this.handleScanPayload(String((result && result.result) || '').trim());
       },
