@@ -91,6 +91,6 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .identity-name { font-size: var(--ui-type-page); line-height: 1.5; overflow-wrap: anywhere; }
 .identity-code { align-items: center; text-align: center; padding-top: var(--ui-field-gap); border-top: 1px dashed var(--ui-chip-blue-border); }
 .identity-code-heading, .identity-code-tabs { width: 100%; }
-.identity-image { width: calc(var(--ui-control-height) * 6); max-width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--ui-option-selected-bg); }
+.identity-image { width: calc(var(--ui-control-height) * 6); max-width: 100%; aspect-ratio: 1; object-fit: contain; }
 .identity-body > .btn, .identity-code > .btn { flex: none; height: auto; width: 100%; }
 </style>

@@ -20,8 +20,8 @@ test('hero opens identity card while work-role button keeps its action', async (
   await expect(page.locator('.identity-header')).toHaveCount(0);
   await expect(page.locator('.identity-image')).toHaveAttribute('src',verificationImage);
   const scanBackground = await page.locator('.identity-image').evaluate(el=>getComputedStyle(el).backgroundImage);
-  expect(scanBackground).toContain('rgb(219, 234, 254)');
-  expect(scanBackground).toContain('rgb(239, 246, 255)');
+  expect(scanBackground).toBe('none');
+  expect(await page.locator('.identity-image').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   const pixels = createRequire(import.meta.url)('../../../server/node_modules/pngjs').PNG.sync.read(await page.locator('.identity-image').screenshot({animations:'disabled'}));
   const decoded = createRequire(import.meta.url)('../../../server/node_modules/jsqr')(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height);
   expect(decoded?.data).toBe('https://accumulation93.com/web/identity-card/verify?token='+'a'.repeat(32));
