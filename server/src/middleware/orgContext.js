@@ -11,6 +11,7 @@ const localeCopy = require('../locales/zh-CN/generated/middleware/orgContext');
 const { orgStorage } = require('../utils/orgContext');
 
 const ORG_CONTEXT_BYPASS_PATHS = new Set([
+  '/api/verifyIdentityCard',
   '/api/listMyOrganizations',
   '/api/admin/listMyOrganizations',
   '/api/activateOrganization',

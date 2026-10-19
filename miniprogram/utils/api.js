@@ -14,6 +14,7 @@ const IDEMPOTENT_WRITE_APIS = {
   deletePersonPermanently: true
 };
 const AUTH_ENTRY_APIS = {
+  verifyIdentityCard: true,
   getTimeConfig: true,
   'auth/wechat/session': true,
   'auth/claims': true,

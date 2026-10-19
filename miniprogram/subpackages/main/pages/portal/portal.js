@@ -4,6 +4,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
+const identityCardCopy = require('../../../../locales/zh-CN/identityCard');
 const passwordBindingOffer = require('../../../../utils/passwordBindingOffer');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
@@ -40,6 +41,7 @@ function isPartialBulkResult(result) {
 }
 
 const PORTAL_CARDS_USER = [
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
@@ -50,6 +52,7 @@ const PORTAL_CARDS_USER = [
 ];
 
 const PORTAL_CARDS_ADMIN = [
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
@@ -478,6 +481,10 @@ Page({
       scanType: ['qrCode', 'barCode'],
       success: (result) => {
         this._scanRunning = false;
+        if (result && typeof result.path === 'string') {
+          const path = '/' + result.path.replace(/^\//, '');
+          if (path.indexOf('/subpackages/org/pages/identityCard/identityCard?') === 0 && isTrustedRoute(path)) { navigateToTrustedRoute(path); return; }
+        }
         this.handleScanPayload(String((result && result.result) || '').trim());
       },
       fail: (error) => {

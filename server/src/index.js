@@ -35,6 +35,7 @@ const HEALTH_CACHE_MS = 2000;
 let healthCache = null;
 let healthCheckPromise = null;
 const PUBLIC_BODY_ROUTES = new Set([
+  '/api/verifyIdentityCard',
   '/api/userLogin',
   '/api/adminLogin',
   '/api/auth/wechat/session',
@@ -47,6 +48,7 @@ const PUBLIC_BODY_ROUTES = new Set([
   '/api/auth/recovery/complete'
 ]);
 const SHARED_IP_RATE_POLICIES = Object.freeze({
+  '/api/verifyIdentityCard': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 60 },
   '/api/ping': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 120 },
   '/api/health': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 30 },
   '/api/userLogin': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: RATE_LIMIT_LOGIN_MAX },
@@ -61,6 +63,7 @@ const SHARED_IP_RATE_POLICIES = Object.freeze({
   '/api/uploadAuditFile': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 30 }
 });
 const SHARED_ACCOUNT_RATE_POLICIES = Object.freeze({
+  '/api/createMyIdentityCardCode': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 6 },
   '/api/uploadAuditFile': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 20 },
   '/api/parseTableFile': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 6 },
   '/api/verifyAuditFile': { windowMs: RATE_LIMIT_WINDOW_MS, maxRequests: 8 },
@@ -276,6 +279,7 @@ app.use('/api', require('./modules/scoring/routes/rules'));
 app.use('/api', require('./modules/scoring/routes/results'));
 app.use('/api', require('./core/routes/hrProfile'));
 app.use('/api', require('./core/routes/contactDirectory'));
+app.use('/api', require('./core/routes/identityCard'));
 app.use('/api', require('./core/routes/hrProfileMigration'));
 app.use('/api', require('./core/routes/system'));
 app.use('/api', require('./core/routes/parseTableFile'));

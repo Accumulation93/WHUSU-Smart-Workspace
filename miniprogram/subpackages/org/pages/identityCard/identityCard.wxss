@@ -1,0 +1,13 @@
+.identity-card { margin-top: 24rpx; padding: var(--ui-card-padding,24rpx); border-radius: var(--ui-card-radius); background: linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,246,255,.9)); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 8px 24px rgba(37,99,235,.08),inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); display: flex; flex-direction: column; gap: var(--ui-field-gap,16rpx); }
+.identity-card-heading { display: flex; align-items: center; gap: var(--ui-field-gap,16rpx); }
+.identity-card-title { font-size: var(--ui-type-section); font-weight: 700; line-height: 1.5; }
+.identity-card-name { font-size: var(--ui-type-page); font-weight: 800; line-height: 1.5; overflow-wrap: anywhere; }
+.identity-card-label { font-size: var(--ui-type-meta); color: #64748b; line-height: 1.6; }
+.identity-card-value { font-size: var(--ui-type-body); line-height: 1.6; overflow-wrap: anywhere; }
+.identity-card-field { display: flex; flex-direction: column; gap: 8rpx; }
+.identity-card-status, .identity-card-result { font-size: var(--ui-type-label); line-height: 1.5; color: #15803d; }
+.identity-card-code { display: flex; flex-direction: column; align-items: center; gap: var(--ui-field-gap,16rpx); text-align: center; }
+.identity-qr-image { width: 430rpx; height: 430rpx; max-width: 100%; }
+.identity-card-refresh.secondary-btn { flex: none; height: auto; width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; }
+@media (min-width: 520px) { .identity-card { margin-top: 16px; max-width: 540px; margin-left: auto; margin-right: auto; } .identity-card-field { gap: 4px; } .identity-qr-image { width: 240px; height: 240px; } }
+@media (min-width: 900px) { .identity-card { max-width: 560px; } }

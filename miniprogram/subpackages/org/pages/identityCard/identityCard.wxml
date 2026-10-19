@@ -1,0 +1,25 @@
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
+  <workspace-hero wx:if="{{!publicView}}" app-name="{{common.brandName}}" page-name="{{copy.title}}" />
+  <view class="identity-card">
+    <view class="identity-card-heading"><ui-icon name="shield" sizeRole="feature-leading" /><text class="identity-card-title">{{publicView ? copy.verifyTitle : copy.title}}</text></view>
+    <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
+    <block wx:if="{{card}}">
+      <view class="identity-card-name">{{card.name}}</view>
+      <view class="identity-card-status">{{card.state}}</view>
+      <view class="identity-card-field"><text class="identity-card-label">{{copy.organization}}</text><text class="identity-card-value">{{card.organization}}</text></view>
+      <view class="identity-card-field"><text class="identity-card-label">{{copy.position}}</text><text class="identity-card-value">{{card.position}}</text></view>
+      <view wx:if="{{publicView && valid}}" class="identity-card-result">{{copy.verified}}</view>
+      <view wx:if="{{!publicView}}" class="identity-card-code">
+        <app-loading wx:if="{{qrLoading}}" text="{{copy.generating}}" />
+        <image wx:if="{{image}}" class="identity-qr-image" src="{{image}}" mode="aspectFit" />
+        <view wx:if="{{image}}" class="identity-card-value">{{copy.scanHint}}</view>
+        <view class="identity-card-label">{{copy.privacyHint}}</view>
+        <view class="identity-card-label">{{copy.expiryHint}}</view>
+      </view>
+    </block>
+    <view wx:if="{{notice}}" class="identity-card-label">{{notice}}</view>
+    <button class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{publicView ? copy.retry : copy.refresh}}</button>
+    <view wx:if="{{publicView}}" class="identity-card-label">{{copy.notPhysicalProof}}</view>
+  </view>
+</view>

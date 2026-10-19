@@ -3,6 +3,7 @@ const eventBus = require('../../utils/eventBus');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const orgSession = require('../../utils/orgSession');
 const authContext = require('../../utils/authContext');
+const identityCardCopy = require('../../locales/zh-CN/identityCard');
 
 function getActiveWorkContext() {
   const activeContextId = String(orgSession.getSnapshot().contextId || '');
@@ -53,6 +54,7 @@ Component({
   },
 
   data: {
+    identityCardCopy,
     localeCopy,
     personName: '',
     identityName: '',
@@ -86,6 +88,12 @@ Component({
   },
 
   methods: {
+    onIdentityCardTap: function() {
+      if (!this.data.signedIn) return;
+      const pages = getCurrentPages();
+      if (pages.length && pages[pages.length - 1].route === 'subpackages/org/pages/identityCard/identityCard') return;
+      navigateToTrustedRoute('/subpackages/org/pages/identityCard/identityCard');
+    },
     refresh: function () {
       const profile = getProfile();
       this.setData({

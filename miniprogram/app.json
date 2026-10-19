@@ -63,7 +63,8 @@
         "pages/adminPermissions/adminPermissions",
         "pages/identitySwitch/identitySwitch",
         "pages/accountSecurity/accountSecurity",
-        "pages/authManagement/authManagement"
+        "pages/authManagement/authManagement",
+        "pages/identityCard/identityCard"
       ]
     }
   ],

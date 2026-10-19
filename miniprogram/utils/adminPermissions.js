@@ -101,7 +101,7 @@ function filterTabs(tabs, profile, map) {
 
 function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
-    if (card.key === 'messages' || card.key === 'identitySwitch') return true;
+    if (card.key === 'messages' || card.key === 'identitySwitch' || card.key === 'identityCard') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
     const keys = PORTAL_PERMISSION_MAP[card.key] || [];
     return hasAny(profile, keys.concat(keys.map(key => key + '.delete')));

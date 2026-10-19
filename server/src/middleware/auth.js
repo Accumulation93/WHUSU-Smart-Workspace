@@ -16,6 +16,7 @@ if (process.env.NODE_ENV === 'production') validateIdentityCryptoConfig();
 
 // 无需认证的入口；认领/恢复入口独立验证受限引导令牌。
 const PUBLIC_PATHS = new Set([
+  '/api/verifyIdentityCard',
   '/api/ping',
   '/api/health',
   '/api/userLogin',

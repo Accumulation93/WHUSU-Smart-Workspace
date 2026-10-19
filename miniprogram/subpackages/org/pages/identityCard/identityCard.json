@@ -1,0 +1,1 @@
+{ "navigationStyle": "custom", "usingComponents": { "ui-navbar": "/components/ui-navbar/ui-navbar", "ui-icon": "/components/ui-icon/ui-icon" } }

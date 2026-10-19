@@ -1,5 +1,5 @@
 <template>
-  <section class="workspace-hero" :class="{ 'workspace-hero-admin': tone === 'admin' }">
+  <section class="workspace-hero" :class="{ 'workspace-hero-admin': tone === 'admin' }" :tabindex="signedIn ? 0 : undefined" :aria-label="identityCardCopy.open" @click="openIdentityCard" @keydown.enter.self.prevent="openIdentityCard">
     <div class="workspace-hero-heading">
       <span class="workspace-app-name">{{ appName || copy.common.appName }}</span>
       <span v-if="pageName" class="workspace-page-name">{{ pageName }}</span>
@@ -12,7 +12,7 @@
         <span v-if="identityDetail" class="workspace-person-detail">{{ identityDetail }}</span>
       </div>
 
-      <button type="button" class="workspace-context-card" @click="$emit('switch')">
+      <button type="button" class="workspace-context-card" @click.stop="$emit('switch')">
         <span class="workspace-context-icon" aria-hidden="true">
           <UiIcon name="grid" tone="white" size-role="context-leading" />
         </span>
@@ -33,6 +33,10 @@
 <script setup>
 import UiIcon from '@/components/UiIcon.vue';
 import copy from '@/locales/zh-CN/index.js';
+import identityCardCopy from '@/locales/zh-CN/shared/identityCard.js';
+import { useRouter } from 'vue-router';
+const router = useRouter();
+function openIdentityCard() { if (props.signedIn && router.currentRoute.value.name !== 'identityCard') router.push({ name: 'identityCard' }); }
 
 /**
  * 共享工作区 Hero，结构与小程序 components/workspace-hero 一致：
@@ -40,7 +44,7 @@ import copy from '@/locales/zh-CN/index.js';
  * 最下面是一条可点击的玻璃行用于切换组织与工作角色。
  * tone="admin" 时使用管理端深蓝渐变，其余页面使用门户亮蓝渐变。
  */
-defineProps({
+const props = defineProps({
   appName: { type: String, default: '' },
   pageName: { type: String, default: '' },
   tone: { type: String, default: 'blue' },

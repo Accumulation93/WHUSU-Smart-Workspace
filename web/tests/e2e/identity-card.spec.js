@@ -1,0 +1,46 @@
+import { expect, test } from '@playwright/test';
+import { mockApi } from './fixtures.js';
+import copy from '../../src/locales/zh-CN/shared/identityCard.js';
+const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active};
+const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
+test('hero opens identity card while work-role button keeps its action', async ({page}, info) => {
+  await mockApi(page);
+  await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
+  await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image}}));
+  await page.goto('/web/portal');
+  await page.locator('.workspace-context-card').click();
+  await expect(page).toHaveURL(/work-role/);
+  await page.goto('/web/portal');
+  await page.locator('.workspace-app-name').click();
+  await expect(page).toHaveURL(/identity-card$/);
+  await expect(page.getByRole('img',{name:copy.scanHint})).toBeVisible();
+  await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
+});
+test('anonymous verification reads only code and renders invalid state after refresh', async ({page}) => {
+  await mockApi(page,{authenticated:false});
+  await page.route('**/api/auth/contexts',r=>r.fulfill({status:401,json:{status:'unauthorized'}}));
+  let valid = true, reads = 0;
+  await page.route('**/api/verifyIdentityCard',r=>{
+    reads++; expect(r.request().postDataJSON()).toEqual({token:'a'.repeat(32)});
+    return r.fulfill({json:{status:'success',valid,...(valid?{card}:{})}});
+  });
+  await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
+  await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await expect(page.getByText(copy.verified,{exact:true})).toBeVisible();
+  await expect(page.locator('.identity-image')).toHaveCount(0);
+  valid=false;
+  await page.getByRole('button',{name:copy.retry,exact:true}).click();
+  await expect(page.getByText(copy.unavailable,{exact:true})).toBeVisible();
+  await expect(page.locator('.identity-name')).toHaveCount(0);
+  expect(reads).toBe(2);
+});
+test('code service failure retains basic identity and offers retry', async ({page}) => {
+  await mockApi(page);
+  await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
+  await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({status:503,json:{status:'identity_card_unavailable'}}));
+  await page.goto('/web/identity-card');
+  await expect(page.getByText(copy.qrFailure,{exact:true})).toBeVisible();
+  await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await expect(page.getByRole('button',{name:copy.refresh,exact:true})).toBeEnabled();
+});

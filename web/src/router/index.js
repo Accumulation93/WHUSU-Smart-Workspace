@@ -1,10 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import signingCopy from '@/locales/zh-CN/shared/auditSigning.js';
+import identityCardCopy from '@/locales/zh-CN/shared/identityCard.js';
 import { ensureSessionLoaded, session } from '@/runtime/session.js';
 import { adminModule } from '@/runtime/adminNavigation.js';
 
 const routes = [
+  { path: '/identity-card', name: 'identityCard', component: () => import('@/views/IdentityCardView.vue'), meta: { requiresAuth: true, title: identityCardCopy.navigationTitle } },
+  { path: '/identity-card/verify', name: 'identityCardVerify', component: () => import('@/views/IdentityCardView.vue'), meta: { public: true, title: identityCardCopy.verifyTitle } },
   { path: '/', redirect: { name: 'portal' } },
   {
     path: '/login',

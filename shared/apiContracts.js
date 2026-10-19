@@ -21,6 +21,7 @@ const IDEMPOTENT_WRITE_APIS = Object.freeze({
 
 // 会话入口：调用时客户端可能还没有可比较的工作角色，服务端按登录前的规则处理。
 const AUTH_ENTRY_APIS = Object.freeze({
+  verifyIdentityCard: true,
   getTimeConfig: true,
   'auth/wechat/session': true,
   'auth/claims': true,

@@ -1,5 +1,6 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/trustedNavigation');
 const TRUSTED_ROUTES = {
+  '/subpackages/org/pages/identityCard/identityCard': true,
   '/subpackages/main/pages/login/login': true,
   '/subpackages/main/pages/portal/portal': true,
   '/subpackages/message/pages/messageCenter/messageCenter': true,
