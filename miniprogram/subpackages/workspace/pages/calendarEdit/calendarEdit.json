@@ -1,0 +1,6 @@
+{
+  "navigationStyle": "default",
+  "usingComponents": {
+    "calendar-conditions": "/subpackages/workspace/components/calendarConditions/calendarConditions"
+  }
+}

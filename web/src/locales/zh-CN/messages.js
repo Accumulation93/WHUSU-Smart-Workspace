@@ -1,6 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
+import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -64,7 +65,7 @@ export default Object.freeze({
   cancel: src_adminGovernance.cancel,
   switchAndView: src_main.portal.view.switchAndView,
   selectOrganizationScope: src_main.messageCenter.view.selectOrganizationScope,
-  close: src_common.actions.close,
+  close: src_calendar.close,
   selected: src_identitySwitch.copy_56f0b27402,
   confirm: src_submissionDetail.copy_a58e97a9f8,
 });

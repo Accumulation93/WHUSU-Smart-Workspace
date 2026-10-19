@@ -34,6 +34,8 @@ function clientVersionMiddleware(req, res, next) {
   const minimumVersion = minimumVersionFor(req);
   if (!minimumVersion || !req.path.startsWith('/api/')) return next();
   if (req.path === '/api/ping' || req.path === '/api/health') return next();
+  // 手机系统日历不携带工作台版本头，仍由专用订阅凭据校验权限。
+  if (req.method === 'GET' && req.path === '/api/calendarFeed') return next();
 
   const clientVersion = req.get('X-Client-Version') || '';
   const comparison = compareVersions(clientVersion, minimumVersion);

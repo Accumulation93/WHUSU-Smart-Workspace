@@ -8,7 +8,12 @@
       "root": "subpackages/workspace",
       "name": "workspace",
       "pages": [
-        "pages/home/home"
+        "pages/home/home",
+        "pages/calendar/calendar",
+        "pages/calendarEdit/calendarEdit",
+        "pages/calendarDetail/calendarDetail",
+        "pages/calendarRules/calendarRules",
+        "pages/calendarSystem/calendarSystem"
       ]
     },
     {

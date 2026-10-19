@@ -1,0 +1,22 @@
+@import "../../../main/styles/home.wxss";
+.calendar-page { display:flex;flex-direction:column;gap:var(--ui-card-padding-y); }
+.calendar-page > .card,.calendar-page > .section-control-card { margin:0; }
+.calendar-stack,.calendar-event { display:flex;flex-direction:column;gap:var(--ui-inline-gap); }
+.calendar-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-page-action-gap); }
+.calendar-grid { display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--ui-inline-gap); }
+.calendar-weekday { text-align:center;color:#64748b;font-size:var(--ui-type-meta);line-height:1.6; }
+.calendar-date { display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:var(--ui-field-control-height);padding:var(--ui-inline-gap);box-sizing:border-box;border-radius:var(--ui-compact-radius);border:1px solid rgba(147,197,253,.35);background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(239,246,255,.7));font-size:var(--ui-type-body);line-height:1.5; }
+.calendar-selected { border-color:#2563eb;background:linear-gradient(135deg,#dbeafe,#eff6ff); }
+.calendar-today { font-weight:800;text-decoration:underline; }
+.calendar-outside { color:#94a3b8; }
+.calendar-count,.calendar-note { color:#64748b;font-size:var(--ui-type-meta);line-height:1.6;overflow-wrap:anywhere; }
+.calendar-name { font-size:var(--ui-type-emphasis);font-weight:700;line-height:1.5;overflow-wrap:anywhere; }
+.calendar-search,.calendar-between { display:flex;align-items:center;gap:var(--ui-inline-gap); }
+.calendar-search .field-input { flex:1;min-width:0; }
+.calendar-between { justify-content:space-between; }
+
+.calendar-hour { display:flex;flex-direction:column;gap:var(--ui-field-gap);min-height:var(--ui-field-control-height);padding-block:var(--ui-compact-padding-y);border-top:1px solid rgba(147,197,253,.25); }
+
+.calendar-week-columns { display:flex;gap:var(--ui-field-gap); }
+.calendar-day-column { flex:1;min-width:0;box-sizing:border-box; }
+.calendar-week-columns-wide .calendar-day-column { flex:0 0 calc(var(--ui-field-control-height) * 5); }

@@ -1,6 +1,13 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/schemaContract');
 const { usableLoginCredentialSql } = require('../core/models/accountLoginState');
 const REQUIRED_COLUMNS = [
+  ['calendar_rules','actions_json'],
+  ['calendar_events','targets_json'],
+  ['calendar_exceptions','occurrence_date'],
+  ['calendar_exits','person_id'],
+  ['calendar_occurrence_records','participants_json'],
+  ['calendar_reminder_receipts','starts_at'],
+  ['calendar_subscriptions','token_hash'],
   ['venue_bookings', 'creator_org_id'],
   ['venue_bookings', 'approval_org_id'],
   ['notifications', 'org_id'],

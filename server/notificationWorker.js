@@ -58,6 +58,8 @@ async function tick() {
   if (running) return;
   running = true;
   try {
+    try { await require('./src/core/models/calendarReminders').tick(); }
+    catch(error) { console.error('[calendar-reminders]',error.code || error.name); }
     await enqueueScheduledScoringEvents();
     await outboxService.processBatch(50);
     const now = new Date();

@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_calendar from './shared/calendar.js';
 import src_contactDirectory from './shared/contactDirectory.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -37,7 +38,7 @@ export default Object.freeze({
   permissionsEnabled: src_contactDirectory.enabled,
   permissionsOf: src_adminPermissions.copy_0278c19d5a,
   permissionsAll: src_mySubmissions.copy_31d4595959,
-  permissionsSave: src_contactDirectory.save,
+  permissionsSave: src_calendar.save,
   permissionsSaving: src_web.admin.permissionsSaving,
   permissionsSaved: src_adminPermissions.copy_e47065f3f1,
   permissionsSaveFailed: src_signatureManager.copy_215e3c57da,

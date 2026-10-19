@@ -29,7 +29,7 @@
   <GlassDialog v-if="detail" :title="ui.copy_40d594ac66" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   <GlassDialog v-if="occupied" compact :title="ui.copy_a1f843d887" @close="occupied = null"><p>{{ occupied.timeStart }} {{ ui.copy_e8d9493a44 }} {{ occupied.timeEnd }}</p><p>{{ ui.copy_c46b04a9c5 }}</p></GlassDialog>
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null">
-    <VenueActivityDetail :name="activity.activity?.name || activity.ruleName" :venue="venue.name" :occurrence="activityTime('Start') + ' ' + ui.copy_e8d9493a44 + ' ' + activityTime('End')" :cycle="activityCycle(activity.activity)" :note="ui.copy_c1ce05d451" />
+    <VenueActivityDetail :source-id="activity.ruleId" :occurrence-date="activity.date" :name="activity.activity?.name || activity.ruleName" :venue="venue.name" :occurrence="activityTime('Start') + ' ' + ui.copy_e8d9493a44 + ' ' + activityTime('End')" :cycle="activityCycle(activity.activity)" :note="ui.copy_c1ce05d451" />
   </GlassDialog>
   <VenueAdminBookingDialog v-if="adminBooking" :venue="venue" :date="adminBooking.date" :initial-time="adminBooking.time" @close="adminBooking = null" @busy="bookingBusy = $event" @saved="bookingSaved" />
 </template>

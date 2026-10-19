@@ -2,6 +2,7 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminPersonnel from './shared/adminPersonnel.js';
 import src_auditSigning from './shared/auditSigning.js';
+import src_calendar from './shared/calendar.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
@@ -15,7 +16,7 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   navigationTitle: src_venueBooking.navigationTitle,
-  title: src_myVenueBookings.copy_9ba3b8c8a9,
+  title: src_calendar.venue_booking,
   createTitle: src_myVenueBookings.copy_9639901862,
   mineTitle: src_myVenueBookings.copy_b40ec83bc1,
   pendingTitle: src_pendingApprovals.copy_5aaf844f1e,
@@ -32,7 +33,7 @@ export default Object.freeze({
   statusInUse: src_venueBooking.copy_1c5bbf664c,
   cancelAction: src_myVenueBookings.copy_059dd7bc2c,
   cancelConfirm: src_myVenueBookings.copy_589d645596,
-  cancelConfirmAction: src_myVenueBookings.copy_10bd4c9a19,
+  cancelConfirmAction: src_calendar.confirmedCancel,
   cancelFailed: src_myVenueBookings.copy_301f0250ef,
   cancelUnavailable: src_myVenueBookings.cancelUnavailable,
   endAction: src_myVenueBookings.endUse,

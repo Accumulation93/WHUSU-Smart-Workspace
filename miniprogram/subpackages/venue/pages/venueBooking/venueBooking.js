@@ -1,3 +1,4 @@
+const calendarDateTime = require('../../../../utils/dateTime');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
@@ -620,6 +621,8 @@ Page({
     if (!activity) return;
     this.setData({ activityDetailVisible: true, activityDetail: {
       name: activity.name || localeCopy.copy_acd4c5c171,
+      id: activity.id,
+      occurrenceDate: calendarDateTime.formatAbsoluteDate(activity.occurrenceStart),
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),

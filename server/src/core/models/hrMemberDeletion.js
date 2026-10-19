@@ -70,6 +70,9 @@ function addOrgScope(target, sql, params, columns) {
 }
 
 const BUSINESS_REFERENCES = [
+  { category:'calendar_events',table:'calendar_events',columns:{personColumns:['creator_person_id'],textColumns:['targets_json','creator_context_json']} },
+  { category:'calendar_events',table:'calendar_occurrence_records',columns:{textColumns:['participants_json']} },
+  { category:'calendar_rules',table:'calendar_rules',columns:{textColumns:['audience_json','targets_json']} },
   {
     category: 'scoring_records',
     table: 'score_records',

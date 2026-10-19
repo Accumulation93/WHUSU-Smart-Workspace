@@ -13,12 +13,14 @@
       <span v-if="cycle" class="activity-value">{{ cycle }}</span><span v-if="period" class="activity-value">{{ period }}</span>
     </div>
     <p v-if="note" class="muted activity-note">{{ note }}</p>
+    <CalendarSourceParticipants v-if="sourceId" source-kind="venue_activity" :source-id="sourceId" :occurrence-date="occurrenceDate" />
   </div>
 </template>
 <script setup>
 import UiIcon from './UiIcon.vue';
+import CalendarSourceParticipants from './CalendarSourceParticipants.vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
-defineProps({name:String,venue:String,occurrence:String,time:String,cycle:String,period:String,note:String});
+defineProps({sourceId:String,occurrenceDate:String,name:String,venue:String,occurrence:String,time:String,cycle:String,period:String,note:String});
 </script>
 <style scoped>
 .activity-summary { padding: var(--ui-card-padding-y) var(--ui-card-padding-x); border-radius: var(--ui-card-radius); background: var(--ui-filter-bg); border: var(--ui-filter-border); box-shadow: var(--ui-card-shadow); backdrop-filter: blur(12px); }

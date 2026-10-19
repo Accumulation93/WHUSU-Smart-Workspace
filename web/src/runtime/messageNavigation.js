@@ -6,6 +6,7 @@ import { notifyModuleBuilding } from './porting.js';
 import { armMessageReceipt, cancelMessageReceipt } from './messageReceipt.js';
 
 const targets = {
+  '/subpackages/workspace/pages/calendar/calendar': 'calendar',
   '/subpackages/audit/pages/pendingApprovals/pendingApprovals': 'auditPending',
   '/subpackages/audit/pages/mySubmissions/mySubmissions': 'auditMySubmissions',
   '/subpackages/audit/pages/myApprovalHistory/myApprovalHistory': 'auditHistory',
@@ -18,6 +19,10 @@ const targets = {
 export function messageRoute(item) {
   const target = String(item?.targetUrl || '');
   const [path, query = ''] = target.split('?');
+  if (path === '/subpackages/workspace/pages/calendarDetail/calendarDetail') {
+    const params = new URLSearchParams(query);
+    return params.get('id') && params.get('date') ? { name:'calendar',query:{id:params.get('id'),date:params.get('date')} } : null;
+  }
   if (path === '/subpackages/audit/pages/submissionDetail/submissionDetail') {
     const id = new URLSearchParams(query).get('id');
     return id ? { name: 'auditSubmission', params: { id } } : null;

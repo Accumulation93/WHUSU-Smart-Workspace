@@ -5,6 +5,7 @@
       <template v-for="field in fields" :key="field.label"><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></template>
       <dt>{{ ui.copy_8aee737e64 }}</dt><dd><span class="chip chip-blue">{{ venueStatusLabel(booking) }}</span></dd>
     </dl>
+    <CalendarSourceParticipants source-kind="venue_booking" :source-id="booking.id" />
     <div v-if="progress" class="stack-tight">
       <progress :value="progress.percent" max="100" :aria-label="progress.text" />
       <span class="muted">{{ progress.text }}</span>
@@ -15,6 +16,7 @@
 <script setup>
 import { computed } from 'vue';
 import VenueFlowTimeline from './VenueFlowTimeline.vue';
+import CalendarSourceParticipants from './CalendarSourceParticipants.vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
 import { venueProgress, venueStatusLabel, venueTimeRange } from '@/runtime/venuePresentation.js';
 const props = defineProps({ booking: { type: Object, required: true } });

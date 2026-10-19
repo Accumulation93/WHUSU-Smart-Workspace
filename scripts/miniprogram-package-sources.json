@@ -86,6 +86,7 @@
   "utils/auditVerification.js",
   "utils/auditVerificationReport.js",
   "utils/binaryBase64.js",
+  "utils/calendarView.js",
   "utils/contactDirectoryView.js",
   "utils/contextRouteGuard.js",
   "utils/deletedPersonLabel.js",

@@ -1,4 +1,5 @@
 <view class="venue-booking-detail">
+  <calendar-participants source-kind="venue_booking" source-id="{{booking.id}}" />
   <view class="detail-title">{{booking.title || localeCopy.copy_56feddb4d3}}</view>
   <view class="detail-row" wx:if="{{booking.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{booking.venueName}}</text></view>
   <view class="detail-row" wx:if="{{booking.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{booking.orgName}}</text></view>

@@ -65,18 +65,30 @@ const OPTIONAL_DIRECT_USAGE = {
 
 const JSON_USAGE = {
   department: [
+    ['calendar_rules', 'audience_json', 'calendar_rules'],
+    ['calendar_rules', 'targets_json', 'calendar_rules'],
+    ['calendar_events', 'targets_json', 'calendar_events'],
+    ['calendar_occurrence_records', 'participants_json', 'calendar_events'],
     ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
     ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
     ['audit_submission_steps', 'step_conditions_json', 'audit_history']
   ],
   identity: [
+    ['calendar_rules', 'audience_json', 'calendar_rules'],
+    ['calendar_rules', 'targets_json', 'calendar_rules'],
+    ['calendar_events', 'targets_json', 'calendar_events'],
+    ['calendar_occurrence_records', 'participants_json', 'calendar_events'],
     ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
     ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
     ['audit_submission_steps', 'step_conditions_json', 'audit_history']
   ],
   work_group: [
+    ['calendar_rules', 'audience_json', 'calendar_rules'],
+    ['calendar_rules', 'targets_json', 'calendar_rules'],
+    ['calendar_events', 'targets_json', 'calendar_events'],
+    ['calendar_occurrence_records', 'participants_json', 'calendar_events'],
     ['hr_contact_directory_rules', 'audience_json', 'directory_rules'],
     ['hr_contact_directory_rules', 'targets_json', 'directory_rules'],
     ['audit_flow_templates', 'starter_conditions_json', 'audit_templates'],
@@ -196,6 +208,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
   for (const [table, column, category] of JSON_USAGE[normalizedKind] || []) {
+    if (table.startsWith('calendar_') && !(await tableExists(table, connection))) continue;
     const [rows] = await connection.query(
       `SELECT id, ${column} AS condition_json FROM ${table}
         WHERE org_id = ? AND ${column} IS NOT NULL AND ${column} <> ''${lockRows ? ' FOR UPDATE' : ''}`,

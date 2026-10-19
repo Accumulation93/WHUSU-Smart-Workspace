@@ -1,0 +1,17 @@
+<view class="calendar-condition-stack">
+  <view wx:for="{{rows}}" wx:key="index" wx:for-item="row" class="calendar-condition-card">
+    <picker range="{{types}}" value="{{row.typeIndex}}" data-index="{{row.index}}" bindchange="typeChange" disabled="{{disabled}}"><view class="picker-display">{{types[row.typeIndex]}}</view></picker>
+    <block wx:if="{{row.type === 'people'}}"><view class="calendar-condition-note">{{row.names}}</view><button class="ui-motion-button secondary-btn" disabled="{{disabled}}" data-index="{{row.index}}" bindtap="openPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.choosePeople}} · {{row.count}}</button></block>
+    <block wx:if="{{row.type === 'scope'}}">
+      <view wx:for="{{row.dimensions}}" wx:for-item="dimension" wx:key="key" class="calendar-condition-dimension">
+        <view class="ui-motion-card calendar-condition-heading" data-index="{{row.index}}" data-key="{{dimension.key}}" bindtap="expand" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">{{dimension.label}} · {{dimension.checked ? dimension.sameLabel : dimension.count}} <text>{{dimension.expanded ? '−' : '+'}}</text></view>
+        <block wx:if="{{dimension.expanded}}"><view wx:if="{{!audience}}" class="calendar-condition-heading"><text>{{dimension.sameLabel}}</text><switch checked="{{dimension.checked}}" disabled="{{disabled}}" data-index="{{row.index}}" data-key="{{dimension.key}}" data-same="{{dimension.same}}" bindchange="same" /></view>
+          <view wx:if="{{!dimension.checked}}" class="calendar-condition-options"><view wx:for="{{dimension.options}}" wx:key="id" wx:for-item="option" class="ui-motion-card selection-option-card {{option.selected ? 'selection-option-card-selected' : ''}}" data-index="{{row.index}}" data-key="{{dimension.key}}" data-id="{{option.id}}" catchtap="toggle" aria-checked="{{option.selected}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">{{option.name}}</view></view>
+        </block>
+      </view>
+    </block>
+    <view class="card-actions"><button class="ui-motion-button secondary-btn" disabled="{{disabled || rows.length === 1}}" data-index="{{row.index}}" bindtap="remove" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.delete}}</button></view>
+  </view>
+  <button class="ui-motion-button secondary-btn" disabled="{{disabled}}" bindtap="add" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.addCondition}}</button>
+</view>
+<personnel-picker visible="{{pickerVisible}}" title="{{copy.choosePeople}}" selection-level="person" options="{{people}}" value="{{selected}}" bindconfirm="confirmPicker" bindcancel="closePicker" />

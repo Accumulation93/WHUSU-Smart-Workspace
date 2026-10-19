@@ -53,6 +53,8 @@ module.exports = Object.freeze({
     publication_rules: '结果公示规则',
     audit_templates: '审核模板',
     directory_rules: '通讯录规则',
+    calendar_rules: '日程安排规则',
+    calendar_events: '日程记录',
     audit_history: '审核历史',
     venue_rules: '场地借用规则',
     venue_history: '场地借用历史',

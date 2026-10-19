@@ -3,6 +3,7 @@
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
 import src_auditVerification from './shared/auditVerification.js';
+import src_calendar from './shared/calendar.js';
 import src_fileIO from './shared/fileIO.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
@@ -57,7 +58,7 @@ export default Object.freeze({
   actionReject: src_submissionDetail.copy_0c90eb0204,
   actionDownload: src_web.audit.actionDownload,
   actionBackToList: src_web.audit.actionBackToList,
-  actionRefresh: src_pendingApprovals.copy_545113905f,
+  actionRefresh: src_calendar.refresh,
   markAllRead: src_mySubmissions.copy_6830671a51,
   withdrawConfirmTitle: src_submissionDetail.copy_60dd7897d1,
   withdrawConfirmBody: src_web.audit.withdrawConfirmBody,

@@ -453,6 +453,10 @@
       },
       {
         "type": "file",
+        "value": "utils/calendarView.js"
+      },
+      {
+        "type": "file",
         "value": "utils/contactDirectoryView.js"
       },
       {

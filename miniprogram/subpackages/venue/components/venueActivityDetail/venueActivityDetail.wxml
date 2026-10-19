@@ -12,4 +12,5 @@
     <view class="activity-value">{{activity.cycleLabel}}</view>
   </view>
   <view class="activity-note" wx:if="{{activity.note}}">{{activity.note}}</view>
+  <calendar-participants source-kind="venue_activity" source-id="{{activity.id}}" occurrence-date="{{activity.occurrenceDate}}" />
 </view>

@@ -2,8 +2,13 @@ const localeCopy = require('../../locales/zh-CN/generated/core/services/adminPer
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const governanceCopy = require('../../locales/zh-CN/adminGovernance');
 const directoryCopy = require('../../locales/zh-CN/contactDirectory');
+const calendarCopy = require('../../locales/zh-CN/calendar');
 const { ACTION_GROUPS } = require('./adminPermissionActions');
 const PERMISSION_GROUPS = [
+  { key: 'calendar', label: calendarCopy.title, description: '', permissions: [
+    {key:'calendar.manage',label:calendarCopy.permission,description:calendarCopy.permissionDescription,targetLevels:['admin'],defaultLevels:[]},
+    {key:'calendar.rules.manage',label:calendarCopy.rulePermission,description:calendarCopy.rulePermissionDescription,targetLevels:['admin'],defaultLevels:[]}
+  ]},
   {
     key: 'authentication',
     label: localeCopy.copy_3d91f89e36,
@@ -182,6 +187,7 @@ mapAny(['/listPersonIdentities'], [
 ]);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
 mapRoutes('hr.directory.manage', ['/getContactDirectoryConfiguration', '/saveContactDirectoryRule', '/batchContactDirectoryRules']);
+mapRoutes('calendar.rules.manage', ['/getCalendarRules', '/saveCalendarRule', '/batchCalendarRules']);
 mapRoutes('hr.import', ['/getHrImportPreview', '/getHrImportResult', '/getHrImportMetadata', '/exportHrImportIssues']);
 mapRoutes('hr.people', ['/exportHrAssignmentTable']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);

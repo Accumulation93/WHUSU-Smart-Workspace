@@ -1,5 +1,6 @@
 import copy from '@/locales/zh-CN/index.js';
 import identityCardCopy from '@/locales/zh-CN/shared/identityCard.js';
+import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
 
 export const MODULE_STATUS = Object.freeze({
   ready: 'ready',
@@ -59,10 +60,12 @@ export const USER_CARDS = Object.freeze([
     status: READY,
     route: { name: 'venueBookings' }
   },
-  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', status: READY, route: { name: 'identityCard' } }
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', status: READY, route: { name: 'identityCard' } },
+  { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', status: READY, route: { name: 'calendar' } }
 ]);
 
 export const ADMIN_CARDS = Object.freeze([
+  { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', status: READY, route: { name: 'calendar' } },
   { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', status: READY, route: { name: 'identityCard' } },
   USER_CARDS[0],
   USER_CARDS[1],

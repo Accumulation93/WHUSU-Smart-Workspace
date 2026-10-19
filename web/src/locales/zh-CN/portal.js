@@ -1,8 +1,8 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
+import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
-import src_contactDirectory from './shared/contactDirectory.js';
 import src_workspace_hero from './shared/generated/components/workspace-hero/workspace-hero.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -13,7 +13,6 @@ import src_identitySwitch from './shared/generated/subpackages/org/pages/identit
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
 import src_hrInfoBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
 import src_venueBookingDetail from './shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
-import src_myVenueBookings from './shared/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js';
 import src_venueBooking from './shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import src_venueManage from './shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import src_home from './shared/home.js';
@@ -34,7 +33,7 @@ export default Object.freeze({
   scan: src_main.portal.cards.scan,
   messages: src_main.portal.cards.messages,
   workContextSwitch: src_identitySwitch.copy_c3e7d7fee4,
-  venueBooking: src_myVenueBookings.copy_9ba3b8c8a9,
+  venueBooking: src_calendar.venue_booking,
   venueManage: src_venueManage.copy_02719d6557,
   permissions: src_main.portal.cards.permissions,
   signedOut: src_home.text.signedOut,
@@ -74,19 +73,19 @@ export default Object.freeze({
   delete: src_adminGovernance.remove,
   servicesTitle: src_main.portal.pageName,
   grid: src_main.portal.view.grid,
-  list: src_main.portal.view.list,
+  list: src_calendar.list,
   search: src_adminPermissions.copy_cea1da7603,
   searchPlaceholder: src_main.portal.view.searchPlaceholder,
   clearSearch: src_identitySwitch.copy_ed081670d5,
   scanResultTitle: src_main.portal.view.scanResultTitle,
   scanExternalHint: src_main.portal.view.scanExternalHint,
   scanCopyAction: src_main.portal.view.scanCopyAction,
-  scanCloseAction: src_common.actions.close,
+  scanCloseAction: src_calendar.close,
   scanFailed: src_main.portal.view.scanFailed,
   navLoginAction: src_login.view.loginTitle,
   authUnavailable: src_main.portal.view.authUnavailable,
   authFrozen: src_main.portal.view.authFrozen,
-  authRetryAction: src_contactDirectory.retry,
+  authRetryAction: src_calendar.retry,
   authLoginAction: src_main.portal.view.authLoginAction,
   noMatchingApps: src_main.portal.view.noMatchingApps,
   noApps: src_main.portal.view.noApps,

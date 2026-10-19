@@ -15,5 +15,8 @@ clientVersionMiddleware({ path: '/api/listHrInfo', get() { return '1.1.9'; } }, 
 }, () => { throw new Error('旧版本不应放行'); });
 assert.strictEqual(response.code, 426);
 assert.strictEqual(response.body.status, 'client_upgrade_required');
+let calendarAllowed=false;
+clientVersionMiddleware({method:'GET',path:'/api/calendarFeed',get(){return '';}},{},()=>{calendarAllowed=true;});
+assert.strictEqual(calendarAllowed,true);
 process.env.MIN_CLIENT_VERSION = oldMinimum;
 console.log('客户端版本门禁测试通过');

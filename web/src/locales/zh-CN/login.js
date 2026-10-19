@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
@@ -80,5 +81,5 @@ export default Object.freeze({
   copyRecoveryCode: src_login.view.copyRecoveryCode,
   finish: src_admin.hrDeletionFinish,
   recoveryPendingNote: src_login.view.recoveryPendingNote,
-  close: src_common.actions.close,
+  close: src_calendar.close,
 });

@@ -1,1 +1,8 @@
-{ "component": true, "styleIsolation": "apply-shared", "usingComponents": { "ui-icon": "/components/ui-icon/ui-icon" } }
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "calendar-participants": "/subpackages/venue/components/calendarParticipants/calendarParticipants"
+  }
+}

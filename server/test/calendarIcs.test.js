@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('node:assert/strict');
+const ics=require('../src/core/services/calendarIcs');
+const base={id:'event-a',occurrenceDate:'2026-10-20',version:2,title:'会议，讨论;计划\n下一行',location:'A\\B',description:'标题\r\nBEGIN:VEVENT',
+  startAt:'2026-10-20T01:00:00.000Z',endAt:'2026-10-20T02:00:00.000Z',timezoneOffset:480,reminders:[0,15]};
+const content=ics.render([base],Date.parse('2026-10-19T00:00:00Z'));
+assert.equal(content.split('\r\n').filter(line=>line==='BEGIN:VEVENT').length,1);
+assert(content.includes('DTSTART:20261020T010000Z\r\n'));
+assert(content.includes('TRIGGER:-PT15M\r\n'));
+assert(content.includes('DESCRIPTION:标题\\nBEGIN:VEVENT\r\n'));
+assert(content.includes('LOCATION:A\\\\B\r\n'));
+const uid=content.match(/UID:([^\r]+)/)[1];
+assert.equal(ics.render([{...base,startAt:'2026-10-20T03:00:00Z'}]).match(/UID:([^\r]+)/)[1],uid);
+assert(!uid.includes(base.id));
+const allDay=ics.render([{...base,allDay:true,startAt:'2026-10-19T16:00:00Z',endAt:'2026-10-21T16:00:00Z'}]);
+assert(allDay.includes('DTSTART;VALUE=DATE:20261020'));
+assert(allDay.includes('DTEND;VALUE=DATE:20261022'));
+const long='SUMMARY:'+'会议🗓'.repeat(100),folded=ics.fold(long);
+assert(folded.split('\r\n').every(line=>Buffer.byteLength(line)<=75));
+assert.equal(folded.replace(/\r\n /g,''),long);
+assert(!ics.render([{...base,cancelled:true}]).includes('BEGIN:VALARM'));
+console.log('PASS 日历输出：UTC、全天结束日、稳定标识、取消、提醒、文本转义与 UTF-8 折行');

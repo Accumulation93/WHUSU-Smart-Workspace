@@ -5,6 +5,7 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const adminPermissions = require('../../../../utils/adminPermissions');
 const authContext = require('../../../../utils/authContext');
 const identityCardCopy = require('../../../../locales/zh-CN/identityCard');
+const calendarCopy = require('../../../../locales/zh-CN/calendar');
 const passwordBindingOffer = require('../../../../utils/passwordBindingOffer');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
@@ -41,6 +42,7 @@ function isPartialBulkResult(result) {
 }
 
 const PORTAL_CARDS_USER = [
+  { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', url: '/subpackages/workspace/pages/calendar/calendar', disabled: false },
   { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
@@ -52,6 +54,7 @@ const PORTAL_CARDS_USER = [
 ];
 
 const PORTAL_CARDS_ADMIN = [
+  { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', url: '/subpackages/workspace/pages/calendar/calendar', disabled: false },
   { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },

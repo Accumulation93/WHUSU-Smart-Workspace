@@ -1,0 +1,57 @@
+import {test,expect} from '@playwright/test';
+import {mockApi} from './fixtures.js';
+import copy from '../../src/locales/zh-CN/shared/calendar.js';
+
+async function setup(page){
+  await mockApi(page);
+  const calls=[];
+  const config={status:'success',permissions:{manage:true,rules:true},timezoneOffset:480,people:[],departments:[],identities:[],workGroups:[],rules:[]};
+  for(const name of ['getCalendarConfiguration','getCalendarRules','getCalendar','saveCalendarEvent','manageCalendarSubscription'])await page.route('**/api/'+name,async route=>{
+    const body=route.request().postDataJSON();calls.push({name,body});
+    await route.fulfill({json:name==='getCalendar'?{status:'success',items:[]}:name==='saveCalendarEvent'?{status:'success',id:'saved',version:1}:name==='manageCalendarSubscription'?{status:'success',url:'https://example.invalid/calendar',server:'https://example.invalid/calendar',username:'calendar',password:'test-only'}:config});
+  });
+  return calls;
+}
+test('日程四种视图和空状态可用，页面不横向溢出',async({page})=>{
+  await setup(page);const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto('/web/calendar');
+  for(const mode of ['month','week','day','list']){
+    await page.locator('.tabs').getByRole('button',{name:copy[mode],exact:true}).click();
+    await expect(page.locator('.tabs .tab-active')).toHaveText(copy[mode]);
+  }
+  await expect(page.getByText(copy.empty,{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  expect(errors).toEqual([]);
+});
+test('个人日程真实表单参数包含日期时间和提醒',async({page})=>{
+  const calls=await setup(page);await page.goto('/web/calendar/edit?date=2026-11-02');
+  await page.getByLabel(copy.name,{exact:true}).fill('日程保存回归');
+  await page.getByRole('button',{name:copy.save,exact:true}).click();
+  await expect(page).toHaveURL(/\/web\/calendar$/);
+  const saved=calls.find(item=>item.name==='saveCalendarEvent');
+  expect(saved.body).toMatchObject({title:'日程保存回归',startDate:'2026-11-02',startTime:'09:00',visibility:'private',reminders:[15]});
+});
+test('订阅重置需要确认，取消不发写请求',async({page})=>{
+  const calls=await setup(page);await page.goto('/web/calendar');
+  await page.getByRole('button',{name:copy.systemCalendar,exact:true}).click();
+  await page.getByRole('button',{name:copy.subscribe,exact:true}).click();
+  await expect(page.getByText(copy.subscriptionResetConfirm,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:copy.cancel,exact:true}).click();
+  expect(calls.filter(item=>item.name==='manageCalendarSubscription')).toHaveLength(0);
+  await page.getByRole('button',{name:copy.subscribe,exact:true}).click();
+  await page.getByRole('button',{name:copy.save,exact:true}).click();
+  await expect(page.getByText('https://example.invalid/calendar',{exact:true})).toBeVisible();
+  expect(calls.filter(item=>item.name==='manageCalendarSubscription')).toHaveLength(1);
+});
+test('日程卡打开人员详情，退出确认不会叠放两个窗口',async({page})=>{
+  await setup(page);
+  const today=new Date(Date.now()+480*60000).toISOString().slice(0,10);
+  const item={id:'meeting',occurrenceDate:today,title:'工作安排讨论会',startAt:today+'T01:00:00Z',endAt:today+'T02:00:00Z',allDay:false,location:'会议室',description:'讨论本周工作',sourceKind:'manual',visibility:'organization',version:1,attending:true,canUpdate:true,canCancel:true,participants:[{name:'测试成员',positions:[{department:'办公室',identityCategory:'成员',workGroup:''}]}]};
+  await page.route('**/api/getCalendar',route=>route.fulfill({json:{status:'success',items:[item]}}));
+  await page.goto('/web/calendar');
+  await page.getByRole('button',{name:/工作安排讨论会/}).click();
+  await expect(page.getByText('测试成员',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:copy.leave,exact:true}).click();
+  await expect(page.getByText(copy.leaveConfirm,{exact:true})).toBeVisible();
+  await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);
+});

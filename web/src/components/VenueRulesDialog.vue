@@ -22,7 +22,7 @@
   <VenueCycleRuleEditor v-if="editor" :type="editor.type" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="editor = null" @save="saveRule">
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   </VenueCycleRuleEditor>
-  <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><VenueActivityDetail :name="activity.activity_name" :venue="venue.name" :time="activity.time_start + ' - ' + activity.time_end" :cycle="cycleLabel(activity.cycle_type, activity.cycle_values)" :period="activityPeriodLabel(activity.cycle_type, activity.cycle_values)" :note="ui.copy_e90ee137d6" /></GlassDialog>
+  <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><VenueActivityDetail :source-id="activity.id" :name="activity.activity_name" :venue="venue.name" :time="activity.time_start + ' - ' + activity.time_end" :cycle="cycleLabel(activity.cycle_type, activity.cycle_values)" :period="activityPeriodLabel(activity.cycle_type, activity.cycle_values)" :note="ui.copy_e90ee137d6" /></GlassDialog>
 </template>
 <script setup>
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';

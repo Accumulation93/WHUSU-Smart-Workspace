@@ -96,9 +96,13 @@ function withoutIdentityPriority(item) {
 
 function mapNotification(row, context) {
   const targetId = safeString(row.target_id);
+  const calendarDate = new URLSearchParams(safeString(row.target_url).split('?')[1] || '').get('date') || '';
   const isAdminContext = safeString(context && context.role) === 'admin'
     || safeString(context && context.actor && context.actor.type) === 'admin';
   const routes = {
+    calendar: targetId && /^\d{4}-\d{2}-\d{2}$/.test(calendarDate)
+      ? '/subpackages/workspace/pages/calendarDetail/calendarDetail?id=' + encodeURIComponent(targetId) + '&date=' + calendarDate
+      : '/subpackages/workspace/pages/calendar/calendar',
     submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
     booking: targetId
       ? '/subpackages/venue/pages/myVenueBookings/myVenueBookings?bookingId=' + encodeURIComponent(targetId)

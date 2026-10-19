@@ -1,3 +1,4 @@
+const calendarDateTime = require('../../../../utils/dateTime');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
@@ -1277,6 +1278,7 @@ Page({
     if (!rule) return;
     this.setData({ activityDetailVisible: true, activityDetail: {
       name: rule.activity_name || localeCopy.copy_acd4c5c171,
+      id: rule.id,
       venueName: this.data.rulesVenueName,
       cycleLabel: rule._detailCycleLabel || rule._cycleLabel || '',
       legacyTime: (rule.time_start || '09:00').substring(0, 5) + localeCopy.copy_c44dbba9e9 + (rule.time_end || '18:00').substring(0, 5),
@@ -1704,6 +1706,8 @@ Page({
     if (!activity) return;
     this.setData({ activityDetailVisible: true, activityDetail: {
       name: activity.name || localeCopy.copy_acd4c5c171,
+      id: activity.id,
+      occurrenceDate: calendarDateTime.formatAbsoluteDate(activity.occurrenceStart),
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),

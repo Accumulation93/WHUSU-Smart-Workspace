@@ -280,6 +280,7 @@ app.use('/api', require('./modules/scoring/routes/results'));
 app.use('/api', require('./core/routes/hrProfile'));
 app.use('/api', require('./core/routes/contactDirectory'));
 app.use('/api', require('./core/routes/identityCard'));
+app.use('/api', require('./core/routes/calendar'));
 app.use('/api', require('./core/routes/hrProfileMigration'));
 app.use('/api', require('./core/routes/system'));
 app.use('/api', require('./core/routes/parseTableFile'));

@@ -1,0 +1,7 @@
+.calendar-condition-stack,.calendar-condition-card { display:flex;flex-direction:column;gap:var(--ui-inline-gap); }
+.calendar-condition-card { padding:var(--ui-list-padding-y) var(--ui-list-padding-x);border:1px solid rgba(147,197,253,.45);border-radius:var(--ui-card-radius);background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(239,246,255,.7)); }
+.calendar-condition-heading { display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap);min-height:var(--ui-inline-control-height);font-size:var(--ui-type-body);line-height:1.6; }
+.calendar-condition-note { color:#64748b;font-size:var(--ui-type-meta);line-height:1.6;overflow-wrap:anywhere; }
+.calendar-condition-options { display:flex;flex-wrap:wrap;gap:var(--ui-inline-gap); }
+.calendar-condition-options .selection-option-card { min-width:0;padding:var(--ui-list-padding-y) var(--ui-list-padding-x);border:1px solid rgba(147,197,253,.6);border-radius:var(--ui-compact-radius);font-size:var(--ui-type-body);line-height:1.6; }
+.calendar-condition-options .selection-option-card-selected { border-color:#2563eb;background:linear-gradient(135deg,#dbeafe,#eff6ff); }

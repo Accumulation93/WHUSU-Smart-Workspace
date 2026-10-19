@@ -2,9 +2,8 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
+import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
-import src_contactDirectory from './shared/contactDirectory.js';
-import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
@@ -15,12 +14,12 @@ export default Object.freeze({
   appName: src_common.brandName,
   organizationName: src_common.organizationName,
   webVersionLabel: src_web.common.webVersionLabel,
-  retry: src_contactDirectory.retry,
+  retry: src_calendar.retry,
   confirm: src_submissionDetail.copy_a58e97a9f8,
   cancel: src_adminGovernance.cancel,
-  close: src_common.actions.close,
+  close: src_calendar.close,
   back: src_auditSigning.back,
-  refresh: src_pendingApprovals.copy_545113905f,
+  refresh: src_calendar.refresh,
   loading: src_common.loading,
   empty: src_web.common.empty,
   search: src_adminPermissions.copy_cea1da7603,

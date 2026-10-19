@@ -15,6 +15,8 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
+  { source: 'shared/calendarView.js', targets: [{ path: 'miniprogram/utils/calendarView.js' }, { path: 'web/src/shared/calendarView.js', format: 'esm' }] },
+  { source: 'shared/locales/zh-CN/calendar.js', targets: [{ path: 'server/src/locales/zh-CN/calendar.js' }] },
   { source: 'shared/locales/zh-CN/identityCard.js', targets: [{ path: 'server/src/locales/zh-CN/identityCard.js' }] },
   { source: 'shared/contactDirectoryView.js', targets: [{ path: 'miniprogram/utils/contactDirectoryView.js' }, { path: 'web/src/shared/contactDirectoryView.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/contactDirectory.js', targets: [{ path: 'server/src/locales/zh-CN/contactDirectory.js' }] },

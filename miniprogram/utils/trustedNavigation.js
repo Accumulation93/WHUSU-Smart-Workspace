@@ -1,5 +1,10 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/trustedNavigation');
 const TRUSTED_ROUTES = {
+  '/subpackages/workspace/pages/calendar/calendar': true,
+  '/subpackages/workspace/pages/calendarEdit/calendarEdit': true,
+  '/subpackages/workspace/pages/calendarDetail/calendarDetail': true,
+  '/subpackages/workspace/pages/calendarRules/calendarRules': true,
+  '/subpackages/workspace/pages/calendarSystem/calendarSystem': true,
   '/subpackages/org/pages/identityCard/identityCard': true,
   '/subpackages/main/pages/login/login': true,
   '/subpackages/main/pages/portal/portal': true,
