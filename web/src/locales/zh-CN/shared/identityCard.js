@@ -3,6 +3,7 @@
 const sharedModule = Object.freeze({
   title: '身份卡', navigationTitle: '身份卡 - WHUSU智慧工作台', verifyTitle: '身份核验',
   loading: '正在读取身份', generating: '正在生成小程序码', retry: '重试', refresh: '刷新身份卡',
+  refreshVerification: '刷新',
   scanHint: '扫一扫，核验身份', expiryHint: '24小时内有效',
   credential: '电子身份凭证', liveCheck: '实时核验',
   verificationCode: '核验二维码', miniProgramCode: '小程序码',

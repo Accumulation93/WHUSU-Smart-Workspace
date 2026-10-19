@@ -16,15 +16,21 @@ test('hero opens identity card while work-role button keeps its action', async (
   await page.locator('.workspace-app-name').click();
   await expect(page).toHaveURL(/identity-card$/);
   await expect(page.getByRole('img',{name:copy.scanHint})).toBeVisible();
-  await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await expect(page.locator('.workspace-hero .workspace-person-name')).toHaveText(card.name);
+  await expect(page.locator('.identity-header')).toHaveCount(0);
   await expect(page.locator('.identity-image')).toHaveAttribute('src',verificationImage);
   await page.getByRole('button',{name:copy.miniProgramCode,exact:true}).click();
   await expect(page.locator('.identity-image')).toHaveAttribute('src',image);
   await page.getByRole('button',{name:copy.verificationCode,exact:true}).click();
   await expect(page.getByRole('button',{name:copy.originalImage,exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
+  const geometry = await page.evaluate(() => ({hero:document.querySelector('.workspace-hero').getBoundingClientRect().bottom, body:document.querySelector('.identity-card').getBoundingClientRect().top, overflow:document.documentElement.scrollWidth > innerWidth}));
+  expect(geometry.body - geometry.hero).toBeGreaterThanOrEqual(8);
+  expect(geometry.overflow).toBe(false);
+  await page.locator('.workspace-context-card').click();
+  await expect(page).toHaveURL(/work-role/);
 });
-test('anonymous verification reads only code and renders invalid state after refresh', async ({page}) => {
+test('anonymous verification reads only code and renders invalid state after refresh', async ({page}, info) => {
   await mockApi(page,{authenticated:false});
   await page.route('**/api/auth/contexts',r=>r.fulfill({status:401,json:{status:'unauthorized'}}));
   let valid = true, reads = 0;
@@ -36,9 +42,13 @@ test('anonymous verification reads only code and renders invalid state after ref
   await expect(page.locator('.identity-name')).toHaveText(card.name);
   await expect(page.getByText(copy.verified,{exact:true})).toBeVisible();
   await expect(page.locator('.identity-image')).toHaveCount(0);
+  await expect(page.locator('.workspace-context-card')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:copy.retry,exact:true})).toHaveCount(0);
+  await page.screenshot({path:info.outputPath('identity-verification.png'),fullPage:true,animations:'disabled'});
   valid=false;
-  await page.getByRole('button',{name:copy.retry,exact:true}).click();
+  await page.getByRole('button',{name:copy.refreshVerification,exact:true}).click();
   await expect(page.getByText(copy.unavailable,{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:copy.retry,exact:true})).toBeVisible();
   await expect(page.locator('.identity-name')).toHaveCount(0);
   expect(reads).toBe(2);
 });
@@ -48,6 +58,6 @@ test('code service failure retains basic identity and offers retry', async ({pag
   await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({status:503,json:{status:'identity_card_unavailable'}}));
   await page.goto('/web/identity-card');
   await expect(page.getByText(copy.qrFailure,{exact:true})).toBeVisible();
-  await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await expect(page.locator('.workspace-person-name')).toHaveText(card.name);
   await expect(page.getByRole('button',{name:copy.refresh,exact:true})).toBeEnabled();
 });

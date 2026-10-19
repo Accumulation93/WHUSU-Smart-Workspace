@@ -693,10 +693,6 @@ function scanWorkspaceShellContracts() {
       });
     }
     if (heroExceptions.has(route)) continue;
-    // 身份凭证页以自身卡头承载品牌与身份，避免再叠一张重复的身份 Hero。
-    if (route === 'subpackages/org/pages/identityCard/identityCard' &&
-        markup.includes('class="identity-card-header"') && markup.includes('{{common.brandName}}') &&
-        markup.includes('name="shield"') && markup.includes('{{card.name}}')) continue;
     if (!/<workspace-hero\b[^>]*\bapp-name=(?:"WHUSU智慧工作台"|"\{\{[^}]+\}\}")/.test(markup)) {
       findings.push({
         file: relative(wxmlFile),
