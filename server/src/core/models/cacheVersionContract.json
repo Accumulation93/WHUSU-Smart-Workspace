@@ -1,4 +1,7 @@
 [
+  { "name": "cv_notification_dismissals_i", "table": "notification_dismissals", "event": "INSERT" },
+  { "name": "cv_notification_dismissals_u", "table": "notification_dismissals", "event": "UPDATE" },
+  { "name": "cv_notification_dismissals_d", "table": "notification_dismissals", "event": "DELETE" },
   {
     "name": "cv_persons_i",
     "table": "persons",

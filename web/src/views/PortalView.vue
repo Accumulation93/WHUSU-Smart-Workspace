@@ -200,6 +200,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useMessageRefresh } from '@/runtime/messageRefresh.js';
 import { useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
 import UiIcon from '@/components/UiIcon.vue';
@@ -352,6 +353,7 @@ async function onLogout() {
 }
 
 onMounted(loadPreview);
+useMessageRefresh(() => notificationBusy.value ? undefined : loadPreview(), () => { generation++; });
 watch(() => session.context?.contextId, () => { todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0; loadPreview(); });
 onBeforeUnmount(() => { disposed = true; generation++; });
 </script>

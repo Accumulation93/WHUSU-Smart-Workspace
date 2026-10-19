@@ -55,7 +55,7 @@ async function testNotificationIsolationAndAwait() {
   calls.length = 0;
   responses.push([[{ total: 2, unread_count: 1 }], []]);
   responses.push([[{ id: 'notice-1', is_read: 0 }], []]);
-  const result = await notificationModel.listForRecipient({ type: 'admin', id: 'admin-1' }, { limit: 20 });
+  const result = await notificationModel.listForRecipient({ type: 'admin', id: 'admin-1', personId:'person-one' }, { limit: 20 });
   assert.strictEqual(result.total, 2);
   assert.strictEqual(result.unreadCount, 1);
   assert.strictEqual(result.items.length, 1);
@@ -78,7 +78,7 @@ async function testNotificationKeysetBoundary() {
   responses.push([[{ total: 3, unread_count: 2 }], []]);
   responses.push([[{ id: 'notice-older', created_at: '2026-07-27 09:00:00' }], []]);
   const result = await notificationModel.listForRecipient(
-    { type: 'user', id: 'hr-1' },
+    { type: 'user', id: 'hr-1', personId:'person-one' },
     {
       limit: 21,
       maxLimit: 21,

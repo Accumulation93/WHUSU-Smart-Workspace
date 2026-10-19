@@ -562,6 +562,7 @@ Page({
         data: { id: item.id, organizationId: item.organizationId }
       });
       if (result.status !== 'success') throw new Error(result.message || copy.messages.deleteFailed);
+      await this.loadOverview(true, true);
     } catch (_) {
       this.setData(previous);
       await this.loadOverview(true);

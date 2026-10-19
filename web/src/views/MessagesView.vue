@@ -95,6 +95,7 @@
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { useMessageRefresh } from '@/runtime/messageRefresh.js';
 import { useRoute, useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
@@ -125,6 +126,7 @@ const organizationId = ref('');
 const organizations = ref(session.organizations);
 let generation = 0;
 let actionBusy = false;
+let refreshBusy = false;
 onBeforeUnmount(() => { generation++; });
 
 const isNotificationTab = computed(() => activeTab.value === 'notifications');
@@ -174,7 +176,7 @@ async function loadFirstPage(tab) {
 }
 
 async function loadMore() {
-  if (loading.value || !nextCursor.value) return;
+  if (loading.value || refreshBusy || !nextCursor.value) return;
   loading.value = true;
   const target = activeTab.value;
   const request = generation;
@@ -249,4 +251,32 @@ async function clearAll() {
 }
 
 onMounted(() => loadFirstPage(activeTab.value));
+async function refreshVisibleNotifications() {
+  if (!isNotificationTab.value || loading.value || actionBusy || refreshBusy) return;
+  const request = ++generation;
+  const context = session.context?.contextId;
+  const wanted = Math.max(PAGE_SIZE, items.value.length);
+  const incoming = [];
+  let cursor = '';
+  let unread = 0;
+  refreshBusy = true;
+  try {
+    do {
+      const result = requireSuccess(await callApi('listNotifications', {
+        limit: PAGE_SIZE, cursor, refresh: true, organizationId: organizationId.value
+      }));
+      if (request !== generation || context !== session.context?.contextId || document.hidden) return;
+      if (result.partial) return;
+      incoming.push(...(result.items || []));
+      unread = Number(result.unreadCount || 0);
+      cursor = result.nextCursor || '';
+    } while (cursor && incoming.length < wanted);
+    if (JSON.stringify(items.value) !== JSON.stringify(incoming)) items.value = incoming;
+    nextCursor.value = cursor;
+    unreadCount.value = unread;
+  } catch (error) {
+    if (request === generation) loadNotice.value = errorText(error, copy.messages.view.retryLater);
+  } finally { refreshBusy = false; }
+}
+useMessageRefresh(refreshVisibleNotifications, () => { generation++; loading.value = false; });
 </script>

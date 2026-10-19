@@ -5,10 +5,12 @@ const Module = require('module');
 
 const calls = [];
 const pool = {
+  async withTransaction(fn) { return fn(this); },
   async query(sql, params) {
     calls.push({ sql: String(sql), params: params || [] });
     if (/SELECT COUNT\(\*\) AS total/.test(sql)) return [[{ total: 1, unread_count: 1 }]];
     if (/SELECT id, type, title/.test(sql)) return [[]];
+    if (/SELECT DISTINCT/.test(sql)) return [[{event_hash:'hash'}]];
     return [{ affectedRows: 2 }];
   }
 };
@@ -23,7 +25,7 @@ const notificationModel = require('../src/modules/audit/models/notification');
 Module._load = originalLoad;
 
 (async function run() {
-  const actor = { type: 'user', id: 'hr-a' };
+  const actor = { type: 'user', id: 'hr-a', personId: 'person-a' };
 
   calls.length = 0;
   const listed = await notificationModel.listForRecipient(actor, { limit: 20 });

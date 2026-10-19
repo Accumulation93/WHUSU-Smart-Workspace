@@ -5,6 +5,25 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const RETENTION_DAYS = 30;
 const RECIPIENT_TYPES = new Set(['user', 'admin']);
 
+// 投递键末尾带收件身份；旧默认键中间还带一次身份。只移除已知的精确结构，
+// 保留业务事件、轮次、时间及内容指纹，避免把后续的新通知一起隐藏。
+const recipientSuffix = "CONCAT(':', recipient_type, ':', recipient_id)";
+const baseEvent = `(CASE WHEN RIGHT(event_key, CHAR_LENGTH(${recipientSuffix})) = ${recipientSuffix}
+  THEN LEFT(event_key, CHAR_LENGTH(event_key) - CHAR_LENGTH(${recipientSuffix})) ELSE event_key END)`;
+const legacyPrefix = "CONCAT(type, ':', COALESCE(target_type, ''), ':', COALESCE(target_id, ''), ':', recipient_type, ':', recipient_id, ':')";
+const eventHashSql = `SHA2(CASE WHEN event_key IS NULL OR event_key = '' THEN CONCAT('id:', id)
+  WHEN ${baseEvent} = CONCAT(${legacyPrefix}, RIGHT(${baseEvent}, 16))
+    THEN CONCAT('event:', type, ':', COALESCE(target_type, ''), ':', COALESCE(target_id, ''), ':', RIGHT(${baseEvent}, 16))
+  ELSE CONCAT('event:', ${baseEvent}) END, 256)`;
+const visibleSql = `NOT EXISTS (SELECT 1 FROM notification_dismissals dismissed
+  WHERE dismissed.org_id = notifications.org_id AND dismissed.person_id = ?
+    AND dismissed.event_hash = ${eventHashSql})`;
+
+function requirePerson(actor) {
+  if (!actor || !actor.personId) throw Object.assign(new Error(), { code: 'NOTIFICATION_PERSON_REQUIRED' });
+  return actor.personId;
+}
+
 function normalizeRecipient(data) {
   const recipientType = String(data.recipientType || (data.hrId ? 'user' : '')).trim().toLowerCase();
   const recipientId = String(data.recipientId || data.hrId || '').trim();
@@ -69,7 +88,7 @@ async function listForRecipient(actor, options) {
   const beforeCreatedAt = options.beforeCreatedAt ? new Date(options.beforeCreatedAt) : null;
   const beforeId = String(options.beforeId || '');
   const hasBoundary = beforeCreatedAt && !Number.isNaN(beforeCreatedAt.getTime()) && beforeId;
-  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS];
+  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS, requirePerson(actor)];
   const boundarySql = hasBoundary
     ? ' AND (created_at < ? OR (created_at = ? AND id < ?))'
     : '';
@@ -82,7 +101,7 @@ async function listForRecipient(actor, options) {
               MIN(created_at) AS oldest_created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`,
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql}`,
       params
     ),
     options.countOnly ? Promise.resolve([[], []]) : pool.query(
@@ -90,7 +109,7 @@ async function listForRecipient(actor, options) {
               is_read, created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql}
           ${boundarySql}
         ORDER BY created_at DESC, id DESC
         LIMIT ?`,
@@ -136,12 +155,18 @@ async function markRead(notificationId, actor) {
 
 async function deleteById(notificationId, actor) {
   const orgId = await getCurrentOrgId();
-  const [result] = await pool.query(
-    `DELETE FROM notifications
-      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ?`,
-    [notificationId, orgId, actor.type, actor.id]
-  );
-  return { found: result.affectedRows > 0, unreadCount: await getUnreadCountForRecipient(actor) };
+  const personId = requirePerson(actor);
+  const found = await pool.withTransaction(async (conn) => {
+    const [rows] = await conn.query(
+      `SELECT ${eventHashSql} AS event_hash FROM notifications
+        WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? FOR UPDATE`,
+      [notificationId, orgId, actor.type, actor.id, 'pending_approval']);
+    if (!rows.length) return false;
+    await conn.query(`INSERT INTO notification_dismissals (org_id, person_id, event_hash) VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE event_hash = event_hash`, [orgId, personId, rows[0].event_hash]);
+    return true;
+  });
+  return { found, unreadCount: await getUnreadCountForRecipient(actor) };
 }
 
 async function markAllRead(actor) {
@@ -156,12 +181,20 @@ async function markAllRead(actor) {
 
 async function deleteAll(actor) {
   const orgId = await getCurrentOrgId();
-  const [result] = await pool.query(
-    `DELETE FROM notifications
-      WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ?`,
-    [orgId, actor.type, actor.id, 'pending_approval']
-  );
-  return { deletedCount: result.affectedRows, unreadCount: 0 };
+  const personId = requirePerson(actor);
+  return pool.withTransaction(async (conn) => {
+    const [rows] = await conn.query(
+      `SELECT DISTINCT ${eventHashSql} AS event_hash FROM notifications
+        WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND ${visibleSql} FOR UPDATE`,
+      [orgId, actor.type, actor.id, 'pending_approval', personId]);
+    for (let start = 0; start < rows.length; start += 100) {
+      const chunk = rows.slice(start, start + 100);
+      await conn.query(`INSERT INTO notification_dismissals (org_id, person_id, event_hash)
+        VALUES ${chunk.map(() => '(?, ?, ?)').join(',')} ON DUPLICATE KEY UPDATE event_hash = event_hash`,
+      chunk.flatMap(row => [orgId, personId, row.event_hash]));
+    }
+    return { deletedCount: rows.length, unreadCount: 0 };
+  });
 }
 
 async function cleanupOld(days) {

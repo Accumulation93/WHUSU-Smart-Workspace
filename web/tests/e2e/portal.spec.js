@@ -7,6 +7,27 @@ const ROLE_LABEL = '综合事务 · 办公室';
 // 测试会话里的当前组织名，用来证明底部不会显示它。
 const ORG_NAME = '测试组织';
 
+for (const location of ['portal', 'messages?tab=notifications']) {
+  test(`另一端删除通知后当前${location}在刷新时移除`, async ({ page }) => {
+    await mockApi(page);
+    let removed = false;
+    await page.route('**/api/listNotifications', async route => {
+      await route.fulfill({json:{status:'success',items:removed?[]:[{
+        id:'cross-device',title:'跨设备删除测试',description:'通知',organizationId:'org',
+        organizationName:'组织',isRead:false,createdAt:'2026-10-19T00:00:00Z'
+      }],total:removed?0:1,unreadCount:removed?0:1,nextCursor:''}});
+    });
+    await page.clock.install();
+    await page.goto(`${WEB_BASE}/${location}`);
+    await expect(page.getByText('跨设备删除测试',{exact:true})).toBeVisible();
+    removed = true;
+    await page.clock.fastForward(31000);
+    await expect(page.getByText('跨设备删除测试',{exact:true})).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText('跨设备删除测试',{exact:true})).toHaveCount(0);
+  });
+}
+
 async function login(page) {
   await page.goto(`${WEB_BASE}/login`);
   await page.getByLabel(copy.login.studentId).fill(STORED_STUDENT_ID);

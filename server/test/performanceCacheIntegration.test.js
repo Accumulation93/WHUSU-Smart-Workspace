@@ -30,7 +30,11 @@ async function run() {
     await admin.query(`GRANT ALL ON \`${databaseName}\`.* TO '${testUser}'@'%'`);
     const fixture = await mysql.createConnection(Object.assign({}, adminOptions, { database: databaseName, multipleStatements: true }));
     try { await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8')); } finally { await fixture.end(); }
-    const migration = fs.readFileSync(path.resolve(__dirname, '../db/deploy/20260907120000_performance_cache_versions.sql'));
+    const migration = Buffer.concat([
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20260907120000_performance_cache_versions.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261019200000_notification_person_dismissals.sql'))
+    ]);
     for (let index = 0; index < 2; index += 1) {
       const applied = spawnSync(process.env.MYSQL_BIN || 'mysql', ['--protocol=TCP', '--host=' + adminOptions.host,
         '--port=' + adminOptions.port, '--user=' + adminOptions.user, '--default-character-set=utf8mb4', databaseName], {
@@ -76,9 +80,9 @@ async function run() {
     assert.notStrictEqual(await versions.read(['perf-a']), beforeA);
     assert.strictEqual(await versions.read(['perf-b']), beforeB, '组织甲通知不得使组织乙版本变化');
     const scoringVersion = await versions.read(['perf-a'], ['scoring', 'directory']);
-    const counts = await orgStorage.run('perf-a', () => notifications.listForRecipient({ type: 'admin', id: 'perf-admin' }, { countOnly: true }));
+    const counts = await orgStorage.run('perf-a', () => notifications.listForRecipient({ type: 'admin', id: 'perf-admin', personId:'perf-person' }, { countOnly: true }));
     assert.strictEqual(counts.total, 202); assert.deepStrictEqual(counts.items, []);
-    await orgStorage.run('perf-a', () => notifications.markRead('perf-notice-0', { type: 'admin', id: 'perf-admin' }));
+    await orgStorage.run('perf-a', () => notifications.markRead('perf-notice-0', { type: 'admin', id: 'perf-admin', personId:'perf-person' }));
     assert.strictEqual(await versions.read(['perf-a'], ['scoring', 'directory']), scoringVersion, '通知已读不应失效评分缓存');
     const keyBefore = await sharedCache.versionedKey('overview_perf-a_activity_overview', 'perf-a');
     await appPool.query("INSERT INTO departments (id,name,org_id) VALUES ('perf-dept','性能部门','perf-a')");

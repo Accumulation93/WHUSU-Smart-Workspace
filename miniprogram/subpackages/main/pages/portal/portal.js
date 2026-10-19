@@ -957,6 +957,7 @@ Page({
         data: { id: id, organizationId: deleted && deleted.organizationId }
       });
       if (result.status !== 'success') throw new Error(result.message || copy.messages.deleteFailed);
+      await this.loadMessageOverview(true);
     } catch (err) {
       this.setData({ notifications: previous });
       this.loadMessageOverview();
