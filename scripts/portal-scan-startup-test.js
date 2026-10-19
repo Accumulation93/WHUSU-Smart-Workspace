@@ -220,6 +220,13 @@ function createPage(options) {
 
   // 扫一扫：外部地址只展示与复制，不自动打开
   harness = createPage({});
+  harness.page.handleScanPayload('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32));
+  assert.deepStrictEqual(harness.calls.navigate, ['/subpackages/org/pages/identityCard/identityCard?token=' + 'a'.repeat(32)]);
+  assert.strictEqual(harness.calls.modal.length, 0);
+  harness = createPage({});
+  harness.page.handleScanPayload('https://accumulation93.com.evil.test/web/identity-card/verify?token=' + 'a'.repeat(32));
+  assert.strictEqual(harness.calls.navigate.length, 0);
+  harness = createPage({});
   harness.page.handleScanPayload('https://example.com/abc');
   assert.strictEqual(harness.calls.navigate.length, 0, '外部地址不得直接跳转');
   assert.strictEqual(harness.calls.modal.length, 1, '外部地址必须只展示并让用户复制');

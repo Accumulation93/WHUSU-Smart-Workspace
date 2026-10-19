@@ -49,6 +49,7 @@
     "node-forge": "^1.4.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "5.4.624",
+    "qrcode": "1.5.4",
     "readable-stream": "3.6.2",
     "sharp": "0.35.5",
     "winston": "^3.19.0",
@@ -62,5 +63,8 @@
     "exceljs": {
       "uuid": "11.1.1"
     }
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0"
   }
 }

@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/identityCard.js';
+import { createRequire } from 'node:module';
+const verificationImage = await createRequire(import.meta.url)('../../../server/node_modules/qrcode').toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32), {width:1024,margin:4,errorCorrectionLevel:'H'});
 const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active};
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
 test('hero opens identity card while work-role button keeps its action', async ({page}, info) => {
   await mockApi(page);
   await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
-  await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image}}));
+  await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image,verificationImage}}));
   await page.goto('/web/portal');
   await page.locator('.workspace-context-card').click();
   await expect(page).toHaveURL(/work-role/);
@@ -15,6 +17,11 @@ test('hero opens identity card while work-role button keeps its action', async (
   await expect(page).toHaveURL(/identity-card$/);
   await expect(page.getByRole('img',{name:copy.scanHint})).toBeVisible();
   await expect(page.locator('.identity-name')).toHaveText(card.name);
+  await expect(page.locator('.identity-image')).toHaveAttribute('src',verificationImage);
+  await page.getByRole('button',{name:copy.miniProgramCode,exact:true}).click();
+  await expect(page.locator('.identity-image')).toHaveAttribute('src',image);
+  await page.getByRole('button',{name:copy.verificationCode,exact:true}).click();
+  await expect(page.getByRole('button',{name:copy.originalImage,exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
 });
 test('anonymous verification reads only code and renders invalid state after refresh', async ({page}) => {

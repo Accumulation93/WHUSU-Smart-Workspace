@@ -1,6 +1,8 @@
 'use strict';
 const assert = require('node:assert/strict');
 const axios = require('axios');
+const { PNG } = require('pngjs');
+const decode = require('jsqr');
 async function main() {
   const original = axios.post;
   let tokenCalls=0, imageCalls=0, invalid=false, jpeg=false;
@@ -11,6 +13,14 @@ async function main() {
   };
   try {
     const codes=require('../src/core/services/identityCardCode');
+    const verification = await codes.createVerificationImage('a'.repeat(32));
+    const png = PNG.sync.read(Buffer.from(verification.split(',')[1], 'base64'));
+    assert.equal(png.width, 1024);
+    assert.equal(decode(new Uint8ClampedArray(png.data), png.width, png.height).data, 'https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32));
+    const small = new Uint8ClampedArray(256 * 256 * 4);
+    for (let y=0;y<256;y++) for (let x=0;x<256;x++) for (let c=0;c<4;c++) small[(y*256+x)*4+c]=png.data[((y*4)*1024+x*4)*4+c];
+    assert.equal(decode(small,256,256).data,'https://accumulation93.com/web/identity-card/verify?token='+'a'.repeat(32));
+    await assert.rejects(codes.createVerificationImage('invalid'));
     const images=await Promise.all([codes.createImage('a'.repeat(32),'develop'),codes.createImage('b'.repeat(32),'trial')]);
     assert.equal(tokenCalls,1); assert.equal(imageCalls,2); assert(images.every(image=>image.startsWith('data:image/png;base64,')));
     jpeg=true; assert((await codes.createImage('c'.repeat(32))).startsWith('data:image/jpeg;base64,'));

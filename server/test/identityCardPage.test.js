@@ -15,6 +15,7 @@ async function main() {
       if(name.endsWith('/navigationBarMetrics')) return {getNavigationBarMetrics:()=>({totalHeight:50})};
       if(name.endsWith('/orgSession')) return {getSnapshot:()=>({token:'session'}),beginRequest:()=>version,isRequestCurrent:(page,request)=>request===version,invalidateRequests(){version++;}};
       if(name.endsWith('/api')) return {callFunction(options){calls.push(options);return responder(options);}};
+      if(name.endsWith('/fileIO')) return {outputFile: async options => options};
       throw new Error(name);
     }, Date, Promise };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../miniprogram/subpackages/org/pages/identityCard/identityCard.js'),'utf8'),sandbox);
@@ -23,7 +24,8 @@ async function main() {
   responder=async options=>options.name==='getMyIdentityCard'?{status:'success',valid:true,card:{name:'person'}}:{status:'success',valid:true,card:{name:'person'},image:'data:image/jpeg;base64,/9j/'};
   await page.load();
   assert.equal(calls[1].data.envVersion,'develop'); assert.equal(writes[0].encoding,'base64'); assert.equal(writes[0].data,'/9j/'); assert(page.data.image.endsWith('.jpg'));
-  page.onHide(); assert.equal(page.data.image,''); assert.equal(removed.length,1);
+  page.switchCode({currentTarget:{dataset:{mode:'miniProgram'}}}); assert.equal(page.data.image,page.data.miniProgramImage);
+  page.onHide(); assert.equal(page.data.image,''); assert.equal(removed.length,2);
   page.onLoad({scene:'a'.repeat(32)}); calls.length=0;
   responder=async()=>({status:'success',valid:true,card:{name:'public'}});
   await page.load(); assert.equal(calls.length,1); assert.equal(calls[0].name,'verifyIdentityCard'); assert.equal(page.data.card.name,'public');

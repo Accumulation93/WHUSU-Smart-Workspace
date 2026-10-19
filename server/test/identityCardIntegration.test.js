@@ -43,6 +43,9 @@ async function main() {
     assert.equal((await post('createMyIdentityCardCode')).status,401);
     const created = await (await post('createMyIdentityCardCode',{organizationId:'other',personId:'forged'},true)).json();
     assert(created.valid); assert.equal(token.length,32);
+    const png = require('pngjs').PNG.sync.read(Buffer.from(created.verificationImage.split(',')[1], 'base64'));
+    const decoded = require('jsqr')(new Uint8ClampedArray(png.data), png.width, png.height);
+    assert.equal(decoded.data, 'https://accumulation93.com/web/identity-card/verify?token=' + token);
     const publicResponse = await post('verifyIdentityCard',{token});
     assert.equal(publicResponse.headers.get('cache-control'),'no-store');
     const verified = await publicResponse.json();

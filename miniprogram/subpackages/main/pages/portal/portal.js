@@ -497,6 +497,11 @@ Page({
 
   handleScanPayload(raw) {
     if (!raw) return;
+    const identityCode = /^https:\/\/accumulation93\.com\/web\/identity-card\/verify\?token=([a-f0-9]{32})$/.exec(raw);
+    if (identityCode) {
+      navigateToTrustedRoute('/subpackages/org/pages/identityCard/identityCard?token=' + identityCode[1]);
+      return;
+    }
     if (isTrustedRoute(raw)) {
       navigateToTrustedRoute(raw);
       return;

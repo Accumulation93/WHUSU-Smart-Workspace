@@ -23,14 +23,15 @@ async function issue(accountId, actor, createImage) {
   const token = crypto.randomBytes(16).toString('hex');
   const before = await mine(accountId, actor);
   if (!before.valid) return { valid: false };
-  const image = await createImage(token);
+  const generated = await createImage(token);
+  const images = typeof generated === 'string' ? { image: generated } : { image: generated.image, verificationImage: generated.verificationImage };
   return pool.withTransaction(async connection => {
     const context = await current(connection, accountId, actor.contextId, actor.organizationId);
     if (!context) return { valid: false };
     await connection.query('DELETE FROM identity_cards WHERE account_id = ? AND org_id = ? AND expires_at <= UTC_TIMESTAMP(3)', [accountId, actor.organizationId]);
     await connection.query('INSERT INTO identity_cards (token_hash, account_id, org_id, context_id, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 24 HOUR))',
       [digest(token), accountId, actor.organizationId, actor.contextId]);
-    return { valid: true, card: present(context), image };
+    return Object.assign({ valid: true, card: present(context) }, images);
   });
 }
 async function verify(token) {

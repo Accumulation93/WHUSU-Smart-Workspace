@@ -1,5 +1,6 @@
 'use strict';
 const axios = require('axios');
+const QRCode = require('qrcode');
 const copy = require('../../locales/zh-CN/identityCard');
 let cachedToken = null, pendingToken = null;
 async function accessToken() {
@@ -21,7 +22,7 @@ async function createImage(scene, envVersion = 'release') {
   const token = await accessToken();
   const response = await axios.post('https://api.weixin.qq.com/wxa/getwxacodeunlimit', {
     scene, page: 'subpackages/org/pages/identityCard/identityCard', check_path: false,
-    env_version: envVersion, width: 430
+    env_version: envVersion, width: 1024
   }, { params: { access_token: token }, responseType: 'arraybuffer', timeout: 8000, maxContentLength: 1024 * 1024 });
   const bytes = Buffer.from(response.data);
   const png = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
@@ -32,4 +33,9 @@ async function createImage(scene, envVersion = 'release') {
   }
   return 'data:image/' + (png ? 'png' : 'jpeg') + ';base64,' + bytes.toString('base64');
 }
-module.exports = { createImage };
+async function createVerificationImage(scene) {
+  if (!/^[a-f0-9]{32}$/.test(scene)) throw new Error(copy.qrFailure);
+  return QRCode.toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + scene,
+    { width: 1024, margin: 4, errorCorrectionLevel: 'H', color: { dark: '#000000ff', light: '#ffffffff' } });
+}
+module.exports = { createImage, createVerificationImage };

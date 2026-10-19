@@ -18,6 +18,11 @@ function handle(work, publicRead = false) {
   };
 }
 router.post('/getMyIdentityCard', handle((req, actor) => model.mine(req.authAccount.id, actor)));
-router.post('/createMyIdentityCardCode', handle((req, actor) => model.issue(req.authAccount.id, actor, token => codes.createImage(token, (req.body || {}).envVersion || 'release'))));
+router.post('/createMyIdentityCardCode', handle((req, actor) => model.issue(req.authAccount.id, actor, async token => {
+  const [image, verificationImage] = await Promise.all([
+    codes.createImage(token, (req.body || {}).envVersion || 'release'), codes.createVerificationImage(token)
+  ]);
+  return { image, verificationImage };
+})));
 router.post('/verifyIdentityCard', handle(req => model.verify((req.body || {}).token), true));
 module.exports = router;
