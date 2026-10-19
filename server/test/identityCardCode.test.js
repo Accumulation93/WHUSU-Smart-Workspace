@@ -23,7 +23,7 @@ async function main() {
       else { assert.equal(png.data[i+3],255); assert.deepEqual([...png.data.subarray(i,i+3)],[0,0,0]); opaque++; }
     }
     assert(transparent>0 && opaque>0); assert.equal(png.data[3],0);
-    for(const size of [1024,256,240]) for(const background of [[255,255,255],[248,251,255],[239,246,255]]) {
+    for(const size of [1024,256,240]) for(const background of [[255,255,255],[248,251,255],[239,246,255],[219,234,254]]) {
       const pixels=new Uint8ClampedArray(size*size*4);
       for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
         const source=(Math.floor(y*1024/size)*1024+Math.floor(x*1024/size))*4, target=(y*size+x)*4;
