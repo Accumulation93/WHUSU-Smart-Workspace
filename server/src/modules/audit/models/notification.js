@@ -16,8 +16,8 @@ const eventHashSql = `SHA2(CASE WHEN event_key IS NULL OR event_key = '' THEN CO
     THEN CONCAT('event:', type, ':', COALESCE(target_type, ''), ':', COALESCE(target_id, ''), ':', RIGHT(${baseEvent}, 16))
   ELSE CONCAT('event:', ${baseEvent}) END, 256)`;
 const visibleSql = `NOT EXISTS (SELECT 1 FROM notification_dismissals dismissed
-  WHERE dismissed.org_id = notifications.org_id AND dismissed.person_id = ?
-    AND dismissed.event_hash = ${eventHashSql})`;
+  WHERE dismissed.org_id = notifications.org_id COLLATE utf8mb4_unicode_ci AND dismissed.person_id = ?
+    AND dismissed.event_hash = CONVERT((${eventHashSql}) USING ascii) COLLATE ascii_bin)`;
 
 function requirePerson(actor) {
   if (!actor || !actor.personId) throw Object.assign(new Error(), { code: 'NOTIFICATION_PERSON_REQUIRED' });

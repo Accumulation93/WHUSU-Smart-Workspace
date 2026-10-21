@@ -109,7 +109,7 @@ async function related(connection,events,orgId) {
 }
 function members(event,catalog,exits,date) {
   if (event.visibility==='private') {
-    const owner=catalog.people.find(person=>person.personId===event.creatorPersonId);
+    const owner=catalog.people.find(person=>person.personId===event.creatorPersonId)||(catalog.privateOwners||[]).find(person=>person.personId===event.creatorPersonId);
     return [{personId:event.creatorPersonId,name:owner ? owner.name : '',assignments:owner ? owner.assignments : []}];
   }
   let selected;
@@ -188,6 +188,8 @@ async function listForActor(connection,actor,input,permissions={}) {
   const window=recurrence.normalizeWindow(input.from,input.to);
   const rows=(await connection.query(`SELECT * FROM calendar_events WHERE org_id=? AND (visibility='organization' OR creator_person_id=?) ORDER BY created_at,id`,[actor.organizationId,actor.personId]))[0];
   const events=rows.map(decode), data=await directory.catalog(connection,actor.organizationId);
+  const privateIds=[...new Set(events.filter(event=>event.visibility==='private'&&!data.people.some(person=>person.personId===event.creatorPersonId)).map(event=>event.creatorPersonId))];
+  data.privateOwners=privateIds.length?(await connection.query(`SELECT id AS personId,name FROM persons WHERE id IN (${placeholders(privateIds)})`,privateIds))[0].map(person=>({...person,assignments:[]})):[];
   const stored=await rules(connection,actor.organizationId), linked=await related(connection,events,actor.organizationId);
   const offset=await timezone(connection), external=await sources.read(connection,events,actor.organizationId,offset,input.from,input.to);
   const historyRows=(await connection.query('SELECT event_id,occurrence_date,spec_json,participants_json FROM calendar_occurrence_records WHERE org_id=? AND ((starts_at<? AND ends_at>?) OR (event_id=? AND occurrence_date=?))',[actor.organizationId,new Date(window.end),new Date(window.start),input.detailId||'',input.occurrenceDate||'1000-01-01']))[0];

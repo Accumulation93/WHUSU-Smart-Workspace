@@ -2,11 +2,11 @@
   <main class="page stack">
     <WorkspaceHero :page-name="copy.title" :person-name="session.context?.name || ''" :identity-name="session.context?.identityName || ''" :organization-name="session.context?.organizationName || ''" @switch="router.push({name:'workRole'})" />
     <section class="section-control-card stack">
-      <div class="row row-wrap"><button class="btn btn-primary" :disabled="loading" @click="create">{{ copy.create }}</button><button v-if="metadata.permissions?.rules" class="btn btn-secondary" @click="rulesVisible=!rulesVisible">{{ copy.ruleManage }}</button><button class="btn btn-secondary" @click="systemVisible=true">{{ copy.systemCalendar }}</button></div>
+      <div class="calendar-actions"><button class="btn btn-primary" :disabled="loading" @click="create">{{ copy.create }}</button><button v-if="metadata.permissions?.rules" class="btn btn-secondary" @click="rulesVisible=!rulesVisible">{{ copy.ruleManage }}</button><button class="btn btn-secondary" @click="systemVisible=true">{{ copy.systemCalendar }}</button></div>
       <div class="tabs"><button v-for="value in modes" :key="value" class="tab" :class="{'tab-active':mode===value}" @click="mode=value">{{ copy[value] }}</button></div>
-      <div class="ui-inline-control-row"><button class="btn btn-secondary ui-inline-control" :aria-label="copy.previous" @click="navigate(-1)"><UiIcon name="chevron-left" /></button><input v-model="selected" type="date" class="field-input ui-inline-control" :aria-label="copy.startDate" /><button class="btn btn-secondary ui-inline-control" :aria-label="copy.next" @click="navigate(1)"><UiIcon name="chevron-right" /></button><button class="btn btn-secondary ui-inline-control" @click="selected=today">{{ copy.today }}</button></div>
+      <div class="calendar-navigation"><button class="btn btn-secondary ui-inline-control" :aria-label="copy.previous" @click="navigate(-1)"><UiIcon name="chevron-left" /></button><input v-model="selected" type="date" class="field-input ui-inline-control" :aria-label="copy.startDate" /><button class="btn btn-secondary ui-inline-control" :aria-label="copy.next" @click="navigate(1)"><UiIcon name="chevron-right" /></button><button class="btn btn-secondary ui-inline-control" @click="selected=today">{{ copy.today }}</button></div>
       <div class="field search-field"><UiIcon name="search" /><input v-model="query" class="field-input" :placeholder="copy.search" :aria-label="copy.search" /></div>
-      <div class="row row-wrap"><select v-model="source" class="field-input" :aria-label="copy.source"><option value="">{{ copy.allSources }}</option><option v-for="value in ['manual','venue_booking','venue_activity']" :key="value" :value="value">{{ copy[value] }}</option></select><label v-if="metadata.permissions?.manage" class="row"><input v-model="managed" type="checkbox" />{{ copy.manage }}</label></div>
+      <div class="calendar-filters"><select v-model="source" class="field-input" :aria-label="copy.source"><option value="">{{ copy.allSources }}</option><option v-for="value in ['manual','venue_booking','venue_activity']" :key="value" :value="value">{{ copy[value] }}</option></select><label v-if="metadata.permissions?.manage" class="row"><input v-model="managed" type="checkbox" />{{ copy.manage }}</label></div>
     </section>
     <CalendarRules v-if="rulesVisible" />
     <AppLoading v-if="loading || busy" :text="busy ? copy.saving : copy.loading" /><div v-if="notice" class="notice-line" role="alert">{{ notice }}<button class="btn btn-secondary" @click="load">{{ copy.retry }}</button></div>
@@ -82,6 +82,14 @@ onBeforeUnmount(()=>{disposed=true;generation++;document.removeEventListener('vi
 .calendar-columns { display:grid;grid-template-columns:repeat(var(--calendar-columns),minmax(0,1fr));gap:var(--ui-field-gap); }
 .calendar-column { min-width:0; }
 .calendar-hour { display:flex;flex-direction:column;gap:var(--ui-field-gap);min-height:var(--ui-field-control-height);padding-block:var(--ui-compact-padding-y);border-top:var(--ui-result-label-border); }
-.search-field { display:flex;align-items:center;gap:var(--ui-inline-gap); }
+.search-field { display:flex;flex-direction:row;align-items:center;gap:var(--ui-inline-gap); }
+.search-field .field-input { flex:1;min-width:0; }
+.calendar-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-field-gap); }
+.calendar-actions > :first-child { grid-column:1 / -1; }
+.calendar-navigation { display:grid;grid-template-columns:var(--ui-field-control-height) minmax(0,1fr) var(--ui-field-control-height) auto;align-items:stretch;gap:var(--ui-inline-gap); }
+.calendar-navigation > * { width:100%;min-width:0;margin:0;height:auto;min-height:var(--ui-field-control-height); }
+.calendar-filters { display:flex;flex-direction:row;align-items:center;gap:var(--ui-field-gap); }
+.calendar-filters select { flex:1;min-width:0; }
+.calendar-filters label { flex-shrink:0; }
 @media(max-width:899px){.calendar-columns { grid-template-columns:repeat(var(--calendar-columns),minmax(180px,1fr)); }}
 </style>

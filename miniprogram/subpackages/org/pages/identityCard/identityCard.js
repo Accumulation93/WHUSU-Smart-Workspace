@@ -19,7 +19,7 @@ Page({
     this._token = token;
     this.setData({ publicView: Boolean(token), navTopPx: getNavigationBarMetrics().totalHeight });
   },
-  onShow() { this._visible = true; this._retainedImagePath = ''; this.load(); },
+  onShow() { orgSession.consume(this); this._visible = true; this._retainedImagePath = ''; this.load(); },
   onHide() { this._visible = false; this.clear(); },
   onUnload() {
     this._visible = false; this._retainedImagePath = ''; this.clear();

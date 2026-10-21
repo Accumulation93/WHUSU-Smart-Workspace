@@ -20,3 +20,7 @@
 .calendar-week-columns { display:flex;gap:var(--ui-field-gap); }
 .calendar-day-column { flex:1;min-width:0;box-sizing:border-box; }
 .calendar-week-columns-wide .calendar-day-column { flex:0 0 calc(var(--ui-field-control-height) * 5); }
+
+.calendar-page .ui-inline-control-row { display:grid;grid-template-columns:var(--ui-field-control-height) minmax(0,1fr) var(--ui-field-control-height) auto;gap:var(--ui-inline-gap); }
+.calendar-page .ui-inline-control-row > button,.calendar-page .ui-inline-control-row > picker { width:100%;min-width:0;margin:0; }
+.calendar-actions > button:first-child { grid-column:1 / -1; }

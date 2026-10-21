@@ -9,7 +9,7 @@ async function main() {
   const database='calendar_test_'+process.pid+'_'+Date.now(),username='cal_'+process.pid,password=crypto.randomBytes(24).toString('hex');
   process.env.AUTH_IDENTITY_SECRET=crypto.randomBytes(32).toString('hex');
   const root=await mysql.createConnection({host,port,user:process.env.TEST_DB_ADMIN_USER || 'root',password:process.env.TEST_DB_ADMIN_PASSWORD || '',multipleStatements:true});
-  let pool;
+  let pool,server;
   try {
     await root.query('CREATE DATABASE `'+database+'` CHARACTER SET utf8mb4');
     await root.query("CREATE USER '"+username+"'@'%' IDENTIFIED BY ?",[password]);
@@ -112,8 +112,24 @@ async function main() {
     await root.query("UPDATE accounts SET status='verified' WHERE id='account-a'");
     await subscription.manage({action:'revoke'},actor('a'),'account-a',authorize);
     await assert.rejects(subscription.feed(basic,due),e=>e.code==='forbidden');
+    const app=require('express')();app.use(require('express').json());
+    const currentActor=(await require('../src/core/models/unifiedIdentity').listContexts('account-a',root))[0];
+    app.use((req,res,next)=>{if(req.headers['x-test-auth']==='yes'){req.authAccount={id:'account-a',personId:'a'};req.authContext=currentActor;}next();});
+    app.use('/api',require('../src/core/routes/calendar'));
+    server=await new Promise(resolve=>{const listener=app.listen(0,'127.0.0.1',()=>resolve(listener));});
+    const post=(name,body,authenticated=true)=>fetch('http://127.0.0.1:'+server.address().port+'/api/'+name,{method:'POST',headers:{'Content-Type':'application/json',...(authenticated?{'X-Test-Auth':'yes'}:{})},body:JSON.stringify(body)});
+    assert.equal((await post('getCalendar',window,false)).status,401);
+    const saved=await (await post('saveCalendarEvent',{...input,title:'浏览器参数保存回读',clientRequestId:'http-frontend-parameters',recurrence:{frequency:'none'}})).json();
+    assert.equal(saved.status,'success');
+    const readback=await (await post('getCalendar',{...window,detailId:saved.id,occurrenceDate:input.startDate})).json();
+    assert.equal(readback.items.find(item=>item.id===saved.id).title,'浏览器参数保存回读');
+    const denied=await (await post('saveCalendarEvent',{...input,visibility:'organization',targets:[{type:'people',personIds:['b']}]})).json();
+    assert.equal(denied.status,'calendar_forbidden');
+    await root.query("UPDATE accounts SET status='frozen' WHERE id='account-a'");
+    assert.equal((await (await post('getCalendar',window)).json()).status,'calendar_forbidden');
     console.log('PASS 日程隔离数据库：双次迁移、私人隔离、权限规则、动态名单、三种操作、退出不回加、版本冲突与批量回滚');
   } finally {
+    if(server)await new Promise(resolve=>server.close(resolve));
     if (pool) await pool.end();
     await root.query('DROP DATABASE IF EXISTS `'+database+'`');
     await root.query("DROP USER IF EXISTS '"+username+"'@'%'"); await root.end();

@@ -160,7 +160,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
     }
     if (!['conditions', 'self', 'identity'].includes(starterType)
-      || (starterType === 'conditions' && !starterConditions.length)
       || (starterType !== 'conditions' && starterConditions.length)
       || (starterType === 'identity' && !starterIdentityId)) {
       return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
@@ -259,6 +258,10 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       }
     }
 
+    // 编辑器明确将空发起条件定义为所有有效岗位，保存为显式范围条件。
+    if (starterType === 'conditions' && !starterConditions.length) {
+      starterConditions.push({ conditionType: 'identity_scope', departmentScope: 'all', workGroupScope: 'all', identityScope: 'all' });
+    }
     // Build starter conditions JSON if provided
     let starterConditionsJson = null;
     if (starterConditions.length) {

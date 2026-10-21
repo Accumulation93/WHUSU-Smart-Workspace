@@ -30,6 +30,9 @@ async function processOrganization(orgId,now=Date.now()) {
     const from=new Date(now-86400000).toISOString(),to=new Date(now+8*86400000).toISOString();
     const external=await sources.read(connection,events,orgId,offset,from,to);
     const hrIds=new Map(catalog.people.map(person=>[person.personId,person.hrId]));
+    const adminIds=new Map((await connection.query("SELECT person_id,legacy_admin_id FROM admin_grants WHERE org_id=? AND status='active' ORDER BY id",[orgId]))[0].map(row=>[row.person_id,row.legacy_admin_id]));
+    const missing=events.filter(event=>event.visibility==='private'&&!hrIds.has(event.creatorPersonId)).map(event=>event.creatorPersonId);
+    catalog.privateOwners=missing.length?(await connection.query(`SELECT id AS personId,name FROM persons WHERE id IN (${missing.map(()=>'?').join(',')})`,missing))[0].map(person=>({...person,assignments:[]})):[];
     let created=0;
     for(const event of events) {
       const instances=event.sourceKind==='manual'?occurrences.expand(event.spec,linked.changes.get(event.id)||[],from,to):(external.get(event.sourceKind+':'+event.sourceId)||[]).map(item=>Object.assign({},event.spec,item));
@@ -46,15 +49,16 @@ async function processOrganization(orgId,now=Date.now()) {
           // 允许短暂离线后补送；活动结束后不再发送过期提醒。
           if(due>now||due<now-86400000||ends<=now)continue;
           for(const person of people) {
-            const hrId=hrIds.get(person.personId);
-            if(!hrId)continue;
+            const recipientType=hrIds.get(person.personId)?'user':'admin';
+            const recipientId=hrIds.get(person.personId)||adminIds.get(person.personId);
+            if(!recipientId)continue;
             const receipt=(await connection.query('SELECT id FROM calendar_reminder_receipts WHERE org_id=? AND event_id=? AND person_id=? AND occurrence_date=? AND minutes_before=? AND starts_at=?',[orgId,event.id,person.personId,item.occurrenceDate,minutes,new Date(starts)]))[0];
             if(receipt.length)continue;
             const key='calendar:'+event.id+':'+item.occurrenceDate+':'+minutes+':'+starts;
-            await notifications.batchCreate([{id:generateId(),orgId,recipientType:'user',recipientId:hrId,type:'calendar_reminder',title:copy.reminderTitle,
+            await notifications.batchCreate([{id:generateId(),orgId,recipientType,recipientId,type:'calendar_reminder',title:copy.reminderTitle,
               description:copy.reminderText.replace('{title}',item.title),category:'system',targetType:'calendar',targetId:event.id,
               targetUrl:'/subpackages/workspace/pages/calendarDetail/calendarDetail?id='+encodeURIComponent(event.id)+'&date='+item.occurrenceDate,
-              eventKey:key+':user:'+hrId}],connection);
+              eventKey:key+':'+recipientType+':'+recipientId}],connection);
             await connection.query('INSERT INTO calendar_reminder_receipts (id,org_id,event_id,person_id,occurrence_date,minutes_before,starts_at) VALUES (?,?,?,?,?,?,?)',[generateId(),orgId,event.id,person.personId,item.occurrenceDate,minutes,new Date(starts)]);
             created++;
           }

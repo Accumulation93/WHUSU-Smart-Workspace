@@ -4,16 +4,16 @@ const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
 const {callFunction}=require('../../../../utils/api');
-const session=require('../../../../utils/orgSession');
+const orgSession=require('../../../../utils/orgSession');
 const scopes=['instance','following','series'];
 Page({
   data:{copy,common,loading:false,busy:false,notice:'',detail:null,confirmation:false,action:'',scopeIndex:0,scopeLabels:scopes.map(scope=>copy[scope]),canAdd:false},
   onLoad:function(options){this._options=options;wx.setNavigationBarTitle({title:copy.title+' - '+common.appName});let canAdd=false;try{const platform=wx.getDeviceInfo().platform;canAdd=['ios','android'].includes(platform)&&wx.canIUse('addPhoneCalendar');}catch(_){}this.setData({canAdd});},
-  onShow:function(){this._visible=true;this.load();},
-  onHide:function(){this._visible=false;session.invalidateRequests(this);this.setData({detail:null,confirmation:false,busy:false});},
-  onUnload:function(){this._visible=false;session.invalidateRequests(this);},
+  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
+  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({detail:null,confirmation:false,busy:false});},
+  onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},
   async load(){
-    const request=session.beginRequest(this,'detail'),current=()=>this._visible&&session.isRequestCurrent(this,request);this.setData({loading:true,notice:''});
+    const request=orgSession.beginRequest(this,'detail'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({loading:true,notice:''});
     try{const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;if(config.status!=='success')throw new Error(config.message||copy.operationFailed);
       const range=view.period(this._options.selected||this._options.date,this._options.mode||'week',config.timezoneOffset);
       const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
@@ -29,7 +29,7 @@ Page({
   scope:function(e){this.setData({scopeIndex:Number(e.detail.value)});},
   noop:function(){},
   async execute(){
-    if(this.data.busy||!this.data.detail)return;const item=this.data.detail;const request=session.beginRequest(this,'change'),current=()=>this._visible&&session.isRequestCurrent(this,request);this.setData({busy:true,notice:''});
+    if(this.data.busy||!this.data.detail)return;const item=this.data.detail;const request=orgSession.beginRequest(this,'change'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({busy:true,notice:''});
     try{const result=await callFunction({name:'changeCalendarParticipation',data:{id:item.id,version:item.version,occurrenceDate:item.occurrenceDate,scope:scopes[this.data.scopeIndex],action:this.data.action}});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);this.setData({busy:false,confirmation:false});wx.navigateBack();}
     catch(error){if(current())this.setData({busy:false,notice:error.message||copy.operationFailed});}
   },

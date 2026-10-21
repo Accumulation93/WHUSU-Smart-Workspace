@@ -15,6 +15,10 @@ async function setup(page){
 test('日程四种视图和空状态可用，页面不横向溢出',async({page})=>{
   await setup(page);const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/web/calendar');
+  const controls=await page.locator('.calendar-navigation').evaluate(element=>Array.from(element.children).map(child=>child.getBoundingClientRect().top));
+  expect(Math.max(...controls)-Math.min(...controls)).toBeLessThan(2);
+  const search=await page.locator('.search-field').evaluate(element=>{const icon=element.querySelector('svg,img'),input=element.querySelector('input');return icon ? Math.abs((icon.getBoundingClientRect().top+icon.getBoundingClientRect().height/2)-(input.getBoundingClientRect().top+input.getBoundingClientRect().height/2)) : 999;});
+  expect(search).toBeLessThan(2);
   for(const mode of ['month','week','day','list']){
     await page.locator('.tabs').getByRole('button',{name:copy[mode],exact:true}).click();
     await expect(page.locator('.tabs .tab-active')).toHaveText(copy[mode]);
@@ -54,4 +58,23 @@ test('日程卡打开人员详情，退出确认不会叠放两个窗口',async(
   await page.getByRole('button',{name:copy.leave,exact:true}).click();
   await expect(page.getByText(copy.leaveConfirm,{exact:true})).toBeVisible();
   await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);
+});
+
+test('安排规则复制后编辑保存，批量删除取消不发请求',async({page})=>{
+  await setup(page);const writes=[];
+  const rule={id:'rule',version:1,name:'办公室安排',enabled:true,audience:[{type:'people',personIds:['p']}],targets:[{type:'self'}],actions:['assign']};
+  const config={status:'success',permissions:{manage:true,rules:true},timezoneOffset:480,people:[{personId:'p',name:'测试成员',assignments:[]}],departments:[],identities:[],workGroups:[],rules:[rule]};
+  await page.route('**/api/getCalendarRules',r=>r.fulfill({json:config}));
+  await page.route('**/api/saveCalendarRule',async r=>{const body=r.request().postDataJSON();writes.push(body);config.rules.push({...body,id:'copy',version:1});await r.fulfill({json:{status:'success'}});});
+  await page.route('**/api/batchCalendarRules',async r=>{writes.push(r.request().postDataJSON());await r.fulfill({json:{status:'success'}});});
+  await page.goto('/web/calendar');await page.getByRole('button',{name:copy.ruleManage,exact:true}).click();
+  await page.getByRole('button',{name:copy.duplicate,exact:true}).click();
+  await page.getByLabel(copy.ruleName,{exact:true}).fill('复制后的安排');
+  await page.getByRole('button',{name:copy.save,exact:true}).click();
+  await expect(page.getByText('复制后的安排',{exact:true})).toBeVisible();
+  expect(writes[0].id).toBeUndefined();expect(writes[0].audience[0].personIds).toEqual(['p']);
+  await page.getByRole('checkbox',{name:/办公室安排/}).check();
+  await page.getByRole('button',{name:copy.delete+' · 1',exact:true}).click();
+  await expect(page.getByText(copy.deleteRuleConfirm,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:copy.cancel,exact:true}).click();expect(writes).toHaveLength(1);
 });

@@ -4,7 +4,7 @@ const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
 const {callFunction}=require('../../../../utils/api');
-const session=require('../../../../utils/orgSession');
+const orgSession=require('../../../../utils/orgSession');
 const eventBus=require('../../../../utils/eventBus');
 Page({
   data:{copy,common,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
@@ -14,12 +14,12 @@ Page({
     eventBus.on('auth:contextChanged',this._contextChanged);eventBus.on('auth:selectionChanged',this._contextChanged);eventBus.on('org:changed',this._contextChanged);
     this.setData({selected:time.formatAbsoluteDate(new Date())});
   },
-  onShow:function(){this._visible=true;this.load();},
+  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
   onHide:function(){this._visible=false;this.clear();},
   onUnload:function(){this._visible=false;this.clear();eventBus.off('auth:contextChanged',this._contextChanged);eventBus.off('auth:selectionChanged',this._contextChanged);eventBus.off('org:changed',this._contextChanged);},
-  clear:function(){session.invalidateRequests(this);this._items=[];this.setData({items:[],visibleItems:[],days:[],notice:'',loading:false,metadata:{permissions:{},timezoneOffset:480}});},
+  clear:function(){orgSession.invalidateRequests(this);this._items=[];this.setData({items:[],visibleItems:[],days:[],notice:'',loading:false,metadata:{permissions:{},timezoneOffset:480}});},
   async load(){
-    const request=session.beginRequest(this,'calendar');const current=()=>this._visible&&session.isRequestCurrent(this,request);
+    const request=orgSession.beginRequest(this,'calendar');const current=()=>this._visible&&orgSession.isRequestCurrent(this,request);
     this.setData({loading:true,notice:''});
     try{
       const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;

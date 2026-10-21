@@ -4,25 +4,25 @@ const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
 const {callFunction}=require('../../../../utils/api');
-const session=require('../../../../utils/orgSession');
+const orgSession=require('../../../../utils/orgSession');
 const frequencies=['none','daily','weekly','monthly','yearly'],scopes=['instance','following','series'],reminders=[-1,0,5,15,30,60,1440];
 Page({
   data:{copy,common,loading:true,busy:false,saved:false,failed:false,notice:'',draft:view.blank('2026-01-01'),metadata:{},sourceKind:'',pickerVisible:false,
     frequencyIndex:0,frequencyLabels:frequencies.map(value=>copy[value]),scopeIndex:0,scopeLabels:scopes.map(value=>copy[value]),
     reminderIndex:3,reminderLabels:[copy.reminderNone,copy.reminderStart,copy.reminderFive,copy.reminderFifteen,copy.reminderThirty,copy.reminderHour,copy.reminderDay],endMode:0,endModes:[copy.unlimited,copy.byDate,copy.byCount],weekdays:[]},
   onLoad:function(options){this._options=options;wx.setNavigationBarTitle({title:copy.edit+' - '+common.appName});this.setData({sourceKind:options.sourceKind||'',draft:view.blank(options.date||time.formatAbsoluteDate(new Date()))});},
-  onShow:function(){this._visible=true;if(this._context&&this._context!==session.getSnapshot().contextId){this._loaded=false;this._original=null;this.setData({draft:view.blank(this._options.date||time.formatAbsoluteDate(new Date())),metadata:{},saved:false,busy:false});}if(!this._loaded)this.load();},
-  onHide:function(){this._visible=false;session.invalidateRequests(this);if(this.data.busy)this._loaded=false;this.setData({pickerVisible:false,busy:false,loading:false});},
-  onUnload:function(){this._visible=false;session.invalidateRequests(this);this._original=null;},
+  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;if(contextChange.changed){this._loaded=false;this._original=null;this.setData({draft:view.blank(this._options.date||time.formatAbsoluteDate(new Date())),metadata:{},saved:false,busy:false});}if(!this._loaded)this.load();},
+  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);if(this.data.busy)this._loaded=false;this.setData({pickerVisible:false,busy:false,loading:false});},
+  onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);this._original=null;},
   async load(){
-    const request=session.beginRequest(this,'calendarEdit'),current=()=>this._visible&&session.isRequestCurrent(this,request);
+    const request=orgSession.beginRequest(this,'calendarEdit'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);
     this.setData({loading:true,failed:false,notice:''});
     try{
       const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;if(config.status!=='success')throw new Error(config.message||copy.operationFailed);
       let draft=this.data.draft;
       if(this._options.sourceKind){const result=await callFunction({name:'getCalendarParticipants',data:{sourceKind:this._options.sourceKind,sourceId:this._options.sourceId,edit:true}});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);draft=Object.assign({},draft,{targets:result.targets,version:result.version});if(result.people)config.people=result.people;}
       else if(this._options.id){const result=await callFunction({name:'getCalendar',data:Object.assign({},view.period(this._options.date,'week',config.timezoneOffset),{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);const item=result.items.find(value=>value.id===this._options.id&&value.occurrenceDate===this._options.date);if(!item||!item.canUpdate)throw new Error(copy.unavailable);this._original=item;draft=view.edit(item,config.timezoneOffset);}
-      this._loaded=true;this._context=session.getSnapshot().contextId;
+      this._loaded=true;this._context=orgSession.getSnapshot().contextId;
       this.setData({draft,metadata:config,loading:false,frequencyIndex:frequencies.indexOf(draft.recurrence.frequency),scopeIndex:scopes.indexOf(draft.scope),reminderIndex:Math.max(0,reminders.indexOf(draft.reminders[0]===undefined?-1:draft.reminders[0])),endMode:draft.recurrence.until?1:draft.recurrence.count?2:0});this.decorate();
     }catch(error){if(current())this.setData({loading:false,failed:true,notice:error.message||copy.operationFailed});}
   },
@@ -41,8 +41,8 @@ Page({
   back:function(){if(!this.data.busy)wx.navigateBack();},
   async save(){
     if(this.data.busy||this.data.loading||this.data.saved||this.data.failed)return;
-    if(session.getSnapshot().contextId!==this._context){this._loaded=false;this.load();return;}
-    const request=session.beginRequest(this,'calendarSave'),current=()=>this._visible&&session.isRequestCurrent(this,request);this.setData({busy:true,notice:''});
+    if(orgSession.getSnapshot().contextId!==this._context){this._loaded=false;this.load();return;}
+    const request=orgSession.beginRequest(this,'calendarSave'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({busy:true,notice:''});
     try{
       const body=JSON.parse(JSON.stringify(this.data.draft));
       if(this.data.sourceKind){body.sourceKind=this.data.sourceKind;body.sourceId=this._options.sourceId;}

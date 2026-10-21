@@ -68,6 +68,7 @@ const options = {
     await behavior.methods.saveAuditFlowTemplate.call(page);
     assert.equal(saved.status, 'success', saved.message);
     const ids = [saved.id];
+    page.data.auditTemplateForm.starterConditions = [];
     for (let i = 0; i < 2; i++) { await behavior.methods.saveAuditFlowTemplate.call(page); assert.equal(saved.status, 'success', saved.message); ids.push(saved.id); }
     assert.equal(new Set(ids).size, 3);
     page.data.auditTemplateForm.id = ids[1]; page.data.auditTemplateForm.name = '仅修改第二条';
@@ -79,6 +80,11 @@ const options = {
     assert.equal(listed.templates.find(item => item.id === ids[0]).name, '模板测试');
     const edited = listed.templates.find(item => item.id === ids[1]);
     assert.equal(edited.name, '仅修改第二条');
+    assert.equal(edited.starterType, 'conditions');
+    assert.equal(edited.starterConditions.length, 1);
+    assert.equal(edited.starterConditions[0].departmentScope, 'all');
+    assert.equal(edited.starterConditions[0].identityScope, 'all');
+    assert.equal(edited.starterConditions[0].workGroupScope, 'all');
     assert.equal(edited.resubmitMode, 'fresh');
     assert.deepEqual(edited.steps.map(item => item.actionType), ['pass', 'sign', 'estamp', 'both', 'either']);
     assert.ok(edited.steps.every(item => item.allowApproverDesignation && item.conditions.length === 1));
