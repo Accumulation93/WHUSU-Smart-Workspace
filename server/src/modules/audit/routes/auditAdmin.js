@@ -144,7 +144,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const orgId = await getCurrentOrgId();
     if (!orgId) return res.json({ status: 'invalid_params', message: localeCopy.copy_e0aaf03f8a });
     const description = safeString(req.body.description);
-    const starterType = safeString(req.body.starterType) || 'conditions';
+    let starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);
     const starterHrId = safeString(req.body.starterHrId);
     const starterConditions = Array.isArray(req.body.starterConditions) ? req.body.starterConditions : [];
@@ -159,11 +159,13 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     if (starterType === 'specific_person') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
     }
-    if (!['conditions', 'self', 'identity'].includes(starterType)
-      || (starterType !== 'conditions' && starterConditions.length)
-      || (starterType === 'identity' && !starterIdentityId)) {
+    if ((req.body.starterConditions !== undefined && !Array.isArray(req.body.starterConditions))
+      || !['conditions', 'self', 'identity'].includes(starterType)
+      || (starterType === 'identity' && !starterConditions.length && !starterIdentityId)) {
       return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
     }
+    // 旧编辑器添加范围后可能仍携带 self/identity；实际发起校验也以明确条件优先。
+    if (starterConditions.length) starterType = 'conditions';
 
     for (let si = 0; si < starterConditions.length; si++) {
       const starterCondition = starterConditions[si];

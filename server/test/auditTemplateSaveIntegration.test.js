@@ -68,6 +68,12 @@ const options = {
     await behavior.methods.saveAuditFlowTemplate.call(page);
     assert.equal(saved.status, 'success', saved.message);
     const ids = [saved.id];
+    page.data.auditTemplateForm.starterType = 'self';
+    await behavior.methods.saveAuditFlowTemplate.call(page);
+    assert.equal(saved.status, 'success', saved.message);
+    assert.equal((await call('listAuditFlowTemplates', {})).templates.find(item => item.id === saved.id).starterType, 'conditions');
+    assert.equal((await call('deleteAuditFlowTemplate', { id: saved.id })).status, 'success');
+    page.data.auditTemplateForm.starterType = 'conditions';
     page.data.auditTemplateForm.starterConditions = [];
     for (let i = 0; i < 2; i++) { await behavior.methods.saveAuditFlowTemplate.call(page); assert.equal(saved.status, 'success', saved.message); ids.push(saved.id); }
     assert.equal(new Set(ids).size, 3);

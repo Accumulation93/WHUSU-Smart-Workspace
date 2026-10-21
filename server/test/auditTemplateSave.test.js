@@ -71,6 +71,10 @@ async function invoke(body) {
     assert.equal((await invoke(body)).status, 'success');
   }
   const edit = payload(); edit.id = 'existing';
+  for (const starterType of ['self', 'identity', 'conditions']) {
+    const legacyEditor = payload(); legacyEditor.starterType = starterType;
+    assert.equal((await invoke(legacyEditor)).status, 'success');
+  }
   assert.equal((await invoke(edit)).status, 'success');
   assert.ok(calls.includes('update') && calls.includes('removeSteps'));
   const missing = payload(); missing.id = 'other-org-or-missing';
@@ -82,6 +86,10 @@ async function invoke(body) {
     assert.ok(!calls.includes('acquire'), '所有步骤必须在事务前完成形状校验');
   }
   const badStarter = payload(); badStarter.starterConditions = [null];
+  for (const starterConditions of [null, {}, 'invalid']) {
+    assert.equal((await invoke(Object.assign(payload(), { starterConditions }))).status, 'invalid_params');
+    assert.ok(!calls.includes('acquire'));
+  }
   assert.equal((await invoke(badStarter)).status, 'invalid_params');
   badStarter.starterConditions = [{ conditionType: 'submitter' }];
   assert.equal((await invoke(badStarter)).status, 'invalid_params');
