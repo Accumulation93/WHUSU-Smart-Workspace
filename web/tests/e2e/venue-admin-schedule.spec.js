@@ -22,6 +22,7 @@ async function setup(page, canBook = true) {
         : [{ id: 'blocked', title: 'Occupied', status: 'approved', timeStart: '10:00', timeEnd: '11:00', visibility: 'occupancy_only' }] }] } });
   });
   await page.goto('/web/portal'); await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click();
+  await expect(page).toHaveURL(/\/web\/venue\/manage(?:\?|$)/);
   await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
   await expect(page.locator('.schedule-grid')).toBeVisible();
   return state;

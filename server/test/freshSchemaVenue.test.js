@@ -27,6 +27,7 @@ const config = {
     }));
     try {
       await database.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await database.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261019210000_unified_calendar.sql'), 'utf8'));
       await verifySchemaContract(database);
       const [tables] = await database.query(
         `SELECT TABLE_NAME

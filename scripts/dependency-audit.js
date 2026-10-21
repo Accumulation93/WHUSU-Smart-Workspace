@@ -80,7 +80,20 @@ function readAuditReport() {
   }
 }
 
+function requireCompleteReport(report) {
+  if (!report || report.error || !report.vulnerabilities || typeof report.vulnerabilities !== 'object'
+    || Array.isArray(report.vulnerabilities) || !report.metadata || !report.metadata.vulnerabilities) {
+    throw new Error('依赖审计没有返回完整报告，不能判定安全检查通过');
+  }
+  return report;
+}
+
 function selfTest() {
+  const assert = require('node:assert/strict');
+  for (const invalid of [null, {}, { error: { code: 'ECONNRESET' } }, { vulnerabilities: {} }]) {
+    assert.throws(() => requireCompleteReport(invalid), /没有返回完整报告/);
+  }
+  assert.doesNotThrow(() => requireCompleteReport({ vulnerabilities: {}, metadata: { vulnerabilities: { total: 0 } } }));
   const now = new Date('2026-10-02T00:00:00Z');
   const allowedReport = {
     vulnerabilities: {
@@ -117,7 +130,7 @@ function main() {
     selfTest();
     return;
   }
-  const report = JSON.parse(readAuditReport());
+  const report = requireCompleteReport(JSON.parse(readAuditReport()));
   const findings = collectBlockingFindings(report);
   const exemptions = activeExemptions();
   exemptions.forEach((item) => {
