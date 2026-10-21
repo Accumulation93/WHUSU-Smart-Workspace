@@ -1,11 +1,13 @@
 'use strict';
+const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
 const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 Page({
-  data:{copy,common,loading:false,busy:false,failed:false,saved:false,notice:'',metadata:{},rules:[],draft:null,pickerVisible:false,confirmation:false,selected:[],selectedNames:[],actions:[{key:'assign',label:copy.assign},{key:'update',label:copy.update},{key:'cancel',label:copy.cancelAction}]},
-  onLoad:function(){wx.setNavigationBarTitle({title:copy.ruleManage+' - '+common.appName});},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.ruleManage+' - '+common.appName,loading:false,busy:false,failed:false,saved:false,notice:'',metadata:{},rules:[],draft:null,pickerVisible:false,confirmation:false,selected:[],selectedNames:[],actions:[{key:'assign',label:copy.assign},{key:'update',label:copy.update},{key:'cancel',label:copy.cancelAction}]},
+  onLoad:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
+  onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
   onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({metadata:{},rules:[],draft:null,selected:[],confirmation:false,pickerVisible:false,busy:false});},
   onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},

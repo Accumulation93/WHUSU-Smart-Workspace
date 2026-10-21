@@ -1,11 +1,13 @@
 'use strict';
+const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
 const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 Page({
-  data:{copy,common,busy:false,notice:'',subscription:null,confirmation:false,action:'create'},
-  onLoad:function(){wx.setNavigationBarTitle({title:copy.systemCalendar+' - '+common.appName});},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.systemCalendar+' - '+common.appName,busy:false,notice:'',subscription:null,confirmation:false,action:'create'},
+  onLoad:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
+  onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;},
   onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({subscription:null,confirmation:false,busy:false,notice:''});},
   onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},

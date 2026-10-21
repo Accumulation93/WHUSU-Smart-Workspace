@@ -14,6 +14,11 @@ try { acorn = require('internal/deps/acorn/acorn/dist/acorn'); } catch (_) {
 const { ROUTE_RULES } = require('../server/src/core/services/adminPermissions');
 const ROOT = path.resolve(__dirname, '../server/src');
 const EXPLICIT_SHARED_ROUTES = new Set(['/adminLogin', '/activateOrganization', '/admin/listMyOrganizations', '/unbindRole', '/getRateTargets', '/getMyAdminPermissions', '/listPermissionManagedAdmins', '/getAdminPermissionDetail', '/saveAdminPermissions']);
+// 日程业务同时服务岗位成员和管理员，按具体记录、安排规则及场地权限判权。
+// 三个规则管理接口仍必须登记 ROUTE_RULES；真实越权写入由 calendarIntegration 覆盖。
+for (const route of ['/getCalendarConfiguration', '/getCalendar', '/saveCalendarEvent',
+  '/changeCalendarParticipation', '/saveCalendarParticipants', '/getCalendarParticipants',
+  '/exportCalendar', '/manageCalendarSubscription']) EXPLICIT_SHARED_ROUTES.add(route);
 function walk(directory, output = []) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);

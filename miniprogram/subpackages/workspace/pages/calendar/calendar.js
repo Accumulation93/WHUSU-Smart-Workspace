@@ -1,4 +1,5 @@
 'use strict';
+const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
 const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
@@ -7,13 +8,14 @@ const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const eventBus=require('../../../../utils/eventBus');
 Page({
-  data:{copy,common,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.appName,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
   onLoad:function(){
-    wx.setNavigationBarTitle({title:copy.title+' - '+common.appName});
+    this.setData({navTopPx:getNavigationBarMetrics().totalHeight});
     this._contextChanged=()=>{this.clear();if(this._visible)this.load();};
     eventBus.on('auth:contextChanged',this._contextChanged);eventBus.on('auth:selectionChanged',this._contextChanged);eventBus.on('org:changed',this._contextChanged);
     this.setData({selected:time.formatAbsoluteDate(new Date())});
   },
+  onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
   onHide:function(){this._visible=false;this.clear();},
   onUnload:function(){this._visible=false;this.clear();eventBus.off('auth:contextChanged',this._contextChanged);eventBus.off('auth:selectionChanged',this._contextChanged);eventBus.off('org:changed',this._contextChanged);},

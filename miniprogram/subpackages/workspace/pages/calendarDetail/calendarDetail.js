@@ -1,4 +1,5 @@
 'use strict';
+const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
 const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
@@ -7,8 +8,9 @@ const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const scopes=['instance','following','series'];
 Page({
-  data:{copy,common,loading:false,busy:false,notice:'',detail:null,confirmation:false,action:'',scopeIndex:0,scopeLabels:scopes.map(scope=>copy[scope]),canAdd:false},
-  onLoad:function(options){this._options=options;wx.setNavigationBarTitle({title:copy.title+' - '+common.appName});let canAdd=false;try{const platform=wx.getDeviceInfo().platform;canAdd=['ios','android'].includes(platform)&&wx.canIUse('addPhoneCalendar');}catch(_){}this.setData({canAdd});},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.appName,loading:false,busy:false,notice:'',detail:null,confirmation:false,action:'',scopeIndex:0,scopeLabels:scopes.map(scope=>copy[scope]),canAdd:false},
+  onLoad:function(options){this._options=options;this.setData({navTopPx:getNavigationBarMetrics().totalHeight});let canAdd=false;try{const platform=wx.getDeviceInfo().platform;canAdd=['ios','android'].includes(platform)&&wx.canIUse('addPhoneCalendar');}catch(_){}this.setData({canAdd});},
+  onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
   onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({detail:null,confirmation:false,busy:false});},
   onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},

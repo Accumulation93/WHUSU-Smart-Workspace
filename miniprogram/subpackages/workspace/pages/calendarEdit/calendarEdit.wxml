@@ -1,5 +1,6 @@
 <page-meta page-style="{{pickerVisible ? 'overflow: hidden;' : ''}}" />
-<view class="page page-narrow calendar-page">
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page page-narrow calendar-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero app-name="{{common.appName}}" page-name="{{copy.title}}" />
   <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
   <view wx:if="{{notice}}" class="card calendar-stack"><text>{{notice}}</text><button wx:if="{{failed}}" class="ui-motion-button secondary-btn" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>

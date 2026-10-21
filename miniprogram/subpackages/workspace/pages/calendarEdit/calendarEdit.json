@@ -1,6 +1,8 @@
 {
-  "navigationStyle": "default",
+  "navigationStyle": "custom",
   "usingComponents": {
-    "calendar-conditions": "/subpackages/workspace/components/calendarConditions/calendarConditions"
-  }
+    "calendar-conditions": "/subpackages/workspace/components/calendarConditions/calendarConditions",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  },
+  "navigationBarTitleText": ""
 }
