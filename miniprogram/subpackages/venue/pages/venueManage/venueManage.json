@@ -3,7 +3,8 @@
   "usingComponents": {
     "venue-activity-detail": "/subpackages/venue/components/venueActivityDetail/venueActivityDetail",
     "ui-icon": "/components/ui-icon/ui-icon",
-    "ui-navbar": "/components/ui-navbar/ui-navbar"
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
   },
   "navigationStyle": "custom"
 }

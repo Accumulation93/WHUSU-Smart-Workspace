@@ -1,12 +1,12 @@
 <template>
-  <component :is="interactive ? 'button' : 'div'" :type="interactive ? 'button' : undefined" :disabled="interactive && disabled" class="result-rank-card" :class="`rank-${tone}`" @click="interactive && $emit('open')">
+  <div :role="interactive ? 'button' : undefined" :tabindex="interactive && !disabled ? 0 : undefined" :aria-disabled="interactive && disabled" class="result-rank-card" :class="`rank-${tone}`" @click="interactive && !disabled && $emit('open')" @keydown.enter.self.prevent="interactive && !disabled && $emit('open')" @keydown.space.self.prevent="interactive && !disabled && $emit('open')">
     <span class="result-rank-badge">{{ medals[rank - 1] || rank }}</span>
     <div class="result-member">
-      <strong>{{ member.name }}</strong><span>{{ [member.identity, member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
+      <strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span>{{ [member.identity, member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
       <slot />
     </div>
     <div class="result-score"><strong>{{ value }}</strong><span>{{ mode === 'grade' ? home.grade : home.earnedScore }}</span></div>
-  </component>
+  </div>
 </template>
 <script setup>
 import { computed } from 'vue';
@@ -21,8 +21,8 @@ const value = computed(() => props.mode === 'grade' ? props.member.grade || prop
 </script>
 <style scoped>
 .result-rank-card { display: flex; align-items: center; gap: var(--ui-inline-gap); padding: var(--ui-list-padding-y) var(--ui-list-padding-x); border-radius: var(--ui-list-radius); background: var(--ui-list-bg); border: var(--ui-list-border); box-shadow: var(--ui-list-shadow); backdrop-filter: blur(12px); }
-button.result-rank-card { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-button.result-rank-card:disabled { cursor: default; opacity: var(--ui-disabled-opacity); }
+.result-rank-card[role=button] { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.result-rank-card[aria-disabled=true] { cursor: default; opacity: var(--ui-disabled-opacity); }
 .rank-gold { background: var(--ui-rank-gold-bg); border-color: var(--ui-rank-gold-border); }
 .rank-silver { background: var(--ui-rank-silver-bg); border-color: var(--ui-rank-silver-border); }
 .rank-bronze { background: var(--ui-rank-bronze-bg); border-color: var(--ui-rank-bronze-border); }

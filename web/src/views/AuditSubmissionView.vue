@@ -23,7 +23,7 @@
           {{ submission.description || copy.audit.detailEmptyDescription }}
         </p>
         <div class="row row-wrap">
-          <span class="chip chip-sky">{{ copy.audit.submitterLabel }} {{ submission.submitterName }}</span>
+          <span class="chip chip-sky">{{ copy.audit.submitterLabel }} <PersonLink :name="submission.submitterName" :hr-id="submission.submittedBy" /></span>
           <span v-if="submission.templateName" class="chip chip-sky">{{ submission.templateName }}</span>
           <span class="soft">{{ copy.audit.submittedAtLabel }} {{ detailTimeText(submission.createdAt, submission.createdAtReviewStatus) }}</span>
         </div>
@@ -109,7 +109,7 @@
           <div v-for="event in roundGroup.events" :key="event.id" class="list-row">
             <div class="list-row-main stack-tight">
               <span class="list-row-title">{{ eventTitle(event) }}</span>
-              <span class="soft break-all">{{ event.operatorName || copy.audit.submitterLabel }} · {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}</span>
+              <span class="soft break-all"><PersonLink :name="event.operatorName || copy.audit.submitterLabel" :person-id="event.operatorPersonId" /> · {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}</span>
               <span v-if="event.comment" class="muted break-all">{{ event.comment }}</span>
             </div>
           </div>

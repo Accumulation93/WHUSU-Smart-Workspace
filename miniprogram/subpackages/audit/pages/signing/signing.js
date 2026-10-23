@@ -11,8 +11,8 @@ const { signingStepCurrent } = require('../../utils/auditStepView');
 const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 
 Page({
-  data: { copy, common, navigationTitle: copy.title, navTopPx: 0, fileName: '', fileImage: '', fileId: '',
-    page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '',
+  data: { copy, common, navigationTitle: copy.title, navTopPx: 0, workspaceOrientation: 'auto', fileName: '', fileImage: '', fileId: '',
+    page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '', layersExpanded: false,
     loading: true, ready: false, notice: '', saving: false, workspaceMinHeight: 240, materialSize: 100, materialRotation: 0, activeMaterialId: '', layers: [], layerIndex: 0 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
@@ -25,12 +25,14 @@ Page({
     this._handoff.entryLayerId = 'entry_' + ink.nextLayerOrder();
     this._saved = ink.clone(this._handoff.rollback || this._handoff.draft);
     this._fileDraft = drafts.store.file(this._handoff.draft, this._handoff.file.id);
-    this.setData({ fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
+    this.setData({ workspaceOrientation: this._handoff.pad === true ? 'landscape' : 'auto', fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
       allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false,
       mode: this._handoff.mode || 'browse', activeId: this._handoff.active || '',
       pdf: this._handoff.file.mimeType === 'application/pdf' });
     this.refreshMaterials(); this.validateStep();
   },
+  toggleLayers() { const pad = this.selectComponent('#signingPad'); if (pad) pad.closeTools(); this.setData({ layersExpanded: !this.data.layersExpanded }); },
+  workspaceTools(event) { if (event.detail.expanded) this.setData({ layersExpanded: false }); },
   onShow() {
     const state = orgSession.consume(this);
     if (state.changed || this._scope && !orgSession.isCurrent(this._scope)) {
@@ -124,7 +126,7 @@ Page({
   },
   onCanvasReady(event) {
     const dimensions = event && event.detail || {};
-    this.setData({ ready: true, width: this.data.width || dimensions.width, height: this.data.height || dimensions.height });
+    this.setData({ ready: true, width: this._handoff.pad ? dimensions.width : this.data.width || dimensions.width, height: this._handoff.pad ? dimensions.height : this.data.height || dimensions.height });
     if (this._readyTimer) clearTimeout(this._readyTimer); this._readyTimer = null;
     if (this._waiter) { this._waiter.resolve(); this._waiter = null; }
     this.refreshLayers();

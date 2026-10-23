@@ -20,7 +20,7 @@
               <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">
                 {{item.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (item.status === 'approved' ? localeCopy.copy_2220286f1c : (item.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (item.status === 'withdrawn' ? localeCopy.copy_282e15e226 : item.status)))}}
               </view>
-              <text class="audit-submission-meta-text">{{item.submitterName}} · {{item.submissionNumber}}</text>
+              <text class="audit-submission-meta-text"><person-link name="{{item.submitterName}}" hr-id="{{item.submittedBy}}" /> · {{item.submissionNumber}}</text>
             </view>
             <view class="audit-submission-date">{{item.myLastActionAtText || item.updatedAtText || item.createdAtText}}</view>
             <view class="history-assignment-list" wx:if="{{item.handledAssignmentLabels.length}}">

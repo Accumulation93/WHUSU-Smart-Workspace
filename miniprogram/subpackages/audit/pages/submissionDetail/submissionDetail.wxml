@@ -355,7 +355,7 @@
                 <!-- Expanded detail -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <view class="flow-detail-text">
-                    <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text>{{node.operatorName || localeCopy.copy_b121b80801}}
+                    <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text><person-link name="{{node.operatorName || localeCopy.copy_b121b80801}}" person-id="{{node.operatorPersonId}}" />
                   </view>
                   <view wx:if="{{node.operatorName}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.operationAssignment}}</text>{{node.operatorAssignmentView.hasSnapshot ? node.operatorAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
@@ -388,7 +388,7 @@
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.operatorName || signingCopy.actorUnknown}} · {{node.processedAtText || ''}}
+                  <person-link name="{{node.operatorName || signingCopy.actorUnknown}}" person-id="{{node.operatorPersonId}}" /> · {{node.processedAtText || ''}}
                 </view>
                 <!-- Expand indicator -->
                 <view class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
@@ -397,7 +397,7 @@
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text>{{node.operatorName || signingCopy.actorUnknown}}
+                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text><person-link name="{{node.operatorName || signingCopy.actorUnknown}}" person-id="{{node.operatorPersonId}}" />
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
@@ -436,7 +436,7 @@
       <view wx:if="{{roundGroup.expanded && roundGroup.signatures.length}}">
         <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{roundGroup.signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{roundGroup.signatures}}" wx:key="id">
-          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
+          <view class="list-name"><person-link name="{{item.signerName}}" hr-id="{{item.signerHrId}}" /> · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
           <view class="list-desc">{{item.signedAtText}}</view>
         </view>
       </view>

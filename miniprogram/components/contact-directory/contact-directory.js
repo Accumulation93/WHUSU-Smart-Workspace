@@ -13,7 +13,7 @@ const dimensions = [
 ];
 Component({
   options: { styleIsolation: 'apply-shared' },
-  properties: { admin: { type: Boolean, value: false } },
+  properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' } },
   data: { copy, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
@@ -30,7 +30,8 @@ Component({
       this._active = true;
       this._changed = () => { this.clearPrivate(); this.activate(); };
       eventBus.on('org:changed', this._changed);
-      this.load();
+      if (!this.data.admin && this.properties.initialKey) this.openContact({ currentTarget: { dataset: { key: this.properties.initialKey } } });
+      else this.load();
     },
     clearPrivate: function() {
       if (this._changed) eventBus.off('org:changed', this._changed);
@@ -61,7 +62,7 @@ Component({
     search: function(event) { const query = event.detail.value; this.setData({ query, groups: view.filterGroups(this._groups || [], query) }); },
     openContact: async function(event) {
       const key = event.currentTarget.dataset.key || this.data.detailKey;
-      const basic = (this._groups || []).flatMap(group => group.items).find(item => item.key === key);
+      const basic = (this._groups || []).flatMap(group => group.items).find(item => item.key === key) || (key === this.properties.initialKey || (this.data.contact && (this.data.contact.related || []).some(item => item.key === key)) ? { key, name: '', related: [] } : null);
       if (!basic) return;
       const request = session.beginRequest(this, 'contactDetail');
       this.setData({ detailKey: key, contact: basic, detailLoading: true, detailNotice: '' }, () => this.scrollTo('#directory-detail'));
@@ -69,7 +70,7 @@ Component({
         const result = await callFunction({ name: 'getContactDirectory', data: { key } });
         if (!this.current(request) || this.data.detailKey !== key) return;
         if (result.status !== 'success' || !result.contact) throw result;
-        this.setData({ contact: Object.assign(view.decorateContact(result.contact, dateFormatter), { related: basic.related }) });
+        this.setData({ contact: Object.assign(view.decorateContact(result.contact, dateFormatter), { related: result.contact.relatedPositions || basic.related }) });
       } catch (error) { if (this.current(request) && this.data.detailKey === key) this.setData({ detailNotice: getErrorText(error, copy.loadFailed) }); }
       finally { if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false }); }
     },
@@ -77,6 +78,7 @@ Component({
       const key = this.data.detailKey;
       session.beginRequest(this, 'contactDetail');
       this.setData({ contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
+      if (!this._groups || !this._groups.length) this.load();
     },
     toggleFilter: function(event) {
       const key = event.currentTarget.dataset.filter;
@@ -87,7 +89,7 @@ Component({
     callPhone: function(event) { wx.makePhoneCall({ phoneNumber: event.currentTarget.dataset.phone }); },
     locate: function(event) {
       const key = event.currentTarget.dataset.key;
-      if (!(this._groups || []).some(group => group.items.some(item => item.key === key))) return;
+      if (!(this._groups || []).some(group => group.items.some(item => item.key === key))) return this.openContact(event);
       session.beginRequest(this, 'contactDetail');
       this.setData({ query: '', groups: this._groups, contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
     },

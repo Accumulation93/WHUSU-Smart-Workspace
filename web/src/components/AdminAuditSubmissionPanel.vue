@@ -7,7 +7,7 @@
     <p v-if="loading && !rows.length"><AppLoading :text="copy.common.loading" /></p>
     <p v-else-if="!notice && !rows.length">{{ copy.audit.emptySubmissions }}</p>
     <article v-for="row in rows" :key="row.id" class="stack-tight">
-      <button class="list-row audit-submission" :disabled="busy" @click="router.push({name:'auditSubmission',params:{id:row.id}})"><span class="stack-tight"><strong>{{ row.title }}</strong><span>{{ row.submitterName }} · {{ row.submissionNumber }}</span><span class="soft">{{ detailTimeText(row.createdAt,row.createdAtReviewStatus) }}</span></span><span class="chip chip-blue">{{ statusLabel(row.status) }}</span></button>
+      <div role="button" class="list-row audit-submission" :aria-disabled="busy" tabindex="0" @keydown.enter.self.prevent="$event.currentTarget.click()" @keydown.space.self.prevent="$event.currentTarget.click()" @click="!(busy) && (router.push({name:'auditSubmission',params:{id:row.id}}))"><span class="stack-tight"><strong>{{ row.title }}</strong><span><PersonLink :name="row.submitterName" :hr-id="row.submittedBy" /> · {{ row.submissionNumber }}</span><span class="soft">{{ detailTimeText(row.createdAt,row.createdAtReviewStatus) }}</span></span><span class="chip chip-blue">{{ statusLabel(row.status) }}</span></div>
       <div v-if="canDelete" class="card-actions"><button class="btn btn-danger" :disabled="busy || loading || !!notice || disabled" @click="remove(row)">{{ governance.deleteConfirm }}</button></div>
     </article>
     <button v-if="hasMore" class="btn-quiet" :disabled="loading || busy" @click="load(true)">{{ text.more }}</button>

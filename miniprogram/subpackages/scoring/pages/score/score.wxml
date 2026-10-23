@@ -19,7 +19,7 @@
 
   <view class="target-sticky {{showStickyTarget ? 'target-sticky-show' : ''}}" style="top: {{navTopPx}}px" wx:if="{{target.name}}">
     <view class="target-sticky-label">{{localeCopy.copy_12cd162fda}}</view>
-    <view class="target-sticky-name">{{target.name}}</view>
+    <view class="target-sticky-name"><person-link name="{{target.name}}" assignment-id="{{target.assignmentId}}" person-id="{{target.personId}}" /></view>
   </view>
 
   <view class="card" wx:if="{{loading}}">
@@ -41,7 +41,7 @@
         </view>
         <view class="info-block">
           <view class="info-label">{{localeCopy.copy_b9b9929aee}}</view>
-          <view class="info-value">{{scorer.name}}</view>
+          <view class="info-value"><person-link name="{{scorer.name}}" assignment-id="{{scorer.assignmentId}}" person-id="{{scorer.personId}}" /></view>
           <view class="assignment-chip" wx:if="{{scorer._showAssignmentChip}}">{{scorer._assignmentChipText}}</view>
           <view class="info-subvalue">
             <view wx:if="{{scorer.department}}">{{scorer.department}}</view>
@@ -51,7 +51,7 @@
         </view>
         <view class="info-block target-block">
           <view class="info-label">{{localeCopy.copy_12cd162fda}}</view>
-          <view class="info-value target-name-anchor">{{target.name}}</view>
+          <view class="info-value target-name-anchor"><person-link name="{{target.name}}" assignment-id="{{target.assignmentId}}" person-id="{{target.personId}}" /></view>
           <view class="assignment-chip" wx:if="{{target._showAssignmentChip}}">{{target._assignmentChipText}}</view>
           <view class="info-subvalue">
             <view wx:if="{{target.department}}">{{target.department}}</view>

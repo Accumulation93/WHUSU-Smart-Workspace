@@ -27,7 +27,7 @@
         <div v-for="target in group.targets" :key="target.id" class="list-row target-card" role="button"
           :tabindex="blocked ? -1 : 0" :aria-disabled="blocked" @click="openScore(target)"
           @keydown.enter.prevent="openScore(target)" @keydown.space.prevent="openScore(target)">
-          <div class="target-main"><span class="target-name break-all">{{ target.name }}</span>
+          <div class="target-main"><span class="target-name break-all"><PersonLink :name="target.name" :assignment-id="target.assignmentId" /></span>
             <span class="target-tags"><span v-if="target.identity" class="chip chip-blue">{{ target.identity }}</span>
               <span class="chip" :class="isScored(target) ? 'chip-green' : 'chip-orange'">{{ isScored(target) ? copy.scoring.scoreStatusScored : copy.scoring.scoreStatusPending }}</span>
             </span>

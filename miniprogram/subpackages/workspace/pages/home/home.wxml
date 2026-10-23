@@ -69,7 +69,7 @@
             bindtap="selectTarget"
            hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="target-main">
-              <view class="target-name">{{target.name}}</view>
+              <view class="target-name"><person-link name="{{target.name}}" assignment-id="{{target.assignmentId}}" /></view>
               <view class="target-tags">
                 <view class="target-identity">{{target.identity}}</view>
                 <view class="target-status {{target.scoreStatus === 'scored' ? 'target-status-scored' : 'target-status-pending'}}">
@@ -183,7 +183,7 @@
                   <text wx:else>{{index + 1}}</text>
                 </view>
                 <view class="member-info">
-                  <view class="member-name">{{m.name}}</view>
+                  <view class="member-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
                   <view class="member-detail">{{m.identity}}<text wx:if="{{m.department}}"> · {{m.department}}</text><text wx:if="{{m.workGroup}}"> · {{m.workGroup}}</text></view>
                 </view>
                 <view class="score-display">
@@ -207,7 +207,7 @@
             <text wx:else>{{item.rank}}</text>
           </view>
           <view class="member-info">
-            <view class="member-name">{{item.name}}</view>
+            <view class="member-name"><person-link name="{{item.name}}" assignment-id="{{item.targetAssignmentId || item.assignmentId}}" hr-id="{{item.targetHrId}}" /></view>
             <view class="member-detail">{{item.identity}}<text wx:if="{{item.department}}"> · {{item.department}}</text><text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
           </view>
           <view class="score-display">
@@ -264,7 +264,7 @@
         <scroll-view class="target-scroll" scroll-y wx:if="{{item.designatedMembers.length}}">
           <view class="target-card" wx:for="{{item.designatedMembers}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.05 * index}}s;">
             <view class="target-main">
-              <view class="target-name">{{m.name}}</view>
+              <view class="target-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
               <view class="target-tags">
                 <view class="target-identity">{{m.identity}}</view>
               </view>
@@ -277,7 +277,7 @@
     </view>
   </view>
 
-  <contact-directory wx:if="{{hasUser && !isAdminRole && activeTab === 'directory'}}" />
+  <contact-directory wx:if="{{hasUser && !isAdminRole && activeTab === 'directory'}}" initial-key="{{contactKey}}" />
   <view class="panel {{activeTab === 'profile' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'profile'}}">
     <view class="card profile-card">
       <view class="info-head">

@@ -19,6 +19,10 @@
   "components/hr-profile-migration-requests/hr-profile-migration-requests.json",
   "components/hr-profile-migration-requests/hr-profile-migration-requests.wxml",
   "components/hr-profile-migration-requests/hr-profile-migration-requests.wxss",
+  "components/person-link/person-link.js",
+  "components/person-link/person-link.json",
+  "components/person-link/person-link.wxml",
+  "components/person-link/person-link.wxss",
   "components/personnel-picker/personnel-picker.js",
   "components/personnel-picker/personnel-picker.json",
   "components/personnel-picker/personnel-picker.wxml",
@@ -97,5 +101,6 @@
   "utils/hrProfileDate.js",
   "utils/hrProfileDateRules.js",
   "utils/imageDataUrl.js",
+  "utils/personLinks.js",
   "utils/tableFile.js"
 ]

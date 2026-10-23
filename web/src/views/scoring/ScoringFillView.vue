@@ -20,7 +20,7 @@
         </div>
         <div v-for="(person, index) in [form.scorer || {}, target]" :key="index" class="glass-panel stack-tight">
           <span class="muted">{{ index ? scoreCopy.copy_12cd162fda : scoreCopy.copy_b9b9929aee }}</span>
-          <h2 class="score-person-name break-all">{{ person.name }}</h2>
+          <h2 class="score-person-name break-all"><PersonLink :name="person.name" :assignment-id="person.assignmentId" :person-id="person.personId" /></h2>
           <span v-if="person.historicalAssignmentUnavailable" class="chip chip-orange">{{ scoreCopy.historicalAssignmentUnavailable }}</span>
           <span v-else-if="person.needsAssignmentDisambiguation" class="chip chip-blue break-all">{{ person.assignmentLabel }}</span>
           <span v-if="person.department" class="muted break-all">{{ person.department }}</span>

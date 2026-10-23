@@ -16,7 +16,7 @@ function fixture(api) {
   };
   vm.runInNewContext(fs.readFileSync(filename,'utf8'), { Component: value => {definition=value;}, require: name => mocks[name] || baseRequire(name),
     wx: { pageScrollTo: value=>scrolls.push(value), setClipboardData() {}, makePhoneCall() {} }, Map, Set, Promise, console });
-  const component = { data: {...JSON.parse(JSON.stringify(definition.data)),admin:true}, ...definition.methods,
+  const component = { properties: {initialKey:''}, data: {...JSON.parse(JSON.stringify(definition.data)),admin:true}, ...definition.methods,
     setData(patch, callback) {
       for (const [key,value] of Object.entries(patch)) {
         const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'); let target=this.data;
@@ -66,6 +66,14 @@ async function main() {
   finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await secondOpen;
   assert(lazy.component.data.contact.copyText.includes('电话：13800138000'));
   lazy.component.clearPrivate(); assert.equal(lazy.component.data.contact,null);
+  const directCalls=[];
+  const direct=fixture(async input=>{ directCalls.push(input); return input.data.key ? {status:'success',contact:{...basic,key:input.data.key,relatedPositions:[{key:'other',label:'其他岗位'}]}} : {status:'success',groups:[]}; });
+  direct.component.data.admin=false; direct.component.properties.initialKey='entry'; direct.component.activate(); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(directCalls.length,1); assert.equal(directCalls[0].data.key,'entry');
+  await direct.component.openContact({currentTarget:{dataset:{key:'other'}}});
+  assert.equal(directCalls[1].data.key,'other'); assert.equal(direct.component.data.contact.key,'other');
+  direct.component.closeContact(); await new Promise(resolve=>setImmediate(resolve)); assert.equal(directCalls[2].data.summaryOnly,true);
+  direct.component.clearPrivate();
   console.log('PASS 小程序真实保存参数、人员确认、删除取消/确认、处理提示、隐藏清理和迟到响应丢弃');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

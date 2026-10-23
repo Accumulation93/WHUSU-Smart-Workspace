@@ -271,6 +271,15 @@ function pinchPan(rect, gesture, zoom, clientX, clientY) {
   return { x: clientX - centerX - (gesture.midX - centerX - gesture.panX) * factor,
     y: clientY - centerY - (gesture.midY - centerY - gesture.panY) * factor };
 }
+// 空白板首次按可写视口定纸张；已有历史及重新进入保持原比例，文件页不调用此函数。
+function blankPageSize(fileDraft, viewport) {
+  if (fileDraft.blankDimensions) return fileDraft.blankDimensions;
+  const hasHistory = fileDraft.history && fileDraft.history.operations.length > 0;
+  const width = Number(viewport && viewport.width), height = Number(viewport && viewport.height);
+  if (!hasHistory && (!(width > 0) || !(height > 0))) throw new Error('blank_viewport_unavailable');
+  fileDraft.blankDimensions = hasHistory ? { width: 800, height: 400 } : { width, height };
+  return fileDraft.blankDimensions;
+}
 function createDraftStore() {
   let scope = '', drafts = new Map();
   function reset() { scope = ''; drafts.clear(); }
@@ -286,4 +295,4 @@ function createDraftStore() {
   }
   return { bind, open, file, reset };
 }
-module.exports = { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, recolorLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };
+module.exports = { blankPageSize, clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, recolorLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };

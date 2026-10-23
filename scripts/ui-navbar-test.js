@@ -74,6 +74,24 @@ function makeInstance(settings, properties) {
   return { instance, calls: loaded.calls, definition: loaded.definition };
 }
 
+// 强制横屏后平台仍返回旧竖屏信息时，胶囊实际位置优先；正常竖屏保持原值。
+{
+  const source = fs.readFileSync(path.join(root, 'miniprogram/utils/navigationBarMetrics.js'), 'utf8');
+  function metrics(info, capsule) {
+    const sandbox = { module: { exports: {} }, wx: { getSystemInfoSync: () => info, getMenuButtonBoundingClientRect: () => capsule } };
+    vm.runInNewContext(source, sandbox);
+    return sandbox.module.exports.getNavigationBarMetrics();
+  }
+  const portrait = metrics({ windowWidth: 430, statusBarHeight: 54 }, { left: 323, right: 409, top: 60, height: 32 });
+  assert.equal(portrait.totalHeight, 98);
+  const landscape = metrics({ windowWidth: 430, statusBarHeight: 54 }, { left: 821, right: 907, top: 8, height: 32 });
+  assert.equal(landscape.totalHeight, 48);
+  assert(landscape.capsuleInset > 0);
+  assert(landscape.windowWidth >= 907);
+  assert.equal(metrics({ windowWidth: 932, statusBarHeight: 0 }, { left: 821, right: 907, top: 8, height: 32 }).totalHeight, 48);
+  assert.equal(metrics(null, null).totalHeight, 64, '系统信息不可用时保留原有安全高度');
+}
+
 // —— 顶栏几何 ——
 {
   const loaded = loadComponent({});

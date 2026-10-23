@@ -21,7 +21,15 @@ function handler(work) {
     }
   };
 }
-router.post('/getContactDirectory', handler((body, actor) => model.read(actor, body)));
+router.post('/getContactDirectory', handler((body, actor) => model.read(actor, Object.assign({ summaryOnly: body.summaryOnly === true }, body.key === undefined ? {} : { key: body.key }))));
+router.post('/resolvePersonLinks', handler(async (body, actor, req) => {
+  try {
+    return await model.resolveLinks(actor, body.references, connection => requireAdminOrganizationPermission(req, actor.organizationId, ['hr.people', 'hr.profile_review'], connection));
+  } catch (error) {
+    if (error instanceof AdminOrganizationAccessError) return { links: [] };
+    throw error;
+  }
+}));
 function authorize(req, actor) {
   return connection => requireAdminOrganizationPermission(req, actor.organizationId, ['hr.directory.manage'], connection);
 }

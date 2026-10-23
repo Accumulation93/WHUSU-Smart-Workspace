@@ -72,6 +72,7 @@ Component({
           coverage: item.wholeDocument ? copy.yes : copy.no })),
         steps: (result.verificationVersion === 2 && platformIdentityVerified(file) ? file.steps || [] : []).map(item => ({ key: item.reference,
           name: item.status === 'passed' ? item.name : copy.identityUnknown,
+          personReference: item.status === 'passed' ? item.personReference || '' : '',
           assignment: item.status === 'passed' ? item.assignment : '', organization: item.status === 'passed' ? item.organization : '',
           personText: item.status === 'passed' && Number.isInteger(item.personIndex) && item.personIndex > 0 ? copy.signerLabel(item.personIndex) : '',
           title: copy.stepTitle(item.round, item.step, copy.actions[item.action] || ''),

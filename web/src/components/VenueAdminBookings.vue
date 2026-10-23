@@ -23,7 +23,7 @@
     <article v-for="row in rows" :key="row.id" class="list-row booking-row" tabindex="0" @click="open(row)" @keydown.enter.self="open(row)">
       <div class="panel-head"><span class="list-row-title break-all">{{ row.title || ui.copy_9639901862 }}</span><span class="chip chip-blue">{{ venueStatusLabel(row) }}</span></div>
       <span class="muted break-all">{{ row.venueName }}<template v-if="row.venueLocation"> · {{ row.venueLocation }}</template></span>
-      <span class="muted break-all">{{ row.creatorName || row.userName }} · {{ row.creatorLabel || ui.copy_8b191a40d9 }}<template v-if="row.userDept"> · {{ row.userDept }}</template></span>
+      <span class="muted break-all"><PersonLink :name="row.creatorName || row.userName" :assignment-id="row.creatorAssignmentId" :hr-id="row.userHrId" /> · {{ row.creatorLabel || ui.copy_8b191a40d9 }}<template v-if="row.userDept"> · {{ row.userDept }}</template></span>
       <span v-if="row.creatorAssignmentLabel" class="chip chip-sky">{{ ui.bookingAssignment }} · {{ row.creatorAssignmentLabel }}</span>
       <span class="muted">{{ venueTimeRange(row) }}</span>
       <span v-if="row.description" class="muted break-all">{{ row.description }}</span>

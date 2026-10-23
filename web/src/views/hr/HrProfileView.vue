@@ -9,7 +9,7 @@
     />
 
     <div class="tabs" role="tablist"><button class="tab" :class="{ 'tab-active': hrTab === 'profile' }" :disabled="saving" @click="hrTab = 'profile'">{{ directoryCopy.profile }}</button><button class="tab" :class="{ 'tab-active': hrTab === 'directory' }" :disabled="saving" @click="hrTab = 'directory'">{{ directoryCopy.title }}</button></div>
-    <ContactDirectory v-if="hrTab === 'directory'" />
+    <ContactDirectory v-if="hrTab === 'directory'" :initial-key="String(route.query.contactKey || '')" />
     <form v-else class="card stack" @submit.prevent="save">
       <div class="panel-head">
         <span class="section-title">{{ homeCopy.hr }}</span>
@@ -56,7 +56,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import ContactDirectory from '@/components/ContactDirectory.vue';
 import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
@@ -67,7 +67,9 @@ import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
-const hrTab = ref('profile');
+const route = useRoute();
+const hrTab = ref(route.query.tab === 'directory' ? 'directory' : 'profile');
+watch(() => route.query.tab, tab => { if (tab === 'directory') hrTab.value = 'directory'; });
 const homeCopy = homeLocale.text;
 const loading = ref(true);
 const loadNotice = ref('');

@@ -40,9 +40,9 @@ function eventBindingsValid(rows, facts) {
       && fact.step_status === (row.action_type === 'reject' ? 'rejected' : 'approved');
   });
 }
-function publicReceipt(checked, personIndex) {
+function publicReceipt(checked, personIndex, personReference) {
   const p = checked.payload;
-  return { reference: p.ref, name: p.name, assignment: p.assignment, organization: p.organization, personIndex,
+  return { reference: p.ref, name: p.name, assignment: p.assignment, organization: p.organization, personIndex, personReference,
     action: p.action, signedAt: p.time, timeSource: 'platform_recorded', round: p.round, step: p.step,
     status: 'passed', reasonCode: checked.reasonCode, algorithm: 'RSA-SHA256',
     digestAlgorithm: 'SHA-256', identityAlgorithm: 'HMAC-SHA-256', snapshotAlgorithm: 'AES-256-GCM',
@@ -102,12 +102,12 @@ async function verifyFile(bytes, file, context = {}) {
       if (!equalHex(last.final_file_digest, result.currentHash)) throw { code: 'evidence_document_mismatch' };
       if (last.output_digest_type === 'pdf_byte_range_sha256' && (!finalSignature || !pdf.valid)) throw { code: 'evidence_final_manifest_missing' };
       if (last.output_digest_type === 'file_sha256' && !equalHex(last.output_digest, result.currentHash)) throw { code: 'evidence_document_mismatch' };
-      // 编号只在本次报告内区分已验真的自然人，不公开主键，也不形成跨报告追踪标识。
+      // 报告内编号不公开主键；资料跳转另用组织隔离的带密钥引用，并重新核验查看权限。
       const people = context.people || new Map();
       result.steps = verified.receipts.map(item => {
         const row = rows.find(value => value.id === item.payload.ref);
         if (!people.has(row.person_id)) people.set(row.person_id, people.size + 1);
-        return publicReceipt(item, people.get(row.person_id));
+        return publicReceipt(item, people.get(row.person_id), require('../../../core/services/personReference').personReference(row.org_id, row.person_id));
       });
       // 只导出实际 PDF 签名使用、已登记且与受保护配置精确匹配的公开叶证书。
       result.certificates = [];

@@ -28,7 +28,7 @@
               <span v-if="item.venueName" class="chip chip-sky">{{ item.venueName }}</span>
             </span>
             <span v-if="item.userName" class="soft">
-              {{ native.copy_ce30bda5a2 }} {{ item.userName }}
+              {{ native.copy_ce30bda5a2 }} <PersonLink :name="item.userName" :assignment-id="item.creatorAssignmentId" :hr-id="item.userHrId || item.userId" />
             </span>
             <span v-if="item.creatorAssignmentLabel" class="muted">{{ native.applicantAssignment }} · {{ item.creatorAssignmentLabel }}</span>
             <span class="muted">{{ timeRange(item) }}</span>
@@ -50,7 +50,7 @@
     <GlassDialog v-if="target" :title="target.title || native.copy_48283f4043" :busy="submitting" @close="closeDetail">
       <VenueFlowTimeline :progress="progress" />
       <div class="stack-tight"><span class="soft">{{ native.copy_bbbebc1abf }}</span><span>{{ target.venueName }} {{ target.venueLocation }}</span></div>
-      <div class="stack-tight"><span class="soft">{{ native.copy_ce30bda5a2 }}</span><span>{{ target.userName }}</span></div>
+      <div class="stack-tight"><span class="soft">{{ native.copy_ce30bda5a2 }}</span><PersonLink :name="target.userName" :assignment-id="target.creatorAssignmentId" :hr-id="target.userHrId || target.userId" /></div>
       <div v-if="target.creatorAssignmentLabel" class="stack-tight"><span class="soft">{{ native.applicantAssignment }}</span><span>{{ target.creatorAssignmentLabel }}</span></div>
       <div class="stack-tight"><span class="soft">{{ native.copy_4202a27ca6 }}</span><span>{{ timeRange(target) }}</span></div>
       <div v-if="target.description" class="stack-tight"><span class="soft">{{ native.copy_c5d9511809 }}</span><span class="break-all">{{ target.description }}</span></div>

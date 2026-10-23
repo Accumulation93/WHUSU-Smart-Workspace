@@ -2,6 +2,7 @@
   "navigationBarTitleText": "",
   "navigationStyle": "custom",
   "usingComponents": {
-    "ui-navbar": "/components/ui-navbar/ui-navbar"
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/scoring/package-resources/components/person-link/person-link"
   }
 }

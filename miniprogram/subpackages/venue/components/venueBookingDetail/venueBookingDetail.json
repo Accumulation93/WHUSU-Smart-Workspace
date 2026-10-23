@@ -2,6 +2,7 @@
   "component": true,
   "styleIsolation": "apply-shared",
   "usingComponents": {
-    "calendar-participants": "/subpackages/venue/components/calendarParticipants/calendarParticipants"
+    "calendar-participants": "/subpackages/venue/components/calendarParticipants/calendarParticipants",
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
   }
 }

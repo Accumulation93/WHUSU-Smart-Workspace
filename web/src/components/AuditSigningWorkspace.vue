@@ -1,7 +1,7 @@
 <template>
   <section class="card signing-workspace">
     <div class="signing-main">
-    <div class="panel-head"><span class="section-title">{{ file.fileName || text.padTitle }}</span></div>
+    <div class="signing-topbar">
     <div class="tabs" role="tablist">
       <button v-for="value in modes" :key="value" class="tab" :class="{'tab-active': mode === value}" :aria-selected="mode === value" role="tab" @click="mode = value">{{ text[value] }}</button>
     </div>
@@ -12,7 +12,11 @@
       <button class="btn-quiet" :aria-label="text.zoomOut" :title="text.zoomOut" :disabled="busy" @click="setZoom(zoom / 1.25)">−</button>
       <button class="btn-quiet" :aria-label="text.zoomIn" :title="text.zoomIn" :disabled="busy" @click="setZoom(zoom * 1.25)">+</button>
       <button class="btn-quiet" :aria-label="text.fit" :title="text.fit" :disabled="busy" @click="setZoom(1, true)">⊡</button>
+      <button class="btn-quiet" :aria-label="text.tools" :aria-expanded="toolsExpanded" @click="toolsExpanded = !toolsExpanded; layersExpanded = false">✎</button>
     </div>
+    </div>
+    <div v-if="toolsExpanded" class="signing-toolpanel">
+    <div class="signing-panel-heading"><span>{{ text.tools }}</span><button class="btn-quiet" :aria-label="text.closeTools" @click="toolsExpanded = false">×</button></div>
     <div v-if="mode === 'pen' || mode === 'move'" class="signing-toolbar signing-palette" role="toolbar" :aria-label="text.color">
       <button v-for="preset in presets" :key="preset.value" class="btn-quiet signing-color" :aria-label="text[preset.label]" :title="text[preset.label]" :aria-pressed="!erasing && color === preset.value" @click="color = preset.value; erasing = false"><span class="signing-swatch" :style="{backgroundColor:preset.value}"></span></button>
       <button class="btn-quiet signing-color" :aria-label="text.custom" :title="text.custom" :aria-expanded="custom" @click="custom = !custom">#</button>
@@ -24,13 +28,13 @@
       <label v-for="(label,index) in channelLabels" :key="label" class="field"><span class="field-label">{{ label }}</span><input :value="channels[index]" type="range" min="0" max="255" @input="setChannel(index,$event.target.value)" /></label>
     </div>
     <button v-if="activeId && (!activeMaterial || activeMaterial.signatureType==='signature')" class="btn-quiet" :disabled="busy || saving" @click="recolorSelected">{{ text.recolor }}</button>
-    <div class="signing-toolbar" v-if="totalPages > 1"><button class="btn-quiet" :disabled="page <= 1 || busy" @click="loadPage(page - 1)">◀</button><span>{{ text.page }} {{ page }} / {{ totalPages }}</span><button class="btn-quiet" :disabled="page >= totalPages || busy" @click="loadPage(page + 1)">▶</button></div>
+    </div>
     <div class="signing-stage" ref="stageRef">
       <canvas ref="surfaceRef" :aria-label="text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
       <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
     </div>
     </div>
-    <div class="signing-sidepanel">
+    <div v-if="layersExpanded" class="signing-sidepanel">
     <div class="signing-toolbar signing-layer-toolbar">
       <div class="signing-layer-heading">{{ text.layers }}<span class="muted">{{ layers.length }}</span></div>
       <button class="btn-quiet" :aria-label="text.layerUp" :title="text.layerUp" :disabled="busy || saving || displayLayers.findIndex(layer=>layer.id===(selectedLayer||displayLayers[0]?.id))<=0" @click="reorderLayer(1)">↑</button>
@@ -47,6 +51,10 @@
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.size }}</span><span>{{ Math.round(displayedSize*100) }}%</span></span><input :aria-label="text.size" type="range" min="50" max="220" step="5" :disabled="busy || saving" :value="displayedSize*100" @input="previewAdjustment('size',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="resizeMaterial($event.target.value)" /></label>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.rotation }}</span><span>{{ displayedRotation }}°</span></span><input :aria-label="text.rotation" type="range" min="-180" max="180" step="5" :disabled="busy || saving" :value="displayedRotation" @input="previewAdjustment('rotation',$event.target.value)" @pointercancel="cancelAdjustment" @change="rotateMaterial($event.target.value)" /></label>
     </div>
+    </div>
+    <div class="signing-bottom-bar">
+    <button class="btn-quiet" :aria-expanded="layersExpanded" @click="layersExpanded = !layersExpanded; toolsExpanded = false">{{ text.adjustLayers }} {{ layers.length }}</button>
+    <div class="signing-toolbar" v-if="totalPages > 1"><button class="btn-quiet" :disabled="page <= 1 || busy" @click="loadPage(page - 1)">◀</button><span>{{ page }} / {{ totalPages }}</span><button class="btn-quiet" :disabled="page >= totalPages || busy" @click="loadPage(page + 1)">▶</button></div>
     <p v-if="exportNotice" class="notice-line">{{ exportNotice }}</p>
     <label v-if="allowSaveTemplate" class="selection-option-card"><input type="checkbox" v-model="saveTemplate" :disabled="saving" />{{ text.saveToLibrary }}</label>
     <div class="signing-footer"><button class="btn btn-secondary" :disabled="saving" @click="cancel">{{ text.cancel }}</button><button class="btn btn-primary" :disabled="busy || !!notice || saving" @click="confirm">{{ text.confirm }}</button></div>
@@ -62,12 +70,13 @@ import { confirmAction } from '@/runtime/notify.js';
 import { signingDrafts, restoreDraft } from '@/runtime/signingDrafts.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
 import { nextLayerOrder, updateMaterial, deleteLayer, clone, normalizeColor, appendOperation, undo, redo, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, clamp, signingLayers, moveLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup } from '@/shared/auditInk.js';
-import { recolorLayer } from '@/shared/auditInk.js';
+import { recolorLayer, blankPageSize } from '@/shared/auditInk.js';
 import { signatureGeometry } from '@/shared/auditSignatureGeometry.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 const requests = auditRequests();
 const props = defineProps({ draft: {type:Object,required:true}, file: {type:Object,required:true}, initialMode: {type:String,default:'browse'}, active: {type:String,default:''}, pad: Boolean, allowSaveTemplate: Boolean, rollback: Object, initialPreview: Object });
 const saveTemplate=ref(false);
+const toolsExpanded=ref(false), layersExpanded=ref(false);
 const emit = defineEmits(['confirm','cancel']);
 const entryLayerId = 'entry_' + nextLayerOrder();
 const saved = clone(props.rollback || props.draft), fileDraft = reactive(signingDrafts.file(props.draft, props.file.id));
@@ -113,7 +122,7 @@ function setChannel(index,value){ const next=channels.value.slice();next[index]=
 function imageOf(src){return signingAssets.image(props.draft,src).then(image=>{loadedImages.set(src,image);return image;});}
 async function pageData(number) {
   let value;
-  if(props.pad){const canvas=document.createElement('canvas');canvas.width=800;canvas.height=400;const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,800,400);value={image:await imageOf(canvas.toDataURL()),width:800,height:400,total:1};}
+  if(props.pad){const size=blankPageSize(fileDraft,surfaceRef.value.getBoundingClientRect());const canvas=document.createElement('canvas');canvas.width=Math.ceil(size.width);canvas.height=Math.ceil(size.height);const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);value={image:await imageOf(canvas.toDataURL()),width:size.width,height:size.height,total:1};}
   else {const prepared=await signingAssets.preview(props.draft,props.file,number);const response=prepared.response;value={image:prepared.image,width:response.pageWidth,height:response.pageHeight,total:response.totalPages};}
   value.width=value.width||value.image.width;value.height=value.height||value.image.height;
   if(!alive)throw Error('closed');
@@ -187,12 +196,12 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-layer-toolbar .field{flex:1;min-width:0;flex-direction:row;align-items:center}
 .signing-layer-toolbar .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
 .signing-layer-toolbar .field-label,.signing-width .field-label{flex:none;white-space:nowrap}
-.signing-workspace{display:flex;flex:1 0 auto;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
+.signing-workspace{position:relative;display:grid;flex:1 1 0;min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(120px,1fr) auto;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
 .signing-workspace .panel-head{margin:0;flex:none}
 .signing-workspace .tabs{margin:0;flex:none;min-height:0;padding:0}
 .signing-workspace .tab{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);font-size:var(--ui-type-meta)}
 .signing-toolbar,.signing-objects{display:flex;flex:none;align-items:center;flex-wrap:wrap;gap:var(--ui-signing-tool-gap)}
-.signing-actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+.signing-actions{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
 .signing-toolbar .btn-quiet{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);border-radius:var(--ui-compact-radius)}
 .signing-palette{flex-wrap:nowrap}
 .signing-color{flex:1}
@@ -201,7 +210,7 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-width{display:flex;flex-direction:row;align-items:center;gap:var(--ui-signing-tool-gap)}
 .signing-width .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
 .signing-width{min-width:0;max-width:var(--ui-signing-width-control)}
-.signing-stage{position:relative;flex:1 0 var(--ui-signing-stage-min-height);min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-field-bg)}
+.signing-stage{position:relative;flex:1 1 0;min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-option-selected-bg);box-shadow:inset 0 0 0 2px var(--ui-blue-500)}
 .signing-stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
 .signing-stage-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--ui-field-bg)}
 .signing-footer{padding-top:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border);display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-action-gap)}
@@ -223,11 +232,18 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-adjustments .field{min-width:0;gap:0}
 .signing-adjustment-label{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
 .signing-adjustments input[type=range]{display:block;box-sizing:border-box;width:100%;height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x;accent-color:var(--ui-blue-700)}
-@media (orientation:landscape) and (max-height:600px){
-.signing-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,28%);align-items:stretch}
-.signing-main{display:flex;min-width:0;min-height:0;flex-direction:column;gap:var(--ui-signing-tool-gap)}
-.signing-sidepanel{justify-content:flex-start}
-.signing-adjustments{grid-template-columns:minmax(0,1fr);gap:var(--ui-signing-control-gap)}
-.signing-footer{grid-template-columns:minmax(0,1fr)}
-}
+.signing-topbar{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:var(--ui-signing-control-gap);flex:none}
+.signing-stage,.signing-toolpanel,.signing-sidepanel{grid-column:1;grid-row:2;min-height:0}
+.signing-topbar{grid-column:1;grid-row:1}
+.signing-bottom-bar{grid-column:1;grid-row:3}
+.signing-toolpanel,.signing-sidepanel{position:relative;z-index:4;width:min(360px,96%);overflow:auto;padding:var(--ui-signing-control-gap);box-sizing:border-box;background:var(--ui-card-bg);border:var(--ui-result-label-border);border-radius:var(--ui-field-radius);box-shadow:var(--ui-card-shadow);backdrop-filter:blur(12px)}
+.signing-toolpanel{justify-self:start}
+.signing-sidepanel{justify-self:end}
+.signing-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-signing-tool-gap);margin-bottom:var(--ui-signing-control-gap)}
+.signing-bottom-bar{display:flex;align-items:center;flex:none;gap:var(--ui-signing-control-gap);flex-wrap:wrap}
+.signing-bottom-bar .selection-option-card{padding:var(--ui-signing-tool-gap);min-height:var(--ui-signing-tool-height);font-size:var(--ui-type-meta)}
+.signing-footer{margin-left:auto;padding:0;border:0;gap:var(--ui-signing-control-gap)}
+.signing-footer .btn{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap) var(--ui-signing-control-gap);font-size:var(--ui-type-meta)}
+.signing-bottom-bar .notice-line{position:absolute;bottom:var(--ui-control-height);background:var(--ui-card-bg)}
+@media(max-width:519px){.signing-topbar{grid-template-columns:minmax(0,1fr)}}
 </style>

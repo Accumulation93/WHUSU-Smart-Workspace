@@ -185,6 +185,22 @@
       },
       {
         "type": "file",
+        "value": "components/person-link/person-link.js"
+      },
+      {
+        "type": "file",
+        "value": "components/person-link/person-link.json"
+      },
+      {
+        "type": "file",
+        "value": "components/person-link/person-link.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/person-link/person-link.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/personnel-picker/personnel-picker.js"
       },
       {
@@ -494,6 +510,10 @@
       {
         "type": "file",
         "value": "utils/imageDataUrl.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/personLinks.js"
       },
       {
         "type": "file",

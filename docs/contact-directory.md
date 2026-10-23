@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | getContactDirectory | `{summaryOnly:true}` | groups：按部门分组的姓名与岗位基础信息；fields 为空，不查询补充资料值 |
 | getContactDirectory | `{key}`，来自本次列表 | contact：重新检查当前权限后，读取该岗位获授权的补充资料 |
+| resolvePersonLinks | references：最多 100 个 `{kind,id}`，kind 为 hr/assignment/person/reference | links：原引用及当前允许的 contact 或 hr 目标，无权时为 null；不返回资料值 |
 | getContactDirectoryConfiguration | 空对象 | rules、people、departments、identities、workGroups、fields；须独立管理权限 |
 | saveContactDirectoryRule | id/version（编辑时）、name、enabled、audience、targets、fieldIds | 保存后回读的 rule |
 | batchContactDirectoryRules | action 为 enable/disable/delete，rules 为 id/version 列表 | 成功操作数量；任一项失效则整体回滚 |
@@ -51,3 +52,13 @@ audience 与 targets 是条件数组，各组之间 OR。同一个 scope 中不�
 - `web/tests/e2e/contact-directory.spec.js`：三个浏览器设备项目中的只读搜索、拨号链接、岗位定位、独立管理员配置、复制与确认删除。
 
 完整本机 CI、本轮微信主包和全部分包编译、部署状态分别记录。浏览器模拟尺寸和微信开发者工具不替代实体手机、Pad 竖屏及横屏现场测试。生产不创建测试人员或规则，不自动发布微信正式版。
+
+## 2026-10-23 业务姓名跳转
+
+两端复用 person-link/PersonLink。姓名只有存在可靠人员、岗位或带密钥引用且服务端确认目标可读时才呈现链接；不按姓名匹配。普通用户进入人事信息的通讯录页签，直接读取单个获授权岗位，服务端同时返回其他可见岗位的随机键与标签，不提前下载全部资料。历史岗位只识别原自然人，不扩大当前可见范围，也不改变业务记录中的历史岗位文字。
+
+管理角色必须另有 hr.people 或 hr.profile_review 才返回 hr 目标；目录规则管理、评分或验签权限不自动取得人事资料权限。目标页面继续调用原 getHrPersonDetail 并重新授权。身份验证报告只在证据核实后提供组织隔离 HMAC 引用，不公开自然人主键或学号派生值，不改写 PDF 公开凭证。
+
+已接入审核申请/审批历史/步骤经办人/验签，评分填写/任务/公示/结果明细，场地借用详情/审批流程/管理列表及日程参会人。选择器内姓名继续承担选择动作，输入草稿、未关联历史姓名和文件正文不猜测人员；本人 Hero 保留身份卡入口。点击姓名隔离父卡事件，点击前再次读取权限；隐藏、卸载与角色变化清空目标、丢弃迟到结果。微任务内合并引用，每批最多 100 项，批次串行，不使用跨请求权限缓存。
+
+针对性验证补充 personLinks.test.js（批次、角色变化、迟到响应和点击撤权）、contactDirectoryIntegration.test.js（真实数据库多岗位、同名人员、历史岗位和逐列隔离）、person-links.spec.js（两个目标入口、关闭父动作和撤权）。

@@ -1,7 +1,7 @@
 @import '../../../main/styles/home.wxss';
 .signing-page { animation: none; transform: none; display: flex; flex-direction: column; padding: var(--ui-inline-gap); padding-bottom: calc(var(--ui-inline-gap) + env(safe-area-inset-bottom)); box-sizing: border-box; }
-.signing-card { display: flex; flex: 1 0 auto; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
-.signing-workspace { flex: 1 0 240px; min-height: 240px; display: block; }
+.signing-card { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
+.signing-workspace { flex: 1 1 0; min-height: 0; display: block; }
 .signing-card > .section-title { flex: none; }
 .signing-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
 .signing-pages { display: flex; align-items: center; justify-content: center; gap: var(--ui-inline-gap); }
@@ -29,13 +29,18 @@
 .signing-sidepanel { display: flex; flex: none; flex-direction: column; min-width: 0; gap: var(--ui-inline-gap); }
 .signing-save-option { padding: var(--ui-inline-gap); border: 1px solid #cbd5e1; border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,#ffffff,#f8fbff); font-size: var(--ui-type-label); line-height: 1.5; }
 .signing-save-option.selection-option-card-selected { border-color: #2563eb; background: linear-gradient(135deg,#dbeafe,#eff6ff); }
-@media (orientation: landscape) and (max-height: 600px) {
-  .signing-card { display: grid; grid-template-columns: minmax(0,1fr) 224px; grid-template-rows: auto auto minmax(240px,1fr); align-items: start; }
-  .signing-card > .section-title { grid-column: 1; grid-row: 1; }
-  .signing-pages { grid-column: 1; grid-row: 2; }
-  .signing-workspace { grid-column: 1; grid-row: 3; height: 100%; }
-  .signing-sidepanel { grid-column: 2; grid-row: 1 / 4; }
-  .signing-adjustments { grid-template-columns: minmax(0,1fr); gap: 12px; }
-  .signing-footer { flex-direction: column; gap: 8px; }
-  .signing-footer > button { flex: none; min-width: 100%; width: 100%; }
-}
+
+/* 签署页占满可用视口；工具抽屉浮于画布，不再挤压文件。 */
+page .page.signing-page { padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)) !important; overflow: hidden; }
+page .signing-page .card.signing-card { position: relative; gap: 4px; padding: 0 !important; margin: 0 !important; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+.signing-sidepanel { position: absolute; z-index: 10; right: 0; top: 44px; bottom: 48px; width: min(360px, 90%); padding: 12px; box-sizing: border-box; border: 1px solid #93c5fd; border-radius: var(--ui-field-radius); background: linear-gradient(135deg,#ffffff,#eff6ff); box-shadow: 0 8px 24px rgba(15,23,42,0.16); }
+.signing-bottom-bar { display: flex; flex: none; align-items: center; gap: 8px; min-width: 0; }
+.signing-bottom-bar .secondary-btn, .signing-bottom-bar .primary-btn { min-height: 36px; height: auto; padding: 4px 10px; margin: 0; font-size: var(--ui-type-meta); }
+.signing-toggle { flex: none; width: auto; min-width: 0; }
+.signing-footer { display: flex; flex: 1; justify-content: flex-end; padding: 0; border: 0; gap: 8px; }
+.signing-footer > button { flex: 0 0 auto; min-width: 64px; width: auto; }
+.signing-save-option { flex: none; min-height: 36px; box-sizing: border-box; display: flex; align-items: center; padding: 4px 8px; font-size: var(--ui-type-meta); }
+.signing-pages { flex: none; gap: 4px; }
+.signing-pages > view { min-width: 48px; }
+.signing-bottom-bar > .signing-notice { position: absolute; z-index: 11; bottom: 44px; left: 4px; right: 4px; background: linear-gradient(135deg,#ffffff,#eff6ff); padding: 8px; border-radius: var(--ui-field-radius); }
+@media (orientation: portrait) { .signing-bottom-bar { flex-wrap: wrap; } }

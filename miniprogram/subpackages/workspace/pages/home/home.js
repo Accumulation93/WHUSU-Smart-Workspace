@@ -494,6 +494,10 @@ Page({
 
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
+    if (this._subApp === 'hr' && options.tab === 'directory') {
+      this._preferredOrgTab = 'directory';
+      this.setData({ activeTab: 'directory', contactKey: /^[a-f0-9]{96}$/.test(options.contactKey || '') ? options.contactKey : '' });
+    }
     this._focusAccountSecurity = Boolean(options && options.section === 'account');
   },
 

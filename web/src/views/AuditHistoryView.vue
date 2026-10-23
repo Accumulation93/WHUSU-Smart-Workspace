@@ -25,15 +25,15 @@
       <div v-else class="list">
         <div v-for="row in rows" :key="row.id" class="list-row">
           <div class="list-row-main">
-            <button type="button" class="audit-row-open" @click="openDetail(row.id)">
+            <div role="button" class="audit-row-open" tabindex="0" @keydown.enter.self.prevent="$event.currentTarget.click()" @keydown.space.self.prevent="$event.currentTarget.click()" @click="openDetail(row.id)">
               <span class="list-row-title break-all">{{ row.title || row.submissionNumber }}</span>
               <span class="row row-wrap">
                 <span class="chip" :class="statusTone(row.status)">{{ statusLabel(row.status) }}</span>
-                <span class="chip chip-sky">{{ copy.audit.submitterLabel }} {{ row.submitterName }}</span>
+                <span class="chip chip-sky">{{ copy.audit.submitterLabel }} <PersonLink :name="row.submitterName" :hr-id="row.submittedBy" /></span>
               </span>
               <span class="soft">{{ row.submissionNumber }} · {{ myActionText(row) }}</span>
               <span class="list-row-time">{{ listTimeText({ updatedAt: row.myLastActionAt }) }}</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>

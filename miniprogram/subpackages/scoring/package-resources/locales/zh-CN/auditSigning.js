@@ -4,6 +4,7 @@ module.exports = {
   signedOrStamped: '已签名或盖章',
   originalRequired: '无法读取签署前原件，请编辑申请并重新上传附件后提交。',
   title: '签署文件', padTitle: '手写签名', browse: '浏览', move: '移动', pen: '画笔',
+  tools: '画笔设置', closeTools: '收起设置', adjustLayers: '图层与调整',
   erase: '橡皮擦', undo: '撤销', redo: '重做', clear: '清空书写',
   black: '黑色', blue: '蓝色', red: '红色', custom: '自定义颜色', color: '笔迹颜色',
   hex: '颜色值', redChannel: '红', greenChannel: '绿', blueChannel: '蓝',

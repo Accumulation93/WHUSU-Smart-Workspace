@@ -27,6 +27,25 @@ function instance(saveTemplate) {
   };
 }
 (async () => {
+  for (const blank of [false, true]) {
+    let page;
+    vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
+      Page(value) { page = value; }, console, setTimeout, clearTimeout,
+      require(name) {
+        if (name.endsWith('/orgSession')) return { getSnapshot: () => ({}), consume() {} };
+        if (name.endsWith('/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 48 }) };
+        if (name.endsWith('/auditPreviewFiles')) return { removeExpiredPreviews: async () => {} };
+        if (name.endsWith('/auditSigningDrafts')) return { getHandoff: () => ({ pad: blank, draft: {}, file: { id: 'file', fileName: 'file.pdf' } }), store: { file: () => ({}) } };
+        return ownRequire(name);
+      }
+    }, { filename: source });
+    const entry = { ...page, data: { ...page.data }, setData(value) { Object.assign(this.data, value); }, refreshMaterials() {}, validateStep() {} };
+    assert.equal(entry.data.workspaceOrientation, 'auto');
+    entry.onLoad();
+    assert.equal(entry.data.workspaceOrientation, blank ? 'landscape' : 'auto', '只有空白签名板固定横屏，文件签署跟随设备');
+  }
+  assert.equal(JSON.parse(fs.readFileSync(source.replace('.js', '.json'), 'utf8')).pageOrientation, 'auto');
+  assert(fs.readFileSync(source.replace('.js', '.wxml'), 'utf8').startsWith('<page-meta page-orientation="{{workspaceOrientation}}" />'));
   const plain = instance(false); await plain.confirm();
   assert.equal(calls.length, 0); assert.deepEqual(order, ['back', 'confirm']);
   order.length = 0;

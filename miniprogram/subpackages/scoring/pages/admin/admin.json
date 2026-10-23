@@ -18,6 +18,7 @@
     "hr-import-issue-list": "/subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList",
     "score-record-detail-dialog": "/subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog",
     "audit-verification-matches": "/subpackages/scoring/package-resources/components/audit-verification-matches/audit-verification-matches",
-    "ui-navbar": "/components/ui-navbar/ui-navbar"
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/scoring/package-resources/components/person-link/person-link"
   }
 }

@@ -16,7 +16,8 @@ async function main() {
   model.configuration = async (orgId, authorize) => { await authorize('transaction'); return {rules:[],people:[],fields:[]}; };
   model.save = async (body,orgId,authorize) => { await authorize('transaction'); return {id:'saved',version:1,name:body.name}; };
   model.batch = async (body,orgId,authorize) => { await authorize('transaction'); return {count:body.rules.length}; };
-  model.read = async actor => { calls.push({actor}); return {groups:[]}; };
+  model.read = async (actor,options) => { calls.push({actor,options}); return {groups:[]}; };
+  model.resolveLinks = async (actor,references,authorize) => { if(actor.role==='admin')await authorize('transaction');calls.push({linkActor:actor,references});return {links:[]}; };
   const app=express();app.use(express.json());
   app.use((req,res,next)=>{req.authAccount={id:'account',personId:'authenticated-person'};req.authContext={personId:'authenticated-person',contextId:'current-context',organizationId:'current-org',role:req.headers['x-test-role']||'user',assignmentId:'current-assignment'};next();});
   app.use('/api',require('../src/core/routes/contactDirectory'));
@@ -25,12 +26,18 @@ async function main() {
   try {
     assert.equal((await post('getContactDirectory',{personId:'other',organizationId:'other',assignmentId:'other'})).body.status,'success');
     assert.equal(calls[0].actor.personId,'authenticated-person');assert.equal(calls[0].actor.assignmentId,'current-assignment');
+    await post('getContactDirectory',{references:[{kind:'person',id:'other'}]});
+    assert.equal(calls[1].options.references,undefined);
+    assert.equal((await post('resolvePersonLinks',{references:[],organizationId:'other'})).body.status,'success');
+    assert.deepEqual((await post('resolvePersonLinks',{references:[]},{'x-test-role':'admin'})).body.links,[]);
+    assert.equal((await post('resolvePersonLinks',{references:[]},{'x-test-role':'admin','x-test-grant':'yes'})).body.status,'success');
+    assert(calls.filter(item=>item.linkActor).every(item=>item.linkActor.organizationId==='current-org'));
     for(const name of ['getContactDirectoryConfiguration','saveContactDirectoryRule','batchContactDirectoryRules']) {
       assert.equal((await post(name,{},{})).code,403);
       assert.equal((await post(name,{}, {'x-test-role':'admin'})).code,403);
     }
     assert.equal((await post('saveContactDirectoryRule',{name:'规则',organizationId:'other'},{'x-test-role':'admin','x-test-grant':'yes'})).body.rule.id,'saved');
-    assert(calls.filter(item=>item.orgId).every(item=>item.orgId==='current-org'&&item.keys[0]==='hr.directory.manage'&&item.connection==='transaction'));
+    assert(calls.filter(item=>item.orgId).every(item=>item.orgId==='current-org'&&['hr.directory.manage','hr.people'].includes(item.keys[0])&&item.connection==='transaction'));
     const rule=permissions.ROUTE_RULES.get('/saveContactDirectoryRule');assert.deepEqual(rule.anyOf,['hr.directory.manage']);assert.equal(rule.allowUserRole,false);
     console.log('PASS 通讯录 HTTP 入口普通用户/未授权管理员拒绝、事务复核和客户端身份替换无效');
   } finally { await new Promise(resolve=>server.close(resolve)); }

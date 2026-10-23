@@ -1190,6 +1190,7 @@ Page({
             let eoKey = (eo.round || 1) + '_' + eo.stepIndex + '_' + eo.eventType;
             eventOperatorMap[eoKey] = {
               operatorName: eo.operatorName || '',
+              operatorPersonId: eo.operatorPersonId || '',
               comment: eo.comment || '',
               time: formatAuditTime(eo.createdAt, eo.createdAtReviewStatus),
               assignmentView: workContextView.normalizeSnapshot(eo.operatorContextSnapshot)
@@ -1228,6 +1229,7 @@ Page({
             time: formatAuditTime(initialSubmit.createdAt, initialSubmit.createdAtReviewStatus),
             iconName: 'file',
             operatorName: initialSubmit.operatorName || '',
+            operatorPersonId: initialSubmit.operatorPersonId || '',
             operatorAssignmentView: workContextView.normalizeSnapshot(initialSubmit.operatorContextSnapshot),
             comment: ''
           });
@@ -1275,6 +1277,7 @@ Page({
                 iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
                 operatorName: interEvt.operatorName || '',
+                operatorPersonId: interEvt.operatorPersonId || '',
                 operatorAssignmentView: workContextView.normalizeSnapshot(interEvt.operatorContextSnapshot)
               });
             }
@@ -1290,6 +1293,7 @@ Page({
                 time: formatAuditTime(resubmitEvt.createdAt, resubmitEvt.createdAtReviewStatus),
                 iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
+                operatorPersonId: resubmitEvt.operatorPersonId || '',
                 operatorAssignmentView: workContextView.normalizeSnapshot(resubmitEvt.operatorContextSnapshot),
                 comment: ''
               });
@@ -1453,6 +1457,7 @@ Page({
               approverHrId: step.approverHrId,
               approverName: step.approverName,
               operatorName: actualOperatorName,
+              operatorPersonId: eventInfo.operatorPersonId || '',
               approverIdentityId: step.approverIdentityId,
               approverIdentityName: step.approverIdentityName,
               scopeType: step.scopeType,
@@ -1523,6 +1528,7 @@ Page({
             time: formatAuditTime(lateEvt.createdAt, lateEvt.createdAtReviewStatus),
             iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
+            operatorPersonId: lateEvt.operatorPersonId || '',
             operatorAssignmentView: workContextView.normalizeSnapshot(lateEvt.operatorContextSnapshot),
             comment: lateEvt.comment || ''
           });
@@ -1547,6 +1553,7 @@ Page({
               : '',
             iconName: 'check',
             operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
+            operatorPersonId: lastApproveEvt ? (lastApproveEvt.operatorPersonId || '') : '',
             operatorAssignmentView: workContextView.normalizeSnapshot(lastApproveEvt && lastApproveEvt.operatorContextSnapshot),
             comment: lastApproveEvt ? (lastApproveEvt.comment || '') : ''
           });

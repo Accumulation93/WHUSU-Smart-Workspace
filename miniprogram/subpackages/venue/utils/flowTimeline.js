@@ -92,6 +92,8 @@ function buildFlowTimeline(prog) {
       meta: meta,
       comment: comment,
       approverName: approverName,
+      approverPersonId: snap && snap.approverPersonId || '',
+      approverAssignmentId: snap && snap.approverAssignmentId || '',
       approverAssignmentText: approverAssignmentText,
       approvedAtText: approvedAtText,
       isAutomatic: Boolean(snap && snap.automatic),

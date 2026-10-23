@@ -3,7 +3,8 @@
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon",
     "personnel-picker": "/subpackages/venue/package-resources/components/personnel-picker/personnel-picker",
-    "ui-navbar": "/components/ui-navbar/ui-navbar"
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
   },
   "enablePullDownRefresh": true,
   "navigationStyle": "custom"

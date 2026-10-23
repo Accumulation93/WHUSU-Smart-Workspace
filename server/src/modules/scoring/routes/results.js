@@ -1456,10 +1456,12 @@ router.post('/getScoreResults', async (req, res) => {
           recordId: safeString(record.id),
           scorer: {
             id: safeString(record.scorerId), name: safeString(record.scorerName),
+            assignmentId: safeString(record.scorerAssignmentId), personId: safeString(record.scorerPersonId),
             studentId: safeString(record.scorerStudentId), identity: safeString(record.scorerIdentity)
           },
           target: {
             id: safeString(record.targetId), name: safeString(record.targetName),
+            assignmentId: safeString(record.targetAssignmentId), personId: safeString(record.targetPersonId),
             studentId: safeString(record.targetStudentId), identity: safeString(record.targetIdentity)
           },
           submittedAt: record.submittedAt || null,

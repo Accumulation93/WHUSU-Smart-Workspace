@@ -27,8 +27,8 @@
             <span class="row row-wrap">
               <span v-if="item.venueName" class="chip chip-sky">{{ item.venueName }}</span>
               <span class="chip chip-blue">{{ venueStatusLabel(item) }}</span>
-              <span v-if="item.submitterName" class="chip chip-sky">
-                {{ copy.audit.submitterLabel }} {{ item.submitterName }}
+              <span v-if="item.applicantName || item.submitterName" class="chip chip-sky">
+                {{ copy.audit.submitterLabel }} <PersonLink :name="item.applicantName || item.submitterName" :assignment-id="item.applicantAssignmentId" />
               </span>
             </span>
             <span class="muted">{{ timeRange(item) }}</span>

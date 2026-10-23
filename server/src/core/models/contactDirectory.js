@@ -8,6 +8,7 @@ const policy = require('../services/contactDirectoryPolicy');
 const copy = require('../../locales/zh-CN/contactDirectory');
 const { hmac } = require('../services/identityCrypto');
 const crypto = require('crypto');
+const { personReference } = require('../services/personReference');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 const placeholders = values => values.map(() => '?').join(',');
 
@@ -125,7 +126,40 @@ async function read(actor, options = {}) {
     // 当前岗位已失效时，不得悄悄改用其他岗位匹配。
     if (actor.assignmentId && !viewer.assignment) return empty();
     let visible = policy.grants(rules, data.people, viewer, data);
+    if (options.references) {
+      const targets = new Map();
+      for (const item of visible) {
+        const target = { kind: 'contact', key: contactKey(actor, item, nonce) };
+        const keys = ['hr:' + item.person.hrId, 'person:' + item.person.personId, 'reference:' + personReference(actor.organizationId, item.person.personId)];
+        if (item.assignment) keys.push('assignment:' + item.assignment.id);
+        for (const key of keys) if (!targets.has(key)) targets.set(key, target);
+      }
+      // 历史岗位只用于识别同一个人；跳转目标仍必须是当前获授权的岗位。
+      const historicalIds = [...new Set(options.references.filter(ref => ref.kind === 'assignment' && !targets.has('assignment:' + ref.id)).map(ref => ref.id))];
+      if (historicalIds.length) {
+        const rows = (await connection.query(`SELECT a.id, m.person_id AS personId FROM membership_assignments a
+          JOIN organization_memberships m ON m.id = a.membership_id AND m.org_id = a.org_id
+          WHERE a.org_id = ? AND a.id IN (${placeholders(historicalIds)})`, [actor.organizationId, ...historicalIds]))[0];
+        for (const row of rows) {
+          const target = targets.get('person:' + row.personId);
+          if (target) targets.set('assignment:' + row.id, target);
+        }
+      }
+      return { links: options.references.map(ref => ({ ref: ref.kind + ':' + ref.id, target: targets.get(ref.kind + ':' + ref.id) || null })) };
+    }
+    let relatedPositions = [];
     if (detail) {
+      const selected = visible.find(item => contactKey(actor, item, nonce) === options.key);
+      if (!selected) throw new policy.DirectoryError('contactUnavailable');
+      const tupleOf = item => JSON.stringify([item.assignment && item.assignment.nature, item.assignment && item.assignment.departmentId, item.assignment && item.assignment.identityCategoryId, item.assignment && item.assignment.workGroupId]);
+      const relatedTuples = new Set([tupleOf(selected)]);
+      relatedPositions = visible.filter(item => {
+        if (item.person.personId !== selected.person.personId || relatedTuples.has(tupleOf(item))) return false;
+        relatedTuples.add(tupleOf(item));
+        return true;
+      }).map(item => ({
+        key: contactKey(actor, item, nonce), label: item.assignment ? [item.assignment.departmentName, item.assignment.identityCategoryName, item.assignment.workGroupName].filter(Boolean).join(' · ') : copy.noPosition
+      }));
       visible = visible.filter(item => contactKey(actor, item, nonce) === options.key);
       if (!visible.length) throw new policy.DirectoryError('contactUnavailable');
     }
@@ -160,7 +194,7 @@ async function read(actor, options = {}) {
       relations.set(item.person.personId, related);
     }
     relations.forEach(cards => cards.forEach(card => { card.relatedKeys = cards.filter(other => other !== card).map(other => other.key); }));
-    if (detail) return { contact: Array.from(groups.values())[0].items[0] };
+    if (detail) return { contact: Object.assign(Array.from(groups.values())[0].items[0], { relatedPositions }) };
     return { groups: Array.from(groups.values()) };
   });
 }
@@ -185,4 +219,24 @@ async function cleanupPerson(connection, personId, orgId) {
   }
   return rows.length;
 }
-module.exports = { catalog, configuration, save, batch, read, cleanupPerson, deletionImpact };
+async function resolveLinks(actor, references, authorize) {
+  if (!Array.isArray(references) || references.length > 100 || references.some(ref => !ref || !['hr', 'assignment', 'person', 'reference'].includes(ref.kind) || typeof ref.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(ref.id))) throw new policy.DirectoryError('invalidRule');
+  if (actor.role !== 'admin') {
+    const result = await read(actor, { references, summaryOnly: true });
+    return { links: result.links || [] };
+  }
+  return pool.withTransaction(async connection => {
+    await authorize(connection);
+    const rows = (await connection.query(`SELECT m.legacy_hr_id AS hrId, m.person_id AS personId, a.id AS assignmentId
+      FROM organization_memberships m LEFT JOIN membership_assignments a ON a.membership_id = m.id AND a.org_id = m.org_id
+      WHERE m.org_id = ?`, [actor.organizationId]))[0];
+    const targets = new Map();
+    for (const row of rows) {
+      if (!row.hrId) continue;
+      const target = { kind: 'hr', hrId: row.hrId };
+      for (const key of ['hr:' + row.hrId, 'person:' + row.personId, 'assignment:' + row.assignmentId, 'reference:' + personReference(actor.organizationId, row.personId)]) targets.set(key, target);
+    }
+    return { links: references.map(ref => ({ ref: ref.kind + ':' + ref.id, target: targets.get(ref.kind + ':' + ref.id) || null })) };
+  });
+}
+module.exports = { catalog, configuration, save, batch, read, resolveLinks, cleanupPerson, deletionImpact };

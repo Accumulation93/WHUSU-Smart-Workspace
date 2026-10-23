@@ -21,7 +21,7 @@ Page({
       const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
       const detail=result.items.find(item=>item.id===this._options.id&&item.occurrenceDate===this._options.date);if(!detail)throw new Error(copy.unavailable);
       detail.timeText=time.formatListTime(detail.startAt,config.timezoneOffset/60)+' — '+time.formatListTime(detail.endAt,config.timezoneOffset/60);
-      detail.participants=(detail.participants||[]).map(person=>({name:person.name,positions:person.positions.map(position=>[position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · '))}));
+      detail.participants=(detail.participants||[]).map(person=>({name:person.name,personReference:person.personReference||'',positions:person.positions.map(position=>[position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · '))}));
       this.setData({detail,loading:false});
     }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}
   },

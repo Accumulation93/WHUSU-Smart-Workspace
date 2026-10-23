@@ -54,6 +54,7 @@ import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import dateFormatter from '@/runtime/hrProfileDate.js';
 import UiIcon from './UiIcon.vue';
+const props = defineProps({ initialKey: { type: String, default: '' } });
 const groups = ref([]), query = ref(''), loading = ref(false), notice = ref('');
 const contact = ref(null), detailKey = ref(''), detailLoading = ref(false), detailNotice = ref(''), detailPanel = ref(null);
 let detailGeneration = 0;
@@ -75,7 +76,7 @@ async function copyValue(value) {
   catch { detailNotice.value = copy.operationFailed; }
 }
 async function openContact(key) {
-  const basic = groups.value.flatMap(group => group.items).find(item => item.key === key);
+  const basic = groups.value.flatMap(group => group.items).find(item => item.key === key) || (key === props.initialKey || contact.value?.related?.some(item => item.key === key) ? { key, name: '', related: [] } : null);
   if (!basic) return;
   const request = ++detailGeneration, expected = scope();
   detailKey.value = key; contact.value = basic; detailLoading.value = true; detailNotice.value = '';
@@ -85,7 +86,7 @@ async function openContact(key) {
     const result = requireSuccess(await callApi('getContactDirectory', { key }));
     if (current()) {
       if (!result.contact) throw new Error(copy.contactUnavailable);
-      contact.value = { ...view.decorateContact(result.contact, dateFormatter), related: basic.related };
+      contact.value = { ...view.decorateContact(result.contact, dateFormatter), related: result.contact.relatedPositions || basic.related };
     }
   } catch (error) { if (current()) detailNotice.value = errorText(error, copy.loadFailed); }
   finally { if (current()) detailLoading.value = false; }
@@ -93,14 +94,16 @@ async function openContact(key) {
 function clearDetail() { detailGeneration++; contact.value = null; detailKey.value = ''; detailLoading.value = false; detailNotice.value = ''; }
 async function closeContact() {
   const key = detailKey.value; clearDetail(); await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
+  if (!groups.value.length) load();
 }
 async function locate(key) {
-  if (!groups.value.some(group => group.items.some(item => item.key === key))) return;
+  if (!groups.value.some(group => group.items.some(item => item.key === key))) return openContact(key);
   clearDetail(); query.value = ''; await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
 }
-function visibility() { generation++; clearDetail(); groups.value = []; query.value = ''; if (!document.hidden) load(); }
+function activate() { if (/^[a-f0-9]{96}$/.test(props.initialKey)) openContact(props.initialKey); else load(); }
+function visibility() { generation++; clearDetail(); groups.value = []; query.value = ''; if (!document.hidden) activate(); }
 document.addEventListener('visibilitychange', visibility);
-watch(scope, () => { clearDetail(); query.value = ''; load(); }, { immediate: true });
+watch([scope, () => props.initialKey], () => { generation++; clearDetail(); groups.value = []; query.value = ''; activate(); }, { immediate: true });
 onBeforeUnmount(() => { disposed = true; generation++; clearDetail(); groups.value = []; document.removeEventListener('visibilitychange', visibility); });
 </script>
 <style scoped>

@@ -2,7 +2,7 @@
   <div class="stack">
     <h2 class="list-row-title">{{ booking.title || ui.copy_56feddb4d3 }}</h2>
     <dl class="booking-fields">
-      <template v-for="field in fields" :key="field.label"><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></template>
+      <template v-for="field in fields" :key="field.label"><dt>{{ field.label }}</dt><dd><PersonLink v-if="field.person" :name="field.value" :assignment-id="booking.creatorAssignmentId || booking.applicantAssignmentId" :hr-id="booking.userHrId" :person-id="booking.creatorPersonId" /><template v-else>{{ field.value }}</template></dd></template>
       <dt>{{ ui.copy_8aee737e64 }}</dt><dd><span class="chip chip-blue">{{ venueStatusLabel(booking) }}</span></dd>
     </dl>
     <CalendarSourceParticipants source-kind="venue_booking" :source-id="booking.id" />
@@ -28,7 +28,7 @@ const fields = computed(() => {
     [ui.applicantAssignment, b.creatorAssignmentLabel || b.applicantAssignmentLabel], [ui.copy_02419589be, b.userDept],
     [ui.copy_c1965e0690, b.userIdentity], [ui.copy_303b7a8611, b.userWorkGroup], [ui.copy_4202a27ca6, venueTimeRange(b)],
     [ui.copy_c5d9511809, b.description], [ui.copy_41c20cc066, b.approvalComment]
-  ].filter(([, value]) => value).map(([label, value]) => ({ label, value }));
+  ].filter(([, value]) => value).map(([label, value]) => ({ label, value, person: label === ui.copy_ce30bda5a2 }));
 });
 </script>
 <style scoped>

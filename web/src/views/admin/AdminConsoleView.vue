@@ -68,7 +68,7 @@
       <div v-else class="list">
         <div v-for="row in filteredRows" :key="row.hrId || row.id" class="list-row">
           <div class="list-row-main stack-tight">
-            <span class="list-row-title break-all">{{ row.name }}</span>
+            <PersonLink class="list-row-title break-all" :name="row.name" :hr-id="row.hrId || row.id" />
             <span class="row row-wrap">
               <span v-if="row.studentId" class="muted">{{ row.studentId }}</span>
               <span class="chip" :class="row.auth?.status === 'verified' ? 'chip-green' : 'chip-orange'">
@@ -88,6 +88,7 @@
       <span class="section-title">{{ activeLabel }}</span>
       <p class="notice-line">{{ copy.admin.consoleNote }}</p>
     </section>
+    <HrPersonDetail v-if="activeTab === 'hrInfo' && canMembers && route.query.hrId && !permissionLoading && !permissionNotice" :hr-id="String(route.query.hrId)" :assignments="rows.find(row => (row.hrId || row.id) === route.query.hrId)?.assignments || []" @close="router.replace({name:'adminConsole',query:{subApp:'hr',tab:'hrInfo'}})" />
     <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
   </div>
 </template>
@@ -96,6 +97,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import ContactDirectoryAdmin from '@/components/ContactDirectoryAdmin.vue';
+import HrPersonDetail from '@/components/HrPersonDetail.vue';
 import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AdminDictionaryPanel from '@/components/AdminDictionaryPanel.vue';

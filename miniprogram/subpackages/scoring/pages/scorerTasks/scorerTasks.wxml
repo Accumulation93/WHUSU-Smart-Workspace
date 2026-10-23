@@ -69,7 +69,7 @@
           <view class="task-table-row ui-motion-chip ui-data-row" wx:for="{{scorerRows}}" wx:key="scorerKey" data-index="{{index}}" bindtap="openPendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">
               <text class="ui-data-cell-label">{{localeCopy.copy_b9b9929aee}}</text>
-              <view class="ui-data-cell-content"><view class="task-name">{{item.scorerName}}</view><view class="task-meta" wx:if="{{!item._showAssignmentChip}}">{{item.department}}</view><view class="assignment-chip" wx:if="{{item._showAssignmentChip}}">{{item._assignmentChipText}}</view></view>
+              <view class="ui-data-cell-content"><view class="task-name"><person-link name="{{item.scorerName}}" assignment-id="{{item.assignmentId || item.scorerAssignmentId}}" /></view><view class="task-meta" wx:if="{{!item._showAssignmentChip}}">{{item.department}}</view><view class="assignment-chip" wx:if="{{item._showAssignmentChip}}">{{item._assignmentChipText}}</view></view>
             </view>
             <view class="task-col task-col-progress ui-data-cell">
               <text class="ui-data-cell-label">{{localeCopy.copy_44b244e636}}</text>
@@ -117,7 +117,7 @@
           <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
               <text class="ui-data-cell-label">{{localeCopy.copy_12cd162fda}}</text>
-              <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view></view>
+              <view class="ui-data-cell-content"><view class="task-name"><person-link name="{{item.targetName}}" assignment-id="{{item.assignmentId || item.targetAssignmentId}}" /></view></view>
             </view>
             <view class="popup-col popup-col-dept ui-data-cell">
               <text class="ui-data-cell-label">{{localeCopy.copy_937ade982a}}</text>

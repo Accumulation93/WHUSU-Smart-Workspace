@@ -510,6 +510,7 @@ Page({
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
     this._requestedTab = (options && options.tab) || '';
+    this._requestedHrId = options && /^[A-Za-z0-9_-]{1,64}$/.test(options.hrId || '') ? options.hrId : '';
     this.applySubAppFilter();
   },
 
@@ -1066,6 +1067,10 @@ Page({
           await this.loadAuthPolicy().catch(() => {});
         }
         this.updateHrFormOptions();
+        if (this._requestedHrId && canBrowseHr) {
+          const hrId = this._requestedHrId; this._requestedHrId = '';
+          await this.openHrPersonDetail({ currentTarget: { dataset: { hrId } } });
+        }
         return;
       }
 

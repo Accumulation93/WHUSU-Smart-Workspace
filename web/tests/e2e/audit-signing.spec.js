@@ -64,7 +64,7 @@ test('空白签名板可选保存，已有签名改色可以撤销重做', async
   expect(saved).toMatch(/^data:image\/png;base64,/);
   await page.getByRole('button', { name: text.move, exact: true }).first().click();
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: text.red, exact: true }).click();
+  await panel(page,'tools'); await page.getByRole('button', { name: text.red, exact: true }).click();
   await page.getByRole('button', { name: text.recolor, exact: true }).click();
   await page.getByRole('button', { name: text.undo, exact: true }).click();
   await page.getByRole('button', { name: text.redo, exact: true }).click();
@@ -83,7 +83,12 @@ test('空白签名板可选保存，已有签名改色可以撤销重做', async
   }, image);
   expect(counts.red).toBeGreaterThan(100); expect(counts.other).toBe(0);
 });
+async function panel(page, kind, open = true) {
+  const button=page.getByRole('button', {name:kind === 'tools' ? text.tools : new RegExp('^'+text.adjustLayers)});
+  if ((await button.getAttribute('aria-expanded')) !== String(open)) await button.click();
+}
 async function stroke(page, y = 0.5, left = 0.2, right = 0.8) {
+  await panel(page,'tools',false); await panel(page,'layers',false);
   await page.locator('.signing-stage canvas').scrollIntoViewIfNeeded();
   const box = await page.locator('.signing-stage canvas').boundingBox();
   const fileWidth = Math.min(box.width, box.height * 2), fileHeight = fileWidth / 2;
@@ -109,10 +114,10 @@ async function pixels(page) {
 }
 test('签署页以文件为主体，紧凑工具栏与底部操作完整可见', async ({ page }) => {
   await setup(page); await enter(page);
-  const sizes = [{ width: 310, height: 650 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 720 }];
+  const sizes = [{ width: 310, height: 650 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 720 }, {width:844,height:390}];
   for (const size of sizes) {
     await page.setViewportSize(size);
-    await expect.poll(() => page.locator('.signing-stage').evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThan((size.height - 44) * 0.35);
+    await expect.poll(() => page.locator('.signing-stage').evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThan((size.height - 44) * 0.65);
     const layout = await page.evaluate(() => {
       const footer = document.querySelector('.signing-footer').getBoundingClientRect(), stage = document.querySelector('.signing-stage').getBoundingClientRect();
       return { footer: footer.bottom, stage: stage.bottom, horizontalOverflow: document.documentElement.scrollWidth > innerWidth };
@@ -120,7 +125,7 @@ test('签署页以文件为主体，紧凑工具栏与底部操作完整可见',
     expect(layout.footer).toBeLessThanOrEqual(size.height + 1);
     expect(layout.stage).toBeLessThan(layout.footer);
     expect(layout.horizontalOverflow).toBe(false);
-    await expect(page.locator('.signing-actions button')).toHaveCount(6);
+    await expect(page.locator('.signing-actions button')).toHaveCount(7);
   }
   await stroke(page); await page.getByRole('button', { name: text.undo, exact: true }).click();
   await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
@@ -140,9 +145,9 @@ test('连续黑色笔画、三种预设与自定义颜色在画布和透明导�
     return gaps;
   });
   expect(continuity).toBe(0);
-  await page.getByRole('button', { name: text.blue, exact: true }).click(); await stroke(page, 0.47);
-  await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page, 0.53);
-  await page.getByRole('button', { name: text.custom, exact: true }).click();
+  await panel(page,'tools'); await page.getByRole('button', { name: text.blue, exact: true }).click(); await stroke(page, 0.47);
+  await panel(page,'tools'); await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page, 0.53);
+  await panel(page,'tools'); await page.getByRole('button', { name: text.custom, exact: true }).click();
   await page.getByLabel(text.hex).fill('#12abcd'); await page.getByLabel(text.hex).press('Tab'); await stroke(page, 0.56);
   await expect.poll(async () => (await pixels(page)).custom).toBeGreaterThan(50);
   const colored = await pixels(page); expect(colored.black).toBeGreaterThan(100); expect(colored.blue).toBeGreaterThan(100); expect(colored.red).toBeGreaterThan(100);
@@ -173,7 +178,7 @@ test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({
   for (let i = 0; i < 7; i++) await page.getByRole('button', { name: text.zoomIn, exact: true }).click();
   const measured = [];
   for (const width of ['1', '2', '3.5']) {
-    await page.getByRole('combobox', { name: text.width, exact: true }).selectOption(width);
+    await panel(page,'tools'); await page.getByRole('combobox', { name: text.width, exact: true }).selectOption(width);
     await stroke(page);
     const coverage = await page.locator('.signing-export-canvas').evaluate(canvas => {
       const data = canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), 0, 1, canvas.height).data;
@@ -190,13 +195,13 @@ test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({
 });
 test('确认返回不清历史，重进立即撤销与重做；跨页撤销自动定位', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page);
-  await page.getByRole('button', { name: '▶', exact: true }).click(); await expect(page.getByText(text.page + ' 2 / 2', { exact: true })).toBeVisible(); await stroke(page);
+  await page.getByRole('button', { name: '▶', exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible(); await stroke(page);
   await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
   await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeEnabled();
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
-  await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText(text.page + ' 1 / 2', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText('1 / 2', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: text.redo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
-  await page.getByRole('button', { name: text.redo, exact: true }).click(); await expect(page.getByText(text.page + ' 2 / 2', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: text.redo, exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: text.confirm, exact: true }).click(); await expect(page).toHaveURL(/submission\/submission-1$/);
 });
 test('取消恢复进入前历史，清空覆盖附件所有页且撤销恢复', async ({ page }) => {
@@ -211,7 +216,7 @@ test('取消恢复进入前历史，清空覆盖附件所有页且撤销恢复',
   await page.getByRole('dialog').getByRole('button', { name: text.clear, exact: true }).click();
   await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
   await page.getByRole('button', { name: '◀', exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
-  await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText(text.page + ' 2 / 2', { exact: true })).toBeVisible(); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
+  await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible(); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
 });
 test('两个附件分别保留笔画历史，刷新后不保留登录内草稿', async ({ page }) => {
   await setup(page, { twoFiles: true }); await enter(page); await stroke(page);
@@ -223,7 +228,7 @@ test('两个附件分别保留笔画历史，刷新后不保留登录内草稿',
 });
 test('橡皮擦仅局部擦除本步骤笔画，重进仍可撤销擦除', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page); const before = await pixels(page);
-  await page.getByRole('button', { name: text.erase, exact: true }).click(); await stroke(page, 0.5, 0.45, 0.55);
+  await panel(page,'tools'); await page.getByRole('button', { name: text.erase, exact: true }).click(); await stroke(page, 0.5, 0.45, 0.55);
   await expect.poll(async () => (await pixels(page)).black).toBeLessThan(before.black);
   expect((await pixels(page)).black).toBeGreaterThan(50);
   await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
@@ -279,10 +284,10 @@ test('审批拒绝保留书写，成功后读取失败只重读且不能重复�
 test('每次进入形成一个图层，排序与撤销在重进和导出保持一致', async ({ page }) => {
   const state = await setup(page); await enter(page);
   await stroke(page); await stroke(page, 0.48);
-  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
+  await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
   await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
-  await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
-  const layers = page.locator('.signing-layer-strip');
+  await panel(page,'tools'); await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
+  await panel(page,'layers'); const layers = page.locator('.signing-layer-strip');
   await expect(layers.getByRole('option')).toHaveCount(2);
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 2');
   await expect(layers.locator('.signing-layer-rank')).toHaveText(['1', '2']);
@@ -297,7 +302,7 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 1');
   await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data))).toEqual([0,0,0,255]);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
-  await enter(page); await expect(layers.getByRole('option')).toHaveCount(2);
+  await enter(page); await panel(page,'layers'); await expect(layers.getByRole('option')).toHaveCount(2);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
@@ -333,20 +338,20 @@ test('详情先预取图片，重复签署不重新请求；移动旋转删除�
   await page.mouse.click(box.x+box.width*0.7,box.y+box.height*0.5);
   await page.getByRole('button',{name:text.undo,exact:true}).click();
   await page.getByRole('button',{name:text.redo,exact:true}).click();
-  const rotation=page.getByLabel(text.rotation,{exact:true});
+  await panel(page,'layers'); const rotation=page.getByLabel(text.rotation,{exact:true});
   await rotation.fill('45');await rotation.dispatchEvent('change');
   await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('0');
   await page.getByRole('button',{name:text.redo,exact:true}).click();await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.remove,exact:true}).click();
-  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(0);
+  await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(0);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.confirm,exact:true}).click();
   await enter(page);await stroke(page);await stroke(page,0.4);
-  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(2);
+  await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(2);
   await page.getByRole('button',{name:text.confirm,exact:true}).click();await enter(page);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await page.getByRole('button',{name:text.undo,exact:true}).click();
-  await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
+  await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
   await page.getByRole('button',{name:text.redo,exact:true}).click();
   await page.getByRole('button',{name:text.confirm,exact:true}).click();
   expect(state.calls.filter(item=>item.name==='getMyStampImage')).toHaveLength(1);
@@ -375,7 +380,7 @@ test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换�
         return Math.abs((right-left+1)/(bottom-top+1)-2);
       })).toBeLessThan(0.025);
     }
-    const slider=page.getByRole('slider',{name:text.size,exact:true});
+    await panel(page,'layers'); const slider=page.getByRole('slider',{name:text.size,exact:true});
     await slider.scrollIntoViewIfNeeded();
     const geometry=await slider.evaluate(node=>{
       const rect=node.getBoundingClientRect(),footer=document.querySelector('.signing-footer').getBoundingClientRect();

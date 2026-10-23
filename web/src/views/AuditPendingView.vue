@@ -25,17 +25,17 @@
       <div v-else class="list">
         <div v-for="row in rows" :key="row.id" class="list-row">
           <div class="list-row-main">
-            <button type="button" class="audit-row-open" @click="openDetail(row.submissionId)">
+            <div role="button" class="audit-row-open" tabindex="0" @keydown.enter.self.prevent="$event.currentTarget.click()" @keydown.space.self.prevent="$event.currentTarget.click()" @click="openDetail(row.submissionId)">
               <span class="list-row-title break-all">{{ row.title || row.submissionNumber }}</span>
               <span class="row row-wrap">
                 <span class="chip chip-sky">{{ stepText(row) }}</span>
                 <span v-if="isSignatureStep(row)" class="chip chip-orange">{{ copy.audit.actionLabels.sign }}</span>
               </span>
               <span class="soft">
-                {{ copy.audit.submitterLabel }} {{ row.submitterName }} · {{ row.submissionNumber }}
+                {{ copy.audit.submitterLabel }} <PersonLink :name="row.submitterName" :hr-id="row.submittedBy" /> · {{ row.submissionNumber }}
               </span>
               <span class="list-row-time">{{ detailTimeText(row.createdAt, row.createdAtReviewStatus) }}</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>

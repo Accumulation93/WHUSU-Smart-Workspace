@@ -1,7 +1,8 @@
 {
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon",
-    "ui-navbar": "/components/ui-navbar/ui-navbar"
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/audit/package-resources/components/person-link/person-link"
   },
   "navigationBarTitleText": "",
   "navigationStyle": "custom"

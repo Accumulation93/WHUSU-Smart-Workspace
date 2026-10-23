@@ -124,8 +124,9 @@ function members(event,catalog,exits,date) {
   }
   return [...people.values()];
 }
-function publicMembers(people) {
-  return people.map(person=>({name:person.name,positions:person.assignments.map(a=>({department:a.departmentName,identityCategory:a.identityCategoryName,workGroup:a.workGroupName || ''}))}));
+function publicMembers(people, orgId) {
+  const { personReference } = require('../services/personReference');
+  return people.map(person=>({name:person.name,personReference:personReference(orgId,person.personId),positions:person.assignments.map(a=>({department:a.departmentName,identityCategory:a.identityCategoryName,workGroup:a.workGroupName || ''}))}));
 }
 async function canModify(event,actor,action,data,stored,permissions) {
   if (event.visibility==='private') return event.creatorPersonId===actor.personId;
@@ -224,7 +225,7 @@ async function listForActor(connection,actor,input,permissions={}) {
         allDay:item.allDay,location:item.location,sourceKind:event.sourceKind,visibility:event.visibility,timezoneOffset:event.spec.timezoneOffset,
         participantCount:participants.length,attending,canUpdate:canUpdate && event.sourceKind==='manual',canCancel:canCancel && event.sourceKind==='manual'};
       if (input.export===true) Object.assign(card,{description:item.description,reminders:item.reminders || []});
-      if (input.detailId===event.id && input.occurrenceDate===item.occurrenceDate) Object.assign(card,{description:item.description,participants:publicMembers(participants),
+      if (input.detailId===event.id && input.occurrenceDate===item.occurrenceDate) Object.assign(card,{description:item.description,participants:publicMembers(participants,actor.organizationId),
         form:occurrences.form(Object.assign({},item,{startAt:Date.parse(item.startAt),endAt:Date.parse(item.endAt)})),
         seriesForm:canUpdate && event.sourceKind==='manual' ? occurrences.form(event.spec) : null,
         targets:canUpdate ? event.targets : [],reminders:item.reminders || []});
@@ -310,7 +311,7 @@ async function getParticipants(input,actor,authorize) {
     }
     const participants=members(event,catalog,linked.exits.get(event.id)||[],date);
     if(!canEdit&&!participants.some(person=>person.personId===actor.personId))throw new CalendarError('forbidden');
-    return Object.assign(metadata,{id:event.id,version:event.version,canEdit,targets:canEdit?event.targets:[],participants:publicMembers(participants)});
+    return Object.assign(metadata,{id:event.id,version:event.version,canEdit,targets:canEdit?event.targets:[],participants:publicMembers(participants,actor.organizationId)});
   });
 }
 module.exports={configuration,saveRule,batchRules,save,list,mutate,saveParticipants,getParticipants,listForActor,load,related,members,publicMembers,canModify,rules,decode,timezone,validId,actorSnapshot};

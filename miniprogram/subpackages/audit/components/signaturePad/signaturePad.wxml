@@ -12,7 +12,11 @@
     <button class="secondary-btn" aria-label="{{copy.zoomOut}}" bindtap="zoomOut" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">−</button>
     <button class="secondary-btn" aria-label="{{copy.zoomIn}}" bindtap="zoomIn" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+</button>
     <button class="secondary-btn" aria-label="{{copy.fit}}" bindtap="fit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⊡</button>
+    <button class="secondary-btn" aria-label="{{copy.tools}}" aria-expanded="{{toolsExpanded}}" bindtap="toggleTools" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✎</button>
   </view>
+  </view>
+  <scroll-view wx:if="{{toolsExpanded}}" class="sigpad-settings" scroll-y enhanced show-scrollbar="{{true}}">
+  <view class="sigpad-settings-heading"><text>{{copy.tools}}</text><button class="secondary-btn" aria-label="{{copy.closeTools}}" bindtap="toggleTools" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</button></view>
   <view wx:if="{{mode === 'pen' || mode === 'move'}}" class="sigpad-toolbar sigpad-palette">
     <button class="secondary-btn sigpad-color {{color === '#000000' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.black}}" data-color="#000000" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-black"></view></button>
     <button class="secondary-btn sigpad-color {{color === '#0000ff' && !erasing ? 'sigpad-selected' : ''}}" aria-label="{{copy.blue}}" data-color="#0000ff" bindtap="setColor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="sigpad-swatch sigpad-blue"></view></button>
@@ -22,14 +26,14 @@
     <picker class="ui-field-control-host sigpad-width" value="{{penWidth === 1 ? 0 : (penWidth === 2 ? 1 : 2)}}" range="{{[copy.thin,copy.medium,copy.thick]}}" bindchange="setWidth"><view class="picker-display ui-field-control">{{penWidth === 1 ? copy.thin : (penWidth === 2 ? copy.medium : copy.thick)}}</view></picker>
   </view>
   <view wx:if="{{custom && (mode === 'pen' || mode === 'move')}}" class="sigpad-colors">
-    <view class="field-label">{{copy.hex}}</view><input class="field-input" value="{{colorInput}}" maxlength="7" bindchange="setHex" />
+    <view class="field-label">{{copy.hex}}</view><input class="field-input" value="{{colorInput}}" maxlength="7" bindchange="setHex" adjust-position="{{false}}" cursor-spacing="16" />
     <view class="field-label">{{copy.redChannel}}</view><slider class="sigpad-channel" value="{{red}}" min="0" max="255" data-channel="0" bindchanging="setChannel" />
     <view class="field-label">{{copy.greenChannel}}</view><slider class="sigpad-channel" value="{{green}}" min="0" max="255" data-channel="1" bindchanging="setChannel" />
     <view class="field-label">{{copy.blueChannel}}</view><slider class="sigpad-channel" value="{{blue}}" min="0" max="255" data-channel="2" bindchanging="setChannel" />
   </view>
   <view wx:if="{{recolorable && (mode === 'pen' || mode === 'move')}}" class="sigpad-toolbar"><button class="secondary-btn" disabled="{{recoloring}}" bindtap="recolorSelected" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.recolor}}</button></view>
-  </view>
-  <canvas type="2d" id="sigSurface" class="sigpad-surface" catchtouchstart="onTouchStart" catchtouchmove="onTouchMove" catchtouchend="onTouchEnd" catchtouchcancel="onTouchCancel"></canvas>
+  </scroll-view>
+  <view class="sigpad-frame"><canvas type="2d" id="sigSurface" class="sigpad-surface" catchtouchstart="onTouchStart" catchtouchmove="onTouchMove" catchtouchend="onTouchEnd" catchtouchcancel="onTouchCancel"></canvas></view>
   <view wx:if="{{notice}}" class="sigpad-notice">{{notice}}</view>
   <canvas type="2d" id="sigInkCanvas" class="sigpad-export-canvas"></canvas>
   <canvas type="2d" id="sigExportCanvas" class="sigpad-export-canvas"></canvas>

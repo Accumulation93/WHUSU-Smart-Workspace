@@ -380,7 +380,7 @@ module.exports = { hour: hour, min: min };
                   <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
                   <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                   <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                    <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                    <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text><person-link name="{{node.approverName}}" person-id="{{node.approverPersonId}}" assignment-id="{{node.approverAssignmentId}}" /></view>
                     <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-processed-meta"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text>{{node.approverAssignmentText}}</view>
                     <view wx:if="{{node.approvedAtText}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAtText}}</view>
                     <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>

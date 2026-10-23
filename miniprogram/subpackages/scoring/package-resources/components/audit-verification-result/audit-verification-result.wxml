@@ -30,7 +30,7 @@
         <view class="crypto-check-label">{{step.title}}</view>
         <view wx:if="{{step.personText}}" class="crypto-person-reference">{{step.personText}}</view>
       </view>
-      <view class="crypto-person">{{step.name}}</view>
+      <view class="crypto-person"><person-link name="{{step.name}}" reference="{{step.personReference}}" /></view>
       <view class="crypto-identity crypto-state--{{step.state}}">{{step.stateText}}</view>
       <view class="crypto-affiliation">
         <view wx:if="{{step.organization}}" class="crypto-affiliation-row">

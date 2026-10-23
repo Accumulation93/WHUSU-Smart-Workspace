@@ -73,7 +73,7 @@
           <button v-if="merit.canDesignate === true" type="button" class="btn-quiet" :disabled="loading || saving || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
         </div>
         <div v-for="member in group.members" :key="member.id" class="list-row merit-member">
-          <div class="info-head"><strong>{{ member.name }}</strong><span class="chip chip-blue">{{ member.identity }}</span></div>
+          <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
           <span class="muted">{{ [member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
         </div>
         <p v-if="!group.members.length" class="empty-state">{{ home.noDesignatedMember }}</p>

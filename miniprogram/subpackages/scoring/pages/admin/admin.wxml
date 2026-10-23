@@ -711,7 +711,7 @@
 
                 <!-- Member info -->
                 <view class="member-info">
-                  <view class="member-name">{{item.name}}</view>
+                  <view class="member-name"><person-link name="{{item.name}}" assignment-id="{{item.targetAssignmentId || item.assignmentId}}" hr-id="{{item.targetHrId}}" /></view>
                   <view class="member-detail">{{item.identity}}<text wx:if="{{item.department}}"> · {{item.department}}</text><text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
                   <!-- Progress bar inline -->
                   <view class="progress-row">
@@ -758,7 +758,7 @@
             </view>
             <view class="list-main">
               <view class="scorer-card-title">
-                <view class="list-name scorer-name">{{item.scorerName}}</view>
+                <view class="list-name scorer-name"><person-link name="{{item.scorerName}}" assignment-id="{{item.scorerAssignmentId || item.assignmentId}}" person-id="{{item.scorerPersonId || item.personId}}" /></view>
                 <view class="status-chip scorer-inline-status {{item.statusClass}}">{{item.statusText}}</view>
               </view>
               <view class="scorer-meta-lines">
@@ -825,7 +825,7 @@
             <view class="result-table-row result-table-row-clickable ui-motion-chip ui-data-row" wx:for="{{departmentScorerRows}}" wx:key="scorerKey" data-scorer-key="{{item.scorerKey}}" bindtap="openScorerTargetPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="result-col result-col-popup-name ui-data-cell ui-data-cell--primary">
                 <text class="ui-data-cell-label">{{localeCopy.copy_b9b9929aee}}</text>
-                <view class="ui-data-cell-content"><view class="result-name">{{item.scorerName}}</view></view>
+                <view class="ui-data-cell-content"><view class="result-name"><person-link name="{{item.scorerName}}" assignment-id="{{item.assignmentId || item.scorerAssignmentId}}" person-id="{{item.personId || item.scorerPersonId}}" /></view></view>
               </view>
               <view class="result-col result-col-popup-detail ui-data-cell">
                 <text class="ui-data-cell-label">{{localeCopy.copy_4727505bbd}}</text>
@@ -1583,7 +1583,7 @@
                   </view>
                   <view class="profile-comparison-value">
                     <view class="profile-comparison-caption">{{localeCopy.hrReviewOperator}}</view>
-                    <view class="profile-comparison-text">{{item.reviewerName}}</view>
+                    <view class="profile-comparison-text"><person-link name="{{item.reviewerName}}" person-id="{{item.reviewerPersonId}}" /></view>
                   </view>
                 </view>
                 <view class="field-hint" wx:if="{{item.createdAtText}}">{{item.createdAtText}}</view>
@@ -2435,7 +2435,7 @@
               <view class="merit-member-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
               <view class="merit-member-body">
                 <view class="merit-member-row">
-                  <text class="merit-member-name">{{m.name}}</text>
+                  <text class="merit-member-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></text>
                 </view>
                 <view class="merit-member-tags">
                   <view class="merit-tag merit-tag-ident" wx:if="{{m.historicalAssignmentUnavailable}}">{{localeCopy.historicalAssignmentUnavailable}}</view>
@@ -2916,7 +2916,7 @@
               <view class="audit-submission-admin-title">{{item.title || item.submissionNumber}}</view>
               <view class="audit-submission-admin-meta">
                 <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">{{item.status === 'draft' ? localeCopy.copy_f6afc42806 : (item.status === 'pending' ? localeCopy.copy_57b008f8c7 : (item.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (item.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (item.status === 'approved' ? localeCopy.copy_2220286f1c : localeCopy.copy_282e15e226))))}}</view>
-                <text class="audit-submission-admin-sub">{{item.submissionNumber}} · {{item.submitterName}} · {{item.createdAtText}}</text>
+                <text class="audit-submission-admin-sub">{{item.submissionNumber}} · <person-link name="{{item.submitterName}}" hr-id="{{item.submittedBy}}" /> · {{item.createdAtText}}</text>
               </view>
             </view>
             <view class="audit-submission-admin-arrow">›</view>
@@ -2945,7 +2945,7 @@
             <!-- Header -->
             <view class="audit-progress-header ui-dialog-summary">
               <view class="list-name">{{auditSubmissionDetail.submission.title || auditSubmissionDetail.submission.submissionNumber}}</view>
-              <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · {{auditSubmissionDetail.submission.submitterName}} · {{auditSubmissionDetail.submission.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionDetail.submission.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionDetail.submission.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionDetail.submission.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionDetail.submission.status === 'approved' ? localeCopy.copy_2220286f1c : localeCopy.copy_282e15e226))))}}</view>
+              <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · <person-link name="{{auditSubmissionDetail.submission.submitterName}}" hr-id="{{auditSubmissionDetail.submission.submittedBy}}" /> · {{auditSubmissionDetail.submission.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionDetail.submission.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionDetail.submission.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionDetail.submission.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionDetail.submission.status === 'approved' ? localeCopy.copy_2220286f1c : localeCopy.copy_282e15e226))))}}</view>
             </view>
 
             <!-- Flow visualization -->

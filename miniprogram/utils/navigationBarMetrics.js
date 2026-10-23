@@ -20,10 +20,10 @@ function getNavigationBarMetrics() {
   } catch (_) {
     info = null;
   }
-  const statusBarHeight = Number(info && info.statusBarHeight);
+  const statusBarHeight = info && info.statusBarHeight != null ? Number(info.statusBarHeight) : NaN;
   const windowWidth = Number(info && info.windowWidth);
   const metrics = {
-    statusBarHeight: Number.isFinite(statusBarHeight) && statusBarHeight > 0 ? Math.round(statusBarHeight) : FALLBACK_STATUS_BAR_HEIGHT,
+    statusBarHeight: Number.isFinite(statusBarHeight) && statusBarHeight >= 0 ? Math.round(statusBarHeight) : FALLBACK_STATUS_BAR_HEIGHT,
     barHeight: FALLBACK_BAR_HEIGHT,
     capsuleInset: 0
   };
@@ -39,19 +39,22 @@ function getNavigationBarMetrics() {
   const capsuleTop = Number(capsule && capsule.top);
   const capsuleHeight = Number(capsule && capsule.height);
   if (Number.isFinite(capsuleTop) && Number.isFinite(capsuleHeight) && capsuleHeight > 0) {
+    // 强制横屏时系统信息可能仍是竖屏值；实际胶囊已移到顶部，不能再叠加旧状态栏。
+    if (capsuleTop >= 0 && capsuleTop < metrics.statusBarHeight) metrics.statusBarHeight = 0;
     // 行高按胶囊上下留白对称推算，避免标题与胶囊不在同一条水平线上。
     const barHeight = (capsuleTop - metrics.statusBarHeight) * 2 + capsuleHeight;
     if (Number.isFinite(barHeight) && barHeight > 0) metrics.barHeight = Math.round(barHeight);
   }
   const capsuleLeft = Number(capsule && capsule.left);
-  if (Number.isFinite(windowWidth) && windowWidth > 0 && Number.isFinite(capsuleLeft) && capsuleLeft > 0) {
-    metrics.capsuleInset = Math.round(windowWidth - capsuleLeft + CAPSULE_GAP_PX);
+  const actualWidth = Math.max(Number.isFinite(windowWidth) ? windowWidth : 0, Number(capsule && capsule.right) || 0);
+  if (actualWidth > 0 && Number.isFinite(capsuleLeft) && capsuleLeft > 0) {
+    metrics.capsuleInset = Math.round(actualWidth - capsuleLeft + CAPSULE_GAP_PX);
   } else if (Number.isFinite(windowWidth) && windowWidth > FALLBACK_CAPSULE_INSET_PX) {
     metrics.capsuleInset = FALLBACK_CAPSULE_INSET_PX;
   }
   metrics.totalHeight = metrics.statusBarHeight + metrics.barHeight;
   // 顶栏标题要按可用宽度自动选字号，组件需要知道屏幕宽度。
-  metrics.windowWidth = Number.isFinite(windowWidth) && windowWidth > 0 ? Math.round(windowWidth) : 0;
+  metrics.windowWidth = Math.round(actualWidth);
   return metrics;
 }
 

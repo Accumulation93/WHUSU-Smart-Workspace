@@ -37,6 +37,17 @@ async function main() {
   measuredPad.measure();
   assert.equal(measuredMinimum, 208);
   const touchPad = { ...definition.methods, _rect: { left: 32, top: 140 } };
+  for (const viewport of [{ width: 790, height: 174 }, { width: 350, height: 580 }, { width: 1200, height: 600 }]) {
+    const blankDraft = { history: ink.createHistory() };
+    const size = ink.blankPageSize(blankDraft, viewport);
+    assert.deepEqual(size, viewport, '新空白板覆盖整个可写视口');
+    const camera = ink.fitCamera(viewport.width, viewport.height, size.width, size.height, 1, 0, 0);
+    assert.equal(camera.width, viewport.width); assert.equal(camera.height, viewport.height);
+    blankDraft.history.operations.push({ type: 'draw', page: 1 });
+    assert.deepEqual(ink.blankPageSize(blankDraft, { width: 200, height: 800 }), size, '旋转与重新进入不拉伸已存笔迹');
+  }
+  assert.deepEqual(ink.blankPageSize({ history: { operations: [{}] } }, { width: 790, height: 174 }), { width: 800, height: 400 }, '旧草稿保持原坐标');
+  assert.throws(() => ink.blankPageSize({ history: ink.createHistory() }, { width: 0, height: 0 }));
   assert.deepEqual(JSON.parse(JSON.stringify(touchPad._viewportTouch({ x: 10, y: 20, identifier: 1 }))), { clientX: 42, clientY: 160, identifier: 1 });
   assert.equal(touchPad._viewportTouch({ pageX: 42, pageY: 999 }), null, '不猜测页面滚动偏移');
   assert.equal(touchPad._viewportTouch({ clientX: 42, clientY: 160, x: 999 }).clientX, 42, '视口坐标优先，不重复转换');

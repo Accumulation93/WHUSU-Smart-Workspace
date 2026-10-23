@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "app-loading": "/components/app-loading/app-loading"
+    "app-loading": "/components/app-loading/app-loading",
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
   }
 }

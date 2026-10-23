@@ -18,7 +18,7 @@ Component({
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
     penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 2 }
   },
-  data: { copy, mode: 'pen', color: '#000000', erasing: false, custom: false,
+  data: { copy, mode: 'pen', color: '#000000', erasing: false, custom: false, toolsExpanded: false,
     red: 0, green: 0, blue: 0, colorInput: '#000000', ready: false, notice: '', undoable: false, redoable: false },
   lifetimes: {
     attached() {
@@ -47,6 +47,8 @@ Component({
     show() { this._hidden = false; if (this._surface) { this.measure(); this._render(); } }
   },
   methods: {
+    toggleTools() { const expanded = !this.data.toolsExpanded; this.setData({ toolsExpanded: expanded }); this.triggerEvent('toolschange', { expanded }); },
+    closeTools() { this.setData({ toolsExpanded: false }); },
     _initialize() {
       const query = wx.createSelectorQuery().in(this);
       query.select('#sigSurface').fields({ node: true, size: true, rect: true });
@@ -134,8 +136,10 @@ Component({
         const source = preview && preview.key === this.properties.fileImage ? preview.src : this.properties.fileImage;
         this._background = preview && preview.image || (source ? await this._image(source) : null);
         if (!this._alive || request !== this._request) return;
-        const width = this.properties.documentWidth || this._background && this._background.width || 800;
-        const height = this.properties.documentHeight || this._background && this._background.height || 400;
+        const blank = handoff && handoff.pad && handoff.file.id === this.properties.fileId
+          ? ink.blankPageSize(drafts.store.file(handoff.draft, this.properties.fileId), this._rect) : null;
+        const width = blank ? blank.width : this.properties.documentWidth || this._background && this._background.width || 800;
+        const height = blank ? blank.height : this.properties.documentHeight || this._background && this._background.height || 400;
         this._documentWidth = width; this._documentHeight = height;
         this._resizeSurface();
         this._zoom = 1; this._panX = 0; this._panY = 0; await this._loadMaterials();

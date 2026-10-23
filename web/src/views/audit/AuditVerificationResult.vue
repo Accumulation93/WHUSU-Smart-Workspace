@@ -37,7 +37,7 @@
           <div class="crypto-check-label">{{ step.title }}</div>
           <div v-if="step.personText" class="crypto-person-reference">{{ step.personText }}</div>
         </div>
-        <div class="crypto-person">{{ step.name }}</div>
+        <div class="crypto-person"><PersonLink :name="step.name" :reference="step.personReference" /></div>
         <div class="crypto-identity" :class="'crypto-state-' + step.state">{{ step.stateText }}</div>
         <div class="crypto-affiliation">
           <div v-if="step.organization" class="crypto-affiliation-row">
@@ -243,6 +243,7 @@ function present(result) {
     steps: (result.verificationVersion === 2 && platformIdentityVerified(file) ? file.steps || [] : []).map((item) => ({
       key: item.reference,
       name: item.status === 'passed' ? item.name : copy.identityUnknown,
+      personReference: item.status === 'passed' ? item.personReference || '' : '',
       assignment: item.status === 'passed' ? item.assignment : '',
       organization: item.status === 'passed' ? item.organization : '',
       personText: item.status === 'passed' && Number.isInteger(item.personIndex) && item.personIndex > 0

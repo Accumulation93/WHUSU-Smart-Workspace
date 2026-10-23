@@ -10,13 +10,15 @@
 .sigpad-palette .sigpad-selected { border-color: #2563eb; background: linear-gradient(135deg,#dbeafe,#eff6ff); }
 .sigpad-width { flex: 1; min-width: 0; }
 .sigpad-width .picker-display { min-height: var(--ui-signing-tool-height); padding: var(--ui-signing-tool-gap); display: flex; align-items: center; justify-content: center; font-size: var(--ui-type-meta); }
-.sigpad-surface { display: block; flex: 1 0 120px; min-height: 120px; width: 100%; height: auto; border-radius: var(--ui-field-radius); background: linear-gradient(135deg, #ffffff, #f8fbff); }
+.sigpad-frame { display: flex; flex: 1 1 0; min-height: 120px; padding: 2px; box-sizing: border-box; border-radius: var(--ui-field-radius); background: linear-gradient(135deg,#6092c5,#3b76b3); }
+.sigpad-surface { display: block; flex: 1 1 0; min-height: 0; width: 100%; height: 100%; border-radius: var(--ui-field-radius); background: linear-gradient(135deg, #d8e5f2, #c7d9ec); }
 .sigpad-export-canvas { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .sigpad-colors { display: grid; grid-template-columns: auto minmax(0,1fr); flex: none; align-items: center; gap: var(--ui-signing-tool-gap); }
 .sigpad-colors .sigpad-channel { height: 48px; margin: 0 12px; padding: 12px 0; box-sizing: border-box; }
 .sigpad-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
-@media (min-width: 520px) { .sigpad-wrap { --ui-signing-tool-height: 40px; } }
-@media (orientation: landscape) and (max-height: 600px) and (min-width: 800px) {
-  .sigpad-tools { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
-  .sigpad-colors { grid-column: 1 / -1; }
-}
+
+.sigpad-tools { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 7fr); gap: 8px; }
+.sigpad-settings { position: absolute; z-index: 12; top: 40px; left: 0; width: min(360px, 96%); max-height: calc(100% - 48px); padding: 12px; box-sizing: border-box; background: linear-gradient(135deg,#ffffff,#eff6ff); border: 1px solid #93c5fd; border-radius: var(--ui-field-radius); box-shadow: 0 8px 24px rgba(15,23,42,0.16); }
+.sigpad-settings-heading { display: flex; justify-content: space-between; align-items: center; font-size: var(--ui-type-label); margin-bottom: 8px; }
+.sigpad-settings-heading > .secondary-btn { display: flex; align-items: center; justify-content: center; text-align: center; width: 36px; min-height: 36px; margin: 0; padding: 4px; }
+.sigpad-settings .sigpad-toolbar { margin-bottom: 8px; }
