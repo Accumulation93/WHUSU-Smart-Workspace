@@ -31,9 +31,9 @@ Module._load = originalLoad;
   const listed = await notificationModel.listForRecipient(actor, { limit: 20 });
   assert.strictEqual(listed.total, 1);
   assert.strictEqual(listed.unreadCount, 1);
-  assert.strictEqual(calls.length, 2);
-  assert.ok(calls.every((item) => item.sql.includes('type <> ?')));
-  assert.ok(calls.every((item) => item.params.includes('pending_approval')),
+  assert.strictEqual(calls.length, 3);
+  assert.ok(calls.slice(1).every((item) => item.sql.includes('type <> ?')));
+  assert.ok(calls.slice(1).every((item) => item.params.includes('pending_approval')),
     '消息列表必须排除已由实时待办替代的旧审批通知');
 
   calls.length = 0;

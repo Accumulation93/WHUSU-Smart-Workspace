@@ -2,11 +2,15 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/model
 const pool = require('../../../config/db');
 const { generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { policies } = require('./notificationLifecycle');
 
 async function enqueue(event, conn) {
   const db = conn || pool;
   const orgId = event.orgId || await getCurrentOrgId();
   if (!orgId || !event.eventKey || !event.eventType) throw new Error(localeCopy.copy_41108f07eb);
+  if (!Object.hasOwn(policies, event.eventType) || !Object.hasOwn(policies, event.payload && event.payload.type || event.eventType)) {
+    throw Object.assign(new Error(), { code: 'NOTIFICATION_LIFECYCLE_REQUIRED' });
+  }
   const [result] = await db.query(
     `INSERT INTO notification_outbox
       (id, org_id, event_type, event_key, recipient_type, recipient_id, payload_json, status, available_at)

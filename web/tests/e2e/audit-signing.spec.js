@@ -25,13 +25,14 @@ async function setup(page, options = {}) {
   });
   await page.route('**/api/**', async route => {
     const name = new URL(route.request().url()).pathname.slice(5), body = route.request().postDataJSON();
-    if (!['getSubmissionDetail', 'getAuditFilePreview', 'approveStep', 'listMyStamps', 'getMyStampImage', 'listMySignatures'].includes(name)) return route.fallback();
+    if (!['getSubmissionDetail', 'getAuditFilePreview', 'approveStep', 'listMyStamps', 'getMyStampImage', 'listMySignatures', 'saveSignature'].includes(name)) return route.fallback();
     state.calls.push({ name, body });
     let result;
     if (name === 'getSubmissionDetail') result = state.failRead ? { status: 'error' } : state.detail;
     if (name === 'getAuditFilePreview') result = state.failPreview ? { status: 'error' } : { status: 'success', previewMime: 'image/png', data: preview, pageWidth: 800, pageHeight: 400, totalPages: 2 };
     if (name === 'listMyStamps') result = { status: 'success', stamps: [{ id: 'stamp-1', name: '测试印章' }] };
     if (name === 'getMyStampImage') result = { status: 'success', imageData: mark };
+    if (name === 'saveSignature') result = { status: 'success', id: 'saved-template' };
     if (name === 'listMySignatures') result = { status: 'success', signatures: [{ id: 'template-a', name: '个人签名', imageData: mark }] };
     if (name === 'approveStep') { result = state.refused ? { status: 'forbidden', message: '本步骤暂不能处理' } : { status: 'success' }; if (!state.refused) state.detail.canApproveCurrentStep = false; }
     await route.fulfill({ json: result });
@@ -46,6 +47,42 @@ async function enter(page, index = 0) {
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
   await expect(page.locator('.signing-stage canvas')).toBeVisible();
 }
+test('空白签名板可选保存，已有签名改色可以撤销重做', async ({ page }) => {
+  const state = await setup(page);
+  await page.getByRole('button', { name: text.signature, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: text.newSignature, exact: true }).click();
+  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByLabel(text.saveToLibrary)).not.toBeChecked();
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await expect(page.getByText(text.empty, { exact: true })).toBeVisible();
+  await stroke(page);
+  await page.getByLabel(text.saveToLibrary).check();
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await expect(page).toHaveURL(/submission\/submission-1$/);
+  expect(state.calls.filter(item => item.name === 'saveSignature')).toHaveLength(1);
+  const saved = state.calls.find(item => item.name === 'saveSignature').body.imageData;
+  expect(saved).toMatch(/^data:image\/png;base64,/);
+  await page.getByRole('button', { name: text.move, exact: true }).first().click();
+  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: text.red, exact: true }).click();
+  await page.getByRole('button', { name: text.recolor, exact: true }).click();
+  await page.getByRole('button', { name: text.undo, exact: true }).click();
+  await page.getByRole('button', { name: text.redo, exact: true }).click();
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
+  await expect.poll(() => state.calls.filter(item => item.name === 'approveStep').length).toBe(1);
+  const image = state.calls.find(item => item.name === 'approveStep').body.signatures[0].imageData;
+  const counts = await page.evaluate(async src => {
+    const image = new Image(); image.src = src; await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let red = 0, other = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 200) { if (data[i] === 255 && data[i+1] === 0 && data[i+2] === 0) red++; else other++; }
+    return { red, other };
+  }, image);
+  expect(counts.red).toBeGreaterThan(100); expect(counts.other).toBe(0);
+});
 async function stroke(page, y = 0.5, left = 0.2, right = 0.8) {
   await page.locator('.signing-stage canvas').scrollIntoViewIfNeeded();
   const box = await page.locator('.signing-stage canvas').boundingBox();
@@ -322,7 +359,7 @@ test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换�
   await page.getByRole('button', { name: text.stamp, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: '测试印章', exact: true }).click();
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
-  const sizes = [{width:310,height:650},{width:390,height:844},{width:768,height:1024},{width:1280,height:720}];
+  const sizes = [{width:310,height:650},{width:390,height:844},{width:844,height:390},{width:768,height:1024},{width:1280,height:720}];
   for (const size of sizes) {
     await page.setViewportSize(size);
     for (const mode of ['pen', 'browse', 'move']) {

@@ -81,6 +81,8 @@ audit/
 
 ## 3. signaturePad 组件 — 独立页面连续路径
 
+2026-10-23 坐标补充：原生 CanvasTouch 仅返回画布内 x/y 时，允许在事件入口使用实际 rect 转为 clientX/clientY；随后仍执行下述单次相机转换。禁止经验偏移与 page 坐标回退。独立空白签名板、16 倍缩放、可撤销改色与横屏布局见 docs/ui-kit.md。
+
 2026-10-14 按用户明确要求改为独立 signing 页面，签名组件使用 Canvas 2D 连续曲线。完整约束见 docs/ui-kit.md“签名板与文件定位坐标硬契约”。
 
 1. 可视画布仅位于独立签署页普通布局，禁止 Portal、祖先 transform 和入场位移动画；普通弹窗不得沿用此例外。

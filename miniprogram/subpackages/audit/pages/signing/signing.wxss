@@ -26,3 +26,16 @@
 .signing-adjustment-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--ui-type-label); line-height: 1.5; color: #475569; }
 .signing-adjustments slider { display: block; height: 48px; margin: 0 12px; }
 .signing-footer { margin: 0; flex: none; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+.signing-sidepanel { display: flex; flex: none; flex-direction: column; min-width: 0; gap: var(--ui-inline-gap); }
+.signing-save-option { padding: var(--ui-inline-gap); border: 1px solid #cbd5e1; border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,#ffffff,#f8fbff); font-size: var(--ui-type-label); line-height: 1.5; }
+.signing-save-option.selection-option-card-selected { border-color: #2563eb; background: linear-gradient(135deg,#dbeafe,#eff6ff); }
+@media (orientation: landscape) and (max-height: 600px) {
+  .signing-card { display: grid; grid-template-columns: minmax(0,1fr) 224px; grid-template-rows: auto auto minmax(240px,1fr); align-items: start; }
+  .signing-card > .section-title { grid-column: 1; grid-row: 1; }
+  .signing-pages { grid-column: 1; grid-row: 2; }
+  .signing-workspace { grid-column: 1; grid-row: 3; height: 100%; }
+  .signing-sidepanel { grid-column: 2; grid-row: 1 / 4; }
+  .signing-adjustments { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .signing-footer { flex-direction: column; gap: 8px; }
+  .signing-footer > button { flex: none; min-width: 100%; width: 100%; }
+}

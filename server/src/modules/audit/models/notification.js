@@ -1,6 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/models/notification');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const lifecycle = require('./notificationLifecycle');
 
 const RETENTION_DAYS = 30;
 const RECIPIENT_TYPES = new Set(['user', 'admin']);
@@ -18,6 +19,55 @@ const eventHashSql = `SHA2(CASE WHEN event_key IS NULL OR event_key = '' THEN CO
 const visibleSql = `NOT EXISTS (SELECT 1 FROM notification_dismissals dismissed
   WHERE dismissed.org_id = notifications.org_id COLLATE utf8mb4_unicode_ci AND dismissed.person_id = ?
     AND dismissed.event_hash = CONVERT((${eventHashSql}) USING ascii) COLLATE ascii_bin)`;
+
+// 通知是当前业务状态的提醒，历史审批过程仍由申请详情保存。
+// 按业务轮次和已处理步骤判断，不能按投递时间判断：Outbox 可能延迟或乱序到达。
+const lifecycleSql = `(type NOT IN ('submission_progress', 'submission_approved', 'submission_rejected') OR (
+  target_type = 'submission' AND EXISTS (
+    SELECT 1 FROM audit_submissions current_submission
+    JOIN audit_submission_steps current_step
+      ON current_step.submission_id = current_submission.id AND current_step.org_id = current_submission.org_id
+    WHERE current_submission.id = notifications.target_id COLLATE utf8mb4_unicode_ci
+      AND current_submission.org_id = notifications.org_id COLLATE utf8mb4_unicode_ci
+      AND ((notifications.type = 'submission_progress' AND current_submission.status = 'in_progress' AND current_step.status = 'approved')
+        OR (notifications.type = 'submission_approved' AND current_submission.status = 'approved' AND current_step.status = 'approved')
+        OR (notifications.type = 'submission_rejected' AND current_submission.status = 'rejected' AND current_step.status = 'rejected'))
+      AND current_step.round = (SELECT MAX(round) FROM audit_submission_steps rounds
+        WHERE rounds.submission_id = current_submission.id AND rounds.org_id = current_submission.org_id)
+      AND current_step.sort_order = (SELECT MAX(sort_order) FROM audit_submission_steps processed
+        WHERE processed.submission_id = current_submission.id AND processed.org_id = current_submission.org_id
+          AND processed.round = current_step.round AND processed.status IN ('approved', 'rejected'))
+      AND (${baseEvent} = CONCAT('audit:', current_submission.id, ':', current_step.round, ':', current_step.sort_order, ':',
+        CASE notifications.type WHEN 'submission_progress' THEN 'progress' WHEN 'submission_approved' THEN 'approved' ELSE 'rejected' END) COLLATE utf8mb4_unicode_ci
+        OR ((notifications.event_key IS NULL OR notifications.event_key NOT LIKE 'audit:%')
+          AND current_step.processed_at IS NOT NULL AND notifications.created_at >= current_step.processed_at))
+  )
+))`;
+
+const resourceLifecycleSql = `
+  (type NOT IN ('booking_approved','booking_rejected','booking_cancelled') OR EXISTS (
+    SELECT 1 FROM venue_bookings booking WHERE booking.id=notifications.target_id COLLATE utf8mb4_unicode_ci
+      AND (booking.creator_org_id=notifications.org_id COLLATE utf8mb4_unicode_ci OR booking.approval_org_id=notifications.org_id COLLATE utf8mb4_unicode_ci)
+      AND booking.status=CASE notifications.type WHEN 'booking_approved' THEN 'approved' WHEN 'booking_rejected' THEN 'rejected' ELSE 'cancelled' END))
+  AND (type NOT IN ('hr_profile_approved','hr_profile_rejected') OR EXISTS (
+    SELECT 1 FROM hr_profile_records profile WHERE profile.hr_id=notifications.target_id COLLATE utf8mb4_unicode_ci
+      AND profile.org_id=notifications.org_id COLLATE utf8mb4_unicode_ci
+      AND profile.audit_status=CASE notifications.type WHEN 'hr_profile_approved' THEN 'approved' ELSE 'rejected' END
+      AND (${baseEvent} LIKE CONCAT('hr-profile-review:',profile.id,':',DATE_FORMAT(profile.reviewed_at,'%Y-%m-%d %H:%i:%s'),'%') COLLATE utf8mb4_unicode_ci
+        OR ((notifications.event_key IS NULL OR notifications.event_key NOT LIKE 'hr-profile-review:%') AND notifications.created_at>=profile.reviewed_at))))
+  AND (type <> 'hr_profile_migration' OR EXISTS (
+    SELECT 1 FROM org_hr_profile_migrations migration WHERE migration.id=notifications.target_id COLLATE utf8mb4_unicode_ci
+      AND (migration.source_org_id=notifications.org_id COLLATE utf8mb4_unicode_ci OR migration.target_org_id=notifications.org_id COLLATE utf8mb4_unicode_ci)
+      AND migration.status IN ('executed','rejected','cancelled') AND notifications.created_at>=migration.updated_at))
+  AND (type <> 'score_results_published' OR EXISTS (
+    SELECT 1 FROM result_publications publication WHERE publication.id=notifications.target_id COLLATE utf8mb4_unicode_ci
+      AND publication.org_id=notifications.org_id COLLATE utf8mb4_unicode_ci AND publication.is_published=1))
+  AND (type <> 'calendar_reminder' OR ${baseEvent} COLLATE utf8mb4_unicode_ci IN (SELECT entry.event_key COLLATE utf8mb4_unicode_ci FROM JSON_TABLE(?, '$[*]' COLUMNS(event_key VARCHAR(255) PATH '$')) entry))
+  AND (type NOT IN ('score_activity_started','score_deadline_24h') OR target_id COLLATE utf8mb4_unicode_ci IN (SELECT entry.id COLLATE utf8mb4_unicode_ci FROM JSON_TABLE(?, '$[*]' COLUMNS(id VARCHAR(64) PATH '$')) entry))
+  AND (type <> 'score_activity_started' OR NOT EXISTS (
+    SELECT 1 FROM notifications newer WHERE newer.org_id=notifications.org_id AND newer.recipient_type=notifications.recipient_type
+      AND newer.recipient_id=notifications.recipient_id AND newer.target_type=notifications.target_type AND newer.target_id=notifications.target_id
+      AND newer.type='score_deadline_24h'))`;
 
 function requirePerson(actor) {
   if (!actor || !actor.personId) throw Object.assign(new Error(), { code: 'NOTIFICATION_PERSON_REQUIRED' });
@@ -42,6 +92,7 @@ async function batchCreate(items, conn) {
     const recipient = normalizeRecipient(item);
     const orgId = item.orgId || currentOrgId;
     if (!orgId || !RECIPIENT_TYPES.has(recipient.recipientType) || !recipient.recipientId) throw new Error(localeCopy.copy_30212ef2fb);
+    if (!Object.hasOwn(lifecycle.policies, item.type)) throw Object.assign(new Error(), { code: 'NOTIFICATION_LIFECYCLE_REQUIRED' });
     return [item.id, recipient.recipientType === 'user' ? recipient.recipientId : null,
       recipient.recipientType, recipient.recipientId, item.eventKey || null, orgId,
       item.type, item.title, item.description || null, item.category || 'system',
@@ -88,7 +139,9 @@ async function listForRecipient(actor, options) {
   const beforeCreatedAt = options.beforeCreatedAt ? new Date(options.beforeCreatedAt) : null;
   const beforeId = String(options.beforeId || '');
   const hasBoundary = beforeCreatedAt && !Number.isNaN(beforeCreatedAt.getTime()) && beforeId;
-  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS, requirePerson(actor)];
+  const personId = requirePerson(actor);
+  const active = await lifecycle.prepare(actor, orgId);
+  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS, personId, JSON.stringify(active.calendar), JSON.stringify(active.scoring)];
   const boundarySql = hasBoundary
     ? ' AND (created_at < ? OR (created_at = ? AND id < ?))'
     : '';
@@ -101,7 +154,7 @@ async function listForRecipient(actor, options) {
               MIN(created_at) AS oldest_created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql}`,
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql}`,
       params
     ),
     options.countOnly ? Promise.resolve([[], []]) : pool.query(
@@ -109,7 +162,7 @@ async function listForRecipient(actor, options) {
               is_read, created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql}
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql}
           ${boundarySql}
         ORDER BY created_at DESC, id DESC
         LIMIT ?`,
@@ -123,7 +176,7 @@ async function listForRecipient(actor, options) {
     items: rows,
     total: Number(countRow.total || 0),
     unreadCount: Number(countRow.unread_count || 0),
-    expiresAt: countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : null,
+    expiresAt: Math.min(active.expiresAt, countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : Infinity),
     offset: 0,
     limit
   };

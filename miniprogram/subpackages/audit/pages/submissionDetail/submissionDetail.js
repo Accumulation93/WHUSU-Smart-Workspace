@@ -1833,7 +1833,20 @@ Page({
       signaturePadVisible: false,
       sigSourcePickerVisible: closeSourcePicker ? false : this.data.sigSourcePickerVisible
     });
-    this.openSigningWorkspace(fileId, 'pen');
+    const draft = this.ensureSigningDraft();
+    if (!draft || draft.locked || draft.pendingRead) return;
+    const scope = orgSession.getSnapshot(), stepId = this.data.activeApprovalStep.id;
+    const file = { id: 'blank-signature-' + Date.now(), fileName: signingCopy.padTitle };
+    signingDrafts.setHandoff({ draft: { files: {}, materials: [], locked: false }, file, pad: true,
+      sourceFile: this.data.files.find(item => item.id === fileId),
+      allowSaveTemplate: true, mode: 'pen', submissionId: this.data.submissionId,
+      stepId, round: this.data.activeApprovalStep.round || 1,
+      confirm: exports => {
+        if (!orgSession.isCurrent(scope) || !this.data.activeApprovalStep || this.data.activeApprovalStep.id !== stepId || !exports.length) return;
+        this.setData({ sigSaveNew: false });
+        this.onSignatureConfirm({ detail: { imageData: exports[0].imageData } });
+      } });
+    navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
   },
 
   ensureSigningDraft() {

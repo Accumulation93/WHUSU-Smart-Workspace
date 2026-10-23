@@ -26,6 +26,7 @@ Page({
     this._saved = ink.clone(this._handoff.rollback || this._handoff.draft);
     this._fileDraft = drafts.store.file(this._handoff.draft, this._handoff.file.id);
     this.setData({ fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
+      allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false,
       mode: this._handoff.mode || 'browse', activeId: this._handoff.active || '',
       pdf: this._handoff.file.mimeType === 'application/pdf' });
     this.refreshMaterials(); this.validateStep();
@@ -81,11 +82,11 @@ Page({
     if (!this._handoff || this._handoff !== drafts.getHandoff() || this._handoff.draft.locked) return;
     this.setData({ loading: true, notice: '' });
     try {
-      if (!this._handoff.pad) {
+      if (!this._handoff.pad || this._handoff.submissionId) {
         const detail = await callFunction({ name: 'getSubmissionDetail', data: { submissionId: this._handoff.submissionId } });
         if (!this._alive || !orgSession.isCurrent(this._scope)) return;
         if (detail.status !== 'success') throw new Error('detail_failed');
-        if (!signingStepCurrent(detail, this._handoff)) { this._handoff.draft.locked = true; this.setData({ loading: false, notice: copy.stale }); return; }
+        if (!signingStepCurrent(detail, Object.assign({}, this._handoff, { file: this._handoff.sourceFile || this._handoff.file }))) { this._handoff.draft.locked = true; this.setData({ loading: false, notice: copy.stale }); return; }
       }
       this._validated = true; await this.loadPage(this._fileDraft.currentPage);
     } catch (error) { console.warn('[audit:signing:detail]', error && error.status || 'detail_failed'); if (this._alive) this.setData({ loading: false, ready: false, notice: copy.failed }); }
@@ -138,6 +139,14 @@ Page({
   next() { if (!this.data.saving && this.data.page < this.data.totalPages) this.loadPage(this.data.page + 1); },
   syncHistory() { const pad = this.selectComponent('#signingPad'); if (pad) { pad._syncHistory(); pad._render(); } },
   historyChanged() { this.refreshMaterials(); },
+  workspaceProcessing(event) { this.setData({ processing: event.detail.busy }); },
+  recolorMaterial(event) {
+    if (this.data.saving || !this.data.ready || !orgSession.isCurrent(this._scope)) return;
+    const material = this._handoff.draft.materials.find(item => item._idx === event.detail.id);
+    if (!material || material.signatureType !== 'signature') return;
+    ink.updateMaterial(this._fileDraft.history, this._handoff.draft.materials, material._idx, { imageData: event.detail.imageData, previewSrc: null });
+    this.refreshMaterials(); this.syncHistory();
+  },
   removeLayer() {
     const layer = this.data.layers[this.data.layerIndex];
     if (!layer || !this.data.ready || this.data.saving) return;
@@ -193,9 +202,10 @@ Page({
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
     this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.cancelAdjustment(); this.syncHistory();
   },
+  toggleSaveTemplate() { if (!this.data.saving) this.setData({ saveTemplate: !this.data.saveTemplate }); },
   async confirm() {
-    if (!this.data.ready || this.data.saving || this.data.notice) return;
-    this.setData({ saving: true });
+    if (!this.data.ready || this.data.saving || this.data.processing || this.data.notice) return;
+    this.setData({ saving: true, exportNotice: '' });
     try {
       const history = this._fileDraft.history, pages = [...new Set(history.operations.slice(0, history.cursor).map(operation => operation.page))], exports = [];
       for (const page of pages) {
@@ -207,15 +217,25 @@ Page({
           if (exported) exports.push(Object.assign({ _idx: 'ink_' + this.data.fileId + '_' + (layer ? layer.id + '_page_' + page : page), inkLayerId: layer ? layer.id : '', layerOrder: layer ? layer.order : 0, fileId: this.data.fileId, signatureType: 'signature', size: 1, rotation: 0 }, exported));
         }
       }
-      if (this._handoff.pad && !exports.length) { this.setData({ notice: copy.empty }); return; }
+      if (!this._alive || !orgSession.isCurrent(this._scope) || this._handoff.draft.locked) return;
+      if (this._handoff.pad && !exports.length) { this.setData({ exportNotice: copy.empty }); return; }
+      if (this.data.allowSaveTemplate && this.data.saveTemplate && this._templateImageSaved !== exports[0].imageData) {
+        const result = await callFunction({ name: 'saveSignature', data: { id: '', name: copy.signature, imageData: exports[0].imageData } });
+        if (result.status !== 'success') throw new Error('save_failed');
+        this._templateImageSaved = exports[0].imageData;
+      }
+      if (!this._alive || !orgSession.isCurrent(this._scope) || this._handoff.draft.locked) return;
       this._fileDraft.exports = exports; this._finished = true;
-      if (this._handoff.confirm) this._handoff.confirm(exports);
-      wx.navigateBack();
-    } catch (error) { this.setData({ notice: error.message === 'too_large' ? copy.tooLarge : copy.exportFailed }); }
+      const handoff = this._handoff;
+      await new Promise((resolve, reject) => wx.navigateBack({ success: () => {
+        if (orgSession.isCurrent(this._scope) && !handoff.draft.locked && handoff.confirm) handoff.confirm(exports);
+        resolve();
+      }, fail: error => { this._finished = false; reject(error); } }));
+    } catch (error) { if (this._alive) this.setData({ exportNotice: error.message === 'too_large' ? copy.tooLarge : copy.exportFailed }); }
     finally { if (this._alive) this.setData({ saving: false }); }
   },
   cancel() {
-    if (this.data.saving) return;
+    if (this.data.saving || this.data.processing) return;
     if (this._saved && this._handoff) drafts.restore(this._handoff.draft, this._saved);
     this._finished = true; wx.navigateBack();
   }

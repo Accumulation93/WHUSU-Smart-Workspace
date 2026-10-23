@@ -4,5 +4,6 @@
   "usingComponents": {
     "ui-navbar": "/components/ui-navbar/ui-navbar",
     "signature-pad": "/subpackages/audit/components/signaturePad/signaturePad"
-  }
+  },
+  "pageOrientation": "auto"
 }

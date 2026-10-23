@@ -44,11 +44,12 @@ test('anonymous verification reads only code and renders invalid state after ref
   let valid = true, reads = 0;
   await page.route('**/api/verifyIdentityCard',r=>{
     reads++; expect(r.request().postDataJSON()).toEqual({token:'a'.repeat(32)});
-    return r.fulfill({json:{status:'success',valid,...(valid?{card}:{})}});
+    return r.fulfill({json:{status:'success',valid,...(valid?{card,checkedAt:'2026-10-23T08:00:00.000Z'}:{})}});
   });
   await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
   await expect(page.locator('.identity-name')).toHaveText(card.name);
   await expect(page.getByText(copy.verified,{exact:true})).toBeVisible();
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-10-23 16:00:00');
   await expect(page.locator('.identity-image')).toHaveCount(0);
   await expect(page.locator('.workspace-context-card')).toHaveCount(0);
   await expect(page.getByRole('button',{name:copy.retry,exact:true})).toHaveCount(0);
@@ -59,6 +60,17 @@ test('anonymous verification reads only code and renders invalid state after ref
   await expect(page.getByRole('button',{name:copy.retry,exact:true})).toBeVisible();
   await expect(page.locator('.identity-name')).toHaveCount(0);
   expect(reads).toBe(2);
+});
+test('admin identity retains dark hero and clock advances without network polling', async ({page}) => {
+  await mockApi(page,{activeContextId:'ctx-admin'});
+  let reads=0;
+  await page.route('**/api/getMyIdentityCard',r=>{reads++;return r.fulfill({json:{status:'success',valid:true,card}});});
+  await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image,verificationImage}}));
+  await page.goto('/web/identity-card');
+  await expect(page.locator('.workspace-hero-admin')).toBeVisible();
+  const first=await page.locator('.identity-time-value').innerText();
+  await expect(page.locator('.identity-time-value')).not.toHaveText(first);
+  expect(reads).toBe(1);
 });
 test('code service failure retains basic identity and offers retry', async ({page}) => {
   await mockApi(page);

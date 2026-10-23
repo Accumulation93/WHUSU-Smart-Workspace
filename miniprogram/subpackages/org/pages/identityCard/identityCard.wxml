@@ -1,9 +1,9 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero wx:if="{{!publicView}}" app-name="{{common.brandName}}" page-name="{{copy.title}}" />
+  <workspace-hero wx:if="{{!publicView}}" app-name="{{common.brandName}}" page-name="{{copy.title}}" tone="{{heroTone}}" />
   <view class="identity-card">
     <view wx:if="{{publicView}}" class="identity-card-header">
-      <view class="identity-card-heading"><view class="identity-result-icon"><ui-icon name="shield" sizeRole="feature-leading" /></view><view><view class="identity-card-brand">{{common.brandName}}</view><view class="identity-card-title">{{copy.verifyTitle}}</view></view></view>
+      <view class="identity-card-heading"><view class="identity-result-icon"><ui-icon name="shield" tone="white" sizeRole="feature-leading" /></view><view><view class="identity-card-brand">{{common.brandName}}</view><view class="identity-card-title">{{copy.verifyTitle}}</view></view></view>
       <view wx:if="{{valid && card}}" class="identity-card-result"><ui-icon name="check" sizeRole="context-trailing" /><text>{{copy.verified}}</text></view>
       <view wx:if="{{card}}" class="identity-card-name">{{card.name}}</view>
       <view wx:if="{{card}}" class="identity-card-status"><text>{{card.state}}</text></view>
@@ -12,6 +12,7 @@
       <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
       <block wx:if="{{card}}">
         <view wx:if="{{!publicView}}" class="identity-own-status">{{card.state}}</view>
+        <view wx:if="{{!publicView || checkedAtText}}" class="identity-time"><ui-icon name="clock" sizeRole="context-trailing" /><view><view class="identity-card-label">{{timeLabel}}</view><view class="identity-time-value">{{publicView ? checkedAtText : currentTimeText}}</view></view></view>
         <view class="identity-card-fields">
           <view class="identity-card-field"><text class="identity-card-label">{{copy.organization}}</text><text class="identity-card-value">{{card.organization}}</text></view>
           <view class="identity-card-field"><text class="identity-card-label">{{copy.position}}</text><text class="identity-card-value">{{card.position}}</text></view>

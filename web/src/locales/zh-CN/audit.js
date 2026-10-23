@@ -114,7 +114,7 @@ export default Object.freeze({
   signatureTitle: src_signatureManager.copy_290f4e2426,
   signaturePanelNote: src_web.audit.signaturePanelNote,
   signatureEmpty: src_signatureManager.copy_b9a2950b44,
-  signatureNew: src_signatureManager.copy_c103b678f0,
+  signatureNew: src_auditSigning.newSignature,
   signatureClear: src_web.audit.signatureClear,
   signatureSave: src_auditSigning.saveTemplate,
   signatureCancel: src_adminGovernance.cancel,

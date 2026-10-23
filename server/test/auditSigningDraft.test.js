@@ -31,8 +31,9 @@ async function main() {
   ink.drawPath(context, stroke, 800, 1000);
   assert.strictEqual(commands.filter(item => item[0] === 'beginPath').length, 1);
   assert.strictEqual(commands.filter(item => item[0] === 'stroke').length, 1, '整笔曲线只有一次描边，禁止逐段描边');
-  assert(commands.some(item => item[0] === 'quadraticCurveTo'));
-  assert.deepStrictEqual(commands.find(item => item[0] === 'lineTo')[1], [400, 700], '抬笔末点保留');
+  const curves = commands.filter(item => item[0] === 'bezierCurveTo');
+  assert.equal(curves.length, stroke.points.length - 1);
+  assert.deepStrictEqual(curves[curves.length - 1][1].slice(-2), [400, 700], '抬笔末点保留');
   const camera = ink.fitCamera(800, 600, 1000, 1000, 2, 60, -30);
   const projected = ink.filePoint(100 + camera.left + camera.width * 0.37, 50 + camera.top + camera.height * 0.46,
     { left: 100, top: 50 }, camera);

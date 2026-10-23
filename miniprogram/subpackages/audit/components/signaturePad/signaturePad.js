@@ -14,7 +14,7 @@ Component({
     fileId: { type: String, value: '' }, page: { type: Number, value: 1 },
     documentWidth: { type: Number, value: 800 }, documentHeight: { type: Number, value: 400 },
     pdf: { type: Boolean, value: false }, initialMode: { type: String, value: 'pen' },
-    activeId: { type: String, value: '', observer() { if (this._surface) this._render(); } },
+    activeId: { type: String, value: '', observer() { this._syncRecolor(); if (this._surface) this._render(); } },
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
     penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 2 }
   },
@@ -75,6 +75,9 @@ Component({
     },
     _applyViewport(rect) {
       if (!rect || !(rect.width > 0) || !(rect.height > 0)) return false;
+      if (this._rect && (this._rect.width !== rect.width || this._rect.height !== rect.height)) {
+        this._stroke = null; this._gesture = null; this._dragPreview = null; this._controlPreview = null;
+      }
       // CSS 视口、像素缓冲与文件相机必须在同一次测量中同步，禁止拉伸旧缓冲。
       this._rect = rect;
       this._resizeSurface();
@@ -82,8 +85,11 @@ Component({
       return true;
     },
     _resizeSurface() {
-      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
-      const size = ink.surfaceSize(this._rect.width, this._rect.height, info.pixelRatio);
+      if (!this._pixelRatio) {
+        const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        this._pixelRatio = Math.max(1, Number(info.pixelRatio) || 1);
+      }
+      const size = ink.surfaceSize(this._rect.width, this._rect.height, this._pixelRatio);
       this._pixelRatio = size.ratio;
       if (this._surface.width !== size.width) this._surface.width = size.width;
       if (this._surface.height !== size.height) this._surface.height = size.height;
@@ -155,7 +161,8 @@ Component({
     },
     previewMaterial(id, values) { this._controlPreview = values ? { id, values } : null; this._render(); },
     _materialSource(item) { return this._materialSources && this._materialSources[item._idx] || item.imageData || item.previewSrc; },
-    _syncHistory() { this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
+    _syncRecolor() { const material = (this.properties.materials || []).find(item => item._idx === this.properties.activeId); this.setData({ recolorable: !!this.properties.activeId && (!material || material.signatureType === 'signature') }); },
+    _syncHistory() { this._syncRecolor(); this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
     _render() {
       if (!this._alive || this._hidden || !this._surface || this._frame != null) return;
       const draw = () => {
@@ -201,9 +208,15 @@ Component({
       if (this._surface.requestAnimationFrame) this._frame = this._surface.requestAnimationFrame(draw);
       else { this._frame = 1; this._timer = setTimeout(() => { this._timer = null; draw(); }, 16); }
     },
+    _viewportTouch(touch) {
+      if (Number.isFinite(touch.clientX) && Number.isFinite(touch.clientY)) return touch;
+      // 微信 CanvasTouch 的 x/y 是画布局部 CSS 坐标，仅在入口转为视口坐标。
+      if (Number.isFinite(touch.x) && Number.isFinite(touch.y)) return { clientX: this._rect.left + touch.x, clientY: this._rect.top + touch.y, identifier: touch.identifier };
+      return null;
+    },
     _point(touch) { return ink.filePoint(Number(touch.clientX), Number(touch.clientY), this._rect, this._camera); },
     onTouchStart(event) {
-      if (!this.data.ready) return; this._preparing = true; this._queue = [{ type: 'start', event }];
+      if (!this.data.ready || this._recoloring) return; this._preparing = true; this._queue = [{ type: 'start', event }];
       wx.createSelectorQuery().in(this).select('#sigSurface').fields({ size: true, rect: true }).exec(rows => {
         if (!this._alive || !this._applyViewport(rows[0])) { this._queue = []; this._preparing = false; return; } this._preparing = false;
         const queue = this._queue; this._queue = []; queue.forEach(item => this._touch(item.type, item.event));
@@ -213,14 +226,16 @@ Component({
     onTouchEnd(event) { if (this._preparing) this._queue.push({ type: 'end', event }); else this._touch('end', event); },
     onTouchCancel() { this._controlPreview = null; this._dragPreview = null; this._queue = []; this._preparing = false; this._stroke = null; this._gesture = null; this._render(); },
     _touch(type, event) {
-      if (!this._camera || !this.data.ready) return;
-      const touches = event.touches || [], touch = touches[0] || (event.changedTouches || [])[0]; if (!touch) return;
+      if (!this._camera || !this.data.ready || this._recoloring) return;
+      const touches = (event.touches || []).map(touch => this._viewportTouch(touch)).filter(Boolean);
+      const changed = (event.changedTouches || []).map(touch => this._viewportTouch(touch)).filter(Boolean);
+      const touch = touches[0] || changed[0]; if (!touch) return;
       if (touches.length > 1) {
         const distance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
         this._stroke = null; this._dragPreview = null;
         const midX = (touches[0].clientX + touches[1].clientX) / 2, midY = (touches[0].clientY + touches[1].clientY) / 2;
         if (!this._gesture || this._gesture.kind !== 'pinch') this._gesture = { kind: 'pinch', distance, zoom: this._zoom, midX, midY, panX: this._panX, panY: this._panY };
-        else { this._zoom = ink.clamp(this._gesture.zoom * distance / Math.max(1, this._gesture.distance), 1, 4); this._panX = this._gesture.panX + midX - this._gesture.midX; this._panY = this._gesture.panY + midY - this._gesture.midY; }
+        else { this._zoom = ink.clamp(this._gesture.zoom * distance / Math.max(1, this._gesture.distance), 1, 16); const pan = ink.pinchPan(this._rect, this._gesture, this._zoom, midX, midY); this._panX = pan.x; this._panY = pan.y; }
         this._render(); return;
       }
       const point = this._point(touch), material = (this.properties.materials || []).find(item => item._idx === this.properties.activeId);
@@ -244,6 +259,37 @@ Component({
     },
     setMode(event) { this.onTouchCancel(); const mode = event.currentTarget.dataset.mode; this.setData({ mode }, () => this.measure()); this.triggerEvent('modechange', { mode }); },
     setColor(event) { this._setColor(event.currentTarget.dataset.color); },
+    async recolorSelected() {
+      if (!this.data.ready || this._recoloring) return;
+      const id = this.properties.activeId;
+      if (ink.recolorLayer(this._history, this._draft.materials, this.properties.page, id, this.data.color)) {
+        this._syncHistory(); this._render(); return;
+      }
+      const material = this._draft.materials.find(item => item._idx === id);
+      if (!material || material.signatureType !== 'signature') return;
+      const source = this._materialSource(material), image = this._images[source];
+      if (!image) return;
+      this._recoloring = true; this.setData({ recoloring: true }); this.triggerEvent('processing', { busy: true });
+      let temporaryPath;
+      const cursor = this._history.cursor, color = this.data.color;
+      try {
+        const canvas = this._export; canvas.width = image.width; canvas.height = image.height;
+        const context = canvas.getContext('2d'); context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0); context.globalCompositeOperation = 'source-in';
+        context.fillStyle = color; context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'source-over';
+        const path = await new Promise((resolve, reject) => wx.canvasToTempFilePath({ canvas, fileType: 'png', destWidth: canvas.width, destHeight: canvas.height, success: result => resolve(result.tempFilePath), fail: reject }, this));
+        temporaryPath = path;
+        const imageData = await new Promise((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: path, encoding: 'base64', success: result => resolve('data:image/png;base64,' + result.data), fail: reject }));
+        if (imageData.length > Math.ceil(2 * 1024 * 1024 * 4 / 3) + 64) throw new Error('too_large');
+        if (this._alive && !this._hidden && this._history.cursor === cursor && this._draft.materials.includes(material) && this._materialSource(material) === source) this.triggerEvent('recolor', { id, imageData });
+      } catch (_) { if (this._alive) this.setData({ notice: copy.exportFailed }); }
+      finally {
+        if (temporaryPath) wx.getFileSystemManager().unlink({ filePath: temporaryPath, fail() {} });
+        this._recoloring = false;
+        if (this._alive) { this.setData({ recoloring: false }); this.triggerEvent('processing', { busy: false }); }
+      }
+    },
     _setColor(value) {
       const color = ink.normalizeColor(value), channels = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16));
       this.setData({ color, colorInput: color, red: channels[0], green: channels[1], blue: channels[2], erasing: false, notice: '' });
@@ -271,7 +317,7 @@ Component({
       if (!this._alive || !result.confirm) return;
       ink.appendOperation(this._history, { page: this.properties.page, type: 'clear' }); this._syncHistory(); this._render();
     } }); },
-    zoomIn() { this._zoom = Math.min(4, this._zoom * 1.25); this._render(); },
+    zoomIn() { this._zoom = Math.min(16, this._zoom * 1.25); this._render(); },
     zoomOut() { this._zoom = Math.max(1, this._zoom / 1.25); this._render(); },
     fit() { this._zoom = 1; this._panX = 0; this._panY = 0; this._render(); },
     async exportPage(layer) {

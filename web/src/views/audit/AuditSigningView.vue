@@ -1,6 +1,6 @@
 <template>
   <div class="page signing-page stack">
-    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :rollback="handoff.rollback" :initial-preview="initialPreview" @confirm="done" @cancel="back" />
+    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :allow-save-template="handoff.allowSaveTemplate" :rollback="handoff.rollback" :initial-preview="initialPreview" @confirm="done" @cancel="back" />
     <section v-else class="card stack"><AppLoading v-if="checking" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="retryable" class="btn-quiet" @click="validate">{{ text.retry }}</button><button class="btn btn-secondary" @click="back">{{ text.back }}</button></section>
   </div>
 </template>
@@ -22,12 +22,12 @@ async function validate(){
   if(!handoff || handoff!==getSigningHandoff() || handoff.draft.locked)return;
   checking.value=true;retryable.value=false;
   try {
-    if(handoff.pad){valid.value=true;return;}
+    if(handoff.pad && !handoff.submissionId){valid.value=true;return;}
     const page=handoff.draft.files[handoff.file.id]?.currentPage||1;
-    initialPreview={page,promise:signingAssets.preview(handoff.draft,handoff.file,page).then(value=>value.response,()=>null)};
+    if(!handoff.pad)initialPreview={page,promise:signingAssets.preview(handoff.draft,handoff.file,page).then(value=>value.response,()=>null)};
     const detail=requireSuccess(await requests.call('getSubmissionDetail',{submissionId:handoff.submissionId}));
     if(!alive || handoff!==getSigningHandoff())return;
-    if(!signingStepCurrent(detail,handoff)){handoff.draft.locked=true;notice.value=text.stale;return;}
+    if(!signingStepCurrent(detail,{...handoff,file:handoff.sourceFile||handoff.file})){handoff.draft.locked=true;notice.value=text.stale;return;}
     valid.value=true;
   }catch(_){if(alive){notice.value=text.failed;retryable.value=true;}}
   finally{if(alive)checking.value=false;}

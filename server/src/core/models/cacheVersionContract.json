@@ -1,7 +1,19 @@
 [
-  { "name": "cv_notification_dismissals_i", "table": "notification_dismissals", "event": "INSERT" },
-  { "name": "cv_notification_dismissals_u", "table": "notification_dismissals", "event": "UPDATE" },
-  { "name": "cv_notification_dismissals_d", "table": "notification_dismissals", "event": "DELETE" },
+  {
+    "name": "cv_notification_dismissals_i",
+    "table": "notification_dismissals",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_notification_dismissals_u",
+    "table": "notification_dismissals",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_notification_dismissals_d",
+    "table": "notification_dismissals",
+    "event": "DELETE"
+  },
   {
     "name": "cv_persons_i",
     "table": "persons",
@@ -540,6 +552,111 @@
   {
     "name": "cv_notifications_d",
     "table": "notifications",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_calendar_events_i",
+    "table": "calendar_events",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_calendar_events_u",
+    "table": "calendar_events",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_calendar_events_d",
+    "table": "calendar_events",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_calendar_exceptions_i",
+    "table": "calendar_exceptions",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_calendar_exceptions_u",
+    "table": "calendar_exceptions",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_calendar_exceptions_d",
+    "table": "calendar_exceptions",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_calendar_exits_i",
+    "table": "calendar_exits",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_calendar_exits_u",
+    "table": "calendar_exits",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_calendar_exits_d",
+    "table": "calendar_exits",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_calendar_occurrence_records_i",
+    "table": "calendar_occurrence_records",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_calendar_occurrence_records_u",
+    "table": "calendar_occurrence_records",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_calendar_occurrence_records_d",
+    "table": "calendar_occurrence_records",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_calendar_rules_i",
+    "table": "calendar_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_calendar_rules_u",
+    "table": "calendar_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_calendar_rules_d",
+    "table": "calendar_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_venue_activity_rules_i",
+    "table": "venue_activity_rules",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_venue_activity_rules_u",
+    "table": "venue_activity_rules",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_venue_activity_rules_d",
+    "table": "venue_activity_rules",
+    "event": "DELETE"
+  },
+  {
+    "name": "cv_org_hr_profile_migrations_i",
+    "table": "org_hr_profile_migrations",
+    "event": "INSERT"
+  },
+  {
+    "name": "cv_org_hr_profile_migrations_u",
+    "table": "org_hr_profile_migrations",
+    "event": "UPDATE"
+  },
+  {
+    "name": "cv_org_hr_profile_migrations_d",
+    "table": "org_hr_profile_migrations",
     "event": "DELETE"
   }
 ]

@@ -25,6 +25,10 @@ async function main() {
   assert.strictEqual(await instance._image(source), image, '同页签章共享已解码图片');
   // 布局切换后先同步缓冲与相机，再处理已经排队的触点。
   const ink = require('../../shared/auditInk');
+  const touchPad = { ...definition.methods, _rect: { left: 32, top: 140 } };
+  assert.deepEqual(JSON.parse(JSON.stringify(touchPad._viewportTouch({ x: 10, y: 20, identifier: 1 }))), { clientX: 42, clientY: 160, identifier: 1 });
+  assert.equal(touchPad._viewportTouch({ pageX: 42, pageY: 999 }), null, '不猜测页面滚动偏移');
+  assert.equal(touchPad._viewportTouch({ clientX: 42, clientY: 160, x: 999 }).clientX, 42, '视口坐标优先，不重复转换');
   for (const pixelRatio of [1, 2, 3]) {
     runtime.wx.getWindowInfo = () => ({ pixelRatio });
     const surface = {}, layer = {};

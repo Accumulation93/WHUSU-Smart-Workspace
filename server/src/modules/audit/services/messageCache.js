@@ -23,7 +23,7 @@ async function load(scope, kind, query, loader) {
   let revision;
   try {
     revision = await memo('messageVersions:' + kind, () => require('../../../core/models/cacheVersions').read(scope.contexts.map(c => c.organizationId),
-      kind === 'notifications' ? ['directory', 'notification'] : ['directory', 'scoring', 'audit', 'venue', 'profile']));
+      kind === 'notifications' ? ['directory', 'notification', 'audit', 'venue', 'scoring', 'profile', 'calendar'] : ['directory', 'scoring', 'audit', 'venue', 'profile']));
   } catch (_) {
     // 版本无法核实，不读旧缓存、不把部分查询错误伪装成空列表。
     return computeLimited(loader);

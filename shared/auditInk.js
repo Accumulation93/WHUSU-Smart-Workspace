@@ -72,7 +72,7 @@ function edit(history, materials, page, changes) {
   history.operations.splice(history.cursor);
   // 固定本次编辑已有的笔画，重做不能误改同一次进入后续新增的笔画。
   changes.forEach(change => {
-    if (change.kind === 'ink') change.indices = history.operations.reduce((indices, item, index) => {
+    if (change.kind === 'ink' && !change.indices) change.indices = history.operations.reduce((indices, item, index) => {
       if (item.type === 'draw' && item.layerId === change.id && item.page === page) indices.push(index);
       return indices;
     }, []);
@@ -107,6 +107,17 @@ function moveLayer(history, materials, page, id, direction) {
     kind: layer.kind === 'draw' ? 'ink' : 'material', id: layer.id,
     before: { layerOrder: layer.order }, after: { layerOrder: offset ? first.order : second.order }
   })));
+}
+function recolorLayer(history, materials, page, id, value) {
+  const color = normalizeColor(value), layer = signingLayers(history, materials, page).find(item => item.id === id);
+  if (!layer || layer.kind !== 'draw') return false;
+  const changes = [];
+  history.operations.slice(0, history.cursor).forEach((operation, index) => {
+    if (operation.type === 'draw' && operation.layerId === id && operation.page === page && operation.color !== color) {
+      changes.push({ kind: 'ink', id, indices: [index], before: { color: operation.color }, after: { color } });
+    }
+  });
+  return edit(history, materials, page, changes);
 }
 function renderStrokeLayer(context, history, layer, width, height, active) {
   const strokes = new Set(layer.strokes || [layer.operation]);
@@ -187,13 +198,16 @@ function drawPath(context, operation, width, height) {
     context.fill();
   } else {
     context.moveTo(points[0].x * width, points[0].y * height);
-    for (let index = 1; index < points.length - 1; index += 1) {
-      const current = points[index], next = points[index + 1];
-      context.quadraticCurveTo(current.x * width, current.y * height,
-        (current.x + next.x) * width / 2, (current.y + next.y) * height / 2);
+    // 一条连续路径穿过实际采样点；控制点限制在本段包围盒内，转折不被抹平或过冲。
+    for (let index = 1; index < points.length; index += 1) {
+      const a = points[index - 1], b = points[index];
+      const previous = points[Math.max(0, index - 2)], next = points[Math.min(points.length - 1, index + 1)];
+      const lowX = Math.min(a.x, b.x), highX = Math.max(a.x, b.x), lowY = Math.min(a.y, b.y), highY = Math.max(a.y, b.y);
+      context.bezierCurveTo(clamp(a.x + (b.x - previous.x) / 6, lowX, highX) * width,
+        clamp(a.y + (b.y - previous.y) / 6, lowY, highY) * height,
+        clamp(b.x - (next.x - a.x) / 6, lowX, highX) * width,
+        clamp(b.y - (next.y - a.y) / 6, lowY, highY) * height, b.x * width, b.y * height);
     }
-    const last = points[points.length - 1];
-    context.lineTo(last.x * width, last.y * height);
     context.stroke();
   }
   context.restore();
@@ -241,7 +255,7 @@ function alphaBounds(data, width, height) {
 }
 function fitCamera(viewWidth, viewHeight, imageWidth, imageHeight, zoom, panX, panY) {
   const fit = Math.min(viewWidth / imageWidth, viewHeight / imageHeight);
-  const scale = fit * clamp(zoom || 1, 1, 4);
+  const scale = fit * clamp(zoom || 1, 1, 16);
   return { scale, fit, width: imageWidth * scale, height: imageHeight * scale,
     left: (viewWidth - imageWidth * scale) / 2 + (panX || 0),
     top: (viewHeight - imageHeight * scale) / 2 + (panY || 0) };
@@ -250,6 +264,12 @@ function filePoint(clientX, clientY, rect, camera) {
   const x = (clientX - rect.left - camera.left) / camera.width;
   const y = (clientY - rect.top - camera.top) / camera.height;
   return { x: clamp(x, 0, 1), y: clamp(y, 0, 1), inside: x >= 0 && x <= 1 && y >= 0 && y <= 1 };
+}
+function pinchPan(rect, gesture, zoom, clientX, clientY) {
+  const factor = zoom / gesture.zoom;
+  const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+  return { x: clientX - centerX - (gesture.midX - centerX - gesture.panX) * factor,
+    y: clientY - centerY - (gesture.midY - centerY - gesture.panY) * factor };
 }
 function createDraftStore() {
   let scope = '', drafts = new Map();
@@ -266,4 +286,4 @@ function createDraftStore() {
   }
   return { bind, open, file, reset };
 }
-module.exports = { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };
+module.exports = { clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, recolorLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };

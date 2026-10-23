@@ -5,7 +5,7 @@ const ink = require('../../shared/auditInk');
 
 // 读取真实栅格像素，避免仅检查 DPR 变量存在而放过二次位图放大。
 for (const ratio of [1, 2, 3]) {
-  for (const zoom of [1, 4]) {
+  for (const zoom of [1, 4, 16]) {
     const size = ink.surfaceSize(360, 480, ratio);
     const canvas = createCanvas(size.width, size.height), ctx = canvas.getContext('2d');
     const camera = ink.fitCamera(360, 480, 600, 800, zoom);
@@ -39,4 +39,4 @@ assert.equal(ink.alphaBounds(clearedCanvas.getContext('2d').getImageData(0, 0, 3
 assert.equal(size.height, 4096);
 assert(size.width > 2800, '导出不得沿用手机上三百多像素的缩略图');
 assert(Math.abs(size.width / size.height - 595 / 842) < 0.001);
-console.log('高清签署像素测试通过：3 档 DPR × 2 档缩放 × 3 档笔宽，纯黑与坐标保持一致');
+console.log('高清签署像素测试通过：3 档 DPR × 3 档缩放 × 3 档笔宽，纯黑与坐标保持一致');

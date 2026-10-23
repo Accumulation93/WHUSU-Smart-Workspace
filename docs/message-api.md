@@ -1,5 +1,13 @@
 # 消息 API 与加载契约
 
+## 2026-10-23 业务失效自动隐藏
+
+列表、总数与未读数使用同一业务状态条件。审核只保留当前轮次最近已处理步骤的有效结果，后续处理、撤回和重提使旧进度消失；迟到或乱序投递不覆盖当前结果。场地通知匹配借用当前状态，人事审核匹配当前结果和处理时间，资料迁移要求仍存在对应结果，公示要求仍发布。日程提醒重新核对参会、实际时间、取消和结束，仅保留已到达的最近提醒；评分通知只在本人仍有未完成评分时保留，截止提醒替代开始提醒。
+
+普通公告和账号安全告知仍按 30 天保留，不将读取当作已读或删除。自动隐藏不改写业务历史，也不替代自然人永久删除记录。前端已显示内容在下一次可见刷新时更新，离线画面不能即时撤回。
+
+新类型必须登记 notificationLifecycle.policies；发件箱和最终写入拒绝未登记类型。新增业务类型需明确失效条件并测试列表/计数一致性、状态变化、乱序投递和组织隔离。消息缓存依赖 directory/notification/audit/venue/scoring/profile/calendar 版本；在线迁移 20261023120000_notification_lifecycle_versions.sql 增加目标索引与缺失触发器，不删除通知或业务记录。
+
 接口均为已认证 POST `/api/<名称>`。目录只来自服务端认证账号的有效工作角色；`organizationId` 只缩小范围，不授予权限。响应保留原 `status/items/total/unreadCount/nextCursor/organizations/selectedOrganizationId/partial/failedOrganizations`。
 
 | 接口 | 输入 | 行为 |

@@ -27,6 +27,7 @@ module.exports = {
   colorInvalid: '请输入六位颜色值', signAgain: '继续书写', remove: '移除',
   draftLost: '书写草稿已失效，请重新打开签署页面',
   saveTemplate: '保存签名', rewrite: '重新书写', signatureLoading: '正在加载个人签名',
+  newSignature: '新建签名', saveToLibrary: '同时保存到签名库', recolor: '修改所选签名颜色',
   signatureFailed: '个人签名加载失败，请重试', signatureEmpty: '暂无个人签名',
   sourceFailure: '文件来源核实失败', externalFailure: '第三方认可核实失败', more: '加载更多'
 };

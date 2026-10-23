@@ -5,6 +5,7 @@ const orgSession = require('../../../../utils/orgSession');
 const eventBus = require('../../../../utils/eventBus');
 const { outputFile } = require('../../package-resources/utils/fileIO');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
+const { formatDetailTime } = require('../../../../utils/dateTime');
 Page({
   data: { copy, common, navigationTitle: copy.navigationTitle, navTopPx: 0, publicView: false, card: null, valid: false, loading: false, qrLoading: false, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '' },
   onLoad(options) {
@@ -17,7 +18,7 @@ Page({
     let token = String(options.scene || options.token || '');
     try { token = decodeURIComponent(token); } catch (_) { token = 'invalid'; }
     this._token = token;
-    this.setData({ publicView: Boolean(token), navTopPx: getNavigationBarMetrics().totalHeight });
+    this.setData({ publicView: Boolean(token), timeLabel: token ? copy.checkedAt : copy.currentTime, navTopPx: getNavigationBarMetrics().totalHeight });
   },
   onShow() { orgSession.consume(this); this._visible = true; this._retainedImagePath = ''; this.load(); },
   onHide() { this._visible = false; this.clear(); },
@@ -29,10 +30,12 @@ Page({
   },
   onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   clear() {
+    clearInterval(this._clockTimer);
+    this._clockTimer = null;
     orgSession.invalidateRequests(this);
     (this._imagePaths || []).filter(filePath => filePath !== this._retainedImagePath).forEach(filePath => wx.getFileSystemManager().unlink({ filePath, fail: function() {} }));
     this._imagePaths = (this._imagePaths || []).filter(filePath => filePath === this._retainedImagePath);
-    this.setData({ card: null, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '', valid: false, loading: false, qrLoading: false });
+    this.setData({ card: null, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '', valid: false, loading: false, qrLoading: false, currentTimeText: '', checkedAtText: '', heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' });
   },
   switchCode(e) {
     const codeMode = e.currentTarget.dataset.mode;
@@ -59,6 +62,12 @@ Page({
       if (!current()) return;
       if (result.status !== 'success') throw new Error(copy.failure);
       this.setData({ loading: false, valid: result.valid, card: result.card || null, notice: result.valid ? '' : copy.unavailable });
+      if (result.valid) {
+        this.setData({ currentTimeText: formatDetailTime(Date.now()), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
+        if (!this._token) this._clockTimer = setInterval(() => {
+          if (current()) this.setData({ currentTimeText: formatDetailTime(Date.now()) });
+        }, 1000);
+      }
       if (this._token || !result.valid) return;
       this.setData({ qrLoading: true });
       const generated = await callFunction({ name: 'createMyIdentityCardCode', data: { envVersion: this._envVersion } });

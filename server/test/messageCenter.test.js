@@ -53,6 +53,7 @@ const notificationModel = require(notificationPath);
 
 async function testNotificationIsolationAndAwait() {
   calls.length = 0;
+  responses.push([[], []]);
   responses.push([[{ total: 2, unread_count: 1 }], []]);
   responses.push([[{ id: 'notice-1', is_read: 0 }], []]);
   const result = await notificationModel.listForRecipient({ type: 'admin', id: 'admin-1', personId:'person-one' }, { limit: 20 });
@@ -75,6 +76,7 @@ async function testReadAffectedRowsContract() {
 async function testNotificationKeysetBoundary() {
   calls.length = 0;
   responses.length = 0;
+  responses.push([[], []]);
   responses.push([[{ total: 3, unread_count: 2 }], []]);
   responses.push([[{ id: 'notice-older', created_at: '2026-07-27 09:00:00' }], []]);
   const result = await notificationModel.listForRecipient(
@@ -87,10 +89,10 @@ async function testNotificationKeysetBoundary() {
     }
   );
   assert.strictEqual(result.items.length, 1);
-  assert.match(calls[1].sql, /created_at < \?[\s\S]*id < \?/);
-  assert.strictEqual(calls[1].params[calls[1].params.length - 2], 'f'.repeat(64));
-  assert.strictEqual(calls[1].params[calls[1].params.length - 1], 21);
-  assert.ok(calls[1].params[calls[1].params.length - 4] instanceof Date);
+  assert.match(calls[2].sql, /created_at < \?[\s\S]*id < \?/);
+  assert.strictEqual(calls[2].params[calls[2].params.length - 2], 'f'.repeat(64));
+  assert.strictEqual(calls[2].params[calls[2].params.length - 1], 21);
+  assert.ok(calls[2].params[calls[2].params.length - 4] instanceof Date);
 }
 
 function authenticatedRequest(role, organizationId) {

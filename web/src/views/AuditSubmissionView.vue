@@ -136,7 +136,7 @@
         </div>
       </section>
 
-      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openSigning(materialFile,'pen'); materialFile=null" @select="addMaterial" />
+      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openBlankSignature" @select="addMaterial" />
       <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading"><AppLoading :text="copy.common.loading" /></p></PersonnelPicker>
 
       <section v-if="canWithdraw" class="card stack">
@@ -206,6 +206,18 @@ let alive=true,requestSequence=0;
 const draftMaterials=computed(()=>draft.value ? draft.value.materials.concat(...Object.values(draft.value.files).map(file=>file.exports||[])).sort((a,b)=>(a.layerOrder||0)-(b.layerOrder||0)) : []);
 function openSigning(file,mode,active,rollback){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;setSigningHandoff({draft:draft.value,file,mode,active,rollback,submissionId:submission.value.id,stepId:activeStep.value.id,round:activeStep.value.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}});router.push({name:'auditSigning'});}
 function openMaterial(file,kind){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;materialFile.value=file;materialKind.value=kind;}
+function openBlankSignature(){
+  const target=draft.value,file=materialFile.value,step=activeStep.value;
+  if(!target || target.locked || !file || !step)return;
+  const handoff={draft:{files:{},materials:[],locked:false},file:{id:'blank-'+Date.now(),fileName:signing.padTitle},sourceFile:file,pad:true,allowSaveTemplate:true,mode:'pen',
+    submissionId:submission.value.id,stepId:step.id,round:step.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}};
+  handoff.confirm=exports=>{
+    if(target.locked || !exports.length)return;
+    recordMaterial(signingDrafts.file(target,file.id).history,target.materials,{_idx:'signature_'+nextLayerOrder(),fileId:file.id,
+      signatureType:'signature',imageData:exports[0].imageData,positionX:0.5,positionY:0.3,size:1,rotation:0,page:1});
+  };
+  materialFile.value=null;setSigningHandoff(handoff);router.push({name:'auditSigning'});
+}
 function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};recordMaterial(signingDrafts.file(draft.value,file.id).history,draft.value.materials,material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
 function removeMaterial(id){const material=draftMaterials.value.find(item=>item._idx===id);if(!material)return;const file=signingDrafts.file(draft.value,material.fileId);deleteLayer(file.history,draft.value.materials,material.page||1,String(id).startsWith('ink_')?material.inkLayerId||id.slice(('ink_'+material.fileId+'_').length):id);file.exports=file.exports.filter(item=>item._idx!==id);}
 

@@ -13,5 +13,5 @@ module.exports = {
   failure: '身份卡暂时无法读取，请重试。', qrFailure: '小程序码暂时无法生成，请重试。',
   noIdentity: '当前身份无法生成身份卡，请切换有效工作角色。',
   login: '登录后查看我的身份卡',
-  checkedAt: '核验时间', open: '查看身份卡'
+  currentTime: '当前时间', checkedAt: '核验时间', open: '查看身份卡'
 };

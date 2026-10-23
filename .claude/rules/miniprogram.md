@@ -163,6 +163,8 @@ self._lastUpdateTime = now;
 
 ### 3.13 独立签署页连续路径
 
+2026-10-23 补充：微信官方 CanvasTouch 的 x/y 是画布内坐标；当没有 clientX/clientY 时，仅在事件入口用当前画布实际 rect 转为视口坐标，再执行以下转换。禁止 page 坐标或经验偏移回退。
+
 用户在 2026-10-14 明确要求连续笔画，不允许普通 view 小线段。仅独立签署页普通布局使用可视 Canvas 2D，实时与导出共用 shared/auditInk.js。触点 clientX/clientY 与当前 viewport rect、文件相机一次转换为页内比例，不加 DPR、scrollTop 或经验偏移。禁止放在 Portal、祖先 transform 或入场位移动画内；普通弹窗仍禁止可视原生 Canvas。步骤内存草稿、颜色、局部擦除、撤销重做与附件/PDF 规则见 .claude/rules/audit.md 第 3 节及 docs/ui-kit.md。
 
 ### 3.14 编译器 runtime helper 缺失
