@@ -25,6 +25,17 @@ async function main() {
   assert.strictEqual(await instance._image(source), image, '同页签章共享已解码图片');
   // 布局切换后先同步缓冲与相机，再处理已经排队的触点。
   const ink = require('../../shared/auditInk');
+  // 横屏工具并排后按容器实际高度计算，不能累加同一行的按钮组。
+  let measuredMinimum;
+  const measuredPad = { ...definition.methods, _alive: true, triggerEvent(name, detail) { measuredMinimum = detail.minimum; } };
+  runtime.wx.createSelectorQuery = () => ({
+    in() { return this; }, select() { return this; }, fields() { return this; },
+    selectAll(selector) { assert.equal(selector, '.sigpad-tools, .sigpad-notice'); return this; },
+    boundingClientRect() { return this; },
+    exec(callback) { callback([{ width: 636, height: 126 }, [{ height: 84 }]]); }
+  });
+  measuredPad.measure();
+  assert.equal(measuredMinimum, 208);
   const touchPad = { ...definition.methods, _rect: { left: 32, top: 140 } };
   assert.deepEqual(JSON.parse(JSON.stringify(touchPad._viewportTouch({ x: 10, y: 20, identifier: 1 }))), { clientX: 42, clientY: 160, identifier: 1 });
   assert.equal(touchPad._viewportTouch({ pageX: 42, pageY: 999 }), null, '不猜测页面滚动偏移');

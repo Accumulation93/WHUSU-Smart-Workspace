@@ -41,5 +41,24 @@ function instance(saveTemplate) {
   assert.equal(order.length, 0);
   current = false; exportEmpty = false; const stale = instance(true); await stale.confirm();
   assert.equal(calls.length, 2); assert.equal(order.length, 0);
+  const managerSource = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/signatureManager/signatureManager.js');
+  const managerRequire = createRequire(managerSource);
+  let managerDefinition, rows = [{ id: 'saved', imageData: 'data:image/png;base64,YQ==' }];
+  vm.runInNewContext(fs.readFileSync(managerSource, 'utf8'), {
+    Page(value) { managerDefinition = value; },
+    require(name) {
+      if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
+      if (name.endsWith('/api')) return { callFunction: async () => ({ status: 'success', signatures: rows }) };
+      return managerRequire(name);
+    }
+  }, { filename: managerSource });
+  const manager = { ...managerDefinition, data: { signatures: [], hasSignatures: false }, setData(values) { Object.assign(this.data, values); } };
+  await manager.loadSignatures();
+  assert.equal(manager.data.hasSignatures, true);
+  assert.equal(manager.data.signatures[0].imageData, rows[0].imageData);
+  rows = [];
+  await manager.loadSignatures();
+  assert.equal(manager.data.hasSignatures, false);
+  assert.equal(manager.data.loading, false);
   console.log('PASS 空白板可选保存、拒绝保留书写、空白可继续编辑、返回后定位和角色失效');
 })().catch(error => { console.error(error); process.exitCode = 1; });

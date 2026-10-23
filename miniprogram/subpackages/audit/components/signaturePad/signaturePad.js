@@ -63,7 +63,7 @@ Component({
     measure() {
       const query = wx.createSelectorQuery().in(this);
       query.select('#sigSurface').fields({ size: true, rect: true });
-      query.selectAll('.sigpad-toolbar, .sigpad-colors, .sigpad-notice').boundingClientRect();
+      query.selectAll('.sigpad-tools, .sigpad-notice').boundingClientRect();
       query.exec(rows => {
         if (this._alive && rows[0]) {
           const controls = rows[1] || [];

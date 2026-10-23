@@ -26,6 +26,7 @@ Page({
     localeCopy,
     signingCopy, signatureDrawImage: '',
     signatures: [],
+    hasSignatures: false,
     loading: false,
     creating: false,
     editingSignature: null
@@ -35,7 +36,7 @@ Page({
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
-      this.setData({ signatures: [], creating: false, editingSignature: null, loading: false });
+      this.setData({ signatures: [], hasSignatures: false, creating: false, editingSignature: null, loading: false });
     }
     this.loadSignatures();
   },
@@ -46,7 +47,8 @@ Page({
     try {
       const res = await callFunction({ name: 'listMySignatures', data: {} });
       if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        this.setData({ signatures: res.signatures || [] });
+        const signatures = Array.isArray(res.signatures) ? res.signatures : [];
+        this.setData({ signatures, hasSignatures: signatures.length > 0, loading: false });
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
