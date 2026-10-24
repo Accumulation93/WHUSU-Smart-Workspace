@@ -167,7 +167,7 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AuditMaterialPicker from '@/components/AuditMaterialPicker.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import nativeCopy from '@/locales/zh-CN/shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
-import { clone, nextLayerOrder } from '@/shared/auditInk.js';
+import { clone, nextLayerOrder, prepareSignatureWidths } from '@/shared/auditInk.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 import signing from '@/locales/zh-CN/shared/auditSigning.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
@@ -357,6 +357,9 @@ async function onApprove() {
   submitting.value = true;
   loadNotice.value = '';
   try {
+    const target = draft.value;
+    await prepareSignatureWidths(draftMaterials.value, files.value, (file, page) => signingAssets.preview(target, file, page));
+    if (!alive || draft.value !== target || target?.locked) return;
     requireSuccess(await callApi('approveStep', {
       submissionId: route.params.id,
       stepId: step.id,

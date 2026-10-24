@@ -2692,6 +2692,10 @@ Page({
     try {
       let res;
       if (action === 'approve') {
+        const scope = orgSession.getSnapshot();
+        await inkHistory.prepareSignatureWidths(this.signingMaterials(), this.data.files,
+          (file, page) => signingAssets.preview(this._signingDraft, file, page));
+        if (!orgSession.isCurrent(scope) || this._signingDraft && this._signingDraft.locked) return;
         let designatedPersons = [...new Set((this.data.designatedNextPersons || []).map(function(p) { return p.id; }))];
         let designatedAssignments = (this.data.designatedNextPersons || []).map(function(p) { return p.assignmentId; });
         let sigs = this.signingMaterials().map(function(s) {

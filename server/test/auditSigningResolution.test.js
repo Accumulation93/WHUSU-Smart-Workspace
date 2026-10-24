@@ -12,20 +12,21 @@ for (const ratio of [1, 2, 3]) {
     const measured = [];
     for (const pixels of [1, 2, 3.5]) {
       const history = ink.createHistory();
-      ink.appendOperation(history, { type: 'draw', page: 1, color: '#000000', width: ink.penWidthRatio(pixels, camera),
+      const pen = ink.penWidthRatio(pixels, { width: 600, height: 800, pdf: true });
+      ink.appendOperation(history, { type: 'draw', page: 1, color: '#000000', width: pen,
         points: [{ x: 0.1, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.9, y: 0.5 }] });
       ink.renderViewportInk(ctx, history, 1, size.width, size.height, camera, ratio);
       const column = ctx.getImageData(Math.floor(size.width / 2), 0, 1, size.height).data;
       let coverage = 0;
       for (let i = 3; i < column.length; i += 4) coverage += column[i] / 255;
-      assert(Math.abs(coverage / ratio - pixels) < 0.55, '放大、DPR 不得改变落笔时选定的签字笔粗细');
+      assert(Math.abs(coverage / ratio - pen * camera.width) < 0.55, '缩放只改变显示像素，不能反向缩细文件中的笔宽');
       measured.push(coverage);
       const center = ctx.getImageData(Math.floor(size.width / 2), Math.floor(size.height / 2), 1, 1).data;
       assert.deepEqual(Array.from(center.slice(0, 3)), [0, 0, 0]);
       const point = ink.filePoint(30 + camera.left + camera.width * 0.6, 40 + camera.top + camera.height * 0.4, { left: 30, top: 40 }, camera);
       assert(Math.abs(point.x - 0.6) < 1e-10 && Math.abs(point.y - 0.4) < 1e-10, '触点不能重复乘 DPR');
     }
-    assert(measured[1] > measured[0] * 1.5 && measured[2] > measured[1] * 1.5, '三档实际像素粗细必须可区分');
+    assert(measured[1] > measured[0] * 1.4 && measured[2] > measured[1] * 1.4, '三档实际像素粗细必须可区分');
   }
 }
 const size = ink.exportSize(595, 842);

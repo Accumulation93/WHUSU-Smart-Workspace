@@ -32,8 +32,8 @@ async function setup(page, options = {}) {
     if (name === 'getAuditFilePreview') result = state.failPreview ? { status: 'error' } : { status: 'success', previewMime: 'image/png', data: preview, pageWidth: 800, pageHeight: 400, totalPages: 2 };
     if (name === 'listMyStamps') result = { status: 'success', stamps: [{ id: 'stamp-1', name: '测试印章' }] };
     if (name === 'getMyStampImage') result = { status: 'success', imageData: mark };
-    if (name === 'saveSignature') result = { status: 'success', id: 'saved-template' };
-    if (name === 'listMySignatures') result = { status: 'success', signatures: [{ id: 'template-a', name: '个人签名', imageData: mark }] };
+    if (name === 'saveSignature') { state.savedImage=body.imageData; result = { status: 'success', id: 'saved-template' }; }
+    if (name === 'listMySignatures') result = { status: 'success', signatures: [{ id: 'template-a', name: '个人签名', imageData: state.savedImage || mark }] };
     if (name === 'approveStep') { result = state.refused ? { status: 'forbidden', message: '本步骤暂不能处理' } : { status: 'success' }; if (!state.refused) state.detail.canApproveCurrentStep = false; }
     await route.fulfill({ json: result });
   });
@@ -47,6 +47,44 @@ async function enter(page, index = 0) {
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
   await expect(page.locator('.signing-stage canvas')).toBeVisible();
 }
+
+test('新签名未打开定位也按中档0.5mm提交，签名库重用保留尺寸', async ({page}, info) => {
+  await page.setViewportSize({width:844,height:390});
+  const state=await setup(page);
+  await page.getByRole('button',{name:text.signature,exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:text.newSignature,exact:true}).click();
+  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  const box=await page.locator('.signing-stage canvas').boundingBox();
+  await page.mouse.move(box.x+box.width*.2,box.y+box.height*.5);await page.mouse.down();
+  await page.mouse.move(box.x+box.width*.8,box.y+box.height*.5,{steps:30});await page.mouse.up();
+  await page.getByLabel(text.saveToLibrary).check();
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await expect(page).toHaveURL(/submission\/submission-1$/);
+  state.refused=true;
+  await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
+  await expect.poll(()=>state.calls.filter(c=>c.name==='approveStep').length).toBe(1);
+  const first=state.calls.find(c=>c.name==='approveStep').body;
+  const material=first.signatures[0];expect(material.widthRatio).toBeGreaterThan(0);
+  const physical=await page.evaluate(async m=>{
+    const image=new Image();image.src=m.imageData;await image.decode();
+    const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+    const data=ctx.getImageData(Math.floor(image.width/2),0,1,image.height).data;
+    let alpha=0;for(let i=3;i<data.length;i+=4)alpha+=data[i]/255;
+    return alpha/image.width*m.widthRatio*800*25.4/72;
+  },material);
+  expect(physical).toBeCloseTo(.5,2);
+  if(process.env.PHYSICAL_SIGNATURE_PARAMETERS&&info.project.name==='computer')await writeFile(process.env.PHYSICAL_SIGNATURE_PARAMETERS,JSON.stringify(first));
+  await page.getByRole('button',{name:text.signature,exact:true}).click();
+  await page.getByRole('dialog').getByText('个人签名',{exact:true}).click();
+  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
+  await expect.poll(()=>state.calls.filter(c=>c.name==='approveStep').length).toBe(2);
+  const second=state.calls.filter(c=>c.name==='approveStep')[1].body.signatures;
+  expect(second).toHaveLength(2);
+  expect(second[1].widthRatio).toBeCloseTo(material.widthRatio,7);
+});
 test('空白签名板首笔前随旋转铺满，横屏左右边缘可书写并保存', async ({ page }) => {
   await page.setViewportSize({width:390,height:844});
   const state=await setup(page);
@@ -212,7 +250,10 @@ test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({
       let total = 0; for (let i = 3; i < data.length; i += 4) total += data[i] / 255;
       return total / devicePixelRatio;
     });
-    expect(Math.abs(coverage - Number(width))).toBeLessThan(0.6);
+    const rect=await surface.boundingBox();
+    const millimeters=width==='1'?.3:width==='2'?.5:.8;
+    const expected=millimeters*72/25.4*Math.min(rect.width/800,rect.height/400)*Math.pow(1.25,7);
+    expect(Math.abs(coverage - expected)).toBeLessThan(0.6);
     measured.push(coverage);
     await page.getByRole('button', { name: text.undo, exact: true }).click();
     await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
@@ -318,6 +359,8 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   await expect(layers.getByRole('option')).toHaveCount(2);
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 2');
   await expect(layers.locator('.signing-layer-rank')).toHaveText(['1', '2']);
+  const centerPixel=()=>page.locator('.signing-stage canvas').evaluate(canvas=>Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data));
+  const redOnTop=await centerPixel();
   await layers.getByRole('option').last().click();
   await expect(page.getByRole('button', { name: text.layerDown, exact: true })).toBeDisabled();
   await page.getByRole('button', { name: text.layerUp, exact: true }).click();
@@ -327,7 +370,7 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 2');
   await page.getByRole('button', { name: text.redo, exact: true }).click();
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 1');
-  await expect.poll(() => page.locator('.signing-stage canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data))).toEqual([0,0,0,255]);
+  await expect.poll(async()=> (await centerPixel())[0]).toBeLessThan(redOnTop[0]);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();
   await enter(page); await panel(page,'layers'); await expect(layers.getByRole('option')).toHaveCount(2);
   await page.getByRole('button', { name: text.confirm, exact: true }).click();

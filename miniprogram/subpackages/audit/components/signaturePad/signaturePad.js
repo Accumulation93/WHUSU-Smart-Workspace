@@ -24,6 +24,7 @@ Component({
     attached() {
       this._alive = true; this._queue = []; this._images = {}; this._imagePending = {}; this._imagePaths = []; this._zoom = 1; this._panX = 0; this._panY = 0;
       const handoff = drafts.getHandoff();
+      this._blank = !!(handoff && handoff.pad);
       this._draft = handoff && handoff.draft; this._entryLayerId = handoff && handoff.entryLayerId;
       this._history = this.properties.fileId && handoff && handoff.file.id === this.properties.fileId
         ? drafts.store.file(handoff.draft, this.properties.fileId).history : ink.createHistory();
@@ -166,7 +167,9 @@ Component({
       (this.properties.materials || []).forEach(item => {
         if (item.widthRatio != null) return;
         const image = this._images[this._materialSource(item)];
-        const box = signatureGeometry(item, this._documentWidth, this._documentHeight, image.width, image.height, this.properties.pdf);
+        const widthRatio = item.signatureType === 'signature' ? ink.signatureWidthRatio(this._materialSource(item),
+          { width: this._documentWidth, height: this._documentHeight, pdf: this.properties.pdf }, item.size) : null;
+        const box = signatureGeometry(widthRatio === null ? item : Object.assign({}, item, { widthRatio }), this._documentWidth, this._documentHeight, image.width, image.height, this.properties.pdf);
         this.triggerEvent('geometry', { id: item._idx, widthRatio: box.width / this._documentWidth });
       });
       this._render();
@@ -256,7 +259,8 @@ Component({
         this._gesture = { kind: this.data.mode, x: touch.clientX, y: touch.clientY, panX: this._panX, panY: this._panY,
           offsetX: material ? point.x - material.positionX : 0, offsetY: material ? point.y - material.positionY : 0, moved: false };
         if (this.data.mode === 'pen') this._stroke = { layerId: this._entryLayerId, page: this.properties.page, type: this.data.erasing ? 'erase' : 'draw',
-          color: this.data.color, width: ink.penWidthRatio(this.data.erasing ? this.data.penWidth * 5 : this.data.penWidth, this._camera), points: [{ x: point.x, y: point.y }] };
+          color: this.data.color, width: ink.penWidthRatio(this.data.penWidth, { width: this._documentWidth, height: this._documentHeight,
+            pdf: this.properties.pdf, pad: this._blank }) * (this.data.erasing ? 5 : 1), points: [{ x: point.x, y: point.y }] };
       } else if (this._gesture && this._gesture.kind !== 'pinch') {
         const g = this._gesture; g.moved = g.moved || Math.hypot(touch.clientX - g.x, touch.clientY - g.y) > 3;
         if (this._stroke) this._stroke.points.push({ x: point.x, y: point.y });
@@ -292,7 +296,9 @@ Component({
         context.globalCompositeOperation = 'source-over';
         const path = await new Promise((resolve, reject) => wx.canvasToTempFilePath({ canvas, fileType: 'png', destWidth: canvas.width, destHeight: canvas.height, success: result => resolve(result.tempFilePath), fail: reject }, this));
         temporaryPath = path;
-        const imageData = await new Promise((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: path, encoding: 'base64', success: result => resolve('data:image/png;base64,' + result.data), fail: reject }));
+        let imageData = await new Promise((resolve, reject) => wx.getFileSystemManager().readFile({ filePath: path, encoding: 'base64', success: result => resolve('data:image/png;base64,' + result.data), fail: reject }));
+        const millimeters = ink.signatureWidthMm(source);
+        if (millimeters !== null) imageData = ink.withSignatureWidth(imageData, millimeters);
         if (imageData.length > Math.ceil(2 * 1024 * 1024 * 4 / 3) + 64) throw new Error('too_large');
         if (this._alive && !this._hidden && this._history.cursor === cursor && this._draft.materials.includes(material) && this._materialSource(material) === source) this.triggerEvent('recolor', { id, imageData });
       } catch (_) { if (this._alive) this.setData({ notice: copy.exportFailed }); }
@@ -345,7 +351,7 @@ Component({
       const canvas = this._export; canvas.width = bounds.width; canvas.height = bounds.height;
       canvas.getContext('2d').drawImage(this._layer, bounds.left, bounds.top, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
       this._resizeSurface(); this._render();
-      const imageData = await new Promise((resolve, reject) => {
+      let imageData = await new Promise((resolve, reject) => {
         wx.canvasToTempFilePath({ canvas, fileType: 'png', width: bounds.width, height: bounds.height,
           destWidth: bounds.width, destHeight: bounds.height, success: file => {
             const fs = wx.getFileSystemManager(), release = () => fs.unlink({ filePath: file.tempFilePath, fail() {} });
@@ -353,6 +359,7 @@ Component({
               success: value => { release(); resolve('data:image/png;base64,' + value.data); }, fail: error => { release(); reject(error); } });
           }, fail: reject }, this);
       });
+      if (this._blank) imageData = ink.withSignatureWidth(imageData, ink.pageWidthMm({ pad: true }) * bounds.width / size.width);
       if (imageData.length > Math.ceil(2 * 1024 * 1024 * 4 / 3) + 64) throw new Error('too_large');
       return { imageData, widthRatio: bounds.width / size.width, positionX: (region.left + bounds.left + bounds.width / 2) / size.width,
         positionY: (region.top + bounds.top + bounds.height / 2) / size.height, page: this.properties.page };

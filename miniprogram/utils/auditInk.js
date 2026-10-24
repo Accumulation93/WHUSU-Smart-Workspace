@@ -232,7 +232,83 @@ function exportSize(width, height) {
   const scale = 4096 / Math.max(width, height);
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
-function penWidthRatio(pixels, camera) { return pixels / camera.width; }
+// 笔宽属于文件，不属于相机。图片没有可靠纸张单位，统一把短边映射为 210mm。
+// 空白板是放大的 40mm 签名工作区，导出裁边后仍保留原物理比例。
+function pageWidthMm(page) {
+  if (page.pad) return 40;
+  if (!(Number.isFinite(page.width) && page.width > 0 && Number.isFinite(page.height) && page.height > 0)) throw new Error('page_size_invalid');
+  return page.pdf ? page.width * 25.4 / 72 : 210 * page.width / Math.min(page.width, page.height);
+}
+function penWidthRatio(preset, page) {
+  const millimeters = preset === 1 ? 0.3 : preset === 3.5 ? 0.8 : 0.5;
+  return millimeters / pageWidthMm(page);
+}
+
+// PNG 私有辅助块只携带签名尺寸，不改像素或文件正文。固定头读取避免解码整张图片。
+// wsIG：辅助、私有、保留位大写、修改像素后须显式重建；遵循 PNG 5.4/5.7。
+const PNG_PREFIX = 'data:image/png;base64,';
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function signaturePngHeader(imageData) {
+  if (typeof imageData !== 'string' || !imageData.startsWith(PNG_PREFIX)) return null;
+  const source = imageData.slice(PNG_PREFIX.length, PNG_PREFIX.length + 72), bytes = [];
+  let bits = 0, value = 0;
+  for (const character of source) {
+    const digit = BASE64.indexOf(character); if (digit < 0) return null;
+    value = (value << 6) | digit; bits += 6;
+    if (bits >= 8) { bits -= 8; bytes.push((value >>> bits) & 255); }
+  }
+  if (bytes.length < 54 || bytes.slice(0, 8).join(',') !== '137,80,78,71,13,10,26,10'
+    || uint32(bytes, 8) !== 13 || String.fromCharCode(...bytes.slice(12, 16)) !== 'IHDR') return null;
+  return bytes;
+}
+function uint32(bytes, offset) { return (bytes[offset] * 16777216 + (bytes[offset + 1] << 16) + (bytes[offset + 2] << 8) + bytes[offset + 3]) >>> 0; }
+function putUint32(bytes, offset, value) { for (let i = 0; i < 4; i += 1) bytes[offset + i] = (value >>> (24 - i * 8)) & 255; }
+function pngCrc(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+function signatureWidthMm(imageData) {
+  const bytes = signaturePngHeader(imageData);
+  if (!bytes || uint32(bytes, 33) !== 9 || String.fromCharCode(...bytes.slice(37, 41)) !== 'wsIG' || bytes[41] !== 1
+    || pngCrc(bytes.slice(37, 50)) !== uint32(bytes, 50)) return null;
+  const width = uint32(bytes, 42) / 1000;
+  if (uint32(bytes, 46) !== uint32(bytes, 16) || !(width > 0 && width <= 500)) return null;
+  return width;
+}
+function withSignatureWidth(imageData, widthMm) {
+  const bytes = signaturePngHeader(imageData);
+  if (!bytes || !(widthMm > 0 && widthMm <= 500)) throw new Error('signature_scale_invalid');
+  const chunk = [0, 0, 0, 9, 119, 115, 73, 71, 1];
+  putUint32(chunk, 9, Math.max(1, Math.round(widthMm * 1000)));
+  putUint32(chunk, 13, uint32(bytes, 16)); putUint32(chunk, 17, pngCrc(chunk.slice(4, 17)));
+  let encoded = '';
+  for (let i = 0; i < chunk.length; i += 3) {
+    const value = (chunk[i] << 16) | (chunk[i + 1] << 8) | chunk[i + 2];
+    encoded += BASE64[(value >>> 18) & 63] + BASE64[(value >>> 12) & 63] + BASE64[(value >>> 6) & 63] + BASE64[value & 63];
+  }
+  const offset = PNG_PREFIX.length + 44;
+  const existing = uint32(bytes, 33) === 9 && String.fromCharCode(...bytes.slice(37, 41)) === 'wsIG';
+  return imageData.slice(0, offset) + encoded + imageData.slice(offset + (existing ? 28 : 0));
+}
+function signatureWidthRatio(imageData, page, size) {
+  const millimeters = signatureWidthMm(imageData);
+  return millimeters === null ? null : Math.min(1, millimeters * clamp(size || 1, 0.5, 2.2) / pageWidthMm(page));
+}
+// 未打开定位页也必须先确定新签名的文件比例；所有尺寸准备成功后才更新草稿。
+async function prepareSignatureWidths(materials, files, loadPreview) {
+  const pages = new Map(), changes = [];
+  for (const item of materials) {
+    if (item.signatureType !== 'signature' || item.widthRatio != null || signatureWidthMm(item.imageData) === null) continue;
+    const file = files.find(row => row.id === item.fileId); if (!file) throw new Error('signature_file_missing');
+    const page = item.page || 1, key = file.id + ':' + page;
+    if (!pages.has(key)) pages.set(key, await loadPreview(file, page));
+    const preview = pages.get(key), response = preview.response;
+    const dimensions = { width: response.pageWidth || preview.image.width, height: response.pageHeight || preview.image.height, pdf: file.mimeType === 'application/pdf' };
+    changes.push({ item, widthRatio: signatureWidthRatio(item.imageData, dimensions, item.size) });
+  }
+  changes.forEach(change => { change.item.widthRatio = change.widthRatio; });
+}
 // 在视口大小的透明层上直接重画路径，放大时不拉伸低清笔迹位图。
 function renderViewportInk(context, history, page, width, height, camera, ratio, active) {
   context.clearRect(0, 0, width, height);
@@ -295,4 +371,4 @@ function createDraftStore() {
   }
   return { bind, open, file, reset };
 }
-module.exports = { blankPageSize, clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, recolorLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };
+module.exports = { prepareSignatureWidths, pageWidthMm, signatureWidthMm, withSignatureWidth, signatureWidthRatio, blankPageSize, clone, clamp, normalizeColor, createHistory, appendOperation, undo, redo, drawPath, renderInk, renderViewportInk, surfaceSize, exportSize, penWidthRatio, alphaBounds, fitCamera, filePoint, pinchPan, createDraftStore, addMaterial, updateMaterial, deleteLayer, nextLayerOrder, signingLayers, moveLayer, recolorLayer, renderStrokeLayer, renderViewportLayer, strokeExportRegion, inkExportGroups, groupExportRegion, renderExportGroup };
