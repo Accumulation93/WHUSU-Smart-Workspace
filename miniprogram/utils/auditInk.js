@@ -271,10 +271,10 @@ function pinchPan(rect, gesture, zoom, clientX, clientY) {
   return { x: clientX - centerX - (gesture.midX - centerX - gesture.panX) * factor,
     y: clientY - centerY - (gesture.midY - centerY - gesture.panY) * factor };
 }
-// 空白板首次按可写视口定纸张；已有历史及重新进入保持原比例，文件页不调用此函数。
+// 首笔前跟随真实视口，避免横屏动画前的竖屏测量锁死纸张；有历史（含可重做）后固定比例。
 function blankPageSize(fileDraft, viewport) {
-  if (fileDraft.blankDimensions) return fileDraft.blankDimensions;
   const hasHistory = fileDraft.history && fileDraft.history.operations.length > 0;
+  if (hasHistory && fileDraft.blankDimensions) return fileDraft.blankDimensions;
   const width = Number(viewport && viewport.width), height = Number(viewport && viewport.height);
   if (!hasHistory && (!(width > 0) || !(height > 0))) throw new Error('blank_viewport_unavailable');
   fileDraft.blankDimensions = hasHistory ? { width: 800, height: 400 } : { width, height };

@@ -116,25 +116,44 @@ Component({
 
   lifetimes: {
     attached() {
-      this.refresh();
-    }
+      this.resumeGeometry();
+    },
+    detached() { this.stopGeometry(); this._hostPage = null; }
   },
 
   pageLifetimes: {
     // 页面栈变化会影响返回键，回到页面时重新判断。
     show() {
-      this.refresh();
+      this.resumeGeometry();
     },
+    hide() { this.stopGeometry(); },
     // Pad 横竖屏切换后状态栏与胶囊会移动，几何与标题宽度都要重算。
-    resize() {
-      this.refresh();
+    resize(event) {
+      if (this._geometryVisible === false) return;
+      this.resumeGeometry(event && event.size);
     }
   },
 
   methods: {
+    stopGeometry() {
+      this._geometryVisible = false;
+      (this._geometryTimers || []).forEach(timer => clearTimeout(timer));
+      this._geometryTimers = [];
+    },
+    resumeGeometry(size) {
+      this.stopGeometry(); this._geometryVisible = true;
+      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+      this._hostPage = pages[pages.length - 1];
+      this._windowSize = size || null;
+      this.refresh();
+      // 微信旋转事件早于状态栏和胶囊稳定；有限次重测，隐藏及卸载立即取消。
+      this._geometryTimers = [80, 240, 600].map(delay => setTimeout(() => {
+        if (this._geometryVisible) this.refresh();
+      }, delay));
+    },
     // 几何、返回键、标题一次算完，只写一次 data。
     refresh() {
-      const metrics = getNavigationBarMetrics();
+      const metrics = getNavigationBarMetrics(this._windowSize);
       const mode = this.data.backMode;
       const leftMode = this.data.leftMode;
       const showBack = leftMode === 'back' && (mode === 'always' || (mode === 'auto' && readPageDepth() > 1));
@@ -148,6 +167,11 @@ Component({
         headingText: heading.text,
         headingLeft: heading.left
       });
+      // 顶栏占位与宿主已有的可用高度必须来自同一次测量，避免返回后仍保留横屏补偿。
+      const host = this._hostPage;
+      if (this._geometryVisible && host && host.data && typeof host.data.navTopPx === 'number' && host.data.navTopPx !== metrics.totalHeight) {
+        host.setData({ navTopPx: metrics.totalHeight });
+      }
     },
 
     computeHeading(metrics, leftMode, showBack) {

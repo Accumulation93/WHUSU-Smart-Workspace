@@ -13,20 +13,26 @@ const CAPSULE_GAP_PX = 8;
 // 取不到胶囊坐标时按微信通用胶囊宽度兜底，宁可多留白也不能让标题压到胶囊上。
 const FALLBACK_CAPSULE_INSET_PX = 96;
 
-function getNavigationBarMetrics() {
+function getNavigationBarMetrics(size) {
   let info = null;
   try {
-    info = typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function' ? wx.getSystemInfoSync() : null;
-  } catch (_) {
-    info = null;
-  }
+    if (typeof wx !== 'undefined' && typeof wx.getWindowInfo === 'function') info = wx.getWindowInfo();
+  } catch (_) { /* 旧基础库继续读取系统信息。 */ }
+  try {
+    if (!info && typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function') info = wx.getSystemInfoSync();
+  } catch (_) { /* 旧基础库保留系统信息。 */ }
+  info = info || {};
+  const width = Number(size && size.windowWidth) || Number(info.windowWidth);
+  const height = Number(size && size.windowHeight) || Number(info.windowHeight);
+  const landscape = width > 0 && height > 0 && width > height;
   const statusBarHeight = info && info.statusBarHeight != null ? Number(info.statusBarHeight) : NaN;
-  const windowWidth = Number(info && info.windowWidth);
+  const windowWidth = width;
   const metrics = {
     statusBarHeight: Number.isFinite(statusBarHeight) && statusBarHeight >= 0 ? Math.round(statusBarHeight) : FALLBACK_STATUS_BAR_HEIGHT,
     barHeight: FALLBACK_BAR_HEIGHT,
     capsuleInset: 0
   };
+  if (!landscape) metrics.statusBarHeight = Math.max(metrics.statusBarHeight, Number(info.safeArea && info.safeArea.top) || 0);
 
   let capsule = null;
   try {
@@ -38,16 +44,18 @@ function getNavigationBarMetrics() {
   }
   const capsuleTop = Number(capsule && capsule.top);
   const capsuleHeight = Number(capsule && capsule.height);
-  if (Number.isFinite(capsuleTop) && Number.isFinite(capsuleHeight) && capsuleHeight > 0) {
+  // 旋转期间胶囊与窗口数据可能来自不同帧；越出当前窗口的旧胶囊不能参与几何。
+  const capsuleFits = capsule && capsule.left >= 0 && capsule.right <= windowWidth && capsuleTop >= 0 && capsuleHeight > 0;
+  if (capsuleFits && Number.isFinite(capsuleTop) && Number.isFinite(capsuleHeight)) {
     // 强制横屏时系统信息可能仍是竖屏值；实际胶囊已移到顶部，不能再叠加旧状态栏。
-    if (capsuleTop >= 0 && capsuleTop < metrics.statusBarHeight) metrics.statusBarHeight = 0;
+    if (landscape && capsuleTop < metrics.statusBarHeight) metrics.statusBarHeight = 0;
     // 行高按胶囊上下留白对称推算，避免标题与胶囊不在同一条水平线上。
     const barHeight = (capsuleTop - metrics.statusBarHeight) * 2 + capsuleHeight;
-    if (Number.isFinite(barHeight) && barHeight > 0) metrics.barHeight = Math.round(barHeight);
+    if (capsuleTop >= metrics.statusBarHeight && Number.isFinite(barHeight) && barHeight > 0) metrics.barHeight = Math.round(barHeight);
   }
   const capsuleLeft = Number(capsule && capsule.left);
-  const actualWidth = Math.max(Number.isFinite(windowWidth) ? windowWidth : 0, Number(capsule && capsule.right) || 0);
-  if (actualWidth > 0 && Number.isFinite(capsuleLeft) && capsuleLeft > 0) {
+  const actualWidth = Number.isFinite(windowWidth) ? windowWidth : 0;
+  if (capsuleFits && actualWidth > 0 && Number.isFinite(capsuleLeft) && capsuleLeft > 0) {
     metrics.capsuleInset = Math.round(actualWidth - capsuleLeft + CAPSULE_GAP_PX);
   } else if (Number.isFinite(windowWidth) && windowWidth > FALLBACK_CAPSULE_INSET_PX) {
     metrics.capsuleInset = FALLBACK_CAPSULE_INSET_PX;

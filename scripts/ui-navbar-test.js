@@ -14,8 +14,11 @@ function loadComponent(options) {
   const settings = options || {};
   let definition = null;
   const calls = { navigateBack: [], reLaunch: [], metrics: 0 };
+  const timers = new Map(); let timerId = 0;
   const sandbox = {
     console,
+    setTimeout: (fn) => { timers.set(++timerId, fn); return timerId; },
+    clearTimeout: (id) => timers.delete(id),
     module: { exports: {} },
     Component: (value) => { definition = value; return value; },
     wx: {
@@ -25,7 +28,7 @@ function loadComponent(options) {
       },
       reLaunch: (value) => calls.reLaunch.push(value && value.url)
     },
-    getCurrentPages: () => new Array(settings.pageDepth || 1).fill({}),
+    getCurrentPages: () => settings.pages || new Array(settings.pageDepth || 1).fill({}),
     require: (name) => {
       if (name.indexOf('navigationBarMetrics') >= 0) {
         return {
@@ -53,7 +56,7 @@ function loadComponent(options) {
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(componentFile, 'utf8'), sandbox, { filename: componentFile });
-  return { definition, calls };
+  return { definition, calls, timers };
 }
 
 function createInstance(definition, properties) {
@@ -77,19 +80,43 @@ function makeInstance(settings, properties) {
 // 强制横屏后平台仍返回旧竖屏信息时，胶囊实际位置优先；正常竖屏保持原值。
 {
   const source = fs.readFileSync(path.join(root, 'miniprogram/utils/navigationBarMetrics.js'), 'utf8');
-  function metrics(info, capsule) {
-    const sandbox = { module: { exports: {} }, wx: { getSystemInfoSync: () => info, getMenuButtonBoundingClientRect: () => capsule } };
+  function metrics(info, capsule, size, windowInfo) {
+    const sandbox = { module: { exports: {} }, wx: { getSystemInfoSync: () => info, getWindowInfo: () => windowInfo || info, getMenuButtonBoundingClientRect: () => capsule } };
     vm.runInNewContext(source, sandbox);
-    return sandbox.module.exports.getNavigationBarMetrics();
+    return sandbox.module.exports.getNavigationBarMetrics(size);
   }
   const portrait = metrics({ windowWidth: 430, statusBarHeight: 54 }, { left: 323, right: 409, top: 60, height: 32 });
   assert.equal(portrait.totalHeight, 98);
-  const landscape = metrics({ windowWidth: 430, statusBarHeight: 54 }, { left: 821, right: 907, top: 8, height: 32 });
+  const landscape = metrics({ windowWidth: 430, statusBarHeight: 54 }, { left: 821, right: 907, top: 8, height: 32 }, { windowWidth: 932, windowHeight: 430 });
   assert.equal(landscape.totalHeight, 48);
   assert(landscape.capsuleInset > 0);
   assert(landscape.windowWidth >= 907);
   assert.equal(metrics({ windowWidth: 932, statusBarHeight: 0 }, { left: 821, right: 907, top: 8, height: 32 }).totalHeight, 48);
   assert.equal(metrics(null, null).totalHeight, 64, '系统信息不可用时保留原有安全高度');
+  const staleCapsule = { left: 821, right: 907, top: 8, height: 32 };
+  const returned = metrics({ windowWidth: 430, windowHeight: 932, statusBarHeight: 54 }, staleCapsule);
+  assert.equal(returned.statusBarHeight, 54, '竖屏不能被横屏旧胶囊清零安全区');
+  assert.equal(returned.windowWidth, 430, '旧胶囊不能撑大竖屏标题宽度');
+  assert.equal(returned.totalHeight, 98);
+  assert.equal(metrics({windowWidth:430,windowHeight:932,statusBarHeight:54}, {left:323,right:409,top:8,height:32}).statusBarHeight,54, '胶囊仅纵坐标迟到也不能清零竖屏状态栏');
+  assert.equal(metrics({windowWidth:932,statusBarHeight:0},staleCapsule,undefined,{windowWidth:430,windowHeight:932,statusBarHeight:0,safeArea:{top:54}}).statusBarHeight,54, '竖屏优先保护当前窗口安全区');
+}
+
+// 旋转初次读取仍旧时，后续测量同步顶栏与宿主；离开后不再改写任何页面。
+{
+  const host = { data: { navTopPx: 48 }, setData(patch) { Object.assign(this.data, patch); } };
+  const settings = { pages: [host], metrics: {statusBarHeight:0,barHeight:48,totalHeight:48,windowWidth:932,capsuleInset:96} };
+  const loaded = loadComponent(settings), instance = createInstance(loaded.definition);
+  loaded.definition.pageLifetimes.show.call(instance);
+  assert.equal(loaded.timers.size, 3);
+  settings.metrics = {statusBarHeight:54,barHeight:44,totalHeight:98,windowWidth:430,capsuleInset:96};
+  for (const callback of loaded.timers.values()) callback();
+  assert.equal(instance.data.statusBarHeight,54); assert.equal(host.data.navTopPx,98);
+  loaded.definition.pageLifetimes.hide.call(instance);
+  assert.equal(loaded.timers.size,0);
+  loaded.definition.pageLifetimes.resize.call(instance,{size:{windowWidth:932,windowHeight:430}});
+  assert.equal(loaded.timers.size,0,'隐藏页不得因旋转重新监听或修改新页面');
+  loaded.definition.lifetimes.detached.call(instance);
 }
 
 // —— 顶栏几何 ——

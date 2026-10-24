@@ -83,6 +83,14 @@ Component({
       // CSS 视口、像素缓冲与文件相机必须在同一次测量中同步，禁止拉伸旧缓冲。
       this._rect = rect;
       this._resizeSurface();
+      const handoff = drafts.getHandoff();
+      if (handoff && handoff.pad && this.properties && handoff.file.id === this.properties.fileId) {
+        const size = ink.blankPageSize(drafts.store.file(handoff.draft, this.properties.fileId), rect);
+        if (this._documentWidth !== size.width || this._documentHeight !== size.height) {
+          this._documentWidth = size.width; this._documentHeight = size.height;
+          if (this.data.ready) this.triggerEvent('ready', size);
+        }
+      }
       if (this._documentWidth && this._documentHeight) this._camera = ink.fitCamera(rect.width, rect.height, this._documentWidth, this._documentHeight, this._zoom, this._panX, this._panY);
       return true;
     },

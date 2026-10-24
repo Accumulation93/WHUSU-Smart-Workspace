@@ -47,6 +47,33 @@ async function enter(page, index = 0) {
   await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
   await expect(page.locator('.signing-stage canvas')).toBeVisible();
 }
+test('空白签名板首笔前随旋转铺满，横屏左右边缘可书写并保存', async ({ page }) => {
+  await page.setViewportSize({width:390,height:844});
+  const state=await setup(page);
+  await page.getByRole('button',{name:text.signature,exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:text.newSignature,exact:true}).click();
+  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  for(const viewport of [{width:844,height:390},{width:390,height:844},{width:844,height:390}]){
+    await page.setViewportSize(viewport);
+    await expect.poll(()=>page.locator('.signing-stage canvas').evaluate(canvas=>{
+      const ctx=canvas.getContext('2d');
+      return [[.02,.02],[.98,.02],[.02,.98],[.98,.98]].every(([x,y])=>{
+        const c=ctx.getImageData(Math.floor(canvas.width*x),Math.floor(canvas.height*y),1,1).data;
+        return c[0]===255&&c[1]===255&&c[2]===255&&c[3]===255;
+      });
+    })).toBe(true);
+  }
+  const box=await page.locator('.signing-stage canvas').boundingBox();
+  await page.mouse.move(box.x+box.width*.02,box.y+box.height*.5); await page.mouse.down();
+  await page.mouse.move(box.x+box.width*.98,box.y+box.height*.5,{steps:45}); await page.mouse.up();
+  await page.getByLabel(text.saveToLibrary).check();
+  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await expect.poll(()=>state.calls.filter(c=>c.name==='saveSignature').length).toBe(1);
+  const saved=state.calls.find(c=>c.name==='saveSignature').body.imageData;
+  const dimensions=await page.evaluate(async src=>{const img=new Image();img.src=src;await img.decode();return {width:img.width,height:img.height};},saved);
+  expect(dimensions.width).toBeGreaterThan(3000);
+  expect(dimensions.height).toBeLessThan(100);
+});
 test('空白签名板可选保存，已有签名改色可以撤销重做', async ({ page }) => {
   const state = await setup(page);
   await page.getByRole('button', { name: text.signature, exact: true }).click();

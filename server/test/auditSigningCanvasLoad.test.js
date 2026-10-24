@@ -7,8 +7,11 @@ const { createRequire } = require('node:module');
 
 async function main() {
   const file = path.resolve(__dirname, '../../miniprogram/subpackages/audit/components/signaturePad/signaturePad.js');
-  let definition, writes = 0;
-  const runtime = { Component(value) { definition = value; }, require: createRequire(file), console,
+  let definition, writes = 0, blankHandoff = null;
+  const runtime = { Component(value) { definition = value; }, require(name) {
+    if (name.endsWith('/auditSigningDrafts')) return { getHandoff: () => blankHandoff, store: { file: (draft) => draft.fileDraft } };
+    return createRequire(file)(name);
+  }, console,
     wx: { env: { USER_DATA_PATH: 'wxfile://usr' }, getFileSystemManager() { return {
       writeFile(options) { writes++; options.fail(new Error('quota')); },
       writeFileSync() { writes++; throw new Error('quota'); }
@@ -48,6 +51,25 @@ async function main() {
   }
   assert.deepEqual(ink.blankPageSize({ history: { operations: [{}] } }, { width: 790, height: 174 }), { width: 800, height: 400 }, '旧草稿保持原坐标');
   assert.throws(() => ink.blankPageSize({ history: ink.createHistory() }, { width: 0, height: 0 }));
+  const resizingDraft = { history: ink.createHistory() };
+  blankHandoff = { pad: true, file: { id: 'blank' }, draft: { fileDraft: resizingDraft } };
+  const resizingPad = { ...definition.methods, properties: {fileId:'blank'}, data:{ready:true}, _pixelRatio:2,
+    _surface:{}, _layer:{}, _zoom:1, _panX:0, _panY:0, triggerEvent(name, size) { assert.equal(name,'ready'); this.dimensions=size; } };
+  for (const viewport of [{width:350,height:580},{width:790,height:174},{width:350,height:580},{width:790,height:174}]) {
+    const rect = {left:10,top:48,...viewport};
+    resizingPad._applyViewport(rect);
+    assert.deepEqual(resizingPad.dimensions,viewport, '首笔前竖横屏多次切换，实际白纸必须覆盖画布');
+    assert.equal(resizingPad._camera.width,viewport.width); assert.equal(resizingPad._camera.height,viewport.height);
+    for (const x of [0.01,0.99]) for (const y of [0.01,0.99]) {
+      const point=resizingPad._point({clientX:rect.left+x*rect.width,clientY:rect.top+y*rect.height});
+      assert.equal(point.inside,true,'四角均能实际落笔'); assert(Math.abs(point.x-x)<1e-10); assert(Math.abs(point.y-y)<1e-10);
+    }
+  }
+  resizingDraft.history.operations.push({type:'draw',page:1}); resizingDraft.history.cursor=0;
+  resizingPad._applyViewport({left:10,top:98,width:350,height:580});
+  assert.equal(resizingPad._documentWidth,790,'撤销为空后仍保留可重做笔迹的比例');
+  assert.equal(resizingPad._documentHeight,174);
+  blankHandoff=null;
   assert.deepEqual(JSON.parse(JSON.stringify(touchPad._viewportTouch({ x: 10, y: 20, identifier: 1 }))), { clientX: 42, clientY: 160, identifier: 1 });
   assert.equal(touchPad._viewportTouch({ pageX: 42, pageY: 999 }), null, '不猜测页面滚动偏移');
   assert.equal(touchPad._viewportTouch({ clientX: 42, clientY: 160, x: 999 }).clientX, 42, '视口坐标优先，不重复转换');
