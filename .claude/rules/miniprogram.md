@@ -152,6 +152,8 @@ self._lastUpdateTime = now;
 
 ### 3.11 WXML 中 `data-*` 属性值类型
 
+人员组件 `person-link` 必须由 `view` 等可承载组件的节点包裹，禁止嵌入原生 `text`；外层只换为 view，保留原样式。姓名展示独立于通讯录跳转权限，禁止未授权跳转就隐藏业务记录中的姓名。`scripts/person-link-layout-audit.js` 已接入兼容性检查。
+
 `dataset` 中的值始终是**字符串**。比较时必须 `Number(e.currentTarget.dataset.index)`。
 
 ### 3.12 `hidden` vs `wx:if`

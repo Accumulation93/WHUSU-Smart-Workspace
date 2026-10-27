@@ -2,7 +2,7 @@
   <view class="detail-title">{{booking.title || localeCopy.copy_56feddb4d3}}</view>
   <view class="detail-row" wx:if="{{booking.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{booking.venueName}}</text></view>
   <view class="detail-row" wx:if="{{booking.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{booking.orgName}}</text></view>
-  <view class="detail-row" wx:if="{{booking.userName}}"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val"><person-link name="{{booking.userName}}" assignment-id="{{booking.creatorAssignmentId || booking.applicantAssignmentId}}" hr-id="{{booking.userHrId}}" person-id="{{booking.creatorPersonId}}" /></text></view>
+  <view class="detail-row" wx:if="{{booking.userName}}"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><view class="detail-val"><person-link name="{{booking.userName}}" assignment-id="{{booking.creatorAssignmentId || booking.applicantAssignmentId}}" hr-id="{{booking.userHrId}}" person-id="{{booking.creatorPersonId}}" /></view></view>
   <view class="detail-row" wx:if="{{booking._creatorAssignmentText}}"><text class="detail-key">{{localeCopy.applicantAssignment}}</text><text class="detail-val"><text class="assignment-chip">{{booking._creatorAssignmentText}}</text></text></view>
   <view class="detail-row" wx:if="{{booking.userDept}}"><text class="detail-key">{{localeCopy.copy_02419589be}}</text><text class="detail-val">{{booking.userDept}}</text></view>
   <view class="detail-row" wx:if="{{booking.userIdentity}}"><text class="detail-key">{{localeCopy.copy_c1965e0690}}</text><text class="detail-val">{{booking.userIdentity}}</text></view>

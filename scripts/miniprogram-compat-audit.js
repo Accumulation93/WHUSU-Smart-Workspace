@@ -367,6 +367,7 @@ files.filter(function(file) { return file.endsWith('.wxss'); }).forEach(checkWxs
 const pageCount = checkRegisteredPages();
 checkProjectConfig();
 failures.push(...require('./ui-icon-size-audit').audit(files));
+failures.push(...require('./person-link-layout-audit').audit(files));
 
 if (failures.length) {
   console.error('小程序编译兼容性审计失败（' + failures.length + ' 项）：');
