@@ -1,5 +1,6 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
+@import '../../styles/activityDetail.wxss';
 
 .booking-assignment-chip {
   display: inline-flex;

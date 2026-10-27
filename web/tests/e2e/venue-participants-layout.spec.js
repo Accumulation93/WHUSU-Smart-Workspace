@@ -2,13 +2,14 @@ import {test,expect} from '@playwright/test';
 import {mockApi} from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import copy from '../../src/locales/zh-CN/shared/calendar.js';
+import venueCopy from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 
-async function openActivity(page,participants,canEdit=true) {
+async function openActivity(page,participants,canEdit=true,status='success') {
   await mockApi(page);
   await page.clock.setFixedTime(new Date('2035-01-01T00:00:00Z'));
   await page.route('**/api/listVenuesForBooking',r=>r.fulfill({json:{status:'success',venues:[{id:'venue',name:'Room A',approvalType:'direct'}]}}));
   await page.route('**/api/getVenueSchedule',r=>r.fulfill({json:{status:'success',dailySchedules:[{date:'2035-01-01',openSlots:[],bookedSlots:[],activitySlots:[{ruleId:'activity',ruleName:'Weekly meeting',timeStart:'09:00',timeEnd:'10:00',activity:{id:'activity',name:'Weekly meeting',occurrenceStart:'2035-01-01 09:00',occurrenceEnd:'2035-01-01 10:00',cycleType:'daily',cycleValues:{repeatCount:3}}}]}]}}));
-  await page.route('**/api/getCalendarParticipants',r=>r.fulfill({json:{status:'success',participants,canEdit}}));
+  await page.route('**/api/getCalendarParticipants',r=>r.fulfill({json:{status,participants,canEdit}}));
   await page.goto('/web/venue/bookings');
   await page.getByRole('button',{name:ui.copy_391b522838,exact:true}).click();
   await page.getByRole('button',{name:'Weekly meeting',exact:true}).click();
@@ -24,11 +25,28 @@ test('activity details and people remain compact, readable and editable',async({
   const geometry=await action.evaluate(el=>{const r=el.getBoundingClientRect(),p=el.parentElement.getBoundingClientRect();return {height:r.height,width:r.width,parent:p.width,center:Math.abs(r.y+r.height/2-p.y-p.height/2)};});
   expect(geometry.height).toBeGreaterThanOrEqual(36);expect(geometry.height).toBeLessThanOrEqual(48);expect(geometry.width).toBeLessThan(geometry.parent/2);expect(geometry.center).toBeLessThan(2);
   const content=await dialog.locator('.activity-detail').boundingBox();expect(content.height).toBeLessThan(390);
+  await expect(dialog.locator('.activity-detail ui-icon, .activity-facts img, .activity-facts svg')).toHaveCount(0);
+  await expect(dialog.locator('.activity-values')).toContainText(venueCopy.copy_13293d504a);
   const cards=await dialog.locator('.calendar-participant').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height,width:r.width,scroll:n.scrollWidth};}));
   for(const card of cards){expect(card.height).toBeLessThan(95);expect(card.scroll).toBeLessThanOrEqual(card.width+1);}
   if(page.viewportSize().width>=520)expect(Math.abs(cards[0].top-cards[1].top)).toBeLessThan(1);
   await expect(dialog.getByText(copy.noPosition,{exact:true})).toBeVisible();
   await action.click();await expect(page).toHaveURL(/calendar\/edit\?sourceKind=venue_activity&sourceId=activity/);
+});
+
+test('participant access and loading failures remain visible and can retry',async({page})=>{
+  const dialog=await openActivity(page,[],false,'calendar_forbidden');
+  await expect(dialog.getByText(copy.participantsRestricted,{exact:true})).toBeVisible();
+  await expect(dialog.locator('.calendar-participants-action')).toHaveCount(0);
+  await page.route('**/api/getCalendarParticipants',r=>r.fulfill({json:{status:'error'}}));
+  await page.reload();
+  await page.getByRole('button',{name:ui.copy_391b522838,exact:true}).click();
+  await page.getByRole('button',{name:'Weekly meeting',exact:true}).click();
+  await expect(dialog.getByText(copy.participantsFailed,{exact:true})).toBeVisible();
+  await page.route('**/api/getCalendarParticipants',r=>r.fulfill({json:{status:'success',participants:[],canEdit:false}}));
+  await dialog.getByRole('button',{name:copy.retry,exact:true}).click();
+  await expect(dialog.getByText(copy.noParticipants,{exact:true})).toBeVisible();
+  await expect(dialog.getByText(copy.participantsFailed,{exact:true})).toHaveCount(0);
 });
 
 test('long participant lists scroll without expanding controls or losing closing actions',async({page},info)=>{

@@ -1,11 +1,11 @@
-<view wx:if="{{result || loading || failed}}" class="calendar-participants">
-  <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
-  <view wx:if="{{failed}}" class="calendar-participants-head"><text class="calendar-participant-position">{{copy.operationFailed}}</text><button class="secondary-btn ui-motion-button calendar-participants-action" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retry}}</button></view>
-  <block wx:if="{{result}}">
+<view wx:if="{{sourceId}}" class="calendar-participants">
     <view class="calendar-participants-head">
-      <view class="calendar-participants-title">{{copy.participants}}<text class="calendar-participants-count">{{result.participants.length}}</text></view>
-      <button wx:if="{{result.canEdit}}" class="secondary-btn ui-motion-button calendar-participants-action" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{venueCopy.copy_20f94d2c18}}</button>
+      <view class="calendar-participants-title">{{copy.participants}}<text wx:if="{{result}}" class="calendar-participants-count">{{result.participants.length}}</text></view>
+      <button wx:if="{{result && result.canEdit}}" class="secondary-btn ui-motion-button calendar-participants-action" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{venueCopy.copy_20f94d2c18}}</button>
     </view>
+  <app-loading wx:if="{{loading}}" text="{{copy.participantsLoading}}" />
+  <view wx:if="{{notice}}" class="calendar-participants-head"><text class="calendar-participant-position">{{notice}}</text><button wx:if="{{failed}}" class="secondary-btn ui-motion-button calendar-participants-action" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retry}}</button></view>
+  <block wx:if="{{result}}">
     <view wx:if="{{!result.participants.length}}" class="calendar-participant-position">{{copy.noParticipants}}</view>
     <view class="calendar-participants-grid">
       <view wx:for="{{result.participants}}" wx:key="index" class="calendar-participant"><view class="calendar-participant-name"><person-link name="{{item.name}}" reference="{{item.personReference}}" /></view><view class="calendar-participant-position">{{item.positions || copy.noPosition}}</view></view>

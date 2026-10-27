@@ -5,7 +5,7 @@ const common=require('../../../../locales/zh-CN/common');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.systemCalendar+' - '+common.appName,busy:false,notice:'',subscription:null,confirmation:false,action:'create'},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.systemCalendar+' - '+common.brandName,busy:false,notice:'',subscription:null,confirmation:false,action:'create'},
   onLoad:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;},

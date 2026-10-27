@@ -1,16 +1,16 @@
 <template>
   <div class="activity-detail">
     <div class="activity-summary">
-      <div class="row"><UiIcon name="calendar" size-role="feature-leading" /><h2 class="activity-name">{{ name || ui.copy_acd4c5c171 }}</h2></div>
+      <div class="row"><h2 class="activity-name">{{ name || ui.copy_acd4c5c171 }}</h2></div>
       <div v-if="venue" class="activity-venue"><span class="chip chip-sky break-all">{{ venue }}</span></div>
     </div>
     <div class="activity-facts">
     <div v-if="occurrence || time" class="activity-section">
-      <div class="row activity-label"><UiIcon name="clock" size-role="inline" /><span>{{ occurrence ? ui.copy_7c25b53857 : ui.copy_d2a13af3e2 }}</span></div>
+      <div class="activity-label"><span>{{ occurrence ? ui.copy_7c25b53857 : ui.copy_d2a13af3e2 }}</span></div>
       <strong class="activity-value">{{ occurrence || time }}</strong>
     </div>
     <div v-if="cycle || period" class="activity-section">
-      <div class="row activity-label"><UiIcon name="calendar" size-role="inline" /><span>{{ ui.copy_fbf78f3644 }}</span></div>
+      <div class="activity-label"><span>{{ ui.copy_fbf78f3644 }}</span></div>
       <div class="activity-values"><span v-if="cycle" class="activity-value">{{ cycle }}</span><span v-if="period" class="activity-value">{{ period }}</span></div>
     </div>
     </div>
@@ -19,7 +19,6 @@
   </div>
 </template>
 <script setup>
-import UiIcon from './UiIcon.vue';
 import CalendarSourceParticipants from './CalendarSourceParticipants.vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 defineProps({sourceId:String,occurrenceDate:String,name:String,venue:String,occurrence:String,time:String,cycle:String,period:String,note:String});

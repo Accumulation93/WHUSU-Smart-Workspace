@@ -1,5 +1,6 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
+@import '../../styles/activityDetail.wxss';
 
 /* ═══ Venue cards — 参考 mySubmissions 审核列表卡片样式 ═══ */
 .venue-card {

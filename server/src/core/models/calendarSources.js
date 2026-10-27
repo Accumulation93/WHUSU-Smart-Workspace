@@ -58,4 +58,17 @@ async function occurrenceDate(connection,sourceKind,sourceId,orgId,offset) {
   }
   return dateText(Date.now()+offset*60000);
 }
-module.exports={read,assertEditable,occurrenceDate};
+// 查看历史名单与编辑名单分开；取消借用不能剥夺申请人或管理者的查看权。
+async function participantReadAccess(connection,sourceKind,sourceId,actor,permissions) {
+  if(sourceKind==='venue_booking') {
+    const row=(await connection.query('SELECT creator_person_id FROM venue_bookings WHERE id=? AND creator_org_id=?',[sourceId,actor.organizationId]))[0][0];
+    return {canRead:!!row&&(row.creator_person_id===actor.personId||!!permissions.venueBookings),emptyVisible:false};
+  }
+  if(sourceKind==='venue_activity') {
+    const row=(await connection.query('SELECT r.id FROM venue_activity_rules r JOIN venues v ON v.id=r.venue_id AND v.is_active=1 WHERE r.id=? AND r.is_active=1',[sourceId]))[0][0];
+    // 场地活动为共享公开占用；未配置名单时只返回空状态，不返回任何其他组织的人员。
+    return {canRead:!!row&&!!permissions.venueResources,emptyVisible:!!row};
+  }
+  return {canRead:false,emptyVisible:false};
+}
+module.exports={read,assertEditable,occurrenceDate,participantReadAccess};

@@ -1281,12 +1281,14 @@ Page({
       id: rule.id,
       venueName: this.data.rulesVenueName,
       cycleLabel: rule._detailCycleLabel || rule._cycleLabel || '',
+      cycleType: rule.cycle_type, cycleValues: rule.cycle_values,
       legacyTime: (rule.time_start || '09:00').substring(0, 5) + localeCopy.copy_c44dbba9e9 + (rule.time_end || '18:00').substring(0, 5),
       note: rule.cycle_type === 'datetime_range' || rule.cycle_type === 'repeat' ? localeCopy.copy_ebe09ed8ec : localeCopy.copy_e90ee137d6
     }});
   },
 
   closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
+  onActivityDetailLayout(e) { const height=Number(e.detail.height);if(this.data.activityDetailVisible&&height>0&&height!==this.data.activityDetailHeight)this.setData({activityDetailHeight:height}); },
 
   getRuleTypeLabel(rt) {
     const map = { direct: localeCopy.copy_4f15bb9939, admin: localeCopy.copy_af20193574, identity: localeCopy.copy_fa045c9cde, person: localeCopy.copy_777a6a2574 };
@@ -1710,7 +1712,8 @@ Page({
       occurrenceDate: calendarDateTime.formatAbsoluteDate(activity.occurrenceStart),
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
-      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
+      cycleType: activity.cycleType, cycleValues: activity.cycleValues,
+      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + '\n' + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
       note: localeCopy.copy_c1ce05d451
     }});
   },

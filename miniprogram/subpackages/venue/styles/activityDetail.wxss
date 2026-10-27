@@ -1,0 +1,5 @@
+/* 活动详情按实际内容量确定滚动视口；长名单仍受共享可用高度限制。 */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.venue-activity-dialog > scroll-view.ui-dialog-body {
+  flex: 0 1 auto !important;
+  height: calc(var(--venue-activity-content-height, 0px) + var(--ui-dialog-body-padding) * 2) !important;
+}

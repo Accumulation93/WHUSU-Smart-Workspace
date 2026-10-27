@@ -625,11 +625,13 @@ Page({
       occurrenceDate: calendarDateTime.formatAbsoluteDate(activity.occurrenceStart),
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
-      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
+      cycleType: activity.cycleType, cycleValues: activity.cycleValues,
+      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + '\n' + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
       note: localeCopy.copy_c1ce05d451
     }});
   },
   closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
+  onActivityDetailLayout(e) { const height=Number(e.detail.height);if(this.data.activityDetailVisible&&height>0&&height!==this.data.activityDetailHeight)this.setData({activityDetailHeight:height}); },
 
   viewMyBookingDetail(e) {
     let id = e.currentTarget.dataset.id;

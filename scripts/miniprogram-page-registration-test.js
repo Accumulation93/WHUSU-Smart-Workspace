@@ -60,6 +60,7 @@ function checkHandlers(base, definition) {
     for (const [key, value] of Object.entries(item.methods || {})) if (typeof value === 'function') methods.add(key);
   }
   collect(definition);
+  if (typeof initialData.navigationTitle === 'string') assert(!initialData.navigationTitle.includes('undefined'), base + ': 导航标题引用了不存在的语言字段');
   function check(file) {
     const markup = fs.readFileSync(file, 'utf8');
     boundHandlers(markup, function(tag, key, expression) {

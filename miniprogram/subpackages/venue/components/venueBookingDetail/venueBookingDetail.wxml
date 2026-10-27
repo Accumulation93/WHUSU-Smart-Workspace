@@ -1,5 +1,4 @@
 <view class="venue-booking-detail">
-  <calendar-participants source-kind="venue_booking" source-id="{{booking.id}}" />
   <view class="detail-title">{{booking.title || localeCopy.copy_56feddb4d3}}</view>
   <view class="detail-row" wx:if="{{booking.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{booking.venueName}}</text></view>
   <view class="detail-row" wx:if="{{booking.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{booking.orgName}}</text></view>
@@ -12,6 +11,7 @@
   <view class="detail-row" wx:if="{{booking.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{booking.description}}</text></view>
   <view class="detail-row" wx:if="{{booking.approvalComment}}"><text class="detail-key">{{localeCopy.copy_41c20cc066}}</text><text class="detail-val">{{booking.approvalComment}}</text></view>
   <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag {{booking.displayStatus || booking.status}}">{{booking._statusLabel}}</text></view>
+  <calendar-participants source-kind="venue_booking" source-id="{{booking.id}}" />
 
   <view wx:if="{{booking.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
     <view class="audit-flow-progress-bar"><view class="audit-flow-progress-fill" style="width:{{booking._approvalPercent}}%;{{booking._approvalBarColor || ''}}"></view></view>

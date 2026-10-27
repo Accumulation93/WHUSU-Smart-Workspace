@@ -195,10 +195,10 @@ module.exports = { hour: hour, min: min };
   <viewport-portal wx:if="{{activityDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop" style="--venue-activity-content-height: {{activityDetailHeight || 0}}px;">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-      <venue-activity-detail activity="{{activityDetail}}" />
+      <venue-activity-detail activity="{{activityDetail}}" bindlayout="onActivityDetailLayout" />
       </scroll-view>
       <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button></view>
     </view>

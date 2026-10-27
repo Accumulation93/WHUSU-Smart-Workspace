@@ -294,7 +294,10 @@ async function getParticipants(input,actor,authorize) {
     try { await sources.assertEditable(connection,input.sourceKind,input.sourceId,actor,permissions); }
     catch(error) { if(error instanceof CalendarError)canEdit=false;else throw error; }
     const row=(await connection.query('SELECT * FROM calendar_events WHERE org_id=? AND source_kind=? AND source_id=?',[actor.organizationId,input.sourceKind,input.sourceId]))[0][0];
-    if (!row && !canEdit) throw new CalendarError('forbidden');
+    const access=await sources.participantReadAccess(connection,input.sourceKind,input.sourceId,actor,permissions);
+    const canRead=canEdit||access.canRead;
+    if (!row && !canRead && !access.emptyVisible) throw new CalendarError('forbidden');
+    if (!row && (!canEdit || input.edit!==true)) return {id:null,version:0,canEdit,targets:[],participants:[]};
     const catalog=await directory.catalog(connection,actor.organizationId);
     const metadata=canEdit && input.edit===true ? {people:catalog.people.map(person=>({personId:person.personId,name:person.name,assignments:person.assignments.map(a=>({id:a.id,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))})),
       departments:catalog.departments,identities:catalog.identities,workGroups:catalog.workGroups,timezoneOffset:await timezone(connection)} : {};
@@ -304,13 +307,13 @@ async function getParticipants(input,actor,authorize) {
     const sourceDate=await sources.occurrenceDate(connection,input.sourceKind,input.sourceId,actor.organizationId,offset);
     const date=input.sourceKind==='venue_booking'?sourceDate:(input.occurrenceDate||sourceDate);
     recurrence.dateParts(date);
-    if(!canEdit){
+    if(!canRead){
       const start=recurrence.dateParts(date).time-offset*60000;
       const visible=await sources.read(connection,[event],actor.organizationId,offset,new Date(start).toISOString(),new Date(start+86400000).toISOString());
       if(!(visible.get(event.sourceKind+':'+event.sourceId)||[]).some(item=>item.occurrenceDate===date))throw new CalendarError('unavailable');
     }
     const participants=members(event,catalog,linked.exits.get(event.id)||[],date);
-    if(!canEdit&&!participants.some(person=>person.personId===actor.personId))throw new CalendarError('forbidden');
+    if(!canRead&&!participants.some(person=>person.personId===actor.personId))throw new CalendarError('forbidden');
     return Object.assign(metadata,{id:event.id,version:event.version,canEdit,targets:canEdit?event.targets:[],participants:publicMembers(participants,actor.organizationId)});
   });
 }

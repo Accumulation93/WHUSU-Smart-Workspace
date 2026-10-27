@@ -15,6 +15,13 @@ async function setup(page){
 test('日程四种视图和空状态可用，页面不横向溢出',async({page})=>{
   await setup(page);const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/web/calendar');
+  await expect(page.getByRole('button',{name:copy.ruleManage,exact:true})).toBeVisible();
+  const actions=await page.locator('.calendar-actions > button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent,x:r.x,y:r.y,width:r.width,height:r.height};}));
+  expect(actions[0].text).toBe(copy.create);expect(actions[1].text).toBe(copy.systemCalendar);
+  expect(Math.abs(actions[0].y-actions[1].y)).toBeLessThan(1);
+  expect(Math.abs(actions[0].width-actions[1].width)).toBeLessThan(1);
+  expect(Math.abs(actions[0].height-actions[1].height)).toBeLessThan(1);
+  expect(actions[2].width).toBeGreaterThan(actions[0].width*1.9);
   const controls=await page.locator('.calendar-navigation').evaluate(element=>Array.from(element.children).map(child=>child.getBoundingClientRect().top));
   expect(Math.max(...controls)-Math.min(...controls)).toBeLessThan(2);
   const search=await page.locator('.search-field').evaluate(element=>{const icon=element.querySelector('svg,img'),input=element.querySelector('input');return icon ? Math.abs((icon.getBoundingClientRect().top+icon.getBoundingClientRect().height/2)-(input.getBoundingClientRect().top+input.getBoundingClientRect().height/2)) : 999;});

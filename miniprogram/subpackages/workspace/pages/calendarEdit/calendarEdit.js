@@ -8,7 +8,7 @@ const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const frequencies=['none','daily','weekly','monthly','yearly'],scopes=['instance','following','series'],reminders=[-1,0,5,15,30,60,1440];
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.edit+' - '+common.appName,loading:true,busy:false,saved:false,failed:false,notice:'',draft:view.blank('2026-01-01'),metadata:{},sourceKind:'',pickerVisible:false,
+  data:{copy,common,navTopPx:0,navigationTitle:copy.edit+' - '+common.brandName,loading:true,busy:false,saved:false,failed:false,notice:'',draft:view.blank('2026-01-01'),metadata:{},sourceKind:'',pickerVisible:false,
     frequencyIndex:0,frequencyLabels:frequencies.map(value=>copy[value]),scopeIndex:0,scopeLabels:scopes.map(value=>copy[value]),
     reminderIndex:3,reminderLabels:[copy.reminderNone,copy.reminderStart,copy.reminderFive,copy.reminderFifteen,copy.reminderThirty,copy.reminderHour,copy.reminderDay],endMode:0,endModes:[copy.unlimited,copy.byDate,copy.byCount],weekdays:[]},
   onLoad:function(options){this._options=options;this.setData({navTopPx:getNavigationBarMetrics().totalHeight});this.setData({sourceKind:options.sourceKind||'',draft:view.blank(options.date||time.formatAbsoluteDate(new Date()))});},

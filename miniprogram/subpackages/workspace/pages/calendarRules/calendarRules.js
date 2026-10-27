@@ -5,7 +5,7 @@ const common=require('../../../../locales/zh-CN/common');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.ruleManage+' - '+common.appName,loading:false,busy:false,failed:false,saved:false,notice:'',metadata:{},rules:[],draft:null,pickerVisible:false,confirmation:false,selected:[],selectedNames:[],actions:[{key:'assign',label:copy.assign},{key:'update',label:copy.update},{key:'cancel',label:copy.cancelAction}]},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.ruleManage+' - '+common.brandName,loading:false,busy:false,failed:false,saved:false,notice:'',metadata:{},rules:[],draft:null,pickerVisible:false,confirmation:false,selected:[],selectedNames:[],actions:[{key:'assign',label:copy.assign},{key:'update',label:copy.update},{key:'cancel',label:copy.cancelAction}]},
   onLoad:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},

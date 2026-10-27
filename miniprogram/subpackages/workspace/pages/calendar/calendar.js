@@ -8,7 +8,7 @@ const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const eventBus=require('../../../../utils/eventBus');
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.appName,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.brandName,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
   onLoad:function(){
     this.setData({navTopPx:getNavigationBarMetrics().totalHeight});
     this._contextChanged=()=>{this.clear();if(this._visible)this.load();};

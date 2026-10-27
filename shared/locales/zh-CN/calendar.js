@@ -19,6 +19,8 @@ module.exports = {
  reminders: '提前提醒', reminderNone: '不提醒', reminderStart: '开始时', reminderFive: '5分钟前',
  reminderFifteen: '15分钟前', reminderThirty: '30分钟前', reminderHour: '1小时前', reminderDay: '1天前',
  participants: '参会人', choosePeople: '指定人员', chooseScope: '指定范围', self: '自己',
+ participantsLoading: '正在加载参会人', participantsFailed: '参会人加载失败',
+ participantsRestricted: '当前工作角色无法查看参会名单', participantsUnavailable: '该场次的参会名单暂不可查看',
  department: '部门', identity: '身份类别', workGroup: '职能组', sameDepartment: '自己所在部门',
  sameIdentity: '与自己相同的身份类别', sameWorkGroup: '自己所在职能组', addCondition: '添加条件组',
  conditions: '范围条件', audience: '授权给谁', targets: '可以安排谁', actions: '允许操作',
