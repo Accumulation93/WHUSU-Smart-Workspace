@@ -62,7 +62,9 @@ async function occurrenceDate(connection,sourceKind,sourceId,orgId,offset) {
 async function participantReadAccess(connection,sourceKind,sourceId,actor,permissions) {
   if(sourceKind==='venue_booking') {
     const row=(await connection.query('SELECT creator_person_id FROM venue_bookings WHERE id=? AND creator_org_id=?',[sourceId,actor.organizationId]))[0][0];
-    return {canRead:!!row&&(row.creator_person_id===actor.personId||!!permissions.venueBookings),emptyVisible:false};
+    // 同组织可见的旧借用可能从未配置名单；空名单不是查看权限不足。
+    // emptyVisible 只用于不存在日程记录的分支，不能放宽已配置名单的授权。
+    return {canRead:!!row&&(row.creator_person_id===actor.personId||!!permissions.venueBookings),emptyVisible:!!row};
   }
   if(sourceKind==='venue_activity') {
     const row=(await connection.query('SELECT r.id FROM venue_activity_rules r JOIN venues v ON v.id=r.venue_id AND v.is_active=1 WHERE r.id=? AND r.is_active=1',[sourceId]))[0][0];

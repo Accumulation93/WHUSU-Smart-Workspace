@@ -71,10 +71,23 @@ async function main() {
     assert.equal(movedDetail.startAt,'2026-12-10T01:00:00.000Z');
     await model.mutate({id:moved.id,version:2,action:'cancel',scope:'instance',occurrenceDate:'2026-11-02'},actor('a'),authorize);
     await root.query("INSERT INTO venues(id,name) VALUES ('venue','会议室')");
+    await root.query("INSERT INTO venue_bookings(id,venue_id,creator_person_id,creator_org_id,title,time_start,time_end,status) VALUES ('legacy-booking','venue','b','org','历史会议','2026-09-04 14:10:00','2026-09-04 15:59:00','approved')");
+    const legacyInput={sourceKind:'venue_booking',sourceId:'legacy-booking',occurrenceDate:'2026-09-04'};
+    for (const status of ['approved','cancelled','rejected']) {
+      await root.query('UPDATE venue_bookings SET status=? WHERE id=?',[status,'legacy-booking']);
+      const emptyLegacy=await model.getParticipants(legacyInput,actor('a'),authorize);
+      assert.deepEqual(emptyLegacy,{id:null,version:0,canEdit:false,targets:[],participants:[]});
+    }
+    const legacyEdit=await model.getParticipants({...legacyInput,edit:true},actor('a'),authorize);
+    assert.equal(legacyEdit.people,undefined);assert.deepEqual(legacyEdit.targets,[]);assert.equal(legacyEdit.canEdit,false);
+    await assert.rejects(model.getParticipants(legacyInput,{...actor('a'),organizationId:'other'},authorize),e=>e.code==='forbidden');
+    await assert.rejects(model.getParticipants({...legacyInput,sourceId:'missing'},actor('a'),authorize),e=>e.code==='forbidden');
+    assert.equal((await root.query("SELECT COUNT(*) AS total FROM calendar_events WHERE source_id='legacy-booking'"))[0][0].total,0);
     await root.query("INSERT INTO venue_bookings(id,venue_id,creator_person_id,creator_org_id,title,time_start,time_end,status) VALUES ('booking','venue','a','org','场地会议','2026-11-05 01:00:00','2026-11-05 02:00:00','pending')");
     const booking=await model.saveParticipants({sourceKind:'venue_booking',sourceId:'booking',targets:[{type:'people',personIds:['a','b']}]},actor('a'),authorize);
     assert(!(await model.list(window,actor('b'),authorize)).items.some(item=>item.id===booking.id));
     await root.query("UPDATE venue_bookings SET status='approved' WHERE id='booking'");
+    await assert.rejects(model.getParticipants({sourceKind:'venue_booking',sourceId:'booking'},actor('c'),authorize),e=>e.code==='forbidden');
     assert((await model.list(window,actor('b'),authorize)).items.some(item=>item.id===booking.id));
     await model.mutate({...booking,action:'leave',scope:'series',occurrenceDate:'2026-11-05'},actor('b'),authorize);
     const roster=await model.getParticipants({sourceKind:'venue_booking',sourceId:'booking',occurrenceDate:'2026-11-05'},actor('a'),authorize);
@@ -134,6 +147,10 @@ async function main() {
     assert.equal((await post('getCalendar',window,false)).status,401);
     const httpRoster=await (await post('getCalendarParticipants',{sourceKind:'venue_booking',sourceId:'booking'})).json();
     assert.equal(httpRoster.status,'success');assert.equal(httpRoster.canEdit,false);assert.equal(httpRoster.participants.length,1);
+    const httpEmptyRoster=await (await post('getCalendarParticipants',legacyInput)).json();
+    assert.equal(httpEmptyRoster.status,'success');assert.equal(httpEmptyRoster.canEdit,false);
+    assert.deepEqual(httpEmptyRoster.participants,[]);assert.equal(httpEmptyRoster.people,undefined);
+    assert.equal((await post('getCalendarParticipants',legacyInput,false)).status,401);
     const saved=await (await post('saveCalendarEvent',{...input,title:'浏览器参数保存回读',clientRequestId:'http-frontend-parameters',recurrence:{frequency:'none'}})).json();
     assert.equal(saved.status,'success');
     const readback=await (await post('getCalendar',{...window,detailId:saved.id,occurrenceDate:input.startDate})).json();
