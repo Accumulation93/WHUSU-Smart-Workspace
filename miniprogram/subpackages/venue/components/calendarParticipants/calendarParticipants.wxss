@@ -1,3 +1,11 @@
-.calendar-participants { display:flex;flex-direction:column;gap:var(--ui-inline-gap);margin-top:var(--ui-card-padding-y); }
-.calendar-participant { font-size:var(--ui-type-body);line-height:1.6; }
-.calendar-participant-position { font-size:var(--ui-type-meta);color:#64748b;overflow-wrap:anywhere; }
+.calendar-participants { display:flex;flex-direction:column;gap:var(--ui-field-gap,16rpx);margin:0;padding:var(--ui-list-padding-y,22rpx) 0 0;border-top:1px solid rgba(147,197,253,.3); }
+.calendar-participants-head { display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap,10rpx); }
+.calendar-participants-title { display:flex;align-items:center;gap:var(--ui-inline-gap,10rpx);min-width:0;color:#0f172a;font-size:var(--ui-type-emphasis);font-weight:700;line-height:1.5; }
+.calendar-participants-count { color:#64748b;font-size:var(--ui-type-meta);font-weight:500; }
+.calendar-participants .calendar-participants-action { flex:none;width:auto;min-width:0;max-width:100%;height:auto;min-height:var(--ui-control-height);margin:0;padding:var(--ui-compact-padding-y,6rpx) var(--ui-compact-padding-x,14rpx);border-radius:var(--ui-compact-radius);font-size:var(--ui-type-meta);line-height:1.4;display:flex;align-items:center;justify-content:center;text-align:center; }
+.calendar-participants-grid { display:grid;grid-template-columns:minmax(0,1fr);gap:var(--ui-field-gap,16rpx); }
+.calendar-participant { min-width:0;padding:var(--ui-list-padding-y,22rpx) var(--ui-list-padding-x,20rpx);border:1px solid rgba(226,237,247,.96);border-radius:var(--ui-list-radius);background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(249,251,255,.82));box-shadow:0 3px 8px rgba(15,23,42,.025),inset 0 1px 0 rgba(255,255,255,.78);backdrop-filter:blur(12px); }
+.calendar-participant { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);align-items:start;gap:var(--ui-field-gap,16rpx); }
+.calendar-participant-name { min-width:0;font-size:var(--ui-type-emphasis);font-weight:700;line-height:1.5;overflow-wrap:anywhere; }
+.calendar-participant-position { min-width:0;font-size:var(--ui-type-meta);color:#64748b;line-height:1.6;overflow-wrap:anywhere; }
+@media (min-width:520px) { .calendar-participants-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }

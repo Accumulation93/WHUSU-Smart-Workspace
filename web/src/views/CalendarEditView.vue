@@ -24,7 +24,7 @@
         <label class="field"><span class="field-label">{{ copy.reminders }}</span><select v-model.number="reminder" class="field-input" :disabled="blocked"><option v-for="option in reminderOptions" :key="option.value" :value="option.value">{{ copy[option.label] }}</option></select></label>
         <select v-model="draft.visibility" class="field-input" :aria-label="copy.participants" :disabled="blocked || Boolean(draft.id)"><option value="private">{{ copy.private }}</option><option value="organization">{{ copy.organization }}</option></select>
       </template>
-      <template v-if="sourceKind || draft.visibility==='organization'"><h3 class="section-title">{{ copy.participants }}</h3><CalendarConditions v-model="draft.targets" :metadata="metadata" :disabled="blocked || (draft.id && draft.scope!=='series')" /></template>
+      <template v-if="sourceKind || draft.visibility==='organization'"><h3 v-if="!sourceKind" class="section-title">{{ copy.participants }}</h3><CalendarConditions v-model="draft.targets" :metadata="metadata" :disabled="blocked || (draft.id && draft.scope!=='series')" /></template>
       <div class="card-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="router.back()">{{ copy.cancel }}</button><button class="btn btn-primary" :disabled="blocked">{{ copy.save }}</button></div>
     </form>
   </main>

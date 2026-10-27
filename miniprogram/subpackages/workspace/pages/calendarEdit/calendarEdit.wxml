@@ -20,7 +20,7 @@
       <view class="field-label">{{copy.reminders}}</view><picker range="{{reminderLabels}}" value="{{reminderIndex}}" disabled="{{busy || saved}}" bindchange="reminder"><view class="picker-display">{{reminderLabels[reminderIndex]}}</view></picker>
       <view class="calendar-between"><text>{{copy.organization}}</text><switch checked="{{draft.visibility === 'organization'}}" disabled="{{busy || saved || draft.id}}" bindchange="visibility" /></view>
     </block>
-    <block wx:if="{{sourceKind || draft.visibility === 'organization'}}"><view class="section-title">{{copy.participants}}</view><calendar-conditions value="{{draft.targets}}" metadata="{{metadata}}" disabled="{{busy || saved || (draft.id && draft.scope !== 'series')}}" bindchange="targets" bindpickerchange="picker" /></block>
+    <block wx:if="{{sourceKind || draft.visibility === 'organization'}}"><view wx:if="{{!sourceKind}}" class="section-title">{{copy.participants}}</view><calendar-conditions value="{{draft.targets}}" metadata="{{metadata}}" disabled="{{busy || saved || (draft.id && draft.scope !== 'series')}}" bindchange="targets" bindpickerchange="picker" /></block>
     <view class="calendar-actions"><button class="ui-motion-button secondary-btn" disabled="{{busy}}" bindtap="back" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.cancel}}</button><button class="ui-motion-button primary-btn" disabled="{{busy || saved}}" bindtap="save" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.save}}</button></view>
   </view>
 </view>

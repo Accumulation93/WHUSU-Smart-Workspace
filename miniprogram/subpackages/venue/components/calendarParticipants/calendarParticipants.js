@@ -1,8 +1,9 @@
 'use strict';
 const copy=require('../../../../locales/zh-CN/calendar');
+const venueCopy=require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
 const {callFunction}=require('../../../../utils/api');
 const session=require('../../../../utils/orgSession');
-Component({options:{styleIsolation:'apply-shared'},properties:{sourceKind:String,sourceId:String,occurrenceDate:String},data:{copy,result:null,loading:false,failed:false},
+Component({options:{styleIsolation:'apply-shared'},properties:{sourceKind:String,sourceId:String,occurrenceDate:String},data:{copy,venueCopy,result:null,loading:false,failed:false},
   observers:{'sourceId,occurrenceDate':function(){this.load();}},
   lifetimes:{attached:function(){this._visible=true;this.load();},detached:function(){this._visible=false;session.invalidateRequests(this);}},
   pageLifetimes:{show:function(){this._visible=true;this.load();},hide:function(){this._visible=false;session.invalidateRequests(this);this.setData({result:null});}},

@@ -3,6 +3,7 @@
     <view class="activity-heading"><ui-icon name="calendar" sizeRole="feature-leading" /><view class="activity-name">{{activity.name || localeCopy.copy_acd4c5c171}}</view></view>
     <view class="activity-venue" wx:if="{{activity.venueName}}"><text>{{activity.venueName}}</text></view>
   </view>
+  <view class="activity-facts">
   <view class="activity-section" wx:if="{{activity.occurrenceTime || activity.legacyTime}}">
     <view class="activity-label"><ui-icon name="clock" sizeRole="inline" /><text>{{activity.occurrenceTime ? localeCopy.copy_7c25b53857 : localeCopy.copy_d2a13af3e2}}</text></view>
     <view class="activity-time">{{activity.occurrenceTime || activity.legacyTime}}</view>
@@ -10,6 +11,7 @@
   <view class="activity-section" wx:if="{{activity.cycleLabel}}">
     <view class="activity-label"><ui-icon name="calendar" sizeRole="inline" /><text>{{localeCopy.copy_fbf78f3644}}</text></view>
     <view class="activity-value">{{activity.cycleLabel}}</view>
+  </view>
   </view>
   <view class="activity-note" wx:if="{{activity.note}}">{{activity.note}}</view>
   <calendar-participants source-kind="venue_activity" source-id="{{activity.id}}" occurrence-date="{{activity.occurrenceDate}}" />

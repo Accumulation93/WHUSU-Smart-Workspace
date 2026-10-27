@@ -1,10 +1,13 @@
 <template>
-  <section class="stack">
-    <div v-for="(clause,index) in modelValue" :key="index" class="list-row stack">
+  <section class="calendar-condition-stack">
+    <div v-for="(clause,index) in modelValue" :key="index" class="list-row calendar-condition-card">
+      <div class="calendar-condition-toolbar">
       <select class="field-input" :value="clause.type" :disabled="disabled" :aria-label="copy.conditions" @change="changeType(index,$event.target.value)">
         <option value="people">{{ copy.choosePeople }}</option><option value="scope">{{ copy.chooseScope }}</option><option v-if="!audience" value="self">{{ copy.self }}</option>
       </select>
-      <template v-if="clause.type==='people'"><p class="muted break-all">{{ names(clause.personIds) }}</p><button type="button" class="btn btn-secondary" :disabled="disabled" @click="picker=index">{{ copy.choosePeople }} · {{ clause.personIds.length }}</button></template>
+      <button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled || modelValue.length===1" @click="remove(index)">{{ copy.delete }}</button>
+      </div>
+      <template v-if="clause.type==='people'"><p v-if="names(clause.personIds)" class="muted break-all">{{ names(clause.personIds) }}</p><button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="picker=index">{{ copy.choosePeople }} · {{ clause.personIds.length }}</button></template>
       <template v-if="clause.type==='scope'">
         <details v-for="dimension in dimensions" :key="dimension.key" class="calendar-condition">
           <summary>{{ copy[dimension.label] }} · {{ clause[dimension.same] ? copy[dimension.same] : (clause[dimension.key] || []).length }}</summary>
@@ -16,9 +19,8 @@
           </div>
         </details>
       </template>
-      <button type="button" class="btn btn-secondary" :disabled="disabled || modelValue.length===1" @click="remove(index)">{{ copy.delete }}</button>
     </div>
-    <button type="button" class="btn btn-secondary" :disabled="disabled" @click="add">{{ copy.addCondition }}</button>
+    <button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="add">{{ copy.addCondition }}</button>
     <PersonnelPicker v-if="picker!==null && modelValue[picker]?.type==='people'" :title="copy.choosePeople" mode="person" :options="people" :value="people.filter(person=>modelValue[picker].personIds.includes(person.id))" @cancel="picker=null" @confirm="confirm" />
   </section>
 </template>
@@ -42,8 +44,14 @@ function names(ids) { return people.value.filter(person=>ids.includes(person.id)
 function department(option) { return option.departmentId ? ' · '+(props.metadata.departments.find(item=>item.id===option.departmentId)?.name || '') : ''; }
 </script>
 <style scoped>
-.calendar-condition { padding:var(--ui-field-gap);border:var(--ui-result-label-border);border-radius:var(--ui-card-radius); }
+.calendar-condition-stack,.calendar-condition-card { display:flex;flex-direction:column;align-items:stretch;gap:var(--ui-field-gap); }
+.calendar-condition-toolbar { display:flex;align-items:center;gap:var(--ui-field-gap); }
+.calendar-condition-toolbar .field-input { flex:1;min-width:0; }
+.calendar-condition-action { flex:none;align-self:flex-start;width:auto;min-width:0;height:auto;min-height:var(--ui-control-height);margin:0;padding:var(--ui-compact-padding-y) var(--ui-compact-padding-x);font-size:var(--ui-type-meta);border-radius:var(--ui-compact-radius); }
+.calendar-condition-toolbar .calendar-condition-action { align-self:center; }
+.calendar-condition { padding:var(--ui-label-gap) 0;border-top:1px solid var(--ui-line-blue); }
 .calendar-condition summary { cursor:pointer;min-height:var(--ui-compact-height);display:flex;align-items:center; }
 .calendar-options { display:flex;flex-wrap:wrap;gap:var(--ui-inline-gap); }
-.calendar-options label { display:flex;align-items:center;gap:var(--ui-inline-gap);min-height:var(--ui-field-control-height); }
+.calendar-options label { display:flex;align-items:center;gap:var(--ui-inline-gap);min-height:var(--ui-field-control-height);border:1px solid var(--ui-line-blue);border-radius:var(--ui-compact-radius);padding:var(--ui-compact-padding-y) var(--ui-compact-padding-x); }
+.calendar-options .personnel-option-selected { background:var(--ui-option-selected-bg); }
 </style>
