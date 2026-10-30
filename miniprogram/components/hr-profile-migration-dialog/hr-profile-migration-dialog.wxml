@@ -8,7 +8,8 @@
       </view>
       <view class="modal-close ui-motion-chip" catchtap="onClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.closeText}}</view>
     </view>
-    <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+    <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+      <view class="ui-dialog-scroll-content">
       <view class="field">
         <view class="field-label">{{copy.sourceOrg}}</view>
         <picker range="{{orgs}}" range-key="name" value="{{sourceIndex}}" bindchange="onSourceChange">
@@ -76,6 +77,7 @@
         </view>
       </view>
       <view class="scroll-tail-space"></view>
+      </view>
     </scroll-view>
     <view class="button-row hr-template-switch-footer ui-dialog-footer">
       <button class="secondary-btn ui-motion-button" bindtap="onClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancelText}}</button>

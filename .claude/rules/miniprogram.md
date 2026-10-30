@@ -38,7 +38,7 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 
 这五条都是真实出过问题的地方，写之前先想清楚为什么：用户看到的是"滑不到底""关掉弹窗后不能滚""键盘一弹整页跑偏"。
 
-- **滚动容器的高度要限定住**：微信的 `scroll-view` 只有在高度被限定住时才会自己滚动，否则"滚动到底"永远不会触发（曾导致成员目录停在 50 人不加载）。所以不要给列表或弹窗正文的滚动容器写 `max-height: none`，也不要指望内容把它撑高；长列表弹窗必须有固定高度，页面内的分页列表必须注册 `onReachBottom`。必须跑的检查：`scripts/dialog-scroll-contract-audit.js`、`scripts/hr-profile-layout-test.js`。
+- **滚动正文要有动态上限，短内容不能被撑高**：普通弹窗正文使用共享 `ui-dialog-scroll--natural`，以 `height:auto` 配合视口、安全区、标题、底栏及键盘计算的 `max-height`；内容未超过上限时自然收缩，超过后内部滚动。纵向内边距放到唯一的 `ui-dialog-scroll-content` 内容容器，不放在原生滚动宿主上，防止实际滚动视口与可见正文高度不一致而遮住末字段。禁止 `height:0` 等待选择器恢复、固定普通正文高度或 `max-height:none`。页面内分页列表仍必须注册 `onReachBottom`；表格、时间表和文件定位等专业工作区独立审查，不套普通正文布局。必须跑的检查：`scripts/dialog-scroll-contract-audit.js`、`scripts/hr-profile-layout-test.js`，并在微信里实际滚到末字段与点击底栏，不能只测外壳矩形。
 - **弹窗的开关必须能关回去**：`page-meta page-style` 里每个用来禁止页面滚动的开关，都要能在页面脚本里写回 `false`；带输入框的弹窗页面要声明 `dialogLockKeys`，并在页面卸载时调用 `releaseDialogScrollLock()`。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
 - **弹窗里的输入框不能让整页上移**：一律写 `adjust-position="{{false}}"` 并带 `cursor-spacing`；键盘高度写进 `page-style` 的 `--kb-height`，由 `app.wxss` 让弹窗缩到键盘上方，被挡住的字段靠弹窗正文自己滚动看到。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
 - **控件不能被切掉**：不写死高度把内容裁掉、不用一行文字冒充完整的选择框、不让最后一项贴边或被遮住，按钮文字要居中。必须跑的检查：`scripts/ui-control-completeness-test.js`、`scripts/ui-audit.js --strict`、`scripts/button-alignment-test.js`。
@@ -107,6 +107,8 @@ module.exports = { hour: hour };
 弹窗使用 `.ui-overlay`、`.ui-overlay-blocker`、`.ui-dialog-shell` 三层契约：遮罩和阻断层固定覆盖 `100vw × 100vh`，窗口固定在 `50vw / 50vh` 并平移居中。阻断层和窗口必须是同级元素，阻断层在前、窗口在后。**`catchtouchmove="noop"` 只能放在独立阻断层，不能放在普通遮罩、窗口外壳、正文或滚动区祖先上。**
 
 `ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动。只能设置基于视口安全区计算的动态上限，禁止固定内容高度、固定翻页尺度或用固定像素偏移定位；允许 `max-height: calc(100vh - 安全区)` 作为溢出保护。只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
+
+普通 `compact`、`complex` 和符合三段结构的 `grid` 滚动正文均采用上述自然高度；`grid` 仅组织行结构，不规定满屏正文。宿主添加 `ui-dialog-scroll--natural`，已有单内容容器添加 `ui-dialog-scroll-content`；多块内容逐处手写包入一个内容容器，保留条件链、事件、滚动目标和嵌套列表。不得用脚本批量套用。`wide/viewport` 专业工作区继续保留独立的可用高度及键盘缩减，禁止为了短表单修复而取消其稳定工作区。浏览器几何检查和手机尺寸模拟器均不等于实体手机、Pad竖屏、Pad横屏验收。
 
 ### 3.5 setData 批处理 — 必须一次调用
 

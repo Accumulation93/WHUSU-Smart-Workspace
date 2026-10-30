@@ -107,7 +107,8 @@
         <view class="popup-title">{{pendingPopupTitle}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="ui-dialog-scroll-content">
         <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}"><app-loading text="{{localeCopy.copy_8dfeae7ced}}" /></view>
         <view class="popup-table ui-data-grid--complex" wx:else>
           <view class="popup-table-head ui-data-row ui-data-row--header">
@@ -125,6 +126,7 @@
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">{{localeCopy.copy_d0de4ea38f}}</view>
+        </view>
         </view>
       </scroll-view>
     </view>

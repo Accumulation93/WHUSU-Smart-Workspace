@@ -207,6 +207,18 @@
       "scripts/venue-rule-display-test.js"
     ],
     [
+      "scripts/venue-rule-editor-test.js"
+    ],
+    [
+      "scripts/audit-hr-dialog-state-test.js"
+    ],
+    [
+      "scripts/calendar-permission-editor-state-test.js"
+    ],
+    [
+      "scripts/viewport-portal-keyboard-test.js"
+    ],
+    [
       "scripts/scoring-work-context-test.js"
     ],
     [

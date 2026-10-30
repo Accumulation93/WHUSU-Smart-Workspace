@@ -56,8 +56,8 @@
         </view>
         <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
           <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8ed5dab532}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_b9966da09b}}</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2cae5f609b}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_25e1199dc3}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8516d4b714}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
@@ -196,7 +196,8 @@
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue || canDeleteVenueRules}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_523e44b520}}</view>
         <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_91fd6d9600}}</view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="ui-dialog-scroll-content">
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{canEditVenueResources}}" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">{{localeCopy.copy_5e2a277742}}</view>
@@ -299,6 +300,7 @@
             </view>
           </view>
         </block>
+        </view>
       </scroll-view>
       <view class="button-row booking-setting-footer ui-dialog-footer" wx:if="{{rulesTab === 'bookingWindow'}}">
         <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ac9827b75d}}</button>
@@ -319,8 +321,8 @@
         </view>
         <text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body rule-editor-stack ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="form-body rule-editor-stack ui-dialog-stack ui-dialog-scroll-content">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
             <view class="field"><view class="field-label">{{localeCopy.copy_5c507fbab7}}</view>
@@ -615,10 +617,10 @@
   <viewport-portal wx:if="{{activityDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop" style="--venue-activity-content-height: {{activityDetailHeight || 0}}px;">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-      <venue-activity-detail activity="{{activityDetail}}" bindlayout="onActivityDetailLayout" />
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+      <view class="ui-dialog-scroll-content"><venue-activity-detail activity="{{activityDetail}}" /></view>
       </scroll-view>
       <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button></view>
     </view>
@@ -631,8 +633,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_40d594ac66}}</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-      <view class="detail-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+      <view class="detail-body ui-dialog-stack ui-dialog-scroll-content">
         <view class="detail-title">{{bookingDetail.title || localeCopy.copy_56feddb4d3}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{bookingDetail.orgName}}</text></view>
@@ -684,8 +686,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · {{localeCopy.copy_05c1604f42}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
           <view class="field"><view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
             <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}" adjust-position="{{false}}" cursor-spacing="24" />
             <view class="chip-row" wx:if="{{purposes.length}}">
@@ -746,8 +748,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_d37b64cc9d}}</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
           <view class="field"><view class="field-label">{{purposeEditId ? localeCopy.copy_259bd6c893 : localeCopy.copy_c312b03c06}}</view>
             <view class="purpose-editor">
               <input class="field-input" maxlength="200" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}" adjust-position="{{false}}" cursor-spacing="24" />
@@ -781,7 +783,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
+      <view class="ui-dialog-scroll-content">
       <!-- Search -->
       <view class="rule-filter-row rule-filter-row--dialog ui-inline-field-row">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view>
@@ -813,6 +816,7 @@
         <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">{{localeCopy.copy_cbbf92860a}}</view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
+      </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -832,8 +836,8 @@
         <view class="popup-title">{{approvalPopupAction === 'approve' ? localeCopy.copy_a63100b45d : localeCopy.copy_689e8f08db}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="detail-body ui-dialog-stack ui-dialog-scroll-content">
           <view wx:if="{{approvalPopupTarget}}">
             <view class="detail-title">{{approvalPopupTarget.title || localeCopy.copy_9639901862}}</view>
             <view class="detail-row"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>

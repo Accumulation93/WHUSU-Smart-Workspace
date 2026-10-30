@@ -202,11 +202,13 @@
   <view class="dialog-layer ui-overlay">
     <view class="dialog-mask ui-overlay-blocker" bindtap="closeMessageSwitchDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
+        <view class="ui-dialog-scroll-content">
         <view class="dialog-badge message-switch-badge">{{copy.crossOrganization}}</view>
         <view class="dialog-title">{{messageSwitchTitle}}</view>
         <view class="dialog-desc">{{copy.switchDescription}}</view>
         <view class="message-switch-org-name">{{messageSwitchOrganizationName}}</view>
+        </view>
       </scroll-view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeMessageSwitchDialog" disabled="{{messageSwitchLoading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>

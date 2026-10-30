@@ -1,5 +1,5 @@
 <template>
-  <section v-if="canWriteRecord" class="card stack">
+  <section v-if="canWriteRecord" ref="editor" class="card stack">
     <span class="section-title">{{ native.copy_82f17ccbef }}</span>
     <label class="field"><span class="field-label">{{ native.copy_9395b8661f }}</span><input v-model="state.form.name" class="field-input" :disabled="blocked" /></label>
     <FileInput ref="fileInput" hidden  accept="image/*" class="visually-hidden" :disabled="blocked" @change="readImage" />
@@ -16,7 +16,7 @@ import FileInput from '@/components/FileInput.vue';
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
 const canDeleteRecord = useAdminCapability('audit.stamps.delete');
 const canWriteRecord = useAdminCapability('audit.stamps');
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import copy from '@/locales/zh-CN/index.js';
 import native from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -28,11 +28,12 @@ import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
 const props=defineProps({state:Object,disabled:Boolean});const emit=defineEmits(['busy']);
 const rows=ref([]),candidates=ref([]),grantTarget=ref(null),loading=ref(true),busy=ref(false),notice=ref(''),actionNotice=ref(''),fileInput=ref(null);
+const editor=ref(null);
 const requests=auditRequests();let alive=true,sequence=0;
 const blocked=computed(()=>props.disabled||loading.value||busy.value||!!notice.value||props.state.pending);
 function reset(){props.state.form={id:'',name:'',imageData:''};actionNotice.value='';}
 async function load(){const request=++sequence;loading.value=true;try{const response=requireSuccess(await requests.call('listStamps',{}));if(!Array.isArray(response.stamps))throw Error('invalid_list');if(!alive||request!==sequence)return;rows.value=response.stamps;notice.value='';if(props.state.pending){props.state.pending=false;grantTarget.value=null;if(props.state.resetAfterRead){props.state.resetAfterRead=false;reset();}}}catch(error){if(alive&&request===sequence)notice.value=errorText(error,stamps.loadingFailed);}finally{if(alive&&request===sequence)loading.value=false;}}
-function edit(row){if(!blocked.value){props.state.form={id:row.id,name:row.name,imageData:row.imageData};actionNotice.value='';}}
+async function edit(row){if(!blocked.value){props.state.form={id:row.id,name:row.name,imageData:row.imageData};actionNotice.value='';await nextTick();editor.value?.scrollIntoView({block:'start'});}}
 async function readImage(event){const file=event.target.files?.[0];event.target.value='';if(!file||blocked.value)return;if(file.size>2*1024*1024){actionNotice.value=stamps.imageTooLarge;return;}busy.value=true;try{const value=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file);});if(alive)props.state.form.imageData=value;}catch(_){if(alive)actionNotice.value=stamps.imageReadFailed;}finally{if(alive)busy.value=false;}}
 async function save(){if(blocked.value)return;if(!props.state.form.name.trim()){actionNotice.value=messages.copy_76f2662073;return;}if(!props.state.form.imageData){actionNotice.value=messages.copy_9cf20101c9;return;}busy.value=true;actionNotice.value='';try{requireSuccess(await callApi('saveStamp',{...props.state.form,name:props.state.form.name.trim()}));if(!alive)return;props.state.pending=true;props.state.resetAfterRead=true;await load();}catch(error){if(alive)actionNotice.value=errorText(error,messages.copy_215e3c57da);}finally{if(alive)busy.value=false;}}
 async function openGrants(row){if(blocked.value)return;busy.value=true;actionNotice.value='';try{const response=requireSuccess(await requests.call('listStampCandidates',{}));if(!alive)return;candidates.value=(response.candidates||[]).map(item=>({...item,department:item.departmentName,identity:item.identityCategoryName,workGroup:item.workGroupName}));grantTarget.value=row;}catch(error){if(alive)actionNotice.value=errorText(error,stamps.candidatesFailed);}finally{if(alive)busy.value=false;}}

@@ -631,7 +631,6 @@ Page({
     }});
   },
   closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
-  onActivityDetailLayout(e) { const height=Number(e.detail.height);if(this.data.activityDetailVisible&&height>0&&height!==this.data.activityDetailHeight)this.setData({activityDetailHeight:height}); },
 
   viewMyBookingDetail(e) {
     let id = e.currentTarget.dataset.id;

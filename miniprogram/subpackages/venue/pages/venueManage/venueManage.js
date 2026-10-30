@@ -358,7 +358,6 @@ Page({
     ruleEditorVisible: false,
     ruleEditId: '',
     ruleEditorType: '',
-    ruleEditorScrollStyle: '',
     ruleEditorScrollIntoView: '',
     ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
 
@@ -845,7 +844,7 @@ Page({
     if (ruleForm._editingCondition) {
       update['ruleForm._editingCondition'] = this._decorateEditingCondition(ruleForm._editingCondition);
     }
-    this.setData(update, () => this._scheduleRuleEditorViewportSync());
+    this.setData(update);
   },
 
   openRuleEditor(e) {
@@ -884,34 +883,24 @@ Page({
     form._editingCondition = null;
     this.setData({
       ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
-      ruleEditorScrollStyle: 'height:0px !important;',
       ruleEditorScrollIntoView: '',
       weeklyChecked: buildWeeklyChecked(form.cycleValues),
       monthlyChecked: buildMonthlyChecked(form.cycleValues)
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
     if (type === 'booking' && (!this.data.allDepartments.length || !this.data.allWorkGroups.length)) {
       this.loadFlowReferenceData();
     }
   },
 
   closeRuleEditor() {
-    this._clearRuleEditorViewportTimer();
     this._clearRuleEditorRevealTimer();
     this.setData({
       ruleEditorVisible: false,
-      ruleEditorScrollStyle: '',
       ruleEditorScrollIntoView: '',
       'ruleForm._editingStepIdx': null,
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
     });
-  },
-
-  _clearRuleEditorViewportTimer() {
-    if (this._ruleEditorViewportTimer) {
-      clearTimeout(this._ruleEditorViewportTimer);
-      this._ruleEditorViewportTimer = null;
-    }
   },
 
   _clearRuleEditorRevealTimer() {
@@ -934,47 +923,6 @@ Page({
     });
   },
 
-  _scheduleRuleEditorViewportSync() {
-    if (!this.data.ruleEditorVisible) return;
-    this._clearRuleEditorViewportTimer();
-    this._ruleEditorViewportTimer = setTimeout(() => {
-      this._ruleEditorViewportTimer = null;
-      wx.nextTick(() => this._syncRuleEditorViewport());
-    }, 20);
-  },
-
-  _syncRuleEditorViewport() {
-    if (!this.data.ruleEditorVisible) return;
-    const query = wx.createSelectorQuery();
-    query.select('.rule-editor-popup').boundingClientRect();
-    query.select('.rule-editor-popup-header').boundingClientRect();
-    query.select('.rule-editor-scroll').boundingClientRect();
-    query.select('.rule-editor-stack').boundingClientRect();
-    query.select('.rule-editor-popup-footer').boundingClientRect();
-    query.select('.rule-editor-viewport-limit').boundingClientRect();
-    query.exec((rects) => {
-      const shell = rects[0];
-      const header = rects[1];
-      const body = rects[2];
-      const content = rects[3];
-      const footer = rects[4];
-      const viewportLimit = rects[5];
-      if (!shell || !header || !body || !content || !footer || !viewportLimit) return;
-
-      const bodyStart = Math.max(0, body.top - shell.top);
-      const footerHeight = Math.max(0, footer.height);
-      const footerTail = Math.max(0, shell.bottom - footer.bottom);
-      const maxShellHeight = Math.max(0, viewportLimit.height || shell.height);
-      const maxBodyHeight = Math.max(1, Math.floor(maxShellHeight - bodyStart - footerHeight - footerTail));
-      const contentHeight = Math.max(1, Math.ceil(content.height));
-      const bodyHeight = Math.min(contentHeight, maxBodyHeight);
-      const style = 'height:' + bodyHeight + 'px !important;';
-      if (this.data.ruleEditorScrollStyle !== style) {
-        this.setData({ ruleEditorScrollStyle: style });
-      }
-    });
-  },
-
   onFieldInput(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ [f]: e.detail.value });
@@ -982,29 +930,29 @@ Page({
 
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
-    this.setData({ ['ruleForm.' + f]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.' + f]: e.detail.value });
   },
 
   onBookingWindowMode(e) {
     const side = e.currentTarget.dataset.side;
     const modes = ['none', 'days', 'duration'];
     const mode = modes[Number(e.detail.value)] || 'none';
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.mode']: mode }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.mode']: mode });
   },
 
   onBookingWindowDays(e) {
     const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.days']: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.days']: e.detail.value });
   },
 
   onBookingWindowHours(e) {
     const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.hours']: Number(e.detail.value) || 0 }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.hours']: Number(e.detail.value) || 0 });
   },
 
   onBookingWindowMinutes(e) {
     const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.minutes']: Number(e.detail.value) || 0 }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.minutes']: Number(e.detail.value) || 0 });
   },
 
   onCycleTypeChange(e) {
@@ -1021,7 +969,7 @@ Page({
       'ruleForm.cycleValues': cycleValues,
       weeklyChecked: [false, false, false, false, false, false, false],
       monthlyChecked: Array(31).fill(false)
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
   },
 
   onBookingRuleTypeChange(e) {
@@ -1035,7 +983,7 @@ Page({
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
     };
-    this.setData(update, () => this._scheduleRuleEditorViewportSync());
+    this.setData(update);
   },
 
   onBookingIdentityChange(e) {
@@ -1288,7 +1236,6 @@ Page({
   },
 
   closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
-  onActivityDetailLayout(e) { const height=Number(e.detail.height);if(this.data.activityDetailVisible&&height>0&&height!==this.data.activityDetailHeight)this.setData({activityDetailHeight:height}); },
 
   getRuleTypeLabel(rt) {
     const map = { direct: localeCopy.copy_4f15bb9939, admin: localeCopy.copy_af20193574, identity: localeCopy.copy_fa045c9cde, person: localeCopy.copy_777a6a2574 };
@@ -1647,27 +1594,27 @@ Page({
   onActivityCycleDateChange(e) {
     const field = e.currentTarget.dataset.field;
     if (!field) return;
-    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
   },
 
   onActivityCycleTimeChange(e) {
     const field = e.currentTarget.dataset.field;
     if (!field) return;
-    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
   },
 
   onActivityPeriodModeTap(e) {
     const mode = e.currentTarget.dataset.mode;
     if (!['none', 'range', 'count'].includes(mode)) return;
     const currentMode = this.data.ruleForm.cycleValues.periodMode;
-    this.setData({ 'ruleForm.cycleValues.periodMode': currentMode === mode ? 'none' : mode }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ 'ruleForm.cycleValues.periodMode': currentMode === mode ? 'none' : mode });
   },
 
   onActivityRepeatField(e) {
     const field = e.currentTarget.dataset.field;
     const value = Math.max(0, Number(e.detail.value) || 0);
     if (!field) return;
-    this.setData({ ['ruleForm.cycleValues.' + field]: value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.cycleValues.' + field]: value });
   },
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
@@ -2212,11 +2159,10 @@ Page({
         _editingStepRules: [],
         _editingCondition: null
       },
-      ruleEditorScrollStyle: 'height:0px !important;',
       ruleEditorScrollIntoView: '',
       weeklyChecked: [],
       monthlyChecked: []
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
     if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
       this.loadFlowReferenceData();
     }
@@ -2247,7 +2193,6 @@ Page({
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
     }, () => {
-      this._scheduleRuleEditorViewportSync();
       this._revealRuleEditorPart('rule-flow-step-editor');
     });
   },
@@ -2264,7 +2209,6 @@ Page({
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
     }, () => {
-      this._scheduleRuleEditorViewportSync();
       this._revealRuleEditorPart('rule-flow-step-editor');
     });
   },
@@ -2322,7 +2266,7 @@ Page({
       'ruleForm._editingStepName': '',
       'ruleForm._editingStepRules': [],
       'ruleForm._editingCondition': null
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
   },
 
   cancelRuleFlowStepEdit() {
@@ -2332,12 +2276,12 @@ Page({
       'ruleForm._editingStepName': '',
       'ruleForm._editingStepRules': [],
       'ruleForm._editingCondition': null
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
   },
 
   onRuleFlowSubField(e) {
     const f = e.currentTarget.dataset.field;
-    this.setData({ ['ruleForm.' + f]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ ['ruleForm.' + f]: e.detail.value });
   },
 
   // ── Rule/Condition CRUD within a step ──
@@ -2352,7 +2296,6 @@ Page({
       'ruleForm._editingConditionIdx': -1,
       'ruleForm._editingCondition': condition
     }, () => {
-      this._scheduleRuleEditorViewportSync();
       this._revealRuleEditorPart('rule-flow-condition-editor');
     });
   },
@@ -2377,7 +2320,6 @@ Page({
       'ruleForm._editingConditionIdx': idx,
       'ruleForm._editingCondition': condition
     }, () => {
-      this._scheduleRuleEditorViewportSync();
       this._revealRuleEditorPart('rule-flow-condition-editor');
     });
   },
@@ -2412,14 +2354,14 @@ Page({
       'ruleForm._editingStepRules': rules,
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
   },
 
   cancelRuleFlowCondEdit() {
     this.setData({
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingCondition': null
-    }, () => this._scheduleRuleEditorViewportSync());
+    });
   },
 
   // ── Condition picker handlers ──
@@ -2432,7 +2374,7 @@ Page({
       deptScope: v,
       deptIds: []
     });
-    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ 'ruleForm._editingCondition': condition });
   },
   onCondWgScope(e) {
     const scopes = ['all', 'same', 'specific'];
@@ -2442,7 +2384,7 @@ Page({
       wgScope: v,
       wgIds: []
     });
-    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ 'ruleForm._editingCondition': condition });
   },
   onCondIdentScope(e) {
     const scopes = ['all', 'same', 'specific'];
@@ -2452,7 +2394,7 @@ Page({
       identScope: v,
       identIds: []
     });
-    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
+    this.setData({ 'ruleForm._editingCondition': condition });
   },
 
   // ── Condition Multi-Picker (replicates audit multi-picker pattern) ──
@@ -2631,7 +2573,7 @@ Page({
           deptIds: ids
         }),
         condMultiPickerVisible: false
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     } else if (target === 'wg') {
       // Per-department validation when department tabs are active
       if (this.data.condMultiPickerDeptTabs.length) {
@@ -2650,7 +2592,7 @@ Page({
           wgIds: ids
         }),
         condMultiPickerVisible: false
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     } else {
       this.setData({
         'ruleForm._editingCondition': this._decorateEditingCondition({
@@ -2658,7 +2600,7 @@ Page({
           identIds: ids
         }),
         condMultiPickerVisible: false
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     }
   },
 
@@ -2668,15 +2610,15 @@ Page({
     if (field === 'dept') {
       this.setData({
         'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, deptIds: [] })
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     } else if (field === 'wg') {
       this.setData({
         'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, wgIds: [] })
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     } else {
       this.setData({
         'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, identIds: [] })
-      }, () => this._scheduleRuleEditorViewportSync());
+      });
     }
   },
 

@@ -43,6 +43,7 @@ Page({
   },
 
   onShow() {
+    this._active = true;
     const state = orgSession.consume(this);
     if (state.changed) {
       orgSession.invalidateRequests(this);
@@ -56,6 +57,12 @@ Page({
       });
     }
     this.loadPage();
+  },
+
+  onHide() {
+    this._active = false;
+    orgSession.invalidateRequests(this);
+    this.setData({ loading: false, saving: false, editorVisible: false, selectedAdmin: null, permissionGroups: [], contextSwitchGuardVisible: false });
   },
 
   onUnload() {
@@ -170,6 +177,7 @@ Page({
 
   async savePermissions() {
     if (this.data.saving || !this.data.selectedAdmin) return;
+    const request = orgSession.beginRequest(this, 'permissionSave');
     const permissionMap = {};
     (this.data.permissionGroups || []).forEach(function(group) {
       (group.permissions || []).forEach(function(item) {
@@ -182,14 +190,15 @@ Page({
         name: 'saveAdminPermissions',
         data: { adminId: this.data.selectedAdmin.id, permissions: permissionMap }
       });
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
       showShortToast(localeCopy.copy_e47065f3f1, 'success');
       this.setData({ permissionGroups: cloneGroups(result.groups), editorVisible: false, selectedAdmin: null });
       await this.loadPage();
     } catch (error) {
-      showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
+      if (this._active && orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
     } finally {
-      if (this._active) this.setData({ saving: false });
+      if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ saving: false });
     }
   },
 

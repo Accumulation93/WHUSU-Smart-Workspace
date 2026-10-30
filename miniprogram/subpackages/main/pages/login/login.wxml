@@ -36,7 +36,8 @@
         <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.closeWithIcon}}</view>
       </view>
 
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="sheet-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="sheet-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
+        <view class="ui-dialog-scroll-content">
         <view wx:if="{{stage === 'claim' || stage === 'recovery'}}">
         <view class="sheet-note">{{stage === 'recovery' ? copy.recoveryStartNote : copy.claimStartNote}}</view>
 
@@ -113,6 +114,7 @@
         <view wx:else>
           <view class="sheet-note">{{copy.recoveryPendingNote}}</view>
           <button class="secondary-btn ui-motion-button" bindtap="closeSheet" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</button>
+        </view>
         </view>
       </scroll-view>
     </view>

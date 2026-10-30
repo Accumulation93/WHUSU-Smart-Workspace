@@ -1530,12 +1530,12 @@ const missingStableDialogSystem = !(
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport,\s*\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--wide\s*\{[^}]*height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE) &&
-  // 全屏变体必须直接占满可用区高度，网格轨道与原生的滚动视口才有确定尺寸。
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*\{[^}]*height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE) &&
-  // 外层正文必须拿到确定高度：微信原生 scroll-view 在 height:auto 下滚动量恒为 0，
-  // 表现为拖不动、末行被裁。确定高度只由可用区与外壳固定块两个令牌推导。
-  /scroll-view\.ui-dialog-body[\s\S]{0,600}?\{[^}]*flex:\s*1\s+1\s+auto\s*!important;[^}]*height:\s*calc\(var\(--ui-dialog-available\)[^}]*\}/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*100%\s*!important;/m.test(GLOBAL_STYLE) &&
+  // 普通网格不能把短内容撑成满屏，专业工作区仍在上一项独立检查。
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-body[\s\S]{0,600}?\{[^}]*flex:\s*0\s+1\s+auto\s*!important;[^}]*height:\s*auto\s*!important;[^}]*max-height:\s*calc\(var\(--ui-dialog-available\)[^}]*\}/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*auto\s*!important;[^}]*max-height:\s*calc\(var\(--ui-dialog-available\)/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-body\.ui-dialog-scroll--natural\s*\{[^}]*padding-top:\s*0;[^}]*padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
+  /\.ui-sheet-overlay\s+\.ui-dialog-scroll-content\s*\{[^}]*padding-top:\s*var\(--ui-dialog-body-padding[^}]*padding-bottom:\s*var\(--ui-dialog-body-padding/m.test(GLOBAL_STYLE) &&
   !/\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*max-height:\s*calc\(100vh\s*-\s*\d/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(

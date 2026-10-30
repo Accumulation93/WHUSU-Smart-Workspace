@@ -66,7 +66,9 @@
 
 三段式长列表窗口可采用共享 `.ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid`，其直接子级必须依次且仅为 `.ui-dialog-header`、`scroll-view.ui-dialog-body`、`.ui-dialog-footer`。共享轨道为 `auto minmax(0,1fr) auto`，无需页面再写布局实现；继续使用 viewport 定位、自然 `height:auto` 与视口安全区动态 `max-height`，不设固定正文高度。
 
-有第四段、嵌套滚动或专业工作区时先单独审查，不机械套用三行 Grid。验收须检查宿主矩形与原生滚动视口是否一致，实际滚到最后字段并点击底栏操作；不能只看外框或脚本通过。本次人事导出弹窗已现场滚出“备注”与 Excel/CSV 操作，其余页面与未覆盖设备仍分别记录为未验证。
+自然正文增加 `.ui-dialog-scroll--natural`，宿主上下 padding 为 0；将全部正文放入唯一直接 `.ui-dialog-scroll-content`，由内层上下 padding 使用 `--ui-dialog-body-padding`，禁止重复尾部占位。首帧必须可见，不得把正文初始化为 0 高度再等节点测量。新增条件应自然撑高，收起后自然缩短。
+
+有第四段、嵌套滚动或专业工作区时先单独审查，不机械套用三行 Grid；`--wide` / `--viewport` 专业工作区独立保留可用区高度。验收须检查宿主矩形与原生滚动视口是否一致，覆盖短长内容、展开收起、键盘，并实际滚到最后字段、点击底栏；不能只看外框或脚本通过。旧版人事导出弹窗的“备注”与 Excel/CSV 操作记录不代表新样式、其他页面或未覆盖设备已验证。
 
 - 标题、说明、表单分组、校验反馈、保存/取消操作。
 - 表单控件使用 `.field-input`、`.field-textarea`、`.picker-value` 等原语。

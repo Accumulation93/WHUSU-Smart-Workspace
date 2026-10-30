@@ -68,6 +68,24 @@ test('审核模板按原步骤参数保存，失败保留表单，成功后回�
   await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('');
   expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body).not.toHaveProperty('resubmitMode');
 });
+test('step designation toggle saves booleans and reopens after enabling and disabling', async ({ page }) => {
+  const state = await setup(page);
+  await open(page, 'auditTemplates');
+  await createTemplate(page);
+  for (const checked of [true, false]) {
+    await page.getByRole('button', { name: ui.copy_16fc906860, exact: true }).click();
+    await page.getByRole('dialog').getByRole('switch', { name: ui.copy_ec94756105, exact: true }).setChecked(checked);
+    await page.getByRole('dialog').getByRole('button', { name: ui.copy_bb0ad94473, exact: true }).click();
+    await page.getByRole('button', { name: ui.copy_c34e8a16c0, exact: true }).click();
+    await expect(page.getByLabel(ui.copy_53adcabdff, { exact: true })).toHaveValue('');
+    expect(state.calls.filter(row => row.name === 'saveAuditFlowTemplate').at(-1).body.steps[0].allowApproverDesignation).toBe(checked);
+    await page.locator('.audit-row').filter({ hasText: 'New Flow' }).getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+    await page.getByRole('button', { name: ui.copy_16fc906860, exact: true }).click();
+    await expect(page.getByRole('dialog').getByRole('switch', { name: ui.copy_ec94756105, exact: true })).toBeChecked({ checked });
+    await page.getByRole('dialog').getByRole('button', { name: copy.common.cancel, exact: true }).click();
+  }
+});
+
 test('步骤窗口短内容自然高度，条件编辑互斥，指定条件显示真实名称',async({page})=>{
   await setup(page);await open(page,'auditTemplates');await page.getByRole('button',{name:ui.copy_b79428bf57,exact:true}).click();
   const dialog=page.getByRole('dialog');const geometry=await dialog.evaluate(node=>{const body=node.querySelector('.dialog-body'),footer=node.querySelector('.dialog-footer');return{scroll:body.scrollHeight,height:body.clientHeight,gap:footer.getBoundingClientRect().top-body.getBoundingClientRect().bottom};});expect(geometry.scroll-geometry.height).toBeLessThan(2);expect(geometry.gap).toBeLessThan(30);
@@ -82,6 +100,15 @@ test('保存后目录失败跨页签保持，重试只读取不重复创建',asy
   await page.getByRole('tab',{name:ui.copy_8ef1f4695c,exact:true}).click();await page.getByRole('tab',{name:ui.copy_7312ee863e,exact:true}).click();await expect(page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true})).toBeDisabled();
   state.failRead=false;await page.getByRole('button',{name:text.retry,exact:true}).click();await expect(page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true})).toBeEnabled();expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate')).toHaveLength(1);
 });
+test('editing a stamp at the end of a long directory reveals its populated editor', async ({ page }) => {
+  const state = await setup(page);
+  state.stamps = Array.from({ length: 18 }, (_, index) => ({ id: 'stamp-' + index, name: 'Stamp ' + index, imageData: '', assignedPeople: [] }));
+  await open(page, 'auditStamps');
+  await page.locator('.stamp-row').last().getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.getByLabel(ui.copy_9395b8661f)).toBeInViewport();
+  await expect(page.getByLabel(ui.copy_9395b8661f)).toHaveValue('Stamp 17');
+});
+
 test('印章上传使用同一图片字段，岗位整卡授权和确认清空均回读',async({page})=>{
   const state=await setup(page);await open(page,'auditStamps');await page.getByLabel(ui.copy_9395b8661f).fill('Stamp A');
   const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X5W2GQAAAABJRU5ErkJggg==','base64');await page.setInputFiles('input[type=file]',{name:'stamp.png',mimeType:'image/png',buffer:bytes});await page.getByRole('button',{name:ui.copy_2278d2da18,exact:true}).click();await expect(page.locator('.stamp-row')).toHaveCount(1);

@@ -271,7 +271,8 @@
           <view class="modal-title">{{localeCopy.copy_0601453416}}</view>
           <view class="modal-close ui-motion-chip" catchtap="cancelTemplateCsvImport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="csv-mapping-tip">{{localeCopy.copy_03cf7db777}}</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">{{localeCopy.copy_a0fd73c81e}}</view>
@@ -310,6 +311,7 @@
           </view>
           <switch checked="{{templateCsvReplaceMode}}" bindchange="toggleTemplateCsvReplaceMode" color="#2563eb"/>
         </view>
+          </view>
         </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -1117,8 +1119,8 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileExport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="hr-profile-export-content">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="hr-profile-export-content ui-dialog-scroll-content">
         <view class="hr-profile-export-toolbar">
           <text class="hr-profile-export-count">{{localeCopy.copy_801a88e4a1}} {{hrProfileExportSelectedCount}} {{localeCopy.copy_4a8754e628}}</text>
           <view class="hr-profile-export-quick-actions">
@@ -1166,7 +1168,8 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileTemplateSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="hr-switch-empty" wx:if="{{!hrTemplateSwitchSources.length}}">{{localeCopy.copy_4875d82d59}}</view>
           <view class="hr-switch-source" wx:for="{{hrTemplateSwitchSources}}" wx:key="id">
             <view class="hr-switch-source-head">
@@ -1202,6 +1205,7 @@
             <view class="hr-switch-delete-warning" wx:if="{{item.markForDelete}}">{{localeCopy.copy_165ed9ab37}}</view>
           </view>
           <view class="scroll-tail-space"></view>
+          </view>
         </scroll-view>
         <view class="button-row hr-template-switch-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" bindtap="closeHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -1222,7 +1226,8 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrTemplateSwitchBlock" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-block-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-block-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="hr-switch-block-item" wx:for="{{hrTemplateSwitchBlockReport.rows}}" wx:key="key">
             <view class="hr-switch-block-item-head">
               <text class="hr-switch-block-member">{{item.memberName}}</text>
@@ -1233,6 +1238,7 @@
             <view class="hr-switch-block-reason">{{item.error}}</view>
           </view>
           <view class="scroll-tail-space"></view>
+          </view>
         </scroll-view>
         <view class="button-row hr-template-switch-block-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" bindtap="closeHrTemplateSwitchBlock" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.hrTemplateSwitchIncompatibleBackToEdit}}</button>
@@ -1273,7 +1279,8 @@
           <view class="modal-title">{{localeCopy.copy_43992b550e}}<text wx:if="{{detailHrValues._name}}">·{{detailHrValues._name}}</text></view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y scroll-into-view="{{detailScrollTarget}}">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y scroll-into-view="{{detailScrollTarget}}">
+          <view class="ui-dialog-scroll-content">
           <view class="detail-loading" wx:if="{{loadingDetailHr}}">
             <view class="detail-loading-line detail-loading-line-title"></view>
             <view class="detail-loading-line"></view>
@@ -1601,6 +1608,7 @@
           </view>
           <view class="scroll-tail-space hr-detail-scroll-tail"></view>
           </block>
+          </view>
         </scroll-view>
         <view class="button-row detail-buttons ui-dialog-footer" wx:if="{{!loadingDetailHr}}">
           <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople && !detailHrReadOnly}}" disabled="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{savingDetailHr}}" />{{localeCopy.copy_71db23a36b}}</button>
@@ -1642,10 +1650,12 @@
             <view class="modal-title">{{localeCopy.hrRejectReasonTitle}}</view>
             <view class="modal-close ui-motion-chip" catchtap="closeProfileRejectDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
           </view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-review-dialog-body">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-review-dialog-body ui-dialog-scroll--natural">
+            <view class="ui-dialog-scroll-content">
             <view class="field">
               <view class="field-label">{{localeCopy.hrRejectReasonLabel}}</view>
               <textarea class="field-textarea" maxlength="500" value="{{profileRejectReason}}" bindinput="onProfileRejectReasonInput" placeholder="{{localeCopy.hrRejectReasonPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
+            </view>
             </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer">
@@ -1664,7 +1674,8 @@
             <view class="modal-title">{{personCorrectionPreview.mergeRequired ? localeCopy.hrCorrectionConflictTitle : localeCopy.hrCorrectionTitle}}</view>
             <view class="modal-close ui-motion-chip" catchtap="closePersonCorrection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
           </view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill person-correction-body">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill person-correction-body ui-dialog-scroll--natural">
+            <view class="ui-dialog-scroll-content">
             <view class="correction-callout {{personCorrectionPreview.mergeRequired ? 'is-danger' : ''}}">{{personCorrectionPreview.mergeRequired ? localeCopy.hrCorrectionConflictHint : localeCopy.hrCorrectionHint}}</view>
             <view class="correction-comparison-grid">
               <view class="correction-person-card">
@@ -1719,6 +1730,7 @@
                 <text>{{localeCopy.hrCorrectionConfirm}}</text>
               </label>
             </checkbox-group>
+            </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closePersonCorrection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_06dbb49961}}</button>
@@ -1737,7 +1749,8 @@
           <view class="modal-title">{{localeCopy.copy_bc267b6762}}</view>
           <view class="modal-close ui-motion-chip" catchtap="closeCsvMappingDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="csv-mapping-tip">{{localeCopy.copy_b3ef8687f3}}</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">{{localeCopy.copy_a0fd73c81e}}</view>
@@ -1776,6 +1789,7 @@
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
+          </view>
         </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -1796,7 +1810,8 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrImportPreview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="hr-import-preview-source">{{hrImportPreview.fileName}} · {{hrImportPreview.sheetName}}</view>
           <view class="hr-import-preview-stats">
             <view class="hr-import-preview-stat"><text>{{localeCopy.copy_0e17db0f53}}</text><text class="hr-import-preview-stat-value">{{hrImportPreview.totalRows}}</text></view>
@@ -1868,6 +1883,7 @@
             {{localeCopy.copy_1ddb44b743}}
           </view>
           <view class="scroll-tail-space"></view>
+          </view>
         </scroll-view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_034ae84999}}</button>
@@ -1886,7 +1902,8 @@
           <view class="modal-title">{{localeCopy.copy_a36ffa9141}}</view>
           <view class="modal-close ui-motion-chip" catchtap="closeValidationErrors" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+          <view class="ui-dialog-scroll-content">
           <view class="validation-errors-summary">{{validationErrorSummary}}{{localeCopy.copy_e5f5be43de}}</view>
           <view class="validation-errors-skip-row">
             <view class="validation-errors-skip-text">{{localeCopy.ignoreIncompatibleHint}}</view>
@@ -1894,6 +1911,7 @@
           </view>
           <hr-import-issue-list class="hr-import-validation-issues" cards="{{validationErrorCards}}" value-prefix="{{localeCopy.copy_34338619cf}}" />
           <view class="scroll-tail-space"></view>
+          </view>
         </scroll-view>
         <view class="modal-footer ui-dialog-footer">
           <button class="primary-btn ui-motion-button" catchtap="confirmHrImportSkipInvalid" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.ignoreIncompatibleImport}}</button>
@@ -1980,11 +1998,13 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="modal-card auth-code-dialog ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="modal-header ui-dialog-header"><view><view class="modal-title">{{authIssuedCodeKind === 'recovery' ? localeCopy.authCodeDialogTitleRecovery : localeCopy.copy_c195d59710}}</view><view class="auth-dialog-subtitle">{{localeCopy.copy_fe964455aa}}</view></view><text class="modal-close ui-motion-chip" catchtap="closeAuthCodeDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+            <view class="ui-dialog-scroll-content">
             <view class="auth-code-list ui-dialog-stack">
               <view class="auth-code-row" wx:for="{{authIssuedCodes}}" wx:key="key"><view class="auth-code-name">{{item.personName}}</view><view class="auth-code-value">{{item.code}}</view></view>
             </view>
           <view class="scroll-tail-space"></view>
+            </view>
           </scroll-view>
           <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="exportAuthIssuedCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.authCodeExportAction}}</button><button class="primary-btn ui-motion-button" bindtap="closeAuthCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d5e4a3193a}}</button></view>
         </view>
@@ -2631,8 +2651,8 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex audit-step-dialog" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_b79428bf57}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill audit-step-scroll" style="{{auditStepBodyHeight ? 'height:' + auditStepBodyHeight + 'px!important;' : ''}}">
-            <view class="ui-dialog-stack audit-step-body-content">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill audit-step-scroll ui-dialog-scroll--natural">
+            <view class="ui-dialog-stack audit-step-body-content ui-dialog-scroll-content">
             <block wx:if="{{!auditStepConditionEditorVisible}}">
             <!-- Step name -->
             <view class="field ui-dialog-inset">
@@ -2763,16 +2783,16 @@
                 </view>
               </block>
 
-              <view class="button-row compact-row">
-                <button class="primary-btn ui-motion-button" catchtap="confirmStepCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_764be134e6 : localeCopy.copy_4d3b682ec9}}</button>
-                <button class="secondary-btn ui-motion-button" catchtap="closeStepConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-              </view>
             </view>
 
             </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer ui-dialog-inset">
-            <button class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bb0ad94473}}</button>
+            <block wx:if="{{auditStepConditionEditorVisible}}">
+              <button class="secondary-btn ui-motion-button" catchtap="closeStepConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+              <button class="primary-btn ui-motion-button" catchtap="confirmStepCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_764be134e6 : localeCopy.copy_4d3b682ec9}}</button>
+            </block>
+            <button wx:else class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bb0ad94473}}</button>
           </view>
         </view>
       </view>
@@ -2784,7 +2804,8 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? localeCopy.copy_1dc07a45f9 : localeCopy.copy_a59dd7ae8d}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural">
+            <view class="ui-dialog-scroll-content">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
               <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" value="{{auditStarterConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onStarterConditionTypeChange">
@@ -2833,6 +2854,7 @@
                 <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificIdentityId}}" catchtap="onStarterConditionFieldClear" data-field="specificIdentityId" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
               </view>
             </block>
+            </view>
           </scroll-view>
           <view class="button-row compact-row ui-dialog-footer">
             <button class="primary-btn ui-motion-button" catchtap="confirmStarterCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionEditingIndex >= 0 ? localeCopy.copy_764be134e6 : localeCopy.copy_4d3b682ec9}}</button>
@@ -2939,7 +2961,8 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_6853ab11f7}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:if="{{auditSubmissionDetail}}">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y wx:if="{{auditSubmissionDetail}}">
+            <view class="ui-dialog-scroll-content">
             <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><app-loading compact="{{true}}" /></view>
             <block wx:else>
             <!-- Header -->
@@ -3005,6 +3028,7 @@
               <view class="file-attach-name">{{item.fileName}}</view>
             </view>
             </block>
+            </view>
           </scroll-view>
         </view>
       </view>
@@ -3087,7 +3111,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
+      <view class="ui-dialog-scroll-content">
       <!-- Search -->
       <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view>
@@ -3124,6 +3149,7 @@
         <view class="empty-inline" wx:if="{{!auditMultiPickerFilteredList.length}}">{{localeCopy.copy_cbbf92860a}}</view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
+      </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
@@ -3142,7 +3168,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_e8b001bfef}} — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
+      <view class="ui-dialog-scroll-content">
       <view class="list-desc ui-dialog-help-text">{{auditIdentityPickerMulti ? localeCopy.copy_23a586a08a : localeCopy.copy_2376d5dfcb}}</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item selection-option-card {{auditIdentityPickerSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" wx:for="{{identityList}}" wx:key="id" data-id="{{item.id}}" catchtap="onAuditIdentityToggle" aria-role="checkbox" aria-checked="{{!!auditIdentityPickerSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -3153,6 +3180,7 @@
         <view class="empty-inline" wx:if="{{!identityList.length}}">{{localeCopy.copy_3188e61141}}</view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
+      </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>

@@ -1,11 +1,9 @@
 /**
  * 弹窗滚动契约审计。
  *
- * 微信原生 scroll-view 只有在拿到「确定高度」时才会启用滚动：正文高度由
- * flex 收缩或 auto 推导时，组件内部滚动量为 0，表现为「拖不动」且最后一行
- * 被外壳 overflow 裁掉。长列表弹窗因此必须走
- * `.ui-dialog-shell--complex.ui-dialog-shell--grid`（外壳为确定视口高度，
- * 正文落在 minmax(0, 1fr) 轨道并获得 height: 100%）。
+ * 普通弹窗按内容自然生长并受共享视口上限约束，网格只分配三段结构。
+ * 原生滚动宿主不承担纵向内边距，实际内容容器承担留白，避免末项被裁。
+ * 结构检查不能替代微信中实际滚动到底、键盘收起及非零高度的现场验证。
  *
  * 本脚本做两件硬校验：
  * 1. 任何使用 ui-dialog-shell--grid 的弹窗，直接子级必须恰好是
@@ -19,7 +17,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'miniprogram');
 
-// 人事与考核模块的长列表弹窗：正文长度随数据增长，必须保留确定高度。
+// 人事与考核模块的长列表弹窗：保留三段结构，长度随数据增长。
 const LONG_LIST_DIALOG_CLASSES = [
   'csv-mapping-card',
   'hr-import-preview-card',
@@ -107,6 +105,7 @@ function collectDialogs(file) {
       file,
       line: source.slice(0, match.index).split('\n').length,
       classes,
+      source,
       children: directChildren(source, element)
     });
   }
@@ -153,7 +152,22 @@ for (const dialog of dialogs) {
 
   const longList = LONG_LIST_DIALOG_CLASSES.some((name) => hasClass(dialog.classes, name));
   if (longList && !usesGrid) {
-    failures.push(`${relative}:${dialog.line} 长列表弹窗缺少 ui-dialog-shell--grid，正文会退回 height:auto 导致拖不动`);
+    failures.push(`${relative}:${dialog.line} 长列表弹窗缺少 ui-dialog-shell--grid 三段结构`);
+  }
+  const professional = hasClass(dialog.classes, 'ui-dialog-shell--wide') || hasClass(dialog.classes, 'ui-dialog-shell--viewport');
+  for (const body of dialog.children.filter(isScrollBody)) {
+    if (professional) continue;
+    if (!/\bui-dialog-scroll--natural\b/.test(body.header)) {
+      failures.push(`${relative}:${dialog.line} 普通正文未声明自然滚动布局`);
+      continue;
+    }
+    const contents = directChildren(dialog.source, body);
+    if (contents.length !== 1 || contents[0].tag !== 'view' || !/\bui-dialog-scroll-content\b/.test(contents[0].header)) {
+      failures.push(`${relative}:${dialog.line} 自然滚动正文必须有唯一的显式内容容器`);
+    }
+    if (/\bstyle="[^\"]*\bheight\s*:\s*0(?:px|rpx|vh|%)?\s*(?:!important)?\s*(?:;|\")/.test(body.header)) {
+      failures.push(`${relative}:${dialog.line} 正文禁止初始化为零高度等待测量恢复`);
+    }
   }
   if (!usesGrid && scrollBodyCount === 1 && footerCount === 1) {
     pending.push(`${relative}:${dialog.line} [${dialog.classes.filter((name) => name.startsWith('ui-dialog-shell--') || /-card$|-dialog$|-modal$|popup-card/.test(name)).join(' ')}]`);

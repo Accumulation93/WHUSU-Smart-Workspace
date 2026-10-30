@@ -25,13 +25,13 @@ Use this structure for ordinary dialogs:
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="ui-dialog-header">...</view>
       <scroll-view
-        class="ui-dialog-body ui-dialog-scroll--fill"
+        class="ui-dialog-body ui-dialog-content ui-dialog-scroll--natural"
         enhanced="{{true}}"
         show-scrollbar="{{true}}"
         bounces="{{true}}"
         nested-scroll-enabled="{{true}}"
         scroll-y>
-        ...
+        <view class="ui-dialog-scroll-content">...</view>
       </scroll-view>
       <view class="ui-dialog-footer">...</view>
     </view>
@@ -56,8 +56,10 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 - Overlay and shell never scroll; both clip overflow.
 - `ui-dialog-shell--complex` describes a header/body/footer structure, not a full-height window. It must stay content-driven so short and collapsed forms do not leave blank space.
 - Give the body a viewport-safe dynamic maximum and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally.
-- A direct `scroll-view.ui-dialog-body` still needs a *definite* height or WeChat never builds an internal scroll amount (the dialog looks stuck however far you drag). The shared rule derives it from the same reserves — `calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve))` with `flex: 1 1 auto` — so the body grows or shrinks to exactly fill the shell. Never reintroduce a second `calc(100vh - …)` in a page, a component or a variant.
-- `.ui-dialog-shell--grid` / `--viewport` / `--wide` take `height: var(--ui-dialog-available)`; every other variant stays content-driven.
+- 普通 `--complex` 与 `--grid` 的外壳和正文均使用 `height:auto`，正文上限由共享的可用高度与留白令牌推导。Grid 只分配标题、正文、底栏三段，不要求全高；不要把旧实现的滚动失败泛化为“auto 必定不能滚动”。页面或组件不得另写第二套 `calc(100vh - …)`。
+- 普通正文使用 `scroll-view.ui-dialog-body.ui-dialog-scroll--natural`，宿主上下 padding 为 0；全部正文必须位于唯一直接 `.ui-dialog-scroll-content` 内，由该内层的上下 padding 使用 `--ui-dialog-body-padding`。末字段和尾部留白必须属于实际滚动内容，不能在宿主或末字段重复占位。
+- 禁止先写 `height:0` 等待异步测量恢复。首帧、未测量、节点查询缺失或失败时都必须保留正常可见内容；测量只能辅助定位，不能成为显示表单的前提。
+- 只有显式专业工作区 `--viewport` / `--wide` 使用 `height: var(--ui-dialog-available)`，其正文尺寸独立维护；不要机械套用普通自然正文或压缩专业工作区。
 - Only data workspaces that genuinely require a stable full-screen working area may add `ui-dialog-shell--viewport`; wide timetables continue to use `ui-dialog-shell--wide`. Never add a viewport height merely because a dialog is a long form.
 - Header and footer are non-scrolling flex items. The direct body is the only outer scrolling region.
 - Every vertical dialog `scroll-view` enables `enhanced`, `scroll-y`, and `nested-scroll-enabled`.
@@ -77,11 +79,16 @@ In phone portrait, Pad portrait, and Pad landscape:
 6. Check compact, complex, wide, nested-list, and signature/canvas variants.
 7. Focus an input inside the dialog, open the keyboard, and confirm the page itself does not shift, the shell stays above the keyboard (it shrinks via `--kb-height`), and the focused field plus the footer buttons remain reachable.
 8. Close the dialog and scroll the page immediately; the whole page must be scrollable again (no leaked `overflow: hidden`).
+9. 检查短内容无固定空白，展开条件后自然增高、收起后恢复；比较宿主外框与原生内部滚动视口，实际滚出最后字段及其底部留白，再点击底栏。浏览器解释 WXSS 只能验证 CSS 几何，不能代替微信原生视口和现场手势；未覆盖的手机、Pad 竖屏或横屏明确记录为未完成现场验证。
+
+历史观察：2026-09-30 的旧版人事导出窗口曾在 1024×700 Pad 横屏出现非 Grid 正文外框 480px、内容 2869px、拖动位移 0，改为 Grid 后记录位移 -245。保留该观察供排查旧问题，但不能据此要求所有 Grid 全高，不能断言所有自然高度都无法滚动，也不能将旧窗口的通过记录用于证明新样式或其他设备已通过。
 
 ## Inputs and keyboard inside dialogs
 
 - Every `input`/`textarea` inside a dialog shell must carry `adjust-position="{{false}}"` and `cursor-spacing`. With the default `adjust-position`, WeChat scrolls the page while a `position: fixed` shell stays put, which is what produced the "dialog misaligned with keyboard / bottom buttons unreachable" reports.
-- The page must publish the keyboard height so the shell can shrink: keep `dialogKeyboardHeight` in page data (see `miniprogram/utils/dialogKeyboard.js`), append `' --kb-height: ' + dialogKeyboardHeight + 'px;'` to the page's `page-meta page-style`, and let the global rule in `app.wxss` shrink and lift the shell. The dialog body's own scroll carries any remaining occlusion.
+- `viewport-portal` must publish `--kb-height` on its own `view.ui-portal-surface` inside `root-portal`. Page-level `page-meta` variables do not reliably cross the native RootPortal boundary: writing `dialogKeyboardHeight` on the page alone does not prove the dialog can shrink. Keep the page keyboard behavior for page state and scroll-lock cleanup, but do not use it as a substitute for the Portal-layer variable.
+- The shared component listens directly to `wx.onKeyboardHeightChange`. Attach/show binds once; hide unregisters only its own listener and resets the height; detach unregisters without writing rendering data. A late callback from a previous binding must be ignored, including after the component is shown again. Multiple visible Portals must not remove one another's listeners. Do not inspect a parent Page's private data or overwrite navigation and body geometry.
+- Verify the actual Portal-layer variable, native scrolling viewport, last field and footer together. A 240px injected keyboard-height event can test layout propagation, but cannot be reported as a real phone keyboard test. Real input focus, native keyboard show/hide and rotation still require device verification.
 - Every dialog flag used by `page-meta page-style` must have a written reset path, and pages with dialog inputs must declare `dialogLockKeys` so `releaseDialogScrollLock()` can clear them on unload.
 
 Run at minimum when the user has not explicitly requested a script-free manual audit:

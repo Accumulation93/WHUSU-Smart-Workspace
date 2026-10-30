@@ -11,7 +11,7 @@
       <p v-if="!loading && !metadata.rules?.length" class="empty-state">{{ copy.rulesEmpty }}</p>
       <button v-if="selected.length" class="btn btn-danger" :disabled="busy" @click="deletion=metadata.rules.filter(rule=>selected.includes(rule.id))">{{ copy.delete }} · {{ selected.length }}</button>
     </div>
-    <form v-if="draft" class="card stack" @submit.prevent="save">
+    <form v-if="draft" ref="editor" class="card stack" @submit.prevent="save">
       <label class="field"><span class="field-label">{{ copy.ruleName }}</span><input v-model="draft.name" class="field-input" :disabled="busy" /></label>
       <h3 class="section-title">{{ copy.audience }}</h3><CalendarConditions v-model="draft.audience" :metadata="metadata" audience :disabled="busy" />
       <h3 class="section-title">{{ copy.targets }}</h3><CalendarConditions v-model="draft.targets" :metadata="metadata" :disabled="busy" />
@@ -23,16 +23,17 @@
   </section>
 </template>
 <script setup>
-import {onBeforeUnmount,ref,watch} from 'vue';
+import {nextTick,onBeforeUnmount,ref,watch} from 'vue';
 import CalendarConditions from './CalendarConditions.vue';
 import GlassDialog from './GlassDialog.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
 const metadata=ref({rules:[],people:[],departments:[],identities:[],workGroups:[]}),selected=ref([]),draft=ref(null),deletion=ref(null),busy=ref(false),loading=ref(false),notice=ref(''),saved=ref(false);
+const editor=ref(null);
 let generation=0,disposed=false;
 async function load() { const own=++generation;loading.value=true;notice.value='';try { const result=requireSuccess(await callApi('getCalendarRules',{}));if(own!==generation||disposed)return;metadata.value=result;selected.value=[];if(saved.value){draft.value=null;saved.value=false;} }catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{if(own===generation)loading.value=false;} }
-function edit(rule,duplicate) { draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false; }
+async function edit(rule,duplicate) { draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false;await nextTick();editor.value?.scrollIntoView({block:'start'}); }
 async function save() { if(busy.value||loading.value||saved.value||!draft.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('saveCalendarRule',draft.value));if(own!==generation)return;saved.value=true;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
 async function batch(action,rules) { if(busy.value||loading.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
 function visibility(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}

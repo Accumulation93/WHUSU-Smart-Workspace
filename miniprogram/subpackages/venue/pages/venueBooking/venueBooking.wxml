@@ -195,10 +195,10 @@ module.exports = { hour: hour, min: min };
   <viewport-portal wx:if="{{activityDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop" style="--venue-activity-content-height: {{activityDetailHeight || 0}}px;">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-      <venue-activity-detail activity="{{activityDetail}}" bindlayout="onActivityDetailLayout" />
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+      <view class="ui-dialog-scroll-content"><venue-activity-detail activity="{{activityDetail}}" /></view>
       </scroll-view>
       <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button></view>
     </view>
@@ -214,8 +214,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">{{localeCopy.copy_40d594ac66}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-      <venue-booking-detail booking="{{bookingDetail}}"></venue-booking-detail>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+      <view class="ui-dialog-scroll-content"><venue-booking-detail booking="{{bookingDetail}}"></venue-booking-detail></view>
       </scroll-view>
     </view>
   </view>
@@ -230,8 +230,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">{{localeCopy.copy_2b262b7940}} · {{bookingVenueName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
           <!-- Title -->
           <view class="field">
             <view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
@@ -357,8 +357,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">{{approvalTarget.title || localeCopy.copy_48283f4043}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-body ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="detail-body ui-dialog-stack ui-dialog-scroll-content">
           <!-- Flow progress bar -->
           <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
             <view class="audit-flow-progress-bar">

@@ -118,8 +118,8 @@
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-          <view class="detail-popup-form ui-dialog-stack">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+          <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
               <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
@@ -591,8 +591,8 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-            <view class="detail-popup-form ui-dialog-stack">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+            <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
                 <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="{{localeCopy.copy_ac4d7a45e0}}" adjust-position="{{false}}" cursor-spacing="24" />
@@ -655,8 +655,8 @@
         <view class="popup-title">{{localeCopy.copy_dd46cd92a6}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
           <view wx:if="{{stampLoading}}" class="stamp-empty"><app-loading text="{{signingCopy.stampLoading}}" /></view>
           <view wx:elif="{{stampNotice}}" class="stamp-empty">{{stampNotice}}<button class="secondary-btn" bindtap="loadAvailableStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
           <view wx:elif="{{!availableStamps.length}}" class="stamp-empty">{{signingCopy.stampEmpty}}</view>
@@ -793,8 +793,8 @@
         <view class="popup-title">{{localeCopy.copy_b4432643e3}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
           <view>
             <view class="field">
               <view class="field-label">{{localeCopy.copy_47a12cc974}}</view>
@@ -820,8 +820,8 @@
         <view class="popup-title">{{localeCopy.copy_2649ec5bae}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-stack">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
+        <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
           <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
           <!-- Saved Signatures -->

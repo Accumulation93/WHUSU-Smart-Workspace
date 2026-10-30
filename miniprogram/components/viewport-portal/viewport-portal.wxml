@@ -1,3 +1,5 @@
 <root-portal enable="{{true}}">
-  <slot></slot>
+  <view class="ui-portal-surface" style="--kb-height: {{portalKeyboardHeight}}px;">
+    <slot></slot>
+  </view>
 </root-portal>

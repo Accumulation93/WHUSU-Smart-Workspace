@@ -9,7 +9,8 @@
         </view>
         <view class="modal-close ui-motion-chip" catchtap="emitClose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-deletion-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill hr-deletion-body ui-dialog-scroll--natural">
+        <view class="ui-dialog-scroll-content">
         <view class="hr-deletion-callout is-clear" wx:if="{{result}}">{{result.forced ? localeCopy.hrDeletionForcedDone : localeCopy.hrDeletionCompleted}}</view>
         <view class="hr-deletion-callout {{preview.eligible ? 'is-clear' : 'is-blocked'}}" wx:else>{{preview.eligible ? localeCopy.hrDeletionEligible : localeCopy.hrDeletionBlocked}}</view>
         <view class="hr-deletion-section" wx:if="{{preview.organizations && preview.organizations.length}}">
@@ -45,7 +46,7 @@
             <text class="status-chip {{item.wouldDisable === false ? 'pending-chip' : 'rejected-chip'}}">{{item.wouldDisable === false ? (result ? localeCopy.hrDeletionRuleReferenceRemovedDone : localeCopy.hrDeletionRuleReferenceRemoved) : (result ? localeCopy.hrDeletionRuleDisabledDone : localeCopy.hrDeletionRuleDisabled)}}</text>
           </view>
         </view>
-        <view class="hr-deletion-section hr-deletion-consent" wx:if="{{!result && preview.eligible && cleanup.length}}">
+        <view class="hr-deletion-section hr-deletion-consent" wx:if="{{!result && (preview.eligible || (canForce && forceAccepted)) && cleanup.length}}">
           <checkbox-group bindchange="emitCleanupAcceptance">
             <label class="hr-deletion-consent-row">
               <checkbox value="accepted" checked="{{cleanupAccepted}}" color="#2563eb" />
@@ -53,14 +54,15 @@
             </label>
           </checkbox-group>
         </view>
-        <view class="field hr-deletion-confirm" wx:if="{{!result && scope === 'person' && preview.eligible}}">
+        <view class="field hr-deletion-confirm" wx:if="{{!result && scope === 'person' && (preview.eligible || (canForce && forceAccepted))}}">
           <view class="field-label">{{localeCopy.hrDeletionConfirmStudentId}}</view>
           <input class="field-input" value="{{confirmation}}" bindinput="emitConfirmationInput" placeholder="{{preview.target.studentId}}" adjust-position="{{false}}" cursor-spacing="24" />
+        </view>
         </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" disabled="{{loading}}" catchtap="emitClose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{result ? localeCopy.hrDeletionFinish : localeCopy.copy_06dbb49961}}</button>
-        <button class="danger-btn ui-motion-button" wx:if="{{!result}}" disabled="{{!(preview.eligible || (canForce && forceAccepted)) || (cleanup.length && !cleanupAccepted) || (scope === 'person' && confirmation !== preview.target.studentId)}}"  catchtap="emitConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loading}}" />{{canForce && forceAccepted && !preview.eligible ? localeCopy.hrDeletionForceConfirm : localeCopy.hrConfirmPermanentDeletion}}</button>
+        <button class="danger-btn ui-motion-button" wx:if="{{!result}}" disabled="{{loading || !(preview.eligible || (canForce && forceAccepted)) || (cleanup.length && !cleanupAccepted) || (scope === 'person' && confirmation !== preview.target.studentId)}}"  catchtap="emitConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loading}}" />{{canForce && forceAccepted && !preview.eligible ? localeCopy.hrDeletionForceConfirm : localeCopy.hrConfirmPermanentDeletion}}</button>
       </view>
     </view>
   </view>

@@ -24,7 +24,7 @@
 | 组件 | 路径 | 用途 | 必须保留的差异 |
 | --- | --- | --- | --- |
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |
-| `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | 三种设备都固定遮罩和弹窗位置；弹窗令牌由 portal 内的遮罩直接持有，不依赖页面变量继承 |
+| `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | Portal内普通 `view.ui-portal-surface` 承接令牌与键盘高度；直接监听键盘事件，不依赖页面变量跨RootPortal继承 |
 | `personnel-picker` | `miniprogram/components/personnel-picker/` | 全仓人员与人员岗位选择 | `assignment` 一岗一卡、`person` 一人一卡；支持单/多选、同岗位元组筛选、可逆草稿和确认清空 |
 | `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 业务图标用 `sizeRole`；手机 rpx、Pad 竖屏/横屏 px 独立收紧；本体受槽位边界约束，不用 emoji |
 | `ui-navbar` | `miniprogram/components/ui-navbar/` | 全站统一顶栏（自绘导航条） | 自己量状态栏与胶囊、自己固定定位与占位、自己在横竖屏切换后重算；`z-index: 90` 必须低于全屏弹窗遮罩（98/99 起），弹窗打开时遮罩能连顶栏一起盖住 |
@@ -70,7 +70,9 @@
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
 | `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
 | `.ui-dialog-header` / `.ui-dialog-body` / `.ui-dialog-footer` | 固定标题、可滚动正文、固定操作区 | 长表单、人员选择、审批步骤和详情 |
-| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；外壳高度取共享的 `--ui-dialog-available`（顶部已让出自绘顶栏、底部已让出安全区与键盘），页面与组件不得再覆盖弹窗几何 |
+| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；普通外壳和正文均自然 `height:auto`，共享动态上限让出顶栏、安全区与键盘，页面与组件不得另写弹窗几何 |
+| `.ui-dialog-scroll--natural` / `.ui-dialog-scroll-content` | 普通正文的自然高度与可滚动留白 | 前者加在 `scroll-view.ui-dialog-body`，宿主上下 padding 为 0；全部正文进入唯一直接 `.ui-dialog-scroll-content`，由内层上下 padding 使用 `--ui-dialog-body-padding` |
+| `.ui-dialog-shell--wide` / `.ui-dialog-shell--viewport` | 显式专业工作区 | 独立保持共享可用区高度；不能因普通表单自然高度规则被压缩，也不能为普通长表单随意添加 |
 | `.ui-dialog-inset` | 使用弹窗令牌的对称水平留白 | 弹窗内独立字段、提示和操作行 |
 | `.ui-dialog-content` | 普通弹窗的统一正文玻璃表面和边缘留白 | 详情、表单、选择器、长列表 |
 | `.ui-dialog-content--stack` | 多个独立分区共同存在时使用的透明正文滚动层 | 人事详情、权限分组等多分区窗口 |
@@ -81,9 +83,19 @@
 | `.ui-dialog-compact-content` | 无滚动正文的短提示内容卡 | 确认、删除、未保存内容提示 |
 | `.flow-info` / `.flow-info-expanded` / `.flow-expand-detail` | 审批步骤收起卡、展开白色玻璃卡和卡内详情 | 审核详情、场地借用详情、审批历史详情 |
 
+## Portal 键盘高度
+
+`viewport-portal` 在 `root-portal` 内的普通 `view.ui-portal-surface` 发布 `--kb-height`，由共享弹窗样式计算可用高度。页面 `page-meta` 的 `dialogKeyboardHeight` 继续服务页面状态及滚动锁清理，但不能替代 Portal 层变量；页面变量已更新不等于原生弹窗已经缩小。
+
+组件在挂载和页面显示时注册一次 `wx.onKeyboardHeightChange`，页面隐藏时只移除自己的回调并归零，卸载时移除回调且不再 `setData`。旧绑定的迟到回调即使在重显后也不得写回；多个 Portal 各自维护监听，不允许无参数清除全部监听。组件不读取上层 Page 私有状态，不改导航高度、正文高度或安全区规则。
+
+`scripts/viewport-portal-keyboard-test.js` 验证注册、重绑、隐藏、卸载、迟到事件、多窗口隔离及API缺失。2026-10-30开发者工具注入240px高度事件后，原生正文为307.4px，末字段底479.7px小于正文底483.2px；这只证明事件与布局传递，不能替代手机原生键盘焦点、弹出、收起及旋转实测。
+
 ## 状态表达
 
-三段式 Grid 变体由 `app.wxss` 维护 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。禁止组件自行设固定正文高度或复制定位；第四段、嵌套滚动和专业工作区须单审。接入后同时检查宿主与原生滚动视口的实际尺寸、短内容收缩、末项和底栏可达性。本次人事导出窗口已有末字段及 Excel/CSV 操作现场证据，但不能据此宣布所有组件或三档设备均通过。
+三段式 Grid 变体由 `app.wxss` 维护 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。普通 complex/grid 的高度随内容增长，达到共享动态上限后滚动；禁止组件自行固定正文高度、复制定位，或先置零高度等待测量。节点测量尚未返回或失败时，内容也必须可见。第四段、嵌套滚动和专业工作区须单审。
+
+接入自然正文时，`ui-dialog-scroll--natural` 的纵向 padding 必须为 0；唯一直接内容容器 `ui-dialog-scroll-content` 承担上下令牌留白，保证最后字段及留白一起滚动。实际验收同时检查宿主与原生内部视口、短内容收缩、展开收起、键盘、末字段和底栏操作。2026-09-30 人事导出等旧窗口的观察仅适用于记录中的实现，不能推定所有 auto 高度失效，也不能宣布新样式或三档设备均已通过。
 
 - 蓝色：当前选择、主要动作、处理中。
 - 绿色：已完成、已绑定、可用。

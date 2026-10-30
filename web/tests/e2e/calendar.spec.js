@@ -93,6 +93,20 @@ test('日程卡打开人员详情，退出确认不会叠放两个窗口',async(
   await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);
 });
 
+test('rule create and edit reveal the form below a long rule directory', async ({ page }) => {
+  await setup(page);
+  const rules = Array.from({ length: 18 }, (_, index) => ({ id: 'rule-' + index, version: 1, name: 'Rule ' + index, enabled: true, audience: [{ type: 'people', personIds: ['p'] }], targets: [{ type: 'self' }], actions: ['assign'] }));
+  await page.route('**/api/getCalendarRules', route => route.fulfill({ json: { status: 'success', people: [], departments: [], identities: [], workGroups: [], rules } }));
+  await page.goto('/web/calendar');
+  await page.getByRole('button', { name: copy.ruleManage, exact: true }).click();
+  await page.getByRole('button', { name: copy.createRule, exact: true }).click();
+  await expect(page.getByLabel(copy.ruleName, { exact: true })).toBeInViewport();
+  await page.getByRole('button', { name: copy.cancel, exact: true }).click();
+  await page.getByRole('button', { name: copy.edit, exact: true }).first().click();
+  await expect(page.getByLabel(copy.ruleName, { exact: true })).toBeInViewport();
+  await expect(page.getByLabel(copy.ruleName, { exact: true })).toHaveValue('Rule 0');
+});
+
 test('安排规则复制后编辑保存，批量删除取消不发请求',async({page})=>{
   await setup(page);const writes=[];
   const rule={id:'rule',version:1,name:'办公室安排',enabled:true,audience:[{type:'people',personIds:['p']}],targets:[{type:'self'}],actions:['assign']};

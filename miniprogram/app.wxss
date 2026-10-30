@@ -3335,13 +3335,13 @@ page .pending-refresh-btn {
 
 /*
  * “复杂”只描述结构（标题 / 正文 / 底栏），不代表必须占满屏幕；短表单仍按内容收缩。
- * 真正需要整块工作区的长列表与表格才用 --grid / --viewport / --wide，
- * 它们直接占满可用区高度，网格轨道与原生滚动视口因此都有确定尺寸。
+ * 网格只分配三段结构，不为短列表预留满屏空间。
+ * 只有显式声明 --viewport / --wide 的专业工作区占满可用区。
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  height: var(--ui-dialog-available) !important;
+  height: auto !important;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport,
@@ -3356,26 +3356,54 @@ page .pending-refresh-btn {
   max-height: none !important;
 }
 
-/* 三段网格外壳：正文占满 minmax(0, 1fr) 轨道，原生滚动视口才拿到确定高度。 */
+/* 三段网格也按内容收缩；只有超过上限时才建立正文滚动。 */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid > .ui-dialog-body {
-  height: 100% !important;
-  max-height: 100% !important;
+  height: auto !important;
+  max-height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
 }
 
 /*
- * 正文确定高度契约：微信原生 scroll-view 只有拿到确定高度才会建立滚动量，
- * height:auto 会让滚动量恒为 0，表现为拖不动、末行被外壳裁掉。
- * 高度只用同一套让位量推导：可用区高度减去外壳内固定块（标题、底栏与内外留白）
- * 的语义高度。变体、页面、组件都不得再写第二套 calc(100vh - …)。
- * flex 基数与上下浮动同时保留：内容短时外壳按内容收缩，内容长时正文刚好占满
- * 外壳剩余空间，既不会留下空白，也不会把底栏挤出可视区。
+ * 普通正文先按内容确定高度，达到视口上限后才滚动。不得先写零高度再等待
+ * 节点测量恢复：首帧、查询缺失和查询失败时也必须保留可见内容。
+ * 原生滚动宿主的纵向 padding 会使其内部视口与外框不一致；上下留白由
+ * 显式内容容器承担，最后一个字段和留白一起进入实际可滚动内容。
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body,
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > scroll-view.ui-dialog-body,
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > scroll-view.ui-dialog-body,
 .ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--complex > scroll-view.ui-dialog-body {
-  flex: 1 1 auto !important;
+  flex: 0 1 auto !important;
   min-height: 0 !important;
+  height: auto !important;
+  max-height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
+}
+
+.ui-overlay scroll-view.ui-dialog-body.ui-dialog-scroll--natural,
+.ui-sheet-overlay scroll-view.ui-dialog-body.ui-dialog-scroll--natural {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.ui-overlay .ui-dialog-scroll-content,
+.ui-sheet-overlay .ui-dialog-scroll-content {
+  min-width: 0;
+  padding-top: var(--ui-dialog-body-padding, 18rpx) !important;
+  padding-bottom: var(--ui-dialog-body-padding, 18rpx) !important;
+  box-sizing: border-box;
+}
+
+.ui-dialog-scroll-content > view:first-child {
+  margin-top: 0;
+}
+
+.ui-dialog-scroll-content > view:last-child {
+  margin-bottom: 0;
+}
+
+/* 专业工作区保持独立尺寸，不能被普通表单的后置规则覆盖。 */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > scroll-view.ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > scroll-view.ui-dialog-body {
+  flex: 1 1 auto !important;
   height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
   max-height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
 }

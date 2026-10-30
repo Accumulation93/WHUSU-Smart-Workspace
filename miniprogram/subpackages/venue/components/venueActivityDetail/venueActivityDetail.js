@@ -14,15 +14,5 @@ function recurrenceLabel(activity) {
 }
 Component({
   properties: { activity: { type: Object, value: null } }, data: { localeCopy, recurrence: '' },
-  observers: { activity: function(activity) { this.setData({recurrence:recurrenceLabel(activity)},()=>this.measureLayout()); } },
-  lifetimes: { ready: function() { this._layoutReady=true;this.measureLayout(); }, detached: function() { this._layoutReady=false; } },
-  pageLifetimes: { resize: function() { this.measureLayout(); } },
-  methods: {
-    measureLayout: function() {
-      if(!this._layoutReady)return;
-      wx.nextTick(()=>{if(!this._layoutReady)return;this.createSelectorQuery().select('.activity-detail').boundingClientRect(rect=>{
-        if(this._layoutReady&&rect&&rect.height>0)this.triggerEvent('layout',{height:Math.ceil(rect.height)});
-      }).exec();});
-    }
-  }
+  observers: { activity: function(activity) { this.setData({recurrence:recurrenceLabel(activity)}); } }
 });
