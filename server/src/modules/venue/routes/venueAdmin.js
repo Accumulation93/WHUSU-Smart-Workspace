@@ -39,19 +39,12 @@ const {
   resolveCurrentActorAssignment,
   resolveBookingApplicantAssignment,
   resolveBookingApplicantAssignments,
+  bookingApplicantDisplay,
   listActiveAssignmentsByLegacyHrId
 } = require('../services/venueAssignmentContext');
 
-function assignmentDisplay(assignment) {
-  const hasHistoricalSnapshot = Boolean(assignment && assignment.historicalSnapshotComplete);
-  return {
-    name: safeString(assignment && assignment.personName),
-    department: hasHistoricalSnapshot ? safeString(assignment.departmentName) : '',
-    identity: hasHistoricalSnapshot ? safeString(assignment.identityCategoryName) : '',
-    workGroup: hasHistoricalSnapshot ? safeString(assignment.workGroupName) : '',
-    assignmentId: safeString(assignment && assignment.assignmentId),
-    assignmentLabel: hasHistoricalSnapshot ? safeString(assignment.assignmentLabel) : ''
-  };
+function assignmentDisplay(assignment, booking) {
+  return bookingApplicantDisplay(booking, assignment);
 }
 
 async function canReviewVenueBooking(req, booking) {
@@ -692,7 +685,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } catch (_) {}
     }
     const list = detailBookings.map(b => {
-      const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
+      const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)), b);
       return {
       id: b.id,
       venueId: b.venue_id,

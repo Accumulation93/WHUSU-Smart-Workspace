@@ -24,7 +24,7 @@ export default Object.freeze({
   detailTitle: src_myVenueBookings.bookingDetailTitle,
   emptyBookings: src_myVenueBookings.copy_28981b382e,
   timeSeparator: src_venueBookingDetail.copy_e8d9493a44,
-  bookingAssignment: src_myVenueBookings.bookingAssignment,
+  bookingAssignment: src_submissionDetail.submittedAssignment,
   approvalCommentLabel: src_submissionDetail.copy_3b3b392755,
   statusPending: src_adminPersonnel.hrTemplateSwitchIncompatiblePending,
   statusApproved: src_auditSigning.roundStates.approved,

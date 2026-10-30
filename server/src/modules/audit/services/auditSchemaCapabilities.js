@@ -27,4 +27,13 @@ function clearCache() {
   columnCache.clear();
 }
 
-module.exports = { getColumns, clearCache };
+function requireSnapshotColumns(columns, prefix) {
+  const required = [prefix + '_person_id', prefix + '_assignment_id', prefix + '_context_snapshot'];
+  if (required.some(function(column) { return !columns.has(column); })) {
+    const error = new Error('Audit assignment snapshot schema is unavailable');
+    error.code = 'AUDIT_SNAPSHOT_SCHEMA_UNAVAILABLE';
+    throw error;
+  }
+}
+
+module.exports = { getColumns, clearCache, requireSnapshotColumns };

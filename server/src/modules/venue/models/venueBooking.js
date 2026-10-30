@@ -1,5 +1,22 @@
 const pool = require('../../../config/db');
 const { toAssignmentSnapshot } = require('../services/venueAssignmentContext');
+const identity = require('../../../core/models/unifiedIdentity');
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueUser');
+
+async function recordBookingAction(connection, id, actor, eventType, detail) {
+  if (!actor || !actor.personId || !actor.contextId) throw new Error(localeCopy.copy_4e84385ce1);
+  const [rows] = await connection.query('SELECT creator_org_id, approval_org_id FROM venue_bookings WHERE id = ? FOR UPDATE', [id]);
+  const booking = rows[0];
+  if (!booking || ![booking.creator_org_id, booking.approval_org_id].includes(actor.organizationId)) throw new Error(localeCopy.copy_d76adefd6d);
+  const assignmentSnapshot = actor.type === 'user' && actor.assignment ? toAssignmentSnapshot(actor.assignment) : null;
+  if (actor.type === 'user' && !assignmentSnapshot) throw new Error(localeCopy.copy_bba7f8b8ba);
+  await identity.appendAuditEvent({connection,eventType,actorPersonId:actor.personId,
+    organizationId:actor.organizationId,contextId:actor.contextId,
+    detail:Object.assign({bookingId:id,actorSnapshot:{personId:actor.personId,contextId:actor.contextId,
+      organizationId:actor.organizationId,role:actor.type,identityName:actor.name || '',
+      adminGrantId:actor.type === 'admin' ? actor.adminGrantId || '' : '',
+      adminLevel:actor.type === 'admin' ? actor.adminLevel || '' : '',assignmentSnapshot}},detail)});
+}
 
 // 借用记录已解绑组织 — 全局可见，跨组织冲突检测
 /**
@@ -146,6 +163,13 @@ async function updateApprovalFlowState(id, data, conn) {
 }
 
 async function updateStatus(id, status, approverHrId, approvalComment, conn, actor) {
+  if (status === 'cancelled') {
+    if (!conn) return pool.withTransaction(connection => updateStatus(id,status,approverHrId,approvalComment,connection,actor));
+    await recordBookingAction(conn,id,actor,'venue_booking_cancelled',{reason:approvalComment || ''});
+    // 取消是独立动作，不能把原来的审批人改写成取消人。
+    await conn.query('UPDATE venue_bookings SET status = ? WHERE id = ?', [status,id]);
+    return;
+  }
   const db = conn || pool;
   const contextSnapshot = actor && actor.contextId ? JSON.stringify({
     contextId: actor.contextId,
@@ -174,9 +198,10 @@ async function updateStatus(id, status, approverHrId, approvalComment, conn, act
   );
 }
 
-async function updateTimeEnd(id, timeEnd, conn) {
-  const db = conn || pool;
-  await db.query(
+async function updateTimeEnd(id, timeEnd, conn, actor) {
+  if (!conn) return pool.withTransaction(connection => updateTimeEnd(id,timeEnd,connection,actor));
+  await recordBookingAction(conn,id,actor,'venue_booking_ended',{timeEnd});
+  await conn.query(
     'UPDATE venue_bookings SET time_end = ? WHERE id = ?',
     [timeEnd, id]
   );

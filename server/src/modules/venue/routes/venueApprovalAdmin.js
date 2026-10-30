@@ -467,7 +467,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
           approverActorId,
           '审批时借用已结束，自动取消',
           conn,
-          actor
+          approvalActor
         );
         await createVenueBookingStatusNotification(
           booking, 'booking_cancelled', '场地借用已自动取消',

@@ -357,7 +357,7 @@
                   <view class="flow-detail-text">
                     <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text><person-link name="{{node.operatorName || localeCopy.copy_b121b80801}}" person-id="{{node.operatorPersonId}}" />
                   </view>
-                  <view wx:if="{{node.operatorName}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                  <view wx:if="{{node.operatorName && !node.operatorAssignmentView.isAdministrativeContext}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.operationAssignment}}</text>{{node.operatorAssignmentView.hasSnapshot ? node.operatorAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
                   </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
@@ -402,7 +402,7 @@
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
                   </view>
-                  <view wx:if="{{node.operatorName && (node.flowIcon === 'check' || node.flowIcon === 'cross')}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                  <view wx:if="{{node.operatorName && !node.processedAssignmentView.isAdministrativeContext && (node.flowIcon === 'check' || node.flowIcon === 'cross')}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
                     <text class="flow-detail-label">{{localeCopy.processedAssignment}}</text>{{node.processedAssignmentView.hasSnapshot ? node.processedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
                   </view>
                   <!-- Approval comment -->

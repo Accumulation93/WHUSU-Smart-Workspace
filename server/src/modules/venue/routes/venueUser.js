@@ -28,6 +28,7 @@ const {
   resolveCurrentActorAssignment,
   resolveBookingApplicantAssignment,
   resolveBookingApplicantAssignments,
+  bookingApplicantDisplay,
   listAccountWorkActors,
   listApproverCandidates
 } = require('../services/venueAssignmentContext');
@@ -107,19 +108,8 @@ function buildApplicantAutoApproval(flow, flowId, applicantAssignment, approvedA
   };
 }
 
-function assignmentDisplay(assignment) {
-  const hasHistoricalSnapshot = Boolean(assignment && assignment.historicalSnapshotComplete);
-  return {
-    name: safeString(assignment && assignment.personName),
-    department: hasHistoricalSnapshot ? safeString(assignment.departmentName) : '',
-    identity: hasHistoricalSnapshot ? safeString(assignment.identityCategoryName) : '',
-    workGroup: hasHistoricalSnapshot ? safeString(assignment.workGroupName) : '',
-    departmentId: hasHistoricalSnapshot ? safeString(assignment.departmentId) : '',
-    identityCategoryId: hasHistoricalSnapshot ? safeString(assignment.identityCategoryId) : '',
-    workGroupId: hasHistoricalSnapshot ? safeString(assignment.workGroupId) : '',
-    assignmentId: safeString(assignment && assignment.assignmentId),
-    assignmentLabel: hasHistoricalSnapshot ? safeString(assignment.assignmentLabel) : ''
-  };
+function assignmentDisplay(assignment, booking) {
+  return bookingApplicantDisplay(booking, assignment);
 }
 
 /** Format a Date to "YYYY-MM-DD" in local time */
@@ -528,7 +518,7 @@ router.post('/getVenueSchedule', async (req, res) => {
             userName: '其他组织借用'
           };
         }
-        const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
+        const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)), b);
         return {
           id: b.id,
           visibility: 'details',
@@ -1104,7 +1094,7 @@ router.post('/listMyVenueBookings', async (req, res) => {
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
     const list = bookings.map(b => {
-      const display = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
+      const display = assignmentDisplay(applicantAssignments.get(safeString(b.id)), b);
       return {
       id: b.id,
       venueId: b.venue_id,
@@ -1422,7 +1412,7 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
     for (const booking of bookings) {
       const approval = findMyVenueApproval(booking, actor);
       if (!approval) continue;
-      const applicant = assignmentDisplay(applicantAssignments.get(safeString(booking.id)));
+      const applicant = assignmentDisplay(applicantAssignments.get(safeString(booking.id)), booking);
       history.push({
         id: booking.id,
         venueId: booking.venue_id,
@@ -1489,7 +1479,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     const booking = rows[0];
     if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_80886b8642 });
     const applicantAssignment = await resolveBookingApplicantAssignment(booking);
-    const applicant = assignmentDisplay(applicantAssignment);
+    const applicant = assignmentDisplay(applicantAssignment, booking);
 
     const approval = findMyVenueApproval(booking, actor);
     if (!approval) return res.json({ status: 'forbidden', message: localeCopy.copy_c4a87d8e1c });
@@ -1679,7 +1669,8 @@ router.post('/endVenueBooking', async (req, res) => {
 
     // Set time_end to now (early end)
     const dbTimeEnd = nowMysqlUtc();
-    await venueBookingModel.updateTimeEnd(id, dbTimeEnd);
+    actor.assignment = assignment;
+    await venueBookingModel.updateTimeEnd(id, dbTimeEnd, null, actor);
     res.json({ status: 'success', message: localeCopy.copy_26f5cb7f15 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

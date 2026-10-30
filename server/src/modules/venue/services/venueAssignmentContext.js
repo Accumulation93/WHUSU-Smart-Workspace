@@ -208,6 +208,30 @@ async function resolveBookingApplicantAssignments(bookings) {
   return result;
 }
 
+// 历史名称只供详情展示，不能反向成为审批规则或岗位历史授权。
+function bookingApplicantDisplay(booking, assignment) {
+  const complete = Boolean(assignment && assignment.historicalSnapshotComplete);
+  const raw = parseObject(booking && booking.creator_context_snapshot);
+  const stored = normalizeAssignment(Object.assign({},raw,{
+    identityCategoryName:firstString(raw,['identityCategoryName','identityCategory','identityName','identity_name','identity'])
+  }));
+  const compatible = booking && booking.creator_type !== 'admin'
+    && stored.organizationId === safeString(booking.creator_org_id)
+    && stored.departmentName && stored.identityCategoryName;
+  const value = complete ? assignment : (compatible ? stored : null);
+  return {
+    name: safeString(value && value.personName),
+    department: safeString(value && value.departmentName),
+    identity: safeString(value && value.identityCategoryName),
+    workGroup: safeString(value && value.workGroupName),
+    departmentId: complete ? safeString(value.departmentId) : '',
+    identityCategoryId: complete ? safeString(value.identityCategoryId) : '',
+    workGroupId: complete ? safeString(value.workGroupId) : '',
+    assignmentId: complete ? safeString(value.assignmentId) : '',
+    assignmentLabel: safeString(value && value.assignmentLabel)
+  };
+}
+
 function contextToActor(context) {
   if (!context) return null;
   if (context.role === 'admin') {
@@ -328,6 +352,7 @@ module.exports = {
   resolveCurrentActorAssignment,
   resolveBookingApplicantAssignment,
   resolveBookingApplicantAssignments,
+  bookingApplicantDisplay,
   contextToActor,
   listAccountWorkActors,
   listApproverCandidates,

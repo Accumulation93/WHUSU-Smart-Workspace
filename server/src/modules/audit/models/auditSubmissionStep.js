@@ -1,6 +1,6 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const { getColumns } = require('../services/auditSchemaCapabilities');
+const { getColumns, requireSnapshotColumns } = require('../services/auditSchemaCapabilities');
 const { memo, getState } = require('../../../utils/requestWork');
 const {
   resolveActorAssignment,
@@ -363,6 +363,7 @@ async function updateStatus(id, data, conn) {
   if (processedAt !== undefined) { fields.push('processed_at = ?'); params.push(processedAt); }
 
   const availableColumns = await getColumns('audit_submission_steps', db);
+  requireSnapshotColumns(availableColumns, 'processed');
   if (availableColumns.has('processed_person_id')) {
     fields.push('processed_person_id = ?');
     params.push(processedPersonId || null);

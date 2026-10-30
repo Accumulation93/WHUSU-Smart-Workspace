@@ -6,7 +6,7 @@ const sharedModule = Object.freeze({
   reportIntro: '本报告分别说明文件是否完整、签名是否有效，以及每一步的经办人能否核实。同一报告中，相同的签署人编号表示同一个人；同名人员不会因此合并。',
   reportExpired: '请返回验签页，重新打开本次验证报告。',
   reportOpenFailed: '报告打开失败',
-  identityConfirmed: '签署人及当时岗位已核实', identityUnknown: '暂时无法核实签署人',
+  identityConfirmed: '签署人及签署岗位已核实', identityUnknown: '暂时无法核实签署人',
   organizationLabel: '签署时组织', assignmentLabel: '签署时岗位', timeLabel: '处理时间',
   fileChecks: { documentIntegrity: '文件内容', cmsSignature: '文件签名', receiptChain: '处理记录', identityBinding: '签署人身份' },
   fileOnlyValid: '文件签名有效', unsignedFile: '文件未签名',
@@ -15,7 +15,7 @@ const sharedModule = Object.freeze({
     documentIntegrity: { passed: '内容核对一致', failed: '内容未通过核对', indeterminate: '暂时无法核实内容', legacy_partial: '历史文件信息不完整' },
     cmsSignature: { passed: '签名核对一致', failed: '签名未通过核对', indeterminate: '未取得有效的签名检查结果', legacy_partial: '部分历史签名无法核实' },
     receiptChain: { passed: '各步记录核对一致', failed: '处理记录未通过核对', indeterminate: '暂时无法核实处理记录', legacy_partial: '部分历史步骤无法核实' },
-    identityBinding: { passed: '经办人与当时岗位已核实', failed: '签署身份未通过核对', indeterminate: '暂时无法核实签署身份', legacy_partial: '历史签署身份信息不足' }
+    identityBinding: { passed: '经办人与签署岗位已核实', failed: '签署身份未通过核对', indeterminate: '暂时无法核实签署身份', legacy_partial: '历史签署身份信息不足' }
   },
   signerLabel: function(index) { return '签署人 ' + index; },
   certificateTitle: '在其他软件中验证', exportCertificate: '导出公开证书',
@@ -60,7 +60,7 @@ const sharedModule = Object.freeze({
     platform_certificate_registered: '文件所用证书与平台登记的签署证书一致。此项不代表第三方软件自动信任。',
     external_trust_not_evaluated: '本平台未核验外部证书信任链。第三方 PDF 软件是否信任，应以其验证结果和信任设置为准。',
     legacy_evidence_insufficient: '历史记录未保存完整的逐步签署凭证，无法按当前标准核实全部步骤。',
-    legacy_identity_not_attested: '历史记录不足以精确核实当时的经办人和岗位。',
+    legacy_identity_not_attested: '签署记录不完整，无法核实经办人及签署岗位。',
     legacy_certificate_not_registered: '未找到这张历史证书对应的平台登记记录。',
     evidence_legacy_prefix: '部分早期步骤缺少签署凭证，无法确认完整流程。',
     pdf_unsigned: '文件没有可验证的 PDF 数字签名。', not_pdf: '此文件不是 PDF。',

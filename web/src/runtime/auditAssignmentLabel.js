@@ -13,3 +13,11 @@ export function auditAssignmentLabel(snapshot) {
     text(source.workGroupName) || text(source.workGroup)
   ].filter(Boolean).join(' · ');
 }
+
+export function isAuditAdministrativeContext(snapshot) {
+  let source = snapshot;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source); } catch (_) { return false; }
+  }
+  return Boolean(source && source.role === 'admin' && !source.assignmentId && !auditAssignmentLabel(source));
+}

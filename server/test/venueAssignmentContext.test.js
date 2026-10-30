@@ -100,6 +100,21 @@ Module._load = originalLoad;
     id: 'booking-old', user_hr_id: 'hr-old', creator_org_id: 'org-1'
   });
   assert.strictEqual(legacy, null, '无岗位引用的旧借用不得回读当前 hr_info');
+  const recoveredBooking={id:'booking-restored',user_hr_id:'hr-old',creator_org_id:'org-1',creator_type:'user',
+    creator_context_snapshot:JSON.stringify({orgId:'org-1',name:'历史申请人',department:'原部门',identityCategory:'原身份',workGroup:'原职能组',assignmentLabel:'原身份 · 原部门 · 原职能组',assignmentId:'',contextId:''})};
+  const recoveredDisplay=contextService.bookingApplicantDisplay(recoveredBooking,null);
+  assert.strictEqual(recoveredDisplay.name,'历史申请人');
+  assert.strictEqual(recoveredDisplay.department,'原部门');
+  assert.strictEqual(recoveredDisplay.identity,'原身份');
+  assert.strictEqual(recoveredDisplay.workGroup,'原职能组');
+  assert.strictEqual(recoveredDisplay.assignmentLabel,'原身份 · 原部门 · 原职能组');
+  assert.strictEqual(recoveredDisplay.assignmentId,'');
+  assert.strictEqual(recoveredDisplay.departmentId,'');
+  assert.strictEqual(await contextService.resolveBookingApplicantAssignment(recoveredBooking),null,'恢复显示不得恢复岗位审批权限');
+  assert.strictEqual(contextService.bookingApplicantDisplay({...recoveredBooking,creator_org_id:'other'},null).assignmentLabel,'');
+  assert.strictEqual(contextService.bookingApplicantDisplay({...recoveredBooking,creator_type:'admin'},null).assignmentLabel,'');
+  assert.strictEqual(require('../src/modules/venue/services/venueApprovalHistory').matchesApprovalContext({approverHrId:'hr-old'},
+    {type:'user',id:'hr-old',assignmentId:'current'}),false,'不能将历史经办人归入当前岗位');
 
   const candidates = await contextService.listApproverCandidates('org-1');
   assert.strictEqual(candidates.length, 2, '同一人员的每个岗位都必须作为独立候选项');

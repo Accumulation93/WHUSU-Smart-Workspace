@@ -305,10 +305,10 @@ const sharedModule = Object.freeze({
   selectedAssignmentsTitle: '已选岗位（',
   selectedAssignmentsUnit: '项）',
   assignmentUnit: '个岗位',
-  submittedAssignment: '提交时岗位',
-  processedAssignment: '处理时岗位：',
-  operationAssignment: '操作时岗位：',
-  legacyAssignmentSnapshotUnavailable: '未记录当时的岗位',
+  submittedAssignment: '提交岗位',
+  processedAssignment: '审批岗位：',
+  operationAssignment: '操作岗位：',
+  legacyAssignmentSnapshotUnavailable: '岗位未记录',
   navigationTitle: "审核申请 - WHUSU智慧工作台"
 });
 

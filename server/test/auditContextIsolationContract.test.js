@@ -3,6 +3,12 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const workContextView = require('../../miniprogram/subpackages/audit/utils/workContextView');
+
+assert.strictEqual(workContextView.normalizeSnapshot({ role: 'admin', adminGrantId: 'grant' }).isAdministrativeContext, true);
+assert.strictEqual(Boolean(workContextView.normalizeSnapshot({ role: 'user' }).isAdministrativeContext), false);
+assert.strictEqual(workContextView.normalizeSnapshot({ identity: 'Chair', department: 'Committee' }).assignmentLabel, 'Chair · Committee');
+assert.strictEqual(Boolean(workContextView.normalizeSnapshot({ role: 'admin', assignmentId: 'recorded' }).isAdministrativeContext), false);
 
 const routeSource = fs.readFileSync(path.resolve(
   __dirname,

@@ -1,7 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/models/auditSubmission');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const { getColumns } = require('../services/auditSchemaCapabilities');
+const { getColumns, requireSnapshotColumns } = require('../services/auditSchemaCapabilities');
 
 async function getBySubmitter(hrId) {
   const orgId = await getCurrentOrgId();
@@ -138,6 +138,7 @@ async function create(id, data, conn) {
     status || 'draft', currentStepIndex !== undefined ? currentStepIndex : 0
   ];
   const availableColumns = await getColumns('audit_submissions', db);
+  requireSnapshotColumns(availableColumns, 'submitted');
   if (availableColumns.has('submitted_person_id')) {
     columns.push('submitted_person_id');
     values.push(submittedPersonId || null);
@@ -187,6 +188,7 @@ async function update(id, data, conn) {
 
   if (submittedPersonId !== undefined || submittedAssignmentId !== undefined || submittedContextSnapshot !== undefined) {
     const availableColumns = await getColumns('audit_submissions', db);
+    requireSnapshotColumns(availableColumns, 'submitted');
     if (submittedPersonId !== undefined && availableColumns.has('submitted_person_id')) {
       fields.push('submitted_person_id = ?');
       params.push(submittedPersonId || null);

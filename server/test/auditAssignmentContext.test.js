@@ -261,7 +261,7 @@ assert.strictEqual(historicalAssignment.department_id, 'department-a');
     }
   };
   auditSchemaCapabilities.clearCache();
-  await orgStorage.run('organization-a', async function() {
+  await assert.rejects(orgStorage.run('organization-a', async function() {
     await auditSubmissionModel.create('submission-legacy', {
       submissionNumber: 'SUB-LEGACY',
       submittedBy: 'hr-submitter',
@@ -270,9 +270,15 @@ assert.strictEqual(historicalAssignment.department_id, 'department-a');
       submittedContextSnapshot: snapshot,
       title: '兼容列测试'
     }, legacySchemaDb);
-  });
-  assert(!legacyInsertSql.includes('submitted_assignment_id'),
-    '迁移列不存在时创建提交不得引用新列');
+  }), { code: 'AUDIT_SNAPSHOT_SCHEMA_UNAVAILABLE' });
+  assert.strictEqual(legacyInsertSql, '', '岗位快照列未就绪时不得继续创建申请');
+  await assert.rejects(orgStorage.run('organization-a', async function() {
+    await auditSubmissionModel.update('submission-legacy', {
+      submittedPersonId: 'person-submitter', submittedAssignmentId: 'assignment-submitter',
+      submittedContextSnapshot: snapshot
+    }, legacySchemaDb);
+  }), { code: 'AUDIT_SNAPSHOT_SCHEMA_UNAVAILABLE' });
+  assert.strictEqual(legacyInsertSql, '', '岗位快照列未就绪时不得继续重提申请');
 
   let modernInsertSql = '';
   const modernSchemaDb = {
@@ -340,16 +346,15 @@ assert.strictEqual(historicalAssignment.department_id, 'department-a');
     }
   };
   auditSchemaCapabilities.clearCache();
-  await orgStorage.run('organization-a', async function() {
+  await assert.rejects(orgStorage.run('organization-a', async function() {
     await auditSubmissionStepModel.updateStatus('step-legacy', {
       status: 'approved',
       processedPersonId: 'person-approver',
       processedAssignmentId: 'assignment-correct',
       processedContextSnapshot: snapshot
     }, legacyStepDb);
-  });
-  assert(!legacyStepUpdateSql.includes('processed_assignment_id'),
-    '迁移列不存在时处理步骤不得引用新列');
+  }), { code: 'AUDIT_SNAPSHOT_SCHEMA_UNAVAILABLE' });
+  assert.strictEqual(legacyStepUpdateSql, '', '岗位快照列未就绪时不得写入处理结果');
 
   const routeSource = fs.readFileSync(
     path.resolve(__dirname, '../src/modules/audit/routes/auditUser.js'),

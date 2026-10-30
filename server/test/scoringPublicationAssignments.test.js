@@ -123,6 +123,24 @@ assert.strictEqual(historicalDesignation.identity, '历史身份');
 assert.strictEqual(historicalDesignation.assignmentLabel, '历史身份 · 历史部门');
 assert.strictEqual(historicalDesignation.historicalAssignmentUnavailable, false);
 
+const renamedDesignation = publicationAssignments.buildDesignationPresentation({
+  id: 'designation-renamed',
+  target_assignment_id: 'assignment-a',
+  target_context_snapshot: {
+    assignmentId: 'assignment-a', departmentId: 'department-a', department: '历史部门',
+    identityCategoryId: 'identity-target', identityCategory: '历史身份',
+    workGroupId: 'work-group-a', workGroup: '历史职能组'
+  }
+}, lookups);
+assert.strictEqual(renamedDesignation.assignmentLabel, '历史身份 · 历史部门 · 历史职能组',
+  '字典改名后，无预生成标签的历史岗位仍须使用记录中的名称');
+const unnamedHistoricalDesignation = publicationAssignments.buildDesignationPresentation({
+  id: 'designation-unnamed', target_context_snapshot: {
+    assignmentId: 'assignment-a', departmentId: 'department-a', identityCategoryId: 'identity-target'
+  }
+}, lookups);
+assert.strictEqual(unnamedHistoricalDesignation.assignmentLabel, '', '没有保存名称时不能用当前字典猜历史岗位名称');
+
 const missingSnapshotDesignation = publicationAssignments.buildDesignationPresentation({
   id: 'designation-legacy',
   target_hr_id: 'hr-1',

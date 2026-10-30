@@ -167,6 +167,9 @@ function normalizeSnapshot(snapshot) {
   }
   if (!source) return { hasSnapshot: false, assignmentLabel: '' };
   const assignmentLabel = buildAssignmentLabel(source);
+  if (source.role === 'admin' && !source.assignmentId && !assignmentLabel) {
+    return { hasSnapshot: false, assignmentLabel: '', isAdministrativeContext: true };
+  }
   const hasSnapshot = Boolean(source.assignmentId || assignmentLabel);
   if (!hasSnapshot) return { hasSnapshot: false, assignmentLabel: '' };
   return {

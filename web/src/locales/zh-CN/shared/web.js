@@ -96,7 +96,7 @@ const sharedModule = Object.freeze({
     title: "审核审批",
     mySubmissionsNote: "查看自己发起的申请进度，也可以发起新的申请",
     pendingNote: "这些申请正等着你处理",
-    historyNote: "你处理过的申请与当时的结论",
+    historyNote: "你处理过的申请与审批结果",
     stepStatusLabels: Object.freeze({
       skipped: "已跳过",
     }),
@@ -168,7 +168,7 @@ const sharedModule = Object.freeze({
     submitting: "正在提交",
     actionSubmit: "提交评分",
     readOnlyNotice: "这条评分记录只能查看，不能再修改。",
-    readOnlyReason: "历史评分缺少当时的配置记录，只展示已保存的结果。",
+    readOnlyReason: "这条评分缺少原评分规则，只能查看已保存的结果。",
     existingRecordNotice: "你已经给这位评过分数，再次提交会更新这条记录。",
     revisionConflict: "这条评分刚刚被更新过，已为你重新加载最新内容。",
     questionRequired: "请填写全部评分项",

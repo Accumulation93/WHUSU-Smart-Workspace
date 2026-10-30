@@ -97,9 +97,9 @@ function buildAssignmentLabel(assignment, lookups) {
   const departmentId = safeString(source.department_id || source.departmentId);
   const identityCategoryId = safeString(source.identity_id || source.identityCategoryId || source.identityId);
   const workGroupId = safeString(source.work_group_id || source.workGroupId);
-  const identityCategory = identitiesById.get(identityCategoryId) || safeString(source.identityCategory || source.identity);
-  const department = departmentsById.get(departmentId) || safeString(source.department);
-  const workGroup = workGroupsById.get(workGroupId) || safeString(source.workGroup || source.work_group);
+  const identityCategory = safeString(source.identityCategory || source.identity) || identitiesById.get(identityCategoryId);
+  const department = safeString(source.department) || departmentsById.get(departmentId);
+  const workGroup = safeString(source.workGroup || source.work_group) || workGroupsById.get(workGroupId);
   return [identityCategory, department, workGroup].filter(Boolean).join(' · ');
 }
 
@@ -219,7 +219,7 @@ function buildDesignationPresentation(designation, lookups) {
     name: safeString(snapshot.name),
     studentId: safeString(snapshot.studentId),
     assignmentNature: hasHistoricalAssignment ? safeString(snapshot.assignmentNature) : '',
-    assignmentLabel: hasHistoricalAssignment ? buildAssignmentLabel(snapshot, lookups) : '',
+    assignmentLabel: hasHistoricalAssignment ? buildAssignmentLabel(snapshot) : '',
     historicalAssignmentUnavailable: !hasHistoricalAssignment,
     departmentId,
     department: hasHistoricalAssignment ? safeString(snapshot.department) : '',

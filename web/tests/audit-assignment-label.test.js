@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { auditAssignmentLabel } from '../src/runtime/auditAssignmentLabel.js';
+import { auditAssignmentLabel, isAuditAdministrativeContext } from '../src/runtime/auditAssignmentLabel.js';
 import { presentAuditStep } from '../src/shared/auditStepView.js';
 
 test('historical event fields remain visible without changing the snapshot', () => {
@@ -26,4 +26,12 @@ test('missing roles never derive a label from identifiers or administrative cont
   for (const source of [null, {}, [], '{invalid', { assignmentId: 'a1', role: 'admin', contextId: 'c1' }]) {
     assert.equal(auditAssignmentLabel(source), '');
   }
+});
+
+test('only an explicit administrative context can omit a missing position', () => {
+  assert.equal(isAuditAdministrativeContext({ role: 'admin', adminGrantId: 'grant1' }), true);
+  assert.equal(isAuditAdministrativeContext({ role: 'user' }), false);
+  assert.equal(isAuditAdministrativeContext(null), false);
+  assert.equal(isAuditAdministrativeContext({ role: 'admin', assignmentId: 'a1' }), false);
+  assert.equal(isAuditAdministrativeContext({ role: 'admin', identity: 'Recorded role' }), false);
 });

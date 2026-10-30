@@ -552,6 +552,7 @@ function buildDesignationPresentations(designations, lookups) {
 
 function buildDesignatorSnapshot(req, actor, assignment) {
   const actorData = actor || {};
+  const authenticatedContext = req.authContext || {};
   const contextId = safeString(actorData.contextId || req.authContext && req.authContext.contextId);
   if (assignment) {
     return Object.assign(
@@ -562,6 +563,11 @@ function buildDesignatorSnapshot(req, actor, assignment) {
   return {
     contextId,
     role: safeString(actorData.type) || 'admin',
+    organizationId: safeString(authenticatedContext.organizationId),
+    organizationName: safeString(authenticatedContext.organizationName),
+    adminGrantId: safeString(authenticatedContext.adminGrantId),
+    adminLevel: safeString(authenticatedContext.adminLevel),
+    identityName: safeString(authenticatedContext.identityName),
     personId: safeString(actorData.personId || req.authContext && req.authContext.personId),
     assignmentId: safeString(actorData.assignmentId || req.authContext && req.authContext.assignmentId),
     name: safeString(actorData.name)

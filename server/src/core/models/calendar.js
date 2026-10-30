@@ -16,9 +16,23 @@ const parse = value=>typeof value === 'string' ? JSON.parse(value) : value;
 const idPattern = /^[A-Za-z0-9_-]{1,64}$/;
 const placeholders = values=>values.map(()=>'?').join(',');
 function validId(id) { if (typeof id !== 'string' || !idPattern.test(id)) throw new CalendarError('invalidSchedule'); return id; }
-function actorSnapshot(actor) {
-  return {personId:actor.personId,organizationId:actor.organizationId,assignmentId:actor.assignmentId || '',
+function actorSnapshot(actor, catalog) {
+  const snapshot={personId:actor.personId,organizationId:actor.organizationId,
     contextId:actor.contextId,role:actor.role,adminGrantId:actor.adminGrantId || ''};
+  if (actor.role==='admin') {
+    return Object.assign(snapshot,{assignmentId:'',identityName:actor.identityName || '',adminLevel:actor.adminLevel || ''});
+  }
+  // 使用本次事务锁定的岗位，不在历史读取时用当前资料补写。
+  const person=catalog.people.find(item=>item.personId===actor.personId);
+  if (person && !actor.assignmentId) {
+    return Object.assign(snapshot,{assignmentId:'',personName:person.name,assignmentStatus:'unassigned'});
+  }
+  const assignment=person && person.assignments.find(item=>item.id===actor.assignmentId);
+  if (!assignment) throw new CalendarError('forbidden');
+  return Object.assign(snapshot,{assignmentId:assignment.id,personName:person.name,
+    membershipId:assignment.membershipId,assignmentKind:assignment.nature,
+    departmentId:assignment.departmentId,identityCategoryId:assignment.identityCategoryId,workGroupId:assignment.workGroupId || '',
+    departmentName:assignment.departmentName,identityCategoryName:assignment.identityCategoryName,workGroupName:assignment.workGroupName || ''});
 }
 async function timezone(connection) {
   const rows=(await connection.query('SELECT timezone FROM system_config WHERE id = ?',['default']))[0];
@@ -160,7 +174,7 @@ async function save(input,actor,authorize) {
       const claim=await dedup.claim(connection,request);
       if(!claim.claimed){if(claim.response)return claim.response;throw new CalendarError('conflict');}
       await connection.query(`INSERT INTO calendar_events (id,org_id,creator_person_id,creator_context_json,visibility,spec_json,targets_json)
-        VALUES (?,?,?,?,?,?,?)`,[id,actor.organizationId,actor.personId,JSON.stringify(actorSnapshot(actor)),input.visibility,JSON.stringify(spec),JSON.stringify(targets)]);
+        VALUES (?,?,?,?,?,?,?)`,[id,actor.organizationId,actor.personId,JSON.stringify(actorSnapshot(actor,data)),input.visibility,JSON.stringify(spec),JSON.stringify(targets)]);
       const response={id,version:1};
       await dedup.complete(connection,Object.assign({},request,claim),response);
       return response;
@@ -282,7 +296,7 @@ async function saveParticipants(input,actor,authorize) {
     }
     const id=generateId(),spec={timezoneOffset:await timezone(connection),reminders:[15]};
     await connection.query(`INSERT INTO calendar_events (id,org_id,creator_person_id,creator_context_json,visibility,source_kind,source_id,spec_json,targets_json)
-      VALUES (?,?,?,?,?,?,?,?,?)`,[id,actor.organizationId,actor.personId,JSON.stringify(actorSnapshot(actor)),'organization',input.sourceKind,input.sourceId,JSON.stringify(spec),JSON.stringify(targets)]);
+      VALUES (?,?,?,?,?,?,?,?,?)`,[id,actor.organizationId,actor.personId,JSON.stringify(actorSnapshot(actor,data)),'organization',input.sourceKind,input.sourceId,JSON.stringify(spec),JSON.stringify(targets)]);
     return {id,version:1};
   });
 }

@@ -36,6 +36,17 @@ async function main() {
     const input={title:'日程测试',description:'只读说明',location:'会议室',startDate:'2026-11-02',endDate:'2026-11-02',startTime:'09:00',endTime:'10:00',
       recurrence:{frequency:'daily',count:3},visibility:'private',reminders:[15]};
     const personal=await model.save(input,actor('a'),authorize);
+    const savedCreator=(await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[personal.id]))[0][0].creator_context_json;
+    assert.equal(savedCreator.assignmentId,'joba');
+    assert.equal(savedCreator.departmentName,'部门甲');
+    assert.equal(savedCreator.identityCategoryName,'成员');
+    assert.equal(savedCreator.personName,'a');
+    const manager=model.actorSnapshot({...actor('a'),role:'admin',adminGrantId:'grant',identityName:'管理身份',adminLevel:'super'}, {people:[]});
+    assert.equal(manager.assignmentId,'');assert.equal(manager.adminGrantId,'grant');
+    assert.equal(manager.identityName,'管理身份');assert.equal(manager.adminLevel,'super');
+    assert.equal(manager.departmentName,undefined);
+    const unassigned=model.actorSnapshot({...actor('a'),assignmentId:''},{people:[{personId:'a',name:'a',assignments:[]}]});
+    assert.equal(unassigned.assignmentStatus,'unassigned');assert.equal(unassigned.departmentName,undefined);
     assert.equal((await model.list(window,actor('a'),authorize)).items.length,3);
     assert.equal((await model.list({...window,managed:true},actor('b'),admin)).items.length,0);
     await assert.rejects(model.save({...input,visibility:'organization',targets:[{type:'people',personIds:['b']}]},actor('a'),authorize),e=>e.code==='forbidden');
@@ -85,6 +96,12 @@ async function main() {
     assert.equal((await root.query("SELECT COUNT(*) AS total FROM calendar_events WHERE source_id='legacy-booking'"))[0][0].total,0);
     await root.query("INSERT INTO venue_bookings(id,venue_id,creator_person_id,creator_org_id,title,time_start,time_end,status) VALUES ('booking','venue','a','org','场地会议','2026-11-05 01:00:00','2026-11-05 02:00:00','pending')");
     const booking=await model.saveParticipants({sourceKind:'venue_booking',sourceId:'booking',targets:[{type:'people',personIds:['a','b']}]},actor('a'),authorize);
+    const sourceCreator=(await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[booking.id]))[0][0].creator_context_json;
+    assert.equal(sourceCreator.departmentName,'部门甲');assert.equal(sourceCreator.identityCategoryName,'成员');
+    await root.query("UPDATE departments SET name='部门改名' WHERE id='d'");
+    const unchangedCreator=(await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[personal.id]))[0][0].creator_context_json;
+    assert.equal(unchangedCreator.departmentName,'部门甲');
+    await root.query("UPDATE departments SET name='部门甲' WHERE id='d'");
     assert(!(await model.list(window,actor('b'),authorize)).items.some(item=>item.id===booking.id));
     await root.query("UPDATE venue_bookings SET status='approved' WHERE id='booking'");
     await assert.rejects(model.getParticipants({sourceKind:'venue_booking',sourceId:'booking'},actor('c'),authorize),e=>e.code==='forbidden');
@@ -157,9 +174,64 @@ async function main() {
     assert.equal(readback.items.find(item=>item.id===saved.id).title,'浏览器参数保存回读');
     const denied=await (await post('saveCalendarEvent',{...input,visibility:'organization',targets:[{type:'people',personIds:['b']}]})).json();
     assert.equal(denied.status,'calendar_forbidden');
+    app.use('/venue',(req,res,next)=>require('../src/utils/orgContext').orgStorage.run('org',next));
+    app.use('/venue',require('../src/modules/venue/routes/venueUser'));
+    app.use('/venue',require('../src/modules/venue/routes/venueApprovalAdmin'));
+    const venuePost=async(name,id)=>(await fetch('http://127.0.0.1:'+server.address().port+'/venue/'+name,{method:'POST',headers:{'Content-Type':'application/json','X-Test-Auth':'yes'},body:JSON.stringify({id})})).json();
+    await root.query("INSERT INTO venue_bookings(id,venue_id,creator_person_id,creator_org_id,approval_org_id,title,time_start,time_end,status) VALUES ('http-cancel','venue','a','org','org','取消测试',DATE_ADD(NOW(),INTERVAL 1 DAY),DATE_ADD(NOW(),INTERVAL 2 DAY),'approved'),('http-end','venue','a','org','org','结束测试',DATE_SUB(NOW(),INTERVAL 1 HOUR),DATE_ADD(NOW(),INTERVAL 1 HOUR),'approved')");
+    assert.equal((await venuePost('cancelVenueBooking','http-cancel')).status,'success');
+    await root.query("UPDATE venue_bookings SET time_start=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY),time_end=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY) WHERE id='http-end'");
+    const endResponse=await venuePost('endVenueBooking','http-end');
+    assert.equal(endResponse.status,'success',JSON.stringify(endResponse));
+    const flowService=require('../src/modules/venue/services/venueApprovalMultiFlow');
+    const assignmentService=require('../src/modules/venue/services/venueAssignmentContext');
+    const applicantAssignment=await assignmentService.loadAssignmentById(currentActor.assignmentId,'org',true,root);
+    const definition=flowService.buildFlowDefinitionSnapshot([{id:'expired-flow',name:'流程'}],{'expired-flow':[{id:'expired-step',name:'审批',approval_mode:'hr_rule',rules:[{department_scope:'all',work_group_scope:'all',identity_scope:'all'}]}]},'expired-flow','org',assignmentService.toRuleProfile(applicantAssignment));
+    await root.query("INSERT INTO venue_bookings(id,venue_id,creator_person_id,creator_org_id,approval_org_id,title,time_start,time_end,status,approval_flow_id,approval_total_steps,approval_current_step,creator_context_snapshot,approval_flow_snapshot_json,approval_snapshots_json) VALUES ('http-expired','venue','a','org','org','已过期',DATE_SUB(NOW(),INTERVAL 2 HOUR),DATE_SUB(NOW(),INTERVAL 1 HOUR),'pending','expired-flow',1,0,?,?,'[]')",[JSON.stringify(assignmentService.toAssignmentSnapshot(applicantAssignment)),JSON.stringify(definition)]);
+    await root.query("UPDATE venue_bookings SET time_start=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 2 DAY),time_end=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) WHERE id='http-expired'");
+    const expiredResponse=await venuePost('approveVenueBookingStep','http-expired');
+    assert.equal(expiredResponse.status,'expired',JSON.stringify(expiredResponse));
+    assert.equal((await root.query("SELECT status FROM venue_bookings WHERE id='http-expired'"))[0][0].status,'cancelled');
+    const httpActions=(await root.query("SELECT detail_json FROM auth_audit_events WHERE event_type IN ('venue_booking_cancelled','venue_booking_ended')"))[0];
+    assert.equal(httpActions.length,3);
+    httpActions.forEach(row=>{
+      const detail=typeof row.detail_json==='string'?JSON.parse(row.detail_json):row.detail_json;
+      assert.equal(detail.actorSnapshot.organizationId,'org');
+      assert.equal(detail.actorSnapshot.assignmentSnapshot.assignmentId,currentActor.assignmentId);
+    });
+    await root.query("DELETE FROM auth_audit_events WHERE event_type IN ('venue_booking_cancelled','venue_booking_ended')");
     await root.query("UPDATE accounts SET status='frozen' WHERE id='account-a'");
     assert.equal((await (await post('getCalendar',window)).json()).status,'calendar_forbidden');
-    console.log('PASS 日程隔离数据库：双次迁移、私人隔离、权限规则、动态名单、三种操作、退出不回加、版本冲突与批量回滚');
+    const bookings=require('../src/modules/venue/models/venueBooking');
+    const bookingActor={...actor('a'),type:'user',name:'a',assignment:{assignmentId:'joba',personId:'a',organizationId:'org',departmentId:'d',identityCategoryId:'i',departmentName:'部门甲',identityCategoryName:'成员'}};
+    await root.query("INSERT INTO venue_bookings(id,venue_id,creator_org_id,title,time_start,time_end,status,approver_person_id,approval_comment) VALUES ('action-test','venue','org','动作保存','2026-11-05 01:00:00','2026-11-05 02:00:00','approved','b','原审批意见')");
+    await bookings.updateTimeEnd('action-test','2026-11-05 01:30:00',null,bookingActor);
+    await bookings.updateStatus('action-test','cancelled','ha','申请人取消',null,bookingActor);
+    const cancelled=(await root.query("SELECT * FROM venue_bookings WHERE id='action-test'"))[0][0];
+    assert.equal(cancelled.status,'cancelled');assert.equal(cancelled.approver_person_id,'b');assert.equal(cancelled.approval_comment,'原审批意见');
+    const actionRows=(await root.query("SELECT event_type,detail_json FROM auth_audit_events WHERE event_type IN ('venue_booking_cancelled','venue_booking_ended')"))[0];
+    assert.equal(actionRows.length,2);
+    actionRows.forEach(row=>{
+      const detail=typeof row.detail_json==='string' ? JSON.parse(row.detail_json) : row.detail_json;
+      assert.equal(detail.actorSnapshot.assignmentSnapshot.departmentName,'部门甲');
+    });
+    await assert.rejects(pool.withTransaction(async connection=>{
+      await bookings.updateTimeEnd('action-test','2026-11-05 01:45:00',connection,bookingActor);
+      throw new Error('test rollback');
+    }),/test rollback/);
+    assert.equal((await root.query("SELECT COUNT(*) AS total FROM auth_audit_events WHERE event_type='venue_booking_ended'"))[0][0].total,1);
+    assert.equal((await root.query("SELECT DATE_FORMAT(time_end,'%H:%i:%s') AS ended FROM venue_bookings WHERE id='action-test'"))[0][0].ended,'01:30:00');
+    await assert.rejects(bookings.updateStatus('action-test','cancelled','ha','',null,{...bookingActor,organizationId:'other'}),error=>error.message===require('../src/locales/zh-CN/generated/modules/venue/routes/venueUser').copy_d76adefd6d);
+    const managerResult=await require('../src/core/services/currentActor').resolveCurrentActor({authAccount:{id:'account-a',personId:'a'},
+      authContext:{...currentActor,role:'admin',adminGrantId:'test-admin-grant',adminLevel:'admin'}});
+    assert.equal(managerResult.ok,true);assert.equal(managerResult.actor.organizationId,'org');
+    assert.equal(managerResult.actor.adminGrantId,'test-admin-grant');assert.equal(managerResult.actor.adminLevel,'admin');
+    await bookings.updateStatus('action-test','cancelled','', '管理取消',null,managerResult.actor);
+    const managerAudit=(await root.query("SELECT detail_json FROM auth_audit_events WHERE event_type='venue_booking_cancelled' ORDER BY created_at,id"))[0]
+      .map(row=>typeof row.detail_json==='string'?JSON.parse(row.detail_json):row.detail_json).find(detail=>detail.actorSnapshot.role==='admin');
+    assert.equal(managerAudit.actorSnapshot.adminGrantId,'test-admin-grant');assert.equal(managerAudit.actorSnapshot.adminLevel,'admin');
+    assert.equal(managerAudit.actorSnapshot.assignmentSnapshot,null);
+    console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
   } finally {
     if(server)await new Promise(resolve=>server.close(resolve));
     if (pool) await pool.end();
