@@ -10,6 +10,7 @@ function loadVenuePage(relativePath) {
   let pageDefinition = null;
   const originalLoad = Module._load;
   const originalPage = global.Page;
+  const originalComponent = global.Component;
 
   const apiStub = {
     async callFunction(options) {
@@ -85,6 +86,9 @@ function loadVenuePage(relativePath) {
   global.Page = function(definition) {
     pageDefinition = definition;
   };
+  global.Component = function(definition) {
+    pageDefinition = Object.assign({ data: definition.data }, definition.methods);
+  };
 
   const absolutePath = path.resolve(ROOT, relativePath);
   delete require.cache[require.resolve(absolutePath)];
@@ -93,9 +97,10 @@ function loadVenuePage(relativePath) {
   } finally {
     Module._load = originalLoad;
     global.Page = originalPage;
+    global.Component = originalComponent;
   }
 
-  assert.ok(pageDefinition, relativePath + ' 必须注册 Page');
+  assert.ok(pageDefinition, relativePath + ' 必须注册页面或组件');
   return { pageDefinition, calls, events };
 }
 
@@ -120,6 +125,7 @@ async function assertPendingPageRoute(pagePath, methodName, target, action, expe
     lastPendingCount: 1,
     lastPendingSignature: ''
   }, {
+    _isPageVisible: true,
     _guardApprovalContext() { return true; },
     _scheduleApprovalSync() {},
     _formatTime() { return '20:00'; }
@@ -236,7 +242,7 @@ async function run() {
     };
 
     const pendingPages = [
-      ['miniprogram/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js', 'submitApproval'],
+      ['miniprogram/subpackages/venue/components/pendingApprovals/pendingApprovals.js', 'submitApproval'],
       ['miniprogram/subpackages/venue/pages/venueBooking/venueBooking.js', 'submitApproval']
     ];
     for (const [pagePath, methodName] of pendingPages) {

@@ -37,6 +37,7 @@
     </section>
     <VenueAdminBookings v-if="activeTab === 'bookings' && hasAny(['venue.bookings', 'venue.approvals', 'venue.bookings_delete'])" :key="scope()" :state="bookingState" :can-approve="hasAny(['venue.approvals'])" :can-delete="hasAny(['venue.bookings_delete'])" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
     <VenuePurposesPanel v-if="activeTab === 'purposes' && hasAny(['venue.purposes', 'venue.purposes.delete'])" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
+    <VenuePendingView v-if="activeTab === 'pending' && hasAny(['venue.approvals']) && !permissionLoading && !permissionNotice" :key="scope()" embedded @busy="childBusy = $event" @editing="bookingEditing = $event" />
     <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
   </div>
   <GlassDialog v-if="editing" :title="form.id ? ui.copy_1ba7eec34e : ui.copy_a78ce83cab" :busy="busy" @close="closeEditor">
@@ -62,6 +63,7 @@ import VenuePurposesPanel from '@/components/VenuePurposesPanel.vue';
 import VenueAdminBookings from '@/components/VenueAdminBookings.vue';
 import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueRulesDialog from '@/components/VenueRulesDialog.vue';
+import VenuePendingView from './VenuePendingView.vue';
 import { provideAdminCapabilities } from '@/runtime/adminCapabilities.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
@@ -100,7 +102,6 @@ function goWorkRole() {
 }
 function switchTab(key) {
   if (allBusy.value || permissionLoading.value || permissionNotice.value || !visibleTabs.value.some(tab => tab.key === key)) return;
-  if (key === 'pending') { router.push({ name: 'venuePending' }); return; }
   activeTab.value = key;
   if (key === 'venue') load();
 }

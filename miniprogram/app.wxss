@@ -791,6 +791,14 @@ text.disabled,
     background 0.22s ease;
 }
 
+/* 选择表面与原生输入分开布局，短值居中，长值随内容增高。 */
+.picker-value,
+.picker-display,
+.compact-picker-value {
+  display: flex;
+  align-items: center;
+}
+
 .field-input:focus,
 .field-textarea:focus {
   transform: none;
@@ -1154,7 +1162,8 @@ text.disabled,
   display: block;
 }
 .ui-field-control-host > .picker-display.ui-field-control {
-  display: block;
+  display: flex;
+  align-items: center;
   height: auto;
   max-height: none;
   white-space: normal;

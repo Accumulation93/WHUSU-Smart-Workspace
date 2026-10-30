@@ -1,4 +1,4 @@
-<page-meta page-style="{{(editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<page-meta page-style="{{(editing || rulesVisible || ruleEditorVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || adminBookingVisible || purposeVisible || condMultiPickerVisible || approvalPopupVisible || pendingDialogVisible || contextSwitchGuardVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page subapp-venue-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_02719d6557}}" tone="admin"></workspace-hero>
@@ -13,6 +13,7 @@
   </view>
 
   <!-- ═══ Venue Tab ═══ -->
+  <pending-approvals wx:if="{{hasPermission && pendingPermissionReady && activeTab === 'pending'}}" id="pending-approvals" binddialogchange="onPendingDialogChange" />
   <view class="section-host" wx:if="{{activeTab === 'venue'}}">
     <!-- Venue list -->
     <view class="list-card">

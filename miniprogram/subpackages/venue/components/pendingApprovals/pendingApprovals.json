@@ -1,0 +1,10 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "app-loading": "/components/app-loading/app-loading",
+    "viewport-portal": "/components/viewport-portal/viewport-portal",
+    "personnel-picker": "/subpackages/venue/package-resources/components/personnel-picker/personnel-picker",
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
+  }
+}

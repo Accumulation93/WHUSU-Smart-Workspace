@@ -117,6 +117,8 @@ test('工作角色页可以切换岗位并回到门户', async ({ page }) => {
   await page.goto(`${WEB_BASE}/work-role`);
   await expect(page.getByText(copy.workRole.assignmentTitle, { exact: true })).toBeVisible();
   await expect(page.getByText(copy.workRole.adminTitle, { exact: true }).first()).toBeVisible();
+  await expect(page.locator('.workspace-hero')).toHaveCount(1);
+  await expect(page.locator('.workspace-hero')).not.toHaveClass(/workspace-hero-admin/);
 
   await page.getByRole('button', { name: new RegExp('管理权限') }).first().click();
   await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/portal$`));
@@ -125,6 +127,11 @@ test('工作角色页可以切换岗位并回到门户', async ({ page }) => {
   expect(activateCalls).toHaveLength(1);
   expect(activateCalls[0].body.contextId).toBe('ctx-admin');
   await expect(page.getByText('管理权限', { exact: true }).first()).toBeVisible();
+  await page.locator('.workspace-context-card').click();
+  await expect(page.locator('.workspace-hero')).toHaveClass(/workspace-hero-admin/);
+  await page.locator('.workspace-context-card').click();
+  await expect(page).toHaveURL(new RegExp(`${WEB_BASE}/work-role$`));
+  await expect(page.locator('.workspace-hero')).toHaveClass(/workspace-hero-admin/);
 });
 
 test('消息中心按页签加载待办与通知，并可全部删除', async ({ page }) => {

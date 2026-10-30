@@ -1,6 +1,7 @@
 <template>
   <div class="page stack">
-    <section class="card stack">
+    <WorkspaceHero :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="copy.workRole.title" :person-name="session.context?.name || session.user?.name || ''" :identity-name="session.context?.assignmentLabel || session.context?.identityName || roleLabelOf(session.context)" :organization-name="session.context?.organizationName || ''" @switch="organizationPanel?.scrollIntoView({ block: 'start' })" />
+    <section ref="organizationPanel" class="card stack">
       <div class="card-title">{{ copy.workRole.organizationLabel }}</div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <label v-if="organizations.length > 4" class="field">
@@ -81,9 +82,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
 import { errorText } from '@/runtime/api.js';
-import { activateContext, reloadSession, session } from '@/runtime/session.js';
+import { activateContext, reloadSession, roleLabelOf, session } from '@/runtime/session.js';
+import WorkspaceHero from '@/components/WorkspaceHero.vue';
 
 const router = useRouter();
+const organizationPanel = ref(null);
 const keyword = ref('');
 const draftOrganizationId = ref('');
 const applying = ref(false);

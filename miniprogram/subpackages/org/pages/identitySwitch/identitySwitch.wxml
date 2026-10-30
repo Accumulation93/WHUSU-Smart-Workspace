@@ -1,6 +1,6 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_c3e7d7fee4}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" tone="{{heroTone}}" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_c3e7d7fee4}}"></workspace-hero>
 
   <view class="context-notice context-notice-error" wx:if="{{errorText}}">
     <ui-icon name="shield" tone="primary" size="26" ariaLabel="{{localeCopy.copy_54474b693d}}" />

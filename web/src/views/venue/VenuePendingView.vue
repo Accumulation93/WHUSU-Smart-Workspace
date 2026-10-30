@@ -1,13 +1,14 @@
 <template>
-  <div class="page stack">
+  <div class="stack" :class="{ page: !embedded }">
     <WorkspaceHero
+      v-if="!embedded"
       :page-name="copy.venue.title"
       :person-name="displayName"
       :identity-name="roleLine"
       :organization-name="orgName"
       @switch="goWorkRole"
     />
-    <VenueNav active="pending" />
+    <VenueNav v-if="!embedded" active="pending" />
 
     <section class="card stack">
       <div class="panel-head">
@@ -46,7 +47,7 @@
         </div>
       </div>
     </section>
-    <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
+    <footer v-if="!embedded" class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
     <GlassDialog v-if="target" :title="target.title || native.copy_48283f4043" :busy="submitting" @close="closeDetail">
       <VenueFlowTimeline :progress="progress" />
       <div class="stack-tight"><span class="soft">{{ native.copy_bbbebc1abf }}</span><span>{{ target.venueName }} {{ target.venueLocation }}</span></div>
@@ -91,6 +92,8 @@ import { showToast } from '@/runtime/notify.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
+defineProps({ embedded: Boolean });
+const emit = defineEmits(['busy', 'editing']);
 const router = useRouter();
 const route = useRoute();
 const items = ref([]);
@@ -107,6 +110,9 @@ const candidates = ref([]);
 const selected = ref([]);
 let generation = 0;
 let polling;
+let disposed = false;
+watch(submitting, value => emit('busy', value), { flush: 'sync' });
+watch(target, value => emit('editing', Boolean(value)), { flush: 'sync' });
 const progress = computed(() => target.value ? {
   totalSteps: target.value.approvalTotalSteps, currentStep: target.value.approvalCurrentStep,
   flowId: target.value.currentFlowId, flowSteps: target.value.flowSteps, snapshots: target.value.snapshots
@@ -160,7 +166,7 @@ async function openPicker() {
   actionError.value = '';
   try {
     const result = requireSuccess(await callApi('listVenueApproverCandidates', { bookingId: current.id, flowId: current.currentFlowId }));
-    if (target.value !== current || context !== session.context?.contextId) return;
+    if (disposed || target.value !== current || context !== session.context?.contextId) return;
     candidates.value = (result.candidates || []).flatMap(person => (person.assignments?.length ? person.assignments : [person.assignment || person]).map(assignment => ({
       assignmentId: assignment.assignmentId || person.assignmentId,
       name: person.name, assignmentLabel: assignment.assignmentLabel || person.assignmentLabel,
@@ -223,5 +229,5 @@ function updatePolling() {
   if (!document.hidden) polling = window.setInterval(() => { if (!target.value && !loading.value) load(); }, 30000);
 }
 onMounted(() => { load(); updatePolling(); document.addEventListener('visibilitychange', updatePolling); });
-onBeforeUnmount(() => { generation++; window.clearInterval(polling); document.removeEventListener('visibilitychange', updatePolling); });
+onBeforeUnmount(() => { disposed = true; generation++; target.value = null; pickerVisible.value = false; candidates.value = []; selected.value = []; items.value = []; window.clearInterval(polling); document.removeEventListener('visibilitychange', updatePolling); emit('busy', false); emit('editing', false); });
 </script>

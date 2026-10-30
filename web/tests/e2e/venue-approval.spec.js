@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
+import manage from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 
 const pending = { id: 'booking-1', title: 'Booking A', venueName: 'Room A', userName: 'Applicant', description: 'Long booking description '.repeat(40),
   creatorAssignmentLabel: 'Saved role', timeStart: '2026-10-10T01:00:00Z', timeEnd: '2026-10-10T02:00:00Z',
@@ -9,8 +10,13 @@ const pending = { id: 'booking-1', title: 'Booking A', venueName: 'Room A', user
   approvalTotalSteps: 2, flowSteps: [{ name: 'First step' }, { name: 'Next step' }],
   flowSummary: [{ flowId: 'flow-1', allowDesignateNext: true, stepIndex: 0, totalSteps: 2 }], snapshots: [] };
 
-test('pending venue approval opens in place and saves assignment selection before rereading', async ({ page }) => {
-  await mockApi(page);
+for (const admin of [false, true]) {
+test(`pending venue approval saves and rereads in ${admin ? 'management tab' : 'member page'}`, async ({ page }) => {
+  await mockApi(page, admin ? { activeContextId: 'ctx-admin' } : {});
+  if (admin) {
+    await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', adminLevel: 'admin', permissions: { 'venue.approvals': true } } }));
+    await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [] } }));
+  }
   let rows = [pending];
   let submitted;
   let reads = 0;
@@ -20,11 +26,16 @@ test('pending venue approval opens in place and saves assignment selection befor
     { name: 'Person A', assignmentId: 'assignment-2', assignmentLabel: 'Role B', assignment: { assignmentId: 'assignment-2', departmentName: 'Department B' } }
   ] } }));
   await page.route('**/api/approveVenueBookingStep', route => { submitted = route.request().postDataJSON(); rows = []; return route.fulfill({ json: { status: 'success' } }); });
-  await page.goto('/web/venue/pending');
+  await page.goto(admin ? '/web/venue/manage' : '/web/venue/pending');
+  if (admin) {
+    await page.locator('.venue-admin-tabs').getByRole('button', { name: manage.copy_e7f0a24301, exact: true }).click();
+    await expect(page.locator('.workspace-hero')).toHaveCount(1);
+    await expect(page.locator('.workspace-hero')).toHaveClass(/admin/);
+  }
   await page.getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Booking A' });
   await expect(dialog).toBeVisible();
-  await expect(page).toHaveURL(/\/venue\/pending$/);
+  await expect(page).toHaveURL(admin ? /\/venue\/manage$/ : /\/venue\/pending$/);
   await dialog.getByRole('button', { name: ui.copy_6986f4a5fd }).click();
   const selection = page.getByRole('dialog', { name: ui.copy_1f13a570b9 });
   await selection.getByRole('button', { name: 'Person A Role B' }).click();
@@ -45,6 +56,7 @@ test('pending venue approval opens in place and saves assignment selection befor
   await expect(page.getByText(ui.copy_a14c4e583b, { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
 });
+}
 
 test('venue rejection preserves the dialog on failure and permits retry', async ({ page }) => {
   await mockApi(page);

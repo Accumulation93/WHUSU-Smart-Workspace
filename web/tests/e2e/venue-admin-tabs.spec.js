@@ -166,7 +166,9 @@ test('management list merges pending outside date range, filters computed status
   const dates = await page.locator('.booking-dates').evaluate(element => [...element.children].map(child => ({ height: child.getBoundingClientRect().height, top: child.getBoundingClientRect().top })));
   expect(Math.abs(dates[0].height - dates[2].height)).toBeLessThan(1);
   expect(Math.abs(dates[0].height - dates[3].height)).toBeLessThan(1);
-  await tab(page, ui.copy_e7f0a24301).click(); await expect(page).toHaveURL(/venue\/pending$/);
+  await tab(page, ui.copy_e7f0a24301).click();
+  await expect(page).toHaveURL(/venue\/manage$/);
+  await expect(tab(page, ui.copy_e7f0a24301)).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('management approval keeps failed comments and uses step endpoint with native parameters before rereading', async ({ page }) => {

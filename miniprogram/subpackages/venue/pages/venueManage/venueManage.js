@@ -277,10 +277,13 @@ Page({
       'purposeVisible',
       'condMultiPickerVisible',
       'approvalPopupVisible',
+      'pendingDialogVisible',
       'contextSwitchGuardVisible'
     ],
     // ── Main tab ──
     activeTab: 'venue',  // 'venue' | 'bookings' | 'pending' | 'purposes'
+    pendingDialogVisible: false,
+    pendingPermissionReady: false,
     hasPermission: true,
     canApproveVenue: false,
     canDeleteVenueBookings: false,
@@ -478,6 +481,7 @@ Page({
 
   onHide() {
     this.unbindDialogKeyboard();
+    this.setData({ pendingPermissionReady: false, pendingDialogVisible: false });
     this._adminTimelineDrag = null;
     this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
     orgSession.invalidateRequests(this);
@@ -506,11 +510,13 @@ Page({
         loading: false, bookingsLoading: false, deletingVenueBooking: ''
       });
     }
+    const permissionRequest = orgSession.beginRequest(this, 'managePermissions');
     let profile = adminPermissions.getAdminProfile();
     try {
       profile = await adminPermissions.refreshMyPermissions() || profile;
     } catch (error) {
     }
+    if (!orgSession.isRequestCurrent(this, permissionRequest)) return;
     const allTabs = [
       { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
       { key: 'bookings', label: localeCopy.copy_20ba89a1cc },
@@ -524,6 +530,7 @@ Page({
       visibleTabs: visibleTabs,
       activeTab: activeTab,
       hasPermission: visibleTabs.length > 0,
+      pendingPermissionReady: true,
       canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals']),
       canEditVenueResources: adminPermissions.hasAny(profile, ['venue.resources']),
       canEditVenuePurposes: adminPermissions.hasAny(profile, ['venue.purposes']),
@@ -555,8 +562,8 @@ Page({
     this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
   },
 
-  goPendingApprovals() {
-    navigateToTrustedRoute('/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
+  onPendingDialogChange(e) {
+    this.setData({ pendingDialogVisible: Boolean(e.detail.visible) });
   },
 
   onOrgTap() {
@@ -585,10 +592,6 @@ Page({
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
     if (!(this.data.visibleTabs || []).some(function(item) { return item.key === tab; })) return;
-    if (tab === 'pending') {
-      this.goPendingApprovals();
-      return;
-    }
     this.setData({ activeTab: tab });
     if (tab === 'bookings') {
       this.loadBookingsData();

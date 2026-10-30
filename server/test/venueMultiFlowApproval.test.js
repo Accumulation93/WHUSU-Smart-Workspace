@@ -577,7 +577,7 @@ async function run() {
     'utf8'
   );
   const pendingPageSource = fs.readFileSync(
-    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js'),
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/components/pendingApprovals/pendingApprovals.js'),
     'utf8'
   );
   const venueUserSource = fs.readFileSync(

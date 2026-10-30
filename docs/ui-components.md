@@ -1,5 +1,11 @@
 # UI 组件清单
 
+## 选择框文字布局
+
+`picker-display`、`picker-value`、`compact-picker-value` 是选择值表面，使用 flex 与 align-items:center 垂直居中，正文保持左对齐；完整字段宿主的更具体规则不得改回 block。保留自然高度、最小触控高度、对称内边距和长值换行，不采用固定行高或文字偏移。原生 input、textarea 继续使用 block；人员卡片的多层信息和图标排列不套用文字按钮居中。
+
+变更共享选择框样式后，执行 `web/tests/e2e/native-picker-alignment.spec.js`，核对各业务实际 WXSS 的最终级联、短值和多行长值、原生输入布局；浏览器解释 WXSS 不能代替微信现场检查。工作角色页的 hero 配色只跟随当前已认证角色，选择待切换组织不得改变当前角色配色。
+
 ## 全局动作按钮接入契约
 
 - 禁用按钮配色统一使用 UI Kit 的灰蓝禁用令牌，不在组件内降低整体 opacity；文字保持可读，禁用时无按压位移，正常状态的大小与权限规则不变。

@@ -43,6 +43,7 @@ Page({
     localeCopy,
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
+    heroTone: 'blue',
     organizations: [],
     filteredOrganizations: [],
     workContexts: [],
@@ -65,7 +66,10 @@ Page({
   },
 
   onLoad() {
-    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+    this.setData({
+      navTopPx: getNavigationBarMetrics().totalHeight,
+      heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue'
+    });
     this._active = true;
     this.applyCatalog({
       organizations: authContext.getOrganizations(),
@@ -77,6 +81,7 @@ Page({
   onShow() {
     const consumed = orgSession.consume(this);
     if (consumed.changed) orgSession.invalidateRequests(this);
+    this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' });
     this.loadCatalog();
   },
 

@@ -764,7 +764,7 @@ function scanVenueFlowVisibilityContract() {
   const flowMarkupFiles = [
     auditDetailFile,
     venueDetailFile,
-    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'pendingVenueApprovals', 'pendingVenueApprovals.wxml'),
+    path.join(MINI_ROOT, 'subpackages', 'venue', 'components', 'pendingApprovals', 'pendingApprovals.wxml'),
     path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueBooking', 'venueBooking.wxml'),
     path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml')
   ];
@@ -1413,7 +1413,7 @@ const personnelPickerPages = [
   'subpackages/scoring/pages/admin/admin',
   'subpackages/workspace/pages/home/home',
   'subpackages/venue/pages/venueBooking/venueBooking',
-  'subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals'
+  'subpackages/venue/components/pendingApprovals/pendingApprovals'
 ];
 if (!/<viewport-portal\b/.test(personnelPickerMarkup) ||
     !/class="ui-overlay-blocker"\s+catchtouchmove="noop"/.test(personnelPickerMarkup) ||
