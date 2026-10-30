@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import copy from '../../src/locales/zh-CN/index.js';
 import signing from '../../src/locales/zh-CN/shared/auditSigning.js';
-import { callsOf, mockApi, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
+import { callsOf, mockApi, submissionDetail, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 const WEB_BASE = '/web';
 
@@ -63,6 +63,24 @@ test('申请详情展示进度与附件，并可下载附件', async ({ page }) 
   expect(detailCall.body.submissionId).toBe('submission-1');
   // 打开详情即标记已读，与小程序行为一致。
   await expect.poll(() => callsOf(api.calls, 'markSubmissionRead').length).toBe(1);
+});
+
+test('historical assignment fields render on the actual audit detail page', async ({ page }) => {
+  await mockApi(page);
+  const detail = submissionDetail();
+  const oldSnapshot = { identity: 'Chair', department: 'Committee', workGroup: '', role: 'user', contextId: 'historical-context' };
+  detail.events.find(event => event.eventType === 'approve').operatorContextSnapshot = oldSnapshot;
+  detail.steps[0].processedContextSnapshot = oldSnapshot;
+  await page.route('**/api/getSubmissionDetail', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(detail)
+  }));
+  await login(page);
+  await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
+  const processedStep = page.locator('.list-row').filter({ hasText: '部门初审' });
+  await expect(processedStep.getByText('Chair · Committee', { exact: true })).toBeVisible();
+  await expect(processedStep.getByText(signing.assignmentUnknown, { exact: true })).toHaveCount(0);
 });
 
 test('待我审批的步骤可以直接通过并带上意见', async ({ page }) => {

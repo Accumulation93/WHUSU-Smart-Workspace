@@ -103,7 +103,7 @@
                 <span v-if="step.rejectionReason" class="soft break-all">{{ step.rejectionReason }}</span>
               </span>
               <span v-if="stepPresentation(step).hasActor" class="soft">{{ stepPresentation(step).actorName }}</span>
-              <span v-if="stepPresentation(step).hasActor" class="soft">{{ stepPresentation(step).snapshot?.assignmentLabel || signing.assignmentUnknown }}</span>
+              <span v-if="stepPresentation(step).hasActor" class="soft">{{ auditAssignmentLabel(stepPresentation(step).snapshot) || signing.assignmentUnknown }}</span>
             </div>
           </div>
           <div v-for="event in roundGroup.events" :key="event.id" class="list-row">
@@ -174,6 +174,7 @@ import { signingAssets } from '@/runtime/signingAssets.js';
 import { addMaterial as recordMaterial, deleteLayer } from '@/shared/auditInk.js';
 import { signingDrafts, stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
 import { presentAuditStep, groupAuditRounds } from '@/shared/auditStepView.js';
+import { auditAssignmentLabel } from '@/runtime/auditAssignmentLabel.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import {
