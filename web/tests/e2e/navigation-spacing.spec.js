@@ -13,6 +13,33 @@ function styles(name, width) {
 }
 const home = 'miniprogram/subpackages/workspace/pages/home/home';
 
+test('native purpose editors preserve the full input and a separate action row', async ({ page }) => {
+  const venue = 'miniprogram/subpackages/venue/pages/venueManage/venueManage';
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const css = styles('miniprogram/app.wxss', width) + styles(venue + '.wxss', width);
+    for (const variant of ['page', 'dialog']) {
+      await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}page,view{display:block}${css}</style>
+        <page><view class="page"><view class="card"><view class="${variant === 'dialog' ? 'form-body ui-dialog-stack' : 'field'}">
+        <view class="purpose-editor"><input class="field-input" value="Meeting purpose with a long editable description" />
+        <view class="purpose-editor-actions"><button class="primary-btn purpose-save-btn">Save</button><button class="secondary-btn purpose-cancel-btn">Cancel</button></view>
+        </view></view></view></view></page>`);
+      const geometry = await page.locator('.purpose-editor').evaluate(element => {
+        const outer = element.getBoundingClientRect(), input = element.querySelector('input').getBoundingClientRect();
+        const buttons = [...element.querySelectorAll('button')].map(button => button.getBoundingClientRect());
+        return { width: outer.width, inputWidth: input.width, inputBottom: input.bottom, right: outer.right,
+          buttons: buttons.map(rect => ({ top: rect.top, right: rect.right, width: rect.width, height: rect.height })) };
+      });
+      expect(Math.abs(geometry.width - geometry.inputWidth)).toBeLessThan(1);
+      expect(geometry.inputWidth).toBeGreaterThan(200);
+      expect(geometry.buttons[0].top).toBeGreaterThan(geometry.inputBottom);
+      expect(Math.abs(geometry.buttons[0].top - geometry.buttons[1].top)).toBeLessThan(1);
+      expect(Math.abs(geometry.buttons[0].width - geometry.buttons[1].width)).toBeLessThan(1);
+      for (const button of geometry.buttons) expect(button.right).toBeLessThanOrEqual(geometry.right + 1);
+    }
+  }
+});
+
 for (const width of [390, 768, 1280]) {
   test(`native workspace tabs keep document-flow spacing at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

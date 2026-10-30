@@ -14,9 +14,31 @@
 
 .hr-template-editor-head-actions {
   display: flex;
+  flex-wrap: wrap;
   flex: 0 0 auto;
   align-items: center;
   gap: var(--ui-inline-gap);
+}
+
+.hr-template-editor .edit-box-header {
+  flex-wrap: wrap;
+  gap: var(--ui-inline-gap);
+}
+
+.hr-template-editor .hr-snapshot-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.hr-template-editor .hr-snapshot-field-tags {
+  grid-column: 2;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.hr-template-editor .hr-snapshot-field-name {
+  overflow-wrap: anywhere;
 }
 
 .hr-template-dirty-chip {
@@ -192,8 +214,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--ui-compact-height);
+  min-height: var(--ui-compact-height);
   border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(255, 255, 255, 0.9);
   color: #2563eb;
@@ -207,8 +229,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 44rpx;
-  height: 44rpx;
+  width: var(--ui-compact-height);
+  min-height: var(--ui-compact-height);
   border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(255, 255, 255, 0.9);
   color: #2563eb;
@@ -245,8 +267,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 44rpx;
-  height: 44rpx;
+  width: var(--ui-compact-height);
+  min-height: var(--ui-compact-height);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
   color: #2563eb;
@@ -256,6 +278,7 @@
 
 .hr-template-option-warning {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--ui-inline-gap);
@@ -344,11 +367,6 @@
   .hr-template-option-text,
   .hr-template-option-warning { font-size: var(--ui-type-caption); }
 
-  .hr-template-option-remove {
-    width: 22px;
-    height: 22px;
-  }
-
   .hr-template-editor .hr-template-field-settings .hr-template-options-textarea {
     line-height: 22px !important;
     height: calc(var(--hr-option-rows, 5) * 22px + 18px) !important;
@@ -362,12 +380,6 @@
 
   .hr-template-editor .field .hr-template-hint-textarea {
     min-height: calc(2 * 22px + 18px) !important;
-  }
-
-  .hr-template-option-handle,
-  .hr-template-option-move {
-    width: 22px;
-    height: 22px;
   }
 
   .hr-template-options-textarea {

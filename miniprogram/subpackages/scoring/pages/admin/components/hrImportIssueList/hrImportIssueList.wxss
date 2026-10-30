@@ -30,6 +30,7 @@
 
 .ve-card-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 12rpx;
   margin-bottom: 14rpx;
@@ -38,12 +39,20 @@
 }
 
 .ve-card-name {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   font-size: var(--ui-type-section);
   font-weight: 700;
   color: #0f172a;
 }
 
 .ve-card-sid {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   font-size: var(--ui-type-label);
   color: #64748b;
   font-weight: 500;
@@ -67,11 +76,16 @@
 
 .ve-error-label {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10rpx;
 }
 
 .ve-error-field {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   font-size: var(--ui-type-body);
   font-weight: 600;
   color: #1e293b;
@@ -87,6 +101,8 @@
 }
 
 .ve-error-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--ui-type-label);
   color: #64748b;
   line-height: 1.5;

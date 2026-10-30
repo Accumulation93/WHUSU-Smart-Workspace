@@ -92,5 +92,9 @@ onBeforeUnmount(()=>{disposed=true;generation++;document.removeEventListener('vi
 .calendar-filters { display:flex;flex-direction:row;align-items:center;gap:var(--ui-field-gap); }
 .calendar-filters select { flex:1;min-width:0; }
 .calendar-filters label { flex-shrink:0; }
+@media(max-width:519px){
+  .calendar-navigation { grid-template-columns:var(--ui-field-control-height) minmax(0,1fr) var(--ui-field-control-height); }
+  .calendar-navigation > button:last-child { grid-column:1 / -1; }
+}
 @media(max-width:899px){.calendar-columns { grid-template-columns:repeat(var(--calendar-columns),minmax(180px,1fr)); }}
 </style>

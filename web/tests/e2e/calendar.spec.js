@@ -23,7 +23,9 @@ test('日程四种视图和空状态可用，页面不横向溢出',async({page}
   expect(Math.abs(actions[0].height-actions[1].height)).toBeLessThan(1);
   expect(actions[2].width).toBeGreaterThan(actions[0].width*1.9);
   const controls=await page.locator('.calendar-navigation').evaluate(element=>Array.from(element.children).map(child=>child.getBoundingClientRect().top));
-  expect(Math.max(...controls)-Math.min(...controls)).toBeLessThan(2);
+  expect(Math.max(...controls.slice(0,3))-Math.min(...controls.slice(0,3))).toBeLessThan(2);
+  if(page.viewportSize().width<520)expect(controls[3]).toBeGreaterThan(controls[0]);
+  else expect(Math.max(...controls)-Math.min(...controls)).toBeLessThan(2);
   const search=await page.locator('.search-field').evaluate(element=>{const icon=element.querySelector('svg,img'),input=element.querySelector('input');return icon ? Math.abs((icon.getBoundingClientRect().top+icon.getBoundingClientRect().height/2)-(input.getBoundingClientRect().top+input.getBoundingClientRect().height/2)) : 999;});
   expect(search).toBeLessThan(2);
   for(const mode of ['month','week','day','list']){
@@ -41,6 +43,30 @@ test('个人日程真实表单参数包含日期时间和提醒',async({page})=>
   await expect(page).toHaveURL(/\/web\/calendar$/);
   const saved=calls.find(item=>item.name==='saveCalendarEvent');
   expect(saved.body).toMatchObject({title:'日程保存回归',startDate:'2026-11-02',startTime:'09:00',visibility:'private',reminders:[15]});
+});
+
+test('calendar month cells and date selector remain readable on narrow screens', async ({ page }) => {
+  await setup(page);
+  await page.goto('/web/calendar');
+  await expect(page.locator('.calendar-date').first()).toBeVisible();
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const boxes = await page.locator('.calendar-grid').evaluate(element => {
+      const outer = element.getBoundingClientRect();
+      return [...element.querySelectorAll('.calendar-date')].map(cell => {
+        const rect = cell.getBoundingClientRect(), text = cell.querySelector('strong').getBoundingClientRect();
+        return { right: rect.right, outerRight: outer.right, width: rect.width, textWidth: text.width,
+          overflow: cell.scrollWidth - cell.clientWidth };
+      });
+    });
+    for (const box of boxes) {
+      expect(box.right).toBeLessThanOrEqual(box.outerRight + 1);
+      expect(box.overflow).toBeLessThanOrEqual(1);
+      expect(box.textWidth).toBeLessThanOrEqual(box.width);
+    }
+    const date = await page.locator('.calendar-navigation input').boundingBox();
+    expect(date.width).toBeGreaterThanOrEqual(120);
+  }
 });
 test('订阅重置需要确认，取消不发写请求',async({page})=>{
   const calls=await setup(page);await page.goto('/web/calendar');

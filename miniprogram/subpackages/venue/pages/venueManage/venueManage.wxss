@@ -434,15 +434,45 @@ page {
   font-size: var(--ui-type-label);
 }
 
-/* ═══ Purpose input row ═══ */
-.purpose-input-row {
-  display: flex;
-  align-items: stretch;
-  gap: 12rpx;
+/* 事由输入独占一行，编辑时不能被保存和取消压缩。 */
+.purpose-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ui-inline-gap, 10rpx);
+  min-width: 0;
+  width: 100%;
 }
 
-.purpose-input-row .field-input {
-  flex: 1; min-width: 0;
+.purpose-editor .field-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.purpose-editor-actions {
+  display: flex;
+  gap: var(--ui-inline-gap, 10rpx);
+  min-width: 0;
+  width: 100%;
+}
+
+.purpose-editor-actions > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--ui-control-height, 82rpx);
+  height: auto;
+  margin: 0;
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  line-height: var(--ui-leading-control, 1.35);
+  box-sizing: border-box;
 }
 
 .admin-timeline-drag { position: relative; height: 190rpx; margin: 14rpx 54rpx 8rpx; flex-shrink: 0; }

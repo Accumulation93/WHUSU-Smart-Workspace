@@ -5,8 +5,10 @@
       <label for="venue-purpose" class="field-label">{{ ui.copy_a97eb08acb }}</label>
       <div class="purpose-input-row">
         <input id="venue-purpose" v-model="state.text" class="field-input" :placeholder="ui.copy_d4475123b9" :disabled="blocked" />
+        <div class="purpose-actions">
         <button type="submit" class="btn btn-primary" :disabled="blocked">{{ state.id ? ui.copy_27e5395986 : ui.copy_4f9ebda03b }}</button>
         <button v-if="state.id" type="button" class="btn btn-secondary" :disabled="blocked" @click="reset">{{ ui.copy_06dbb49961 }}</button>
+        </div>
       </div>
     </form>
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p>
@@ -89,8 +91,10 @@ load();
 onBeforeUnmount(() => { disposed = true; generation++; emit('busy', false); });
 </script>
 <style scoped>
-.purpose-input-row { display: flex; align-items: stretch; gap: var(--ui-inline-gap); }
-.purpose-input-row input { flex: 1; min-width: 0; }
-.purpose-input-row button { flex: none; width: auto; white-space: nowrap; }
+.purpose-input-row { display: grid; min-width: 0; gap: var(--ui-field-gap); }
+.purpose-input-row input { width: 100%; min-width: 0; }
+.purpose-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+.purpose-actions button { width: 100%; min-width: 0; white-space: normal; }
+.purpose-actions button:only-child { grid-column: 1 / -1; }
 .purpose-row { flex-direction: column; align-items: stretch; }
 </style>

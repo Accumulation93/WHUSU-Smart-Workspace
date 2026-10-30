@@ -335,26 +335,38 @@
   margin-bottom: 10rpx; padding: 10rpx; border: 1rpx solid #e2e8f0;
   border-radius: 10rpx; background: #fff;
 }
-.approval-file-row { display: flex; align-items: center; justify-content: space-between; }
+.approval-file-row { display: flex; flex-direction: column; align-items: stretch; gap: var(--ui-inline-gap); }
 .approval-file-name {
   display: flex; align-items: center; gap: 8rpx;
   font-size: var(--ui-type-meta); color: #334155; flex: 1; min-width: 0;
   white-space: normal; overflow-wrap: anywhere;
 }
 .approval-file-name text { min-width: 0; overflow-wrap: anywhere; }
-.approval-file-actions { display: flex; gap: 4rpx; flex-shrink: 0; margin-left: 8rpx; }
+.approval-file-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); min-width: 0; }
+.approval-file-actions > text {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  box-sizing: border-box; min-width: 0; min-height: var(--ui-compact-height);
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  line-height: var(--ui-leading-control); white-space: normal; overflow-wrap: anywhere;
+}
 .approval-file-btn-preview { font-size: var(--ui-type-caption); color: #64748b; padding: 4rpx 10rpx; border: 1rpx solid #94a3b8; border-radius: var(--ui-compact-radius, 18rpx); }
 .approval-file-btn-sign { font-size: var(--ui-type-caption); color: #3b82f6; padding: 4rpx 10rpx; border: 1rpx solid #3b82f6; border-radius: var(--ui-compact-radius, 18rpx); }
 .approval-file-btn-stamp { font-size: var(--ui-type-caption); color: #0369a1; padding: 4rpx 10rpx; border: 1rpx solid #0369a1; border-radius: var(--ui-compact-radius, 18rpx); }
 .approval-sig-item {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--ui-inline-gap);
   margin-top: 6rpx; padding: 6rpx 10rpx; background: #f1f5f9; border-radius: 8rpx;
 }
-.approval-sig-info { display: flex; align-items: center; gap: 6rpx; }
-.approval-sig-thumb { width: 36rpx; height: 36rpx; border-radius: 4rpx; border: 1rpx solid #cbd5e1; }
-.approval-sig-name { font-size: var(--ui-type-caption); color: #475569; }
-.approval-sig-pos { font-size: var(--ui-type-micro); color: #94a3b8; }
-.approval-sig-actions { display: flex; gap: 8rpx; }
+.approval-sig-info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-label-gap); min-width: 0; }
+.approval-sig-thumb { flex: none; width: 36rpx; height: 36rpx; border-radius: 4rpx; border: 1rpx solid #cbd5e1; }
+.approval-sig-name { flex: 1; min-width: 0; font-size: var(--ui-type-caption); color: #475569; line-height: 1.5; overflow-wrap: anywhere; }
+.approval-sig-pos { flex-basis: 100%; min-width: 0; font-size: var(--ui-type-micro); color: #94a3b8; line-height: 1.5; overflow-wrap: anywhere; }
+.approval-sig-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-inline-gap); }
+.approval-sig-actions > text {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  box-sizing: border-box; min-width: 0; min-height: var(--ui-compact-height);
+  max-width: 100%; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  line-height: var(--ui-leading-control); white-space: normal; overflow-wrap: anywhere;
+}
 .approval-sig-action-adjust { font-size: var(--ui-type-micro); color: #3b82f6; }
 .approval-sig-action-remove { font-size: var(--ui-type-micro); color: #ef4444; }
 .approval-warning { padding: 8rpx 12rpx; background: #fef3c7; border-radius: 8rpx; font-size: var(--ui-type-caption); color: #d97706; }

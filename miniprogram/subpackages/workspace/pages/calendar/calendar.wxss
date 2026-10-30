@@ -2,6 +2,7 @@
 .calendar-page { display:flex;flex-direction:column;gap:var(--ui-card-padding-y); }
 .calendar-page > .card,.calendar-page > .section-control-card { margin:0; }
 .calendar-stack,.calendar-event { display:flex;flex-direction:column;gap:var(--ui-inline-gap); }
+.calendar-stack > button { flex:none;box-sizing:border-box;width:100%;min-width:100%;max-width:100%;margin:0; }
 .calendar-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-page-action-gap); }
 .calendar-grid { display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--ui-inline-gap); }
 .calendar-weekday { text-align:center;color:#64748b;font-size:var(--ui-type-meta);line-height:1.6; }

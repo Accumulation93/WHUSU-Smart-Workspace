@@ -10,6 +10,20 @@ async function setup(page, permissions = { 'venue.resources': true, 'venue.booki
 }
 const tab = (page, label) => page.locator('.venue-admin-tabs').getByRole('button', { name: label, exact: true });
 
+test('purpose editor visual review at narrow and tablet widths', async ({ page }) => {
+  await setup(page, { 'venue.purposes': true, 'venue.purposes.delete': true });
+  await page.route('**/api/listVenueBookingPurposes', route => route.fulfill({ json: {
+    status: 'success', purposes: [{ id: 'visual-purpose', text: ui.copy_a97eb08acb }]
+  } }));
+  await page.goto('/web/venue/manage');
+  await page.locator('.purpose-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue(ui.copy_a97eb08acb);
+  for (const width of [320, 768]) {
+    await page.setViewportSize({ width, height: 1024 });
+    await page.screenshot({ path: `../tmp/purpose-editor-web-${width}.png`, fullPage: true });
+  }
+});
+
 test('native venue tabs preserve purpose drafts and successful writes reread without duplication across tabs', async ({ page }) => {
   await setup(page);
   let purposes = [], saves = 0, failRead = false;
@@ -79,12 +93,29 @@ test('purpose edit accepts 200 unicode codepoints, rejects 201 and delete confir
   await page.getByRole('button', { name: ui.copy_27e5395986, exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(ui.bookingPurposeTooLong); expect(saves).toBe(0);
   await input.fill('😀'.repeat(200));
-  const layout = await page.locator('.purpose-input-row').evaluate(element => {
-    const rects = [...element.children].map(child => child.getBoundingClientRect());
-    return { tops: rects.map(rect => rect.top), right: rects.at(-1).right, outer: element.getBoundingClientRect().right, widths: rects.map(rect => rect.width) };
-  });
-  expect(Math.max(...layout.tops) - Math.min(...layout.tops)).toBeLessThan(1);
-  expect(layout.right).toBeLessThanOrEqual(layout.outer + 1); expect(Math.min(...layout.widths)).toBeGreaterThan(30);
+  const originalViewport = page.viewportSize();
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const layout = await page.locator('.purpose-input-row').evaluate(element => {
+      const outer = element.getBoundingClientRect();
+      const input = element.querySelector('input').getBoundingClientRect();
+      const buttons = [...element.querySelectorAll('button')].map(button => button.getBoundingClientRect());
+      return { outerWidth: outer.width, inputWidth: input.width, inputBottom: input.bottom,
+        buttons: buttons.map(rect => ({ top: rect.top, right: rect.right, width: rect.width, height: rect.height })),
+        outerRight: outer.right, pageWidth: document.documentElement.scrollWidth, viewport: innerWidth };
+    });
+    expect(Math.abs(layout.outerWidth - layout.inputWidth)).toBeLessThan(1);
+    expect(layout.inputWidth).toBeGreaterThan(200);
+    expect(layout.buttons[0].top).toBeGreaterThan(layout.inputBottom);
+    expect(Math.abs(layout.buttons[0].top - layout.buttons[1].top)).toBeLessThan(1);
+    expect(Math.abs(layout.buttons[0].width - layout.buttons[1].width)).toBeLessThan(1);
+    for (const button of layout.buttons) {
+      expect(button.right).toBeLessThanOrEqual(layout.outerRight + 1);
+      expect(button.height).toBeGreaterThanOrEqual(38);
+    }
+    expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewport);
+  }
+  await page.setViewportSize(originalViewport);
   await page.getByRole('button', { name: ui.copy_27e5395986, exact: true }).click();
   await expect(input).toHaveValue(''); await expect(page.locator('.purpose-row')).toContainText('😀'.repeat(200));
   const remove = page.locator('.purpose-row').getByRole('button', { name: ui.copy_acc985cabc, exact: true });
