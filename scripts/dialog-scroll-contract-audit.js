@@ -9,7 +9,7 @@
  * 1. 任何使用 ui-dialog-shell--grid 的弹窗，直接子级必须恰好是
  *    标题 / 滚动正文 / 底栏三段，多一段会让网格轨道错位。
  * 2. 登记在册的长列表弹窗必须保留 ui-dialog-shell--grid。
- * 另外打印仍未使用网格契约的同类弹窗，便于后续按需收敛。
+ * 普通原生滚动正文禁止回退Flex压缩；两段窗口使用对应两轨结构。
  */
 
 const fs = require('fs');
@@ -133,21 +133,29 @@ const dialogs = [];
 for (const file of files) dialogs.push(...collectDialogs(file));
 
 const failures = [];
-const pending = [];
 
 for (const dialog of dialogs) {
   const relative = path.relative(path.resolve(__dirname, '..'), dialog.file).replace(/\\/g, '/');
   const usesGrid = hasClass(dialog.classes, 'ui-dialog-shell--grid');
+  const bodyGrid = hasClass(dialog.classes, 'ui-dialog-shell--grid-body');
+  const actionsGrid = hasClass(dialog.classes, 'ui-dialog-shell--grid-actions');
   const scrollBodyCount = dialog.children.filter(isScrollBody).length;
   const footerCount = dialog.children.filter(isFooter).length;
 
   if (usesGrid) {
-    if (dialog.children.length !== 3 || scrollBodyCount !== 1 || footerCount !== 1) {
+    if (dialog.children.length !== 3 || !isHeader(dialog.children[0]) || !isScrollBody(dialog.children[1]) || !isFooter(dialog.children[2])) {
       failures.push(
         `${relative}:${dialog.line} 使用 grid 外壳但直接子级不是标题/正文/底栏三段，`
         + `实际 ${dialog.children.length} 段（正文 ${scrollBodyCount}、底栏 ${footerCount}）`
       );
     }
+  }
+
+  if (bodyGrid && (dialog.children.length !== 2 || !isHeader(dialog.children[0]) || !isScrollBody(dialog.children[1]))) {
+    failures.push(`${relative}:${dialog.line} grid-body 必须恰好为标题和滚动正文`);
+  }
+  if (actionsGrid && (dialog.children.length !== 2 || !isScrollBody(dialog.children[0]) || !isFooter(dialog.children[1]))) {
+    failures.push(`${relative}:${dialog.line} grid-actions 必须恰好为滚动正文和底栏`);
   }
 
   const longList = LONG_LIST_DIALOG_CLASSES.some((name) => hasClass(dialog.classes, name));
@@ -169,18 +177,13 @@ for (const dialog of dialogs) {
       failures.push(`${relative}:${dialog.line} 正文禁止初始化为零高度等待测量恢复`);
     }
   }
-  if (!usesGrid && scrollBodyCount === 1 && footerCount === 1) {
-    pending.push(`${relative}:${dialog.line} [${dialog.classes.filter((name) => name.startsWith('ui-dialog-shell--') || /-card$|-dialog$|-modal$|popup-card/.test(name)).join(' ')}]`);
+  if (!usesGrid && !bodyGrid && !actionsGrid && !professional && scrollBodyCount === 1) {
+    failures.push(`${relative}:${dialog.line} 普通原生滚动正文必须按真实结构使用自然网格，禁止Flex压缩造成内部视口错配`);
   }
 }
 
 console.log('=== 长列表弹窗网格契约 ===');
 console.log(`检查弹窗 ${dialogs.length} 个`);
-
-if (pending.length) {
-  console.log(`\n[提示] 仍未使用网格契约的滚动正文弹窗 ${pending.length} 个（正文为有界表单时可保持现状）：`);
-  for (const item of pending) console.log(`  - ${item}`);
-}
 
 if (failures.length) {
   console.error(`\n[失败] ${failures.length} 项弹窗滚动契约问题：`);

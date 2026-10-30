@@ -49,7 +49,7 @@
   <viewport-portal wx:if="{{editing}}">
   <view class="popup-mask ui-overlay" wx:if="{{editing}}" bindtap="cancelEdit">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view>
           <view class="popup-title">{{editId ? localeCopy.copy_1ba7eec34e : localeCopy.copy_a78ce83cab}}</view>
@@ -188,13 +188,15 @@
   <viewport-portal wx:if="{{rulesVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{rulesVisible}}" bindtap="closeRules">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_ea512602ff}} · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
+      <view class="ui-dialog-header">
+      <view class="popup-header"><view class="popup-title">{{localeCopy.copy_ea512602ff}} · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <view class="rules-tabs">
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_caa70e7c13}}</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6980750e90}}</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue || canDeleteVenueRules}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_523e44b520}}</view>
         <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_91fd6d9600}}</view>
+      </view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="ui-dialog-scroll-content">
@@ -313,7 +315,7 @@
   <viewport-portal wx:if="{{ruleEditorVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card rule-editor-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card rule-editor-popup ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header rule-editor-popup-header ui-dialog-header">
         <view class="rule-editor-header-copy">
           <view class="popup-title">{{ruleEditId ? localeCopy.copy_20f94d2c18 : localeCopy.copy_766176221d}}{{ruleEditorType === 'open' ? localeCopy.copy_6e6ee2b747 : (ruleEditorType === 'activity' ? localeCopy.copy_acd4c5c171 : localeCopy.copy_a9a18dd6e8)}}</view>
@@ -617,7 +619,7 @@
   <viewport-portal wx:if="{{activityDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex venue-activity-dialog" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid venue-activity-dialog" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
       <view class="ui-dialog-scroll-content"><venue-activity-detail activity="{{activityDetail}}" /></view>
@@ -631,7 +633,7 @@
   <viewport-portal wx:if="{{bookingDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_40d594ac66}}</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
       <view class="detail-body ui-dialog-stack ui-dialog-scroll-content">
@@ -684,7 +686,7 @@
   <viewport-portal wx:if="{{adminBookingVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · {{localeCopy.copy_05c1604f42}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
@@ -746,7 +748,7 @@
   <viewport-portal wx:if="{{purposeVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_d37b64cc9d}}</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="form-body ui-dialog-stack ui-dialog-scroll-content">
@@ -781,7 +783,7 @@
   <viewport-portal wx:if="{{condMultiPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll ui-dialog-scroll--natural">
       <view class="ui-dialog-scroll-content">
@@ -831,7 +833,7 @@
   <viewport-portal wx:if="{{approvalPopupVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalPopupAction === 'approve' ? localeCopy.copy_a63100b45d : localeCopy.copy_689e8f08db}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>

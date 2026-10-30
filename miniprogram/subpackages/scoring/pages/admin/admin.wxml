@@ -1645,7 +1645,7 @@
     <viewport-portal wx:if="{{profileRejectVisible}}">
       <view class="modal-mask ui-overlay" bindtap="closeProfileRejectDialog">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="modal-card hr-review-dialog ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
+        <view class="modal-card hr-review-dialog ui-dialog-shell ui-dialog-shell--compact ui-dialog-shell--grid" catchtap="noop">
           <view class="modal-header ui-dialog-header">
             <view class="modal-title">{{localeCopy.hrRejectReasonTitle}}</view>
             <view class="modal-close ui-motion-chip" catchtap="closeProfileRejectDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
@@ -1669,7 +1669,7 @@
     <viewport-portal wx:if="{{personCorrectionVisible}}">
       <view class="modal-mask ui-overlay" bindtap="closePersonCorrection">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="modal-card person-correction-dialog ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="modal-card person-correction-dialog ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="modal-header ui-dialog-header">
             <view class="modal-title">{{personCorrectionPreview.mergeRequired ? localeCopy.hrCorrectionConflictTitle : localeCopy.hrCorrectionTitle}}</view>
             <view class="modal-close ui-motion-chip" catchtap="closePersonCorrection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
@@ -2649,7 +2649,7 @@
       <viewport-portal wx:if="{{auditTemplateStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex audit-step-dialog" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid audit-step-dialog" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_b79428bf57}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill audit-step-scroll ui-dialog-scroll--natural">
             <view class="ui-dialog-stack audit-step-body-content ui-dialog-scroll-content">
@@ -2959,7 +2959,7 @@
       <viewport-portal wx:if="{{auditSubmissionDetailVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_6853ab11f7}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y wx:if="{{auditSubmissionDetail}}">
             <view class="ui-dialog-scroll-content">

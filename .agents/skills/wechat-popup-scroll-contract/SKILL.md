@@ -61,7 +61,8 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 - 禁止先写 `height:0` 等待异步测量恢复。首帧、未测量、节点查询缺失或失败时都必须保留正常可见内容；测量只能辅助定位，不能成为显示表单的前提。
 - 只有显式专业工作区 `--viewport` / `--wide` 使用 `height: var(--ui-dialog-available)`，其正文尺寸独立维护；不要机械套用普通自然正文或压缩专业工作区。
 - Only data workspaces that genuinely require a stable full-screen working area may add `ui-dialog-shell--viewport`; wide timetables continue to use `ui-dialog-shell--wide`. Never add a viewport height merely because a dialog is a long form.
-- Header and footer are non-scrolling flex items. The direct body is the only outer scrolling region.
+- 普通原生滚动正文禁止通过Flex收缩：已实测内部viewport与外部正文错配，末按钮滚不到。严格标题/正文/底栏三段用共享 `--grid`；标题/正文两段用 `--grid-body`；正文/底栏两段用 `--grid-actions`，complex和compact均适用。第四段按业务归入实际标题区等语义段，不插空控件凑行数。标题和底栏不滚动，直接正文是唯一外层滚动区；wide/viewport专业工作区独立保留。
+- 验收必须真正滚到底，比较最后字段或按钮完整矩形与原生可见正文边界，并实际操作底栏；嵌套列表另查内层末项、手势归属及底栏。仅量外框或浏览器测试不够，手机尺寸模拟器也不等于实体手机、Pad竖屏、Pad横屏均通过。保留自然height:auto及动态max-height，禁止置零等待测量或固定普通正文高度。
 - Every vertical dialog `scroll-view` enables `enhanced`, `scroll-y`, and `nested-scroll-enabled`.
 - Give nested lists `ui-dialog-scroll--pane` and `nested-scroll-enabled`; a gesture beginning inside that pane scrolls the pane first. The body handles gestures only outside the pane or after the pane reaches its boundary.
 - Use `touch-action: pan-y` for vertical regions, `pan-x` for horizontal regions, and both axes only for specialized grids.

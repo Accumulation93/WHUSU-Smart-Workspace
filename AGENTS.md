@@ -129,7 +129,7 @@
 
 ## 8. 全局学号保护与密码验签硬规则
 
-- 恰好由标题、直接子级 `scroll-view.ui-dialog-body`、底栏三段组成的长列表弹窗可复用 `ui-dialog-shell--complex ui-dialog-shell--grid`；共享实现使用 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`，不得在页面复制。保留 viewport 定位、`height:auto` 与视口安全区动态 `max-height`，禁止固定正文高度；附加第四段、嵌套滚动或专业工作区必须单独审查，不能批量套用。验收除外层矩形外还要核对原生滚动视口与可用正文高度一致，实际滚出末字段并操作底栏；单个导出弹窗通过不代表全部弹窗或全部设备已通过。
+- 普通原生 `scroll-view.ui-dialog-body` 弹窗禁止继续依赖Flex收缩：微信已实测外部正文与内部滚动视口错配，导致末按钮滚不到。严格标题/正文/底栏三段使用共享 `ui-dialog-shell--grid`；标题/正文两段使用 `--grid-body`；正文/底栏两段使用 `--grid-actions`，适用于complex和compact。第四段按业务归入实际标题区等语义段，不插空控件凑行数；嵌套列表单独核对手势与末项，wide/viewport专业工作区独立保留。所有实现仅在app.wxss，保留自然 `height:auto` 和动态 `max-height`，禁止固定普通正文高度或先置零等待测量。自然正文宿主上下padding为0，唯一 `ui-dialog-scroll-content` 承担留白。验收必须真正滚到底，对比最后字段/按钮完整矩形与原生可见正文边界，并实际操作底栏；只量外框、浏览器检查或手机尺寸模拟器均不能证明实体手机与Pad通过。
 
 - 全局动作按钮文字必须双轴居中：原生 `button` 与模拟按钮的 `view/text` 均在真实点击表面使用弹性布局、`align-items:center`、`justify-content:center` 和 `text-align:center`，采用自然高度、语义最小高度、对称 padding 与无单位行高。禁止固定 `height = line-height` 顶字、负偏移或空格补齐；必须核对共享样式、模块样式与三档媒体查询的最终级联。加载、禁用、短文案、长文案都保持完整居中，不能靠裁切或缩小触控面积实现。此规则不把原生输入框改成 flex，也不把左对齐选项卡、人员选择卡或带说明的业务卡正文改成居中。执行 `node scripts/button-alignment-test.js` 及严格 UI 审计，手机、Pad 竖屏、Pad 横屏现场未覆盖的页面与状态必须明确记录，静态通过不等于全局现场通过。
 

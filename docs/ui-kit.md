@@ -252,8 +252,8 @@
 - `viewport-portal` 会把弹窗提升到 `RootPortal` 原生顶层宿主。所有 `--ui-dialog-*`、弹窗字号和颜色令牌必须同时直接声明在 `.ui-overlay` / `.ui-sheet-overlay` 上，禁止只依赖 `page` 的变量继承；否则宽度和内边距声明会整体失效。
 - 视口层级必须完整闭合：依附于某弹窗的键盘、选择面板或操作 sheet 要么放在同一个 `viewport-portal`，要么单独放入更晚的 `viewport-portal` 并由 `.ui-portal-surface` 持有令牌；禁止把 `position:fixed` 子层留在普通页面树中，再依赖 `z-index` 穿过 RootPortal。
 - `.ui-overlay-blocker` 只负责阻止背景触摸；弹窗壳不滚动，正文由直接子级 `scroll-view.ui-dialog-body` 滚动，嵌套列表继续使用 `nested-scroll-enabled`。
-- 三段式长列表可在共享外壳追加 `.ui-dialog-shell--grid`，与 `.ui-dialog-shell--complex` 配合；`app.wxss` 唯一实现为 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。使用前必须确认外壳恰好只有标题、正文、底栏三个直接布局子级，中间为 `scroll-view.ui-dialog-body`；额外工具栏应按业务归入相应段，不能把第四个子级直接塞进三行轨道。复杂多段、嵌套滚动及专业工作区单独审查，不自动迁移。
-- Grid 只负责三段布局，不是所有长列表必须全高的理由。普通 `scroll-view.ui-dialog-body` 使用自然 `height:auto` 与共享动态上限；是否真正形成滚动必须检查原生内部视口和实际手势，不能由一个 CSS 属性推定。禁止正文先设 `height:0` 再等待异步测量恢复：首帧、节点查询失败、未测量时均应正常显示内容。禁止页面或组件用固定 `vh`/像素或第二套视口计算覆盖共享规则。
+- 普通原生滚动正文禁止依赖Flex收缩，实测内部视口可能比外部正文大，导致末按钮滚不到。严格标题/正文/底栏使用共享 `.ui-dialog-shell--grid`，标题/正文用 `--grid-body`，正文/底栏用 `--grid-actions`，complex与compact均适用；实现只由 `app.wxss` 持有。第四段按业务归入实际标题区等语义段，不用空控件凑轨道。嵌套滚动需单审，wide/viewport专业工作区独立保留。
+- Grid不要求长列表全高。普通 `scroll-view.ui-dialog-body` 使用自然 `height:auto` 与共享动态上限；验收必须真正滚到底，对比最后字段或按钮的完整矩形与原生可见正文边界，并实际点击底栏，不能只量外框。禁止正文先设 `height:0` 再等待异步测量恢复：首帧、节点查询失败、未测量时均应正常显示内容。禁止页面或组件用固定 `vh`/像素或第二套视口计算覆盖共享规则。浏览器或手机尺寸模拟器不能代替实体手机与Pad验证。
 - 普通自然滚动正文使用 `scroll-view.ui-dialog-body.ui-dialog-scroll--natural`，宿主纵向 padding 为 0，正文全部放入唯一直接内容容器 `.ui-dialog-scroll-content`，由该容器的上下 padding 使用 `--ui-dialog-body-padding`。末字段及尾部留白属于实际滚动内容，不在宿主或末字段额外堆叠留白。专业 `--wide` / `--viewport` 不因这条普通表单规则被强制改为自然工作区。
 - 验收分别检查短内容、长列表、条件展开/收起、键盘打开/关闭与横竖屏。必须实际滚到最后字段并操作底栏，核对宿主外框和原生滚动视口均可用；浏览器解释 WXSS 或静态审计通过不能替代微信现场手势验证，未覆盖设备明确记录为未完成现场验证。
 - 历史现场记录（Pad 横屏 1024×700，真实鼠标拖动，2026-09-30）：旧版「选择人事资料列」弹窗去掉 `ui-dialog-shell--grid` 后正文 480px、内容 2869px、拖动位移 `delta=0`；加上后记录 `delta=-245`，连续拖动可滚到末项，「忽略不兼容」开关行可见（末行 bottom 584 / 正文 bottom 597 / 底栏 top 597，留白 13px）。同轮还记录了导入预览、导入检查、导入模板映射和导出列。保留这些旧实现的观察用于排查，但不能泛化为“height:auto 必定无法滚动”或“所有 Grid 必须全高”，也不是新样式或其他设备已通过的证据。

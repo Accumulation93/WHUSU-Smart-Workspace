@@ -64,11 +64,11 @@
 
 ## 创建/编辑模板
 
-三段式长列表窗口可采用共享 `.ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid`，其直接子级必须依次且仅为 `.ui-dialog-header`、`scroll-view.ui-dialog-body`、`.ui-dialog-footer`。共享轨道为 `auto minmax(0,1fr) auto`，无需页面再写布局实现；继续使用 viewport 定位、自然 `height:auto` 与视口安全区动态 `max-height`，不设固定正文高度。
+普通原生滚动正文禁止继续通过Flex收缩，已实测内部视口与外部正文错配而截住末按钮。严格三段采用共享 `.ui-dialog-shell--grid`，直接子级依次为 `.ui-dialog-header`、`scroll-view.ui-dialog-body`、`.ui-dialog-footer`；标题/正文两段用 `--grid-body`，正文/底栏两段用 `--grid-actions`，complex和compact均适用。布局仅在app.wxss维护，保留自然 `height:auto` 与共享动态 `max-height`，不设固定正文高度。
 
 自然正文增加 `.ui-dialog-scroll--natural`，宿主上下 padding 为 0；将全部正文放入唯一直接 `.ui-dialog-scroll-content`，由内层上下 padding 使用 `--ui-dialog-body-padding`，禁止重复尾部占位。首帧必须可见，不得把正文初始化为 0 高度再等节点测量。新增条件应自然撑高，收起后自然缩短。
 
-有第四段、嵌套滚动或专业工作区时先单独审查，不机械套用三行 Grid；`--wide` / `--viewport` 专业工作区独立保留可用区高度。验收须检查宿主矩形与原生滚动视口是否一致，覆盖短长内容、展开收起、键盘，并实际滚到最后字段、点击底栏；不能只看外框或脚本通过。旧版人事导出弹窗的“备注”与 Excel/CSV 操作记录不代表新样式、其他页面或未覆盖设备已验证。
+第四段按业务归入实际标题区等语义段，不插空控件凑轨道；嵌套滚动单独核对手势与末项。`--wide` / `--viewport` 专业工作区独立保留可用区高度。验收必须真正滚到底，对比最后字段或按钮的完整矩形与原生可见正文边界，再点击底栏，并覆盖短长内容、收起和键盘；不能只看外框或脚本通过。浏览器和手机尺寸模拟器不能代替实体手机与Pad，旧窗口操作记录不代表本轮已验证。
 
 - 标题、说明、表单分组、校验反馈、保存/取消操作。
 - 表单控件使用 `.field-input`、`.field-textarea`、`.picker-value` 等原语。

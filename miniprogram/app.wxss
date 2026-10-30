@@ -3338,9 +3338,25 @@ page .pending-refresh-btn {
  * 网格只分配三段结构，不为短列表预留满屏空间。
  * 只有显式声明 --viewport / --wide 的专业工作区占满可用区。
  */
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid {
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid,
+.ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--grid {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  height: auto !important;
+}
+
+/* 缺少标题或底栏的窗口使用对应两段结构，不插入空控件补位。 */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid-body,
+.ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--grid-body {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: auto !important;
+}
+
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid-actions,
+.ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--grid-actions {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto;
   height: auto !important;
 }
 
@@ -3357,7 +3373,10 @@ page .pending-refresh-btn {
 }
 
 /* 三段网格也按内容收缩；只有超过上限时才建立正文滚动。 */
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex.ui-dialog-shell--grid > .ui-dialog-body {
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid > .ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid-body > .ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--grid-actions > .ui-dialog-body,
+.ui-sheet-overlay .ui-dialog-shell.ui-dialog-shell--grid-body > .ui-dialog-body {
   height: auto !important;
   max-height: calc(var(--ui-dialog-available) - var(--ui-dialog-body-reserve, 220rpx)) !important;
 }

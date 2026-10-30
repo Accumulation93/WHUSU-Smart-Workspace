@@ -52,7 +52,7 @@
   <viewport-portal wx:if="{{approvalVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalTarget.title || localeCopy.copy_48283f4043}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>

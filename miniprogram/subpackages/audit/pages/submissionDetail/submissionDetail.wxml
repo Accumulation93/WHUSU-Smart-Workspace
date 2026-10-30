@@ -116,7 +116,7 @@
     <viewport-portal wx:if="{{adHocStepEditorVisible}}">
     <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-      <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
           <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
@@ -589,7 +589,7 @@
       <viewport-portal wx:if="{{editStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
             <view class="detail-popup-form ui-dialog-stack ui-dialog-scroll-content">
@@ -650,7 +650,7 @@
   <viewport-portal wx:if="{{stampPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{localeCopy.copy_dd46cd92a6}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
@@ -788,7 +788,7 @@
   <viewport-portal wx:if="{{approvalVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{localeCopy.copy_b4432643e3}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
@@ -815,7 +815,7 @@
   <viewport-portal wx:if="{{sigSourcePickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{localeCopy.copy_2649ec5bae}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>

@@ -1,7 +1,7 @@
 <viewport-portal wx:if="{{visible}}">
   <view class="modal-mask ui-overlay" bindtap="emitClose">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="modal-card hr-deletion-dialog ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="modal-card hr-deletion-dialog ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="modal-header ui-dialog-header">
         <view>
           <view class="modal-title">{{scope === 'person' ? localeCopy.hrDeletePersonPermanently : localeCopy.hrDeleteMembershipPermanently}}</view>

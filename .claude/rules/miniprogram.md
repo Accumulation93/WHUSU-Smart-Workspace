@@ -106,7 +106,7 @@ module.exports = { hour: hour };
 
 弹窗使用 `.ui-overlay`、`.ui-overlay-blocker`、`.ui-dialog-shell` 三层契约：遮罩和阻断层固定覆盖 `100vw × 100vh`，窗口固定在 `50vw / 50vh` 并平移居中。阻断层和窗口必须是同级元素，阻断层在前、窗口在后。**`catchtouchmove="noop"` 只能放在独立阻断层，不能放在普通遮罩、窗口外壳、正文或滚动区祖先上。**
 
-`ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动。只能设置基于视口安全区计算的动态上限，禁止固定内容高度、固定翻页尺度或用固定像素偏移定位；允许 `max-height: calc(100vh - 安全区)` 作为溢出保护。只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
+`ui-dialog-shell--complex` 不代表满屏高度。普通原生滚动正文禁止依赖Flex收缩，实测会出现外部正文与内部滚动视口错配、末按钮滚不到。严格标题/正文/底栏三段使用共享 `--grid`，标题/正文两段用 `--grid-body`，正文/底栏两段用 `--grid-actions`；complex和compact都适用。四段窗口按业务把页签等归入实际标题区，不插空控件凑轨道。外壳与正文随展开收起自然增减，保留 `height:auto` 和共享动态上限；禁止固定普通正文高度、置零等待测量或页面重复计算视口。只有表格、时间表等专业工作区保留 `--viewport` 或 `--wide` 的独立尺寸。纵向滚动区启用 `enhanced`、`scroll-y`、`nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane` 并单独核对滚到末项和手势归属。验收真正滚到底，比较最后字段或按钮的完整矩形与正文可见边界，再操作底栏，不能仅量外框。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
 
 普通 `compact`、`complex` 和符合三段结构的 `grid` 滚动正文均采用上述自然高度；`grid` 仅组织行结构，不规定满屏正文。宿主添加 `ui-dialog-scroll--natural`，已有单内容容器添加 `ui-dialog-scroll-content`；多块内容逐处手写包入一个内容容器，保留条件链、事件、滚动目标和嵌套列表。不得用脚本批量套用。`wide/viewport` 专业工作区继续保留独立的可用高度及键盘缩减，禁止为了短表单修复而取消其稳定工作区。浏览器几何检查和手机尺寸模拟器均不等于实体手机、Pad竖屏、Pad横屏验收。
 

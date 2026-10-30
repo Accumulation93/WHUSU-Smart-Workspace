@@ -102,7 +102,7 @@
   <viewport-portal wx:if="{{pendingPopupVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{pendingPopupVisible}}" bindtap="closePendingPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid-body" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{pendingPopupTitle}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>

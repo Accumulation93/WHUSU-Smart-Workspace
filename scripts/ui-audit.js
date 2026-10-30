@@ -1531,9 +1531,11 @@ const missingStableDialogSystem = !(
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport,\s*\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--wide\s*\{[^}]*height:\s*var\(--ui-dialog-available\)\s*!important;/m.test(GLOBAL_STYLE) &&
   // 普通网格不能把短内容撑成满屏，专业工作区仍在上一项独立检查。
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--grid,\s*\.ui-sheet-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--grid\s*\{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-shell--grid-body\s*\{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\);[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-shell--grid-actions\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto;[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-body[\s\S]{0,600}?\{[^}]*flex:\s*0\s+1\s+auto\s*!important;[^}]*height:\s*auto\s*!important;[^}]*max-height:\s*calc\(var\(--ui-dialog-available\)[^}]*\}/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*auto\s*!important;[^}]*max-height:\s*calc\(var\(--ui-dialog-available\)/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-shell--grid-body\s*>\s*\.ui-dialog-body\s*\{[^}]*height:\s*auto\s*!important;[^}]*max-height:\s*calc\(var\(--ui-dialog-available\)/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-body\.ui-dialog-scroll--natural\s*\{[^}]*padding-top:\s*0;[^}]*padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-sheet-overlay\s+\.ui-dialog-scroll-content\s*\{[^}]*padding-top:\s*var\(--ui-dialog-body-padding[^}]*padding-bottom:\s*var\(--ui-dialog-body-padding/m.test(GLOBAL_STYLE) &&
   !/\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*max-height:\s*calc\(100vh\s*-\s*\d/m.test(GLOBAL_STYLE)

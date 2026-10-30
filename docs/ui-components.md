@@ -70,7 +70,9 @@
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
 | `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
 | `.ui-dialog-header` / `.ui-dialog-body` / `.ui-dialog-footer` | 固定标题、可滚动正文、固定操作区 | 长表单、人员选择、审批步骤和详情 |
-| `.ui-dialog-shell--complex.ui-dialog-shell--grid` | 三段式长列表的共享 Grid 高度分配 | 仅标题、直接 `scroll-view.ui-dialog-body`、底栏三个直接子级；普通外壳和正文均自然 `height:auto`，共享动态上限让出顶栏、安全区与键盘，页面与组件不得另写弹窗几何 |
+| `.ui-dialog-shell--grid` | complex/compact三段普通窗口 | 标题、直接 `scroll-view.ui-dialog-body`、底栏；自然高度及动态上限由共享实现持有，不依赖Flex收缩 |
+| `.ui-dialog-shell--grid-body` | 标题和正文两段窗口 | 没有底栏时使用，不插空按钮或控件凑三段 |
+| `.ui-dialog-shell--grid-actions` | 正文和底栏两段窗口 | 没有独立标题时使用，不插空标题凑三段 |
 | `.ui-dialog-scroll--natural` / `.ui-dialog-scroll-content` | 普通正文的自然高度与可滚动留白 | 前者加在 `scroll-view.ui-dialog-body`，宿主上下 padding 为 0；全部正文进入唯一直接 `.ui-dialog-scroll-content`，由内层上下 padding 使用 `--ui-dialog-body-padding` |
 | `.ui-dialog-shell--wide` / `.ui-dialog-shell--viewport` | 显式专业工作区 | 独立保持共享可用区高度；不能因普通表单自然高度规则被压缩，也不能为普通长表单随意添加 |
 | `.ui-dialog-inset` | 使用弹窗令牌的对称水平留白 | 弹窗内独立字段、提示和操作行 |
@@ -93,9 +95,9 @@
 
 ## 状态表达
 
-三段式 Grid 变体由 `app.wxss` 维护 `display:grid!important; grid-template-rows:auto minmax(0,1fr) auto`。普通 complex/grid 的高度随内容增长，达到共享动态上限后滚动；禁止组件自行固定正文高度、复制定位，或先置零高度等待测量。节点测量尚未返回或失败时，内容也必须可见。第四段、嵌套滚动和专业工作区须单审。
+普通原生滚动正文必须按实际两段或三段结构采用上述共享Grid，禁止继续通过Flex收缩，否则微信内部视口可能与外框错配、末按钮滚不到。高度随内容增长，达到共享动态上限后滚动；禁止组件固定正文高度、复制定位或置零等待测量。第四段应按业务归入实际标题区等语义段，不插空控件。嵌套滚动单独核对手势和末项，wide/viewport专业工作区独立保留。
 
-接入自然正文时，`ui-dialog-scroll--natural` 的纵向 padding 必须为 0；唯一直接内容容器 `ui-dialog-scroll-content` 承担上下令牌留白，保证最后字段及留白一起滚动。实际验收同时检查宿主与原生内部视口、短内容收缩、展开收起、键盘、末字段和底栏操作。2026-09-30 人事导出等旧窗口的观察仅适用于记录中的实现，不能推定所有 auto 高度失效，也不能宣布新样式或三档设备均已通过。
+接入自然正文时，`ui-dialog-scroll--natural` 的纵向 padding 必须为 0；唯一直接内容容器 `ui-dialog-scroll-content` 承担上下令牌留白。验收必须真正滚到底，对比最后字段或按钮完整矩形与原生可见正文边界，并点击底栏；另查短内容收缩、展开收起和键盘。只量外框、浏览器或手机尺寸模拟器不能证明实体手机和Pad通过；旧窗口通过也不能代替本轮验证。
 
 - 蓝色：当前选择、主要动作、处理中。
 - 绿色：已完成、已绑定、可用。

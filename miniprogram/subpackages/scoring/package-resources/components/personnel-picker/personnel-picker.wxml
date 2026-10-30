@@ -1,7 +1,7 @@
 <viewport-portal wx:if="{{visible}}">
   <view class="personnel-picker-overlay ui-overlay">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="personnel-picker-shell popup-card ui-dialog-shell ui-dialog-shell--complex">
+    <view class="personnel-picker-shell popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid">
       <view class="personnel-picker-header popup-header ui-dialog-header">
         <view class="personnel-picker-title popup-title">{{title}}</view>
         <text class="personnel-picker-close popup-close ui-motion-chip" catchtap="cancelSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.close}}</text>

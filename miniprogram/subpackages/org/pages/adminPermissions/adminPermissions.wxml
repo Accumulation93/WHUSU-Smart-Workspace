@@ -42,7 +42,7 @@
   <viewport-portal wx:if="{{editorVisible}}">
   <view class="permission-overlay ui-overlay" wx:if="{{editorVisible}}">
     <view class="permission-mask ui-overlay-blocker" bindtap="closeEditor" catchtouchmove="noop"></view>
-    <view class="permission-dialog hit-area ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+    <view class="permission-dialog hit-area ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="permission-dialog-header ui-dialog-header">
         <view>
           <view class="permission-dialog-eyebrow">{{selectedAdmin.adminLevelLabel}}</view>
