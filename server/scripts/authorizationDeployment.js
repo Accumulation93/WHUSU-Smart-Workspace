@@ -14,6 +14,19 @@ function assertProtocol(marker, minimum) {
   if (!Number.isInteger(minimum) || minimum < 1 || !marker || !Number.isInteger(marker.version) || marker.version < minimum) throw Error('authorization_release_incompatible');
 }
 
+function assertActivationReady(marker) {
+  if (marker?.activationReady !== true) throw Error('authorization_release_not_ready');
+}
+
+function readReleaseProtocol(directory, sha, minimum = 1) {
+  const committed = git(directory, ['show', sha + ':server/authorization-protocol.json']);
+  const installed = fs.readFileSync(path.join(directory, 'server/authorization-protocol.json'), 'utf8').trim();
+  if (installed !== committed) throw Error('authorization_release_marker_modified');
+  const marker = JSON.parse(committed);
+  assertProtocol(marker, minimum);
+  return marker;
+}
+
 function assertRouteCoverage() {
   const routes = require('../src/core/services/adminPermissions').ROUTE_RULES;
   const registration = require('../src/core/models/authorizationBusinessRoute');
@@ -26,8 +39,7 @@ function readRelease(directory, expectedSha, minimum = 1) {
   if (!SHA.test(expectedSha || '')) throw Error('authorization_release_sha_invalid');
   const resolved = fs.realpathSync(directory);
   if (git(resolved, ['rev-parse', 'HEAD']) !== expectedSha) throw Error('authorization_release_sha_mismatch');
-  const marker = JSON.parse(fs.readFileSync(path.join(resolved, 'server/authorization-protocol.json'), 'utf8'));
-  assertProtocol(marker, minimum);
+  readReleaseProtocol(resolved, expectedSha, minimum);
   for (const relative of ['server/src/core/services/authorizationSession.js', 'server/src/core/models/authorizationCutover.js',
     'server/scripts/authorizationDeployment.js', 'server/node_modules/mysql2/package.json']) {
     if (!fs.statSync(path.join(resolved, relative)).isFile()) throw Error('authorization_release_incomplete');
@@ -72,6 +84,8 @@ function verifyRuntime({ compatibleSha, fallbackSha, protocol }, options = {}) {
   const currentLink = options.current || process.env.WHUSU_SMART_WORKSPACE_CURRENT_LINK || '/home/ubuntu/whusu-smart-workspace-current';
   if (compatibleSha === fallbackSha) throw Error('authorization_independent_fallback_required');
   const current = readRelease(path.join(releases, compatibleSha), compatibleSha, protocol);
+  // 首次启用资格只检查当前版本；仅能解释新规则的第一版仍可作为兼容回退。
+  assertActivationReady(readReleaseProtocol(current, compatibleSha, protocol));
   readRelease(path.join(releases, fallbackSha), fallbackSha, protocol);
   git(current, ['merge-base', '--is-ancestor', fallbackSha, compatibleSha]);
   if (fs.realpathSync(currentLink) !== current) throw Error('authorization_current_release_mismatch');
@@ -123,4 +137,4 @@ if (require.main === module) main().catch(error => {
   process.exitCode = 1;
 });
 
-module.exports = { assertProtocol, assertRouteCoverage, assertGitRelease, assertProcesses, readRelease, readTransition, verifyRuntime };
+module.exports = { assertProtocol, assertActivationReady, readReleaseProtocol, assertRouteCoverage, assertGitRelease, assertProcesses, readRelease, readTransition, verifyRuntime };

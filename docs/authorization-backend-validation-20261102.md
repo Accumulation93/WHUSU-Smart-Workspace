@@ -42,3 +42,7 @@
 原始日志保存在本机临时目录 `whusu-backend-final-20261102.log`、`whusu-backend-final-20261102-summary.log` 和 `whusu-backend-final-20261102-recheck.log`。复验保留账号治理撤权、旧接口零副作用、跨组织隔离、800 行表格真实导出，以及 3 步 PDF 实际签署与验签。
 
 人事前端方法检查 `hr-profile-export-test.js`、`hr-template-save-continuation-test.js` 和 `hr-template-switch-suggestion-test.js` 三项再次通过，包含 255 列导出选择和真实 Behavior 方法。岗位性质的新增、仅创建权目录最小返回、岗位保存与重新读取由 `authorizationIntegration.test.js` 的真实 HTTP 参数链验证；ROOT 已确认最终复跑通过。前述检查不代替微信现场操作、实体设备或生产发布。
+
+## 首份兼容发布的完整本机CI
+
+提交 `4de58692095a29ebd489186e1aa81826cb2a8d1b` 的完整本机CI最终退出0，972项浏览器检查全部通过（14.5分钟），代码、原生单元、服务端、隔离数据库与官方依赖审计一并完成。Git notes的本机签名证明已通过 `readVerified` 核验。日志为本机临时目录 `authorization-full-ci-20261102-r7.log`；先前失败轮次没有证明，不能用于发布。此记录只证明该提交通过验证，不等于已推送或上线；正式启用版及生产结果分别确认。

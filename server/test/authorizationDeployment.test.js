@@ -18,6 +18,10 @@ test('授权切换要求全部实际进程运行兼容版本，不能只检查PM
   assert.throws(() => tool.assertProcesses(processes, current, pid => pid === 11 ? 'old-release/server' : cwd()), /old_process/);
   assert.throws(() => tool.assertProcesses(processes.map(item => ({ ...item, pm2_env: { status: 'launching' } })), current, cwd), /not_online/);
   assert.throws(() => tool.assertProtocol({ version: 0 }, 1), /incompatible/);
+  for (const activationReady of [undefined, false, 'true', 1]) {
+    assert.throws(() => tool.assertActivationReady({ version: 1, activationReady }), /not_ready/);
+  }
+  tool.assertActivationReady({ version: 1, activationReady: true });
   assert(tool.assertRouteCoverage() > 100);
 });
 
@@ -32,6 +36,12 @@ test('授权启用后拒绝无协议旧提交和删解释器的提交，允许�
     write('server/authorization-protocol.json', '{"version":1}');
     for (const file of ['server/scripts/authorizationDeployment.js', 'server/src/core/services/authorizationSession.js', 'server/src/core/models/authorizationCutover.js']) write(file, 'module.exports = {};');
     const compatible = commit('兼容版本');
+    assert.equal(tool.readReleaseProtocol(directory, compatible).version, 1);
+    assert.throws(() => tool.assertActivationReady(tool.readReleaseProtocol(directory, compatible)), /not_ready/);
+    write('server/authorization-protocol.json', '{"version":1,"activationReady":true}');
+    assert.throws(() => tool.readReleaseProtocol(directory, compatible), /marker_modified/);
+    const ready = commit('允许首次启用');
+    tool.assertActivationReady(tool.readReleaseProtocol(directory, ready));
     const state = { phase: 'enforced', minimum_protocol: 1, fallback_sha: compatible };
     assert.throws(() => tool.assertGitRelease(state, directory, old));
     tool.assertGitRelease(state, directory, compatible);
