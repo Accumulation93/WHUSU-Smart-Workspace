@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const pool = require('../../config/db');
 const identity = require('./unifiedIdentity');
+const authorization = require('./identityCardAuthorization');
 const copy = require('../../locales/zh-CN/identityCard');
 const digest = token => crypto.createHash('sha256').update(token).digest('hex');
 function present(context) {
@@ -13,19 +14,21 @@ async function current(connection, accountId, contextId, orgId) {
   const contexts = await identity.listContexts(accountId, connection);
   return contexts.find(item => item.contextId === contextId && item.organizationId === orgId) || null;
 }
-async function mine(accountId, actor) {
+async function mine(accountId, actor, reference, actions = ['read']) {
   return pool.withTransaction(async connection => {
+    if (!await authorization.current(connection, reference, actor, actions)) return { valid: false };
     const context = await current(connection, accountId, actor.contextId, actor.organizationId);
     return context ? { valid: true, card: present(context) } : { valid: false };
   });
 }
-async function issue(accountId, actor, createImage) {
+async function issue(accountId, actor, createImage, reference) {
   const token = crypto.randomBytes(16).toString('hex');
-  const before = await mine(accountId, actor);
+  const before = await mine(accountId, actor, reference, ['read', 'create', 'verify']);
   if (!before.valid) return { valid: false };
   const generated = await createImage(token);
   const images = typeof generated === 'string' ? { image: generated } : { image: generated.image, verificationImage: generated.verificationImage };
   return pool.withTransaction(async connection => {
+    if (!await authorization.current(connection, reference, actor, ['read', 'create', 'verify'])) return { valid: false };
     const context = await current(connection, accountId, actor.contextId, actor.organizationId);
     if (!context) return { valid: false };
     await connection.query('DELETE FROM identity_cards WHERE account_id = ? AND org_id = ? AND expires_at <= UTC_TIMESTAMP(3)', [accountId, actor.organizationId]);
@@ -37,9 +40,7 @@ async function issue(accountId, actor, createImage) {
 async function verify(token) {
   if (typeof token !== 'string' || !/^[a-f0-9]{32}$/.test(token)) return { valid: false };
   return pool.withTransaction(async connection => {
-    const [rows] = await connection.query('SELECT account_id, org_id, context_id FROM identity_cards WHERE token_hash = ? AND expires_at > UTC_TIMESTAMP(3)', [digest(token)]);
-    if (!rows.length) return { valid: false };
-    const row = rows[0], context = await current(connection, row.account_id, row.context_id, row.org_id);
+    const context = await authorization.publicCard(connection, digest(token));
     return context ? { valid: true, card: present(context), checkedAt: new Date().toISOString() } : { valid: false };
   });
 }

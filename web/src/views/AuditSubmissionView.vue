@@ -270,7 +270,7 @@ async function openNextPicker(){
 function confirmNextPicker(rows){selectedNext.value=rows;if(draft.value)draft.value.designatedNext=clone(rows);pickerVisible.value=false;}
 
 const canWithdraw = computed(() => {
-  if (!detail.value || detail.value.userIsSubmitter !== true) return false;
+  if (!detail.value || detail.value.userIsSubmitter !== true || detail.value.canWithdrawSubmission === false) return false;
   return submission.value.status === 'in_progress' || submission.value.status === 'rejected';
 });
 

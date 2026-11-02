@@ -35,7 +35,8 @@ function actorOrganizationId(actor) {
 function assertActorAuthorization(actor, scope, organizationId) {
   const personId = actorPersonId(actor);
   const adminLevel = safeString(actor && (actor.adminLevel || actor.admin_level));
-  if (!personId || !['admin', 'super_admin'].includes(adminLevel)) {
+  if (!personId || (!['admin', 'super_admin'].includes(adminLevel)
+    && !(scope === MEMBERSHIP_SCOPE && actor.businessDeletionAuthorized === true))) {
     throw new HrMemberDeletionError('hr_member_deletion_forbidden', 403);
   }
   if (scope === PERSON_SCOPE && adminLevel !== 'super_admin') {
@@ -343,14 +344,14 @@ async function previewHrMemberDeletion(data, actor) {
     // 存在业务历史、但没有触碰安全红线时，允许管理员确认后强行删除：
     // 业务记录全部保留，只把本人引用匿名化（原学号线索仅超管可查看）。
     canForce: state.blockers.length > 0 && safetyBlocks.length === 0,
-    target: publicTarget(state),
+    target: actor.hideProtectedIdentity ? { name: safeString(state.person.name), membershipCount: 1, organizationCount: 1 } : publicTarget(state),
     version,
     blockers: publicCountItems(state.blockers),
     safetyBlocks,
     cleanupImpact: publicCountItems(state.cleanupImpact),
     requiresCleanupAcceptance: state.cleanupImpact.length > 0,
     affectedRules: state.ruleImpact,
-    organizations: state.allMemberships.map((item) => ({
+    organizations: state.allMemberships.filter(item => scope === PERSON_SCOPE || safeString(item.org_id) === safeString(data.organizationId)).map((item) => ({
       organizationId: safeString(item.org_id),
       organizationName: safeString(item.organization_name),
       membershipStatus: safeString(item.status),

@@ -7,6 +7,11 @@ const { saveAndShareFile } = require('../../../package-resources/utils/tableFile
 const orgSession = require('../../../../../utils/orgSession');
 const designationCandidateView = require('./designationCandidateView');
 
+function canPublish(page, action) {
+  if (page.data.authorizationEnforced) return (page.data.actionCapabilities || {})['scoring.publications.' + action] === true;
+  return page.data.isSuperAdmin || (page.data.user && page.data.user.permissions || {})[action === 'delete' ? 'scoring.publications.delete' : 'scoring.publications'] === true;
+}
+
 function emptyMeritSummaryState() {
   return {
     meritSummaryGroups: [],
@@ -50,6 +55,7 @@ module.exports = Behavior({
           || String((this.data.publicationForm && this.data.publicationForm.activityId) || '') !== selectedActivityId) return;
         if (result.status === 'success') {
           const pub = result.publication;
+          if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [] });
           const viewRules = result.viewRules || [];
           const meritRules = result.meritRules || [];
           this.setData({
@@ -90,7 +96,7 @@ module.exports = Behavior({
       }
       if (orgSession.isRequestCurrent(this, request)) this.setLoading('publications', false);
     },
-  
+
     // ─── Merit list summary (Feature 5) ───,
 
     async loadMeritListSummary(activityIdOverride) {
@@ -172,6 +178,7 @@ module.exports = Behavior({
     },
 
     async exportMeritListSummary() {
+      if (!canPublish(this, 'export')) return;
       const activityId = this.data.publicationForm.activityId;
       if (!activityId) { wx.showToast({ title: localeCopy.copy_c5ed87fa11, icon: 'none' }); return; }
       this.setLoading('exportMeritSummary', true);
@@ -191,7 +198,7 @@ module.exports = Behavior({
       } catch (e) { wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' }); }
       this.setLoading('exportMeritSummary', false);
     },
-  
+
     // ─── Grade band expand/collapse (Feature 4) ───,
 
     toggleGradeBandExpand(e) {
@@ -208,7 +215,7 @@ module.exports = Behavior({
       for (let i = 0; i < gradeName.length; i++) hash = ((hash << 5) - hash) + gradeName.charCodeAt(i);
       return palette[Math.abs(hash) % palette.length];
     },
-  
+
     // ─── Publication toggle ───,
 
     async onPublicationActivityChange(e) {
@@ -235,6 +242,7 @@ module.exports = Behavior({
     onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },
 
     async savePublication() {
+      if (!canPublish(this, this.data.publicationForm.id ? 'update' : 'create')) return;
       const form = this.data.publicationForm;
       if (!form.activityId) { wx.showToast({ title: localeCopy.copy_21368b3e76, icon: 'none' }); return; }
       this.setLoading('savePublication', true);
@@ -247,7 +255,7 @@ module.exports = Behavior({
       } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('savePublication', false);
     },
-  
+
     // ─── View Rule Filters ───,
 
     rebuildPubViewRuleFilters(list) {
@@ -293,7 +301,7 @@ module.exports = Behavior({
       if (next.identity && next.identity !== localeCopy.copy_31d4595959) list = list.filter(r => r.granteeIdentity === next.identity);
       this.setData({ pubMeritRuleListView: list, pubMeritRuleSelectedIds: {}, pubMeritRuleAllSelected: false });
     },
-  
+
     // ─── View Rule Category CRUD ───,
 
     startNewPubViewRule() {
@@ -301,6 +309,7 @@ module.exports = Behavior({
     },
 
     editPubViewRule(e) {
+      if (!canPublish(this, 'update')) return;
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubViewRuleList.find(r => r.id === id);
       if (!rule) return;
@@ -308,6 +317,7 @@ module.exports = Behavior({
     },
 
     async savePubViewRule() {
+      if (!canPublish(this, this.data.pubViewRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubViewRuleForm;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
@@ -321,12 +331,13 @@ module.exports = Behavior({
     },
 
     async deletePubViewRule(e) {
+      if (!canPublish(this, 'delete')) return;
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
       wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_1c746ef3fb, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
     },
-  
+
     // ─── View Rule Clause Editor ───,
 
     openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': localeCopy.copy_9a4a6e8793, 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
@@ -336,7 +347,7 @@ module.exports = Behavior({
     onPubViewClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubViewRuleForm.clauseScopeType': scope.value, 'pubViewRuleForm.clauseScopeLabel': scope.label }); },
 
     onPubViewClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.clauseTargetIdentityId': ident.id, 'pubViewRuleForm.clauseTargetIdentity': ident.name }); },
-  
+
     // ─── Per-clause display mode & grade band handlers ───,
 
     onPubViewClauseDisplayModeChange(e) {
@@ -399,13 +410,14 @@ module.exports = Behavior({
     onPubViewRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubViewRuleForm.granteeDepartmentId': dept.id, 'pubViewRuleForm.granteeDepartment': dept.name }); },
 
     onPubViewRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
-  
+
     // ─── View Rule Category List batch ops ───
     togglePubViewRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
     toggleSelectAllPubViewRules() { const allSel = !this.data.pubViewRuleAllSelected; const map = {}; if (allSel) this.data.pubViewRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
     reverseSelectPubViewRules() { const map = {}; this.data.pubViewRuleListView.forEach(r => { map[r.id] = !this.data.pubViewRuleSelectedIds[r.id]; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: this.data.pubViewRuleListView.every(r => map[r.id]) }); },
 
     async batchDeletePubViewRules() {
+      if (!canPublish(this, 'delete')) return;
       const ids = Object.keys(this.data.pubViewRuleSelectedIds).filter(id => this.data.pubViewRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
@@ -424,7 +436,7 @@ module.exports = Behavior({
         await that.loadPublicationData(that.data.publicationForm.activityId);
       } });
     },
-  
+
     // ─── Merit Rule Category CRUD ───,
 
     startNewPubMeritRule() {
@@ -432,6 +444,7 @@ module.exports = Behavior({
     },
 
     editPubMeritRule(e) {
+      if (!canPublish(this, 'update')) return;
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubMeritRuleList.find(r => r.id === id);
       if (!rule) return;
@@ -439,6 +452,7 @@ module.exports = Behavior({
     },
 
     async savePubMeritRule() {
+      if (!canPublish(this, this.data.pubMeritRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubMeritRuleForm;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
@@ -452,12 +466,13 @@ module.exports = Behavior({
     },
 
     async deletePubMeritRule(e) {
+      if (!canPublish(this, 'delete')) return;
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
       wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_323c50bf75, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
     },
-  
+
     // ─── Merit Rule Clause Editor ───,
 
     openPubMeritClauseEditor() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': localeCopy.copy_9a2854d17d, 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
@@ -488,13 +503,14 @@ module.exports = Behavior({
     onPubMeritRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubMeritRuleForm.granteeDepartmentId': dept.id, 'pubMeritRuleForm.granteeDepartment': dept.name }); },
 
     onPubMeritRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.granteeIdentityId': ident.id, 'pubMeritRuleForm.granteeIdentity': ident.name }); },
-  
+
     // ─── Merit Rule Category List batch ops ───
     togglePubMeritRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubMeritRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubMeritRuleListView.every(r => map[r.id]); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
     toggleSelectAllPubMeritRules() { const allSel = !this.data.pubMeritRuleAllSelected; const map = {}; if (allSel) this.data.pubMeritRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
     reverseSelectPubMeritRules() { const map = {}; this.data.pubMeritRuleListView.forEach(r => { map[r.id] = !this.data.pubMeritRuleSelectedIds[r.id]; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: this.data.pubMeritRuleListView.every(r => map[r.id]) }); },
 
     async batchDeletePubMeritRules() {
+      if (!canPublish(this, 'delete')) return;
       const ids = Object.keys(this.data.pubMeritRuleSelectedIds).filter(id => this.data.pubMeritRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
@@ -513,10 +529,11 @@ module.exports = Behavior({
         await that.loadPublicationData(that.data.publicationForm.activityId);
       } });
     },
-  
+
     // ─── Generate default categories ───,
 
     async generatePubViewRules() {
+      if (!canPublish(this, 'create')) return;
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubViewRules', true);
@@ -538,6 +555,7 @@ module.exports = Behavior({
     },
 
     async generatePubMeritRules() {
+      if (!canPublish(this, 'create')) return;
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubMeritRules', true);
@@ -557,17 +575,18 @@ module.exports = Behavior({
       } catch (e) { wx.showToast({ title: localeCopy.copy_9662ceba48, icon: 'none' }); }
       this.setLoading('generatePubMeritRules', false);
     },
-  
+
     // ─── Designation Picker (uses clauseId) ───,
 
     async openDesignationPicker(e) {
+      if (!canPublish(this, 'update')) return;
       const ds = e.currentTarget.dataset;
       const clauseId = ds.clauseId; const pubId = ds.pubId;
       if (!clauseId || !pubId) { wx.showToast({ title: localeCopy.copy_157f5cd8f8, icon: 'none' }); return; }
-  
+
       // Show popup immediately with loading state
       this.setData({ showDesignationPicker: true, designationPickerClauseId: clauseId, designationPickerPubId: pubId, designationPickerHrList: [], designationPickerFilteredList: [], designationPickerSelectedIds: [], designationPickerSelectedList: [], desigSearchKeyword: '', desigFilterDept: localeCopy.copy_31d4595959, desigFilterIdent: localeCopy.copy_31d4595959, desigFilterDeptOptions: [localeCopy.copy_31d4595959], desigFilterIdentOptions: [localeCopy.copy_31d4595959] });
-  
+
       try {
         // Reload publication data to get latest clause info and designations
         await this.loadPublicationData(this.data.publicationForm.activityId);
@@ -583,12 +602,12 @@ module.exports = Behavior({
         }
         const clause = allClauses.find(c => c.id === clauseId);
         if (!clause) { wx.showToast({ title: localeCopy.copy_02e1583d4a, icon: 'none' }); this.setData({ showDesignationPicker: false }); return; }
-  
+
         const granteeDeptId = clause.granteeDepartmentId || '';
         const granteeIdentityId = clause.granteeIdentityId || '';
         const scopeType = clause.scopeType || 'all_people';
         const targetIdentityId = clause.targetIdentityId || '';
-  
+
         const assignmentCandidates = (this.data.publicationAssignmentCandidates || []).map(function(candidate) {
           return { ...candidate, hrId: candidate.targetHrId || '' };
         });
@@ -684,6 +703,7 @@ module.exports = Behavior({
     onDesigSearchInput(e) { const keyword = e.detail.value; this.setData({ desigSearchKeyword: keyword, designationPickerFilteredList: this.applyDesigFilters(null, { keyword }) }); },
 
     async saveDesignations() {
+      if (!canPublish(this, 'update')) return;
       const clauseId = this.data.designationPickerClauseId;
       const pubId = this.data.designationPickerPubId;
       const assignmentIds = this.data.designationPickerSelectedIds;
@@ -715,10 +735,11 @@ module.exports = Behavior({
     toggleSelectAllBatch() { /* kept for compatibility */ },
 
     reverseSelectBatch() { /* kept for compatibility */ },
-  
+
     // Batch save: apply current view clauses to selected view rule categories,
 
     async batchSavePubViewRules() {
+      if (!canPublish(this, 'update')) return;
       if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
@@ -748,10 +769,11 @@ module.exports = Behavior({
         this.setData({ pubBatchRunning: false });
       }
     },
-  
+
     // Batch save: apply current merit clauses to selected merit rule categories,
 
     async batchSavePubMeritRules() {
+      if (!canPublish(this, 'update')) return;
       if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }

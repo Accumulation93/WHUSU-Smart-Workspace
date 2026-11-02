@@ -12,8 +12,8 @@ const MAX_TIMER_DELAY = 2147483000;
 
 function decorateBooking(rawBooking) {
   const detail = prepareVenueBookingDetail(Object.assign({}, rawBooking || {}, { displayStatus: '' }));
-  detail._canCancel = detail.displayStatus === 'pending' || detail.displayStatus === 'approved';
-  detail._canEnd = detail.displayStatus === 'inUse';
+  detail._canCancel = detail.canCancel !== false && (detail.displayStatus === 'pending' || detail.displayStatus === 'approved');
+  detail._canEnd = detail.canEnd !== false && detail.displayStatus === 'inUse';
   return detail;
 }
 

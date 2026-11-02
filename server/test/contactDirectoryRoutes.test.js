@@ -7,6 +7,10 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 const model = require('../src/core/models/contactDirectory');
 const access = require('../src/core/services/adminOrganizationAccess');
 const permissions = require('../src/core/services/adminPermissions');
+const businessRoute = require('../src/core/models/authorizationBusinessRoute');
+businessRoute.requireLegacyWrite = async (connection, organizationId) => {
+  assert.equal(connection, 'transaction'); assert.equal(organizationId, 'current-org');
+};
 async function main() {
   const calls = [];
   access.requireAdminOrganizationPermission = async (req, orgId, keys, connection) => {

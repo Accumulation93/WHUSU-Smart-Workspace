@@ -33,7 +33,7 @@ vm.runInNewContext(source, { module: {}, Behavior(value) { behavior = value; ret
   await new Promise(resolve => setImmediate(resolve));
   await page.confirmStampGrants({ detail: { keys: [] } });
   assert.strictEqual(requests[requests.length - 1].data.assignmentIds.length, 0, '确认空选择用于清空');
-  const wxml = fs.readFileSync(path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
+  const wxml = require('./lib/miniprogramSource').readMarkup(path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/admin.wxml'));
   assert(wxml.includes('bindtap="openStampGrants"') && wxml.includes('visible="{{stampGrantVisible}}"'));
   assert(wxml.includes('list-item list-item-stacked audit-stamp-card'), '印章外卡必须纵向分隔摘要和操作栏');
   assert(!wxml.includes('wx:for="{{item.assignedPeople}}"'), '外卡不得展示可用人明细');

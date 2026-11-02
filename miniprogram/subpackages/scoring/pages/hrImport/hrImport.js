@@ -8,7 +8,6 @@ const messageQueries = require('../../../../utils/messageQueries');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 const BASIC = ['name', 'studentId', 'nature', 'department', 'identity', 'workGroup', 'assignmentId', 'assignmentVersion'];
-const NATURES = ['', 'staff', 'liaison', 'other'];
 const clone = value => JSON.parse(JSON.stringify(value));
 const normalizedHeader = value => String(value || '').trim().replace(/\s+/g, '').replace(/（/g, '(').replace(/）/g, ')');
 function actionLabel(action) {
@@ -27,7 +26,7 @@ function readable(value) {
 Page({
   data: {
     copy, navigationTitle: copy.navigationTitle, navTopPx: 0, busy: false, metadataLoading: false, busyText: '', error: '', stage: 'file', fileSummary: '',
-    mappings: [], mappingOptions: [], natureOptions: NATURES.map(key => key ? copy[key] : copy.chooseNature), natureIndex: 0,
+    mappings: [], mappingOptions: [], natureOptions: [copy.chooseNature], natureValues: [''], natureIndex: 0,
     fields: [], categories: [], category: '', view: 'open', items: [], hasMore: false, total: 0,
     summaryText: '', executionText: '', canExecute: false, selectedCount: 0, selectedText: '', batchOptions: [],
     pickerVisible: false, pickerOptions: [], pickerValue: [], pickerContext: '', contextSwitchGuardVisible: false,
@@ -57,7 +56,7 @@ Page({
     this._file = null; this._sourceRows = null; this._previewId = ''; this._decisions = { rows: {}, dictionaries: [], sources: {} }; this._selected.clear(); this._views = {}; this._completeIssueRows = new Map(); this._offsets = {};
     this._metadata = null; this._mappingOptions = null;
     this._pendingActions = null; this._pendingScope = null; this._editingRow = null; this._editorClears = {};
-    this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], fileSummary: '', editor: null, editorOptions: [], confirmAction: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
+    this.setData({ stage: 'file', items: [], categories: [], fields: [], mappings: [], natureOptions: [copy.chooseNature], natureValues: [''], natureIndex: 0, fileSummary: '', editor: null, editorOptions: [], confirmAction: null, requestId: '', completed: false, pickerVisible: false, contextSwitchGuardVisible: false, error: '', canExecute: false });
   },
   restart() { if (this.data.completed) this.resetSession(); },
   async api(name, data) {
@@ -73,7 +72,12 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       this._metadata = result;
       this._mappingOptions = [{ key: '', label: copy.ignore }].concat(BASIC.map(key => ({ key, label: copy[key] })), result.fields.map(field => ({ key: 'profile:' + field.id, label: field.label })));
-      this.setData({ mappingOptions: this._mappingOptions, fields: result.fields });
+      const selectedNature = this.data.natureValues[this.data.natureIndex];
+      const natures = result.natures || [];
+      const natureValues = [''].concat(natures.map(item => item.id));
+      this.setData({ mappingOptions: this._mappingOptions, fields: result.fields,
+        natureValues, natureOptions: [copy.chooseNature].concat(natures.map(item => item.name)),
+        natureIndex: Math.max(0, natureValues.indexOf(selectedNature)) });
     } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ metadataLoading: false }); }
   },
@@ -123,7 +127,7 @@ Page({
       else if (item.target) basicMapping[item.target] = item.index;
     });
     return { schemaVersion: 2, headers: this._file.headers, rows: this._file.rows, rowNumbers: this._file.rowNumbers, basicMapping, extensionMapping,
-      defaultNature: NATURES[this.data.natureIndex], decisions: this._decisions, previousPreviewId: this._previewId || '' };
+      defaultNature: this.data.natureValues[this.data.natureIndex] || '', decisions: this._decisions, previousPreviewId: this._previewId || '' };
   },
   async preview(progressText) {
     if (this.data.busy || !this._file || this.data.requestId) return;
@@ -368,8 +372,8 @@ Page({
     const type = event.currentTarget.dataset.type;
     const actions = [];
     this.data.items.filter(item => this._selected.has(item.id)).forEach(item => {
-      if (type === 'nature' && item.category === 'incomplete' && NATURES[this.data.natureIndex]) {
-        item.rowNumbers.forEach(rowNumber => actions.push({ type: 'nature', rowNumber, value: NATURES[this.data.natureIndex] })); return;
+      if (type === 'nature' && item.category === 'incomplete' && this.data.natureValues[this.data.natureIndex]) {
+        item.rowNumbers.forEach(rowNumber => actions.push({ type: 'nature', rowNumber, value: this.data.natureValues[this.data.natureIndex] })); return;
       }
       const found = item.actions.find(action => (type === 'keep' || type === 'replace') ? action.type === 'policy' && action.value === type : action.type === type);
       if (found) actions.push(found);
@@ -459,7 +463,7 @@ Page({
       if (mode === 'select') this.setData({ pickerVisible: true, pickerOptions: result.row.candidates, pickerValue: result.row.decision.assignmentIds || [], pickerContext: result.row.name });
       else {
         const editor = { rowNumber, name: result.row.name, values: Object.assign({}, result.row.values, result.row.decision.values || {}),
-          natureIndex: Math.max(0, NATURES.indexOf(result.row.decision.values && result.row.decision.values.nature || result.row.values.nature)), profile: [] };
+          natureIndex: Math.max(0, this.data.natureValues.indexOf(result.row.decision.values && result.row.decision.values.nature || result.row.values.nature)), profile: [] };
         this.data.mappings.filter(item => item.target.indexOf('profile:') === 0).forEach(item => {
           const id = item.target.slice(8); const field = this.data.fields.find(entry => entry.id === id);
           const sourceIndex = this._file.rowNumbers ? this._file.rowNumbers.indexOf(rowNumber) : rowNumber - 2;
@@ -504,7 +508,8 @@ Page({
     if (value != null) this.editValue({ currentTarget: { dataset: { field } }, detail: { value } });
   },
   editProfile(event) { const index = Number(event.currentTarget.dataset.index); if (this._editorClears) delete this._editorClears[this.data.editor.profile[index].id]; this.setData({ ['editor.profile[' + index + '].value']: event.detail.value }); },
-  editNature(event) { const index = Number(event.detail.value); this.setData({ 'editor.natureIndex': index, 'editor.values.nature': NATURES[index] }); },
+  editNature(event) { const index = Number(event.detail.value); if (!Number.isInteger(index) || index < 0 || index >= this.data.natureValues.length) return;
+    this.setData({ 'editor.natureIndex': index, 'editor.values.nature': this.data.natureValues[index] }); },
   clearValue(event) {
     const field = event.currentTarget.dataset.field;
     this._editorClears = Object.assign({}, this._editorClears, { [field]: true });

@@ -210,7 +210,7 @@ async function getActiveSnapshot(orgId, connection = pool) {
   };
 }
 
-async function saveDefinition(data, operator) {
+async function saveDefinition(data, operator, authorize) {
   const id = safeString(data.id);
   const name = safeString(data.name).trim();
   const description = safeString(data.description).trim();
@@ -221,6 +221,7 @@ async function saveDefinition(data, operator) {
 
   try {
     return await pool.withTransaction(async (connection) => {
+      if (authorize) await authorize(connection);
       const [duplicates] = await connection.query(
         'SELECT id FROM hr_profile_templates WHERE name = ? AND id <> ?',
         [name, id || '']
@@ -252,8 +253,9 @@ async function saveDefinition(data, operator) {
   }
 }
 
-async function duplicateDefinition(templateId, operator) {
+async function duplicateDefinition(templateId, operator, authorize) {
   return pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection);
     const [rows] = await connection.query('SELECT * FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
     if (!rows.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     const source = rows[0];
@@ -290,8 +292,9 @@ async function duplicateDefinition(templateId, operator) {
   });
 }
 
-async function deleteDefinition(templateId) {
+async function deleteDefinition(templateId, authorize) {
   return pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection);
     const [rows] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
     if (!rows.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', [templateId]);
@@ -536,7 +539,7 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
   return result;
 }
 
-async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, confirmDelete, operator, ignoreInvalid) {
+async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, confirmDelete, operator, ignoreInvalid, authorize) {
   let tokenPayload;
   try {
     tokenPayload = decodeToken(switchToken);
@@ -547,6 +550,8 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     return { status: 'stale_switch', message: localeCopy.copy_c482d16146 };
   }
   return pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection);
+    await require('./dictionaryUsage').lockOrganizationDictionaryWrites(orgId, connection);
     await connection.query('SELECT id FROM organizations WHERE id = ? FOR UPDATE', [orgId]);
     const [lockedTemplates] = await connection.query(
       'SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE',
@@ -704,9 +709,12 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
   });
 }
 
-async function saveOrgSettings(orgId, description, editMode, operator) {
+async function saveOrgSettings(orgId, description, editMode, operator, authorize) {
   if (!EDIT_MODES.includes(editMode)) return { status: 'invalid_params', message: localeCopy.copy_83bdbac847 };
-  const [result] = await pool.query(
+  return pool.withTransaction(async connection => {
+  if (authorize) await authorize(connection);
+  await require('./dictionaryUsage').lockOrganizationDictionaryWrites(orgId, connection);
+  const [result] = await connection.query(
     `UPDATE org_hr_profile_template_snapshots
         SET description = ?, edit_mode = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
       WHERE org_id = ?`,
@@ -714,6 +722,7 @@ async function saveOrgSettings(orgId, description, editMode, operator) {
   );
   if (!result.affectedRows) return { status: 'missing_template', message: localeCopy.copy_26261c23fe };
   return { status: 'success' };
+  });
 }
 
 async function currentOrgId() {

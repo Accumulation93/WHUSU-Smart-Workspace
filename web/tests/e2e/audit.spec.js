@@ -132,6 +132,15 @@ test('提交人可以在审批中撤回申请', async ({ page }) => {
   await expect.poll(() => callsOf(api.calls, 'withdrawSubmission').length).toBe(1);
 });
 
+test('提交关系不覆盖服务端明确禁止撤回', async ({ page }) => {
+  const api = await mockApi(page, { detail: { userIsSubmitter: true, canApproveCurrentStep: false, canWithdrawSubmission: false } });
+  await login(page);
+  await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
+  await expect(page.getByRole('heading', { name: '活动室使用申请' })).toBeVisible();
+  await expect(page.getByRole('button', { name: copy.audit.actionWithdraw })).toHaveCount(0);
+  expect(callsOf(api.calls, 'withdrawSubmission')).toHaveLength(0);
+});
+
 test('发起申请会先上传附件再提交申请', async ({ page }) => {
   const api = await mockApi(page);
   await login(page);

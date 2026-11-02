@@ -2,6 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/model
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const lifecycle = require('./notificationLifecycle');
+const authorization = require('./notificationAuthorization');
 
 const RETENTION_DAYS = 30;
 const RECIPIENT_TYPES = new Set(['user', 'admin']);
@@ -132,6 +133,10 @@ async function batchCreate(items, conn) {
 }
 
 async function listForRecipient(actor, options) {
+  return pool.withTransaction(connection => listAuthorized(connection, actor, options));
+}
+
+async function listAuthorized(connection, actor, options) {
   const orgId = await getCurrentOrgId();
   const requestedLimit = parseInt(options.limit, 10) || 20;
   const maxLimit = Math.max(1, Math.min(parseInt(options.maxLimit, 10) || 50, 100));
@@ -140,29 +145,31 @@ async function listForRecipient(actor, options) {
   const beforeId = String(options.beforeId || '');
   const hasBoundary = beforeCreatedAt && !Number.isNaN(beforeCreatedAt.getTime()) && beforeId;
   const personId = requirePerson(actor);
-  const active = await lifecycle.prepare(actor, orgId);
-  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS, personId, JSON.stringify(active.calendar), JSON.stringify(active.scoring)];
+  const access = await authorization.prepare(connection, actor, orgId, options.authorizationReference);
+  const scope = access.scope('read');
+  const active = await lifecycle.prepare(actor, orgId, access.calendarPermissions, connection);
+  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS, personId, JSON.stringify(active.calendar), JSON.stringify(active.scoring), ...scope.params];
   const boundarySql = hasBoundary
     ? ' AND (created_at < ? OR (created_at = ? AND id < ?))'
     : '';
   const rowParams = params.slice();
   if (hasBoundary) rowParams.push(beforeCreatedAt, beforeCreatedAt, beforeId);
   const [countResult, rowsResult] = await Promise.all([
-    pool.query(
+    connection.query(
       `SELECT COUNT(*) AS total,
               COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread_count,
               MIN(created_at) AS oldest_created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql}`,
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql} AND ${scope.sql}`,
       params
     ),
-    options.countOnly ? Promise.resolve([[], []]) : pool.query(
+    options.countOnly ? Promise.resolve([[], []]) : connection.query(
       `SELECT id, type, title, description, category, target_type, target_id, target_url,
               is_read, created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
-          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql}
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND ${visibleSql} AND ${lifecycleSql} AND ${resourceLifecycleSql} AND ${scope.sql}
           ${boundarySql}
         ORDER BY created_at DESC, id DESC
         LIMIT ?`,
@@ -176,78 +183,92 @@ async function listForRecipient(actor, options) {
     items: rows,
     total: Number(countRow.total || 0),
     unreadCount: Number(countRow.unread_count || 0),
-    expiresAt: Math.min(active.expiresAt, countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : Infinity),
+    expiresAt: Math.min(access.expiresAt, active.expiresAt, countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : Infinity),
     offset: 0,
     limit
   };
 }
 
-async function getUnreadCountForRecipient(actor) {
-  const result = await listForRecipient(actor, { countOnly: true });
+async function getUnreadCountForRecipient(actor, options = {}) {
+  const result = await listForRecipient(actor, { ...options, countOnly: true });
   return result.unreadCount;
 }
 
-async function markRead(notificationId, actor) {
+async function markRead(notificationId, actor, options = {}) {
   const orgId = await getCurrentOrgId();
-  const [updateResult] = await pool.query(
+  const result = await pool.withTransaction(async connection => {
+    const access = await authorization.prepare(connection, actor, orgId, options.authorizationReference);
+    const scope = access.scope('read');
+    const [updateResult] = await connection.query(
     `UPDATE notifications SET is_read = 1
-      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND is_read = 0`,
-    [notificationId, orgId, actor.type, actor.id]
+      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND is_read = 0 AND ${scope.sql}`,
+    [notificationId, orgId, actor.type, actor.id, ...scope.params]
   );
   if (updateResult.affectedRows > 0) {
-    return { found: true, changed: true, unreadCount: await getUnreadCountForRecipient(actor) };
+    return { found: true, changed: true };
   }
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT is_read FROM notifications
-      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? LIMIT 1`,
-    [notificationId, orgId, actor.type, actor.id]
+      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND ${scope.sql} LIMIT 1`,
+    [notificationId, orgId, actor.type, actor.id, ...scope.params]
   );
-  if (!rows.length) return { found: false, changed: false, unreadCount: null };
-  return { found: true, changed: false, unreadCount: await getUnreadCountForRecipient(actor) };
+    return { found: rows.length > 0, changed: false };
+  });
+  return { ...result, unreadCount: result.found ? await getUnreadCountForRecipient(actor, options) : null };
 }
 
-async function deleteById(notificationId, actor) {
+async function deleteById(notificationId, actor, options = {}) {
   const orgId = await getCurrentOrgId();
   const personId = requirePerson(actor);
   const found = await pool.withTransaction(async (conn) => {
+    const access = await authorization.prepare(conn, actor, orgId, options.authorizationReference);
+    const scope = access.scope('delete');
     const [rows] = await conn.query(
       `SELECT ${eventHashSql} AS event_hash FROM notifications
-        WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? FOR UPDATE`,
-      [notificationId, orgId, actor.type, actor.id, 'pending_approval']);
+        WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND ${scope.sql} FOR UPDATE`,
+      [notificationId, orgId, actor.type, actor.id, 'pending_approval', ...scope.params]);
     if (!rows.length) return false;
     await conn.query(`INSERT INTO notification_dismissals (org_id, person_id, event_hash) VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE event_hash = event_hash`, [orgId, personId, rows[0].event_hash]);
     return true;
   });
-  return { found, unreadCount: await getUnreadCountForRecipient(actor) };
+  return { found, unreadCount: await getUnreadCountForRecipient(actor, options) };
 }
 
-async function markAllRead(actor) {
+async function markAllRead(actor, options = {}) {
   const orgId = await getCurrentOrgId();
-  const [result] = await pool.query(
+  const changedCount = await pool.withTransaction(async connection => {
+    const access = await authorization.prepare(connection, actor, orgId, options.authorizationReference);
+    const scope = access.scope('read');
+    const [result] = await connection.query(
     `UPDATE notifications SET is_read = 1
-      WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND is_read = 0`,
-    [orgId, actor.type, actor.id, 'pending_approval']
+      WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND is_read = 0 AND ${scope.sql}`,
+    [orgId, actor.type, actor.id, 'pending_approval', ...scope.params]
   );
-  return { changedCount: result.affectedRows, unreadCount: 0 };
+    return result.affectedRows;
+  });
+  return { changedCount, unreadCount: await getUnreadCountForRecipient(actor, options) };
 }
 
-async function deleteAll(actor) {
+async function deleteAll(actor, options = {}) {
   const orgId = await getCurrentOrgId();
   const personId = requirePerson(actor);
-  return pool.withTransaction(async (conn) => {
+  const deletedCount = await pool.withTransaction(async (conn) => {
+    const access = await authorization.prepare(conn, actor, orgId, options.authorizationReference);
+    const scope = access.scope('delete');
     const [rows] = await conn.query(
       `SELECT DISTINCT ${eventHashSql} AS event_hash FROM notifications
-        WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND ${visibleSql} FOR UPDATE`,
-      [orgId, actor.type, actor.id, 'pending_approval', personId]);
+        WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND ${visibleSql} AND ${scope.sql} FOR UPDATE`,
+      [orgId, actor.type, actor.id, 'pending_approval', personId, ...scope.params]);
     for (let start = 0; start < rows.length; start += 100) {
       const chunk = rows.slice(start, start + 100);
       await conn.query(`INSERT INTO notification_dismissals (org_id, person_id, event_hash)
         VALUES ${chunk.map(() => '(?, ?, ?)').join(',')} ON DUPLICATE KEY UPDATE event_hash = event_hash`,
       chunk.flatMap(row => [orgId, personId, row.event_hash]));
     }
-    return { deletedCount: rows.length, unreadCount: 0 };
+    return rows.length;
   });
+  return { deletedCount, unreadCount: await getUnreadCountForRecipient(actor, options) };
 }
 
 async function cleanupOld(days) {

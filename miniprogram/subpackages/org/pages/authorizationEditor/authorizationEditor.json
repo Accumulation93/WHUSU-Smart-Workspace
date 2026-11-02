@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "personnel-picker": "/subpackages/org/package-resources/components/personnel-picker/personnel-picker",
+    "authorization-dimensions": "/subpackages/org/components/authorization-dimensions/authorization-dimensions"
+  }
+}

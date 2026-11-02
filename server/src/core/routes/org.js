@@ -9,34 +9,8 @@ const organizationModel = require('../models/organization');
 const systemConfigModel = require('../models/systemConfig');
 const pool = require('../../config/db');
 const { resolveRequestAdmin } = require('../services/adminRequestContext');
+const { referenceFromRequest } = require('../services/authorizationReference');
 
-const ORG_REFERENCE_COLUMNS = new Set([
-  'org_id',
-  'creator_org_id',
-  'approval_org_id'
-]);
-
-async function findOrganizationDependencies(conn, organizationId) {
-  const [columns] = await conn.query(
-    `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
-       FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND COLUMN_NAME IN ('org_id', 'creator_org_id', 'approval_org_id')
-      ORDER BY TABLE_NAME, ORDINAL_POSITION`
-  );
-  const tables = new Set();
-  for (const column of columns) {
-    const tableName = safeString(column.table_name);
-    const columnName = safeString(column.column_name);
-    if (!tableName || !ORG_REFERENCE_COLUMNS.has(columnName)) continue;
-    const [rows] = await conn.query(
-      'SELECT 1 AS present FROM ?? WHERE ?? = ? LIMIT 1',
-      [tableName, columnName, organizationId]
-    );
-    if (rows.length) tables.add(tableName);
-  }
-  return Array.from(tables).sort();
-}
 
 // listOrganizations — admin only
 router.post('/listOrganizations', async (req, res) => {
@@ -46,7 +20,7 @@ router.post('/listOrganizations', async (req, res) => {
       return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
-    const rows = await organizationModel.getAll();
+    const rows = await organizationModel.getAll(referenceFromRequest(req));
     res.json({ status: 'success', list: rows });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -75,11 +49,12 @@ router.post('/saveOrganization', async (req, res) => {
     }
 
     if (id) {
-      await organizationModel.update(id, name);
+      const changed = await organizationModel.update(id, name, referenceFromRequest(req));
+      if (!changed) return res.json({ status: 'not_found', message: localeCopy.copy_2c1bc34f7e });
       res.json({ status: 'success', organization: { id, name }, message: localeCopy.copy_b32b720d56 });
     } else {
       const newId = generateId();
-      await organizationModel.create(newId, name);
+      await organizationModel.create(newId, name, referenceFromRequest(req));
       res.json({ status: 'success', organization: { id: newId, name }, message: localeCopy.copy_1974dee798 });
     }
   } catch (e) {
@@ -106,32 +81,8 @@ router.post('/deleteOrganization', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_cc9e4b8129 });
     }
 
-    const { withTransaction } = require('../../config/db');
-    const result = await withTransaction(async (conn) => {
-      const [configs] = await conn.query(
-        "SELECT current_organization FROM system_config WHERE id = 'default' FOR UPDATE"
-      );
-      if (configs[0] && safeString(configs[0].current_organization) === id) {
-        return { status: 'current' };
-      }
-
-      const [organizations] = await conn.query(
-        'SELECT id FROM organizations WHERE id = ? FOR UPDATE',
-        [id]
-      );
-      if (!organizations.length) return { status: 'not_found' };
-
-      const dependencies = await findOrganizationDependencies(conn, id);
-      if (dependencies.length) {
-        return { status: 'not_empty', dependencies };
-      }
-
-      const [deleteResult] = await conn.query(
-        'DELETE FROM organizations WHERE id = ?',
-        [id]
-      );
-      return { status: deleteResult.affectedRows === 1 ? 'deleted' : 'not_found' };
-    });
+    const result = await organizationModel.removeEmpty(id,
+      connection => organizationModel.authorizeGovernance(connection, referenceFromRequest(req), 'delete'));
 
     if (result.status === 'not_found') {
       return res.json({ status: 'not_found', message: localeCopy.copy_2c1bc34f7e });
@@ -195,6 +146,7 @@ router.post('/switchOrganization', async (req, res) => {
     await systemConfigModel.ensureExists();
     const { withTransaction } = require('../../config/db');
     const switchResult = await withTransaction(async (conn) => {
+      await organizationModel.authorizeGovernance(conn, referenceFromRequest(req), 'update');
       const [configs] = await conn.query(
         "SELECT current_organization FROM system_config WHERE id = 'default' FOR UPDATE"
       );
@@ -211,10 +163,12 @@ router.post('/switchOrganization', async (req, res) => {
           [targetOrgName, targetOrgId]
         );
       } else {
+        await organizationModel.authorizeGovernance(conn, referenceFromRequest(req), 'create');
         await conn.query(
           'INSERT INTO organizations (id, name) VALUES (?, ?)',
           [targetOrgId, targetOrgName]
         );
+        await require('../models/assignmentNature').initialize(conn, targetOrgId);
       }
       await conn.query(
         "UPDATE system_config SET current_organization = ?, updated_at = ? WHERE id = 'default'",

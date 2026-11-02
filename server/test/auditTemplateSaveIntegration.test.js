@@ -5,6 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const vm = require('node:vm');
 const mysql = require('mysql2/promise');
+const os = require('node:os');
 if (!process.env.DEPLOY_TEST_DB_HOST) {
   console.log('未配置隔离数据库，未执行审核模板保存数据库验收');
   process.exit(0);
@@ -12,6 +13,7 @@ if (!process.env.DEPLOY_TEST_DB_HOST) {
 const database = 'whusu_submit_' + process.pid + '_' + Date.now();
 const user = 'submit_' + process.pid;
 const password = crypto.randomBytes(32).toString('hex');
+const fileRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-submit-http-'));
 const options = {
   host: process.env.DEPLOY_TEST_DB_HOST, port: Number(process.env.DEPLOY_TEST_DB_PORT || 3306),
   user: process.env.DEPLOY_TEST_DB_USER || 'root', password: process.env.DEPLOY_TEST_DB_PASSWORD || ''
@@ -26,6 +28,9 @@ const options = {
     const fixture = await mysql.createConnection({ ...options, database, multipleStatements: true });
     try {
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await fixture.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
+        version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id, domain))`);
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018230000_hr_contact_directory.sql'), 'utf8'));
       const migration = fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018010000_audit_drop_resubmit_mode.sql'), 'utf8');
       await fixture.query(migration);
@@ -35,7 +40,9 @@ const options = {
     }
     finally { await fixture.end(); }
     Object.assign(process.env, { DB_HOST: options.host, DB_PORT: String(options.port), DB_USER: user, DB_PASSWORD: password,
-      DB_NAME: database, AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex') });
+      DB_NAME: database, AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex'), JWT_SECRET: crypto.randomBytes(32).toString('hex'),
+      AUDIT_UPLOAD_DIR: path.join(fileRoot, 'uploads') });
+    require('../scripts/provisionSigningEvidence').provision(path.join(fileRoot, 'keys/keyring.json'), path.join(fileRoot, 'backup/keyring.json'));
     pool = require('../src/config/db');
     const { orgStorage } = require('../src/utils/orgContext');
     const router = require('../src/modules/audit/routes/auditAdmin');
@@ -109,6 +116,7 @@ const options = {
     for (const id of ids) assert.equal((await call('deleteAuditFlowTemplate', { id })).status, 'success');
     assert.equal((await call('listAuditFlowTemplates', {})).templates.length, 0);
     await require('./helpers/submissionCrudMatrix')(orgStorage);
+    await require('./helpers/auditAuthorizationCases')(pool, orgStorage, router);
     console.log('审核模板前端真实传参→真实路由→MySQL：连续新增、分别编辑、回读、跨组织拒绝、非法步骤不覆盖、删除通过');
   } finally {
     if (pool) await pool.end();
@@ -116,5 +124,6 @@ const options = {
     await admin.query(`DROP DATABASE IF EXISTS \`${database}\``);
     await admin.query(`DROP USER IF EXISTS '${user}'@'%'`);
     await admin.end();
+    fs.rmSync(fileRoot, { recursive: true, force: true });
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

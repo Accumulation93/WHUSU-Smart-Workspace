@@ -19,7 +19,12 @@ function createConnection(queryHandler) {
     async commit() { this.committed = true; },
     async rollback() { this.rolledBack = true; },
     release() { this.released = true; },
-    async query(sql, params) { return queryHandler(String(sql), params); }
+    async query(sql, params) {
+      if (sql.startsWith('SELECT id FROM organizations WHERE id=? FOR UPDATE')) return [[{ id: params[0] }]];
+      if (sql.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+      if (sql.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
+      return queryHandler(String(sql), params);
+    }
   };
 }
 
@@ -234,6 +239,45 @@ async function testRuleWritesLockAndValidateDictionaryReferences() {
   );
 }
 
+async function testAuthorizationRuleBlocksDictionaryDeletion() {
+  const calls = [];
+  const connection = createConnection(async (sql, params) => {
+    calls.push({ sql, params });
+    if (sql.startsWith('INSERT IGNORE INTO organization_dictionary_locks')) return [{ affectedRows: 1 }];
+    if (sql.startsWith('SELECT org_id FROM organization_dictionary_locks')) return [[{ org_id: 'org-1' }]];
+    if (sql.includes('FROM information_schema.tables')) return [[]];
+    if (sql.includes('FROM information_schema.columns')) return [[
+      { table_name: 'authorization_rules', column_name: 'org_id' },
+      { table_name: 'authorization_rules', column_name: 'policy_json' }
+    ]];
+    if (sql.includes('FROM authorization_rules')) {
+      assert.deepStrictEqual(params, ['org-1']);
+      assert(sql.includes('FOR UPDATE'));
+      return [[{ id: 'deny-rule', condition_json: { effect: 'deny', scopes: [
+        { kind: 'assignmentScope', dimensions: { identityCategoryId: ['identity-1'] } }
+      ] } }]];
+    }
+    if (sql.startsWith('SELECT id FROM identities WHERE id = ?')) return [[{ id: 'identity-1' }]];
+    if (sql.startsWith('SELECT id,') || sql.startsWith('SELECT id FROM')) return [[]];
+    throw new Error('unexpected_query:' + sql);
+  });
+  const original = pool.getConnection;
+  pool.getConnection = async () => connection;
+  try {
+    const result = await dictionaryUsage.deleteUnused('identity', 'identity-1', 'org-1');
+    assert.strictEqual(result.status, 'in_use');
+    assert.deepStrictEqual(result.usages, [{ category: 'authorization_rules', count: 1 }]);
+    assert.strictEqual(connection.rolledBack, true);
+    assert.strictEqual(connection.committed, false);
+    assert(!calls.some(call => call.sql.startsWith('DELETE ')));
+  } finally {
+    pool.getConnection = original;
+  }
+  await assert.rejects(dictionaryUsage.countAuthorizationUsage('identity', 'identity-1', 'org-1',
+    createConnection(async () => [[{ table_name: 'authorization_rules', column_name: 'org_id' }]])),
+  error => error.code === 'authorization_schema_incomplete' && !error.message.includes('authorization_schema_incomplete'));
+}
+
 function testPersonnelMigrationContract() {
   const migrationPath = path.resolve(__dirname, '../db/deploy/20260822120000_personnel_domain_integrity.sql');
   const migration = fs.readFileSync(migrationPath, 'utf8');
@@ -260,6 +304,7 @@ async function run() {
   await testDictionaryDeleteLocksAndDeletesInOneTransaction();
   await testReferencedDictionaryRollsBackWithoutDeleting();
   await testRuleWritesLockAndValidateDictionaryReferences();
+  await testAuthorizationRuleBlocksDictionaryDeletion();
   testPersonnelMigrationContract();
   console.log('字典事务锁、职能组部门完整性与人事迁移契约测试通过');
 }

@@ -58,7 +58,8 @@ function normalizePayload(payload) {
   if (!Array.isArray(rowNumbers) || rowNumbers.length !== rows.length || rowNumbers.some((value, index) => !Number.isInteger(value) || value < 2 || value > 1000000 || (index && value <= rowNumbers[index - 1]))) fail(copy.invalidFile);
   const decisions = payload.decisions || {};
   if (!decisions || typeof decisions !== 'object' || Array.isArray(decisions)) fail(copy.invalidFile);
-  if (payload.defaultNature && !NATURES.includes(payload.defaultNature)) fail(copy.invalidFile);
+  if (payload.defaultNature && (typeof payload.defaultNature !== 'string'
+    || !/^[A-Za-z0-9_-]{1,32}$/.test(payload.defaultNature))) fail(copy.invalidFile);
   return { schemaVersion: 2, headers: headers.map(normalizeCell), rows: normalizedRows, rowNumbers, basicMapping, extensionMapping,
     defaultNature: payload.defaultNature || '', decisions: JSON.parse(JSON.stringify(decisions)) };
 }
@@ -96,6 +97,12 @@ function profileRequirement(field) {
 
 function buildPlan(payload, context) {
   const input = normalizePayload(payload);
+  const natures = context.natures === undefined ? NATURES.map(id => ({ id, name: copy[id] })) : context.natures;
+  if (!Array.isArray(natures) || natures.some(item => !item || typeof item.id !== 'string' || typeof item.name !== 'string')) fail(copy.invalidFile);
+  const natureNames = new Map(natures.map(item => [item.id, item.name]));
+  const natureIdsByName = new Map(natures.map(item => [item.name, item.id]));
+  if (input.defaultNature && !natureNames.has(input.defaultNature)) fail(copy.invalidFile);
+  const natureText = id => natureNames.get(id) || id;
   const decisions = input.decisions;
   const rowDecisions = decisions.rows || {};
   const members = new Map(context.members.map(member => [studentKey(member.studentId), member]));
@@ -162,7 +169,8 @@ function buildPlan(payload, context) {
       if (!['nature', 'department', 'identity', 'workGroup'].includes(key)) fail(copy.invalidFile);
       values[key] = text(value);
     }
-    const natureLabel = NATURES.find(key => copy[key] === values.nature);
+    const natureLabel = natureIdsByName.get(values.nature)
+      || NATURES.find(key => natureNames.has(key) && copy[key] === values.nature);
     values.nature = natureLabel || values.nature;
     values.studentId = studentKey(values.studentId);
     const existing = members.get(values.studentId);
@@ -256,7 +264,7 @@ function buildPlan(payload, context) {
       ['nature', 'department', 'identity', 'workGroup'].forEach(key => {
         next[key] = resolveValue(row, key, text(target && target[key]), values[key] || (key === 'nature' && !target ? input.defaultNature : ''), targetId, key === 'workGroup');
       });
-      if (!NATURES.includes(next.nature) || !next.department || !next.identity) {
+      if (!natureNames.has(next.nature) || !next.department || !next.identity) {
         issue('incomplete', 'missingAssignment', [rowNumber], { targetId, actions: [action('edit', { rowNumber }), action('mode', { rowNumber, value: 'person' })] }); return;
       }
       const longField = ['department', 'identity', 'workGroup'].find(key => Array.from(next[key]).length > 100);
@@ -393,8 +401,8 @@ function buildPlan(payload, context) {
       issueFields = ['nature', 'department', 'identity', 'workGroup'].filter(key => first.values[key] && !active.some(entry => entry[key] === first.values[key]));
       if (!issueFields.length) issueFields = ['department', 'identity', 'workGroup'].filter(key => first.values[key]);
       item.message = format(copy.assignmentDifference, [issueFields.map(key => format(copy.valueDifference, [copy[key],
-        [...new Set(active.map(entry => key === 'nature' ? copy[entry[key]] : entry[key]))].filter(Boolean).join(copy.listSeparator) || copy.cellEmpty,
-        key === 'nature' ? copy[first.values[key]] : first.values[key]])).join(copy.listSeparator)]);
+        [...new Set(active.map(entry => key === 'nature' ? natureText(entry[key]) : entry[key]))].filter(Boolean).join(copy.listSeparator) || copy.cellEmpty,
+        key === 'nature' ? natureText(first.values[key]) : first.values[key]])).join(copy.listSeparator)]);
     }
     if (item.reason === 'wrongGroup') issueFields = ['department', 'workGroup'];
     if (item.reason === 'multipleValues' && Array.isArray(item.before)) {

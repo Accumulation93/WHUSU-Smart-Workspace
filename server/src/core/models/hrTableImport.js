@@ -588,6 +588,7 @@ async function importPreparedRows(prepared, orgId, actor) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    await require('./authorizationBusinessRoute').requireLegacyWrite(conn, orgId);
     const nowUtc = nowMysqlUtc();
     const [departments] = await conn.query('SELECT * FROM departments WHERE org_id = ?', [orgId]);
     const [identities] = await conn.query('SELECT * FROM identities WHERE org_id = ?', [orgId]);

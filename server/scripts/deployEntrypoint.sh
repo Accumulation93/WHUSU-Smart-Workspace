@@ -18,6 +18,12 @@ if [[ "$REMOTE_SHA" != "$TARGET_SHA" ]]; then
   exit 0
 fi
 
+# 使用当前已运行版本检查目标，目标提交不能通过删掉自己的检查脚本绕过兼容保护。
+CURRENT_LINK="${WHUSU_SMART_WORKSPACE_CURRENT_LINK:-/home/ubuntu/whusu-smart-workspace-current}"
+if [[ -f "$CURRENT_LINK/server/scripts/authorizationDeployment.js" ]]; then
+  node "$CURRENT_LINK/server/scripts/authorizationDeployment.js" check-git "$REPO_DIR" "$TARGET_SHA"
+fi
+
 TEMP_SCRIPT="$(mktemp /tmp/whusu-smart-workspace-deploy.XXXXXX.sh)"
 cleanup() {
   rm -f "$TEMP_SCRIPT"

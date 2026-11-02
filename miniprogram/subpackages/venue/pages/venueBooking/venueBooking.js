@@ -6,6 +6,9 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
+const { readCurrentAuthorizationAccess } = require('../../package-resources/utils/authorizationAccess');
+const { managementTabAllowed } = require('../../../../utils/authorizationAccessView');
+const authorizationCopy = require('../../package-resources/locales/zh-CN/authorization');
 const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const personnelPickerCopy = require('../../package-resources/locales/zh-CN/personnelPicker');
 const personnelPickerModel = require('../../package-resources/components/personnel-picker/personnelPickerModel');
@@ -379,6 +382,7 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    this.refreshManagementAccess();
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       this._clearApprovalSyncTimer();
@@ -409,6 +413,9 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    this._managementAccessGeneration = (this._managementAccessGeneration || 0) + 1;
+    this.setData({ managementAvailable: false, managementDialogVisible: false,
+      activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
     this._clearApprovalSyncTimer();
     this.stopPolling();
     if (this._boundVenueChanged) {
@@ -451,9 +458,32 @@ Page({
 
   switchTab(e) {
     let tab = e.currentTarget.dataset.tab;
+    if (this.data.managementDialogVisible || tab === 'management' && !this.data.managementAvailable) return;
     this.setData({ activeTab: tab });
     if (tab === 'bookings') this.loadMyBookings();
     if (tab === 'approvals') this.loadPendingData();
+  },
+
+  async refreshManagementAccess() {
+    const generation = (this._managementAccessGeneration || 0) + 1;
+    this._managementAccessGeneration = generation;
+    this.setData({ managementAvailable: false, authorizationCopy });
+    try {
+      const access = await readCurrentAuthorizationAccess();
+      if (!this._isPageVisible || generation !== this._managementAccessGeneration) return;
+      const available = access && access.mode === 'enforced'
+        && ['venue', 'bookings', 'pending', 'purposes'].some(tab => managementTabAllowed(access, tab));
+      this.setData({ managementAvailable: Boolean(available),
+        activeTab: !available && this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
+    } catch (_) {
+      if (this._isPageVisible && generation === this._managementAccessGeneration) this.setData({ managementAvailable: false,
+        activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
+    }
+  },
+
+  onManagementDialogChange(e) {
+    this.setData({ managementDialogVisible: Boolean(e.detail.visible),
+      dialogKeyboardHeight: Number(e.detail.keyboardHeight) || 0 });
   },
 
   // ═══ Browse ═══

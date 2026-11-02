@@ -123,7 +123,7 @@ const recoveryOnlyRows = context.mergeHrGovernanceRows([
 ], governance);
 assert.strictEqual(recoveryOnlyRows[0].canSelectForAuth, false);
 assert.strictEqual(recoveryOnlyRows[1].canSelectForAuth, false);
-assert.strictEqual(recoveryOnlyRows[0].canIssueRecovery, true);
+assert.strictEqual(recoveryOnlyRows[0].canIssueRecovery, false, '只有恢复查看权限不能显示全局恢复码签发操作');
 context.data.canGlobalAccountManage = false;
 const organizationAdminRows = context.mergeHrGovernanceRows([
   { id: 'hr-1', name: '甲', studentId: '001' }
@@ -135,6 +135,23 @@ const globalAccountRows = context.mergeHrGovernanceRows([
 ], governance);
 assert.strictEqual(globalAccountRows[0].canSelectForAuth, true);
 context.data.canVerifyIdentity = true;
+
+const scopedContext = { data: { authorizationEnforced: true, canVerifyIdentity: true,
+  canRecoverAccounts: true, canGlobalAccountManage: true } };
+const rawScopedRow = { membershipStatus: 'active', canIssueVerification: true, canRevokeVerification: true,
+  canIssueRecovery: true, canRevokeRecovery: true, canUnbindWechat: true,
+  canVerifyIdentity: false, canRecoverAccount: false, canGlobalAccountManage: false };
+const scopedDenied = behavior.methods.applyHrGovernancePermissions.call(scopedContext, rawScopedRow);
+assert.strictEqual(scopedDenied.canSelectForAuth, false);
+assert.strictEqual(scopedDenied.canIssueVerification, false);
+assert.strictEqual(scopedDenied.canIssueRecovery, false);
+assert.strictEqual(scopedDenied.canUnbindWechat, false);
+const scopedVerify = behavior.methods.applyHrGovernancePermissions.call(scopedContext, { ...rawScopedRow, canVerifyIdentity: true });
+assert.strictEqual(scopedVerify.canIssueVerification, true);
+assert.strictEqual(scopedVerify.canIssueRecovery, false);
+const policyReadOnly = { data: { authorizationEnforced: true, canEditAuthPolicy: false, authPolicy: { initialClaimEnabled: true } },
+  setData() { throw new Error('只读认证设置不得修改'); } };
+behavior.methods.onAuthPolicySwitch.call(policyReadOnly, { currentTarget: { dataset: { field: 'initialClaimEnabled' } }, detail: { value: false } });
 
 const interactiveRows = context.mergeHrGovernanceRows([
   { id: 'hr-1', name: '甲', studentId: '001' },
@@ -191,6 +208,7 @@ const hrInfoBehavior = require('../miniprogram/subpackages/scoring/pages/admin/m
   const isolated = {
     data: {
       canVerifyIdentity: true,
+      canReadAuthGovernance: true,
       canRecoverAccounts: true,
       selectedHrMemberIds: [],
       hrProfileFilters: {
@@ -262,7 +280,7 @@ const hrInfoBehavior = require('../miniprogram/subpackages/scoring/pages/admin/m
     '每个认证码发码入口都必须带 expiresInHours，当前 ' + issueActions + ' 个入口只有 ' + validityPassed + ' 个带有效期');
 
   const adminPageSource = fs.readFileSync(
-    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/admin.js'),
+    path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'),
     'utf8'
   );
   assert(/VERIFICATION_CODE_VALIDITY_DAYS = \[1, 2, 3, 4, 5, 6, 7\]/.test(adminPageSource)

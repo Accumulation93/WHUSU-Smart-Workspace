@@ -156,6 +156,21 @@ async function run() {
     );
     await database.query(sessionCompatibility);
     await database.query(sessionCompatibility);
+    // 此旧身份夹具不包含其他业务表，只补入岗位写入依赖的既有字典锁结构。
+    await database.query(`CREATE TABLE organization_dictionary_locks (
+      org_id VARCHAR(64) NOT NULL PRIMARY KEY,
+      touched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    // 当前工作角色目录读取组织岗位性质；旧库须经过新增字典迁移后运行当前模型。
+    await database.query(`CREATE TABLE cache_domain_versions (
+      org_id VARCHAR(64) NOT NULL, domain VARCHAR(32) NOT NULL, version BIGINT UNSIGNED NOT NULL,
+      PRIMARY KEY (org_id, domain)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    const authorizationCompatibility = fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'
+    );
+    await database.query(authorizationCompatibility);
+    await database.query(authorizationCompatibility);
     // 设备字段由后续独立迁移负责；在本测试夹具中补齐它们，验证统一身份模型
     // 在旧库完成身份迁移后也能安全创建带设备信息的会话。
     await database.query(`

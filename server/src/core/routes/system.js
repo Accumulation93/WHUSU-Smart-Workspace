@@ -5,6 +5,8 @@ const router = express.Router();
 const { safeString } = require('../../utils/helpers');
 const systemConfigModel = require('../models/systemConfig');
 const { resolveRequestAdmin } = require('../services/adminRequestContext');
+const { referenceFromRequest } = require('../services/authorizationReference');
+const authorizationBusinessRoute = require('../models/authorizationBusinessRoute');
 const { nowMysqlUtc, toIsoUtc, MIN_TIMEZONE_OFFSET, MAX_TIMEZONE_OFFSET } = require('../../utils/dateTime');
 
 function publicTimeReviewState(state) {
@@ -47,8 +49,10 @@ router.post('/getTimeConfig', async (req, res) => {
 // getSystemConfig
 router.post('/getSystemConfig', async (req, res) => {
   try {
+    const reference = referenceFromRequest(req);
+    const enforced = reference && await authorizationBusinessRoute.isEnforced('/getSystemConfig', reference.organizationId);
     const [config, reviewState] = await Promise.all([
-      systemConfigModel.get(),
+      enforced ? systemConfigModel.authorizedConfig(reference, null) : systemConfigModel.get(),
       systemConfigModel.getHistoricalTimeReviewState()
     ]);
     res.json({
@@ -60,7 +64,8 @@ router.post('/getSystemConfig', async (req, res) => {
         timezone: config.timezone,
         timezoneConfigVersion: String(config.timezone_config_version || 1),
         ...publicTimeReviewState(reviewState),
-        currentOrganization: config.current_organization
+        currentOrganization: config.current_organization,
+        ...(enforced ? { canUpdateTimezone: config.can_update_timezone === true } : {})
       } : {
         timezone: 8,
         ...publicTimeReviewState(reviewState),
@@ -68,6 +73,7 @@ router.post('/getSystemConfig', async (req, res) => {
       }
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_a7e2b86629 });
   }
 });
@@ -88,18 +94,17 @@ router.post('/saveSystemConfig', async (req, res) => {
     }
     const currentOrganization = safeString(req.body.currentOrganization);
 
-    await systemConfigModel.ensureExists();
-
-    const nowUtc = nowMysqlUtc();
-
-    if (req.body.timezone !== undefined) {
-      await systemConfigModel.updateTimezone(timezone, nowUtc);
+    const reference = referenceFromRequest(req);
+    const input = {};
+    if (req.body.timezone !== undefined) input.timezone = timezone;
+    if (req.body.currentOrganization !== undefined) input.currentOrganization = currentOrganization;
+    if (reference && await authorizationBusinessRoute.isEnforced('/saveSystemConfig', reference.organizationId)) {
+      const config = await systemConfigModel.authorizedConfig(reference, input, nowMysqlUtc());
+      return res.json({ status: 'success', message: localeCopy.copy_c1add6c36e,
+        systemTimezoneOffset: config.timezone, timezoneConfigVersion: String(config.timezone_config_version || 1) });
     }
-    if (req.body.currentOrganization !== undefined) {
-      await systemConfigModel.setCurrentOrganization(currentOrganization, nowUtc);
-    }
 
-    const config = await systemConfigModel.get();
+    const config = await systemConfigModel.saveLegacyConfig(input, nowMysqlUtc(), reference && reference.organizationId);
     res.json({
       status: 'success',
       message: localeCopy.copy_c1add6c36e,
@@ -107,6 +112,9 @@ router.post('/saveSystemConfig', async (req, res) => {
       timezoneConfigVersion: config ? String(config.timezone_config_version || 1) : '1'
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden' || e.code === 'authorization_stale_reference') {
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_f048be09ae });
+    }
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_2b79f10002 });
   }
 });

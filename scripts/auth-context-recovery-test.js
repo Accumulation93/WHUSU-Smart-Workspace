@@ -87,7 +87,7 @@ const authContext = require('../miniprogram/utils/authContext');
 const adminPageSource = fs.readFileSync(path.resolve(
   __dirname,
   '..',
-  'miniprogram/subpackages/scoring/pages/admin/admin.js'
+  'miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'
 ), 'utf8');
 
 assert(

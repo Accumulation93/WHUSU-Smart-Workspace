@@ -22,6 +22,11 @@ const rawNetworkExempt = new Set([
   'subpackages/main/pages/login/login.js'
 ]);
 const issues = [];
+const delegatedLifecycle = new Map([
+  ['subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals', {
+    tag: 'pending-approvals', source: 'subpackages/venue/components/pendingApprovals/pendingApprovals'
+  }]
+]);
 
 function add(rule, file, message) {
   issues.push({ rule, file: file.replace(/\\/g, '/'), message });
@@ -31,10 +36,26 @@ for (const page of pages) {
   const relativeFile = page + '.js';
   const source = fs.readFileSync(path.join(miniRoot, relativeFile), 'utf8');
   if (!lifecycleExempt.has(page)) {
-    if (!/require\([^\n]*orgSession/.test(source)) add('missing-org-session', relativeFile, '页面未接入组织快照工具');
+    let lifecycleSource = source;
+    const delegated = delegatedLifecycle.get(page);
+    if (delegated) {
+      const config = JSON.parse(fs.readFileSync(path.join(miniRoot, page + '.json'), 'utf8'));
+      const markup = fs.readFileSync(path.join(miniRoot, page + '.wxml'), 'utf8');
+      const componentPath = config.usingComponents && config.usingComponents[delegated.tag];
+      const resolved = componentPath && (componentPath.startsWith('/') ? componentPath.slice(1)
+        : path.posix.normalize(path.posix.join(path.posix.dirname(page), componentPath)));
+      if (resolved !== delegated.source || !markup.includes('<' + delegated.tag)
+        || /\bcallFunction\s*\(/.test(source)) add('invalid-lifecycle-delegation', relativeFile, '请求委托须指向实际组件，页面新增请求须自行校验');
+      lifecycleSource = fs.readFileSync(path.join(miniRoot, delegated.source + '.js'), 'utf8');
+      if (!/pageLifetimes\s*:\s*\{[\s\S]*?\bhide\s*\(/.test(lifecycleSource)
+        || !/\bdetached\s*\(/.test(lifecycleSource) || !/orgSession\.isRequestCurrent\(this,/.test(lifecycleSource)) {
+        add('incomplete-component-lifecycle', delegated.source + '.js', '组件须处理页面隐藏、卸载与迟到响应');
+      }
+    }
+    if (!/require\([^\n]*orgSession/.test(lifecycleSource)) add('missing-org-session', relativeFile, '页面未接入组织快照工具');
     if (!/\bonShow\s*[:(]/.test(source)) add('missing-on-show', relativeFile, '页面缺少 onShow 生命周期');
-    if (!/orgSession\.consume\(this\)/.test(source)) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
-    if (!/orgSession\.invalidateRequests\(this\)/.test(source)) add('missing-invalidate', relativeFile, '组织变化未使旧请求失效');
+    if (!/orgSession\.consume\(this\)/.test(lifecycleSource)) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
+    if (!/orgSession\.invalidateRequests\(this\)/.test(lifecycleSource)) add('missing-invalidate', relativeFile, '组织变化未使旧请求失效');
   }
 }
 

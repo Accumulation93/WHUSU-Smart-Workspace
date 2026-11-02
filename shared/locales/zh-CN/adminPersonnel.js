@@ -53,6 +53,7 @@ module.exports = Object.freeze({
     publication_rules: '结果公示规则',
     audit_templates: '审核模板',
     directory_rules: '通讯录规则',
+    authorization_rules: '权限授权规则',
     calendar_rules: '日程安排规则',
     calendar_events: '日程记录',
     audit_history: '审核历史',
@@ -73,5 +74,7 @@ module.exports = Object.freeze({
     staff: '本会岗位',
     liaison: '学院对接岗位',
     other: '其他岗位'
-  })
+  }),
+  chooseAssignmentNature: '请选择岗位性质',
+  assignmentNatureMissing: '岗位性质未记录'
 });

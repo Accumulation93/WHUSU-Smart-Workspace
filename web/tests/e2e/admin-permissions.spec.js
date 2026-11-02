@@ -1,6 +1,24 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import authorizationCopy from '../../src/locales/zh-CN/shared/authorization.js';
+
+test('legacy management stays readable after cutover but cannot change or save grants', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-admin' });
+  const admin = { id: 'target', name: 'Managed administrator', adminLevelLabel: 'Administrator' };
+  let saves = 0;
+  await page.route('**/api/listPermissionManagedAdmins', route => route.fulfill({ json: { status: 'success', list: [admin], readOnly: true } }));
+  await page.route('**/api/getAdminPermissionDetail', route => route.fulfill({ json: { status: 'success', admin, readOnly: true,
+    groups: [{ key: 'group', label: 'Permissions', permissions: [{ key: 'read', label: 'Read', editable: true, granted: true }] }] } }));
+  await page.route('**/api/saveAdminPermissions', route => { saves++; return route.fulfill({ json: { status: 'authorization_legacy_read_only' } }); });
+  await page.goto('/web/admin/permissions');
+  await expect(page.getByText(authorizationCopy.legacyReadOnly, { exact: true })).toBeVisible();
+  await page.getByRole('button').filter({ hasText: admin.name }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('switch', { name: 'Read', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: copy.admin.permissionsSave, exact: true })).toHaveCount(0);
+  expect(saves).toBe(0);
+});
 
 test('permission directory follows server list shape, retains failed edits and rereads saved grants', async ({ page }) => {
   await mockApi(page, { admin: true });

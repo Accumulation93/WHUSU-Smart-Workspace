@@ -23,12 +23,13 @@
   </section>
 </template>
 <script setup>
-import {nextTick,onBeforeUnmount,ref,watch} from 'vue';
+import {computed,nextTick,onBeforeUnmount,ref,watch} from 'vue';
 import CalendarConditions from './CalendarConditions.vue';
 import GlassDialog from './GlassDialog.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
+import {useCopiedConfigurationEditor} from '@/runtime/copiedConfigurationEditor.js';
 const metadata=ref({rules:[],people:[],departments:[],identities:[],workGroups:[]}),selected=ref([]),draft=ref(null),deletion=ref(null),busy=ref(false),loading=ref(false),notice=ref(''),saved=ref(false);
 const editor=ref(null);
 let generation=0,disposed=false;
@@ -38,6 +39,8 @@ async function save() { if(busy.value||loading.value||saved.value||!draft.value)
 async function batch(action,rules) { if(busy.value||loading.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
 function visibility(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}
 document.addEventListener('visibilitychange',visibility);
+useCopiedConfigurationEditor({kind:()=> 'calendar.rules',rows:computed(()=>metadata.value.rules),blocked:()=>busy.value||loading.value,
+  ready:()=>!loading.value&&!notice.value,edit,notice});
 watch(()=>session.context,visibility,{immediate:true});
 onBeforeUnmount(()=>{disposed=true;generation++;document.removeEventListener('visibilitychange',visibility);});
 </script>

@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueActivitySchedule');
+const flowCopy = require('../../../locales/zh-CN/venueFlowManagement');
 const { parseSystemDateTime, toIsoUtc } = require('../../../utils/dateTime');
 const { countOccurrences } = require('./calendarRecurrence');
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -100,7 +101,18 @@ function legacyTimeRange(rule) {
 
 function ruleValidationError(rule) {
   const cycleType = String(rule.cycleType || rule.cycle_type || 'weekly');
-  if (cycleType === 'datetime_range' || cycleType === 'repeat') return null;
+  if (cycleType === 'datetime_range' || cycleType === 'repeat') {
+    const values = parseCycleValues(rule.cycleValues !== undefined ? rule.cycleValues : rule.cycle_values);
+    const start = parseLocalDateTime(values.startDate, values.startTime);
+    const end = parseLocalDateTime(values.endDate, values.endTime);
+    if (!start || formatDate(start) !== values.startDate) return localeCopy.copy_624f7ebece;
+    if (!end || formatDate(end) !== values.endDate) return localeCopy.copy_6c19b0b900;
+    if (end <= start) return localeCopy.copy_7b58d1c1e0;
+    if (cycleType === 'repeat' && (!['day', 'week'].includes(values.intervalUnit)
+      || !Number.isSafeInteger(values.intervalValue) || values.intervalValue < 1 || values.intervalValue > 366
+      || !Number.isSafeInteger(values.repeatCount) || values.repeatCount < 1 || values.repeatCount > 1000)) return flowCopy.intervalInvalid;
+    return null;
+  }
   const timeRange = legacyTimeRange(rule);
   if (!timeRange) return localeCopy.copy_afce60b5be;
   const meta = cycleMeta(rule.cycleValues !== undefined ? rule.cycleValues : rule.cycle_values);

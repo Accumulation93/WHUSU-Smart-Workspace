@@ -2,7 +2,7 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
-import src_calendar from './shared/calendar.js';
+import src_authorization from './shared/authorization.js';
 import src_common from './shared/common.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
@@ -11,15 +11,15 @@ import src_main from './shared/main.js';
 import src_web from './shared/web.js';
 
 export default Object.freeze({
-  appName: src_common.brandName,
+  appName: src_authorization.appName,
   organizationName: src_common.organizationName,
   webVersionLabel: src_web.common.webVersionLabel,
-  retry: src_calendar.retry,
+  retry: src_authorization.retry,
   confirm: src_submissionDetail.copy_a58e97a9f8,
   cancel: src_adminGovernance.cancel,
-  close: src_calendar.close,
+  close: src_authorization.close,
   back: src_auditSigning.back,
-  refresh: src_calendar.refresh,
+  refresh: src_authorization.refresh,
   loading: src_common.loading,
   empty: src_web.common.empty,
   search: src_adminPermissions.copy_cea1da7603,

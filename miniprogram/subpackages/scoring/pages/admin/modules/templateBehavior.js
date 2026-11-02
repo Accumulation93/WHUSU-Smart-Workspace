@@ -47,10 +47,10 @@ module.exports = Behavior({
       if (!questions[questionIndex]) {
         return;
       }
-  
+
       const rawValue = e.detail.value;
       const value = field === 'scoreLabel' ? rawValue : rawValue.trim();
-  
+
       // Write to a separate data object to avoid re-rendering the wx:for list,
       // which would destroy the input element and dismiss the keyboard.
       this.setData({
@@ -173,7 +173,7 @@ module.exports = Behavior({
       this._dragEffectiveScrollTop = this.data.templateQuestionScrollTop || 0;
       this.setData({ dragActive: true, draggingQuestionIndex: index, dragInsertIndex: index, questionValidationErrors: {} });
       let self = this;
-      wx.createSelectorQuery().selectAll('.question-card').boundingClientRect(function(rects) {
+      wx.createSelectorQuery().in(this).selectAll('.question-card').boundingClientRect(function(rects) {
         if (rects && rects.length) {
           self._questionCardRects = rects;
           let cardRect = rects[index];
@@ -191,7 +191,7 @@ module.exports = Behavior({
           }
         }
       }).exec();
-      wx.createSelectorQuery().select('.large-scroll').boundingClientRect(function(rect) {
+      wx.createSelectorQuery().in(this).select('.large-scroll').boundingClientRect(function(rect) {
         if (rect) self._questionDragScrollRect = rect;
       }).exec();
     },
@@ -200,12 +200,12 @@ module.exports = Behavior({
       if (!this._questionDragState || this.data.draggingQuestionIndex < 0) return;
       let touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return;
-  
+
       let touchY = touch.clientY != null ? touch.clientY : touch.pageY;
       this._dragLastY = touchY;
       let self = this;
       let now = Date.now();
-  
+
       // Accumulate scroll delta every frame based on finger position relative to scroll view edges.
       // Middle zone (between middleTop and middleBottom) = no scroll at all.
       let sr = this._questionDragScrollRect;
@@ -215,7 +215,7 @@ module.exports = Behavior({
         let middleTop = sr.top + edgeSize;
         let middleBottom = sr.bottom - edgeSize;
         let scrollDelta = 0;
-  
+
         if (touchY < middleTop) {
           let distIntoEdge = middleTop - touchY;
           let factor = Math.min(distIntoEdge / edgeSize, 3);
@@ -225,24 +225,24 @@ module.exports = Behavior({
           let factor = Math.min(distIntoEdge / edgeSize, 3);
           scrollDelta = Math.round(5 * factor);
         }
-  
+
         if (scrollDelta !== 0) {
           self._dragEffectiveScrollTop = Math.max(0, (self._dragEffectiveScrollTop || 0) + scrollDelta);
         }
       }
-  
+
       // Throttle expensive DOM queries + setData to ~30fps.
       // Scroll delta still accumulates every frame — setData applies the latest.
       if (self._lastUpdateTime && now - self._lastUpdateTime < 33) return;
       self._lastUpdateTime = now;
-  
-      wx.createSelectorQuery().selectAll('.question-card').boundingClientRect(function(rects) {
+
+      wx.createSelectorQuery().in(this).selectAll('.question-card').boundingClientRect(function(rects) {
         if (!rects || !rects.length || !self._questionDragState) return;
         self._questionCardRects = rects;
-  
+
         let y = self._dragLastY;
         if (y == null) return;
-  
+
         let newInsertIndex = rects.length;
         for (let i = 0; i < rects.length; i++) {
           if (y < rects[i].top + rects[i].height / 2) {
@@ -250,7 +250,7 @@ module.exports = Behavior({
             break;
           }
         }
-  
+
         let sr = self._questionDragScrollRect;
         let ghostTop;
         if (self._fingerOffsetInCard != null) {
@@ -263,7 +263,7 @@ module.exports = Behavior({
           let ghostHeight = draggedRect ? draggedRect.height : 80;
           ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
         }
-  
+
         // Single batched setData for all visual updates
         let update = {};
         if (newInsertIndex !== self.data.dragInsertIndex) update.dragInsertIndex = newInsertIndex;
@@ -348,16 +348,16 @@ module.exports = Behavior({
     async saveTemplate() {
       // Flush any pending question input values before saving
       this._flushQuestionInputs();
-  
+
       let form = this.data.templateForm || emptyTemplateForm();
       let name = String(form.name || '').trim();
       let description = String(form.description || '');
-  
+
       if (!name) {
         wx.showToast({ title: localeCopy.copy_9a51765619, icon: 'none' });
         return;
       }
-  
+
       // Validate each question
       let validationErrors = {};
       let firstInvalidIndex = -1;
@@ -373,7 +373,7 @@ module.exports = Behavior({
           maxValue: String(question.maxValue == null ? '' : question.maxValue).trim(),
           stepValue: String(question.stepValue == null || question.stepValue === '' ? '0.5' : question.stepValue).trim()
         };
-  
+
         if (!q.question) {
           validationErrors[qi] = { field: 'question', msg: localeCopy.copy_e6653bb300 };
           if (firstInvalidIndex === -1) firstInvalidIndex = qi;
@@ -400,12 +400,12 @@ module.exports = Behavior({
         }
         if (q.question) questions.push(q);
       }
-  
+
       if (!questions.length) {
         wx.showToast({ title: localeCopy.copy_d976fb44d6, icon: 'none' });
         return;
       }
-  
+
       if (firstInvalidIndex >= 0) {
         let err = validationErrors[firstInvalidIndex];
         wx.showToast({ title: localeCopy.copy_93c50c01c0 + (firstInvalidIndex + 1) + localeCopy.copy_266a08601e + err.msg, icon: 'none', duration: 2500 });
@@ -416,7 +416,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveTemplate', true);
       try {
         const result = await this.callCloud('saveScoreTemplate', {
@@ -425,12 +425,12 @@ module.exports = Behavior({
           description,
           questions
         });
-  
+
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
         }
-  
+
         this.resetTemplateForm();
         await this.loadTemplateList();
         wx.showToast({ title: localeCopy.copy_743b13ea1b, icon: 'success' });
@@ -447,11 +447,11 @@ module.exports = Behavior({
       if (!item) {
         return;
       }
-  
+
       const questions = (item.questions || []).length
         ? (item.questions || []).map((question) => normalizeTemplateQuestionForForm(question))
         : [createEmptyQuestion()];
-  
+
       this.setData({
         templateForm: {
           id: item.id,
@@ -470,7 +470,7 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
-  
+
       this.setLoading('duplicateTemplate', true);
       try {
         const result = await this.callCloud('duplicateScoreTemplate', { id });
@@ -481,7 +481,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.loadTemplateList();
         wx.showToast({
           title: localeCopy.copy_e1035ed73b,
@@ -496,14 +496,14 @@ module.exports = Behavior({
         this.setLoading('duplicateTemplate', false);
       }
     },
-  
+
     // ========== Template Table Import / Export ==========,
 
     importTableTemplate() {
       const _this = this;
       chooseTableFile(_this.callCloud.bind(_this)).then(function (tableData) {
         if (!tableData) return;
-  
+
         const headers = tableData.headers;
         const dataRows = tableData.rows;
         if (dataRows.length === 0 && headers.length <= 1) {
@@ -647,7 +647,7 @@ module.exports = Behavior({
         }
       }
       return mapping;
-  
+
       function _jaccardSimilarity(a, b) {
         if (!a || !b) return 0;
         const setA = new Set(a.split(''));
@@ -687,19 +687,19 @@ module.exports = Behavior({
       const mapping = this.data.templateCsvMapping;
       const rows = this.data.templateCsvFullRows;
       const replaceMode = this.data.templateCsvReplaceMode;
-  
+
       // Resolve which CSV column maps to which field
       const fieldToCol = {};
       for (const ci in mapping) {
         fieldToCol[mapping[ci]] = Number(ci);
       }
-  
+
       const questionCol = fieldToCol['question'];
       if (questionCol == null) {
         wx.showToast({ title: localeCopy.copy_da19b42124, icon: 'none' });
         return;
       }
-  
+
       const DEFAULT_VALUES = {
         scoreLabel: '',
         minValue: '0',
@@ -707,7 +707,7 @@ module.exports = Behavior({
         maxValue: '10',
         stepValue: '1'
       };
-  
+
       const newQuestions = [];
       for (const row of rows) {
         const questionText = (row[questionCol] || '').trim();
@@ -729,22 +729,22 @@ module.exports = Behavior({
         }
         newQuestions.push(q);
       }
-  
+
       if (!newQuestions.length) {
         wx.showToast({ title: localeCopy.copy_d1f2f20702, icon: 'none' });
         return;
       }
-  
+
       // Flush any pending question inputs
       this._flushQuestionInputs();
-  
+
       let finalQuestions;
       if (replaceMode) {
         finalQuestions = newQuestions;
       } else {
         finalQuestions = (this.data.templateForm.questions || []).concat(newQuestions);
       }
-  
+
       this.setData({
         showTemplateCsvDialog: false,
         templateCsvHeaders: [],
@@ -757,7 +757,7 @@ module.exports = Behavior({
         questionInputValues: {},
         questionValidationErrors: {}
       });
-  
+
       wx.showToast({ title: localeCopy.copy_4c8603086a + newQuestions.length + localeCopy.copy_9ff661a507, icon: 'success' });
     },
 
@@ -832,7 +832,7 @@ module.exports = Behavior({
       this._templateConfigEffectiveScrollTop = this.data.templateConfigScrollTop || 0;
       this.setData({ dragActive: true, draggingClauseTemplateIndex: index, dragTemplateInsertIndex: index, dragTemplateGhostVisible: false });
       let self = this;
-      wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
+      wx.createSelectorQuery().in(this).selectAll('.template-config-card').boundingClientRect(function(rects) {
         if (rects && rects.length) {
           self._templateConfigCardRects = rects;
           let cardRect = rects[index];
@@ -850,7 +850,7 @@ module.exports = Behavior({
           }
         }
       }).exec();
-      wx.createSelectorQuery().select('.template-config-scroll').boundingClientRect(function(rect) {
+      wx.createSelectorQuery().in(this).select('.template-config-scroll').boundingClientRect(function(rect) {
         if (rect) self._templateConfigDragScrollRect = rect;
       }).exec();
     },
@@ -863,7 +863,7 @@ module.exports = Behavior({
       this._templateConfigDragLastY = touchY;
       let self = this;
       let now = Date.now();
-  
+
       let sr = this._templateConfigDragScrollRect;
       if (sr) {
         let viewHeight = sr.bottom - sr.top;
@@ -884,16 +884,16 @@ module.exports = Behavior({
           self._templateConfigEffectiveScrollTop = Math.max(0, (self._templateConfigEffectiveScrollTop || 0) + scrollDelta);
         }
       }
-  
+
       if (self._templateConfigLastUpdateTime && now - self._templateConfigLastUpdateTime < 33) return;
       self._templateConfigLastUpdateTime = now;
-  
-      wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
+
+      wx.createSelectorQuery().in(this).selectAll('.template-config-card').boundingClientRect(function(rects) {
         if (!rects || !rects.length || !self._templateConfigDragState) return;
         self._templateConfigCardRects = rects;
         let y = self._templateConfigDragLastY;
         if (y == null) return;
-  
+
         let newInsertIndex = rects.length;
         for (let i = 0; i < rects.length; i++) {
           if (y < rects[i].top + rects[i].height / 2) {
@@ -901,7 +901,7 @@ module.exports = Behavior({
             break;
           }
         }
-  
+
         let sr = self._templateConfigDragScrollRect;
         let ghostTop;
         if (self._templateConfigFingerOffsetInCard != null) {
@@ -914,7 +914,7 @@ module.exports = Behavior({
           let ghostHeight = draggedRect ? draggedRect.height : 60;
           ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
         }
-  
+
         let update = {};
         if (newInsertIndex !== self.data.dragTemplateInsertIndex) update.dragTemplateInsertIndex = newInsertIndex;
         if (ghostTop !== self.data.dragTemplateGhostTop) update.dragTemplateGhostTop = ghostTop;
@@ -962,7 +962,7 @@ module.exports = Behavior({
           if (!res.confirm) {
             return;
           }
-  
+
           try {
             const result = await this.callCloud('deleteScoreTemplate', { id });
             if (result.status !== 'success') {
@@ -972,7 +972,7 @@ module.exports = Behavior({
               });
               return;
             }
-  
+
             await this.loadTemplateList();
             wx.showToast({
               title: localeCopy.copy_cf540b4349,

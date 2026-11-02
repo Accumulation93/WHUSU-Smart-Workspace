@@ -475,12 +475,12 @@
       </view>
 
       <!-- Actions — submitter-only buttons -->
-      <view class="card" wx:if="{{userIsSubmitter && hasActiveAssignment && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn' || submission.status === 'in_progress')}}">
+      <view class="card" wx:if="{{(canUpdateSubmission && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')) || (canWithdrawSubmission && (submission.status === 'in_progress' || submission.status === 'rejected'))}}">
         <view class="section-title" wx:if="{{activeApprovalStepId}}">{{localeCopy.copy_e4a2b8faee}}</view>
         <view class="audit-btn-bar">
-          <button class="secondary-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
-          <button class="primary-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0a01cb3a51}}</button>
-          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'in_progress' || submission.status === 'rejected')}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_60dd7897d1}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{canUpdateSubmission && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
+          <button class="primary-btn ui-motion-button" wx:if="{{canUpdateSubmission && (submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0a01cb3a51}}</button>
+          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{canWithdrawSubmission && (submission.status === 'in_progress' || submission.status === 'rejected')}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_60dd7897d1}}</button>
         </view>
       </view>
 

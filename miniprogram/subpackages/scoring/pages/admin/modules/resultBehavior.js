@@ -65,6 +65,7 @@ module.exports = Behavior({
     async loadScoreResults(options) {
       options = options || {};
       const viewMode = this.data.resultFilters.viewMode || 'overview';
+      if (this.data.authorizationEnforced && !(viewMode === 'completion' ? this.data.canReadScoreTasks : this.data.canReadScoreResults)) return;
       const loadToken = (this._resultLoadSeq || 0) + 1;
       this._resultLoadSeq = loadToken;
       this.resultLoadToken = loadToken;
@@ -96,9 +97,9 @@ module.exports = Behavior({
         this.setLoading('results', false);
         return;
       }
-  
+
       this.setLoading('results', !preserveExistingResult);
-  
+
       const mergedRows = {
         overviewRows: [],
         calculationRows: [],
@@ -106,13 +107,13 @@ module.exports = Behavior({
         recordRows: [],
         scorerCompletionRows: []
       };
-  
+
       let offset = 0;
       let hasMore = true;
       let latestResult = null;
       let requestCount = 0;
       const maxRequests = 100;
-  
+
       try {
         if (viewMode === 'overview') {
           // Load ALL overview rows at once (like user-side "结果公示") — server caches computed result
@@ -127,9 +128,9 @@ module.exports = Behavior({
               workGroup: this.data.resultFilters.workGroup
             }
           }, { timeout: 30000 });
-  
+
           if (!requestIsCurrent()) return;
-  
+
           if (result.status !== 'success') {
             if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
@@ -138,7 +139,7 @@ module.exports = Behavior({
             this.setLoading('results', false);
             return;
           }
-  
+
           const overviewRows = result.overviewRows || [];
           this.setData({
             'scoreResultsRaw.stats': result.stats || {},
@@ -155,7 +156,7 @@ module.exports = Behavior({
           this.setLoading('results', false);
           return;
         }
-  
+
         if (viewMode === 'completion') {
           const result = await this.callCloud('getScoreResults', {
             activityId,
@@ -167,11 +168,11 @@ module.exports = Behavior({
               workGroup: this.data.resultFilters.workGroup
             }
           }, { timeout: 30000 });
-  
+
           if (!requestIsCurrent()) {
             return;
           }
-  
+
           if (result.status !== 'success') {
             if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
@@ -179,7 +180,7 @@ module.exports = Behavior({
             }
             return;
           }
-  
+
           this.setData({
             'scoreResultsRaw.stats': result.stats || {},
             'scoreResultsRaw.completionBoards': result.completionBoards || { departments: [] },
@@ -195,7 +196,7 @@ module.exports = Behavior({
           this._scoreResultsLoadedAt = Date.now();
           return;
         }
-  
+
         while (hasMore && requestCount < maxRequests) {
           const result = await this.callCloud('getScoreResults', {
             activityId,
@@ -208,11 +209,11 @@ module.exports = Behavior({
               workGroup: this.data.resultFilters.workGroup
             }
           }, { timeout: 30000 });
-  
+
           if (!requestIsCurrent()) {
             return;
           }
-  
+
           if (result.status !== 'success') {
             if (!preserveExistingResult) this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
@@ -220,9 +221,9 @@ module.exports = Behavior({
             }
             return;
           }
-  
+
           latestResult = result;
-  
+
           const batchMap = {
             overview: result.overviewRows || [],
             calculation: result.calculationRows || [],
@@ -230,9 +231,9 @@ module.exports = Behavior({
             records: result.recordRows || [],
             completion: result.scorerCompletionRows || []
           };
-  
+
           const batchRows = batchMap[viewMode] || [];
-  
+
           if (viewMode === 'overview') {
             mergedRows.overviewRows.push(...batchRows);
           } else if (viewMode === 'calculation') {
@@ -244,7 +245,7 @@ module.exports = Behavior({
           } else if (viewMode === 'completion') {
             mergedRows.scorerCompletionRows.push(...batchRows);
           }
-    
+
           const setDataObj = {
             'scoreResultsRaw.stats': result.stats || {},
             resultFilterOptions: {
@@ -253,46 +254,46 @@ module.exports = Behavior({
               workGroups: this.buildWorkGroupFilterOptions()
             }
           };
-          
+
           if (viewMode === 'overview') {
             setDataObj['scoreResultsRaw.overviewRows'] = mergedRows.overviewRows;
           }
-          
+
           if (viewMode === 'calculation') {
             setDataObj['scoreResultsRaw.calculationRows'] = mergedRows.calculationRows;
           }
-          
+
           if (viewMode === 'detail') {
             setDataObj['scoreResultsRaw.detailRows'] = mergedRows.detailRows;
           }
-          
+
           if (viewMode === 'records') {
             setDataObj['scoreResultsRaw.recordRows'] = mergedRows.recordRows;
           }
-          
+
           if (viewMode === 'completion') {
             setDataObj['scoreResultsRaw.scorerCompletionRows'] = mergedRows.scorerCompletionRows;
             setDataObj['scoreResultsRaw.completionBoards'] = result.completionBoards || {
               departments: []
             };
           }
-          
+
           this.setData(setDataObj);
-    
+
           this.applyScoreResultFilters();
-    
+
           hasMore = !!(result.pagination && result.pagination.hasMore);
           const nextOffset = result.pagination ? Number(result.pagination.nextOffset || 0) : 0;
-  
+
           if (!batchRows.length || nextOffset <= offset) {
             hasMore = false;
           } else {
             offset = nextOffset;
           }
-    
+
           requestCount += 1;
         }
-    
+
         this.setData({
           resultPagination: {
             ...this.data.resultPagination,
@@ -328,7 +329,7 @@ module.exports = Behavior({
       if (!target || !this.data.currentActivityId) {
         return;
       }
-  
+
       await this.loadTargetScoreRecords(targetId, target);
     },
 
@@ -339,7 +340,7 @@ module.exports = Behavior({
       this.targetRecordLoadToken = requestToken;
       const revokedRecordId = String(options.revokedRecordId || '').trim();
       const keepRows = options.keepRows === true;
-  
+
       const loadingData = {
         selectedResultTarget: target,
         targetRecordLoading: true
@@ -348,7 +349,7 @@ module.exports = Behavior({
         loadingData.targetRecordRows = [];
       }
       this.setData(loadingData);
-  
+
       try {
         const result = await this.callCloud('getScoreResults', {
           activityId,
@@ -356,13 +357,13 @@ module.exports = Behavior({
           dataType: 'targetRecords',
           targetId
         });
-  
+
         const currentTargetId = String((this.data.selectedResultTarget && (this.data.selectedResultTarget.targetId || this.data.selectedResultTarget.id)) || '');
         if (this.targetRecordLoadToken !== requestToken || currentTargetId !== targetId
           || !orgSession.isCurrent(organizationSnapshot) || this.data.currentActivityId !== activityId) {
           return;
         }
-  
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_6af651c0a8,
@@ -370,7 +371,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         const targetRows = (result.targetRecordRows || []).map((item) => {
           const forcePending = revokedRecordId && String(item.recordId || '') === revokedRecordId;
           const normalizedItem = forcePending ? {
@@ -406,7 +407,7 @@ module.exports = Behavior({
               : (recordStatus === 'inactive' ? 'score-tag-inactive' : 'score-tag-pending')
           };
         });
-  
+
         this.setData({
           targetRecordRows: targetRows
         });
@@ -436,11 +437,12 @@ module.exports = Behavior({
     },
 
     async openScoreRecordDetail(e) {
+      if (this.data.authorizationEnforced && !this.data.canReadScoreResults) return;
       const recordId = String(e.currentTarget.dataset.recordId || '').trim();
       if (!recordId || !this.data.currentActivityId) {
         return;
       }
-  
+
       const organizationSnapshot = orgSession.getSnapshot();
       const activityId = this.data.currentActivityId;
       const requestToken = `${recordId}_${Date.now()}`;
@@ -457,7 +459,7 @@ module.exports = Behavior({
           dataType: 'recordDetail',
           recordId
         });
-  
+
         if (this.recordDetailLoadToken !== requestToken || !orgSession.isCurrent(organizationSnapshot)
           || this.data.currentActivityId !== activityId) return;
         if (result.status !== 'success') {
@@ -468,7 +470,7 @@ module.exports = Behavior({
           this.setData({ recordDetailPopupVisible: false });
           return;
         }
-  
+
         const recordDetail = result.recordDetail ? {
           ...result.recordDetail,
           submittedAtText: formatAuditDetailTime(
@@ -485,7 +487,7 @@ module.exports = Behavior({
             }))
           }))
         } : null;
-  
+
         this.setData({
           recordDetail,
           expandedScoreLabelMap: {}
@@ -520,7 +522,7 @@ module.exports = Behavior({
       if (!recordDetail || !recordDetail.templates || !recordDetail.templates[templateIndex]) {
         return;
       }
-  
+
       const templates = recordDetail.templates.map((template, currentTemplateIndex) => {
         if (currentTemplateIndex !== templateIndex) {
           return template;
@@ -538,7 +540,7 @@ module.exports = Behavior({
           })
         };
       });
-  
+
       this.setData({
         recordDetail: {
           ...recordDetail,
@@ -549,11 +551,11 @@ module.exports = Behavior({
 
     resetCurrentResultRows() {
       const viewMode = this.data.resultFilters.viewMode || 'overview';
-    
+
       const nextRaw = {
         ...this.data.scoreResultsRaw
       };
-    
+
       if (viewMode === 'overview') {
         nextRaw.overviewRows = [];
       } else if (viewMode === 'calculation') {
@@ -570,7 +572,7 @@ module.exports = Behavior({
           workGroups: []
         };
       }
-    
+
       this.setData({
         scoreResultsRaw: nextRaw,
         selectedResultTarget: null,
@@ -643,7 +645,7 @@ module.exports = Behavior({
         }
         return true;
       };
-  
+
       const sortRows = (rows, scoreField = 'finalScore') => {
         const nextRows = [...rows];
         const sortMode = filters.sortMode;
@@ -663,7 +665,7 @@ module.exports = Behavior({
         });
         return nextRows;
       };
-  
+
       const overviewRows = sortRows((this.data.scoreResultsRaw.overviewRows || []).filter(matches), 'finalScore').map((row) => {
         const expected = Math.max(0, Math.floor(toNumber(row.expectedScorerCount, 0)));
         const submitted = Math.max(0, Math.floor(toNumber(row.submittedScorerCount, 0)));
@@ -699,7 +701,7 @@ module.exports = Behavior({
         if (rateDiff !== 0) return rateDiff;
         return String(a.groupName || '').localeCompare(String(b.groupName || ''), 'zh-CN');
       });
-  
+
       this.setData({
         scoreResultsView: {
           overviewRows,
@@ -717,21 +719,21 @@ module.exports = Behavior({
     async toggleDepartmentScorers(e) {
       const { groupName } = e.currentTarget.dataset;
       if (!groupName || !this.data.currentActivityId) return;
-  
+
       if (this.data.selectedCompletionDepartment === groupName) {
         this.closeDepartmentScorers();
         return;
       }
-  
+
       const activityId = this.data.currentActivityId;
       const request = orgSession.beginRequest(this, 'departmentScorers');
-  
+
       this.setData({
         selectedCompletionDepartment: groupName,
         departmentScorerLoading: true,
         departmentScorerRows: []
       });
-  
+
       try {
         const result = await this.callCloud('getScoreResults', {
           activityId,
@@ -744,16 +746,16 @@ module.exports = Behavior({
             workGroup: this.data.resultFilters.workGroup
           }
         });
-  
+
         if (!orgSession.isRequestCurrent(this, request)
           || this.data.currentActivityId !== activityId) return;
-  
+
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ departmentScorerLoading: false });
           return;
         }
-  
+
         const rows = (result.scorerCompletionRows || []).map((item) => {
           const expectedCount = Math.max(0, Math.floor(toNumber(item.expectedCount, 0)));
           const submittedCount = Math.max(0, Math.floor(toNumber(item.submittedCount, 0)));
@@ -771,7 +773,7 @@ module.exports = Behavior({
             statusClass: pendingCount > 0 ? 'status-pending' : 'status-completed'
           };
         });
-  
+
         this.setData({
           departmentScorerRows: rows,
           departmentScorerLoading: false
@@ -795,20 +797,20 @@ module.exports = Behavior({
     async openScorerTargetPopup(e) {
       const { scorerKey } = e.currentTarget.dataset;
       if (!scorerKey || !this.data.currentActivityId) return;
-  
+
       const activityId = this.data.currentActivityId;
       const request = orgSession.beginRequest(this, 'scorerTargetPopup');
-  
+
       const scorerRow = (this.data.departmentScorerRows || []).find((item) => item.scorerKey === scorerKey);
       const scorerName = scorerRow ? scorerRow.scorerName : scorerKey;
-  
+
       this.setData({
         scorerTargetPopupVisible: true,
         scorerTargetPopupTitle: localeFormat(localeCopy.copy_abb0a3f46c, [scorerName]),
         scorerTargetPopupLoading: true,
         scorerTargetPopupRows: []
       });
-  
+
       try {
         const result = await this.callCloud('getScoreResults', {
           activityId,
@@ -816,23 +818,23 @@ module.exports = Behavior({
           dataType: 'scorerTargets',
           scorerKey
         });
-  
+
         if (!orgSession.isRequestCurrent(this, request)
           || this.data.currentActivityId !== activityId) return;
-  
+
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ scorerTargetPopupLoading: false });
           return;
         }
-  
+
         const rows = (result.scorerTargetRows || []).map((item) => ({
           ...item,
           detailText: item.targetHistoricalAssignmentUnavailable
             ? localeCopy.historicalAssignmentUnavailable
             : ([item.targetDepartment, item.targetIdentityCategory || item.targetIdentity, item.targetWorkGroup].filter(Boolean).join(' / ') || localeCopy.copy_2b4df49497)
         }));
-  
+
         this.setData({
           scorerTargetPopupRows: rows,
           scorerTargetPopupLoading: false
@@ -872,11 +874,11 @@ module.exports = Behavior({
       };
       const rawOptions = optionsMap[field] || [];
       const pickedLabel = rawOptions[Number(value)] || localeCopy.copy_31d4595959;
-  
+
       if (field === 'workGroup' && pickedLabel === localeCopy.copy_5327cd39d0) {
         return;
       }
-  
+
       let nextValue = pickedLabel;
       if (field === 'viewMode') {
         nextValue = (this.data.resultViewOptions[Number(value)] || {}).value || 'overview';
@@ -890,16 +892,16 @@ module.exports = Behavior({
           resultSortLabel: (this.data.resultSortOptions[Number(value)] || {}).label || localeCopy.copy_60c630a885
         });
       }
-  
+
       const nextFilters = {
         ...this.data.resultFilters,
         [field]: nextValue
       };
-  
+
       if (field === 'department') {
         nextFilters.workGroup = localeCopy.copy_31d4595959;
       }
-  
+
       this.setData({
         resultFilters: nextFilters,
         'resultFilterOptions.workGroups': this.buildWorkGroupFilterOptions(nextFilters.department)
@@ -914,7 +916,7 @@ module.exports = Behavior({
         wx.showToast({ title: localeCopy.copy_4e36c10a9e, icon: 'none' });
         return;
       }
-  
+
       const _this = this;
       wx.showActionSheet({
         itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
@@ -926,6 +928,7 @@ module.exports = Behavior({
     },
 
     async _doExportScoreResults(report, format) {
+      if (this.data.authorizationEnforced && !(report === 'completion' ? this.data.canExportScoreTasks : this.data.canExportScoreResults)) return;
       this.setLoading('export_' + report, true);
       try {
         const result = await this.callCloud('exportScoreResults', {
@@ -939,12 +942,12 @@ module.exports = Behavior({
             workGroup: this.data.resultFilters.workGroup
           }
         });
-  
+
         if (result.status !== 'success' || !result.fileContent || !result.fileName) {
           wx.showToast({ title: result.message || localeCopy.copy_2b61466286, icon: 'none' });
           return;
         }
-  
+
         saveAndShareFile(result.fileContent, result.fileName, result.extension || 'csv');
       } catch (error) {
         wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
@@ -960,7 +963,7 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
-  
+
       const confirm = await new Promise((resolve) => {
         wx.showModal({
           title: localeCopy.copy_a000713b84,
@@ -971,11 +974,11 @@ module.exports = Behavior({
           fail: () => resolve(false)
         });
       });
-  
+
       if (!confirm) {
         return;
       }
-  
+
       this.setLoading(`revoke_${id}`, true);
       try {
         const result = await this.callCloud('revokeScoreRecord', {

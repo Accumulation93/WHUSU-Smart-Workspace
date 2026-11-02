@@ -184,7 +184,10 @@ assert.doesNotMatch(rateGenerateSource, /hrInfoModel|FROM\s+hr_info/i, '评分�
 const generateStart = routeSource.indexOf("router.post('/generatePubViewRules'");
 const generateEnd = routeSource.indexOf("router.post('/generatePubMeritRules'", generateStart);
 const generateSource = routeSource.slice(generateStart, generateEnd);
-assert.match(generateSource, /participantService\.listParticipants\(orgId, 'assignment'\)/);
+assert.match(generateSource, /publicationAuthorization\.generate\(orgId, reference, publicationId, 'view'/);
+const generationModel = fs.readFileSync(path.join(__dirname, '../src/modules/scoring/models/publicationAuthorization.js'), 'utf8');
+assert.match(generationModel, /listParticipants\(organizationId, 'assignment', connection\)/);
+assert.doesNotMatch(generationModel, /FROM\s+hr_info/i, '事务内自动生成同样不得读取兼容岗位');
 assert.doesNotMatch(generateSource, /FROM\s+hr_info/i, '自动规则生成不得读取 hr_info 快照');
 
 const publicMeritStart = routeSource.indexOf("router.post('/getPublicMeritList'");

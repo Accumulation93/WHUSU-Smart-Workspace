@@ -128,11 +128,11 @@ function timeRange(booking) {
 
 function canCancel(booking) {
   const status = displayStatus(booking);
-  return status === 'pending' || status === 'approved';
+  return booking.canCancel !== false && (status === 'pending' || status === 'approved');
 }
 
 function canEnd(booking) {
-  return displayStatus(booking) === 'inUse';
+  return booking.canEnd !== false && displayStatus(booking) === 'inUse';
 }
 
 function goWorkRole() {
@@ -169,7 +169,7 @@ async function load() {
 }
 
 async function cancelBooking(booking) {
-  if (busy.value || loading.value || loadNotice.value) return;
+  if (busy.value || loading.value || loadNotice.value || !canCancel(booking)) return;
   const context = session.context?.contextId;
   const confirmed = await confirmAction({
     title: copy.venue.cancelAction,
@@ -194,7 +194,7 @@ async function cancelBooking(booking) {
 }
 
 async function endBooking(booking) {
-  if (busy.value || loading.value || loadNotice.value) return;
+  if (busy.value || loading.value || loadNotice.value || !canEnd(booking)) return;
   const context = session.context?.contextId;
   const confirmed = await confirmAction({
     title: copy.venue.endConfirmTitle,

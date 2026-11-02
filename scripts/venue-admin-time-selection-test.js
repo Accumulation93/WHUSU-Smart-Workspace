@@ -28,7 +28,7 @@ for (const width of [240, 520, 900]) {
 let definition, rectCallback, response;
 const frames = [];
 const base = path.resolve(__dirname, '../miniprogram/subpackages/venue/pages/venueManage');
-vm.runInNewContext(fs.readFileSync(path.join(base, 'venueManage.js'), 'utf8'), {
+definition = require('./lib/loadVenueManagementPage')({
   Page: value => { definition = value; }, console, setTimeout, clearTimeout,
   require: name => {
     if (name.includes('adminTimeSelection')) return selection;

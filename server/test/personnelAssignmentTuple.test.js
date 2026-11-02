@@ -12,7 +12,16 @@ const pool = require('../src/config/db');
 const unifiedIdentity = require('../src/core/models/unifiedIdentity');
 
 test('未知岗位性质不得静默降级为本会岗位', async () => {
-  await assert.rejects(
+  const originalWithTransaction = pool.withTransaction;
+  const queries = [];
+  pool.withTransaction = async callback => callback({ query: async (sql, params) => {
+    queries.push({ sql, params });
+    if (sql.includes('organization_dictionary_locks')) return [[]];
+    if (sql.includes('FROM assignment_natures')) return [[]];
+    throw new Error('unexpected query: ' + sql);
+  } });
+  try {
+    await assert.rejects(
     unifiedIdentity.saveMembershipAssignment({
       organizationId: 'org-1',
       legacyHrId: 'hr-1',
@@ -21,7 +30,10 @@ test('未知岗位性质不得静默降级为本会岗位', async () => {
       identityId: 'identity-1'
     }),
     (error) => error && error.code === 'assignment_nature_invalid'
-  );
+    );
+    assert.deepEqual(queries.find(item => item.sql.includes('FROM assignment_natures')).params, ['org-1', 'unexpected']);
+    assert(!queries.some(item => item.sql.includes('membership_assignments')));
+  } finally { pool.withTransaction = originalWithTransaction; }
 });
 
 test('同一成员关系内完全相同的在职岗位元组不得重复创建', async () => {
@@ -31,6 +43,8 @@ test('同一成员关系内完全相同的在职岗位元组不得重复创建',
     async query(sql) {
       const source = String(sql);
       executedSql.push(source);
+      if (source.includes('organization_dictionary_locks')) return [[]];
+      if (source.includes('FROM assignment_natures')) return [[{ id: 'staff', name: '本会岗位' }]];
       if (source.includes('FROM organization_memberships')) {
         return [[{ id: 'membership-1', person_id: 'person-1' }]];
       }

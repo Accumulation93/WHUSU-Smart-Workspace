@@ -266,6 +266,10 @@ async function run() {
       await admin.query(`GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO '${applicationUser}'@'%'`);
       process.env.DB_USER = applicationUser;
       process.env.DB_PASSWORD = applicationPassword;
+      await connection.query(`CREATE TABLE IF NOT EXISTS organization_dictionary_locks (
+        org_id VARCHAR(64) NOT NULL PRIMARY KEY,
+        touched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
       await assertTemplateAppliedInPlace(connection);
 
       await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', ['template-a']);

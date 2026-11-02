@@ -11,6 +11,7 @@ module.exports = Behavior({
   },
   methods: {
     openStampGrants: function(event) {
+      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.stamps.update']) return;
       if (this.data.stampGrantSaving || this.data.stampLoadError) return;
       const id = event.currentTarget.dataset.id;
       const stamp = (this.data.stamps || []).find(item => item.id === id);

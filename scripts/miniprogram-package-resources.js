@@ -8,6 +8,8 @@ const parserExports = {};
 vm.runInNewContext(process.binding('natives')['internal/deps/acorn/acorn/dist/acorn'], { exports: parserExports, module: { exports: parserExports } });
 const ROOT = path.resolve(__dirname, '..');
 const RESOURCE_DIR = '/package-resources/';
+const { templateReferences, styleReferences } = require('./miniprogram-static-assets');
+const SHARED_WORKBENCH_ROOT = 'subpackages/scoring/pages/admin/';
 const slash = value => value.replace(/\\/g, '/');
 function walk(directory) {
   if (!fs.existsSync(directory)) return [];
@@ -71,6 +73,11 @@ function graph(root, packaged = false) {
     const set = owners.get(file) || new Set();
     if (set.has(pkg)) return;
     set.add(pkg); owners.set(file, set);
+    if (!edges.has(file) && ['.wxml', '.wxss', '.wxs'].includes(path.posix.extname(file))) {
+      const source = fs.readFileSync(path.join(mini, file), 'utf8');
+      const refs = file.endsWith('.wxml') ? templateReferences(source) : file.endsWith('.wxss') ? styleReferences(source) : requires(source);
+      edges.set(file, refs.map(ref => resolve(file, ref.value)));
+    }
     for (const target of edges.get(file) || []) {
       if (packaged && owner(target) !== 'main' && owner(target) !== owner(file)) throw new Error('跨分包依赖：' + file + ' -> ' + target);
       trace(target, pkg);
@@ -83,6 +90,7 @@ function graph(root, packaged = false) {
     if (seen.has(key)) return;
     seen.add(key);
     trace(base + '.js', pkg);
+    for (const ext of ['.wxml', '.wxss']) if (fs.existsSync(path.join(mini, base + ext))) trace(base + ext, pkg);
     const jsonPath = path.join(mini, base + '.json');
     if (!fs.existsSync(jsonPath)) return;
     const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -104,12 +112,18 @@ function plan(root) {
   const mapping = new Map();
   for (const file of g.files) {
     const consumers = g.owners.get(file) || new Set();
-    if (g.owner(file) !== 'main' || consumers.has('main')) continue;
+    const sharedWorkbench = file.startsWith(SHARED_WORKBENCH_ROOT) && consumers.has('subpackages/workspace');
+    if (!sharedWorkbench && (g.owner(file) !== 'main' || consumers.has('main'))) continue;
     mapping.set(file, [...consumers].sort());
-    if (file.startsWith('components/') && file.endsWith('.js')) {
+    if ((file.startsWith('components/') || sharedWorkbench) && file.endsWith('.js')) {
       const base = file.slice(0, -3);
       for (const ext of ['.json', '.wxml', '.wxss']) if (fs.existsSync(path.join(g.mini, base + ext))) mapping.set(base + ext, [...consumers].sort());
     }
+  }
+  // 工作台唯一源保留在评分分包；只复制它实际被工作区引用的静态资产，不开放任意跨分包依赖。
+  for (const [file, consumers] of g.owners) {
+    if (file.startsWith(SHARED_WORKBENCH_ROOT) && consumers.has('subpackages/workspace')
+      && ['.wxml', '.wxss', '.wxs'].includes(path.posix.extname(file))) mapping.set(file, [...consumers].sort());
   }
   return { ...g, mapping };
 }
@@ -119,7 +133,15 @@ function targetFor(file, pkg, mapping) {
   return pkg + RESOURCE_DIR + file;
 }
 function rewrite(source, from, output, pkg, state) {
-  if (from.endsWith('.js')) {
+  if (from.endsWith('.wxml') || from.endsWith('.wxss')) {
+    const refs = from.endsWith('.wxml') ? templateReferences(source) : styleReferences(source);
+    for (const ref of refs.reverse()) {
+      const target = targetFor(state.resolve(from, ref.value), pkg, state.mapping);
+      let relative = path.posix.relative(path.posix.dirname(output), target);
+      if (!relative.startsWith('.')) relative = './' + relative;
+      source = source.slice(0, ref.start) + relative + source.slice(ref.end);
+    }
+  } else if (from.endsWith('.js')) {
     const replacements = requires(source).filter(ref => ref.value.startsWith('.') || ref.value.startsWith('/')).map(ref => {
       const file = state.resolve(from, ref.value);
       const target = targetFor(file, pkg, state.mapping);
@@ -163,9 +185,9 @@ function sync(root = ROOT, write = false) {
     if (write) { fs.mkdirSync(path.dirname(full), { recursive: true }); fs.writeFileSync(full, content); }
     else if (!fs.existsSync(full) || fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n') !== content) throw new Error('分包副本不同步：' + file);
   }
-  // 只修改 JS 字符串节点及 JSON 组件路径，绝不改写 WXML。
+  // 只重定位依赖引用：JS字符串节点、JSON组件路径以及逐字符解析的模板/样式静态路径，不改业务标签。
   for (const file of walk(state.mini).map(item => slash(path.relative(state.mini, item)))) {
-    if (file.includes(RESOURCE_DIR) || state.mapping.has(file) || (!file.endsWith('.js') && !file.endsWith('.json'))
+    if (file.includes(RESOURCE_DIR) || state.mapping.has(file) || !['.js', '.json', '.wxml', '.wxss'].includes(path.posix.extname(file))
       || file.includes('/tests/') || file.endsWith('.test.js')) continue;
     const full = path.join(state.mini, file);
     const source = fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n');

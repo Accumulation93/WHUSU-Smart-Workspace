@@ -1,0 +1,12 @@
+@import "../authorization/authorization.wxss";
+.copy-stack, .copy-field { display: flex; flex-direction: column; gap: var(--ui-field-gap); min-width: 0; }
+.copy-field { gap: var(--ui-label-gap); }
+.copy-stack > button, .copy-field > button { flex: none; box-sizing: border-box; width: 100%; min-width: 100%; max-width: 100%; }
+.copy-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+.copy-tabs > button, .copy-actions > button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.copy-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-page-action-gap); }
+.copy-actions > button { min-width: 0; width: 100%; }
+.copy-muted { color: #64748b; font-size: var(--ui-type-meta); line-height: 1.6; overflow-wrap: anywhere; }
+.copy-page .picker-display { white-space: normal; overflow-wrap: anywhere; }
+.copy-multiline { white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-summary-title { font-weight: 600; }

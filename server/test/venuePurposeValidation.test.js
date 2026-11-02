@@ -42,11 +42,9 @@ test('事由长度按 Unicode 字符计算并拒绝第 201 个字符', () => {
 
 test('事由删除继续保留数据库引用阻断并返回 locale 提示', () => {
   const deleteSource = routeSource('/deleteVenueBookingPurpose');
-  assert.match(deleteSource, /venueBookingPurposeModel\.getById\(id\)/);
-  assert.match(deleteSource, /SELECT 1 FROM venue_bookings WHERE title = \? LIMIT 1/);
-  assert.match(deleteSource, /\[existing\.text\]/);
-  assert.match(deleteSource, /if \(referenceRows\.length\) \{\s+return res\.json\(\{ status: 'conflict', message: localeCopy\.bookingPurposeReferenced \}\);/);
-  assert.match(deleteSource, /venueBookingPurposeModel\.remove\(id\)/);
+  assert.match(deleteSource, /venueBookingPurposeModel\.getById\(id, orgId\)/);
+  assert.match(deleteSource, /venueBookingPurposeModel\.isReferenced\(existing\.text, orgId\)/);
+  assert.match(deleteSource, /venueBookingPurposeModel\.remove\(id, orgId\)/);
   assert.match(deleteSource, /ER_ROW_IS_REFERENCED/);
   assert.match(deleteSource, /ER_ROW_IS_REFERENCED_2/);
   assert.match(deleteSource, /status: 'conflict', message: localeCopy\.bookingPurposeReferenced/);

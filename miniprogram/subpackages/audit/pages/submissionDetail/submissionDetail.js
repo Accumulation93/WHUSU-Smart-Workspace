@@ -205,6 +205,8 @@ Page({
     // 只有当前待处理步骤确实由当前岗位负责时才显示通过/驳回入口；
     // userIsApprover 代表"参与过这条申请"，不能用来决定审批入口。
     canApproveCurrentStep: false,
+    canUpdateSubmission: false,
+    canWithdrawSubmission: false,
     userIsAdmin: false,
     activeWorkContext: null,
     hasActiveAssignment: false,
@@ -1695,6 +1697,8 @@ Page({
           userIsSubmitter: res.userIsSubmitter || false,
           userIsApprover: Boolean(res.userIsApprover && this.data.hasActiveAssignment),
           canApproveCurrentStep: Boolean(res.canApproveCurrentStep && this.data.hasActiveAssignment),
+          canUpdateSubmission: Boolean(res.userIsSubmitter && res.canUpdateSubmission !== false && this.data.hasActiveAssignment),
+          canWithdrawSubmission: Boolean(res.userIsSubmitter && res.canWithdrawSubmission !== false && this.data.hasActiveAssignment),
           userIsAdmin: res.userIsAdmin || false,
           expandedNodeKey: ''
         });
@@ -2808,6 +2812,7 @@ Page({
   },
 
   enterEditMode() {
+    if (!this.data.canUpdateSubmission) return;
     let submission = this.data.submission;
     let files = this.data.files || [];
     let steps = this.data.steps || [];
@@ -3304,6 +3309,7 @@ Page({
 
   // Resubmit after rejection
   async resubmit() {
+    if (!this.data.canUpdateSubmission) return;
     if (!this.ensureActiveAssignment()) return;
     this.setData({ loading: true });
     try {
@@ -3346,6 +3352,7 @@ Page({
 
   // Withdraw
   async withdraw() {
+    if (!this.data.canWithdrawSubmission) return;
     if (!this.ensureActiveAssignment()) return;
     const that = this;
     wx.showModal({

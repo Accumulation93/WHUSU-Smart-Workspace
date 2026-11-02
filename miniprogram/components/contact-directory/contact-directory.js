@@ -13,7 +13,7 @@ const dimensions = [
 ];
 Component({
   options: { styleIsolation: 'apply-shared' },
-  properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' } },
+  properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
   data: { copy, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
@@ -57,7 +57,14 @@ Component({
           this.setData({ groups: view.filterGroups(this._groups, this.data.query), loadFailed: false });
         }
       } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, copy.loadFailed), loadFailed: true }); }
-      finally { if (this.current(request)) this.setData({ loading: false }); }
+      finally { if (this.current(request)) {
+        this.setData({ loading: false });
+        const id = this.properties.copyId;
+        if (this.data.admin && id && this._openedCopy !== id && !this.data.loadFailed) {
+          this._openedCopy = id;
+          if (this.data.rules.some(rule => rule.id === id)) this.edit({ currentTarget: { dataset: { id } } });
+        }
+      } }
     },
     search: function(event) { const query = event.detail.value; this.setData({ query, groups: view.filterGroups(this._groups || [], query) }); },
     openContact: async function(event) {

@@ -1,5 +1,6 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/adminPermissions');
 const { callFunction } = require('./api');
+const { managementTabAllowed, hasCapability } = require('./authorizationAccessView');
 
 const TAB_PERMISSION_MAP = {
   activities: ['scoring.activities'],
@@ -45,6 +46,9 @@ function getAdminProfile() {
 function hasAny(profile, keys) {
   if (!profile) return false;
   if (profile.adminLevel === 'super_admin') return true;
+  if (profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
+    return (keys || []).some(key => hasCapability(profile.authorizationAccess, key, true));
+  }
   const permissions = profile.permissions;
   // 普通管理员权限状态缺失时默认拒绝，等待服务端刷新后再开放入口。
   if (!permissions || typeof permissions !== 'object') return false;
@@ -53,6 +57,10 @@ function hasAny(profile, keys) {
 
 function canAccessPermissionSystem(profile) {
   if (!profile) return false;
+  if (profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
+    return ['authorization.rules.read', 'authorization.schemes.read', 'authorization.effective.read',
+      'authorization.delegations.read'].some(key => hasCapability(profile.authorizationAccess, key, true));
+  }
   if (profile.adminLevel === 'super_admin') return true;
   return profile.adminLevel === 'admin'
     && Boolean(profile.canAccessPermissionSystem
@@ -92,6 +100,9 @@ async function refreshMyPermissions() {
 }
 
 function filterTabs(tabs, profile, map) {
+  if (profile && profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
+    return (tabs || []).filter(tab => managementTabAllowed(profile.authorizationAccess, tab));
+  }
   const permissionMap = map || TAB_PERMISSION_MAP;
   return (tabs || []).filter(function(tab) {
     const keys = permissionMap[tab] || [];
@@ -103,6 +114,15 @@ function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
     if (card.key === 'messages' || card.key === 'identitySwitch' || card.key === 'identityCard') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
+    if (profile && profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
+      const tabs = {
+        scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
+        hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+        audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'],
+        system: ['admins', 'settings'], venue: ['venue', 'bookings', 'pending', 'purposes']
+      };
+      return (tabs[card.key] || []).some(tab => managementTabAllowed(profile.authorizationAccess, tab));
+    }
     const keys = PORTAL_PERMISSION_MAP[card.key] || [];
     return hasAny(profile, keys.concat(keys.map(key => key + '.delete')));
   });

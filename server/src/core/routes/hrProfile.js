@@ -40,6 +40,7 @@ const PROFILE_STATUS_TEXT = {
 };
 
 function sendHrProfileFailure(req, res, error) {
+  if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
   if (req.logger) {
     req.logger.error('HR profile operation failed', {
       event: 'hr.profile.operation_failed',
@@ -99,12 +100,29 @@ async function ensureAdmin(req) {
 }
 
 async function ensureTemplatePermission(req, permissionKeys) {
+  if (req.unifiedAuthorization) {
+    const actions = {
+      '/listHrProfileTemplates': ['hr.profileTemplates.read', 'hr.profileSelection.read'],
+      '/saveHrProfileTemplateDefinition': [req.body.id ? 'hr.profileTemplates.update' : 'hr.profileTemplates.create'],
+      '/duplicateHrProfileTemplateDefinition': ['hr.profileTemplates.create'],
+      '/deleteHrProfileTemplateDefinition': ['hr.profileTemplates.delete'],
+      '/getHrProfileTemplateSwitchContext': ['hr.profileSelection.read'],
+      '/previewHrProfileTemplateSwitch': ['hr.profileSelection.update'],
+      '/applyHrProfileTemplateSwitch': ['hr.profileSelection.update'],
+      '/saveOrgHrProfileTemplateSettings': ['hr.profileSelection.update']
+    };
+    const capabilities = actions[req.path] || [];
+    const reference = req.unifiedAuthorization.reference;
+    const context = await require('../models/hrAuthorization').templateAccess(reference, capabilities);
+    context.authorize = connection => require('../models/hrAuthorization').templateAccess(reference, capabilities, connection);
+    return context;
+  }
   const admin = await ensureAdmin(req);
   if (!admin) return null;
   const orgId = await getCurrentOrgId();
   const effective = req.adminPermissions || await loadEffectivePermissions(admin, orgId);
   if (!hasAnyPermission(effective, permissionKeys)) return null;
-  return { admin, orgId, effective };
+  return { admin, orgId, effective, authorize: connection => require('../models/authorizationBusinessRoute').requireLegacyWrite(connection, orgId) };
 }
 
 function normalizeTemplateField(field) {
@@ -415,7 +433,7 @@ router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
-    return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin));
+    return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin, context.authorize));
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
   }
@@ -425,7 +443,7 @@ router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
-    return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin));
+    return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin, context.authorize));
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
   }
@@ -435,7 +453,7 @@ router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage.delete']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
-    return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
+    return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id), context.authorize));
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
   }
@@ -479,7 +497,7 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
     const result = await templateLibrary.applySwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
       safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin,
-      req.body.ignoreInvalid === true
+      req.body.ignoreInvalid === true, context.authorize
     );
     if (result && result.status !== 'success') {
       req.logger.warn('HR template switch apply rejected', {
@@ -498,7 +516,7 @@ router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
     if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     return res.json(await templateLibrary.saveOrgSettings(
-      context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin
+      context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin, context.authorize
     ));
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
@@ -516,18 +534,22 @@ router.post('/saveHrProfileTemplate', (req, res) => {
 // listHrProfileAdminData
 router.post('/listHrProfileAdminData', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const authorization = require('../models/hrAuthorization');
+    const access = reference ? await authorization.directory(reference) : null;
 
     const orgId = await getCurrentOrgId();
-    const [template, hrRows, records] = await Promise.all([
+    const [template, hrRows, allRecords] = await Promise.all([
       profileTemplateModel.getByTemplateKey(TEMPLATE_KEY),
-      hrInfoModel.getMembershipDirectory(),
+      access ? [...access.members.values()].map(member => member.row) : hrInfoModel.getMembershipDirectory(),
       profileRecordModel.getAll()
     ]);
+    const records = access ? allRecords.filter(record => access.members.has(record.hr_id)) : allRecords;
 
     const [bindingStates, assignmentSummaries] = await Promise.all([
-      resolveHrBindingStates(hrRows, orgId),
+      access ? new Map() : resolveHrBindingStates(hrRows, orgId),
       unifiedIdentityModel.listDirectoryAssignmentSummaries(hrRows.map((row) => row.id), orgId)
     ]);
 
@@ -637,13 +659,15 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         wxBindStatus: binding.status
       });
     }
+    const visibleFieldIds = access ? new Set([...access.members.values()].flatMap(member => authorization.visibleProfileFields(member, fields).map(field => field.id))) : null;
+    if (access) await authorization.confirm(reference, access.revision);
     res.json({
       status: 'success',
       template: template ? {
         description: template.description || '',
         editMode: template.edit_mode || 'direct',
         modeText: MODE_TEXT_MAP[template.edit_mode || 'direct'] || MODE_TEXT_MAP.direct,
-        fields: fields.map((f) => ({
+        fields: fields.filter(field => !visibleFieldIds || visibleFieldIds.has(field.id)).map((f) => ({
           id: f.id, label: f.label, type: f.type, required: !!f.required,
           minLength: f.min_length, maxLength: f.max_length,
           numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
@@ -653,11 +677,11 @@ router.post('/listHrProfileAdminData', async (req, res) => {
           options: f.options_json ? JSON.parse(f.options_json) : []
         }))
       } : null,
-      rows,
+      rows: access ? rows.map(row => authorization.profileRow(row, access.members.get(row.id), fieldObjs, localeCopy.copy_4049b5c6cd)) : rows,
       capabilities: {
-        canManagePeople: hasAnyPermission(req.adminPermissions, ['hr.people']),
-        canReviewProfiles: hasAnyPermission(req.adminPermissions, ['hr.profile_review']),
-        canGlobalAccountManage: hasAnyPermission(req.adminPermissions, ['auth.accounts.global_manage'])
+        canManagePeople: access ? [...access.members.values()].some(member => member.writableFields.size > 0) : hasAnyPermission(req.adminPermissions, ['hr.people']),
+        canReviewProfiles: access ? [...access.members.values()].some(member => member.reviewFields.size > 0) : hasAnyPermission(req.adminPermissions, ['hr.profile_review']),
+        canGlobalAccountManage: !access && hasAnyPermission(req.adminPermissions, ['auth.accounts.global_manage'])
       }
     });
   } catch (e) {
@@ -668,15 +692,16 @@ router.post('/listHrProfileAdminData', async (req, res) => {
 // reviewHrProfileChange
 router.post('/reviewHrProfileChange', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
     const studentId = safeString(req.body.studentId);
     const action = safeString(req.body.action);
     const reason = safeString(req.body.reason);
 
-    if ((!hrId && !studentId) || ['approve', 'reject'].indexOf(action) === -1) {
+    if ((reference ? !hrId : (!hrId && !studentId)) || ['approve', 'reject'].indexOf(action) === -1) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
     }
     if (action === 'reject' && !reason) {
@@ -691,6 +716,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const nowUtc = nowMysqlUtc();
     const reviewResult = await pool.withTransaction(async (connection) => {
+      const authorize = await require('../models/hrAuthorization').prepareWrite(connection, reference, orgId);
       await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
         legacyHrId: hrRecord.id,
         organizationId: orgId
@@ -707,6 +733,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
         return { status: 'invalid_operation' };
       }
       const pendingFieldIds = Array.from(new Set(pendingVals.map((value) => value.field_id)));
+      await authorize(hrRecord.id, 'hr.profileReview.approve', pendingFieldIds.map(id => 'profile:' + id));
       const submittedFields = await profileFieldModel.getByIds(pendingFieldIds, orgId, connection);
       if (submittedFields.length !== pendingFieldIds.length) return { status: 'invalid_operation' };
       const effectiveSnapshot = {};
@@ -789,13 +816,18 @@ router.post('/reviewHrProfileChange', async (req, res) => {
 // getHrPersonDetail
 router.post('/getHrPersonDetail', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
-    const hr = await hrInfoModel.getByIdIncludingFormer(hrId);
+    const authorization = require('../models/hrAuthorization');
+    const access = reference ? await authorization.directory(reference, { hrId }) : null;
+    const member = access?.members.get(hrId);
+    if (access && !member) return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const hr = member ? member.row : await hrInfoModel.getByIdIncludingFormer(hrId);
     if (!hr) return res.json({ status: 'not_found', message: localeCopy.copy_9ccefa96da });
     const orgId = await getCurrentOrgId();
 
@@ -816,11 +848,13 @@ router.post('/getHrPersonDetail', async (req, res) => {
           }))
         : []
     } : null;
+    if (member && templateData) templateData.fields = authorization.visibleProfileFields(member, templateData.fields);
 
     const record = await profileRecordModel.getByHrId(hrId);
     const activeFieldIds = new Set(templateData ? templateData.fields.map((field) => field.id) : []);
     let values = {};
     let pendingValues = {};
+    let reviewablePending = false;
     const reviewHistory = record
       ? await profileReviewEventModel.listByRecordId(record.id, orgId)
       : [];
@@ -838,6 +872,8 @@ router.post('/getHrPersonDetail', async (req, res) => {
       pvals.forEach((value) => {
         if (activeFieldIds.has(value.field_id)) pendingValues[value.field_id] = value.field_value;
       });
+      reviewablePending = pvals.length > 0 && pvals.every(value => activeFieldIds.has(value.field_id))
+        && (!member || member.reviewGrants.some(grant => pvals.every(value => grant.has('profile:' + value.field_id))));
     }
 
     const auditStatus = record ? (record.audit_status || 'none') : 'none';
@@ -847,20 +883,24 @@ router.post('/getHrPersonDetail', async (req, res) => {
     );
     const displayStatus = effectiveProfileStatus(auditStatus, completeness);
 
+    if (access) await authorization.confirm(reference, access.revision);
+    const showReview = !member || member.fields.has('reviewStatus');
     res.json({
       status: 'success',
-      profile: await enrichHrWithOrg(hr),
+      profile: member ? authorization.basics(member) : await enrichHrWithOrg(hr),
       template: templateData,
       values,
       pendingValues,
+      ...(member ? { writableFieldIds: (templateData?.fields || []).filter(field => member.writableFields.has('profile:' + field.id)).map(field => field.id),
+        canReviewProfiles: reviewablePending && record?.audit_status === 'pending' } : {}),
       historicalFields: [],
-      auditStatus: displayStatus,
-      auditStatusText: PROFILE_STATUS_TEXT[displayStatus] || localeCopy.copy_67f2697101,
+      auditStatus: showReview ? displayStatus : undefined,
+      auditStatusText: showReview ? (PROFILE_STATUS_TEXT[displayStatus] || localeCopy.copy_67f2697101) : undefined,
       isComplete: completeness.isComplete,
       missingRequiredFieldIds: completeness.missingRequiredFieldIds,
-      rejectionReason,
-      hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
-      reviewHistory: reviewHistory.map((item) => ({
+      rejectionReason: showReview ? rejectionReason : undefined,
+      hasPending: showReview && auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
+      reviewHistory: showReview ? reviewHistory.map((item) => ({
         id: safeString(item.id),
         action: safeString(item.action),
         reason: safeString(item.reason),
@@ -868,11 +908,11 @@ router.post('/getHrPersonDetail', async (req, res) => {
         reviewerPersonId: safeString(item.reviewer_person_id),
         reviewerContextId: safeString(item.reviewer_context_id),
         createdAt: item.created_at
-      })),
-      membershipStatus: safeString(hr.membership_status) || 'active',
-      joinedAt: hr.joined_at || null,
-      leftAt: hr.left_at || null,
-      ...profileSubmissionFields(submissions, record)
+      })) : [],
+      membershipStatus: !member || member.fields.has('membershipStatus') ? safeString(hr.membership_status) || 'active' : undefined,
+      joinedAt: !member || member.fields.has('membershipStatus') ? hr.joined_at || null : undefined,
+      leftAt: !member || member.fields.has('membershipStatus') ? hr.left_at || null : undefined,
+      ...(showReview ? profileSubmissionFields(submissions, record) : {})
     });
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
@@ -883,15 +923,19 @@ router.post('/getHrPersonDetail', async (req, res) => {
 router.post('/saveHrPersonFull', async (req, res) => {
   try {
     const openid = ''; // 管理操作同样不以微信标识记录本人。
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
-    const profileValues = req.body.profileValues && typeof req.body.profileValues === 'object' ? req.body.profileValues : {};
+    if (req.body.profileValues != null && (typeof req.body.profileValues !== 'object' || Array.isArray(req.body.profileValues))) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
+    }
+    const profileValues = req.body.profileValues || {};
 
-    if (!name || !studentId) {
+    if (!reference && (!name || !studentId)) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_2ffe8c71d9 });
     }
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
@@ -902,12 +946,12 @@ router.post('/saveHrPersonFull', async (req, res) => {
       (req.adminPermissions.permissions && req.adminPermissions.permissions['hr.people'])
       || req.adminPermissions['hr.people']
     ));
-    if (!canManagePeople) {
+    if (!reference && !canManagePeople) {
       return res.json({ status: 'permission_denied', message: localeCopy.copy_b0fe1df7fb });
     }
 
     const now = nowMysqlUtc();
-    if (name !== safeString(hr.name) || studentId !== safeString(hr.student_id)) {
+    if (((!reference || name) && name !== safeString(hr.name)) || ((!reference || studentId) && studentId !== safeString(hr.student_id))) {
       return res.json({
         status: 'person_correction_required',
         message: personnelCopy.personCorrectionRequired
@@ -932,7 +976,10 @@ router.post('/saveHrPersonFull', async (req, res) => {
       const normalizedValues = {};
       for (const [fieldId, rawValue] of Object.entries(profileValues)) {
         const field = fieldMap.get(fieldId);
-        if (!field) continue;
+        if (!field) {
+          if (reference) return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
+          continue;
+        }
         const err = validateFieldValue(field, rawValue, true);
         if (err) return res.json({ status: 'invalid_params', message: err });
         normalizedValues[fieldId] = rawValue == null ? '' : String(rawValue).trim();
@@ -947,14 +994,20 @@ router.post('/saveHrPersonFull', async (req, res) => {
 
       const orgId = await getCurrentOrgId();
       // 必填项没填完只能算“未提交”：可以保存，但绝不能标成已生效。
-      const completeness = profileCompleteness(normalizedFields, normalizedValues, {}, 'none');
       await pool.withTransaction(async (connection) => {
+        const authorize = await require('../models/hrAuthorization').prepareWrite(connection, reference, orgId);
         await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
           legacyHrId: hrId,
           organizationId: orgId
         }]);
+        if (reference) await require('../models/hrAuthorization').verifyProfileSnapshot(connection, orgId, template.id, fields);
+        await authorize(hrId, 'hr.people.update', Object.keys(normalizedValues).map(id => 'profile:' + id));
         const existing = await profileRecordModel.getByHrId(hrId, connection, orgId, true);
         const recordId = existing ? existing.id : generateId();
+        const currentRows = reference && existing
+          ? await profileValueModel.getByRecordIdAndPending(existing.id, 0, connection, orgId, true) : [];
+        const effectiveValues = Object.assign({}, Object.fromEntries(currentRows.filter(row => fieldMap.has(row.field_id)).map(row => [row.field_id, row.field_value])), normalizedValues);
+        const completeness = profileCompleteness(normalizedFields, effectiveValues, {}, 'none');
         const pendingRows = existing
           ? await profileValueModel.getByRecordIdAndPending(existing.id, 1, connection, orgId, true)
           : [];
@@ -972,7 +1025,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
           : (completeness.isComplete ? 'approved' : 'none');
         if (existing) {
           await profileValueModel.removeByRecordIdAndPendingFields(
-            existing.id, 0, normalizedFields.map((field) => field.id), connection, orgId
+            existing.id, 0, reference ? Object.keys(normalizedValues) : normalizedFields.map((field) => field.id), connection, orgId
           );
           await profileRecordModel.update(existing.id, {
             templateSnapshotId: template.id,
@@ -983,7 +1036,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
           }, connection, orgId);
         } else {
           await profileRecordModel.create(recordId, {
-            hrId, name, openid, templateSnapshotId: template.id,
+            hrId, name: hr.name, openid, templateSnapshotId: template.id,
             auditStatus: nextStatus, reviewedAt: nextStatus === 'approved' ? now : null
           }, connection, orgId);
         }
@@ -999,10 +1052,15 @@ router.post('/saveHrPersonFull', async (req, res) => {
           action: 'maintained',
           reviewerPersonId: req.authAccount && req.authAccount.personId,
           reviewerContextId: req.authContext && req.authContext.contextId,
-          effectiveValues: normalizedValues,
+          effectiveValues,
           pendingValues: pendingSnapshot,
           organizationId: orgId
         }, connection);
+      });
+    } else if (reference) {
+      await pool.withTransaction(async connection => {
+        const authorize = await require('../models/hrAuthorization').prepareWrite(connection, reference, await getCurrentOrgId());
+        await authorize(hrId, 'hr.people.update', []);
       });
     }
 

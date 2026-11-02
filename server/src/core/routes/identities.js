@@ -2,12 +2,11 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/identities
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
-const { nowMysqlUtc } = require('../../utils/dateTime');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const identityModel = require('../models/identity');
 const { resolveRequestAdmin: ensureAdmin } = require('../services/adminRequestContext');
 const { getAuthenticatedContext } = require('../services/authenticatedContext');
-const pool = require('../../config/db');
+const dictionaryDefinition = require('../models/dictionaryDefinition');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const dictionaryUsage = require('../services/dictionaryUsage');
 
@@ -32,8 +31,7 @@ router.post('/listIdentities', async (req, res) => {
 // saveIdentity
 router.post('/saveIdentity', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!req.unifiedAuthorization && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -43,23 +41,17 @@ router.post('/saveIdentity', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_268f818f6f });
     }
 
-    const orgId = await getCurrentOrgId();
-    const [dups] = await pool.query('SELECT id FROM identities WHERE name = ? AND org_id = ?', [name, orgId]);
-    if (dups.some((r) => String(r.id) !== id)) {
+    const orgId = req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const saved = await dictionaryDefinition.save('identity', { id, newId: id ? '' : generateId(), name, description,
+      organizationId: orgId, authorizationReference: req.unifiedAuthorization?.reference });
+    if (saved.status === 'duplicate') {
       return res.json({ status: 'duplicate', message: localeCopy.copy_f325d1673b });
     }
-
-    if (id) {
-      const nowUtc = nowMysqlUtc();
-      const updated = await identityModel.update(id, name, description, nowUtc);
-      if (!updated) return res.json({ status: 'not_found', message: personnelCopy.dictionaryUnavailable });
-      res.json({ status: 'success', message: localeCopy.copy_4fb370f421 });
-    } else {
-      const newId = generateId();
-      await identityModel.create(newId, name, description);
-      res.json({ status: 'success', id: newId, message: localeCopy.copy_bbea341d01 });
-    }
+    if (saved.status !== 'success') return res.json({ status: saved.status, message: personnelCopy.dictionaryUnavailable });
+    res.json(id ? { status: 'success', message: localeCopy.copy_4fb370f421 }
+      : { status: 'success', id: saved.id, message: localeCopy.copy_bbea341d01 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -67,14 +59,13 @@ router.post('/saveIdentity', async (req, res) => {
 // deleteIdentity
 router.post('/deleteIdentity', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!req.unifiedAuthorization && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
 
-    const orgId = await getCurrentOrgId();
-    const deletion = await dictionaryUsage.deleteUnused('identity', id, orgId);
+    const orgId = req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const deletion = await dictionaryUsage.deleteUnused('identity', id, orgId, req.unifiedAuthorization?.reference);
     if (deletion.status === 'in_use') {
       return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
     }
@@ -83,6 +74,7 @@ router.post('/deleteIdentity', async (req, res) => {
     }
     res.json({ status: 'success', message: localeCopy.copy_c2fabccf92 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

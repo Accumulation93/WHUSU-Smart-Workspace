@@ -4,6 +4,7 @@ import copy from '../../src/locales/zh-CN/index.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/activityBehavior.js';
 import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
+import authorizationCopy from '../../src/locales/zh-CN/shared/authorization.js';
 
 async function setup(page) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -11,6 +12,66 @@ async function setup(page) {
     status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'scoring.activities': true, 'scoring.activities.delete': true, 'scoring.templates': true }
   } }));
 }
+
+test('an assigned work role uses explicit activity actions without borrowing administrator permissions', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-assignment' });
+  let legacyReads = 0;
+  let saved = null;
+  await page.route('**/api/getMyAdminPermissions', route => { legacyReads++; return route.fulfill({ status: 403, json: { status: 'forbidden' } }); });
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-assignment', role: 'user',
+    capabilities: ['scoring.activities.read', 'scoring.activities.create', 'venue.bookings.read'],
+    grantedCapabilities: ['scoring.activities.read', 'scoring.activities.create']
+  } }));
+  await page.route('**/api/listScoreActivities', route => route.fulfill({ json: { status: 'success', list: saved ? [saved] : [] } }));
+  await page.route('**/api/saveScoreActivity', route => {
+    saved = { ...route.request().postDataJSON(), id: 'created' };
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/admin?subApp=scoring');
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await page.getByLabel(ui.copy_a782814703).fill('Assigned activity');
+  await page.getByRole('button', { name: ui.copy_189d8358eb, exact: true }).click();
+  await expect(page.locator('.activity-row')).toContainText('Assigned activity');
+  await expect(page.locator('.activity-row button')).toHaveCount(0);
+  expect(legacyReads).toBe(0);
+});
+
+test('a response from another work role cannot expose management controls', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-assignment' });
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-admin', role: 'admin',
+    capabilities: ['scoring.activities.create'], grantedCapabilities: ['scoring.activities.create']
+  } }));
+  await page.goto('/web/admin?subApp=scoring');
+  await expect(page.getByText(copy.errors.permissionDenied, { exact: true })).toBeVisible();
+  await expect(page.locator('form')).toHaveCount(0);
+  await expect(page.getByRole('tab')).toHaveCount(0);
+});
+
+test('ordinary scoring work role manages activities in the same application tab and keeps one hero', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-assignment' });
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-assignment', role: 'user',
+    capabilities: ['scoring.activities.read', 'scoring.activities.create'], grantedCapabilities: ['scoring.activities.read', 'scoring.activities.create']
+  } }));
+  let list = [];
+  await page.route('**/api/listScoreActivities', route => route.fulfill({ json: { status: 'success', list } }));
+  await page.route('**/api/saveScoreActivity', route => {
+    list = [{ ...route.request().postDataJSON(), id: 'embedded-activity' }];
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/scoring/tasks');
+  await page.getByRole('tab', { name: authorizationCopy.businessManagement, exact: true }).click();
+  await expect(page).toHaveURL(/\/web\/scoring\/tasks$/);
+  await expect(page.locator('.workspace-hero')).toHaveCount(1);
+  await expect(page.locator('.workspace-hero-admin')).toHaveCount(0);
+  await page.getByLabel(ui.copy_a782814703).fill('Embedded activity');
+  await page.getByRole('button', { name: ui.copy_189d8358eb, exact: true }).click();
+  await expect(page.locator('.activity-row')).toContainText('Embedded activity');
+  await expect(page.locator('.activity-row button')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/web\/scoring\/tasks$/);
+});
 
 test('activity saves native parameters, rereads results and keeps an unfinished draft across tabs', async ({ page }) => {
   await setup(page);

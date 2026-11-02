@@ -2,6 +2,8 @@
 
 const assert = require('assert');
 const mysql = require('mysql2/promise');
+const fs = require('node:fs');
+const path = require('node:path');
 
 if (!process.env.DEPLOY_TEST_DB_HOST) {
   console.log('未配置 DEPLOY_TEST_DB_HOST，跳过组织管理事务集成测试');
@@ -43,7 +45,7 @@ function invoke(handler, body) {
 }
 
 (async () => {
-  const admin = await mysql.createConnection(adminConfig);
+  const admin = await mysql.createConnection({ ...adminConfig, multipleStatements: true });
   let pool;
   try {
     await admin.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`);
@@ -96,6 +98,10 @@ function invoke(handler, body) {
     await admin.query(
       `INSERT INTO \`${database}\`.sample_org_data (org_id) VALUES ('org-a')`
     );
+    await admin.query('USE ??', [database]);
+    await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
+      version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id,domain))`);
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
 
     process.env.DB_HOST = adminConfig.host;
     process.env.DB_PORT = String(adminConfig.port);
@@ -117,6 +123,8 @@ function invoke(handler, body) {
     const created = await invoke(saveOrganization, { id: '', name: '组织 D' });
     assert.strictEqual(created.status, 'success');
     assert(created.organization.id);
+    const [initialNatures] = await pool.query('SELECT id FROM assignment_natures WHERE org_id=?', [created.organization.id]);
+    assert.strictEqual(initialNatures.length, 3);
     const edited = await invoke(saveOrganization, { id: created.organization.id, name: '组织 D 修改' });
     assert.strictEqual(edited.status, 'success');
     const directory = await invoke(listOrganizations, {});
@@ -161,6 +169,11 @@ function invoke(handler, body) {
       "SELECT id FROM organizations WHERE id IN ('org-a', 'org-b', 'org-c') ORDER BY id"
     );
     assert.deepStrictEqual(remaining.map((row) => row.id), ['org-a', 'org-b']);
+    const disposable = await invoke(saveOrganization, { name: '待删除空组织' });
+    assert.strictEqual((await invoke(deleteOrganization, { id: disposable.organization.id })).status, 'success');
+    assert.strictEqual((await pool.query('SELECT id FROM assignment_natures WHERE org_id=?', [disposable.organization.id]))[0].length, 0);
+    await pool.query("UPDATE assignment_natures SET name='自定义名称',version=version+1 WHERE org_id=? AND id='staff'", [created.organization.id]);
+    assert.strictEqual((await invoke(deleteOrganization, { id: created.organization.id })).status, 'organization_not_empty');
 
     console.log('组织切换与安全删除事务集成测试通过');
   } finally {

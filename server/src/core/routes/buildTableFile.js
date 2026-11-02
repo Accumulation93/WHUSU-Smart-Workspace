@@ -2,6 +2,7 @@ const localeCopy = require('../../locales/zh-CN/generated/core/routes/buildTable
 const express = require('express');
 const router = express.Router();
 const { LIMITS, buildWorkbookBuffer } = require('../../utils/excelFile');
+const authorization = require('../models/tableFileAuthorization');
 
 /**
  * Build an Excel or CSV file from the same headers + rows contract.
@@ -10,7 +11,8 @@ const { LIMITS, buildWorkbookBuffer } = require('../../utils/excelFile');
  */
 router.post('/buildTableFile', async (req, res) => {
   try {
-    if (!req.admin) {
+    const reference = req.unifiedAuthorization?.reference;
+    if (reference ? !(await authorization.allowed(reference, 'build')) : !req.admin) {
       return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
@@ -47,6 +49,9 @@ router.post('/buildTableFile', async (req, res) => {
       : await buildWorkbookBuffer(sheetName, sheetData);
     const base64 = buffer.toString('base64');
 
+    if (reference && !(await authorization.allowed(reference, 'build'))) {
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
     res.json({
       status: 'success',
       fileBase64: base64,

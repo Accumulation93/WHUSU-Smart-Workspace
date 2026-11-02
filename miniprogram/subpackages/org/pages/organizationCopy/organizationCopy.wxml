@@ -1,0 +1,84 @@
+<page-meta page-style="{{(picker ? 'overflow:hidden;' : '') + '--ui-navbar-height:' + navTopPx + 'px;'}}"></page-meta>
+<ui-navbar title="{{text.title}}" />
+<view class="permission-page copy-page" style="min-height: calc(100vh - {{navTopPx}}px)">
+  <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{text.title}}" tone="{{tone}}" />
+  <view class="permission-card copy-stack">
+    <view class="permission-section-title">{{text.title}}</view>
+    <view class="copy-field">
+      <view>{{text.kind}}</view>
+      <picker class="ui-field-control-host" range="{{kinds}}" range-key="name" value="{{kindIndex}}" disabled="{{busy || confirmation}}" bindchange="changeKind">
+        <view class="picker-display ui-field-control">{{kinds[kindIndex].name}}</view>
+      </picker>
+    </view>
+    <view class="copy-tabs">
+      <button wx:for="{{tabs}}" wx:key="*this" class="secondary-btn ui-motion-button authorization-tab {{tab === item ? 'authorization-tab-active' : ''}}" disabled="{{busy || confirmation}}" data-tab="{{item}}" bindtap="changeTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text[item]}}</button>
+    </view>
+  </view>
+  <app-loading wx:if="{{loading || busy}}" text="{{busy ? text.processing : ui.loading}}" />
+  <view wx:if="{{notice}}" class="permission-card copy-stack">
+    <view>{{notice}}</view>
+    <button class="secondary-btn ui-motion-button" disabled="{{busy || loading}}" bindtap="retry" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button>
+  </view>
+  <view wx:if="{{confirmation}}" class="permission-card copy-stack">
+    <view class="copy-multiline">{{confirmation}}</view>
+    <view class="copy-actions">
+      <button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="cancelConfirmation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button>
+      <button class="primary-btn ui-motion-button" disabled="{{busy}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.save}}</button>
+    </view>
+  </view>
+  <view wx:elif="{{draft}}" class="permission-card copy-stack">
+    <view class="permission-section-head"><view class="permission-section-title">{{draft.name}}</view><view class="authorization-chip">{{draft.stateText}}</view></view>
+    <view class="copy-muted">{{text.sourceOrganization}} · {{draft.sourceOrganizationName}}</view>
+    <view class="copy-muted">{{text.independent}}</view>
+    <view wx:if="{{draft.activation}}" class="copy-field">
+      <view>{{text.targetVenue}} · {{draft.activation.venueName}}</view>
+      <view class="authorization-chip">{{draft.activation.enabled ? text.enabled : text.disabled}}</view>
+    </view>
+    <view wx:if="{{preview.sections.length}}" class="permission-section-title">{{text.preview}}</view>
+    <view wx:for="{{preview.sections}}" wx:key="key" class="copy-field">
+      <view class="copy-summary-title">{{item.title}}</view>
+      <view wx:for="{{item.lines}}" wx:for-item="line" wx:for-index="lineIndex" class="copy-multiline">{{line}}</view>
+    </view>
+    <block wx:if="{{draft.state === 'draft'}}">
+      <view wx:if="{{!draft.shareAvailable}}">{{text.unavailable}}</view>
+      <view class="copy-muted">{{preview.notice}}</view>
+      <view wx:if="{{references.length}}" class="permission-section-title">{{text.references}}</view>
+      <view wx:elif="{{detailReady}}" class="copy-muted">{{text.noReferences}}</view>
+      <view wx:for="{{references}}" wx:key="token" class="copy-field">
+        <view>{{item.kindLabel}} · {{item.label}}</view>
+        <button wx:if="{{item.kind === 'person' || item.kind === 'assignments'}}" class="secondary-btn ui-motion-button" disabled="{{busy || !detailReady}}" data-index="{{index}}" bindtap="openPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.selectedLabel}}</button>
+        <picker wx:else class="ui-field-control-host" range="{{item.choices}}" range-key="name" value="{{item.selectedIndex < 0 ? 0 : item.selectedIndex}}" disabled="{{busy || !detailReady}}" data-index="{{index}}" bindchange="chooseReference">
+          <view class="picker-display ui-field-control">{{item.selectedLabel}}</view>
+        </picker>
+      </view>
+    </block>
+    <view class="copy-actions">
+      <button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="back" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.back}}</button>
+      <button wx:if="{{draft.state === 'draft'}}" class="primary-btn ui-motion-button" disabled="{{busy || loading || !detailReady || !draft.shareAvailable || !complete}}" bindtap="applyDraft" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.apply}}</button>
+      <button wx:elif="{{draft.activation && !draft.activation.enabled}}" class="primary-btn ui-motion-button" disabled="{{busy || loading || !detailReady}}" bindtap="enableCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.enable}}</button>
+      <button wx:if="{{canEditCopy}}" class="secondary-btn ui-motion-button" disabled="{{busy || loading || !detailReady}}" bindtap="editCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.editCopied}}</button>
+    </view>
+  </view>
+  <block wx:else>
+    <view wx:if="{{ready && !loading && !items.length}}" class="permission-empty">{{text.empty}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="permission-card copy-stack">
+      <view class="permission-section-head"><view class="permission-section-title">{{item.name}}</view><view wx:if="{{item.stateText}}" class="authorization-chip">{{item.stateText}}</view></view>
+      <view wx:if="{{item.organizationName}}" class="copy-muted">{{item.organizationName}}</view>
+      <view wx:if="{{tab === 'source'}}" class="copy-field">
+        <view>{{text.target}}</view>
+        <picker class="ui-field-control-host" range="{{organizations}}" range-key="name" value="{{item.targetIndex < 0 ? 0 : item.targetIndex}}" disabled="{{busy || !ready}}" data-index="{{index}}" bindchange="chooseTarget">
+          <view class="picker-display ui-field-control">{{item.targetName}}</view>
+        </picker>
+      </view>
+      <view class="card-actions">
+        <button wx:if="{{tab === 'source'}}" class="secondary-btn ui-motion-button" disabled="{{busy || !ready || item.targetIndex < 0}}" data-index="{{index}}" bindtap="share" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.share}}</button>
+        <button wx:if="{{tab === 'incoming'}}" class="primary-btn ui-motion-button" disabled="{{busy || !ready}}" data-index="{{index}}" bindtap="receive" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.receive}}</button>
+        <button wx:if="{{tab === 'drafts'}}" class="secondary-btn ui-motion-button" disabled="{{busy || !ready}}" data-id="{{item.id}}" bindtap="openDraft" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.open}}</button>
+        <button wx:if="{{tab === 'outgoing' && item.enabled}}" class="danger-btn ui-motion-button" disabled="{{busy || !ready}}" data-index="{{index}}" bindtap="revoke" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.revoke}}</button>
+      </view>
+    </view>
+    <view wx:if="{{next}}" class="permission-card"><button class="secondary-btn ui-motion-button" disabled="{{loading || busy || !ready}}" bindtap="more" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text.more}}</button></view>
+  </block>
+</view>
+<personnel-picker visible="{{!!picker}}" title="{{picker.title}}" options="{{pickerOptions}}" value="{{pickerValue}}" selection-level="{{picker.level}}" multiple="{{false}}" bind:confirm="confirmPicker" bind:cancel="closePicker" />
+<app-toast />

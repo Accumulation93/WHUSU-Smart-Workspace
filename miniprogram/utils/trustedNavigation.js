@@ -31,6 +31,10 @@ const TRUSTED_ROUTES = {
   '/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail': true,
   '/subpackages/org/pages/switch/switch': true,
   '/subpackages/org/pages/adminPermissions/adminPermissions': true,
+  '/subpackages/org/pages/authorization/authorization': true,
+  '/subpackages/org/pages/organizationCopy/organizationCopy': true,
+  '/subpackages/org/pages/authorizationEditor/authorizationEditor': true,
+  '/subpackages/org/pages/authorizationChanges/authorizationChanges': true,
   '/subpackages/org/pages/identitySwitch/identitySwitch': true,
   '/subpackages/org/pages/accountSecurity/accountSecurity': true,
   '/subpackages/org/pages/authManagement/authManagement': true

@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueAdmin');
+const authorizationCopy = require('../../../locales/zh-CN/authorization');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -21,6 +22,8 @@ const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingPolicyModel = require('../models/venueBookingPolicy');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
+const venuePurposeAuthorization = require('../models/venuePurposeAuthorization');
+const venueConfigurationAuthorization = require('../models/venueConfigurationAuthorization');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const { createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
@@ -136,11 +139,15 @@ function minutesOf(value) {
 // listVenues
 router.post('/listVenues', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const venues = await venueModel.getAll();
-    res.json({ status: 'success', venues });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const directory = await venueConfigurationAuthorization.listVenues(reference, await getCurrentOrgId(), {
+      includeConfiguration: true, purpose: req.body.purpose === 'configuration' ? 'configuration' : 'resources'
+    });
+    res.json({ status: 'success', ...directory });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -148,8 +155,9 @@ router.post('/listVenues', async (req, res) => {
 // saveVenue
 router.post('/saveVenue', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const name = safeString(req.body.name);
     if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_4514e50856 });
@@ -159,14 +167,10 @@ router.post('/saveVenue', async (req, res) => {
       description: safeString(req.body.description),
       imageUrl: safeString(req.body.imageUrl)
     };
-    const existing = await venueModel.getById(id);
-    if (existing) {
-      await venueModel.update(id, data);
-    } else {
-      await venueModel.create(id, data);
-    }
+    const { existing } = await venueConfigurationAuthorization.writeVenue(reference, await getCurrentOrgId(), id, data);
     res.json({ status: 'success', id, message: existing ? localeCopy.copy_0c95f1e1c6 : localeCopy.copy_ecda79c975 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -174,13 +178,15 @@ router.post('/saveVenue', async (req, res) => {
 // deleteVenue
 router.post('/deleteVenue', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    await venueModel.remove(id);
+    await venueConfigurationAuthorization.writeVenue(reference, await getCurrentOrgId(), id, null, true);
     res.json({ status: 'success', message: localeCopy.copy_bbcf12ed5f });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -192,13 +198,16 @@ router.post('/deleteVenue', async (req, res) => {
 // listVenueOpenRules
 router.post('/listVenueOpenRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    const rules = await venueOpenRuleModel.getByVenueId(venueId);
+    const rules = await venueConfigurationAuthorization.listSharedRules(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'openRules', venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -206,8 +215,9 @@ router.post('/listVenueOpenRules', async (req, res) => {
 // saveVenueOpenRule
 router.post('/saveVenueOpenRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
@@ -219,14 +229,11 @@ router.post('/saveVenueOpenRule', async (req, res) => {
       timeStart: safeString(req.body.timeStart) || '09:00',
       timeEnd: safeString(req.body.timeEnd) || '18:00'
     };
-    const existing = await venueOpenRuleModel.getById(id);
-    if (existing) {
-      await venueOpenRuleModel.update(id, data);
-    } else {
-      await venueOpenRuleModel.create(id, data);
-    }
+    const { existing } = await venueConfigurationAuthorization.writeSharedRule(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'openRules', id, data);
     res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -234,13 +241,16 @@ router.post('/saveVenueOpenRule', async (req, res) => {
 // deleteVenueOpenRule
 router.post('/deleteVenueOpenRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_918e0dfb9f });
-    await venueOpenRuleModel.remove(id);
+    await venueConfigurationAuthorization.writeSharedRule(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'openRules', id, null, true);
     res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -252,13 +262,16 @@ router.post('/deleteVenueOpenRule', async (req, res) => {
 // listVenueActivityRules
 router.post('/listVenueActivityRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    const rules = await venueActivityRuleModel.getByVenueId(venueId);
+    const rules = await venueConfigurationAuthorization.listSharedRules(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'activityRules', venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -266,8 +279,9 @@ router.post('/listVenueActivityRules', async (req, res) => {
 // saveVenueActivityRule
 router.post('/saveVenueActivityRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
@@ -281,14 +295,11 @@ router.post('/saveVenueActivityRule', async (req, res) => {
     };
     const validationError = ruleValidationError(data);
     if (validationError) return res.json({ status: 'invalid_params', message: validationError });
-    const existing = await venueActivityRuleModel.getById(id);
-    if (existing) {
-      await venueActivityRuleModel.update(id, data);
-    } else {
-      await venueActivityRuleModel.create(id, data);
-    }
+    const { existing } = await venueConfigurationAuthorization.writeSharedRule(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'activityRules', id, data);
     res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -296,13 +307,16 @@ router.post('/saveVenueActivityRule', async (req, res) => {
 // deleteVenueActivityRule
 router.post('/deleteVenueActivityRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_7d5771fc37 });
-    await venueActivityRuleModel.remove(id);
+    await venueConfigurationAuthorization.writeSharedRule(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'activityRules', id, null, true);
     res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -312,16 +326,33 @@ router.post('/deleteVenueActivityRule', async (req, res) => {
 // ═══════════════════════════════════════════════════
 
 // listVenueBookingRules
+router.post('/getVenueRuleCandidates', async (req, res) => {
+  try {
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const context = getAuthenticatedContext(req);
+    const candidates = await venueConfigurationAuthorization.readCandidates(reference, context.organizationId);
+    return res.json({ status: 'success', ...candidates });
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (req.logger) req.logger.error('Venue rule candidates failed', { code: error.code });
+    return res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
+  }
+});
+
 router.post('/listVenueBookingRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    const rules = await venueBookingRuleModel.getByVenueId(venueId);
-    const bookingWindow = fromRow(await venueBookingPolicyModel.getByVenueId(venueId));
+    const { rules, bookingWindow } = await venueConfigurationAuthorization.listOrganizationConfiguration(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'bookingRules', venueId, req.body.includeInactive === true);
     res.json({ status: 'success', rules, bookingWindow });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -329,17 +360,16 @@ router.post('/listVenueBookingRules', async (req, res) => {
 // saveVenueBookingWindow — 场地级借用时间窗口独立保存，不依附审批规则编辑器
 router.post('/saveVenueBookingWindow', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
-    const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
-    const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
-      id: currentPolicy ? currentPolicy.id : generateId()
-    }));
-    await venueBookingPolicyModel.upsert(venueId, bookingWindow);
+    await venueConfigurationAuthorization.saveBookingWindow(reference,
+      reference?.organizationId || await getCurrentOrgId(), venueId, req.body.bookingWindow);
     res.json({ status: 'success', message: localeCopy.copy_26f68cb229 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -350,8 +380,9 @@ router.post('/saveVenueBookingRule', async (req, res) => {
   let transactionStarted = false;
   try {
     conn = await pool.getConnection();
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
@@ -376,6 +407,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
 
     await conn.beginTransaction();
     transactionStarted = true;
+    const authorization = await venueConfigurationAuthorization.begin(conn, reference, orgId);
     const venue = await venueModel.getByIdForUpdate(venueId, conn);
     if (!venue) {
       await conn.rollback();
@@ -409,11 +441,22 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     const allRules = await venueBookingRuleModel.getByVenueId(venueId, conn, true);
     const otherRules = allRules.filter(r => r.id !== id);
 
-    if (ruleType === 'direct') {
-      // 直接通过与其他规则、全部审批流互斥，必须在同一事务内完成切换。
-      await venueBookingRuleModel.removeByVenueId(venueId, conn);
-      await venueApprovalFlowModel.removeByVenueId(venueId, conn);
-    } else if (otherRules.some(r => r.rule_type === 'direct')) {
+    const editingInactive = existing && Number(existing.is_active) === 0;
+    if (authorization) venueConfigurationAuthorization.requireDecision(authorization, orgId,
+      'venue.bookingRules', id, existing ? 'update' : 'create',
+      ['ruleType', 'approverIdentityId', 'approverHrId', 'approverAssignmentId', 'scopeDepartmentId', 'scopeWorkGroupId', 'sortOrder']);
+    if (!editingInactive && ruleType === 'direct') {
+      // 只替换生效配置，未启用的独立副本保留，不能随审批方式切换被删除。
+      const activeFlows = await venueApprovalFlowModel.listByVenueId(venueId, orgId, conn);
+      if (authorization) {
+        for (const rule of allRules) venueConfigurationAuthorization.requireDecision(authorization, orgId,
+          'venue.bookingRules', rule.id, 'update', ['ruleType']);
+        for (const flow of activeFlows) venueConfigurationAuthorization.requireDecision(authorization, orgId,
+          'venue.approvals', flow.id, 'update', ['steps']);
+      }
+      for (const rule of allRules) await venueBookingRuleModel.remove(rule.id, conn);
+      for (const flow of activeFlows) await venueApprovalFlowModel.remove(flow.id, conn);
+    } else if (!editingInactive && otherRules.some(r => r.rule_type === 'direct')) {
       await conn.rollback();
       transactionStarted = false;
       return res.json({ status: 'invalid_params', message: localeCopy.copy_5a1d00f140 });
@@ -429,15 +472,15 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       scopeWorkGroupId,
       sortOrder: parseInt(req.body.sortOrder) || 1
     };
-    if (existing && ruleType !== 'direct') {
+    if (existing && (editingInactive || ruleType !== 'direct')) {
       await venueBookingRuleModel.update(id, data, conn);
     } else {
       await venueBookingRuleModel.create(id, data, conn);
     }
-    if (req.body.bookingWindow !== undefined) {
-      const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
+    if (req.body.bookingWindow !== undefined && !editingInactive) {
+      const policyId = await venueConfigurationAuthorization.authorizeBookingWindow(conn, authorization, orgId, venueId);
       const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
-        id: currentPolicy ? currentPolicy.id : generateId()
+        id: policyId
       }));
       await venueBookingPolicyModel.upsert(venueId, bookingWindow, conn);
     }
@@ -448,6 +491,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     if (transactionStarted) {
       try { await conn.rollback(); } catch (_) {}
     }
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
@@ -460,14 +504,18 @@ router.post('/deleteVenueBookingRule', async (req, res) => {
   let transactionStarted = false;
   try {
     conn = await pool.getConnection();
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_0a29a31b8e });
     const existing = await venueBookingRuleModel.getById(id);
     if (!existing) return res.json({ status: 'not_found', message: localeCopy.copy_0a29a31b8e });
     await conn.beginTransaction();
     transactionStarted = true;
+    const orgId = await getCurrentOrgId();
+    const authorization = await venueConfigurationAuthorization.begin(conn, reference, orgId);
+    if (authorization) venueConfigurationAuthorization.requireDecision(authorization, orgId, 'venue.bookingRules', id, 'delete');
     const venue = await venueModel.getByIdForUpdate(existing.venue_id, conn);
     const lockedRule = await venueBookingRuleModel.getById(id, conn, true);
     if (!venue || !lockedRule || safeString(lockedRule.venue_id) !== safeString(existing.venue_id)) {
@@ -483,6 +531,7 @@ router.post('/deleteVenueBookingRule', async (req, res) => {
     if (transactionStarted) {
       try { await conn.rollback(); } catch (_) {}
     }
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
@@ -497,8 +546,9 @@ router.post('/deleteVenueBookingRule', async (req, res) => {
 router.post('/createAdminVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
@@ -530,8 +580,13 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     if (activityConflict) return res.json({ status: 'conflict', message: localeCopy.copy_f64d815664 });
 
     await conn.beginTransaction();
-    const id = generateId();
     const orgId = await getCurrentOrgId();
+    const actorKey = reference ? reference.contextId : 'admin:' + admin.id;
+    const clientRequestId = requestDeduplication.normalizeClientRequestId(req.body.clientRequestId);
+    const id = clientRequestId ? requestDeduplication.stableResourceId('create_admin_venue_booking',
+      [orgId, actorKey, clientRequestId, JSON.stringify([venueId, title, description,
+        absoluteStart.toISOString(), absoluteEnd.toISOString()])]) : generateId();
+    const creator = await require('../models/approvedBookingAuthorization').prepare(conn, reference, orgId, id);
     if (safeString(req.authContext && req.authContext.personId)) {
       await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
         personId: safeString(req.authContext.personId),
@@ -542,9 +597,9 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     }
     const dedupClaim = await requestDeduplication.claim(conn, {
       orgId,
-      actorKey: 'admin:' + admin.id,
+      actorKey,
       operationType: 'create_admin_venue_booking',
-      clientRequestId: req.body.clientRequestId,
+      clientRequestId,
       resourceId: id
     });
     if (!dedupClaim.claimed) {
@@ -563,7 +618,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     await venueBookingModel.create(id, {
       venueId,
       creatorType: 'admin',
-      creatorAdminId: admin.id,
+      creatorAdminId: admin?.id,
       creatorPersonId: req.authContext && req.authContext.personId,
       creatorAdminGrantId: req.authContext && req.authContext.adminGrantId,
       creatorContextSnapshot: req.authContext ? {
@@ -575,6 +630,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
       } : null,
       creatorOrgId: orgId,
       approvalOrgId: orgId,
+      ...(creator || {}),
       title,
       description,
       timeStart: dbStart,
@@ -586,13 +642,15 @@ router.post('/createAdminVenueBooking', async (req, res) => {
       ...dedupClaim,
       resourceId: id,
       orgId,
-      actorKey: 'admin:' + admin.id,
+      actorKey,
       operationType: 'create_admin_venue_booking'
     }, response);
     await conn.commit();
     res.json(response);
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (e.code === 'IDEMPOTENCY_RESOURCE_CONFLICT') return res.status(409).json({ status: 'conflict', message: authorizationCopy.bookingRequestChanged });
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_6fb89690d9 });
     }
@@ -606,8 +664,9 @@ router.post('/createAdminVenueBooking', async (req, res) => {
 // listAllVenueBookings
 router.post('/listAllVenueBookings', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const filters = {
       venueId: safeString(req.body.venueId),
       status: safeString(req.body.status),
@@ -618,10 +677,10 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const timeTo = safeString(req.body.timeTo);
     if (timeFrom) filters.timeFrom = timeFrom;
     if (timeTo) filters.timeTo = timeTo;
-    const bookings = await venueBookingModel.getAll(filters);
     const orgId = await getCurrentOrgId();
-    const viewerScope = await resolveVenueViewerScope(req);
-    const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
+    const bookings = await require('../models/venueBookingAuthorization').list(orgId, reference, filters);
+    const viewerScope = reference ? null : await resolveVenueViewerScope(req);
+    const canViewDetails = (booking) => Boolean(reference) || canViewBookingDetails(booking, viewerScope);
     // 跨组织记录不在管理端借用列表出现，只在日程图中显示占用
     const detailBookings = bookings.filter(canViewDetails);
     const applicantAssignments = await resolveBookingApplicantAssignments(detailBookings);
@@ -694,7 +753,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
       visibility: 'details',
       creatorOrgId: b.creator_org_id,
       approvalOrgId: b.approval_org_id,
-      adminCanDelete: (safeString(b.creator_org_id) === orgId || safeString(b.approval_org_id) === orgId)
+      adminCanDelete: reference ? b.authorizationCanDelete : (safeString(b.creator_org_id) === orgId || safeString(b.approval_org_id) === orgId)
         && require('../../../core/services/adminPermissions').hasAnyPermission(req.adminPermissions, ['venue.bookings_delete']),
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
@@ -776,7 +835,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     }
 
     // 管理端只按管理员身份判断，不复用同一微信的普通用户人事身份。
-    const adminActor = {
+    const adminActor = reference ? null : {
       type: 'admin',
       id: safeString(admin.id),
       personId: safeString(req.authContext && req.authContext.personId),
@@ -794,7 +853,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
         listBooking.userCanApprove = false;
         continue;
       }
-      const authorization = await venueApprovalMultiFlow.evaluateActorEligibility(booking, adminActor, orgId);
+      const authorization = reference ? await canReviewVenueBooking(req, booking)
+        : await venueApprovalMultiFlow.evaluateActorEligibility(booking, adminActor, orgId);
       listBooking.userCanApprove = authorization.ok;
       if (!authorization.ok && authorization.reason === venueApprovalMultiFlow.REASONS.FLOW_SNAPSHOT_MISSING) {
         listBooking.approvalBlockedReason = authorization.reason;
@@ -816,8 +876,12 @@ router.post('/listAllVenueBookings', async (req, res) => {
       }
     }
 
+    for (const item of list) {
+      if (bookingMap.get(item.id)?.authorizationCanApprove === false) item.userCanApprove = false;
+    }
     res.json({ status: 'success', bookings: list });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -830,11 +894,14 @@ router.post('/approveVenueBooking', async (req, res) => {
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
+    const permission = await require('../models/venueApprovalPermission').prepare(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
     }
+    permission.require(booking);
     if (booking.status !== 'pending') {
       await conn.rollback();
       return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
@@ -894,6 +961,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_a453f693a6 });
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
@@ -908,11 +976,14 @@ router.post('/rejectVenueBooking', async (req, res) => {
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
+    const permission = await require('../models/venueApprovalPermission').prepare(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
     }
+    permission.require(booking);
     if (booking.status !== 'pending') {
       await conn.rollback();
       return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
@@ -953,6 +1024,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_c7b826b0c0 });
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
@@ -971,11 +1043,14 @@ router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res
 // listVenueBookingPurposes (public — any authenticated user can read purposes)
 router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
-    if (!getAuthenticatedContext(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
-    const purposes = await venueBookingPurposeModel.getAll();
+    const context = getAuthenticatedContext(req);
+    if (!context || !context.organizationId) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
+    const purposes = await venuePurposeAuthorization.list(context.organizationId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
     res.json({ status: 'success', purposes });
   } catch (e) {
     console.error('[venue:listVenueBookingPurposes]', req.requestId || '-', e);
+    if (e && e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
@@ -983,8 +1058,9 @@ router.post('/listVenueBookingPurposes', async (req, res) => {
 // saveVenueBookingPurpose
 router.post('/saveVenueBookingPurpose', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!req.unifiedAuthorization && !await ensureAdmin(req)) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
     const id = safeString(req.body.id) || generateId();
     const text = safeString(req.body.text).trim();
     if (!text) return res.json({ status: 'invalid_params', message: localeCopy.copy_fdb45fb38f });
@@ -992,11 +1068,19 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.bookingPurposeTooLong });
     }
     const data = { text, sortOrder: parseInt(req.body.sortOrder) || 1 };
-    const existing = await venueBookingPurposeModel.getById(id);
+    if (req.unifiedAuthorization) {
+      const action = safeString(req.body.id) ? 'update' : 'create';
+      await venuePurposeAuthorization.execute(req.unifiedAuthorization.reference, action, id, data);
+      return res.json({ status: 'success', id,
+        message: action === 'update' ? localeCopy.bookingPurposeUpdated : localeCopy.bookingPurposeCreated });
+    }
+    const orgId = getAuthenticatedContext(req).organizationId;
+    const existing = await venueBookingPurposeModel.getById(id, orgId);
+    if (safeString(req.body.id) && !existing) return res.json({ status: 'not_found', message: authorizationCopy.purposeUnavailable });
     if (existing) {
-      await venueBookingPurposeModel.update(id, data);
+      await venueBookingPurposeModel.update(id, data, orgId);
     } else {
-      await venueBookingPurposeModel.create(id, data);
+      await venueBookingPurposeModel.create(id, data, orgId);
     }
     res.json({
       status: 'success',
@@ -1004,6 +1088,8 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
       message: existing ? localeCopy.bookingPurposeUpdated : localeCopy.bookingPurposeCreated
     });
   } catch (e) {
+    if (e && e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (e && e.code === 'venue_purpose_missing') return res.json({ status: 'not_found', message: authorizationCopy.purposeUnavailable });
     if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: localeCopy.copy_09f81fd1db });
     console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
     res.json({ status: 'error', message: localeCopy.copy_215e3c57da });
@@ -1013,24 +1099,29 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
 // deleteVenueBookingPurpose
 router.post('/deleteVenueBookingPurpose', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (!req.unifiedAuthorization && !await ensureAdmin(req)) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_5869ec3d99 });
-    const existing = await venueBookingPurposeModel.getById(id);
+    if (req.unifiedAuthorization) {
+      await venuePurposeAuthorization.execute(req.unifiedAuthorization.reference, 'delete', id);
+      return res.json({ status: 'success', message: localeCopy.copy_f95e1a0218 });
+    }
+    const orgId = getAuthenticatedContext(req).organizationId;
+    const existing = await venueBookingPurposeModel.getById(id, orgId);
     if (existing) {
       // 历史结构未保存 purpose_id，只能用借用记录中的事由文本快照判定引用。
-      const [referenceRows] = await pool.query(
-        'SELECT 1 FROM venue_bookings WHERE title = ? LIMIT 1',
-        [existing.text]
-      );
-      if (referenceRows.length) {
+      if (await venueBookingPurposeModel.isReferenced(existing.text, orgId)) {
         return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
       }
     }
-    await venueBookingPurposeModel.remove(id);
+    await venueBookingPurposeModel.remove(id, orgId);
     res.json({ status: 'success', message: localeCopy.copy_f95e1a0218 });
   } catch (e) {
+    if (e && e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (e && e.code === 'venue_purpose_missing') return res.json({ status: 'not_found', message: authorizationCopy.purposeUnavailable });
+    if (e && e.code === 'venue_purpose_referenced') return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
     if (e && (e.code === 'ER_ROW_IS_REFERENCED' || e.code === 'ER_ROW_IS_REFERENCED_2')) {
       return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
     }

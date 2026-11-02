@@ -1,0 +1,17 @@
+<ui-navbar title="{{ui.nature}}" />
+<view class="permission-page authorization-page" style="min-height:calc(100vh - {{navTopPx}}px)">
+  <workspace-hero tone="{{tone}}" app-name="{{ui.appName}}" page-name="{{ui.nature}}" />
+  <view class="permission-card">
+    <view class="permission-section-title">{{ui.nature}}</view>
+    <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
+    <view wx:if="{{notice}}">{{notice}}</view>
+    <button wx:if="{{failed}}" class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button>
+    <block wx:if="{{ready && (draft.id || canCreate)}}">
+      <view class="authorization-field"><view>{{ui.name}}</view><input class="field-input" value="{{draft.name}}" disabled="{{busy}}" bindinput="name" /></view>
+      <view class="card-actions"><button class="primary-btn ui-motion-button" disabled="{{busy || loading || saved}}" bindtap="save" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.save}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="reset" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button></view>
+    </block>
+  </view>
+  <view wx:for="{{rows}}" wx:key="id" class="permission-card">
+    <view>{{item.name}}</view><view class="card-actions"><button wx:if="{{item.canUpdate}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" disabled="{{busy || loading || failed}}" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button><button wx:if="{{item.canDelete && item.id !== 'staff' && item.id !== 'liaison' && item.id !== 'other'}}" class="danger-btn ui-motion-button" data-id="{{item.id}}" disabled="{{busy || loading || failed}}" bindtap="remove" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.remove}}</button></view>
+  </view>
+</view>

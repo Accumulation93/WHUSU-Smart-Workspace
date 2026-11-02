@@ -72,6 +72,13 @@ async function main() {
     const end = source.indexOf('\n    if (concurrentSubmissionResponse)', start);
     const transaction = source.slice(start, end);
     const base = {
+      req: {},
+      participationAuthorization: { async checkTarget(_req, connection, org, selected, action) {
+        assert(connection);
+        assert.equal(org, 'org');
+        assert.equal(selected.assignment_id, 'assignment-target');
+        assert.equal(action, 'create');
+      } },
       require: name => require(path.join(__dirname, '../src/modules/scoring/routes', name)),
       withTransaction: pool.withTransaction, generateId: helpers.generateId, safeString: helpers.safeString,
       unifiedIdentityModel: identity, participantService: participants,

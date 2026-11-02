@@ -3,7 +3,7 @@
 import src_adminGovernance from './shared/adminGovernance.js';
 import src_auditSigning from './shared/auditSigning.js';
 import src_auditVerification from './shared/auditVerification.js';
-import src_calendar from './shared/calendar.js';
+import src_authorization from './shared/authorization.js';
 import src_fileIO from './shared/fileIO.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
@@ -14,7 +14,6 @@ import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.
 import src_adminUtils from './shared/generated/subpackages/scoring/pages/admin/modules/adminUtils.js';
 import src_pendingVenueApprovals from './shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import src_venueBooking from './shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
-import src_home from './shared/home.js';
 import src_hrProfileMigration from './shared/hrProfileMigration.js';
 import src_signingEvidence from './shared/signingEvidence.js';
 import src_web from './shared/web.js';
@@ -25,7 +24,7 @@ export default Object.freeze({
   tabMySubmissions: src_mySubmissions.copy_fb0dc97a1d,
   tabPending: src_pendingApprovals.copy_5aaf844f1e,
   tabHistory: src_pendingVenueApprovals.copy_8650ae5bf6,
-  verificationTitle: src_home.text.auditVerification,
+  verificationTitle: src_authorization.resources["audit.verification"],
   verificationReportTitle: src_signingEvidence.reportTitle,
   mySubmissionsNote: src_web.audit.mySubmissionsNote,
   pendingNote: src_web.audit.pendingNote,
@@ -57,8 +56,8 @@ export default Object.freeze({
   actionApprove: src_pendingApprovals.copy_8e2f75159e,
   actionReject: src_submissionDetail.copy_0c90eb0204,
   actionDownload: src_web.audit.actionDownload,
-  actionBackToList: src_web.audit.actionBackToList,
-  actionRefresh: src_calendar.refresh,
+  actionBackToList: src_authorization.configurationCopy.back,
+  actionRefresh: src_authorization.refresh,
   markAllRead: src_mySubmissions.copy_6830671a51,
   withdrawConfirmTitle: src_submissionDetail.copy_60dd7897d1,
   withdrawConfirmBody: src_web.audit.withdrawConfirmBody,

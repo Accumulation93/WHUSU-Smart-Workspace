@@ -28,13 +28,17 @@ function routeSegment(source, routeName) {
   return source.slice(start, next === -1 ? source.length : next);
 }
 
-test('岗位性质只接受明确枚举且非法值不得静默回落', async () => {
-  assert.equal(domainPolicy.normalizeAssignmentNature('staff'), 'staff');
-  assert.equal(domainPolicy.normalizeAssignmentNature(' liaison '), 'liaison');
-  assert.equal(domainPolicy.normalizeAssignmentNature('unknown'), '');
-  assert.equal(domainPolicy.normalizeAssignmentNature(''), '');
-
-  await assert.rejects(
+test('岗位性质按组织字典验证，缺失值不得静默回落', async () => {
+  const originalWithTransaction = pool.withTransaction;
+  const queries = [];
+  pool.withTransaction = async callback => callback({ query: async (sql, params) => {
+    queries.push({ sql, params });
+    if (sql.includes('organization_dictionary_locks')) return [[]];
+    if (sql.includes('FROM assignment_natures')) return [[]];
+    throw new Error('unexpected query: ' + sql);
+  } });
+  try {
+    await assert.rejects(
     unifiedIdentity.saveMembershipAssignment({
       organizationId: 'org-1',
       legacyHrId: 'hr-1',
@@ -43,7 +47,14 @@ test('岗位性质只接受明确枚举且非法值不得静默回落', async ()
       identityId: 'identity-1'
     }),
     (error) => error && error.code === 'assignment_nature_invalid'
-  );
+    );
+    assert.deepEqual(queries.find(item => item.sql.includes('FROM assignment_natures')).params, ['org-1', 'unknown']);
+  } finally { pool.withTransaction = originalWithTransaction; }
+  const nature = await require('../src/core/models/assignmentNature').resolve({ query: async (sql, params) => {
+    assert.deepEqual(params, ['org-1', 'custom_nature']);
+    return [[{ id: 'custom_nature', name: '自定义岗位性质' }]];
+  } }, 'org-1', 'custom_nature');
+  assert.equal(nature.id, 'custom_nature');
 });
 
 test('人事资料字符限制按 Unicode 字符而不是 UTF-16 单元计算', () => {
@@ -55,9 +66,12 @@ test('人事资料字符限制按 Unicode 字符而不是 UTF-16 单元计算', 
 test('全局人员纠错仍需校验目标组织权限和来源成员关系', () => {
   ['previewPersonIdentityCorrection', 'applyPersonIdentityCorrection', 'mergePersons'].forEach((routeName) => {
     const source = routeSegment(hrRouteSource, routeName);
-    assert.match(source, /requireAdminOrganizationPermission\(req, organizationId|requireAdminOrganizationPermission\(req, orgId/);
-    assert.match(source, /auth\.accounts\.global_manage/);
+    assert.match(source, /personGovernanceActor\(req, (organizationId|orgId)\)/);
   });
+  const authorizationHelper = hrRouteSource.slice(hrRouteSource.indexOf('async function personGovernanceActor'), hrRouteSource.indexOf('function authenticationStatus'));
+  assert.match(authorizationHelper, /organizationId !== reference\.organizationId/);
+  assert.match(authorizationHelper, /model\.check\(connection, reference, 'auth\.accounts\.update', target\)/);
+  assert.match(authorizationHelper, /requireAdminOrganizationPermission\(req, organizationId, \['auth\.accounts\.global_manage'\]\)/);
   assert.match(governanceSource, /WHERE person_id = \? AND org_id = \?/);
   assert.match(governanceSource, /sourceMembershipsInOrganization/);
 });

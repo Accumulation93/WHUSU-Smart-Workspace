@@ -38,7 +38,7 @@ const adminRouteSource = hydrateLocale(
 const behaviorSource = fs.readFileSync(behaviorPath, 'utf8');
 const personnelPickerWxmlSource = fs.readFileSync(personnelPickerWxmlPath, 'utf8');
 const adminWxmlSource = hydrateLocale(
-  fs.readFileSync(adminWxmlPath, 'utf8'),
+  require('../../scripts/lib/miniprogramSource').readMarkup(adminWxmlPath),
   require('../../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin'),
   'localeCopy'
 );

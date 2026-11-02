@@ -12,6 +12,7 @@ const flowTemplateModel = require('../models/auditFlowTemplate');
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
 const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
 const submissionModel = require('../models/auditSubmission');
+const auditManagementAuthorization = require('../models/auditManagementAuthorization');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
@@ -58,8 +59,7 @@ const {
 } = require('../services/auditPersonAssignmentCondition');
 const {
   eventMatchesAssignment,
-  submissionMatchesSubmitterAssignment,
-  assignmentSqlExpression
+  submissionMatchesSubmitterAssignment
 } = require('../services/auditHistoryScope');
 const {
   validateConditionShape,
@@ -337,19 +337,8 @@ router.post('/listMySubmissions', async (req, res) => {
       offset: Math.max(0, parseInt(req.body.offset, 10) || 0)
     };
 
-    const submissions = await submissionModel.getAll(filters);
-    const submissionIds = submissions.map(s => s.id);
-    const orgId = await getCurrentOrgId();
-
-    // Get read cursors
-    let cursorMap = {};
-    if (submissionIds.length) {
-      const [cursors] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE org_id = ? AND hr_id = ? AND submission_id IN (?)',
-        [orgId, hrId, submissionIds]
-      );
-      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
-    }
+    const reference = require('../../../core/services/authorizationManagement').referenceFromRequest(req);
+    const { submissions, cursorMap } = await submissionModel.getOwnList(filters, reference);
 
     const result = submissions.map((s) => {
       const c = cursorMap[s.id];
@@ -385,8 +374,10 @@ router.post('/checkPendingCount', async (req, res) => {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const steps = await submissionStepModel.getPendingByApprover(actorContext.actor, actorContext.assignment);
-    const count = steps.length;
-    const latestAt = count > 0 ? steps[0].created_at : null; // Already sorted DESC in model
+    const reference = require('../../../core/services/authorizationManagement').referenceFromRequest(req);
+    const visible = await auditManagementAuthorization.filterRelatedSubmissions(await getCurrentOrgId(), reference, steps, item => item.submission_id, { pending: true });
+    const count = visible.length;
+    const latestAt = count > 0 ? visible[0].created_at : null;
 
     res.json({ status: 'success', count, latestAt });
   } catch (e) {
@@ -429,7 +420,9 @@ router.post('/listPendingApprovals', async (req, res) => {
       stepConditionsJson: s.step_conditions_json || null
     }));
 
-    res.json({ status: 'success', pending: result });
+    const reference = require('../../../core/services/authorizationManagement').referenceFromRequest(req);
+    const visible = await auditManagementAuthorization.filterRelatedSubmissions(await getCurrentOrgId(), reference, result, item => item.submissionId, { pending: true });
+    res.json({ status: 'success', pending: visible });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -515,6 +508,8 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await auditManagementAuthorization.requireSubmissionAction(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), orgId, 'create');
     submitterFull = await lockAndRefreshAuditActor(conn, actorContext);
     template = await flowTemplateModel.getByIdForUpdate(templateId, conn);
     starterConditions = [];
@@ -688,6 +683,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     if (e && e.code === 'AUDIT_STEP_CONDITIONS_REQUIRED') {
       return res.json({ status: 'invalid_params', message: e.message });
     }
@@ -723,6 +719,8 @@ router.post('/startAdHocAudit', async (req, res) => {
     if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
 
     await conn.beginTransaction();
+    await auditManagementAuthorization.requireSubmissionAction(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), orgId, 'create');
     submitterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!submitterAssignment) {
       await conn.rollback();
@@ -861,6 +859,7 @@ router.post('/startAdHocAudit', async (req, res) => {
     res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     if (e && e.code === 'AUDIT_STEP_CONDITIONS_REQUIRED') {
       return res.json({ status: 'invalid_params', message: e.message });
     }
@@ -981,11 +980,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
       : null;
     const hrId = detailActor ? detailActor.id : null;
     const admin = currentActor.type === 'admin' ? currentActor.profile : null;
+    const authorizationReference = req.unifiedAuthorization?.reference;
     const orgId = await getCurrentOrgId();
     const detailAssignment = detailActor
       ? await resolveActorAssignment(detailActor, orgId)
       : null;
-    if ((!hrId || !detailAssignment) && !admin) {
+    if ((!hrId || !detailAssignment) && !admin && !authorizationReference) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
     }
 
@@ -1036,7 +1036,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
       }
     }
 
-    if (!isSubmitter && !isApprover && !admin) {
+    const detailDecision = await auditManagementAuthorization.readDecision(
+      orgId, authorizationReference, 'audit.submissions', 'read', submissionId,
+      { businessGranted: isSubmitter || isApprover });
+    if (detailDecision ? !detailDecision.allowed : (!isSubmitter && !isApprover && !admin)) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     }
 
@@ -1055,6 +1058,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
     if (detailAssignment && currentPendingStep) {
       const currentAuthorization = await checkStepAuthorization(currentPendingStep, submission, detailAssignment);
       canApproveCurrentStep = currentAuthorization.authorized === true;
+      if (canApproveCurrentStep && authorizationReference) {
+        const approvalDecision = await auditManagementAuthorization.readDecision(orgId, authorizationReference,
+          'audit.submissions', 'approve', submissionId, { businessGranted: true });
+        canApproveCurrentStep = approvalDecision.allowed;
+      }
     }
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
@@ -1150,11 +1158,30 @@ router.post('/getSubmissionDetail', async (req, res) => {
       }
     }
 
+    // 字典、签章与历史读取期间可能撤权，返回详情前再次核验当前工作角色。
+    const finalDetailDecision = await auditManagementAuthorization.readDecision(
+      orgId, authorizationReference, 'audit.submissions', 'read', submissionId,
+      { businessGranted: isSubmitter || isApprover });
+    if (finalDetailDecision && !finalDetailDecision.allowed) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
+    }
+    let canUpdateSubmission = isSubmitter && ['draft', 'pending', 'rejected', 'withdrawn'].includes(submission.status);
+    let canWithdrawSubmission = isSubmitter && ['in_progress', 'rejected'].includes(submission.status);
+    if (authorizationReference && canUpdateSubmission) {
+      canUpdateSubmission = (await auditManagementAuthorization.readDecision(orgId, authorizationReference,
+        'audit.submissions', 'update', submissionId, { businessGranted: true })).allowed;
+    }
+    if (authorizationReference && canWithdrawSubmission) {
+      canWithdrawSubmission = (await auditManagementAuthorization.readDecision(orgId, authorizationReference,
+        'audit.submissions', 'cancel', submissionId, { businessGranted: true })).allowed;
+    }
     res.json({
       status: 'success',
       userIsSubmitter: isSubmitter,
       userIsApprover: isApprover,
       canApproveCurrentStep,
+      canUpdateSubmission,
+      canWithdrawSubmission,
       userIsAdmin: !!admin,
       events: events.map((e) => ({
         id: safeString(e.id),
@@ -1316,6 +1343,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
       }))
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') {
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -1427,6 +1457,8 @@ router.post('/approveStep', async (req, res) => {
 
     await conn.beginTransaction();
     transactionStarted = true;
+    await auditManagementAuthorization.requireApproval(conn, orgId,
+      require('../../../core/services/authorizationManagement').referenceFromRequest(req), submissionId);
     await lockAuditActor(conn, {
       person_id: actor.personId,
       hr_id: actor.id,
@@ -1776,6 +1808,9 @@ router.post('/approveStep', async (req, res) => {
     if (fileCommit && !transactionCommitted && !commitAttempted) {
       fileCommit.rollback();
     }
+    if (e.code === 'authorization_forbidden') {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
+    }
     if (e instanceof AuditApprovalIntegrityError) {
       return res.json(approvalIntegrityFailure(e));
     }
@@ -1818,6 +1853,8 @@ router.post('/rejectStep', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await auditManagementAuthorization.requireApproval(conn, orgId,
+      require('../../../core/services/authorizationManagement').referenceFromRequest(req), submissionId);
     rejecterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!rejecterAssignment) {
       await conn.rollback();
@@ -1928,6 +1965,7 @@ router.post('/rejectStep', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_cd48632f3f });
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     if (e instanceof SigningProtocolError) return res.json({ status: 'signing_unavailable', message: signingCopy.signingUnavailable });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -2026,6 +2064,8 @@ router.post('/updateAuditSubmission', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await auditManagementAuthorization.requireSubmissionAction(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), submissionId, 'update');
     editorAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!editorAssignment) {
       await conn.rollback();
@@ -2283,6 +2323,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_8e809d8090 });
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     res.json({ status: safeString(e.status) || 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
@@ -2337,6 +2378,8 @@ router.post('/resubmitAudit', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    await auditManagementAuthorization.requireSubmissionAction(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), submissionId, 'update');
     resubmitterAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!resubmitterAssignment) {
       await conn.rollback();
@@ -2542,6 +2585,7 @@ router.post('/resubmitAudit', async (req, res) => {
       await conn.rollback();
       if (roundFiles && !commitAttempted) roundFiles.rollback();
     }
+    if (!committed && e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     res.json(committed ? { status: 'success', resubmitMode: 'fresh' }
       : { status: e.status === 'original_required' ? 'original_required' : 'error', message: e.status === 'original_required' ? signingUiCopy.originalRequired : undefined });
   } finally {
@@ -2568,6 +2612,8 @@ router.post('/withdrawSubmission', async (req, res) => {
 
     await conn.beginTransaction();
     transactionStarted = true;
+    await auditManagementAuthorization.requireSubmissionAction(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), submissionId, 'cancel');
     withdrawerAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!withdrawerAssignment) {
       await conn.rollback();
@@ -2636,6 +2682,7 @@ router.post('/withdrawSubmission', async (req, res) => {
     if (transactionStarted) {
       try { await conn.rollback(); } catch (_) {}
     }
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
@@ -2876,51 +2923,19 @@ router.post('/getUnreadCounts', async (req, res) => {
   }
   const hrId = actorContext.assignment.hr_id;
 
-  let pendingCount = 0;
-  let mySubmissionsUnread = 0;
-  let myApprovalHistoryUnread = 0;
   const orgId = await getCurrentOrgId();
-
-  // ── Pending count (items needing my action) ──
+  const reference = require('../../../core/services/authorizationReference').referenceFromRequest(req);
   try {
     const pendingSteps = await submissionStepModel.getPendingByApprover(actorContext.actor, actorContext.assignment);
-    pendingCount = pendingSteps.length;
+    const allowedSteps = await require('../models/auditManagementAuthorization').filterRelatedSubmissions(
+      orgId, reference, pendingSteps, entry => entry.submission_id, { pending: true });
+    const mySubmissionsUnread = await submissionModel.countOwnUnread(hrId, actorContext.assignment.assignment_id, reference);
+    res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread: 0, pendingCount: allowedSteps.length });
   } catch (e) {
-    console.error('[getUnreadCounts] pendingCount failed:', e.message);
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
+    console.error('[getUnreadCounts] failed:', e.message);
+    res.json({ status: 'error', message: safeString(e.message) });
   }
-
-  // ── My submissions unread count ──
-  try {
-    const mySubs = await submissionModel.getAll({
-      submittedBy: hrId,
-      submittedAssignmentId: actorContext.assignment.assignment_id,
-      limit: 200
-    });
-    const mySubmissionIds = mySubs.map(s => s.id);
-
-    if (mySubmissionIds.length) {
-      const [cursors] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE org_id = ? AND hr_id = ? AND submission_id IN (?)',
-        [orgId, hrId, mySubmissionIds]
-      );
-      const cursorMap = {};
-      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
-
-      for (const s of mySubs) {
-        const c = cursorMap[s.id];
-        if (!c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
-          mySubmissionsUnread++;
-        }
-      }
-    }
-  } catch (e) {
-    console.error('[getUnreadCounts] mySubmissionsUnread failed:', e.message);
-  }
-
-  // myApprovalHistoryUnread is always 0 — approval history no longer uses read/unread
-  // (only mySubmissions retains read/unread functionality)
-
-  res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread, pendingCount });
 });
 
 // markSubmissionRead — mark a single submission as read (upsert cursor)
@@ -2936,26 +2951,12 @@ router.post('/markSubmissionRead', async (req, res) => {
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
-    // Get current submission state
-    const sub = await submissionModel.getById(submissionId);
-    if (!sub) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
-    if (sub.submitted_by !== hrId || !submissionMatchesSubmitterAssignment(
-      sub,
-      actorContext.assignment.assignment_id
-    )) {
-      return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
-    }
-    const orgId = await getCurrentOrgId();
-
-    await pool.query(
-      `INSERT INTO audit_read_cursors (hr_id, submission_id, org_id, last_read_status, last_read_step_index, read_at)
-       VALUES (?, ?, ?, ?, ?, NOW())
-       ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
-      [hrId, submissionId, orgId, sub.status, sub.current_step_index]
-    );
+    await submissionModel.markOwnRead(hrId, actorContext.assignment.assignment_id,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), submissionId);
 
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -2970,24 +2971,12 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
     }
     const hrId = actorContext.assignment.hr_id;
 
-    // Only mark "my submissions" as read — approval history no longer uses read/unread
-    const mySubs = await submissionModel.getAll({
-      submittedBy: hrId,
-      submittedAssignmentId: actorContext.assignment.assignment_id,
-      limit: 500
-    });
-    const orgId = await getCurrentOrgId();
-    for (const s of mySubs) {
-      await pool.query(
-        `INSERT INTO audit_read_cursors (hr_id, submission_id, org_id, last_read_status, last_read_step_index, read_at)
-         VALUES (?, ?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
-        [hrId, s.id, orgId, s.status, s.current_step_index]
-      );
-    }
+    await submissionModel.markOwnRead(hrId, actorContext.assignment.assignment_id,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
 
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -3008,50 +2997,11 @@ router.post('/listMyApprovalHistory', async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50));
     const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
     const orgId = actorContext.orgId;
-    const historyAssignmentSql = assignmentSqlExpression('e', 'handled_step');
+    const reference = require('../../../core/services/authorizationManagement').referenceFromRequest(req);
+    const { rows, mySteps } = await submissionModel.getOwnHistory(assignmentId, limit, offset, reference);
 
-    // 普通用户审批历史严格绑定当前岗位。事件岗位优先，其次使用事件快照；
-    // 仅在事件没有岗位信息时才读取同一步骤的处理岗位/快照。
-    const [rows] = await pool.query(
-      `SELECT s.*, MAX(e.created_at) AS my_last_action_at
-       FROM audit_submissions s
-       JOIN audit_events e ON s.id = e.submission_id
-       LEFT JOIN audit_submission_steps handled_step
-         ON handled_step.submission_id = e.submission_id
-        AND handled_step.sort_order = e.step_index
-        AND handled_step.round = COALESCE(e.round, 1)
-        AND handled_step.org_id = e.org_id
-       WHERE ${historyAssignmentSql} = ?
-         AND s.org_id = ?
-         AND e.org_id = ?
-         AND e.event_type IN ('approve', 'reject')
-       GROUP BY s.id
-       ORDER BY my_last_action_at DESC
-       LIMIT ? OFFSET ?`,
-      [assignmentId, orgId, orgId, limit, offset]
-    );
-
-    // Get the steps I handled for each submission (from audit_events)
-    const submissionIds = rows.map(r => r.id);
     let myStepsMap = {};
-    if (submissionIds.length) {
-      const [mySteps] = await pool.query(
-        `SELECT e.submission_id, e.step_index AS sort_order,
-           e.event_type, e.created_at AS processed_at, e.comment,
-           e.operator_person_id, e.operator_assignment_id, e.operator_context_snapshot
-         FROM audit_events e
-         LEFT JOIN audit_submission_steps handled_step
-           ON handled_step.submission_id = e.submission_id
-          AND handled_step.sort_order = e.step_index
-          AND handled_step.round = COALESCE(e.round, 1)
-          AND handled_step.org_id = e.org_id
-         WHERE e.submission_id IN (?)
-           AND ${historyAssignmentSql} = ?
-           AND e.org_id = ?
-           AND e.event_type IN ('approve', 'reject')
-         ORDER BY e.created_at DESC`,
-        [submissionIds, assignmentId, orgId]
-      );
+    if (mySteps.length) {
       mySteps.forEach((st, stIdx) => {
         if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
         myStepsMap[st.submission_id].push({
@@ -3094,7 +3044,8 @@ router.post('/listMyApprovalHistory', async (req, res) => {
       };
     });
 
-    res.json({ status: 'success', items: result });
+    const visible = await auditManagementAuthorization.filterRelatedSubmissions(orgId, reference, result, item => item.id);
+    res.json({ status: 'success', items: visible });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

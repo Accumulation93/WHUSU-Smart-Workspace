@@ -10,8 +10,7 @@ module.exports = async function submissionVenueMatrix({ call, venueId }) {
   let definition;
   let response;
   let endpoint;
-  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
-    Page(value) { definition = value; },
+  definition = require('../../../scripts/lib/loadVenueManagementPage')({
     wx: { showModal(options) { options.success({ confirm: true }); } },
     require(name) {
       if (name.endsWith('/api')) return { showShortToast() {}, getErrorText: error => error.message,
@@ -19,7 +18,7 @@ module.exports = async function submissionVenueMatrix({ call, venueId }) {
       if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
       return {};
     }
-  }, { filename });
+  });
   const page = {
     data: { rulesVenueId: venueId, ruleEditId: '', bookingRules: [], approvalFlows: [] },
     setData(patch) { Object.assign(this.data, patch); },

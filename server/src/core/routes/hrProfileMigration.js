@@ -11,7 +11,17 @@ const { createNotification } = require('../../modules/audit/utils/notificationHe
 
 const HR_PERMISSIONS = ['hr.people', 'hr.profile_review'];
 
+function migrationErrorMessage(error, fallback) {
+  return String(error.code || '').startsWith('authorization_') ? copy.forbidden : error.message || fallback;
+}
+
 async function resolveActor(req) {
+  if (req.unifiedAuthorization) {
+    const action = { '/applyCrossOrgMigration': 'execute', '/submitCrossOrgMigrationRequest': 'request',
+      '/reviewCrossOrgMigrationRequest': 'approve', '/cancelCrossOrgMigrationRequest': 'request',
+      '/previewCrossOrgMigration': 'request' }[req.path] || 'read';
+    return require('../models/hrMigrationAuthorization').actor(req.unifiedAuthorization.reference, 'hr.profileMigration.' + action);
+  }
   const admin = req.admin || await resolveCurrentAdmin(req);
   const personId = safeString(req.authAccount && req.authAccount.personId);
   const orgId = safeString(req.authContext && req.authContext.organizationId);
@@ -26,10 +36,12 @@ async function resolveActor(req) {
 }
 
 function ensureHrPermission(actor) {
+  if (actor.authorized) return true;
   return actor.isSuper || hasAnyPermission(actor.effective, HR_PERMISSIONS);
 }
 
 async function canReviewSourceOrg(actor, sourceOrgId) {
+  if (actor.authorized) return actor.orgId === sourceOrgId;
   if (actor.isSuper) return true;
   const [rows] = await pool.query(
     `SELECT admin_level, org_id FROM admin_grants
@@ -110,14 +122,14 @@ router.post('/previewCrossOrgMigration', async (req, res) => {
     return res.json({
       status: result.blockers.length ? 'mapping_blocked' : 'success',
       switchToken: result.token,
-      blockers: result.blockers,
-      conflicts: result.conflicts,
+      blockers: actor.authorized && !actor.isSuper ? result.blockers.map(({ rawValue, ...item }) => item) : result.blockers,
+      conflicts: actor.authorized && !actor.isSuper ? result.conflicts.map(({ sourceValue, targetValue, ...item }) => item) : result.conflicts,
       skipped: result.skipped,
       summary: result.summary,
       message: result.blockers.length ? copy.incompatibleAction : ''
     });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: error.message || copy.invalidPlan });
+    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
   }
 });
 
@@ -133,7 +145,12 @@ router.post('/applyCrossOrgMigration', async (req, res) => {
     if (!actor.isSuper) return res.json({ status: 'forbidden', message: copy.noPermissionToReview });
     const built = await rebuildPlan(actor, req.body);
     const token = safeString(req.body.switchToken);
-    await migrationService.executePlan(actor, built.plan, token);
+    if (actor.authorized) {
+      await require('../models/hrMigrationAuthorization').saveRequest(actor.authorizationReference, built, token, true);
+      return res.json({ status: 'success', message: copy.executed });
+    }
+    await migrationModel.legacyTransaction([built.plan.sourceOrgId, built.plan.targetOrgId], async connection => {
+    await migrationService.executePlan(actor, built.plan, token, connection);
     const migrationId = await migrationModel.createMigration({
       sourceOrgId: built.plan.sourceOrgId,
       targetOrgId: built.plan.targetOrgId,
@@ -144,16 +161,17 @@ router.post('/applyCrossOrgMigration', async (req, res) => {
       sourceSnapshotId: built.plan.sourceSnapshotId,
       targetSnapshotId: built.plan.targetSnapshotId,
       result: { copied: built.plan.persons.length }
-    });
+    }, connection);
     await migrationModel.createItems(migrationId, built.plan.targetOrgId, built.plan.persons.map((person) => ({
       personId: person.personId,
       sourceHrId: person.sourceHrId,
       targetHrId: person.targetHrId,
       status: 'executed'
-    })));
+    })), connection);
+    });
     return res.json({ status: 'success', message: copy.executed });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: error.message || copy.invalidPlan });
+    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
   }
 });
 
@@ -163,7 +181,12 @@ router.post('/submitCrossOrgMigrationRequest', async (req, res) => {
     if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
     if (actor.isSuper) return res.json({ status: 'forbidden', message: copy.invalidOperation });
     const built = await rebuildPlan(actor, req.body);
-    const migrationId = await migrationModel.createMigration({
+    if (actor.authorized) {
+      const result = await require('../models/hrMigrationAuthorization').saveRequest(actor.authorizationReference, built, safeString(req.body.switchToken), false);
+      return res.json({ status: 'success', id: result.id, message: copy.requestSubmitted });
+    }
+    const migrationId = await migrationModel.legacyTransaction([built.plan.sourceOrgId, built.plan.targetOrgId], async connection => {
+    const id = await migrationModel.createMigration({
       sourceOrgId: built.plan.sourceOrgId,
       targetOrgId: built.plan.targetOrgId,
       status: 'pending',
@@ -173,16 +196,18 @@ router.post('/submitCrossOrgMigrationRequest', async (req, res) => {
       sourceSnapshotId: built.plan.sourceSnapshotId,
       targetSnapshotId: built.plan.targetSnapshotId,
       result: { token: safeString(req.body.switchToken) }
-    });
-    await migrationModel.createItems(migrationId, built.plan.targetOrgId, built.plan.persons.map((person) => ({
+    }, connection);
+    await migrationModel.createItems(id, built.plan.targetOrgId, built.plan.persons.map((person) => ({
       personId: person.personId,
       sourceHrId: person.sourceHrId,
       targetHrId: person.targetHrId,
       status: 'pending'
-    })));
+    })), connection);
+    return id;
+    });
     return res.json({ status: 'success', id: migrationId, message: copy.requestSubmitted });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: error.message || copy.invalidPlan });
+    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
   }
 });
 
@@ -192,36 +217,46 @@ router.post('/reviewCrossOrgMigrationRequest', async (req, res) => {
     const id = safeString(req.body.id);
     const action = safeString(req.body.action);
     const reason = safeString(req.body.reason).trim();
+    if (actor.authorized) {
+      const reviewed = await require('../models/hrMigrationAuthorization').review(actor.authorizationReference, id, action, reason);
+      await notify(reviewed.requestedByPersonId, reviewed.targetOrgId, copy.notifierTitle,
+        action === 'approve' ? copy.notifierApprovedBody : copy.notifierRejectedBody, id);
+      return res.json({ status: 'success', message: action === 'approve' ? copy.requestApproved : copy.requestRejected });
+    }
     const record = await migrationModel.getById(id);
     if (!record || record.status !== 'pending') return res.json({ status: 'invalid_operation', message: copy.requestNotFound });
     if (action === 'reject' && !reason) return res.json({ status: 'invalid_params', message: copy.rejectReasonRequired });
     if (!(await canReviewSourceOrg(actor, record.sourceOrgId))) {
       return res.json({ status: 'forbidden', message: copy.noPermissionToReview });
     }
+    if (!['reject', 'approve'].includes(action)) return res.json({ status: 'invalid_params', message: copy.invalidOperation });
+    await migrationModel.legacyTransaction([record.sourceOrgId, record.targetOrgId], async connection => {
+    const locked = await migrationModel.getById(id, connection, true);
+    if (!locked || locked.status !== 'pending') throw new Error(copy.requestNotFound);
     if (action === 'reject') {
       await migrationModel.updateStatus(id, {
         status: 'rejected',
         reviewedByPersonId: actor.personId,
         reviewedByContextId: req.authContext && req.authContext.contextId,
         rejectReason: reason
-      });
-      await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, copy.notifierRejectedBody, id);
-      return res.json({ status: 'success', message: copy.requestRejected });
+      }, connection);
+      return;
     }
     const token = record.result && record.result.token ? record.result.token : '';
-    await migrationService.executePlan(actor, record.plan, token);
+    await migrationService.executePlan(actor, record.plan, token, connection);
     await migrationModel.updateStatus(id, {
       status: 'executed',
       reviewedByPersonId: actor.personId,
       reviewedByContextId: req.authContext && req.authContext.contextId,
       result: Object.assign({}, record.result, { copied: (record.plan.persons || []).length })
+    }, connection);
+    const items = await migrationModel.getItems(id, connection);
+    for (const item of items) await migrationModel.updateItem(item.id, { status: 'executed' }, connection);
     });
-    const items = await migrationModel.getItems(id);
-    for (const item of items) await migrationModel.updateItem(item.id, { status: 'executed' });
-    await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, copy.notifierApprovedBody, id);
-    return res.json({ status: 'success', message: copy.requestApproved });
+    await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, action === 'approve' ? copy.notifierApprovedBody : copy.notifierRejectedBody, id);
+    return res.json({ status: 'success', message: action === 'approve' ? copy.requestApproved : copy.requestRejected });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: error.message || copy.stale });
+    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.stale) });
   }
 });
 
@@ -229,11 +264,19 @@ router.post('/cancelCrossOrgMigrationRequest', async (req, res) => {
   try {
     const actor = await resolveActor(req);
     const id = safeString(req.body.id);
+    if (actor.authorized) {
+      await require('../models/hrMigrationAuthorization').cancel(actor.authorizationReference, id);
+      return res.json({ status: 'success', message: copy.requestSubmitted });
+    }
     const record = await migrationModel.getById(id);
     if (!record || record.status !== 'pending' || record.requestedByPersonId !== actor.personId) {
       return res.json({ status: 'invalid_operation', message: copy.requestNotFound });
     }
-    await migrationModel.updateStatus(id, { status: 'cancelled' });
+    await migrationModel.legacyTransaction([record.sourceOrgId, record.targetOrgId], async connection => {
+      const locked = await migrationModel.getById(id, connection, true);
+      if (!locked || locked.status !== 'pending' || locked.requestedByPersonId !== actor.personId) throw new Error(copy.requestNotFound);
+      await migrationModel.updateStatus(id, { status: 'cancelled' }, connection);
+    });
     await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, copy.notifierCancelledBody, id);
     return res.json({ status: 'success', message: copy.requestSubmitted });
   } catch (error) {
@@ -268,7 +311,8 @@ router.post('/listCrossOrgMigrationRequests', async (req, res) => {
     });
     return res.json({
       status: 'success',
-      myRequests: mine.map(decorate),
+      myRequests: mine.filter(item => !actor.authorized || (item.targetOrgId === actor.orgId
+        && item.requestedByContextId === actor.authorizationReference.contextId)).map(decorate),
       pendingForMe: pending.map(decorate)
     });
   } catch (error) {

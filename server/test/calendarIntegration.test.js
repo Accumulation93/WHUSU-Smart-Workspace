@@ -10,6 +10,9 @@ async function main() {
   process.env.AUTH_IDENTITY_SECRET=crypto.randomBytes(32).toString('hex');
   const root=await mysql.createConnection({host,port,user:process.env.TEST_DB_ADMIN_USER || 'root',password:process.env.TEST_DB_ADMIN_PASSWORD || '',multipleStatements:true});
   let pool,server;
+  const realNow=Date.now;
+  // 测试活动固定在11月；业务时钟固定在活动前，避免测试随运行日期变为历史记录。
+  Date.now=()=>Date.parse('2026-10-31T00:00:00.000Z');
   try {
     await root.query('CREATE DATABASE `'+database+'` CHARACTER SET utf8mb4');
     await root.query("CREATE USER '"+username+"'@'%' IDENTIFIED BY ?",[password]);
@@ -18,6 +21,8 @@ async function main() {
     await root.query(fs.readFileSync(path.join(__dirname,'../db/init.sql'),'utf8'));
     const sql=fs.readFileSync(path.join(__dirname,'../db/deploy/20261019210000_unified_calendar.sql'),'utf8');
     await root.query(sql); await root.query(sql);
+    await root.query('CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,PRIMARY KEY(org_id,domain))');
+    await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031160000_unified_authorization.sql'),'utf8'));
     Object.assign(process.env,{DB_HOST:host,DB_PORT:String(port),DB_NAME:database,DB_USER:username,DB_PASSWORD:password});
     pool=require('../src/config/db');
     const model=require('../src/core/models/calendar');
@@ -233,6 +238,7 @@ async function main() {
     assert.equal(managerAudit.actorSnapshot.assignmentSnapshot,null);
     console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
   } finally {
+    Date.now=realNow;
     if(server)await new Promise(resolve=>server.close(resolve));
     if (pool) await pool.end();
     await root.query('DROP DATABASE IF EXISTS `'+database+'`');

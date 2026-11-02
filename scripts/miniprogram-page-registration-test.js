@@ -56,14 +56,24 @@ function checkHandlers(base, definition) {
     if (!item || typeof item !== 'object') return;
     (item.behaviors || []).forEach(collect);
     Object.assign(initialData, item.data || {});
+    for (const [key, property] of Object.entries(item.properties || {})) {
+      if (property && typeof property === 'object' && Object.prototype.hasOwnProperty.call(property, 'value')) initialData[key] = property.value;
+      else if (property === Array) initialData[key] = [];
+    }
     for (const [key, value] of Object.entries(item)) if (typeof value === 'function') methods.add(key);
     for (const [key, value] of Object.entries(item.methods || {})) if (typeof value === 'function') methods.add(key);
   }
   collect(definition);
   if (typeof initialData.navigationTitle === 'string') assert(!initialData.navigationTitle.includes('undefined'), base + ': 导航标题引用了不存在的语言字段');
-  function check(file) {
+  function check(file, ancestors = new Set()) {
+    assert(!ancestors.has(file), file + ' WXML include 循环');
+    const visited = new Set(ancestors); visited.add(file);
     const markup = fs.readFileSync(file, 'utf8');
     boundHandlers(markup, function(tag, key, expression) {
+      if (tag === 'include' && key === 'src') {
+        assert(expression && !expression.includes('{{'), file + ' include 路径必须为静态文件');
+        check(path.resolve(path.dirname(file), expression), visited);
+      }
       if (tag !== 'personnel-picker' || (key !== 'value' && key !== 'options')) return;
       const binding = /^\{\{\s*([A-Za-z_$][\w$]*)\s*\}\}$/.exec(expression);
       assert.ok(binding, file + ' 人员选择器数组必须绑定显式状态字段');

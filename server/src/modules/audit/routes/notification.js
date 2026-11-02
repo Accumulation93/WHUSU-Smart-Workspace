@@ -222,6 +222,7 @@ async function resolveScope(req, body, defaultToCurrent) {
   return {
     ok: true,
     accountId: req.authAccount.id,
+    authorizationReference: require('../../../core/services/authorizationReference').referenceFromRequest(req),
     role,
     currentOrgId,
     allContexts,
@@ -238,7 +239,8 @@ async function computeTodos(scope, body) {
   const results = await settleWithConcurrency(scope.contexts, async (context) => {
     const items = await orgStorage.run(
       context.organizationId,
-      () => todoService.listAll(context.actor, context.organizationId, { unsorted: true, countOnly: body.countOnly === true })
+      () => todoService.listAll(context.actor, context.organizationId, { unsorted: true, countOnly: body.countOnly === true,
+        authorizationReference: scope.authorizationReference })
     );
     return items.map((item) => Object.assign({}, item, organizationMetadata(context)));
   });
@@ -314,6 +316,7 @@ async function computeNotifications(scope, body) {
     const result = await notificationModel.listForRecipient(context.actor, {
       limit: fetchLimit,
       maxLimit: fetchLimit,
+      authorizationReference: scope.authorizationReference,
       beforeCreatedAt: boundary && boundary.beforeCreatedAt,
       beforeId: boundary && boundary.beforeId,
       countOnly: body.countOnly === true
@@ -463,7 +466,7 @@ router.post('/markNotificationRead', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3d25d623ad });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
-    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor));
+    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor, { authorizationReference: scope.authorizationReference }));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
     const failures = collectFailures(attempts);
@@ -487,14 +490,14 @@ router.post('/markAllNotificationsRead', async (req, res) => {
     if (!scope.ok) return respondScopeError(res, scope);
     const results = await settleWithConcurrency(
       recipientContexts(scope.contexts),
-      (context) => notificationModel.markAllRead(context.actor)
+      (context) => notificationModel.markAllRead(context.actor, { authorizationReference: scope.authorizationReference })
     );
     const failures = collectFailures(results);
     const changedCount = results
       .filter((item) => item.ok)
       .reduce((sum, item) => sum + Number(item.value.changedCount || 0), 0);
     res.json(Object.assign(
-      { status: 'success', changedCount, unreadCount: 0 },
+      { status: 'success', changedCount, unreadCount: results.filter(item => item.ok).reduce((sum, item) => sum + Number(item.value.unreadCount || 0), 0) },
       scopeMetadata(scope, failures)
     ));
   } catch (error) {
@@ -509,14 +512,14 @@ router.post('/deleteAllNotifications', async (req, res) => {
     if (!scope.ok) return respondScopeError(res, scope);
     const results = await settleWithConcurrency(
       recipientContexts(scope.contexts),
-      (context) => notificationModel.deleteAll(context.actor)
+      (context) => notificationModel.deleteAll(context.actor, { authorizationReference: scope.authorizationReference })
     );
     const failures = collectFailures(results);
     const deletedCount = results
       .filter((item) => item.ok)
       .reduce((sum, item) => sum + Number(item.value.deletedCount || 0), 0);
     res.json(Object.assign(
-      { status: 'success', deletedCount, unreadCount: 0 },
+      { status: 'success', deletedCount, unreadCount: results.filter(item => item.ok).reduce((sum, item) => sum + Number(item.value.unreadCount || 0), 0) },
       scopeMetadata(scope, failures)
     ));
   } catch (error) {
@@ -531,7 +534,7 @@ router.post('/deleteNotification', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3d25d623ad });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
-    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor));
+    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor, { authorizationReference: scope.authorizationReference }));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
     const failures = collectFailures(attempts);

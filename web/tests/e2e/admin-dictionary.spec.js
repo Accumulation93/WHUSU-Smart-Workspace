@@ -11,6 +11,25 @@ async function setup(page, permissions = { 'hr.departments': true, 'hr.departmen
   } }));
 }
 
+test('scoped dictionary management does not load the full candidate directory or offer a forbidden edit', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-assignment' });
+  let candidateReads = 0;
+  await page.route('**/api/listDepartments', route => { candidateReads++; return route.fulfill({ json: { status: 'success', departments: [] } }); });
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-assignment', role: 'user',
+    capabilities: ['hr.departments.read', 'hr.departments.update'], grantedCapabilities: ['hr.departments.read', 'hr.departments.update']
+  } }));
+  await page.route('**/api/listAuthorizedDictionary', route => {
+    expect(route.request().postDataJSON()).toEqual({ kind: 'department' });
+    return route.fulfill({ json: { status: 'success', list: [{ id: 'visible', name: 'Scoped department', canUpdate: false, canDelete: false }] } });
+  });
+  await page.goto('/web/admin?subApp=hr&tab=departments');
+  await expect(page.getByText('Scoped department', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toHaveCount(0);
+  await expect(page.locator('form')).toHaveCount(0);
+  expect(candidateReads).toBe(0);
+});
+
 test('admin portal opens native module tabs and legacy dictionary uses the same editor', async ({ page }) => {
   await setup(page);
   await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [] } }));

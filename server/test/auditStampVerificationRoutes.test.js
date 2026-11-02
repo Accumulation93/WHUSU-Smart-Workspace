@@ -17,7 +17,13 @@ const mocks = {
     generateId() { return 'generated-id'; }
   },
   '../../../utils/orgContext': { async getCurrentOrgId() { return 'org-current'; } },
-  '../../../config/db': {},
+  '../../../config/db': { async withTransaction(callback) {
+    return callback({ async query(sql) {
+      if (sql.includes('SELECT id FROM organizations')) return [[{ id: 'org-current' }]];
+      if (sql.includes('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
+      return [{ affectedRows: 1 }];
+    } });
+  } },
   '../../../core/models/adminInfo': { async getByOpenid() { return { id: 'admin-current' }; } },
   '../../../core/models/hrInfo': {
     async getByIds() { throw new Error('验签授权名单不得再跨表二次读取人员'); }

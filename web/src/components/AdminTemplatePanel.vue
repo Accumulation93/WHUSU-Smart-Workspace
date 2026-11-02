@@ -29,7 +29,7 @@
       <div class="template-actions"><button type="button" class="btn btn-secondary" :disabled="blocked" @click="add">{{ ui.copy_9d31093860 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="fileInput.click()">{{ ui.copy_47f9d64667 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked || !form.questions.length" @click="startExport">{{ ui.copy_37b2d47dd4 }}</button><button type="submit" class="btn btn-primary" :disabled="blocked || drag.state.active"><AppLoading v-if="busy" compact />{{ ui.copy_7e4100d002 }}</button><button type="button" class="btn btn-secondary" :disabled="blocked" @click="reset">{{ ui.copy_6888d59833 }}</button></div>
       <FileInput ref="fileInput" hidden class="file-input"  accept=".csv,.xlsx" @change="importFile" />
     </form>
-    <section class="card stack"><span class="section-title">{{ ui.copy_c0ad13da27 }}</span><p v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></p><div class="list"><article v-for="row in rows" :key="row.id" class="list-row question-card"><strong>{{ row.name }}</strong><span v-if="row.description" class="muted break-all">{{ row.description }}</span><span class="muted">{{ ui.copy_5b54c6c107 }}{{ row.questionCount }}</span><div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="act(row,'duplicate')">{{ ui.copy_fbf1856932 }}</button><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="act(row,'delete')">{{ ui.copy_acc985cabc }}</button></div></article></div></section>
+    <section class="card stack"><span class="section-title">{{ ui.copy_c0ad13da27 }}</span><p v-if="loading && !rows.length" class="empty-state"><AppLoading :text="copy.common.loading" /></p><div class="list"><article v-for="row in rows" :key="row.id" class="list-row question-card"><strong>{{ row.name }}</strong><span v-if="row.description" class="muted break-all">{{ row.description }}</span><span class="muted">{{ ui.copy_5b54c6c107 }}{{ row.questionCount }}</span><div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canCreateRecord" @click="act(row,'duplicate')">{{ ui.copy_fbf1856932 }}</button><button type="button" class="btn-quiet" :disabled="blocked" v-if="canUpdateRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="act(row,'delete')">{{ ui.copy_acc985cabc }}</button></div></article></div></section>
     <GlassDialog v-if="sheets.length" :title="sourceName" @close="sheets=[]"><div class="stack"><button v-for="(sheet,index) in sheets" :key="index" type="button" class="selection-option-card" @click="chooseSheet(sheet)">{{ sheet.name }}</button></div></GlassDialog>
     <GlassDialog v-if="table" :title="ui.copy_0601453416" @close="table=null"><div class="stack"><p>{{ ui.copy_03cf7db777 }}</p><article v-for="(header,index) in table.headers" :key="index" class="list-row question-card mapping-row"><strong>{{ header }}</strong><span class="muted">{{ ui.copy_51996ace76 }} · {{ questionFields.find(field=>field.key === mapping[index])?.label || '—' }}</span><button type="button" class="question-preview" :aria-label="ui.copy_84c222ed0d" @click="sample=sampleFor(index)">{{ ui.copy_7efbce059c }} · {{ sampleFor(index) || '—' }}</button><label class="field"><span class="field-label">{{ ui.copy_9c0e348f1b }} · {{ header }}</span><select v-model="mapping[index]" class="field-input" :aria-label="ui.copy_9c0e348f1b + ' · ' + header"><option value="">{{ messages.copy_26eba7c49d }}</option><option v-for="field in questionFields" :key="field.key" :value="field.key">{{ field.label }}</option></select></label></article><div class="row"><span>{{ ui.copy_c1f37f0512 }}</span><UiSwitch :checked="replaceMode" :label="ui.copy_c1f37f0512" @change="replaceMode = $event.target.checked" /></div><span class="muted">{{ ui.copy_6b529b32de }}</span><p v-if="importNotice" role="alert">{{ importNotice }}</p></div><template #footer><div class="template-actions"><button type="button" class="btn btn-secondary" @click="table=null">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" @click="confirmImport">{{ ui.copy_b35531a5fd }}</button></div></template></GlassDialog>
     <GlassDialog v-if="sample !== null" compact :title="ui.copy_84c222ed0d" @close="sample=null"><p class="break-all">{{ sample }}</p></GlassDialog>
@@ -40,8 +40,10 @@
 <script setup>
 import FileInput from '@/components/FileInput.vue';
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
-const canDeleteRecord = useAdminCapability('scoring.templates.delete');
-const canWriteRecord = useAdminCapability('scoring.templates');
+const canDeleteRecord = useAdminCapability('scoring.templates.delete', 'scoring.templates.delete');
+const canCreateRecord = useAdminCapability('scoring.templates', 'scoring.templates.create');
+const canUpdateRecord = useAdminCapability('scoring.templates', 'scoring.templates.update');
+const canWriteRecord = useAdminCapability('scoring.templates', () => props.state.form.id ? 'scoring.templates.update' : 'scoring.templates.create');
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import UiSwitch from './UiSwitch.vue';
@@ -53,6 +55,7 @@ import copy from '@/locales/zh-CN/index.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { session } from '@/runtime/session.js';
+import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
 import { emptyTemplateForm, questionForForm, questionPayload, questionFields, mapQuestionColumns, questionsFromTable } from '@/runtime/templateQuestions.js';
 import { buildCsv, readTable, downloadTable } from '@/runtime/tableFiles.js';
 import { useQuestionDrag } from '@/runtime/questionDrag.js';
@@ -77,7 +80,7 @@ function reset() { Object.assign(form.value,emptyTemplateForm()); expanded.value
 async function add() { if(blocked.value)return; const question=questionForForm(); form.value.questions.push(question); expanded.value=question.key; await reveal(question.key); }
 function remove(index) { if(blocked.value)return; if(expanded.value === form.value.questions[index]?.key)expanded.value=null; form.value.questions.splice(index,1); }
 function move(from,to) { if(blocked.value || to<0 || to>=questions.value.length)return; const [question]=questions.value.splice(from,1); questions.value.splice(to,0,question); reveal(question.key); }
-async function edit(row) { if(blocked.value)return; Object.assign(form.value,{id:row.id,name:row.name,description:row.description||'',questions:row.questions.length ? row.questions.map(questionForForm) : [questionForForm()]}); expanded.value=null; actionNotice.value=''; await nextTick(); editor.value?.scrollIntoView({block:'start'}); }
+async function edit(row) { if(blocked.value || !canUpdateRecord.value)return; Object.assign(form.value,{id:row.id,name:row.name,description:row.description||'',questions:row.questions.length ? row.questions.map(questionForForm) : [questionForForm()]}); expanded.value=null; actionNotice.value=''; await nextTick(); editor.value?.scrollIntoView({block:'start'}); }
 async function load() {
   const request=++generation,expected=scope(); const current=()=>!disposed && request===generation && expected===scope(); loading.value=true;
   try { const result=requireSuccess(await callApi('listScoreTemplates',{})); if(!current())return false;
@@ -86,7 +89,7 @@ async function load() {
   } catch(error){if(current())loadNotice.value=errorText(error,messages.copy_d6b9c2f034);return false;} finally{if(current())loading.value=false;}
 }
 async function save() {
-  if(blocked.value || drag.state.active)return;
+  if(blocked.value || drag.state.active || !canWriteRecord.value)return;
   if(!form.value.name.trim()){actionNotice.value=messages.copy_9a51765619;return;}
   if(!questions.value.length){actionNotice.value=messages.copy_d976fb44d6;return;}
   const payload=questions.value.map(questionPayload);
@@ -99,7 +102,7 @@ async function save() {
   catch(error){if(!disposed && expected===scope())actionNotice.value=errorText(error,messages.copy_215e3c57da);}finally{if(!disposed && expected===scope())busy.value=false;}
 }
 async function act(row,action){
-  if(blocked.value)return;const target={id:row.id,name:row.name},expected=scope();const current=()=>!disposed && expected===scope();busy.value=true;actionNotice.value='';
+  if(blocked.value || (action==='delete' ? !canDeleteRecord.value : !canCreateRecord.value))return;const target={id:row.id,name:row.name},expected=scope();const current=()=>!disposed && expected===scope();busy.value=true;actionNotice.value='';
   try{if(action==='delete'){const confirmed=await confirmAction({title:messages.copy_697796da96,body:target.name+'\n'+messages.copy_4e5413a807,danger:true,confirmText:copy.common.confirm,cancelText:copy.common.cancel});if(!confirmed || !current() || props.disabled)return;}
     requireSuccess(await callApi(action==='delete'?'deleteScoreTemplate':'duplicateScoreTemplate',{id:target.id}));if(!current())return;
     if(action==='delete' && form.value.id===target.id)reset();await load();if(current())showToast(action==='delete'?messages.copy_cf540b4349:messages.copy_e1035ed73b);
@@ -125,6 +128,8 @@ async function exportFile(extension){
     if(disposed || expected!==scope())return;if(!content)throw new Error();downloadTable(content,messages.copy_44db0286b0,extension);exportOpen.value=false;
   }catch(error){if(!disposed && expected===scope())actionNotice.value=error.status ? errorText(error,messages.copy_2b61466286) : messages.copy_2b61466286;}finally{if(!disposed && expected===scope())busy.value=false;}
 }
+useCopiedConfigurationEditor({ kind: () => 'scoring.templates', rows, blocked: () => blocked.value || !canUpdateRecord.value,
+  ready: () => !loading.value && !loadNotice.value, edit, notice: actionNotice });
 watch(()=>busy.value || drag.state.active,value=>emit('busy',value),{flush:'sync'});
 watch(scope,load,{immediate:true});onBeforeUnmount(()=>{disposed=true;generation++;emit('busy',false);});
 </script>

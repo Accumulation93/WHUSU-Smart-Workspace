@@ -83,7 +83,7 @@ instance.toggleOption({ currentTarget: { dataset: { key: 'a-1' } } });
 instance.confirmSelection();
 assert.strictEqual(events[1].payload.keys.length, 0, '整卡取消全部后允许确认空数组');
 
-for (const file of ['miniprogram/subpackages/scoring/pages/admin/admin.wxml', 'miniprogram/subpackages/venue/pages/venueManage/venueManage.wxml']) {
+for (const file of ['miniprogram/subpackages/scoring/pages/admin/adminWorkbenchContent.wxml', 'miniprogram/subpackages/venue/pages/venueManage/venueManagementContent.wxml']) {
   const content = require('fs').readFileSync(require('path').join(__dirname, '..', file), 'utf8');
   assert(!content.includes('selection-card-toggle'), file + ' 不得恢复独立选择控件');
   assert(content.includes('selection-option-card-selected'), file + ' 必须使用整卡选中状态');

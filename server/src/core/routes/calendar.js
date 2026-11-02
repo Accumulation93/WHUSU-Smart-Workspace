@@ -10,12 +10,33 @@ const {loadEffectivePermissions,hasAnyPermission}=require('../services/adminPerm
 const copy=require('../../locales/zh-CN/calendar');
 const ics=require('../services/calendarIcs');
 const subscription=require('../models/calendarSubscription');
+const {authorizeRules}=require('../services/calendarRuleAuthorization');
 function authorization(req,actor) {
-  return async (connection,action)=>{
-    if (action==='rules') await requireAdminOrganizationPermission(req,actor.organizationId,['calendar.rules.manage'],connection);
+  return async (connection,action,operation)=>{
+    let ruleAuthorization=null;
+    if (action==='rules') {
+      const reference=req.unifiedAuthorization && req.unifiedAuthorization.reference;
+      if (!reference) await requireAdminOrganizationPermission(req,actor.organizationId,['calendar.rules.manage'],connection);
+      ruleAuthorization=await authorizeRules(connection,reference,actor.organizationId,operation);
+      if (ruleAuthorization) return {manage:false,rules:true,venueBookings:false,venueResources:false,ruleAuthorization};
+    }
     const account=(await connection.query("SELECT a.id FROM accounts a JOIN persons p ON p.id=a.person_id AND p.status='active' WHERE a.id=? AND a.person_id=? AND a.status='verified' FOR SHARE",[req.authAccount.id,actor.personId]))[0][0];
     if (!account) throw new CalendarError('forbidden');
     const result={manage:false,rules:false,venueBookings:false,venueResources:false};
+    const reference=require('../services/authorizationReference').referenceFromRequest(req);
+    if (reference) {
+      const session=await require('../services/authorizationSession').createAuthorizationSession(connection,reference,{lock:true});
+      if (session.mode==='enforced') {
+        result.eventAuthorization=require('../services/calendarEventAuthorization').eventAuthorization(session,actor);
+        result.sourceAuthorization=require('../services/calendarEventAuthorization').sourceAuthorization(session,actor);
+        // 入口提示不能作为整组织业务管理权传给日程模型。
+        result.showManaged=['read','update','cancel'].some(value=>session.hasExplicitEntry('calendar.events.'+value));
+        result.showRules=['read','create','update','delete'].some(value=>session.hasExplicitEntry('calendar.rules.'+value));
+        return result;
+      }
+    } else {
+      await require('../models/authorizationBusinessRoute').requireLegacyWrite(connection,actor.organizationId);
+    }
     if (actor.role!=='admin') return result;
     const admin=await adminModel.getActiveGrantForAccountInOrganization(req.authAccount.id,actor.personId,actor.organizationId,connection,true);
     if (!admin) throw new CalendarError('forbidden');
@@ -37,6 +58,7 @@ function handler(work) {
     } catch (error) {
       if (error instanceof CalendarError || error instanceof DirectoryError) return res.json({status:'calendar_'+error.code,message:copy[error.code] || copy.operationFailed});
       if (error instanceof AdminOrganizationAccessError) return res.status(403).json({status:'forbidden',message:copy.forbidden});
+      if (error.code==='authorization_forbidden') return res.status(403).json({status:'forbidden',message:copy.forbidden});
       console.error('[calendar]',error.code || error.name);
       res.status(500).json({status:'error',message:copy.operationFailed});
     }

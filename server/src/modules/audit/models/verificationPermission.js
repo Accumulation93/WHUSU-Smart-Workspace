@@ -1,9 +1,10 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const authorization = require('./auditManagementAuthorization');
 
-async function getAll() {
+async function getAll(connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT p.*, h.name AS grantee_name
        FROM audit_verification_permissions p
        JOIN hr_info h
@@ -50,10 +51,12 @@ async function checkPermission(hrId) {
   return (rows[0] && rows[0].cnt > 0);
 }
 
-async function create(id, data) {
+async function create(id, data, reference) {
   const { granteeHrId, grantedBy } = data;
   const orgId = await getCurrentOrgId();
   return pool.withTransaction(async (connection) => {
+    const activeSession = await authorization.session(connection, orgId, reference);
+    authorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
     const [granteeRows] = await connection.query(
       `SELECT h.id
          FROM hr_info h
@@ -86,13 +89,17 @@ async function create(id, data) {
   });
 }
 
-async function removeByGrantee(granteeHrId) {
+async function removeByGrantee(granteeHrId, reference) {
   const orgId = await getCurrentOrgId();
-  const [result] = await pool.query(
+  return pool.withTransaction(async connection => {
+  const activeSession = await authorization.session(connection, orgId, reference);
+  authorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
+  const [result] = await connection.query(
     'DELETE FROM audit_verification_permissions WHERE grantee_hr_id = ? AND org_id = ?',
     [granteeHrId, orgId]
   );
   return Boolean(result && result.affectedRows > 0);
+  });
 }
 
 module.exports = { getAll, getByGrantee, checkPermission, create, removeByGrantee };

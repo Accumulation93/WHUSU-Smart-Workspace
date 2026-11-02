@@ -21,8 +21,14 @@ test('借用卡片可打开详情且取消与结束操作互斥呈现', () => {
   assert.match(pageWxml, /bindtap="openBookingDetail"/);
   assert.match(pageWxml, /wx:if="\{\{item\._canCancel\}\}"[\s\S]*catchtap="cancelBooking"/);
   assert.match(pageWxml, /wx:if="\{\{item\._canEnd\}\}"[\s\S]*catchtap="endBooking"/);
-  assert.match(pageJs, /detail\._canCancel = detail\.displayStatus === 'pending' \|\| detail\.displayStatus === 'approved'/);
-  assert.match(pageJs, /detail\._canEnd = detail\.displayStatus === 'inUse'/);
+  const sandbox = { prepareVenueBookingDetail: booking => ({ ...booking, displayStatus: booking.status }) };
+  require('node:vm').runInNewContext(pageJs.slice(pageJs.indexOf('function decorateBooking('), pageJs.indexOf('function getNextStatusBoundary(')), sandbox);
+  assert.equal(sandbox.decorateBooking({ status: 'pending', canCancel: false })._canCancel, false);
+  assert.equal(sandbox.decorateBooking({ status: 'pending', canCancel: true })._canCancel, true);
+  assert.equal(sandbox.decorateBooking({ status: 'approved' })._canCancel, true);
+  assert.equal(sandbox.decorateBooking({ status: 'inUse', canEnd: false })._canEnd, false);
+  assert.equal(sandbox.decorateBooking({ status: 'inUse', canEnd: true })._canEnd, true);
+  assert.equal(sandbox.decorateBooking({ status: 'completed', canEnd: true })._canEnd, false);
   assert.match(pageJs, /name: 'cancelVenueBooking'/);
   assert.match(pageJs, /name: 'endVenueBooking'/);
 });

@@ -27,6 +27,9 @@ module.exports = Behavior({
           });
           this.setData({
             systemConfig: { timezone: timezone },
+            canReadSystemTimezone: Number.isInteger(timezone),
+            canEditSystemTimezone: Number.isInteger(timezone) && (this.data.authorizationEnforced
+              ? result.config.canUpdateTimezone === true : true),
             timezoneIndex: timezoneIndex >= 0 ? timezoneIndex : 20,
             systemDefaultOrganizationId: result.config.currentOrganization || null
           });
@@ -40,6 +43,7 @@ module.exports = Behavior({
     },
 
     onTimezoneChange(e) {
+      if (!this.data.canEditSystemTimezone) return;
       const idx = Number(e.detail.value);
       const option = this.data.timezoneOptions[idx];
       if (option) {
@@ -51,11 +55,14 @@ module.exports = Behavior({
     },
 
     async saveSystemConfig() {
+      if (!this.data.canEditSystemTimezone) return;
+      const request = orgSession.beginRequest(this, 'saveSystemConfig');
       this.setLoading('saveSystemConfig', true);
       try {
         const result = await this.callCloud('saveSystemConfig', {
           timezone: this.data.systemConfig.timezone
         });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status === 'success') {
           dateTime.setSystemTimezoneConfig(result.systemTimezoneOffset, result.timezoneConfigVersion);
           wx.showToast({ title: localeCopy.copy_c1add6c36e, icon: 'success' });
@@ -63,9 +70,11 @@ module.exports = Behavior({
           wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('saveSystemConfig', false);
       }
-      this.setLoading('saveSystemConfig', false);
     },
 
     async loadOrganizations() {
@@ -177,10 +186,10 @@ module.exports = Behavior({
         });
       });
       if (!confirm) return;
-  
+
       this.setLoading('switchOrganization', true);
       wx.showLoading({ title: localeCopy.copy_0ff87aff65, mask: true });
-  
+
       try {
         const result = await this.callCloud('switchOrganization', {
           organizationId: id,
@@ -215,10 +224,10 @@ module.exports = Behavior({
         });
       }.bind(this));
       if (!confirm) return;
-  
+
       this.setLoading('switchOrganization', true);
       wx.showLoading({ title: localeCopy.copy_4706701186, mask: true });
-  
+
       try {
         // 第一步：创建组织。
         const saveResult = await this.callCloud('saveOrganization', { name: organizationName });
@@ -228,7 +237,7 @@ module.exports = Behavior({
           this.setLoading('switchOrganization', false);
           return;
         }
-  
+
         // 第二步：切换系统组织并刷新当前管理上下文。
         const result = await this.callCloud('switchOrganization', {
           organizationId: saveResult.organization.id,

@@ -46,9 +46,9 @@ function redactSigningKeyRows(rows) {
   return rows.map(redactSigningKeyRow);
 }
 
-async function getBySubmissionId(submissionId) {
+async function getBySubmissionId(submissionId, connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT * FROM audit_submission_files
       WHERE submission_id = ? AND org_id = ? AND is_current = 1
       ORDER BY sort_order, id`,

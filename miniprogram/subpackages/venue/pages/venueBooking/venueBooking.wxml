@@ -11,7 +11,7 @@ function min(t) {
 }
 module.exports = { hour: hour, min: min };
 </wxs>
-<page-meta page-style="{{(scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<page-meta page-style="{{(managementDialogVisible || scheduleVisible || occupiedPopupVisible || activityDetailVisible || bookingDetailVisible || bookingVisible || approvalVisible || _kbVisible || firstApproverPickerVisible || nextApproverPickerVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page subapp-venue-page" style="min-height: calc(100vh - {{navTopPx}}px)">
@@ -26,7 +26,9 @@ module.exports = { hour: hour, min: min };
       {{localeCopy.copy_5aaf844f1e}}
       <text class="approval-tab-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</text>
     </view>
+    <view wx:if="{{managementAvailable}}" class="feature-tab {{activeTab === 'management' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="management" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{authorizationCopy.businessManagement}}</view>
   </view>
+  <venue-management wx:if="{{managementAvailable && activeTab === 'management'}}" embedded="{{true}}" binddialogchange="onManagementDialogChange" />
 
   <!-- ═══════════════════ BROWSE TAB ═══════════════════ -->
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'browse'}}">

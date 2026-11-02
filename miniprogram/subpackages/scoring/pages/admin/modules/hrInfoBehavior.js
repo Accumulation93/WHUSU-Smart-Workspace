@@ -541,7 +541,7 @@ module.exports = Behavior({
       this.setLoading('batchMaintain', true);
       try {
         const result = await this.callCloud('batchMaintainFromHrInfo');
-        
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.integrityCheckFailed,
@@ -549,12 +549,12 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.loadDepartmentList();
         await this.loadWorkGroupList();
         await this.loadIdentityList();
         this.updateHrFormOptions();
-        
+
         wx.showToast({
           title: localeCopy.integrityCheckCompleted,
           icon: 'success'
@@ -787,7 +787,7 @@ module.exports = Behavior({
       try {
         // 账号治理信息是成员资料的增强数据，不能因其暂时不可用而清空整个人事目录。
         // 两个请求仍并行发起，但分别结算，避免认证服务故障被误报为“模板加载失败”。
-        const governanceLoad = this.data.canVerifyIdentity || this.data.canRecoverAccounts || this.data.canGlobalAccountManage
+        const governanceLoad = this.data.canReadAuthGovernance
           ? this.loadHrGovernanceRows().then((value) => ({ ok: true, value }), (error) => ({ ok: false, error }))
           : Promise.resolve({ ok: true, value: new Map() });
         const result = await this.callCloud('listHrProfileAdminData');
@@ -805,7 +805,7 @@ module.exports = Behavior({
         const governanceByHrId = governanceResult.ok ? governanceResult.value : new Map();
         const governanceUnavailable = !governanceResult.ok
           && !(governanceResult.error && governanceResult.error.silent);
-  
+
         const template = result.template || null;
         const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId).map(decorateDirectoryRow);
         const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
@@ -899,7 +899,7 @@ module.exports = Behavior({
     },
 
     async loadHrProfileTemplates() {
-      if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
+      if (!this.data.canReadHrProfileTemplates && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
         && !this.data.isSuperAdmin && !(this.data.user.permissions || {})['hr.profile_templates.manage.delete']) return;
       const request = orgSession.beginRequest(this, 'hrTemplateCatalog');
       this.setLoading('hrProfileTemplates', true);
@@ -954,6 +954,7 @@ module.exports = Behavior({
     },
 
     startCreateHrProfileTemplate() {
+      if (this.data.authorizationEnforced && !this.data.canCreateHrProfileTemplates) return;
       if (this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
       const form = emptyHrProfileTemplateForm();
       const expandedIds = form.fields.length ? [String(form.fields[0].id)] : [];
@@ -1049,6 +1050,7 @@ module.exports = Behavior({
     },
 
     editHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canUpdateHrProfileTemplates) return;
       if (!this.data.canManageHrProfileTemplates || this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
       const id = String(e.currentTarget.dataset.id || '');
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
@@ -1171,6 +1173,7 @@ module.exports = Behavior({
     },
 
     async duplicateHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canCreateHrProfileTemplates) return;
       const id = String(e.currentTarget.dataset.id || '');
       if (!id) return;
       this.setLoading('duplicateHrProfileTemplate', true);
@@ -1187,6 +1190,7 @@ module.exports = Behavior({
     },
 
     deleteHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canDeleteHrProfileTemplates) return;
       const id = String(e.currentTarget.dataset.id || '');
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
@@ -1210,6 +1214,7 @@ module.exports = Behavior({
     },
 
     async startHrProfileTemplateSwitch(e) {
+      if (!this.data.canSelectHrProfileTemplate) return;
       const targetTemplateId = String(e.currentTarget.dataset.id || '');
       if (!targetTemplateId) return;
       const request = orgSession.beginRequest(this, 'hrTemplateSwitchContext');
@@ -1705,7 +1710,8 @@ module.exports = Behavior({
             exportRow[column.key] = item.auditStatusText || '';
           } else if (column.source === 'assignmentNatures') {
             const natureText = { staff: localeCopy.hrNatureStaff, liaison: localeCopy.hrNatureLiaison, other: localeCopy.hrNatureOther };
-            exportRow[column.key] = (item.assignmentNatures || []).map((value) => natureText[value] || value).join('、');
+            exportRow[column.key] = [...new Set((item.assignments || []).map(assignment =>
+              assignment.assignmentNatureLabel || natureText[assignment.assignmentNature] || '').filter(Boolean))].join('、');
           } else {
             exportRow[column.key] = item[column.source] || '';
           }
@@ -1741,11 +1747,11 @@ module.exports = Behavior({
 
     async openHrPersonDetail(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
-      const canOpenGovernanceDetail = this.data.canVerifyIdentity
-        || this.data.canRecoverAccounts || this.data.canGlobalAccountManage;
+      const canOpenGovernanceDetail = this.data.canReadAuthGovernance;
       if (!hrId || (!this.data.canBrowseHrInfo && !canOpenGovernanceDetail)) return;
       const detailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
       this._hrPersonDetailRequestId = detailRequestId;
+      this.setData({ detailWritableFieldIds: [], detailCanManagePeople: false, detailCanReviewProfiles: false });
 
       const governance = this.getHrGovernanceRow(hrId);
       if (!this.data.canBrowseHrInfo) {
@@ -1776,23 +1782,23 @@ module.exports = Behavior({
         }
         return;
       }
-  
+
       // Proactively ensure department/identity/workGroup lists are loaded
       const loadPromises = [];
-      if (!this.data.departmentList || !this.data.departmentList.length) {
+      if (!this.data.authorizationEnforced && (!this.data.departmentList || !this.data.departmentList.length)) {
         loadPromises.push(this._ensureDepartmentsLoaded());
       }
-      if (!this.data.identityList || !this.data.identityList.length) {
+      if (!this.data.authorizationEnforced && (!this.data.identityList || !this.data.identityList.length)) {
         loadPromises.push(this._ensureIdentitiesLoaded());
       }
-      if (!this.data.workGroupList || !this.data.workGroupList.length) {
+      if (!this.data.authorizationEnforced && (!this.data.workGroupList || !this.data.workGroupList.length)) {
         loadPromises.push(this._ensureWorkGroupsLoaded());
       }
       if (loadPromises.length) {
         await Promise.all(loadPromises);
       }
       if (this._hrPersonDetailRequestId !== detailRequestId) return;
-  
+
       this.setData({
         showHrPersonDetail: true,
         detailHrId: hrId,
@@ -1828,6 +1834,7 @@ module.exports = Behavior({
             ? result.template.fields.map((f) => {
                 const field = {
                   id: f.id || '',
+                  writable: this.data.authorizationEnforced ? (result.writableFieldIds || []).includes(f.id) : this.data.canManageHrPeople,
                   label: f.label || '',
                   type: f.type || 'text',
                   required: f.required === true,
@@ -1897,6 +1904,9 @@ module.exports = Behavior({
         }
         this.setData({
           detailHrProfile: profile,
+          detailWritableFieldIds: Array.isArray(result.writableFieldIds) ? result.writableFieldIds : [],
+          detailCanManagePeople: this.data.authorizationEnforced ? (result.writableFieldIds || []).length > 0 : this.data.canManageHrPeople,
+          detailCanReviewProfiles: this.data.authorizationEnforced ? result.canReviewProfiles === true : this.data.canReviewHrProfile,
           detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
           detailHrReadOnly: (result.membershipStatus || profile.membershipStatus) === 'left',
           detailHrJoinedAtText: formatDetailTime(result.joinedAt || profile.joinedAt, {
@@ -1990,12 +2000,16 @@ module.exports = Behavior({
       const organization = (this.data.personIdentityOrganizations || [])[Number.isFinite(orgIndex) ? orgIndex : 0];
       if (!organization || !organization.canEditAssignments) return;
       const dictionaries = organization.dictionaries || {};
+      const natures = dictionaries.assignmentNatures || [];
+      const natureIndex = Math.max(0, natures.findIndex(item => item.id === 'staff'));
       this.setData({
         membershipAssignmentFormVisible: true,
+        assignmentKindValues: natures.map(item => item.id),
+        assignmentKindOptions: natures.map(item => item.name),
         membershipAssignmentForm: {
           id: '',
-          assignmentKind: 'staff',
-          assignmentKindIndex: 0,
+          assignmentKind: natures[natureIndex] ? natures[natureIndex].id : '',
+          assignmentKindIndex: natureIndex,
           departmentId: '',
           department: '',
           identityId: '',
@@ -2024,19 +2038,22 @@ module.exports = Behavior({
       const dictionaries = organization.dictionaries || {};
       const departments = dictionaries.departments || [];
       const identities = dictionaries.identities || [];
+      const natures = dictionaries.assignmentNatures || [];
       const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
         (dictionaries.workGroups || [])
           .filter((row) => String(row.departmentId) === String(item.departmentId))
       );
       this.setData({
         membershipAssignmentFormVisible: true,
+        assignmentKindValues: natures.map(row => row.id),
+        assignmentKindOptions: natures.map(row => row.name),
         membershipAssignmentForm: {
           ...item,
           identityId: item.identityCategoryId || item.identityId || '',
           identity: item.identityCategoryName || item.identity || '',
           organizationId: organization.organizationId,
           hrId: organization.hrId,
-          assignmentKindIndex: Math.max(0, (this.data.assignmentKindValues || []).indexOf(item.assignmentKind))
+          assignmentKindIndex: natures.findIndex(row => row.id === item.assignmentKind)
         },
         assignmentDepartmentOptions: departments,
         assignmentIdentityOptions: identities,
@@ -2075,7 +2092,7 @@ module.exports = Behavior({
       const index = Number(e.detail.value) || 0;
       this.setData({
         'membershipAssignmentForm.assignmentKindIndex': index,
-        'membershipAssignmentForm.assignmentKind': (this.data.assignmentKindValues || [])[index] || 'staff'
+        'membershipAssignmentForm.assignmentKind': (this.data.assignmentKindValues || [])[index] || ''
       });
     },
 
@@ -2134,7 +2151,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveMembershipAssignment', {
           id: form.id || '',
-          assignmentKind: form.assignmentKind || 'staff',
+          assignmentKind: form.assignmentKind || '',
           departmentId: form.departmentId,
           identityId: form.identityId,
           workGroupId: form.workGroupId || '',
@@ -2337,8 +2354,9 @@ module.exports = Behavior({
     onDetailProfileFieldInput(e) {
       if (!this.data.canManageHrPeople || this.data.detailHrReadOnly) return;
       const field = String(e.currentTarget.dataset.field || '');
+      if (this.data.authorizationEnforced && !(this.data.detailWritableFieldIds || []).includes(field)) return;
       let value = e.detail.value;
-  
+
       // For sequence pickers, e.detail.value is the numeric index;
       // resolve it to the option text so the display shows the selected text.
       const template = this.data.detailHrTemplate;
@@ -2361,7 +2379,7 @@ module.exports = Behavior({
           isDateTimeField = true;
         }
       }
-  
+
       const updates = { ['detailHrValues.' + field]: value };
       if (seqIndex >= 0) {
         updates['detailFieldValues.' + field] = seqIndex;
@@ -2388,30 +2406,31 @@ module.exports = Behavior({
     },
 
     async saveHrPersonDetail() {
-      if (!this.data.canManageHrPeople || this.data.detailHrReadOnly) return;
+      if (!(this.data.authorizationEnforced ? this.data.detailCanManagePeople : this.data.canManageHrPeople) || this.data.detailHrReadOnly) return;
       const vals = this.data.detailHrValues || {};
       const hrId = this.data.detailHrId;
       if (!hrId) return;
-  
+
       const name = (vals._name || '').trim();
       const studentId = (vals._studentId || '').trim();
 
-      if (!name || !studentId) {
+      if (!this.data.authorizationEnforced && (!name || !studentId)) {
         wx.showToast({ title: localeCopy.copy_e6f89839f1, icon: 'none' });
         return;
       }
-  
+
       const profileValues = {};
       Object.keys(vals).forEach(k => {
-        if (!k.startsWith('_')) {
+        if (!k.startsWith('_') && (!this.data.authorizationEnforced || (this.data.detailWritableFieldIds || []).includes(k))) {
           profileValues[k] = vals[k];
         }
       });
-  
+
       const template = this.data.detailHrTemplate;
       if (template && Array.isArray(template.fields)) {
         for (let i = 0; i < template.fields.length; i += 1) {
           const field = template.fields[i];
+          if (this.data.authorizationEnforced && !(this.data.detailWritableFieldIds || []).includes(field.id)) continue;
           const errorMessage = validateProfileField(field, profileValues[field.id]);
           if (errorMessage) {
             wx.showToast({ title: errorMessage, icon: 'none' });
@@ -2419,8 +2438,8 @@ module.exports = Behavior({
           }
         }
       }
-  
-      if (personnelViewModel.hasBasicIdentityChange(this.data.detailHrProfile, vals)) {
+
+      if (this.data.canGlobalAccountManage && personnelViewModel.hasBasicIdentityChange(this.data.detailHrProfile, vals)) {
         if (!this.data.canGlobalAccountManage) return;
         this.setData({ savingDetailHr: true });
         try {
@@ -2461,7 +2480,7 @@ module.exports = Behavior({
         return;
       }
 
-      await this._saveHrPersonProfile({ hrId, name, studentId, profileValues });
+      await this._saveHrPersonProfile(this.data.authorizationEnforced ? { hrId, profileValues } : { hrId, name, studentId, profileValues });
     },
 
     async _saveHrPersonProfile(payload) {
@@ -2582,6 +2601,7 @@ module.exports = Behavior({
     },
 
     async approveDetailHrProfile() {
+      if (this.data.authorizationEnforced && !this.data.detailCanReviewProfiles) return;
       if (!this.data.canReviewHrProfile) return;
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
@@ -2602,6 +2622,7 @@ module.exports = Behavior({
     },
 
     rejectDetailHrProfile() {
+      if (this.data.authorizationEnforced && !this.data.detailCanReviewProfiles) return;
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
       const hrId = String(this.data.detailHrId || '').trim();
@@ -2727,7 +2748,7 @@ module.exports = Behavior({
       if (!fields[index]) {
         return;
       }
-  
+
       fields[index] = {
         ...fields[index],
         type: option.value,
@@ -2745,7 +2766,7 @@ module.exports = Behavior({
       if (!fields[index]) {
         return;
       }
-  
+
       fields[index] = {
         ...fields[index],
         numberRule: option.value,
@@ -2762,7 +2783,7 @@ module.exports = Behavior({
       if (!fields[index]) {
         return;
       }
-  
+
       fields[index] = {
         ...fields[index],
         allowDecimal: !!e.detail.value
@@ -2893,7 +2914,7 @@ module.exports = Behavior({
       const _this = this;
       chooseTableFile(_this.callCloud.bind(_this)).then(function (tableData) {
         if (!tableData) { _this.setLoading('importTemplateFieldsCsv', false); return; }
-  
+
         const headers = tableData.headers;
         if (!headers.length) {
           wx.showToast({ title: localeCopy.copy_b673ee708c, icon: 'none' });
@@ -2990,6 +3011,7 @@ module.exports = Behavior({
     },
 
     async saveHrProfileTemplate() {
+      if (this.data.authorizationEnforced && !(this.data.hrProfileTemplateForm.id ? this.data.canUpdateHrProfileTemplates : this.data.canCreateHrProfileTemplates)) return;
       if (this._hrTemplateSaveRequest && orgSession.isRequestCurrent(this, this._hrTemplateSaveRequest)) return;
       const form = this.data.hrProfileTemplateForm || emptyHrProfileTemplateForm();
       const templateName = String(form.name || '').trim();
@@ -3012,7 +3034,7 @@ module.exports = Behavior({
           .map((option) => option.trim())
           .filter(Boolean)
       }));
-  
+
       // 保存前先就地指出问题：哪个字段、哪里不对，并带着用户滚到第一处。
       const validation = validateHrTemplateForm(form, templateSaveCopy);
       if (validation.message) {
@@ -3063,7 +3085,7 @@ module.exports = Behavior({
           editMode: form.editMode,
           fields
         });
-  
+
         if (!isCurrent()) return;
         wx.hideLoading();
         if (!result || result.status !== 'success') {
@@ -3113,7 +3135,7 @@ module.exports = Behavior({
       if (!hrId && !studentId) {
         return;
       }
-  
+
       wx.showModal({
         title: localeCopy.copy_6c43597611,
         content: localeCopy.copy_a10c814f32,
@@ -3121,7 +3143,7 @@ module.exports = Behavior({
           if (!res.confirm) {
             return;
           }
-  
+
           try {
             const result = await this.callCloud('reviewHrProfileChange', {
               hrId,
@@ -3180,7 +3202,7 @@ module.exports = Behavior({
 
     async saveHr() {
       const { name, studentId } = this.data.hrForm;
-    
+
       if (!name || !studentId) {
         wx.showToast({
           title: localeCopy.copy_4f9250c03f,
@@ -3188,14 +3210,14 @@ module.exports = Behavior({
         });
         return;
       }
-    
+
       this.setLoading('saveHr', true);
       try {
         const result = await this.callCloud('saveHrInfo', {
           name,
           studentId
         });
-    
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,
@@ -3203,7 +3225,7 @@ module.exports = Behavior({
           });
           return;
         }
-    
+
         await this.loadHrList();
         await this.loadHrProfileAdminData();
         this.setData({
@@ -3289,22 +3311,22 @@ module.exports = Behavior({
     chooseLegacyTable() {
       let self = this;
       self._csvImportActive = true;
-  
+
       chooseTableFile(self.callCloud.bind(self)).then(function (tableData) {
         if (!tableData) { self._csvImportActive = false; return; }
-  
+
         let headers = tableData.headers;
         let rows = tableData.rows;
         let fileName = tableData.fileName;
-  
+
         let samples = [headers];
         for (let r = 0; r < Math.min(rows.length, 6); r++) {
           samples.push(rows[r]);
         }
-  
+
         let templateFields = (self.data.hrProfileTemplateForm || {}).fields || [];
         let result = buildCsvColumnMapping(headers, samples, templateFields);
-  
+
         self.setData({
           showCsvMappingDialog: true,
           csvImportRows: result.rows,

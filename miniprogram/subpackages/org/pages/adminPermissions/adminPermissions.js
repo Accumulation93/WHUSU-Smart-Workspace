@@ -1,4 +1,5 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/adminPermissions/adminPermissions');
+const authorizationCopy = require('../../package-resources/locales/zh-CN/authorization');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -21,6 +22,8 @@ function cloneGroups(groups) {
 Page({
   data: {
     localeCopy,
+    authorizationCopy,
+    readOnly: false,
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
     loading: true,
@@ -95,6 +98,7 @@ Page({
       const admins = (result.list || []).slice();
       this.setData({
         admins: admins,
+        readOnly: result.readOnly === true,
         filteredAdmins: admins,
         operatorLevelLabel: result.operatorLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_1557b96093
       });
@@ -131,6 +135,7 @@ Page({
       if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e52119b17e);
       this.setData({
         selectedAdmin: result.admin,
+        readOnly: result.readOnly === true,
         permissionGroups: cloneGroups(result.groups),
         editorVisible: true
       });
@@ -147,6 +152,7 @@ Page({
   },
 
   onPermissionChange(e) {
+    if (this.data.readOnly || this.data.saving) return;
     const groupIndex = Number(e.currentTarget.dataset.groupIndex);
     const permissionIndex = Number(e.currentTarget.dataset.permissionIndex);
     const groups = cloneGroups(this.data.permissionGroups);
@@ -164,6 +170,7 @@ Page({
   },
 
   onGroupChange(e) {
+    if (this.data.readOnly || this.data.saving) return;
     const groupIndex = Number(e.currentTarget.dataset.groupIndex);
     const groups = cloneGroups(this.data.permissionGroups);
     if (!groups[groupIndex]) return;
@@ -176,7 +183,7 @@ Page({
   },
 
   async savePermissions() {
-    if (this.data.saving || !this.data.selectedAdmin) return;
+    if (this.data.saving || this.data.readOnly || !this.data.selectedAdmin) return;
     const request = orgSession.beginRequest(this, 'permissionSave');
     const permissionMap = {};
     (this.data.permissionGroups || []).forEach(function(group) {

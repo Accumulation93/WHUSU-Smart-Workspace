@@ -3,6 +3,7 @@ const router = require('express').Router();
 const model = require('../models/identityCard');
 const codes = require('../services/identityCardCode');
 const { getAuthenticatedContext } = require('../services/authenticatedContext');
+const { referenceFromRequest } = require('../services/authorizationReference');
 const copy = require('../../locales/zh-CN/identityCard');
 function handle(work, publicRead = false) {
   return async (req, res) => {
@@ -17,12 +18,12 @@ function handle(work, publicRead = false) {
     }
   };
 }
-router.post('/getMyIdentityCard', handle((req, actor) => model.mine(req.authAccount.id, actor)));
+router.post('/getMyIdentityCard', handle((req, actor) => model.mine(req.authAccount.id, actor, referenceFromRequest(req))));
 router.post('/createMyIdentityCardCode', handle((req, actor) => model.issue(req.authAccount.id, actor, async token => {
   const [image, verificationImage] = await Promise.all([
     codes.createImage(token, (req.body || {}).envVersion || 'release'), codes.createVerificationImage(token)
   ]);
   return { image, verificationImage };
-})));
+}, referenceFromRequest(req))));
 router.post('/verifyIdentityCard', handle(req => model.verify((req.body || {}).token), true));
 module.exports = router;

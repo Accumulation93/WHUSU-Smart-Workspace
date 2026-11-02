@@ -15,7 +15,7 @@ function normalizeAssignments(organizations, noPositionText) {
   return (organizations || []).map((organization) => Object.assign({}, organization, {
     hasAssignments: Array.isArray(organization.assignments) && organization.assignments.length > 0,
     assignments: (organization.assignments || []).map((assignment) => Object.assign({}, assignment, {
-      assignmentNature: safeText(assignment.assignmentNature || assignment.assignmentKind || 'staff'),
+      assignmentNature: safeText(assignment.assignmentNature || assignment.assignmentKind),
       identityCategoryId: safeText(assignment.identityCategoryId || assignment.identityId),
       identityCategoryName: safeText(assignment.identityCategoryName || assignment.identity),
       assignmentLabel: safeText(assignment.assignmentLabel)

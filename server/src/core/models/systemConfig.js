@@ -2,33 +2,76 @@ const pool = require('../../config/db');
 
 const CONFIG_ID = 'default';
 
-async function get() {
-  const [rows] = await pool.query('SELECT * FROM system_config WHERE id = ?', [CONFIG_ID]);
+async function get(connection = pool) {
+  const [rows] = await connection.query('SELECT * FROM system_config WHERE id = ?', [CONFIG_ID]);
   return rows[0] || null;
 }
 
-async function updateTimezone(timezone, updatedAt) {
-  await pool.query(
+async function updateTimezone(timezone, updatedAt, connection = pool) {
+  await connection.query(
     'UPDATE system_config SET timezone = ?, timezone_config_version = timezone_config_version + 1, updated_at = ? WHERE id = ?',
     [timezone, updatedAt || null, CONFIG_ID]
   );
 }
 
-async function setCurrentOrganization(orgId, updatedAt) {
-  await pool.query(
+async function setCurrentOrganization(orgId, updatedAt, connection = pool) {
+  await connection.query(
     'UPDATE system_config SET current_organization = ?, updated_at = ? WHERE id = ?',
     [orgId, updatedAt || null, CONFIG_ID]
   );
 }
 
-async function ensureExists() {
-  const config = await get();
+async function ensureExists(connection = pool) {
+  const config = await get(connection);
   if (!config) {
-    await pool.query(
+    await connection.query(
       'INSERT INTO system_config (id, timezone) VALUES (?, 8)',
       [CONFIG_ID]
     );
   }
+}
+
+async function authorizedConfig(reference, input, updatedAt) {
+  return pool.withTransaction(async connection => {
+    const { authorizationError } = require('../services/authorizationError');
+    const actor = await require('./authorizationIdentity').loadActor(connection, reference, true);
+    const session = await require('../services/authorizationSession').createAuthorizationSession(connection, reference, { lock: true });
+    const write = input !== null;
+    const decision = session.check({ capability: 'system.settings.' + (write ? 'update' : 'read'),
+      resource: { id: CONFIG_ID, type: 'system.settings', organizationId: reference.organizationId },
+      requestedFields: write ? Object.keys(input) : [], businessAllowed: Boolean(actor && actor.role === 'admin'), legacyAllowed: false });
+    if (session.mode !== 'enforced' || !decision.allowed) throw authorizationError('authorization_forbidden');
+    if (write) {
+      if (Object.hasOwn(input, 'currentOrganization')) {
+        if (!actor.isSuper) throw authorizationError('authorization_forbidden');
+        const [organizations] = await connection.query('SELECT id FROM organizations WHERE id=? FOR SHARE', [input.currentOrganization]);
+        if (!organizations.length) throw authorizationError('authorization_stale_reference');
+      }
+      await ensureExists(connection);
+      await connection.query('SELECT id FROM system_config WHERE id=? FOR UPDATE', [CONFIG_ID]);
+      if (Object.hasOwn(input, 'timezone')) await updateTimezone(input.timezone, updatedAt, connection);
+      if (Object.hasOwn(input, 'currentOrganization')) await setCurrentOrganization(input.currentOrganization, updatedAt, connection);
+    }
+    const config = await get(connection);
+    if (write || !config) return config;
+    const visible = session.project({ timezone: config.timezone, currentOrganization: config.current_organization }, decision);
+    return { timezone: visible.timezone, current_organization: visible.currentOrganization,
+      timezone_config_version: config.timezone_config_version,
+      can_update_timezone: session.check({ capability: 'system.settings.update',
+        resource: { id: CONFIG_ID, type: 'system.settings', organizationId: reference.organizationId },
+        requestedFields: ['timezone'], businessAllowed: true, legacyAllowed: false }).allowed };
+  });
+}
+
+async function saveLegacyConfig(input, updatedAt, organizationId) {
+  return pool.withTransaction(async connection => {
+    if (organizationId) await require('./authorizationBusinessRoute').requireLegacyWrite(connection, organizationId);
+    await ensureExists(connection);
+    await connection.query('SELECT id FROM system_config WHERE id=? FOR UPDATE', [CONFIG_ID]);
+    if (Object.hasOwn(input, 'timezone')) await updateTimezone(input.timezone, updatedAt, connection);
+    if (Object.hasOwn(input, 'currentOrganization')) await setCurrentOrganization(input.currentOrganization, updatedAt, connection);
+    return get(connection);
+  });
 }
 
 async function getHistoricalTimeReviewState() {
@@ -86,6 +129,8 @@ async function getHistoricalTimeReviewState() {
 }
 
 module.exports = {
+  authorizedConfig,
+  saveLegacyConfig,
   get,
   updateTimezone,
   setCurrentOrganization,

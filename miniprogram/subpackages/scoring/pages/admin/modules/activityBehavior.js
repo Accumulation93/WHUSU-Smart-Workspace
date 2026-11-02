@@ -75,7 +75,7 @@ module.exports = Behavior({
       if (!item) {
         return;
       }
-  
+
       this.setData({
         activityForm: {
           id: item.id,
@@ -102,7 +102,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveActivity', true);
       try {
         const { id, name, description, startDate, endDate } = form;
@@ -114,7 +114,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.resetActivityForm();
         await this.loadActivityList();
         wx.showToast({
@@ -136,7 +136,7 @@ module.exports = Behavior({
       if (!id || id === this.data.currentActivityId) {
         return;
       }
-  
+
       wx.showModal({
         title: localeCopy.copy_55a98e5fa5,
         content: localeCopy.copy_02d6607d13,
@@ -144,7 +144,7 @@ module.exports = Behavior({
           if (!res.confirm) {
             return;
           }
-  
+
           try {
             const result = await this.callCloud('setCurrentScoreActivity', { id });
             if (result.status !== 'success') {
@@ -154,7 +154,7 @@ module.exports = Behavior({
               });
               return;
             }
-  
+
             await this.loadActivityList();
             await this.loadRuleList();
             if (this.data.activeTab === 'results') {
@@ -173,7 +173,7 @@ module.exports = Behavior({
     async toggleActivityPause(e) {
       const { id } = e.currentTarget.dataset;
       if (!id) return;
-  
+
       try {
         const result = await this.callCloud('toggleActivityPause', { id });
         if (result.status !== 'success') {
@@ -196,7 +196,7 @@ module.exports = Behavior({
           if (!res.confirm) {
             return;
           }
-  
+
           try {
             const result = await this.callCloud('deleteScoreActivity', { id });
             if (result.status !== 'success') {
@@ -206,7 +206,7 @@ module.exports = Behavior({
               });
               return;
             }
-  
+
             await this.loadActivityList();
             await this.loadRuleList();
             if (this.data.activeTab === 'results') {

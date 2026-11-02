@@ -24,9 +24,8 @@ const retryStyle = profilePageWxss.match(/\.profile-load-error \.profile-retry-b
 assert(retryStyle && /flex:\s*none;/.test(retryStyle[1]) && /height:\s*auto;/.test(retryStyle[1])
     && ['width', 'min-width', 'max-width'].every((property) => retryStyle[1].includes(property + ': 100%;')),
   '纵向错误卡内的重试按钮必须解除双列 flex-basis，并遵循全宽自然高度契约');
-const adminWxmlSource = fs.readFileSync(
-  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'),
-  'utf8'
+const adminWxmlSource = require('./lib/miniprogramSource').readMarkup(
+  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml')
 );
 const adminWxml = hydrateLocale(
   adminWxmlSource,
@@ -38,7 +37,7 @@ const hrDirectoryControlsWxml = hydrateLocale(
   adminCopy,
   'localeCopy'
 );
-const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
+const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss'), 'utf8');
 // 模板编辑器已拆成独立组件，编辑器的操作组规则在组件 WXSS 里维护。
 const templateEditorWxss = fs.readFileSync(path.join(root,
   'miniprogram/subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor.wxss'), 'utf8');
@@ -284,7 +283,9 @@ const adminJsSource = fs.readFileSync(
   path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.js'),
   'utf8'
 );
-const hrReachBottom = adminJsSource.match(/onReachBottom\(\)\s*\{[\s\S]*?\n {2}\},/);
+assert(/onReachBottom\(\)\s*\{\s*this\.workbenchReachBottom\(\);\s*\}/.test(adminJsSource), 'Page必须显式注册触底并桥接共享工作台');
+const adminBehaviorSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), 'utf8');
+const hrReachBottom = adminBehaviorSource.match(/workbenchReachBottom\(\)\s*\{[\s\S]*?\n {2}\},/);
 assert(hrReachBottom
     && /activeTab !== 'hrInfo'/.test(hrReachBottom[0])
     && /hrInfoMode !== 'profiles'/.test(hrReachBottom[0])

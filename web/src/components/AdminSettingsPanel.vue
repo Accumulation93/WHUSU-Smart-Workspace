@@ -22,10 +22,10 @@
         </article>
       </section>
     </section>
-    <form v-if="canManageSettings" class="card stack" @submit.prevent="saveTimezone">
+    <form v-if="canManageSettings && hasTimezone" class="card stack" @submit.prevent="saveTimezone">
       <span class="list-row-title">{{ ui.copy_150ec897d6 }}</span>
-      <label class="field"><span class="field-label">{{ ui.copy_bed2e70b8f }}</span><select class="field-input" :aria-label="ui.copy_bed2e70b8f" :value="state.timezone" :disabled="blocked" @change="state.timezone=Number($event.target.value);state.dirty=true"><option v-if="state.timezone > 12" :value="state.timezone">{{ 'UTC+' + state.timezone }}</option><option v-for="option in timezoneOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
-      <button type="submit" class="btn btn-primary" :disabled="blocked"><AppLoading v-if="busy" compact />{{ ui.copy_71db23a36b }}</button>
+      <label class="field"><span class="field-label">{{ ui.copy_bed2e70b8f }}</span><select class="field-input" :aria-label="ui.copy_bed2e70b8f" :value="state.timezone" :disabled="blocked || !canEditTimezone" @change="state.timezone=Number($event.target.value);state.dirty=true"><option v-if="state.timezone > 12" :value="state.timezone">{{ 'UTC+' + state.timezone }}</option><option v-for="option in timezoneOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+      <button v-if="canEditTimezone" type="submit" class="btn btn-primary" :disabled="blocked"><AppLoading v-if="busy" compact />{{ ui.copy_71db23a36b }}</button>
     </form>
     <p v-if="actionNotice && !state.form" class="notice-line" role="alert">{{ actionNotice }}</p>
     <GlassDialog v-if="state.form" compact :busy="busy || loading || state.pending" :title="state.form.id ? ui.copy_363e007ade : ui.copy_447b221a5e" @close="closeOrganization">
@@ -45,12 +45,14 @@ import copy from '@/locales/zh-CN/index.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { session } from '@/runtime/session.js';
+import { hasAdminCapability } from '@/runtime/adminCapabilities.js';
 const props=defineProps({disabled:Boolean,profile:Object,state:{type:Object,required:true}});
 const emit=defineEmits(['busy']);
 const timezoneKeys=['f9cadda36d','4570b42d70','757124dc6b','7cd25c7e87','55c5b5ff7b','ec688c2a7c','a0e4ae632c','4462cb7b00','72c79414ae','cf2edf4e91','657e432e78','2952640fa0','609094214c','d13ebf61e8','2f4c345a3b','ab805e8327','484de22700','b0e703c2d3','467bc10285','e2418cf46c','05746fc036','5f0a93e6d5','9d0e9da601','04e6a36058','570fa0981d'];
 const timezoneOptions=timezoneKeys.map((key,index)=>({value:index-12,label:utils['copy_'+key]}));
 const canManageOrganizations=computed(()=>props.profile?.adminLevel==='super_admin');
-const canManageSettings=computed(()=>canManageOrganizations.value || props.profile?.permissions?.['system.settings']===true);
+const canManageSettings=computed(()=>hasAdminCapability(props.profile,'system.settings','system.settings.read'));
+const hasTimezone=ref(false),canEditTimezone=ref(false);
 const organizations=ref([]),defaultId=ref(''),loading=ref(false),busy=ref(false),ready=ref(false),notice=ref(''),actionNotice=ref('');
 const blocked=computed(()=>props.disabled || !ready.value || loading.value || busy.value || !!notice.value || props.state.pending);
 const defaultName=computed(()=>organizations.value.find(row=>row.id===defaultId.value)?.name || '');
@@ -62,7 +64,9 @@ async function load(){
   try{
     const [config,list]=await Promise.all([callApi('getSystemConfig',{}).then(requireSuccess),canManageOrganizations.value?callApi('listOrganizations',{}).then(requireSuccess):Promise.resolve({list:[]})]);
     if(!current(expected) || request!==generation)return;
-    if(!config.config || !Number.isInteger(config.config.timezone) || config.config.timezone < -12 || config.config.timezone > 14 || !Array.isArray(list.list) || list.list.some(row=>!row?.id || typeof row.name!=='string'))throw new Error();
+    if(!config.config || (config.config.timezone !== undefined && (!Number.isInteger(config.config.timezone) || config.config.timezone < -12 || config.config.timezone > 14)) || !Array.isArray(list.list) || list.list.some(row=>!row?.id || typeof row.name!=='string'))throw new Error();
+    hasTimezone.value=Number.isInteger(config.config.timezone);
+    canEditTimezone.value=hasTimezone.value && (props.profile?.authorizationAccess?.mode==='enforced' ? config.config.canUpdateTimezone===true : canManageSettings.value);
     organizations.value=list.list;defaultId.value=config.config.currentOrganization || '';ready.value=true;notice.value='';
     if(!props.state.dirty || props.state.pending){props.state.timezone=config.config.timezone;props.state.dirty=false;}
     if(props.state.pending){props.state.pending=false;if(props.state.closeAfterRead){props.state.form=null;props.state.created=null;props.state.closeAfterRead=false;}}
@@ -75,7 +79,7 @@ async function run(write,fallback,success){
   catch(error){if(current(expected))actionNotice.value=errorText(error,fallback);}
   finally{if(current(expected))busy.value=false;}
 }
-function saveTimezone(){if(!canManageSettings.value)return;return run(()=>callApi('saveSystemConfig',{timezone:props.state.timezone}).then(requireSuccess),messages.copy_215e3c57da,messages.copy_c1add6c36e);}
+function saveTimezone(){if(!canEditTimezone.value)return;return run(()=>callApi('saveSystemConfig',{timezone:props.state.timezone}).then(requireSuccess),messages.copy_215e3c57da,messages.copy_c1add6c36e);}
 function openOrganization(row){if(blocked.value || !canManageOrganizations.value)return;props.state.form={id:row?.id||'',name:row?.name||''};props.state.created=null;actionNotice.value='';}
 function closeOrganization(){if(busy.value || loading.value || props.state.pending)return;props.state.form=null;props.state.created=null;actionNotice.value='';}
 async function confirmDefault(name,create=false){return confirmAction({title:create?messages.copy_fcc6193afc:messages.copy_a58d703333,body:messages.copy_e7e3787584+name+'」。',confirmText:create?messages.copy_d5f0842283:messages.copy_6616a4de3c,cancelText:messages.copy_4b213fd88a});}

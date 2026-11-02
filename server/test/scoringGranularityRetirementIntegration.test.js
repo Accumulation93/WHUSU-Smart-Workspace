@@ -22,7 +22,12 @@ const options = { host: process.env.DEPLOY_TEST_DB_HOST, port: Number(process.en
     await admin.query(`CREATE USER '${user}'@'%' IDENTIFIED BY ?`, [password]);
     await admin.query(`GRANT ALL ON \`${database}\`.* TO '${user}'@'%'`);
     const fixture = await mysql.createConnection({ ...options, database, multipleStatements: true });
-    try { await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8')); }
+    try {
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await fixture.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
+        version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id, domain))`);
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    }
     finally { await fixture.end(); }
     Object.assign(process.env, { DB_HOST: options.host, DB_PORT: String(options.port), DB_USER: user,
       DB_PASSWORD: password, DB_NAME: database, AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex') });

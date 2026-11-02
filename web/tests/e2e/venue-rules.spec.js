@@ -17,11 +17,126 @@ async function setup(page, canApprove = true) {
   await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Long department name' }] } }));
   await page.route('**/api/listWorkGroups', route => route.fulfill({ json: { status: 'success', workGroups: [{ id: 'w1', name: 'Working group' }] } }));
   await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [{ id: 'i1', name: 'Identity category' }] } }));
+  await page.route('**/api/getVenueRuleCandidates', route => route.fulfill({ json: { status: 'success',
+    identities: [{ id: 'i1', name: 'Identity category' }], departments: [{ id: 'd1', name: 'Department' }],
+    workGroups: [{ id: 'w1', name: 'Working group', departmentId: 'd1' }],
+    assignments: [{ assignmentId: 'assignment', hrId: 'member', name: 'Reviewer', assignmentLabel: 'Identity category · Department', department: 'Department', identity: 'Identity category' },
+      { assignmentId: 'second-assignment', hrId: 'second-member', name: 'Second reviewer', assignmentLabel: 'Second position', department: 'Department', identity: 'Identity category' }] } }));
   await page.goto('/web/portal'); await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click(); await page.getByRole('button', { name: ui.copy_f10a13b6e1, exact: true }).click();
   return state;
 }
 const ruleTab = (page, label) => page.locator('.rule-tabs').getByRole('button', { name: label, exact: true });
 const save = page => page.getByRole('dialog').last().getByRole('button', { name: ui.copy_f7597cecf5, exact: true }).last();
+
+for (const type of ['datetime_range', 'repeat']) {
+  test('legacy ' + type + ' retains cross-day dates and interval after editing and reopening', async ({ page }) => {
+    const state = await setup(page); let writes = 0;
+    const values = { startDate: '2026-11-02', startTime: '22:00', endDate: '2026-11-04', endTime: '02:00',
+      ...(type === 'repeat' ? { intervalUnit: 'week', intervalValue: 2, repeatCount: 3 } : {}) };
+    state.activity = [{ id: 'legacy', activity_name: 'Legacy activity', cycle_type: type, cycle_values: values, time_start: '09:00', time_end: '18:00' }];
+    await page.route('**/api/saveVenueActivityRule', route => {
+      const body = route.request().postDataJSON(); writes++;
+      expect(body.cycleType).toBe(type);
+      expect(body.cycleValues).toEqual({ ...values, endDate: '2026-11-05' });
+      state.activity[0] = { ...state.activity[0], activity_name: body.activityName, cycle_values: body.cycleValues };
+      return route.fulfill({ json: { status: 'success' } });
+    });
+    await ruleTab(page, ui.copy_6980750e90).click();
+    await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+    const dialog = page.getByRole('dialog').last();
+    await expect(dialog.getByText(type === 'repeat' ? flowCopy.intervalOccupancy : flowCopy.continuousOccupancy, { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel(ui.copy_31b34bfc08, { exact: true })).toHaveValue(values.startDate);
+    await expect(dialog.getByLabel(ui.copy_2b4cce7bb9, { exact: true })).toHaveValue(values.startTime);
+    await dialog.getByLabel(ui.copy_9bec99c980, { exact: true }).fill('2026-11-05');
+    if (type === 'repeat') {
+      await expect(dialog.getByLabel(flowCopy.intervalUnit, { exact: true })).toHaveValue('week');
+      await expect(dialog.getByLabel(flowCopy.intervalValue, { exact: true })).toHaveValue('2');
+    }
+    await save(page).click();
+    await expect.poll(() => writes).toBe(1);
+    await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+    await expect(page.getByRole('dialog').last().getByLabel(ui.copy_9bec99c980, { exact: true })).toHaveValue('2026-11-05');
+  });
+}
+
+for (const type of ['identity', 'person']) {
+  test('existing ' + type + ' rule keeps its exact approver and scope when reopened and saved', async ({ page }) => {
+    const state = await setup(page); let writes = 0;
+    state.rules = [{ id: 'specified', rule_type: type, is_active: 0,
+      approver_identity_id: 'i1', approver_hr_id: 'member', approver_assignment_id: 'assignment',
+      scope_department_id: 'd1', scope_work_group_id: 'w1', sort_order: 9 }];
+    await page.route('**/api/saveVenueBookingRule', route => {
+      const body = route.request().postDataJSON(); writes++;
+      expect(body).toMatchObject({ id: 'specified', ruleType: type, approverIdentityId: 'i1',
+        approverHrId: 'member', approverAssignmentId: 'assignment', scopeDepartmentId: 'd1',
+        scopeWorkGroupId: 'w1', sortOrder: 9 });
+      return route.fulfill({ json: { status: 'success' } });
+    });
+    await ruleTab(page, ui.copy_523e44b520).click();
+    const row = page.locator('.approval-row');
+    await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+    await expect(page.getByLabel(ui.copy_c5ec30e07d)).toHaveValue(type);
+    await page.getByLabel(ui.copy_c5ec30e07d).selectOption('admin');
+    await page.getByLabel(ui.copy_c5ec30e07d).selectOption(type);
+    await save(page).click();
+    await expect.poll(() => writes).toBe(1);
+    await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+    await expect(page.getByLabel(ui.copy_c5ec30e07d)).toHaveValue(type);
+  });
+}
+
+test('inactive copied flow stays editable without confirming a change to the live approval method', async ({ page }) => {
+  const state = await setup(page); let writes = 0;
+  state.rules = [{ id: 'live', rule_type: 'direct', is_active: 1 }];
+  state.flows = [{ id: 'draft', name: 'Copied flow', is_active: 0, steps: [{ name: 'Review', approval_mode: 'admin_any', rules: [] }] }];
+  await page.route('**/api/listVenueApprovalFlows', route => {
+    expect(route.request().postDataJSON().includeInactive).toBe(true);
+    return route.fulfill({ json: { status: 'success', flows: state.flows } });
+  });
+  await page.route('**/api/saveVenueApprovalWholeFlow', route => {
+    const body = route.request().postDataJSON(); writes++;
+    expect(body.flowId).toBe('draft');
+    expect(body.steps[0].approvalMode).toBe('admin_any');
+    expect(body).not.toHaveProperty('isActive');
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await ruleTab(page, ui.copy_523e44b520).click();
+  const row = page.locator('.approval-row').filter({ hasText: 'Copied flow' });
+  await expect(row).toContainText(flowCopy.disabled);
+  await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await save(page).click();
+  await expect.poll(() => writes).toBe(1);
+  await expect(page.getByText(flowCopy.directToFlow, { exact: true })).toHaveCount(0);
+  await expect(row).toContainText(flowCopy.disabled);
+  await expect(page.locator('.approval-row').filter({ hasText: ui.copy_4f15bb9939 })).toHaveCount(1);
+  await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.getByRole('dialog').last()).toContainText('Review');
+});
+
+test('specified approver picker saves the chosen assignment and reopens the saved selection', async ({ page }) => {
+  const state = await setup(page); let writes = 0;
+  state.rules = [{ id: 'person-rule', rule_type: 'person', is_active: 0,
+    approver_hr_id: 'member', approver_assignment_id: 'assignment' }];
+  await page.route('**/api/saveVenueBookingRule', route => {
+    const body = route.request().postDataJSON(); writes++;
+    expect(body.approverAssignmentId).toBe('second-assignment');
+    expect(body.approverHrId).toBe('second-member');
+    state.rules[0].approver_assignment_id = body.approverAssignmentId;
+    state.rules[0].approver_hr_id = body.approverHrId;
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await ruleTab(page, ui.copy_523e44b520).click();
+  await page.locator('.approval-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await page.getByRole('button', { name: 'Reviewer · Identity category · Department', exact: true }).click();
+  const picker = page.getByRole('dialog').last();
+  await picker.getByRole('button', { name: 'Second reviewer Second position' }).click();
+  await picker.locator('.dialog-footer').getByRole('button').last().click();
+  await expect(page.getByRole('button', { name: 'Second reviewer · Second position', exact: true })).toBeVisible();
+  await save(page).click();
+  await expect.poll(() => writes).toBe(1);
+  await page.locator('.approval-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Second reviewer · Second position', exact: true })).toBeVisible();
+});
 
 test('open rules use native cycle fields and preserve rejection before save and reread', async ({ page }) => {
   const state = await setup(page, false); let saves = 0;

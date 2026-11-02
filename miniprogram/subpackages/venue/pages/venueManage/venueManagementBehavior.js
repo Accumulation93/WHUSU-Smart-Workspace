@@ -1,0 +1,2833 @@
+const calendarDateTime = require('../../../../utils/dateTime');
+const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
+const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { buildFlowTimeline } = require('../../utils/flowTimeline');
+const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
+const adminPermissions = require('../../../../utils/adminPermissions');
+const { readCurrentAuthorizationAccess } = require('../../package-resources/utils/authorizationAccess');
+const authContext = require('../../../../utils/authContext');
+const governanceCopy = require('../../package-resources/locales/zh-CN/adminGovernance');
+const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
+const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
+const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueFlowManagement');
+const controlLayoutCopy = require('../../package-resources/locales/zh-CN/controlLayout');
+const adminTimeSelection = require('../../utils/adminTimeSelection');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
+const {
+  getSystemDate,
+  getSystemWeekStart,
+  addDateDays
+} = require('../../../../utils/dateTime');
+
+const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
+const HOUR_HEIGHT = 64; // rpx per hour
+const BASE_MIN = 0;
+const HEADER_H = 58; // rpx — matches .tt-time-header height
+const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
+const BOOKING_PURPOSE_MAX_LENGTH = 200;
+
+function canOperate(page, resource, action) {
+  return page._authorizationVisible !== false && (!page.data.authorizationEnforced || (page.data.actionCapabilities || {})[resource + '.' + action] === true);
+}
+
+function ruleResource(type, flow) {
+  return type === 'open' ? 'venue.openRules' : type === 'activity' ? 'venue.activityRules'
+    : flow ? 'venue.approvals' : 'venue.bookingRules';
+}
+
+function isFlowApprovalTarget(record) {
+  const target = record && typeof record === 'object' ? record : {};
+  const progress = target.approvalProgress && typeof target.approvalProgress === 'object'
+    ? target.approvalProgress
+    : target;
+  const flowId = progress.flowId === undefined ? target.approvalFlowId : progress.flowId;
+  const currentStep = progress.currentStep === undefined
+    ? target.approvalCurrentStep
+    : progress.currentStep;
+  const stepText = currentStep === null || currentStep === undefined ? '' : String(currentStep).trim();
+  const stepIndex = Number(currentStep);
+  return Boolean(String(flowId || '').trim())
+    && Boolean(stepText)
+    && Number.isInteger(stepIndex)
+    && stepIndex >= 0;
+}
+
+function resolveVenueApprovalEndpoint(record, action) {
+  const flowManaged = isFlowApprovalTarget(record);
+  if (action === 'approve') {
+    return flowManaged ? 'approveVenueBookingStep' : 'approveVenueBooking';
+  }
+  return flowManaged ? 'rejectVenueBookingStep' : 'rejectVenueBooking';
+}
+
+// Synchronous scroll tracking (NOT in this.data — setData is async, can't rely on it)
+let _timetableScrollTop = 0;
+
+function unicodeLength(value) {
+  return Array.from(String(value || '')).length;
+}
+
+const ALL_MINUTES = [];
+for (let i = 0; i < 60; i++) {
+  ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
+}
+
+function slotsToIntervals(slots) {
+  return (slots || []).map(s => ({ start: timeToMin(s.timeStart), end: timeToMin(s.timeEnd) }));
+}
+
+function mergeIntervals(intervals) {
+  if (!intervals.length) return [];
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end);
+    } else {
+      merged.push(sorted[i]);
+    }
+  }
+  return merged;
+}
+
+function findOpenGap(rangeStart, rangeEnd, mergedOpen) {
+  let cursor = rangeStart;
+  for (const iv of mergedOpen) {
+    if (iv.start > cursor) return cursor;
+    if (iv.end > cursor) cursor = iv.end;
+    if (cursor >= rangeEnd) return -1;
+  }
+  return cursor < rangeEnd ? cursor : -1;
+}
+
+function findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked) {
+  for (const iv of mergedBlocked) {
+    if (iv.start < rangeEnd && iv.end > rangeStart) return iv;
+  }
+  return null;
+}
+
+function timeToMin(t) {
+  if (!t) return 0;
+  const parts = String(t).split(':');
+  return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
+}
+
+/** Compute display status from db status + time comparison */
+function computeDisplayStatus(item) {
+  if (item.status === 'pending') return 'pending';
+  if (item.status === 'rejected') return 'rejected';
+  if (item.status === 'cancelled') return 'cancelled';
+  if (item.status === 'approved') {
+    const now = new Date();
+    const timeStart = new Date(item.timeStart.replace(' ', 'T'));
+    const timeEnd = new Date(item.timeEnd.replace(' ', 'T'));
+    if (now < timeStart) return 'approved';
+    if (now >= timeEnd) return 'completed';
+    return 'inUse';
+  }
+  return item.status;
+}
+
+function calcBlock(timeStart, timeEnd) {
+  const s = timeToMin(timeStart);
+  const e = timeToMin(timeEnd);
+  const top = Math.round((s - BASE_MIN) / 60 * HOUR_HEIGHT);
+  const height = Math.max(Math.round((e - s) / 60 * HOUR_HEIGHT), 20);
+  return { top, height };
+}
+
+/** Build checked arrays from cycleValues (WXML can't call indexOf) */
+function buildWeeklyChecked(cycleValues) {
+  const arr = [false, false, false, false, false, false, false];
+  const values = Array.isArray(cycleValues) ? cycleValues : ((cycleValues && cycleValues.values) || []);
+  values.forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
+  return arr;
+}
+
+function minToTime(minutes) {
+  return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+}
+
+function buildMonthlyChecked(cycleValues) {
+  const arr = Array(31).fill(false);
+  const values = Array.isArray(cycleValues) ? cycleValues : ((cycleValues && cycleValues.values) || []);
+  values.forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
+  return arr;
+}
+
+/** Parse comma-separated ID string into array */
+function parseCsvArray(str) {
+  if (!str) return [];
+  return String(str).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function emptyActivityCycleValues() {
+  return { values: [], periodMode: 'none', periodStartDate: '', periodStartTime: '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: 0 };
+}
+
+function normalizeActivityCycleValues(cycleType, values) {
+  let parsed = values;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_) { parsed = []; }
+  }
+  if (cycleType === 'datetime_range') {
+    return { ...emptyActivityCycleValues(), periodMode: 'range', periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: parsed.endDate || '', periodEndTime: parsed.endTime || '23:59' };
+  }
+  if (cycleType === 'repeat') {
+    return { ...emptyActivityCycleValues(), periodMode: 'count', periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', repeatCount: Number(parsed.repeatCount) || 0 };
+  }
+  if (Array.isArray(parsed)) return { ...emptyActivityCycleValues(), values: parsed };
+  if (parsed && Array.isArray(parsed.values)) {
+    const inferredMode = ['none', 'range', 'count'].includes(parsed.periodMode)
+      ? parsed.periodMode
+      : (parsed.repeatCount > 0 && !parsed.periodEndDate ? 'count' : (parsed.periodStartDate || parsed.periodEndDate ? 'range' : 'none'));
+    return { ...emptyActivityCycleValues(), ...parsed, periodMode: inferredMode, values: parsed.values };
+  }
+  if (parsed && (parsed.startDate || parsed.endDate)) return { ...emptyActivityCycleValues(), periodMode: 'range', periodStartDate: parsed.startDate || '', periodEndDate: parsed.endDate || '' };
+  return emptyActivityCycleValues();
+}
+
+function activityCycleTypeIndex(cycleType) {
+  const types = ['daily', 'weekly', 'monthly', 'yearly'];
+  const index = types.indexOf(cycleType);
+  return index >= 0 ? index : 0;
+}
+
+function formatActivityCycleLabel(type, values) {
+  let parsed = values;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
+  }
+  parsed = parsed || {};
+  const meta = Array.isArray(parsed) ? emptyActivityCycleValues() : (parsed.periodStartDate || parsed.periodEndDate ? parsed : {
+    ...parsed,
+    periodStartDate: parsed.startDate || '',
+    periodStartTime: parsed.startTime || '00:00',
+    periodEndDate: parsed.endDate || '',
+    periodEndTime: parsed.endTime || '23:59'
+  });
+  const mode = meta.periodMode || (Number(meta.repeatCount) > 0 && !meta.periodEndDate ? 'count' : (meta.periodStartDate || meta.periodEndDate ? 'range' : 'none'));
+  if (mode === 'none') return localeCopy.copy_dae9f72578;
+  const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
+  if (mode === 'count') return localeCopy.copy_5bb8799355 + start + localeCopy.copy_ca51b9c6c6 + (Number(meta.repeatCount) || 0) + localeCopy.copy_c5aa06059a;
+  const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
+  return localeCopy.copy_eeb5f0e78e + start + localeCopy.copy_c44dbba9e9 + end;
+}
+
+function emptyBookingWindow() {
+  return {
+    open: { mode: 'none', days: 7, hours: 0, minutes: 0 },
+    deadline: { mode: 'none', days: 0, hours: 0, minutes: 0 }
+  };
+}
+
+function bookingWindowFromRow(row) {
+  const window = emptyBookingWindow();
+  if (!row) return window;
+  const openMinutes = row.openAdvanceMinutes === null || row.openAdvanceMinutes === undefined
+    ? null : Number(row.openAdvanceMinutes);
+  const deadlineMinutes = row.deadlineAdvanceMinutes === null || row.deadlineAdvanceMinutes === undefined
+    ? null : Number(row.deadlineAdvanceMinutes);
+  if (row.openAdvanceMode) {
+    window.open.mode = row.openAdvanceMode;
+    if (row.openAdvanceMode === 'days') window.open.days = Number(row.openAdvanceDays) || 0;
+    else if (openMinutes !== null) {
+      window.open.hours = Math.floor(openMinutes / 60);
+      window.open.minutes = openMinutes % 60;
+    }
+  }
+  if (row.deadlineAdvanceMode) {
+    window.deadline.mode = row.deadlineAdvanceMode;
+    if (row.deadlineAdvanceMode === 'days') window.deadline.days = Number(row.deadlineAdvanceDays) || 0;
+    else if (deadlineMinutes !== null) {
+      window.deadline.hours = Math.floor(deadlineMinutes / 60);
+      window.deadline.minutes = deadlineMinutes % 60;
+    }
+  }
+  return window;
+}
+
+function bookingWindowMinutes(item) {
+  if (!item || item.mode === 'none') return null;
+  if (item.mode === 'days') return Math.max(0, Number(item.days) || 0) * 24 * 60;
+  return Math.max(0, Number(item.hours) || 0) * 60 + Math.max(0, Number(item.minutes) || 0);
+}
+
+module.exports = Behavior({
+  behaviors: [dialogKeyboardBehavior],
+  data: {
+    navigationTitle: localeCopy.navigationTitle,
+    navTopPx: 0,
+    controlLayoutCopy,
+    localeCopy,
+    flowManagementCopy,
+    // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
+    dialogLockKeys: [
+      'editing',
+      'rulesVisible',
+      'ruleEditorVisible',
+      'bookingApproverPickerVisible',
+      'scheduleVisible',
+      'occupiedPopupVisible',
+      'activityDetailVisible',
+      'bookingDetailVisible',
+      'adminBookingVisible',
+      'purposeVisible',
+      'condMultiPickerVisible',
+      'approvalPopupVisible',
+      'pendingDialogVisible',
+      'contextSwitchGuardVisible'
+    ],
+    // ── Main tab ──
+    activeTab: 'venue',  // 'venue' | 'bookings' | 'pending' | 'purposes'
+    pendingDialogVisible: false,
+    pendingPermissionReady: false,
+    hasPermission: true,
+    canApproveVenue: false,
+    canDeleteVenueBookings: false,
+    deletingVenueBooking: '',
+    governanceCopy,
+    currentOrganizationName: '',
+    adminDisplayName: localeCopy.copy_c01a9aef59,
+    adminLevelLabel: localeCopy.copy_fd31650797,
+    visibleTabs: [
+      { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
+      { key: 'bookings', label: localeCopy.copy_20ba89a1cc },
+      { key: 'pending', label: localeCopy.copy_e7f0a24301 },
+      { key: 'purposes', label: localeCopy.copy_8dcf3fcf0b }
+    ],
+
+    venues: [],
+    configurationVenues: [],
+    configurationOnlyVenues: [],
+    loading: false,
+    editing: false,
+    editId: '',
+    editName: '',
+    editLocation: '',
+    editDesc: '',
+
+    // Rules popup for selected venue
+    rulesVisible: false,
+    rulesVenueId: '',
+    rulesVenueName: '',
+    rulesTab: 'open', // 'open' | 'activity' | 'booking' | 'flow'
+    openRules: [],
+    activityRules: [],
+    activityDetailVisible: false,
+    activityDetail: null,
+    bookingRules: [],
+
+    // Approval flow management
+    approvalFlow: null,
+    approvalFlowSteps: [],
+    approvalFlows: [],
+    selectedFlowId: '',
+    selectedFlowName: '',
+    allowUserSelectFlow: false,
+    allowDesignateFirstFlow: false,
+    allowDesignateNextFlow: false,
+    flowEditorVisible: false,
+    flowEditStepIdx: -1,       // -1 = adding new step at end
+    flowEditStepName: '',
+    flowEditStepRules: [],     // [{ deptScope:'all', deptIds:'', wgScope:'all', wgIds:'', identScope:'all', identIds:'' }]
+    flowEditRuleIdx: -1,       // -1 = adding new rule at end, -2 = not editing rule
+    flowEditRuleForm: {
+      departmentScope: 'all', specificDepartmentId: '',
+      workGroupScope: 'all', specificWorkGroupId: '',
+      identityScope: 'all', specificIdentityId: ''
+    },
+    // Reference data for pickers (loaded from API)
+    allDepartments: [],
+    allWorkGroups: [],
+
+    // Condition multi-picker
+    condMultiPickerVisible: false,
+    condMultiPickerTarget: '',
+    condMultiPickerTitle: '',
+    condMultiPickerItems: [],
+    condMultiPickerSelectedIds: {},
+    condMultiPickerSelectedCount: 0,
+    condMultiPickerSearch: '',
+    condMultiPickerFilteredList: [],
+    condMultiPickerDeptTabs: [],
+    condMultiPickerActiveDeptTab: '',
+    bookingWindow: null,
+    bookingWindowForm: emptyBookingWindow(),
+    advanceHourOptions: Array.from({ length: 721 }, (_, index) => String(index) + localeCopy.copy_7bbe7387fa),
+    advanceMinuteOptions: Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0') + localeCopy.copy_4f57bde8f7),
+
+    // Rule editor
+    ruleEditorVisible: false,
+    bookingApproverPickerVisible: false,
+    bookingRuleReferences: { identities: [], departments: [], workGroups: [] },
+    bookingApproverOptions: [],
+    bookingReferencesLoading: false,
+    bookingReferencesError: '',
+    bookingApproverValue: [],
+    ruleEditId: '',
+    ruleEditorType: '',
+    ruleEditorScrollIntoView: '',
+    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
+
+    // Reference data
+    allIdentities: [],
+    allHrPersons: [],
+
+    // Yearly date picker state
+    yearlyPickMonth: 1,
+    yearlyPickDay: 1,
+    yearlyDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],
+
+    // Yearly range picker state
+    yearlyRangeStartMonth: 1,
+    yearlyRangeStartDay: 1,
+    yearlyRangeEndMonth: 1,
+    yearlyRangeEndDay: 1,
+    openCycleTypeOptions: [localeCopy.copy_13293d504a, localeCopy.copy_1a6678cddf, localeCopy.copy_06a9527bac, localeCopy.copy_9084e6bc76, localeCopy.copy_652116de6d],
+    activityCycleTypeOptions: [localeCopy.copy_13293d504a, localeCopy.copy_1a6678cddf, localeCopy.copy_06a9527bac, localeCopy.copy_9084e6bc76],
+
+    // Pre-computed checked arrays for WXML (indexOf not supported in templates)
+    weeklyChecked: [false, false, false, false, false, false, false],
+    monthlyChecked: Array(31).fill(false),
+
+    // Timetable schedule view
+    scheduleVisible: false,
+    scheduleVenueId: '',
+    scheduleVenueName: '',
+    scheduleWeekStart: '',
+    timetableColumns: [],
+    timetableScrollTop: 0,
+    // Pre-computed for data-time binding (same approach as data-date)
+    HOUR_HEIGHT: HOUR_HEIGHT,
+    HEADER_H: HEADER_H,
+    halfHourTimes: (() => {
+      const arr = [];
+      for (let i = 0; i < 48; i++) {
+        arr.push(String(Math.floor(i/2)).padStart(2,'0') + ':' + String((i%2)*30).padStart(2,'0'));
+      }
+      return arr;
+    })(),
+    timetableHours: HOURS,
+    bookingDetailVisible: false,
+    bookingDetail: null,
+
+    // Admin quick booking from timetable
+    adminBookingVisible: false,
+    adminBookingVenueId: '',
+    adminBookingVenueName: '',
+    adminBookingStartDate: '',
+    adminBookingStartDateDisplay: '',
+    adminBookingEndDate: '',
+    adminBookingEndDateDisplay: '',
+    adminBookingTitle: '',
+    adminBookingDesc: '',
+    adminTimelineBlocks: [],
+    adminTimelineSelection: null,
+    adminStartHandlePercent: '0',
+    adminEndHandlePercent: '100',
+    adminBookingTimeStart: '',
+    adminBookingTimeEnd: '',
+    adminDailySlots: [],
+
+    // Admin time picker options
+    adminStartHours: [],
+    adminStartHourIdx: 0,
+    adminStartMinIdx: 0,
+    adminEndHours: [],
+    adminEndHourIdx: 0,
+    adminEndMinIdx: 0,
+    _adminDayData: null,
+
+    // Shared minute options
+    ALL_MINUTES: ALL_MINUTES,
+
+    // ── Bookings tab (borrow management) ──
+    bookings: [],
+    bookingsLoading: false,
+    occupiedPopupVisible: false, occupiedPopupTime: '',
+    filterStatus: '',
+    filterVenueId: '',
+    timeFrom: '',
+    timeTo: '',
+    timeFromDisplay: '',
+    timeToDisplay: '',
+    statusLabels: { pending: localeCopy.copy_8f73640107, approved: localeCopy.copy_ce171a2581, rejected: localeCopy.copy_5d5af942c5, cancelled: localeCopy.copy_fd4601c1f9, inUse: localeCopy.copy_ad310c8780, completed: localeCopy.copy_2220286f1c },
+
+    // Approval popup (step-aware approve/reject)
+    approvalPopupVisible: false,
+    approvalPopupId: '',
+    approvalPopupAction: '',  // 'approve' | 'reject'
+    approvalPopupComment: '',
+    approvalPopupTarget: null,
+    contextSwitchGuardVisible: false,
+
+    // Purpose management
+    purposeVisible: false,
+    purposes: [],
+    purposeEditId: '',
+    purposeEditText: '',
+
+    // ── Expandable flow ──
+    expandedNodeKey: '',
+  },
+
+  methods: {
+  applyNavigationBarMetrics() {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+  },
+
+  managementLoad(options) {
+    this._copyTarget = options && /^[A-Za-z0-9_-]{1,64}$/.test(options.copyId || '') ? options : null;
+    this.applyNavigationBarMetrics();
+    // Support ?tab=bookings redirect from old venueBookings page
+    if (options && options.tab) {
+      this.setData({ activeTab: options.tab });
+    }
+  },
+
+  managementShow() {
+    if (this._authorizationVisible) return;
+    this._authorizationVisible = true;
+    this.bindDialogKeyboard();
+    this.preparePermissionsAndLoad();
+    if (this.data.ruleEditorVisible && this.data.ruleEditorType === 'booking' && this.data.ruleForm.ruleType !== 'flow') this.loadBookingRuleReferences();
+  },
+
+  managementHide() {
+    this._authorizationVisible = false;
+    this.setData({ actionCapabilities: {}, hasPermission: false, visibleTabs: [],
+      editing: false, rulesVisible: false, ruleEditorVisible: false, purposeVisible: false,
+      venues: [], configurationVenues: [], configurationOnlyVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [] });
+    this.releaseDialogScrollLock();
+    this.unbindDialogKeyboard();
+    this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
+    this.setData({ bookingApproverPickerVisible: false, bookingApproverValue: [], bookingApproverOptions: [],
+      bookingRuleReferences: { identities: [], departments: [], workGroups: [] } });
+    this.setData({ pendingPermissionReady: false, pendingDialogVisible: false });
+    this._adminTimelineDrag = null;
+    this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
+    orgSession.invalidateRequests(this);
+    wx.hideLoading();
+  },
+
+  managementUnload() {
+    this.releaseDialogScrollLock();
+    this.managementHide();
+  },
+
+  async preparePermissionsAndLoad() {
+    const organizationState = orgSession.consume(this);
+    this._orgContextVersion = organizationState.snapshot.version;
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      const activeTab = this.data.activeTab;
+      this.setData({
+        activeTab,
+        venueSearch: '', bookingSearch: '', bookingStatusFilter: 'all',
+        bookingsPage: 1, selectedBooking: null, scheduleVisible: false,
+        adminBookingVisible: false, occupiedPopupVisible: false, occupiedPopupTime: '', purposeEditId: '', purposeEditText: '',
+        rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
+        venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
+        approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
+        loading: false, bookingsLoading: false, deletingVenueBooking: ''
+      });
+    }
+    const permissionRequest = orgSession.beginRequest(this, 'managePermissions');
+    let profile;
+    let access;
+    try {
+      access = await readCurrentAuthorizationAccess();
+      if (!access || !this._authorizationVisible || !orgSession.isRequestCurrent(this, permissionRequest)) return;
+      profile = access.mode === 'enforced'
+        ? Object.assign({}, authContext.getRuntimeProfile(organizationState.snapshot.role), { authorizationAccess: access })
+        : await adminPermissions.refreshMyPermissions();
+    } catch (error) {
+      if (this._authorizationVisible && orgSession.isRequestCurrent(this, permissionRequest)) {
+        this.setData({ hasPermission: false, visibleTabs: [], activeTab: '', pendingPermissionReady: false });
+        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
+      }
+      return;
+    }
+    if (!this._authorizationVisible || !orgSession.isRequestCurrent(this, permissionRequest)) return;
+    const actionCapabilities = {};
+    (access.grantedCapabilities || []).forEach(key => { actionCapabilities[key] = true; });
+    const allowed = (legacy, capability) => access.mode === 'enforced'
+      ? actionCapabilities[capability] === true : adminPermissions.hasAny(profile, [legacy]);
+    const allTabs = [
+      { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
+      { key: 'bookings', label: localeCopy.copy_20ba89a1cc },
+      { key: 'pending', label: localeCopy.copy_e7f0a24301 },
+      { key: 'purposes', label: localeCopy.copy_8dcf3fcf0b }
+    ];
+    const allowedKeys = adminPermissions.filterTabs(allTabs.map(function(item) { return item.key; }), profile, adminPermissions.VENUE_TAB_PERMISSION_MAP);
+    const visibleTabs = allTabs.filter(function(item) { return allowedKeys.indexOf(item.key) >= 0; });
+    const activeTab = allowedKeys.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (allowedKeys[0] || '');
+    const ruleTabs = [
+      { key: 'open', label: localeCopy.copy_caa70e7c13, resources: ['venue.openRules'] },
+      { key: 'activity', label: localeCopy.copy_6980750e90, resources: ['venue.activityRules'] },
+      { key: 'booking', label: localeCopy.copy_523e44b520, resources: ['venue.approvals', 'venue.bookingRules'] },
+      { key: 'bookingWindow', label: localeCopy.copy_91fd6d9600, resources: ['venue.bookingWindows'] }
+    ].filter(tab => access.mode === 'enforced'
+      ? tab.resources.some(resource => ['read', 'create', 'update', 'delete'].some(action => actionCapabilities[resource + '.' + action]))
+      : ['open', 'activity'].includes(tab.key) || adminPermissions.hasAny(profile, ['venue.approvals', 'venue.approvals.delete']));
+    this.setData({
+      ruleTabs,
+      visibleTabs: visibleTabs,
+      activeTab: activeTab,
+      hasPermission: visibleTabs.length > 0,
+      authorizationEnforced: access.mode === 'enforced', actionCapabilities,
+      heroTone: organizationState.snapshot.role === 'admin' ? 'admin' : 'blue',
+      pendingPermissionReady: true,
+      canApproveVenue: allowed('venue.approvals', 'venue.bookings.approve'),
+      canEditVenueResources: allowed('venue.resources', 'venue.resources.update'),
+      canCreateVenueResources: allowed('venue.resources', 'venue.resources.create'),
+      canEditVenuePurposes: allowed('venue.purposes', 'venue.purposes.update'),
+      canCreateVenuePurposes: allowed('venue.purposes', 'venue.purposes.create'),
+      canDeleteVenueBookings: allowed('venue.bookings_delete', 'venue.bookings.delete'),
+      canDeleteVenueResources: allowed('venue.resources.delete', 'venue.resources.delete'),
+      canDeleteVenueRules: allowed('venue.approvals.delete', 'venue.bookingRules.delete'),
+      canDeleteVenuePurposes: allowed('venue.purposes.delete', 'venue.purposes.delete'),
+      currentOrganizationName: orgSession.getSnapshot().orgName || '',
+      adminDisplayName: profile && profile.name ? profile.name : localeCopy.copy_c01a9aef59,
+      adminLevelLabel: profile && profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_fd31650797
+    });
+    if (!visibleTabs.length) return;
+
+    this._initWeekStart();
+    this._initBookingsTimeRange();
+    const venueLoad = this.loadVenues();
+    if (allowedKeys.indexOf('venue') >= 0) {
+      this.loadReferenceData();
+    }
+    const purposeLoad = allowedKeys.indexOf('purposes') >= 0 ? this.loadPurposes() : Promise.resolve();
+    await Promise.all([venueLoad, purposeLoad]);
+    await this.openCopiedConfiguration();
+    if (activeTab === 'bookings') {
+      this.loadBookingsData();
+    }
+  },
+
+  async openCopiedConfiguration() {
+    const target = this._copyTarget;
+    if (!target) return;
+    this._copyTarget = null;
+    if (target.copyKind === 'venue.purposes') {
+      if (this.data.canEditVenuePurposes) this.startEditPurpose({ currentTarget: { dataset: { id: target.copyId } } });
+      return;
+    }
+    const tabs = { 'venue.approvals': 'booking', 'venue.bookingRules': 'booking', 'venue.bookingWindows': 'bookingWindow',
+      'venue.openRules': 'open', 'venue.activityRules': 'activity' };
+    if (!tabs[target.copyKind] || !(this.data.venues || []).some(venue => venue.id === target.venueId)) return;
+    if (!canOperate(this, target.copyKind, target.copyKind === 'venue.bookingWindows' ? 'create' : 'update')) return;
+    const request = orgSession.beginRequest(this, 'copyEditor');
+    await this.openRules({ currentTarget: { dataset: { id: target.venueId } } });
+    if (!orgSession.isRequestCurrent(this, request)) return;
+    const tab = tabs[target.copyKind];
+    this.setData({ rulesTab: tab });
+    if (target.copyKind === 'venue.approvals') {
+      const flow = (this.data.approvalFlows || []).find(item => item.id === target.copyId);
+      if (flow && canOperate(this, 'venue.approvals', 'update')) this._openApprovalFlowEditor(flow);
+    } else if (tab !== 'bookingWindow') {
+      const list = tab === 'open' ? this.data.openRules : tab === 'activity' ? this.data.activityRules : this.data.bookingRules;
+      if ((list || []).some(item => item.id === target.copyId)) this.openRuleEditor({ currentTarget: { dataset: { type: tab, id: target.copyId } } });
+    }
+  },
+
+  _initBookingsTimeRange() {
+    const to = getSystemDate();
+    const from = addDateDays(to, -7);
+    this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
+  },
+
+  onPendingDialogChange(e) {
+    this.setData({ pendingDialogVisible: Boolean(e.detail.visible) });
+  },
+
+  onOrgTap() {
+    const hasUnsavedWork = Boolean(
+      this.data.editing ||
+      this.data.ruleEditorVisible ||
+      this.data.flowEditorVisible ||
+      this.data.adminBookingVisible ||
+      this.data.approvalPopupVisible ||
+      this.data.condMultiPickerVisible ||
+      this.data.purposeEditId ||
+      this.data.purposeEditText
+    );
+    if (hasUnsavedWork) {
+      this.setData({ contextSwitchGuardVisible: true });
+      return;
+    }
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+  },
+
+  closeContextSwitchGuard() {
+    this.setData({ contextSwitchGuardVisible: false });
+  },
+
+  // ── Main tab switching ──
+  switchTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    if (!(this.data.visibleTabs || []).some(function(item) { return item.key === tab; })) return;
+    this.setData({ activeTab: tab });
+    if (tab === 'bookings') {
+      this.loadBookingsData();
+    }
+    if (tab === 'purposes') {
+      this.loadPurposes();
+    }
+  },
+
+  async loadReferenceData() {
+    if (this.data.authorizationEnforced) return;
+    const request = orgSession.beginRequest(this, 'manageReferences');
+    try {
+      const [identRes, hrRes] = await Promise.all([
+        callFunction({ name: 'listIdentities', data: {} }),
+        callFunction({ name: 'listHrInfo', data: {} })
+      ]);
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({
+        allIdentities: (identRes.status === 'success' ? identRes.identities : []) || [],
+        allHrPersons: (hrRes.status === 'success' ? hrRes.list : []) || []
+      }, () => this._refreshRuleEditorRuleLabels());
+    } catch (_) {}
+  },
+
+  async loadVenues() {
+    const request = orgSession.beginRequest(this, 'manageVenues');
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({ name: 'listVenues', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (res.status === 'success') {
+        const venues = res.venues || [];
+        const configurationVenues = res.configurationVenues || [];
+        this.setData({ venues, configurationVenues,
+          configurationOnlyVenues: configurationVenues.filter(item => !venues.some(venue => venue.id === item.id)) });
+      }
+    } catch (e) {
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+    }
+  },
+
+  // ── Venue CRUD ──
+  startAdd() {
+    if (!canOperate(this, 'venue.resources', 'create')) return;
+    this.setData({ editing: true, editId: '', editName: '', editLocation: '', editDesc: '' });
+  },
+
+  startEdit(e) {
+    if (!canOperate(this, 'venue.resources', 'update')) return;
+    const v = this.data.venues.find(v => v.id === e.currentTarget.dataset.id);
+    if (!v) return;
+    this.setData({ editing: true, editId: v.id, editName: v.name, editLocation: v.location || '', editDesc: v.description || '' });
+  },
+
+  cancelEdit() { this.setData({ editing: false }); },
+
+  async saveVenue() {
+    const { editId, editName, editLocation, editDesc } = this.data;
+    if (!canOperate(this, 'venue.resources', editId ? 'update' : 'create')) return;
+    if (!editName) { showShortToast(localeCopy.copy_4514e50856); return; }
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({
+        name: 'saveVenue',
+        data: { id: editId, name: editName, location: editLocation, description: editDesc }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ editing: false });
+        this.loadVenues();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
+    finally { this.setData({ loading: false }); }
+  },
+
+  async deleteVenue(e) {
+    if (!canOperate(this, 'venue.resources', 'delete')) return;
+    const id = e.currentTarget.dataset.id;
+    const that = this;
+    wx.showModal({
+      title: localeCopy.copy_7f31eec657, content: localeCopy.copy_8ec6962e84,
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res = await callFunction({ name: 'deleteVenue', data: { id } });
+          if (res.status === 'success') { showShortToast(localeCopy.copy_5398fec054); that.loadVenues(); }
+          else showShortToast(res.message);
+        } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
+      }
+    });
+  },
+
+  // ── Rules ──
+  async openRules(e) {
+    const id = e.currentTarget.dataset.id;
+    const v = [...this.data.configurationVenues, ...this.data.venues].find(v => v.id === id);
+    if (!v || !(this.data.ruleTabs || []).length) return;
+    this.setData({
+      rulesVisible: true,
+      rulesVenueId: id,
+      rulesVenueName: v ? v.name : '',
+      rulesTab: ((this.data.ruleTabs || [])[0] || {}).key || '',
+      openRules: [],
+      activityRules: [],
+      activityDetailVisible: false,
+      activityDetail: null,
+      bookingRules: [],
+      bookingWindow: null,
+      bookingWindowForm: emptyBookingWindow(),
+      approvalFlow: null,
+      approvalFlowSteps: []
+    });
+
+    const initialLoads = [this.loadOpenRules(), this.loadActivityRules(), this.loadApprovalFlow()];
+    await Promise.all(initialLoads);
+    if (this.data.rulesVenueId === id) {
+      await this.loadBookingRules();
+    }
+  },
+
+  closeRules() { this.setData({ rulesVisible: false }); },
+
+  switchRulesTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    if (!(this.data.ruleTabs || []).some(item => item.key === tab)) return;
+    this.setData({ rulesTab: tab });
+  },
+
+  async loadOpenRules() {
+    if (!canOperate(this, 'venue.openRules', 'read')) return;
+    const request = orgSession.beginRequest(this, 'manageOpenRules');
+    const venueId = this.data.rulesVenueId;
+    try {
+      const res = await callFunction({ name: 'listVenueOpenRules', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
+      if (res.status === 'success') {
+        const rules = (res.rules || []).map(r => ({
+          ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
+        }));
+        this.setData({ openRules: rules });
+      }
+    } catch (_) {}
+  },
+
+  async loadActivityRules() {
+    if (!canOperate(this, 'venue.activityRules', 'read')) return;
+    const request = orgSession.beginRequest(this, 'manageActivityRules');
+    const venueId = this.data.rulesVenueId;
+    try {
+      const res = await callFunction({ name: 'listVenueActivityRules', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
+      if (res.status === 'success') {
+        const rules = (res.rules || []).map(r => ({
+          ...r,
+          _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values),
+          _detailCycleLabel: formatActivityCycleLabel(r.cycle_type, r.cycle_values),
+          _activitySummary: this.getCycleLabel(r.cycle_type, r.cycle_values) + ' · ' + (r.time_start || '09:00').substring(0, 5) + ' - ' + (r.time_end || '18:00').substring(0, 5) + ' · ' + formatActivityCycleLabel(r.cycle_type, r.cycle_values)
+        }));
+        this.setData({ activityRules: rules });
+      }
+    } catch (_) {}
+  },
+
+  async loadBookingRules() {
+    if (!canOperate(this, 'venue.bookingRules', 'read') && !canOperate(this, 'venue.bookingWindows', 'read')) return;
+    const request = orgSession.beginRequest(this, 'manageBookingRules');
+    const venueId = this.data.rulesVenueId;
+    try {
+      const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId, includeInactive: true } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
+      if (res.status === 'success') {
+        this.setData({
+          bookingWindow: res.bookingWindow || null,
+          bookingWindowForm: bookingWindowFromRow(res.bookingWindow),
+          bookingRules: buildBookingRuleDisplayList(res.rules)
+        });
+      }
+    } catch (_) {}
+  },
+
+  // ── Rule Editor ──
+  _resolveNames(idArray, sourceList) {
+    if (!idArray || !idArray.length) return '';
+    return idArray.map(id => {
+      const item = (sourceList || []).find(it => String(it.id) === String(id));
+      return item ? item.name : '';
+    }).filter(Boolean).join('、');
+  },
+
+  _formatRuleScopeLabel(scope, ids, sourceList, label, sameLabel) {
+    if (scope === 'specific') {
+      const names = this._resolveNames(parseCsvArray(ids), sourceList);
+      return label + '：' + (names || localeCopy.copy_8bc3aa5b58);
+    }
+    if (scope === 'same') return label + '：' + sameLabel;
+    return label + localeCopy.copy_04d00bdf17;
+  },
+
+  _formatRuleScopeValue(scope, ids, sourceList, sameLabel) {
+    if (scope === 'specific') return this._resolveNames(parseCsvArray(ids), sourceList) || localeCopy.copy_8bc3aa5b58;
+    if (scope === 'same') return sameLabel;
+    return localeCopy.copy_62676bc383;
+  },
+
+  _decorateRuleDisplay(rule) {
+    const next = { ...(rule || {}) };
+    next._departmentLabel = this._formatRuleScopeLabel(
+      next.departmentScope, next.specificDepartmentId, this.data.allDepartments, localeCopy.copy_bc011e4e3b, localeCopy.copy_bb2dcb8a98
+    );
+    next._workGroupLabel = this._formatRuleScopeLabel(
+      next.workGroupScope, next.specificWorkGroupId, this.data.allWorkGroups, localeCopy.copy_be736f763d, localeCopy.copy_9384e056f9
+    );
+    next._identityLabel = this._formatRuleScopeLabel(
+      next.identityScope, next.specificIdentityId, this.data.allIdentities, localeCopy.copy_474f638a6f, localeCopy.copy_1deb0dba7e
+    );
+    next._departmentValue = this._formatRuleScopeValue(
+      next.departmentScope, next.specificDepartmentId, this.data.allDepartments, localeCopy.copy_bb2dcb8a98
+    );
+    next._workGroupValue = this._formatRuleScopeValue(
+      next.workGroupScope, next.specificWorkGroupId, this.data.allWorkGroups, localeCopy.copy_9384e056f9
+    );
+    next._identityValue = this._formatRuleScopeValue(
+      next.identityScope, next.specificIdentityId, this.data.allIdentities, localeCopy.copy_1deb0dba7e
+    );
+    return next;
+  },
+
+  _decorateFlowSteps(steps) {
+    return (steps || []).map(step => ({
+      ...step,
+      rules: (step.rules || []).map(rule => this._decorateRuleDisplay(rule))
+    }));
+  },
+
+  _decorateEditingCondition(condition) {
+    const next = { ...(condition || {}) };
+    const display = this._decorateRuleDisplay({
+      departmentScope: next.deptScope || 'all',
+      specificDepartmentId: (next.deptIds || []).join(','),
+      workGroupScope: next.wgScope || 'all',
+      specificWorkGroupId: (next.wgIds || []).join(','),
+      identityScope: next.identScope || 'all',
+      specificIdentityId: (next.identIds || []).join(',')
+    });
+    next._deptNames = this._resolveNames(next.deptIds || [], this.data.allDepartments);
+    next._wgNames = this._resolveNames(next.wgIds || [], this.data.allWorkGroups);
+    next._identNames = this._resolveNames(next.identIds || [], this.data.allIdentities);
+    next._departmentLabel = display._departmentLabel;
+    next._workGroupLabel = display._workGroupLabel;
+    next._identityLabel = display._identityLabel;
+    next._departmentValue = display._departmentValue;
+    next._workGroupValue = display._workGroupValue;
+    next._identityValue = display._identityValue;
+    return next;
+  },
+
+  _refreshRuleEditorRuleLabels() {
+    if (!this.data.ruleEditorVisible) return;
+    const ruleForm = this.data.ruleForm || {};
+    const update = {
+      'ruleForm._flowSteps': this._decorateFlowSteps(ruleForm._flowSteps || []),
+      'ruleForm._editingStepRules': (ruleForm._editingStepRules || []).map(rule => this._decorateRuleDisplay(rule))
+    };
+    if (ruleForm._editingCondition) {
+      update['ruleForm._editingCondition'] = this._decorateEditingCondition(ruleForm._editingCondition);
+    }
+    this.setData(update);
+  },
+
+  openRuleEditor(e) {
+    const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
+    const ruleId = e.currentTarget.dataset.id || '';
+    if (!canOperate(this, ruleResource(type, false), ruleId ? 'update' : 'create')) return;
+    let form = { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: type === 'activity' ? 1 : 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
+    if (type === 'activity') form.cycleValues = emptyActivityCycleValues();
+    if (ruleId) {
+      if (type === 'open') {
+        const r = this.data.openRules.find(r => r.id === ruleId);
+        if (r) {
+          const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
+          form = { ...form, name: r.name || '', cycleType: r.cycle_type, cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        }
+      } else if (type === 'activity') {
+        const r = this.data.activityRules.find(r => r.id === ruleId);
+        if (r) {
+          const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
+          const legacyInterval = ['datetime_range', 'repeat'].includes(r.cycle_type);
+          const activityType = legacyInterval ? r.cycle_type : (['daily', 'weekly', 'monthly', 'yearly'].includes(r.cycle_type) ? r.cycle_type : 'daily');
+          form = { ...form, name: r.activity_name || '', cycleType: activityType, _legacyInterval: legacyInterval,
+            _cycleTypeIndex: activityCycleTypeIndex(activityType), cycleValues: legacyInterval ? JSON.parse(JSON.stringify(cv)) : normalizeActivityCycleValues(r.cycle_type, cv),
+            timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        }
+      } else if (type === 'booking') {
+        const r = this.data.bookingRules.find(r => r.id === ruleId);
+        if (r) {
+          const rt = r.rule_type || 'admin';
+          form = { ...form, ruleType: rt, originalRuleType: rt,
+            isActive: Number(r.is_active) !== 0,
+            approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '',
+            approverAssignmentId: r.approver_assignment_id || '',
+            scopeDepartmentId: r.scope_department_id || '', scopeWorkGroupId: r.scope_work_group_id || '',
+            sortOrder: r.sort_order, _flowSteps: [] };
+        } else {
+          form = { ...form, ruleType: 'admin', _ruleTypeIndex: 0, _flowSteps: [] };
+        }
+      }
+    }
+    form._ruleTypes = ['admin', 'direct', 'identity', 'person'];
+    form._ruleTypeIndex = form._ruleTypes.indexOf(form.ruleType);
+    form._ruleTypeLabels = form._ruleTypes.map(value => this.getRuleTypeLabel(value));
+    form._editingStepIdx = null;
+    form._editingConditionIdx = null;
+    form._editingStepName = '';
+    form._editingStepRules = [];
+    form._editingCondition = null;
+    this.setData({
+      ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
+      ruleEditorScrollIntoView: '',
+      weeklyChecked: buildWeeklyChecked(form.cycleValues),
+      monthlyChecked: buildMonthlyChecked(form.cycleValues)
+    });
+    if (type === 'booking' && (!this.data.allDepartments.length || !this.data.allWorkGroups.length)) {
+      this.loadFlowReferenceData();
+    }
+    if (type === 'booking') this.loadBookingRuleReferences();
+  },
+
+  async loadBookingRuleReferences() {
+    const generation = this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
+    const request = orgSession.beginRequest(this, 'bookingRuleReferences');
+    this.setData({ bookingReferencesLoading: true, bookingReferencesError: '' });
+    try {
+      const result = await callFunction({ name: 'getVenueRuleCandidates', data: {} });
+      if (!orgSession.isRequestCurrent(this, request) || generation !== this._bookingReferencesGeneration || !this.data.ruleEditorVisible) return;
+      if (result.status !== 'success' || ['assignments', 'identities', 'departments', 'workGroups'].some(key => !Array.isArray(result[key]))) throw new Error(localeCopy.copy_e52119b17e);
+      this.setData({ bookingApproverOptions: result.assignments, bookingRuleReferences: { identities: result.identities,
+        departments: result.departments, workGroups: result.workGroups } }, () => this.refreshBookingRuleReferences());
+    } catch (error) {
+      if (orgSession.isRequestCurrent(this, request) && generation === this._bookingReferencesGeneration) this.setData({ bookingReferencesError: getErrorText(error, localeCopy.copy_e52119b17e) });
+    } finally {
+      if (orgSession.isRequestCurrent(this, request) && generation === this._bookingReferencesGeneration) this.setData({ bookingReferencesLoading: false });
+    }
+  },
+
+  refreshBookingRuleReferences() {
+    const form = this.data.ruleForm;
+    const refs = this.data.bookingRuleReferences;
+    const identities = [{ id: '', name: flowManagementCopy.chooseIdentity }].concat(refs.identities);
+    const departments = [{ id: '', name: flowManagementCopy.allDepartments }].concat(refs.departments);
+    const groups = [{ id: '', name: flowManagementCopy.allWorkGroups }].concat(refs.workGroups.filter(item => !form.scopeDepartmentId || item.departmentId === form.scopeDepartmentId));
+    const selected = this.data.bookingApproverOptions.find(item => item.assignmentId === form.approverAssignmentId);
+    this.setData({
+      'ruleForm._identityOptions': identities, 'ruleForm._departmentOptions': departments, 'ruleForm._groupOptions': groups,
+      'ruleForm._identityIndex': identities.findIndex(item => item.id === form.approverIdentityId),
+      'ruleForm._departmentIndex': departments.findIndex(item => item.id === (form.scopeDepartmentId || '')),
+      'ruleForm._groupIndex': groups.findIndex(item => item.id === (form.scopeWorkGroupId || '')),
+      'ruleForm._approverLabel': selected ? selected.name + ' · ' + selected.assignmentLabel : (form.approverAssignmentId ? flowManagementCopy.unavailableReference : flowManagementCopy.chooseApprover),
+      bookingApproverValue: selected ? [selected] : []
+    });
+  },
+
+  onBookingReferenceChange(e) {
+    const fields = { identity: ['approverIdentityId', '_identityOptions'], department: ['scopeDepartmentId', '_departmentOptions'], group: ['scopeWorkGroupId', '_groupOptions'] };
+    const field = fields[e.currentTarget.dataset.kind];
+    if (!field) return;
+    const item = (this.data.ruleForm[field[1]] || [])[Number(e.detail.value)];
+    if (!item) return;
+    const patch = { ['ruleForm.' + field[0]]: item.id };
+    if (e.currentTarget.dataset.kind === 'department') patch['ruleForm.scopeWorkGroupId'] = '';
+    this.setData(patch, () => this.refreshBookingRuleReferences());
+  },
+
+  openBookingApproverPicker() {
+    if (!this.data.bookingReferencesLoading && !this.data.bookingReferencesError) this.setData({ bookingApproverPickerVisible: true });
+  },
+
+  closeBookingApproverPicker() { this.setData({ bookingApproverPickerVisible: false }); },
+
+  confirmBookingApprover(e) {
+    const item = (e.detail.items || [])[0];
+    this.setData({ bookingApproverPickerVisible: false, 'ruleForm.approverAssignmentId': item ? item.assignmentId : '',
+      'ruleForm.approverHrId': item ? item.hrId : '' }, () => this.refreshBookingRuleReferences());
+  },
+
+  closeRuleEditor() {
+    this._clearRuleEditorRevealTimer();
+    this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
+    this.setData({
+      bookingApproverPickerVisible: false,
+      ruleEditorVisible: false,
+      ruleEditorScrollIntoView: '',
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  _clearRuleEditorRevealTimer() {
+    if (this._ruleEditorRevealTimer) {
+      clearTimeout(this._ruleEditorRevealTimer);
+      this._ruleEditorRevealTimer = null;
+    }
+  },
+
+  _revealRuleEditorPart(target) {
+    if (!target || !this.data.ruleEditorVisible) return;
+    this._clearRuleEditorRevealTimer();
+    this.setData({ ruleEditorScrollIntoView: '' }, () => {
+      wx.nextTick(() => {
+        this._ruleEditorRevealTimer = setTimeout(() => {
+          this._ruleEditorRevealTimer = null;
+          if (this.data.ruleEditorVisible) this.setData({ ruleEditorScrollIntoView: target });
+        }, 60);
+      });
+    });
+  },
+
+  onFieldInput(e) {
+    const f = e.currentTarget.dataset.field;
+    this.setData({ [f]: e.detail.value });
+  },
+
+  onRuleFormField(e) {
+    const f = e.currentTarget.dataset.field;
+    this.setData({ ['ruleForm.' + f]: e.detail.value });
+  },
+
+  onBookingWindowMode(e) {
+    const side = e.currentTarget.dataset.side;
+    const modes = ['none', 'days', 'duration'];
+    const mode = modes[Number(e.detail.value)] || 'none';
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.mode']: mode });
+  },
+
+  onBookingWindowDays(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.days']: e.detail.value });
+  },
+
+  onBookingWindowHours(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.hours']: Number(e.detail.value) || 0 });
+  },
+
+  onBookingWindowMinutes(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.minutes']: Number(e.detail.value) || 0 });
+  },
+
+  onCycleTypeChange(e) {
+    const isActivity = this.data.ruleEditorType === 'activity';
+    const types = isActivity ? ['daily', 'weekly', 'monthly', 'yearly'] : ['daily', 'weekly', 'monthly', 'yearly', 'range'];
+    const idx = parseInt(e.detail.value);
+    const ct = types[idx] || 'weekly';
+    let cycleValues = [];
+    if (isActivity) cycleValues = emptyActivityCycleValues();
+    else if (ct === 'range') cycleValues = { startDate: '', endDate: '' };
+    this.setData({
+      'ruleForm.cycleType': ct,
+      'ruleForm._cycleTypeIndex': idx,
+      'ruleForm.cycleValues': cycleValues,
+      weeklyChecked: [false, false, false, false, false, false, false],
+      monthlyChecked: Array(31).fill(false)
+    });
+  },
+
+  onBookingRuleTypeChange(e) {
+    const idx = parseInt(e.detail.value);
+    const types = this.data.ruleForm._ruleTypes || ['admin', 'direct'];
+    const rt = types[idx] || 'admin';
+    const update = {
+      'ruleForm.ruleType': rt,
+      'ruleForm._ruleTypeIndex': idx,
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    };
+    this.setData(update);
+  },
+
+  onBookingIdentityChange(e) {
+    const idx = parseInt(e.detail.value);
+    const ident = this.data.allIdentities[idx];
+    if (ident) {
+      this.setData({
+        'ruleForm.approverIdentityId': ident.id,
+        'ruleForm.approverIdentityName': ident.name,
+        'ruleForm.approverIdentityIndex': idx
+      });
+    }
+  },
+
+  onBookingHrChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hr = this.data.allHrPersons[idx];
+    if (hr) {
+      this.setData({
+        'ruleForm.approverHrId': hr.id,
+        'ruleForm.approverHrName': hr.name,
+        'ruleForm.approverHrIndex': idx
+      });
+    }
+  },
+
+  // Toggle a weekly day
+  onToggleWeekDay(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx); // 0-6
+    const checked = [...this.data.weeklyChecked];
+    checked[idx] = !checked[idx];
+    // Rebuild cycleValues from checked array
+    const vals = [];
+    checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    const currentValues = this.data.ruleForm.cycleValues;
+    const nextValues = this.data.ruleEditorType === 'activity'
+      ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals }
+      : vals;
+    this.setData({
+      weeklyChecked: checked,
+      'ruleForm.cycleValues': nextValues
+    });
+  },
+
+  // Toggle a monthly day
+  onToggleMonthDay(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx); // 0-30
+    const checked = [...this.data.monthlyChecked];
+    checked[idx] = !checked[idx];
+    const vals = [];
+    checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    const currentValues = this.data.ruleForm.cycleValues;
+    const nextValues = this.data.ruleEditorType === 'activity'
+      ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals }
+      : vals;
+    this.setData({
+      monthlyChecked: checked,
+      'ruleForm.cycleValues': nextValues
+    });
+  },
+
+  // Yearly range: month pickers
+  onYearlyRangeStartMonthChange(e) {
+    this.setData({ yearlyRangeStartMonth: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeStartDayChange(e) {
+    this.setData({ yearlyRangeStartDay: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeEndMonthChange(e) {
+    this.setData({ yearlyRangeEndMonth: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeEndDayChange(e) {
+    this.setData({ yearlyRangeEndDay: parseInt(e.detail.value) + 1 });
+  },
+
+  // Add a date range to yearly cycle values
+  onAddYearlyRange() {
+    const sm = this.data.yearlyRangeStartMonth;
+    const sd = this.data.yearlyRangeStartDay;
+    const em = this.data.yearlyRangeEndMonth;
+    const ed = this.data.yearlyRangeEndDay;
+    // Validate: start must be before or equal to end
+    if (sm > em || (sm === em && sd > ed)) {
+      showShortToast(localeCopy.copy_2ea7993cca); return;
+    }
+    const currentValues = this.data.ruleForm.cycleValues;
+    let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
+    // Check for duplicate
+    const dup = vals.some(v => v && Number(v.m) === sm && Number(v.dStart) === sd && Number(v.dEnd) === ed);
+    if (!dup) {
+      vals.push({ m: sm, dStart: sd, dEnd: ed });
+      vals.sort((a, b) => (Number(a.m) - Number(b.m)) || (Number(a.dStart) - Number(b.dStart)));
+      this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
+    }
+  },
+
+  // Remove a yearly range by index
+  onRemoveYearlyRange(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const currentValues = this.data.ruleForm.cycleValues;
+    let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
+    vals.splice(idx, 1);
+    this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
+  },
+
+  // ── Range cycle type date handlers ──
+  onRangeStartDateChange(e) {
+    const d = e.detail.value;
+    const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
+    cv.startDate = d;
+    this.setData({ 'ruleForm.cycleValues': cv });
+  },
+
+  onRangeEndDateChange(e) {
+    const d = e.detail.value;
+    const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
+    cv.endDate = d;
+    this.setData({ 'ruleForm.cycleValues': cv });
+  },
+
+  async saveRule() {
+    const flow = this.data.ruleEditorType === 'booking' && this.data.ruleForm.ruleType === 'flow';
+    if (!canOperate(this, ruleResource(this.data.ruleEditorType, flow), (flow ? this.data.selectedFlowId : this.data.ruleEditId) ? 'update' : 'create')) return;
+    if (this.data.ruleEditorType === 'booking' && this.data.ruleForm.ruleType !== 'flow'
+      && (this.data.bookingReferencesLoading || this.data.bookingReferencesError)) return;
+    const { ruleEditId, ruleEditorType, ruleForm, rulesVenueId } = this.data;
+    let endpoint, data;
+    if (ruleEditorType === 'booking') {
+      const openMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.open);
+      const deadlineMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.deadline);
+      if (openMinutes !== null && deadlineMinutes !== null && openMinutes < deadlineMinutes) {
+        showShortToast(localeCopy.copy_b1545efd70);
+        return;
+      }
+    }
+    if (ruleEditorType === 'open') {
+      endpoint = 'saveVenueOpenRule';
+      data = { id: ruleEditId, venueId: rulesVenueId, name: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
+    } else if (ruleEditorType === 'activity') {
+      endpoint = 'saveVenueActivityRule';
+      data = { id: ruleEditId, venueId: rulesVenueId, activityName: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
+    } else {
+      // 'booking' type: admin / direct / flow
+      if (ruleForm.ruleType === 'flow') {
+        // Save the whole approval flow
+        const stepsData = (ruleForm._flowSteps || []).map((s, i) => ({
+          name: s.name || (localeCopy.copy_93c50c01c0 + (i + 1) + localeCopy.copy_493a127a99),
+          sortOrder: i + 1,
+          approvalMode: (s.rules || []).length ? 'hr_rule' : 'admin_any',
+          rules: (s.rules || []).map(r => ({
+            departmentScope: r.departmentScope || 'all',
+            specificDepartmentId: r.specificDepartmentId || '',
+            workGroupScope: r.workGroupScope || 'all',
+            specificWorkGroupId: r.specificWorkGroupId || '',
+            identityScope: r.identityScope || 'all',
+            specificIdentityId: r.specificIdentityId || ''
+          }))
+        }));
+        endpoint = 'saveVenueApprovalWholeFlow';
+        data = {
+          venueId: rulesVenueId,
+          flowId: this.data.selectedFlowId || '',
+          flowName: this.data.selectedFlowName || localeCopy.copy_890d7f4874,
+          allowUserSelect: this.data.allowUserSelectFlow,
+          allowDesignateFirst: this.data.allowDesignateFirstFlow,
+          allowDesignateNext: this.data.allowDesignateNextFlow,
+          steps: stepsData,
+          ...(canOperate(this, 'venue.bookingWindows', 'create') ? { bookingWindow: ruleForm.bookingWindow } : {})
+        };
+      } else {
+        endpoint = 'saveVenueBookingRule';
+        data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType,
+          approverIdentityId: ruleForm.approverIdentityId || '', approverHrId: ruleForm.approverHrId || '',
+          approverAssignmentId: ruleForm.approverAssignmentId || '',
+          scopeDepartmentId: ruleForm.scopeDepartmentId || '', scopeWorkGroupId: ruleForm.scopeWorkGroupId || '',
+          sortOrder: ruleForm.sortOrder, ...(canOperate(this, 'venue.bookingWindows', 'create') ? { bookingWindow: ruleForm.bookingWindow } : {}) };
+      }
+    }
+    const removesDirectRule = ruleEditorType === 'booking' && ruleForm.ruleType === 'flow' && ruleForm.isActive !== false
+      && (this.data.bookingRules || []).some(function(rule) { return rule.rule_type === 'direct' && Number(rule.is_active) !== 0; });
+    const removesFlows = ruleEditorType === 'booking' && ruleForm.ruleType === 'direct' && ruleForm.isActive !== false
+      && (this.data.approvalFlows || []).some(function(flow) { return Number(flow.is_active) !== 0; });
+    if (removesDirectRule || removesFlows) {
+      const confirmed = await new Promise(function(resolve) {
+        wx.showModal({
+          title: flowManagementCopy.switchTitle,
+          content: removesDirectRule ? flowManagementCopy.directToFlow : flowManagementCopy.flowToDirect,
+          success: function(result) { resolve(Boolean(result.confirm)); },
+          fail: function() { resolve(false); }
+        });
+      });
+      if (!confirmed || !canOperate(this, ruleResource(ruleEditorType, ruleForm.ruleType === 'flow'),
+        (ruleForm.ruleType === 'flow' ? this.data.selectedFlowId : ruleEditId) ? 'update' : 'create')) return;
+    }
+    try {
+      const res = await callFunction({ name: endpoint, data });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ ruleEditorVisible: false });
+        await Promise.all([
+          this.loadOpenRules(),
+          this.loadActivityRules(),
+          this.loadApprovalFlow()
+        ]);
+        await this.loadBookingRules();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
+  },
+
+  async deleteRule(e) {
+    const type = e.currentTarget.dataset.type;
+    if (!canOperate(this, ruleResource(type, false), 'delete')) return;
+    const id = e.currentTarget.dataset.id;
+
+    const ep = type === 'open' ? 'deleteVenueOpenRule' : (type === 'activity' ? 'deleteVenueActivityRule' : 'deleteVenueBookingRule');
+    try {
+      const res = await callFunction({ name: ep, data: { id } });
+      if (res.status === 'success') {
+        showShortToast(localeCopy.copy_5398fec054);
+        this.loadOpenRules();
+        this.loadActivityRules();
+        this.loadBookingRules();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
+  },
+
+  // ── Cycle helpers ──
+  getCycleLabel(type, values) {
+    if (type === 'datetime_range') return flowManagementCopy.continuousOccupancy;
+    if (type === 'repeat') return flowManagementCopy.intervalOccupancy;
+    if (type === 'daily') return localeCopy.copy_13293d504a;
+    const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return {}; } })() : (values || {});
+    if (type === 'range') {
+      if (v && v.startDate && v.endDate) return v.startDate + localeCopy.copy_c44dbba9e9 + v.endDate;
+      return localeCopy.copy_9d73203530;
+    }
+    const arr = Array.isArray(v) ? v : ((v && Array.isArray(v.values)) ? v.values : []);
+    const weekNames = ['', localeCopy.copy_92af9d9017, localeCopy.copy_e3233a4b58, localeCopy.copy_2f48862253, localeCopy.copy_017e3df1a1, localeCopy.copy_41a9548e60, localeCopy.copy_f2c74088c9, localeCopy.copy_a814b25100];
+    if (type === 'weekly') return arr.map(i => weekNames[Number(i)] || i).join('、') || localeCopy.copy_2b4df49497;
+    if (type === 'monthly') return localeCopy.copy_06a9527bac + arr.map(i => Number(i)).join('、') + localeCopy.copy_168587d3a1;
+    if (type === 'yearly') return arr.map(c => {
+      if (c.dEnd !== undefined) return (c.m || '?') + localeCopy.copy_438913e441 + (c.dStart || '?') + localeCopy.copy_05302eb150 + (c.dEnd || '?') + localeCopy.copy_168587d3a1;
+      return (c.m || '?') + localeCopy.copy_438913e441 + (c.d || '?') + localeCopy.copy_168587d3a1;
+    }).join('、');
+    return JSON.stringify(arr);
+  },
+
+  viewActivityRuleDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    const rule = (this.data.activityRules || []).find(item => item.id === id);
+    if (!rule) return;
+    this.setData({ activityDetailVisible: true, activityDetail: {
+      name: rule.activity_name || localeCopy.copy_acd4c5c171,
+      id: rule.id,
+      venueName: this.data.rulesVenueName,
+      cycleLabel: rule._detailCycleLabel || rule._cycleLabel || '',
+      cycleType: rule.cycle_type, cycleValues: rule.cycle_values,
+      legacyTime: (rule.time_start || '09:00').substring(0, 5) + localeCopy.copy_c44dbba9e9 + (rule.time_end || '18:00').substring(0, 5),
+      note: rule.cycle_type === 'datetime_range' || rule.cycle_type === 'repeat' ? localeCopy.copy_ebe09ed8ec : localeCopy.copy_e90ee137d6
+    }});
+  },
+
+  closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
+
+  getRuleTypeLabel(rt) {
+    const map = { direct: localeCopy.copy_4f15bb9939, admin: localeCopy.copy_af20193574, identity: localeCopy.copy_fa045c9cde, person: localeCopy.copy_777a6a2574 };
+    return map[rt] || rt;
+  },
+
+  // ── Bookings tab (borrow management, ported from venueBookings) ──
+
+  async deleteVenueBooking(e) {
+    if (!this.data.canDeleteVenueBookings || this.data.deletingVenueBooking) return;
+    const id = e.currentTarget.dataset.id;
+    const request = orgSession.beginRequest(this, 'deleteVenueBooking');
+    this.setData({ deletingVenueBooking: id });
+    try {
+      const preview = await callFunction({ name: 'previewVenueBookingDeletion', data: { id } });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (preview.status !== 'success') throw new Error(preview.message || governanceCopy.failed);
+      const confirmation = await new Promise(resolve => wx.showModal({ title: governanceCopy.deleteTitle,
+        content: governanceCopy.deleteBody.replace('{0}', preview.record.title),
+        confirmText: governanceCopy.deleteConfirm, cancelText: governanceCopy.cancel,
+        success: resolve, fail: () => resolve({ confirm: false }) }));
+      if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
+      const result = await callFunction({ name: 'deleteVenueBooking', data: { id, revision: preview.record.revision } });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (result.status !== 'success') throw new Error(result.message || governanceCopy.failed);
+      this.setData({ bookings: this.data.bookings.filter(item => item.id !== id), selectedBooking: null });
+      eventBus.emit('venue:changed', { reason: 'deleted' });
+      showShortToast(governanceCopy.deleted);
+      await this.loadBookingsData();
+    } catch (error) {
+      if (orgSession.isRequestCurrent(this, request) && !error.silent) wx.showModal({ title: governanceCopy.deleteTitle, content: getErrorText(error, governanceCopy.failed), showCancel: false });
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ deletingVenueBooking: '' });
+    }
+  },
+
+  async loadBookingsData() {
+    const request = orgSession.beginRequest(this, 'manageBookings');
+    this.setData({ bookingsLoading: true });
+    try {
+      const { filterStatus, filterVenueId, timeFrom, timeTo } = this.data;
+
+      // Map computed statuses back to DB status for the API query
+      const computedStatuses = ['inUse', 'completed'];
+      const apiStatus = computedStatuses.includes(filterStatus) ? 'approved' : (filterStatus || undefined);
+
+      // 1. Always fetch ALL pending bookings (regardless of time)
+      const pendingReq = callFunction({
+        name: 'listAllVenueBookings',
+        data: { status: 'pending', venueId: filterVenueId || undefined }
+      });
+
+      // 2. Fetch bookings within time range with optional status filter
+      const timeReq = callFunction({
+        name: 'listAllVenueBookings',
+        data: {
+          status: apiStatus,
+          venueId: filterVenueId || undefined,
+          timeFrom: timeFrom ? timeFrom + ' 00:00' : undefined,
+          timeTo: timeTo ? timeTo + ' 23:59' : undefined
+        }
+      });
+
+      const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
+      if (!orgSession.isRequestCurrent(this, request)) return;
+
+      // 非 success 状态提示错误
+      if (pendingRes.status !== 'success' && pendingRes.status !== undefined)
+        showShortToast(pendingRes.message || localeCopy.copy_e52119b17e);
+      if (timeRes.status !== 'success' && timeRes.status !== undefined)
+        showShortToast(timeRes.message || localeCopy.copy_e52119b17e);
+
+      const pendingList = (pendingRes.status === 'success' ? pendingRes.bookings : []) || [];
+      const timeList = (timeRes.status === 'success' ? timeRes.bookings : []) || [];
+
+      // Merge: pending at top (deduped), then time-filtered non-pending
+      const pendingIds = new Set(pendingList.map(b => b.id));
+      const nonPending = timeList.filter(b => !pendingIds.has(b.id));
+      let merged = [...pendingList, ...nonPending];
+
+      // Compute display status and approval percent for each booking
+      let bookings = merged.map(prepareVenueBookingDetail);
+
+      // Client-side filter for computed statuses (inUse / completed)
+      if (computedStatuses.includes(filterStatus)) {
+        bookings = bookings.filter(b => b.displayStatus === filterStatus);
+      }
+
+      this.setData({ bookings });
+    } catch (e) {
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ bookingsLoading: false });
+    }
+  },
+
+  onFilterStatus(e) {
+    this.setData({ filterStatus: e.currentTarget.dataset.status });
+    this.loadBookingsData();
+  },
+  onFilterVenue(e) {
+    this.setData({ filterVenueId: e.currentTarget.dataset.id || '' });
+    this.loadBookingsData();
+  },
+
+  onTimeFromChange(e) {
+    this.setData({ timeFrom: e.detail.value, timeFromDisplay: e.detail.value });
+    this.loadBookingsData();
+  },
+  onTimeToChange(e) {
+    this.setData({ timeTo: e.detail.value, timeToDisplay: e.detail.value });
+    this.loadBookingsData();
+  },
+  onClearTime() {
+    const to = getSystemDate();
+    const from = addDateDays(to, -7);
+    this.setData({
+      timeFrom: from,
+      timeTo: to,
+      timeFromDisplay: from,
+      timeToDisplay: to
+    });
+    this.loadBookingsData();
+  },
+
+  // ── Step-aware approve/reject (with confirmation popup) ──
+
+  openApprovePopup(e) {
+    const id = e.currentTarget.dataset.id;
+    const booking = this.data.bookings.find(b => b.id === id);
+    if (!booking) return;
+    this.setData({
+      approvalPopupVisible: true,
+      approvalPopupId: id,
+      approvalPopupAction: 'approve',
+      approvalPopupComment: '',
+      approvalPopupTarget: booking
+    });
+  },
+
+  openRejectPopup(e) {
+    const id = e.currentTarget.dataset.id;
+    const booking = this.data.bookings.find(b => b.id === id);
+    if (!booking) return;
+    this.setData({
+      approvalPopupVisible: true,
+      approvalPopupId: id,
+      approvalPopupAction: 'reject',
+      approvalPopupComment: '',
+      approvalPopupTarget: booking
+    });
+  },
+
+  closeApprovalPopup() {
+    this.setData({
+      approvalPopupVisible: false,
+      approvalPopupId: '',
+      approvalPopupAction: '',
+      approvalPopupComment: '',
+      expandedNodeKey: '',
+      approvalPopupTarget: null
+    });
+  },
+
+  onApprovalCommentInput(e) {
+    this.setData({ approvalPopupComment: e.detail.value });
+  },
+
+  async submitApprovalAction() {
+    const { approvalPopupId, approvalPopupAction, approvalPopupComment, approvalPopupTarget } = this.data;
+    if (!approvalPopupId || !approvalPopupAction) return;
+
+    const target = approvalPopupTarget
+      || this.data.bookings.find(function(booking) { return booking.id === approvalPopupId; });
+    if (!target) return;
+
+    const endpoint = resolveVenueApprovalEndpoint(target, approvalPopupAction);
+    const label = approvalPopupAction === 'approve' ? localeCopy.copy_ce171a2581 : localeCopy.copy_5d5af942c5;
+
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({
+        name: endpoint,
+        data: { id: approvalPopupId, comment: approvalPopupComment }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message || label);
+        this.closeApprovalPopup();
+        this.loadBookingsData();
+        if (this.data.scheduleVisible) this.loadVenueTimetable();
+        eventBus.emit('venue:changed', { reason: approvalPopupAction, bookingId: approvalPopupId });
+        eventBus.emit('approval:done');
+      } else {
+        showShortToast(res.message);
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  // ── Admin Timetable / Schedule ──
+  _initWeekStart() {
+    this.setData({ scheduleWeekStart: getSystemWeekStart() });
+  },
+
+  async openVenueSchedule(e) {
+    const id = e.currentTarget.dataset.id;
+    const v = this.data.venues.find(v => v.id === id);
+    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetableColumns: [] });
+    await this.loadVenueTimetable();
+  },
+  closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false, activityDetailVisible: false, activityDetail: null, expandedNodeKey: '' }); },
+
+  onTimetableScroll(e) {
+    _timetableScrollTop = e.detail.scrollTop || 0;
+  },
+
+  async loadVenueTimetable() {
+    const request = orgSession.beginRequest(this, 'manageTimetable');
+    const { scheduleVenueId, scheduleWeekStart } = this.data;
+    const dateTo = addDateDays(scheduleWeekStart, 6);
+    wx.showLoading({ title: localeCopy.copy_fc99c4cc7b });
+    try {
+      const res = await callFunction({
+        name: 'getVenueSchedule',
+        data: { venueId: scheduleVenueId, dateFrom: scheduleWeekStart, dateTo }
+      });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (res.status === 'success') {
+        this._buildAdminTimetable(res.dailySchedules || []);
+      }
+    } catch (e) {
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) wx.hideLoading();
+    }
+  },
+
+  _buildAdminTimetable(dailySchedules) {
+    const weekDayLabels = [localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100];
+    const columns = [];
+    for (let i = 0; i < 7; i++) {
+      const dateStr = addDateDays(this.data.scheduleWeekStart, i);
+      const dateDisplay = dateStr.slice(5).replace('-', '/');
+      const dayData = dailySchedules.find(ds => ds.date === dateStr);
+      const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i], dateDisplay);
+      columns.push(col);
+    }
+    this.setData({ timetableColumns: columns });
+  },
+
+  _buildDayColumn(dayData, dateStr, label, dateDisplay) {
+    const openBlocks = [];
+    const eventBlocks = [];
+    const timeTargets = [];
+
+    if (dayData && dayData.openSlots) {
+      for (const o of dayData.openSlots) {
+        const { top, height } = calcBlock(o.timeStart, o.timeEnd);
+        const s = timeToMin(o.timeStart);
+        const e = timeToMin(o.timeEnd);
+        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, startMin: s, endMin: e, duration: e - s });
+        // Generate time targets only within this open slot, at half-hour intervals
+        for (let min = s; min < e; min += 30) {
+          const hh = Math.floor(min / 60);
+          const mm = min % 60;
+          const offset_rpx = (min - s) / (e - s) * height;
+          timeTargets.push({
+            top: top + HEADER_H + TEXT_OFFSET + offset_rpx,
+            time: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0')
+          });
+        }
+      }
+    }
+
+    if (dayData && dayData.activitySlots) {
+      for (const a of dayData.activitySlots) {
+        const { top, height } = calcBlock(a.timeStart, a.timeEnd);
+        eventBlocks.push({
+          top: top + HEADER_H + TEXT_OFFSET,
+          height,
+          status: 'activity',
+          label: a.ruleName || localeCopy.copy_acd4c5c171,
+          type: 'activity',
+          activity: a.activity || {
+            id: a.ruleId,
+            name: a.ruleName || localeCopy.copy_acd4c5c171,
+            occurrenceStart: a.fullTimeStart || (dateStr + ' ' + a.timeStart),
+            occurrenceEnd: a.fullTimeEnd || (dateStr + ' ' + a.timeEnd),
+            cycleType: '',
+            cycleValues: {}
+          }
+        });
+      }
+    }
+
+    if (dayData && dayData.bookedSlots) {
+      for (const b of dayData.bookedSlots) {
+        const { top, height } = calcBlock(b.timeStart, b.timeEnd);
+        eventBlocks.push({
+          top: top + HEADER_H + TEXT_OFFSET, height,
+          status: b.status === 'pending' ? 'pending' : 'booked',
+          label: b.title || localeCopy.copy_8aa6e63e5e,
+          type: 'booking',
+          booking: {
+            id: b.id, venueId: b.venueId, venueName: b.venueName || '', venueLocation: b.venueLocation || '',
+            title: b.title, description: b.description,
+            visibility: b.visibility || 'details',
+            userId: b.userId, userName: b.userName,
+            userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
+            orgName: b.orgName || '',
+            creatorType: b.creatorType, creatorName: b.creatorName, creatorLabel: b.creatorLabel,
+            creatorAssignmentId: b.creatorAssignmentId || '', creatorAssignmentLabel: b.creatorAssignmentLabel || '',
+            approverHrId: b.approverHrId, approvalComment: b.approvalComment || '', createdAt: b.createdAt,
+            timeStart: b.fullTimeStart || b.timeStart,
+            timeEnd: b.fullTimeEnd || b.timeEnd,
+            timeStartDisplay: b.timeStart,
+            timeEndDisplay: b.timeEnd,
+            status: b.status,
+            approvalProgress: b.approvalProgress || null
+          }
+        });
+      }
+    }
+
+    return { date: dateStr, label, dateDisplay, openBlocks, eventBlocks, timeTargets };
+  },
+
+  onTimetablePrevWeek() {
+    this.setData({ scheduleWeekStart: addDateDays(this.data.scheduleWeekStart, -7) });
+    this.loadVenueTimetable();
+  },
+  onTimetableNextWeek() {
+    this.setData({ scheduleWeekStart: addDateDays(this.data.scheduleWeekStart, 7) });
+    this.loadVenueTimetable();
+  },
+
+  onTimetableBlockTap(e) {
+    const block = e.currentTarget.dataset.block;
+    if (block && block.activity) {
+      this.viewActivityScheduleDetail(block.activity);
+      return;
+    }
+    if (!block || !block.booking) return;
+    if (block.booking.visibility === 'occupancy_only') {
+      this.openOccupiedPopup(block.booking);
+      return;
+    }
+    // 与借用记录列表一致的详情组装：状态与审批进度时间轴
+    const detail = prepareVenueBookingDetail(block.booking);
+    this.setData({ bookingDetailVisible: true, bookingDetail: detail, expandedNodeKey: '' });
+  },
+
+  onActivityCycleDateChange(e) {
+    const field = e.currentTarget.dataset.field;
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
+  },
+
+  onActivityCycleTimeChange(e) {
+    const field = e.currentTarget.dataset.field;
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
+  },
+
+  onActivityPeriodModeTap(e) {
+    const mode = e.currentTarget.dataset.mode;
+    if (!['none', 'range', 'count'].includes(mode)) return;
+    const currentMode = this.data.ruleForm.cycleValues.periodMode;
+    this.setData({ 'ruleForm.cycleValues.periodMode': currentMode === mode ? 'none' : mode });
+  },
+
+  onActivityIntervalUnitChange(e) {
+    const unit = ['day', 'week'][Number(e.detail.value)];
+    if (unit && this.data.ruleForm.cycleType === 'repeat') this.setData({ 'ruleForm.cycleValues.intervalUnit': unit });
+  },
+
+  onActivityRepeatField(e) {
+    const field = e.currentTarget.dataset.field;
+    const value = Math.max(0, Number(e.detail.value) || 0);
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: value });
+  },
+  openOccupiedPopup(booking) {
+    const start = booking.timeStartDisplay || '';
+    const end = booking.timeEndDisplay || '';
+    const timeText = (start || end) ? ((start ? start + localeCopy.copy_c44dbba9e9 : '') + (end || '')) : '';
+    this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
+  },
+  closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
+
+  onTimeTargetTap(e) {
+    if (this.data.authorizationEnforced && !this.data.actionCapabilities['venue.bookings.createApproved']) return;
+    // Same pattern as date: data-date + data-time from DOM, no coordinate math
+    const date = e.currentTarget.dataset.date;
+    const time = e.currentTarget.dataset.time;
+    if (!date || !time) return;
+    this.setData({
+      adminBookingVisible: true,
+      adminBookingStartDate: date,
+      adminBookingStartDateDisplay: date,
+      adminBookingEndDate: date,
+      adminBookingEndDateDisplay: date,
+      adminBookingTimeStart: time,
+      adminBookingTimeEnd: '',
+      adminBookingTitle: '',
+      adminBookingDesc: '',
+      adminDailySlots: []
+    });
+    this._loadAdminAvailability(date, time);
+  },
+
+  onTimetableOpenTap() {
+    // 开放时段已有携带明确日期/时刻的点击单元；空白与表头不猜测时间。
+    showShortToast(controlLayoutCopy.timeRangeUnavailable);
+  },
+
+  closeBookingDetail() { this.setData({ bookingDetailVisible: false, expandedNodeKey: '' }); },
+
+  viewActivityScheduleDetail(activity) {
+    if (!activity) return;
+    this.setData({ activityDetailVisible: true, activityDetail: {
+      name: activity.name || localeCopy.copy_acd4c5c171,
+      id: activity.id,
+      occurrenceDate: calendarDateTime.formatAbsoluteDate(activity.occurrenceStart),
+      venueName: this.data.scheduleVenueName,
+      cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
+      cycleType: activity.cycleType, cycleValues: activity.cycleValues,
+      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + '\n' + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
+      note: localeCopy.copy_c1ce05d451
+    }});
+  },
+
+  viewBookingDetail(e) {
+    let id = e.currentTarget.dataset.id;
+    let item = this.data.bookings.find(function(b) { return b.id === id; });
+    if (!item) return;
+    if (item.visibility === 'occupancy_only') {
+      showShortToast(localeCopy.copy_d52606f8f8);
+      return;
+    }
+    this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
+  },
+
+  // ── Admin Quick Booking ──
+  closeAdminBooking() {
+    this._adminTimelineDrag = null;
+    this._adminAvailabilityGeneration = (this._adminAvailabilityGeneration || 0) + 1;
+    wx.hideLoading();
+    this.setData({ adminBookingVisible: false });
+  },
+
+  onAdminStartDateChange(e) {
+    const d = e.detail.value;
+    this.setData({
+      adminBookingStartDate: d, adminBookingStartDateDisplay: d,
+      adminBookingEndDate: d, adminBookingEndDateDisplay: d,
+      adminBookingTimeStart: '', adminBookingTimeEnd: '',
+      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: 0,
+      adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
+      _adminDayData: null
+    });
+    this._loadAdminAvailability(d);
+  },
+
+  async _loadAdminAvailability(dateStr, presetTime) {
+    if (!dateStr) return;
+    this._adminTimelineDrag = null;
+    const generation = (this._adminAvailabilityGeneration || 0) + 1;
+    this._adminAvailabilityGeneration = generation;
+    const request = orgSession.beginRequest(this, 'adminAvailability');
+    this.setData({ adminTimelineBlocks: [], adminTimelineSelection: null, _adminDayData: null, adminStartHours: [], adminEndHours: [] });
+    wx.showLoading({ title: localeCopy.copy_96eaa4c0be });
+    try {
+      const res = await callFunction({ name: 'getVenueSchedule',
+        data: { venueId: this.data.scheduleVenueId, dateFrom: dateStr, dateTo: dateStr } });
+      if (generation !== this._adminAvailabilityGeneration || !this.data.adminBookingVisible || !orgSession.isRequestCurrent(this, request)) return;
+      if (res.status !== 'success') { showShortToast(res.message || localeCopy.copy_e52119b17e); return; }
+      const dayData = (res.dailySchedules || [])[0];
+      const first = adminTimeSelection.freeRanges(dayData)[0];
+      const start = presetTime || this.data.adminBookingTimeStart || (first ? adminTimeSelection.time(first[0]) : '');
+      const chosen = adminTimeSelection.choose(dayData, start, this.data.adminBookingTimeEnd, true);
+      this.setData(Object.assign(adminTimeSelection.patch(dayData, start, chosen ? chosen.end : ''), {
+        _adminDayData: dayData || null, adminTimelineBlocks: dayData ? this._buildAdminTimeline(dayData) : []
+      }));
+    } catch (e) {
+      if (generation === this._adminAvailabilityGeneration && orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+    } finally {
+      if (generation === this._adminAvailabilityGeneration) wx.hideLoading();
+    }
+  },
+
+  onAdminStartHourChange(e) { this._onAdminTimePicker('start', 'hour', e); },
+  onAdminStartMinChange(e) { this._onAdminTimePicker('start', 'minute', e); },
+  onAdminEndHourChange(e) { this._onAdminTimePicker('end', 'hour', e); },
+  onAdminEndMinChange(e) { this._onAdminTimePicker('end', 'minute', e); },
+
+  _onAdminTimePicker(handle, field, e) {
+    const prefix = handle === 'start' ? 'adminStart' : 'adminEnd';
+    const index = Number(e.detail.value);
+    const hour = this.data[prefix + 'Hours'][field === 'hour' ? index : this.data[prefix + 'HourIdx']];
+    const minute = field === 'minute' ? index : this.data[prefix + 'MinIdx'];
+    if (!hour || !Number.isInteger(minute) || minute < 0 || minute > 59) return;
+    this._applyAdminTime(handle, adminTimeSelection.time(hour.value * 60 + minute), false);
+  },
+
+  _buildAdminTimeline(dayData) {
+    const blocks = [];
+    const append = (slots, status) => (slots || []).forEach((slot) => {
+      const start = timeToMin(slot.timeStart);
+      const end = timeToMin(slot.timeEnd);
+      if (end > start) blocks.push({ status, left: (start / 1440 * 100).toFixed(2), width: ((end - start) / 1440 * 100).toFixed(2) });
+    });
+    append(dayData.openSlots, 'free');
+    append(dayData.bookedSlots, 'booked');
+    append(dayData.activitySlots, 'activity');
+    return blocks;
+  },
+
+  _syncAdminTimelineSelection() {
+    this.setData(adminTimeSelection.patch(this.data._adminDayData, this.data.adminBookingTimeStart, this.data.adminBookingTimeEnd));
+  },
+
+  _applyAdminTime(handle, value, dragging) {
+    const start = handle === 'start' ? value : this.data.adminBookingTimeStart;
+    const end = handle === 'end' ? value : this.data.adminBookingTimeEnd;
+    // 拖动不可跨过另一端；原生选择框修改开始时才自动建议结束时间。
+    const chosen = adminTimeSelection.choose(this.data._adminDayData, start, end, handle === 'start' && !dragging);
+    if (!chosen) {
+      if (!dragging) { this._syncAdminTimelineSelection(); showShortToast(controlLayoutCopy.timeRangeUnavailable); }
+      return;
+    }
+    if (chosen.start === this.data.adminBookingTimeStart && chosen.end === this.data.adminBookingTimeEnd) return;
+    this.setData(adminTimeSelection.patch(this.data._adminDayData, chosen.start, chosen.end));
+  },
+
+  onAdminTimelineStart(e) {
+    const touch = e.touches && e.touches[0];
+    const handle = e.currentTarget.dataset.handle;
+    if (!touch || (handle !== 'start' && handle !== 'end')) return;
+    const value = handle === 'start' ? this.data.adminBookingTimeStart : this.data.adminBookingTimeEnd;
+    const initial = adminTimeSelection.minutes(value);
+    if (initial === null) return;
+    const drag = { handle, initial, originX: touch.clientX, width: 0, latestX: touch.clientX };
+    this._adminTimelineDrag = drag;
+    (this.createSelectorQuery ? this.createSelectorQuery() : wx.createSelectorQuery()).select('.admin-timeline-drag .timeline-bar').boundingClientRect((rect) => {
+      if (this._adminTimelineDrag !== drag || !this.data.adminBookingVisible) return;
+      if (!rect || !(rect.width > 0)) { this._adminTimelineDrag = null; return; }
+      drag.width = rect.width;
+      // 使用触点位移，按住标签边缘不改变时间。
+      this._flushAdminTimelineDrag(drag);
+      if (drag.ended && this._adminTimelineDrag === drag) this._adminTimelineDrag = null;
+    }).exec();
+  },
+
+  _flushAdminTimelineDrag(drag) {
+    if (this._adminTimelineDrag !== drag || !drag.width || drag.latestX === drag.originX) return;
+    const minute = adminTimeSelection.dragMinute(drag.initial, drag.latestX - drag.originX, drag.width);
+    if (minute !== null) this._applyAdminTime(drag.handle, adminTimeSelection.time(minute), true);
+  },
+
+  onAdminTimelineMove(e) {
+    const drag = this._adminTimelineDrag;
+    const touch = e.touches && e.touches[0];
+    if (!drag || !touch) return;
+    drag.latestX = touch.clientX;
+    if (drag.queued) return;
+    drag.queued = true;
+    wx.nextTick(() => { drag.queued = false; this._flushAdminTimelineDrag(drag); });
+  },
+
+  onAdminTimelineEnd(e) {
+    const drag = this._adminTimelineDrag;
+    if (e && e.type === 'touchcancel') { this._adminTimelineDrag = null; return; }
+    if (drag) {
+      const touch = e && e.changedTouches && e.changedTouches[0];
+      if (touch) drag.latestX = touch.clientX;
+      // 快速松手可能早于异步测量；保留终点，测量完成后只结算本次手势。
+      drag.ended = true;
+      if (!drag.width) return;
+      this._flushAdminTimelineDrag(drag);
+    }
+    this._adminTimelineDrag = null;
+  },
+
+  onAdminSelectPurpose(e) {
+    const text = e.currentTarget.dataset.text;
+    this.setData({ adminBookingTitle: text });
+  },
+
+  onAdminFieldInput(e) {
+    this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
+  },
+
+  async submitAdminBooking() {
+    if (this.data.authorizationEnforced && !this.data.actionCapabilities['venue.bookings.createApproved']) return;
+    const { scheduleVenueId, adminBookingStartDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc, _adminDayData } = this.data;
+    if (!scheduleVenueId || !adminBookingStartDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
+      showShortToast(localeCopy.copy_9dc5c7d79f); return;
+    }
+    if (!adminBookingTitle) { showShortToast(localeCopy.copy_7db68605c6); return; }
+    const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;
+    const timeEnd = adminBookingStartDate + 'T' + adminBookingTimeEnd;
+    if (timeStart >= timeEnd) { showShortToast(localeCopy.copy_0b091cba77); return; }
+
+    // Validate range with interval merging
+    if (_adminDayData) {
+      const rangeStart = timeToMin(adminBookingTimeStart);
+      const rangeEnd = timeToMin(adminBookingTimeEnd);
+      const mergedOpen = mergeIntervals(slotsToIntervals(_adminDayData.openSlots || []));
+      const gap = findOpenGap(rangeStart, rangeEnd, mergedOpen);
+      if (gap >= 0) {
+        const h = String(Math.floor(gap / 60)).padStart(2, '0');
+        const mi = String(gap % 60).padStart(2, '0');
+        showShortToast(h + ':' + mi + localeCopy.copy_70d4911767); return;
+      }
+      const mergedBlocked = mergeIntervals([
+        ...slotsToIntervals(_adminDayData.bookedSlots || []),
+        ...slotsToIntervals(_adminDayData.activitySlots || [])
+      ]);
+      const conflict = findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked);
+      if (conflict) {
+        const h = String(Math.floor(conflict.start / 60)).padStart(2, '0');
+        const mi = String(conflict.start % 60).padStart(2, '0');
+        showShortToast(h + ':' + mi + localeCopy.copy_abf766aebc); return;
+      }
+    }
+
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({
+        name: 'createAdminVenueBooking',
+        data: { venueId: scheduleVenueId, title: adminBookingTitle, description: adminBookingDesc,
+                timeStart, timeEnd }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ adminBookingVisible: false });
+        if (this.data.scheduleVisible) this.loadVenueTimetable();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_ccd4af477f)); }
+    finally { this.setData({ loading: false }); }
+  },
+
+  // ── Purpose Management ──
+  openPurposeManager() {
+    // Switch to purposes tab instead of opening popup
+    this.setData({ activeTab: 'purposes', purposeEditId: '', purposeEditText: '' });
+    this.loadPurposes();
+  },
+  closePurposeManager() { this.setData({ purposeVisible: false }); },
+
+  async loadPurposes() {
+    const request = orgSession.beginRequest(this, 'managePurposes');
+    try {
+      const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
+    } catch (_) {}
+  },
+
+  onPurposeFieldInput(e) {
+    this.setData({ purposeEditText: e.detail.value });
+  },
+
+  startEditPurpose(e) {
+    if (!canOperate(this, 'venue.purposes', 'update')) return;
+    const id = e.currentTarget.dataset.id;
+    const p = this.data.purposes.find(p => p.id === id);
+    if (p) this.setData({ purposeEditId: p.id, purposeEditText: p.text });
+  },
+
+  cancelPurposeEdit() {
+    this.setData({ purposeEditId: '', purposeEditText: '' });
+  },
+
+  async savePurpose() {
+    const { purposeEditId, purposeEditText } = this.data;
+    if (!canOperate(this, 'venue.purposes', purposeEditId ? 'update' : 'create')) return;
+    const normalizedText = String(purposeEditText || '').trim();
+    if (!normalizedText) { showShortToast(localeCopy.copy_fdb45fb38f); return; }
+    if (unicodeLength(normalizedText) > BOOKING_PURPOSE_MAX_LENGTH) {
+      showShortToast(localeCopy.bookingPurposeTooLong);
+      return;
+    }
+    try {
+      const res = await callFunction({
+        name: 'saveVenueBookingPurpose',
+        data: { id: purposeEditId, text: normalizedText }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ purposeEditId: '', purposeEditText: '' });
+        this.loadPurposes();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
+  },
+
+  deletePurpose(e) {
+    if (!canOperate(this, 'venue.purposes', 'delete')) return;
+    const id = e.currentTarget.dataset.id;
+    const purpose = (this.data.purposes || []).find((item) => String(item.id || '') === String(id || ''));
+    if (!purpose) return;
+    const target = Object.freeze({ id: String(purpose.id || ''), text: String(purpose.text || '') });
+    const that = this;
+    wx.showModal({
+      title: localeCopy.copy_7f31eec657,
+      content: localeCopy.bookingPurposeDeletePrefix + target.text + localeCopy.bookingPurposeDeleteSuffix,
+      confirmText: localeCopy.copy_acc985cabc,
+      cancelText: localeCopy.copy_06dbb49961,
+      success: function(modalResult) {
+        if (!modalResult.confirm) return;
+        that._deletePurposeTarget(target);
+      }
+    });
+  },
+
+  async _deletePurposeTarget(target) {
+    if (!canOperate(this, 'venue.purposes', 'delete')) return;
+    if (!target || !target.id) return;
+    try {
+      const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id: target.id } });
+      if (res.status === 'success') { showShortToast(localeCopy.copy_5398fec054); this.loadPurposes(); }
+      else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
+  },
+
+  // ═══════════════ APPROVAL FLOW MANAGEMENT (inline in rule editor) ═══════════════
+
+  async loadApprovalFlow() {
+    if (!canOperate(this, 'venue.approvals', 'read')) return;
+    const venueId = this.data.rulesVenueId;
+    if (!venueId) return;
+    const request = orgSession.beginRequest(this, 'manageApprovalFlow');
+    try {
+      const res = await callFunction({ name: 'listVenueApprovalFlows', data: { venueId, includeInactive: true } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
+      if (res.status === 'success') {
+        const flows = res.flows || [];
+        let selected = this.data.selectedFlowId
+          ? flows.find(function(flow) { return flow.id === this.data.selectedFlowId; }.bind(this))
+          : flows[0];
+        if (!selected && flows.length) selected = flows[0];
+        const patch = { approvalFlows: flows, approvalFlow: selected || null };
+        if (selected) {
+          patch.selectedFlowId = selected.id;
+          patch.selectedFlowName = selected.name || '';
+          patch.approvalFlowSteps = selected.steps || [];
+          patch.allowUserSelectFlow = Number(selected.allow_user_select) === 1;
+          patch.allowDesignateFirstFlow = Number(selected.allow_designate_first) === 1;
+          patch.allowDesignateNextFlow = Number(selected.allow_designate_next) === 1;
+        } else {
+          patch.selectedFlowId = '';
+          patch.selectedFlowName = '';
+          patch.approvalFlowSteps = [];
+          patch.allowUserSelectFlow = false;
+          patch.allowDesignateFirstFlow = false;
+          patch.allowDesignateNextFlow = false;
+        }
+        this.setData(patch);
+        if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
+          this.loadFlowReferenceData();
+        }
+      }
+    } catch (_) {}
+  },
+
+  addApprovalFlow() {
+    if (!canOperate(this, 'venue.approvals', 'create')) return;
+    this._openApprovalFlowEditor({
+      id: '',
+      name: localeCopy.copy_9835b165c7,
+      allow_user_select: 0,
+      allow_designate_first: 0,
+      allow_designate_next: 0,
+      steps: []
+    });
+  },
+
+  onBookingWindowSettingMode(e) {
+    const side = e.currentTarget.dataset.side;
+    const modeIndex = Number(e.detail.value);
+    const mode = modeIndex === 1 ? 'days' : (modeIndex === 2 ? 'duration' : 'none');
+    if (side !== 'open' && side !== 'deadline') return;
+    this.setData({ ['bookingWindowForm.' + side + '.mode']: mode });
+  },
+
+  onBookingWindowSettingDays(e) {
+    const side = e.currentTarget.dataset.side;
+    if (side !== 'open' && side !== 'deadline') return;
+    this.setData({ ['bookingWindowForm.' + side + '.days']: e.detail.value });
+  },
+
+  onBookingWindowSettingHours(e) {
+    const side = e.currentTarget.dataset.side;
+    if (side !== 'open' && side !== 'deadline') return;
+    this.setData({ ['bookingWindowForm.' + side + '.hours']: Number(e.detail.value) || 0 });
+  },
+
+  onBookingWindowSettingMinutes(e) {
+    const side = e.currentTarget.dataset.side;
+    if (side !== 'open' && side !== 'deadline') return;
+    this.setData({ ['bookingWindowForm.' + side + '.minutes']: Number(e.detail.value) || 0 });
+  },
+
+  async saveBookingWindowSettings() {
+    if (!canOperate(this, 'venue.bookingWindows', 'create')) return;
+    const windowForm = this.data.bookingWindowForm || emptyBookingWindow();
+    const openMinutes = bookingWindowMinutes(windowForm.open);
+    const deadlineMinutes = bookingWindowMinutes(windowForm.deadline);
+    if (openMinutes !== null && deadlineMinutes !== null && openMinutes < deadlineMinutes) {
+      showShortToast(localeCopy.copy_b1545efd70);
+      return;
+    }
+    try {
+      const res = await callFunction({
+        name: 'saveVenueBookingWindow',
+        data: { venueId: this.data.rulesVenueId, bookingWindow: windowForm }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message || localeCopy.copy_26f68cb229);
+        await this.loadBookingRules();
+      } else showShortToast(res.message || localeCopy.copy_215e3c57da);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
+  },
+
+  async toggleApprovalFlowFlag(e) {
+    if (!canOperate(this, 'venue.approvals', 'update')) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    const field = String(e.currentTarget.dataset.field || '');
+    const value = Boolean(e.detail.value);
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    const supportedFields = ['allow_user_select', 'allow_designate_first', 'allow_designate_next'];
+    if (!flow || supportedFields.indexOf(field) < 0) return;
+    const allowUserSelect = field === 'allow_user_select'
+      ? value
+      : Number(flow.allow_user_select) === 1;
+    const allowDesignateFirst = field === 'allow_designate_first'
+      ? value
+      : Number(flow.allow_designate_first) === 1;
+    const allowDesignateNext = field === 'allow_designate_next'
+      ? value
+      : Number(flow.allow_designate_next) === 1;
+    try {
+      const res = await callFunction({
+        name: 'saveVenueApprovalFlowMeta',
+        data: {
+          venueId: this.data.rulesVenueId,
+          flowId: id,
+          name: flow.name || localeCopy.copy_890d7f4874,
+          allowUserSelect,
+          allowDesignateFirst,
+          allowDesignateNext
+        }
+      });
+      if (res.status === 'success') {
+        const flows = (this.data.approvalFlows || []).map(function(item) {
+          if (item.id !== id) return item;
+          const next = Object.assign({}, item);
+          next[field] = value ? 1 : 0;
+          return next;
+        });
+        const patch = { approvalFlows: flows };
+        if (id === this.data.selectedFlowId) {
+          if (field === 'allow_designate_first') patch.allowDesignateFirstFlow = value;
+          if (field === 'allow_designate_next') patch.allowDesignateNextFlow = value;
+          if (field === 'allow_user_select') patch.allowUserSelectFlow = value;
+        }
+        this.setData(patch);
+      } else showShortToast(res.message || localeCopy.copy_bff49f783f);
+    } catch (err) { showShortToast(getErrorText(err, localeCopy.copy_bff49f783f)); }
+  },
+
+  deleteApprovalFlow(e) {
+    if (!canOperate(this, 'venue.approvals', 'delete')) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow) return;
+    wx.showModal({
+      title: localeCopy.copy_7f31eec657,
+      content: localeCopy.copy_19aa0fdb46,
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res = await callFunction({ name: 'deleteVenueApprovalFlow', data: { flowId: id, venueId: this.data.rulesVenueId } });
+          if (res.status === 'success') {
+            showShortToast(localeCopy.copy_5398fec054);
+            this.setData({ selectedFlowId: '' });
+            await this.loadApprovalFlow();
+          } else showShortToast(res.message || localeCopy.copy_bff49f783f);
+        } catch (err) { showShortToast(getErrorText(err, localeCopy.copy_bff49f783f)); }
+      }
+    });
+  },
+
+  openApprovalFlowStepEditor(e) {
+    if (!canOperate(this, 'venue.approvals', 'update')) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow) return;
+    this._openApprovalFlowEditor(flow);
+  },
+
+  _openApprovalFlowEditor(flow) {
+    const steps = (flow.steps || []).map(function(s) {
+      return {
+        name: s.name || '',
+        approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
+        rules: (s.rules || []).map(function(r) {
+          return {
+            departmentScope: r.department_scope || 'all', specificDepartmentId: r.specific_department_id || '',
+            workGroupScope: r.work_group_scope || 'all', specificWorkGroupId: r.specific_work_group_id || '',
+            identityScope: r.identity_scope || 'all', specificIdentityId: r.specific_identity_id || ''
+          };
+        })
+      };
+    });
+    this.setData({
+      selectedFlowId: flow.id,
+      selectedFlowName: flow.name || '',
+      approvalFlowSteps: flow.steps || [],
+      allowUserSelectFlow: Number(flow.allow_user_select) === 1,
+      allowDesignateFirstFlow: Number(flow.allow_designate_first) === 1,
+      allowDesignateNextFlow: Number(flow.allow_designate_next) === 1,
+      ruleEditorVisible: true,
+      ruleEditId: flow.id || '',
+      ruleEditorType: 'booking',
+      ruleForm: {
+        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', bookingWindow: bookingWindowFromRow(this.data.bookingWindow),
+        ruleType: 'flow', isActive: Number(flow.is_active) !== 0, approverIdentityId: '', approverHrId: '',
+        approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0,
+        _flowSteps: this._decorateFlowSteps(steps),
+        _editingStepIdx: null,
+        _editingConditionIdx: null,
+        _editingStepName: '',
+        _editingStepRules: [],
+        _editingCondition: null
+      },
+      ruleEditorScrollIntoView: '',
+      weeklyChecked: [],
+      monthlyChecked: []
+    });
+    if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
+      this.loadFlowReferenceData();
+    }
+  },
+
+  async loadFlowReferenceData() {
+    const request = orgSession.beginRequest(this, 'manageFlowReferences');
+    try {
+      const [deptRes, wgRes] = await Promise.all([
+        callFunction({ name: 'listDepartments', data: {} }),
+        callFunction({ name: 'listWorkGroups', data: {} })
+      ]);
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({
+        allDepartments: (deptRes.status === 'success' ? deptRes.departments : []) || [],
+        allWorkGroups: (wgRes.status === 'success' ? wgRes.workGroups : []) || []
+      }, () => this._refreshRuleEditorRuleLabels());
+    } catch (_) {}
+  },
+
+  // ── Step CRUD within ruleForm._flowSteps ──
+
+  openAddRuleFlowStep() {
+    this.setData({
+      'ruleForm._editingStepIdx': -1,
+      'ruleForm._editingStepName': '',
+      'ruleForm._editingStepRules': [],
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => {
+      this._revealRuleEditorPart('rule-flow-step-editor');
+    });
+  },
+
+  editRuleFlowStep(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const steps = this.data.ruleForm._flowSteps || [];
+    const step = steps[idx];
+    if (!step) return;
+    this.setData({
+      'ruleForm._editingStepIdx': idx,
+      'ruleForm._editingStepName': step.name || '',
+      'ruleForm._editingStepRules': (step.rules || []).map(r => this._decorateRuleDisplay(r)),
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => {
+      this._revealRuleEditorPart('rule-flow-step-editor');
+    });
+  },
+
+  removeRuleFlowStep(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const steps = [...(this.data.ruleForm._flowSteps || [])];
+    steps.splice(idx, 1);
+    this.setData({ 'ruleForm._flowSteps': steps });
+  },
+
+  moveRuleFlowStepUp(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    if (idx <= 0) return;
+    const steps = [...(this.data.ruleForm._flowSteps || [])];
+    [steps[idx - 1], steps[idx]] = [steps[idx], steps[idx - 1]];
+    this.setData({ 'ruleForm._flowSteps': steps });
+  },
+
+  moveRuleFlowStepDown(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const steps = this.data.ruleForm._flowSteps || [];
+    if (idx >= steps.length - 1) return;
+    const s = [...steps];
+    [s[idx], s[idx + 1]] = [s[idx + 1], s[idx]];
+    this.setData({ 'ruleForm._flowSteps': s });
+  },
+
+  saveRuleFlowStep() {
+    const name = (this.data.ruleForm._editingStepName || '').trim();
+    if (!name) { showShortToast(localeCopy.copy_1376e7cf03); return; }
+    const steps = [...(this.data.ruleForm._flowSteps || [])];
+    const stepData = {
+      name,
+      approvalMode: (this.data.ruleForm._editingStepRules || []).length ? 'hr_rule' : 'admin_any',
+      rules: (this.data.ruleForm._editingStepRules || []).map(r => this._decorateRuleDisplay({
+        departmentScope: r.departmentScope || 'all',
+        specificDepartmentId: r.specificDepartmentId || '',
+        workGroupScope: r.workGroupScope || 'all',
+        specificWorkGroupId: r.specificWorkGroupId || '',
+        identityScope: r.identityScope || 'all',
+        specificIdentityId: r.specificIdentityId || ''
+      }))
+    };
+    const idx = this.data.ruleForm._editingStepIdx;
+    if (idx >= 0 && idx < steps.length) {
+      steps[idx] = { ...steps[idx], ...stepData };
+    } else {
+      steps.push(stepData);
+    }
+    this.setData({
+      'ruleForm._flowSteps': steps,
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingStepName': '',
+      'ruleForm._editingStepRules': [],
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  cancelRuleFlowStepEdit() {
+    this.setData({
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingStepName': '',
+      'ruleForm._editingStepRules': [],
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  onRuleFlowSubField(e) {
+    const f = e.currentTarget.dataset.field;
+    this.setData({ ['ruleForm.' + f]: e.detail.value });
+  },
+
+  // ── Rule/Condition CRUD within a step ──
+
+  openAddRuleFlowCondition() {
+    const condition = this._decorateEditingCondition({
+      deptScope: 'all', deptIds: [],
+      wgScope: 'all', wgIds: [],
+      identScope: 'all', identIds: []
+    });
+    this.setData({
+      'ruleForm._editingConditionIdx': -1,
+      'ruleForm._editingCondition': condition
+    }, () => {
+      this._revealRuleEditorPart('rule-flow-condition-editor');
+    });
+  },
+
+  editRuleFlowCondition(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const rules = this.data.ruleForm._editingStepRules || [];
+    const rule = rules[idx];
+    if (!rule) return;
+    const deptIds = parseCsvArray(rule.specificDepartmentId);
+    const wgIds = parseCsvArray(rule.specificWorkGroupId);
+    const identIds = parseCsvArray(rule.specificIdentityId);
+    const condition = this._decorateEditingCondition({
+      deptScope: rule.departmentScope || 'all',
+      deptIds,
+      wgScope: rule.workGroupScope || 'all',
+      wgIds,
+      identScope: rule.identityScope || 'all',
+      identIds
+    });
+    this.setData({
+      'ruleForm._editingConditionIdx': idx,
+      'ruleForm._editingCondition': condition
+    }, () => {
+      this._revealRuleEditorPart('rule-flow-condition-editor');
+    });
+  },
+
+  removeRuleFlowCondition(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const rules = [...(this.data.ruleForm._editingStepRules || [])];
+    rules.splice(idx, 1);
+    this.setData({ 'ruleForm._editingStepRules': rules });
+  },
+
+  saveRuleFlowCondition() {
+    const cond = this.data.ruleForm._editingCondition;
+    if (!cond) return;
+    const rules = [...(this.data.ruleForm._editingStepRules || [])];
+    const ruleData = {
+      departmentScope: cond.deptScope || 'all',
+      specificDepartmentId: (cond.deptScope === 'specific' && cond.deptIds) ? cond.deptIds.join(',') : '',
+      workGroupScope: cond.wgScope || 'all',
+      specificWorkGroupId: (cond.wgScope === 'specific' && cond.wgIds) ? cond.wgIds.join(',') : '',
+      identityScope: cond.identScope || 'all',
+      specificIdentityId: (cond.identScope === 'specific' && cond.identIds) ? cond.identIds.join(',') : ''
+    };
+    const displayRule = this._decorateRuleDisplay(ruleData);
+    const idx = this.data.ruleForm._editingConditionIdx;
+    if (idx >= 0 && idx < rules.length) {
+      rules[idx] = { ...rules[idx], ...displayRule };
+    } else {
+      rules.push(displayRule);
+    }
+    this.setData({
+      'ruleForm._editingStepRules': rules,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  cancelRuleFlowCondEdit() {
+    this.setData({
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  // ── Condition picker handlers ──
+
+  onCondDeptScope(e) {
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      deptScope: v,
+      deptIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition });
+  },
+  onCondWgScope(e) {
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      wgScope: v,
+      wgIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition });
+  },
+  onCondIdentScope(e) {
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      identScope: v,
+      identIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition });
+  },
+
+  // ── Condition Multi-Picker (replicates audit multi-picker pattern) ──
+
+  openCondMultiPicker(e) {
+    const target = e.currentTarget.dataset.target; // 'dept' | 'wg' | 'ident'
+    let title, items, idField, nameField, selectedIdsArray;
+    if (target === 'dept') {
+      title = localeCopy.copy_6ee8d85d0a; items = this.data.allDepartments; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.deptIds || [];
+    } else if (target === 'wg') {
+      title = localeCopy.copy_eed7859498; items = this.data.allWorkGroups; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.wgIds || [];
+    } else {
+      title = localeCopy.copy_43c26e4c16; items = this.data.allIdentities; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.identIds || [];
+    }
+
+    const selectedIds = {};
+    selectedIdsArray.forEach(id => { selectedIds[String(id)] = true; });
+
+    // Build items with deptId for work group target
+    let mappedItems;
+    if (target === 'wg') {
+      mappedItems = items.map(it => ({
+        id: it[idField] || it.id,
+        name: it[nameField] || it.name,
+        extra: it.departmentName || '',
+        deptId: it.departmentId || ''
+      }));
+    } else {
+      mappedItems = items.map(it => ({ id: it[idField] || it.id, name: it[nameField] || it.name, extra: '' }));
+    }
+
+    // Build department tabs if specific departments are selected
+    let deptTabs = [];
+    let activeDeptTab = '';
+    const cond = this.data.ruleForm._editingCondition || {};
+    if (target === 'wg' && cond.deptScope === 'specific' && cond.deptIds && cond.deptIds.length) {
+      const selectedDeptIds = cond.deptIds.map(function(s) { return String(s).trim(); }).filter(Boolean);
+      const deptMap = {};
+      mappedItems.forEach(function(wg) {
+        if (selectedDeptIds.indexOf(wg.deptId) >= 0) {
+          if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
+          deptMap[wg.deptId].workGroups.push(wg);
+        }
+      });
+      deptTabs = selectedDeptIds.map(function(did) {
+        return deptMap[did] || { deptId: did, deptName: localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
+      });
+      // Initialize per-tab selected counts
+      deptTabs = deptTabs.map(function(tab) {
+        let count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+        return Object.assign({}, tab, { selectedCount: count });
+      });
+      if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
+    }
+
+    this.setData({
+      condMultiPickerVisible: true,
+      condMultiPickerTarget: target,
+      condMultiPickerTitle: title,
+      condMultiPickerItems: mappedItems,
+      condMultiPickerSelectedIds: selectedIds,
+      condMultiPickerSelectedCount: selectedIdsArray.length,
+      condMultiPickerSearch: '',
+      condMultiPickerDeptTabs: deptTabs,
+      condMultiPickerActiveDeptTab: activeDeptTab
+    });
+    this._applyCondMultiPickerFilters();
+  },
+
+  closeCondMultiPicker() { this.setData({ condMultiPickerVisible: false }); },
+
+  onCondMultiPickerDeptTab(e) {
+    this.setData({ condMultiPickerActiveDeptTab: e.currentTarget.dataset.dept });
+    this._applyCondMultiPickerFilters();
+  },
+
+  onCondMultiPickerSearch(e) {
+    this.setData({ condMultiPickerSearch: e.detail.value });
+    this._applyCondMultiPickerFilters();
+  },
+
+  onCondMultiPickerToggle(e) {
+    const id = String(e.currentTarget.dataset.id);
+    const selected = { ...this.data.condMultiPickerSelectedIds };
+    if (selected[id]) { delete selected[id]; } else { selected[id] = true; }
+
+    // Update per-tab selected counts
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    if (deptTabs.length) {
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    }
+
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
+    });
+  },
+
+  onCondMultiPickerSelectAll() {
+    const selected = { ...this.data.condMultiPickerSelectedIds };
+    this.data.condMultiPickerFilteredList.forEach(item => { selected[String(item.id)] = true; });
+
+    // Update per-tab selected counts
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    if (deptTabs.length) {
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    }
+
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
+    });
+  },
+
+  onCondMultiPickerDeselectAll() {
+    // When dept tabs active, only deselect current tab
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    let selected = { ...this.data.condMultiPickerSelectedIds };
+    if (deptTabs.length) {
+      const activeTab = this.data.condMultiPickerActiveDeptTab;
+      deptTabs.forEach(tab => {
+        if (tab.deptId === activeTab) {
+          tab.workGroups.forEach(wg => { delete selected[String(wg.id)]; });
+        }
+      });
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    } else {
+      selected = {};
+    }
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
+    });
+  },
+
+  _applyCondMultiPickerFilters() {
+    const keyword = (this.data.condMultiPickerSearch || '').trim().toLowerCase();
+    let filtered = this.data.condMultiPickerItems || [];
+
+    // Department tab filter for work group picker
+    if (this.data.condMultiPickerTarget === 'wg' && this.data.condMultiPickerDeptTabs.length) {
+      const activeTab = this.data.condMultiPickerActiveDeptTab;
+      filtered = filtered.filter(item => item.deptId === activeTab);
+    }
+
+    if (keyword) {
+      filtered = filtered.filter(item => (item.name || '').toLowerCase().indexOf(keyword) >= 0);
+    }
+    this.setData({ condMultiPickerFilteredList: filtered });
+  },
+
+  confirmCondMultiPicker() {
+    const target = this.data.condMultiPickerTarget;
+    const selected = this.data.condMultiPickerSelectedIds || {};
+    const ids = Object.keys(selected);
+    const currentCondition = this.data.ruleForm._editingCondition || {};
+    if (target === 'dept') {
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          deptIds: ids
+        }),
+        condMultiPickerVisible: false
+      });
+    } else if (target === 'wg') {
+      // Per-department validation when department tabs are active
+      if (this.data.condMultiPickerDeptTabs.length) {
+        for (const tab of this.data.condMultiPickerDeptTabs) {
+          if (!tab.workGroups.length) continue;
+          const hasSelection = tab.workGroups.some(wg => selected[String(wg.id)]);
+          if (!hasSelection) {
+            wx.showToast({ title: localeCopy.copy_c9c991ff82 + (tab.deptName || tab.deptId) + localeCopy.copy_eed7859498, icon: 'none' });
+            return;
+          }
+        }
+      }
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          wgIds: ids
+        }),
+        condMultiPickerVisible: false
+      });
+    } else {
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          identIds: ids
+        }),
+        condMultiPickerVisible: false
+      });
+    }
+  },
+
+  onCondFieldClear(e) {
+    const field = e.currentTarget.dataset.field;
+    const currentCondition = this.data.ruleForm._editingCondition || {};
+    if (field === 'dept') {
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, deptIds: [] })
+      });
+    } else if (field === 'wg') {
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, wgIds: [] })
+      });
+    } else {
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, identIds: [] })
+      });
+    }
+  },
+
+  // ── Expandable flow ──
+  toggleFlowNode(e) {
+    let key = e.currentTarget.dataset.nodeKey;
+    this.setData({ expandedNodeKey: this.data.expandedNodeKey === key ? '' : key });
+  },
+
+  noop() {}
+  }
+});

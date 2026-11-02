@@ -31,9 +31,11 @@ function buildHrMap(rows) {
   return map;
 }
 
-async function listAuditItems(actor, orgId, countOnly) {
+async function listAuditItems(actor, orgId, countOnly, reference) {
   if (actor.type !== 'user') return [];
-  const steps = await submissionStepModel.getPendingByApprover(actor, null, { unsorted: true });
+  const qualified = await submissionStepModel.getPendingByApprover(actor, null, { unsorted: true });
+  if (!qualified.length) return [];
+  const steps = await require('../models/todoAuthorization').filterAuditSteps(qualified, orgId, actor.contextId, reference);
   if (countOnly) return steps.map(step => ({ id: 'audit:' + safeString(step.id), category: 'audit' }));
   const submitterIds = [...new Set(steps.map((item) => item.submitted_by).filter(Boolean))];
   const submitters = await messageDataModel.getHrPeople(submitterIds, orgId);
@@ -57,9 +59,11 @@ async function listAuditItems(actor, orgId, countOnly) {
   });
 }
 
-async function listVenueItems(actor, orgId, countOnly) {
+async function listVenueItems(actor, orgId, countOnly, reference) {
   const bookings = await messageDataModel.getPendingVenueBookings(orgId);
   if (!bookings.length) return [];
+  const allowed = await require('../models/todoAuthorization').prepareRelated(orgId, actor.contextId, reference);
+  const { resource } = require('../../venue/models/venueBookingResource');
   const applicantIds = [...new Set(bookings.map((item) => item.user_hr_id).filter(Boolean))];
   const applicantMap = buildHrMap(countOnly ? [] : await messageDataModel.getHrPeople(applicantIds, orgId));
   const venueIds = Array.from(new Set(bookings.filter(item => !((item.approval_flow_id || item.approval_flow_state_json) && Number(item.approval_total_steps) > 0)).map(item => item.venue_id))).sort();
@@ -74,6 +78,7 @@ async function listVenueItems(actor, orgId, countOnly) {
 
   const items = [];
   for (const booking of bookings) {
+    if (!allowed(resource(booking, orgId))) continue;
     const isFlowBooking = Boolean(
       (booking.approval_flow_id || booking.approval_flow_state_json)
       && Number(booking.approval_total_steps) > 0
@@ -118,9 +123,11 @@ async function listVenueItems(actor, orgId, countOnly) {
   return items;
 }
 
-async function listScoringItems(actor, countOnly) {
+async function listScoringItems(actor, orgId, countOnly, reference) {
   if (actor.type !== 'user') return [];
-  const task = await getUserScoringTask(actor.profile, null, null, actor);
+  const allowed = await require('../models/todoAuthorization').prepareRelated(orgId, actor.contextId, reference);
+  const { targetResource } = require('../../scoring/models/participationAuthorization');
+  const task = await getUserScoringTask(actor.profile, null, null, actor, target => allowed(targetResource(target, orgId)));
   if (!task) return [];
   if (countOnly) return [{ id: 'scoring:' + safeString(task.activity.id), category: 'scoring' }];
   return [{
@@ -138,11 +145,15 @@ async function listScoringItems(actor, countOnly) {
   }];
 }
 
-async function listHrProfileItems(actor, orgId, countOnly) {
-  if (actor.type !== 'admin') return [];
-  const effective = await loadEffectivePermissions(actor.profile, orgId);
-  if (!effective.permissions || effective.permissions['hr.profile_review'] !== true) return [];
-  const records = await messageDataModel.getPendingHrProfiles(orgId);
+async function listHrProfileItems(actor, orgId, countOnly, reference) {
+  let records = reference ? await require('../../../core/models/hrAuthorization').reviewTodos(reference, orgId, actor.contextId) : null;
+  if (!records) {
+    if (!reference && await require('../../../core/models/authorizationBusinessRoute').isEnforced('/listHrProfileAdminData', orgId)) return [];
+    if (actor.type !== 'admin') return [];
+    const effective = await loadEffectivePermissions(actor.profile, orgId);
+    if (!effective.permissions || effective.permissions['hr.profile_review'] !== true) return [];
+    records = await messageDataModel.getPendingHrProfiles(orgId);
+  }
   if (countOnly) return records.map(record => ({ id: 'hr-profile:' + safeString(record.id), category: 'hr' }));
   return records.map((record) => ({
     id: 'hr-profile:' + safeString(record.id),
@@ -172,10 +183,10 @@ function compareTodo(a, b) {
 async function listAll(actor, orgId, options) {
   const countOnly = options && options.countOnly === true;
   const [auditItems, venueItems, scoringItems, hrItems] = await Promise.all([
-    measure('todo.audit', () => listAuditItems(actor, orgId, countOnly)),
-    measure('todo.venue', () => listVenueItems(actor, orgId, countOnly)),
-    measure('todo.scoring', () => listScoringItems(actor, countOnly)),
-    measure('todo.hr', () => listHrProfileItems(actor, orgId, countOnly))
+    measure('todo.audit', () => listAuditItems(actor, orgId, countOnly, options && options.authorizationReference)),
+    measure('todo.venue', () => listVenueItems(actor, orgId, countOnly, options && options.authorizationReference)),
+    measure('todo.scoring', () => listScoringItems(actor, orgId, countOnly, options && options.authorizationReference)),
+    measure('todo.hr', () => listHrProfileItems(actor, orgId, countOnly, options && options.authorizationReference))
   ]);
   const items = auditItems.concat(venueItems, scoringItems, hrItems);
   return options && options.unsorted ? items : items.sort(compareTodo);

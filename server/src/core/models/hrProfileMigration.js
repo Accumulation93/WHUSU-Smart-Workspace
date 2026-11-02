@@ -3,6 +3,15 @@ const { generateId, safeString } = require('../../utils/helpers');
 
 const ACTIVE_STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'executed', 'invalid'];
 
+async function legacyTransaction(organizationIds, operation) {
+  return pool.withTransaction(async connection => {
+    for (const organizationId of [...new Set(organizationIds)].sort()) {
+      await require('./authorizationBusinessRoute').requireLegacyWrite(connection, organizationId);
+    }
+    return operation(connection);
+  });
+}
+
 function parseJson(value, fallback) {
   if (!value) return fallback;
   if (typeof value === 'object') return value;
@@ -197,6 +206,7 @@ async function updateItem(itemId, patch, connection = pool) {
 }
 
 module.exports = {
+  legacyTransaction,
   createMigration,
   getById,
   listByTargetOrg,

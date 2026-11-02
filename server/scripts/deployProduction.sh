@@ -228,6 +228,17 @@ stop_process_group() {
   return 1
 }
 
+check_authorization_release() {
+  local candidate="$1"
+  local checker=""
+  if [[ -f "$CURRENT_LINK/server/scripts/authorizationDeployment.js" ]]; then
+    checker="$CURRENT_LINK/server/scripts/authorizationDeployment.js"
+  elif [[ -f "$NEW_RELEASE/server/scripts/authorizationDeployment.js" ]]; then
+    checker="$NEW_RELEASE/server/scripts/authorizationDeployment.js"
+  fi
+  [[ -z "$checker" ]] || node "$checker" check-release "$candidate"
+}
+
 rollback() {
   local failed_line="$1"
   trap - ERR TERM INT HUP
@@ -236,6 +247,10 @@ rollback() {
   # 构建、计划或兼容性检查失败且尚未改库/切流时，禁止停掉原服务。
   if [[ "$MIGRATION_STARTED" -eq 0 && "$RELEASE_SWITCHED" -eq 0 && "$API_STOPPED" -eq 0 && "$MAINTENANCE_ACTIVE" -eq 0 ]]; then
     log "发布准备失败，原服务保持运行，未改动数据库"
+    exit 1
+  fi
+  if [[ -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]] && ! check_authorization_release "$OLD_RELEASE"; then
+    log "旧版本不满足当前授权协议，拒绝回退、恢复旧数据库或删除当前版本"
     exit 1
   fi
   # 网页独立发布只回退静态目录，不触碰仍在旧 release 中运行的服务进程。
@@ -387,6 +402,8 @@ ln -s "$SHARED_DIR/uploads" "$NEW_RELEASE/server/uploads"
 
 log "安装锁定的生产依赖"
 timeout --signal=TERM --kill-after=30s 300s npm --prefix "$NEW_RELEASE/server" ci --omit=dev --no-audit --no-fund
+check_authorization_release "$NEW_RELEASE"
+if [[ -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]]; then check_authorization_release "$OLD_RELEASE"; fi
 if [[ "${WHUSU_DEPLOY_RECHECK:-0}" == "1" ]]; then
   log "按需执行服务器语法与自动化复核"
   while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$NEW_RELEASE/server" -path '*/node_modules' -prune -o -name '*.js' -type f -print0)
@@ -643,11 +660,18 @@ if [[ "$MAINTENANCE_ACTIVE" -eq 1 ]]; then
 fi
 
 mapfile -t RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
-if [[ "${#RELEASES[@]}" -gt "$RELEASE_KEEP_COUNT" ]]; then
+AUTHORIZATION_PROTECTED_SHAS=""
+CAN_PRUNE_RELEASES=1
+if ! AUTHORIZATION_PROTECTED_SHAS="$(node "$NEW_RELEASE/server/scripts/authorizationDeployment.js" protected-shas)"; then
+  log "无法读取授权兼容版本记录，本轮保留全部release"
+  CAN_PRUNE_RELEASES=0
+fi
+if [[ "$CAN_PRUNE_RELEASES" -eq 1 && "${#RELEASES[@]}" -gt "$RELEASE_KEEP_COUNT" ]]; then
   for release in "${RELEASES[@]:$RELEASE_KEEP_COUNT}"; do
     resolved="$(readlink -f "$release")"
     [[ "$resolved" == "$RELEASES_DIR/"* ]] || continue
     [[ "$resolved" == "$(readlink -f "$CURRENT_LINK")" ]] && continue
+    if [[ $'\n'"$AUTHORIZATION_PROTECTED_SHAS"$'\n' == *$'\n'"$(basename "$resolved")"$'\n'* ]]; then continue; fi
     git -C "$REPO_DIR" worktree remove --force "$resolved" || true
   done
 fi

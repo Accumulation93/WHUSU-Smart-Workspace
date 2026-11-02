@@ -97,7 +97,7 @@ function scanCompactVisualContract() {
   }
 
   const responsiveContracts = [
-    ['miniprogram/subpackages/scoring/pages/admin/admin.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-personnel-intro\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-personnel-intro\s*\{[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/main/styles/home.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.profile-security-note,[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/org/pages/identitySwitch/identitySwitch.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.context-panel\s*\{[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/audit/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.audit-submission-item,[\s\S]*?padding:\s*12px 14px/],
@@ -193,6 +193,43 @@ function relative(file) {
 
 function lineAt(source, offset) {
   return source.slice(0, offset).split('\n').length;
+}
+
+function readPageMarkup(file, ancestors = new Set()) {
+  if (ancestors.has(file)) throw new Error('WXML include cycle: ' + file);
+  const visited = new Set(ancestors); visited.add(file);
+  const source = fs.readFileSync(file, 'utf8');
+  let cursor = 0, output = '';
+  while (cursor < source.length) {
+    const start = source.indexOf('<', cursor);
+    if (start < 0) return output + source.slice(cursor);
+    output += source.slice(cursor, start);
+    if (source.startsWith('<!--', start)) {
+      const end = source.indexOf('-->', start + 4);
+      cursor = end < 0 ? source.length : end + 3;
+      continue;
+    }
+    let end = start + 1, quote = '';
+    for (; end < source.length; end++) {
+      const char = source[end];
+      if (quote) { if (char === quote) quote = ''; }
+      else if (char === '"' || char === "'") quote = char;
+      else if (char === '>') break;
+    }
+    const tag = source.slice(start, end + 1);
+    if (/^<include\s/.test(tag)) {
+      const target = attrValue(tag, 'src');
+      if (!target || target.includes('{{')) throw new Error('Invalid WXML include: ' + file);
+      output += readPageMarkup(path.resolve(path.dirname(file), target), visited);
+    } else output += tag;
+    cursor = end + 1;
+    if (/^<wxs(?:\s|>)/.test(tag) && !tag.endsWith('/>')) {
+      const close = source.indexOf('</wxs>', cursor);
+      if (close < 0) throw new Error('Unclosed WXS: ' + file);
+      output += source.slice(cursor, close + 6); cursor = close + 6;
+    }
+  }
+  return output;
 }
 
 // 引号感知地取出每一个起始 <picker ...> 标签，避免把属性值里的 > 当成标签结束。
@@ -610,20 +647,25 @@ function scanAdminOrgContextContracts() {
     {
       name: '评分管理',
       wxml: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxml'),
-      script: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.js')
+      script: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'adminWorkbenchBehavior.js')
     },
     {
       name: '场地管理',
-      wxml: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml'),
-      script: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.js')
+      wxml: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManagementContent.wxml'),
+      script: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManagementBehavior.js')
     }
   ];
   const findings = [];
   for (const page of pages) {
-    const markup = fs.readFileSync(page.wxml, 'utf8');
+    const markup = readPageMarkup(page.wxml);
+    const script = fs.readFileSync(page.script, 'utf8');
+    // 同一业务工作台可由普通岗位获权进入，管理身份仍必须保持深色。
+    const currentRoleTone = /\btone="\{\{heroTone\}\}"/.test(markup)
+      && (script.includes("heroTone: activeRole === 'admin' ? 'admin' : 'blue'") && script.includes('activeRole = activeSession.role')
+        || script.includes("heroTone: organizationState.snapshot.role === 'admin' ? 'admin' : 'blue'") && script.includes('orgSession.consume(this)'));
     const checks = [
       ['统一顶部身份卡', /<workspace-hero\b/],
-      ['管理端视觉样式', /\btone="admin"/],
+      ['管理端视觉样式', currentRoleTone ? /\btone="\{\{heroTone\}\}"/ : /\btone="admin"/],
       ['工作台品牌名称', /\bapp-name=(?:"WHUSU智慧工作台"|"\{\{[^}]+\}\}")/]
     ];
     for (const [label, pattern] of checks) {
@@ -679,7 +721,7 @@ function scanWorkspaceShellContracts() {
     const scriptFile = path.join(MINI_ROOT, `${route}.js`);
     const pageConfig = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
     const script = fs.readFileSync(scriptFile, 'utf8');
-    const markup = fs.readFileSync(wxmlFile, 'utf8');
+    const markup = readPageMarkup(wxmlFile);
     const hasStaticTitle = /^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '');
     const hasLocaleRuntimeTitle = !pageConfig.navigationBarTitleText &&
       /wx\.setNavigationBarTitle\s*\(\s*\{[\s\S]{0,320}?\btitle\s*:/.test(script);
@@ -720,8 +762,8 @@ function scanWorkspaceShellContracts() {
 }
 
 function scanVenueFlowVisibilityContract() {
-  const file = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml');
-  const scriptFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.js');
+  const file = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManagementContent.wxml');
+  const scriptFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManagementBehavior.js');
   const source = hydrateGeneratedLocaleCopy(fs.readFileSync(file, 'utf8'), scriptFile);
   const findings = [];
   const checks = [
@@ -766,7 +808,7 @@ function scanVenueFlowVisibilityContract() {
     venueDetailFile,
     path.join(MINI_ROOT, 'subpackages', 'venue', 'components', 'pendingApprovals', 'pendingApprovals.wxml'),
     path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueBooking', 'venueBooking.wxml'),
-    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml')
+    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManagementContent.wxml')
   ];
   for (const flowFile of flowMarkupFiles) {
     const flowSource = fs.readFileSync(flowFile, 'utf8');
@@ -1435,7 +1477,7 @@ if (!/<viewport-portal\b/.test(personnelPickerMarkup) ||
   });
 }
 for (const pageBase of personnelPickerPages) {
-  const markup = fs.readFileSync(path.join(MINI_ROOT, `${pageBase}.wxml`), 'utf8');
+  const markup = readPageMarkup(path.join(MINI_ROOT, `${pageBase}.wxml`));
   const config = fs.readFileSync(path.join(MINI_ROOT, `${pageBase}.json`), 'utf8');
   const pickerPath = (JSON.parse(config).usingComponents || {})['personnel-picker'] || '';
   if (!/<personnel-picker\b/.test(markup) || packageResources.canonical(pickerPath.replace(/^\//, '')) !== 'components/personnel-picker/personnel-picker') {
@@ -1581,7 +1623,7 @@ const missingDialogPortalTokenSystem = !(
   /width:\s*calc\(100vw\s*-\s*var\(--ui-dialog-width-inset,\s*32rpx\)\)\s*!important;/.test(GLOBAL_STYLE) &&
   /max-height:\s*var\(--ui-dialog-available\)\s*!important;/.test(GLOBAL_STYLE)
 );
-const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
+const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'adminWorkbenchStyles.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(
   /\.csv-mapping-row\s*\{[\s\S]*?display:\s*grid;/m.test(adminStyle) &&
   /\.csv-mapping-row-header\s*\{[\s\S]*?display:\s*none;/m.test(adminStyle) &&
@@ -1827,8 +1869,12 @@ const pickerValueIssues = wxmlFiles.flatMap((file) => scanPickerValues(fs.readFi
 
 // 组件内弹窗由宿主页面负责锁定，因此只检查页面级 WXML。
 const dialogScrollLockIssues = wxmlFiles
-  .filter((file) => !relative(file).includes('/components/'))
-  .flatMap((file) => scanDialogScrollLock(fs.readFileSync(file, 'utf8'), file));
+  .filter((file) => {
+    const configFile = file.slice(0, -5) + '.json';
+    return !relative(file).includes('/components/') && fs.existsSync(configFile)
+      && JSON.parse(fs.readFileSync(configFile, 'utf8')).component !== true;
+  })
+  .flatMap((file) => scanDialogScrollLock(readPageMarkup(file), file));
 
 const report = {
   generatedAt: new Date().toISOString(),

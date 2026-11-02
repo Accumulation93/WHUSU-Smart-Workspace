@@ -9,10 +9,11 @@ const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPer
 module.exports = Behavior({
   methods: {
     async loadIdentityList() {
+      const management = this.data.authorizationEnforced && this.data.activeTab === 'identities';
       const request = orgSession.beginRequest(this, 'identityList');
       this.setLoading('identities', true);
       try {
-        const result = await this.callCloud('listIdentities');
+        const result = management ? await this.callCloud('listAuthorizedDictionary', { kind: 'identity' }) : await this.callCloud('listIdentities');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           const failure = new Error('identity_list_failed');
@@ -20,7 +21,7 @@ module.exports = Behavior({
           throw failure;
         }
         this.setData({
-          identityList: result.identities || []
+          [management ? 'managedIdentityList' : 'identityList']: management ? result.list || [] : result.identities || []
         });
         this.setDictionaryLoadSuccess('identities');
       } catch (error) {
@@ -59,11 +60,12 @@ module.exports = Behavior({
 
     editIdentity(e) {
       const index = Number(e.currentTarget.dataset.index);
-      const item = this.data.identityList[index];
+      const item = (this.data.authorizationEnforced ? this.data.managedIdentityList || [] : this.data.identityList)[index];
+      if (this.data.authorizationEnforced && (!item || !item.canUpdate)) return;
       if (!item) {
         return;
       }
-  
+
       this.setData({
         identityForm: {
           id: item.id,
@@ -83,7 +85,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveIdentity', true);
       try {
         const result = await this.callCloud('saveIdentity', {
@@ -91,7 +93,7 @@ module.exports = Behavior({
           name: form.name,
           description: form.description
         });
-  
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,
@@ -99,7 +101,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.setData({ identityForm: emptyIdentityForm() });
         await this.loadIdentityList();
         wx.showToast({
@@ -121,8 +123,9 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
-      const target = (this.data.identityList || []).find((item) => String(item.id) === String(id));
-  
+      const target = ((this.data.authorizationEnforced ? this.data.managedIdentityList : this.data.identityList) || []).find((item) => String(item.id) === String(id));
+      if (this.data.authorizationEnforced && (!target || !target.canDelete)) return;
+
       const confirm = await new Promise((resolve) => {
         wx.showModal({
           title: localeCopy.copy_9167d1395d,
@@ -133,11 +136,11 @@ module.exports = Behavior({
           fail: () => resolve(false)
         });
       });
-  
+
       if (!confirm) {
         return;
       }
-  
+
       try {
         const result = await this.callCloud('deleteIdentity', { id });
         if (result.status !== 'success') {
@@ -151,7 +154,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.loadIdentityList();
         this.updateHrFormOptions();
         wx.showToast({

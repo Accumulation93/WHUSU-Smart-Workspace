@@ -30,6 +30,8 @@ const participantService = require('../services/participants');
 const scoreCalc = require('../utils/scoreCalc');
 const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapshotSchema');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { authorizedParticipationRead } = require('../services/authorizedParticipationRead');
+const participationAuthorization = require('../models/participationAuthorization');
 
 function normalizeActivityDate(value) {
   if (!value) return '';
@@ -407,7 +409,7 @@ async function buildHistoricalScoreForm(record, options) {
 
 // ──────────────────── getRateTargets ────────────────────
 
-router.post('/getRateTargets', async (req, res) => {
+router.post('/getRateTargets', authorizedParticipationRead('targets', async (req, res) => {
   try {
     const lookups = await fetchOrgLookups();
     let scorer = null;
@@ -554,7 +556,7 @@ router.post('/getRateTargets', async (req, res) => {
   } catch (e) {
     respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_a2d8fd888c });
   }
-});
+}));
 
 // ──────────────────── getScoreFormData ────────────────────
 
@@ -567,7 +569,7 @@ const RULE_SCOPE_LABEL_MAP = {
   all_people: scoringCopy.scopeAllPeople
 };
 
-router.post('/getScoreFormData', async (req, res) => {
+router.post('/getScoreFormData', authorizedParticipationRead('form', async (req, res) => {
   try {
     const targetId = safeString(req.body.targetId);
     if (!targetId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
@@ -733,7 +735,7 @@ router.post('/getScoreFormData', async (req, res) => {
   } catch (e) {
     respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_45de35fe1a });
   }
-});
+}));
 
 // ──────────────────── submitScoreRecord ────────────────────
 
@@ -812,6 +814,7 @@ async function updateExistingScoreRecord(options) {
   let response = null;
 
   await withTransaction(async (conn) => {
+    await participationAuthorization.checkTarget(req, conn, orgId, targetRecord, 'update');
     const claim = await dedup.claim(conn, {
       orgId,
       actorKey: 'score-subject:' + scorerSubjectKey,
@@ -931,7 +934,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       targetPersonId: safeString(targetRecord.person_id)
     });
     if (existingRecords.length) {
-      return updateExistingScoreRecord({
+      return await updateExistingScoreRecord({
         req,
         res,
         record: existingRecords[0],
@@ -1082,6 +1085,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     const clientRequestId = safeString(req.body.clientRequestId);
 
     await withTransaction(async (conn) => {
+      await participationAuthorization.checkTarget(req, conn, orgId, targetRecord, 'create');
       const dedup = require('../../../utils/requestDeduplication');
       const candidateRecordId = generateId();
       const stableScoreResourceId = dedup.stableResourceId('submit_score', [
@@ -1188,6 +1192,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     respondScoringResponse(res, duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: require('../../../locales/zh-CN/generated/modules/scoring/routes/results').copy_f048be09ae });
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_534935765f });
     }
@@ -1203,10 +1208,11 @@ router.post('/submitScoreRecord', async (req, res) => {
 
 // ──────────────────── getScorerTaskStatus ────────────────────
 
-router.post('/getScorerTaskStatus', async (req, res) => {
+router.post('/getScorerTaskStatus', require('../services/authorizedResultRead').authorizedResultRead('read', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const access = req.scoringAccess;
+    const admin = access ? null : await ensureAdmin(req);
+    if (!access && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
@@ -1313,7 +1319,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       }
     });
 
-    let rows = Array.from(scorerMap.values())
+    let rows = Array.from(scorerMap.values()).filter(row => !access || access.task(row))
       .map(item => {
         const expectedCount = item.expectedTargets.size;
         const submittedCount = Array.from(item.submittedTargetIds)
@@ -1378,7 +1384,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
   } catch (e) {
     respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_36a1730e53 });
   }
-});
+}));
 
 // ──────────────────── exportScorerTaskStatus ────────────────────
 
@@ -1449,10 +1455,11 @@ function buildTaskExportReport(activityName, reportType, rows) {
   };
 }
 
-router.post('/exportScorerTaskStatus', async (req, res) => {
+router.post('/exportScorerTaskStatus', require('../services/authorizedResultRead').authorizedResultRead('export', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const access = req.scoringAccess;
+    const admin = access ? null : await ensureAdmin(req);
+    if (!access && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'summary';
@@ -1557,7 +1564,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       }
     });
 
-    let rows = Array.from(scorerMap.values())
+    let rows = Array.from(scorerMap.values()).filter(row => !access || access.task(row))
       .map(item => {
         const expectedCount = item.expectedTargets.size;
         const submittedCount = Array.from(item.submittedTargetIds)
@@ -1629,6 +1636,6 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
   } catch (e) {
     respondScoringResponse(res, { status: 'error', message: safeString(e.message) || localeCopy.copy_88f78adc7a });
   }
-});
+}));
 
 module.exports = router;

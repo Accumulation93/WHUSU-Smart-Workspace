@@ -88,6 +88,12 @@ const connection = {
 
 const emptyModel = {};
 const mocks = {
+  '../models/participationAuthorization': { async checkTarget(_req, actualConnection, organizationId, selected, action) {
+    assert.strictEqual(actualConnection, connection);
+    assert.strictEqual(organizationId, 'org-1');
+    assert.strictEqual(selected.assignment_id, 'assignment-target');
+    assert.strictEqual(action, 'update');
+  } },
   '../../../config/db': {
     async withTransaction(callback) { return callback(connection); },
     async query() { throw new Error('评分覆盖不得绕过事务连接'); }

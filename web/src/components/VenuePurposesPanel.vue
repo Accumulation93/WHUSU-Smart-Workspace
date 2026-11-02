@@ -17,28 +17,31 @@
     <p v-else-if="!loading && !loadNotice && !rows.length" class="empty-state">{{ ui.copy_b55eac70b1 }}</p>
     <article v-for="row in rows" :key="row.id" class="list-row purpose-row">
       <span class="list-row-title break-all">{{ row.text }}</span>
-      <div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
+      <div class="card-actions"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canUpdateRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button></div>
     </article>
   </section>
 </template>
 <script setup>
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
-const canDeleteRecord = useAdminCapability('venue.purposes.delete');
-const canWriteRecord = useAdminCapability('venue.purposes');
+const canDeleteRecord = useAdminCapability('venue.purposes.delete', 'venue.purposes.delete');
+const canCreateRecord = useAdminCapability('venue.purposes', 'venue.purposes.create');
+const canUpdateRecord = useAdminCapability('venue.purposes', 'venue.purposes.update');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { session } from '@/runtime/session.js';
+import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
 const props = defineProps({ state: { type: Object, required: true }, disabled: Boolean });
+const canWriteRecord = computed(() => props.state.id ? canUpdateRecord.value : canCreateRecord.value);
 const emit = defineEmits(['busy']);
 const rows = ref([]), loading = ref(false), busy = ref(false), loadNotice = ref(''), actionNotice = ref('');
 const blocked = computed(() => props.disabled || busy.value || loading.value || !!loadNotice.value || props.state.awaitingRead);
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 let disposed = false, generation = 0;
 function reset() { Object.assign(props.state, { id: '', text: '', awaitingRead: false }); actionNotice.value = ''; }
-function edit(row) { if (!blocked.value) { Object.assign(props.state, { id: row.id, text: row.text }); actionNotice.value = ''; } }
+function edit(row) { if (!blocked.value && canUpdateRecord.value) { Object.assign(props.state, { id: row.id, text: row.text }); actionNotice.value = ''; } }
 async function load() {
   const request = ++generation, expected = scope();
   const current = () => !disposed && request === generation && expected === scope();
@@ -77,7 +80,7 @@ async function remove(row) {
   try {
     const confirmed = await confirmAction({ title: ui.copy_7f31eec657, body: ui.bookingPurposeDeletePrefix + target.text + ui.bookingPurposeDeleteSuffix,
       confirmText: ui.copy_acc985cabc, cancelText: ui.copy_06dbb49961, danger: true });
-    if (!confirmed || !current() || props.disabled) return;
+    if (!confirmed || !current() || props.disabled || !canDeleteRecord.value) return;
     requireSuccess(await callApi('deleteVenueBookingPurpose', { id: target.id }));
     if (!current()) return;
     if (props.state.id === target.id) props.state.awaitingRead = true;
@@ -87,6 +90,8 @@ async function remove(row) {
   finally { if (current()) busy.value = false; }
 }
 watch(busy, value => emit('busy', value), { flush: 'sync' });
+useCopiedConfigurationEditor({ kind: () => 'venue.purposes', rows, blocked: () => blocked.value || !canUpdateRecord.value,
+  ready: () => !loading.value && !loadNotice.value, edit, notice: actionNotice });
 load();
 onBeforeUnmount(() => { disposed = true; generation++; emit('busy', false); });
 </script>

@@ -7,6 +7,11 @@ const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, 
 const orgSession = require('../../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../../utils/trustedNavigation');
 
+function canChangeRule(page, action) {
+  return !page.data.authorizationEnforced
+    || (page.data.actionCapabilities || {})['scoring.rules.' + action] === true;
+}
+
 module.exports = Behavior({
   methods: {
     setRuleListState(ruleList = [], selectedRuleIds = this.data.selectedRuleIds, filters = this.data.ruleFilters) {
@@ -22,7 +27,7 @@ module.exports = Behavior({
       const ruleListView = markSelectedRules(filterRuleList(normalizedList, nextFilters), safeSelectedRuleIds);
       const visibleRuleAllSelected = ruleListView.length > 0
         && ruleListView.every((item) => selectedRuleIdMap[String(item.id || '')]);
-  
+
       this.setData({
         ruleList: markedRuleList,
         ruleListView,
@@ -45,7 +50,7 @@ module.exports = Behavior({
           this.setRuleListState([], [], emptyRuleFilters());
           return;
         }
-  
+
         const result = await this.callCloud('listRateRules', {
           activityId: this.data.currentActivityId
         });
@@ -53,6 +58,7 @@ module.exports = Behavior({
         if (result.status && result.status !== 'success') {
           throw new Error(result.message || localeCopy.copy_58d149dfbb);
         }
+        if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [], templateList: (result.configurationCandidates || {}).templates || [] });
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
@@ -75,7 +81,7 @@ module.exports = Behavior({
         if (retryDelays[i] > 0) {
           await this.wait(retryDelays[i]);
         }
-  
+
         await this.loadRuleList();
         if ((this.data.ruleList || []).length >= expectedMinimum) {
           return;
@@ -88,7 +94,7 @@ module.exports = Behavior({
       if (!item.id && (!item.scorerDepartment || !item.scorerIdentity)) {
         return;
       }
-  
+
       const selectedRuleIds = this.data.selectedRuleIds || [];
       const nextList = [...(this.data.ruleList || [])];
       const index = nextList.findIndex((current) => (
@@ -106,14 +112,14 @@ module.exports = Behavior({
       } else {
         nextList.push(item);
       }
-  
+
       nextList.sort((a, b) => {
         if (a.scorerDepartment !== b.scorerDepartment) {
           return String(a.scorerDepartment || '').localeCompare(String(b.scorerDepartment || ''), 'zh-CN');
         }
         return String(a.scorerIdentity || '').localeCompare(String(b.scorerIdentity || ''), 'zh-CN');
       });
-  
+
       this.setRuleListState(nextList, selectedRuleIds, this.data.ruleFilters);
     },
 
@@ -306,14 +312,14 @@ module.exports = Behavior({
       if (!targetId) {
         return;
       }
-  
+
       const selectedRuleIds = new Set((this.data.selectedRuleIds || []).map((item) => String(item)));
       if (selectedRuleIds.has(targetId)) {
         selectedRuleIds.delete(targetId);
       } else {
         selectedRuleIds.add(targetId);
       }
-  
+
       const nextSelectedRuleIds = [...selectedRuleIds];
       this.setRuleListState(this.data.ruleList, nextSelectedRuleIds, this.data.ruleFilters);
     },
@@ -323,7 +329,7 @@ module.exports = Behavior({
       if (!visibleRuleIds.length) {
         return;
       }
-  
+
       const selectedSet = new Set((this.data.selectedRuleIds || []).map((item) => String(item)));
       const isVisibleAllSelected = visibleRuleIds.every((id) => selectedSet.has(String(id)));
       visibleRuleIds.forEach((id) => {
@@ -341,7 +347,7 @@ module.exports = Behavior({
       if (!visibleRuleIds.length) {
         return;
       }
-  
+
       const selectedSet = new Set((this.data.selectedRuleIds || []).map((item) => String(item)));
       visibleRuleIds.forEach((id) => {
         const textId = String(id);
@@ -355,11 +361,12 @@ module.exports = Behavior({
     },
 
     async applyClausesToSelectedRules() {
+      if (!canChangeRule(this, 'update')) return;
       const selectedRules = (this.data.ruleList || []).filter((item) => (this.data.selectedRuleIds || []).includes(item.id));
       const clauseResult = buildRuleClausesForBatchApply(this.data.ruleForm);
       const clauses = clauseResult.clauses || [];
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
-  
+
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
           title: localeCopy.copy_4e36c10a9e,
@@ -367,7 +374,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       if (!selectedRules.length) {
         wx.showToast({
           title: localeCopy.copy_78e3986a7f,
@@ -375,7 +382,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       if (!clauseResult.ok) {
         wx.showToast({
           title: clauseResult.message || localeCopy.copy_30a324d851,
@@ -383,7 +390,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('batchSaveRules', true);
       wx.showLoading({ title: localeCopy.copy_20c9187fe4, mask: true });
       try {
@@ -424,7 +431,7 @@ module.exports = Behavior({
       if (!template) {
         return;
       }
-  
+
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -442,7 +449,7 @@ module.exports = Behavior({
       clauseTemplateConfigEditingIndex,
       clauseTemplateConfigs
     } = this.data.ruleForm;
-  
+
       if (!clauseTemplateId) {
         wx.showToast({
           title: localeCopy.copy_0752b95158,
@@ -450,7 +457,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
         wx.showToast({
@@ -459,11 +466,11 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const sortOrderValue = clauseTemplateConfigEditingIndex >= 0 && clauseTemplateConfigs[clauseTemplateConfigEditingIndex]
         ? Number(clauseTemplateConfigs[clauseTemplateConfigEditingIndex].sortOrder) || (clauseTemplateConfigEditingIndex + 1)
         : clauseTemplateConfigs.length + 1;
-  
+
       const nextConfig = {
         templateId: clauseTemplateId,
         templateName: clauseTemplateName,
@@ -473,12 +480,12 @@ module.exports = Behavior({
         trimHighCount: Number(this.data.ruleForm.clauseTrimHighCount || 0),
         trimLowCount: Number(this.data.ruleForm.clauseTrimLowCount || 0)
       };
-  
+
       const exists = clauseTemplateConfigs.some((item, index) => (
         index !== clauseTemplateConfigEditingIndex &&
         item.templateId === nextConfig.templateId
       ));
-  
+
       if (exists) {
         wx.showToast({
           title: localeCopy.copy_6a36edd369,
@@ -486,17 +493,17 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const nextConfigs = [...clauseTemplateConfigs];
       if (clauseTemplateConfigEditingIndex >= 0 && nextConfigs[clauseTemplateConfigEditingIndex]) {
         nextConfigs[clauseTemplateConfigEditingIndex] = nextConfig;
       } else {
         nextConfigs.push(nextConfig);
       }
-  
+
       nextConfigs.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
       const normalizedNextConfigs = refreshTemplateConfigSortOrder(nextConfigs);
-  
+
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -517,7 +524,7 @@ module.exports = Behavior({
       if (!targetConfig) {
         return;
       }
-  
+
       this.setData({
         clauseTemplateInlineEditIndex: index,
         ruleForm: {
@@ -542,7 +549,7 @@ module.exports = Behavior({
         : (this.data.ruleForm.clauseTemplateConfigEditingIndex > index
           ? this.data.ruleForm.clauseTemplateConfigEditingIndex - 1
           : this.data.ruleForm.clauseTemplateConfigEditingIndex);
-  
+
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -583,23 +590,23 @@ module.exports = Behavior({
         clauseTemplateConfigs
       } = this.data.ruleForm;
       const editIndex = this.data.clauseTemplateInlineEditIndex;
-  
+
       if (!clauseTemplateId) {
         wx.showToast({ title: localeCopy.copy_0752b95158, icon: 'none' });
         return;
       }
-  
+
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
         wx.showToast({ title: localeCopy.copy_ba359df757, icon: 'none' });
         return;
       }
-  
+
       const isAdd = editIndex >= clauseTemplateConfigs.length;
       const sortOrderValue = isAdd
         ? clauseTemplateConfigs.length + 1
         : Number(clauseTemplateConfigs[editIndex].sortOrder) || (editIndex + 1);
-  
+
       const nextConfig = {
         templateId: clauseTemplateId,
         templateName: clauseTemplateName,
@@ -609,26 +616,26 @@ module.exports = Behavior({
         trimHighCount: Number(this.data.ruleForm.clauseTrimHighCount || 0),
         trimLowCount: Number(this.data.ruleForm.clauseTrimLowCount || 0)
       };
-  
+
       const exists = clauseTemplateConfigs.some((item, idx) => (
         idx !== editIndex && item.templateId === nextConfig.templateId
       ));
-  
+
       if (exists) {
         wx.showToast({ title: localeCopy.copy_6a36edd369, icon: 'none' });
         return;
       }
-  
+
       const nextConfigs = [...clauseTemplateConfigs];
       if (isAdd) {
         nextConfigs.push(nextConfig);
       } else {
         nextConfigs[editIndex] = nextConfig;
       }
-  
+
       nextConfigs.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
       const normalizedNextConfigs = refreshTemplateConfigSortOrder(nextConfigs);
-  
+
       this.setData({
         clauseTemplateInlineEditIndex: -1,
         ruleForm: {
@@ -681,7 +688,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const nextClause = {
         scopeType: clauseScope,
         scopeLabel: getScopeLabel(clauseScope),
@@ -690,14 +697,14 @@ module.exports = Behavior({
         requireAllComplete: !!clauseRequireAllComplete,
         templateConfigs: [...clauseTemplateConfigs].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
       };
-  
+
       const exists = clauses.some((item, index) => (
         index !== clauseEditingIndex &&
         item.scopeType === nextClause.scopeType &&
         item.targetIdentityId === nextClause.targetIdentityId &&
         JSON.stringify(item.templateConfigs || []) === JSON.stringify(nextClause.templateConfigs)
       ));
-  
+
       if (exists) {
         wx.showToast({
           title: localeCopy.copy_7aed7111ba,
@@ -705,14 +712,14 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const nextClauses = [...clauses];
       if (clauseEditingIndex >= 0 && nextClauses[clauseEditingIndex]) {
         nextClauses[clauseEditingIndex] = nextClause;
       } else {
         nextClauses.push(nextClause);
       }
-  
+
       this.setData({
         clauseTemplateInlineEditIndex: -1,
         ruleForm: {
@@ -744,7 +751,7 @@ module.exports = Behavior({
         : (this.data.ruleForm.clauseEditingIndex > index
           ? this.data.ruleForm.clauseEditingIndex - 1
           : this.data.ruleForm.clauseEditingIndex);
-  
+
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -768,7 +775,7 @@ module.exports = Behavior({
       if (!targetClause) {
         return;
       }
-  
+
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -814,6 +821,7 @@ module.exports = Behavior({
     },
 
     editRule(e) {
+      if (!canChangeRule(this, 'update')) return;
       const { id, index } = e.currentTarget.dataset;
       const targetId = String(id || '').trim();
       const target = targetId
@@ -822,7 +830,7 @@ module.exports = Behavior({
       if (!target) {
         return;
       }
-  
+
       this.setData({
         ruleForm: {
           id: target.id,
@@ -854,6 +862,7 @@ module.exports = Behavior({
     },
 
     async saveRuleCategory() {
+      if (!canChangeRule(this, this.data.ruleForm.id ? 'update' : 'create')) return;
       const { id, scorerDepartmentId, scorerDepartment, scorerIdentityId, scorerIdentity } = this.data.ruleForm;
       const clauseResult = buildRuleClausesForSave(this.data.ruleForm);
       const clauses = clauseResult.clauses || [];
@@ -865,7 +874,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       if (!scorerDepartmentId || !scorerIdentityId) {
         wx.showToast({
           title: localeCopy.copy_f6ace868f2,
@@ -873,7 +882,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       if (!clauseResult.ok) {
         wx.showToast({
           title: clauseResult.message || localeCopy.copy_b9e48da987,
@@ -881,7 +890,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveRule', true);
       try {
         const result = await this.callCloud('saveRateRule', {
@@ -900,7 +909,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.reloadRuleListAfterSave(result.rule || {
           id: result.id || id,
           activityId: this.data.currentActivityId,
@@ -925,6 +934,7 @@ module.exports = Behavior({
     },
 
     async generateRuleCategories() {
+      if (!canChangeRule(this, 'create')) return;
       if (!this.data.currentActivityId) {
         wx.showToast({
           title: localeCopy.copy_4e36c10a9e,
@@ -932,13 +942,13 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('generateRules', true);
       try {
         const result = await this.callCloud('generateRateTargetRules', {
           activityId: this.data.currentActivityId
         });
-  
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_9662ceba48,
@@ -946,7 +956,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.reloadRuleListWithRetry(result.ruleCount || 0);
         wx.showToast({
           title: result.ruleCount ? localeCopy.copy_7ca6a5ec8a : localeCopy.copy_7ef5d3f1ee,
@@ -963,6 +973,7 @@ module.exports = Behavior({
     },
 
     async generateRuleCategoriesSafe() {
+      if (!canChangeRule(this, 'create')) return;
       if (!this.data.currentActivityId) {
         wx.showToast({
           title: localeCopy.copy_4e36c10a9e,
@@ -970,14 +981,14 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('generateRules', true);
       let result = null;
       try {
         result = await this.callCloud('generateRateTargetRules', {
           activityId: this.data.currentActivityId
         });
-  
+
         if (!result || result.status !== 'success') {
           wx.showToast({
             title: (result && result.message) || localeCopy.copy_9662ceba48,
@@ -985,7 +996,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         for (const delay of [0, 200, 500]) {
           if (delay > 0) {
             await this.wait(delay);
@@ -998,7 +1009,7 @@ module.exports = Behavior({
             break;
           } catch (refreshError) {}
         }
-  
+
         wx.showToast({
           title: localeCopy.copy_7ca6a5ec8a,
           icon: 'success'
@@ -1012,7 +1023,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         wx.showToast({
           title: localeCopy.copy_9662ceba48,
           icon: 'none'
@@ -1023,6 +1034,7 @@ module.exports = Behavior({
     },
 
     async generateRuleCategoriesFinal() {
+      if (!canChangeRule(this, 'create')) return;
       if (!this.data.currentActivityId) {
         wx.showToast({
           title: localeCopy.copy_4e36c10a9e,
@@ -1030,7 +1042,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('generateRules', true);
       wx.showLoading({ title: localeCopy.copy_bb6f1ef281, mask: true });
       let result = null;
@@ -1047,7 +1059,7 @@ module.exports = Behavior({
         this.setLoading('generateRules', false);
         return;
       }
-  
+
       if (!result || result.status !== 'success') {
         wx.hideLoading();
         wx.showToast({
@@ -1057,12 +1069,12 @@ module.exports = Behavior({
         this.setLoading('generateRules', false);
         return;
       }
-  
+
       for (const delay of [0, 200, 500]) {
         if (delay > 0) {
           await this.wait(delay);
         }
-  
+
         try {
           const listResult = await this.callCloud('listRateRules', {
             activityId: this.data.currentActivityId
@@ -1071,7 +1083,7 @@ module.exports = Behavior({
           break;
         } catch (refreshError) {}
       }
-  
+
       wx.hideLoading();
       this.setLoading('generateRules', false);
       wx.showToast({
@@ -1082,6 +1094,7 @@ module.exports = Behavior({
     },
 
     async saveRule() {
+      if (!canChangeRule(this, this.data.ruleForm.id ? 'update' : 'create')) return;
       const { id, scorerDepartmentId, scorerDepartment, scorerIdentityId, scorerIdentity, clauses } = this.data.ruleForm;
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
       if (!this.data.currentActivityId || !currentActivity) {
@@ -1098,7 +1111,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveRule', true);
       try {
         const result = await this.callCloud('saveRateRule', {
@@ -1117,7 +1130,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.setData({ ruleForm: emptyRuleForm() });
         await this.loadRuleList();
         wx.showToast({
@@ -1135,12 +1148,14 @@ module.exports = Behavior({
     },
 
     deleteRule(e) {
+      if (!canChangeRule(this, 'delete')) return;
       const { id } = e.currentTarget.dataset;
+      const request = orgSession.beginRequest(this, 'deleteRuleConfirmation');
       wx.showModal({
         title: localeCopy.copy_492761e445,
         content: localeCopy.copy_06219d4706,
         success: async (res) => {
-          if (!res.confirm) {
+          if (!res.confirm || !orgSession.isRequestCurrent(this, request) || !canChangeRule(this, 'delete')) {
             return;
           }
           try {
@@ -1161,6 +1176,7 @@ module.exports = Behavior({
     },
 
     async generateDefaultRules() {
+      if (!canChangeRule(this, 'create')) return;
       if (!this.data.currentActivityId) {
         wx.showToast({
           title: localeCopy.copy_4e36c10a9e,
@@ -1168,7 +1184,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('generateRules', true);
       try {
         const result = await this.callCloud('generateRateTargetRules', {

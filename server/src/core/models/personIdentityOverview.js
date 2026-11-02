@@ -71,7 +71,8 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
       `SELECT ma.id, ma.membership_id, ma.org_id, ma.assignment_kind, ma.title,
               om.status AS membership_status,
               ma.department_id, ma.identity_id, ma.work_group_id,
-              d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
+              d.name AS department_name, i.name AS identity_name, w.name AS work_group_name,
+              n.name AS assignment_nature_name
          FROM organization_memberships om
          JOIN membership_assignments ma
           ON ma.membership_id = om.id AND ma.org_id = om.org_id
@@ -81,6 +82,8 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
          LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
          LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
          LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id
+         LEFT JOIN assignment_natures n ON n.id = ma.assignment_kind COLLATE utf8mb4_unicode_ci
+           AND n.org_id = ma.org_id COLLATE utf8mb4_unicode_ci
         WHERE om.person_id = ? AND om.status IN ('active', 'left') AND om.org_id IN (${orgSql})
         ORDER BY ma.created_at ASC, ma.id ASC`,
       [person.id, ...organizationIds]
@@ -104,10 +107,10 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
   ]);
 
   const editableIds = uniqueIds(editableOrganizationIds);
-  let dictionaries = { departments: [], identities: [], workGroups: [] };
+  let dictionaries = { departments: [], identities: [], workGroups: [], assignmentNatures: [] };
   if (editableIds.length) {
     const editableSql = placeholders(editableIds);
-    const [departments, identities, workGroups] = await Promise.all([
+    const [departments, identities, workGroups, assignmentNatures] = await Promise.all([
       pool.query(
         `SELECT id, org_id, name FROM departments WHERE org_id IN (${editableSql}) ORDER BY name`,
         editableIds
@@ -120,9 +123,11 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
         `SELECT id, org_id, department_id, name FROM work_groups
           WHERE org_id IN (${editableSql}) ORDER BY name`,
         editableIds
-      ).then((result) => result[0])
+      ).then((result) => result[0]),
+      pool.query(`SELECT id, org_id, name, version FROM assignment_natures
+        WHERE org_id IN (${editableSql}) ORDER BY name`, editableIds).then((result) => result[0])
     ]);
-    dictionaries = { departments, identities, workGroups };
+    dictionaries = { departments, identities, workGroups, assignmentNatures };
   }
 
   return {
@@ -169,7 +174,8 @@ async function listGovernanceDirectory(organizationIds, connection = pool) {
               EXISTS (SELECT 1 FROM identity_verification_invites invite WHERE invite.person_id = om.person_id
                 AND invite.org_id = om.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite,
               (SELECT recovery.id FROM account_recovery_requests recovery
-                WHERE recovery.person_id = om.person_id AND recovery.status = 'pending' AND recovery.expires_at > NOW()
+                WHERE recovery.person_id = om.person_id AND recovery.requested_org_id = om.org_id
+                  AND recovery.status = 'pending' AND recovery.expires_at > NOW()
                 ORDER BY recovery.created_at DESC LIMIT 1) AS pending_recovery_id
          FROM organization_memberships om
          JOIN persons p ON p.id = om.person_id AND p.status = 'active'
@@ -185,6 +191,7 @@ async function listGovernanceDirectory(organizationIds, connection = pool) {
               assignment_row.assignment_kind, assignment_row.department_id,
               assignment_row.identity_id, assignment_row.work_group_id,
               membership_row.status AS membership_status,
+              nature_row.name AS assignment_nature_name,
               department_row.name AS department_name,
               identity_row.name AS identity_name,
               work_group_row.name AS work_group_name
@@ -192,6 +199,9 @@ async function listGovernanceDirectory(organizationIds, connection = pool) {
          JOIN organization_memberships membership_row
            ON membership_row.id = assignment_row.membership_id
           AND membership_row.org_id = assignment_row.org_id
+         LEFT JOIN assignment_natures nature_row
+           ON nature_row.id = assignment_row.assignment_kind COLLATE utf8mb4_unicode_ci
+          AND nature_row.org_id = assignment_row.org_id COLLATE utf8mb4_unicode_ci
          LEFT JOIN departments department_row
            ON department_row.id = assignment_row.department_id
           AND department_row.org_id = assignment_row.org_id

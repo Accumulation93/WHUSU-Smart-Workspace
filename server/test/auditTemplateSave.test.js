@@ -17,6 +17,12 @@ const record = name => async (...args) => {
   return args;
 };
 const connection = {
+  async query(sql) {
+    if (sql.includes('SELECT id FROM organizations')) return [[{ id: 'test-org' }]];
+    if (sql.includes('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
+    if (sql.includes('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+    throw new Error('unexpected_query');
+  },
   beginTransaction: record('begin'), commit: record('commit'),
   rollback: record('rollback'), release() { calls.push('release'); }
 };
@@ -44,7 +50,7 @@ const sandbox = {
   require(name) {
     if (mocks[name]) return mocks[name];
     if (name === 'express' || name.includes('/locales/') || name.endsWith('/helpers')
-      || name.endsWith('/auditWorkflowPolicy')) return realRequire(name);
+      || name.endsWith('/auditWorkflowPolicy') || name.endsWith('/auditManagementAuthorization')) return realRequire(name);
     return {};
   }
 };

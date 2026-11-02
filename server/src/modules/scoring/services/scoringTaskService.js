@@ -103,7 +103,7 @@ function targetMatchesClause(target, clause, scorer) {
   return scopeType === 'all_people';
 }
 
-async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actorOverride) {
+async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actorOverride, canCreateTarget) {
   if (!hrRecord || !hrRecord.id || !actorOverride || !safeString(actorOverride.assignmentId)) return null;
   const now = nowOverride || new Date();
   const orgId = await getCurrentOrgId();
@@ -150,6 +150,7 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
   for (const key of keys) {
     for (const target of targetIndex.get(key) || []) {
       if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(target, scorer)) continue;
+      if (canCreateTarget && !canCreateTarget(target)) continue;
       expectedIds.add(target.id);
     }
   }

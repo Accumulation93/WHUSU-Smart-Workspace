@@ -101,6 +101,8 @@ function loadWithMocks(modulePath, mocks) {
   const permissionConnection = {
     async query(sql, params) {
       permissionQueries.push({ sql, params });
+      if (sql.includes('SELECT id FROM organizations')) return [[{ id: 'org-current' }]];
+      if (sql.includes('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
       if (sql.includes('FROM hr_info h')) {
         return [permissionMode === 'grantee_missing' ? [] : [{ id: 'hr-current' }]];
       }

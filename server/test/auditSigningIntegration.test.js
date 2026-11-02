@@ -23,10 +23,12 @@ async function run() {
     await admin.query("GRANT ALL ON `" + database + "`.* TO '" + testUser + "'@'%'");
     await admin.changeUser({ database });
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
+    await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
+      version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id, domain))`);
     // 先模拟升级前结构，再验证新增字段迁移的执行与重复执行。
     await admin.query('ALTER TABLE audit_submission_files DROP COLUMN original_file_path, DROP COLUMN original_file_hash, DROP COLUMN original_file_size');
     await admin.query('ALTER TABLE audit_submissions DROP COLUMN description');
-    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql', '20261018010000_audit_drop_resubmit_mode.sql']) {
+    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql', '20261018010000_audit_drop_resubmit_mode.sql', '20261031160000_unified_authorization.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', migration), 'utf8'); await admin.query(sql); await admin.query(sql);
     }
     // 生产绝对时间字段已由 UTC 迁移升级为毫秒；隔离初始库补齐同一事实。
@@ -108,7 +110,8 @@ async function run() {
     assert.notEqual((await post('approveStep', payload, { 'X-Test-Assignment': 'assignment-b' })).status, 'success', '同一发起人的其他岗位不得处理本人步骤');
     assert.equal((await admin.query("SELECT status FROM audit_submission_steps WHERE id='step-2'"))[0][0].status, 'pending');
     const invalid = JSON.parse(JSON.stringify(payload)); invalid.signatures[0].widthRatio = 2;
-    assert.equal((await post('approveStep', invalid)).status, 'approval_material_invalid');
+    const invalidResponse = await post('approveStep', invalid);
+    assert.equal(invalidResponse.status, 'approval_material_invalid', JSON.stringify(invalidResponse));
     assert.equal((await admin.query("SELECT status FROM audit_submission_steps WHERE id='step-2'"))[0][0].status, 'pending');
     assert.equal((await admin.query('SELECT COUNT(*) AS n FROM audit_submission_signatures'))[0][0].n, 0);
     await admin.query("DELETE FROM stamp_assignment_grants WHERE id='grant-a'");

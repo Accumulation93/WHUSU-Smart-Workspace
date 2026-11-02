@@ -12,10 +12,13 @@ async function getBySubmitter(hrId) {
   return rows;
 }
 
-async function getAll(filters = {}) {
+async function getAll(filters = {}, connection = pool, activeSession, options = {}) {
   const orgId = await getCurrentOrgId();
-  let sql = 'SELECT * FROM audit_submissions WHERE org_id = ?';
-  const params = [orgId];
+  const scope = activeSession ? activeSession.queryScope({ resourceType: 'audit.submissions', organization: 's.org_id', id: 's.id' }, 'audit.submissions.read',
+    { businessGranted: options.ownAssignment === true && Boolean(filters.submittedBy && filters.submittedAssignmentId) })
+    : { sql: 's.org_id=?', params: [orgId] };
+  let sql = 'SELECT s.* FROM audit_submissions s WHERE s.org_id=? AND (' + scope.sql + ')';
+  const params = [orgId, ...scope.params];
 
   if (filters.status) {
     sql += ' AND status = ?';
@@ -51,17 +54,123 @@ async function getAll(filters = {}) {
     params.push(filters.offset);
   }
 
-  const [rows] = await pool.query(sql, params);
+  const [rows] = await connection.query(sql, params);
   return rows;
 }
 
-async function getById(id) {
+async function getById(id, connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     'SELECT * FROM audit_submissions WHERE id = ? AND org_id = ?',
     [id, orgId]
   );
   return rows[0] || null;
+}
+
+async function ownReadSession(connection, organizationId, reference) {
+  let activeSession = null;
+  if (reference) {
+    const { createAuthorizationSession } = require('../../../core/services/authorizationSession');
+    activeSession = await createAuthorizationSession(connection, reference, { lock: true });
+    if (activeSession.mode !== 'enforced' && !activeSession.check({ capability: 'audit.submissions.read',
+      resource: { id: organizationId, type: 'audit.submissions', organizationId },
+      businessAllowed: true, legacyAllowed: true }).allowed) {
+      throw require('../../../core/services/authorizationError').authorizationError('authorization_forbidden');
+    }
+  } else {
+    await require('../../../core/models/authorizationBusinessRoute').requireLegacyWrite(connection, organizationId);
+  }
+  return activeSession?.mode === 'enforced' ? activeSession : null;
+}
+
+async function getOwnList(filters, reference) {
+  const organizationId = await getCurrentOrgId();
+  return pool.withTransaction(async connection => {
+    const activeSession = await ownReadSession(connection, organizationId, reference);
+    const submissions = await getAll(filters, connection, activeSession, { ownAssignment: true });
+    const cursorMap = {};
+    if (submissions.length) {
+      const [cursors] = await connection.query(
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE org_id=? AND hr_id=? AND submission_id IN (?)',
+        [organizationId, filters.submittedBy, submissions.map(item => item.id)]);
+      for (const cursor of cursors) cursorMap[cursor.submission_id] = cursor;
+    }
+    return { submissions, cursorMap };
+  });
+}
+
+async function getOwnHistory(assignmentId, limit, offset, reference) {
+  const organizationId = await getCurrentOrgId();
+  const { assignmentSqlExpression } = require('../services/auditHistoryScope');
+  const historyAssignmentSql = assignmentSqlExpression('e', 'handled_step');
+  return pool.withTransaction(async connection => {
+    const activeSession = await ownReadSession(connection, organizationId, reference);
+    const scope = activeSession ? activeSession.queryScope({ resourceType: 'audit.submissions', organization: 's.org_id', id: 's.id' },
+      'audit.submissions.read', { businessGranted: true }) : { sql: '1=1', params: [] };
+    const [rows] = await connection.query(`SELECT s.*, MAX(e.created_at) AS my_last_action_at
+      FROM audit_submissions s JOIN audit_events e ON s.id=e.submission_id
+      LEFT JOIN audit_submission_steps handled_step ON handled_step.submission_id=e.submission_id
+        AND handled_step.sort_order=e.step_index AND handled_step.round=COALESCE(e.round,1) AND handled_step.org_id=e.org_id
+      WHERE ${historyAssignmentSql}=? AND s.org_id=? AND e.org_id=? AND e.event_type IN ('approve','reject')
+        AND (${scope.sql}) GROUP BY s.id ORDER BY my_last_action_at DESC LIMIT ? OFFSET ?`,
+    [assignmentId, organizationId, organizationId, ...scope.params, limit, offset]);
+    if (!rows.length) return { rows, mySteps: [] };
+    const [mySteps] = await connection.query(`SELECT e.submission_id,e.step_index AS sort_order,
+      e.event_type,e.created_at AS processed_at,e.comment,e.operator_person_id,e.operator_assignment_id,e.operator_context_snapshot
+      FROM audit_events e LEFT JOIN audit_submission_steps handled_step ON handled_step.submission_id=e.submission_id
+        AND handled_step.sort_order=e.step_index AND handled_step.round=COALESCE(e.round,1) AND handled_step.org_id=e.org_id
+      WHERE e.submission_id IN (?) AND ${historyAssignmentSql}=? AND e.org_id=? AND e.event_type IN ('approve','reject')
+      ORDER BY e.created_at DESC`, [rows.map(row => row.id), assignmentId, organizationId]);
+    return { rows, mySteps };
+  });
+}
+
+function ownCursorScope(organizationId, hrId, assignmentId, activeSession) {
+  if (!hrId || !assignmentId) {
+    throw require('../../../core/services/authorizationError').authorizationError('authorization_forbidden');
+  }
+  const scope = activeSession ? activeSession.queryScope({ resourceType: 'audit.submissions', organization: 's.org_id', id: 's.id' },
+    'audit.submissions.read', { businessGranted: true }) : { sql: '1=1', params: [] };
+  return {
+    sql: `s.org_id=? AND s.submitted_by=? AND COALESCE(NULLIF(s.submitted_assignment_id,''),
+      CASE WHEN JSON_VALID(s.submitted_context_snapshot) THEN
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.submitted_context_snapshot,'$.assignmentId')),'') ELSE NULL END)=? AND (${scope.sql})`,
+    params: [organizationId, hrId, assignmentId, ...scope.params]
+  };
+}
+
+async function countOwnUnread(hrId, assignmentId, reference) {
+  const organizationId = await getCurrentOrgId();
+  return pool.withTransaction(async connection => {
+    const activeSession = await ownReadSession(connection, organizationId, reference);
+    const scope = ownCursorScope(organizationId, hrId, assignmentId, activeSession);
+    const [rows] = await connection.query(`SELECT COUNT(*) AS unread_count FROM audit_submissions s
+      LEFT JOIN audit_read_cursors c ON c.submission_id=s.id AND c.org_id=s.org_id AND c.hr_id=?
+      WHERE ${scope.sql} AND (c.submission_id IS NULL OR NOT(c.last_read_status <=> s.status)
+        OR NOT(c.last_read_step_index <=> s.current_step_index))`, [hrId, ...scope.params]);
+    return Number(rows[0].unread_count);
+  });
+}
+
+async function markOwnRead(hrId, assignmentId, reference, submissionId = null) {
+  const organizationId = await getCurrentOrgId();
+  return pool.withTransaction(async connection => {
+    const activeSession = await ownReadSession(connection, organizationId, reference);
+    const scope = ownCursorScope(organizationId, hrId, assignmentId, activeSession);
+    if (submissionId) {
+      scope.sql += ' AND s.id=?';
+      scope.params.push(submissionId);
+      const [rows] = await connection.query(`SELECT s.id FROM audit_submissions s WHERE s.org_id=? AND (${scope.sql}) FOR UPDATE`,
+        [organizationId, ...scope.params]);
+      if (!rows.length) throw require('../../../core/services/authorizationError').authorizationError('authorization_forbidden');
+    }
+    // 在同一事务中读取已授权申请的状态并写入游标，不分页、不逐条往返数据库。
+    await connection.query(`INSERT INTO audit_read_cursors
+      (hr_id,submission_id,org_id,last_read_status,last_read_step_index,read_at)
+      SELECT ?,s.id,s.org_id,s.status,s.current_step_index,NOW() FROM audit_submissions s WHERE ${scope.sql}
+      ON DUPLICATE KEY UPDATE last_read_status=VALUES(last_read_status),
+        last_read_step_index=VALUES(last_read_step_index),read_at=VALUES(read_at)`, [hrId, ...scope.params]);
+  });
 }
 
 async function getByIdForUpdate(id, conn) {
@@ -215,4 +324,4 @@ async function remove(id) {
   await pool.query('DELETE FROM audit_submissions WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getBySubmitter, getAll, getById, getByIdForUpdate, getByNumber, generateSubmissionNumber, create, update, remove };
+module.exports = { getBySubmitter, getAll, getOwnList, getOwnHistory, countOwnUnread, markOwnRead, getById, getByIdForUpdate, getByNumber, generateSubmissionNumber, create, update, remove };

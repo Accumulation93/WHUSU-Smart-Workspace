@@ -4,8 +4,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 const venuePagesRoot = path.resolve(__dirname, '..');
-const manageJs = fs.readFileSync(path.join(__dirname, 'venueManage.js'), 'utf8');
-const manageWxml = fs.readFileSync(path.join(__dirname, 'venueManage.wxml'), 'utf8');
+const manageJs = fs.readFileSync(path.join(__dirname, 'venueManagementBehavior.js'), 'utf8');
+const manageWxml = fs.readFileSync(path.join(__dirname, 'venueManagementContent.wxml'), 'utf8');
 const bookingJs = fs.readFileSync(path.join(venuePagesRoot, 'venueBooking', 'venueBooking.js'), 'utf8');
 const pendingJs = fs.readFileSync(path.join(venuePagesRoot, 'pendingVenueApprovals', 'pendingVenueApprovals.js'), 'utf8');
 

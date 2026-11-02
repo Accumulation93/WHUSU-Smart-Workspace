@@ -307,7 +307,7 @@ async function loadPersonImpact(legacyHrId, organizationId, connection = pool, l
   return { person, memberships };
 }
 
-async function previewCorrection(data) {
+async function previewCorrection(data, actor) {
   if (!safeString(data.legacyHrId) || !safeString(data.organizationId)
     || !safeString(data.name) || !normalizeStudentId(data.studentId)) {
     throw new unifiedIdentityModel.IdentityError('invalid_params', personnelCopy.missingMemberOrOrganization, 400);
@@ -328,6 +328,7 @@ async function previewCorrection(data) {
   const conflictMemberships = conflicts[0]
     ? await listPersonMembershipImpact(conflicts[0].id)
     : [];
+  if (actor && actor.authorizeGovernance) await pool.withTransaction(connection => actor.authorizeGovernance(connection, { personId: impact.person.id }));
   return {
     personId: safeString(impact.person.id),
     current: {
@@ -368,8 +369,11 @@ async function applyCorrection(data, actor) {
     throw new unifiedIdentityModel.IdentityError('invalid_params', personnelCopy.missingMemberOrOrganization, 400);
   }
   return pool.withTransaction(async (connection) => {
+    if (actor && actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor && actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const impact = await loadPersonImpact(data.legacyHrId, data.organizationId, connection, true);
     if (!impact) throw new unifiedIdentityModel.IdentityError('person_not_found', personnelCopy.formerMemberNotFound, 404);
+    if (actor && actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: impact.person.id });
     if (safeString(data.version) !== versionOf(impact.person.updated_at)) {
       throw new unifiedIdentityModel.IdentityError('person_version_conflict', personnelCopy.personCorrectionRequired, 409);
     }
@@ -436,6 +440,11 @@ async function mergePersons(data, actor) {
     throw new unifiedIdentityModel.IdentityError('invalid_params', personnelCopy.personCorrectionConflict, 400);
   }
   return pool.withTransaction(async (connection) => {
+    if (actor && actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor && actor.authorizeGovernance) {
+      await actor.authorizeGovernance(connection, { personId: sourcePersonId });
+      await actor.authorizeGovernance(connection, { personId: targetPersonId });
+    }
     const ids = [sourcePersonId, targetPersonId].sort();
     const [people] = await connection.query(
       `SELECT id, name, student_id, normalized_student_id, status, merged_into_person_id, updated_at

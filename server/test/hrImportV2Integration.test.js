@@ -28,6 +28,9 @@ async function main() {
     const permissions = ['hr.import', 'hr.people', 'hr.departments', 'hr.identities', 'hr.work_groups'];
     const authorize = async () => ({ effective: { keys: permissions } });
     await admin.query("INSERT INTO organizations (id,name) VALUES ('org-test','隔离测试组织')");
+    await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL,
+      PRIMARY KEY (org_id, domain))`);
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
     await admin.query("INSERT INTO departments (id,name,org_id) VALUES ('d1','部门甲','org-test')");
     await admin.query("INSERT INTO identities (id,name,org_id) VALUES ('i1','成员','org-test')");
     await admin.query("INSERT INTO work_groups (id,name,department_id,org_id) VALUES ('g1','组甲','d1','org-test')");
@@ -315,6 +318,26 @@ async function main() {
     await deletion;
     assert.equal((await admin.query('SELECT id FROM hr_import_previews WHERE id=?', [completedPreview.previewId]))[0].length, 0);
     console.log('PASS 并发预览与删除共用自然人屏障，提交后无残留计划');
+    await admin.query("INSERT INTO assignment_natures (id,org_id,name) VALUES ('college','org-test','学院学生会任职')");
+    const customNatureInput = { schemaVersion: 2, headers: ['姓名', '学号', '岗位性质', '部门', '身份类别'],
+      basicMapping: { name: 0, studentId: 1, nature: 2, department: 3, identity: 4 },
+      rows: [['自定义性质成员', 'custom-nature-person', '学院学生会任职', '部门甲', '成员']],
+      decisions: { rows: { 2: { mode: 'new' } } } };
+    const customPreview = await model.preview(customNatureInput, actor, authorize);
+    assert.equal(customPreview.summary.canExecute, true);
+    await model.execute({ previewId: customPreview.previewId, requestId: 'custom_nature_request_1' }, actor, authorize);
+    const customSaved = (await admin.query(`SELECT a.assignment_kind FROM membership_assignments a
+      JOIN organization_memberships m ON m.id=a.membership_id JOIN persons p ON p.id=m.person_id
+      WHERE m.org_id='org-test' AND p.normalized_student_id='custom-nature-person'`))[0];
+    assert.deepEqual(customSaved.map(row => row.assignment_kind), ['college']);
+    const customExport = await model.exportTable({}, actor, authorize);
+    assert.equal(customExport.rows.find(row => row[1] === 'custom-nature-person')[2], '学院学生会任职');
+    assert((await model.metadata(actor, authorize)).natures.some(item => item.id === 'college'));
+    const staleNaturePreview = await model.preview(customNatureInput, actor, authorize);
+    await admin.query("UPDATE assignment_natures SET name='学院岗位' WHERE org_id='org-test' AND id='college'");
+    await assert.rejects(model.execute({ previewId: staleNaturePreview.previewId, requestId: 'custom_nature_request_2' }, actor, authorize),
+      error => error.code === 'import_stale');
+    console.log('PASS 自定义岗位性质导入保存、导出名称回读及字典变化使旧预览失效');
     const many = Array.from({ length: 5000 }, (_, index) => 'scale-' + index);
     let queryCount = 0;
     await model.loadContext({ query: async (...args) => { queryCount += 1; return pool.query(...args); } }, actor.organizationId, many, permissions, false);

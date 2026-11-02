@@ -8,7 +8,7 @@
       <div class="field search-field"><UiIcon name="search" /><input v-model="query" class="field-input" :placeholder="copy.search" :aria-label="copy.search" /></div>
       <div class="calendar-filters"><select v-model="source" class="field-input" :aria-label="copy.source"><option value="">{{ copy.allSources }}</option><option v-for="value in ['manual','venue_booking','venue_activity']" :key="value" :value="value">{{ copy[value] }}</option></select><label v-if="metadata.permissions?.manage" class="row"><input v-model="managed" type="checkbox" />{{ copy.manage }}</label></div>
     </section>
-    <CalendarRules v-if="rulesVisible" />
+    <CalendarRules v-if="metadata.permissions?.rules && (rulesVisible || route.query.copyKind === 'calendar.rules')" />
     <AppLoading v-if="loading || busy" :text="busy ? copy.saving : copy.loading" /><div v-if="notice" class="notice-line" role="alert">{{ notice }}<button class="btn btn-secondary" @click="load">{{ copy.retry }}</button></div>
     <section v-if="mode==='month'" class="card calendar-grid" :aria-label="copy.month">
       <span v-for="weekday in copy.weekdays" :key="weekday" class="calendar-weekday muted">{{ weekday }}</span>

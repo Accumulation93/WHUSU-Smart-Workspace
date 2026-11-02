@@ -62,6 +62,13 @@ const connection = {
   }
 };
 const context = {
+  req: {},
+  participationAuthorization: { async checkTarget(_req, actualConnection, org, target, action) {
+    assert.strictEqual(actualConnection, connection);
+    assert.strictEqual(org, 'org-a');
+    assert.strictEqual(target.assignment_id, 'assignment-b');
+    assert.strictEqual(action, 'create');
+  } },
   require() {
     return {
       stableResourceId() { return 'resource-a'; },

@@ -12,9 +12,23 @@ const db = { async query(sql, values = []) {
   assert(!text.includes('participant_granularity'), '运行 SQL 不得引用已退役列');
   assert.strictEqual((text.match(/\?/g) || []).length, values.length);
   queries.push(text);
+  if (text.startsWith('SELECT id FROM organizations WHERE id=? FOR UPDATE')) return [[{ id: values[0] }]];
+  if (text.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+  if (text.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
+  if (text.startsWith('INSERT INTO score_activities(id,org_id')) {
+    const [id, org_id, name, description, start_date, end_date, is_paused, created_by] = values;
+    stored.set(id, { id, org_id, name, description, start_date, end_date, is_current: 0, is_paused, created_by });
+    return [{ affectedRows: 1 }];
+  }
   if (text.startsWith('INSERT INTO score_activities')) {
     const [id, name, description, start_date, end_date, is_current, is_paused, created_by, org_id] = values;
     stored.set(id, { id, name, description, start_date, end_date, is_current, is_paused, created_by, org_id });
+    return [{ affectedRows: 1 }];
+  }
+  if (text.startsWith('UPDATE score_activities SET name=?')) {
+    const row = stored.get(values[values.length - 1]);
+    assert(row && row.org_id === values[values.length - 2]);
+    Object.assign(row, { name: values[0], description: values[1], start_date: values[2], end_date: values[3], is_paused: values[4] });
     return [{ affectedRows: 1 }];
   }
   if (text.startsWith('UPDATE score_activities SET name')) {
@@ -25,11 +39,13 @@ const db = { async query(sql, values = []) {
     return [{ affectedRows: 1 }];
   }
   if (text.startsWith('SELECT id FROM score_activities')) return [[]];
+  if (text.startsWith('SELECT id,is_paused FROM score_activities')) return [[stored.get(values[1])].filter(row => row && row.org_id === values[0])];
   if (text.includes('WHERE name = ?')) return [[]];
   if (text.includes('WHERE id = ?')) return [[stored.get(values[0])].filter(Boolean)];
   if (text.startsWith('SELECT * FROM score_activities')) return [[...stored.values()]];
   throw new Error(text);
 }};
+db.withTransaction = callback => callback(db);
 const mocks = {
   '../../../config/db': db,
   '../../../utils/orgContext': { async getCurrentOrgId() { return 'org-test'; } },

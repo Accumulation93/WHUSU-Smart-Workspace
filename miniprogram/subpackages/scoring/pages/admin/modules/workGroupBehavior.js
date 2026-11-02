@@ -9,19 +9,20 @@ const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPer
 module.exports = Behavior({
   methods: {
     async loadWorkGroupList() {
+      const management = this.data.authorizationEnforced && this.data.activeTab === 'workGroups';
       const request = orgSession.beginRequest(this, 'workGroupList');
       this.setLoading('workGroups', true);
       try {
-        const result = await this.callCloud('listWorkGroups');
+        const result = management ? await this.callCloud('listAuthorizedDictionary', { kind: 'work_group' }) : await this.callCloud('listWorkGroups');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           const failure = new Error('work_group_list_failed');
           failure.userMessage = result.message || personnelCopy.dictionaryLoadFailed.workGroups.description;
           throw failure;
         }
-        const workGroups = (result.workGroups || []).map((item) => {
+        const workGroups = (management ? result.list || [] : result.workGroups || []).map((item) => {
           const department = this.data.departmentList.find(d => (
-            d.id === item.departmentId || d.code === item.departmentCode
+            (item.departmentId && d.id === item.departmentId) || (item.departmentCode && d.code === item.departmentCode)
           ));
           return {
             ...item,
@@ -30,7 +31,7 @@ module.exports = Behavior({
           };
         });
         this.setData({
-          workGroupList: workGroups
+          [management ? 'managedWorkGroupList' : 'workGroupList']: workGroups
         });
         this.setDictionaryLoadSuccess('workGroups');
       } catch (error) {
@@ -66,7 +67,7 @@ module.exports = Behavior({
       if (!department) {
         return;
       }
-  
+
       this.setData({
         workGroupForm: {
           ...this.data.workGroupForm,
@@ -86,11 +87,12 @@ module.exports = Behavior({
 
     editWorkGroup(e) {
       const index = Number(e.currentTarget.dataset.index);
-      const item = this.data.workGroupList[index];
+      const item = (this.data.authorizationEnforced ? this.data.managedWorkGroupList || [] : this.data.workGroupList)[index];
+      if (this.data.authorizationEnforced && (!item || !item.canUpdate)) return;
       if (!item) {
         return;
       }
-  
+
       this.setData({
         workGroupForm: {
           id: item.id,
@@ -113,7 +115,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveWorkGroup', true);
       try {
         const result = await this.callCloud('saveWorkGroup', {
@@ -123,7 +125,7 @@ module.exports = Behavior({
           departmentCode: form.departmentCode,
           description: form.description
         });
-  
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,
@@ -131,7 +133,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.setData({ workGroupForm: emptyWorkGroupForm() });
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
@@ -154,8 +156,9 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
-      const target = (this.data.workGroupList || []).find((item) => String(item.id) === String(id));
-  
+      const target = ((this.data.authorizationEnforced ? this.data.managedWorkGroupList : this.data.workGroupList) || []).find((item) => String(item.id) === String(id));
+      if (this.data.authorizationEnforced && (!target || !target.canDelete)) return;
+
       const confirm = await new Promise((resolve) => {
         wx.showModal({
           title: localeCopy.copy_2bc5d4cf83,
@@ -166,11 +169,11 @@ module.exports = Behavior({
           fail: () => resolve(false)
         });
       });
-  
+
       if (!confirm) {
         return;
       }
-  
+
       try {
         const result = await this.callCloud('deleteWorkGroup', { id });
         if (result.status !== 'success') {
@@ -184,7 +187,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
         wx.showToast({
@@ -202,12 +205,12 @@ module.exports = Behavior({
     updateHrFormOptions() {
       const departmentOptions = this.data.departmentList.map(item => item.name);
       const identityOptions = this.data.identityList.map(item => item.name);
-      
+
       this.setData({
         departmentOptions,
         identityOptions
       });
-      
+
       this.updateWorkGroupOptions();
     },
 
@@ -217,18 +220,18 @@ module.exports = Behavior({
         this.setData({ workGroupOptions: [localeCopy.copy_54e953f1bb] });
         return;
       }
-  
+
       const departmentObj = this.data.departmentList.find(d => d.id === departmentId || d.name === department);
       if (!departmentObj) {
         this.setData({ workGroupOptions: [localeCopy.copy_54e953f1bb] });
         return;
       }
-  
+
       const deptIdStr = String(departmentObj.id);
       const workGroupOptions = [localeCopy.copy_54e953f1bb, ...this.data.workGroupList
         .filter(wg => String(wg.departmentId) === deptIdStr)
         .map(wg => wg.name)];
-  
+
       this.setData({ workGroupOptions });
     },
 
@@ -236,7 +239,7 @@ module.exports = Behavior({
       const index = Number(e.detail.value);
       const department = this.data.departmentOptions[index];
       const departmentObj = this.data.departmentList[index] || {};
-      
+
       this.setData({
         hrForm: {
           ...this.data.hrForm,
@@ -246,7 +249,7 @@ module.exports = Behavior({
           workGroup: ''
         }
       });
-      
+
       this.updateWorkGroupOptions();
     },
 
@@ -254,7 +257,7 @@ module.exports = Behavior({
       const index = Number(e.detail.value);
       const identity = this.data.identityOptions[index];
       const identityObj = this.data.identityList[index] || {};
-      
+
       this.setData({
         hrForm: {
           ...this.data.hrForm,
@@ -276,13 +279,13 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       const workGroup = this.data.workGroupOptions[index];
       const departmentObj = this.data.departmentList.find(d => d.id === this.data.hrForm.departmentId || d.name === this.data.hrForm.department) || {};
       const deptIdStr = String(departmentObj.id);
       const filteredList = this.data.workGroupList.filter(wg => String(wg.departmentId) === deptIdStr);
       const workGroupObj = filteredList[index - 1] || {};
-  
+
       this.setData({
         hrForm: {
           ...this.data.hrForm,

@@ -7,7 +7,7 @@ function normalizeGranularity(value) {
   return 'assignment';
 }
 
-async function queryParticipants(orgId, selection) {
+async function queryParticipants(orgId, selection, connection = pool) {
   const params = [safeString(orgId)];
   let predicate = '';
   if (selection && selection.assignmentId) { predicate = ' AND ma.id = ?'; params.push(selection.assignmentId); }
@@ -15,7 +15,7 @@ async function queryParticipants(orgId, selection) {
     predicate = ' AND (om.legacy_hr_id = ? OR om.person_id = ?)';
     params.push(selection.legacyId, selection.legacyId);
   }
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT ma.id, ma.id AS assignment_id, ma.membership_id, om.legacy_hr_id,
             om.person_id, p.name, p.student_id,
             ma.assignment_kind, ma.department_id, ma.identity_id, ma.work_group_id,
@@ -36,7 +36,8 @@ async function queryParticipants(orgId, selection) {
   return rows;
 }
 
-function listParticipants(orgId, granularity) {
+function listParticipants(orgId, granularity, connection) {
+  if (connection) return queryParticipants(orgId, null, connection);
   return memo('participants:' + safeString(orgId), () => queryParticipants(orgId));
 }
 

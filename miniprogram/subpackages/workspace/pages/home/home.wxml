@@ -1,4 +1,4 @@
-<page-meta page-style="{{(showUserDesigPopup ? 'overflow: hidden;' : '') + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<page-meta page-style="{{(showUserDesigPopup || managementDialogVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + managementKeyboardHeight + 'px; --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
@@ -14,6 +14,8 @@
       {{item.label}}
     </view>
   </view>
+
+  <admin-workbench id="management-workbench" wx:if="{{hasUser && !isAdminRole && canManageSubApp && activeTab === 'management'}}" sub-app="{{managementSubApp}}" binddialogchange="onManagementDialogChange" />
 
   <view class="panel {{activeTab === 'scoring' ? 'panel-active' : ''}}" wx:if="{{isAdminRole || !hasUser || activeTab === 'scoring'}}">
     <view class="card activity-card {{!currentActivity ? 'activity-card-empty' : ''}}">

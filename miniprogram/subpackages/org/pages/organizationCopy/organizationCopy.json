@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "personnel-picker": "/subpackages/org/package-resources/components/personnel-picker/personnel-picker",
+    "ui-navbar": "/components/ui-navbar/ui-navbar"
+  }
+}

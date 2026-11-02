@@ -19,7 +19,15 @@ function loadRoute(relativePath, dependencyMocks) {
     },
     '../../../config/db': {
       async query() { return [[]]; },
-      async withTransaction(callback) { return callback({}); }
+      async withTransaction(callback) {
+        return callback({ async query(sql) {
+          if (sql.startsWith('SELECT id FROM organizations WHERE id=? FOR UPDATE')) return [[{ id: 'org-current' }]];
+          if (sql.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+          if (sql.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
+          if (sql.includes('FROM score_questions q')) return [[]];
+          throw new Error('unexpected_fixture_query:' + sql);
+        } });
+      }
     },
     '../../../utils/orgContext': {
       async getCurrentOrgId() { return 'org-current'; }
@@ -149,9 +157,6 @@ async function run() {
       authorizedStatus: 'success',
       mocks: {
         '../models/scoreTemplate': emptyListModel,
-        '../../../config/db': {
-          async query() { return [[]]; }
-        },
         '../../../utils/orgContext': {
           async getCurrentOrgId() { return 'org-current'; }
         }
@@ -163,7 +168,13 @@ async function run() {
       body: {},
       authorizedStatus: 'success',
       mocks: {
-        '../models/rateRule': emptyListModel,
+        '../models/scoreRuleAuthorization': {
+          async list(organizationId, reference) {
+            assert.strictEqual(organizationId, 'org-current');
+            assert.strictEqual(reference, undefined);
+            return [];
+          }
+        },
         '../../../core/models/department': emptyListModel,
         '../../../core/models/identity': emptyListModel,
         '../models/scoreTemplate': emptyListModel,

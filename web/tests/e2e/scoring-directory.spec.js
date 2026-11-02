@@ -64,3 +64,25 @@ test('paused activity is a business state with its name and no misleading retry 
   await expect(page.getByText(homeCopy.text.noTargets)).toHaveCount(0);
   await expect(page.locator('.targets-card button')).toHaveCount(0);
 });
+
+test('retained directory does not reload management permissions while a scoring form is active', async ({ page }) => {
+  await setup(page);
+  let accessReads = 0;
+  await page.route('**/api/getCurrentAuthorizationAccess', route => {
+    accessReads++;
+    return route.fulfill({ json: { status: 'success', mode: 'shadow', revision: 1,
+      organizationId: 'org-1', contextId: 'ctx-assignment', role: 'user', capabilities: [], grantedCapabilities: [] } });
+  });
+  await page.goto('/web/scoring/tasks');
+  await expect.poll(() => accessReads).toBe(1);
+  await page.locator('.target-card').filter({ hasText: 'Member B' }).click();
+  await expect(page).toHaveURL(/\/scoring\/fill\/a3$/);
+  await page.evaluate(async () => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  expect(accessReads).toBe(1);
+  await page.locator('.shell-back').click();
+  await expect(page).toHaveURL(/\/scoring\/tasks$/);
+  await expect.poll(() => accessReads).toBe(2);
+});

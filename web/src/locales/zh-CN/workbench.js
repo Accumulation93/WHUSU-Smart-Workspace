@@ -1,8 +1,8 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminPersonnel from './shared/adminPersonnel.js';
+import src_authorization from './shared/authorization.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
-import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
 import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -16,8 +16,8 @@ export default Object.freeze({
   tabScoring: src_admin.copy_33a502217d,
   tabHr: src_accountSecurity.copy_166a418985,
   tabAudit: src_myApprovalHistory.copy_56d416c578,
-  currentOrgLabel: src_identitySwitch.copy_e74c96dd07,
-  currentRoleLabel: src_mySubmissions.currentWorkContext,
+  currentOrgLabel: src_authorization.currentOrganization,
+  currentRoleLabel: src_authorization.ownRole,
   pendingLabel: src_admin.copy_a7cee696a3,
   unreadLabel: src_web.workbench.unreadLabel,
   sectionAccount: src_web.workbench.sectionAccount,

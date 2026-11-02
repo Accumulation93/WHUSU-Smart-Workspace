@@ -609,11 +609,11 @@ async function run() {
     '历史详情不得回查当前步骤定义');
 
   const venueManageSource = fs.readFileSync(
-    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManage.js'),
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManagementBehavior.js'),
     'utf8'
   );
   const venueManageTemplate = fs.readFileSync(
-    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManage.wxml'),
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/venueManage/venueManagementContent.wxml'),
     'utf8'
   );
   const venueBookingSource = fs.readFileSync(

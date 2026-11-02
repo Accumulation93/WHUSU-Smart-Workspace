@@ -8,11 +8,12 @@ const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPer
 
 module.exports = Behavior({
   methods: {
-    async loadDepartmentList() {
+    async loadDepartmentList(candidateOnly) {
+      const management = this.data.authorizationEnforced && this.data.activeTab === 'departments' && candidateOnly !== true;
       const request = orgSession.beginRequest(this, 'departmentList');
       this.setLoading('departments', true);
       try {
-        const result = await this.callCloud('listDepartments');
+        const result = management ? await this.callCloud('listAuthorizedDictionary', { kind: 'department' }) : await this.callCloud('listDepartments');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           const failure = new Error('department_list_failed');
@@ -20,7 +21,7 @@ module.exports = Behavior({
           throw failure;
         }
         this.setData({
-          departmentList: result.departments || []
+          [management ? 'managedDepartmentList' : 'departmentList']: management ? result.list || [] : result.departments || []
         });
         this.setDictionaryLoadSuccess('departments');
       } catch (error) {
@@ -59,11 +60,12 @@ module.exports = Behavior({
 
     editDepartment(e) {
       const index = Number(e.currentTarget.dataset.index);
-      const item = this.data.departmentList[index];
+      const item = (this.data.authorizationEnforced ? this.data.managedDepartmentList || [] : this.data.departmentList)[index];
+      if (this.data.authorizationEnforced && (!item || !item.canUpdate)) return;
       if (!item) {
         return;
       }
-  
+
       this.setData({
         departmentForm: {
           id: item.id,
@@ -83,7 +85,7 @@ module.exports = Behavior({
         });
         return;
       }
-  
+
       this.setLoading('saveDepartment', true);
       try {
         const result = await this.callCloud('saveDepartment', {
@@ -91,7 +93,7 @@ module.exports = Behavior({
           name: form.name,
           description: form.description
         });
-  
+
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,
@@ -99,7 +101,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.setData({ departmentForm: emptyDepartmentForm() });
         await this.loadDepartmentList();
         await this.loadWorkGroupList();
@@ -123,8 +125,9 @@ module.exports = Behavior({
       if (!id) {
         return;
       }
-      const target = (this.data.departmentList || []).find((item) => String(item.id) === String(id));
-  
+      const target = ((this.data.authorizationEnforced ? this.data.managedDepartmentList : this.data.departmentList) || []).find((item) => String(item.id) === String(id));
+      if (this.data.authorizationEnforced && (!target || !target.canDelete)) return;
+
       const confirm = await new Promise((resolve) => {
         wx.showModal({
           title: localeCopy.copy_21cc5de126,
@@ -135,11 +138,11 @@ module.exports = Behavior({
           fail: () => resolve(false)
         });
       });
-  
+
       if (!confirm) {
         return;
       }
-  
+
       try {
         const result = await this.callCloud('deleteDepartment', { id });
         if (result.status !== 'success') {
@@ -153,7 +156,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         await this.loadDepartmentList();
         await this.loadWorkGroupList();
         this.updateHrFormOptions();

@@ -13,6 +13,34 @@ try { acorn = require('internal/deps/acorn/acorn/dist/acorn'); } catch (_) {
 }
 const { ROUTE_RULES } = require('../server/src/core/services/adminPermissions');
 const ROOT = path.resolve(__dirname, '../server/src');
+// 新权限入口不依赖旧权限位；逐接口检查统一会话包装和对应事务服务，不能整文件豁免。
+const UNIFIED_RULE_ROUTES = new Map([
+  ['/getCurrentAuthorizationAccess', 'access.current'],
+  ['/listAuthorizedDictionary', 'dictionaries.list'],
+  ['/getEffectiveAuthorization', 'inspection.inspect'],
+  ['/listAssignmentNatures', 'natures.list'], ['/saveAssignmentNature', 'natures.save'],
+  ['/deleteAssignmentNature', 'natures.remove'],
+  ['/getAuthorizationManagement', 'readManagement'], ['/getAuthorizationCandidates', 'readCandidates'],
+  ['/previewAuthorizationRule', 'model.previewRule'],
+  ['/previewAuthorizationRuleDeletion', 'model.previewRuleDeletion'],
+  ['/saveAuthorizationRule', 'model.saveRule'], ['/deleteAuthorizationRules', 'model.deleteRules'],
+  ['/saveAuthorizationScheme', 'model.saveScheme'], ['/publishAuthorizationScheme', 'model.publishScheme'],
+  ['/previewAuthorizationScheme', 'model.previewScheme'], ['/getAuthorizationSchemeVersions', 'model.schemeVersions'],
+  ['/previewAuthorizationDelegation', 'model.previewDelegation'],
+  ['/previewAuthorizationDelegationDeletion', 'model.previewDelegationDeletion'],
+  ['/saveAuthorizationDelegation', 'model.saveDelegation'], ['/deleteAuthorizationDelegation', 'model.deleteDelegation'],
+  ['/shareOrganizationConfiguration', 'configCopy.share'], ['/revokeOrganizationConfigurationShare', 'configCopy.revoke'],
+  ['/listSharedOrganizationConfigurations', 'configCopy.available'], ['/receiveOrganizationConfiguration', 'configCopy.receive'],
+  ['/getOrganizationConfigurationDraft', 'configCopy.detail'], ['/applyOrganizationConfigurationDraft', 'configCopy.apply'],
+  ['/enableOrganizationConfiguration', 'configCopy.enable'],
+  ['/getOrganizationConfigurationWorkspace', 'configCopy.workspace'], ['/getOrganizationConfigurationCandidates', 'configCopy.candidates']
+]);
+function unifiedRouteValid(row, file) {
+  const target = UNIFIED_RULE_ROUTES.get(row.route);
+  if (!target || file !== 'server/src/core/routes/authorization.js' || row.method !== 'post') return false;
+  const callable = name => new RegExp('\\b' + name.replace('.', '\\.') + '\\s*\\(').test(row.body);
+  return callable('referenceFromRequest') && callable('createGuard') && callable(target);
+}
 const EXPLICIT_SHARED_ROUTES = new Set(['/adminLogin', '/activateOrganization', '/admin/listMyOrganizations', '/unbindRole', '/getRateTargets', '/getMyAdminPermissions', '/listPermissionManagedAdmins', '/getAdminPermissionDetail', '/saveAdminPermissions']);
 // 普通端使用通讯录逐人授权；管理端在事务中复核人事读取权限。
 EXPLICIT_SHARED_ROUTES.add('/resolvePersonLinks');
@@ -71,9 +99,9 @@ function inventory(source) {
       if (owner && parameter >= 0) names = calls.filter(call => call.callee.name === owner.id.name).flatMap(call => strings(call.arguments[parameter]));
     }
     const body = handlerSource(node);
-    const admin = /ensureAdmin\s*\(|requireAdmin\b|resolveRequestAdmin\s*\(|requireAdminOrganizationPermission\s*\(|resolvePermissionManager\s*\(|actorFromRequest\s*\(|req\.admin(?:Permissions)?\b/.test(body);
+    const admin = /ensureAdmin\s*\(|requireAdmin\b|resolveRequestAdmin\s*\(|requireAdminOrganizationPermission\s*\(|resolvePermissionManager\s*\(|actorFromRequest\s*\(|createGuard\s*\(|req\.admin(?:Permissions)?\b/.test(body);
     if (!names.length) unresolved.push({ line: node.loc.start.line, admin });
-    names.forEach(route => routes.push({ route, method: node.callee.property.name, line: node.loc.start.line, admin }));
+    names.forEach(route => routes.push({ route, method: node.callee.property.name, line: node.loc.start.line, admin, body }));
   });
   return { routes, unresolved };
 }
@@ -85,6 +113,11 @@ if (process.argv.includes('--self-test')) {
   assert.ok(example.routes.every(row => row.admin));
   const factory = inventory("function handler(){return (req,res)=>actorFromRequest(req);} const forwarded=(req,res)=>handler()(req,res); router.post('/factory', handler()); router.delete('/forward', forwarded);");
   assert.ok(factory.routes.every(row => row.admin));
+  const unified = inventory("function handler(work){return req=>work(req.body,referenceFromRequest(req),createGuard(req));} router.post('/saveAuthorizationRule',handler((body,ref,guard)=>model.saveRule(body,ref.organizationId,guard)));").routes[0];
+  assert.equal(unifiedRouteValid(unified, 'server/src/core/routes/authorization.js'), true);
+  assert.equal(unifiedRouteValid({ ...unified, body: unified.body.replace('createGuard(req)', 'null') }, 'server/src/core/routes/authorization.js'), false);
+  assert.equal(unifiedRouteValid({ ...unified, route: '/newUnregisteredGrant' }, 'server/src/core/routes/authorization.js'), false);
+  assert.equal(unifiedRouteValid(unified, 'server/src/core/routes/other.js'), false);
   console.log('路由数组、多种 HTTP 方法、注册函数及注释排除测试通过');
 }
 const missing = [], unresolved = [];
@@ -94,7 +127,12 @@ for (const file of walk(ROOT)) {
   const relative = path.relative(path.resolve(__dirname, '..'), file).replace(/\\/g, '/');
   total += found.routes.length;
   found.routes.forEach(row => {
-    if (row.admin && !EXPLICIT_SHARED_ROUTES.has(row.route) && !ROUTE_RULES.has(row.route)) missing.push({ ...row, file: relative });
+    const unified = UNIFIED_RULE_ROUTES.has(row.route);
+    if ((unified && !unifiedRouteValid(row, relative))
+      || (!unified && row.admin && !EXPLICIT_SHARED_ROUTES.has(row.route) && !ROUTE_RULES.has(row.route))) {
+      const { body, ...location } = row;
+      missing.push({ ...location, file: relative });
+    }
   });
   found.unresolved.forEach(row => unresolved.push({ ...row, file: relative }));
 }

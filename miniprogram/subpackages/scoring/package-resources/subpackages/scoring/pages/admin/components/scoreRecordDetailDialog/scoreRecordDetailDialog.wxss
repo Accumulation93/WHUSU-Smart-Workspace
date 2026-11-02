@@ -1,0 +1,10 @@
+/* 组件使用 apply-shared，复用管理页与共享弹窗契约的样式。 */
+
+/*
+ * 弹窗的高度、定位与遮罩覆盖一律由 app.wxss 的唯一契约负责，组件不再覆盖几何。
+ * 这里只声明一条业务事实：本弹窗是只读的（没有输入框），键盘高度不该作用于它，
+ * 因此把 --kb-height 置零，避免页面残留值带来位移。
+ */
+.popup-mask.ui-overlay > .popup-card.ui-dialog-shell {
+  --kb-height: 0px;
+}

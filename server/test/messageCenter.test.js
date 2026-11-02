@@ -35,12 +35,16 @@ const organizationModelPath = require.resolve('../src/core/models/organization')
 const calls = [];
 const responses = [];
 const mockPool = {
+  async withTransaction(work) { return work(this); },
   async query(sql, params) {
     calls.push({ sql: String(sql), params });
     if (!responses.length) throw new Error('缺少模拟查询响应');
     return responses.shift();
   }
 };
+const notificationAuthorizationPath = require.resolve('../src/modules/audit/models/notificationAuthorization');
+require.cache[notificationAuthorizationPath] = { id: notificationAuthorizationPath, filename: notificationAuthorizationPath, loaded: true,
+  exports: { prepare: async () => ({ scope: () => ({ sql: '1 = 1', params: [] }), calendarPermissions: {}, expiresAt: Infinity }) } };
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: mockPool };
 require.cache[orgPath] = {
   id: orgPath,

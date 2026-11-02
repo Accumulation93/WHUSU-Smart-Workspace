@@ -7,7 +7,7 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
-
+    <AuthorizedManagementTabs sub-app="hr" :business-label="homeCopy.hr" :blocked="saving">
     <div class="tabs" role="tablist"><button class="tab" :class="{ 'tab-active': hrTab === 'profile' }" :disabled="saving" @click="hrTab = 'profile'">{{ directoryCopy.profile }}</button><button class="tab" :class="{ 'tab-active': hrTab === 'directory' }" :disabled="saving" @click="hrTab = 'directory'">{{ directoryCopy.title }}</button></div>
     <ContactDirectory v-if="hrTab === 'directory'" :initial-key="String(route.query.contactKey || '')" />
     <form v-else class="card stack" @submit.prevent="save">
@@ -51,6 +51,7 @@
       </button>
       </div>
     </form>
+    </AuthorizedManagementTabs>
   </div>
 </template>
 
@@ -58,6 +59,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import AuthorizedManagementTabs from '@/components/AuthorizedManagementTabs.vue';
 import ContactDirectory from '@/components/ContactDirectory.vue';
 import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import HrDateField from '@/components/HrDateField.vue';

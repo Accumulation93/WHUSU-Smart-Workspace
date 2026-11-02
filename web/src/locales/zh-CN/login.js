@@ -1,6 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
-import src_calendar from './shared/calendar.js';
+import src_authorization from './shared/authorization.js';
 import src_common from './shared/common.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
@@ -28,7 +28,7 @@ export default Object.freeze({
   recoveryInvalid: src_login.messages.recoveryInvalid,
   recoveryCode: src_home.text.recoveryCode,
   recoveryPassphrase: src_login.messages.recoveryPassphrase,
-  appName: src_common.brandName,
+  appName: src_authorization.appName,
   organizationName: src_common.organizationName,
   wechatLogin: src_login.view.wechatLogin,
   loginSubtitle: src_login.view.loginSubtitle,
@@ -41,13 +41,13 @@ export default Object.freeze({
   titleRecoveryRotated: src_login.view.titleRecoveryRotated,
   titleRecoveryPending: src_login.view.titleRecoveryPending,
   titleRecovery: src_login.view.titleRecovery,
-  titleClaim: src_login.view.titleClaim,
+  titleClaim: src_authorization.resources["auth.identity"],
   closeWithIcon: src_login.view.closeWithIcon,
   recoveryStartNote: src_login.view.recoveryStartNote,
   claimStartNote: src_login.view.claimStartNote,
   organization: src_login.view.organization,
   chooseOrganization: src_api.copy_c6070950c1,
-  name: src_admin.copy_7a4d5ab30f,
+  name: src_authorization.adminExportColumns["0"],
   namePlaceholder: src_admin.copy_971b628f49,
   studentId: src_adminPermissions.copy_80fba348b7,
   studentIdPlaceholder: src_admin.copy_f4094dd21d,
@@ -81,5 +81,5 @@ export default Object.freeze({
   copyRecoveryCode: src_login.view.copyRecoveryCode,
   finish: src_admin.hrDeletionFinish,
   recoveryPendingNote: src_login.view.recoveryPendingNote,
-  close: src_calendar.close,
+  close: src_authorization.close,
 });

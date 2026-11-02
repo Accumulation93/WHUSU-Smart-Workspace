@@ -39,6 +39,15 @@ async function listUsableByVenueId(venueId, orgIdOverride, conn) {
   return rows;
 }
 
+async function listManagedByVenueId(venueId, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await (conn || pool).query(
+    'SELECT * FROM venue_approval_flows WHERE venue_id = ? AND org_id = ? ORDER BY is_active DESC, created_at, id',
+    [venueId, orgId]
+  );
+  return rows;
+}
+
 async function getById(id, conn, forUpdate) {
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
@@ -94,4 +103,4 @@ async function removeByVenueId(venueId, conn) {
   await db.query('DELETE FROM venue_approval_flows WHERE venue_id = ? AND org_id = ?', [venueId, orgId]);
 }
 
-module.exports = { getByVenueId, listByVenueId, listUsableByVenueId, getById, create, update, remove, removeByVenueId };
+module.exports = { getByVenueId, listByVenueId, listManagedByVenueId, listUsableByVenueId, getById, create, update, remove, removeByVenueId };

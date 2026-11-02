@@ -12,6 +12,12 @@ const todoServicePath = require.resolve('../src/modules/audit/services/todoServi
 
 let pendingProfileReads = 0;
 let allowReview = false;
+// 旧权限待办专项保持 shadow；新授权和撤权使用隔离数据库测试，不在此伪造数据库连接。
+const modePath = require.resolve('../src/core/models/authorizationBusinessRoute');
+require.cache[modePath] = { id: modePath, filename: modePath, loaded: true, exports: { async isEnforced() { return false; } } };
+const authorizationPath = require.resolve('../src/modules/audit/models/todoAuthorization');
+require.cache[authorizationPath] = { id: authorizationPath, filename: authorizationPath, loaded: true,
+  exports: { async filterAuditSteps(rows) { return rows; }, async prepareRelated() { return () => true; } } };
 
 require.cache[messageDataPath] = {
   id: messageDataPath,

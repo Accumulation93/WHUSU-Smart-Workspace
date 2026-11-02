@@ -72,8 +72,13 @@ function hasReset(jsSource, flag) {
     const [objectName, property] = flag.split('.');
     return new RegExp(`${objectName}\\s*:\\s*\\{[^}]*${property}\\s*:\\s*false`, 's').test(jsSource);
   }
-  return new RegExp(`${flag}\\s*:\\s*(false|0|''|\\[\\])`).test(jsSource);
+  return new RegExp(`${flag}\\s*:\\s*(false\\b|null\\b|0\\b|''|\\[\\])`).test(jsSource);
 }
+
+// 条件编辑器和人员选择器用null关闭对象状态；不能将nullish等变量当成关闭值。
+require('node:assert/strict').equal(hasReset('this.setData({ picker: null });', 'picker'), true);
+require('node:assert/strict').equal(hasReset('this.setData({ picker: nullish });', 'picker'), false);
+require('node:assert/strict').equal(hasReset('this.setData({ picker: { id: 1 } });', 'picker'), false);
 
 function dialogFields(source) {
   const fields = [];

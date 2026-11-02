@@ -106,14 +106,14 @@ function loadCommonJs(file, cache) {
 }
 
 /** 把任意嵌套对象压平成「路径 -> 字符串」清单。 */
-function flatten(value, prefix = '', output = []) {
+function flatten(value, prefix = '', output = [], segments = []) {
   if (typeof value === 'string') {
-    output.push({ path: prefix, value });
+    output.push({ path: prefix, value, segments });
     return output;
   }
   if (value && typeof value === 'object') {
     for (const key of Object.keys(value)) {
-      flatten(value[key], prefix ? `${prefix}.${key}` : key, output);
+      flatten(value[key], prefix ? `${prefix}.${key}` : key, output, segments.concat(key));
     }
   }
   return output;
@@ -131,7 +131,7 @@ function sharedIndex() {
     for (const leaf of leaves) {
       if (!leaf.value) continue;
       if (!byValue.has(leaf.value)) byValue.set(leaf.value, []);
-      byValue.get(leaf.value).push({ module: key, path: leaf.path });
+      byValue.get(leaf.value).push({ module: key, path: leaf.path, segments: leaf.segments });
     }
   }
   return { modules, byValue };
@@ -186,7 +186,7 @@ async function main() {
       const hit = preferred[0] || candidates[0];
       if (hit) {
         usedModules.add(hit.module);
-        entries.push({ path: leaf.path, ref: { module: hit.module, path: hit.path } });
+        entries.push({ path: leaf.path, ref: { module: hit.module, path: hit.path, segments: hit.segments } });
         continue;
       }
       // 小程序里确实没有对应说法的网页独有文案，登记在共享语言库的 web.js 分区里。
@@ -234,7 +234,8 @@ async function main() {
     for (const entry of item.entries) {
       const indent = '  '.repeat(entry.path.split('.').length);
       const key = entry.path.split('.').pop();
-      const value = entry.ref ? `${names.get(entry.ref.module)}.${entry.ref.path}` : JSON.stringify(entry.literal);
+      const value = entry.ref ? names.get(entry.ref.module) + (entry.ref.segments || entry.ref.path.split('.'))
+        .map(part => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(part) ? '.' + part : '[' + JSON.stringify(part) + ']').join('') : JSON.stringify(entry.literal);
       lines.push(`${indent}${key}: ${value},`);
     }
 
@@ -258,13 +259,24 @@ function committedDefault(absolute) {
   const start = text.indexOf('Object.freeze(');
   if (start < 0) throw new Error('无法从已提交版本里取出默认导出：' + relative);
   const open = text.indexOf('{', start);
+  // 已提交文件也可能已是引用式生成物，必须提供其共享源绑定，不能当作纯字面量执行。
+  const bindings = {};
+  const cache = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const imported = /^import (\w+) from '\.\/shared\/([^']+)';$/.exec(line.trim());
+    if (!imported) continue;
+    const source = path.resolve(SHARED_ROOT, 'zh-CN', imported[2]);
+    const relativeSource = path.relative(SHARED_ROOT, source);
+    if (relativeSource.startsWith('..') || path.isAbsolute(relativeSource)) throw new Error('语言引用超出共享目录');
+    bindings[imported[1]] = loadCommonJs(source, cache);
+  }
   let depth = 0;
   for (let i = open; i < text.length; i += 1) {
     if (text[i] === '{') depth += 1;
     else if (text[i] === '}') {
       depth -= 1;
       if (depth === 0) {
-        return vm.runInNewContext('(' + text.slice(open, i + 1) + ')');
+        return vm.runInNewContext('(' + text.slice(open, i + 1) + ')', bindings);
       }
     }
   }

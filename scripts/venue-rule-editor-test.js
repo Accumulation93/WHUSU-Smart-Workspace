@@ -7,12 +7,12 @@ const vm = require('vm');
 
 const base = path.resolve(__dirname, '../miniprogram/subpackages/venue/pages/venueManage');
 const source = fs.readFileSync(path.join(base, 'venueManage.js'), 'utf8');
-const template = fs.readFileSync(path.join(base, 'venueManage.wxml'), 'utf8');
+const template = fs.readFileSync(path.join(base, 'venueManagementContent.wxml'), 'utf8');
 let definition;
 let queryCount = 0;
 const timers = new Map();
 let timerId = 0;
-vm.runInNewContext(source, {
+definition = require('./lib/loadVenueManagementPage')({
   Page(value) { definition = value; }, console,
   setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
   clearTimeout(id) { timers.delete(id); },
@@ -34,6 +34,7 @@ function page() {
   const instance = Object.assign({}, definition, {
     data: JSON.parse(JSON.stringify(definition.data)),
     loadFlowReferenceData() {},
+    loadBookingRuleReferences() {},
     setData(patch, callback) {
       for (const key of Object.keys(patch)) {
         const parts = key.split('.');
@@ -83,6 +84,27 @@ for (const type of ['open', 'activity', 'booking']) {
     flushTimers();
     assert.strictEqual(instance.data.ruleEditorVisible, false);
   }
+}
+
+for (const ruleType of ['identity', 'person']) {
+  const instance = page();
+  instance.data.bookingRules = [{ id: 'specified', rule_type: ruleType, is_active: 0,
+    approver_identity_id: 'i1', approver_hr_id: 'member', approver_assignment_id: 'assignment',
+    scope_department_id: 'd1', scope_work_group_id: 'g1', sort_order: 9 }];
+  instance.openRuleEditor({ currentTarget: { dataset: { type: 'booking', id: 'specified' } } });
+  const form = instance.data.ruleForm;
+  assert.strictEqual(form.ruleType, ruleType);
+  assert.strictEqual(form.isActive, false);
+  assert.strictEqual(form.approverAssignmentId, 'assignment');
+  assert.strictEqual(form.scopeDepartmentId, 'd1');
+  assert.strictEqual(form.scopeWorkGroupId, 'g1');
+  assert.strictEqual(form.sortOrder, 9);
+  assert.strictEqual(form._ruleTypes[form._ruleTypeIndex], ruleType);
+  instance.onBookingRuleTypeChange({ detail: { value: '0' } });
+  assert.strictEqual(form.ruleType, 'admin');
+  instance.onBookingRuleTypeChange({ detail: { value: String(form._ruleTypes.indexOf(ruleType)) } });
+  assert.strictEqual(form.ruleType, ruleType);
+  assert.strictEqual(form.approverAssignmentId, 'assignment');
 }
 
 for (const editing of [false, true]) {

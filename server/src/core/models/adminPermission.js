@@ -1,5 +1,10 @@
 const pool = require('../../config/db');
 
+async function isLegacyReadOnly(orgId, connection) {
+  const [rows] = await (connection || pool).query('SELECT mode FROM authorization_organizations WHERE org_id = ?', [orgId]);
+  return rows.length > 0 && rows[0].mode !== 'shadow';
+}
+
 async function getOverrides(orgId, adminId, connection) {
   const db = connection || pool;
   const [rows] = await db.query(
@@ -36,6 +41,12 @@ async function getTarget(orgId, adminId, connection, lock) {
 }
 
 async function upsertOverrides(connection, data) {
+  // 与新授权切换共用组织行锁；等待切换完成后必须读取当前模式，不能用旧事务快照写回。
+  await connection.query('INSERT IGNORE INTO authorization_organizations (org_id) VALUES (?)', [data.orgId]);
+  const [states] = await connection.query('SELECT mode FROM authorization_organizations WHERE org_id = ? FOR UPDATE', [data.orgId]);
+  if (states.length !== 1 || states[0].mode !== 'shadow') {
+    throw Object.assign(new Error('authorization_legacy_read_only'), { code: 'authorization_legacy_read_only' });
+  }
   for (const item of data.items) {
     await connection.query(
       `INSERT INTO admin_permission_overrides
@@ -56,4 +67,4 @@ async function createAuditLog(connection, data) {
   );
 }
 
-module.exports = { getOverrides, listTargets, getTarget, upsertOverrides, createAuditLog };
+module.exports = { getOverrides, listTargets, getTarget, upsertOverrides, createAuditLog, isLegacyReadOnly };

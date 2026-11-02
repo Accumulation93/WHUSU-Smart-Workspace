@@ -1,10 +1,9 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
-import src_calendar from './shared/calendar.js';
+import src_authorization from './shared/authorization.js';
 import src_contactDirectory from './shared/contactDirectory.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
-import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
 import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
@@ -16,14 +15,14 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   navigationTitle: src_web.admin.navigationTitle,
-  title: src_web.admin.title,
+  title: src_authorization.businessManagement,
   consoleTitle: src_web.admin.consoleTitle,
   permissionsTitle: src_identitySwitch.copy_3704f9b212,
   authTitle: src_web.admin.authTitle,
   tabScoring: src_web.scoring.adminTitle,
   tabAudit: src_web.admin.tabAudit,
   tabDictionary: src_web.system.dictionaryTitle,
-  tabSystem: src_web.system.configTitle,
+  tabSystem: src_authorization.resources["system.settings"],
   permissionsPageName: src_adminPermissions.copy_267c7ab9d4,
   permissionsListTitle: src_adminPermissions.copy_2948683a6d,
   permissionsSearchPlaceholder: src_adminPermissions.copy_f679e67c6f,
@@ -35,10 +34,10 @@ export default Object.freeze({
   permissionsUnnamed: src_adminPermissions.copy_06e8d3a970,
   permissionsStudentId: src_adminPermissions.copy_80fba348b7,
   permissionsNotFilled: src_contactDirectory.unnamed,
-  permissionsEnabled: src_contactDirectory.enabled,
+  permissionsEnabled: src_authorization.enabled,
   permissionsOf: src_adminPermissions.copy_0278c19d5a,
-  permissionsAll: src_mySubmissions.copy_31d4595959,
-  permissionsSave: src_calendar.save,
+  permissionsAll: src_authorization.configurationCopy.all,
+  permissionsSave: src_authorization.save,
   permissionsSaving: src_web.admin.permissionsSaving,
   permissionsSaved: src_adminPermissions.copy_e47065f3f1,
   permissionsSaveFailed: src_signatureManager.copy_215e3c57da,

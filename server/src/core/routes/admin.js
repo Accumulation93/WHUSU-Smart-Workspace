@@ -8,6 +8,7 @@ const adminInfoModel = require('../models/adminInfo');
 const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const adminAccountAuthorization = require('../models/adminAccountAuthorization');
 const { resolveRequestAdmin: ensureAdmin } = require('../services/adminRequestContext');
 const {
   AdminOrganizationAccessError,
@@ -93,6 +94,30 @@ async function createAdminRecord(connection, operator, orgId, body) {
 
 router.post('/listAdmins', async (req, res) => {
   try {
+    if (req.unifiedAuthorization?.reference) {
+      const result = await pool.withTransaction(async connection => {
+        const access = await adminAccountAuthorization.list(connection, req.unifiedAuthorization.reference);
+        const canCreate = access.decision('create', null, ['name', 'adminLevel']).allowed;
+        const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(access.rows.map(row => row.id), connection);
+        const list = access.rows.map(row => {
+          const permitted = access.decision('read', row);
+          const fields = access.session.project({ name: row.name, adminLevel: row.admin_level }, permitted);
+          const manageable = canManageTarget(access.admin, row, access.actor.organizationId);
+          const canEdit = manageable && access.decision('update', row, ['name']).allowed;
+          const canDelete = manageable && access.decision('delete', row).allowed;
+          const authenticationStatus = authenticationStates[row.id] || 'pending_verification';
+          return { id: row.id, ...fields,
+            adminLevelLabel: fields.adminLevel ? getAdminLevelLabel(fields.adminLevel) : '',
+            canManage: canEdit || canDelete, canEdit, canDelete, authenticationStatus,
+            authenticationStatusLabel: getAuthenticationStatusLabel(authenticationStatus) };
+        });
+        const levels = creatableLevels(access.admin, canCreate);
+        return { list, canRead: true, canWrite: canCreate || list.some(row => row.canManage),
+          canManage: canCreate || list.some(row => row.canManage), canCreate, creatableLevels: levels,
+          manageableLevel: levels.length === 1 ? levels[0].value : '' };
+      });
+      return res.json({ status: 'success', ...result });
+    }
     const operator = await ensureAdmin(req);
     if (!operator || !hasAccountRead(req, operator)) {
       return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
@@ -130,8 +155,21 @@ router.post('/listAdmins', async (req, res) => {
       manageableLevel: levels.length === 1 ? levels[0].value : ''
     });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     req.logger.error('List admins failed', { error: error.message });
     res.status(500).json({ status: 'error', message: localeCopy.copy_6026566679 });
+  }
+});
+
+router.post('/getAdminAccountCandidates', async (req, res) => {
+  try {
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference) return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
+    const list = await pool.withTransaction(connection => adminAccountAuthorization.candidates(connection, reference));
+    return res.json({ status: 'success', list });
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
+    return res.status(500).json({ status: 'error', message: localeCopy.copy_6026566679 });
   }
 });
 
@@ -146,9 +184,14 @@ router.post('/saveAdmin', async (req, res) => {
     const requestedOrgId = safeString(req.body.organizationId) || currentOrgId;
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    const authorization = req.unifiedAuthorization?.reference
+      ? await adminAccountAuthorization.begin(connection, req.unifiedAuthorization.reference) : null;
+    if (authorization && requestedOrgId !== authorization.actor.organizationId) {
+      throw new AdminOrganizationAccessError('permission_denied', localeCopy.copy_c3b3ead170, 403);
+    }
 
     if (id) {
-      if (!name || !studentId) {
+      if (!name || (!authorization && !studentId)) {
         await connection.rollback();
         return res.json({ status: 'invalid_params', message: localeCopy.copy_e6f89839f1 });
       }
@@ -158,7 +201,12 @@ router.post('/saveAdmin', async (req, res) => {
         return res.json({ status: 'not_found', message: localeCopy.copy_1d64e33c49 });
       }
       const targetOrgId = target.admin_level === 'super_admin' ? requestedOrgId : safeString(target.org_id);
-      const access = await requireAdminOrganizationPermission(
+      if (authorization) authorization.requireAction('update', target, ['name']);
+      if (authorization && studentId && studentId !== target.student_id) {
+        throw new AdminOrganizationAccessError('permission_denied', localeCopy.copy_c3b3ead170, 403);
+      }
+      const effectiveStudentId = authorization ? target.student_id : studentId;
+      const access = authorization || await requireAdminOrganizationPermission(
         req,
         targetOrgId,
         ['system.admin_accounts.write'],
@@ -173,17 +221,21 @@ router.post('/saveAdmin', async (req, res) => {
         await connection.rollback();
         return res.json({ status: 'forbidden', message: localeCopy.copy_da9247f4bc });
       }
-      if (await adminInfoModel.studentExists(studentId, target.org_id, id, connection)) {
+      if (await adminInfoModel.studentExists(effectiveStudentId, target.org_id, id, connection)) {
         await connection.rollback();
         return res.json({ status: 'duplicate', message: localeCopy.copy_b744719f4d });
       }
-      await adminInfoModel.updateProfile(connection, target, { name, studentId });
+      await adminInfoModel.updateProfile(connection, target, { name, studentId: effectiveStudentId });
       await unifiedIdentityModel.syncLegacyAdminGrant(connection, target.id);
       await connection.commit();
       return res.json({ status: 'success', message: localeCopy.copy_feaecc6da6 });
     }
 
-    const access = await requireAdminOrganizationPermission(
+    if (authorization) {
+      authorization.requireAction('create', null, ['name', 'adminLevel']);
+      if (req.body.hrId) await adminAccountAuthorization.validateCandidate(connection, requestedOrgId, safeString(req.body.hrId));
+    }
+    const access = authorization || await requireAdminOrganizationPermission(
       req,
       requestedOrgId,
       ['system.admin_accounts.write'],
@@ -204,6 +256,7 @@ router.post('/saveAdmin', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Save admin failed', { error: error.message });
@@ -224,6 +277,8 @@ router.post('/deleteAdmin', async (req, res) => {
     const currentOrgId = await getRequestOrganizationId(req);
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    const authorization = req.unifiedAuthorization?.reference
+      ? await adminAccountAuthorization.begin(connection, req.unifiedAuthorization.reference) : null;
     const target = await adminInfoModel.getByIdGlobal(id, connection, true);
     if (!target) {
       await connection.rollback();
@@ -232,7 +287,11 @@ router.post('/deleteAdmin', async (req, res) => {
     const orgId = target.admin_level === 'super_admin'
       ? (safeString(req.body.organizationId) || currentOrgId)
       : safeString(target.org_id);
-    const access = await requireAdminOrganizationPermission(
+    if (authorization) {
+      if (orgId !== authorization.actor.organizationId) throw new AdminOrganizationAccessError('permission_denied', localeCopy.copy_c3b3ead170, 403);
+      authorization.requireAction('delete', target);
+    }
+    const access = authorization || await requireAdminOrganizationPermission(
       req,
       orgId,
       ['system.admin_accounts.write'],
@@ -252,6 +311,7 @@ router.post('/deleteAdmin', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Delete admin failed', { error: error.message });
@@ -295,6 +355,17 @@ router.post('/adminUnbindUser', (req, res) => {
 
 router.post('/exportAdmins', async (req, res) => {
   try {
+    if (req.unifiedAuthorization?.reference) {
+      const data = await pool.withTransaction(async connection => {
+        const access = await adminAccountAuthorization.list(connection, req.unifiedAuthorization.reference, 'export');
+        return access.rows.map(row => access.session.project({ name: row.name,
+          adminLevel: getAdminLevelLabel(row.admin_level) }, access.decision('export', row)));
+      });
+      const escapeCell = value => '"' + String(value || '').replace(/"/g, '""') + '"';
+      const rows = [require('../../locales/zh-CN/authorization').adminExportColumns,
+        ...data.map(row => [row.name, row.adminLevel])];
+      return res.json({ status: 'success', csvContent: rows.map(row => row.map(escapeCell).join(',')).join('\n') });
+    }
     const operator = await ensureAdmin(req);
     if (!operator || !hasAccountRead(req, operator)) {
       return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
@@ -307,6 +378,7 @@ router.post('/exportAdmins', async (req, res) => {
     });
     res.json({ status: 'success', csvContent: csvRows.join('\n') });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     res.json({ status: 'error', message: safeString(error.message) });
   }
 });

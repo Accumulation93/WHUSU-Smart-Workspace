@@ -1,0 +1,8 @@
+<view class="dimension-note">{{ui.withinGroup}}</view>
+<view wx:for="{{groups}}" wx:key="key" class="dimension-group">
+  <button class="secondary-btn ui-motion-button dimension-heading" data-key="{{item.key}}" bindtap="expand" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.label}} · {{item.summary}}</button>
+  <view wx:if="{{expanded[item.key]}}" class="dimension-options">
+    <button wx:if="{{relative}}" class="secondary-btn ui-motion-button dimension-option {{item.same ? 'dimension-selected' : ''}}" data-key="{{item.key}}" data-same="{{true}}" disabled="{{disabled}}" bindtap="choose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.sameAsViewer}}</button>
+    <button wx:for="{{item.items}}" wx:for-item="option" wx:key="id" class="secondary-btn ui-motion-button dimension-option {{option.selected ? 'dimension-selected' : ''}}" data-key="{{item.key}}" data-id="{{option.id}}" disabled="{{disabled}}" bindtap="choose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{option.name}}</button>
+  </view>
+</view>

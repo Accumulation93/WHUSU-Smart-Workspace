@@ -1,0 +1,3677 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
+const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const { format: localeFormat } = require('../../../../../locales/runtime');
+// Behavior: hrInfo tab — auto-extracted from admin.js
+// Zero functional changes. All methods preserved exactly.
+const utils = require('./adminUtils');
+const personnelViewModel = require('./personnelViewModel');
+const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
+const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, getErrorText, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
+const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
+const orgSession = require('../../../../../../../../utils/orgSession');
+const { formatListTime, formatDetailTime } = require('../../../../../../../../utils/dateTime');
+const {
+  formatDateTextOnly,
+  toDatePickerValue,
+  formatDateTimeText,
+  formatDateTimePickerDate,
+  formatDateTimePickerTime,
+  pickerToUtcIso
+} = require('../../../../../utils/hrProfileDate');
+const fieldMatching = require('../../../../../utils/hrFieldMatching');
+
+const HR_PROFILE_RENDER_BATCH_SIZE = 50;
+// 人事目录列表随页面滚动，页面级触底与容器触底可能几乎同时到达；用短时间窗
+// 去重，保证一次只追加一批，既不重复也不跳批。
+const HR_PROFILE_LOAD_MORE_DEDUPE_MS = 120;
+// 字段「填写说明」上限：与服务端一致，按字符计（与用户可见文案同一口径）。
+const HR_FIELD_HINT_MAX_LENGTH = 200;
+// 折叠行最多显示两个选项，避免选项多的字段把整页撑长。
+const HR_FIELD_OPTIONS_PREVIEW_LIMIT = 2;
+// 选项编辑框 5 行起步、最多 12 行；卡片默认只列前 6 条，超出可展开全部。
+const HR_FIELD_OPTIONS_ROWS_MIN = 5;
+const HR_FIELD_OPTIONS_ROWS_MAX = 12;
+const HR_FIELD_OPTIONS_VISIBLE_LIMIT = 6;
+const HR_FIELD_TYPE_KEYWORDS = {
+  phone: ['手机号', '手机号码', '移动电话', '联系电话', '电话', 'phone', 'mobile'],
+  email: ['邮箱', '电子邮箱', '电子邮件', 'email'],
+  datetime: ['日期时间', '时间戳', 'datetime'],
+  date: ['出生日期', '日期', 'date']
+};
+const HR_FIELD_NUMBER_KEYWORDS = ['数量', '人数', '金额', '分数', '工资', 'number', 'amount', 'count'];
+// 学号、工号、证件号、银行卡号、认证码是标识不是数值，导入时一律按文本，避免前导零被当数字丢掉。
+const HR_FIELD_IDENTIFIER_PATTERN = /[号证卡码]/;
+
+// 字段类型在导入问题报告中必须显示本地化名称，不能直接暴露 text/date 这类内部值。
+function buildProfileFieldTypeLabel(type) {
+  if (!type) return '';
+  const option = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === type);
+  return option ? option.label : type;
+}
+
+// 问题记录一行摘要：优先显示“第 N 行 · 学号”，缺失时退回到可读的组合。
+function buildValidationErrorMeta(error, copy) {
+  const parts = [];
+  if (error && error.rowNumber) parts.push(copy.importRowPrefix + error.rowNumber + copy.importRowSuffix);
+  if (error && error.studentId) parts.push(error.studentId);
+  return parts.join(' · ');
+}
+
+function createPermanentDeletionClientRequestId() {
+  return [
+    'hr-delete',
+    Date.now().toString(36),
+    Math.random().toString(36).slice(2, 12)
+  ].join(':');
+}
+
+/** 选项一律按“一行一个”解析：忽略空行，保留填写顺序（与保存时的口径一致）。 */
+function parseHrFieldOptions(value) {
+  return String(value == null ? '' : value)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function findDuplicateHrFieldOptions(options) {
+  const seen = new Set();
+  const duplicates = [];
+  (options || []).forEach((option) => {
+    const key = option.toLowerCase();
+    if (seen.has(key)) {
+      if (duplicates.indexOf(option) < 0) duplicates.push(option);
+      return;
+    }
+    seen.add(key);
+  });
+  return duplicates;
+}
+
+/** 展开状态按字段编号记录：排序、删除后仍停在同一个字段上，也不会错位。 */
+function buildHrFieldOptionsSummary(optionsText) {
+  const optionsList = parseHrFieldOptions(optionsText);
+  if (optionsList.length <= HR_FIELD_OPTIONS_PREVIEW_LIMIT) return optionsList.join('、');
+  return localeFormat(templateSaveCopy.fieldOptionsSummary,
+    [optionsList.slice(0, HR_FIELD_OPTIONS_PREVIEW_LIMIT).join('、'), optionsList.length]);
+}
+
+function decorateHrTemplateField(field, expandedIds, errors, optionsExpandedIds) {
+  const optionsList = parseHrFieldOptions(field.optionsText);
+  const duplicates = findDuplicateHrFieldOptions(optionsList);
+  // 选项框高度跟着内容走：空字段留 5 行方便点，一旦有内容就贴合内容（最多 12 行，超过在框内滚动）。
+  const optionsRows = optionsList.length
+    ? Math.min(HR_FIELD_OPTIONS_ROWS_MAX, optionsList.length)
+    : HR_FIELD_OPTIONS_ROWS_MIN;
+  const optionsExpanded = (optionsExpandedIds || []).indexOf(String(field.id)) >= 0;
+  const visibleOptions = optionsExpanded ? optionsList : optionsList.slice(0, HR_FIELD_OPTIONS_VISIBLE_LIMIT);
+  return Object.assign({}, field, {
+    expanded: (expandedIds || []).indexOf(String(field.id)) >= 0,
+    optionsList,
+    optionsCount: optionsList.length,
+    optionsRows,
+    optionsExpanded,
+    optionsHiddenCount: Math.max(0, optionsList.length - visibleOptions.length),
+    optionsExpandText: localeFormat(templateSaveCopy.fieldOptionsExpandAction, [optionsList.length]),
+    optionsViewList: visibleOptions.map((text, position) => ({
+      index: position,
+      text,
+      first: position === 0,
+      last: position === optionsList.length - 1
+    })),
+    optionsSummary: buildHrFieldOptionsSummary(field.optionsText),
+    optionsCountText: localeFormat(templateSaveCopy.fieldOptionsCount, [optionsList.length]),
+    optionsDuplicateText: duplicates.length
+      ? localeFormat(templateSaveCopy.fieldOptionsDuplicate, [duplicates.join('、')])
+      : '',
+    errorText: (errors && errors[field.id]) || ''
+  });
+}
+
+function decorateHrTemplateFields(fields, expandedIds, errors, optionsExpandedIds) {
+  return (fields || []).map((field) =>
+    decorateHrTemplateField(field, expandedIds, errors, optionsExpandedIds));
+}
+
+/** 判断“有没有改过”只看真正会保存的内容，展开、拖动、错误提示不算改动。 */
+function hrTemplateFormSignature(form) {
+  const source = form || {};
+  return JSON.stringify({
+    name: String(source.name || ''),
+    description: String(source.description || ''),
+    editMode: String(source.editMode || ''),
+    fields: (source.fields || []).map((field) => [
+      String(field.label || ''),
+      String(field.type || ''),
+      field.required === true,
+      String(field.minLength == null ? '' : field.minLength),
+      String(field.maxLength == null ? '' : field.maxLength),
+      String(field.numberRule || ''),
+      field.allowDecimal !== false,
+      String(field.minDigits == null ? '' : field.minDigits),
+      String(field.maxDigits == null ? '' : field.maxDigits),
+      String(field.minValue == null ? '' : field.minValue),
+      String(field.maxValue == null ? '' : field.maxValue),
+      String(field.optionsText || ''),
+      String(field.hint || '')
+    ])
+  });
+}
+
+function isBlankNumberInput(value) {
+  return value === '' || value == null;
+}
+
+function isInvalidNumberInput(value) {
+  return !isBlankNumberInput(value) && !Number.isFinite(Number(value));
+}
+
+function orderedRangeInvalid(min, max) {
+  if (isBlankNumberInput(min) || isBlankNumberInput(max)) return false;
+  return Number(min) > Number(max);
+}
+
+function validateHrTemplateField(field, copy) {
+  if (!String(field.label || '').trim()) return localeCopy.copy_b559e020b7;
+  // 填写说明是给成员看的提示文字：纯文本、最多 200 字，超长就地指出。
+  if (Array.from(String(field.hint || '')).length > HR_FIELD_HINT_MAX_LENGTH) {
+    return localeFormat(copy.fieldHintTooLong, [HR_FIELD_HINT_MAX_LENGTH]);
+  }
+  if (field.type === 'sequence' && !parseHrFieldOptions(field.optionsText).length) {
+    return copy.fieldOptionsRequired;
+  }
+  if (field.type === 'text') {
+    if (isInvalidNumberInput(field.minLength) || isInvalidNumberInput(field.maxLength)) return copy.fieldNumberInvalid;
+    if (orderedRangeInvalid(field.minLength, field.maxLength)) return copy.fieldLengthOrderInvalid;
+  }
+  if (field.type === 'number') {
+    if (field.numberRule === 'length_range') {
+      if (isInvalidNumberInput(field.minDigits) || isInvalidNumberInput(field.maxDigits)) return copy.fieldNumberInvalid;
+      if (orderedRangeInvalid(field.minDigits, field.maxDigits)) return copy.fieldDigitsOrderInvalid;
+    } else {
+      if (isInvalidNumberInput(field.minValue) || isInvalidNumberInput(field.maxValue)) return copy.fieldNumberInvalid;
+      if (orderedRangeInvalid(field.minValue, field.maxValue)) return copy.fieldValueOrderInvalid;
+    }
+  }
+  return '';
+}
+
+/** 保存前先在本地把问题指出来：哪个字段、哪里不对，并给出第一处的位置。 */
+function validateHrTemplateForm(form, copy) {
+  const source = form || {};
+  const fields = source.fields || [];
+  const fieldErrors = {};
+  if (!String(source.name || '').trim()) {
+    return { message: localeCopy.copy_d03e81ea80, fieldErrors, firstFieldId: '' };
+  }
+  if (!fields.length) {
+    return { message: localeCopy.copy_b559e020b7, fieldErrors, firstFieldId: '' };
+  }
+  let firstFieldId = '';
+  const seen = new Set();
+  fields.forEach((field) => {
+    const label = String(field.label || '').trim();
+    let message = validateHrTemplateField(field, copy);
+    if (!message && label && seen.has(label.toLowerCase())) {
+      message = localeFormat(copy.fieldNameDuplicate, [label]);
+    }
+    if (label) seen.add(label.toLowerCase());
+    if (!message) return;
+    fieldErrors[field.id] = message;
+    if (!firstFieldId) firstFieldId = String(field.id);
+  });
+  const count = Object.keys(fieldErrors).length;
+  return {
+    message: count ? localeFormat(copy.errorSummary, [count]) : '',
+    fieldErrors,
+    firstFieldId,
+    count
+  };
+}
+
+function editModeHintFor(editMode, copy) {
+  if (editMode === 'audit') return copy.editModeHintAudit;
+  if (editMode === 'readonly') return copy.editModeHintReadonly;
+  return copy.editModeHintDirect;
+}
+
+/** 导入表格时按列名认类型；认不出再按整列内容判断，最后回落文本。 */
+function matchHrFieldTypeKeywords(text, keywordsByType) {
+  let bestType = '';
+  let bestScore = 0;
+  Object.keys(keywordsByType).forEach((type) => {
+    keywordsByType[type].forEach((keyword) => {
+      const score = fieldMatching.scoreFieldLabels(text, keyword).score;
+      if (score > bestScore) {
+        bestScore = score;
+        bestType = type;
+      }
+    });
+  });
+  return bestScore >= 0.7 ? bestType : '';
+}
+
+function guessHrFieldType(label, values) {
+  const text = String(label || '').trim();
+  if (!text) return 'text';
+  const contentType = matchHrFieldTypeKeywords(text, HR_FIELD_TYPE_KEYWORDS);
+  if (contentType) return contentType;
+  // 学号、工号、编号、证件号这类是标识不是数值，一律按文本，避免把前导零当数字丢掉。
+  if (HR_FIELD_IDENTIFIER_PATTERN.test(text)) return 'text';
+  if (matchHrFieldTypeKeywords(text, { number: HR_FIELD_NUMBER_KEYWORDS })) return 'number';
+  const filled = (values || []).map((value) => String(value == null ? '' : value).trim()).filter(Boolean);
+  if (filled.length && filled.every((value) => /^-?\d+(\.\d+)?$/.test(value))) return 'number';
+  return 'text';
+}
+
+function toHrProfileListRow(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    studentId: item.studentId,
+    wxBindStatus: item.wxBindStatus,
+    auditStatus: item.auditStatus,
+    auditStatusText: item.auditStatusText,
+    assignmentCount: item.assignmentCount,
+    hasPending: item.hasPending,
+    selected: Boolean(item.selected),
+    personId: item.personId || '',
+    organizationId: item.organizationId || '',
+    accountId: item.accountId || '',
+    auth: item.auth || null,
+    governanceAvailable: Boolean(item.governanceAvailable),
+    accountState: item.accountState || 'unbound',
+    accountStateText: item.accountStateText || localeCopy.copy_ba9b0425fd,
+    accountStateClass: item.accountStateClass || 'unbound-chip',
+    verificationText: item.verificationText || '',
+    recoveryText: item.recoveryText || '',
+    showVerificationStatus: Boolean(item.showVerificationStatus),
+    canIssueVerification: Boolean(item.canIssueVerification),
+    canRevokeVerification: Boolean(item.canRevokeVerification),
+    canIssueRecovery: Boolean(item.canIssueRecovery),
+    canRevokeRecovery: Boolean(item.canRevokeRecovery),
+    canUnbindWechat: Boolean(item.canUnbindWechat),
+    canSelectForAuth: Boolean(item.canSelectForAuth),
+    hasAssignments: Number(item.assignmentCount || 0) > 0,
+    membershipStatus: item.membershipStatus || 'active',
+    membershipStatusText: item.membershipStatusText || '',
+    isFormer: item.membershipStatus === 'left',
+    joinedAtText: item.joinedAtText || '',
+    leftAtText: item.leftAtText || '',
+    selfSubmittedAtText: item.selfSubmittedAtText || '',
+    maintainedAtText: item.maintainedAtText || '',
+    maintainedByName: item.maintainedByName || '',
+    lastChangedAtText: item.lastChangedAtText || '',
+    isComplete: Boolean(item.isComplete)
+  };
+}
+
+// 列表头计数要如实反映"已经渲染出多少、一共有多少"，避免只显示总数却只渲染
+// 了第一批时让人以为其余成员丢失。
+function buildHrProfileResultSummary(visibleCount, totalCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  const visible = Math.min(total, Math.max(0, Number(visibleCount) || 0));
+  return visible < total
+    ? localeFormat(localeCopy.hrDirectoryShownOfTotal, [visible, total])
+    : localeFormat(localeCopy.hrDirectoryTotalOnly, [total]);
+}
+
+function buildHrProfileRenderState(rows, visibleCount = HR_PROFILE_RENDER_BATCH_SIZE) {
+  const source = Array.isArray(rows) ? rows : [];
+  const normalizedVisibleCount = Math.min(
+    source.length,
+    Math.max(0, Number(visibleCount) || HR_PROFILE_RENDER_BATCH_SIZE)
+  );
+  return {
+    hrProfileRows: source.slice(0, normalizedVisibleCount).map(toHrProfileListRow),
+    hrProfileResultCount: source.length,
+    hrProfileResultSummary: buildHrProfileResultSummary(normalizedVisibleCount, source.length),
+    hrProfileVisibleCount: normalizedVisibleCount,
+    hrProfileHasMore: normalizedVisibleCount < source.length
+  };
+}
+
+function decorateDirectoryRow(item) {
+  const membershipStatus = item.membershipStatus === 'left' ? 'left' : 'active';
+  return Object.assign({}, item, {
+    membershipStatus,
+    membershipStatusText: membershipStatus === 'left' ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive,
+    joinedAtText: formatListTime(item.joinedAt, { reviewStatus: item.joinedAtReviewStatus }),
+    leftAtText: formatListTime(item.leftAt, { reviewStatus: item.leftAtReviewStatus }),
+    // 补充资料两组提交信息各自独立：本人提交、管理员维护；历史数据只给最后变更时间。
+    selfSubmittedAtText: formatListTime(item.selfSubmittedAt, { reviewStatus: item.selfSubmittedAtReviewStatus }),
+    maintainedAtText: formatListTime(item.maintainedAt, { reviewStatus: item.maintainedAtReviewStatus }),
+    maintainedByName: String(item.maintainedByName || ''),
+    lastChangedAtText: formatListTime(item.lastChangedAt, { reviewStatus: item.lastChangedAtReviewStatus }),
+    assignments: (item.assignments || []).map((assignment) => Object.assign({}, assignment, {
+      historical: membershipStatus === 'left' || Boolean(assignment.historical)
+    }))
+  });
+}
+
+function buildGovernanceAssignments(item) {
+  return Array.isArray(item && item.assignments)
+    ? item.assignments.filter((assignment) => assignment && assignment.assignmentId)
+    : [];
+}
+
+function buildHistoricalProfileFields(fields) {
+  return (Array.isArray(fields) ? fields : []).map((field) => ({
+    id: String(field.id || ''),
+    label: String(field.label || ''),
+    valueText: String(field.pendingValue || field.value || localeCopy.hrProfileNoValue),
+    hasPendingValue: Boolean(field.pendingValue),
+    historical: true
+  })).filter((field) => field.id && field.label);
+}
+
+function buildProfileReviewHistory(items) {
+  const actionLabels = {
+    approve: localeCopy.hrReviewActionApproved,
+    reject: localeCopy.hrReviewActionRejected,
+    maintained: localeCopy.hrReviewActionMaintained
+  };
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    id: String(item.id || ''),
+    actionText: actionLabels[item.action] || localeCopy.hrReviewActionUpdated,
+    reason: String(item.reason || ''),
+    reviewerName: String(item.reviewerName || localeCopy.hrReviewUnknownReviewer),
+    createdAtText: formatDetailTime(item.createdAt, { reviewStatus: item.createdAtReviewStatus })
+  })).filter((item) => item.id);
+}
+
+function decorateFilterOptions(options, filters) {
+  const result = {};
+  Object.keys(options || {}).forEach((key) => {
+    const values = Array.isArray(filters[key]) ? filters[key] : [];
+    result[key] = (options[key] || []).map((item) => Object.assign({}, item, {
+      selected: values.indexOf(item.value) >= 0
+    }));
+  });
+  return result;
+}
+
+function buildActiveFilterChips(options, filters) {
+  const chips = [];
+  Object.keys(options || {}).forEach((key) => {
+    if (!Array.isArray(filters[key])) return;
+    (options[key] || []).forEach((item) => {
+      if (filters[key].indexOf(item.value) >= 0) chips.push({ id: key + ':' + item.value, category: key, value: item.value, label: item.label });
+    });
+  });
+  return chips;
+}
+
+function deletionCategoryLabel(category) {
+  const canonicalCategory = String(category || '').replace(/([A-Z])/g, '_$1').toLowerCase();
+  const labels = {
+    scoring_records: localeCopy.hrDeletionBlockScoring,
+    scoring_designations: localeCopy.hrDeletionBlockScoringDesignation,
+    audit_submissions: localeCopy.hrDeletionBlockAuditSubmission,
+    audit_steps: localeCopy.hrDeletionBlockAuditStep,
+    audit_signatures: localeCopy.hrDeletionBlockSignature,
+    audit_events: localeCopy.hrDeletionBlockAuditEvent,
+    venue_bookings: localeCopy.hrDeletionBlockVenue,
+    profile_review_history: localeCopy.hrDeletionBlockProfileReview,
+    reviewed_profile_records: localeCopy.hrDeletionBlockReviewedProfile,
+    merged_person_history: localeCopy.hrDeletionBlockMergedHistory,
+    current_operator: localeCopy.hrDeletionBlockCurrentOperator,
+    last_effective_super_admin: localeCopy.hrDeletionBlockLastSuperAdmin,
+    legacy_hr_records: localeCopy.hrDeletionCleanupHr,
+    profile_records: localeCopy.hrDeletionCleanupProfile,
+    profile_values: localeCopy.hrDeletionCleanupProfileValues,
+    global_profile_values: localeCopy.hrDeletionCleanupGlobalProfile,
+    global_profile_values_restored: localeCopy.hrDeletionCleanupGlobalProfileRestored,
+    global_profile_history: localeCopy.hrDeletionCleanupGlobalProfileHistory,
+    signature_templates: localeCopy.hrDeletionCleanupSignatureTemplate,
+    stamp_assignment_grants: stampCopy.deletionCleanup,
+    notifications: localeCopy.hrDeletionCleanupNotification,
+    notification_outbox: localeCopy.hrDeletionCleanupNotificationOutbox,
+    audit_read_cursors: localeCopy.hrDeletionCleanupReadCursor,
+    read_cursors: localeCopy.hrDeletionCleanupReadCursor,
+    audit_verification_permissions: localeCopy.hrDeletionCleanupVerificationPermission,
+    verification_permissions: localeCopy.hrDeletionCleanupVerificationPermission,
+    admin_grants: localeCopy.hrDeletionCleanupAdminGrant,
+    admin_records: localeCopy.hrDeletionCleanupAdminRecord,
+    legacy_admin_records: localeCopy.hrDeletionCleanupAdminRecord,
+    admin_permission_audit_preserved: localeCopy.hrDeletionCleanupAdminAuditPreserved,
+    admin_permission_audit_redacted: localeCopy.hrDeletionCleanupAdminAuditRedacted,
+    admin_permission_overrides: localeCopy.hrDeletionCleanupAdminOverride,
+    admin_permission_override_issuers_redacted: localeCopy.hrDeletionCleanupAdminOverrideIssuer,
+    redacted_admin_permission_audit: localeCopy.hrDeletionCleanupAdminAuditRedacted,
+    redacted_admin_permission_override_issuers: localeCopy.hrDeletionCleanupAdminOverrideIssuer,
+    identity_invites: localeCopy.hrDeletionCleanupIdentityInvite,
+    identity_invites_for_member: localeCopy.hrDeletionCleanupIdentityInvite,
+    active_identity_invites_issued: localeCopy.hrDeletionCleanupIssuedIdentityInvite,
+    issued_identity_invites_revoked: localeCopy.hrDeletionCleanupIssuedIdentityInvite,
+    identity_tokens: localeCopy.hrDeletionCleanupIdentityToken,
+    identity_tokens_for_member_claims: localeCopy.hrDeletionCleanupIdentityToken,
+    active_identity_tokens_issued: localeCopy.hrDeletionCleanupIssuedIdentityToken,
+    issued_identity_tokens_revoked: localeCopy.hrDeletionCleanupIssuedIdentityToken,
+    identity_claims: localeCopy.hrDeletionCleanupIdentityClaim,
+    account_recovery_requests: localeCopy.hrDeletionCleanupRecoveryRequest,
+    recovery_requests: localeCopy.hrDeletionCleanupRecoveryRequest,
+    account_recovery_approvals: localeCopy.hrDeletionCleanupRecoveryApproval,
+    recovery_approvals_redacted: localeCopy.hrDeletionCleanupRecoveryApproval,
+    recovery_approver_references: localeCopy.hrDeletionCleanupRecoveryApproval,
+    auth_sessions: localeCopy.hrDeletionCleanupSession,
+    sessions: localeCopy.hrDeletionCleanupSession,
+    legacy_user_bindings: localeCopy.hrDeletionCleanupLegacyBinding,
+    accounts: localeCopy.hrDeletionCleanupAccount,
+    wechat_bindings: localeCopy.hrDeletionCleanupWechatBinding,
+    recovery_credentials: localeCopy.hrDeletionCleanupRecoveryCredential,
+    auth_audit_events_redacted: localeCopy.hrDeletionCleanupAuthAudit,
+    redacted_audit_events: localeCopy.hrDeletionCleanupAuthAudit,
+    assignments: localeCopy.hrDeletionCleanupAssignment,
+    memberships: localeCopy.hrDeletionCleanupMembership,
+    persons: localeCopy.hrDeletionCleanupPerson,
+    scoring_caches: localeCopy.hrDeletionCleanupCache,
+    legacy_auth_challenges: localeCopy.hrDeletionCleanupLegacyChallenge,
+    bootstrap_sessions: localeCopy.hrDeletionCleanupBootstrapSession,
+    auth_policy_references: localeCopy.hrDeletionCleanupAuthPolicy
+  };
+  return labels[canonicalCategory] || localeCopy.hrDeletionRelatedData;
+}
+
+function decorateDeletionImpact(rows) {
+  return (rows || []).filter((item) => Number(item.count || 0) > 0).map((item, index) => ({
+    id: String(item.category || item.type || 'impact') + ':' + String(item.id || index),
+    label: deletionCategoryLabel(item.category),
+    count: Number(item.count || 0)
+  }));
+}
+
+function decorateDeletionRules(rows) {
+  const referenceLabels = {
+    step_condition: localeCopy.hrDeletionReferenceStepCondition,
+    approval_step: localeCopy.hrDeletionReferenceApprovalStep,
+    starter_condition: localeCopy.hrDeletionReferenceStarterCondition,
+    approver: localeCopy.hrDeletionReferenceVenueApprover
+  };
+  return (rows || []).map((item, index) => {
+    const typeLabel = item.type === 'audit_template'
+      ? localeCopy.hrDeletionAuditTemplate : localeCopy.hrDeletionVenueRule;
+    const stepLabel = item.stepName || (Number(item.stepOrder || 0) > 0
+      ? localeFormat(localeCopy.hrDeletionStepOrder, [Number(item.stepOrder)]) : '');
+    return {
+      id: [item.type || 'rule', item.id || index, item.reference || '', stepLabel].join(':'),
+      label: item.name || typeLabel,
+      typeLabel,
+      referenceText: [stepLabel, referenceLabels[item.reference] || ''].filter(Boolean).join(' · '),
+      wouldDisable: Boolean(item.wouldDisable)
+    };
+  });
+}
+
+module.exports = Behavior({
+  data: {
+    hrTemplateCopy: templateSaveCopy,
+    hrTemplatePreviewId: '',
+    hrTemplateExpandedFieldIds: [],
+    hrTemplateExpandedOptionsIds: [],
+    hrTemplateDirty: false,
+    hrTemplateErrorCount: 0,
+    hrTemplateFormError: ''
+  },
+  methods: {
+    async loadHrList() {
+      const request = orgSession.beginRequest(this, 'hrList');
+      this.setLoading('hr', true);
+      try {
+        const result = await this.callCloud('listHrInfo');
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const hrList = result.list || [];
+        // 完整人员数据只保留在逻辑层；它同时供模板条件和管理员候选检索使用，
+        // 直接放入 data 会把上千人的完整岗位对象无意义地传给视图层。
+        this._hrList = hrList;
+        this.refreshAdminCandidates(this.data.adminCandidateKeyword);
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
+        wx.showToast({
+          title: localeCopy.copy_838181f305,
+          icon: 'none'
+        });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hr', false);
+      }
+    },
+
+    async batchMaintainFromHrInfo() {
+      this.setLoading('batchMaintain', true);
+      try {
+        const result = await this.callCloud('batchMaintainFromHrInfo');
+
+        if (result.status !== 'success') {
+          wx.showToast({
+            title: result.message || localeCopy.integrityCheckFailed,
+            icon: 'none'
+          });
+          return;
+        }
+
+        await this.loadDepartmentList();
+        await this.loadWorkGroupList();
+        await this.loadIdentityList();
+        this.updateHrFormOptions();
+
+        wx.showToast({
+          title: localeCopy.integrityCheckCompleted,
+          icon: 'success'
+        });
+      } catch (error) {
+        wx.showToast({
+          title: localeCopy.integrityCheckFailed,
+          icon: 'none'
+        });
+      } finally {
+        this.setLoading('batchMaintain', false);
+      }
+    },
+
+    async reactivateHrMembership(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      if (!hrId || !this.data.canManageHrPeople || this.data.reactivatingHrId) return;
+      this.setData({ reactivatingHrId: hrId });
+      try {
+        const result = await this.callCloud('reactivateHrMembership', {
+          hrId,
+          organizationId: orgSession.getSnapshot().orgId || this.data.currentOrganizationId || ''
+        });
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.membershipReactivateFailed, icon: 'none' });
+          return;
+        }
+        if (this.data.showHrPersonDetail && String(this.data.detailHrId || '') === hrId) {
+          this.closeHrPersonDetail();
+        }
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+        wx.showToast({ title: localeCopy.hrReactivatedNoPosition, icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.membershipReactivateFailed, icon: 'none' });
+      } finally {
+        this.setData({ reactivatingHrId: '' });
+      }
+    },
+
+    async previewPermanentHrDeletion(e) {
+      const scope = String(e && e.currentTarget && e.currentTarget.dataset.scope || 'membership');
+      const governance = this.data.detailHrGovernance || {};
+      if (!this.data.canDeleteHrPeople || this.data.hrPermanentDeletionLoading
+        || (scope === 'person' && !this.data.isSuperAdmin)) return;
+      const target = {
+        scope,
+        hrId: String(this.data.detailHrId || ''),
+        personId: String(governance.personId || ''),
+        organizationId: String(orgSession.getSnapshot().orgId || this.data.currentOrganizationId || ''),
+        name: String(this.data.detailHrValues && this.data.detailHrValues._name || governance.name || ''),
+        studentId: String(this.data.detailHrValues && this.data.detailHrValues._studentId || governance.studentId || '')
+      };
+      if (!target.hrId || (scope === 'person' && !target.personId)) return;
+      const requestSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      this._hrPermanentDeletionPreviewSeq = requestSeq;
+      this._hrPermanentDeletionClientRequestId = '';
+      this.setData({
+        hrPermanentDeletionLoading: true,
+        hrPermanentDeletionScope: scope,
+        hrPermanentDeletionTarget: null
+      });
+      try {
+        const result = await this.callCloud('previewHrMemberDeletion', {
+          scope,
+          hrId: target.hrId,
+          personId: target.personId,
+          organizationId: target.organizationId
+        });
+        if (this._hrPermanentDeletionPreviewSeq !== requestSeq
+          || !this.data.showHrPersonDetail
+          || String(this.data.detailHrId || '') !== target.hrId) return;
+        if (!result || result.status !== 'success' || !result.preview) {
+          wx.showToast({ title: result && result.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
+          return;
+        }
+        const preview = Object.assign({}, result.preview, {
+          organizations: (result.preview.organizations || []).map((item) => Object.assign({}, item, {
+            organizationNameText: item.organizationName || localeCopy.hrDeletionUnknownOrganization,
+            membershipStatusText: item.membershipStatus === 'left'
+              ? localeCopy.hrMembershipLeft : localeCopy.hrMembershipActive
+          }))
+        });
+        this.setData({
+          hrPermanentDeletionVisible: true,
+          hrPermanentDeletionScope: scope,
+          hrPermanentDeletionTarget: target,
+          hrPermanentDeletionPreview: preview,
+          hrPermanentDeletionResult: null,
+          hrPermanentDeletionBlockers: decorateDeletionImpact((preview.blockers || []).concat(preview.safetyBlocks || [])),
+          hrPermanentDeletionCleanup: decorateDeletionImpact(preview.cleanupImpact || []),
+          hrPermanentDeletionRules: decorateDeletionRules(preview.affectedRules || []),
+          hrPermanentDeletionCleanupAccepted: false,
+          hrPermanentDeletionCanForce: Boolean(preview.canForce),
+          hrPermanentDeletionForceAccepted: false,
+          hrPermanentDeletionConfirmation: ''
+        });
+        // 每次权威预检对应一次新的受控确认。执行失败后的网络重试复用该值；
+        // 换人、关闭弹窗或重新预检时会废弃，避免两个目标共享幂等结果。
+        this._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId();
+      } catch (error) {
+        if (this._hrPermanentDeletionPreviewSeq !== requestSeq) return;
+        wx.showToast({ title: error && error.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
+      } finally {
+        if (this._hrPermanentDeletionPreviewSeq === requestSeq) {
+          this.setData({ hrPermanentDeletionLoading: false });
+        }
+      }
+    },
+
+    closePermanentHrDeletion() {
+      if (this.data.hrPermanentDeletionLoading) return;
+      this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      this._hrPermanentDeletionClientRequestId = '';
+      const deletionCompleted = Boolean(this.data.hrPermanentDeletionResult);
+      this.setData({
+        hrPermanentDeletionVisible: false,
+        hrPermanentDeletionPreview: null,
+        hrPermanentDeletionTarget: null,
+        hrPermanentDeletionResult: null,
+        hrPermanentDeletionBlockers: [],
+        hrPermanentDeletionCleanup: [],
+        hrPermanentDeletionRules: [],
+        hrPermanentDeletionCleanupAccepted: false,
+        hrPermanentDeletionCanForce: false,
+        hrPermanentDeletionForceAccepted: false,
+        hrPermanentDeletionConfirmation: ''
+      });
+      if (deletionCompleted && this.data.showHrPersonDetail) this.closeHrPersonDetail();
+    },
+
+    onPermanentHrDeletionCleanupAcceptance(e) {
+      this.setData({ hrPermanentDeletionCleanupAccepted: Boolean(e.detail && e.detail.accepted) });
+    },
+
+    onPermanentHrDeletionForceAcceptance(e) {
+      this.setData({ hrPermanentDeletionForceAccepted: Boolean(e.detail && e.detail.accepted) });
+    },
+
+    onPermanentHrDeletionConfirmation(e) {
+      this.setData({ hrPermanentDeletionConfirmation: String(e.detail.value || '') });
+    },
+
+    async confirmPermanentHrDeletion() {
+      const preview = this.data.hrPermanentDeletionPreview;
+      const target = this.data.hrPermanentDeletionTarget;
+      if (!preview || !target || this.data.hrPermanentDeletionLoading) return;
+      // 存在业务历史时，只有勾选“已知晓会保留记录并匿名化引用”才允许强行删除；
+      // 两条安全红线由服务端始终拦截，这里不做任何放行。
+      const forced = !preview.eligible && Boolean(this.data.hrPermanentDeletionCanForce);
+      if (!preview.eligible && !forced) return;
+      if (forced && !this.data.hrPermanentDeletionForceAccepted) return;
+      const scope = target.scope;
+      const cleanupRequired = Array.isArray(this.data.hrPermanentDeletionCleanup)
+        && this.data.hrPermanentDeletionCleanup.length > 0;
+      if (cleanupRequired && !this.data.hrPermanentDeletionCleanupAccepted) return;
+      if (scope === 'person' && this.data.hrPermanentDeletionConfirmation !== String(preview.target && preview.target.studentId || '')) {
+        wx.showToast({ title: localeCopy.hrDeletionStudentIdMismatch, icon: 'none' });
+        return;
+      }
+      if (!this._hrPermanentDeletionClientRequestId) {
+        this._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId();
+      }
+      this.setData({ hrPermanentDeletionLoading: true });
+      try {
+        const result = await this.callCloud(
+          scope === 'person' ? 'deletePersonPermanently' : 'deleteHrMembershipPermanently',
+          {
+            hrId: target.hrId,
+            personId: target.personId,
+            organizationId: target.organizationId,
+            expectedVersion: preview.version,
+            clientRequestId: this._hrPermanentDeletionClientRequestId,
+            acceptCleanup: !cleanupRequired || this.data.hrPermanentDeletionCleanupAccepted,
+            force: forced,
+            confirmStudentId: scope === 'person' ? this.data.hrPermanentDeletionConfirmation : ''
+          }
+        );
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
+          return;
+        }
+        const deletionResult = result.result && typeof result.result === 'object'
+          ? result.result : result;
+        const cleanupLabels = decorateDeletionImpact(Object.keys(deletionResult.cleanupCounts || {}).map((category) => ({
+          category,
+          count: Number(deletionResult.cleanupCounts[category] || 0)
+        })));
+        const rawAffectedRules = deletionResult.affectedRules || [];
+        const rawDisabledRules = deletionResult.disabledRules || [];
+        const disabledRuleKeys = new Set(rawDisabledRules.map((item) => (
+          String(item.type || '') + ':' + String(item.id || '')
+        )));
+        const completionRules = rawAffectedRules.map((item) => Object.assign({}, item, {
+          wouldDisable: disabledRuleKeys.has(String(item.type || '') + ':' + String(item.id || ''))
+        }));
+        rawDisabledRules.forEach((item) => {
+          const key = String(item.type || '') + ':' + String(item.id || '');
+          if (!rawAffectedRules.some((affected) => (
+            String(affected.type || '') + ':' + String(affected.id || '') === key
+          ))) completionRules.push(Object.assign({ wouldDisable: true }, item));
+        });
+        const affectedRules = decorateDeletionRules(completionRules);
+        const disabledRules = decorateDeletionRules(rawDisabledRules.map((item) => (
+          Object.assign({ wouldDisable: true }, item)
+        )));
+        this.setData({
+          hrPermanentDeletionLoading: false,
+          hrPermanentDeletionResult: {
+            forced: Boolean(deletionResult.forced),
+            cleanup: cleanupLabels,
+            affectedRules,
+            disabledRules
+          }
+        });
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+      } catch (error) {
+        wx.showToast({ title: error && error.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
+      } finally {
+        this.setData({ hrPermanentDeletionLoading: false });
+      }
+    },
+
+    checkHrDictionaryIntegrity() {
+      return this.batchMaintainFromHrInfo();
+    },
+
+    async loadHrProfileAdminData() {
+      const request = orgSession.beginRequest(this, 'hrProfileAdmin');
+      this.setLoading('profile', true);
+      try {
+        // 账号治理信息是成员资料的增强数据，不能因其暂时不可用而清空整个人事目录。
+        // 两个请求仍并行发起，但分别结算，避免认证服务故障被误报为“模板加载失败”。
+        const governanceLoad = this.data.canReadAuthGovernance
+          ? this.loadHrGovernanceRows().then((value) => ({ ok: true, value }), (error) => ({ ok: false, error }))
+          : Promise.resolve({ ok: true, value: new Map() });
+        const result = await this.callCloud('listHrProfileAdminData');
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (result.status !== 'success') {
+          wx.showToast({
+            title: result.message || localeCopy.copy_530e6c15c0,
+            icon: 'none'
+          });
+          return;
+        }
+
+        const governanceResult = await governanceLoad;
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const governanceByHrId = governanceResult.ok ? governanceResult.value : new Map();
+        const governanceUnavailable = !governanceResult.ok
+          && !(governanceResult.error && governanceResult.error.silent);
+
+        const template = result.template || null;
+        const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId).map(decorateDirectoryRow);
+        const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
+        const rawFilterOptions = buildHrProfileFilterOptions(rawRows);
+        const hrProfileFilterOptions = decorateFilterOptions(rawFilterOptions, this.data.hrProfileFilters);
+        const filteredRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
+        const actionState = this.buildHrMemberActionState(filteredRows);
+        const selected = new Set(actionState.selectedHrMemberIds);
+        const synchronizedRows = filteredRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        // 完整资料仅留在逻辑层供筛选和导出，视图层只接收列表真正需要的摘要字段。
+        this._hrProfileRawRows = rawRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileFilteredRows = synchronizedRows;
+        this.setData(Object.assign({
+          hrProfileTemplateForm: template ? {
+            description: template.description || '',
+            editMode: template.editMode || PROFILE_EDIT_MODE_OPTIONS[0].value,
+            editModeLabel: (PROFILE_EDIT_MODE_OPTIONS.find((item) => item.value === (template.editMode || PROFILE_EDIT_MODE_OPTIONS[0].value)) || PROFILE_EDIT_MODE_OPTIONS[0]).label,
+            fields: Array.isArray(template.fields) && template.fields.length
+              ? template.fields.map((item) => normalizeHrProfileFieldForForm(item))
+              : [createEmptyProfileField()]
+          } : emptyHrProfileTemplateForm(),
+          hrProfileFields,
+          hrProfileFilterOptions,
+          hrProfileSearchFieldIndex: Math.max(0, rawFilterOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
+          hrProfileSortIndex: Math.max(0, rawFilterOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
+          hrProfileActiveFilterChips: buildActiveFilterChips(rawFilterOptions, this.data.hrProfileFilters),
+          hrGovernanceUnavailable: governanceUnavailable
+        }, actionState, buildHrProfileRenderState(synchronizedRows)));
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
+        wx.showToast({
+          title: localeCopy.copy_530e6c15c0,
+          icon: 'none'
+        });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
+      }
+    },
+
+    async loadHrGovernanceDirectory() {
+      const request = orgSession.beginRequest(this, 'hrGovernanceDirectory');
+      this.setLoading('profile', true);
+      try {
+        const governanceByHrId = await this.loadHrGovernanceRows();
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const rows = Array.from(governanceByHrId.values()).map((item) => {
+          const assignments = buildGovernanceAssignments(item);
+          return decorateDirectoryRow(this.applyHrGovernancePermissions(Object.assign({}, item, {
+            id: item.hrId || item.id,
+            assignments,
+            departments: assignments.map((assignment) => assignment.department).filter(Boolean),
+            identities: assignments.map((assignment) => assignment.identityCategoryName).filter(Boolean),
+            workGroups: assignments.map((assignment) => assignment.workGroup).filter(Boolean),
+            assignmentNatures: assignments.map((assignment) => assignment.assignmentNature).filter(Boolean),
+            assignmentCount: assignments.length,
+            auditStatus: '',
+            auditStatusText: '',
+            hasPending: false
+          })));
+        });
+        const rawOptions = buildHrProfileFilterOptions(rows);
+        const options = decorateFilterOptions(rawOptions, this.data.hrProfileFilters);
+        const filteredRows = applyHrProfileFilters(rows, this.data.hrProfileFilters);
+        const actionState = this.buildHrMemberActionState(filteredRows);
+        const selected = new Set(actionState.selectedHrMemberIds);
+        const synchronizedRows = filteredRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileRawRows = rows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileFilteredRows = synchronizedRows;
+        this.setData(Object.assign({
+          hrProfileFields: [],
+          hrProfileFilterOptions: options,
+          hrProfileSearchFieldIndex: Math.max(0, rawOptions.searchFields.findIndex((item) => item.value === this.data.hrProfileFilters.searchField)),
+          hrProfileSortIndex: Math.max(0, rawOptions.sortModes.findIndex((item) => item.value === this.data.hrProfileFilters.sortMode)),
+          hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, this.data.hrProfileFilters),
+          hrGovernanceUnavailable: false
+        }, actionState, buildHrProfileRenderState(synchronizedRows)));
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || error && error.silent) return;
+        wx.showToast({ title: localeCopy.copy_e58fa637eb, icon: 'none' });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
+      }
+    },
+
+    async loadHrProfileTemplates() {
+      if (!this.data.canReadHrProfileTemplates && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
+        && !this.data.isSuperAdmin && !(this.data.user.permissions || {})['hr.profile_templates.manage.delete']) return;
+      const request = orgSession.beginRequest(this, 'hrTemplateCatalog');
+      this.setLoading('hrProfileTemplates', true);
+      try {
+        const result = await this.callCloud('listHrProfileTemplates');
+        if (this._pageVisible === false || !orgSession.isRequestCurrent(this, request)) return;
+        if (result.status !== 'success') {
+          showShortToast(localeCopy.copy_e52119b17e);
+          return;
+        }
+        const active = result.activeSnapshot || null;
+        if (active && Array.isArray(active.fields)) {
+          active.editModeHint = editModeHintFor(active.editMode, templateSaveCopy);
+          active.fields = active.fields.map((field) => {
+            const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === field.type);
+            let ruleText = '';
+            if (field.type === 'text' && (field.minLength != null || field.maxLength != null)) {
+              ruleText = localeFormat(localeCopy.copy_d631c78751, [field.minLength == null ? localeCopy.copy_62676bc383 : field.minLength, field.maxLength == null ? localeCopy.copy_62676bc383 : field.maxLength]);
+            } else if (field.type === 'number') {
+              if (field.numberRule === 'length_range') {
+                ruleText = localeFormat(localeCopy.copy_bfcf17946a, [field.minDigits == null ? localeCopy.copy_62676bc383 : field.minDigits, field.maxDigits == null ? localeCopy.copy_62676bc383 : field.maxDigits]);
+              } else if (field.minValue != null || field.maxValue != null) {
+                ruleText = localeFormat(localeCopy.copy_9e71d66edf, [field.minValue == null ? localeCopy.copy_62676bc383 : field.minValue, field.maxValue == null ? localeCopy.copy_62676bc383 : field.maxValue]);
+              }
+              if (field.allowDecimal === false) ruleText = localeFormat(localeCopy.copy_d593ce302d, [ruleText ? `${ruleText} · ` : '']);
+            } else if (field.type === 'sequence') {
+              ruleText = (field.options || []).length
+                ? buildHrFieldOptionsSummary(field.options.join('\n'))
+                : localeCopy.copy_266af79ece;
+            }
+            return Object.assign({}, field, {
+              typeLabel: typeOption ? typeOption.label : field.type,
+              ruleText
+            });
+          });
+        }
+        this.setData({
+          hrProfileTemplateList: (result.list || []).map((template) => Object.assign({}, template, {
+            // 保留原始 options 数组：再次进入编辑器时，序列选项要靠它回填文本框。
+            fields: (template.fields || []).map((field) =>
+              decorateHrTemplateField(Object.assign({}, field, normalizeHrProfileFieldForForm(field)), [], {}, []))
+          })),
+          activeHrProfileSnapshot: active,
+          canManageHrProfileTemplates: result.canManage === true,
+          canSelectHrProfileTemplate: result.canSelect === true
+        });
+      } catch (_) {
+        if (this._pageVisible !== false && orgSession.isRequestCurrent(this, request)) showShortToast(localeCopy.copy_e52119b17e);
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hrProfileTemplates', false);
+      }
+    },
+
+    startCreateHrProfileTemplate() {
+      if (this.data.authorizationEnforced && !this.data.canCreateHrProfileTemplates) return;
+      if (this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
+      const form = emptyHrProfileTemplateForm();
+      const expandedIds = form.fields.length ? [String(form.fields[0].id)] : [];
+      this._hrTemplateFieldErrors = {};
+      this.setData({
+        hrProfileTemplateForm: Object.assign({}, form, {
+          editModeHint: editModeHintFor(form.editMode, templateSaveCopy),
+          fields: decorateHrTemplateFields(form.fields, expandedIds, {}, [])
+        }),
+        hrTemplatePreviewId: '',
+        hrTemplateExpandedFieldIds: expandedIds,
+        hrTemplateExpandedOptionsIds: [],
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
+        showHrTemplateEditor: true
+      }, () => {
+        this.markHrTemplateBaseline();
+        this.focusHrTemplateEditor(true);
+      });
+    },
+
+    /** 把编辑器顶部或指定字段滚到可见位置。 */
+    focusHrTemplateEditor(showHeading, fieldId) {
+      if (this._pageVisible === false || !this.data.showHrTemplateEditor || typeof wx.pageScrollTo !== 'function') return;
+      const anchor = !showHeading && fieldId ? '#hr-template-field-' + fieldId : '.hr-template-editor';
+      wx.pageScrollTo({ selector: anchor, duration: 0 });
+    },
+
+    /** 记录“打开时是什么样”，用来判断有没有未保存的修改。 */
+    markHrTemplateBaseline() {
+      this._hrTemplateBaseline = hrTemplateFormSignature(this.data.hrProfileTemplateForm);
+      this._hrTemplateLeaveGuard = false;
+      this.setData({ hrTemplateDirty: false });
+      this.syncHrTemplateLeaveGuard(false);
+    },
+
+    syncHrTemplateLeaveGuard(enabled) {
+      if (typeof wx.enableAlertBeforeUnload === 'function' && typeof wx.disableAlertBeforeUnload === 'function') {
+        if (enabled && !this._hrTemplateLeaveGuard) {
+          this._hrTemplateLeaveGuard = true;
+          wx.enableAlertBeforeUnload({ message: templateSaveCopy.leaveWarning });
+          return;
+        }
+        if (!enabled && this._hrTemplateLeaveGuard) {
+          this._hrTemplateLeaveGuard = false;
+          wx.disableAlertBeforeUnload();
+        }
+      }
+    },
+
+    /** 服务端只说“某某不合法”时，尽量把这句话贴到对应的字段行上。 */
+    markHrTemplateServerError(message) {
+      const text = String(message || '').trim();
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (!text || !fields.length) return;
+      const matched = fields.find((field) => {
+        const label = String(field.label || '').trim();
+        return label && text.indexOf(label) >= 0;
+      });
+      if (!matched) return;
+      const fieldId = String(matched.id);
+      const errors = Object.assign({}, this._hrTemplateFieldErrors || {}, { [fieldId]: text });
+      const expandedIds = (this.data.hrTemplateExpandedFieldIds || []).indexOf(fieldId) >= 0
+        ? this.data.hrTemplateExpandedFieldIds
+        : (this.data.hrTemplateExpandedFieldIds || []).concat(fieldId);
+      this._hrTemplateFieldErrors = errors;
+      this.setData({
+        hrTemplateExpandedFieldIds: expandedIds,
+        hrTemplateErrorCount: Object.keys(errors).length,
+        hrTemplateFormError: text,
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, errors, this.data.hrTemplateExpandedOptionsIds || [])
+      });
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 只在真正会保存的内容变化时提示“有未保存的修改”。 */
+    refreshHrTemplateDirty() {
+      const dirty = hrTemplateFormSignature(this.data.hrProfileTemplateForm) !== this._hrTemplateBaseline;
+      if (dirty !== this.data.hrTemplateDirty) this.setData({ hrTemplateDirty: dirty });
+      this.syncHrTemplateLeaveGuard(dirty);
+    },
+
+    /** 每次改动后重算字段派生信息（展开状态、选项摘要、行内提示）。 */
+    applyHrTemplateFields(fields, errors) {
+      const expandedIds = this.data.hrTemplateExpandedFieldIds || [];
+      const nextErrors = errors || this._hrTemplateFieldErrors || {};
+      this._hrTemplateFieldErrors = nextErrors;
+      this.setData({
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(fields, expandedIds, nextErrors, this.data.hrTemplateExpandedOptionsIds || []),
+        hrTemplateErrorCount: Object.keys(nextErrors).length
+      });
+      this.refreshHrTemplateDirty();
+    },
+
+    editHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canUpdateHrProfileTemplates) return;
+      if (!this.data.canManageHrProfileTemplates || this.data.showHrTemplateEditor || this.data.loadingMap.saveProfileTemplate) return;
+      const id = String(e.currentTarget.dataset.id || '');
+      const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
+      if (!template) return;
+      const modeOption = PROFILE_EDIT_MODE_OPTIONS.find((item) => item.value === template.editMode) || PROFILE_EDIT_MODE_OPTIONS[0];
+      this._hrTemplateFieldErrors = {};
+      this.setData({
+        hrProfileTemplateForm: {
+          id: template.id,
+          name: template.name || '',
+          description: template.description || '',
+          editMode: modeOption.value,
+          editModeLabel: modeOption.label,
+          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(modeOption),
+          editModeHint: editModeHintFor(modeOption.value, templateSaveCopy),
+          fields: decorateHrTemplateFields(
+            (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field)), [], {}, [])
+        },
+        hrTemplatePreviewId: id,
+        hrTemplateExpandedFieldIds: [],
+        hrTemplateExpandedOptionsIds: [],
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
+        showHrTemplateEditor: true
+      }, () => {
+        this.markHrTemplateBaseline();
+        this.focusHrTemplateEditor();
+      });
+    },
+
+    cancelHrProfileTemplateEditor() {
+      if (this.data.loadingMap.saveProfileTemplate) return;
+      if (!this.data.hrTemplateDirty) {
+        this.closeHrProfileTemplateEditor();
+        return;
+      }
+      wx.showModal({
+        title: templateSaveCopy.discardTitle,
+        content: templateSaveCopy.discardMessage,
+        confirmText: templateSaveCopy.discardAction,
+        cancelText: templateSaveCopy.keepEditingAction,
+        confirmColor: '#ef4444',
+        success: (result) => {
+          if (result.confirm) this.closeHrProfileTemplateEditor();
+        }
+      });
+    },
+
+    closeHrProfileTemplateEditor() {
+      this._hrTemplateBaseline = '';
+      this._hrTemplateFieldErrors = {};
+      this.setData({
+        showHrTemplateEditor: false,
+        hrProfileTemplateForm: emptyHrProfileTemplateForm(),
+        hrTemplateExpandedFieldIds: [],
+        hrTemplateExpandedOptionsIds: [],
+        hrTemplateDirty: false,
+        hrTemplateErrorCount: 0,
+        hrTemplateFormError: '',
+        hrFieldDragIndex: -1,
+        hrFieldDragInsertIndex: -1,
+        hrFieldDragGhostVisible: false
+      });
+      this.syncHrTemplateLeaveGuard(false);
+    },
+
+    toggleHrTemplatePreview(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      this.setData({ hrTemplatePreviewId: this.data.hrTemplatePreviewId === id ? '' : id });
+    },
+
+    toggleHrTemplateFieldEditor(e) {
+      const fieldId = String(e.currentTarget.dataset.fieldId || '');
+      if (!fieldId) return;
+      const current = this.data.hrTemplateExpandedFieldIds || [];
+      const expanded = current.indexOf(fieldId) < 0;
+      const expandedIds = expanded
+        ? current.concat(fieldId)
+        : current.filter((item) => item !== fieldId);
+      this.setData({
+        hrTemplateExpandedFieldIds: expandedIds,
+        'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+          this.data.hrProfileTemplateForm.fields || [], expandedIds, {}, this.data.hrTemplateExpandedOptionsIds || [])
+      }, () => {
+        if (expanded) this.focusHrTemplateEditor(false, fieldId);
+      });
+    },
+
+    /**
+     * 编辑器组件把每次操作按动作名回传，这里只做分发：
+     * 具体处理仍是原来的方法，避免同一套逻辑在组件和页面里各写一遍。
+     */
+    onHrTemplateEditorAction(e) {
+      const detail = e.detail || {};
+      const currentTarget = { dataset: detail };
+      const valueEvent = { currentTarget, detail: { value: detail.value } };
+      switch (detail.action) {
+        case 'template-input': return this.onHrProfileTemplateInput(valueEvent);
+        case 'edit-mode-change': return this.onHrProfileEditModeChange(valueEvent);
+        case 'field-input': return this.onHrProfileFieldInput(valueEvent);
+        case 'field-type-change': return this.onHrProfileFieldTypeChange(valueEvent);
+        case 'field-required-change': return this.onHrProfileFieldRequiredChange(valueEvent);
+        case 'number-rule-change': return this.onHrProfileNumberRuleChange(valueEvent);
+        case 'field-decimal-change': return this.onHrProfileFieldAllowDecimalChange(valueEvent);
+        case 'toggle-field': return this.toggleHrTemplateFieldEditor({ currentTarget });
+        case 'move-field': return this.moveHrProfileField({ currentTarget });
+        case 'remove-field': return this.removeHrProfileField({ currentTarget });
+        case 'remove-option': return this.removeHrProfileOption({ currentTarget });
+        case 'dedupe-options': return this.dedupeHrProfileOptions({ currentTarget });
+        case 'option-move': return this.moveHrProfileOption(detail);
+        case 'option-drop': return this.applyHrOptionDrop(detail);
+        case 'option-toggle-expand': return this.toggleHrProfileOptionsExpand(detail);
+        case 'add-field': return this.addHrProfileField();
+        case 'import-fields': return this.importTableFields();
+        case 'save': return this.saveHrProfileTemplate();
+        case 'cancel': return this.cancelHrProfileTemplateEditor();
+        case 'field-drop': return this.applyHrFieldDrop(detail);
+        default: return undefined;
+      }
+    },
+
+    async duplicateHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canCreateHrProfileTemplates) return;
+      const id = String(e.currentTarget.dataset.id || '');
+      if (!id) return;
+      this.setLoading('duplicateHrProfileTemplate', true);
+      try {
+        const result = await this.callCloud('duplicateHrProfileTemplateDefinition', { id });
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_b433d31323);
+        await this.loadHrProfileTemplates();
+        showShortToast(localeCopy.copy_cc6172e63c, 'success');
+      } catch (_) {
+        showShortToast(localeCopy.copy_b433d31323);
+      } finally {
+        this.setLoading('duplicateHrProfileTemplate', false);
+      }
+    },
+
+    deleteHrProfileTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.canDeleteHrProfileTemplates) return;
+      const id = String(e.currentTarget.dataset.id || '');
+      const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
+      if (!template) return;
+      wx.showModal({
+        title: localeCopy.copy_f81d32f71f,
+        content: localeCopy.copy_6fae2b39f0,
+        confirmText: localeCopy.copy_7310bccaf5,
+        confirmColor: '#ef4444',
+        success: async (modalResult) => {
+          if (!modalResult.confirm) return;
+          try {
+            const result = await this.callCloud('deleteHrProfileTemplateDefinition', { id });
+            if (result.status !== 'success') return showShortToast(localeCopy.copy_076bb5d383);
+            await this.loadHrProfileTemplates();
+            showShortToast(localeCopy.copy_5398fec054, 'success');
+          } catch (_) {
+            showShortToast(localeCopy.copy_076bb5d383);
+          }
+        }
+      });
+    },
+
+    async startHrProfileTemplateSwitch(e) {
+      if (!this.data.canSelectHrProfileTemplate) return;
+      const targetTemplateId = String(e.currentTarget.dataset.id || '');
+      if (!targetTemplateId) return;
+      const request = orgSession.beginRequest(this, 'hrTemplateSwitchContext');
+      this.setLoading('hrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('getHrProfileTemplateSwitchContext', { targetTemplateId });
+        if (this._pageVisible === false || !orgSession.isRequestCurrent(this, request)) return;
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_e52119b17e);
+        const targetFields = (result.targetTemplate && result.targetTemplate.fields) || [];
+        const sources = buildSwitchSources(result.sourceFields || [], targetFields,
+          localeCopy.copy_e6b5e03497, (label) => localeFormat(localeCopy.copy_209c97537d, [label]));
+        this.setData({
+          hrTemplateSwitchVisible: true,
+          hrTemplateSwitchTarget: result.targetTemplate,
+          hrTemplateSwitchSources: sources,
+          hrTemplateSwitchToken: '',
+          hrTemplateSwitchSummary: null
+        });
+      } catch (_) {
+        if (this._pageVisible !== false && orgSession.isRequestCurrent(this, request)) showShortToast(localeCopy.copy_e52119b17e);
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hrTemplateSwitch', false);
+      }
+    },
+
+    closeHrProfileTemplateSwitch() {
+      orgSession.beginRequest(this, 'hrTemplateSwitchContext');
+      this.setData({
+        hrTemplateSwitchVisible: false,
+        hrTemplateSwitchTarget: null,
+        hrTemplateSwitchSources: [],
+        hrTemplateSwitchToken: '',
+        hrTemplateSwitchSummary: null,
+        hrTemplateSwitchBlockVisible: false,
+        hrTemplateSwitchBlockReport: null
+      });
+    },
+
+    closeHrTemplateSwitchBlock() {
+      this.setData({
+        hrTemplateSwitchBlockVisible: false,
+        hrTemplateSwitchBlockReport: null
+      });
+    },
+
+    onHrTemplateSwitchActionChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const actionIndex = Number(e.detail.value);
+      const action = ['hide', 'map', 'delete'][actionIndex] || 'hide';
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      if (!sources[index]) return;
+      const recommendedIndex = Number(sources[index].recommendedIndex || 0);
+      sources[index] = Object.assign({}, sources[index], {
+        action,
+        actionIndex,
+        moveToNew: action === 'map',
+        markForDelete: action === 'delete',
+        targetTemplateFieldId: action === 'map' ? sources[index].targetOptions[recommendedIndex].id : '',
+        targetIndex: action === 'map' ? recommendedIndex : 0
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    onHrTemplateSwitchTargetChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const targetIndex = Number(e.detail.value);
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      if (!sources[index]) return;
+      const target = sources[index].targetOptions[targetIndex] || sources[index].targetOptions[0];
+      sources[index] = Object.assign({}, sources[index], {
+        targetIndex,
+        targetTemplateFieldId: target.id || '',
+        moveToNew: Boolean(target.id),
+        markForDelete: false,
+        action: target.id ? 'map' : 'hide',
+        actionIndex: target.id ? 1 : 0
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    buildHrTemplateSwitchActions() {
+      return (this.data.hrTemplateSwitchSources || []).map((source) => {
+        const action = source.markForDelete ? 'delete' : (source.moveToNew ? 'map' : 'hide');
+        return {
+          sourceSnapshotFieldId: source.id,
+          action,
+          targetTemplateFieldId: action === 'map' ? source.targetTemplateFieldId : ''
+        };
+      });
+    },
+
+    async previewHrProfileTemplateSwitch() {
+      const target = this.data.hrTemplateSwitchTarget;
+      if (!target) return;
+      const actions = this.buildHrTemplateSwitchActions();
+      if (actions.some((action) => action.action === 'map' && !action.targetTemplateFieldId)) {
+        return showShortToast(localeCopy.copy_deff18cd29);
+      }
+      const mappedTargets = actions
+        .filter((action) => action.action === 'map')
+        .map((action) => action.targetTemplateFieldId);
+      if (new Set(mappedTargets).size !== mappedTargets.length) {
+        return showShortToast(personnelSwitchCopy.hrTemplateSwitchDuplicateTarget);
+      }
+      this.setLoading('previewHrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('previewHrProfileTemplateSwitch', {
+          targetTemplateId: target.id,
+          fieldActions: actions
+        });
+        if (result.status === 'mapping_blocked') {
+          const sourceMap = new Map((this.data.hrTemplateSwitchSources || []).map((source) => [source.id, source]));
+          const rows = [];
+          (result.blockers || []).forEach((blocker) => {
+            const source = sourceMap.get(blocker.sourceSnapshotFieldId);
+            const target = source && (source.targetOptions || []).find((item) => item.id === blocker.targetTemplateFieldId);
+            const fieldLabel = source ? source.label : blocker.sourceSnapshotFieldId;
+            const targetLabel = target ? target.displayLabel : blocker.targetTemplateFieldId;
+            (blocker.invalidItems || []).forEach((item, itemIndex) => {
+              rows.push({
+                key: `${blocker.sourceSnapshotFieldId}:${itemIndex}`,
+                memberName: item.memberName || personnelSwitchCopy.hrTemplateSwitchIncompatibleUnnamedMember,
+                fieldLabel,
+                targetLabel,
+                rawValue: item.rawValue || personnelSwitchCopy.hrTemplateSwitchIncompatibleEmptyValue,
+                error: item.error,
+                pendingText: item.isPending ? personnelSwitchCopy.hrTemplateSwitchIncompatiblePending : ''
+              });
+            });
+          });
+          this.setData({
+            hrTemplateSwitchToken: result.switchToken,
+            hrTemplateSwitchSummary: result.summary,
+            hrTemplateSwitchBlockVisible: true,
+            hrTemplateSwitchBlockReport: {
+              title: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportTitle,
+              intro: personnelSwitchCopy.hrTemplateSwitchIncompatibleReportDetailIntro,
+              rows
+            }
+          });
+          return;
+        }
+        if (result.status !== 'success') return showShortToast(result.message || localeCopy.copy_e58fa637eb);
+        this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
+        const summary = result.summary || {};
+        const hasDelete = summary.hasDelete === true;
+        wx.showModal({
+          title: hasDelete ? localeCopy.copy_97366c6f6d : localeCopy.copy_f6076cddc4,
+          content: localeFormat(localeCopy.copy_ea656e2ae7, [summary.mapValueCount || 0, summary.hideValueCount || 0, summary.deleteValueCount || 0, hasDelete ? localeCopy.copy_0efc367eca : '']),
+          confirmText: hasDelete ? localeCopy.copy_27ee30d786 : localeCopy.copy_a79c2f21ae,
+          confirmColor: hasDelete ? '#ef4444' : '#2563eb',
+          success: (modalResult) => {
+            if (modalResult.confirm) this.applyHrProfileTemplateSwitch(hasDelete);
+          }
+        });
+      } catch (error) {
+        showShortToast(getErrorText(error, '') || localeCopy.hrTemplateSwitchPreviewFailed);
+      } finally {
+        this.setLoading('previewHrTemplateSwitch', false);
+      }
+    },
+
+    async applyHrProfileTemplateSwitch(confirmDelete, ignoreInvalid) {
+      const target = this.data.hrTemplateSwitchTarget;
+      if (!target || !this.data.hrTemplateSwitchToken) return;
+      this.setLoading('applyHrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('applyHrProfileTemplateSwitch', {
+          targetTemplateId: target.id,
+          fieldActions: this.buildHrTemplateSwitchActions(),
+          switchToken: this.data.hrTemplateSwitchToken,
+          confirmDelete: confirmDelete === true,
+          ignoreInvalid: ignoreInvalid === true
+        });
+        if (result.status !== 'success') {
+          showShortToast(result.status === 'stale_switch'
+            ? localeCopy.copy_7582cffe69
+            : (result.message || localeCopy.copy_c45d6ea9d1));
+          return;
+        }
+        this.closeHrProfileTemplateSwitch();
+        await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
+        showShortToast(localeCopy.copy_75349a79ee, 'success');
+      } catch (error) {
+        showShortToast(getErrorText(error, '') || localeCopy.copy_c45d6ea9d1);
+      } finally {
+        this.setLoading('applyHrTemplateSwitch', false);
+      }
+    },
+
+    async applyHrTemplateSwitchIgnoringInvalid() {
+      const summary = this.data.hrTemplateSwitchSummary || {};
+      await this.applyHrProfileTemplateSwitch(summary.hasDelete === true, true);
+    },
+
+    onActiveHrProfileSettingInput(e) {
+      const field = String(e.currentTarget.dataset.field || '');
+      const active = Object.assign({}, this.data.activeHrProfileSnapshot || {});
+      active[field] = e.detail.value;
+      this.setData({ activeHrProfileSnapshot: active });
+    },
+
+    onActiveHrProfileModeChange(e) {
+      const option = PROFILE_EDIT_MODE_OPTIONS[Number(e.detail.value)] || PROFILE_EDIT_MODE_OPTIONS[0];
+      this.setData({
+        'activeHrProfileSnapshot.editMode': option.value,
+        'activeHrProfileSnapshot.editModeHint': editModeHintFor(option.value, templateSaveCopy)
+      });
+    },
+
+    async saveActiveHrProfileSettings() {
+      const active = this.data.activeHrProfileSnapshot;
+      if (!active) return;
+      this.setLoading('saveActiveHrProfileSettings', true);
+      try {
+        const result = await this.callCloud('saveOrgHrProfileTemplateSettings', {
+          description: active.description || '',
+          editMode: active.editMode || 'direct'
+        });
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_215e3c57da);
+        await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
+        showShortToast(localeCopy.copy_0aacec2714, 'success');
+      } catch (_) {
+        showShortToast(localeCopy.copy_215e3c57da);
+      } finally {
+        this.setLoading('saveActiveHrProfileSettings', false);
+      }
+    },
+
+    refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this._hrProfileRawRows || []) {
+      // 列表内容被重建（筛选、搜索、排序、重新加载）时清掉触底去重时间窗，
+      // 避免新列表刚出现就被上一次追加的时间戳挡住而停在第一批。
+      this._hrProfileLoadMoreAt = 0;
+      const filteredRows = applyHrProfileFilters(nextRawRows, nextFilters);
+      const actionState = this.buildHrMemberActionState(filteredRows);
+      const selected = new Set(actionState.selectedHrMemberIds);
+      this._hrProfileRawRows = nextRawRows.map((item) => Object.assign({}, item, {
+        selected: selected.has(String(item.id || ''))
+      }));
+      this._hrProfileFilteredRows = filteredRows.map((item) => Object.assign({}, item, {
+        selected: selected.has(String(item.id || ''))
+      }));
+      const rawOptions = buildHrProfileFilterOptions(nextRawRows);
+      this.setData(Object.assign({}, actionState, {
+        hrProfileFilterOptions: decorateFilterOptions(rawOptions, nextFilters),
+        hrProfileActiveFilterChips: buildActiveFilterChips(rawOptions, nextFilters),
+      }, buildHrProfileRenderState(this._hrProfileFilteredRows)));
+    },
+
+    loadMoreHrProfileRows() {
+      const now = Date.now();
+      if (this._hrProfileLoadMoreAt && now - this._hrProfileLoadMoreAt < HR_PROFILE_LOAD_MORE_DEDUPE_MS) return;
+      if (!this.data.hrProfileHasMore) return;
+      const rows = this._hrProfileFilteredRows || [];
+      const start = Math.max(0, Number(this.data.hrProfileVisibleCount) || 0);
+      const end = Math.min(rows.length, start + HR_PROFILE_RENDER_BATCH_SIZE);
+      if (end <= start) return;
+      this._hrProfileLoadMoreAt = now;
+      const updates = {
+        hrProfileVisibleCount: end,
+        hrProfileResultCount: rows.length,
+        hrProfileResultSummary: buildHrProfileResultSummary(end, rows.length),
+        hrProfileHasMore: end < rows.length
+      };
+      rows.slice(start, end).map(toHrProfileListRow).forEach((row, index) => {
+        updates['hrProfileRows[' + (start + index) + ']'] = row;
+      });
+      this.setData(updates);
+    },
+
+    onHrProfileFilterGroupChange(e) {
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const field = String(detail.field || dataset.field || '');
+      if (!field || !Array.isArray(this.data.hrProfileFilters[field])) return;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        [field]: (detail.value || []).map(String)
+      });
+      this.setData({ hrProfileFilters: nextFilters });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    onHrProfileSearchFieldChange(e) {
+      const options = this.data.hrProfileFilterOptions.searchFields || [];
+      const index = Number(e.detail.value) || 0;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        searchField: options[index] && options[index].value || 'all'
+      });
+      this.setData({ hrProfileFilters: nextFilters, hrProfileSearchFieldIndex: index });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    onHrProfileSortChange(e) {
+      const options = this.data.hrProfileFilterOptions.sortModes || [];
+      const index = Number(e.detail.value) || 0;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        sortMode: options[index] && options[index].value || 'name_asc'
+      });
+      this.setData({ hrProfileFilters: nextFilters, hrProfileSortIndex: index });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    toggleHrProfileAdvancedFilters() {
+      this.setData({ hrProfileAdvancedFiltersVisible: !this.data.hrProfileAdvancedFiltersVisible });
+    },
+
+    clearHrProfileFilterChip(e) {
+      const detail = e.detail || {};
+      const dataset = e.currentTarget && e.currentTarget.dataset || {};
+      const category = String(detail.category || dataset.category || '');
+      const value = String(detail.value || dataset.value || '');
+      const current = this.data.hrProfileFilters[category];
+      if (!Array.isArray(current)) return;
+      const nextFilters = Object.assign({}, this.data.hrProfileFilters, {
+        [category]: current.filter((item) => String(item) !== value)
+      });
+      this.setData({ hrProfileFilters: nextFilters });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    onHrProfileKeywordInput(e) {
+      const displayValue = e.detail.value;
+      this.setData({ _hrInfoKeywordInput: displayValue });
+      this.clearHrInfoKeywordTimer();
+      this._hrInfoKeywordTimer = setTimeout(() => {
+        this._hrInfoKeywordTimer = null;
+        const nextFilters = {
+          ...this.data.hrProfileFilters,
+          keyword: displayValue
+        };
+        this.setData({ hrProfileFilters: nextFilters });
+        this.refreshHrProfileRows(nextFilters);
+      }, 300);
+    },
+
+    clearHrInfoKeywordTimer() {
+      if (!this._hrInfoKeywordTimer) return;
+      clearTimeout(this._hrInfoKeywordTimer);
+      this._hrInfoKeywordTimer = null;
+    },
+
+    resetHrProfileFilters() {
+      this.clearHrInfoKeywordTimer();
+      const nextFilters = emptyHrProfileFilters();
+      this.setData({
+        hrProfileFilters: nextFilters,
+        hrProfileSearchFieldIndex: 0,
+        hrProfileSortIndex: 0,
+        _hrInfoKeywordInput: ''
+      });
+      this.refreshHrProfileRows(nextFilters);
+    },
+
+    exportHrProfiles() {
+      const rows = this._hrProfileFilteredRows || this.data.hrProfileRows || [];
+      if (!rows.length) {
+        showShortToast(localeCopy.copy_e59729af18);
+        return;
+      }
+
+      const fields = this.data.hrProfileFields || [];
+      const columns = [
+        { key: 'name', label: localeCopy.copy_3c946202ff, groupLabel: localeCopy.copy_142861823e, source: 'name', checked: true },
+        { key: 'studentId', label: localeCopy.copy_cbb853db1b, groupLabel: localeCopy.copy_142861823e, source: 'studentId', checked: true },
+        { key: 'membershipStatus', label: localeCopy.hrExportMembershipStatus, groupLabel: localeCopy.copy_142861823e, source: 'membershipStatusText', checked: true },
+        { key: 'joinedAt', label: localeCopy.hrExportJoinedAt, groupLabel: localeCopy.copy_142861823e, source: 'joinedAtText', checked: true },
+        { key: 'leftAt', label: localeCopy.hrExportLeftAt, groupLabel: localeCopy.copy_142861823e, source: 'leftAtText', checked: true },
+        { key: 'assignmentNature', label: localeCopy.hrAssignmentNature, groupLabel: localeCopy.copy_79a04f117c, source: 'assignmentNatures', checked: true },
+        { key: 'department', label: localeCopy.copy_cb8ac66b1a, groupLabel: localeCopy.copy_79a04f117c, source: 'department', checked: true },
+        { key: 'identity', label: localeCopy.copy_e69d9e7df1, groupLabel: localeCopy.copy_79a04f117c, source: 'identity', checked: true },
+        { key: 'workGroup', label: localeCopy.copy_6cc69fb176, groupLabel: localeCopy.copy_79a04f117c, source: 'workGroup', checked: true },
+        { key: 'wxBindStatus', label: localeCopy.copy_f93247534b, groupLabel: localeCopy.copy_142861823e, source: 'wxBindStatus', checked: true },
+        { key: 'auditStatus', label: localeCopy.copy_e3070392e0, groupLabel: localeCopy.copy_142861823e, source: 'auditStatus', checked: true },
+        { key: 'selfSubmittedAt', label: personnelSwitchCopy.hrProfileSelfSubmittedAt, groupLabel: localeCopy.copy_142861823e, source: 'selfSubmittedAtText', checked: true },
+        { key: 'maintainedAt', label: personnelSwitchCopy.hrProfileMaintainedAt, groupLabel: localeCopy.copy_142861823e, source: 'maintainedAtText', checked: true },
+        { key: 'maintainedBy', label: personnelSwitchCopy.hrProfileMaintainedBy, groupLabel: localeCopy.copy_142861823e, source: 'maintainedByName', checked: true },
+        { key: 'lastChangedAt', label: personnelSwitchCopy.hrProfileLastChangedAt, groupLabel: localeCopy.copy_142861823e, source: 'lastChangedAtText', checked: true }
+      ];
+      const pendingFieldMap = {};
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+        const pendingValues = rows[rowIndex].pendingValues || {};
+        for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+          const fieldId = fields[fieldIndex].id;
+          if (pendingValues[fieldId] !== undefined && String(pendingValues[fieldId]).trim()) {
+            pendingFieldMap[fieldId] = true;
+          }
+        }
+      }
+      for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+        const field = fields[fieldIndex];
+        columns.push({
+          key: 'profile_' + fieldIndex,
+          label: field.label,
+          groupLabel: localeCopy.copy_9ec66981b8,
+          source: 'profile',
+          fieldId: field.id,
+          checked: true
+        });
+        if (pendingFieldMap[field.id]) {
+          columns.push({
+            key: 'pending_' + fieldIndex,
+            label: field.label + localeCopy.copy_5951b5b0a2,
+            groupLabel: localeCopy.copy_ddb6dca5b6,
+            source: 'pending',
+            fieldId: field.id,
+            checked: true
+          });
+        }
+      }
+
+      this.setData({
+        hrProfileExportVisible: true,
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: columns.length,
+        hrProfileExportFormat: 'xlsx'
+      });
+    },
+
+    closeHrProfileExport() {
+      this.setData({
+        hrProfileExportVisible: false,
+        hrProfileExportColumns: [],
+        hrProfileExportSelectedCount: 0
+      });
+    },
+
+    onHrProfileExportColumnChange(e) {
+      const selectedKeys = e.detail.value || [];
+      const selectedMap = {};
+      for (let index = 0; index < selectedKeys.length; index += 1) {
+        selectedMap[selectedKeys[index]] = true;
+      }
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: !!selectedMap[column.key] })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: selectedKeys.length
+      });
+    },
+
+    selectAllHrProfileExportColumns() {
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: true })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: columns.length
+      });
+    },
+
+    clearHrProfileExportColumns() {
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: false })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: 0
+      });
+    },
+
+    onHrProfileExportFormatChange(e) {
+      const format = String(e.currentTarget.dataset.format || '');
+      if (format !== 'xlsx' && format !== 'csv') return;
+      this.setData({ hrProfileExportFormat: format });
+    },
+
+    confirmHrProfileExport() {
+      const columns = (this.data.hrProfileExportColumns || []).filter((column) => column.checked);
+      if (!columns.length) {
+        showShortToast(localeCopy.copy_37795f5bde);
+        return;
+      }
+      const headers = columns.map((column) => ({ key: column.key, label: column.label }));
+      const rows = (this._hrProfileFilteredRows || this.data.hrProfileRows || []).map((item) => {
+        const exportRow = {};
+        for (let index = 0; index < columns.length; index += 1) {
+          const column = columns[index];
+          const currentValues = item.currentValues || {};
+          const pendingValues = item.pendingValues || {};
+          if (column.source === 'profile') {
+            exportRow[column.key] = currentValues[column.fieldId] || '';
+          } else if (column.source === 'pending') {
+            exportRow[column.key] = pendingValues[column.fieldId] || '';
+          } else if (column.source === 'wxBindStatus') {
+            const bindStatusTextMap = {
+              bound: localeCopy.copy_171e9799a7,
+              pending_activation: localeCopy.copy_1ceaebed03,
+              unbound: localeCopy.copy_ba9b0425fd
+            };
+            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || localeCopy.copy_ba9b0425fd;
+          } else if (column.source === 'auditStatus') {
+            exportRow[column.key] = item.auditStatusText || '';
+          } else if (column.source === 'assignmentNatures') {
+            const natureText = { staff: localeCopy.hrNatureStaff, liaison: localeCopy.hrNatureLiaison, other: localeCopy.hrNatureOther };
+            exportRow[column.key] = [...new Set((item.assignments || []).map(assignment =>
+              assignment.assignmentNatureLabel || natureText[assignment.assignmentNature] || '').filter(Boolean))].join('、');
+          } else {
+            exportRow[column.key] = item[column.source] || '';
+          }
+        }
+        return exportRow;
+      });
+      this.exportHrProfileFile(headers, rows, this.data.hrProfileExportFormat || 'xlsx');
+    },
+
+    async exportHrProfileFile(headers, rows, format) {
+      const orgName = this.data.currentOrganizationName || localeCopy.copy_2b8b8bf904;
+      const fileName = orgName + localeCopy.copy_e39c036ae6;
+      this.setLoading('exportHrProfiles', true);
+      try {
+        const result = await this.callCloud('buildTableFile', {
+          format,
+          headers,
+          rows,
+          sheetName: localeCopy.copy_64dc3d4fff
+        });
+        if (!result || result.status !== 'success' || !result.fileBase64) {
+          showShortToast((result && result.message) || localeCopy.copy_2b61466286);
+          return;
+        }
+        this.setData({ hrProfileExportVisible: false });
+        await saveAndShareFile(result.fileBase64, fileName, result.extension || format);
+      } catch (error) {
+        showShortToast(localeCopy.copy_2b61466286);
+      } finally {
+        this.setLoading('exportHrProfiles', false);
+      }
+    },
+
+    async openHrPersonDetail(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      const canOpenGovernanceDetail = this.data.canReadAuthGovernance;
+      if (!hrId || (!this.data.canBrowseHrInfo && !canOpenGovernanceDetail)) return;
+      const detailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
+      this._hrPersonDetailRequestId = detailRequestId;
+      this.setData({ detailWritableFieldIds: [], detailCanManagePeople: false, detailCanReviewProfiles: false });
+
+      const governance = this.getHrGovernanceRow(hrId);
+      if (!this.data.canBrowseHrInfo) {
+        if (!governance) return;
+        const isFormer = governance.membershipStatus === 'left';
+        this.setData({
+          showHrPersonDetail: true,
+          detailHrId: hrId,
+          detailHrGovernance: governance,
+          detailHrProfile: { name: governance.name || '', studentId: governance.studentId || '' },
+          detailHrValues: { _name: governance.name || '', _studentId: governance.studentId || '' },
+          detailHrMembershipStatus: isFormer ? 'left' : 'active',
+          detailHrReadOnly: isFormer,
+          detailHrJoinedAtText: formatDetailTime(governance.joinedAt, { reviewStatus: governance.joinedAtReviewStatus }),
+          detailHrLeftAtText: formatDetailTime(governance.leftAt, { reviewStatus: governance.leftAtReviewStatus }),
+          detailHrTemplate: null,
+          detailHrHistoricalFields: [],
+          detailHrReviewHistory: [],
+          detailHrHasPending: false,
+          detailHrAuditStatus: '',
+          detailHrAuditStatusText: '',
+          loadingDetailHr: false
+        });
+        if (this.data.canGlobalAccountManage && governance.personId && !isFormer) {
+          this.loadDetailHrSecurity(governance.personId, detailRequestId);
+        } else {
+          this.setData({ detailHrSecurity: null });
+        }
+        return;
+      }
+
+      // Proactively ensure department/identity/workGroup lists are loaded
+      const loadPromises = [];
+      if (!this.data.authorizationEnforced && (!this.data.departmentList || !this.data.departmentList.length)) {
+        loadPromises.push(this._ensureDepartmentsLoaded());
+      }
+      if (!this.data.authorizationEnforced && (!this.data.identityList || !this.data.identityList.length)) {
+        loadPromises.push(this._ensureIdentitiesLoaded());
+      }
+      if (!this.data.authorizationEnforced && (!this.data.workGroupList || !this.data.workGroupList.length)) {
+        loadPromises.push(this._ensureWorkGroupsLoaded());
+      }
+      if (loadPromises.length) {
+        await Promise.all(loadPromises);
+      }
+      if (this._hrPersonDetailRequestId !== detailRequestId) return;
+
+      this.setData({
+        showHrPersonDetail: true,
+        detailHrId: hrId,
+        detailHrGovernance: governance,
+        detailHrSecurity: null,
+        loadingDetailHr: true
+      });
+      if (this.data.canGlobalAccountManage
+        && governance && governance.personId
+        && governance.membershipStatus !== 'left') {
+        this.loadDetailHrSecurity(governance.personId, detailRequestId);
+      }
+      try {
+        const result = await this.callCloud('getHrPersonDetail', { hrId });
+        if (this._hrPersonDetailRequestId !== detailRequestId
+          || String(this.data.detailHrId || '') !== hrId
+          || !this.data.showHrPersonDetail) return;
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
+          this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
+          return;
+        }
+        const vals = {};
+        const profile = result.profile || {};
+        if (profile.name) vals._name = profile.name;
+        if (profile.studentId) vals._studentId = profile.studentId;
+        if (result.values) {
+          Object.keys(result.values).forEach(k => { vals[k] = result.values[k]; });
+        }
+        const detailHrTemplate = result.template ? {
+          ...result.template,
+          fields: Array.isArray(result.template.fields)
+            ? result.template.fields.map((f) => {
+                const field = {
+                  id: f.id || '',
+                  writable: this.data.authorizationEnforced ? (result.writableFieldIds || []).includes(f.id) : this.data.canManageHrPeople,
+                  label: f.label || '',
+                  type: f.type || 'text',
+                  required: f.required === true,
+                  options: Array.isArray(f.options) ? f.options : (typeof f.options === 'string' ? f.options.split('\n').filter(Boolean) : []),
+                  minLength: f.minLength,
+                  maxLength: f.maxLength,
+                  numberRule: f.numberRule || '',
+                  allowDecimal: f.allowDecimal !== false,
+                  minDigits: f.minDigits,
+                  maxDigits: f.maxDigits,
+                  minValue: f.minValue,
+                  maxValue: f.maxValue,
+                  // 管理员写的填写说明：原样保留，与自动规则提醒分行显示。
+                  hint: String(f.hint || '')
+                };
+                field.hintText = buildFieldHint(field);
+                return field;
+              })
+            : []
+        } : null;
+        const pendingValues = result.pendingValues || {};
+        if (detailHrTemplate && detailHrTemplate.fields.length) {
+          detailHrTemplate.fields.forEach((field) => {
+            if (Object.prototype.hasOwnProperty.call(vals, field.id)) {
+              vals[field.id] = formatDateTextOnly(vals[field.id]);
+            }
+            if (Object.prototype.hasOwnProperty.call(pendingValues, field.id)) {
+              pendingValues[field.id] = formatDateTextOnly(pendingValues[field.id]);
+            }
+          });
+        }
+        const detailComparisonRows = personnelViewModel.buildProfileComparisonRows(
+          detailHrTemplate && detailHrTemplate.fields || [],
+          vals,
+          pendingValues,
+          this.data.localeCopy.hrProfileNoValue
+        ).map((row) => Object.assign({}, row, {
+          effectiveValue: formatDateTextOnly(row.effectiveValue),
+          pendingValue: formatDateTextOnly(row.pendingValue)
+        }));
+        // 序列字段按当前值定位索引；没有值时回落到第一项。
+        // 日期字段把工作区文本值转成原生 picker 需要的 YYYY-MM-DD。
+        const detailFieldValues = {};
+        const detailFieldDates = {};
+        const detailFieldDateTimes = {};
+        if (detailHrTemplate && detailHrTemplate.fields.length) {
+          detailHrTemplate.fields.forEach((field) => {
+            if (field.type === 'sequence') {
+              const options = Array.isArray(field.options) ? field.options : [];
+              const current = vals[field.id] == null ? '' : String(vals[field.id]);
+              let optionIndex = 0;
+              for (let i = 0; i < options.length; i += 1) {
+                if (String(options[i]) === current) { optionIndex = i; break; }
+              }
+              detailFieldValues[field.id] = optionIndex;
+            } else if (field.type === 'date') {
+              detailFieldDates[field.id] = toDatePickerValue(vals[field.id]);
+            } else if (field.type === 'datetime') {
+              // 日期时间字段值保持绝对时刻（用于保存），选择器与展示按系统时区换算。
+              detailFieldDateTimes[field.id] = {
+                date: formatDateTimePickerDate(vals[field.id]),
+                time: formatDateTimePickerTime(vals[field.id]),
+                text: formatDateTimeText(vals[field.id])
+              };
+            }
+          });
+        }
+        this.setData({
+          detailHrProfile: profile,
+          detailWritableFieldIds: Array.isArray(result.writableFieldIds) ? result.writableFieldIds : [],
+          detailCanManagePeople: this.data.authorizationEnforced ? (result.writableFieldIds || []).length > 0 : this.data.canManageHrPeople,
+          detailCanReviewProfiles: this.data.authorizationEnforced ? result.canReviewProfiles === true : this.data.canReviewHrProfile,
+          detailHrMembershipStatus: result.membershipStatus || profile.membershipStatus || 'active',
+          detailHrReadOnly: (result.membershipStatus || profile.membershipStatus) === 'left',
+          detailHrJoinedAtText: formatDetailTime(result.joinedAt || profile.joinedAt, {
+            reviewStatus: result.joinedAt ? result.joinedAtReviewStatus : profile.joinedAtReviewStatus
+          }),
+          detailHrLeftAtText: formatDetailTime(result.leftAt || profile.leftAt, {
+            reviewStatus: result.leftAt ? result.leftAtReviewStatus : profile.leftAtReviewStatus
+          }),
+          detailHrTemplate,
+          detailHrHistoricalFields: [],
+          detailHrReviewHistory: buildProfileReviewHistory(result.reviewHistory),
+          detailHrValues: vals,
+          detailFieldValues,
+          detailFieldDates,
+          detailFieldDateTimes,
+          detailHrPendingValues: pendingValues,
+          detailHrComparisonRows: detailComparisonRows,
+          detailHrAuditStatus: result.auditStatus || 'none',
+          detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
+          detailHrRejectionReason: result.rejectionReason || '',
+          detailHrSelfSubmittedText: formatDetailTime(result.selfSubmittedAt, {
+            reviewStatus: result.selfSubmittedAtReviewStatus
+          }),
+          // 管理员维护：时间 + 维护人，与本人提交互不覆盖。
+          detailHrMaintainedText: [
+            formatDetailTime(result.maintainedAt, { reviewStatus: result.maintainedAtReviewStatus }),
+            String(result.maintainedByName || '')
+          ].filter(Boolean).join(' · '),
+          detailHrLastChangedText: formatDetailTime(result.lastChangedAt, {
+            reviewStatus: result.lastChangedAtReviewStatus
+          }),
+          detailHrHasPending: !!result.hasPending,
+          loadingDetailHr: false
+        });
+        let detailPersonId = profile.personId || '';
+        if (!detailPersonId) {
+          const rows = this.data.hrProfileRows || [];
+          for (let i = 0; i < rows.length; i += 1) {
+            if (rows[i].id === this.data.detailHrId) { detailPersonId = rows[i].personId || ''; break; }
+          }
+        }
+        if (this.data.isSuperAdmin && detailPersonId) this.loadPersonOrgProfiles(detailPersonId);
+        await this.loadPersonIdentities(hrId, detailRequestId);
+      } catch (err) {
+        if (this._hrPersonDetailRequestId !== detailRequestId
+          || String(this.data.detailHrId || '') !== hrId) return;
+        wx.showToast({ title: localeCopy.copy_94b36657df, icon: 'none' });
+        this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
+      }
+    },
+
+    async loadPersonIdentities(hrId, detailRequestId) {
+      const expectedHrId = String(hrId || this.data.detailHrId || '');
+      const expectedRequestId = Number(detailRequestId || this._hrPersonDetailRequestId || 0);
+      if (!expectedHrId || !this.data.showHrPersonDetail) return;
+      try {
+        const result = await this.callCloud('listPersonIdentities', {
+          hrId: expectedHrId
+        });
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(this.data.detailHrId || '') !== expectedHrId
+          || !this.data.showHrPersonDetail) return;
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_c24b3e04d9, icon: 'none' });
+          return;
+        }
+        this.setData({
+          personIdentityOrganizations: personnelViewModel.normalizeAssignments(
+            result.organizations || [],
+            this.data.localeCopy.hrNoPosition
+          ),
+          globalAdminIdentities: result.globalAdminIdentities || [],
+          identityManagementOrganizationId: result.managementOrganizationId || '',
+          canAddGlobalSuperAdmin: result.canAddGlobalSuperAdmin === true
+        });
+      } catch (error) {
+        if (Number(this._hrPersonDetailRequestId || 0) !== expectedRequestId
+          || String(this.data.detailHrId || '') !== expectedHrId
+          || !this.data.showHrPersonDetail) return;
+        wx.showToast({ title: localeCopy.copy_c24b3e04d9, icon: 'none' });
+      }
+    },
+
+    async loadMembershipAssignments(hrId) {
+      return this.loadPersonIdentities(hrId);
+    },
+
+    startCreateMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
+      const orgIndex = Number(e && e.currentTarget && e.currentTarget.dataset.orgIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[Number.isFinite(orgIndex) ? orgIndex : 0];
+      if (!organization || !organization.canEditAssignments) return;
+      const dictionaries = organization.dictionaries || {};
+      const natures = dictionaries.assignmentNatures || [];
+      const natureIndex = Math.max(0, natures.findIndex(item => item.id === 'staff'));
+      this.setData({
+        membershipAssignmentFormVisible: true,
+        assignmentKindValues: natures.map(item => item.id),
+        assignmentKindOptions: natures.map(item => item.name),
+        membershipAssignmentForm: {
+          id: '',
+          assignmentKind: natures[natureIndex] ? natures[natureIndex].id : '',
+          assignmentKindIndex: natureIndex,
+          departmentId: '',
+          department: '',
+          identityId: '',
+          identity: '',
+          workGroupId: '',
+          workGroup: '',
+          organizationId: organization.organizationId,
+          hrId: organization.hrId
+        },
+        assignmentDepartmentOptions: dictionaries.departments || [],
+        assignmentIdentityOptions: dictionaries.identities || [],
+        assignmentDepartmentIndex: 0,
+        assignmentIdentityIndex: 0,
+        assignmentWorkGroupIndex: 0,
+        assignmentWorkGroupOptions: []
+      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
+    },
+
+    editMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
+      const orgIndex = Number(e.currentTarget.dataset.orgIndex);
+      const assignmentIndex = Number(e.currentTarget.dataset.assignmentIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
+      const item = organization && (organization.assignments || [])[assignmentIndex];
+      if (!organization || !organization.canEditAssignments || !item) return;
+      const dictionaries = organization.dictionaries || {};
+      const departments = dictionaries.departments || [];
+      const identities = dictionaries.identities || [];
+      const natures = dictionaries.assignmentNatures || [];
+      const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
+        (dictionaries.workGroups || [])
+          .filter((row) => String(row.departmentId) === String(item.departmentId))
+      );
+      this.setData({
+        membershipAssignmentFormVisible: true,
+        assignmentKindValues: natures.map(row => row.id),
+        assignmentKindOptions: natures.map(row => row.name),
+        membershipAssignmentForm: {
+          ...item,
+          identityId: item.identityCategoryId || item.identityId || '',
+          identity: item.identityCategoryName || item.identity || '',
+          organizationId: organization.organizationId,
+          hrId: organization.hrId,
+          assignmentKindIndex: natures.findIndex(row => row.id === item.assignmentKind)
+        },
+        assignmentDepartmentOptions: departments,
+        assignmentIdentityOptions: identities,
+        assignmentDepartmentIndex: Math.max(0, departments.findIndex((row) => String(row.id) === String(item.departmentId))),
+        assignmentIdentityIndex: Math.max(0, identities.findIndex((row) => String(row.id) === String(item.identityId))),
+        assignmentWorkGroupIndex: Math.max(0, workGroups.findIndex((row) => String(row.id) === String(item.workGroupId))),
+        assignmentWorkGroupOptions: workGroups
+      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
+    },
+
+    cancelMembershipAssignmentEdit() {
+      this.setData({
+        membershipAssignmentFormVisible: false,
+        membershipAssignmentForm: {},
+        assignmentDepartmentOptions: [],
+        assignmentIdentityOptions: [],
+        assignmentWorkGroupOptions: [],
+        detailScrollTarget: ''
+      });
+    },
+
+    _scrollHrDetailTo(target) {
+      this.setData({ detailScrollTarget: '' }, () => {
+        wx.nextTick(() => this.setData({ detailScrollTarget: target }));
+      });
+    },
+
+    onMembershipAssignmentInput(e) {
+      if (this.data.detailHrReadOnly) return;
+      const field = String(e.currentTarget.dataset.field || '');
+      this.setData({ ['membershipAssignmentForm.' + field]: e.detail.value });
+    },
+
+    onMembershipAssignmentKindChange(e) {
+      if (this.data.detailHrReadOnly) return;
+      const index = Number(e.detail.value) || 0;
+      this.setData({
+        'membershipAssignmentForm.assignmentKindIndex': index,
+        'membershipAssignmentForm.assignmentKind': (this.data.assignmentKindValues || [])[index] || ''
+      });
+    },
+
+    onMembershipAssignmentDepartmentChange(e) {
+      if (this.data.detailHrReadOnly) return;
+      const index = Number(e.detail.value) || 0;
+      const department = (this.data.assignmentDepartmentOptions || [])[index] || {};
+      const organization = (this.data.personIdentityOrganizations || []).find((item) => (
+        String(item.organizationId) === String(this.data.membershipAssignmentForm.organizationId)
+      ));
+      const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
+        (((organization && organization.dictionaries) || {}).workGroups || [])
+          .filter((row) => String(row.departmentId) === String(department.id))
+      );
+      this.setData({
+        assignmentDepartmentIndex: index,
+        assignmentWorkGroupIndex: 0,
+        assignmentWorkGroupOptions: workGroups,
+        'membershipAssignmentForm.departmentId': department.id || '',
+        'membershipAssignmentForm.department': department.name || '',
+        'membershipAssignmentForm.workGroupId': '',
+        'membershipAssignmentForm.workGroup': ''
+      });
+    },
+
+    onMembershipAssignmentIdentityChange(e) {
+      if (this.data.detailHrReadOnly) return;
+      const index = Number(e.detail.value) || 0;
+      const identity = (this.data.assignmentIdentityOptions || [])[index] || {};
+      this.setData({
+        assignmentIdentityIndex: index,
+        'membershipAssignmentForm.identityId': identity.id || '',
+        'membershipAssignmentForm.identity': identity.name || ''
+      });
+    },
+
+    onMembershipAssignmentWorkGroupChange(e) {
+      if (this.data.detailHrReadOnly) return;
+      const index = Number(e.detail.value) || 0;
+      const workGroup = (this.data.assignmentWorkGroupOptions || [])[index] || {};
+      this.setData({
+        assignmentWorkGroupIndex: index,
+        'membershipAssignmentForm.workGroupId': workGroup.id || '',
+        'membershipAssignmentForm.workGroup': workGroup.name || ''
+      });
+    },
+
+    async saveMembershipAssignment() {
+      if (this.data.detailHrReadOnly) return;
+      const form = this.data.membershipAssignmentForm || {};
+      if (!form.departmentId || !form.identityId) {
+        wx.showToast({ title: localeCopy.copy_2550a901e4, icon: 'none' });
+        return;
+      }
+      this.setLoading('saveMembershipAssignment', true);
+      try {
+        const result = await this.callCloud('saveMembershipAssignment', {
+          id: form.id || '',
+          assignmentKind: form.assignmentKind || '',
+          departmentId: form.departmentId,
+          identityId: form.identityId,
+          workGroupId: form.workGroupId || '',
+          hrId: form.hrId || this.data.detailHrId,
+          organizationId: form.organizationId
+        });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
+          return;
+        }
+        this.cancelMembershipAssignmentEdit();
+        await this.loadPersonIdentities();
+        this.loadHrProfileAdminData();
+        wx.showToast({ title: localeCopy.copy_735e0a8bcf, icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+      } finally {
+        this.setLoading('saveMembershipAssignment', false);
+      }
+    },
+
+    deleteMembershipAssignment(e) {
+      if (this.data.detailHrReadOnly) return;
+      const id = String(e.currentTarget.dataset.id || '');
+      const organizationId = String(e.currentTarget.dataset.organizationId || '');
+      if (!id) return;
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: localeCopy.copy_bc04d9e2e3,
+        identityActionConfirmText: localeCopy.copy_3e8d61586a,
+        identityActionConfirmAction: { type: 'deleteAssignment', id, organizationId }
+      });
+    },
+
+    async addPersonAdminIdentity(e) {
+      if (this.data.detailHrReadOnly) return;
+      const orgIndex = Number(e.currentTarget.dataset.orgIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
+      if (!organization || !organization.canAddAdmin) return;
+      await this._savePersonAdminIdentity({
+        organizationId: organization.organizationId,
+        hrId: organization.hrId,
+        adminLevel: 'admin'
+      });
+    },
+
+    addPersonSuperAdmin() {
+      if (this.data.detailHrReadOnly) return;
+      const organization = (this.data.personIdentityOrganizations || [])[0];
+      if (!organization || !this.data.canAddGlobalSuperAdmin || !this.data.identityManagementOrganizationId) return;
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: localeCopy.copy_8ca66f00b4,
+        identityActionConfirmText: localeCopy.copy_6dbeb580ce,
+        identityActionConfirmAction: {
+          type: 'addSuperAdmin',
+          organizationId: this.data.identityManagementOrganizationId,
+          hrId: organization.hrId
+        }
+      });
+    },
+
+    removePersonAdminIdentity(e) {
+      if (this.data.detailHrReadOnly) return;
+      const id = String(e.currentTarget.dataset.id || '');
+      const organizationId = String(e.currentTarget.dataset.organizationId || '');
+      const level = String(e.currentTarget.dataset.level || 'admin');
+      if (!id) return;
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: level === 'super_admin' ? localeCopy.copy_564cc6648b : localeCopy.copy_8da6e35182,
+        identityActionConfirmText: localeCopy.copy_860f24df0a,
+        identityActionConfirmAction: { type: 'deleteAdmin', id, organizationId }
+      });
+    },
+
+    async _savePersonAdminIdentity(data) {
+      if (this.data.detailHrReadOnly) return;
+      this.setLoading('savePersonAdminIdentity', true);
+      try {
+        const profile = this.data.detailHrProfile || {};
+        const result = await this.callCloud('saveAdmin', {
+          organizationId: data.organizationId,
+          hrId: data.hrId,
+          name: profile.name || '',
+          studentId: profile.studentId || '',
+          adminLevel: data.adminLevel
+        });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
+          return;
+        }
+        await this.loadPersonIdentities();
+        wx.showToast({ title: localeCopy.copy_0a6ad98837, icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+      } finally {
+        this.setLoading('savePersonAdminIdentity', false);
+      }
+    },
+
+    closeIdentityActionConfirm() {
+      this.setData({
+        identityActionConfirmVisible: false,
+        identityActionConfirmAction: null
+      });
+    },
+
+    async confirmIdentityAction() {
+      const action = this.data.identityActionConfirmAction;
+      if (!action || this.data.detailHrReadOnly) return;
+      this.closeIdentityActionConfirm();
+      if (action.type === 'addSuperAdmin') {
+        await this._savePersonAdminIdentity({
+          organizationId: action.organizationId,
+          hrId: action.hrId,
+          adminLevel: 'super_admin'
+        });
+        return;
+      }
+      try {
+        const result = action.type === 'deleteAssignment'
+          ? await this.callCloud('deleteMembershipAssignment', {
+              id: action.id,
+              organizationId: action.organizationId
+            })
+          : await this.callCloud('deleteAdmin', {
+              id: action.id,
+              organizationId: action.organizationId
+            });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+          return;
+        }
+        await this.loadPersonIdentities();
+        this.loadHrProfileAdminData();
+        wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
+      }
+    },
+
+    closeHrPersonDetail() {
+      this._hrPersonDetailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
+      this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
+      this.setData({
+        showHrPersonDetail: false,
+        detailHrGovernance: null,
+        detailHrSecurity: null,
+        detailHrPassphraseInput: '',
+        showDetailPassphraseForm: false,
+        detailWorkGroupOptions: [],
+        detailDepartmentValue: 0,
+        detailIdentityValue: 0,
+        detailWorkGroupValue: 0,
+        detailFieldValues: {},
+        detailFieldDates: {},
+        detailFieldDateTimes: {},
+        membershipAssignmentList: [],
+        personIdentityOrganizations: [],
+        globalAdminIdentities: [],
+        identityManagementOrganizationId: '',
+        canAddGlobalSuperAdmin: false,
+        membershipAssignmentFormVisible: false,
+        membershipAssignmentForm: {},
+        assignmentDepartmentOptions: [],
+        assignmentIdentityOptions: [],
+        detailScrollTarget: '',
+        detailHrComparisonRows: [],
+        detailHrHistoricalFields: [],
+        detailHrReviewHistory: [],
+        detailHrMembershipStatus: 'active',
+        detailHrReadOnly: false,
+        detailHrJoinedAtText: '',
+        detailHrLeftAtText: '',
+        hrPermanentDeletionVisible: false,
+        hrPermanentDeletionPreview: null,
+        hrPermanentDeletionTarget: null,
+        hrPermanentDeletionResult: null,
+        hrPermanentDeletionCleanupAccepted: false,
+        hrPermanentDeletionConfirmation: '',
+        hrPermanentDeletionLoading: false,
+        profileRejectVisible: false,
+        profileRejectHrId: '',
+        profileRejectStudentId: '',
+        profileRejectReason: '',
+        personCorrectionVisible: false,
+        personCorrectionPreview: null,
+        personCorrectionConfirmed: false,
+        personCorrectionProfileValues: {}
+      });
+    },
+
+    onDetailBasicFieldInput(e) {
+      if (!this.data.canGlobalAccountManage || this.data.detailHrReadOnly) return;
+      const field = String(e.currentTarget.dataset.field || '');
+      this.setData({ ['detailHrValues.' + field]: e.detail.value });
+    },
+
+    onDetailProfileFieldInput(e) {
+      if (!this.data.canManageHrPeople || this.data.detailHrReadOnly) return;
+      const field = String(e.currentTarget.dataset.field || '');
+      if (this.data.authorizationEnforced && !(this.data.detailWritableFieldIds || []).includes(field)) return;
+      let value = e.detail.value;
+
+      // For sequence pickers, e.detail.value is the numeric index;
+      // resolve it to the option text so the display shows the selected text.
+      const template = this.data.detailHrTemplate;
+      let seqIndex = -1;
+      let isDateField = false;
+      let isDateTimeField = false;
+      if (template && template.fields) {
+        const fieldDef = template.fields.find(function(f) { return String(f.id) === field; });
+        if (fieldDef && fieldDef.type === 'sequence' && Array.isArray(fieldDef.options)) {
+          const idx = Number(value);
+          if (!isNaN(idx) && idx >= 0 && idx < fieldDef.options.length) {
+            value = fieldDef.options[idx];
+            seqIndex = idx;
+          }
+        }
+        if (fieldDef && fieldDef.type === 'date') {
+          isDateField = true;
+        }
+        if (fieldDef && fieldDef.type === 'datetime') {
+          isDateTimeField = true;
+        }
+      }
+
+      const updates = { ['detailHrValues.' + field]: value };
+      if (seqIndex >= 0) {
+        updates['detailFieldValues.' + field] = seqIndex;
+      }
+      if (isDateField) {
+        updates['detailFieldDates.' + field] = toDatePickerValue(value);
+        updates['detailHrValues.' + field] = formatDateTextOnly(value);
+      }
+      if (isDateTimeField) {
+        // 日期时间只能由两个选择器合成：按系统时区把所选墙上时间换算成绝对时刻保存。
+        const part = String(e.currentTarget.dataset.part || '');
+        const current = this.data.detailFieldDateTimes && this.data.detailFieldDateTimes[field] || {};
+        const nextDate = part === 'date' ? value : (current.date || '');
+        const nextTime = part === 'time' ? value : (current.time || '00:00');
+        const instant = nextDate ? pickerToUtcIso(nextDate, nextTime || '00:00') : '';
+        updates['detailFieldDateTimes.' + field] = {
+          date: nextDate,
+          time: nextTime || '00:00',
+          text: instant ? formatDateTimeText(instant) : ''
+        };
+        updates['detailHrValues.' + field] = instant || this.data.detailHrValues[field] || '';
+      }
+      this.setData(updates);
+    },
+
+    async saveHrPersonDetail() {
+      if (!(this.data.authorizationEnforced ? this.data.detailCanManagePeople : this.data.canManageHrPeople) || this.data.detailHrReadOnly) return;
+      const vals = this.data.detailHrValues || {};
+      const hrId = this.data.detailHrId;
+      if (!hrId) return;
+
+      const name = (vals._name || '').trim();
+      const studentId = (vals._studentId || '').trim();
+
+      if (!this.data.authorizationEnforced && (!name || !studentId)) {
+        wx.showToast({ title: localeCopy.copy_e6f89839f1, icon: 'none' });
+        return;
+      }
+
+      const profileValues = {};
+      Object.keys(vals).forEach(k => {
+        if (!k.startsWith('_') && (!this.data.authorizationEnforced || (this.data.detailWritableFieldIds || []).includes(k))) {
+          profileValues[k] = vals[k];
+        }
+      });
+
+      const template = this.data.detailHrTemplate;
+      if (template && Array.isArray(template.fields)) {
+        for (let i = 0; i < template.fields.length; i += 1) {
+          const field = template.fields[i];
+          if (this.data.authorizationEnforced && !(this.data.detailWritableFieldIds || []).includes(field.id)) continue;
+          const errorMessage = validateProfileField(field, profileValues[field.id]);
+          if (errorMessage) {
+            wx.showToast({ title: errorMessage, icon: 'none' });
+            return;
+          }
+        }
+      }
+
+      if (this.data.canGlobalAccountManage && personnelViewModel.hasBasicIdentityChange(this.data.detailHrProfile, vals)) {
+        if (!this.data.canGlobalAccountManage) return;
+        this.setData({ savingDetailHr: true });
+        try {
+          const previewResult = await this.callCloud('previewPersonIdentityCorrection', {
+            hrId,
+            organizationId: orgSession.getSnapshot().orgId || this.data.currentOrganizationId || '',
+            name,
+            studentId
+          });
+          if (!previewResult || previewResult.status !== 'success' || !previewResult.preview) {
+            wx.showToast({
+              title: previewResult && previewResult.message || localeCopy.personCorrectionPreviewFailed,
+              icon: 'none'
+            });
+            return;
+          }
+          this.setData({
+            personCorrectionVisible: true,
+            personCorrectionPreview: personnelViewModel.decorateCorrectionPreview(previewResult.preview, {
+              active: this.data.localeCopy.hrMembershipActive,
+              left: this.data.localeCopy.hrMembershipLeft,
+              merged: this.data.localeCopy.hrMembershipMerged,
+              account: {
+                verified: this.data.localeCopy.hrAccountVerified,
+                frozen: this.data.localeCopy.hrAccountFrozen,
+                recovery_required: this.data.localeCopy.hrAccountRecoveryRequired,
+                unbound: this.data.localeCopy.hrAccountUnbound
+              }
+            }),
+            personCorrectionConfirmed: false,
+            personCorrectionProfileValues: profileValues
+          });
+        } catch (error) {
+          wx.showToast({ title: localeCopy.personCorrectionPreviewFailed, icon: 'none' });
+        } finally {
+          this.setData({ savingDetailHr: false });
+        }
+        return;
+      }
+
+      await this._saveHrPersonProfile(this.data.authorizationEnforced ? { hrId, profileValues } : { hrId, name, studentId, profileValues });
+    },
+
+    async _saveHrPersonProfile(payload) {
+      this.setData({ savingDetailHr: true });
+      try {
+        const result = await this.callCloud('saveHrPersonFull', payload);
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
+          return;
+        }
+        wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' });
+        this.setData({ showHrPersonDetail: false });
+        this.loadHrProfileAdminData();
+        this.loadHrList();
+      } catch (err) {
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+      } finally {
+        this.setData({ savingDetailHr: false });
+      }
+    },
+
+    async _saveCorrectionProfileBeforeMerge(preview) {
+      const profileValues = this.data.personCorrectionProfileValues || {};
+      if (!Object.keys(profileValues).length) return true;
+      const current = preview && preview.current || {};
+      const profile = this.data.detailHrProfile || {};
+      try {
+        const result = await this.callCloud('saveHrPersonFull', {
+          hrId: this.data.detailHrId,
+          name: current.name || profile.name || '',
+          studentId: current.studentId || profile.studentId || '',
+          profileValues
+        });
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.copy_215e3c57da, icon: 'none' });
+          return false;
+        }
+        return true;
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+        return false;
+      }
+    },
+
+    closePersonCorrection() {
+      if (this.data.savingDetailHr) return;
+      this.setData({
+        personCorrectionVisible: false,
+        personCorrectionPreview: null,
+        personCorrectionConfirmed: false,
+        personCorrectionProfileValues: {}
+      });
+    },
+
+    onPersonCorrectionConfirmChange(e) {
+      this.setData({ personCorrectionConfirmed: Array.isArray(e.detail.value) && e.detail.value.length > 0 });
+    },
+
+    async confirmPersonCorrection() {
+      const preview = this.data.personCorrectionPreview;
+      if (!preview || !this.data.personCorrectionConfirmed || this.data.savingDetailHr) {
+        if (!this.data.personCorrectionConfirmed) {
+          wx.showToast({ title: this.data.localeCopy.hrCorrectionConfirmRequired, icon: 'none' });
+        }
+        return;
+      }
+      this.setData({ savingDetailHr: true });
+      try {
+        const organizationId = orgSession.getSnapshot().orgId || this.data.currentOrganizationId || '';
+        if (preview.mergeRequired) {
+          const profileSaved = await this._saveCorrectionProfileBeforeMerge(preview);
+          if (!profileSaved) return;
+          const mergeResult = await this.callCloud('mergePersons', {
+            sourcePersonId: preview.personId,
+            targetPersonId: preview.conflictPerson && preview.conflictPerson.personId,
+            sourceVersion: preview.version,
+            targetVersion: preview.conflictPerson && preview.conflictPerson.version,
+            organizationId,
+            confirmed: true
+          });
+          if (!mergeResult || mergeResult.status !== 'success') {
+            wx.showToast({ title: mergeResult && mergeResult.message || localeCopy.personMergeFailed, icon: 'none' });
+            return;
+          }
+          this.closePersonCorrection();
+          this.closeHrPersonDetail();
+          await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+          wx.showToast({ title: this.data.localeCopy.hrCorrectionMerged, icon: 'success' });
+          return;
+        }
+        const correctionResult = await this.callCloud('applyPersonIdentityCorrection', {
+          hrId: this.data.detailHrId,
+          organizationId,
+          name: preview.proposed && preview.proposed.name,
+          studentId: preview.proposed && preview.proposed.studentId,
+          version: preview.version
+        });
+        if (!correctionResult || correctionResult.status !== 'success') {
+          wx.showToast({ title: correctionResult && correctionResult.message || localeCopy.personCorrectionApplyFailed, icon: 'none' });
+          return;
+        }
+        const profileValues = this.data.personCorrectionProfileValues || {};
+        this.setData({ personCorrectionVisible: false, personCorrectionPreview: null, personCorrectionConfirmed: false });
+        await this._saveHrPersonProfile({
+          hrId: this.data.detailHrId,
+          name: preview.proposed.name,
+          studentId: preview.proposed.studentId,
+          profileValues
+        });
+      } catch (error) {
+        wx.showToast({
+          title: preview.mergeRequired ? localeCopy.personMergeFailed : localeCopy.personCorrectionApplyFailed,
+          icon: 'none'
+        });
+      } finally {
+        this.setData({ savingDetailHr: false });
+      }
+    },
+
+    async approveDetailHrProfile() {
+      if (this.data.authorizationEnforced && !this.data.detailCanReviewProfiles) return;
+      if (!this.data.canReviewHrProfile) return;
+      const profile = this.data.detailHrProfile || {};
+      const studentId = profile.studentId || '';
+      const hrId = String(this.data.detailHrId || '').trim();
+      if (!hrId && !studentId) return;
+      try {
+        const result = await this.callCloud('reviewHrProfileChange', { hrId, studentId, action: 'approve' });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
+          return;
+        }
+        wx.showToast({ title: localeCopy.copy_ce171a2581, icon: 'success' });
+        this.closeHrPersonDetail();
+        this.loadHrProfileAdminData();
+      } catch (err) {
+        wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
+      }
+    },
+
+    rejectDetailHrProfile() {
+      if (this.data.authorizationEnforced && !this.data.detailCanReviewProfiles) return;
+      const profile = this.data.detailHrProfile || {};
+      const studentId = profile.studentId || '';
+      const hrId = String(this.data.detailHrId || '').trim();
+      if (!hrId && !studentId) return;
+      this.openProfileRejectDialog(studentId, hrId);
+    },
+
+    openProfileRejectDialog(studentId, hrId) {
+      if (!this.data.canReviewHrProfile) return;
+      this.setData({
+        profileRejectVisible: true,
+        profileRejectHrId: String(hrId || '').trim(),
+        profileRejectStudentId: String(studentId || '').trim(),
+        profileRejectReason: ''
+      });
+    },
+
+    closeProfileRejectDialog() {
+      if (this.data.loadingMap.reviewHrProfile) return;
+      this.setData({ profileRejectVisible: false, profileRejectHrId: '', profileRejectStudentId: '', profileRejectReason: '' });
+    },
+
+    onProfileRejectReasonInput(e) {
+      this.setData({ profileRejectReason: e.detail.value });
+    },
+
+    async confirmProfileRejection() {
+      if (!this.data.canReviewHrProfile) return;
+      const studentId = String(this.data.profileRejectStudentId || '').trim();
+      const hrId = String(this.data.profileRejectHrId || this.data.detailHrId || '').trim();
+      const reason = String(this.data.profileRejectReason || '').trim();
+      if ((!hrId && !studentId) || !reason) {
+        wx.showToast({ title: localeCopy.rejectionReasonRequired, icon: 'none' });
+        return;
+      }
+      this.setLoading('reviewHrProfile', true);
+      try {
+        const result = await this.callCloud('reviewHrProfileChange', { hrId, studentId, action: 'reject', reason });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
+          return;
+        }
+        wx.showToast({ title: localeCopy.copy_5d5af942c5, icon: 'success' });
+        this.setData({ profileRejectVisible: false, profileRejectHrId: '', profileRejectStudentId: '', profileRejectReason: '' });
+        if (this.data.showHrPersonDetail) this.closeHrPersonDetail();
+        await this.loadHrProfileAdminData();
+      } catch (err) {
+        wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
+      } finally {
+        this.setLoading('reviewHrProfile', false);
+      }
+    },
+
+    toggleAddEditForm() {
+      this.setData({ showAddEditForm: !this.data.showAddEditForm });
+    },
+
+    toggleTemplateConfig() {
+      this.setData({ showTemplateConfig: !this.data.showTemplateConfig });
+    },
+
+    onHrProfileTemplateInput(e) {
+      const { field } = e.currentTarget.dataset;
+      const value = e.detail.value;
+      this.setData({
+        hrProfileTemplateForm: {
+          ...this.data.hrProfileTemplateForm,
+          [field]: value
+        }
+      });
+      this.refreshHrTemplateDirty();
+    },
+
+    onHrProfileFieldInput(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const field = String(e.currentTarget.dataset.field || '');
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) {
+        return;
+      }
+
+      fields[index] = {
+        ...fields[index],
+        [field]: e.detail.value
+      };
+
+      this.applyHrTemplateFields(fields);
+    },
+
+    onHrProfileFieldRequiredChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) {
+        return;
+      }
+
+      fields[index] = {
+        ...fields[index],
+        required: !!e.detail.value
+      };
+
+      this.applyHrTemplateFields(fields);
+    },
+
+    onHrProfileEditModeChange(e) {
+      const option = PROFILE_EDIT_MODE_OPTIONS[Number(e.detail.value)] || PROFILE_EDIT_MODE_OPTIONS[0];
+      this.setData({
+        hrProfileTemplateForm: {
+          ...this.data.hrProfileTemplateForm,
+          editMode: option.value,
+          editModeLabel: option.label,
+          editModeIndex: PROFILE_EDIT_MODE_OPTIONS.indexOf(option),
+          editModeHint: editModeHintFor(option.value, templateSaveCopy)
+        }
+      });
+      this.refreshHrTemplateDirty();
+    },
+
+    onHrProfileFieldTypeChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const option = PROFILE_FIELD_TYPE_OPTIONS[Number(e.detail.value)] || PROFILE_FIELD_TYPE_OPTIONS[0];
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) {
+        return;
+      }
+
+      fields[index] = {
+        ...fields[index],
+        type: option.value,
+        typeLabel: option.label,
+        typeIndex: PROFILE_FIELD_TYPE_OPTIONS.indexOf(option)
+      };
+
+      this.applyHrTemplateFields(fields);
+    },
+
+    onHrProfileNumberRuleChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const option = NUMBER_RULE_OPTIONS[Number(e.detail.value)] || NUMBER_RULE_OPTIONS[0];
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) {
+        return;
+      }
+
+      fields[index] = {
+        ...fields[index],
+        numberRule: option.value,
+        numberRuleLabel: option.label,
+        numberRuleIndex: NUMBER_RULE_OPTIONS.indexOf(option)
+      };
+
+      this.applyHrTemplateFields(fields);
+    },
+
+    onHrProfileFieldAllowDecimalChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) {
+        return;
+      }
+
+      fields[index] = {
+        ...fields[index],
+        allowDecimal: !!e.detail.value
+      };
+
+      this.applyHrTemplateFields(fields);
+    },
+
+    addHrProfileField() {
+      const created = createEmptyProfileField();
+      const fields = (this.data.hrProfileTemplateForm.fields || []).concat(created);
+      const expandedIds = (this.data.hrTemplateExpandedFieldIds || []).concat(String(created.id));
+      this.setData({
+        hrTemplateExpandedFieldIds: expandedIds
+      }, () => {
+        this.applyHrTemplateFields(fields);
+        this.focusHrTemplateEditor(false, String(created.id));
+      });
+    },
+
+    /** 上移 / 下移：每次挪一格，保存顺序就是这里的先后顺序。 */
+    moveHrProfileField(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const direction = Number(e.currentTarget.dataset.dir);
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (Number.isNaN(index) || !fields[index] || (direction !== -1 && direction !== 1)) return;
+      const target = index + direction;
+      if (target < 0 || target >= fields.length) return;
+      const fieldId = String(fields[index].id);
+      const moved = utils.moveItem(fields, index, target);
+      this.applyHrTemplateFields(moved);
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 拖动排序落位：组件只上报起止位置，真正的顺序与提示仍在页面里处理。 */
+    applyHrFieldDrop(detail) {
+      const fromIndex = Number(detail && detail.fromIndex);
+      const toIndex = Number(detail && detail.toIndex);
+      const fields = this.data.hrProfileTemplateForm.fields || [];
+      if (Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
+      if (fromIndex < 0 || fromIndex >= fields.length || toIndex < 0 || toIndex >= fields.length) return;
+      const fieldId = String(detail && detail.fieldId || (fields[fromIndex] && fields[fromIndex].id) || '');
+      this.applyHrTemplateFields(utils.moveItem(fields, fromIndex, toIndex));
+      this.focusHrTemplateEditor(false, fieldId);
+    },
+
+    /** 选项：从文本框里删掉某一条，其余顺序不变。 */
+    removeHrProfileOption(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const optionIndex = Number(e.currentTarget.dataset.optionIndex);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) return;
+      const options = parseHrFieldOptions(fields[index].optionsText);
+      if (Number.isNaN(optionIndex) || optionIndex < 0 || optionIndex >= options.length) return;
+      options.splice(optionIndex, 1);
+      fields[index] = Object.assign({}, fields[index], { optionsText: options.join('\n') });
+      this.applyHrTemplateFields(fields);
+    },
+
+    /** 一键清掉重复选项，保留第一次出现的位置。 */
+    dedupeHrProfileOptions(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      if (!fields[index]) return;
+      const seen = new Set();
+      const options = parseHrFieldOptions(fields[index].optionsText).filter((option) => {
+        const key = option.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      fields[index] = Object.assign({}, fields[index], { optionsText: options.join('\n') });
+      this.applyHrTemplateFields(fields);
+    },
+
+    /** 选项上移 / 下移：只改文本框里的行顺序，成员端下拉顺序随之变化。 */
+    moveHrProfileOption(detail) {
+      const index = Number(detail && detail.index);
+      const optionIndex = Number(detail && detail.optionIndex);
+      const dir = Number(detail && detail.dir);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field || (dir !== -1 && dir !== 1)) return;
+      const options = parseHrFieldOptions(field.optionsText);
+      const target = optionIndex + dir;
+      if (Number.isNaN(optionIndex) || optionIndex < 0 || optionIndex >= options.length) return;
+      if (target < 0 || target >= options.length) return;
+      fields[index] = Object.assign({}, field, {
+        optionsText: utils.moveItem(options, optionIndex, target).join('\n')
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
+    /** 选项拖动落位：组件只上报字段位置与起止选项下标。 */
+    applyHrOptionDrop(detail) {
+      const index = Number(detail && detail.index);
+      const fromIndex = Number(detail && detail.fromIndex);
+      const toIndex = Number(detail && detail.toIndex);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field || Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
+      const options = parseHrFieldOptions(field.optionsText);
+      if (fromIndex < 0 || fromIndex >= options.length || toIndex < 0 || toIndex >= options.length) return;
+      fields[index] = Object.assign({}, field, {
+        optionsText: utils.moveItem(options, fromIndex, toIndex).join('\n')
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
+    toggleHrProfileOptionsExpand(detail) {
+      const index = Number(detail && detail.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field) return;
+      const fieldId = String(field.id);
+      const current = this.data.hrTemplateExpandedOptionsIds || [];
+      const expanded = current.indexOf(fieldId) < 0;
+      this.setData({
+        hrTemplateExpandedOptionsIds: expanded
+          ? current.concat(fieldId)
+          : current.filter((id) => id !== fieldId)
+      });
+      this.applyHrTemplateFields(fields);
+    },
+
+    importTableFields() {
+      this.setLoading('importTemplateFieldsCsv', true);
+      const _this = this;
+      chooseTableFile(_this.callCloud.bind(_this)).then(function (tableData) {
+        if (!tableData) { _this.setLoading('importTemplateFieldsCsv', false); return; }
+
+        const headers = tableData.headers;
+        if (!headers.length) {
+          wx.showToast({ title: localeCopy.copy_b673ee708c, icon: 'none' });
+          _this.setLoading('importTemplateFieldsCsv', false);
+          return;
+        }
+
+        const rows = tableData.rows || [];
+        const detectedCounts = {};
+        const newFields = headers.map(function (label, columnIndex) {
+          const columnValues = rows.map(function (row) { return row && row[columnIndex]; });
+          const type = guessHrFieldType(label, columnValues);
+          const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === type) || PROFILE_FIELD_TYPE_OPTIONS[0];
+          if (type !== 'text') detectedCounts[type] = Number(detectedCounts[type] || 0) + 1;
+          return Object.assign({}, createEmptyProfileField(), {
+            id: 'profile_field_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            label: label,
+            type: typeOption.value,
+            typeLabel: typeOption.label,
+            typeIndex: PROFILE_FIELD_TYPE_OPTIONS.indexOf(typeOption)
+          });
+        });
+
+        const detectedTypes = Object.keys(detectedCounts);
+        const detectedSummary = detectedTypes.length
+          ? localeFormat(templateSaveCopy.importDetectedSummary, [detectedTypes.map(function (type) {
+            return localeFormat(templateSaveCopy.importDetectedItem, [detectedCounts[type], buildProfileFieldTypeLabel(type)]);
+          }).join('、')])
+          : templateSaveCopy.importDetectedNone;
+
+        const existingFields = _this.data.hrProfileTemplateForm.fields || [];
+        const headerPreview = headers.length > 5
+          ? headers.slice(0, 5).join('、') + localeCopy.copy_5daecbb537 + headers.length + localeCopy.copy_5babf47a71
+          : headers.join('、');
+
+        wx.showModal({
+          title: localeCopy.copy_d0fc81b30f,
+          content: localeCopy.copy_a7e6a633a4 + headers.length + localeCopy.copy_fbdaa51ccc + headerPreview
+            + localeCopy.copy_f37be3c249 + '\n' + detectedSummary,
+          confirmText: localeCopy.copy_50a212e945,
+          cancelText: localeCopy.copy_01c502a089,
+          success: function (modalRes) {
+            const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
+            if (modalRes.confirm) _this.setData({ hrTemplateExpandedFieldIds: [] });
+            _this.applyHrTemplateFields(fields);
+            wx.showToast({ title: localeCopy.copy_4c8603086a + headers.length + localeCopy.copy_a68c09e48e, icon: 'success' });
+            _this.focusHrTemplateEditor(false, String(newFields[0] && newFields[0].id || ''));
+          }
+        });
+        _this.setLoading('importTemplateFieldsCsv', false);
+      }).catch(function () {
+        _this.setLoading('importTemplateFieldsCsv', false);
+      });
+    },
+
+    removeHrProfileField(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const fields = [...(this.data.hrProfileTemplateForm.fields || [])];
+      const field = fields[index];
+      if (!field) return;
+      wx.showModal({
+        title: templateSaveCopy.deleteFieldTitle,
+        content: localeFormat(templateSaveCopy.deleteFieldMessage,
+          [String(field.label || '').trim() || templateSaveCopy.unnamedField]),
+        confirmText: templateSaveCopy.deleteFieldAction,
+        confirmColor: '#ef4444',
+        success: (result) => {
+          if (!result.confirm) return;
+          const current = [...(this.data.hrProfileTemplateForm.fields || [])];
+          const removed = current[index];
+          if (!removed) return;
+          current.splice(index, 1);
+          const nextFields = current.length ? current : [createEmptyProfileField()];
+          const expandedIds = (this.data.hrTemplateExpandedFieldIds || [])
+            .filter((id) => id !== String(removed.id));
+          if (!current.length) expandedIds.push(String(nextFields[0].id));
+          this.setData({ hrTemplateExpandedFieldIds: expandedIds });
+          this.applyHrTemplateFields(nextFields);
+        }
+      });
+    },
+
+    cancelHrTemplateSaveContinuation() {
+      orgSession.beginRequest(this, 'hrTemplateSave');
+      orgSession.beginRequest(this, 'hrTemplateCatalog');
+      orgSession.beginRequest(this, 'hrTemplateSwitchContext');
+      if (this._hrTemplateSaveRequest) wx.hideLoading();
+      this._hrTemplateSaveRequest = null;
+      this.setData({ loadingMap: Object.assign({}, this.data.loadingMap, {
+        saveProfileTemplate: false,
+        hrProfileTemplates: false,
+        hrTemplateSwitch: false
+      }) });
+    },
+
+    async saveHrProfileTemplate() {
+      if (this.data.authorizationEnforced && !(this.data.hrProfileTemplateForm.id ? this.data.canUpdateHrProfileTemplates : this.data.canCreateHrProfileTemplates)) return;
+      if (this._hrTemplateSaveRequest && orgSession.isRequestCurrent(this, this._hrTemplateSaveRequest)) return;
+      const form = this.data.hrProfileTemplateForm || emptyHrProfileTemplateForm();
+      const templateName = String(form.name || '').trim();
+      const fields = (form.fields || []).map((item) => ({
+        id: item.id,
+        label: String(item.label || '').trim(),
+        type: item.type,
+        required: item.required === true,
+        minLength: item.minLength === '' ? null : Number(item.minLength),
+        maxLength: item.maxLength === '' ? null : Number(item.maxLength),
+        numberRule: item.numberRule || NUMBER_RULE_OPTIONS[0].value,
+        allowDecimal: item.allowDecimal !== false,
+        minDigits: item.minDigits === '' ? null : Number(item.minDigits),
+        maxDigits: item.maxDigits === '' ? null : Number(item.maxDigits),
+        minValue: item.minValue === '' ? null : Number(item.minValue),
+        maxValue: item.maxValue === '' ? null : Number(item.maxValue),
+        hint: String(item.hint || '').trim(),
+        options: String(item.optionsText || '')
+          .split('\n')
+          .map((option) => option.trim())
+          .filter(Boolean)
+      }));
+
+      // 保存前先就地指出问题：哪个字段、哪里不对，并带着用户滚到第一处。
+      const validation = validateHrTemplateForm(form, templateSaveCopy);
+      if (validation.message) {
+        this._hrTemplateFieldErrors = validation.fieldErrors;
+        this.setData({
+          hrTemplateErrorCount: validation.count || 0,
+          hrTemplateFormError: validation.message,
+          'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+            this.data.hrProfileTemplateForm.fields || [],
+            this.data.hrTemplateExpandedFieldIds || [],
+            validation.fieldErrors,
+            this.data.hrTemplateExpandedOptionsIds || []
+          )
+        });
+        if (validation.firstFieldId) {
+          const expandedIds = (this.data.hrTemplateExpandedFieldIds || []);
+          if (expandedIds.indexOf(validation.firstFieldId) < 0) {
+            const nextExpanded = expandedIds.concat(validation.firstFieldId);
+            this.setData({
+              hrTemplateExpandedFieldIds: nextExpanded,
+              'hrProfileTemplateForm.fields': decorateHrTemplateFields(
+                this.data.hrProfileTemplateForm.fields || [], nextExpanded, validation.fieldErrors,
+                this.data.hrTemplateExpandedOptionsIds || [])
+            });
+          }
+          this.focusHrTemplateEditor(false, validation.firstFieldId);
+        } else {
+          this.focusHrTemplateEditor(true);
+        }
+        return;
+      }
+      this._hrTemplateFieldErrors = {};
+      this.setData({ hrTemplateErrorCount: 0, hrTemplateFormError: '' });
+
+      const request = orgSession.beginRequest(this, 'hrTemplateSave');
+      this._hrTemplateSaveRequest = request;
+      const isCurrent = () => this._pageVisible !== false && orgSession.isRequestCurrent(this, request);
+      this.setLoading('saveProfileTemplate', true);
+      wx.showLoading({
+        title: localeCopy.copy_74e7385966,
+        mask: true
+      });
+      try {
+        const result = await this.callCloud('saveHrProfileTemplateDefinition', {
+          id: String(form.id || ''),
+          name: templateName,
+          description: String(form.description || '').trim(),
+          editMode: form.editMode,
+          fields
+        });
+
+        if (!isCurrent()) return;
+        wx.hideLoading();
+        if (!result || result.status !== 'success') {
+          // 服务端仍会复核；能把原因对到某个字段时就地标出来并滚过去。
+          const serverMessage = result && typeof result.message === 'string' && result.message.trim()
+            ? result.message.trim()
+            : templateSaveCopy.failureMessage;
+          this.markHrTemplateServerError(serverMessage);
+          wx.showModal({ title: templateSaveCopy.failureTitle,
+            content: serverMessage,
+            showCancel: false });
+          return;
+        }
+
+        this.closeHrProfileTemplateEditor();
+        await this.loadHrProfileTemplates();
+        if (!isCurrent()) return;
+        const savedTemplateId = String(result.id || form.id || '');
+        const mayApply = this.data.canSelectHrProfileTemplate === true && Boolean(savedTemplateId);
+        wx.showModal({
+          title: templateSaveCopy.savedTitle,
+          content: mayApply ? templateSaveCopy.applyQuestion : templateSaveCopy.savedOnly,
+          showCancel: mayApply,
+          confirmText: mayApply ? templateSaveCopy.applyAction : undefined,
+          cancelText: mayApply ? templateSaveCopy.laterAction : undefined,
+          success: (answer) => {
+            if (!isCurrent() || !mayApply || !answer.confirm || this.data.canSelectHrProfileTemplate !== true) return;
+            this.startHrProfileTemplateSwitch({ currentTarget: { dataset: { id: savedTemplateId } } });
+          }
+        });
+      } catch (error) {
+        if (isCurrent() && !(error && error.silent)) {
+          wx.hideLoading();
+          wx.showModal({ title: templateSaveCopy.failureTitle, content: templateSaveCopy.failureMessage, showCancel: false });
+        }
+      } finally {
+        if (this._hrTemplateSaveRequest === request) {
+          this._hrTemplateSaveRequest = null;
+          if (isCurrent()) { wx.hideLoading(); this.setLoading('saveProfileTemplate', false); }
+        }
+      }
+    },
+
+    approveHrProfileChange(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || e.currentTarget.dataset.id || '').trim();
+      const studentId = String(e.currentTarget.dataset.studentId || '').trim();
+      if (!hrId && !studentId) {
+        return;
+      }
+
+      wx.showModal({
+        title: localeCopy.copy_6c43597611,
+        content: localeCopy.copy_a10c814f32,
+        success: async (res) => {
+          if (!res.confirm) {
+            return;
+          }
+
+          try {
+            const result = await this.callCloud('reviewHrProfileChange', {
+              hrId,
+              studentId,
+              action: 'approve'
+            });
+            if (result.status !== 'success') {
+              wx.showToast({
+                title: result.message || localeCopy.copy_ad2391977b,
+                icon: 'none'
+              });
+              return;
+            }
+            await this.loadHrProfileAdminData();
+            wx.showToast({
+              title: localeCopy.copy_688794e754,
+              icon: 'success'
+            });
+          } catch (error) {
+            wx.showToast({
+              title: localeCopy.copy_ad2391977b,
+              icon: 'none'
+            });
+          }
+        }
+      });
+    },
+
+    rejectHrProfileChange(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || e.currentTarget.dataset.id || '').trim();
+      const studentId = String(e.currentTarget.dataset.studentId || '').trim();
+      if (hrId || studentId) this.openProfileRejectDialog(studentId, hrId);
+    },
+
+    onHrFieldInput(e) {
+      const { field } = e.currentTarget.dataset;
+      const value = e.detail.value.trim();
+      this.setData({
+        hrForm: {
+          ...this.data.hrForm,
+          [field]: value
+        }
+      });
+    },
+
+    resetHrForm() {
+      this.setData({
+        hrForm: emptyHrForm()
+      });
+    },
+
+    startCreateHr() {
+      this.resetHrForm();
+      this.setData({ showAddEditForm: true });
+    },
+
+    async saveHr() {
+      const { name, studentId } = this.data.hrForm;
+
+      if (!name || !studentId) {
+        wx.showToast({
+          title: localeCopy.copy_4f9250c03f,
+          icon: 'none'
+        });
+        return;
+      }
+
+      this.setLoading('saveHr', true);
+      try {
+        const result = await this.callCloud('saveHrInfo', {
+          name,
+          studentId
+        });
+
+        if (result.status !== 'success') {
+          wx.showToast({
+            title: result.message || localeCopy.copy_215e3c57da,
+            icon: 'none'
+          });
+          return;
+        }
+
+        await this.loadHrList();
+        await this.loadHrProfileAdminData();
+        this.setData({
+          hrForm: emptyHrForm(),
+          showAddEditForm: false
+        });
+        await this.openHrPersonDetail({ currentTarget: { dataset: { hrId: result.id } } });
+      } catch (error) {
+        wx.showToast({
+          title: localeCopy.copy_215e3c57da,
+          icon: 'none'
+        });
+      } finally {
+        this.setLoading('saveHr', false);
+      }
+    },
+
+    deleteHr(e) {
+      const { id } = e.currentTarget.dataset;
+      wx.showModal({
+        title: localeCopy.leaveOrganizationTitle,
+        content: localeCopy.leaveOrganizationMessage,
+        confirmColor: '#ef4444',
+        success: async (res) => {
+          if (!res.confirm) {
+            return;
+          }
+          try {
+            const result = await this.callCloud('deleteHrInfo', { id });
+            if (!result || result.status !== 'success') {
+              wx.showToast({ title: result && result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+              return;
+            }
+            await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+            wx.showToast({
+              title: localeCopy.membershipLeft,
+              icon: 'success'
+            });
+          } catch (error) {
+            wx.showToast({
+              title: localeCopy.copy_076bb5d383,
+              icon: 'none'
+            });
+          }
+        }
+      });
+    },
+
+    async unbindHrWechat(e) {
+      if (!this.data.canGlobalAccountManage) return;
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      if (!hrId) return;
+      const row = this.getHrGovernanceRow(hrId);
+      if (!row || this.data.authActionLoadingKey) return;
+      this.setData({ authActionLoadingKey: 'unbind-' + hrId });
+      try {
+        const result = await this.callCloud('unbindHrWechat', { hrId });
+        if (result.status !== 'success') {
+          showShortToast(result.message || localeCopy.copy_32dc191e8f);
+          return;
+        }
+        this.patchHrGovernance(row.personId, {
+          status: 'verified',
+          hasActiveBinding: false,
+          activeSessionCount: 0,
+          pendingRecoveryId: ''
+        }, { wxBindStatus: 'unbound' });
+        showShortToast(localeCopy.copy_52128a24e4, 'success');
+      } catch (error) {
+        showShortToast(localeCopy.copy_32dc191e8f);
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
+    },
+
+    chooseTable() {
+      // 返回导入入口后重新读取人员、岗位及分类，不能复用导入前的目录。
+      this._bootstrapComplete = false;
+      this._bootstrapKey = '';
+      wx.navigateTo({ url: '/subpackages/scoring/pages/hrImport/hrImport' });
+    },
+
+    chooseLegacyTable() {
+      let self = this;
+      self._csvImportActive = true;
+
+      chooseTableFile(self.callCloud.bind(self)).then(function (tableData) {
+        if (!tableData) { self._csvImportActive = false; return; }
+
+        let headers = tableData.headers;
+        let rows = tableData.rows;
+        let fileName = tableData.fileName;
+
+        let samples = [headers];
+        for (let r = 0; r < Math.min(rows.length, 6); r++) {
+          samples.push(rows[r]);
+        }
+
+        let templateFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+        let result = buildCsvColumnMapping(headers, samples, templateFields);
+
+        self.setData({
+          showCsvMappingDialog: true,
+          csvImportRows: result.rows,
+          csvImportHeaders: headers,
+          csvImportDataRows: rows,
+          csvImportSheetName: tableData.sheetName || '',
+          csvImportSourceType: tableData.type || '',
+          csvImportFileName: fileName || '',
+          csvImportSamples: samples
+        });
+        self._csvImportActive = false;
+      }).catch(function (err) {
+        wx.showToast({ title: localeCopy.copy_cc78fc735e, icon: 'none' });
+        self._csvImportActive = false;
+      });
+    },
+
+    closeCsvMappingDialog() {
+      this._csvImportActive = false;
+      this.setData({ showCsvMappingDialog: false, showHrImportPreview: false });
+    },
+
+    toggleCsvSkipInvalid() {
+      const next = !this.data.csvImportSkipInvalid;
+      const preview = this.data.hrImportPreview || null;
+      const updates = { csvImportSkipInvalid: next };
+      if (preview) {
+        // 勾选“忽略不兼容”后，预览态的 canImport 必须同步刷新，否则再次导入会被旧结论挡住。
+        updates['hrImportPreview.skipInvalid'] = next;
+        updates['hrImportPreview.canImport'] = Number(preview.invalidRows || 0) === 0 || next;
+      }
+      this.setData(updates);
+    },
+
+    // 校验弹窗内直接勾选“忽略不兼容”并重试导入，避免用户回到字段映射弹窗再找开关。
+    confirmHrImportSkipInvalid() {
+      this.setData({
+        csvImportSkipInvalid: true,
+        'hrImportPreview.skipInvalid': true,
+        'hrImportPreview.canImport': true,
+        showValidationErrors: false
+      });
+      this.confirmHrTableImport();
+    },
+
+    buildValidationErrorCards(flatErrors) {
+      let cards = [];
+      let cardMap = {};
+      for (let i = 0; i < flatErrors.length; i++) {
+        let e = flatErrors[i];
+        // 无学号的行必须按行号分卡，否则多行会被并成一张卡，用户看不出是哪几条记录。
+        let key = e.studentId ? 'sid:' + e.studentId : 'row:' + (e.rowNumber || i);
+        if (!cardMap[key]) {
+          cardMap[key] = {
+            cardKey: key,
+            name: e.name || '',
+            studentId: e.studentId || '',
+            metaLabel: buildValidationErrorMeta(e, localeCopy),
+            errors: []
+          };
+          cards.push(cardMap[key]);
+        }
+        cardMap[key].errors.push({
+          fieldName: e.fieldName,
+          fieldType: e.fieldType,
+          errorValue: e.errorValue,
+          errorReason: e.errorReason
+        });
+      }
+      return cards;
+    },
+
+    downloadErrorTable() {
+      let self = this;
+      let errors = self.data.validationErrors || [];
+      if (!errors.length) {
+        wx.showToast({ title: localeCopy.copy_62e4cca082, icon: 'none' });
+        return;
+      }
+      wx.showActionSheet({
+        itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
+        success: function (res) {
+          let format = res.tapIndex === 0 ? 'csv' : 'excel';
+          let headers = [
+            { key: 'name', label: localeCopy.copy_3c946202ff },
+            { key: 'studentId', label: localeCopy.copy_cbb853db1b },
+            { key: 'fieldName', label: localeCopy.copy_553705a0cd },
+            { key: 'fieldType', label: localeCopy.copy_0304ae11cd },
+            { key: 'errorValue', label: localeCopy.copy_5196fb52ef },
+            { key: 'errorReason', label: localeCopy.copy_4217b924a4 }
+          ];
+          let rows = errors.map(function (e) {
+            return {
+              name: e.name || '',
+              studentId: e.studentId || '',
+              fieldName: e.fieldName || '',
+              fieldType: e.fieldType || '',
+              errorValue: e.errorValue || '',
+              errorReason: e.errorReason || ''
+            };
+          });
+          if (format === 'excel') {
+            self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: localeCopy.copy_bb51235352 }).then(function (result) {
+              if (result && result.status === 'success' && result.fileBase64) {
+                saveAndShareFile(result.fileBase64, localeCopy.copy_2ba036eb5f, 'xlsx');
+              } else {
+                wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
+              }
+            }).catch(function () {
+              wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
+            });
+          } else {
+            saveAndShareFile(buildCsv(headers, rows), localeCopy.copy_2ba036eb5f, 'csv');
+          }
+        }
+      });
+    },
+
+    closeValidationErrors() {
+      this.setData({ showValidationErrors: false });
+    },
+
+    onCsvMappingTargetChange(e) {
+      let rowIndex = Number(e.currentTarget.dataset.index);
+      let rows = this.data.csvImportRows.slice();
+      let currentRow = rows[rowIndex] || {};
+      let values = currentRow.mappingValues || [];
+      let optionIndex = Number(e.detail.value);
+      let targetValue = values[optionIndex];
+      if (isNaN(rowIndex) || targetValue === undefined) return;
+
+      rows[rowIndex] = {
+        columnIndex: currentRow.columnIndex,
+        columnKey: currentRow.columnKey,
+        header: currentRow.header,
+        target: targetValue,
+        sampleValue: currentRow.sampleValue
+      };
+      let templateFields = (this.data.hrProfileTemplateForm || {}).fields || [];
+      this.setData({ csvImportRows: refreshCsvMappingOptions(rows, templateFields) });
+    },
+
+    buildHrTableImportPayload() {
+      let basicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
+      let basicFieldSet = {};
+      for (let i = 0; i < basicFields.length; i++) basicFieldSet[basicFields[i]] = true;
+      let basicMapping = {};
+      let extensionMapping = [];
+      let mappingRows = this.data.csvImportRows || [];
+      for (let rowIndex = 0; rowIndex < mappingRows.length; rowIndex++) {
+        let mappingRow = mappingRows[rowIndex];
+        if (!mappingRow || !mappingRow.target || mappingRow.target === 'ignore') continue;
+        if (basicFieldSet[mappingRow.target]) {
+          basicMapping[mappingRow.target] = mappingRow.columnIndex;
+        } else {
+          extensionMapping.push({
+            columnIndex: mappingRow.columnIndex,
+            fieldId: mappingRow.target
+          });
+        }
+      }
+      return {
+        headers: this.data.csvImportHeaders || [],
+        rows: this.data.csvImportDataRows || [],
+        basicMapping: basicMapping,
+        extensionMapping: extensionMapping,
+        skipInvalid: !!this.data.csvImportSkipInvalid
+      };
+    },
+
+    flattenHrImportErrors(errorGroups) {
+      let flatErrors = [];
+      let groups = errorGroups || [];
+      for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        let group = groups[groupIndex] || {};
+        let errors = group.errors || [];
+        for (let errorIndex = 0; errorIndex < errors.length; errorIndex++) {
+          let error = errors[errorIndex] || {};
+          flatErrors.push({
+            rowNumber: group.rowNumber || 0,
+            name: group.name || '',
+            studentId: group.studentId || '',
+            fieldName: error.field || '',
+            fieldType: buildProfileFieldTypeLabel(error.fieldType),
+            errorValue: error.value || '',
+            errorReason: error.error || ''
+          });
+        }
+      }
+      return flatErrors;
+    },
+
+    buildHrImportPreviewView(preview) {
+      let data = preview || {};
+      let ignoredColumns = data.ignoredColumns || [];
+      let mappings = data.mappings || [];
+      let normalizedMappings = [];
+      for (let i = 0; i < mappings.length; i++) {
+        let item = mappings[i] || {};
+        normalizedMappings.push({
+          columnKey: 'preview-column-' + item.columnIndex,
+          header: item.header || localeCopy.copy_927e8200f7,
+          targetLabel: item.targetLabel || localeCopy.copy_6195ef12a0,
+          targetTypeLabel: item.targetType === 'extension' ? localeCopy.copy_9ec66981b8 : localeCopy.copy_6d61e35304
+        });
+      }
+      let normalizedIgnored = [];
+      for (let j = 0; j < ignoredColumns.length; j++) {
+        normalizedIgnored.push({
+          columnKey: 'ignored-column-' + ignoredColumns[j].columnIndex,
+          header: ignoredColumns[j].header || localeCopy.copy_927e8200f7
+        });
+      }
+      let invalidRows = Number(data.invalidRows || 0);
+      let skipInvalid = !!this.data.csvImportSkipInvalid;
+      // 预览阶段就把不兼容记录逐条摊开，用户在点“确认应用”之前就能看清哪几条有问题。
+      let errorCards = this.buildValidationErrorCards(this.flattenHrImportErrors(data.errors));
+      return {
+        fileName: this.data.csvImportFileName || localeCopy.copy_6278f75572,
+        sheetName: this.data.csvImportSheetName || localeCopy.copy_a62f5b5e20,
+        totalRows: Number(data.totalRows || 0),
+        validRows: Number(data.validRows || 0),
+        invalidRows: invalidRows,
+        newRecords: Number(data.newRecords || 0),
+        updateRecords: Number(data.updateRecords || 0),
+        preservedEmptyFields: Number(data.preservedEmptyFields || 0),
+        mappings: normalizedMappings,
+        ignoredColumns: normalizedIgnored,
+        newDepartments: data.newDepartments || [],
+        newIdentities: data.newIdentities || [],
+        newWorkGroups: data.newWorkGroups || [],
+        errors: data.errors || [],
+        errorCards: errorCards,
+        canImport: invalidRows === 0 || skipInvalid,
+        skipInvalid: skipInvalid
+      };
+    },
+
+    async confirmCsvMapping() {
+      let payload = this.buildHrTableImportPayload();
+      let requiredFields = ['name', 'studentId', 'department', 'identity'];
+      let fieldLabels = { name: localeCopy.copy_3c946202ff, studentId: localeCopy.copy_cbb853db1b, department: localeCopy.copy_62f8e70200, identity: localeCopy.copy_474f638a6f };
+      let missingLabels = [];
+      for (let i = 0; i < requiredFields.length; i++) {
+        if (payload.basicMapping[requiredFields[i]] === undefined) {
+          missingLabels.push(fieldLabels[requiredFields[i]]);
+        }
+      }
+      if (missingLabels.length) {
+        wx.showModal({
+          title: localeCopy.copy_defcb9a40c,
+          content: localeCopy.copy_d661ec9421 + missingLabels.join('、') + localeCopy.copy_ab34b1e15d,
+          showCancel: false,
+          confirmText: localeCopy.copy_b722908172
+        });
+        return;
+      }
+
+      this._csvImportActive = true;
+      this.setData({ csvImportLoading: true });
+      try {
+        let result = await this.callCloud('previewHrTableImport', payload);
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: (result && result.message) || localeCopy.copy_e58fa637eb, icon: 'none' });
+          return;
+        }
+        this.setData({
+          showCsvMappingDialog: false,
+          showHrImportPreview: true,
+          hrImportPreview: this.buildHrImportPreviewView(result.preview)
+        });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_e58fa637eb, icon: 'none' });
+      } finally {
+        this._csvImportActive = false;
+        this.setData({ csvImportLoading: false });
+      }
+    },
+
+    cancelHrImportPreview() {
+      this._csvImportActive = false;
+      this.setData({ showHrImportPreview: false, showCsvMappingDialog: true });
+    },
+
+    closeHrImportPreview() {
+      this.cancelHrImportPreview();
+    },
+
+    async confirmHrTableImport() {
+      let preview = this.data.hrImportPreview || {};
+      if (!preview.canImport) {
+        wx.showToast({ title: localeCopy.copy_2e92a9de4f, icon: 'none' });
+        return;
+      }
+      this._csvImportActive = true;
+      this.setData({ csvImportLoading: true });
+      wx.showLoading({ title: localeCopy.copy_f39423b4c5, mask: true });
+      try {
+        let result = await this.callCloud('importHrTable', this.buildHrTableImportPayload());
+        if (result && result.status === 'validation_errors') {
+          let validationErrors = this.flattenHrImportErrors(result.errors);
+          this.setData({
+            showHrImportPreview: false,
+            showCsvMappingDialog: true,
+            showValidationErrors: true,
+            validationErrors: validationErrors,
+            validationErrorCards: this.buildValidationErrorCards(validationErrors),
+            validationErrorSummary: localeCopy.copy_aee6f6c499 + validationErrors.length + localeCopy.copy_23bb2dcf13
+          });
+          return;
+        }
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: (result && result.message) || localeCopy.copy_0c9080582a, icon: 'none' });
+          return;
+        }
+
+        let skippedErrors = this.flattenHrImportErrors(result.errors);
+        this.setData({
+          showHrImportPreview: false,
+          showCsvMappingDialog: false,
+          csvName: this.data.csvImportFileName || localeCopy.copy_03e326cb9b
+        });
+        await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
+        await this.loadWorkGroupList();
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+        this.updateHrFormOptions();
+
+        if (skippedErrors.length) {
+          this.setData({
+            showValidationErrors: true,
+            validationErrors: skippedErrors,
+            validationErrorCards: this.buildValidationErrorCards(skippedErrors),
+            validationErrorSummary: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_067b107bd7 + skippedErrors.length + localeCopy.copy_c6e80c1d75
+          });
+          wx.showToast({ title: localeCopy.copy_8c05f916f4, icon: 'success' });
+        } else {
+          wx.showToast({ title: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_9aec79b593, icon: 'success' });
+        }
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_0c9080582a, icon: 'none' });
+      } finally {
+        wx.hideLoading();
+        this._csvImportActive = false;
+        this.setData({ csvImportLoading: false });
+      }
+    }
+  }
+});

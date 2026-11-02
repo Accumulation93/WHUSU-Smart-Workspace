@@ -114,7 +114,7 @@ async function run() {
 
   const manageSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/venue/pages/venueManage/venueManage.js'), 'utf8');
   let page;
-  vm.runInNewContext(manageSource, { Page(value) { page = value; }, require(request) {
+  page = require('./lib/loadVenueManagementPage')({ require(request) {
     if (request.endsWith('/dialogKeyboard')) return { dialogKeyboardBehavior: {} };
     return {};
   } });

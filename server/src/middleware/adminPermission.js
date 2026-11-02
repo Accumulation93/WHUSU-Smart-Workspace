@@ -8,6 +8,25 @@ async function adminPermissionMiddleware(req, res, next) {
   const rule = ROUTE_RULES.get(routePath);
   if (!rule) return next();
 
+  {
+    try {
+      const orgId = req.authContext && req.authContext.organizationId;
+      if (await require('../core/models/authorizationBusinessRoute').isEnforced(routePath, orgId)) {
+        if (!require('../core/models/authorizationBusinessRoute').isAdapted(routePath)) {
+          return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_b0eb464235 });
+        }
+        const { referenceFromRequest } = require('../core/services/authorizationManagement');
+        const reference = referenceFromRequest(req);
+        if (!reference) return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_b0eb464235 });
+        req.unifiedAuthorization = { reference };
+        return next();
+      }
+    } catch (error) {
+      req.logger.error('Unified business authorization check failed', { error: error.code || error.message, path: routePath });
+      return res.status(500).json({ status: 'error', message: localeCopy.copy_e58fa637eb });
+    }
+  }
+
   const selectedRole = String(req.authContext && req.authContext.role || '').toLowerCase();
   if (selectedRole !== 'admin') {
     if (selectedRole === 'user' && rule.allowUserRole) return next();

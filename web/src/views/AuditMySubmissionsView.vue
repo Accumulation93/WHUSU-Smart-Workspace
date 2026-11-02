@@ -7,6 +7,7 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
+    <AuthorizedManagementTabs sub-app="audit" :business-label="copy.audit.title">
     <AuditNav active="mySubmissions" />
 
     <section class="card stack">
@@ -65,6 +66,7 @@
         {{ copy.audit.markAllRead }}
       </button>
     </section>
+    </AuthorizedManagementTabs>
   </div>
 </template>
 
@@ -72,6 +74,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AuditNav from '@/components/AuditNav.vue';
+import AuthorizedManagementTabs from '@/components/AuthorizedManagementTabs.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';

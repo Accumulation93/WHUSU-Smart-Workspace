@@ -2,6 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const cp = require('child_process');
+let acorn;
+try { acorn = require('internal/deps/acorn/acorn/dist/acorn'); } catch (_) {
+  if (process.env.WHUSU_COMPAT_AUDIT_CHILD) throw new Error('无法加载小程序语法解析器');
+  const child = cp.spawnSync(process.execPath, ['--expose-internals', __filename, ...process.argv.slice(2)], {
+    stdio: 'inherit', env: { ...process.env, WHUSU_COMPAT_AUDIT_CHILD: '1' }
+  });
+  process.exit(child.status == null ? 1 : child.status);
+}
 
 const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
@@ -78,6 +87,20 @@ function resolveWxssPath(fromFile, request) {
 function checkJavaScript(file) {
   const source = fs.readFileSync(file, 'utf8');
   checkedJs += 1;
+  try {
+    const pending = [acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script', locations: true })];
+    while (pending.length) {
+      const node = pending.pop();
+      if (!node || typeof node !== 'object') continue;
+      if (node.type === 'ChainExpression' || (node.type === 'LogicalExpression' && node.operator === '??')) {
+        report(file, '第 ' + node.loc.start.line + ' 行使用官方原生压缩器不支持的可选链或空值合并，请显式判断空值');
+      }
+      Object.values(node).forEach(value => {
+        if (Array.isArray(value)) value.forEach(item => { if (item && item.type) pending.push(item); });
+        else if (value && value.type) pending.push(value);
+      });
+    }
+  } catch (error) { report(file, 'JavaScript 语法解析失败：' + error.message); }
 
   if (/@(?:swc|babel)\/runtime\//.test(source)) {
     report(file, '禁止直接依赖未打包的编译器 runtime helper');

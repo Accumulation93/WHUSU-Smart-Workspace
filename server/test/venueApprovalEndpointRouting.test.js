@@ -11,6 +11,7 @@ function loadVenuePage(relativePath) {
   const originalLoad = Module._load;
   const originalPage = global.Page;
   const originalComponent = global.Component;
+  const originalBehavior = global.Behavior;
 
   const apiStub = {
     async callFunction(options) {
@@ -84,20 +85,26 @@ function loadVenuePage(relativePath) {
   };
 
   global.Page = function(definition) {
-    pageDefinition = definition;
+    const methods = {}, data = {};
+    const collect = item => { for (const behavior of item.behaviors || []) collect(behavior); Object.assign(methods, item.methods || {}); Object.assign(data, item.data || {}); };
+    collect(definition);
+    pageDefinition = Object.assign(methods, definition, { data });
   };
+  global.Behavior = definition => definition;
   global.Component = function(definition) {
     pageDefinition = Object.assign({ data: definition.data }, definition.methods);
   };
 
   const absolutePath = path.resolve(ROOT, relativePath);
   delete require.cache[require.resolve(absolutePath)];
+  if (relativePath.endsWith('/venueManage.js')) delete require.cache[require.resolve(path.join(path.dirname(absolutePath), 'venueManagementBehavior.js'))];
   try {
     require(absolutePath);
   } finally {
     Module._load = originalLoad;
     global.Page = originalPage;
     global.Component = originalComponent;
+    global.Behavior = originalBehavior;
   }
 
   assert.ok(pageDefinition, relativePath + ' 必须注册页面或组件');

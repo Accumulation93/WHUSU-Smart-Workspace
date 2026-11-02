@@ -3,17 +3,24 @@ const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
-const { nowMysqlUtc, formatDateOnly } = require('../../../utils/dateTime');
+const { formatDateOnly } = require('../../../utils/dateTime');
 const { resolveRequestAdmin: ensureAdmin } = require('../../../core/services/adminRequestContext');
 const activityModel = require('../models/scoreActivity');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
 const sharedCache = require('../utils/sharedCache');
+const activityAuthorization = require('../models/scoreActivityAuthorization');
 
 // listScoreActivities
 router.post('/listScoreActivities', async (req, res) => {
   try {
+    if (req.unifiedAuthorization) {
+      const list = await activityAuthorization.list(req.unifiedAuthorization.reference);
+      list.sort((a, b) => Number(Boolean(b.isCurrent)) - Number(Boolean(a.isCurrent))
+        || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'));
+      return res.json({ status: 'success', list, currentActivityId: (list.find(item => item.isCurrent) || {}).id || '' });
+    }
     const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
@@ -29,7 +36,11 @@ router.post('/listScoreActivities', async (req, res) => {
       }
       return s.slice(0, 10);
     }
-    const data = await activityModel.getAll();
+    const orgId = await getCurrentOrgId();
+    const data = await pool.withTransaction(async connection => {
+      await require('../../../core/models/authorizationBusinessRoute').requireLegacyWrite(connection, orgId);
+      return activityModel.getAll(connection, orgId);
+    });
     const list = data.map((item) => ({
       id: item.id,
       name: item.name || '',
@@ -51,6 +62,7 @@ router.post('/listScoreActivities', async (req, res) => {
       currentActivityId: (list.find((item) => item.isCurrent) || {}).id || ''
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -58,8 +70,9 @@ router.post('/listScoreActivities', async (req, res) => {
 // saveScoreActivity
 router.post('/saveScoreActivity', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -77,42 +90,16 @@ router.post('/saveScoreActivity', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
 
-    if (id) {
-      const nowUtc = nowMysqlUtc();
-      const current = await activityModel.getById(id);
-      if (!current) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-      const orgId = await getCurrentOrgId();
-      const [duplicates] = await pool.query(
-        'SELECT id FROM score_activities WHERE name = ? AND org_id = ? AND id <> ? LIMIT 1',
-        [name, orgId, id]
-      );
-      if (duplicates.length) {
-        return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
-      }
-      await activityModel.update(id, {
-        name, description, startDate: startDate || null, endDate: endDate || null,
-        isCurrent: current ? !!current.is_current : false,
-        isPaused: hasPausedValue ? requestedPaused : Boolean(current.is_paused),
-        updatedBy: admin.id, updatedAt: nowUtc
-      });
-    } else {
-      const orgId = await getCurrentOrgId();
-      const [existing] = await pool.query('SELECT * FROM score_activities WHERE name = ? AND org_id = ? LIMIT 1', [name, orgId]);
-      if (existing.length) {
-        return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
-      } else {
-        const newId = generateId();
-        await activityModel.create(newId, {
-          name, description, startDate: startDate || null, endDate: endDate || null,
-          isCurrent: false, isPaused: requestedPaused, createdBy: admin.id
-        });
-      }
-    }
-    const orgId = await getCurrentOrgId();
+    const orgId = reference?.organizationId || await getCurrentOrgId();
+    const outcome = await activityAuthorization.save({ id, newId: id ? '' : generateId(), name, description,
+      startDate, endDate, hasPausedValue, requestedPaused }, orgId, reference, reference ? reference.personId : admin.id);
+    if (outcome.status === 'not_found') return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    if (outcome.status === 'duplicate') return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
     if (id) await pubCache.invalidate(id, orgId);
     await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -120,15 +107,17 @@ router.post('/saveScoreActivity', async (req, res) => {
 // deleteScoreActivity
 router.post('/deleteScoreActivity', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
-    const orgId = await getCurrentOrgId();
+    const orgId = reference?.organizationId || await getCurrentOrgId();
 
     const outcome = await pool.withTransaction(async (conn) => {
+      const check = await activityAuthorization.guard(conn, orgId, reference);
+      check('delete', id);
       const [activityRows] = await conn.query(
         'SELECT id FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
         [id, orgId]
@@ -181,6 +170,7 @@ router.post('/deleteScoreActivity', async (req, res) => {
     await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -188,34 +178,20 @@ router.post('/deleteScoreActivity', async (req, res) => {
 // setCurrentScoreActivity
 router.post('/setCurrentScoreActivity', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
-    const nowUtc = nowMysqlUtc();
-    const orgId = await getCurrentOrgId();
-    const found = await pool.withTransaction(async (conn) => {
-      const [allActivities] = await conn.query(
-        'SELECT id FROM score_activities WHERE org_id = ? ORDER BY id FOR UPDATE',
-        [orgId]
-      );
-      if (!allActivities.some((item) => safeString(item.id) === id)) return false;
-      await conn.query(
-        `UPDATE score_activities
-            SET is_current = CASE WHEN id = ? THEN 1 ELSE 0 END,
-                updated_by = CASE WHEN id = ? THEN ? ELSE updated_by END,
-                updated_at = CASE WHEN id = ? THEN ? ELSE updated_at END
-          WHERE org_id = ?`,
-        [id, id, admin.id, id, nowUtc, orgId]
-      );
-      return true;
-    });
-    if (!found) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    const orgId = reference?.organizationId || await getCurrentOrgId();
+    const outcome = await activityAuthorization.setCurrent(id, orgId, reference, reference ? reference.personId : admin.id);
+    if (outcome.status === 'not_found') return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
     await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -223,7 +199,8 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
 // getCurrentScoreActivity
 router.post('/getCurrentScoreActivity', async (req, res) => {
   try {
-    const item = await activityModel.getCurrent();
+    if (req.unifiedAuthorization) return res.json({ status: 'success', activity: await activityAuthorization.selected(req.unifiedAuthorization.reference) });
+    const item = await activityAuthorization.legacySelected(await getCurrentOrgId());
     if (!item) return res.json({ status: 'success', activity: null });
 
     function fmtDate(v) {
@@ -251,6 +228,7 @@ router.post('/getCurrentScoreActivity', async (req, res) => {
       }
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -259,7 +237,8 @@ router.post('/getCurrentScoreActivity', async (req, res) => {
 // 避免活动结束后历史结果和评优名单入口随 is_current 一起消失。
 router.post('/getLatestPublishedScoreActivity', async (req, res) => {
   try {
-    const item = await activityModel.getLatestPublished();
+    if (req.unifiedAuthorization) return res.json({ status: 'success', activity: await activityAuthorization.selected(req.unifiedAuthorization.reference, true) });
+    const item = await activityAuthorization.legacySelected(await getCurrentOrgId(), true);
     res.json({
       status: 'success',
       activity: item ? {
@@ -268,6 +247,7 @@ router.post('/getLatestPublishedScoreActivity', async (req, res) => {
       } : null
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -275,18 +255,16 @@ router.post('/getLatestPublishedScoreActivity', async (req, res) => {
 // toggleActivityPause
 router.post('/toggleActivityPause', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
-    const activity = await activityModel.getById(id);
-    if (!activity) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-
-    const newPaused = activity.is_paused ? 0 : 1;
-    await activityModel.togglePause(id, newPaused);
-    const orgId = await getCurrentOrgId();
+    const orgId = reference?.organizationId || await getCurrentOrgId();
+    const outcome = await activityAuthorization.togglePause(id, orgId, reference);
+    if (outcome.status === 'not_found') return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
+    const newPaused = outcome.isPaused;
     await sharedCache.invalidatePrefix('overview_' + orgId + '_');
 
     res.json({
@@ -295,6 +273,7 @@ router.post('/toggleActivityPause', async (req, res) => {
       message: newPaused ? localeCopy.copy_122bce702a : localeCopy.copy_adb9a74154
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_0531ed9e78 });
   }
 });

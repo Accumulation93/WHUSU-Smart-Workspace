@@ -98,7 +98,7 @@ for (const page of ['miniprogram/subpackages/audit/pages/verification/verificati
   'miniprogram/subpackages/audit/pages/verificationReport/verificationReport']) {
   const json = JSON.parse(fs.readFileSync(path.join(root, page + '.json'), 'utf8'));
   assert(json.usingComponents['audit-verification-result']);
-  const markup = fs.readFileSync(path.join(root, page + '.wxml'), 'utf8');
+  const markup = require('../../scripts/lib/miniprogramSource').readMarkup(path.join(root, page + '.wxml'));
   assert(markup.includes('<audit-verification-result'));
   assert(markup.includes('result-json="{{'));
 }

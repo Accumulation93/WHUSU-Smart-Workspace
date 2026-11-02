@@ -41,9 +41,27 @@ async function feed(header,now=Date.now()) {
     for (const context of contexts) if (context.organizationId && context.personId===row.person_id) organizations.set(context.organizationId,context);
     const items=new Map(),from=new Date(now-31*86400000).toISOString(),to=new Date(now+334*86400000).toISOString();
     for (const actor of organizations.values()) {
-      for (const item of await calendar.listForActor(connection,actor,{from,to,export:true})) items.set(item.id+':'+item.occurrenceDate,item);
+      const permissions=await subscriptionReadPermissions(connection,hash(token),actor);
+      for (const item of await calendar.listForActor(connection,actor,{from,to,export:true},permissions)) items.set(item.id+':'+item.occurrenceDate,item);
     }
     return ics.render([...items.values()],now);
   });
+}
+async function subscriptionReadPermissions(connection,tokenHash,context) {
+  const state=await require('./authorization').read(connection,context.organizationId,true);
+  if (state.mode==='shadow') return {};
+  if (state.mode!=='enforced') throw new CalendarError('forbidden');
+  const actor=await require('./authorizationIdentity').loadCalendarSubscriptionActor(connection,tokenHash,context.contextId);
+  if (!actor) throw new CalendarError('forbidden');
+  const {CATALOG}=require('../services/authorizationCatalog');
+  const {preparePolicies,evaluate}=require('../services/authorizationPolicy');
+  const prepared=preparePolicies(state.rules.map(rule=>rule.policy),CATALOG);
+  const now=Date.now();
+  const session={check(input){
+    if(!['calendar.events.read','venue.bookingParticipants.read','venue.activityParticipants.read'].includes(input.capability))return {allowed:false};
+    return evaluate({...input,actor,catalog:CATALOG,prepared,now});
+  }};
+  const authorization=require('../services/calendarEventAuthorization');
+  return {eventAuthorization:authorization.eventAuthorization(session,context),sourceAuthorization:authorization.sourceAuthorization(session,context)};
 }
 module.exports={manage,feed,credential};

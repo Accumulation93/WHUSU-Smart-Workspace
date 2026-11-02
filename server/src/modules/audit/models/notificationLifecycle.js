@@ -13,11 +13,11 @@ const policies = Object.freeze({
 });
 
 // 日程每次只加载一次业务数据；按自然人核查实际参会资格，不构建通知展示列表。
-async function calendarKeys(orgId, personId, now) {
+async function calendarKeys(orgId, personId, now, permissions = {}, connection = pool) {
   const calendar = require('../../../core/models/calendar');
-  const instances = await calendar.listForActor(pool, {organizationId:orgId,personId}, {
+  const instances = await calendar.listForActor(connection, {organizationId:orgId,personId}, {
     from:new Date(now).toISOString(), to:new Date(now + 8 * 86400000).toISOString(), export:true
-  });
+  }, permissions);
   const keys = [];
   let expiresAt = Infinity;
   for (const item of instances) {
@@ -35,14 +35,14 @@ async function calendarKeys(orgId, personId, now) {
   return { keys, expiresAt };
 }
 
-async function prepare(actor, orgId) {
-  const types = (await pool.query(`SELECT DISTINCT type FROM notifications
+async function prepare(actor, orgId, permissions = {}, connection = pool) {
+  const types = (await connection.query(`SELECT DISTINCT type FROM notifications
     WHERE org_id=? AND recipient_type=? AND recipient_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)
       AND type IN ('calendar_reminder','score_activity_started','score_deadline_24h')`, [orgId, actor.type, actor.id]))[0];
   const present = new Set(types.map(row => row.type));
   const now = Date.now();
   const calendar = present.has('calendar_reminder')
-    ? await memo('notificationCalendar:' + orgId + ':' + actor.personId, () => calendarKeys(orgId, actor.personId, now))
+    ? await calendarKeys(orgId, actor.personId, now, permissions, connection)
     : { keys: [], expiresAt: Infinity };
   const scoring = [];
   let expiresAt = calendar.expiresAt;

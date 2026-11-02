@@ -6,7 +6,8 @@ const crypto = require('crypto');
 const { memo } = require('../../utils/requestWork');
 const { usableLoginCredentialSql } = require('./accountLoginState');
 const { generateId, safeString } = require('../../utils/helpers');
-const { normalizeAssignmentNature } = require('../services/hrDomainPolicy');
+const assignmentNature = require('./assignmentNature');
+const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const {
   hmac,
   legacyHmac,
@@ -207,7 +208,8 @@ function mapAssignmentContext(row) {
     personId: safeString(row.person_id),
     membershipId: safeString(row.membership_id),
     assignmentId: safeString(row.assignment_id),
-    assignmentNature: safeString(row.assignment_kind) || 'staff',
+    assignmentNature: safeString(row.assignment_kind),
+    assignmentNatureLabel: safeString(row.assignment_nature_name),
     assignmentLabel: buildAssignmentLabel(row),
     adminGrantId: '',
     legacyHrId: safeString(row.legacy_hr_id),
@@ -570,10 +572,13 @@ async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
   const [rows] = await pool.query(
     `SELECT om.legacy_hr_id, ma.id AS assignment_id, ma.assignment_kind,
             ma.department_id, ma.identity_id, ma.work_group_id,
+            n.name AS assignment_nature_name,
             d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
        FROM organization_memberships om
        LEFT JOIN membership_assignments ma
          ON ma.membership_id = om.id AND ma.org_id = om.org_id AND ma.status = 'active'
+       LEFT JOIN assignment_natures n ON n.id = ma.assignment_kind COLLATE utf8mb4_unicode_ci
+         AND n.org_id = ma.org_id COLLATE utf8mb4_unicode_ci
        LEFT JOIN departments d
          ON CONVERT(d.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.department_id
         AND CONVERT(d.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.org_id
@@ -602,7 +607,8 @@ async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
       summary.count += 1;
       summary.assignments.push({
         assignmentId: safeString(row.assignment_id),
-        assignmentNature: safeString(row.assignment_kind) || 'staff',
+        assignmentNature: safeString(row.assignment_kind),
+        assignmentNatureLabel: safeString(row.assignment_nature_name),
         departmentId: safeString(row.department_id),
         department: safeString(row.department_name),
         identityCategoryId: safeString(row.identity_id),
@@ -671,6 +677,7 @@ async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
   const [rows] = await pool.query(
     `SELECT om.legacy_hr_id, om.status AS membership_status,
             ma.id AS assignment_id, ma.assignment_kind, ma.status AS assignment_status,
+            nature.name AS assignment_nature_name,
             ma.department_id, ma.identity_id, ma.work_group_id,
             d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
        FROM organization_memberships om
@@ -682,6 +689,8 @@ async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
        LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
        LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
        LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id
+       LEFT JOIN assignment_natures nature ON nature.id = ma.assignment_kind COLLATE utf8mb4_unicode_ci
+         AND nature.org_id = ma.org_id COLLATE utf8mb4_unicode_ci
       WHERE om.org_id = ? AND om.status IN ('active', 'left')
         AND om.legacy_hr_id IN (${placeholders})
       ORDER BY ma.created_at ASC, ma.id ASC`,
@@ -701,7 +710,8 @@ async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
     if (safeString(row.assignment_id)) {
       const assignment = {
         assignmentId: safeString(row.assignment_id),
-        assignmentNature: safeString(row.assignment_kind) || 'staff',
+        assignmentNature: safeString(row.assignment_kind),
+        assignmentNatureLabel: safeString(row.assignment_nature_name),
         departmentId: safeString(row.department_id),
         department: safeString(row.department_name),
         identityCategoryId: safeString(row.identity_id),
@@ -758,7 +768,7 @@ async function saveMembershipAssignment(data, actor, authorize) {
   const organizationId = safeString(data.organizationId);
   const legacyHrId = safeString(data.legacyHrId);
   const assignmentId = safeString(data.id);
-  const assignmentKind = normalizeAssignmentNature(data.assignmentKind);
+  const assignmentKind = safeString(data.assignmentKind);
   if (!organizationId || !legacyHrId) {
     throw new IdentityError('invalid_params', personnelCopy.missingMemberOrOrganization, 400);
   }
@@ -766,7 +776,14 @@ async function saveMembershipAssignment(data, actor, authorize) {
     throw new IdentityError('assignment_nature_invalid', personnelCopy.assignmentNatureInvalid, 400);
   }
   return pool.withTransaction(async (connection) => {
-    if (authorize) await authorize(connection);
+    const validateAuthorization = authorize ? await authorize(connection) : null;
+    await lockOrganizationDictionaryWrites(organizationId, connection);
+    try {
+      await assignmentNature.resolve(connection, organizationId, assignmentKind);
+    } catch (error) {
+      if (error.code !== 'assignment_nature_invalid') throw error;
+      throw new IdentityError('assignment_nature_invalid', personnelCopy.assignmentNatureInvalid, 400);
+    }
     const [membershipRows] = await connection.query(
       `SELECT * FROM organization_memberships
         WHERE legacy_hr_id = ? AND org_id = ? AND status = 'active'
@@ -805,6 +822,10 @@ async function saveMembershipAssignment(data, actor, authorize) {
     }
 
     const nextId = existing ? existing.id : generateId();
+    if (typeof validateAuthorization === 'function') validateAuthorization(existing, {
+      id: nextId, assignment_kind: assignmentKind, department_id: departmentId,
+      identity_id: identityId, work_group_id: workGroupId
+    }, membership);
     if (existing) {
       await connection.query(
         `UPDATE membership_assignments
@@ -854,7 +875,7 @@ async function revokeMembershipAssignment(data, actor, authorize) {
   const organizationId = safeString(data.organizationId);
   const assignmentId = safeString(data.id);
   return pool.withTransaction(async (connection) => {
-    if (authorize) await authorize(connection);
+    const validateAuthorization = authorize ? await authorize(connection) : null;
     const [rows] = await connection.query(
       `SELECT ma.*, om.person_id, om.legacy_hr_id
          FROM membership_assignments ma
@@ -865,6 +886,7 @@ async function revokeMembershipAssignment(data, actor, authorize) {
     );
     const assignment = rows[0];
     if (!assignment) throw new IdentityError('assignment_not_found', localeCopy.copy_10d3269bb4, 404);
+    if (typeof validateAuthorization === 'function') validateAuthorization(assignment, null, assignment);
     await connection.query(
       `UPDATE membership_assignments
           SET status = 'revoked', revoked_by_departure_id = NULL, updated_at = NOW()
@@ -1243,12 +1265,16 @@ async function queryContexts(accountId, connection) {
             om.id AS membership_id, om.org_id AS organization_id, om.legacy_hr_id,
             p.id AS person_id, p.name AS person_name, p.student_id,
             o.name AS organization_name, d.name AS department_name,
-            i.name AS identity_name, w.name AS work_group_name
+            i.name AS identity_name, w.name AS work_group_name,
+            nature.name AS assignment_nature_name
        FROM accounts a
        JOIN persons p ON p.id = a.person_id AND p.status = 'active'
        JOIN organization_memberships om ON om.person_id = p.id AND om.status = 'active'
        JOIN membership_assignments ma ON ma.membership_id = om.id
          AND ma.org_id = om.org_id AND ma.status = 'active'
+       LEFT JOIN assignment_natures nature
+         ON nature.id = ma.assignment_kind COLLATE utf8mb4_unicode_ci
+        AND nature.org_id = om.org_id COLLATE utf8mb4_unicode_ci
        JOIN organizations o
          ON CONVERT(o.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = om.org_id
        LEFT JOIN departments d
@@ -1636,6 +1662,10 @@ async function listClaims(organizationId, options) {
   if (orgId) {
     scopeSql = "AND EXISTS (SELECT 1 FROM organization_memberships scope_m WHERE scope_m.person_id = r.person_id AND scope_m.org_id = ? AND scope_m.status = 'active')";
     params.push(orgId);
+    if (options && options.exactOrganization) {
+      scopeSql += ' AND r.requested_org_id = ?';
+      params.push(orgId);
+    }
   }
   const search = safeString(options && options.search);
   if (search) {
@@ -1674,6 +1704,8 @@ async function listClaims(organizationId, options) {
 }
 
 async function issueVerificationCodeWithConnection(connection, claimId, actor, metadata) {
+  if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+  if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
   const hours = normalizeVerificationHours(metadata && metadata.expiresInHours);
   const [rows] = await connection.query(
     `SELECT r.*, EXISTS (
@@ -1692,6 +1724,10 @@ async function issueVerificationCodeWithConnection(connection, claimId, actor, m
   );
   const claim = rows[0];
   if (!claim) throw new IdentityError('claim_unavailable', localeCopy.copy_3e9f5046ae, 409);
+  if (actor.authorizeGovernance && safeString(claim.requested_org_id) !== actor.organizationId) {
+    throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
+  }
+  if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: claim.person_id });
   if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
     throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
   }
@@ -1765,10 +1801,12 @@ async function revokeVerificationCodes(claimIds, actor, metadata) {
     throw new IdentityError('invalid_params', localeCopy.copy_d0970707a8, 400);
   }
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const revokedClaimIds = [];
     for (const claimId of normalizedIds) {
       const [rows] = await connection.query(
-        `SELECT r.id, r.person_id, EXISTS (
+        `SELECT r.id, r.person_id, r.requested_org_id, EXISTS (
             SELECT 1 FROM organization_memberships om
              WHERE om.person_id = r.person_id AND om.org_id = ? AND om.status = 'active'
           ) AS actor_org_matches
@@ -1779,6 +1817,10 @@ async function revokeVerificationCodes(claimIds, actor, metadata) {
       );
       const claim = rows[0];
       if (!claim) throw new IdentityError('claim_unavailable', localeCopy.copy_3e9f5046ae, 409);
+      if (actor.authorizeGovernance && safeString(claim.requested_org_id) !== actor.organizationId) {
+        throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
+      }
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: claim.person_id });
       if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
         throw new IdentityError('claim_forbidden', localeCopy.copy_9bc4da7866, 403);
       }
@@ -1965,6 +2007,8 @@ async function savePolicy(data, actor) {
     throw new IdentityError('invalid_policy_time', localeCopy.copy_b0e6d46935, 400);
   }
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const [policyRows] = await connection.query(
       "SELECT * FROM auth_policy WHERE id = 'default' LIMIT 1 FOR UPDATE"
     );
@@ -2309,6 +2353,10 @@ async function listRecoveryRequests(organizationId, options) {
   if (orgId) {
     scopeSql = "AND EXISTS (SELECT 1 FROM organization_memberships scope_m WHERE scope_m.person_id = r.person_id AND scope_m.org_id = ? AND scope_m.status = 'active')";
     params.push(orgId);
+    if (options && options.exactOrganization) {
+      scopeSql += ' AND r.requested_org_id = ?';
+      params.push(orgId);
+    }
   }
   params.push(limit);
   const [rows] = await pool.query(
@@ -2380,6 +2428,8 @@ async function listAccounts(organizationId, options) {
 
 async function setAccountFrozen(personId, frozen, actor, metadata) {
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: safeString(personId) });
     const [rows] = await connection.query(
       `SELECT a.*, EXISTS (
           SELECT 1 FROM admin_grants ag
@@ -2459,6 +2509,8 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
 async function approveRecovery(recoveryRequestId, actor, metadata) {
   if (!actor || !actor.personId) throw new IdentityError('forbidden', localeCopy.copy_8acb6c346a, 403);
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const [rows] = await connection.query(
       `SELECT r.*, EXISTS (
           SELECT 1 FROM organization_memberships om
@@ -2472,6 +2524,10 @@ async function approveRecovery(recoveryRequestId, actor, metadata) {
     );
     const request = rows[0];
     if (!request) throw new IdentityError('recovery_unavailable', localeCopy.copy_31a162f4e0, 409);
+    if (actor.authorizeGovernance && safeString(request.requested_org_id) !== actor.organizationId) {
+      throw new IdentityError('recovery_forbidden', localeCopy.copy_eebad7c140, 403);
+    }
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: request.person_id, accountId: request.account_id });
     if (request.person_id === actor.personId) {
       throw new IdentityError('self_approval_forbidden', localeCopy.copy_bf1b9a92c7, 403);
     }
@@ -2622,7 +2678,7 @@ async function revokeRecoveryCredential(accountId, method, connection) {
   const executor = connection || pool;
   const [result] = await executor.query(
     `UPDATE account_recovery_credentials
-        SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+        SET status = 'revoked', updated_at = NOW()
       WHERE account_id = ? AND method = ? AND status = 'active'`,
     [safeString(accountId), safeString(method)]
   );
@@ -2630,6 +2686,8 @@ async function revokeRecoveryCredential(accountId, method, connection) {
 }
 
 async function resetAccountByLegacyHr(connection, legacyHrId, organizationId, actor, reason) {
+  if (actor && actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+  if (actor && actor.authorizeGovernance) await actor.authorizeGovernance(connection);
   const [rows] = await connection.query(
     `SELECT a.id AS account_id, a.person_id
        FROM organization_memberships om
@@ -2640,6 +2698,7 @@ async function resetAccountByLegacyHr(connection, legacyHrId, organizationId, ac
   );
   const account = rows[0];
   if (!account) return null;
+  if (actor && actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: account.person_id, accountId: account.account_id });
   const [targetSuperRows] = await connection.query(
     `SELECT 1 FROM admin_grants
       WHERE person_id = ? AND admin_level = 'super_admin' AND status = 'active'
@@ -2809,13 +2868,19 @@ async function listEligibleInitialInvitePeople(organizationId, options) {
 }
 
 async function issueInitialInvites(personIds, organizationId, actor, options) {
+  if (actor.authorizeGovernance && (!Array.isArray(personIds) || personIds.length > 100)) {
+    throw new IdentityError('invalid_params', localeCopy.copy_e5d78a79f7, 400);
+  }
   const ids = Array.from(new Set((Array.isArray(personIds) ? personIds : []).map(safeString).filter(Boolean))).slice(0, 100);
   const orgId = safeString(organizationId);
   if (!ids.length) throw new IdentityError('invalid_params', localeCopy.copy_e5d78a79f7, 400);
   const hours = normalizeVerificationHours(options && options.expiresInHours);
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const results = [];
     for (const personId of ids) {
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId });
       const orgParams = [personId];
       const orgWhere = orgId ? 'AND om.org_id = ?' : '';
       if (orgId) orgParams.push(orgId);
@@ -2826,6 +2891,7 @@ async function issueInitialInvites(personIds, organizationId, actor, options) {
             AND NOT EXISTS (SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id WHERE a.person_id = p.id)
           ORDER BY om.org_id LIMIT 20 FOR UPDATE`, orgParams
       );
+      if (actor.authorizeGovernance && !rows.length) throw new IdentityError('member_not_found', localeCopy.copy_3b60b7e276, 404);
       for (const row of rows) {
         const targetOrgId = safeString(row.org_id);
         const inviteId = generateId();
@@ -2857,12 +2923,16 @@ async function revokeInitialInvites(personIds, organizationId, actor, metadata) 
   const params = [...ids];
   let scope = '';
   if (safeString(organizationId)) { scope = ' AND org_id = ?'; params.push(safeString(organizationId)); }
-  const [result] = await pool.query(`UPDATE identity_verification_invites SET status = 'revoked', updated_at = NOW()
-    WHERE status = 'active' AND person_id IN (${placeholders})${scope}`, params);
-  await appendAuditEvent({ eventType: 'identity_invites_revoked', actorPersonId: actor.personId,
-    organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
-    detail: { count: Number(result.affectedRows || 0) } });
-  return { revoked: Number(result.affectedRows || 0) };
+  return pool.withTransaction(async connection => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) for (const personId of ids) await actor.authorizeGovernance(connection, { personId });
+    const [result] = await connection.query(`UPDATE identity_verification_invites SET status = 'revoked', updated_at = NOW()
+      WHERE status = 'active' AND person_id IN (${placeholders})${scope}`, params);
+    await appendAuditEvent({ connection, eventType: 'identity_invites_revoked', actorPersonId: actor.personId,
+      organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
+      detail: { count: Number(result.affectedRows || 0) } });
+    return { revoked: Number(result.affectedRows || 0) };
+  });
 }
 
 async function redeemInitialInvite(bootstrapId, data, metadata) {
@@ -2928,11 +2998,16 @@ async function listEligibleRecoveryAccounts(organizationId, options) {
 }
 
 async function issueAdminRecoveryCodes(accountIds, organizationId, actor, options) {
+  if (actor.authorizeGovernance && (!Array.isArray(accountIds) || accountIds.length > 100)) {
+    throw new IdentityError('invalid_params', localeCopy.copy_06f6e6c619, 400);
+  }
   const ids = Array.from(new Set((Array.isArray(accountIds) ? accountIds : []).map(safeString).filter(Boolean))).slice(0, 100);
   if (!ids.length) throw new IdentityError('invalid_params', localeCopy.copy_06f6e6c619, 400);
   const policy = await getPolicy();
   if (!policy || !policy.allow_recovery_code) throw new IdentityError('method_disabled', localeCopy.copy_f07aa06bda, 403);
   return pool.withTransaction(async (connection) => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) await actor.authorizeGovernance(connection);
     const result = [];
     for (const accountId of ids) {
       const orgParams = [accountId];
@@ -2945,7 +3020,11 @@ async function issueAdminRecoveryCodes(accountIds, organizationId, actor, option
         WHERE a.id = ? AND a.status IN ('verified','recovery_required')
           ${orgScope}
         LIMIT 1 FOR UPDATE`, orgParams);
-      if (!rows.length) continue;
+      if (!rows.length) {
+        if (actor.authorizeGovernance) throw new IdentityError('account_not_found', localeCopy.copy_4cc5002771, 404);
+        continue;
+      }
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { accountId, personId: rows[0].person_id });
       const code = randomCode(20); const credential = hashPassphrase(code);
       await connection.query(`INSERT INTO account_recovery_credentials (id, account_id, method, credential_hash, salt, status)
         VALUES (?, ?, 'recovery_code', ?, ?, 'active') ON DUPLICATE KEY UPDATE credential_hash = VALUES(credential_hash), salt = VALUES(salt),
@@ -2968,13 +3047,24 @@ async function revokeAdminRecoveryCodes(accountIds, organizationId, actor, metad
     : '';
   const params = [...ids];
   if (safeString(organizationId)) params.push(safeString(organizationId));
-  const [result] = await pool.query(`UPDATE account_recovery_credentials c JOIN accounts a ON a.id = c.account_id
-    SET c.status = 'revoked', c.updated_at = NOW() WHERE c.method = 'recovery_code' AND c.status = 'active'
-      AND a.id IN (${ids.map(() => '?').join(',')})${orgScope}`, params);
-  await appendAuditEvent({ eventType: 'admin_recovery_codes_revoked', actorPersonId: actor.personId,
-    organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
-    detail: { count: Number(result.affectedRows || 0) } });
-  return { revoked: Number(result.affectedRows || 0) };
+  return pool.withTransaction(async connection => {
+    if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+    if (actor.authorizeGovernance) {
+      await actor.authorizeGovernance(connection);
+      for (const accountId of ids) {
+        const [rows] = await connection.query('SELECT person_id FROM accounts WHERE id=? FOR UPDATE', [accountId]);
+        if (!rows.length) throw new IdentityError('account_not_found', localeCopy.copy_4cc5002771, 404);
+        await actor.authorizeGovernance(connection, { accountId, personId: rows[0].person_id });
+      }
+    }
+    const [result] = await connection.query(`UPDATE account_recovery_credentials c JOIN accounts a ON a.id = c.account_id
+      SET c.status = 'revoked', c.updated_at = NOW() WHERE c.method = 'recovery_code' AND c.status = 'active'
+        AND a.id IN (${ids.map(() => '?').join(',')})${orgScope}`, params);
+    await appendAuditEvent({ connection, eventType: 'admin_recovery_codes_revoked', actorPersonId: actor.personId,
+      organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
+      detail: { count: Number(result.affectedRows || 0) } });
+    return { revoked: Number(result.affectedRows || 0) };
+  });
 }
 
 async function authenticateWithPassphrase(studentId, passphrase) {

@@ -9,6 +9,7 @@
       @switch="goWorkRole"
     />
 
+    <p v-if="readOnly" class="notice-line">{{ authorizationCopy.legacyReadOnly }}</p>
     <section class="card stack">
       <div class="panel-head">
         <span class="panel-title-group">
@@ -83,7 +84,7 @@
                 <UiSwitch
                   :label="group.label + ' · ' + copy.admin.permissionsAll"
                   :checked="group.allGranted"
-                  :disabled="saving || !group.editableCount"
+                  :disabled="readOnly || saving || !group.editableCount"
                   @change="onGroupChange(group, $event)"
                 />
               </label>
@@ -97,7 +98,7 @@
                 <UiSwitch
                   :checked="item.granted"
                   :label="item.label"
-                  :disabled="saving || !item.editable"
+                  :disabled="readOnly || saving || !item.editable"
                   @change="onPermissionChange(item, $event)"
                 />
               </span>
@@ -108,7 +109,7 @@
           <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeEditor">
             {{ copy.common.cancel }}
           </button>
-          <button type="button" class="btn btn-primary" :disabled="saving" @click="savePermissions">
+          <button v-if="!readOnly" type="button" class="btn btn-primary" :disabled="saving" @click="savePermissions">
             {{ saving ? copy.admin.permissionsSaving : copy.admin.permissionsSave }}
           </button>
         </template>
@@ -128,6 +129,7 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import UiSwitch from '@/components/UiSwitch.vue';
 import permissionCopy from '@/locales/zh-CN/shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
@@ -136,6 +138,7 @@ import { roleLabelOf, session } from '@/runtime/session.js';
 const router = useRouter();
 
 const admins = ref([]);
+const readOnly = ref(false);
 const keyword = ref('');
 const loading = ref(true);
 const notice = ref('');
@@ -200,7 +203,7 @@ function refreshGroupState(group) {
 }
 
 function onGroupChange(group, event) {
-  if (saving.value || !group.editableCount) return;
+  if (readOnly.value || saving.value || !group.editableCount) return;
   const granted = Boolean(event.target.checked);
   group.permissions.forEach((item) => {
     if (item.editable) item.granted = granted;
@@ -209,7 +212,7 @@ function onGroupChange(group, event) {
 }
 
 function onPermissionChange(item, event) {
-  if (saving.value || !item.editable) return;
+  if (readOnly.value || saving.value || !item.editable) return;
   item.granted = Boolean(event.target.checked);
   const group = groups.value.find((candidate) => candidate.permissions.indexOf(item) >= 0);
   if (item.key === 'system.admin_accounts.write' && item.granted) {
@@ -237,6 +240,7 @@ async function loadAdmins() {
     if (request !== generation) return;
     requireSuccess(result);
     admins.value = Array.isArray(result.list) ? result.list : [];
+    readOnly.value = result.readOnly === true;
   } catch (error) {
     if (request === generation) notice.value = errorText(error, copy.admin.permissionsLoadFailed);
   } finally {
@@ -255,6 +259,7 @@ async function openAdmin(item, event) {
     if (request !== generation) return;
     requireSuccess(result);
     selected.value = result.admin || item;
+    readOnly.value = result.readOnly === true;
     groups.value = cloneGroups(result.groups);
     groups.value.forEach(refreshGroupState);
     editor.value = true;
@@ -275,7 +280,7 @@ function permissionMap() {
 }
 
 async function savePermissions() {
-  if (saving.value || !selected.value.id) return;
+  if (saving.value || readOnly.value || !selected.value.id) return;
   saving.value = true;
   editorNotice.value = '';
   const request = generation;

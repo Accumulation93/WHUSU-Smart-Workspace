@@ -1,7 +1,18 @@
 <template>
   <GlassDialog :title="(value.id ? ui.copy_20f94d2c18 : ui.copy_766176221d) + (type === 'activity' ? ui.copy_acd4c5c171 : ui.copy_6e6ee2b747)" :busy="busy" @close="$emit('close')">
     <label class="field"><span class="field-label">{{ ui.copy_70ae057f15 }}</span><input v-model="value.name" class="field-input" :disabled="disabled" :placeholder="type === 'activity' ? ui.copy_57ce9ac750 : ui.copy_50b84a6406" /></label>
-    <label class="field"><span class="field-label">{{ ui.copy_5c507fbab7 }}</span><select :value="value.cycleType" class="field-input" :disabled="disabled" @change="changeCycle($event.target.value)"><option v-for="cycle in options" :key="cycle.value" :value="cycle.value">{{ cycle.label }}</option></select></label>
+    <label v-if="!value.legacyInterval" class="field"><span class="field-label">{{ ui.copy_5c507fbab7 }}</span><select :value="value.cycleType" class="field-input" :disabled="disabled" @change="changeCycle($event.target.value)"><option v-for="cycle in options" :key="cycle.value" :value="cycle.value">{{ cycle.label }}</option></select></label>
+    <template v-if="value.legacyInterval">
+      <div class="field"><span class="field-label">{{ ui.copy_5c507fbab7 }}</span><strong>{{ value.cycleType === 'repeat' ? flow.intervalOccupancy : flow.continuousOccupancy }}</strong></div>
+      <div v-for="side in ['start', 'end']" :key="side" class="field"><span class="field-label">{{ side === 'start' ? flow.occurrenceStart : flow.occurrenceEnd }}</span>
+        <div class="cycle-datetime"><input v-model="value.cycleValues[side + 'Date']" type="date" class="field-input" :aria-label="side === 'start' ? ui.copy_31b34bfc08 : ui.copy_9bec99c980" :disabled="disabled" /><input v-model="value.cycleValues[side + 'Time']" type="time" class="field-input" :aria-label="side === 'start' ? ui.copy_2b4cce7bb9 : ui.copy_4aaadf87a1" :disabled="disabled" /></div>
+      </div>
+      <template v-if="value.cycleType === 'repeat'">
+        <label class="field"><span class="field-label">{{ flow.intervalValue }}</span><input v-model.number="value.cycleValues.intervalValue" type="number" min="1" max="366" step="1" class="field-input" :disabled="disabled" /></label>
+        <label class="field"><span class="field-label">{{ flow.intervalUnit }}</span><select v-model="value.cycleValues.intervalUnit" class="field-input" :aria-label="flow.intervalUnit" :disabled="disabled"><option value="day">{{ flow.intervalDay }}</option><option value="week">{{ flow.intervalWeek }}</option></select></label>
+        <label class="field"><span class="field-label">{{ ui.copy_eb5f7de0a2 }}</span><input v-model.number="value.cycleValues.repeatCount" type="number" min="1" max="1000" step="1" class="field-input" :disabled="disabled" /></label>
+      </template>
+    </template>
     <div v-if="['weekly', 'monthly'].includes(value.cycleType)" class="field">
       <span class="field-label">{{ value.cycleType === 'weekly' ? ui.copy_8aeb2085ee : ui.copy_8134da5aa0 }}</span>
       <div class="row row-wrap"><button v-for="number in value.cycleType === 'weekly' ? 7 : 31" :key="number" type="button" class="btn-quiet cycle-choice" :class="{ selected: values.includes(number) }" :aria-pressed="values.includes(number)" :disabled="disabled" @click="toggle(number)">{{ value.cycleType === 'weekly' ? weekNames[number - 1] : number }}</button></div>
@@ -21,7 +32,7 @@
       <span class="field-label">{{ ui.copy_4d7c82caea }}</span>
       <label v-for="side in ['startDate', 'endDate']" :key="side" class="field"><span class="field-label">{{ side === 'startDate' ? ui.copy_1ede7526e5 : ui.copy_d862a02c58 }}</span><input v-model="value.cycleValues[side]" type="date" class="field-input" :disabled="disabled" /></label>
     </div>
-    <template v-if="type === 'activity'">
+    <template v-if="type === 'activity' && !value.legacyInterval">
       <div class="field"><span class="field-label">{{ ui.copy_c40bf9d8f0 }}</span>
         <button v-for="mode in periodModes" :key="mode.key" type="button" class="list-row period-choice" :class="{ selected: value.cycleValues.periodMode === mode.key }" :aria-label="mode.label" :aria-pressed="value.cycleValues.periodMode === mode.key" :disabled="disabled" @click="value.cycleValues.periodMode = value.cycleValues.periodMode === mode.key ? 'none' : mode.key"><span class="stack-tight"><strong>{{ mode.label }}</strong><span class="muted">{{ mode.note }}</span></span></button>
         <p class="muted">{{ ui.copy_0619714b64 }}</p>
@@ -30,8 +41,8 @@
       <label v-if="value.cycleValues.periodMode === 'range'" class="field"><span class="field-label">{{ ui.copy_cd44fc09e3 }}</span><div class="cycle-datetime"><input v-model="value.cycleValues.periodEndDate" type="date" class="field-input" :aria-label="ui.copy_9bec99c980" :disabled="disabled" /><input v-model="value.cycleValues.periodEndTime" type="time" class="field-input" :aria-label="ui.copy_4aaadf87a1" :disabled="disabled" /></div></label>
       <label v-if="value.cycleValues.periodMode === 'count'" class="field"><span class="field-label">{{ ui.copy_eb5f7de0a2 }}</span><input v-model.number="value.cycleValues.repeatCount" type="number" min="1" max="1000" step="1" class="field-input" :placeholder="ui.copy_bc3fac7db2" :disabled="disabled" /><span class="muted">{{ ui.copy_915ca9ad86 }}</span></label>
     </template>
-    <label class="field"><span class="field-label">{{ type === 'activity' ? ui.copy_ab2fdb5e0e : ui.copy_2b4cce7bb9 }}</span><input v-model="value.timeStart" class="field-input" :placeholder="ui.venueStartTimePlaceholder" :disabled="disabled" /></label>
-    <label class="field"><span class="field-label">{{ type === 'activity' ? ui.copy_0b739125af : ui.copy_4aaadf87a1 }}</span><input v-model="value.timeEnd" class="field-input" :placeholder="ui.venueEndTimePlaceholder" :disabled="disabled" /></label>
+    <label v-if="!value.legacyInterval" class="field"><span class="field-label">{{ type === 'activity' ? ui.copy_ab2fdb5e0e : ui.copy_2b4cce7bb9 }}</span><input v-model="value.timeStart" class="field-input" :placeholder="ui.venueStartTimePlaceholder" :disabled="disabled" /></label>
+    <label v-if="!value.legacyInterval" class="field"><span class="field-label">{{ type === 'activity' ? ui.copy_0b739125af : ui.copy_4aaadf87a1 }}</span><input v-model="value.timeEnd" class="field-input" :placeholder="ui.venueEndTimePlaceholder" :disabled="disabled" /></label>
     <p v-if="rangeNotice" role="alert" class="notice-line">{{ rangeNotice }}</p>
     <slot />
     <template #footer><button type="button" class="btn btn-primary" :disabled="disabled" @click="$emit('save')">{{ ui.copy_f7597cecf5 }}</button></template>
@@ -41,6 +52,7 @@
 import { computed, reactive, ref } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import flow from '@/locales/zh-CN/shared/venueFlowManagement.js';
 import { activityValues, cycleTypes, weekNames } from '@/runtime/venueRules.js';
 const props = defineProps({ type: String, value: { type: Object, required: true }, busy: Boolean, disabled: Boolean });
 defineEmits(['close', 'save']);

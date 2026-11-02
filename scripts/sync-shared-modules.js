@@ -15,6 +15,14 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
+  { source: 'shared/authorizationAccessView.js', targets: [{ path: 'miniprogram/utils/authorizationAccessView.js' }, { path: 'web/src/shared/authorizationAccessView.js', format: 'esm' }] },
+  { source: 'shared/locales/zh-CN/common.js', targets: [{ path: 'server/src/locales/zh-CN/common.js' }] },
+  { source: 'shared/authorizationEditor.js', targets: [{ path: 'miniprogram/subpackages/org/utils/authorizationEditor.js' }, { path: 'web/src/shared/authorizationEditor.js', format: 'esm' }] },
+  { source: 'shared/authorizationPresentation.js', targets: [{ path: 'miniprogram/subpackages/org/utils/authorizationPresentation.js' }, { path: 'web/src/shared/authorizationPresentation.js', format: 'esm' }] },
+  { source: 'shared/organizationCopyPresentation.js', targets: [{ path: 'miniprogram/subpackages/org/utils/organizationCopyPresentation.js' }, { path: 'web/src/shared/organizationCopyPresentation.js', format: 'esm' }] },
+  { source: 'shared/locales/zh-CN/adminPersonnel.js', targets: [{ path: 'server/src/locales/zh-CN/adminPersonnel.js' }] },
+  { source: 'shared/locales/zh-CN/authorization.js', targets: [{ path: 'server/src/locales/zh-CN/authorization.js' }] },
+  { source: 'shared/locales/zh-CN/venueFlowManagement.js', targets: [{ path: 'server/src/locales/zh-CN/venueFlowManagement.js' }] },
   { source: 'shared/calendarView.js', targets: [{ path: 'miniprogram/utils/calendarView.js' }, { path: 'web/src/shared/calendarView.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/calendar.js', targets: [{ path: 'server/src/locales/zh-CN/calendar.js' }] },
   { source: 'shared/locales/zh-CN/identityCard.js', targets: [{ path: 'server/src/locales/zh-CN/identityCard.js' }] },

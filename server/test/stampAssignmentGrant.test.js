@@ -21,6 +21,8 @@ async function run() {
     await admin.query('CREATE DATABASE `' + database + '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
     db = mysql.createPool(Object.assign({}, config, { database, connectionLimit: 5 }));
     const definitions = [
+      'organizations (id VARCHAR(64) PRIMARY KEY)',
+      "authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(24) NOT NULL DEFAULT 'shadow')",
       'persons (id VARCHAR(64) PRIMARY KEY, name VARCHAR(100), student_id VARCHAR(64), status VARCHAR(24))',
       'organization_memberships (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64), person_id VARCHAR(64), status VARCHAR(24))',
       'departments (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64), name VARCHAR(100))',
@@ -30,6 +32,7 @@ async function run() {
       'stamps (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64), name VARCHAR(100), image_data LONGTEXT)'
     ];
     for (const definition of definitions) await db.query('CREATE TABLE ' + definition + ' ENGINE=InnoDB');
+    await db.query("INSERT INTO organizations VALUES ('o1'),('o2')");
     const migration = fs.readFileSync(path.join(__dirname, '../db/deploy/20260906123000_stamp_person_assignment_grants.sql'), 'utf8');
     await db.query(migration);
     await db.query(migration);

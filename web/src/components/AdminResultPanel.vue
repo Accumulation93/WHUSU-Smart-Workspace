@@ -14,13 +14,13 @@
         <label class="field"><span class="field-label">{{ ui.copy_7ee1272d5b }}</span><select class="field-input" :aria-label="ui.copy_7ee1272d5b" :value="filters.department" :disabled="controlsBlocked" @change="change('department', $event.target.value)"><option :value="all">{{ all }}</option><option v-for="row in departments" :key="row.id" :value="row.name">{{ row.name }}</option></select></label>
         <label class="field"><span class="field-label">{{ ui.copy_c1965e0690 }}</span><select class="field-input" :aria-label="ui.copy_c1965e0690" :value="filters.identity" :disabled="controlsBlocked" @change="change('identity', $event.target.value)"><option :value="all">{{ all }}</option><option v-for="row in identities" :key="row.id" :value="row.name">{{ row.name }}</option></select></label>
         <label class="field"><span class="field-label">{{ ui.copy_303b7a8611 }}</span><select class="field-input" :aria-label="ui.copy_303b7a8611" :value="filters.workGroup" :disabled="controlsBlocked || filters.department === all" @change="change('workGroup', $event.target.value)"><option :value="all">{{ filters.department === all ? messages.copy_5327cd39d0 : all }}</option><option v-for="row in groupOptions" :key="row.id" :value="row.name">{{ row.name }}</option></select></label>
-        <label class="field"><span class="field-label">{{ ui.copy_27d5123777 }}</span><select class="field-input" :aria-label="ui.copy_27d5123777" :value="filters.viewMode" :disabled="controlsBlocked" @change="change('viewMode', $event.target.value)"><option value="overview">{{ ui.copy_a6f7e5f124 }}</option><option value="completion">{{ ui.copy_9d954432df }}</option></select></label>
+        <label class="field"><span class="field-label">{{ ui.copy_27d5123777 }}</span><select class="field-input" :aria-label="ui.copy_27d5123777" :value="filters.viewMode" :disabled="controlsBlocked" @change="change('viewMode', $event.target.value)"><option v-if="canReadResults" value="overview">{{ ui.copy_a6f7e5f124 }}</option><option v-if="canReadTasks" value="completion">{{ ui.copy_9d954432df }}</option></select></label>
       </div>
       <label class="field"><span class="field-label">{{ ui.copy_caeab5d89c }}</span><select class="field-input" :aria-label="ui.copy_caeab5d89c" :value="filters.sortMode" :disabled="controlsBlocked" @change="change('sortMode', $event.target.value)"><option v-for="item in sorts" :key="item[0]" :value="item[0]">{{ item[1] }}</option></select></label>
       <button type="button" class="btn btn-secondary" :disabled="props.disabled || loading.main || busy" @click="refresh">{{ ui.copy_e15d9ac2ee }}</button>
       <span v-if="loading.main" class="muted" role="status"><AppLoading :text="ui.copy_be942e85d1" /></span>
     </section>
-    <template v-if="canExport"><section v-for="item in reports" :key="item[0]" class="card stack"><strong>{{ item[1] }}</strong><button type="button" class="btn btn-secondary" :disabled="blocked || !activity" @click="exportReport = item">{{ item[1] }}</button></section></template>
+    <template v-for="item in reports" :key="item[0]"><section v-if="item[0] === 'completion' ? canExportTasks : canExport" class="card stack"><strong>{{ item[1] }}</strong><button type="button" class="btn btn-secondary" :disabled="blocked || !activity" @click="exportReport = item">{{ item[1] }}</button></section></template>
     <section v-if="filters.viewMode === 'overview'" class="card stack">
       <strong>{{ ui.copy_e29aac1957 }}</strong>
       <div class="result-scroll list">
@@ -90,6 +90,7 @@ import ScoringProgress from './ScoringProgress.vue';
 import UiIcon from './UiIcon.vue';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
+import { hasAdminCapability } from '@/runtime/adminCapabilities.js';
 import { formatListTime, formatDetailTime, getSystemTimezoneConfig } from '@/runtime/dateTime.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { downloadTable } from '@/runtime/tableFiles.js';
@@ -108,15 +109,18 @@ const scope = () => [session.context?.organizationId, session.context?.contextId
 const stamp = channel => scope() + JSON.stringify([activity.value?.id, filters, { target: state.target?.id, department: state.department, scorer: state.scorer?.scorerKey, detail: recordId.value }[channel]]);
 const controlsBlocked = computed(() => props.disabled || loading.main || busy.value || !!notice.main || state.pending);
 const blocked = computed(() => controlsBlocked.value || Object.values(notice).some(Boolean));
-const canExport = computed(() => props.profile?.adminLevel === 'super_admin' || props.profile?.permissions?.['scoring.results_export'] === true);
-const canRevoke = computed(() => props.profile?.adminLevel === 'super_admin' || props.profile?.permissions?.['scoring.results_revoke'] === true);
+const canExport = computed(() => hasAdminCapability(props.profile, 'scoring.results_export', 'scoring.results.export'));
+const canExportTasks = computed(() => hasAdminCapability(props.profile, 'scoring.results_export', 'scoring.tasks.export'));
+const canReadResults = computed(() => hasAdminCapability(props.profile, 'scoring.results', 'scoring.results.read'));
+const canReadTasks = computed(() => hasAdminCapability(props.profile, 'scoring.results', 'scoring.tasks.read'));
+const canRevoke = computed(() => hasAdminCapability(props.profile, 'scoring.results_revoke', 'scoring.results.revoke'));
 const statFields = [['totalMembers', ui.copy_54f375d40f], ['scoredMembers', ui.copy_4adc175789], ['recordCount', ui.copy_4b11a94d96], ['completedMembers', ui.copy_e067049fe8]];
 const sorts = [['score_desc', ui.copy_60c630a885], ['name_asc', ui.copy_99f2be3030], ['department_asc', ui.copy_d379421477], ['workGroup_asc', ui.copy_8438adbb77]];
 const reports = [['overview', ui.copy_03f903662b], ['detail', ui.copy_8b73330188], ['completion', ui.copy_779db553f1]];
 const count = value => Math.max(0, Math.floor(Number(value) || 0));
 const rate = (submitted, expected) => Math.max(0, Math.min(100, expected ? submitted / expected * 100 : 100));
 const safeSubmitted = row => count(row.expectedScorerCount) ? Math.min(count(row.expectedScorerCount), count(row.submittedScorerCount)) : count(row.submittedScorerCount);
-const canView = row => ['completed', 'inactive'].includes(row.status) && !!row.recordId;
+const canView = row => canReadResults.value && ['completed', 'inactive'].includes(row.status) && !!row.recordId;
 const statusClass = row => ['completed', 'submitted'].includes(row.status) ? 'chip-green' : row.status === 'inactive' ? 'chip-sky' : 'chip-orange';
 const groupOptions = computed(() => { const dep = departments.value.find(row => row.name === filters.department); return groups.value.filter(row => row.departmentId === dep?.id || row.departmentName === filters.department); });
 const sortedRows = computed(() => rows.value.filter(row => ['department', 'identity', 'workGroup'].every(key => filters[key] === all || (row[key] || '') === filters[key])).slice().sort((a, b) => {
@@ -150,7 +154,9 @@ function closeDepartment() { if (busy.value) return; closeScorer(); clearChannel
 async function initialize() {
   const id = ++seq.main, expected = scope(); loading.main = true;
   try {
-    const results = await Promise.all(['getCurrentScoreActivity', 'listDepartments', 'listIdentities', 'listWorkGroups'].map(name => request(name, {})));
+    const results = await Promise.all(props.profile?.authorizationAccess?.mode === 'enforced'
+      ? [request('getCurrentScoreActivity', {}), { departments: [] }, { identities: [] }, { workGroups: [] }]
+      : ['getCurrentScoreActivity', 'listDepartments', 'listIdentities', 'listWorkGroups'].map(name => request(name, {})));
     if (disposed || id !== seq.main || expected !== scope()) return false;
     const [current, dep, identity, group] = results;
     const nextDepartments = array(dep.departments), nextIdentities = array(identity.identities), nextGroups = array(group.workGroups);
@@ -163,28 +169,39 @@ async function initialize() {
   finally { if (!disposed && id === seq.main && expected === scope()) loading.main = false; }
 }
 async function readMain(nocache = false) {
+  if (!canReadResults.value && !canReadTasks.value) return true;
+  if (filters.viewMode === 'overview' && !canReadResults.value) filters.viewMode = 'completion';
+  if (filters.viewMode === 'completion' && !canReadTasks.value) filters.viewMode = 'overview';
   if (!activity.value) { rows.value = []; boards.value = []; stats.value = {}; notice.main = ''; state.pending = false; return true; }
   return read('main', payload(filters.viewMode, { nocache }), result => {
     const next = filters.viewMode === 'overview' ? array(result.overviewRows) : array(result.completionBoards?.departments);
     if (!result.stats || typeof result.stats !== 'object') throw new Error();
     if (filters.viewMode === 'overview') rows.value = next.map(row => ({ ...row, finalScore: Number(row.finalScore) || 0 })); else boards.value = next;
     stats.value = result.stats;
+    if (props.profile?.authorizationAccess?.mode === 'enforced') {
+      const sources = [...(result.overviewRows || []), ...(result.scorerCompletionRows || [])];
+      const values = key => Array.from(new Set(sources.map(row => row[key]).filter(Boolean)));
+      departments.value = Array.from(new Set([...values('department'), ...(result.completionBoards?.departments || []).map(row => row.groupName).filter(Boolean)]))
+        .map(name => ({ id: name, name }));
+      identities.value = values('identity').map(name => ({ id: name, name }));
+      groups.value = sources.filter(row => row.workGroup).map(row => ({ id: row.department + '|' + row.workGroup, name: row.workGroup, departmentId: row.department, departmentName: row.department }));
+    }
   });
 }
 async function readTarget() {
-  if (!state.target || !activity.value) return true;
+  if (!canReadResults.value || !state.target || !activity.value) return true;
   return read('target', payload('targetRecords', { targetId: state.target.id }, false), result => { targetRows.value = array(result.targetRecordRows).map(row => ({ ...row, status: row.excludedByRequireAll ? 'inactive' : row.status, departmentText: row.scorerHistoricalAssignmentUnavailable ? messages.historicalAssignmentUnavailable : row.scorerDepartment || messages.copy_0fe86822a1, identityText: row.scorerHistoricalAssignmentUnavailable ? '' : row.scorerIdentityCategory || row.scorerIdentity || messages.copy_ad183b164d, workGroupText: row.scorerHistoricalAssignmentUnavailable ? '' : row.scorerWorkGroup || row.workGroup || '' })); });
 }
 async function readDepartment() {
-  if (!state.department || !activity.value) return true;
+  if (!canReadTasks.value || !state.department || !activity.value) return true;
   return read('department', payload('completion', { departmentName: state.department }), result => { departmentRows.value = array(result.scorerCompletionRows).map(row => { const pendingCount = Math.max(count(row.expectedCount) - count(row.submittedCount), 0); return { ...row, pendingCount, detailText: [row.identity, row.workGroup].filter(Boolean).join(' / ') || messages.copy_2b4df49497, statusText: pendingCount ? messages.copy_8d112a0e5f : messages.copy_2220286f1c }; }); });
 }
 async function readScorer() {
-  if (!state.scorer || !activity.value) return true;
+  if (!canReadTasks.value || !state.scorer || !activity.value) return true;
   return read('scorer', payload('scorerTargets', { scorerKey: state.scorer.scorerKey }, false), result => { scorerRows.value = array(result.scorerTargetRows).map(row => ({ ...row, detailText: row.targetHistoricalAssignmentUnavailable ? messages.historicalAssignmentUnavailable : [row.targetDepartment, row.targetIdentityCategory || row.targetIdentity, row.targetWorkGroup].filter(Boolean).join(' / ') || messages.copy_2b4df49497 })); });
 }
 async function readDetail() {
-  if (!recordId.value || !activity.value) return false;
+  if (!canReadResults.value || !recordId.value || !activity.value) return false;
   return read('detail', payload('recordDetail', { recordId: recordId.value }, false), result => { const value = result.recordDetail; if (value?.recordId !== recordId.value || !value.scorer || !value.target) throw new Error(); detail.value = { ...value, templates: array(value.templates).map(template => ({ ...template, questions: array(template.questions).map(question => ({ ...question, expanded: false })) })) }; });
 }
 async function refresh() {
@@ -207,9 +224,9 @@ async function openDepartment(name) {
   if (blocked.value) return; if (state.department === name) { closeDepartment(); return; } closeDepartment(); state.department = name; await readDepartment(); await nextTick(); if (!disposed) departmentPanel.value?.scrollIntoView({ block: 'nearest' });
 }
 async function openScorer(row) { if (blocked.value) return; closeScorer(); state.scorer = { scorerKey: row.scorerKey, scorerName: row.scorerName }; await readScorer(); }
-async function openDetail(id) { if (blocked.value || !id) return; closeDetail(); recordId.value = id; await readDetail(); }
+async function openDetail(id) { if (blocked.value || !id || !canReadResults.value) return; closeDetail(); recordId.value = id; await readDetail(); }
 async function download(format) {
-  if (busy.value || blocked.value || !canExport.value || !activity.value || !exportReport.value) return;
+  if (busy.value || blocked.value || !activity.value || !exportReport.value || !(exportReport.value[0] === 'completion' ? canExportTasks.value : canExport.value)) return;
   const expected = scope(), report = exportReport.value[0]; busy.value = true; exportNotice.value = '';
   try {
     const { dataType, nocache, ...data } = payload('', { reportType: report, format });

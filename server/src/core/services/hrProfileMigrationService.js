@@ -33,6 +33,7 @@ function decodeToken(token) {
 }
 
 async function resolveVisibleOrgIds(actor) {
+  if (actor.authorized) return (await require('../models/hrMigrationAuthorization').organizations()).map(row => row.id);
   if (actor.isSuper) {
     const [rows] = await pool.query('SELECT id FROM organizations ORDER BY created_at, id');
     return rows.map((row) => safeString(row.id));
@@ -318,6 +319,17 @@ async function executePlan(actor, plan, token, connection = null) {
   if (payload.sourceOrgId !== plan.sourceOrgId || payload.targetOrgId !== plan.targetOrgId
     || payload.planHash !== hashPlan(plan)) throw new Error(copy.stale);
   const run = async (conn) => {
+    if (!actor.authorized) {
+      for (const orgId of [plan.sourceOrgId, plan.targetOrgId].sort()) {
+        await require('../models/authorizationBusinessRoute').requireLegacyWrite(conn, orgId);
+      }
+    }
+    if (actor.authorized) {
+      for (const orgId of [plan.sourceOrgId, plan.targetOrgId].sort()) await require('./dictionaryUsage').lockOrganizationDictionaryWrites(orgId, conn);
+      await require('../models/unifiedIdentity').lockActiveBusinessSubjects(conn,
+        plan.persons.flatMap(person => [{ personId: person.personId, organizationId: plan.sourceOrgId, legacyHrId: person.sourceHrId },
+          { personId: person.personId, organizationId: plan.targetOrgId, legacyHrId: person.targetHrId }]));
+    }
     const [sourceSnapshot, targetSnapshot] = await Promise.all([
       loadActiveSnapshot(plan.sourceOrgId, conn),
       loadActiveSnapshot(plan.targetOrgId, conn)
@@ -346,7 +358,10 @@ async function executePlan(actor, plan, token, connection = null) {
       for (const action of plan.fieldActions) {
         if (action.action !== 'copy') continue;
         const targetField = targetFieldMap.get(action.targetTemplateFieldId);
-        if (!targetField) continue;
+        if (!targetField) {
+          if (actor.authorized) throw new Error(copy.stale);
+          continue;
+        }
         const rawValue = person.values ? person.values[action.sourceFieldId] : '';
         const value = rawValue == null ? '' : String(rawValue);
         if (!value.trim()) continue;
@@ -362,7 +377,10 @@ async function executePlan(actor, plan, token, connection = null) {
           max_value: targetField.maxValue,
           options_json: JSON.stringify(targetField.options || [])
         }, value);
-        if (mapped.error) continue;
+        if (mapped.error) {
+          if (actor.authorized) throw new Error(copy.stale);
+          continue;
+        }
         const [existing] = await conn.query(
           `SELECT id, field_value FROM hr_profile_record_values
             WHERE org_id = ? AND record_id = ? AND field_id = ? AND is_pending = 0 LIMIT 1 FOR UPDATE`,

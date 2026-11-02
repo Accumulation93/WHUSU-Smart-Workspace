@@ -29,6 +29,32 @@ const hrTableImportModel = require('../models/hrTableImport');
 const importCopy = require('../../locales/zh-CN/hrImport');
 const pool = require('../../config/db');
 
+async function legacyImportPermission(req, organizationId, permissions, connection) {
+  if (connection) await require('../models/authorizationBusinessRoute').requireLegacyWrite(connection, organizationId);
+  return requireAdminOrganizationPermission(req, organizationId, permissions, connection);
+}
+
+async function assignmentPermission(req, organizationId, connection) {
+  if (req.unifiedAuthorization) {
+    return require('../models/assignmentAuthorization').prepare(connection, req.unifiedAuthorization.reference, organizationId);
+  }
+  return requireAdminOrganizationPermission(req, organizationId, ['hr.people'], connection);
+}
+
+async function personGovernanceActor(req, organizationId) {
+  const reference = req.unifiedAuthorization?.reference;
+  if (reference) {
+    if (organizationId !== reference.organizationId) throw Object.assign(new Error('authorization_forbidden'), { code: 'authorization_forbidden' });
+    const model = require('../models/accountGovernanceAuthorization');
+    await model.authorize(reference, 'auth.accounts.update');
+    return { personId: req.authAccount.personId, contextId: req.authContext.contextId,
+      authorizeGovernance: (connection, target) => model.check(connection, reference, 'auth.accounts.update', target) };
+  }
+  await requireAdminOrganizationPermission(req, organizationId, ['auth.accounts.global_manage']);
+  return { personId: req.authAccount && req.authAccount.personId, contextId: req.authContext && req.authContext.contextId,
+    authorizeLegacyGovernance: connection => require('../models/authorizationBusinessRoute').requireLegacyWrite(connection, organizationId) };
+}
+
 function authenticationStatus(row) {
   const accountStatus = safeString(row.account_status);
   if (accountStatus === 'frozen') return { value: 'frozen', label: localeCopy.copy_ddaba44b59 };
@@ -40,6 +66,7 @@ function authenticationStatus(row) {
 }
 
 function sendHrRouteFailure(req, res, error, fallbackMessage) {
+  if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
   const expected = error instanceof AdminOrganizationAccessError
     || error instanceof unifiedIdentityModel.IdentityError;
   if (!expected && req.logger) {
@@ -59,6 +86,11 @@ function sendHrRouteFailure(req, res, error, fallbackMessage) {
 // listHrInfo
 router.post('/listHrInfo', async (req, res) => {
   try {
+    if (req.unifiedAuthorization) {
+      const authorization = require('../models/hrAuthorization');
+      const data = await authorization.directory(req.unifiedAuthorization.reference, { capabilities: ['hr.people.read'] });
+      return res.json({ status: 'success', list: [...data.members.values()].map(member => authorization.basics(member)) });
+    }
     const admin = await resolveRequestAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
@@ -117,6 +149,8 @@ router.post('/listHrInfo', async (req, res) => {
 // 人事信息页统一目录：资料、认证、账号与恢复共用同一份人员数据。
 router.post('/listHrGovernance', async (req, res) => {
   try {
+    if (req.unifiedAuthorization) return res.json(await require('../models/hrAuthorization').governanceDirectory(
+      req.unifiedAuthorization.reference, safeString(req.body.organizationId)));
     const accessList = await listAdminOrganizationAccess(req);
     const readable = accessList.filter((item) => (
       Array.isArray(item.permissionKeys)
@@ -139,6 +173,7 @@ router.post('/listHrGovernance', async (req, res) => {
         assignmentId: safeString(assignment.id),
         assignmentNature: safeString(assignment.assignment_kind),
         assignmentKind: safeString(assignment.assignment_kind),
+        assignmentNatureLabel: safeString(assignment.assignment_nature_name),
         departmentId: safeString(assignment.department_id),
         department: safeString(assignment.department_name),
         identityCategoryId: safeString(assignment.identity_id),
@@ -211,6 +246,7 @@ router.post('/listHrGovernance', async (req, res) => {
       recoveryRequired: countByStatus.recovery_required
     }, organizations: organizationIds });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return sendHrRouteFailure(req, res, error);
     const expected = error instanceof AdminOrganizationAccessError;
     if (!expected && req.logger) {
       req.logger.error('HR governance directory failed', {
@@ -237,6 +273,7 @@ router.post('/listPersonIdentities', async (req, res) => {
   try {
     const legacyHrId = safeString(req.body.hrId);
     if (!legacyHrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
+    if (req.unifiedAuthorization) return res.json(await require('../models/hrAuthorization').personIdentities(req.unifiedAuthorization.reference, legacyHrId));
     const accessList = await listAdminOrganizationAccess(req);
     const readableAccess = accessList.filter((item) => item.canReadAssignments || item.canReadAdmins);
     const readableOrganizationIds = readableAccess.map((item) => item.organizationId);
@@ -259,6 +296,7 @@ router.post('/listPersonIdentities', async (req, res) => {
         id: safeString(item.id),
         assignmentKind: safeString(item.assignment_kind),
         assignmentNature: safeString(item.assignment_kind),
+        assignmentNatureLabel: safeString(item.assignment_nature_name),
         assignmentLabel: unifiedIdentityModel.buildAssignmentLabel(item),
         title: '',
         departmentId: safeString(item.department_id),
@@ -292,7 +330,7 @@ router.post('/listPersonIdentities', async (req, res) => {
     const appendDictionary = (kind, item) => {
       const orgId = safeString(item.org_id);
       const current = dictionariesByOrg.get(orgId) || {
-        departments: [], identities: [], workGroups: []
+        departments: [], identities: [], workGroups: [], assignmentNatures: []
       };
       const value = { id: safeString(item.id), name: safeString(item.name) };
       if (kind === 'workGroups') value.departmentId = safeString(item.department_id);
@@ -302,6 +340,7 @@ router.post('/listPersonIdentities', async (req, res) => {
     data.dictionaries.departments.forEach((item) => appendDictionary('departments', item));
     data.dictionaries.identities.forEach((item) => appendDictionary('identities', item));
     data.dictionaries.workGroups.forEach((item) => appendDictionary('workGroups', item));
+    data.dictionaries.assignmentNatures.forEach((item) => appendDictionary('assignmentNatures', item));
 
     const operatorPersonId = safeString(req.authAccount && req.authAccount.personId);
     const organizations = data.memberships.map((membership) => {
@@ -311,7 +350,7 @@ router.post('/listPersonIdentities', async (req, res) => {
       const isActiveMembership = membershipStatus === 'active';
       const adminIdentities = access.canReadAdmins ? (grantsByOrg.get(orgId) || []) : [];
       const dictionaries = dictionariesByOrg.get(orgId) || {
-        departments: [], identities: [], workGroups: []
+        departments: [], identities: [], workGroups: [], assignmentNatures: []
       };
       return {
         organizationId: orgId,
@@ -360,6 +399,7 @@ router.post('/listPersonIdentities', async (req, res) => {
       canAddGlobalSuperAdmin: Boolean(operatorIsSuperAdmin && !globalAdminIdentities.length)
     });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return sendHrRouteFailure(req, res, error);
     const isExpected = error instanceof AdminOrganizationAccessError;
     if (!isExpected) req.logger.error('List person identities failed', { error: error.message });
     return res.status(isExpected ? (error.httpStatus || 403) : 500).json({
@@ -383,9 +423,10 @@ router.post('/saveMembershipAssignment', async (req, res) => {
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
-    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
+    }, (connection) => assignmentPermission(req, orgId, connection));
     return res.json({ status: 'success', id: result.id, message: localeCopy.copy_735e0a8bcf });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Save membership assignment failed', { error: error.message });
@@ -405,9 +446,10 @@ router.post('/deleteMembershipAssignment', async (req, res) => {
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
-    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
+    }, (connection) => assignmentPermission(req, orgId, connection));
     return res.json({ status: 'success', message: localeCopy.copy_63c465d5f0 });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Delete membership assignment failed', { error: error.message });
@@ -421,8 +463,9 @@ router.post('/deleteMembershipAssignment', async (req, res) => {
 // saveHrInfo
 router.post('/saveHrInfo', async (req, res) => {
   try {
-    const admin = await resolveRequestAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveRequestAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
@@ -433,6 +476,10 @@ router.post('/saveHrInfo', async (req, res) => {
 
     const existingId = safeString(req.body.id);
     if (existingId) {
+      if (reference) await pool.withTransaction(async connection => {
+        const authorize = await require('../models/hrAuthorization').prepareWrite(connection, reference, reference.organizationId);
+        await authorize(existingId, 'hr.people.update', ['name', 'studentId']);
+      });
       const existing = await hrInfoModel.getById(existingId);
       if (!existing) {
         return res.json({ status: 'not_found', message: localeCopy.copy_eb00430bd4 });
@@ -446,6 +493,7 @@ router.post('/saveHrInfo', async (req, res) => {
       return res.json({ status: 'success', id: existingId, message: localeCopy.copy_339e79984b });
     }
 
+    if (reference) await pool.withTransaction(connection => require('../models/hrAuthorization').createMember(connection, reference, reference.organizationId));
     const existingMember = await hrInfoModel.getByStudentIdIncludingFormer(studentId);
     if (existingMember) {
       const membershipStatus = safeString(existingMember.membership_status);
@@ -469,7 +517,7 @@ router.post('/saveHrInfo', async (req, res) => {
       departmentId: '',
       identityId: '',
       workGroupId: ''
-    });
+    }, (connection, orgId) => require('../models/hrAuthorization').createMember(connection, reference, orgId));
     res.json({ status: 'success', id: newId, message: localeCopy.copy_339e79984b });
   } catch (e) {
     return sendHrRouteFailure(req, res, e);
@@ -483,7 +531,13 @@ router.post('/deleteHrInfo', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
     const result = await pool.withTransaction(async (connection) => {
-      await requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection);
+      if (req.unifiedAuthorization) {
+        const authorize = await require('../models/hrAuthorization').prepareWrite(connection, req.unifiedAuthorization.reference, orgId);
+        await authorize(id, 'hr.people.update', ['membershipStatus']);
+      } else {
+        await require('../models/hrAuthorization').prepareWrite(connection, null, orgId);
+        await requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection);
+      }
       return unifiedIdentityModel.removeLegacyHrRecord(connection, id, orgId, {
         personId: safeString(req.authAccount && req.authAccount.personId),
         contextId: safeString(req.authContext && req.authContext.contextId),
@@ -496,6 +550,7 @@ router.post('/deleteHrInfo', async (req, res) => {
     }
     res.json({ status: 'success', left: true, message: personnelCopy.memberLeftOrganization });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return sendHrRouteFailure(req, res, e);
     const isExpected = e instanceof AdminOrganizationAccessError
       || e instanceof unifiedIdentityModel.IdentityError;
     res.status(isExpected ? (e.httpStatus || 400) : 500).json({
@@ -521,7 +576,11 @@ router.post('/reactivateHrMembership', async (req, res) => {
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
-    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
+    }, async (connection) => {
+      const authorize = await require('../models/hrAuthorization').prepareWrite(connection, req.unifiedAuthorization?.reference, orgId);
+      if (req.unifiedAuthorization) return authorize(safeString(req.body.hrId), 'hr.people.update', ['membershipStatus']);
+      return requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection);
+    });
     return res.json({
       status: 'success',
       reactivated: Boolean(result.reactivated),
@@ -544,8 +603,12 @@ function deletionActor(req, access) {
   };
 }
 
-function deletionAuthorize(req, organizationId) {
+function deletionAuthorize(req, organizationId, scope = hrMemberDeletionService.MEMBERSHIP_SCOPE) {
   return async (connection) => {
+    if (req.unifiedAuthorization && scope === hrMemberDeletionService.PERSON_SCOPE) return require('../models/hrAuthorization').globalDeletionActor(
+      req.unifiedAuthorization.reference, organizationId, { hrId: safeString(req.body.hrId || req.body.legacyHrId), personId: safeString(req.body.personId) }, connection);
+    if (req.unifiedAuthorization) return require('../models/hrAuthorization').deletionActor(req.unifiedAuthorization.reference,
+      organizationId, safeString(req.body.hrId || req.body.legacyHrId), connection);
     const access = await requireAdminOrganizationPermission(
       req,
       organizationId,
@@ -573,6 +636,7 @@ function deletionRequestData(req, scope, organizationId) {
 }
 
 function sendDeletionError(req, res, error) {
+  if (error.code === 'authorization_forbidden') return sendHrRouteFailure(req, res, error);
   const expected = error instanceof hrMemberDeletionService.HrMemberDeletionError
     || error instanceof AdminOrganizationAccessError;
   if (!expected && req.logger) {
@@ -594,11 +658,12 @@ function sendDeletionError(req, res, error) {
 router.post('/previewHrMemberDeletion', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
     const scope = safeString(req.body && req.body.scope) || hrMemberDeletionService.MEMBERSHIP_SCOPE;
+    const actor = req.unifiedAuthorization ? await deletionAuthorize(req, organizationId, scope)()
+      : deletionActor(req, await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']));
     const preview = await hrMemberDeletionService.previewHrMemberDeletion(
       deletionRequestData(req, scope, organizationId),
-      deletionActor(req, access)
+      actor
     );
     return res.json({ status: 'success', preview });
   } catch (error) {
@@ -609,10 +674,11 @@ router.post('/previewHrMemberDeletion', async (req, res) => {
 router.post('/deleteHrMembershipPermanently', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
+    const actor = req.unifiedAuthorization ? await deletionAuthorize(req, organizationId)()
+      : deletionActor(req, await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']));
     const result = await hrMemberDeletionService.deleteHrMembershipPermanently(
       deletionRequestData(req, hrMemberDeletionService.MEMBERSHIP_SCOPE, organizationId),
-      deletionActor(req, access),
+      actor,
       { authorize: deletionAuthorize(req, organizationId) }
     );
     return res.json({ status: 'success', result, message: personnelCopy.hrMembershipPermanentlyDeleted });
@@ -624,11 +690,12 @@ router.post('/deleteHrMembershipPermanently', async (req, res) => {
 router.post('/deletePersonPermanently', async (req, res) => {
   try {
     const organizationId = safeString(req.body && req.body.organizationId) || await getCurrentOrgId();
-    const access = await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']);
+    const actor = req.unifiedAuthorization ? await deletionAuthorize(req, organizationId, hrMemberDeletionService.PERSON_SCOPE)()
+      : deletionActor(req, await requireAdminOrganizationPermission(req, organizationId, ['hr.people.delete']));
     const result = await hrMemberDeletionService.deletePersonPermanently(
       deletionRequestData(req, hrMemberDeletionService.PERSON_SCOPE, organizationId),
-      deletionActor(req, access),
-      { authorize: deletionAuthorize(req, organizationId) }
+      actor,
+      { authorize: deletionAuthorize(req, organizationId, hrMemberDeletionService.PERSON_SCOPE) }
     );
     return res.json({ status: 'success', result, message: personnelCopy.personPermanentlyDeleted });
   } catch (error) {
@@ -638,14 +705,14 @@ router.post('/deletePersonPermanently', async (req, res) => {
 
 router.post('/previewPersonIdentityCorrection', async (req, res) => {
   try {
-    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
-    await requireAdminOrganizationPermission(req, orgId, ['auth.accounts.global_manage']);
+    const orgId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const actor = await personGovernanceActor(req, orgId);
     const result = await personGovernanceModel.previewCorrection({
       legacyHrId: safeString(req.body.hrId),
       organizationId: orgId,
       name: safeString(req.body.name),
       studentId: safeString(req.body.studentId)
-    });
+    }, actor);
     if (!result) return res.status(404).json({ status: 'not_found', message: personnelCopy.formerMemberNotFound });
     return res.json({ status: 'success', preview: result });
   } catch (error) {
@@ -655,18 +722,15 @@ router.post('/previewPersonIdentityCorrection', async (req, res) => {
 
 router.post('/applyPersonIdentityCorrection', async (req, res) => {
   try {
-    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
-    await requireAdminOrganizationPermission(req, orgId, ['auth.accounts.global_manage']);
+    const orgId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const actor = await personGovernanceActor(req, orgId);
     const result = await personGovernanceModel.applyCorrection({
       legacyHrId: safeString(req.body.hrId),
       organizationId: orgId,
       name: safeString(req.body.name),
       studentId: safeString(req.body.studentId),
       version: safeString(req.body.version)
-    }, {
-      personId: req.authAccount && req.authAccount.personId,
-      contextId: req.authContext && req.authContext.contextId
-    });
+    }, actor);
     return res.json({ status: 'success', result, message: personnelCopy.personCorrectionChanged });
   } catch (error) {
     return sendHrRouteFailure(req, res, error);
@@ -678,18 +742,15 @@ router.post('/mergePersons', async (req, res) => {
     if (req.body.confirmed !== true) {
       return res.status(400).json({ status: 'confirmation_required', message: personnelCopy.personMergeConfirmationRequired });
     }
-    const organizationId = safeString(req.body.organizationId) || await getCurrentOrgId();
-    await requireAdminOrganizationPermission(req, organizationId, ['auth.accounts.global_manage']);
+    const organizationId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const actor = await personGovernanceActor(req, organizationId);
     const result = await personGovernanceModel.mergePersons({
       sourcePersonId: safeString(req.body.sourcePersonId),
       targetPersonId: safeString(req.body.targetPersonId),
       sourceVersion: safeString(req.body.sourceVersion),
       targetVersion: safeString(req.body.targetVersion),
       organizationId
-    }, {
-      personId: req.authAccount && req.authAccount.personId,
-      contextId: req.authContext && req.authContext.contextId
-    });
+    }, actor);
     return res.json({ status: 'success', result, message: personnelCopy.personMergeCompleted });
   } catch (error) {
     return sendHrRouteFailure(req, res, error);
@@ -700,6 +761,7 @@ async function handleStructuredHrImport(req, res, previewOnly) {
   try {
     const orgId = await getCurrentOrgId();
     if (req.body.schemaVersion == null) {
+      if (req.unifiedAuthorization) return res.json({ status: 'import_upgrade_required', message: importCopy.upgrade });
       await requireAdminOrganizationPermission(req, orgId, ['hr.import']);
       const actor = importActor(req, orgId);
       const result = previewOnly
@@ -709,7 +771,9 @@ async function handleStructuredHrImport(req, res, previewOnly) {
     }
     if (req.body.schemaVersion !== 2) return res.json({ status: 'import_upgrade_required', message: importCopy.upgrade });
     const actor = importActor(req, orgId);
-    const authorize = connection => requireAdminOrganizationPermission(req, orgId, ['hr.import'], connection);
+    const authorize = connection => req.unifiedAuthorization
+      ? require('../models/hrAuthorization').importAccess(req.unifiedAuthorization.reference, 'hr.import.create', connection)
+      : legacyImportPermission(req, orgId, ['hr.import'], connection);
     const result = previewOnly
       ? await hrImportV2.preview(req.body, actor, authorize)
       : await hrImportV2.execute(req.body, actor, authorize);
@@ -728,6 +792,7 @@ function importActor(req, orgId) {
 }
 
 function sendImportFailure(req, res, error) {
+  if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: importCopy.forbidden });
   const expected = error instanceof hrImportV2.ImportError || error instanceof AdminOrganizationAccessError
     || error instanceof unifiedIdentityModel.IdentityError || error.code === 'invalid_import';
   if (!expected && req.logger) req.logger.error('HR import failed', { endpoint: req.path, code: safeString(error.code) });
@@ -738,7 +803,12 @@ function sendImportFailure(req, res, error) {
 async function handleImportRead(req, res, method, permission) {
   try {
     const orgId = await getCurrentOrgId();
-    const authorize = connection => requireAdminOrganizationPermission(req, orgId, [permission || 'hr.import'], connection);
+    if (req.unifiedAuthorization && method === 'exportTable') {
+      return res.json(await require('../models/hrAuthorization').exportTable(req.unifiedAuthorization.reference, req.body));
+    }
+    const authorize = connection => req.unifiedAuthorization
+      ? require('../models/hrAuthorization').importAccess(req.unifiedAuthorization.reference, method === 'exportIssues' ? 'hr.import.export' : 'hr.import.read', connection)
+      : legacyImportPermission(req, orgId, [permission || 'hr.import'], connection);
     await authorize();
     return res.json(await hrImportV2[method](req.body, importActor(req, orgId), authorize));
   } catch (error) { return sendImportFailure(req, res, error); }
@@ -751,7 +821,9 @@ router.post('/exportHrAssignmentTable', (req, res) => handleImportRead(req, res,
 router.post('/getHrImportMetadata', async (req, res) => {
   try {
     const orgId = await getCurrentOrgId();
-    return res.json(await hrImportV2.metadata(importActor(req, orgId), connection => requireAdminOrganizationPermission(req, orgId, ['hr.import'], connection)));
+    return res.json(await hrImportV2.metadata(importActor(req, orgId), connection => req.unifiedAuthorization
+      ? require('../models/hrAuthorization').importAccess(req.unifiedAuthorization.reference, 'hr.import.read', connection)
+      : legacyImportPermission(req, orgId, ['hr.import'], connection)));
   } catch (error) { return sendImportFailure(req, res, error); }
 });
 
@@ -773,8 +845,11 @@ router.post('/importHrCsv', (req, res) => {
 // batchMaintainFromHrInfo
 router.post('/batchMaintainFromHrInfo', async (req, res) => {
   try {
-    const admin = await resolveRequestAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (req.unifiedAuthorization) await require('../models/hrAuthorization').importAccess(req.unifiedAuthorization.reference, 'hr.people.read');
+    else {
+      const admin = await resolveRequestAdmin(req);
+      if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
 
     const orgId = await getCurrentOrgId();
     const stats = await assignmentDictionaryIntegrity.checkOrganization(orgId);
@@ -797,32 +872,18 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
 router.post('/unbindHrWechat', async (req, res) => {
   let connection;
   try {
-    const admin = await resolveRequestAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const canGlobalAccountManage = Boolean(req.adminPermissions
-      && req.adminPermissions.permissions
-      && req.adminPermissions.permissions['auth.accounts.global_manage']);
-    if (admin.admin_level !== 'super_admin' && !canGlobalAccountManage) {
-      return res.status(403).json({
-        status: 'permission_denied',
-        message: personnelCopy.globalAccountManageRequired
-      });
-    }
-
     const hrId = safeString(req.body.hrId);
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
-    const orgId = await getCurrentOrgId();
+    const orgId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
+    const actor = await personGovernanceActor(req, orgId);
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const unifiedResult = await unifiedIdentityModel.resetAccountByLegacyHr(
       connection,
       hrId,
       orgId,
-      {
-        personId: req.authAccount && req.authAccount.personId,
-        contextId: req.authContext && req.authContext.contextId
-      },
+      actor,
       'administrator_hr_reset'
     );
     if (unifiedResult) {

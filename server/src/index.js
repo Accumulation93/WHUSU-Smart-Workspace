@@ -222,6 +222,9 @@ app.use(timeReviewPresentationMiddleware);
 app.get('/api/admin/health', async (req, res) => {
   const startedAt = Date.now();
   try {
+    if (req.unifiedAuthorization?.reference) {
+      await require('./core/models/systemConfig').authorizedConfig(req.unifiedAuthorization.reference);
+    }
     const [, deadLetterCount] = await Promise.all([
       pool.query('SELECT 1'),
       notificationOutboxModel.getDeadLetterCount()
@@ -235,6 +238,7 @@ app.get('/api/admin/health', async (req, res) => {
       warnings: deadLetterCount > 0 ? ['notification_dead_letters_pending'] : []
     });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_73f0b7a29a });
     req.logger.error('Protected health check failed', { error: e.message });
     res.status(503).json({ status: 'degraded', message: localeCopy.copy_73f0b7a29a });
   }
@@ -270,6 +274,7 @@ app.use('/api', require('./core/routes/workGroups'));
 app.use('/api', require('./core/routes/hr'));
 app.use('/api', require('./core/routes/admin'));
 app.use('/api', require('./core/routes/adminPermissions'));
+app.use('/api', require('./core/routes/authorization'));
 app.use('/api', require('./core/routes/adminRecordDeletion'));
 app.use('/api', require('./core/routes/user'));
 app.use('/api', require('./modules/scoring/routes/scoring'));

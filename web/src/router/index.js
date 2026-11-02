@@ -3,10 +3,16 @@ import copy from '@/locales/zh-CN/index.js';
 import signingCopy from '@/locales/zh-CN/shared/auditSigning.js';
 import identityCardCopy from '@/locales/zh-CN/shared/identityCard.js';
 import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 import { ensureSessionLoaded, session } from '@/runtime/session.js';
 import { adminModule } from '@/runtime/adminNavigation.js';
 
 const routes = [
+  { path: '/admin/assignment-natures', name: 'assignmentNatures', component: () => import('@/views/admin/AssignmentNaturesView.vue'), meta: { requiresAuth: true, title: authorizationCopy.nature } },
+  { path: '/admin/organization-copy', name: 'organizationCopy', component: () => import('@/views/admin/OrganizationCopyView.vue'), meta: { requiresAuth: true, title: authorizationCopy.configurationCopy.title } },
+  { path: '/admin/authorization', name: 'authorization', component: () => import('@/views/admin/AuthorizationView.vue'), meta: { requiresAuth: true, title: authorizationCopy.title } },
+  { path: '/admin/authorization/edit', name: 'authorizationEditor', component: () => import('@/views/admin/AuthorizationEditorView.vue'), meta: { requiresAuth: true, title: authorizationCopy.title } },
+  { path: '/admin/authorization/changes', name: 'authorizationChanges', component: () => import('@/views/admin/AuthorizationChangesView.vue'), meta: { requiresAuth: true, title: authorizationCopy.previewChanges } },
   { path: '/calendar', name: 'calendar', component: () => import('@/views/CalendarView.vue'), meta: { requiresAuth: true, title: calendarCopy.title } },
   { path: '/calendar/edit', name: 'calendarEdit', component: () => import('@/views/CalendarEditView.vue'), meta: { requiresAuth: true, title: calendarCopy.edit } },
   { path: '/identity-card', name: 'identityCard', component: () => import('@/views/IdentityCardView.vue'), meta: { requiresAuth: true, title: identityCardCopy.navigationTitle } },

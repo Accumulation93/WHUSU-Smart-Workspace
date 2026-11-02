@@ -82,6 +82,9 @@ async function main() {
       host, port, user: testUser, password: testPassword, database, multipleStatements: true
     });
     await schemaConnection.query(`
+      CREATE TABLE organizations (id VARCHAR(64) PRIMARY KEY);
+      INSERT INTO organizations(id) VALUES ('org-test-44');
+      CREATE TABLE authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(16) NOT NULL DEFAULT 'shadow');
       CREATE TABLE departments (
         id VARCHAR(64) PRIMARY KEY, name VARCHAR(100) NOT NULL, org_id VARCHAR(64) NOT NULL,
         created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,

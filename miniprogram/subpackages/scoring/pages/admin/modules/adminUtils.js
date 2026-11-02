@@ -739,7 +739,8 @@ function normalizeAssignmentFilterTuple(assignment) {
     ? 'legacy-work-group:' + (departmentId || department) + ':' + workGroup
     : '');
   return {
-    assignmentNature: String(source.assignmentNature || source.assignmentKind || 'staff'),
+    assignmentNature: String(source.assignmentNature || source.assignmentKind || ''),
+    assignmentNatureLabel: String(source.assignmentNatureLabel || ''),
     department,
     departmentValue,
     identity,
@@ -755,6 +756,8 @@ function addFilterOption(optionMap, value, label) {
 }
 
 function buildHrProfileFilterOptions(rows = []) {
+  const assignmentNatures = new Map();
+  const legacyNatureLabels = { staff: localeCopy.hrNatureStaff, liaison: localeCopy.hrNatureLiaison, other: localeCopy.hrNatureOther };
   const departments = new Map();
   const identities = new Map();
   const workGroups = new Map();
@@ -763,6 +766,7 @@ function buildHrProfileFilterOptions(rows = []) {
     const assignments = Array.isArray(item.assignments) ? item.assignments : [];
     assignments.forEach((assignment) => {
       const tuple = normalizeAssignmentFilterTuple(assignment);
+      addFilterOption(assignmentNatures, tuple.assignmentNature, tuple.assignmentNatureLabel || legacyNatureLabels[tuple.assignmentNature]);
       addFilterOption(departments, tuple.departmentValue, tuple.department);
       addFilterOption(identities, tuple.identityValue, tuple.identity);
       addFilterOption(
@@ -782,7 +786,7 @@ function buildHrProfileFilterOptions(rows = []) {
     sortModes: HR_PROFILE_SORT_OPTIONS,
     membershipStatuses: [option('active', localeCopy.hrMembershipActive), option('left', localeCopy.hrMembershipLeft)],
     positionStates: [option('with_position', localeCopy.hrWithPosition), option('without_position', localeCopy.hrWithoutPosition)],
-    assignmentNatures: [option('staff', localeCopy.hrNatureStaff), option('liaison', localeCopy.hrNatureLiaison), option('other', localeCopy.hrNatureOther)],
+    assignmentNatures: sortOptions(assignmentNatures),
     departments: sortOptions(departments),
     identities: sortOptions(identities),
     workGroups: sortOptions(workGroups),
@@ -833,13 +837,13 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
     if (assignmentFiltersActive && !matchingAssignments.length) return false;
     if (keyword) {
       const assignmentText = matchingAssignments.map((assignment) => [
-        assignmentKinds[assignment.assignmentNature] || assignment.assignmentNature,
+        assignment.assignmentNatureLabel || assignmentKinds[assignment.assignmentNature] || '',
         assignment.department, assignment.identityCategoryName, assignment.workGroup
       ].filter(Boolean).join(' ')).join(' ');
       const searchValues = {
         name: item.name,
         studentId: item.studentId,
-        assignmentNature: (item.assignmentNatures || []).map((value) => assignmentKinds[value] || value).join(' '),
+        assignmentNature: matchingAssignments.map(assignment => assignment.assignmentNatureLabel || assignmentKinds[assignment.assignmentNature] || '').join(' '),
         department: (item.departments || []).join(' '),
         identity: (item.identities || []).join(' '),
         workGroup: (item.workGroups || []).join(' '),

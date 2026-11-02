@@ -1,0 +1,41 @@
+var COLOR_MAP = {
+  '优秀': '#f59e0b',
+  '良好': '#10b981',
+  '合格': '#3b82f6',
+  '不合格': '#ef4444'
+};
+
+var PALETTE = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#2563eb'];
+
+function getColor(name) {
+  if (COLOR_MAP[name]) return COLOR_MAP[name];
+  if (!name) return '#9ca3af';
+  var hash = 0;
+  for (var i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash) + name.charCodeAt(i);
+  }
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
+// 文案全部由调用方从语言系统传入，WXS 内不得保留任何用户可见中文或标点。
+function getLabel(item, index, labelText) {
+  var text = labelText || {};
+  var name = item.gradeName || '';
+  var minS = item.minScore;
+  var maxS = item.maxScore;
+  if (name && (minS !== undefined && minS !== '' || maxS !== undefined && maxS !== '')) {
+    return name
+      + (text.rangeOpen || '')
+      + (minS || '?')
+      + (text.rangeSeparator || '-')
+      + (maxS || '?')
+      + (text.rangeClose || '');
+  }
+  if (name) return name;
+  return (text.fallbackPrefix || '') + (index + 1);
+}
+
+module.exports = {
+  getColor: getColor,
+  getLabel: getLabel
+};

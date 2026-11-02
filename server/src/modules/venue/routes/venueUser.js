@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueUser');
+const authorizationCopy = require('../../../locales/zh-CN/authorization');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -324,6 +325,8 @@ router.post('/listVenuesForBooking', async (req, res) => {
   try {
     if (!getAuthenticatedContext(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     const venues = await venueModel.getAll();
+    const publicPermission = await require('../models/venuePublicAuthorization').prepare(await getCurrentOrgId(),
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
     const venueList = [];
     for (const v of venues) {
       const rules = await venueBookingRuleModel.getByVenueId(v.id);
@@ -332,10 +335,11 @@ router.post('/listVenuesForBooking', async (req, res) => {
       if (!rules.length) approvalType = 'admin';
       else if (rules.some(r => r.rule_type === 'direct')) approvalType = 'direct';
       else approvalType = 'approval';
-      venueList.push({
+      const visibleVenue = publicPermission.venue({
         id: v.id, name: v.name, location: v.location,
         description: v.description, imageUrl: v.image_url, approvalType, bookingWindow
       });
+      if (visibleVenue) venueList.push(visibleVenue);
     }
     res.json({ status: 'success', venues: venueList });
   } catch (e) {
@@ -363,6 +367,11 @@ router.post('/getVenueSchedule', async (req, res) => {
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
+    const publicPermission = await require('../models/venuePublicAuthorization').prepare(await getCurrentOrgId(),
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
+    publicPermission.schedule(venueId);
+    const visibleVenue = publicPermission.venue({ id: venue.id, name: venue.name, location: venue.location });
+
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const endDate = dateTo || dateFrom;
@@ -380,7 +389,7 @@ router.post('/getVenueSchedule', async (req, res) => {
     });
     const activeBookings = allBookings;
     const viewerScope = await resolveVenueViewerScope(req);
-    const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
+    const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope) && publicPermission.booking(booking);
     const detailBookings = activeBookings.filter(canViewDetails);
     const applicantAssignments = await resolveBookingApplicantAssignments(detailBookings);
     const orgNameMap = await resolveVenueOrgNames(
@@ -522,8 +531,8 @@ router.post('/getVenueSchedule', async (req, res) => {
         return {
           id: b.id,
           visibility: 'details',
-          venueName: venue.name,
-          venueLocation: venue.location,
+          venueName: visibleVenue.name,
+          venueLocation: visibleVenue.location || '',
           title: b.title,
           description: b.description,
           orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
@@ -573,8 +582,9 @@ router.post('/getVenueSchedule', async (req, res) => {
       cur.setDate(cur.getDate() + 1);
     }
 
-    res.json({ status: 'success', venueId, venueName: venue.name, dailySchedules });
+    res.json({ status: 'success', venueId, venueName: visibleVenue.name, dailySchedules });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -584,6 +594,12 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
   try {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
+    const orgId = await getCurrentOrgId();
+    const permission = await require('../models/venuePublicAuthorization').prepare(orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
+    if (!permission.venue({ id: venueId, name: '' })) {
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    }
     const flows = await venueApprovalFlowModel.listUsableByVenueId(venueId);
     const allowUserSelect = flows.some(function(flow) {
       return Number(flow.allow_user_select) === 1;
@@ -602,6 +618,7 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
     });
     res.json({ status: 'success', allowUserSelect, flows: options });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -627,6 +644,11 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
         safeString(req.body.flowId)
       );
       if (!result.ok) return res.json({ status: 'forbidden', message: result.reason });
+      await pool.withTransaction(async connection => {
+        const permission = await require('../models/venueApprovalPermission').prepare(connection, orgId,
+          require('../../../core/services/authorizationReference').referenceFromRequest(req));
+        permission.require(booking);
+      });
       return res.json({
         status: 'success',
         flowId: result.flowId,
@@ -647,6 +669,12 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
       || Number(flow.allow_designate_first) !== 1 || Number(flow.is_active) !== 1) {
       return res.json({ status: 'forbidden', message: venueApprovalMultiFlow.REASONS.DESIGNATE_FIRST_NOT_ALLOWED });
     }
+    await pool.withTransaction(async connection => {
+      const permission = await require('../models/venueOwnerAuthorization').prepare(connection, orgId,
+        require('../../../core/services/authorizationReference').referenceFromRequest(req));
+      permission.require('create', { creator_person_id: assignment.personId, creator_org_id: orgId,
+        creator_assignment_id: assignment.assignmentId, creator_context_snapshot: toAssignmentSnapshot(assignment) });
+    });
     const steps = await venueApprovalFlowStepModel.getByFlowId(flow.id, orgId);
     const candidates = await venueApprovalMultiFlow.listEligibleAssignmentsForStep(
       steps[0],
@@ -655,6 +683,7 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
     );
     return res.json({ status: 'success', flowId, stepIndex: 0, candidates });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -757,6 +786,11 @@ router.post('/createVenueBooking', async (req, res) => {
     }
 
     await conn.beginTransaction();
+    const ownerPermission = await require('../models/venueOwnerAuthorization').prepare(conn, orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
+    ownerPermission.require('create', { creator_person_id: applicantAssignment.personId, creator_org_id: orgId,
+      creator_assignment_id: applicantAssignment.assignmentId,
+      creator_context_snapshot: toAssignmentSnapshot(applicantAssignment) });
     await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
       personId: applicantAssignment.personId,
       legacyHrId: applicantAssignment.legacyHrId,
@@ -764,12 +798,16 @@ router.post('/createVenueBooking', async (req, res) => {
       assignmentId: applicantAssignment.assignmentId
     }]);
 
-    const id = generateId();
+    const clientRequestId = requestDeduplication.normalizeClientRequestId(req.body.clientRequestId);
+    const id = clientRequestId ? requestDeduplication.stableResourceId('create_venue_booking',
+      [orgId, applicantAssignment.assignmentId, clientRequestId, JSON.stringify([venueId, title, description,
+        dbTimeStart, dbTimeEnd, safeString(req.body.flowId), req.body.firstApproverAssignmentIds || null,
+        safeString(req.body.firstApproverAssignmentId), safeString(req.body.firstApproverHrId)])]) : generateId();
     const dedupClaim = await requestDeduplication.claim(conn, {
       orgId,
       actorKey: 'user:' + hrId,
       operationType: 'create_venue_booking',
-      clientRequestId: req.body.clientRequestId,
+      clientRequestId,
       resourceId: id
     });
     if (!dedupClaim.claimed) {
@@ -1065,9 +1103,11 @@ router.post('/createVenueBooking', async (req, res) => {
     res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e.code === 'IDEMPOTENCY_RESOURCE_CONFLICT') return res.status(409).json({ status: 'conflict', message: authorizationCopy.bookingRequestChanged });
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_6fb89690d9 });
     }
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
@@ -1088,7 +1128,9 @@ router.post('/listMyVenueBookings', async (req, res) => {
     const currentAssignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
     if (!currentAssignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     const hrId = currentAssignment.legacyHrId;
-    const bookings = await venueBookingModel.getByUserId(hrId);
+    const bookings = await require('../models/venueBookingAuthorization').ownedRead(orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req),
+      await venueBookingModel.getByUserId(hrId));
     const applicantAssignments = await resolveBookingApplicantAssignments(bookings);
     const orgNameMap = await resolveVenueOrgNames(
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
@@ -1102,6 +1144,8 @@ router.post('/listMyVenueBookings', async (req, res) => {
       venueLocation: b.venue_location,
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       approvalOrgId: safeString(b.approval_org_id),
+      canCancel: b.authorizationCanCancel !== false,
+      canEnd: b.authorizationCanEnd !== false,
       title: b.title,
       description: b.description,
       userName: display.name || b.user_name || localeCopy.copy_de00c3e48a,
@@ -1231,6 +1275,13 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     if (!bookings.length) {
       return res.json({ status: 'success', pending: [] });
     }
+    const reference = require('../../../core/services/authorizationReference').referenceFromRequest(req);
+    const relatedPermissions = new Map();
+    for (const workActor of workActors) {
+      relatedPermissions.set(workActor.contextId, await require('../../audit/models/todoAuthorization')
+        .prepareRelated(workActor.organizationId, workActor.contextId, reference));
+    }
+    const { resource: bookingResource } = require('../models/venueBookingResource');
     const orgNameMap = await resolveVenueOrgNames(
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
@@ -1238,6 +1289,9 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     const pending = [];
     for (const booking of bookings) {
       const targetOrgId = safeString(booking.approval_org_id);
+      const authorizedActors = workActors.filter(workActor => workActor.organizationId === targetOrgId
+        && relatedPermissions.get(workActor.contextId)(bookingResource(booking, targetOrgId)));
+      if (!authorizedActors.length) continue;
       const isFlowBooking = Boolean(
         (booking.approval_flow_id || booking.approval_flow_state_json)
         && Number(booking.approval_total_steps) > 0
@@ -1252,7 +1306,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
       if (isFlowBooking) {
         const contextEligibility = await venueApprovalMultiFlow.evaluateWorkContextEligibility(
           booking,
-          workActors,
+          authorizedActors,
           actor.contextId,
           orgId
         );
@@ -1274,7 +1328,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         const rules = await venueBookingRuleModel.getByVenueIdForOrg(booking.venue_id, targetOrgId);
         const ruleEligibility = evaluateBookingRuleWorkContexts(
           rules,
-          workActors,
+          authorizedActors,
           targetOrgId,
           actor.contextId,
           orgId
@@ -1439,7 +1493,12 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
     }
 
     history.sort((left, right) => String(right.myApprovalAt || '').localeCompare(String(left.myApprovalAt || '')));
-    res.json({ status: 'success', history });
+    const historicalIds = new Set(history.map(item => item.id));
+    const authorized = await require('../models/venueBookingAuthorization').relatedRead(orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req),
+      bookings.filter(item => historicalIds.has(item.id)));
+    const allowedIds = new Set(authorized.map(item => item.id));
+    res.json({ status: 'success', history: history.filter(item => allowedIds.has(item.id)) });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -1542,6 +1601,9 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       : Math.min(totalSteps, Math.max(0, Number.isFinite(storedCurrentStep) ? storedCurrentStep : 0, snapshotCompletedSteps));
     const isApproved = !isRejected && currentStep >= totalSteps;
 
+    const authorized = await require('../models/venueBookingAuthorization').relatedRead(orgId,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), [booking]);
+    if (!authorized.length) return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_c4a87d8e1c });
     res.json({
       status: 'success',
       detail: {
@@ -1620,10 +1682,12 @@ router.post('/cancelVenueBooking', async (req, res) => {
         return res.json({ status: 'invalid_state', message: localeCopy.copy_22b06082e1 });
       }
     }
-    await venueBookingModel.updateStatus(id, 'cancelled', hrId, '申请人取消', null, actor);
+    await require('../models/venueOwnerAuthorization').perform(id, 'cancel', actor,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req));
     await notificationModel.deleteByTarget('booking', id);
     res.json({ status: 'success', message: localeCopy.copy_e92ecaf2f5 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -1670,9 +1734,11 @@ router.post('/endVenueBooking', async (req, res) => {
     // Set time_end to now (early end)
     const dbTimeEnd = nowMysqlUtc();
     actor.assignment = assignment;
-    await venueBookingModel.updateTimeEnd(id, dbTimeEnd, null, actor);
+    await require('../models/venueOwnerAuthorization').perform(id, 'update', actor,
+      require('../../../core/services/authorizationReference').referenceFromRequest(req), dbTimeEnd);
     res.json({ status: 'success', message: localeCopy.copy_26f5cb7f15 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

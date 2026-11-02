@@ -2,6 +2,7 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_267c7ab9d4}}" tone="admin"></workspace-hero>
+  <view wx:if="{{readOnly}}" class="permission-card">{{authorizationCopy.legacyReadOnly}}</view>
 
   <view class="permission-card">
     <view class="permission-section-head">
@@ -60,7 +61,7 @@
             </view>
             <view class="permission-group-switch">
               <text>{{localeCopy.copy_835048fcaf}}</text>
-              <switch checked="{{group.allGranted}}" disabled="{{!group.editableCount}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
+              <switch checked="{{group.allGranted}}" disabled="{{readOnly || saving || !group.editableCount}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
             </view>
           </view>
           <view class="permission-item" wx:for="{{group.permissions}}" wx:key="key" wx:for-item="permission" wx:for-index="permissionIndex">
@@ -68,14 +69,14 @@
               <view class="permission-item-title">{{permission.label}}</view>
               <view class="permission-item-desc">{{permission.description}}</view>
             </view>
-            <switch checked="{{permission.granted}}" disabled="{{!permission.editable}}" color="#2563eb" data-group-index="{{groupIndex}}" data-permission-index="{{permissionIndex}}" bindchange="onPermissionChange" />
+            <switch checked="{{permission.granted}}" disabled="{{readOnly || saving || !permission.editable}}" color="#2563eb" data-group-index="{{groupIndex}}" data-permission-index="{{permissionIndex}}" bindchange="onPermissionChange" />
           </view>
         </view>
         </view>
       </scroll-view>
       <view class="permission-dialog-footer ui-dialog-footer">
         <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-        <button class="primary-btn permission-primary ui-motion-button" disabled="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{saving}}" />{{localeCopy.copy_71db23a36b}}</button>
+        <button wx:if="{{!readOnly}}" class="primary-btn permission-primary ui-motion-button" disabled="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{saving}}" />{{localeCopy.copy_71db23a36b}}</button>
       </view>
     </view>
   </view>

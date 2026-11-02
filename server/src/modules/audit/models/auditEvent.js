@@ -54,9 +54,9 @@ async function create(id, data, conn) {
  * @param {string} submissionId
  * @returns {Array} events
  */
-async function getBySubmissionId(submissionId) {
+async function getBySubmissionId(submissionId, connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     'SELECT * FROM audit_events WHERE submission_id = ? AND org_id = ? ORDER BY created_at ASC',
     [submissionId, orgId]
   );

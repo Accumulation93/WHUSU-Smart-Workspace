@@ -1,4 +1,5 @@
 import adminCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
+import { managementTabAllowed } from '@/shared/authorizationAccessView.js';
 
 export const ADMIN_MODULES = Object.freeze({
   scoring: { label: adminCopy.copy_33a502217d, tabs: ['activities', 'templates', 'rules', 'results', 'publications'] },
@@ -32,6 +33,10 @@ export function adminModule(key) {
 
 export function adminTabs(key, profile) {
   if (!profile) return [];
+  if (profile.authorizationAccess?.mode === 'enforced') {
+    return adminModule(key).tabs.filter(tab => managementTabAllowed(profile.authorizationAccess, tab))
+      .map(key => ({ key, ...ADMIN_TABS[key] }));
+  }
   return adminModule(key).tabs.filter(tab => profile.adminLevel === 'super_admin'
     || ADMIN_TABS[tab].permissions.some(permission => profile.permissions?.[permission] === true || profile.permissions?.[permission + '.delete'] === true))
     .map(key => ({ key, ...ADMIN_TABS[key] }));

@@ -42,8 +42,8 @@
             <span v-if="row.description" class="muted break-all">{{ row.description }}</span>
           </div>
           <div class="card-actions">
-            <button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
-            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ ui.copy_acc985cabc }}</button>
+            <button type="button" class="btn-quiet" :disabled="blocked" v-if="canUpdateRecord && row.canUpdate !== false" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
+            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord && row.canDelete !== false" @click="remove(row)">{{ ui.copy_acc985cabc }}</button>
           </div>
         </article>
       </div>
@@ -63,9 +63,13 @@
 </template>
 
 <script setup>
-import { useAdminCapability } from '@/runtime/adminCapabilities.js';
-const canDeleteRecord = useAdminCapability(() => ({ departments: 'hr.departments.delete', workGroups: 'hr.work_groups.delete', identities: 'hr.identities.delete' })[props.kind]);
-const canWriteRecord = useAdminCapability(() => ({ departments: 'hr.departments', workGroups: 'hr.work_groups', identities: 'hr.identities' })[props.kind]);
+import { useAdminCapability, useAdminAuthorizationAccess } from '@/runtime/adminCapabilities.js';
+const authorizationAccess = useAdminAuthorizationAccess();
+const resource = () => ({ departments: 'hr.departments', workGroups: 'hr.workGroups', identities: 'hr.identities' })[props.kind];
+const legacyPermission = () => ({ departments: 'hr.departments', workGroups: 'hr.work_groups', identities: 'hr.identities' })[props.kind];
+const canDeleteRecord = useAdminCapability(() => legacyPermission() + '.delete', () => resource() + '.delete');
+const canUpdateRecord = useAdminCapability(legacyPermission, () => resource() + '.update');
+const canWriteRecord = useAdminCapability(legacyPermission, () => resource() + (props.state.form.id ? '.update' : '.create'));
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import copy from '@/locales/zh-CN/index.js';
@@ -77,6 +81,7 @@ import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { session } from '@/runtime/session.js';
+import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
 
 const props = defineProps({ kind: { type: String, required: true }, state: { type: Object, required: true }, disabled: Boolean });
 const emit = defineEmits(['busy']);
@@ -125,7 +130,7 @@ let disposed = false;
 const scope = () => [session.context?.contextId, session.context?.organizationId, props.kind].join('|');
 function reset() { Object.assign(form.value, { id: '', name: '', description: '', departmentId: '' }); actionNotice.value = ''; }
 async function edit(row) {
-  if (blocked.value) return;
+  if (blocked.value || !canUpdateRecord.value || row.canUpdate === false) return;
   Object.assign(form.value, { id: row.id, name: row.name, description: row.description || '', departmentId: row.departmentId || '' });
   actionNotice.value = '';
   await nextTick();
@@ -137,13 +142,16 @@ async function load() {
   const current = () => !disposed && request === generation && expected === scope();
   loading.value = true;
   try {
+    const enforced = authorizationAccess.value?.mode === 'enforced';
     const results = await Promise.all([
-      callApi(config.value.listApi, {}).then(requireSuccess),
+      enforced ? callApi('listAuthorizedDictionary', { kind: { departments: 'department', identities: 'identity', workGroups: 'work_group' }[props.kind] }).then(requireSuccess)
+        : callApi(config.value.listApi, {}).then(requireSuccess),
       props.kind === 'workGroups' ? callApi('listDepartments', {}).then(requireSuccess) : Promise.resolve(null)
     ]);
     if (!current()) return false;
-    if (!Array.isArray(results[0][props.kind]) || (results[1] && !Array.isArray(results[1].departments))) throw new Error();
-    rows.value = results[0][props.kind];
+    const list = enforced ? results[0].list : results[0][props.kind];
+    if (!Array.isArray(list) || (results[1] && !Array.isArray(results[1].departments))) throw new Error();
+    rows.value = list;
     if (results[1]) departments.value = results[1].departments;
     loadNotice.value = '';
     if (props.state.resetAfterRead) { props.state.resetAfterRead = false; reset(); }
@@ -154,7 +162,7 @@ async function load() {
   } finally { if (current()) loading.value = false; }
 }
 async function save() {
-  if (blocked.value) return;
+  if (blocked.value || !canWriteRecord.value) return;
   if (!form.value.name.trim()) { actionNotice.value = config.value.missingName; return; }
   if (props.kind === 'workGroups' && !departments.value.some(row => row.id === form.value.departmentId)) {
     actionNotice.value = ui.copy_eada426deb; return;
@@ -180,7 +188,7 @@ async function save() {
   finally { if (current()) busy.value = false; }
 }
 async function remove(row) {
-  if (blocked.value) return;
+  if (blocked.value || !canDeleteRecord.value || row.canDelete === false) return;
   const expected = scope();
   const current = () => !disposed && expected === scope();
   const target = { id: row.id, name: row.name };
@@ -206,6 +214,8 @@ async function remove(row) {
   } catch (error) { if (current()) actionNotice.value = errorText(error, dept.copy_076bb5d383); }
   finally { if (current()) busy.value = false; }
 }
+useCopiedConfigurationEditor({ kind: () => ({ departments: 'hr.departments', identities: 'hr.identities', workGroups: 'hr.workGroups' })[props.kind], rows,
+  blocked: () => blocked.value || !canUpdateRecord.value, ready: () => !loading.value && !loadNotice.value, edit, notice: actionNotice });
 watch(busy, value => emit('busy', value), { flush: 'sync' });
 watch(scope, () => { generation++; rows.value = []; departments.value = []; usage.value = null; busy.value = false; loadNotice.value = ''; actionNotice.value = ''; load(); }, { immediate: true });
 onBeforeUnmount(() => { disposed = true; generation++; emit('busy', false); });

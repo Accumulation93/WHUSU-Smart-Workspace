@@ -1,9 +1,9 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-async function getBySubmissionId(submissionId) {
+async function getBySubmissionId(submissionId, connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     'SELECT * FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ? ORDER BY signed_at, id',
     [submissionId, orgId]
   );

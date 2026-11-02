@@ -140,7 +140,8 @@ function validateCalculationSnapshot(record, activityId) {
   return { ok: true, snapshot, questionCount: globalIndexes.size };
 }
 
-function addDiagnostic(diagnostics, recordId, reason) {
+function addDiagnostic(diagnostics, recordId, reason, visibleRecordIds) {
+  if (visibleRecordIds && !visibleRecordIds.has(recordId)) return;
   diagnostics.skippedRecords += 1;
   diagnostics.reasons[reason] = (diagnostics.reasons[reason] || 0) + 1;
   if (diagnostics.records.length < 50) diagnostics.records.push({ recordId: safeString(recordId), reason });
@@ -169,7 +170,8 @@ const pendingComputations = new Map();
 
 async function computeValidScoreMap(activityId, orgId, options = {}) {
   const scope = JSON.stringify([activityId, orgId, !!options.includeCounts,
-    options.visibleTargetIds ? Array.from(options.visibleTargetIds).sort() : null]);
+    options.visibleTargetIds ? Array.from(options.visibleTargetIds).sort() : null,
+    options.diagnosticRecordIds ? Array.from(options.diagnosticRecordIds).sort() : null]);
   const key = await sharedCache.versionedKey('scoreCalculation:' + crypto.createHash('sha256').update(scope).digest('hex'), orgId);
   if (pendingComputations.has(key)) {
     const result = structuredClone(await pendingComputations.get(key));
@@ -185,6 +187,8 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
 
 async function calculateScoreMap(activityId, orgId, options = {}) {
   const visibleTargetIds = options.visibleTargetIds;
+  // 诊断范围只裁剪错误说明及计数，绝不删减参与最终分计算的输入。
+  const diagnosticRecordIds = options.diagnosticRecordIds;
   // 只取计算必需的列：不再把评分人/被评人的上下文快照整列拉回内存。
   const [recordRows] = await pool.query(
     `SELECT id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
@@ -216,7 +220,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
   }
 
   const diagnostics = {
-    totalRecords: recordRows.length,
+    totalRecords: diagnosticRecordIds ? recordRows.filter(row => diagnosticRecordIds.has(row.id)).length : recordRows.length,
     acceptedRecords: 0,
     skippedRecords: 0,
     reasons: {},
@@ -226,7 +230,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
   for (const record of recordRows) {
     const validation = validateCalculationSnapshot(record, activityId);
     if (!validation.ok) {
-      addDiagnostic(diagnostics, record.id, validation.reason);
+      addDiagnostic(diagnostics, record.id, validation.reason, diagnosticRecordIds);
       continue;
     }
     const snapshot = validation.snapshot;
@@ -235,12 +239,12 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
     if (snapshot.rule.allowSelfAssessment !== true
       && safeString(snapshot.scorer.personId)
       && safeString(snapshot.scorer.personId) === safeString(snapshot.target.personId)) {
-      addDiagnostic(diagnostics, record.id, 'self_assessment_snapshot_violation');
+      addDiagnostic(diagnostics, record.id, 'self_assessment_snapshot_violation', diagnosticRecordIds);
       continue;
     }
     const answers = answerMap.get(record.id) || new Map();
     if (answers.size !== validation.questionCount) {
-      addDiagnostic(diagnostics, record.id, 'answer_count_mismatch');
+      addDiagnostic(diagnostics, record.id, 'answer_count_mismatch', diagnosticRecordIds);
       continue;
     }
     let answersComplete = true;
@@ -251,7 +255,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
       }
     }
     if (!answersComplete) {
-      addDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch');
+      addDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch', diagnosticRecordIds);
       continue;
     }
     candidates.push({ record, snapshot, answers, targetId });
@@ -309,7 +313,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
     }
 
     if (snapshot.clause.requireAllComplete === true && incompleteBuckets.has(candidate.completionKey)) {
-      addDiagnostic(diagnostics, candidate.record.id, 'required_targets_incomplete');
+      addDiagnostic(diagnostics, candidate.record.id, 'required_targets_incomplete', diagnosticRecordIds);
       return;
     }
 
@@ -339,7 +343,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
       }
       calculationMap.get(groupKey).scores.push(templateScore);
     });
-    diagnostics.acceptedRecords += 1;
+    if (!diagnosticRecordIds || diagnosticRecordIds.has(candidate.record.id)) diagnostics.acceptedRecords += 1;
   });
 
   const finalScoreMap = new Map();

@@ -100,10 +100,11 @@ async function getByStudentId(studentId) {
   return rows[0] || null;
 }
 
-async function create(id, data) {
+async function create(id, data, authorize) {
   const { name, studentId, departmentId, identityId, workGroupId } = data;
   const orgId = await getCurrentOrgId();
   await pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection, orgId);
     await connection.query(
       `INSERT INTO hr_info (id, name, student_id, department_id, identity_id, work_group_id, org_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,

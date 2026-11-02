@@ -4,6 +4,12 @@ const assert = require('assert');
 const Module = require('module');
 
 let evaluatedState = '';
+// 本文件只验证旧模式的多流程业务资格；真实授权数据库链由 authorizationIntegration 覆盖。
+const modePath = require.resolve('../src/core/models/authorizationBusinessRoute');
+require.cache[modePath] = { id: modePath, filename: modePath, loaded: true, exports: { async isEnforced() { return false; } } };
+const authorizationPath = require.resolve('../src/modules/audit/models/todoAuthorization');
+require.cache[authorizationPath] = { id: authorizationPath, filename: authorizationPath, loaded: true,
+  exports: { async filterAuditSteps(rows) { return rows; }, async prepareRelated() { return () => true; } } };
 const mocks = {
   '../models/auditSubmissionStep': { async getPendingByApprover() { return []; } },
   '../models/messageData': {

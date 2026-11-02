@@ -1,6 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_auditSigning from './shared/auditSigning.js';
+import src_authorization from './shared/authorization.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
@@ -85,8 +86,8 @@ export default Object.freeze({
   approve: src_pendingApprovals.copy_8e2f75159e,
   pass: src_pendingApprovals.copy_8e2f75159e,
   sign: src_auditSigning.signature,
-  stamp: src_pendingApprovals.copy_7e6630535d,
-  estamp: src_pendingApprovals.copy_7e6630535d,
+  stamp: src_authorization.configurationCopy.auditActions.estamp,
+  estamp: src_authorization.configurationCopy.auditActions.estamp,
   both: src_signingEvidence.actions.both,
   reject: src_submissionDetail.copy_0c90eb0204,
   file_sha256: src_signingEvidence.digestTypes.file_sha256,

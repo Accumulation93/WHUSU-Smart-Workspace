@@ -31,10 +31,10 @@ assert.equal(vm.runInNewContext('arrayBufferToBase64(bytes)', tableContext), 'AI
 
 const venuePath = path.resolve(__dirname, '../miniprogram/subpackages/venue/pages/venueManage/venueManage.js');
 let page;
-vm.runInNewContext(fs.readFileSync(venuePath, 'utf8'), {
+page = require('./lib/loadVenueManagementPage')({
   require(name) { return name.includes('adminTimeSelection') ? require('../miniprogram/subpackages/venue/utils/adminTimeSelection') : {}; },
   wx: { nextTick(callback) { callback(); } }, Page(value) { page = value; }
-}, { filename: venuePath });
+});
 const instance = {
   data: { adminBookingTimeStart: '08:00', adminBookingTimeEnd: '10:00' },
   _adminTimelineDrag: { handle: 'start', initial: 480, originX: 480, width: 1440 },

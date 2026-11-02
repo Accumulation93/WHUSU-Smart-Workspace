@@ -1,0 +1,3 @@
+<include src="./adminWorkbenchContent.wxml" />
+<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+<wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>

@@ -6,7 +6,6 @@ const router = express.Router();
 const { safeString, generateId, buildNameMap } = require('../../../utils/helpers');
 const { nowMysqlUtc } = require('../../../utils/dateTime');
 const { resolveRequestAdmin: ensureAdmin } = require('../../../core/services/adminRequestContext');
-const rateRuleModel = require('../models/rateRule');
 const rateRuleClauseModel = require('../models/rateRuleClause');
 const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const departmentModel = require('../../../core/models/department');
@@ -19,6 +18,7 @@ const pool = require('../../../config/db');
 const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+const ruleAuthorization = require('../models/scoreRuleAuthorization');
 
 const RULE_SCOPE_LABEL_MAP = {
   same_department_identity: scoringCopy.scopeSameDepartmentIdentity,
@@ -46,6 +46,9 @@ function rejectRateRule(status, message) {
 }
 
 function respondRateRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
+  if (error.code === 'authorization_forbidden') {
+    return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+  }
   return res.json({
     status: error instanceof RateRuleRequestError ? error.status : 'error',
     message: error instanceof RateRuleRequestError ? error.message : fallbackMessage
@@ -297,7 +300,7 @@ async function saveRateRuleWithConnection(connection, orgId, input) {
     const clauseId = generateId();
     await connection.query(
       'INSERT INTO rate_rule_clauses (id, rule_id, scope_type, target_identity_id, require_all_complete, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [clauseId, ruleId, clause.scopeType, clause.targetIdentityId, clause.requireAllComplete ? 1 : 0, orgId]
+      [clauseId, ruleId, clause.scopeType, clause.targetIdentityId || null, clause.requireAllComplete ? 1 : 0, orgId]
     );
     for (let index = 0; index < clause.templateConfigs.length; index++) {
       const config = clause.templateConfigs[index];
@@ -400,16 +403,14 @@ function buildClauseText(clause) {
 // listRateRules
 router.post('/listRateRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const orgId = await getCurrentOrgId();
     const lookups = await fetchOrgLookups(orgId);
 
-    const rules = activityId
-      ? await rateRuleModel.getByActivity(activityId)
-      : await rateRuleModel.getAll();
+    const rules = await ruleAuthorization.list(orgId, reference, activityId);
 
     const ruleIds = rules.map((r) => r.id);
     const allClauses = ruleIds.length ? await rateRuleClauseModel.getByRuleIds(ruleIds) : [];
@@ -459,7 +460,8 @@ router.post('/listRateRules', async (req, res) => {
       return a.scorerIdentity.localeCompare(b.scorerIdentity, 'zh-CN');
     });
 
-    res.json({ status: 'success', rules: result });
+    const configurationCandidates = await ruleAuthorization.configurationCandidates(orgId, reference, activityId);
+    res.json({ status: 'success', rules: result, configurationCandidates });
   } catch (e) {
     respondRateRuleError(res, e);
   }
@@ -468,11 +470,13 @@ router.post('/listRateRules', async (req, res) => {
 // saveRateRule
 router.post('/saveRateRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const result = await withTransaction(async (connection) => {
+      const session = await ruleAuthorization.begin(connection, orgId, reference);
       const input = await normalizeRateRuleInput(connection, orgId, req.body);
+      await ruleAuthorization.requireSave(connection, session, orgId, input);
       return saveRateRuleWithConnection(connection, orgId, input);
     });
     res.json({ status: 'success', id: result.id, rule: result.rule });
@@ -484,15 +488,17 @@ router.post('/saveRateRule', async (req, res) => {
 // batchSaveRateRules
 router.post('/batchSaveRateRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getRateRuleBatch(req.body);
 
     const orgId = await getCurrentOrgId();
     const results = await withTransaction(async (connection) => {
+      const session = await ruleAuthorization.begin(connection, orgId, reference);
       const inputs = [];
       for (const rule of rules) inputs.push(await normalizeRateRuleInput(connection, orgId, rule));
       assertUniqueRateRuleBatch(inputs);
+      for (const input of inputs) await ruleAuthorization.requireSave(connection, session, orgId, input);
       const saved = [];
       for (const input of inputs) saved.push(await saveRateRuleWithConnection(connection, orgId, input));
       return saved;
@@ -506,14 +512,16 @@ router.post('/batchSaveRateRules', async (req, res) => {
 // deleteRateRule
 router.post('/deleteRateRule', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden' });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden' });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params' });
 
     const orgId = await getCurrentOrgId();
     const outcome = await withTransaction(async (connection) => {
+      const session = await ruleAuthorization.begin(connection, orgId, reference);
+      ruleAuthorization.requireOperation(session, orgId, 'delete', id);
       const [ruleRows] = await connection.query(
         'SELECT id FROM rate_target_rules WHERE id = ? AND org_id = ? FOR UPDATE',
         [id, orgId]
@@ -544,8 +552,8 @@ router.post('/deleteRateRule', async (req, res) => {
 // generateRateTargetRules
 router.post('/generateRateTargetRules', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
@@ -574,6 +582,8 @@ router.post('/generateRateTargetRules', async (req, res) => {
     });
 
     const outcome = await withTransaction(async (connection) => {
+      const session = await ruleAuthorization.begin(connection, orgId, reference);
+      ruleAuthorization.requireOperation(session, orgId, 'create', '');
       await loadRateRuleReference(
         connection,
         'SELECT id FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
@@ -626,6 +636,7 @@ router.post('/generateRateTargetRules', async (req, res) => {
       });
 
       for (const item of removableRules) {
+        ruleAuthorization.requireOperation(session, orgId, 'delete', item.id);
         await clearRateRuleClauses(connection, orgId, item.id);
         await connection.query(
           'DELETE FROM rate_target_rules WHERE id = ? AND org_id = ?',

@@ -49,25 +49,29 @@ async function catalog(connection, orgId, lock = false) {
   return { departments, identities, workGroups, fields, people,
     departmentIds: departments.map(row => row.id), identityCategoryIds: identities.map(row => row.id), workGroupIds: workGroups.map(row => row.id) };
 }
-async function list(connection, orgId) {
+async function list(connection, orgId, scope) {
+  if (scope) return (await connection.query('SELECT r.* FROM hr_contact_directory_rules r WHERE r.org_id = ? AND (' + scope.sql + ') ORDER BY r.created_at, r.id', [orgId, ...scope.params]))[0].map(decode);
   return (await connection.query('SELECT * FROM hr_contact_directory_rules WHERE org_id = ? ORDER BY created_at, id', [orgId]))[0].map(decode);
 }
 async function configuration(orgId, authorize) {
   return pool.withTransaction(async connection => {
-    await authorize(connection);
+    const authorization = await authorize(connection, { action: 'read', ids: [] });
+    const rules = await list(connection, orgId, authorization && authorization.scope);
+    if (authorization && !rules.length && !authorization.can('read', '') && !authorization.can('create', '')) throw new policy.DirectoryError('forbidden');
     const data = await catalog(connection, orgId);
     const people = data.people.map(person => ({ personId: person.personId, name: person.name,
       assignments: person.assignments.map(assignment => ({ id: assignment.id, departmentId: assignment.departmentId,
         identityCategoryId: assignment.identityCategoryId, workGroupId: assignment.workGroupId,
         departmentName: assignment.departmentName, identityCategoryName: assignment.identityCategoryName, workGroupName: assignment.workGroupName })) }));
-    return { rules: await list(connection, orgId), people, fields: data.fields,
+    return { rules: rules.map(rule => authorization ? { ...rule, canUpdate: authorization.can('update', rule.id), canDelete: authorization.can('delete', rule.id) } : rule),
+      canCreate: !authorization || authorization.can('create', ''), people, fields: data.fields,
       departments: data.departments, identities: data.identities, workGroups: data.workGroups };
   });
 }
 async function save(input, orgId, authorize) {
   const rule = policy.normalizeRule(input);
   return pool.withTransaction(async connection => {
-    await authorize(connection);
+    await authorize(connection, { action: rule.id ? 'update' : 'create', ids: [rule.id || ''] });
     await identity.lockActiveBusinessSubjects(connection, policy.referenceIds(rule).map(personId => ({ personId, organizationId: orgId })));
     await lockOrganizationDictionaryWrites(orgId, connection);
     const data = await catalog(connection, orgId, true);
@@ -93,7 +97,7 @@ async function batch(input, orgId, authorize) {
     ids.add(rule.id);
   });
   return pool.withTransaction(async connection => {
-    await authorize(connection);
+    await authorize(connection, { action: input.action === 'delete' ? 'delete' : 'update', ids: [...ids] });
     await lockOrganizationDictionaryWrites(orgId, connection);
     const rows = (await connection.query(`SELECT * FROM hr_contact_directory_rules WHERE org_id = ? AND id IN (${placeholders(input.rules)}) ORDER BY id FOR UPDATE`, [orgId, ...ids]))[0];
     const versions = new Map(input.rules.map(rule => [rule.id, rule.version]));
@@ -116,6 +120,7 @@ async function read(actor, options = {}) {
   if (detail && (typeof options.key !== 'string' || !/^[a-f0-9]{96}$/.test(options.key))) throw new policy.DirectoryError('contactUnavailable');
   const nonce = detail ? options.key.slice(0, 32) : crypto.randomBytes(16).toString('hex');
   return pool.withTransaction(async connection => {
+    const filterEntries = options.authorizeEntries ? await options.authorizeEntries(connection) : entries => entries;
     const rules = (await list(connection, actor.organizationId)).filter(rule => rule.enabled);
     const empty = () => { if (detail) throw new policy.DirectoryError('contactUnavailable'); return { groups: [] }; };
     if (!rules.length) return empty();
@@ -126,6 +131,7 @@ async function read(actor, options = {}) {
     // 当前岗位已失效时，不得悄悄改用其他岗位匹配。
     if (actor.assignmentId && !viewer.assignment) return empty();
     let visible = policy.grants(rules, data.people, viewer, data);
+    visible = filterEntries(visible);
     if (options.references) {
       const targets = new Map();
       for (const item of visible) {
@@ -219,10 +225,10 @@ async function cleanupPerson(connection, personId, orgId) {
   }
   return rows.length;
 }
-async function resolveLinks(actor, references, authorize) {
+async function resolveLinks(actor, references, authorize, authorizeEntries) {
   if (!Array.isArray(references) || references.length > 100 || references.some(ref => !ref || !['hr', 'assignment', 'person', 'reference'].includes(ref.kind) || typeof ref.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(ref.id))) throw new policy.DirectoryError('invalidRule');
   if (actor.role !== 'admin') {
-    const result = await read(actor, { references, summaryOnly: true });
+    const result = await read(actor, { references, summaryOnly: true, authorizeEntries });
     return { links: result.links || [] };
   }
   return pool.withTransaction(async connection => {

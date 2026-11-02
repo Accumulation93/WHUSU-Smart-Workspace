@@ -272,6 +272,20 @@ async function main() {
   await retry.page.execute(); assert.equal(retry.page.data.completed, false); assert(retry.page.data.requestId);
   await retry.page.execute(); assert.equal(requests[0], requests[1]); assert.equal(retry.page.data.completed, true);
   console.log('PASS 超时保留原请求，重试不产生新批次');
+  const naturePage = createPage(async () => ({ status: 'success', fields: [],
+    natures: [{ id: 'staff', name: '本会岗位' }, { id: 'college', name: '院会岗位' }] }), file);
+  await naturePage.page.loadMetadata(); await naturePage.page.chooseFile();
+  naturePage.page.onNatureChange({ detail: { value: 2 } });
+  assert.equal(naturePage.page.payload().defaultNature, 'college');
+  assert.equal(naturePage.page.data.natureOptions[2], '院会岗位');
+  await naturePage.page.loadMetadata();
+  assert.equal(naturePage.page.payload().defaultNature, 'college');
+  naturePage.page.data.editor = { values: {} };
+  naturePage.page.editNature({ detail: { value: 2 } });
+  assert.equal(naturePage.page.data.editor.values.nature, 'college');
+  naturePage.page.resetSession();
+  assert.equal(naturePage.page.data.natureValues.length, 1);
+  console.log('PASS 组织岗位性质用于默认值及逐行修改，刷新保留选择、角色重置清理选项');
   console.log('HR import page runtime tests passed without browser or Node binary globals');
 }
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

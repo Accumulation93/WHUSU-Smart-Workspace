@@ -40,11 +40,15 @@ async function read(connection,events,orgId,offset,from,to) {
 async function assertEditable(connection,sourceKind,sourceId,actor,permissions) {
   if (sourceKind==='venue_booking') {
     const row=(await connection.query('SELECT id,creator_person_id,status FROM venue_bookings WHERE id=? AND creator_org_id=? FOR UPDATE',[sourceId,actor.organizationId]))[0][0];
-    if (!row || (row.creator_person_id!==actor.personId && !permissions.venueBookings)) throw new CalendarError('forbidden');
+    const canEdit=row && (permissions.sourceAuthorization
+      ? permissions.sourceAuthorization(sourceKind,'update',sourceId,row.creator_person_id===actor.personId).allowed
+      : row.creator_person_id===actor.personId || permissions.venueBookings);
+    if (!canEdit) throw new CalendarError('forbidden');
     if (!['pending','approved'].includes(row.status)) throw new CalendarError('unavailable');
     return;
   }
-  if (sourceKind==='venue_activity' && permissions.venueResources) {
+  if (sourceKind==='venue_activity' && (permissions.sourceAuthorization
+    ? permissions.sourceAuthorization(sourceKind,'update',sourceId).allowed : permissions.venueResources)) {
     const row=(await connection.query('SELECT r.id FROM venue_activity_rules r JOIN venues v ON v.id=r.venue_id AND v.is_active=1 WHERE r.id=? AND r.is_active=1 FOR UPDATE',[sourceId]))[0][0];
     if (row) return;
   }
@@ -64,11 +68,19 @@ async function participantReadAccess(connection,sourceKind,sourceId,actor,permis
     const row=(await connection.query('SELECT creator_person_id FROM venue_bookings WHERE id=? AND creator_org_id=?',[sourceId,actor.organizationId]))[0][0];
     // 同组织可见的旧借用可能从未配置名单；空名单不是查看权限不足。
     // emptyVisible 只用于不存在日程记录的分支，不能放宽已配置名单的授权。
+    if(row && permissions.sourceAuthorization){
+      const decision=permissions.sourceAuthorization(sourceKind,'read',sourceId,row.creator_person_id===actor.personId);
+      return {canRead:decision.allowed,blocked:!decision.allowed&&decision.reason!=='not_granted',emptyVisible:true};
+    }
     return {canRead:!!row&&(row.creator_person_id===actor.personId||!!permissions.venueBookings),emptyVisible:!!row};
   }
   if(sourceKind==='venue_activity') {
     const row=(await connection.query('SELECT r.id FROM venue_activity_rules r JOIN venues v ON v.id=r.venue_id AND v.is_active=1 WHERE r.id=? AND r.is_active=1',[sourceId]))[0][0];
     // 场地活动为共享公开占用；未配置名单时只返回空状态，不返回任何其他组织的人员。
+    if(row && permissions.sourceAuthorization){
+      const decision=permissions.sourceAuthorization(sourceKind,'read',sourceId);
+      return {canRead:decision.allowed,blocked:!decision.allowed&&decision.reason!=='not_granted',emptyVisible:true};
+    }
     return {canRead:!!row&&!!permissions.venueResources,emptyVisible:!!row};
   }
   return {canRead:false,emptyVisible:false};

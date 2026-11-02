@@ -17,6 +17,14 @@ class IdentityError extends Error {
 let accountExists = false;
 let sessionQueries = 0;
 let credentialQueries = 0;
+let authorizationMode = 'shadow';
+const connection = { async query(sql, params) {
+  assert.deepStrictEqual(params, ['org-1']);
+  if (sql.startsWith('SELECT id FROM organizations')) return [[{ id: 'org-1' }]];
+  if (sql.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+  if (sql.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: authorizationMode }]];
+  throw new Error('未处理的SQL：' + sql);
+} };
 
 const identityModel = {
   IdentityError,
@@ -44,7 +52,7 @@ const identityModel = {
 };
 
 const mocks = {
-  '../../config/db': {},
+  '../../config/db': { withTransaction: callback => callback(connection) },
   '../models/unifiedIdentity': identityModel,
   '../models/systemConfig': { async get() { return { timezone: 8, timezone_config_version: 1 }; } },
   '../services/unifiedAuth': {
@@ -115,6 +123,9 @@ async function run() {
   assert.strictEqual(existing.passphraseSet, true);
   assert.strictEqual(sessionQueries, 1);
   assert.strictEqual(credentialQueries, 1);
+
+  authorizationMode = 'enforced';
+  assert.strictEqual((await invoke()).status, 'permission_denied', '旧模式读取不得在权限切换后继续返回旧响应');
 
   console.log('管理端无账号成员安全状态查询测试通过');
 }

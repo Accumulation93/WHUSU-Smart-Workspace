@@ -7,6 +7,7 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
+    <AuthorizedManagementTabs sub-app="venue" :business-label="copy.venue.title" :blocked="!!bookingVenue">
     <VenueNav active="browse" />
 
     <section class="card stack">
@@ -34,6 +35,7 @@
         </div>
       </div>
     </section>
+    </AuthorizedManagementTabs>
     <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
     <VenueScheduleDialog v-if="scheduleVenue" :venue="scheduleVenue" @close="scheduleVenue = null" @book="bookFromSchedule" />
     <VenueBookingDialog v-if="bookingVenue" :venue="bookingVenue" :initial-date="bookingSelection.date" :initial-time="bookingSelection.time" @close="closeBooking" @saved="bookingSaved" />
@@ -47,6 +49,7 @@ import VenueBookingDialog from '@/components/VenueBookingDialog.vue';
 import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import AuthorizedManagementTabs from '@/components/AuthorizedManagementTabs.vue';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';

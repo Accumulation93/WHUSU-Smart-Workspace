@@ -58,9 +58,9 @@ async function getAuthorizedStampsForIdentityForUpdate(stampIds, identityId, con
   return rows;
 }
 
-async function getAllGrouped() {
+async function getAllGrouped(connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT isa.*, s.name AS stamp_name
      FROM identity_stamp_assignments isa
      JOIN stamps s ON s.id = isa.stamp_id AND s.org_id = isa.org_id

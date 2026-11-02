@@ -297,9 +297,11 @@ module.exports = Behavior({
     },
 
     async loadHrGovernanceRows() {
-      if (!this.data.canVerifyIdentity && !this.data.canRecoverAccounts && !this.data.canGlobalAccountManage) return new Map();
+      if (!this.data.canReadAuthGovernance) return new Map();
+      const request = orgSession.beginRequest(this, 'hrGovernanceRows');
       const organizationId = orgSession.getSnapshot().orgId || '';
       const result = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
+      if (!orgSession.isRequestCurrent(this, request)) return new Map();
       if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
       const selected = new Set(this.data.selectedHrMemberIds || []);
       const rows = (result.rows || []).map((item) => decorateGovernanceRow(item, selected.has(String(item.hrId || item.id || ''))));
@@ -338,11 +340,23 @@ module.exports = Behavior({
     },
 
     applyHrGovernancePermissions(row) {
+      const current = row || {};
+      const enforced = this.data.authorizationEnforced;
+      const verify = this.data.canVerifyIdentity && (!enforced || current.canVerifyIdentity === true);
+      const globalManage = this.data.canGlobalAccountManage && (!enforced || current.canGlobalAccountManage === true);
+      const recover = globalManage && (!enforced || (this.data.canRecoverAccounts && current.canRecoverAccount === true));
+      const authorized = Object.assign({}, current, {
+        canIssueVerification: Boolean(verify && current.canIssueVerification),
+        canRevokeVerification: Boolean(verify && current.canRevokeVerification),
+        canIssueRecovery: Boolean(recover && current.canIssueRecovery),
+        canRevokeRecovery: Boolean(recover && current.canRevokeRecovery),
+        canUnbindWechat: Boolean(globalManage && current.canUnbindWechat)
+      });
       const canSelect = Boolean(row && row.membershipStatus !== 'left' && (
-        (this.data.canVerifyIdentity && (row.canIssueVerification || row.canRevokeVerification))
-        || (this.data.canGlobalAccountManage && (row.canIssueRecovery || row.canRevokeRecovery))
+        authorized.canIssueVerification || authorized.canRevokeVerification
+        || authorized.canIssueRecovery || authorized.canRevokeRecovery
       ));
-      return Object.assign({}, row, { canSelectForAuth: canSelect });
+      return Object.assign(authorized, { canSelectForAuth: canSelect });
     },
 
     buildHrMemberActionState(rows, selectedIds) {
@@ -943,16 +957,19 @@ module.exports = Behavior({
 
     async loadAuthPolicy() {
       if (this.data.authPolicyLoading) return;
+      const request = orgSession.beginRequest(this, 'authPolicyLoad');
       this.setData({ authPolicyLoading: true, authPolicyLoadFailed: false });
       try {
         const result = await callFunction({ name: 'admin/auth/policy', data: { action: 'get' } });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
         this.setData({ authPolicy: mapPolicy(result.policy), authPolicyLoadFailed: false });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({ authPolicyLoadFailed: true });
         throw error;
       } finally {
-        this.setData({ authPolicyLoading: false });
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ authPolicyLoading: false });
       }
     },
 
@@ -1133,6 +1150,7 @@ module.exports = Behavior({
 
     openAuthRecoveryDialog(e) {
       if (!this.data.canGlobalAccountManage) return;
+      if (this.data.authorizationEnforced && !this.data.canRecoverAccounts) return;
       const id = String(e.currentTarget.dataset.id || '');
       const pending = (this._authRecoveryRequestsRaw || []).find((item) => item.id === id)
         || (() => {
@@ -1440,6 +1458,7 @@ module.exports = Behavior({
 
     async approveAuthRecovery() {
       if (!this.data.canGlobalAccountManage) return;
+      if (this.data.authorizationEnforced && !this.data.canRecoverAccounts) return;
       const pending = this.data.pendingAuthRecovery;
       if (!pending || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'recovery-' + pending.id });
@@ -1620,6 +1639,7 @@ module.exports = Behavior({
     },
 
     onAuthPolicySwitch(e) {
+      if (this.data.authorizationEnforced && !this.data.canEditAuthPolicy) return;
       const field = String(e.currentTarget.dataset.field || '');
       if (!field || !this.data.authPolicy) return;
       const authPolicy = Object.assign({}, this.data.authPolicy, { [field]: Boolean(e.detail.value) });
@@ -1627,6 +1647,7 @@ module.exports = Behavior({
     },
 
     onAuthPolicyValue(e) {
+      if (this.data.authorizationEnforced && !this.data.canEditAuthPolicy) return;
       const field = String(e.currentTarget.dataset.field || '');
       if (!field || !this.data.authPolicy) return;
       const value = String(e.detail.value || '');
@@ -1634,6 +1655,7 @@ module.exports = Behavior({
     },
 
     clearAuthPolicyDate(e) {
+      if (this.data.authorizationEnforced && !this.data.canEditAuthPolicy) return;
       const prefix = String(e.currentTarget.dataset.prefix || '');
       if (!prefix || !this.data.authPolicy) return;
       const authPolicy = Object.assign({}, this.data.authPolicy);
@@ -1643,21 +1665,25 @@ module.exports = Behavior({
     },
 
     async saveAuthPolicy() {
+      if (this.data.authorizationEnforced && !this.data.canEditAuthPolicy) return;
       const policy = this.data.authPolicy;
       if (!policy || this.data.authActionLoadingKey) return;
+      const request = orgSession.beginRequest(this, 'authPolicySave');
       this.setData({ authActionLoadingKey: 'policy-save' });
       try {
         const result = await callFunction({ name: 'admin/auth/policy', data: Object.assign({}, policy, {
           claimStartsAt: combinePolicyDateTime(policy.claimStartsDate, policy.claimStartsTime),
           claimEndsAt: combinePolicyDateTime(policy.claimEndsDate, policy.claimEndsTime)
         }) });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
         this.setData({ authPolicy: mapPolicy(result.policy || policy) });
         showShortToast(localeCopy.copy_0aacec2714, 'success');
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ authActionLoadingKey: '' });
       }
     }
   }

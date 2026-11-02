@@ -98,4 +98,12 @@ assert.strictEqual(ruleValidationError({
   timeEnd: '10:00'
 }), '按重复次数时请输入至少1次');
 
-console.log('场地活动周期、时间范围与重复次数测试通过');
+const intervalValues = { startDate: '2026-11-02', startTime: '22:00', endDate: '2026-11-03', endTime: '02:00',
+  intervalUnit: 'week', intervalValue: 2, repeatCount: 3 };
+assert.equal(ruleValidationError({ cycleType: 'repeat', cycleValues: intervalValues }), null);
+for (const patch of [{ startDate: '2026-02-30' }, { endDate: '2026-02-30' }, { endDate: '2026-11-01' },
+  { startTime: '25:00' }, { intervalUnit: 'month' }, { intervalValue: 0 }, { intervalValue: 367 },
+  { intervalValue: 1.5 }, { repeatCount: 0 }, { repeatCount: 1001 }, { repeatCount: 2.5 }]) {
+  assert.equal(typeof ruleValidationError({ cycleType: 'repeat', cycleValues: { ...intervalValues, ...patch } }), 'string');
+}
+console.log('场地活动周期、时间范围与重复次数测试通过；旧间隔规则的11种非法时间和重复参数均拒绝。');

@@ -6,6 +6,8 @@ Component({
     canDirect: { type: Boolean, value: false },
     copy: { type: Object, value: {} },
     orgs: { type: Array, value: [] },
+    members: { type: Array, value: [] },
+    selectedMembers: { type: Array, value: [] },
     sourceIndex: { type: Number, value: 0 },
     sourceOrgName: { type: String, value: '' },
     hasToken: { type: Boolean, value: false },
@@ -13,10 +15,14 @@ Component({
     report: { type: Array, value: [] },
     conflicts: { type: Array, value: [] }
   },
+  data: { memberPickerVisible: false },
   methods: {
     onSourceChange(e) {
       this.triggerEvent('sourcechange', { index: Number(e.detail.value) });
     },
+    openMembers() { if (!this.data.loading && this.data.sourceOrgName) this.setData({ memberPickerVisible: true }); },
+    closeMembers() { this.setData({ memberPickerVisible: false }); },
+    confirmMembers(e) { this.setData({ memberPickerVisible: false }); this.triggerEvent('memberschange', e.detail); },
     onFieldActionChange(e) {
       this.triggerEvent('fieldactionchange', {
         index: Number(e.currentTarget.dataset.index),
@@ -39,12 +45,16 @@ Component({
       this.triggerEvent('batchconflict', { policy: e.currentTarget.dataset.policy });
     },
     onPreview() {
+      if (this.data.loading || this.data.submitting) return;
       this.triggerEvent('preview');
     },
     onApply() {
+      if (this.data.loading || this.data.submitting || !this.data.hasToken) return;
       this.triggerEvent('apply');
     },
     onClose() {
+      if (this.data.loading || this.data.submitting) return;
+      this.setData({ memberPickerVisible: false });
       this.triggerEvent('close');
     },
     noop() {}

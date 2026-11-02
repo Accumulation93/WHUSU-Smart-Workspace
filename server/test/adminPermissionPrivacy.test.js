@@ -14,6 +14,7 @@ function substitute(relative, exports) {
 }
 substitute('../src/config/db', {});
 substitute('../src/core/models/adminPermission', {
+  async isLegacyReadOnly() { return false; },
   async listTargets(orgId) { assert.strictEqual(orgId, 'org-a'); return [target]; },
   async getTarget(orgId, id) { return orgId === target.org_id && id === target.id ? target : null; },
   async getOverrides(orgId, adminId) {
@@ -83,5 +84,12 @@ app.use(require('../src/core/routes/adminPermissions'));
   definition.onKeywordInput.call(page, { detail: { value: target.name } });
   assert.strictEqual(page.data.filteredAdmins.length, 1);
   assert.strictEqual(/studentId|student_id/.test(fs.readFileSync(pagePath + '.wxml', 'utf8')), false);
+  const readonlyPage = { data: { readOnly: true, saving: false, selectedAdmin: { id: 'target' },
+    permissionGroups: [{ editableCount: 1, permissions: [{ key: 'read', editable: true, granted: false }] }] },
+    setData() { throw new Error('只读界面不得修改权限草稿'); } };
+  definition.onPermissionChange.call(readonlyPage, { currentTarget: { dataset: { groupIndex: 0, permissionIndex: 0 } }, detail: { value: true } });
+  definition.onGroupChange.call(readonlyPage, { currentTarget: { dataset: { groupIndex: 0 } }, detail: { value: true } });
+  await definition.savePermissions.call(readonlyPage);
+  assert.equal(readonlyPage.data.permissionGroups[0].permissions[0].granted, false);
   console.log('权限目录与详情的学号保护、跨组织拒绝及小程序搜索测试通过');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -235,6 +235,7 @@ mapAny(['/listAllVenueBookings'], ['venue.bookings', 'venue.approvals', 'venue.b
 mapRoutes('venue.bookings', ['/createAdminVenueBooking']);
 mapRoutes('venue.bookings_delete', ['/previewVenueBookingDeletion', '/deleteVenueBooking']);
 mapRoutes('venue.approvals', [
+  '/getVenueRuleCandidates',
   '/listVenueBookingRules', '/saveVenueBookingWindow', '/saveVenueBookingRule', '/deleteVenueBookingRule',
   '/getVenueApprovalFlow', '/saveVenueApprovalFlow', '/deleteVenueApprovalFlow', '/saveVenueApprovalStep',
   '/saveVenueApprovalWholeFlow', '/deleteVenueApprovalStep', '/saveVenueApprovalStepRule', '/deleteVenueApprovalStepRule',
@@ -253,7 +254,7 @@ mapRoutes('venue.purposes', ['/saveVenueBookingPurpose', '/deleteVenueBookingPur
 mapRoutes('system.admin_accounts.read', ['/listAdmins', '/exportAdmins', '/listUserBindings']);
 mapAny(['/saveAdmin', '/deleteAdmin'], ['system.admin_accounts.write', 'hr.people']);
 mapRoutes('system.admin_accounts.write', [
-  '/createAdminInvite', '/generateAdminInviteCode'
+  '/createAdminInvite', '/generateAdminInviteCode', '/getAdminAccountCandidates'
 ]);
 mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations', '/admin/health']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);

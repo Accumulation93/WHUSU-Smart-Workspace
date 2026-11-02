@@ -79,6 +79,7 @@ module.exports = Behavior({
     },
 
     openCrossOrgMigration() {
+      if (!this.data.canRequestProfileMigration && !this.data.canExecuteProfileMigration) return;
       const request = orgSession.beginRequest(this, 'crossOrgMigration');
       this.setData({ crossOrgMigrationVisible: true, crossOrgMigrationLoading: true });
       this.callCloud('getCrossOrgMigrationContext', {})
@@ -87,6 +88,7 @@ module.exports = Behavior({
           if (result.status !== 'success') return showShortToast(result.message || copy.failed);
           this.setData({
             crossOrgMigrationOrgs: result.visibleOrgs || [],
+            crossOrgMigrationMembers: [], crossOrgMigrationSelectedMembers: [],
             canDirectCrossOrgMigration: Boolean(result.canDirect),
             crossOrgMigrationSourceOrgId: '',
             crossOrgMigrationSourceFields: [],
@@ -97,14 +99,16 @@ module.exports = Behavior({
             crossOrgMigrationToken: ''
           });
         })
-        .catch((error) => showShortToast(getErrorText(error, copy.failed)))
-        .then(() => this.setData({ crossOrgMigrationLoading: false }));
+        .catch((error) => { if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, copy.failed)); })
+        .then(() => { if (orgSession.isRequestCurrent(this, request)) this.setData({ crossOrgMigrationLoading: false }); });
     },
 
     closeCrossOrgMigration() {
       orgSession.beginRequest(this, 'crossOrgMigration');
       this.setData({
         crossOrgMigrationVisible: false,
+        crossOrgMigrationMembers: [], crossOrgMigrationSelectedMembers: [],
+        crossOrgMigrationLoading: false, crossOrgMigrationSubmitting: false,
         crossOrgMigrationSourceOrgId: '',
         crossOrgMigrationFieldPlan: [],
         crossOrgMigrationReport: null,
@@ -114,6 +118,7 @@ module.exports = Behavior({
     },
 
     onCrossOrgSourceChange(e) {
+      if (this.data.crossOrgMigrationSubmitting) return;
       const index = Number(e.detail.value);
       const org = (this.data.crossOrgMigrationOrgs || [])[index] || {};
       const sourceOrgId = org.id || '';
@@ -122,7 +127,10 @@ module.exports = Behavior({
         crossOrgMigrationSourceOrgId: sourceOrgId,
         crossOrgMigrationSourceIndex: index,
         crossOrgMigrationSourceOrgName: org.name || '',
-        crossOrgMigrationLoading: true
+        crossOrgMigrationLoading: true,
+        crossOrgMigrationMembers: [], crossOrgMigrationSelectedMembers: [],
+        crossOrgMigrationFieldPlan: [], crossOrgMigrationToken: '',
+        crossOrgMigrationReport: [], crossOrgMigrationConflicts: []
       });
       this.callCloud('getCrossOrgMigrationContext', { sourceOrgId })
         .then((result) => {
@@ -131,6 +139,8 @@ module.exports = Behavior({
           const plan = buildFieldPlan(result.sourceFields || [], result.targetFields || []);
           this.setData({
             crossOrgMigrationSourceFields: result.sourceFields || [],
+            crossOrgMigrationMembers: (result.members || []).map(item => ({ id: item.personId, personId: item.personId, name: item.name })),
+            crossOrgMigrationSelectedMembers: [],
             crossOrgMigrationTargetFields: result.targetFields || [],
             crossOrgMigrationFieldPlan: plan,
             crossOrgMigrationReport: null,
@@ -139,11 +149,12 @@ module.exports = Behavior({
           });
           if (!plan.length) showShortToast(copy.noSourceFields);
         })
-        .catch((error) => showShortToast(getErrorText(error, copy.failed)))
-        .then(() => this.setData({ crossOrgMigrationLoading: false }));
+        .catch((error) => { if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, copy.failed)); })
+        .then(() => { if (orgSession.isRequestCurrent(this, request)) this.setData({ crossOrgMigrationLoading: false }); });
     },
 
     resolveCrossOrgPersonIds() {
+      if (Array.isArray(this.data.crossOrgMigrationSelectedMembers)) return this.data.crossOrgMigrationSelectedMembers.map(item => item.personId).filter(Boolean);
       const selected = new Set(this.data.selectedHrMemberIds || []);
       const rows = (this._hrProfileFilteredRows && this._hrProfileFilteredRows.length)
         ? this._hrProfileFilteredRows
@@ -154,8 +165,13 @@ module.exports = Behavior({
       });
       return Array.from(new Set(ids));
     },
+    onCrossOrgMembersChange(e) {
+      this.setData({ crossOrgMigrationSelectedMembers: e.detail.items || [], crossOrgMigrationToken: '', crossOrgMigrationReport: [], crossOrgMigrationConflicts: [] });
+    },
 
     async previewCrossOrgMigration() {
+      if (this.data.crossOrgMigrationLoading || this.data.crossOrgMigrationSubmitting) return;
+      if (!this.data.canRequestProfileMigration && !this.data.canExecuteProfileMigration) return;
       const sourceOrgId = this.data.crossOrgMigrationSourceOrgId;
       if (!sourceOrgId) return showShortToast(copy.sourceOrgPlaceholder);
       const personIds = this.resolveCrossOrgPersonIds();
@@ -166,9 +182,11 @@ module.exports = Behavior({
         targetTemplateFieldId: item.targetTemplateFieldId,
         conflictPolicy: item.conflictPolicy || 'keep'
       }));
+      const request = orgSession.beginRequest(this, 'crossOrgMigration');
       this.setData({ crossOrgMigrationLoading: true });
       try {
         const result = await this.callCloud('previewCrossOrgMigration', { sourceOrgId, personIds, fieldActions });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success' && result.status !== 'mapping_blocked') {
           return showShortToast(result.message || copy.failed);
         }
@@ -181,9 +199,9 @@ module.exports = Behavior({
           crossOrgMigrationSummary: result.summary || null
         });
       } catch (error) {
-        showShortToast(getErrorText(error, copy.failed));
+        if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, copy.failed));
       } finally {
-        this.setData({ crossOrgMigrationLoading: false });
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ crossOrgMigrationLoading: false });
       }
     },
 
@@ -249,12 +267,15 @@ module.exports = Behavior({
     },
 
     async applyCrossOrgMigration() {
+      if (this.data.crossOrgMigrationLoading || this.data.crossOrgMigrationSubmitting) return;
+      if (this.data.canDirectCrossOrgMigration ? !this.data.canExecuteProfileMigration : !this.data.canRequestProfileMigration) return;
       const sourceOrgId = this.data.crossOrgMigrationSourceOrgId;
       const personIds = this.resolveCrossOrgPersonIds();
       if (!sourceOrgId || !personIds.length) return showShortToast(copy.noMembers);
       if (!this.data.crossOrgMigrationToken) return showShortToast(copy.failed);
       const direct = Boolean(this.data.canDirectCrossOrgMigration);
       const name = direct ? 'applyCrossOrgMigration' : 'submitCrossOrgMigrationRequest';
+      const request = orgSession.beginRequest(this, 'crossOrgMigration');
       this.setData({ crossOrgMigrationSubmitting: true });
       try {
         const result = await this.callCloud(name, {
@@ -263,20 +284,24 @@ module.exports = Behavior({
           fieldActions: this.buildCrossOrgFieldActions(),
           switchToken: this.data.crossOrgMigrationToken
         });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') return showShortToast(result.message || copy.failed);
         showShortToast(direct ? copy.success : copy.submitted, 'success');
         this.closeCrossOrgMigration();
         this.loadCrossOrgMigrationRequests();
       } catch (error) {
-        showShortToast(getErrorText(error, copy.failed));
+        if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, copy.failed));
       } finally {
-        this.setData({ crossOrgMigrationSubmitting: false });
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ crossOrgMigrationSubmitting: false });
       }
     },
 
     async loadCrossOrgMigrationRequests() {
+      if (!this.data.canReadProfileMigration) return;
+      const request = orgSession.beginRequest(this, 'crossOrgRequests');
       try {
         const result = await this.callCloud('listCrossOrgMigrationRequests', {});
+        if (this._pageVisible === false || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') return;
         this.setData({
           crossOrgMyRequests: result.myRequests || [],
@@ -286,6 +311,7 @@ module.exports = Behavior({
     },
 
     async reviewCrossOrgMigrationRequest(e) {
+      if (!this.data.canApproveProfileMigration) return;
       const id = e.currentTarget.dataset.id;
       const action = e.currentTarget.dataset.action;
       if (action === 'reject') {
@@ -307,6 +333,7 @@ module.exports = Behavior({
     },
 
     async submitCrossOrgReview(id, action, reason) {
+      if (!this.data.canApproveProfileMigration) return;
       try {
         const result = await this.callCloud('reviewCrossOrgMigrationRequest', { id, action, reason });
         if (result.status !== 'success') return showShortToast(result.message || copy.failed);
@@ -318,6 +345,7 @@ module.exports = Behavior({
     },
 
     async cancelCrossOrgMigrationRequest(e) {
+      if (!this.data.canRequestProfileMigration) return;
       const id = e.currentTarget.dataset.id;
       try {
         const result = await this.callCloud('cancelCrossOrgMigrationRequest', { id });

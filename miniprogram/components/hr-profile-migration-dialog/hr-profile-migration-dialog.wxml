@@ -1,4 +1,4 @@
-<viewport-portal wx:if="{{visible}}">
+<viewport-portal wx:if="{{visible && !memberPickerVisible}}">
 <view class="modal-mask ui-overlay" bindtap="onClose">
   <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
   <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
@@ -16,6 +16,7 @@
           <view class="picker-value">{{sourceOrgName || copy.sourceOrgPlaceholder}}</view>
         </picker>
       </view>
+      <view class="field"><button class="secondary-btn ui-motion-button" disabled="{{loading || !sourceOrgName}}" bindtap="openMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.selectMembers}}</button><view class="field-hint">{{copy.selectedPrefix}}{{selectedMembers.length}}{{copy.selectedSuffix}}</view></view>
       <view class="section-title">{{copy.fieldPlanTitle}}</view>
       <view class="hr-switch-source" wx:for="{{fieldPlan}}" wx:key="sourceFieldId">
         <view class="hr-switch-source-head">
@@ -88,3 +89,4 @@
   </view>
 </view>
 </viewport-portal>
+<personnel-picker visible="{{visible && memberPickerVisible}}" title="{{copy.selectMembers}}" options="{{members}}" value="{{selectedMembers}}" selection-level="person" bindconfirm="confirmMembers" bindcancel="closeMembers" />

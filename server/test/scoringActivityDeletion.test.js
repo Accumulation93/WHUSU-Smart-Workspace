@@ -13,6 +13,9 @@ const operations = [];
 const connection = {
   async query(sql) {
     const normalized = String(sql).replace(/\s+/g, ' ').trim();
+    if (normalized.startsWith('SELECT id FROM organizations WHERE id=? FOR UPDATE')) return [[{ id: 'org-1' }]];
+    if (normalized.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+    if (normalized.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
     if (normalized.startsWith('SELECT id FROM score_activities')) return [[{ id: 'activity-1' }]];
     if (normalized.startsWith('SELECT (SELECT COUNT(*) FROM score_records')) {
       return [[{ score_count: scoreCount, publication_count: publicationCount }]];

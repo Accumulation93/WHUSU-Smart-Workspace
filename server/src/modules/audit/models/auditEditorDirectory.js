@@ -6,14 +6,14 @@ const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
 
 // 审核编辑只返回名称与岗位选择所需字段，不读取学号或补充资料。
-async function people() {
+async function people(connection = pool) {
   const orgId = await getCurrentOrgId();
   const [[rows], [assignments]] = await Promise.all([
-    pool.query(`SELECT h.id, p.name FROM hr_info h
+    connection.query(`SELECT h.id, p.name FROM hr_info h
       JOIN organization_memberships om ON om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
       JOIN persons p ON p.id = om.person_id AND p.status = 'active'
       WHERE h.org_id = ? ORDER BY p.name, h.id`, [orgId]),
-    pool.query(`SELECT ma.id AS assignment_id, om.legacy_hr_id AS hr_id,
+    connection.query(`SELECT ma.id AS assignment_id, om.legacy_hr_id AS hr_id,
       ma.department_id, d.name AS department_name, ma.identity_id, i.name AS identity_name,
       ma.work_group_id, wg.name AS work_group_name
       FROM membership_assignments ma
@@ -37,7 +37,17 @@ async function people() {
       workGroupId: item.work_group_id, workGroup: item.work_group_name
     })) }));
 }
-async function templates() {
+async function templates(connection) {
+  if (connection) {
+    const orgId = await getCurrentOrgId();
+    const [members, [departments], [identities], [workGroups]] = await Promise.all([
+      people(connection),
+      connection.query('SELECT id,name FROM departments WHERE org_id=? ORDER BY name,id', [orgId]),
+      connection.query('SELECT id,name FROM identities WHERE org_id=? ORDER BY name,id', [orgId]),
+      connection.query('SELECT id,name,department_id AS departmentId FROM work_groups WHERE org_id=? ORDER BY name,id', [orgId])
+    ]);
+    return { people: members, departments, identities, workGroups };
+  }
   const [members, departments, identities, workGroups] = await Promise.all([
     people(), departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
   ]);

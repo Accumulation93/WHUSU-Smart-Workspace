@@ -1,0 +1,3 @@
+@import './venueManage.wxss';
+
+.venue-management-embedded { width: 100%; min-width: 0; }

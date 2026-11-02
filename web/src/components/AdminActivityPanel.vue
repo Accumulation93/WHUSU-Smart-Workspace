@@ -34,9 +34,9 @@
             <span v-if="row.startDate || row.endDate" class="muted">{{ row.startDate }} {{ row.endDate }}</span>
           </div>
           <div class="card-actions">
-            <button v-if="canWriteRecord && !row.isCurrent" class="btn-quiet" type="button" :disabled="blocked" @click="act(row, 'current')">{{ ui.copy_726cfc3525 }}</button>
-            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canWriteRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
-            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canWriteRecord" @click="act(row, 'pause')">{{ row.isPaused ? ui.copy_0735ccbfbd : ui.copy_74e00681c9 }}</button>
+            <button v-if="canUpdateRecord && !row.isCurrent" class="btn-quiet" type="button" :disabled="blocked" @click="act(row, 'current')">{{ ui.copy_726cfc3525 }}</button>
+            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canUpdateRecord" @click="edit(row)">{{ ui.copy_e040ae3016 }}</button>
+            <button class="btn-quiet" type="button" :disabled="blocked" v-if="canUpdateRecord" @click="act(row, 'pause')">{{ row.isPaused ? ui.copy_0735ccbfbd : ui.copy_74e00681c9 }}</button>
             <button class="btn-quiet btn-quiet-danger" type="button" :disabled="blocked" v-if="canDeleteRecord" @click="act(row, 'delete')">{{ ui.copy_acc985cabc }}</button>
           </div>
         </article>
@@ -47,8 +47,9 @@
 
 <script setup>
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
-const canDeleteRecord = useAdminCapability('scoring.activities.delete');
-const canWriteRecord = useAdminCapability('scoring.activities');
+const canDeleteRecord = useAdminCapability('scoring.activities.delete', 'scoring.activities.delete');
+const canUpdateRecord = useAdminCapability('scoring.activities', 'scoring.activities.update');
+const canWriteRecord = useAdminCapability('scoring.activities', () => props.state.form.id ? 'scoring.activities.update' : 'scoring.activities.create');
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/activityBehavior.js';
@@ -75,7 +76,7 @@ function reset() {
   actionNotice.value = '';
 }
 async function edit(row) {
-  if (blocked.value) return;
+  if (blocked.value || !canUpdateRecord.value) return;
   Object.assign(form.value, { id: row.id, name: row.name, description: row.description || '', startDate: row.startDate || '', endDate: row.endDate || '' });
   actionNotice.value = '';
   await nextTick(); editor.value?.scrollIntoView({ block: 'start' });
@@ -99,7 +100,7 @@ async function load() {
   } finally { if (current()) loading.value = false; }
 }
 async function save() {
-  if (blocked.value) return;
+  if (blocked.value || !canWriteRecord.value) return;
   if (!form.value.name.trim()) { actionNotice.value = messages.copy_e394895492; return; }
   const { id, description, startDate, endDate } = form.value;
   const payload = { id, name: form.value.name.trim(), description, startDate, endDate };
@@ -115,7 +116,7 @@ async function save() {
   finally { if (!disposed && expected === scope()) busy.value = false; }
 }
 async function act(row, action) {
-  if (blocked.value) return;
+  if (blocked.value || (action === 'delete' ? !canDeleteRecord.value : !canUpdateRecord.value)) return;
   const target = { id: row.id, name: row.name };
   const expected = scope();
   const current = () => !disposed && expected === scope();

@@ -1,5 +1,6 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/adminPermissions');
 const accountCopy = require('../../locales/zh-CN/core/adminAccount');
+const authorizationCopy = require('../../locales/zh-CN/authorization');
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
@@ -89,7 +90,9 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
         applicableCount
       });
     }
-    res.json({ status: 'success', list: items, operatorLevel: operator.admin_level });
+    const readOnly = await adminPermissionModel.isLegacyReadOnly(orgId);
+    res.json({ status: 'success', list: items, operatorLevel: operator.admin_level, readOnly,
+      message: readOnly ? authorizationCopy.legacyReadOnly : '' });
   } catch (error) {
     req.logger.error('List permission targets failed', { error: error.message });
     res.status(500).json({ status: 'error', message: localeCopy.copy_6026566679 });
@@ -105,7 +108,8 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
       return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_1cf137dd0d });
     }
     const targetEffective = await loadEffectivePermissions(target, orgId);
-    const editableKeys = editablePermissionKeys(operator, effective, target, orgId, targetEffective);
+    const readOnly = await adminPermissionModel.isLegacyReadOnly(orgId);
+    const editableKeys = readOnly ? [] : editablePermissionKeys(operator, effective, target, orgId, targetEffective);
     res.json({
       status: 'success',
       admin: {
@@ -114,7 +118,8 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
         adminLevel: target.admin_level,
         adminLevelLabel: levelLabel(target.admin_level)
       },
-      groups: serializeCatalog(target.admin_level, targetEffective.permissions, editableKeys)
+      groups: serializeCatalog(target.admin_level, targetEffective.permissions, editableKeys),
+      readOnly, message: readOnly ? authorizationCopy.legacyReadOnly : ''
     });
   } catch (error) {
     req.logger.error('Get admin permission detail failed', { error: error.message });
@@ -198,6 +203,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
       try { await connection.rollback(); } catch (_) {}
     }
     if (error.code === 'forbidden') return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_1cf137dd0d });
+    if (error.code === 'authorization_legacy_read_only') return res.status(409).json({ status: error.code, message: authorizationCopy.legacyReadOnly });
     req.logger.error('Save admin permissions failed', { error: error.message });
     res.status(500).json({ status: 'error', message: localeCopy.copy_215e3c57da });
   } finally {

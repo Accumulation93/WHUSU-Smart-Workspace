@@ -31,15 +31,15 @@ function presentCandidate(row) {
   });
 }
 
-async function listCandidates() {
+async function listCandidates(connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(candidateSelect + ' ORDER BY p.name, ma.id', [orgId]);
+  const [rows] = await connection.query(candidateSelect + ' ORDER BY p.name, ma.id', [orgId]);
   return rows.map(presentCandidate);
 }
 
-async function listGrants() {
+async function listGrants(connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT g.stamp_id AS stampId, g.assignment_id AS assignmentId, g.person_id AS personId,
         p.name, d.name AS departmentName, i.name AS identityCategoryName, wg.name AS workGroupName,
         (ma.status = 'active' AND om.status = 'active' AND p.status = 'active'
@@ -56,11 +56,14 @@ async function listGrants() {
   return rows.map(row => presentCandidate(Object.assign({}, row, { available: Number(row.available) === 1 })));
 }
 
-async function replaceForStamp(stampId, value) {
+async function replaceForStamp(stampId, value, reference) {
   const assignmentIds = normalizeAssignmentIds(value);
   if (!assignmentIds || typeof stampId !== 'string' || !stampId || stampId.length > 64) return { status: 'invalid_params' };
   const orgId = await getCurrentOrgId();
   return pool.withTransaction(async connection => {
+    const authorization = require('./auditManagementAuthorization');
+    const activeSession = await authorization.session(connection, orgId, reference);
+    authorization.check(activeSession, orgId, 'audit.stamps', 'update', stampId, ['assignedPeople']);
     let candidates = [];
     if (assignmentIds.length) {
       const marks = assignmentIds.map(() => '?').join(',');

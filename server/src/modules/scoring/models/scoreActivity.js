@@ -1,9 +1,9 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-async function getAll() {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM score_activities WHERE org_id = ? ORDER BY created_at DESC', [orgId]);
+async function getAll(connection = pool, organizationId) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query('SELECT * FROM score_activities WHERE org_id = ? ORDER BY created_at DESC', [orgId]);
   return rows;
 }
 
@@ -13,15 +13,15 @@ async function getById(id) {
   return rows[0] || null;
 }
 
-async function getCurrent() {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM score_activities WHERE is_current = 1 AND org_id = ? LIMIT 1', [orgId]);
+async function getCurrent(connection = pool, organizationId) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query('SELECT * FROM score_activities WHERE is_current = 1 AND org_id = ? LIMIT 1', [orgId]);
   return rows[0] || null;
 }
 
-async function getLatestPublished() {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+async function getLatestPublished(connection = pool, organizationId) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query(
     `SELECT activity.*
        FROM result_publications publication
        INNER JOIN score_activities activity

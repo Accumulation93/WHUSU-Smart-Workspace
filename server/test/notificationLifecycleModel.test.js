@@ -17,6 +17,7 @@ const pool = {
 
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
+  if (request === './notificationAuthorization') return { prepare: async () => ({ scope: () => ({ sql: '1 = 1', params: [] }), calendarPermissions: {}, expiresAt: Infinity }) };
   if (request === '../../../config/db') return pool;
   if (request === '../../../utils/orgContext') return { async getCurrentOrgId() { return 'org-a'; } };
   return originalLoad.call(this, request, parent, isMain);

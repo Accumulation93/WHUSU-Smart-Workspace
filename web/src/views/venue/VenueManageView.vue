@@ -1,6 +1,6 @@
 <template>
-  <div class="page stack">
-    <WorkspaceHero tone="admin" :page-name="ui.copy_9ba3b8c8a9 + ' · ' + ui.copy_02719d6557" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
+  <div :class="embedded ? 'stack' : 'page stack'">
+    <WorkspaceHero v-if="!embedded" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="ui.copy_9ba3b8c8a9 + ' · ' + ui.copy_02719d6557" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
     <section v-if="permissionLoading || permissionNotice || !visibleTabs.length" class="card stack">
       <p v-if="permissionLoading" class="muted"><AppLoading :text="copy.common.loading" /></p>
       <template v-else-if="permissionNotice"><p role="alert">{{ permissionNotice }}</p><button type="button" class="btn btn-secondary" @click="loadPermissions">{{ copy.common.retry }}</button></template>
@@ -12,13 +12,14 @@
     <section v-if="allowed && activeTab === 'venue'" class="card stack">
       <div class="panel-head">
         <div class="stack-tight"><span class="section-title">{{ ui.copy_efffdc0050 }}</span><p class="muted">{{ ui.copy_257b230e01 }}</p></div>
-        <button type="button" v-if="hasAny(['venue.resources'])" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
+        <button type="button" v-if="can('venue.resources', 'venue.resources.create')" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
       </div>
       <p v-if="loadNotice" role="alert" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button>
       <p v-if="actionNotice && !editing" role="alert" class="notice-line">{{ actionNotice }}</p>
       <div v-if="loading && !venues.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
-      <div v-else-if="!loading && !loadNotice && !venues.length" class="empty-state">{{ ui.copy_5e9f82c1cf }}</div>
+      <div v-else-if="!loading && !loadNotice && !venues.length && !configurationVenues.length" class="empty-state">{{ ui.copy_5e9f82c1cf }}</div>
+      <div v-if="canConfigureRules && configurationOnly.length" class="list"><article v-for="venue in configurationOnly" :key="venue.id" class="list-row"><strong class="list-row-main">{{ venue.name }}</strong><button class="btn-quiet" :disabled="blocked" @click="rulesVenue=venue">{{ ui.copy_f10a13b6e1 }}</button></article></div>
       <div class="list">
         <div v-for="venue in venues" :key="venue.id" class="list-row venue-resource">
           <div class="list-row-main stack-tight">
@@ -27,18 +28,18 @@
             <span v-if="venue.description" class="muted break-all">{{ venue.description }}</span>
           </div>
           <div class="row row-wrap">
-            <button type="button" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
+            <button v-if="canConfigureRules" type="button" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
             <button type="button" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
-            <button type="button" class="btn-quiet" :disabled="blocked" v-if="hasAny(['venue.resources'])" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
-            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="hasAny(['venue.resources.delete'])" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
+            <button type="button" class="btn-quiet" :disabled="blocked" v-if="can('venue.resources', 'venue.resources.update')" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
+            <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="can('venue.resources.delete', 'venue.resources.delete')" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
           </div>
         </div>
       </div>
     </section>
-    <VenueAdminBookings v-if="activeTab === 'bookings' && hasAny(['venue.bookings', 'venue.approvals', 'venue.bookings_delete'])" :key="scope()" :state="bookingState" :can-approve="hasAny(['venue.approvals'])" :can-delete="hasAny(['venue.bookings_delete'])" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
-    <VenuePurposesPanel v-if="activeTab === 'purposes' && hasAny(['venue.purposes', 'venue.purposes.delete'])" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
-    <VenuePendingView v-if="activeTab === 'pending' && hasAny(['venue.approvals']) && !permissionLoading && !permissionNotice" :key="scope()" embedded @busy="childBusy = $event" @editing="bookingEditing = $event" />
-    <footer class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
+    <VenueAdminBookings v-if="activeTab === 'bookings' && tabAllowed('bookings')" :key="scope()" :state="bookingState" :can-approve="can('venue.approvals', 'venue.bookings.approve')" :can-delete="can('venue.bookings_delete', 'venue.bookings.delete')" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" @editing="bookingEditing = $event" />
+    <VenuePurposesPanel v-if="activeTab === 'purposes' && tabAllowed('purposes')" :key="scope()" :state="purposeState" :disabled="permissionLoading || !!permissionNotice" @busy="childBusy = $event" />
+    <VenuePendingView v-if="activeTab === 'pending' && tabAllowed('pending') && !permissionLoading && !permissionNotice" :key="scope()" embedded @busy="childBusy = $event" @editing="bookingEditing = $event" />
+    <footer v-if="!embedded" class="page-footer"><div class="footer-name">{{ copy.common.appName }}</div><div class="footer-org">{{ copy.common.organizationName }}</div></footer>
   </div>
   <GlassDialog v-if="editing" :title="form.id ? ui.copy_1ba7eec34e : ui.copy_a78ce83cab" :busy="busy" @close="closeEditor">
     <label class="field"><span class="field-label">{{ ui.copy_70ae057f15 }}</span><input v-model="form.name" class="field-input" :placeholder="ui.copy_8ed5dab532" :disabled="blocked" /></label>
@@ -50,13 +51,13 @@
     <template #footer><div class="venue-editor-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="closeEditor">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" :disabled="blocked" @click="save">{{ ui.copy_c701dd2fcc }}</button></div></template>
   </GlassDialog>
   <GlassDialog v-if="switchGuard" compact :title="ui.copy_40859eeee7" @close="switchGuard = false"><p>{{ ui.copy_2406186d54 }}</p></GlassDialog>
-  <VenueScheduleDialog v-if="scheduleVenue" :key="scope()" :venue="scheduleVenue" admin-mode :can-book="hasAny(['venue.bookings'])" @close="scheduleVenue = null" @busy="childBusy = $event" @editing="bookingEditing = $event" />
+  <VenueScheduleDialog v-if="scheduleVenue" :key="scope()" :venue="scheduleVenue" admin-mode :can-book="can('venue.bookings', 'venue.bookings.createApproved')" @close="scheduleVenue = null" @busy="childBusy = $event" @editing="bookingEditing = $event" />
   <VenueRulesDialog v-if="rulesVenue" :key="scope()" :venue="rulesVenue" :can-approve="hasAny(['venue.approvals'])" @close="rulesVenue = null" @busy="childBusy = $event" @editing="bookingEditing = $event" />
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import VenuePurposesPanel from '@/components/VenuePurposesPanel.vue';
@@ -64,31 +65,45 @@ import VenueAdminBookings from '@/components/VenueAdminBookings.vue';
 import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueRulesDialog from '@/components/VenueRulesDialog.vue';
 import VenuePendingView from './VenuePendingView.vue';
-import { provideAdminCapabilities } from '@/runtime/adminCapabilities.js';
+import { provideAdminCapabilities, hasAdminCapability } from '@/runtime/adminCapabilities.js';
+import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
+import { managementTabAllowed } from '@/shared/authorizationAccessView.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 const router = useRouter();
+const route = useRoute();
+defineProps({ embedded: Boolean });
+const emit = defineEmits(['busy']);
 const venues = ref([]), loading = ref(false), loadNotice = ref(''), actionNotice = ref('');
+const configurationVenues = ref([]);
+const configurationOnly = computed(() => configurationVenues.value.filter(item => !venues.value.some(venue => venue.id === item.id)));
 const permissionLoading = ref(true), permissionNotice = ref(''), profile = ref(null);
 provideAdminCapabilities(profile);
 const editing = ref(false), busy = ref(false), switchGuard = ref(false), savedAwaitingRead = ref(false);
 const form = reactive({ id: '', name: '', location: '', description: '' });
 const purposeState = reactive({ id: '', text: '', awaitingRead: false });
 const bookingState = reactive({ from: '', to: '', status: '', venueId: '', initialized: false });
-const activeTab = ref('venue'), childBusy = ref(false), bookingEditing = ref(false);
+const activeTab = ref(route.query.copyKind === 'venue.purposes' ? 'purposes' : 'venue'), childBusy = ref(false), bookingEditing = ref(false);
 const scheduleVenue = ref(null), rulesVenue = ref(null);
 const allBusy = computed(() => busy.value || childBusy.value);
 const hasAny = keys => profile.value?.adminLevel === 'super_admin' || keys.some(key => profile.value?.permissions?.[key] === true);
+const can = (legacy, capability) => hasAdminCapability(profile.value, legacy, capability);
+const tabAllowed = key => visibleTabs.value.some(tab => tab.key === key);
 const visibleTabs = computed(() => [
   { key: 'venue', label: ui.copy_ceffdfcdd7, permissions: ['venue.resources', 'venue.approvals', 'venue.approvals.delete'] },
   { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals', 'venue.bookings_delete'] },
   { key: 'pending', label: ui.copy_e7f0a24301, permissions: ['venue.approvals'] },
   { key: 'purposes', label: ui.copy_8dcf3fcf0b, permissions: ['venue.purposes'] }
-].filter(tab => hasAny(['pending', 'bookings'].includes(tab.key) ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));
-const allowed = computed(() => hasAny(['venue.resources', 'venue.resources.delete', 'venue.approvals', 'venue.approvals.delete']));
+].filter(tab => profile.value?.authorizationAccess?.mode === 'enforced'
+  ? managementTabAllowed(profile.value.authorizationAccess, tab.key)
+  : hasAny(['pending', 'bookings'].includes(tab.key) ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));
+const allowed = computed(() => tabAllowed('venue'));
+const canConfigureRules = computed(() => profile.value?.authorizationAccess?.mode !== 'enforced' ||
+  ['venue.openRules', 'venue.activityRules', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows']
+    .some(resource => ['read', 'create', 'update', 'delete'].some(action => can('', resource + '.' + action))));
 const blocked = computed(() => busy.value || loading.value || permissionLoading.value || !!permissionNotice.value || !!loadNotice.value || savedAwaitingRead.value || !allowed.value);
 const displayName = computed(() => session.context?.name || session.user?.name || '');
 const orgName = computed(() => session.context?.organizationName || '');
@@ -106,7 +121,7 @@ function switchTab(key) {
   if (key === 'venue') load();
 }
 function edit(row = {}) {
-  if (blocked.value || !hasAny(['venue.resources'])) return;
+  if (blocked.value || !can('venue.resources', 'venue.resources.' + (row.id ? 'update' : 'create'))) return;
   Object.assign(form, { id: row.id || '', name: row.name || '', location: row.location || '', description: row.description || '' });
   actionNotice.value = ''; editing.value = true;
 }
@@ -120,7 +135,7 @@ async function load() {
     const result = requireSuccess(await callApi('listVenues', {}));
     if (!current()) return false;
     if (!Array.isArray(result.venues)) throw new Error();
-    venues.value = result.venues; loadNotice.value = '';
+    venues.value = result.venues; configurationVenues.value = result.configurationVenues || []; loadNotice.value = '';
     if (savedAwaitingRead.value) { savedAwaitingRead.value = false; editing.value = false; }
     return true;
   } catch (error) { if (current()) loadNotice.value = errorText(error, ui.copy_e52119b17e); return false; }
@@ -131,21 +146,29 @@ async function loadPermissions() {
   const current = () => !disposed && request === permissionGeneration && expected === scope();
   permissionLoading.value = true; permissionNotice.value = '';
   try {
-    if (session.context?.role !== 'admin') throw new Error(copy.errors.permissionDenied);
-    const result = requireSuccess(await callApi('getMyAdminPermissions', {}));
+    const access = await readCurrentAuthorizationAccess();
+    if (!current() || !access) return;
+    if (access.mode !== 'enforced' && session.context?.role !== 'admin') throw new Error(copy.errors.permissionDenied);
+    const result = access.mode === 'enforced' ? { authorizationAccess: access }
+      : requireSuccess(await callApi('getMyAdminPermissions', {}));
     if (!current()) return;
     if (result.organizationId && result.organizationId !== session.context?.organizationId) throw new Error(copy.errors.permissionDenied);
     profile.value = result;
     if (!visibleTabs.value.some(tab => tab.key === activeTab.value)) activeTab.value = visibleTabs.value[0]?.key || '';
   } catch (error) { if (current()) permissionNotice.value = errorText(error, copy.errors.permissionDenied); }
   finally { if (current()) permissionLoading.value = false; }
-  if (current() && !permissionNotice.value && allowed.value) await load();
+  if (current() && !permissionNotice.value && allowed.value) {
+    await load();
+    if (current() && /^venue\./.test(String(route.query.copyKind || '')) && route.query.venueId) {
+      rulesVenue.value = [...configurationVenues.value, ...venues.value].find(venue => venue.id === route.query.venueId) || null;
+    }
+  }
 }
 async function save() {
-  if (blocked.value || !hasAny(['venue.resources'])) return;
+  if (blocked.value || !can('venue.resources', 'venue.resources.' + (form.id ? 'update' : 'create'))) return;
   if (!form.name.trim()) { actionNotice.value = ui.copy_4514e50856; return; }
-  const expected = scope();
-  const current = () => !disposed && expected === scope();
+  const expected = scope(), expectedGeneration = permissionGeneration;
+  const current = () => !disposed && !document.hidden && expectedGeneration === permissionGeneration && expected === scope();
   const payload = { ...form, name: form.name.trim() };
   busy.value = true; actionNotice.value = '';
   try {
@@ -158,13 +181,13 @@ async function save() {
   finally { if (current()) busy.value = false; }
 }
 async function remove(row) {
-  if (blocked.value || !hasAny(['venue.resources.delete'])) return;
-  const target = { id: row.id, name: row.name }, expected = scope();
-  const current = () => !disposed && expected === scope();
+  if (blocked.value || !can('venue.resources.delete', 'venue.resources.delete')) return;
+  const target = { id: row.id, name: row.name }, expected = scope(), expectedGeneration = permissionGeneration;
+  const current = () => !disposed && !document.hidden && expectedGeneration === permissionGeneration && expected === scope();
   busy.value = true; actionNotice.value = '';
   try {
     const confirmed = await confirmAction({ title: ui.copy_7f31eec657, body: target.name + '\n' + ui.copy_8ec6962e84, danger: true, confirmText: copy.common.confirm, cancelText: copy.common.cancel });
-    if (!confirmed || !current()) return;
+    if (!confirmed || !current() || !can('venue.resources.delete', 'venue.resources.delete')) return;
     requireSuccess(await callApi('deleteVenue', { id: target.id }));
     if (!current()) return;
     await load();
@@ -172,16 +195,22 @@ async function remove(row) {
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_076bb5d383); }
   finally { if (current()) busy.value = false; }
 }
-watch(scope, () => {
-  generation++; venues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
+function resetAccess() {
+  generation++; permissionGeneration++; venues.value = []; configurationVenues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
   activeTab.value = 'venue'; childBusy.value = false; bookingEditing.value = false; busy.value = false; switchGuard.value = false;
   scheduleVenue.value = null;
   rulesVenue.value = null;
   Object.assign(purposeState, { id: '', text: '', awaitingRead: false });
   Object.assign(bookingState, { from: '', to: '', status: '', venueId: '', initialized: false });
-  loadPermissions();
+}
+function visibility() { resetAccess(); if (!document.hidden) loadPermissions(); }
+watch(scope, () => {
+  resetAccess();
+  if (!document.hidden) loadPermissions();
 }, { immediate: true });
-onBeforeUnmount(() => { disposed = true; generation++; permissionGeneration++; });
+watch(() => allBusy.value || editing.value || bookingEditing.value, value => emit('busy', value), { flush: 'sync' });
+onMounted(() => document.addEventListener('visibilitychange', visibility));
+onBeforeUnmount(() => { disposed = true; generation++; permissionGeneration++; document.removeEventListener('visibilitychange', visibility); emit('busy', false); });
 onBeforeRouteLeave(() => session.status !== 'authenticated' || !allBusy.value);
 onBeforeRouteUpdate(() => session.status !== 'authenticated' || !allBusy.value);
 </script>

@@ -3,6 +3,10 @@
 const crypto = require('node:crypto');
 const pool = require('../../config/db');
 const { authorizePermission } = require('../services/adminTransactionAuthorization');
+const { createAuthorizationSession } = require('../services/authorizationSession');
+const { loadActor } = require('./authorizationIdentity');
+const { requireLegacyWrite } = require('./authorizationBusinessRoute');
+const { resource: bookingResource } = require('../../modules/venue/models/venueBookingResource');
 
 const TYPES = Object.freeze({
   audit: { permission: 'audit.submissions_delete', targetType: 'submission' },
@@ -12,8 +16,29 @@ const TYPES = Object.freeze({
 
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 
-async function authorize(db, actor, type) {
-  return authorizePermission(db, actor, TYPES[type] && TYPES[type].permission);
+async function authorize(db, actor, type, id) {
+  if (!actor || !TYPES[type]) fail('forbidden');
+  if (!actor.authorizationReference) {
+    await requireLegacyWrite(db, actor.orgId);
+    await authorizePermission(db, actor, TYPES[type].permission);
+    return { grantId: actor.grantId, contextId: actor.contextId, assignmentId: null };
+  }
+  const reference = actor.authorizationReference;
+  if (actor.orgId !== reference.organizationId || actor.personId !== reference.personId) fail('forbidden');
+  const session = await createAuthorizationSession(db, reference, { lock: true });
+  const resourceType = { audit: 'audit.submissions', booking: 'venue.bookings', score: 'scoring.results' }[type];
+  let resource = { id, type: resourceType, organizationId: actor.orgId };
+  if (type === 'booking') {
+    const [rows] = await db.query('SELECT id,creator_person_id,creator_org_id,creator_assignment_id,creator_context_snapshot FROM venue_bookings WHERE id=? AND (creator_org_id=? OR approval_org_id=?) FOR UPDATE',
+      [id, actor.orgId, actor.orgId]);
+    if (rows[0]) resource = bookingResource(rows[0], actor.orgId);
+  }
+  const decision = session.check({ capability: resourceType + (type === 'score' ? '.revoke' : '.delete'),
+    resource, businessAllowed: true, legacyAllowed: false });
+  if (session.mode !== 'enforced' || !decision.allowed) fail('forbidden');
+  const current = await loadActor(db, reference, true);
+  if (!current) fail('forbidden');
+  return { grantId: current.adminGrantId, contextId: current.contextId, assignmentId: current.assignment?.id || null };
 }
 
 async function readRecord(db, actor, type, id) {
@@ -41,7 +66,7 @@ async function readRecord(db, actor, type, id) {
 
 async function preview(actor, type, id) {
   return pool.withTransaction(async db => {
-    await authorize(db, actor, type);
+    await authorize(db, actor, type, id);
     const value = await readRecord(db, actor, type, id);
     if (!value) fail('not_found');
     return { id, type, title: value.record.title || value.record.submission_number || id,
@@ -52,7 +77,7 @@ async function preview(actor, type, id) {
 async function remove(actor, type, id, revision) {
   if (!/^[a-f0-9]{64}$/.test(revision || '')) fail('invalid_params');
   return pool.withTransaction(async db => {
-    await authorize(db, actor, type);
+    const operator = await authorize(db, actor, type, id);
     const value = await readRecord(db, actor, type, id);
     if (!value) {
       const [previous] = await db.query('SELECT id FROM admin_record_deletions WHERE org_id = ? AND record_type = ? AND record_id = ?', [actor.orgId, type, id]);
@@ -61,8 +86,15 @@ async function remove(actor, type, id, revision) {
     }
     if (value.revision !== revision) fail('record_changed');
     const deletionId = crypto.randomUUID();
-    await db.query('INSERT INTO admin_record_deletions (id, org_id, record_type, record_id, operator_person_id, operator_grant_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [deletionId, actor.orgId, type, id, actor.personId, actor.grantId]);
+    if (actor.authorizationReference) {
+      await db.query(`INSERT INTO admin_record_deletions
+        (id,org_id,record_type,record_id,operator_person_id,operator_grant_id,operator_context_id,operator_assignment_id)
+        VALUES (?,?,?,?,?,?,?,?)`, [deletionId, actor.orgId, type, id, actor.personId,
+        operator.grantId || '', operator.contextId, operator.assignmentId]);
+    } else {
+      await db.query('INSERT INTO admin_record_deletions (id, org_id, record_type, record_id, operator_person_id, operator_grant_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [deletionId, actor.orgId, type, id, actor.personId, operator.grantId]);
+    }
     if (type === 'audit') {
       const paths = new Set(value.files.flatMap(row => [row.file_path, row.original_file_path]));
       value.evidence.forEach(row => { paths.add(row.input_file_path); paths.add(row.output_file_path); });

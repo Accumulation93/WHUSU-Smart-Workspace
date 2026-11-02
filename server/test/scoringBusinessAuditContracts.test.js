@@ -44,7 +44,7 @@ assert.doesNotMatch(designationPicker, /listHrInfo/,
   '评优候选不得依赖人事管理接口权限');
 assert.match(designationPicker, /publicationAssignmentCandidates/);
 
-const adminPage = read('../miniprogram/subpackages/scoring/pages/admin/admin.js');
+const adminPage = read('../miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js');
 const publicationTab = adminPage.slice(
   adminPage.lastIndexOf("if (tab === 'publications')"),
   adminPage.indexOf('// ── Audit tabs ──', adminPage.lastIndexOf("if (tab === 'publications')"))

@@ -411,10 +411,27 @@ async function getAuthorizedAuditFile(fileId, req) {
   const file = rows[0];
   if (!file) return { status: 'not_found', message: localeCopy.copy_03d69a9d28 };
 
+  const reference = req.unifiedAuthorization?.reference;
+  let allowLegacyVerification = true;
+  if (reference) {
+    try {
+      const decision = await require('../models/auditManagementAuthorization').readDecision(
+        orgId, reference, 'audit.submissions', 'read', file.submission_id);
+      if (decision.allowed) return { status: 'success', file };
+      if (decision.reason !== 'not_granted') return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
+      const verification = await require('../models/auditManagementAuthorization').readDecision(
+        orgId, reference, 'audit.verification', 'verify', orgId);
+      if (verification.allowed) return { status: 'success', file };
+      allowLegacyVerification = verification.reason === 'not_granted';
+    } catch (error) {
+      if (error.code === 'authorization_forbidden') return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
+      throw error;
+    }
+  }
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
   if (actorResult.actor.type === 'admin') {
-    if (!hasAnyPermission(req.adminPermissions, ['audit.submissions'])) {
+    if (reference || !hasAnyPermission(req.adminPermissions, ['audit.submissions'])) {
       return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
     }
     return { status: 'success', file };
@@ -450,7 +467,7 @@ async function getAuthorizedAuditFile(fileId, req) {
   );
   if (eventRows.length) return { status: 'success', file };
 
-  if (await verificationPermModel.checkPermission(hrId)) return { status: 'success', file };
+  if (allowLegacyVerification && await verificationPermModel.checkPermission(hrId)) return { status: 'success', file };
   return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
 }
 

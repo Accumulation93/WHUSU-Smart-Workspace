@@ -2,6 +2,7 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminPersonnel from './shared/adminPersonnel.js';
 import src_auditSigning from './shared/auditSigning.js';
+import src_authorization from './shared/authorization.js';
 import src_calendar from './shared/calendar.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -16,7 +17,7 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   navigationTitle: src_venueBooking.navigationTitle,
-  title: src_calendar.venue_booking,
+  title: src_authorization.resources["venue.bookings"],
   createTitle: src_myVenueBookings.copy_9639901862,
   mineTitle: src_myVenueBookings.copy_b40ec83bc1,
   pendingTitle: src_pendingApprovals.copy_5aaf844f1e,
@@ -43,7 +44,7 @@ export default Object.freeze({
   endUnavailable: src_myVenueBookings.endUnavailable,
   operationFailed: src_signaturePad.copy_bff49f783f,
   createSubmit: src_venueBooking.copy_02ef2f799d,
-  createTitleLabel: src_venueBooking.copy_bbb0cc00c9,
+  createTitleLabel: src_authorization.resources["venue.purposes"],
   createTitleRequired: src_venueBooking.copy_7db68605c6,
   createTimeLabel: src_venueBooking.copy_91fd6d9600,
   createPurposeLabel: src_venueBooking.copy_5b5ccadb74,

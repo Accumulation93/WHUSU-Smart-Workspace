@@ -155,6 +155,13 @@ module.exports = Behavior({
   },
 
   methods: {
+    async loadAuditEditorData() {
+      const result = await this.callCloud('getAuditTemplateEditorData', {});
+      if (result.status !== 'success' || !result.data) throw new Error(result.message || localeCopy.copy_b791913c7a);
+      this._hrList = result.data.people || [];
+      this.setData({ departmentList: result.data.departments || [], identityList: result.data.identities || [],
+        workGroupList: result.data.workGroups || [] });
+    },
     // ═══════════════════════════════════════════════════════
     // Shared helpers
     // ═══════════════════════════════════════════════════════
@@ -1775,6 +1782,10 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadVerificationPermissions() {
+      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.read']) {
+        this.setData({ verificationPermissions: [] });
+        return;
+      }
       const request = orgSession.beginRequest(this, 'auditVerification');
       this.setLoading('auditVerification', true);
       try {
@@ -1797,6 +1808,7 @@ module.exports = Behavior({
     },
 
     async grantVerificationPermission() {
+      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
       const hrId = this.data.verificationGrantHrId;
       if (!hrId) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
       try {
@@ -1817,6 +1829,7 @@ module.exports = Behavior({
     },
 
     async revokeVerificationPermission(e) {
+      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
       const hrId = e.currentTarget.dataset.hrId;
       const that = this;
       wx.showModal({
@@ -1892,6 +1905,7 @@ module.exports = Behavior({
     },
 
     async verifySubmissionChain() {
+      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.verify']) return;
       const request = orgSession.beginRequest(this, 'auditVerificationChain');
       const params = {};
       const mode = this.data.verificationMode || 'number';
@@ -1951,9 +1965,26 @@ module.exports = Behavior({
     // Personnel Picker (single-select, confirm pattern)
     // ═══════════════════════════════════════════════════════
 
-    openAuditPersonnelPicker(e) {
+    async openAuditPersonnelPicker(e) {
       const target = e.currentTarget.dataset.target;
       const label = e.currentTarget.dataset.label || localeCopy.copy_f262abee38;
+      let candidates = this._hrList || [];
+      if (target === 'grantHrId') {
+        if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+        if (this.data.loadingMap.auditVerificationCandidates) return;
+        this.setLoading('auditVerificationCandidates', true);
+        try {
+          const result = await this.callCloud('listAuditVerificationCandidates', {});
+          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_b791913c7a);
+          candidates = result.candidates || [];
+        } catch (error) {
+          if (!error.silent) showShortToast(getErrorText(error, localeCopy.copy_b791913c7a));
+          return;
+        } finally {
+          this.setLoading('auditVerificationCandidates', false);
+        }
+      }
+      this._auditPersonnelSource = candidates;
 
       // Pre-populate selectedId from the current target field
       let selectedId = '';
@@ -1961,16 +1992,16 @@ module.exports = Behavior({
       else if (target === 'stepHrId') selectedId = this.data.auditTemplateStepForm.approverHrId;
       else if (target === 'grantHrId') selectedId = this.data.verificationGrantHrId;
 
-      const filterOptions = buildAuditPersonnelFilterOptions(this._hrList || [], localeCopy.copy_31d4595959);
+      const filterOptions = buildAuditPersonnelFilterOptions(candidates, localeCopy.copy_31d4595959);
       this.setData({
         auditPersonnelPickerVisible: true,
         auditPersonnelPickerTarget: target,
         auditPersonnelPickerLabel: label,
         auditPersonnelPickerSelectedId: String(selectedId || ''),
         auditPersonnelPickerValue: selectedId
-          ? (this._hrList || []).filter(function(item) { return String(item.id) === String(selectedId); })
+          ? candidates.filter(function(item) { return String(item.id) === String(selectedId); })
           : [],
-        auditPersonnelPickerOptions: this._hrList || [],
+        auditPersonnelPickerOptions: candidates,
         auditPersonnelSearchKeyword: '',
         auditPersonnelFilterDeptIndex: 0,
         auditPersonnelFilterIdentIndex: 0,
@@ -1983,7 +2014,8 @@ module.exports = Behavior({
     },
 
     closeAuditPersonnelPicker() {
-      this.setData({ auditPersonnelPickerVisible: false });
+      this._auditPersonnelSource = [];
+      this.setData({ auditPersonnelPickerVisible: false, auditPersonnelPickerOptions: [], auditPersonnelFilteredList: [] });
     },
 
     confirmSharedAuditPersonnelPicker(e) {
@@ -2021,7 +2053,7 @@ module.exports = Behavior({
       const identity = this.data.auditPersonnelIdentOptions[this.data.auditPersonnelFilterIdentIndex] || {};
       const workGroup = this.data.auditPersonnelWorkGroupOptions[this.data.auditPersonnelFilterWorkGroupIndex] || {};
       this.setData({
-        auditPersonnelFilteredList: filterAuditPersonnel(this._hrList || [], {
+        auditPersonnelFilteredList: filterAuditPersonnel(this._auditPersonnelSource || [], {
           departmentKey: department.key || ALL_FILTER_KEY,
           identityKey: identity.key || ALL_FILTER_KEY,
           workGroupKey: workGroup.key || ALL_FILTER_KEY
@@ -2043,7 +2075,7 @@ module.exports = Behavior({
         return;
       }
 
-      let hrList = this._hrList || [];
+      let hrList = this._auditPersonnelSource || [];
       let person = hrList.find(function (item) { return String(item.id) === String(selectedId); });
       let hrId = String(selectedId);
       let hrName = person ? person.name : selectedId;
@@ -2070,7 +2102,7 @@ module.exports = Behavior({
           break;
       }
 
-      this.setData({ auditPersonnelPickerVisible: false });
+      this.closeAuditPersonnelPicker();
     },
 
     clearAuditPersonnel(e) {

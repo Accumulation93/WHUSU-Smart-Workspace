@@ -6,6 +6,9 @@ const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
+const { readCurrentAuthorizationAccess } = require('../../package-resources/utils/authorizationAccess');
+const { managementTabAllowed } = require('../../../../utils/authorizationAccessView');
+const authorizationCopy = require('../../package-resources/locales/zh-CN/authorization');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
 const {
   formatDateTextOnly,
@@ -445,6 +448,10 @@ Page({
     auditMyCount: 0,
     auditApprovalHistoryCount: 0,
     auditCanVerify: false,
+    canManageSubApp: false,
+    managementSubApp: 'scoring',
+    managementDialogVisible: false,
+    managementKeyboardHeight: 0,
   },
 
   noop() {},
@@ -473,6 +480,7 @@ Page({
       });
     }
     this.refreshCurrentUser({ resetPageState: firstEntry || organizationChanged });
+    this.loadManagementAccess();
     if (snapshot.role === 'user') {
       if (this._subApp === 'scoring') {
         this.fetchRateTargets('user', {
@@ -494,6 +502,7 @@ Page({
 
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
+    this.setData({ managementSubApp: this._subApp });
     if (this._subApp === 'hr' && options.tab === 'directory') {
       this._preferredOrgTab = 'directory';
       this.setData({ activeTab: 'directory', contactKey: /^[a-f0-9]{96}$/.test(options.contactKey || '') ? options.contactKey : '' });
@@ -531,6 +540,7 @@ Page({
     if (allowed.indexOf('audit') !== -1 && this.data.hasUser) {
       tabs.push({ key: 'audit', label: copy.text.audit });
     }
+    if (this.data.canManageSubApp) tabs.push({ key: 'management', label: authorizationCopy.businessManagement });
     const preferredTab = this._preferredOrgTab || '';
     const preferredAvailable = !!preferredTab && tabs.some((item) => item.key === preferredTab);
     const currentAvailable = tabs.some((item) => item.key === this.data.activeTab);
@@ -588,6 +598,9 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    this._restoreManagementTab = this.data.activeTab === 'management';
+    this._managementGeneration = (this._managementGeneration || 0) + 1;
+    this.setData({ canManageSubApp: false, managementDialogVisible: false, managementKeyboardHeight: 0 });
     deviceMetadataReport.cancel(this);
     orgSession.invalidateRequests(this);
   },
@@ -642,9 +655,10 @@ Page({
 
   switchUserTab(e) {
     const tab = String(e.currentTarget.dataset.tab || '');
-    if (!tab || tab === this.data.activeTab) {
+    if (!this.data.userTabs.some(item => item.key === tab) || tab === this.data.activeTab) {
       return;
     }
+    this._restoreManagementTab = false;
 
     this.setData({
       activeTab: tab
@@ -664,6 +678,38 @@ Page({
       if (this.data.publicationActivity) this.checkPublication();
       else this.loadLatestPublishedActivity();
     }
+  },
+
+  async loadManagementAccess() {
+    const generation = (this._managementGeneration || 0) + 1;
+    this._managementGeneration = generation;
+    const groups = {
+      scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
+      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+      audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
+    };
+    let allowed = false;
+    try {
+      const access = await readCurrentAuthorizationAccess();
+      allowed = Boolean(access && access.role === 'user' && (groups[this._subApp] || []).some(tab => managementTabAllowed(access, tab)));
+    } catch (_) {}
+    if (!this._isPageVisible || generation !== this._managementGeneration) return;
+    const patch = { canManageSubApp: allowed };
+    if (allowed && this._restoreManagementTab) patch.activeTab = 'management';
+    this._restoreManagementTab = false;
+    if (!allowed && this.data.activeTab === 'management') patch.activeTab = (this._subAppAllowedTabs || ['scoring'])[0];
+    this.setData(patch);
+    this.rebuildUserTabs();
+  },
+
+  onManagementDialogChange(event) {
+    this.setData({ managementDialogVisible: Boolean(event.detail.visible), managementKeyboardHeight: Number(event.detail.keyboardHeight) || 0 });
+  },
+
+  onReachBottom() {
+    if (this.data.activeTab !== 'management') return;
+    const workbench = this.selectComponent('#management-workbench');
+    if (workbench) workbench.workbenchReachBottom();
   },
 
   loadCurrentActivity(options) {

@@ -320,7 +320,7 @@ async function invokeRetiredAdminRoute(router, routePath) {
   const adminRouteSource = fs.readFileSync(path.join(root, 'server/src/modules/audit/routes/auditAdmin.js'), 'utf8');
   const indexSource = fs.readFileSync(path.join(root, 'server/src/index.js'), 'utf8');
   const userPageSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/audit/pages/verification/verification.wxml'), 'utf8');
-  const adminPageSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
+  const adminPageSource = require('../../scripts/lib/miniprogramSource').readMarkup(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'));
   const userLogicSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/audit/pages/verification/verification.js'), 'utf8');
   const adminLogicSource = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/auditBehavior.js'), 'utf8');
 

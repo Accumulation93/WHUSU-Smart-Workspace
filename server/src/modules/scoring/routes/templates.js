@@ -10,6 +10,7 @@ const { resolveRequestAdmin: ensureAdmin } = require('../../../core/services/adm
 const templateModel = require('../models/scoreTemplate');
 const questionModel = require('../models/scoreQuestion');
 const pool = require('../../../config/db');
+const { requireOperation } = require('../models/scoreTemplateAuthorization');
 
 function normalizeQuestion(item) {
   const source = item || {};
@@ -50,13 +51,22 @@ function buildTemplateConfigSignature(questions) {
 // listScoreTemplates
 router.post('/listScoreTemplates', async (req, res) => {
   try {
+    if (req.unifiedAuthorization) {
+      const authorized = await require('../models/scoreTemplateAuthorization').list(req.unifiedAuthorization.reference);
+      const list = authorized.map(item => Array.isArray(item.questions) ? { ...item,
+        questionCount: item.questions.length, configSignature: buildTemplateConfigSignature(item.questions) } : item)
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'));
+      return res.json({ status: 'success', list });
+    }
     const admin = await ensureAdmin(req);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
 
-    const [templates, questions] = await Promise.all([
-      templateModel.getAll(orgId),
-      pool.query(
+    const [templates, questions] = await pool.withTransaction(async connection => {
+      await require('../../../core/models/authorizationBusinessRoute').requireLegacyWrite(connection, orgId);
+      return Promise.all([
+      templateModel.getAll(orgId, connection),
+      connection.query(
         `SELECT q.*
            FROM score_questions q
            INNER JOIN score_question_templates t ON t.id = q.template_id
@@ -64,7 +74,8 @@ router.post('/listScoreTemplates', async (req, res) => {
           ORDER BY q.template_id, q.sort_order`,
         [orgId]
       )
-    ]);
+      ]);
+    });
 
     const questionsByTemplate = new Map();
     questions[0].forEach((q) => {
@@ -94,6 +105,7 @@ router.post('/listScoreTemplates', async (req, res) => {
 
     res.json({ status: 'success', list });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -101,9 +113,11 @@ router.post('/listScoreTemplates', async (req, res) => {
 // saveScoreTemplate
 router.post('/saveScoreTemplate', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const orgId = await getCurrentOrgId();
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = reference?.organizationId || await getCurrentOrgId();
+    const operatorId = reference ? reference.personId : admin.id;
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -118,7 +132,9 @@ router.post('/saveScoreTemplate', async (req, res) => {
     }
 
     const nowUtc = nowMysqlUtc();
+    const newTemplateId = id || generateId();
     const targetTemplateId = await pool.withTransaction(async (connection) => {
+      await requireOperation(connection, orgId, reference, id ? 'update' : 'create', newTemplateId);
       const [duplicates] = await connection.query(
         `SELECT id FROM score_question_templates
           WHERE org_id = ? AND name = ? AND (? = '' OR id <> ?)
@@ -140,13 +156,13 @@ router.post('/saveScoreTemplate', async (req, res) => {
           throw error;
         }
         await templateModel.update(id, orgId, {
-          name, description, updatedBy: admin.id, updatedAt: nowUtc
+          name, description, updatedBy: operatorId, updatedAt: nowUtc
         }, connection);
         await questionModel.removeByTemplateId(id, connection);
       } else {
-        templateId = generateId();
+        templateId = newTemplateId;
         await templateModel.create(templateId, orgId, {
-          name, description, createdBy: admin.id
+          name, description, createdBy: operatorId
         }, connection);
       }
 
@@ -164,6 +180,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
     // 已提交评分由自身不可变快照解释。编辑模板只影响后续评分，绝不删除历史成绩。
     res.json({ status: 'success', id: targetTemplateId, removedRecordCount: 0 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     if (e && (e.code === 'duplicate' || e.code === 'ER_DUP_ENTRY' || e.code === 'not_found')) {
       const status = e.code === 'ER_DUP_ENTRY' ? 'duplicate' : e.code;
       return res.json({
@@ -178,14 +195,15 @@ router.post('/saveScoreTemplate', async (req, res) => {
 // deleteScoreTemplate
 router.post('/deleteScoreTemplate', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const orgId = await getCurrentOrgId();
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = reference?.organizationId || await getCurrentOrgId();
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_53b7c35c3f });
 
     const outcome = await pool.withTransaction(async (connection) => {
+      await requireOperation(connection, orgId, reference, 'delete', id);
       const [templateRows] = await connection.query(
         'SELECT id FROM score_question_templates WHERE id = ? AND org_id = ? FOR UPDATE',
         [id, orgId]
@@ -216,6 +234,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
     }
     res.json({ status: 'success' });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -223,14 +242,18 @@ router.post('/deleteScoreTemplate', async (req, res) => {
 // duplicateScoreTemplate
 router.post('/duplicateScoreTemplate', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const orgId = await getCurrentOrgId();
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = reference?.organizationId || await getCurrentOrgId();
+    const operatorId = reference ? reference.personId : admin.id;
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_53b7c35c3f });
 
+    const duplicateId = generateId();
     const newId = await pool.withTransaction(async (connection) => {
+      await requireOperation(connection, orgId, reference, 'create', duplicateId, id);
       const template = await templateModel.getById(id, orgId, connection);
       if (!template) {
         const error = new Error(localeCopy.copy_785b6d700c);
@@ -252,9 +275,8 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
         counter += 1;
       }
 
-      const duplicateId = generateId();
       await templateModel.create(duplicateId, orgId, {
-        name, description: template.description || '', createdBy: admin.id
+        name, description: template.description || '', createdBy: operatorId
       }, connection);
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
@@ -269,6 +291,7 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
 
     res.json({ status: 'success', id: newId });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     if (e && e.code === 'not_found') {
       return res.json({ status: 'not_found', message: safeString(e.message) });
     }

@@ -28,6 +28,9 @@ const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
+const publicationAuthorization = require('../models/publicationAuthorization');
+const { authorizedParticipationRead } = require('../services/authorizedParticipationRead');
+const participationAuthorization = require('../models/participationAuthorization');
 
 const VALID_DISPLAY_MODES = ['score', 'grade'];
 const VIEW_RULE_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
@@ -47,9 +50,11 @@ function rejectPublicationRule(status, message) {
 }
 
 function respondPublicationRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
+  if (error.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
   return respondScoringResponse(res, {
     status: error instanceof PublicationRuleRequestError ? error.status : 'error',
-    message: error instanceof PublicationRuleRequestError ? error.message : fallbackMessage
+    message: error instanceof PublicationRuleRequestError ? error.message : fallbackMessage,
+    ...(error instanceof PublicationRuleRequestError && error.reason ? { reason: error.reason } : {})
   });
 }
 
@@ -577,17 +582,19 @@ function buildDesignatorSnapshot(req, actor, assignment) {
 // ─── getResultPublication ───
 router.post('/getResultPublication', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
-    const publication = await publicationModel.getByActivity(activityId);
+    const orgId = await getCurrentOrgId();
+    const authorization = require('../models/publicationAuthorization');
+    const publication = await authorization.read(orgId, reference, activityId);
     if (!publication) {
       return respondScoringResponse(res, { status: 'success', publication: null, viewRules: [], meritRules: [], meritListDesignations: [] });
     }
 
-    const orgId = await getCurrentOrgId();
     const pubId = publication.id;
 
     // Query new tables
@@ -722,10 +729,7 @@ router.post('/getResultPublication', async (req, res) => {
     const assignmentCandidates = activeAssignments.map((assignment) => ({
       id: publicationAssignments.assignmentIdOf(assignment),
       assignmentId: publicationAssignments.assignmentIdOf(assignment),
-      targetHrId: publicationAssignments.legacyHrIdOf(assignment),
-      personId: safeString(assignment.person_id),
       name: safeString(assignment.name),
-      studentId: safeString(assignment.student_id),
       departmentId: safeString(assignment.department_id),
       department: lookups.departmentsById.get(safeString(assignment.department_id)) || '',
       identityId: safeString(assignment.identity_id),
@@ -735,20 +739,33 @@ router.post('/getResultPublication', async (req, res) => {
       assignmentLabel: publicationAssignments.buildAssignmentLabel(assignment, lookups)
     })).filter((assignment) => assignment.assignmentId);
 
+    // 丰富目录读取期间可能撤权；返回敏感业务内容前再次检查当前会话和同一记录。
+    const currentPublication = await authorization.read(orgId, reference, activityId);
+    if (!currentPublication || currentPublication.id !== pubId) {
+      return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
     respondScoringResponse(res, {
       status: 'success',
       publication: { id: pubId, activityId: publication.activity_id, isPublished: !!publication.is_published, publishedAt: publication.published_at, publishedBy: publication.published_by },
       viewRules: enrichedViewRules, meritRules: enrichedMeritRules,
-      meritListDesignations: enrichedDesignations, assignmentCandidates
+      meritListDesignations: enrichedDesignations, assignmentCandidates,
+      configurationCandidates: {
+        departments: Array.from(lookups.departmentsById, ([id, name]) => ({ id, name })),
+        identities: Array.from(lookups.identitiesById, ([id, name]) => ({ id, name }))
+      }
     });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+  } catch (e) {
+    if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
+  }
 });
 
 // ─── saveResultPublication ───
 router.post('/saveResultPublication', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     const isPublished = req.body.isPublished === true || req.body.isPublished === 1;
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
@@ -756,37 +773,11 @@ router.post('/saveResultPublication', async (req, res) => {
     const now = nowMysqlUtc();
     const orgId = await getCurrentOrgId();
     const outcome = await withTransaction(async (connection) => {
-      const [activityRows] = await connection.query(
-        'SELECT id, name FROM score_activities WHERE id = ? AND org_id = ? FOR UPDATE',
-        [activityId, orgId]
-      );
-      const activity = activityRows[0];
-      if (!activity) return null;
-      const [publicationRows] = await connection.query(
-        'SELECT * FROM result_publications WHERE activity_id = ? AND org_id = ? FOR UPDATE',
-        [activityId, orgId]
-      );
-      const existing = publicationRows[0] || null;
-      const wasPublished = !!(existing && existing.is_published);
-      const publicationId = existing ? existing.id : generateId();
-      if (existing) {
-        await connection.query(
-          `UPDATE result_publications
-              SET is_published = ?, published_at = ?, published_by = ?, updated_at = ?
-            WHERE id = ? AND org_id = ?`,
-          [isPublished ? 1 : 0, isPublished ? now : existing.published_at,
-            admin.id, now, publicationId, orgId]
-        );
-      } else {
-        await connection.query(
-          `INSERT INTO result_publications
-            (id, activity_id, is_published, published_at, published_by, org_id)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [publicationId, activityId, isPublished ? 1 : 0,
-            isPublished ? now : null, admin.id, orgId]
-        );
-      }
-      if (isPublished && !wasPublished) {
+      const saved = await require('../models/publicationAuthorization').save(connection, orgId, reference,
+        { activityId, isPublished, now, operatorId: admin?.id });
+      if (!saved) return null;
+      const publicationId = saved.id;
+      if (saved.notify) {
         await notificationOutboxModel.enqueue({
           orgId,
           eventType: 'score_results_published',
@@ -795,7 +786,7 @@ router.post('/saveResultPublication', async (req, res) => {
             type: 'score_results_published',
             title: localeCopy.copy_a2fd08aa5b,
             description: localeFormat(scoringCopy.publicationNotificationDescription, [
-              safeString(activity.name || localeCopy.copy_d8026f6068)
+              safeString(saved.name || localeCopy.copy_d8026f6068)
             ]),
             category: 'scoring',
             targetType: 'result_publication',
@@ -813,7 +804,10 @@ router.post('/saveResultPublication', async (req, res) => {
       publication: { id: outcome.id, activityId, isPublished },
       message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1
     });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+  } catch (e) {
+    if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
+  }
 });
 
 // ─── saveResultViewPermission ───
@@ -839,8 +833,9 @@ router.post('/deleteMeritListPermission', (req, res) => {
 // ─── saveMeritListDesignations ───
 router.post('/saveMeritListDesignations', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const clauseIds = Array.isArray(req.body.clauseIds) && req.body.clauseIds.length
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
@@ -853,26 +848,31 @@ router.post('/saveMeritListDesignations', async (req, res) => {
 
     // Look up clause + parent merit rule from new tables (include publication_id for reliable INSERT)
     const orgId = await getCurrentOrgId();
-    const [[clause]] = await pool.query(
+    const designations = await withTransaction(async conn => {
+    const check = await publicationAuthorization.guard(conn, orgId, reference);
+    check('update', publicationId);
+    await assertPublicationExists(conn, orgId, publicationId);
+    await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
+    const [[clause]] = await conn.query(
       `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
          FROM pub_merit_rule_clauses pmrc
          JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
       [primaryClauseId, orgId, orgId, publicationId]
     );
-    if (!clause) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_22d72751cb });
+    if (!clause) rejectPublicationRule('not_found', localeCopy.copy_22d72751cb);
 
     // Admin can designate fewer than quota but NOT exceed it
     // Aggregate quota across all clauses
     let aggregatedQuotaLimit = 0;
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
-      const [quotaRows] = await pool.query(
+      const [quotaRows] = await conn.query(
         `SELECT quota_limit FROM pub_merit_rule_clauses WHERE id IN (${ph}) AND rule_id = ? AND org_id = ?`,
         [...clauseIds, clause.rule_id, orgId]
       );
       if (quotaRows.length !== clauseIds.length) {
-        return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
+        rejectPublicationRule('invalid_params', localeCopy.copy_7bd7eb5da6);
       }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
@@ -887,7 +887,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     let allClauseScopes = [];
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
-      const [rows] = await pool.query(
+      const [rows] = await conn.query(
         `SELECT pmrc.scope_type, pmrc.target_identity_id,
                 pmr.grantee_department_id, pmr.grantee_identity_id
            FROM pub_merit_rule_clauses pmrc
@@ -897,7 +897,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId, orgId, publicationId]
       );
       if (rows.length !== clauseIds.length) {
-        return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
+        rejectPublicationRule('invalid_params', localeCopy.copy_7bd7eb5da6);
       }
       allClauseScopes = rows;
     } else {
@@ -908,14 +908,16 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         grantee_identity_id: clause.grantee_identity_id
       }];
     }
-    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
+    const activeAssignments = await participantService.listParticipants(orgId, 'assignment', conn);
     const resolvedTargets = publicationAssignments.resolveRequestedAssignments(designationTargetIds, activeAssignments);
     if (!resolvedTargets.ok) {
-      return respondScoringResponse(res, { status: 'invalid_hr', reason: resolvedTargets.status, message: localeCopy.copy_f3dd2d1ffc });
+      const error = new PublicationRuleRequestError('invalid_hr', localeCopy.copy_f3dd2d1ffc);
+      error.reason = resolvedTargets.status;
+      throw error;
     }
     const designationTargets = resolvedTargets.targets;
     if (aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit) {
-      return respondScoringResponse(res, { status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+      rejectPublicationRule('quota_exceeded', localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]));
     }
     for (const targetAssignment of designationTargets) {
       let matchesAnyClause = false;
@@ -931,20 +933,24 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       }
       if (!matchesAnyClause) {
         const displayName = safeString(targetAssignment.name) || publicationAssignments.assignmentIdOf(targetAssignment);
-        return respondScoringResponse(res, { status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [displayName]) });
+        rejectPublicationRule('out_of_scope', localeFormat(localeCopy.copy_45ccfd7d80, [displayName]));
       }
     }
 
+    const actingAssignment = reference && req.authContext.role === 'user' ? activeAssignments.find(item =>
+      publicationAssignments.assignmentIdOf(item) === req.authContext.assignmentId
+      && safeString(item.person_id) === reference.personId) : null;
+    if (reference && req.authContext.role === 'user' && !actingAssignment) {
+      rejectPublicationRule('forbidden', localeCopy.copy_f048be09ae);
+    }
     const designatorSnapshot = buildDesignatorSnapshot(req, {
-      type: 'admin',
+      type: reference ? req.authContext.role : 'admin',
       personId: req.authContext && req.authContext.personId,
       assignmentId: req.authContext && req.authContext.assignmentId,
       contextId: req.authContext && req.authContext.contextId,
-      name: admin.name
-    });
+      name: admin ? admin.name : safeString(actingAssignment ? actingAssignment.name : req.authContext.name)
+    }, actingAssignment);
 
-    const { withTransaction } = require('../../../config/db');
-    await withTransaction(async (conn) => {
       const subjects = designationTargets.map((targetAssignment) => ({
         personId: safeString(targetAssignment.person_id),
         legacyHrId: publicationAssignments.legacyHrIdOf(targetAssignment),
@@ -977,21 +983,21 @@ router.post('/saveMeritListDesignations', async (req, res) => {
             generateId(), pubId, primaryClauseId,
             publicationAssignments.legacyHrIdOf(targetAssignment),
             publicationAssignments.assignmentIdOf(targetAssignment),
-            JSON.stringify(targetSnapshot), admin.id,
+            JSON.stringify(targetSnapshot), reference ? reference.personId : admin.id,
             safeString(designatorSnapshot.personId) || null,
             safeString(designatorSnapshot.assignmentId) || null,
             JSON.stringify(designatorSnapshot), orgId
           ]
         );
       }
-    });
-
     // Query only the designations for the clauses just edited (not entire publication)
     const clausesPh = clauseIds.map(() => '?').join(',');
-    const [designations] = await pool.query(
+    const [saved] = await conn.query(
       `SELECT * FROM merit_list_designations WHERE clause_id IN (${clausesPh}) AND org_id = ?`,
       [...clauseIds, orgId]
     );
+    return saved;
+    });
     const presentations = buildDesignationPresentations(designations, await fetchOrgLookups());
     const result = presentations.map((item) => ({
       ...item,
@@ -1001,7 +1007,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     respondScoringResponse(res, { status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
     if (e.code === 'ER_DUP_ENTRY') return respondScoringResponse(res, { status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
-    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
+    respondPublicationRuleError(res, e);
   }
 });
 
@@ -1011,7 +1017,7 @@ router.post('/removeMeritListDesignation', (req, res) => {
 });
 
 // ─── getPublicResults (user-facing) ───
-router.post('/getPublicResults', async (req, res) => {
+router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedResults', async (req, res) => {
   try {
     const activityId = safeString(req.body.activityId);
     if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
@@ -1262,10 +1268,10 @@ router.post('/getPublicResults', async (req, res) => {
       groups
     });
   } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
-});
+}));
 
 // ─── getPublicMeritList (user-facing) ───
-router.post('/getPublicMeritList', async (req, res) => {
+router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSelections', async (req, res) => {
   try {
     const activityId = safeString(req.body.activityId);
     if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
@@ -1394,7 +1400,7 @@ router.post('/getPublicMeritList', async (req, res) => {
       publicationId: publication.id
     });
   } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
-});
+}));
 
 // ─── submitMeritListDesignations (user-facing, grantee-verified) ───
 router.post('/submitMeritListDesignations', async (req, res) => {
@@ -1492,6 +1498,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
+      await participationAuthorization.checkPublication(req, conn, orgId, pubId, 'scoring.meritSelections', 'update');
       await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [viewerAssignment]
         .concat(designationTargets)
         .map((assignment) => ({
@@ -1544,6 +1551,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     }));
     respondScoringResponse(res, { status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
     if (e.code === 'ER_DUP_ENTRY') return respondScoringResponse(res, { status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
     respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
   }
@@ -1552,91 +1560,47 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 // ─── generatePubViewRules ───
 router.post('/generatePubViewRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
-    const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
-
-    // 自动规则只从当前在职成员的活动岗位生成，禁止读取 hr_info 兼容快照。
-    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
-    // Get existing view rules
-    const [existingRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
-
-    const existingKeys = new Set();
-    existingRules.forEach(r => existingKeys.add(safeString(r.grantee_department_id) + '::' + safeString(r.grantee_identity_id)));
-
-    const categories = publicationAssignments.collectRuleCategories(activeAssignments);
-
-    const now = nowMysqlUtc();
-    let createdCount = 0;
-    for (const [key, cat] of categories) {
-      if (existingKeys.has(key)) continue;
-      const ruleId = generateId();
-      await pool.query(
-        'INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [ruleId, publicationId, cat.deptId, cat.identId, orgId, now, now]
-      );
-      // No default clause — user configures rules manually
-      createdCount++;
-    }
-
-    const backfilledCount = 0; // No longer auto-creating clauses
-
-    respondScoringResponse(res, { status: 'success', totalCategories: categories.size, createdCount, skippedCount: categories.size - createdCount, backfilledCount });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+    const result = await publicationAuthorization.generate(orgId, reference, publicationId, 'view', nowMysqlUtc());
+    if (!result) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
+    respondScoringResponse(res, { status: 'success', totalCategories: result.total, createdCount: result.createdCount,
+      skippedCount: result.skippedCount, backfilledCount: result.backfilledCount });
+  } catch (e) { respondPublicationRuleError(res, e); }
 });
 
 // ─── generatePubMeritRules ───
 router.post('/generatePubMeritRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
     if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
-    const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
-
-    // Get existing view rules as source
-    const [viewRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
-    // Get existing merit rules
-    const [existingMeritRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
-
-    const existingKeys = new Set();
-    existingMeritRules.forEach(r => existingKeys.add(safeString(r.grantee_department_id) + '::' + safeString(r.grantee_identity_id)));
-
-    const now = nowMysqlUtc();
-    let createdCount = 0;
-    for (const rule of viewRules) {
-      const key = safeString(rule.grantee_department_id) + '::' + safeString(rule.grantee_identity_id);
-      if (existingKeys.has(key)) continue;
-      const meritRuleId = generateId();
-      await pool.query(
-        'INSERT INTO pub_merit_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [meritRuleId, publicationId, rule.grantee_department_id, rule.grantee_identity_id, orgId, now, now]
-      );
-      // No default clause — user configures rules manually
-      createdCount++;
-    }
-
-    const backfilledCount = 0; // No longer auto-creating clauses
-
-    respondScoringResponse(res, { status: 'success', totalViewCategories: viewRules.length, createdCount, skippedCount: viewRules.length - createdCount, backfilledCount });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+    const result = await publicationAuthorization.generate(orgId, reference, publicationId, 'merit', nowMysqlUtc());
+    if (!result) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
+    respondScoringResponse(res, { status: 'success', totalViewCategories: result.total, createdCount: result.createdCount,
+      skippedCount: result.skippedCount, backfilledCount: result.backfilledCount });
+  } catch (e) { respondPublicationRuleError(res, e); }
 });
 
 // ─── savePubViewRule ───
 router.post('/savePubViewRule', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      check('update', safeString(req.body.publicationId));
       const input = await normalizePubViewRuleInput(connection, orgId, req.body);
       return savePubViewRuleWithConnection(connection, orgId, input);
     });
@@ -1647,11 +1611,14 @@ router.post('/savePubViewRule', async (req, res) => {
 // ─── batchSavePubViewRules ───
 router.post('/batchSavePubViewRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
     const ids = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      for (const rule of rules) check('update', safeString(rule.publicationId));
       const inputs = [];
       for (const rule of rules) inputs.push(await normalizePubViewRuleInput(connection, orgId, rule));
       assertUniquePublicationRuleBatch(inputs);
@@ -1741,12 +1708,17 @@ router.post('/listPubViewRules', async (req, res) => {
 // ─── deletePubViewRule ───
 router.post('/deletePubViewRule', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
-    await withTransaction((connection) => deletePubViewRuleWithConnection(connection, orgId, ruleId));
+    await withTransaction(async connection => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      await publicationAuthorization.checkRuleDeletion(connection, orgId, check, 'view', ruleId);
+      return deletePubViewRuleWithConnection(connection, orgId, ruleId);
+    });
     respondScoringResponse(res, { status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
@@ -1754,11 +1726,14 @@ router.post('/deletePubViewRule', async (req, res) => {
 // ─── batchDeletePubViewRules ───
 router.post('/batchDeletePubViewRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();
     const deletedIds = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      for (const ruleId of ruleIds) await publicationAuthorization.checkRuleDeletion(connection, orgId, check, 'view', ruleId);
       const result = [];
       for (const ruleId of ruleIds) {
         if (await deletePubViewRuleWithConnection(connection, orgId, ruleId, { requireExisting: true })) result.push(ruleId);
@@ -1772,10 +1747,13 @@ router.post('/batchDeletePubViewRules', async (req, res) => {
 // ─── savePubMeritRule ───
 router.post('/savePubMeritRule', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const ruleId = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      check('update', safeString(req.body.publicationId));
       const input = await normalizePubMeritRuleInput(connection, orgId, req.body);
       return savePubMeritRuleWithConnection(connection, orgId, input);
     });
@@ -1786,11 +1764,14 @@ router.post('/savePubMeritRule', async (req, res) => {
 // ─── batchSavePubMeritRules ───
 router.post('/batchSavePubMeritRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const rules = getPublicationRuleBatch(req.body);
     const orgId = await getCurrentOrgId();
     const ids = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      for (const rule of rules) check('update', safeString(rule.publicationId));
       const inputs = [];
       for (const rule of rules) inputs.push(await normalizePubMeritRuleInput(connection, orgId, rule));
       assertUniquePublicationRuleBatch(inputs);
@@ -1848,12 +1829,17 @@ router.post('/listPubMeritRules', async (req, res) => {
 // ─── deletePubMeritRule ───
 router.post('/deletePubMeritRule', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
-    await withTransaction((connection) => deletePubMeritRuleWithConnection(connection, orgId, ruleId));
+    await withTransaction(async connection => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      await publicationAuthorization.checkRuleDeletion(connection, orgId, check, 'merit', ruleId);
+      return deletePubMeritRuleWithConnection(connection, orgId, ruleId);
+    });
     respondScoringResponse(res, { status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { respondPublicationRuleError(res, e); }
 });
@@ -1861,11 +1847,14 @@ router.post('/deletePubMeritRule', async (req, res) => {
 // ─── batchDeletePubMeritRules ───
 router.post('/batchDeletePubMeritRules', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleIds = getPublicationRuleIdBatch(req.body);
     const orgId = await getCurrentOrgId();
     const deletedIds = await withTransaction(async (connection) => {
+      const check = await publicationAuthorization.guard(connection, orgId, reference);
+      for (const ruleId of ruleIds) await publicationAuthorization.checkRuleDeletion(connection, orgId, check, 'merit', ruleId);
       const result = [];
       for (const ruleId of ruleIds) {
         if (await deletePubMeritRuleWithConnection(connection, orgId, ruleId, { requireExisting: true })) result.push(ruleId);
@@ -1879,13 +1868,14 @@ router.post('/batchDeletePubMeritRules', async (req, res) => {
 // ─── getMeritListSummary (admin) ───
 router.post('/getMeritListSummary', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const orgId = await getCurrentOrgId();
-    const publication = await publicationModel.getByActivity(activityId);
+    const publication = await publicationAuthorization.read(orgId, reference, activityId, { allowEmptyCreate: false });
     if (!publication) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
@@ -1893,6 +1883,7 @@ router.post('/getMeritListSummary', async (req, res) => {
     // Get all merit rules with clauses and designations — batch all queries
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     if (!meritRules.length) {
+      await publicationAuthorization.confirmRead(orgId, reference, activityId, publication.id);
       return respondScoringResponse(res, { status: 'success', groups: [], departmentOptions: [], identityOptions: [], workGroupOptions: [] });
     }
 
@@ -1982,6 +1973,7 @@ router.post('/getMeritListSummary', async (req, res) => {
       }
     }
 
+    await publicationAuthorization.confirmRead(orgId, reference, activityId, publication.id);
     respondScoringResponse(res, {
       status: 'success',
       groups,
@@ -1989,14 +1981,15 @@ router.post('/getMeritListSummary', async (req, res) => {
       identityOptions: Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
       workGroupOptions: Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))
     });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 // ─── exportMeritListSummary (admin) ───
 router.post('/exportMeritListSummary', async (req, res) => {
   try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await resolveAdmin(req);
+    if (!reference && !admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
@@ -2005,12 +1998,13 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const filterWorkGroup = safeString(req.body.filterWorkGroup || '');
 
     const orgId = await getCurrentOrgId();
-    const publication = await publicationModel.getByActivity(activityId);
+    const publication = await publicationAuthorization.read(orgId, reference, activityId, { action: 'export', allowEmptyCreate: false });
     if (!publication) return respondScoringResponse(res, { status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     if (!meritRules.length) {
+      await publicationAuthorization.confirmRead(orgId, reference, activityId, publication.id, 'export');
       return respondScoringResponse(res, { status: 'success', fileContent: '', fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: 0 });
     }
 
@@ -2087,6 +2081,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     }
 
     if (rows.length >= EXPORT_MAX_ROWS) {
+      await publicationAuthorization.confirmRead(orgId, reference, activityId, publication.id, 'export');
       return respondScoringResponse(res, {
         status: 'too_large',
         message: localeFormat(localeCopy.copy_7188e5ac79, [EXPORT_MAX_ROWS]),
@@ -2111,8 +2106,9 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const buffer = await buildWorkbookBuffer(scoringCopy.exportMeritListSummary, sheetData);
     const fileContent = buffer.toString('base64');
 
+    await publicationAuthorization.confirmRead(orgId, reference, activityId, publication.id, 'export');
     respondScoringResponse(res, { status: 'success', fileContent, fileName: localeCopy.copy_08f97574f4, extension: 'xlsx', rowCount: rows.length });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
+  } catch (e) { respondPublicationRuleError(res, e, scoringCopy.batchOperationFailed); }
 });
 
 module.exports = router;

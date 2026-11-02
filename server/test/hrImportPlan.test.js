@@ -229,4 +229,22 @@ test('相同非法值超过一页仍归组，不同值分开', () => {
   data.rows[84][2] = '456'; assert.equal(groupIssues(buildPlan(data, ctx).issues).length, 2);
   assert.equal(groupIssues([plan.issues[0], Object.assign({}, plan.issues[1], {field:'email'})]).length, 2);
 });
+test('岗位性质来自当前组织字典，名称与编号均可导入', () => {
+  const ctx = context();
+  ctx.natures = [{ id: 'staff', name: '本组织岗位' }, { id: 'college', name: '院会岗位' }];
+  const data = { schemaVersion: 2, headers: ['姓名', '学号', '岗位性质', '部门', '身份类别'],
+    basicMapping: { name: 0, studentId: 1, nature: 2, department: 3, identity: 4 },
+    rows: [['新成员', '009', '院会岗位', '部门甲', '成员']], decisions: { rows: { 2: { mode: 'new' } } } };
+  const plan = buildPlan(data, ctx);
+  assert.equal(plan.summary.canExecute, true);
+  assert.equal(plan.assignments[0].next.nature, 'college');
+  data.rows[0][2] = 'college';
+  assert.equal(buildPlan(data, ctx).assignments[0].next.nature, 'college');
+  data.rows[0][2] = 'other-organization';
+  assert.equal(buildPlan(data, ctx).summary.canExecute, false);
+  data.rows[0][2] = '';
+  data.defaultNature = 'college';
+  assert.equal(buildPlan(data, ctx).assignments[0].next.nature, 'college');
+  assert.throws(() => buildPlan({ ...data, defaultNature: 'other' }, ctx));
+});
 console.log(count + ' import planner tests passed');

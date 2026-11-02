@@ -21,6 +21,7 @@ function fingerprint(context) { return planner.hash(context); }
 
 async function loadContext(connection, orgId, studentIds, permissions, lock) {
   const suffix = lock ? ' FOR UPDATE' : '';
+  const natures = (await connection.query('SELECT id, name FROM assignment_natures WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
   const departments = (await connection.query('SELECT id, name FROM departments WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
   const identities = (await connection.query('SELECT id, name FROM identities WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
   const groups = (await connection.query('SELECT id, name, department_id FROM work_groups WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
@@ -32,7 +33,7 @@ async function loadContext(connection, orgId, studentIds, permissions, lock) {
     minDigits: row.min_digits, maxDigits: row.max_digits, minValue: row.min_value, maxValue: row.max_value,
     options: row.options_json ? json(row.options_json) : [] }));
   const ids = Array.from(new Set(studentIds.map(planner.studentKey))).filter(Boolean).sort();
-  const context = { departments, identities, workGroups: groups.map(group => Object.assign({}, group, { department: (departments.find(item => item.id === group.department_id) || {}).name || '' })),
+  const context = { natures, departments, identities, workGroups: groups.map(group => Object.assign({}, group, { department: (departments.find(item => item.id === group.department_id) || {}).name || '' })),
     templateId, fields, members: [], permissions: permissions.slice().sort() };
   if (!ids.length) return context;
   const placeholders = ids.map(() => '?').join(',');
@@ -236,7 +237,8 @@ async function details(payload, actor) {
 async function metadata(actor, authorize) {
   const access = await authorize();
   const context = await loadContext(pool, actor.organizationId, [], access.effective.keys, false);
-  return { status: 'success', fields: context.fields, departments: context.departments, identities: context.identities, workGroups: context.workGroups };
+  return { status: 'success', fields: context.fields, natures: context.natures,
+    departments: context.departments, identities: context.identities, workGroups: context.workGroups };
 }
 
 async function writeProfiles(connection, person, context, actor) {
@@ -369,11 +371,12 @@ async function exportTable(payload, actor, authorize) {
     WHERE om.org_id = ? AND om.status = 'active' ORDER BY p.id`, [actor.organizationId]))[0];
   const context = await loadContext(pool, actor.organizationId, rows.map(row => row.student_id), access.effective.keys, false);
   const fields = payload.includeProfile ? context.fields : [];
+  const natureNames = new Map(context.natures.map(item => [item.id, item.name]));
   const headers = ['name', 'studentId', 'nature', 'department', 'identity', 'workGroup', 'assignmentId', 'assignmentVersion'].map(key => copy[key]).concat(fields.map(field => field.label));
   const data = [];
   context.members.forEach(member => {
     const active = member.assignments.filter(item => item.status === 'active');
-    (active.length ? active : [null]).forEach(item => data.push([member.name, member.studentId, item ? copy[item.nature] : '', item ? item.department : '',
+    (active.length ? active : [null]).forEach(item => data.push([member.name, member.studentId, item ? natureNames.get(item.nature) || copy[item.nature] || item.nature : '', item ? item.department : '',
       item ? item.identity : '', item ? item.workGroup : '', item ? item.id : '', item ? planner.assignmentVersion(member, item) : '', ...fields.map(field => member.profile[field.id] || '')]));
   });
   return exportResponse(payload, { status: 'success', headers, rows: data, instructions: [copy.instructions, copy.versionNotice] }, copy.maintenanceFile);

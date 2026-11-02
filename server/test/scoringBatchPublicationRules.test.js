@@ -199,7 +199,15 @@ const mocks = {
   }),
   '../../../utils/dateTime': { nowMysqlUtc() { return '2026-08-30 00:00:00'; } },
   '../../../utils/logger': { logger: { debug() {}, error() {}, warn() {}, info() {} } },
-  '../../../core/models/adminInfo': { async getByOpenid() { return { id: 'admin-1' }; } },
+  '../models/publicationAuthorization': {
+    async guard(db, orgId, reference) {
+      assert.strictEqual(db, connection);
+      assert.strictEqual(orgId, 'org-1');
+      assert.strictEqual(reference, undefined);
+      return () => {};
+    },
+    async checkRuleDeletion() {}
+  },
   '../../audit/models/notificationOutbox': emptyDependency,
   '../models/resultPublication': emptyDependency,
   '../models/meritListDesignation': emptyDependency,

@@ -1,7 +1,7 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
-import src_calendar from './shared/calendar.js';
+import src_authorization from './shared/authorization.js';
 import src_common from './shared/common.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
@@ -10,8 +10,6 @@ import src_submissionDetail from './shared/generated/subpackages/audit/pages/sub
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
 import src_authPersonnelBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
-import src_hrInfoBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
-import src_venueBookingDetail from './shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
 import src_home from './shared/home.js';
 import src_login from './shared/login.js';
 import src_main from './shared/main.js';
@@ -19,11 +17,11 @@ import src_main from './shared/main.js';
 export default Object.freeze({
   navigationTitle: src_main.messageCenter.navigationTitle,
   audit: src_myApprovalHistory.copy_56d416c578,
-  venue: src_venueBookingDetail.copy_bbbebc1abf,
+  venue: src_authorization.configurationCopy.referenceKinds.venue,
   scoring: src_main.portal.categoryLabels.scoring,
   hr: src_main.portal.categoryLabels.hr,
   system: src_main.portal.categoryLabels.system,
-  notification: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  notification: src_authorization.resources["notifications.items"],
   allOrganizations: src_authPersonnelBehavior.copy_d337157f74,
   selectOrganizationOrWorkContext: src_main.messageCenter.messages.selectOrganizationOrWorkContext,
   refreshLater: src_myApprovalHistory.copy_e52119b17e,
@@ -42,10 +40,10 @@ export default Object.freeze({
   clearTitle: src_main.messageCenter.messages.clearTitle,
   clearDescription: src_main.messageCenter.messages.clearDescription,
   clearConfirm: src_main.messageCenter.messages.clearConfirm,
-  appName: src_common.brandName,
+  appName: src_authorization.appName,
   pageName: src_main.portal.cards.messages,
   todos: src_main.portal.messages.todo,
-  notifications: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  notifications: src_authorization.resources["notifications.items"],
   organizationScope: src_main.messageCenter.view.organizationScope,
   loadingHint: src_main.portal.view.loadingHint,
   partialOrganizationLoading: src_main.portal.partialOrganizationLoading,
@@ -65,7 +63,7 @@ export default Object.freeze({
   cancel: src_adminGovernance.cancel,
   switchAndView: src_main.portal.view.switchAndView,
   selectOrganizationScope: src_main.messageCenter.view.selectOrganizationScope,
-  close: src_calendar.close,
+  close: src_authorization.close,
   selected: src_identitySwitch.copy_56f0b27402,
   confirm: src_submissionDetail.copy_a58e97a9f8,
 });

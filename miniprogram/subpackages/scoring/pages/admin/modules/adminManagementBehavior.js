@@ -11,6 +11,15 @@ const { filterAdminCandidates } = require('./adminCandidateView');
 const ADMIN_CANDIDATE_RENDER_LIMIT = 80;
 
 module.exports = Behavior({
+  data: {
+    adminCandidatePickerVisible: false,
+    adminAccountCandidates: [],
+    adminAccountCandidateValue: [],
+    adminAccountCandidatesLoading: false,
+    adminAccountCandidatesError: '',
+    canCreateAdmins: false,
+    canExportAdmins: false
+  },
   methods: {
     filterAdminCandidates(keyword) {
       const sourceList = this._hrList || [];
@@ -40,6 +49,8 @@ module.exports = Behavior({
           canManageAdmins: !!result.canWrite,
           canReadAdmins: !!result.canRead,
           canWriteAdmins: !!result.canWrite,
+          canCreateAdmins: this.data.authorizationEnforced ? result.canCreate === true : !!result.canWrite,
+          canExportAdmins: this.data.authorizationEnforced ? this.data.actionCapabilities['system.adminAccounts.export'] === true : !!result.canRead,
           manageableAdminLevel: result.manageableLevel || '',
           adminLevelOptions: (result.creatableLevels || []).map((item) => item.label),
           adminLevelValues: (result.creatableLevels || []).map((item) => item.value)
@@ -58,7 +69,7 @@ module.exports = Behavior({
     onAdminFieldInput(e) {
       const { field } = e.currentTarget.dataset;
       const value = e.detail.value.trim();
-  
+
       this.setData({
         adminForm: {
           ...this.data.adminForm,
@@ -97,7 +108,7 @@ module.exports = Behavior({
       if (!item) {
         return;
       }
-  
+
       this.setData({
         adminForm: {
           ...this.data.adminForm,
@@ -106,27 +117,57 @@ module.exports = Behavior({
           studentId: item.studentId
         }
       });
-  
+
       wx.showToast({
         title: localeCopy.copy_87c8c6a02a,
         icon: 'none'
       });
     },
 
+    async openAdminCandidatePicker() {
+      if (!this.data.authorizationEnforced || !this.data.canCreateAdmins || this.data.adminForm.id) return;
+      const request = orgSession.beginRequest(this, 'adminAccountCandidates');
+      this.setData({ adminCandidatePickerVisible: true, adminAccountCandidates: [], adminAccountCandidatesLoading: true,
+        adminAccountCandidatesError: '', adminAccountCandidateValue: this.data.adminForm.hrId ? [this.data.adminForm.hrId] : [] });
+      try {
+        const result = await this.callCloud('getAdminAccountCandidates', {});
+        if (!orgSession.isRequestCurrent(this, request) || !this.data.adminCandidatePickerVisible) return;
+        if (result.status !== 'success') { this.setData({ adminAccountCandidatesError: result.message || localeCopy.copy_6026566679 }); return; }
+        this.setData({ adminAccountCandidates: (result.list || []).map(item => ({ id: item.hrId, hrId: item.hrId, name: item.name })) });
+      } catch (_) {
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ adminAccountCandidatesError: localeCopy.copy_6026566679 });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ adminAccountCandidatesLoading: false });
+      }
+    },
+
+    closeAdminCandidatePicker() {
+      orgSession.beginRequest(this, 'adminAccountCandidates');
+      this.setData({ adminCandidatePickerVisible: false, adminAccountCandidates: [], adminAccountCandidateValue: [] });
+    },
+
+    confirmAdminCandidatePicker(e) {
+      if (!this.data.canCreateAdmins || this.data.adminForm.id) return;
+      const key = (e.detail.keys || [])[0];
+      const item = (this.data.adminAccountCandidates || []).find(candidate => candidate.id === key);
+      this.setData({ 'adminForm.hrId': item ? item.hrId : '', 'adminForm.name': item ? item.name : '', 'adminForm.studentId': '' });
+      this.closeAdminCandidatePicker();
+    },
+
     editAdmin(e) {
       if (!this.data.canWriteAdmins) {
         return;
       }
-  
+
       const index = Number(e.currentTarget.dataset.index);
       const item = this.data.adminList[index];
-      if (!item || !item.canManage) {
+      if (!item || !(this.data.authorizationEnforced ? item.canEdit : item.canManage)) {
         return;
       }
-  
+
       const adminLevel = item.adminLevel || 'admin';
       const adminLevelIndex = Math.max(0, this.data.adminLevelValues.indexOf(adminLevel));
-  
+
       this.setData({
         adminLevelIndex,
         adminForm: {
@@ -152,10 +193,10 @@ module.exports = Behavior({
     },
 
     startCreateAdmin() {
-      if (!this.data.canWriteAdmins) {
+      if (!(this.data.authorizationEnforced ? this.data.canCreateAdmins : this.data.canWriteAdmins)) {
         return;
       }
-  
+
       this.resetAdminForm();
       this.setData({ activeTab: 'admins', adminFormVisible: true });
     },
@@ -164,19 +205,24 @@ module.exports = Behavior({
       if (!this.data.canWriteAdmins) {
         return;
       }
-  
+
       const form = this.data.adminForm;
-      if (!form.name || !form.studentId) {
+      if (this.data.authorizationEnforced && (form.id
+        ? !(this.data.adminList || []).some(item => item.id === form.id && item.canEdit)
+        : !this.data.canCreateAdmins)) return;
+      if (!form.name || (!form.studentId && !(this.data.authorizationEnforced && (form.id || form.hrId)))) {
         wx.showToast({
           title: localeCopy.copy_98d4171816,
           icon: 'none'
         });
         return;
       }
-  
+
       this.setLoading('saveAdmin', true);
       try {
-        const result = await this.callCloud('saveAdmin', form);
+        const payload = this.data.authorizationEnforced && form.id
+          ? { id: form.id, name: form.name, adminLevel: form.adminLevel } : form;
+        const result = await this.callCloud('saveAdmin', payload);
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || localeCopy.copy_215e3c57da,
@@ -184,7 +230,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         this.resetAdminForm();
         await this.loadAdminList();
         wx.showToast({
@@ -202,10 +248,10 @@ module.exports = Behavior({
     },
 
     async exportAdmins() {
-      if (!this.data.canReadAdmins) {
+      if (!(this.data.authorizationEnforced ? this.data.canExportAdmins : this.data.canReadAdmins)) {
         return;
       }
-  
+
       this.setLoading('exportAdmins', true);
       try {
         const result = await this.callCloud('exportAdmins');
@@ -216,7 +262,7 @@ module.exports = Behavior({
           });
           return;
         }
-  
+
         const filePath = `${wx.env.USER_DATA_PATH}/admin_info_export_${Date.now()}.csv`;
         writeAndOpen({ filePath, data: result.csvContent, encoding: 'utf8', fileType: 'csv' });
       } catch (error) {
@@ -233,10 +279,11 @@ module.exports = Behavior({
       if (!this.data.canWriteAdmins) {
         return;
       }
-  
+
       const id = String(e.currentTarget.dataset.id || '');
       const target = (this.data.adminList || []).find((item) => String(item.id) === id);
       if (!id) return;
+      if (this.data.authorizationEnforced && !(target && target.canDelete)) return;
       this.setData({
         adminDeleteConfirmVisible: true,
         adminDeleteConfirmId: id,
@@ -255,6 +302,7 @@ module.exports = Behavior({
     async confirmDeleteAdmin() {
       const id = this.data.adminDeleteConfirmId;
       if (!id) return;
+      if (this.data.authorizationEnforced && !(this.data.adminList || []).some(item => item.id === id && item.canDelete)) return;
       this.closeAdminDeleteConfirm();
       try {
         const result = await this.callCloud('deleteAdmin', { id });
@@ -268,7 +316,7 @@ module.exports = Behavior({
         wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
       }
     },
-  
+
     // ─── Publication Management (类别-条款层级架构) ───
   }
 });

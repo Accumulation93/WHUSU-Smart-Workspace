@@ -72,6 +72,7 @@ import copy from '@/locales/zh-CN/shared/contactDirectory.js';
 import view from '@/shared/contactDirectoryView.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
+import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
 const emit = defineEmits(['busy']);
 const props = defineProps({ disabled: Boolean });
 const metadata = ref({ fields: [], people: [], departments: [], identities: [], workGroups: [] });
@@ -117,6 +118,8 @@ function save() { if (!blocked.value) write('saveContactDirectoryRule', view.pay
 function act(action, rows) { if (!blocked.value) write('batchContactDirectoryRules', { action, rules: rows.map(row => ({ id: row.id, version: row.version })) }); }
 function clear() { generation++; metadata.value = { fields: [], people: [], departments: [], identities: [], workGroups: [] }; rules.value = []; selected.value = []; draft.value = null; picker.value = null; deletion.value = null; busy.value = false; }
 function visibility() { clear(); if (!document.hidden) load(); }
+useCopiedConfigurationEditor({ kind: () => 'hr.directoryRules', rows: rules, blocked: () => blocked.value,
+  ready: () => !loading.value && !loadFailed.value, edit, notice });
 watch(busy, value => emit('busy', value));
 watch(scope, () => { clear(); load(); }, { immediate: true });
 document.addEventListener('visibilitychange', visibility);

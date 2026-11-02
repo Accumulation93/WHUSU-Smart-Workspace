@@ -159,7 +159,7 @@ async function main() {
   // —— 前端沿用同一口径：列表按设备渲染，退出按设备提交 ——
   const homeWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxml'), 'utf8');
   const homeJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.js'), 'utf8');
-  const adminWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
+  const adminWxml = require('./lib/miniprogramSource').readMarkup(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'));
   const adminBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');
   assert(homeWxml.includes('wx:for="{{accountSecurity.devices}}"'), '普通用户端登录设备必须按设备维度渲染');
   assert(!homeWxml.includes('wx:for="{{accountSecurity.sessions}}"'), '普通用户端不得再按会话逐条渲染登录设备');

@@ -43,28 +43,36 @@ function decode(row) {
     visibility:row.visibility,sourceKind:row.source_kind,sourceId:row.source_id,spec:parse(row.spec_json),
     targets:parse(row.targets_json),status:row.status,version:row.version};
 }
-async function rules(connection,orgId) {
-  return (await connection.query('SELECT * FROM calendar_rules WHERE org_id = ? ORDER BY created_at,id',[orgId]))[0].map(row=>({
+async function rules(connection,orgId,scope) {
+  const query=scope ? 'SELECT r.* FROM calendar_rules r WHERE r.org_id=? AND ('+scope.sql+') ORDER BY r.created_at,r.id'
+    : 'SELECT * FROM calendar_rules WHERE org_id = ? ORDER BY created_at,id';
+  return (await connection.query(query,scope ? [orgId,...scope.params] : [orgId]))[0].map(row=>({
     id:row.id,version:row.version,name:row.name,enabled:Boolean(row.enabled),audience:parse(row.audience_json),targets:parse(row.targets_json),actions:parse(row.actions_json)
   }));
 }
 async function configuration(actor,authorize,editingRules=false) {
   return pool.withTransaction(async connection=>{
-    const permissions=await authorize(connection,editingRules ? 'rules' : 'read');
+    const permissions=await authorize(connection,editingRules ? 'rules' : 'read',{action:'read',ids:[]});
+    const authorization=permissions.ruleAuthorization;
     const data=await directory.catalog(connection,actor.organizationId);
-    const stored=await rules(connection,actor.organizationId);
-    const allowed=permissions.manage || editingRules ? new Set(data.people.map(person=>person.personId)) : policy.allowedPeople(stored,'assign',actor,data);
+    const stored=await rules(connection,actor.organizationId,editingRules && authorization ? authorization.scope : null);
+    if (editingRules && authorization && !stored.length && !authorization.can('read','') && !authorization.can('create','')) throw new CalendarError('forbidden');
+    const canArrange=permissions.eventAuthorization ? permissions.eventAuthorization.can('create',null) : permissions.manage;
+    const allowed=canArrange || editingRules ? new Set(data.people.map(person=>person.personId)) : policy.allowedPeople(stored,'assign',actor,data);
     const people=data.people.filter(person=>allowed.has(person.personId)).map(person=>({personId:person.personId,name:person.name,
       assignments:person.assignments.map(a=>({id:a.id,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
         departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))}));
     return {people,departments:data.departments,identities:data.identities,workGroups:data.workGroups,
-      rules:editingRules ? stored : [],permissions,timezoneOffset:await timezone(connection)};
+      rules:editingRules ? stored.map(rule=>authorization ? {...rule,canUpdate:authorization.can('update',rule.id),canDelete:authorization.can('delete',rule.id)} : rule) : [],
+      canCreate:editingRules && (!authorization || authorization.can('create','')),
+      permissions:{manage:permissions.showManaged===true || permissions.manage,rules:permissions.showRules===true || permissions.rules,
+        venueBookings:permissions.venueBookings,venueResources:permissions.venueResources},timezoneOffset:await timezone(connection)};
   });
 }
 async function saveRule(input,actor,authorize) {
   const rule=policy.normalize(input);
   return pool.withTransaction(async connection=>{
-    await authorize(connection,'rules');
+    await authorize(connection,'rules',{action:rule.id ? 'update' : 'create',ids:[rule.id || '']});
     await identity.lockActiveBusinessSubjects(connection,directoryPolicy.referenceIds(rule).map(personId=>({personId,organizationId:actor.organizationId})));
     await lockOrganizationDictionaryWrites(actor.organizationId,connection);
     directoryPolicy.validateReferences(rule,await directory.catalog(connection,actor.organizationId,true));
@@ -89,7 +97,7 @@ async function batchRules(input,actor,authorize) {
     versions.set(rule.id,rule.version);
   }
   return pool.withTransaction(async connection=>{
-    await authorize(connection,'rules');
+    await authorize(connection,'rules',{action:input.action==='delete' ? 'delete' : 'update',ids:[...versions.keys()]});
     await lockOrganizationDictionaryWrites(actor.organizationId,connection);
     const rows=(await connection.query(`SELECT id,version FROM calendar_rules WHERE org_id=? AND id IN (${placeholders(input.rules)}) ORDER BY id FOR UPDATE`,[actor.organizationId,...versions.keys()]))[0];
     if (rows.length!==versions.size || rows.some(row=>row.version!==versions.get(row.id))) throw new CalendarError('conflict');
@@ -143,13 +151,16 @@ function publicMembers(people, orgId) {
   return people.map(person=>({name:person.name,personReference:personReference(orgId,person.personId),positions:person.assignments.map(a=>({department:a.departmentName,identityCategory:a.identityCategoryName,workGroup:a.workGroupName || ''}))}));
 }
 async function canModify(event,actor,action,data,stored,permissions) {
-  if (event.visibility==='private') return event.creatorPersonId===actor.personId;
-  if (permissions.manage) return true;
-  if (event.creatorPersonId!==actor.personId) return false;
-  try {
-    policy.assertSelection(policy.selectedPeople(event.targets,event.creator,data,{dynamic:true}),policy.allowedPeople(stored,action,actor,data));
-    return true;
-  } catch (error) { if (error instanceof CalendarError) return false; throw error; }
+  let related=false;
+  if (event.visibility==='private') related=event.creatorPersonId===actor.personId;
+  else if (permissions.manage) related=true;
+  else if (event.creatorPersonId===actor.personId) {
+    try {
+      policy.assertSelection(policy.selectedPeople(event.targets,event.creator,data,{dynamic:true}),policy.allowedPeople(stored,action,actor,data));
+      related=true;
+    } catch (error) { if (!(error instanceof CalendarError)) throw error; }
+  }
+  return permissions.eventAuthorization ? permissions.eventAuthorization.can(action,event,related) : related;
 }
 async function save(input,actor,authorize) {
   if (!input || !['private','organization'].includes(input.visibility) || (input.sourceKind && input.sourceKind!=='manual')) throw new CalendarError('invalidSchedule');
@@ -163,9 +174,11 @@ async function save(input,actor,authorize) {
     if (event && (event.status!=='active' || event.version!==input.version)) throw new CalendarError('conflict');
     if (event && event.sourceKind!=='manual') throw new CalendarError('sourceReadOnly');
     if (event && !(await canModify(event,actor,'update',data,stored,permissions))) throw new CalendarError('forbidden');
+    if (!event && permissions.eventAuthorization && !permissions.eventAuthorization.can('create',null,true)) throw new CalendarError('forbidden');
     const targets=input.visibility==='private' ? [{type:'self'}] : directoryPolicy.normalizeClauses(input.targets,true);
     const selected=input.visibility==='private' ? [event ? event.creatorPersonId : actor.personId] : policy.selectedPeople(targets,event ? event.creator : actor,data);
-    if (!permissions.manage && (!event || !isDeepStrictEqual(targets,event.targets))) policy.assertSelection(selected,policy.allowedPeople(stored,'assign',actor,data));
+    const canArrange=permissions.eventAuthorization ? permissions.eventAuthorization.can(event ? 'update' : 'create',event) : permissions.manage;
+    if (!canArrange && (!event || !isDeepStrictEqual(targets,event.targets))) policy.assertSelection(selected,policy.allowedPeople(stored,'assign',actor,data));
     await identity.lockActiveBusinessSubjects(connection,selected.filter(personId=>personId!==actor.personId).map(personId=>({personId,organizationId:actor.organizationId})));
     if (!input.id) {
       const clientRequestId=dedup.normalizeClientRequestId(input.clientRequestId);
@@ -213,6 +226,10 @@ async function listForActor(connection,actor,input,permissions={}) {
   const result=[];
   for (const event of events) {
     if (event.status!=='active') continue;
+    if(event.sourceKind!=='manual' && permissions.sourceAuthorization){
+      const decision=permissions.sourceAuthorization(event.sourceKind,'read',event.sourceId);
+      if(!decision.allowed && decision.reason!=='not_granted')continue;
+    }
     const direct=input.detailId===event.id && input.occurrenceDate;
     const instances=event.sourceKind==='manual' ? occurrences.expand(event.spec,linked.changes.get(event.id)||[],input.from,input.to)
       : (external.get(event.sourceKind+':'+event.sourceId)||[]).map(item=>Object.assign({},event.spec,item));
@@ -234,7 +251,9 @@ async function listForActor(connection,actor,input,permissions={}) {
       if(event.visibility==='organization'&&Date.parse(item.endAt)<Date.now()&&!recorded.has(item.occurrenceDate))continue;
       const participants=(recorded.has(item.occurrenceDate)?recorded.get(item.occurrenceDate).participants:baseParticipants).filter(person=>!policy.hasExited(linked.exits.get(event.id)||[],person.personId,item.occurrenceDate));
       const attending=participants.some(person=>person.personId===actor.personId);
-      if (!attending && !(input.managed===true && event.visibility==='organization' && (canUpdate || canCancel))) continue;
+      const managed=event.visibility==='organization' && (canUpdate || canCancel);
+      const canRead=permissions.eventAuthorization ? permissions.eventAuthorization.can('read',event,attending) : attending || managed;
+      if (!canRead || (!attending && input.managed!==true)) continue;
       const card={id:event.id,occurrenceDate:item.occurrenceDate,version:event.version,title:item.title,startAt:item.startAt,endAt:item.endAt,
         allDay:item.allDay,location:item.location,sourceKind:event.sourceKind,visibility:event.visibility,timezoneOffset:event.spec.timezoneOffset,
         participantCount:participants.length,attending,canUpdate:canUpdate && event.sourceKind==='manual',canCancel:canCancel && event.sourceKind==='manual'};
@@ -242,7 +261,7 @@ async function listForActor(connection,actor,input,permissions={}) {
       if (input.detailId===event.id && input.occurrenceDate===item.occurrenceDate) Object.assign(card,{description:item.description,participants:publicMembers(participants,actor.organizationId),
         form:occurrences.form(Object.assign({},item,{startAt:Date.parse(item.startAt),endAt:Date.parse(item.endAt)})),
         seriesForm:canUpdate && event.sourceKind==='manual' ? occurrences.form(event.spec) : null,
-        targets:canUpdate ? event.targets : [],reminders:item.reminders || []});
+        targets:canUpdate && event.sourceKind==='manual' ? event.targets : [],reminders:item.reminders || []});
       result.push(card);
     }
   }
@@ -286,6 +305,7 @@ async function saveParticipants(input,actor,authorize) {
     await sources.assertEditable(connection,input.sourceKind,input.sourceId,actor,permissions);
     const data=await directory.catalog(connection,actor.organizationId,true);
     const existing=(await connection.query('SELECT * FROM calendar_events WHERE org_id=? AND source_kind=? AND source_id=? FOR UPDATE',[actor.organizationId,input.sourceKind,input.sourceId]))[0][0];
+    if(permissions.eventAuthorization && !permissions.eventAuthorization.can(existing?'update':'create',existing?decode(existing):null,true))throw new CalendarError('forbidden');
     const selected=policy.selectedPeople(targets,existing ? parse(existing.creator_context_json) : actor,data);
     await identity.lockActiveBusinessSubjects(connection,selected.map(personId=>({personId,organizationId:actor.organizationId})));
     // 场地来源由原业务授权安排参会者，日程不能反向批准或修改场地占用。
@@ -309,6 +329,8 @@ async function getParticipants(input,actor,authorize) {
     catch(error) { if(error instanceof CalendarError)canEdit=false;else throw error; }
     const row=(await connection.query('SELECT * FROM calendar_events WHERE org_id=? AND source_kind=? AND source_id=?',[actor.organizationId,input.sourceKind,input.sourceId]))[0][0];
     const access=await sources.participantReadAccess(connection,input.sourceKind,input.sourceId,actor,permissions);
+    if(access.blocked)throw new CalendarError('forbidden');
+    if(row && permissions.eventAuthorization && !permissions.eventAuthorization.can('update',decode(row),canEdit))canEdit=false;
     const canRead=canEdit||access.canRead;
     if (!row && !canRead && !access.emptyVisible) throw new CalendarError('forbidden');
     if (!row && (!canEdit || input.edit!==true)) return {id:null,version:0,canEdit,targets:[],participants:[]};
@@ -328,6 +350,7 @@ async function getParticipants(input,actor,authorize) {
     }
     const participants=members(event,catalog,linked.exits.get(event.id)||[],date);
     if(!canRead&&!participants.some(person=>person.personId===actor.personId))throw new CalendarError('forbidden');
+    if(permissions.eventAuthorization && !permissions.eventAuthorization.can('read',event,true))throw new CalendarError('forbidden');
     return Object.assign(metadata,{id:event.id,version:event.version,canEdit,targets:canEdit?event.targets:[],participants:publicMembers(participants,actor.organizationId)});
   });
 }

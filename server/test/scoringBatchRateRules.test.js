@@ -156,7 +156,17 @@ const mocks = {
     generateId() { return 'generated-' + nextId++; }
   }),
   '../../../utils/dateTime': { nowMysqlUtc() { return '2026-08-30 00:00:00'; } },
-  '../../../core/models/adminInfo': { async getByOpenid() { return { id: 'admin-1' }; } },
+  // 本文件验证规则计算与事务回滚，真实授权由隔离数据库 HTTP 用例覆盖。
+  '../models/scoreRuleAuthorization': {
+    async begin(value, organizationId, reference) {
+      assert.strictEqual(value, connection);
+      assert.strictEqual(organizationId, 'org-1');
+      assert.strictEqual(reference, undefined);
+      return null;
+    },
+    async requireSave() {},
+    requireOperation() {}
+  },
   '../models/rateRule': {},
   '../models/rateRuleClause': {},
   '../models/clauseTemplateConfig': {},

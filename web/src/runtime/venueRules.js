@@ -1,5 +1,6 @@
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import controls from '@/locales/zh-CN/shared/controlLayout.js';
+import flow from '@/locales/zh-CN/shared/venueFlowManagement.js';
 
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const weekNames = [ui.copy_92af9d9017, ui.copy_e3233a4b58, ui.copy_2f48862253, ui.copy_017e3df1a1, ui.copy_41a9548e60, ui.copy_f2c74088c9, ui.copy_a814b25100];
@@ -23,7 +24,9 @@ export function activityValues(type, value) {
 }
 export function cycleLabel(type, value) {
   const parsed = parseValues(value), values = Array.isArray(parsed) ? parsed : parsed.values || [];
-  if (['daily', 'repeat', 'datetime_range'].includes(type)) return ui.copy_13293d504a;
+  if (type === 'datetime_range') return flow.continuousOccupancy;
+  if (type === 'repeat') return flow.intervalOccupancy;
+  if (type === 'daily') return ui.copy_13293d504a;
   if (type === 'range') return parsed.startDate && parsed.endDate ? parsed.startDate + ui.copy_c44dbba9e9 + parsed.endDate : ui.copy_9d73203530;
   if (type === 'weekly') return values.map(day => weekNames[Number(day) - 1]).filter(Boolean).join(controls.listSeparator) || ui.copy_2b4df49497;
   if (type === 'monthly') return ui.copy_06a9527bac + values.join(controls.listSeparator) + ui.copy_168587d3a1;

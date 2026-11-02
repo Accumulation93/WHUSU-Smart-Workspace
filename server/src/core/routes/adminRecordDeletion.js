@@ -21,8 +21,8 @@ function handler(type, remove) {
       return res.json({ status: 'success', deleted: true, cleanupPending, message: cleanupPending ? copy.cleanupPending : copy.deleted });
     } catch (error) {
       const messages = { forbidden: copy.forbidden, not_found: copy.notFound, record_changed: copy.changed, invalid_params: copy.invalid };
-      const code = messages[error.code] ? error.code : 'error';
-      if (code === 'error') req.logger.error('Admin record deletion failed', { type, error: error.message });
+      const code = error.code === 'authorization_forbidden' ? 'forbidden' : messages[error.code] ? error.code : 'error';
+      if (code === 'error' && req.logger) req.logger.error('Admin record deletion failed', { type, error: error.message });
       return res.status(code === 'forbidden' ? 403 : code === 'error' ? 500 : code === 'invalid_params' ? 400 : code === 'not_found' ? 404 : 409).json({ status: code, message: messages[code] || copy.failed });
     }
   };

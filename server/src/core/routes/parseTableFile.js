@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { safeString } = require('../../utils/helpers');
 const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excelFile');
+const authorization = require('../models/tableFileAuthorization');
 
 /**
  * POST /api/parseTableFile
@@ -12,7 +13,8 @@ const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excel
  */
 router.post('/parseTableFile', async (req, res) => {
   try {
-    if (!req.admin) {
+    const reference = req.unifiedAuthorization?.reference;
+    if (reference ? !(await authorization.allowed(reference, 'parse')) : !req.admin) {
       return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
@@ -55,6 +57,9 @@ router.post('/parseTableFile', async (req, res) => {
       sheets.push({ name, headers, columns, rows, rowNumbers: sourceRows.map(item => item.rowNumber) });
     }
 
+    if (reference && !(await authorization.allowed(reference, 'parse'))) {
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
     res.json({
       status: 'success',
       sheets,

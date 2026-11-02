@@ -176,6 +176,10 @@ export function submissionDetail(options) {
     userIsSubmitter: settings.userIsSubmitter === true,
     userIsApprover: settings.userIsApprover !== false,
     canApproveCurrentStep: settings.canApproveCurrentStep !== false,
+    ...(Object.prototype.hasOwnProperty.call(settings, 'canWithdrawSubmission')
+      ? { canWithdrawSubmission: settings.canWithdrawSubmission } : {}),
+    ...(Object.prototype.hasOwnProperty.call(settings, 'canUpdateSubmission')
+      ? { canUpdateSubmission: settings.canUpdateSubmission } : {}),
     userIsAdmin: false,
     submission: {
       id: 'submission-1',
@@ -302,6 +306,12 @@ export async function mockApi(page, options) {
     }
     // 会话失效后，业务接口统一按登录失效返回，网页据此回到登录页。
     if (!state.sessionAlive) return reply({ status: 'auth_failed', message: '' }, 401);
+    if (name === 'getCurrentAuthorizationAccess') {
+      const context = sessionPayload({ contextId: settings.activeContextId }).context;
+      return reply({ status: 'success', mode: 'shadow', revision: 0,
+        organizationId: context.organizationId, contextId: context.contextId, role: context.role,
+        capabilities: [], grantedCapabilities: [] });
+    }
     if (name === 'listTodos') {
       return reply({
         status: 'success',

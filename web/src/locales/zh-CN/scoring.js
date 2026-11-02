@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_authorization from './shared/authorization.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
 import src_score from './shared/generated/subpackages/scoring/pages/score/score.js';
 import src_scorerTasks from './shared/generated/subpackages/scoring/pages/scorerTasks/scorerTasks.js';
@@ -13,7 +14,7 @@ export default Object.freeze({
   taskNote: src_web.scoring.taskNote,
   fillTitle: src_score.copy_1f4d77229c,
   adminTitle: src_web.scoring.adminTitle,
-  activityLabel: src_admin.copy_22123f353c,
+  activityLabel: src_authorization.fieldLabels.isCurrent,
   activityEmpty: src_score.copy_400aa44fd7,
   activityWindowClosed: src_web.scoring.activityWindowClosed,
   progressLabel: src_web.scoring.progressLabel,

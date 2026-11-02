@@ -16,7 +16,7 @@ assert.equal(original.student_id,secret,'不得修改计算或历史源对象');
 assert.equal(privacy.publicScoringHeaders([{key:'name'},{key:'studentId'},{key:'scorerStudentId'},{key:'score'}]).length,2);
 
 // 前端发布必须同时取消评分学号绑定，避免旧缓存或空值留下身份信息表面。
-const adminWxml=fs.readFileSync(path.resolve(__dirname,'../../miniprogram/subpackages/scoring/pages/admin/admin.wxml'),'utf8');
+const adminWxml=require('../../scripts/lib/miniprogramSource').readMarkup(path.resolve(__dirname,'../../miniprogram/subpackages/scoring/pages/admin/admin.wxml'));
 const tasksWxml=fs.readFileSync(path.resolve(__dirname,'../../miniprogram/subpackages/scoring/pages/scorerTasks/scorerTasks.wxml'),'utf8');
 assert.equal(/\bitem\.(?:scorerStudentId|targetStudentId)|\bm\.studentId/.test(adminWxml),false,'评分与评优展示不得绑定学号');
 assert.equal(/studentId|StudentId/.test(tasksWxml),false,'未完成任务展示不得绑定学号');

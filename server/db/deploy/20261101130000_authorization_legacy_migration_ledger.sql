@@ -1,0 +1,8 @@
+-- 旧权限转换只登记兼容结果，不在结构迁移期间启用新权限。
+CREATE TABLE IF NOT EXISTS authorization_legacy_migrations (
+  org_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  plan_digest CHAR(64) NOT NULL,
+  plan_json JSON NOT NULL,
+  staged_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

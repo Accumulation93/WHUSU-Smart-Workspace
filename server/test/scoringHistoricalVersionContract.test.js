@@ -40,7 +40,7 @@ assert(!/scoreRecordModel|scoreAnswerModel|DELETE FROM score_records|DELETE FROM
   '编辑模板绝不能删除历史评分或答案；历史记录由不可变计算快照解释');
 assert(templatesSource.includes("removedRecordCount: 0"),
   '兼容响应必须明确表示模板编辑不会移除评分记录');
-assert(templatesSource.includes('templateModel.getAll(orgId)')
+assert(templatesSource.includes('templateModel.getAll(orgId, connection)')
   && templatesSource.includes('WHERE t.org_id = ?'),
 '模板和题目目录必须按当前组织隔离');
 

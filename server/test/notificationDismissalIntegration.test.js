@@ -17,6 +17,9 @@ async function main() {
     await admin.query('GRANT ALL PRIVILEGES ON `' + database + "`.* TO '" + username + "'@'%'");
     await admin.query('USE `' + database + '`');
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/init.sql'),'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031160000_unified_authorization.sql'),'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031173000_authorization_subject_versions.sql'),'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261101013000_organization_venue_purposes.sql'),'utf8'));
     // 重现生产历史表与新增表的排序规则差异，不让测试库的统一默认值掩盖故障。
     await admin.query('ALTER TABLE notifications CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
     const versionsMigration = fs.readFileSync(path.join(__dirname,'../db/deploy/20260907120000_performance_cache_versions.sql'),'utf8');

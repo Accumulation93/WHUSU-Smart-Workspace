@@ -1,5 +1,6 @@
 const pool = require('../../config/db');
 const { safeString } = require('../../utils/helpers');
+const { authorizationError } = require('./authorizationError');
 
 const TARGET_TABLES = {
   department: 'departments',
@@ -158,6 +159,31 @@ const SNAPSHOT_USAGE = [
   ['venue_bookings', 'approval_snapshots_json', 'venue_history', 'approval_org_id']
 ];
 
+const AUTHORIZATION_USAGE = Object.freeze([
+  ['authorization_rules', 'policy_json'],
+  ['authorization_delegations', 'subjects_json'],
+  ['authorization_delegations', 'envelope_json']
+]);
+
+async function countAuthorizationUsage(kind, id, organizationId, connection, lockRows = false) {
+  // 兼容结构上线前允许旧程序执行；表一旦存在，查询失败或损坏条件都不能被忽略。
+  const [schema] = await connection.query(`SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name IN (?, ?)`, ['authorization_rules', 'authorization_delegations']);
+  const columns = new Set(schema.map(row => row.table_name + '.' + row.column_name));
+  const tables = new Set(schema.map(row => row.table_name));
+  const records = new Set();
+  for (const [table, column] of AUTHORIZATION_USAGE) {
+    if (!tables.has(table)) continue;
+    if (!columns.has(table + '.' + column) || !columns.has(table + '.org_id')) throw authorizationError('authorization_schema_incomplete');
+    const [rows] = await connection.query(`SELECT id, ${column} AS condition_json FROM ${table}
+      WHERE org_id = ?${lockRows ? ' FOR UPDATE' : ''}`, [organizationId]);
+    for (const row of rows) {
+      if (containsJsonReference(row.condition_json, kind, id)) records.add(table + ':' + row.id);
+    }
+  }
+  return records.size;
+}
+
 async function countUsage(kind, id, organizationId, connection = pool, options = {}) {
   const normalizedKind = safeString(kind);
   const normalizedId = safeString(id);
@@ -227,6 +253,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
     );
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
+  add('authorization_rules', await countAuthorizationUsage(normalizedKind, normalizedId, orgId, connection, lockRows));
   return Array.from(categoryCounts.entries()).map(([category, count]) => ({ category, count }));
 }
 
@@ -319,7 +346,7 @@ async function assertDictionaryReferences({
   return true;
 }
 
-async function deleteUnused(kind, id, organizationId) {
+async function deleteUnused(kind, id, organizationId, authorizationReference) {
   const normalizedKind = safeString(kind);
   const normalizedId = safeString(id);
   const orgId = safeString(organizationId);
@@ -329,6 +356,7 @@ async function deleteUnused(kind, id, organizationId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await require('../models/dictionaryAuthorization').requireWrite(connection, normalizedKind, 'delete', normalizedId, orgId, authorizationReference);
     await lockOrganizationDictionaryWrites(orgId, connection);
     const target = await lockDictionaryTarget(normalizedKind, normalizedId, orgId, connection);
     if (!target) {
@@ -358,13 +386,14 @@ async function deleteUnused(kind, id, organizationId) {
   }
 }
 
-async function saveWorkGroupDefinition({ id, name, departmentId, description, organizationId, updatedAt, newId }) {
+async function saveWorkGroupDefinition({ id, name, departmentId, description, organizationId, updatedAt, newId, authorizationReference }) {
   const normalizedId = safeString(id);
   const normalizedDepartmentId = safeString(departmentId);
   const orgId = safeString(organizationId);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await require('../models/dictionaryAuthorization').requireWrite(connection, 'work_group', normalizedId ? 'update' : 'create', normalizedId || newId, orgId, authorizationReference);
     await lockOrganizationDictionaryWrites(orgId, connection);
     const [departments] = await connection.query(
       'SELECT id FROM departments WHERE id = ? AND org_id = ? FOR UPDATE',
@@ -430,6 +459,7 @@ async function saveWorkGroupDefinition({ id, name, departmentId, description, or
 
 module.exports = {
   containsJsonReference,
+  countAuthorizationUsage,
   countUsage,
   deleteUnused,
   assertDictionaryReferences,

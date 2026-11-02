@@ -8,6 +8,7 @@ const identityModel = require('../models/unifiedIdentity');
 const sessionDeviceModel = require('../models/sessionDevice');
 const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
+const governanceAuthorization = require('../models/accountGovernanceAuthorization');
 const webSessionCookie = require('../services/webSessionCookie');
 const { resolveUnifiedSession, readRequestToken } = require('../../middleware/auth');
 const {
@@ -39,6 +40,9 @@ function metadataWithHours(req) {
 }
 
 function sendError(req, res, error) {
+  if (error.code === 'authorization_forbidden') {
+    return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_79c2622548 });
+  }
   if (error instanceof identityModel.IdentityError) {
     return res.status(error.httpStatus).json({
       status: error.code,
@@ -92,12 +96,42 @@ async function requireAdminPermission(req, permissionKey) {
   if (req.authContext.role !== 'admin') {
     throw new identityModel.IdentityError('admin_role_required', localeCopy.copy_278fb8d3d0, 403);
   }
+  if (req.unifiedAuthorization?.reference) {
+    const reference = req.unifiedAuthorization.reference;
+    const action = safeString(req.body?.action);
+    const read = req.method === 'GET' || ['', 'list', 'get', 'eligible', 'eligible_accounts'].includes(action);
+    const capability = {
+      'auth.identity.verify': 'auth.identity.' + (read ? 'read' : 'verify'),
+      'auth.accounts.recover': 'auth.recovery.' + (read ? 'read' : 'update'),
+      'auth.accounts.global_manage': 'auth.accounts.' + (req.path === '/admin/auth/security' ? 'read' : 'update'),
+      'auth.accounts.audit': 'auth.audit.read',
+      'auth.policy.manage': 'auth.policy.' + (req.method === 'GET' || action === 'get' ? 'read' : 'update')
+    }[permissionKey];
+    if (!capability) throw new identityModel.IdentityError('permission_denied', localeCopy.copy_79c2622548, 403);
+    const requestedOrganization = safeString(req.body?.organizationId || req.query?.organizationId);
+    if (requestedOrganization && requestedOrganization !== reference.organizationId) {
+      throw new identityModel.IdentityError('permission_denied', localeCopy.copy_79c2622548, 403);
+    }
+    const actor = await governanceAuthorization.authorize(reference, capability);
+    return { ...req.authContext, adminLevel: actor.isSuper ? 'super_admin' : 'admin',
+      organizationId: reference.organizationId,
+      authorizeGovernance: (connection, target) => governanceAuthorization.check(connection, reference, capability, target),
+      recheckGovernance: target => governanceAuthorization.authorize(reference, capability, target) };
+  }
   const context = await unifiedAuth.decorateContext(req.authContext);
   const permissions = context.permissions || [];
   if (!permissions.includes('*') && !permissions.includes(permissionKey)) {
     throw new identityModel.IdentityError('permission_denied', localeCopy.copy_79c2622548, 403);
   }
-  return context;
+  const authorizeLegacyGovernance = connection =>
+    require('../models/authorizationBusinessRoute').requireLegacyWrite(connection, req.authContext.organizationId);
+  return { ...context, authorizeLegacyGovernance,
+    recheckGovernance: () => pool.withTransaction(authorizeLegacyGovernance) };
+}
+
+function governanceOrganization(actor, requested) {
+  if (actor.authorizeGovernance) return actor.organizationId;
+  return actor.adminLevel === 'super_admin' ? safeString(requested) : actor.organizationId;
 }
 
 function mapSecuritySession(item) {
@@ -626,7 +660,16 @@ router.post('/admin/auth/security', async (req, res) => {
     if (!account) {
       throw new identityModel.IdentityError('member_not_found', localeCopy.copy_3b60b7e276, 404);
     }
-    const canGlobalManage = true;
+    let canGlobalManage = true;
+    if (req.unifiedAuthorization?.reference) {
+      try {
+        await governanceAuthorization.authorize(req.unifiedAuthorization.reference, 'auth.accounts.update',
+          { personId: account.person_id, accountId: account.account_id });
+      } catch (error) {
+        if (error.code !== 'authorization_forbidden') throw error;
+        canGlobalManage = false;
+      }
+    }
     const accountExists = Boolean(account.account_id);
     const sessions = accountExists ? scopeAccountSessions(
       await identityModel.listSessions(account.account_id),
@@ -634,9 +677,10 @@ router.post('/admin/auth/security', async (req, res) => {
       canGlobalManage
     ) : [];
     const devices = groupSessionsByDevice(sessions, req.authSession.device_key_hash);
-    const passphraseSet = canGlobalManage && accountExists
+    const passphraseSet = accountExists
       ? await identityModel.getPassphraseStatus(account.account_id)
       : false;
+    if (actor.recheckGovernance) await actor.recheckGovernance({ personId: account.person_id, accountId: account.account_id });
     return res.json(await withSystemTimezone({
       status: 'success',
       account: { name: account.name, studentId: account.student_id },
@@ -654,7 +698,7 @@ router.post('/admin/auth/security', async (req, res) => {
 
 router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.global_manage');
+    const actor = await requireAdminPermission(req, 'auth.accounts.global_manage');
     const body = req.body || {};
     const account = await resolveMemberAccount(req, body.personId);
     if (Object.prototype.hasOwnProperty.call(body, 'deviceKey')) {
@@ -663,6 +707,8 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
         throw new identityModel.IdentityError('invalid_params', localeCopy.copy_72b5b8b086, 400);
       }
       const revokedCount = await pool.withTransaction(async (connection) => {
+        if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+        if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: account.person_id, accountId: account.account_id });
         const changed = await identityModel.revokeSessionsByDeviceKey(
           account.account_id,
           deviceKey,
@@ -695,6 +741,8 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
       throw new identityModel.IdentityError('invalid_params', localeCopy.copy_72b5b8b086, 400);
     }
     const revoked = await pool.withTransaction(async (connection) => {
+      if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: account.person_id, accountId: account.account_id });
       const changed = await identityModel.revokeSession(
         account.account_id,
         sessionId,
@@ -724,8 +772,10 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
 
 router.post('/admin/auth/security/passphrase', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.global_manage');
+    const actor = await requireAdminPermission(req, 'auth.accounts.global_manage');
     const result = await pool.withTransaction(async (connection) => {
+      if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: safeString(req.body && req.body.personId) });
       const account = await identityModel.ensureAccountForActiveMember(
         safeString(req.body && req.body.personId),
         req.authContext.organizationId,
@@ -765,9 +815,11 @@ router.post('/admin/auth/security/passphrase', async (req, res) => {
 
 router.post('/admin/auth/security/passphrase/revoke', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.global_manage');
+    const actor = await requireAdminPermission(req, 'auth.accounts.global_manage');
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
     const revoked = await pool.withTransaction(async (connection) => {
+      if (actor.authorizeLegacyGovernance) await actor.authorizeLegacyGovernance(connection);
+      if (actor.authorizeGovernance) await actor.authorizeGovernance(connection, { personId: account.person_id, accountId: account.account_id });
       const changed = await identityModel.revokeRecoveryCredential(
         account.account_id,
         'passphrase',
@@ -837,10 +889,9 @@ router.post('/auth/recovery/complete', async (req, res) => {
 router.get('/admin/auth/claims', async (req, res) => {
   try {
     const actor = await requireAdminPermission(req, 'auth.identity.verify');
-    const orgId = actor.adminLevel === 'super_admin'
-      ? safeString(req.query && req.query.organizationId)
-      : actor.organizationId;
-    const rows = await identityModel.listClaims(orgId, { limit: req.query && req.query.limit });
+    const orgId = governanceOrganization(actor, req.query && req.query.organizationId);
+    const rows = await identityModel.listClaims(orgId, { limit: req.query && req.query.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
+    if (actor.recheckGovernance) await actor.recheckGovernance();
     return res.json({ status: 'success', list: rows });
   } catch (error) {
     return sendError(req, res, error);
@@ -852,23 +903,19 @@ router.post('/admin/auth/claims', async (req, res) => {
     const actor = await requireAdminPermission(req, 'auth.identity.verify');
     const action = safeString(req.body && req.body.action) || 'list';
     if (action === 'list') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
-      const rows = await identityModel.listClaims(orgId, { limit: req.body && req.body.limit });
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
+      const rows = await identityModel.listClaims(orgId, { limit: req.body && req.body.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
+      if (actor.recheckGovernance) await actor.recheckGovernance();
       return res.json({ status: 'success', list: rows });
     }
     if (action === 'eligible') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listEligibleInitialInvitePeople(orgId, req.body || {});
+      if (actor.recheckGovernance) await actor.recheckGovernance();
       return res.json({ status: 'success', list: rows });
     }
     if (action === 'issue_invites') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const results = await identityModel.issueInitialInvites(
         req.body && req.body.personIds,
         orgId,
@@ -878,9 +925,7 @@ router.post('/admin/auth/claims', async (req, res) => {
       return res.json({ status: 'success', issued: results, message: localeCopy.copy_bf3336af0d });
     }
     if (action === 'revoke_invites') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const result = await identityModel.revokeInitialInvites(req.body && req.body.personIds, orgId, actor, metadata(req));
       return res.json({ status: 'success', revoked: result.revoked });
     }
@@ -932,10 +977,9 @@ router.post('/admin/auth/claims', async (req, res) => {
 router.get('/admin/auth/recoveries', async (req, res) => {
   try {
     const actor = await requireAdminPermission(req, 'auth.accounts.recover');
-    const orgId = actor.adminLevel === 'super_admin'
-      ? safeString(req.query && req.query.organizationId)
-      : actor.organizationId;
-    const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.query && req.query.limit });
+    const orgId = governanceOrganization(actor, req.query && req.query.organizationId);
+    const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.query && req.query.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
+    if (actor.recheckGovernance) await actor.recheckGovernance();
     return res.json({ status: 'success', list: rows });
   } catch (error) {
     return sendError(req, res, error);
@@ -947,17 +991,15 @@ router.post('/admin/auth/recoveries', async (req, res) => {
     const actor = await requireAdminPermission(req, 'auth.accounts.recover');
     const action = safeString(req.body && req.body.action) || 'list';
     if (action === 'list') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
-      const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.body && req.body.limit });
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
+      const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.body && req.body.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
+      if (actor.recheckGovernance) await actor.recheckGovernance();
       return res.json({ status: 'success', list: rows });
     }
     if (action === 'eligible_accounts') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listEligibleRecoveryAccounts(orgId, req.body || {});
+      if (actor.recheckGovernance) await actor.recheckGovernance();
       return res.json({ status: 'success', list: rows.map((row) => ({
         accountId: safeString(row.account_id), personId: safeString(row.person_id), name: safeString(row.name),
         studentId: safeString(row.student_id), accountStatus: safeString(row.status),
@@ -966,9 +1008,7 @@ router.post('/admin/auth/recoveries', async (req, res) => {
     }
     if (action === 'issue_codes') {
       const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
-      const orgId = globalActor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : globalActor.organizationId;
+      const orgId = governanceOrganization(globalActor, req.body && req.body.organizationId);
       const results = await identityModel.issueAdminRecoveryCodes(
         req.body && req.body.accountIds,
         orgId,
@@ -979,9 +1019,7 @@ router.post('/admin/auth/recoveries', async (req, res) => {
     }
     if (action === 'revoke_codes') {
       const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
-      const orgId = globalActor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : globalActor.organizationId;
+      const orgId = governanceOrganization(globalActor, req.body && req.body.organizationId);
       const result = await identityModel.revokeAdminRecoveryCodes(
         req.body && req.body.accountIds,
         orgId,
@@ -1010,10 +1048,9 @@ router.post('/admin/auth/accounts', async (req, res) => {
     const actor = await requireAdminPermission(req, 'auth.accounts.recover');
     const action = safeString(req.body && req.body.action) || 'list';
     if (action === 'list') {
-      const orgId = actor.adminLevel === 'super_admin'
-        ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
+      const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listAccounts(orgId, { limit: req.body && req.body.limit, search: req.body && req.body.search });
+      if (actor.recheckGovernance) await actor.recheckGovernance();
       return res.json({
         status: 'success',
         list: rows.map((row) => ({
@@ -1052,8 +1089,10 @@ router.post('/admin/auth/accounts', async (req, res) => {
 
 router.get('/admin/auth/policy', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.policy.manage');
-    return res.json({ status: 'success', policy: await identityModel.getPolicy() });
+    const actor = await requireAdminPermission(req, 'auth.policy.manage');
+    const policy = await identityModel.getPolicy();
+    if (actor.recheckGovernance) await actor.recheckGovernance();
+    return res.json({ status: 'success', policy });
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -1063,7 +1102,9 @@ router.post('/admin/auth/policy', async (req, res) => {
   try {
     const actor = await requireAdminPermission(req, 'auth.policy.manage');
     if (safeString(req.body && req.body.action) === 'get') {
-      return res.json({ status: 'success', policy: await identityModel.getPolicy() });
+      const policy = await identityModel.getPolicy();
+      if (actor.recheckGovernance) await actor.recheckGovernance();
+      return res.json({ status: 'success', policy });
     }
     const policy = await identityModel.savePolicy(req.body || {}, actor);
     return res.json({ status: 'success', policy });
@@ -1075,10 +1116,9 @@ router.post('/admin/auth/policy', async (req, res) => {
 router.post('/admin/auth/audit', async (req, res) => {
   try {
     const actor = await requireAdminPermission(req, 'auth.accounts.audit');
-    const orgId = actor.adminLevel === 'super_admin'
-      ? safeString(req.body && req.body.organizationId)
-      : actor.organizationId;
+    const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
     const rows = await identityModel.listAuditEvents(orgId, req.body && req.body.limit);
+    if (actor.recheckGovernance) await actor.recheckGovernance();
     return res.json(await withSystemTimezone({
       status: 'success',
       list: rows.map((row) => ({

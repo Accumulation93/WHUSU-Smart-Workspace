@@ -7,7 +7,6 @@ const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const { resolveRequestAdmin: ensureAdmin } = require('../../../core/services/adminRequestContext');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
 const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
@@ -30,6 +29,7 @@ const {
 } = require('../services/auditWorkflowPolicy');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const { inspectAuditImageData } = require('../utils/auditImageData');
+const managementAuthorization = require('../models/auditManagementAuthorization');
 
 function collectDictionaryReferences(condition) {
   const item = condition || {};
@@ -47,28 +47,51 @@ function collectDictionaryReferences(condition) {
 // listAuditFlowTemplates
 router.post('/getAuditTemplateEditorData', async (req, res) => {
   try {
-    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    return res.json({ status: 'success', data: await require('../models/auditEditorDirectory').templates() });
-  } catch (_) { return res.json({ status: 'error' }); }
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = await getCurrentOrgId();
+    const data = await pool.withTransaction(async connection => {
+      const activeSession = await managementAuthorization.session(connection, orgId, reference);
+      managementAuthorization.check(activeSession, orgId, 'audit.templateCandidates', 'read', orgId);
+      return require('../models/auditEditorDirectory').templates(connection);
+    });
+    return res.json({ status: 'success', data });
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    return res.json({ status: 'error' });
+  }
 });
 
 router.post('/listAuditVerificationCandidates', async (req, res) => {
   try {
-    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    return res.json({ status: 'success', candidates: await require('../models/auditEditorDirectory').people() });
-  } catch (_) { return res.json({ status: 'error' }); }
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = await getCurrentOrgId();
+    const candidates = await pool.withTransaction(async connection => {
+      const activeSession = await managementAuthorization.session(connection, orgId, reference);
+      managementAuthorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
+      return require('../models/auditEditorDirectory').people(connection);
+    });
+    return res.json({ status: 'success', candidates });
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    return res.json({ status: 'error' });
+  }
 });
 
 router.post('/listAuditFlowTemplates', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
-    const templates = await flowTemplateModel.getAll();
+    const orgId = await getCurrentOrgId();
+    const result = await pool.withTransaction(async connection => {
+    const activeSession = await managementAuthorization.session(connection, orgId, reference);
+    const templates = await managementAuthorization.templates(connection, orgId, activeSession);
     // Load steps for each template
     const result = [];
     for (const t of templates) {
-      const steps = await flowTemplateStepModel.getByTemplateId(t.id);
+      const steps = await flowTemplateStepModel.getByTemplateId(t.id, connection);
       // Parse starter conditions JSON
       let starterConditions = [];
       if (t.starter_conditions_json) {
@@ -76,7 +99,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           starterConditions = JSON.parse(t.starter_conditions_json);
         } catch (_) { starterConditions = []; }
       }
-      result.push({
+      result.push(managementAuthorization.projectTemplate(activeSession, orgId, {
         id: safeString(t.id),
         name: safeString(t.name),
         description: safeString(t.description),
@@ -125,10 +148,13 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
         })),
         createdAt: t.created_at,
         updatedAt: t.updated_at
-      });
+      }));
     }
+    return result;
+    });
     res.json({ status: 'success', templates: result });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -136,8 +162,9 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
 // saveAuditFlowTemplate
 router.post('/saveAuditFlowTemplate', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -285,8 +312,12 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     }
 
     const conn = await pool.getConnection();
+    const newTemplateId = id || generateId();
     try {
       await conn.beginTransaction();
+      const activeSession = await managementAuthorization.session(conn, orgId, reference);
+      managementAuthorization.check(activeSession, orgId, 'audit.templates', id ? 'update' : 'create', newTemplateId,
+        ['name', 'description', 'starterConditions', 'steps', 'isActive']);
       const allConditions = starterConditions.slice();
       for (const step of steps) {
         const stepConditions = Array.isArray(step.conditions) ? step.conditions : [];
@@ -297,6 +328,14 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       }
       await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
       for (const condition of allConditions) {
+        if (condition.conditionType === 'person') {
+          const binding = await resolveAndValidateBindings(condition, orgId, conn);
+          if (!binding.ok) {
+            const bindingError = new Error(localeCopy.workflowConfigurationInvalid);
+            bindingError.status = 'invalid_params';
+            throw bindingError;
+          }
+        }
         await dictionaryUsage.assertDictionaryReferences(Object.assign({
           organizationId: orgId,
           connection: conn
@@ -322,13 +361,13 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
         // Remove old steps, re-insert
         await flowTemplateStepModel.removeByTemplateId(id, conn);
       } else {
-        templateId = generateId();
+        templateId = newTemplateId;
         await flowTemplateModel.create(templateId, {
           name, description, starterType,
           starterIdentityId: starterIdentityId || null,
           starterHrId: starterHrId || null,
           starterConditionsJson,
-          createdBy: admin.id
+          createdBy: reference ? reference.personId : admin.id
         }, conn);
       }
 
@@ -406,6 +445,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       conn.release();
     }
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: safeString(e.status) || 'error', message: safeString(e.message) });
   }
 });
@@ -413,25 +453,22 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
 // deleteAuditFlowTemplate
 router.post('/deleteAuditFlowTemplate', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_319cc04882 });
 
     // Check if any submissions reference this template
     const orgId = await getCurrentOrgId();
-    const [submissions] = await pool.query(
-      'SELECT COUNT(*) AS cnt FROM audit_submissions WHERE template_id = ? AND org_id = ?',
-      [id, orgId]
-    );
-    if (submissions[0] && submissions[0].cnt > 0) {
+    const outcome = await managementAuthorization.deleteTemplate(id, orgId, reference, pool);
+    if (outcome.status === 'in_use') {
       return res.json({ status: 'in_use', message: localeCopy.copy_f6152889c8 });
     }
-
-    await flowTemplateModel.remove(id);
+    if (outcome.status !== 'success') return res.json({ status: outcome.status, message: localeCopy.workflowConfigurationInvalid });
     res.json({ status: 'success', message: localeCopy.copy_efc8493bdc });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:list] failed:', e);
     res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
@@ -444,12 +481,15 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
 // listStamps
 router.post('/listStamps', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
-    const stamps = await stampModel.getAll();
-    const assignments = await stampAssignmentModel.getAllGrouped();
-    const grants = await stampGrantModel.listGrants();
+    const orgId = await getCurrentOrgId();
+    const result = await pool.withTransaction(async connection => {
+    const activeSession = await managementAuthorization.session(connection, orgId, reference);
+    const stamps = await stampModel.getAll(connection, activeSession);
+    const assignments = await stampAssignmentModel.getAllGrouped(connection);
+    const grants = await stampGrantModel.listGrants(connection);
 
     // Build stamp → identity list map
     const stampIdentityMap = {};
@@ -461,7 +501,8 @@ router.post('/listStamps', async (req, res) => {
       });
     }
 
-    const result = stamps.map((s) => ({
+    return stamps.map((s) => {
+    const value = {
       id: safeString(s.id),
       name: safeString(s.name),
       imageData: s.image_data || '',
@@ -469,10 +510,16 @@ router.post('/listStamps', async (req, res) => {
       assignedPeople: grants.filter(grant => grant.stampId === s.id),
       createdBy: safeString(s.created_by),
       createdAt: s.created_at
-    }));
+    };
+    if (!activeSession) return value;
+    const decision = managementAuthorization.check(activeSession, orgId, 'audit.stamps', 'read', value.id);
+    return { id: value.id, ...activeSession.project(value, decision) };
+    });
+    });
 
     res.json({ status: 'success', stamps: result });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:list] failed:', e);
     res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
@@ -481,8 +528,9 @@ router.post('/listStamps', async (req, res) => {
 // saveStamp
 router.post('/saveStamp', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -510,17 +558,18 @@ router.post('/saveStamp', async (req, res) => {
     const storedImageData = imageInspection.normalizedDataUrl || imageData;
 
     if (id) {
-      const updated = await stampModel.update(id, { name, imageData: storedImageData });
+      const updated = await stampModel.update(id, { name, imageData: storedImageData }, reference);
       if (!updated) {
         return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
       }
       res.json({ status: 'success', message: localeCopy.copy_161855b67c });
     } else {
       const newId = generateId();
-      await stampModel.create(newId, { name, imageData: storedImageData, createdBy: admin.id });
+      await stampModel.create(newId, { name, imageData: storedImageData, createdBy: reference ? reference.personId : admin.id }, reference);
       res.json({ status: 'success', id: newId, message: localeCopy.copy_8e51c9c0df });
     }
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:save] failed:', e);
     res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
@@ -529,18 +578,19 @@ router.post('/saveStamp', async (req, res) => {
 // deleteStamp
 router.post('/deleteStamp', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_fc971e88db });
 
-    const removed = await stampModel.remove(id);
+    const removed = await stampModel.remove(id, reference);
     if (!removed) {
       return res.json({ status: 'not_found', message: localeCopy.copy_fc971e88db });
     }
     res.json({ status: 'success', message: localeCopy.copy_a5d4679cf0 });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:delete] failed:', e);
     res.json({ status: 'error', message: localeCopy.stampOperationFailed });
   }
@@ -549,9 +599,17 @@ router.post('/deleteStamp', async (req, res) => {
 // 印章可用人仅由当前组织的印章管理权限配置，候选接口不依赖人事管理权限。
 router.post('/listStampCandidates', async (req, res) => {
   try {
-    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    res.json({ status: 'success', candidates: await stampGrantModel.listCandidates() });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const orgId = await getCurrentOrgId();
+    const candidates = await pool.withTransaction(async connection => {
+      const activeSession = await managementAuthorization.session(connection, orgId, reference);
+      managementAuthorization.check(activeSession, orgId, 'audit.stampCandidates', 'read', orgId);
+      return stampGrantModel.listCandidates(connection);
+    });
+    res.json({ status: 'success', candidates });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:candidates] failed:', error);
     res.json({ status: 'error', message: stampCopy.failed });
   }
@@ -559,12 +617,14 @@ router.post('/listStampCandidates', async (req, res) => {
 
 router.post('/saveStampGrants', async (req, res) => {
   try {
-    if (!await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const result = await stampGrantModel.replaceForStamp(safeString(req.body.stampId), req.body.assignmentIds);
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const result = await stampGrantModel.replaceForStamp(safeString(req.body.stampId), req.body.assignmentIds, reference);
     const messages = { invalid_params: stampCopy.invalidSelection, assignment_unavailable: stampCopy.unavailable,
       stamp_not_found: localeCopy.copy_fc971e88db, success: stampCopy.saved };
     res.json({ status: result.status, message: messages[result.status] || stampCopy.failed });
   } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     console.error('[audit:stamp:grants] failed:', error);
     res.json({ status: 'error', message: stampCopy.failed });
   }
@@ -590,20 +650,26 @@ router.post('/listIdentityStamps', (req, res) => {
 // listVerificationPermissions
 router.post('/listVerificationPermissions', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
-    const perms = await verificationPermModel.getAll();
+    const orgId = await getCurrentOrgId();
+    const perms = await pool.withTransaction(async connection => {
+      const activeSession = await managementAuthorization.session(connection, orgId, reference);
+      managementAuthorization.check(activeSession, orgId, 'audit.verification', 'read', orgId);
+      return verificationPermModel.getAll(connection);
+    });
     const result = perms.map((p) => ({
       id: safeString(p.id),
       granteeHrId: safeString(p.grantee_hr_id),
       granteeName: safeString(p.grantee_name) || localeCopy.copy_8d3451355b,
-      grantedBy: safeString(p.granted_by),
+      grantedBy: reference ? '' : safeString(p.granted_by),
       createdAt: p.created_at
     }));
 
     res.json({ status: 'success', permissions: result });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -611,25 +677,27 @@ router.post('/listVerificationPermissions', async (req, res) => {
 // saveVerificationPermission
 router.post('/saveVerificationPermission', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const granteeHrId = safeString(req.body.granteeHrId);
     const action = safeString(req.body.action) || 'grant'; // 'grant' or 'revoke'
+    if (!['grant', 'revoke'].includes(action)) return res.json({ status: 'invalid_params', message: localeCopy.workflowConfigurationInvalid });
 
     if (!granteeHrId) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_7d1a305d97 });
     }
 
     if (action === 'revoke') {
-      const removed = await verificationPermModel.removeByGrantee(granteeHrId);
+      const removed = await verificationPermModel.removeByGrantee(granteeHrId, reference);
       if (!removed) {
         return res.json({ status: 'not_found', message: localeCopy.copy_7d1a305d97 });
       }
       res.json({ status: 'success', message: localeCopy.copy_c2eabcfd63 });
     } else {
       const newId = generateId();
-      const result = await verificationPermModel.create(newId, { granteeHrId, grantedBy: admin.id });
+      const result = await verificationPermModel.create(newId, { granteeHrId, grantedBy: reference ? reference.personId : admin.id }, reference);
       if (result.status === 'grantee_not_found') {
         return res.json({ status: 'not_found', message: localeCopy.copy_7d1a305d97 });
       }
@@ -639,6 +707,7 @@ router.post('/saveVerificationPermission', async (req, res) => {
       res.json({ status: 'success', message: localeCopy.copy_31f5d1514b });
     }
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -650,8 +719,8 @@ router.post('/saveVerificationPermission', async (req, res) => {
 // listAllAuditSubmissions — Admin view of all submissions
 router.post('/listAllAuditSubmissions', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const filters = {
       status: safeString(req.body.status) || null,
@@ -660,19 +729,22 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
       offset: Math.max(0, parseInt(req.body.offset, 10) || 0)
     };
 
-    const submissions = await submissionModel.getAll(filters);
+    const orgId = await getCurrentOrgId();
+    const result = await pool.withTransaction(async connection => {
+    const activeSession = await managementAuthorization.session(connection, orgId, reference);
+    const submissions = await submissionModel.getAll(filters, connection, activeSession);
 
     // Load submitter names
     const submitterIds = [...new Set(submissions.map((s) => s.submitted_by))];
     const hrMap = {};
     if (submitterIds.length) {
-      const hrRows = await hrInfoModel.getByIds(submitterIds);
+      const hrRows = await managementAuthorization.names(connection, orgId, 'people', submitterIds);
       for (const hr of hrRows) {
         hrMap[hr.id] = safeString(hr.name);
       }
     }
 
-    const result = submissions.map((s) => ({
+    return submissions.map((s) => ({
       id: safeString(s.id),
       submissionNumber: safeString(s.submission_number),
       title: safeString(s.title),
@@ -686,9 +758,11 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
       createdAt: s.created_at,
       updatedAt: s.updated_at
     }));
+    });
 
     res.json({ status: 'success', submissions: result });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -758,8 +832,8 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
 // getAuditProgress — View flow progress for a submission
 router.post('/getAuditProgress', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req);
-    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const reference = req.unifiedAuthorization?.reference;
+    if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
 
@@ -768,17 +842,20 @@ router.post('/getAuditProgress', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
     }
 
-    const submission = await submissionModel.getById(submissionId);
+    const result = await pool.withTransaction(async connection => {
+    const activeSession = await managementAuthorization.session(connection, orgId, reference);
+    managementAuthorization.check(activeSession, orgId, 'audit.submissions', 'read', submissionId);
+    const submission = await submissionModel.getById(submissionId, connection);
     if (!submission) {
-      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
+      return { status: 'not_found', message: localeCopy.copy_780fb113f1 };
     }
 
-    const steps = await submissionStepModel.getBySubmissionId(submissionId);
-    const files = await submissionFileModel.getBySubmissionId(submissionId);
+    const steps = await submissionStepModel.getBySubmissionId(submissionId, connection);
+    const files = await submissionFileModel.getBySubmissionId(submissionId, connection);
     const currentFileIds = new Set(files.map(function(file) { return safeString(file.id); }));
-    const signatures = (await submissionSignatureModel.getBySubmissionId(submissionId))
+    const signatures = (await submissionSignatureModel.getBySubmissionId(submissionId, connection))
       .filter(function(signature) { return currentFileIds.has(safeString(signature.file_id)); });
-    const events = await auditEventModel.getBySubmissionId(submissionId);
+    const events = await auditEventModel.getBySubmissionId(submissionId, connection);
 
     // Load HR names
     const allHrIds = new Set();
@@ -788,7 +865,7 @@ router.post('/getAuditProgress', async (req, res) => {
     events.forEach((e) => { if (e.operator_hr_id) allHrIds.add(e.operator_hr_id); });
     const hrMap = {};
     if (allHrIds.size) {
-      const hrRows = await hrInfoModel.getByIds([...allHrIds]);
+      const hrRows = await managementAuthorization.names(connection, orgId, 'people', [...allHrIds]);
       for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
     }
 
@@ -818,36 +895,27 @@ router.post('/getAuditProgress', async (req, res) => {
     }
     const identityMap = {};
     if (identityIds.size) {
-      const [identRows] = await pool.query(
-        'SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?',
-        [[...identityIds], orgId]
-      );
+      const identRows = await managementAuthorization.names(connection, orgId, 'identities', [...identityIds]);
       for (const ident of identRows) identityMap[ident.id] = safeString(ident.name);
     }
 
     const deptMap = {}, wgMap = {};
     if (deptIdSet.size) {
-      const [deptRows] = await pool.query(
-        'SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?',
-        [[...deptIdSet], orgId]
-      );
+      const deptRows = await managementAuthorization.names(connection, orgId, 'departments', [...deptIdSet]);
       for (const d of deptRows) deptMap[d.id] = safeString(d.name);
     }
     if (wgIdSet.size) {
-      const [wgRows] = await pool.query(
-        'SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?',
-        [[...wgIdSet], orgId]
-      );
+      const wgRows = await managementAuthorization.names(connection, orgId, 'workGroups', [...wgIdSet]);
       for (const w of wgRows) wgMap[w.id] = safeString(w.name);
     }
     if (hrIdSet.size) {
-      const hrCondRows = await hrInfoModel.getByIds([...hrIdSet]);
+      const hrCondRows = await managementAuthorization.names(connection, orgId, 'people', [...hrIdSet]);
       for (const hr of hrCondRows) {
         if (!hrMap[hr.id]) hrMap[hr.id] = safeString(hr.name);
       }
     }
 
-    res.json({
+    return {
       status: 'success',
       submission: {
         id: safeString(submission.id),
@@ -935,8 +1003,11 @@ router.post('/getAuditProgress', async (req, res) => {
         fileHash: safeString(f.file_hash),
         sortOrder: f.sort_order
       }))
+    };
     });
+    return res.json(result);
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

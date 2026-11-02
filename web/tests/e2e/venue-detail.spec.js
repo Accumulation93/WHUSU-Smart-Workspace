@@ -44,3 +44,20 @@ test('history card opens the same complete detail without a second hero or refre
   await expect(page.getByText('Historical group', { exact: true })).toBeVisible();
   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '67');
 });
+
+test('booking action restrictions hide controls without hiding readable details', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.route('**/api/listMyVenueBookings', route => route.fulfill({ json: { status: 'success', bookings: [
+    { ...booking, canCancel: false },
+    { ...booking, id: 'active-booking', title: 'Active booking', status: 'approved', canEnd: false,
+      timeStart: new Date(Date.now() - 3600000).toISOString(), timeEnd: new Date(Date.now() + 3600000).toISOString() }
+  ] } }));
+  await page.goto('/web/venue/mine');
+  await expect(page.locator('.booking-card')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: copy.venue.cancelAction, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: copy.venue.endAction, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: booking.title, exact: true }).click();
+  await expect(page.getByRole('dialog', { name: copy.venue.detailTitle })).toBeVisible();
+  expect(callsOf(api.calls, 'cancelVenueBooking')).toHaveLength(0);
+  expect(callsOf(api.calls, 'endVenueBooking')).toHaveLength(0);
+});

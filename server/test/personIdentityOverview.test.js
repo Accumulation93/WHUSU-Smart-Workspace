@@ -39,6 +39,7 @@ const pool = {
     if (sql.includes('FROM departments')) return [[]];
     if (sql.includes('FROM identities')) return [[]];
     if (sql.includes('FROM work_groups')) return [[]];
+    if (sql.includes('FROM assignment_natures')) return [[{ id: 'custom', org_id: 'org-member', name: '自定义岗位性质', version: 1 }]];
     throw new Error(`Unexpected query: ${sql}`);
   }
 };
@@ -64,6 +65,8 @@ Module._load = originalLoad;
     '仅有管理身份、没有普通岗位的组织也必须显示'
   );
   assert.strictEqual(result.grants[0].org_id, 'org-admin-only');
+  assert.strictEqual(result.dictionaries.assignmentNatures[0].id, 'custom');
+  assert.deepStrictEqual(queryCalls.find(item => item.sql.includes('FROM assignment_natures')).params, ['org-member']);
   const organizationQuery = queryCalls.find((item) => item.sql.includes('FROM organizations o'));
   assert(organizationQuery.sql.includes('EXISTS'), '组织列表必须合并管理身份所属组织');
   assert.deepStrictEqual(

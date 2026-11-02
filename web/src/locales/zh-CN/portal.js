@@ -1,9 +1,9 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_adminGovernance from './shared/adminGovernance.js';
+import src_authorization from './shared/authorization.js';
 import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
-import src_workspace_hero from './shared/generated/components/workspace-hero/workspace-hero.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
@@ -11,8 +11,6 @@ import src_accountSecurity from './shared/generated/subpackages/org/pages/accoun
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
-import src_hrInfoBehavior from './shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
-import src_venueBookingDetail from './shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
 import src_venueBooking from './shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import src_venueManage from './shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import src_home from './shared/home.js';
@@ -22,26 +20,26 @@ import src_main from './shared/main.js';
 export default Object.freeze({
   partialOrganizationLoading: src_main.portal.partialOrganizationLoading,
   navigationTitle: src_main.portal.navigationTitle,
-  appName: src_common.brandName,
+  appName: src_authorization.appName,
   pageName: src_main.portal.pageName,
   organizationName: src_common.organizationName,
   audit: src_myApprovalHistory.copy_56d416c578,
-  venue: src_venueBookingDetail.copy_bbbebc1abf,
+  venue: src_authorization.configurationCopy.referenceKinds.venue,
   scoring: src_admin.copy_33a502217d,
   hr: src_accountSecurity.copy_166a418985,
   system: src_admin.copy_5b4cf5d1bf,
   scan: src_main.portal.cards.scan,
   messages: src_main.portal.cards.messages,
   workContextSwitch: src_identitySwitch.copy_c3e7d7fee4,
-  venueBooking: src_calendar.venue_booking,
+  venueBooking: src_authorization.resources["venue.bookings"],
   venueManage: src_venueManage.copy_02719d6557,
-  permissions: src_main.portal.cards.permissions,
+  permissions: src_authorization.title,
   signedOut: src_home.text.signedOut,
-  superAdmin: src_workspace_hero.copy_ccd219e5f1,
-  admin: src_adminPermissions.copy_1557b96093,
+  superAdmin: src_authorization.superAdminRole,
+  admin: src_authorization.adminRole,
   unset: src_venueBooking.copy_ad183b164d,
   welcome: src_home.text.welcome,
-  notification: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  notification: src_authorization.resources["notifications.items"],
   todo: src_main.portal.messages.todo,
   readFailed: src_main.portal.messages.readFailed,
   deleteFailed: src_adminGovernance.failed,
@@ -66,7 +64,7 @@ export default Object.freeze({
   current: src_home.text.current,
   enter: src_common.actions.enter,
   loadingMore: src_main.portal.view.loadingMore,
-  notificationTitle: src_hrInfoBehavior.hrDeletionCleanupNotification,
+  notificationTitle: src_authorization.resources["notifications.items"],
   markAllRead: src_mySubmissions.copy_6830671a51,
   noNotifications: src_main.portal.view.noNotifications,
   notificationType: src_main.portal.view.notificationType,
@@ -79,13 +77,13 @@ export default Object.freeze({
   clearSearch: src_identitySwitch.copy_ed081670d5,
   scanResultTitle: src_main.portal.view.scanResultTitle,
   scanExternalHint: src_main.portal.view.scanExternalHint,
-  scanCopyAction: src_main.portal.view.scanCopyAction,
-  scanCloseAction: src_calendar.close,
+  scanCopyAction: src_authorization.configurationCopy.preview,
+  scanCloseAction: src_authorization.close,
   scanFailed: src_main.portal.view.scanFailed,
   navLoginAction: src_login.view.loginTitle,
   authUnavailable: src_main.portal.view.authUnavailable,
   authFrozen: src_main.portal.view.authFrozen,
-  authRetryAction: src_calendar.retry,
+  authRetryAction: src_authorization.retry,
   authLoginAction: src_main.portal.view.authLoginAction,
   noMatchingApps: src_main.portal.view.noMatchingApps,
   noApps: src_main.portal.view.noApps,

@@ -1,0 +1,22 @@
+{
+  "component": true,
+  "usingComponents": {
+    "contact-directory": "/subpackages/workspace/package-resources/components/contact-directory/contact-directory",
+    "audit-verification-result": "/subpackages/workspace/package-resources/components/audit-verification-result/audit-verification-result",
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "personnel-picker": "/subpackages/workspace/package-resources/components/personnel-picker/personnel-picker",
+    "hr-profile-migration-dialog": "/subpackages/workspace/package-resources/components/hr-profile-migration-dialog/hr-profile-migration-dialog",
+    "hr-profile-migration-requests": "/subpackages/workspace/package-resources/components/hr-profile-migration-requests/hr-profile-migration-requests",
+    "hr-directory-controls": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls",
+    "hr-template-editor": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor",
+    "hr-permanent-deletion-dialog": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog",
+    "admin-candidate-list": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList",
+    "dictionary-load-failure": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure",
+    "dictionary-usage-dialog": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog",
+    "hr-import-issue-list": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList",
+    "score-record-detail-dialog": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog",
+    "audit-verification-matches": "/subpackages/workspace/package-resources/components/audit-verification-matches/audit-verification-matches",
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "person-link": "/subpackages/workspace/package-resources/components/person-link/person-link"
+  }
+}
