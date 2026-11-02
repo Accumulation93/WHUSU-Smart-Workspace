@@ -14,6 +14,7 @@
         <button v-for="value in tabs" :key="value" type="button" class="tab" :class="{ 'tab-active': tab === value }"
           :disabled="busy" :aria-current="tab === value ? 'page' : undefined" @click="changeTab(value)">{{ text[value] }}</button>
       </nav>
+      <p class="muted">{{ text.tabHelp[tab] }}</p>
     </section>
     <AppLoading v-if="loading || busy" :text="busy ? text.processing : ui.loading" />
     <section v-if="notice" class="card stack" role="alert">
@@ -36,6 +37,7 @@
         <p v-if="!draft.shareAvailable" class="notice-line">{{ text.unavailable }}</p>
         <p class="muted">{{ preview.notice }}</p>
         <h3 v-if="references.length" class="section-title">{{ text.references }}</h3>
+        <p v-if="references.length" class="muted">{{ text.referenceHelp }}</p>
         <p v-else-if="detailReady" class="muted">{{ text.noReferences }}</p>
         <div v-for="item in references" :key="item.token" class="glass-panel stack-tight">
           <strong>{{ text.referenceKinds[item.kind] }} · {{ item.label }}</strong>
@@ -60,7 +62,7 @@
       </div>
     </section>
     <template v-else>
-      <p v-if="!loading && ready && !items.length" class="empty-state">{{ text.empty }}</p>
+      <p v-if="!loading && ready && !items.length" class="empty-state">{{ text.emptyByTab[tab] }}</p>
       <article v-for="item in items" :key="item.id" class="card stack">
         <div class="panel-head"><h2 class="section-title">{{ item.name }}</h2>
           <span v-if="item.state" class="chip chip-blue">{{ text[item.state] }}</span>
@@ -186,7 +188,8 @@ async function mutation(name, data, body, success, after) {
   try {
     if (body) {
       ownsConfirmation = true;
-      const confirmed = await confirmAction({ title: text.title, body, confirmText: ui.save, cancelText: ui.cancel, danger: name === 'revokeOrganizationConfigurationShare' });
+      const confirmText = name === 'revokeOrganizationConfigurationShare' ? text.revoke : name === 'applyOrganizationConfigurationDraft' ? text.confirmCopy : name === 'enableOrganizationConfiguration' ? text.enable : text.share;
+      const confirmed = await confirmAction({ title: text.title, body, confirmText, cancelText: ui.cancel, danger: name === 'revokeOrganizationConfigurationShare' });
       if (write === operation) ownsConfirmation = false;
       if (!confirmed) return;
     }
@@ -233,6 +236,8 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 </script>
 <style scoped>
 .copy-page { max-width: var(--ui-permission-page-width); }
+.copy-page .tabs { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 520px) { .copy-page .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .field { display: grid; gap: var(--ui-label-gap); min-width: 0; }
 .panel-head { flex-wrap: wrap; }

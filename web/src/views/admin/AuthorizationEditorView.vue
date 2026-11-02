@@ -22,16 +22,16 @@
             <div class="stack-tight"><span class="field-label">{{ ui.afterChange }}</span><span v-for="key in item.after?.capabilities || []" :key="key">{{ capabilityText(key) }}</span><span v-if="!item.after">{{ ui.denied }}</span><template v-else><span class="field-label">{{ ui.fields }}</span><span v-for="label in fieldNames(item.after)" :key="label" class="muted">{{ label }}</span></template></div>
           </div>
         </section>
-        <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="preview = null">{{ ui.edit }}</button><button type="button" class="btn btn-primary" :disabled="busy" @click="save"><AppLoading v-if="busy" :text="ui.saving" /><template v-else>{{ ui.confirmChanges }}</template></button></div>
+        <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="preview = null">{{ ui.revise }}</button><button type="button" class="btn btn-primary" :disabled="busy" @click="save"><AppLoading v-if="busy" :text="ui.saving" /><template v-else>{{ ui.confirmChanges }}</template></button></div>
       </template>
       <form v-else class="stack" @submit.prevent="review">
         <section v-if="kind === 'rule'" class="card stack"><p class="muted">{{ ui.identityExplanation }}</p><button type="button" class="btn btn-secondary authorization-edit" :disabled="busy" @click="toggleAdvanced">{{ advanced ? ui.simpleSettings : ui.advancedSettings }}</button></section>
         <section v-if="advanced" class="card stack">
-          <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" maxlength="80" :disabled="busy" required /></label>
+          <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" maxlength="80" :placeholder="kind === 'scheme' ? ui.identityExample : ''" :disabled="busy" required /></label>
           <template v-if="kind === 'delegation'">
             <div class="switch-row"><span class="field-label">{{ draft.delegationEnabled ? ui.enabled : ui.disabled }}</span><UiSwitch :checked="draft.delegationEnabled" :label="ui.state" :disabled="busy" @change="draft.delegationEnabled = $event.target.checked" /></div>
             <h2 class="section-title">{{ ui.delegateRecipients }}</h2>
-            <button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegates'">{{ ui.adminGrants }}</button>
+            <button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegates'">{{ ui.inspectAdmin }}</button>
             <span v-for="item in recipientNames" :key="item.key">{{ item.value }}</span>
           </template>
           <div v-if="kind === 'rule'" class="stack">
@@ -43,7 +43,7 @@
         <section v-if="kind !== 'scheme'" class="card stack">
           <h2 class="section-title">{{ !advanced ? ui.stepPeople : kind === 'delegation' ? ui.delegationSubjects : ui.subjects }}</h2>
           <p v-if="advanced" class="muted">{{ ui.betweenGroups }}</p>
-          <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'assignments'">{{ ui.assignments }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'adminGrants'">{{ ui.adminGrants }}</button></div>
+          <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'assignments'">{{ ui.inspectAssignment }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'adminGrants'">{{ ui.inspectAdmin }}</button></div>
           <div v-for="(subject, index) in draft.policy.subjects" :key="index" class="glass-panel stack">
             <div class="panel-head"><strong>{{ subject.kind === 'assignmentScope' ? ui.alternativeGroup(index + 1) : ui[subject.kind] }}</strong><button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="draft.policy.subjects.splice(index, 1)">{{ ui.removeCondition }}</button></div>
             <AuthorizationDimensions v-if="subject.kind === 'assignmentScope'" v-model="subject.dimensions" :directory="directory" :disabled="busy" />

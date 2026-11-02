@@ -51,7 +51,7 @@ export default Object.freeze({
   stepNumber: src_web.audit.stepNumber,
   unreadBadge: src_web.audit.unreadBadge,
   actionCreate: src_mySubmissions.copy_c64e979552,
-  actionOpen: src_admin.hrViewDetail,
+  actionOpen: src_authorization.configurationCopy.open,
   actionWithdraw: src_submissionDetail.copy_60dd7897d1,
   actionApprove: src_pendingApprovals.copy_8e2f75159e,
   actionReject: src_submissionDetail.copy_0c90eb0204,

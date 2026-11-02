@@ -137,7 +137,7 @@ Page({
   prepare: function(action, name, data, body) {
     if (this.data.busy || this.data.loading || this.data.confirmation) return;
     this._pending = { action, name, data, snapshot: orgSession.getSnapshot() };
-    this.setData({ confirmation: body, notice: '' });
+    this.setData({ confirmation: body, confirmationDanger: action === 'revoke', confirmationText: action === 'revoke' ? text.revoke : action === 'apply' ? text.confirmCopy : action === 'enable' ? text.enable : text.share, notice: '' });
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
   },
   share: function(event) {

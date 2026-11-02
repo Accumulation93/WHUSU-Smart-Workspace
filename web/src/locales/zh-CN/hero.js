@@ -8,7 +8,7 @@ export default Object.freeze({
   switchAction: src_workspace_hero.copy_c488bf29b9,
   switchAria: src_workspace_hero.copy_b58ff21ac7,
   appName: src_authorization.appName,
-  adminLabel: src_workspace_hero.copy_c01a9aef59,
+  adminLabel: src_authorization.adminGrants,
   superAdminLabel: src_authorization.superAdminRole,
   loadingWorkContext: src_workspace_hero.copy_0c1ba11af0,
   loadingOrganization: src_workspace_hero.copy_6d7a32c169,

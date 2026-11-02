@@ -1362,6 +1362,12 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 
 # 2026-11-02：原生按钮默认宽度撑开权限与复制网格
 
+## 2026-11-02：权限界面术语难懂、次按钮颜色不一致
+
+权限与组织间复制先形成 `docs/permission-interface-copy.md`，再逐项接入共享语言库及两端页面。原有仅覆盖编辑按钮的样式没有统一复制、返回等同级操作；改为页面内次按钮统一浅色，选中项、禁用项与危险操作独立保留。复制确认按分享、复制、启用、撤销显示准确动作，撤销使用危险样式。人员卡片的“管理员”标签与“选择管理员”动作分开，避免共享文案把卡片变成操作提示。
+
+检查继续使用 `authorizationMiniPage.test.js`、`authorizationSimplification.test.js`、`organizationCopyMiniPage.test.js`、`organizationCopyPresentation.test.js` 和两份浏览器流程文件。浏览器增加编辑与复制同色、撤销不同色断言，保留按钮间距、保存回读、权限条件及确认取消验证。编译、原生截图和实体设备覆盖分别记录在 `docs/permission-copy-validation-20261102.md`，不能用静态通过代替现场验收。
+
 后续完整CI导航检查还发现授权列表、编辑和影响预览3页继承permission-page的100vh最小高度却没有减去自绘顶栏，短内容可多滚一段。逐页添加与现有页面相同的动态顶栏高度补偿；39页导航检查通过。生命周期检查另对正式Behavior委托和orgSession局部别名误报8项：检查器现验证真实require路径、behaviors注册及Show/Hide/Unload桥接，并识别实际导入变量；没有豁免页面。新增`authorization-lifecycle-test.js`使用真实Page、Behavior和orgSession验证2个管理宿主隐藏/卸载撤销旧请求，以及岗位性质页面隐藏后迟到响应不可恢复、重新进入正常读取。该测试加入完整CI清单。
 
 真实微信 390px 模拟器发现授权三页签、组织间复制四页签及权限查看按钮被原生 button 默认宽度撑开，出现重叠与右侧溢出；静态 Grid 轨道检查不足以证明原生按钮边界。逐处在网格实际子按钮明确 border-box、width/max-width 100%、min-width 0、margin 0，保留自然文字换行和触控高度。修复后授权三按钮右边界为 128.8/253.6/378.4px，高度均39px；复制四页签真实截图完整。检查为严格UI审计、按钮检查及实际微信截图和矩形；详情、证据路径和内存夹具边界见 `docs/authorization-native-validation-20261102.md`。实体手机和Pad未完成现场验证。

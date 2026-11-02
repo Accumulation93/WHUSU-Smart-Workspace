@@ -14,6 +14,7 @@
       <button wx:for="{{tabs}}" wx:key="*this" class="secondary-btn ui-motion-button authorization-tab {{tab === item ? 'authorization-tab-active' : ''}}" disabled="{{busy || confirmation}}" data-tab="{{item}}" bindtap="changeTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{text[item]}}</button>
     </view>
   </view>
+  <view class="permission-card copy-muted">{{text.tabHelp[tab]}}</view>
   <app-loading wx:if="{{loading || busy}}" text="{{busy ? text.processing : ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card copy-stack">
     <view>{{notice}}</view>
@@ -23,7 +24,7 @@
     <view class="copy-multiline">{{confirmation}}</view>
     <view class="copy-actions">
       <button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="cancelConfirmation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button>
-      <button class="primary-btn ui-motion-button" disabled="{{busy}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.save}}</button>
+      <button class="{{confirmationDanger ? 'danger-btn' : 'primary-btn'}} ui-motion-button" disabled="{{busy}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{confirmationText}}</button>
     </view>
   </view>
   <view wx:elif="{{draft}}" class="permission-card copy-stack">
@@ -43,6 +44,7 @@
       <view wx:if="{{!draft.shareAvailable}}">{{text.unavailable}}</view>
       <view class="copy-muted">{{preview.notice}}</view>
       <view wx:if="{{references.length}}" class="permission-section-title">{{text.references}}</view>
+      <view wx:if="{{references.length}}" class="copy-muted">{{text.referenceHelp}}</view>
       <view wx:elif="{{detailReady}}" class="copy-muted">{{text.noReferences}}</view>
       <view wx:for="{{references}}" wx:key="token" class="copy-field">
         <view>{{item.kindLabel}} · {{item.label}}</view>
@@ -60,7 +62,7 @@
     </view>
   </view>
   <block wx:else>
-    <view wx:if="{{ready && !loading && !items.length}}" class="permission-empty">{{text.empty}}</view>
+    <view wx:if="{{ready && !loading && !items.length}}" class="permission-empty">{{text.emptyByTab[tab]}}</view>
     <view wx:for="{{items}}" wx:key="id" class="permission-card copy-stack">
       <view class="permission-section-head"><view class="permission-section-title">{{item.name}}</view><view wx:if="{{item.stateText}}" class="authorization-chip">{{item.stateText}}</view></view>
       <view wx:if="{{item.organizationName}}" class="copy-muted">{{item.organizationName}}</view>

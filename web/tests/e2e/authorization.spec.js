@@ -38,7 +38,7 @@ test('authorization identity simplifies assignment to three sections and preserv
   await expect(page.getByText(ui.stepPeople, { exact: true })).toBeVisible();
   await expect(page.getByLabel(ui.name, { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: ui.deny, exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: ui.assignments, exact: true }).click();
+  await page.getByRole('button', { name: ui.inspectAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('identity-a');
@@ -52,7 +52,7 @@ test('authorization identity simplifies assignment to three sections and preserv
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   await page.screenshot({ path: test.info().outputPath('authorization-person-grants.png'), fullPage: true, animations: 'disabled' });
-  await page.getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme, exact: true })).toHaveValue('identity-a');
   await expect(page.getByLabel(ui.name, { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: ui.advancedSettings, exact: true }).click();
@@ -82,6 +82,9 @@ test('authorization cards and grouped editor keep controls visible and preserve 
   expect(Math.abs(bounds[0].top - bounds[1].top)).toBeLessThan(1);
   const compactHeight = await actions.evaluate(element => Number.parseFloat(getComputedStyle(element).getPropertyValue('--ui-compact-height')));
   expect(bounds.every(item => item.height >= compactHeight)).toBe(true);
+  const actionColors = await actions.getByRole('button').evaluateAll(elements => elements.map(element => getComputedStyle(element).color));
+  expect(actionColors[0]).toBe(actionColors[1]);
+  expect(actionColors[2]).not.toBe(actionColors[0]);
   await page.screenshot({ path: test.info().outputPath('authorization-list-refined.png'), fullPage: true, animations: 'disabled' });
   await actions.getByRole('button', { name: ui.edit, exact: true }).click();
   await expect(page.getByRole('switch', { name: ui.state })).toBeChecked();
@@ -121,7 +124,7 @@ test('field restrictions save and reopen without turning an empty selection into
   expect(calls.preview.policy.fields).toEqual(['text']);
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
-  await page.getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('button', { name: ui.fieldLabels.text, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: ui.fieldLabels.text, exact: true }).click();
   await expect(page.getByText(ui.noFieldSelected, { exact: true })).toBeVisible();
@@ -130,7 +133,7 @@ test('field restrictions save and reopen without turning an empty selection into
   await page.getByRole('button', { name: ui.allFields, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   expect(calls.preview.policy.fields).toBeNull();
-  await page.getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.getByRole('button', { name: ui.revise, exact: true }).click();
   expect(calls.saves).toBe(1);
 });
 
@@ -143,7 +146,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.getByRole('button', { name: ui.createRule, exact: true }).click();
   await page.getByRole('button', { name: ui.advancedSettings, exact: true }).click();
   await page.getByLabel(ui.name, { exact: true }).fill('Test rule');
-  await page.getByRole('button', { name: ui.assignments, exact: true }).click();
+  await page.getByRole('button', { name: ui.inspectAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
@@ -159,7 +162,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   expect(calls.saved).toEqual(calls.preview);
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
-  await page.getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByLabel(ui.name, { exact: true })).toHaveValue('Test rule');
   await expect(page.getByText(/Example member/)).toBeVisible();
   expect(errors).toEqual([]);
@@ -169,7 +172,7 @@ test('clear personnel selection stays empty and cannot be previewed as everyone'
   const { state, calls } = await setup(page);
   state.rules = [{ id: 'rule-a', version: 1, name: 'Existing', policy: { enabled: true, effect: 'allow', subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: [capability.key], scopes: [{ kind: 'organization' }], fields: null } }];
   await page.goto('/web/admin/authorization/edit?kind=rule&id=rule-a');
-  await page.getByRole('button', { name: ui.assignments, exact: true }).click();
+  await page.getByRole('button', { name: ui.inspectAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
@@ -268,10 +271,10 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.locator('summary', { hasText: ui.delegations }).click();
   await page.getByRole('button', { name: ui.createDelegation, exact: true }).click();
   await page.getByLabel(ui.name, { exact: true }).fill('Bounded delegation');
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.adminGrants, exact: true }).click();
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.inspectAdmin, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example administrator/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.getByRole('button', { name: ui.assignments, exact: true }).click();
+  await page.getByRole('button', { name: ui.inspectAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
@@ -322,7 +325,7 @@ test('scheme publication and restoration require an impact preview and append a 
   });
   await page.goto('/web/admin/authorization');
   await page.getByRole('button', { name: ui.schemes, exact: true }).click();
-  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await page.getByRole('button', { name: ui.publish, exact: true }).click();
   await expect(page.getByText(ui.publishSchemeNotice)).toBeVisible();
   expect(publications).toBe(0);
   await page.getByRole('button', { name: ui.previewRestore, exact: true }).click();

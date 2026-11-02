@@ -12,6 +12,10 @@
       <p>{{ notice }}</p><button type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
     </section>
     <template v-else-if="ready">
+      <section class="card stack">
+        <p class="muted">{{ ui.tabHelp[tab] }}</p>
+        <template v-if="tab === 'rules' && !state.schemes.length"><p>{{ ui.firstUse }}</p><button type="button" class="btn btn-primary" @click="edit('scheme')">{{ ui.createScheme }}</button></template>
+      </section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
           <h2 class="section-title">{{ ui[tab] }}</h2>
@@ -19,7 +23,7 @@
         </div>
         <label class="search-bar">
           <UiIcon name="search" tone="muted" size-role="row-leading" />
-          <input v-model="query" class="search-input" :placeholder="ui.search" :aria-label="ui.search" />
+          <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.search" />
         </label>
         <div class="authorization-tools">
           <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.rules : ui.advancedRules }}</button>
@@ -37,7 +41,7 @@
               <p class="muted">{{ grant.scopeText }}</p><p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
               <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
               <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" /></details>
-              <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.edit }}</button></div>
+              <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
             </section>
           </article>
         </template>
@@ -85,7 +89,7 @@
         <article v-for="scheme in schemes" :key="scheme.id" class="card stack">
           <div class="panel-head"><h2 class="section-title">{{ scheme.name }}</h2><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span></div>
           <div class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div>
-          <div class="button-row"><button type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.previewChanges }}</button></div>
+          <div class="button-row"><button type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
         </article>
       </template>
       <section v-else class="card stack">

@@ -16,4 +16,8 @@
 .authorization-nature-row > strong { min-width: 0; flex: 1; }
 .authorization-workspace .button-row > button:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .authorization-workspace .button-row { gap: var(--ui-field-gap); }
-.authorization-workspace button.authorization-edit:not(:disabled) { color: var(--ui-text-muted); background: var(--ui-field-bg); border: var(--ui-field-border); font-weight: 600; box-shadow: none; }
+.authorization-workspace button.btn-secondary:not(:disabled):not(.selected),
+.authorization-workspace button.btn-quiet:not(:disabled):not(.btn-quiet-danger):not(.btn-quiet-primary) { color: var(--ui-text-muted); background: var(--ui-field-bg); border: var(--ui-field-border); font-weight: 600; box-shadow: none; }
+.authorization-workspace .authorization-rule-actions { gap: var(--ui-field-gap); }
+.authorization-workspace .authorization-rule-actions > button { flex: 0 1 auto; white-space: normal; }
+.authorization-workspace .choice-grid .selected { color: var(--ui-chip-blue-text); background: var(--ui-chip-blue-bg); border-color: var(--ui-blue-500); }

@@ -31,7 +31,7 @@
       <div class="button-row">
         <button type="button" class="btn btn-secondary" :disabled="busy" @click="leave">{{ ui.cancel }}</button>
         <button type="button" class="btn" :class="deleting ? 'btn-danger' : 'btn-primary'" :disabled="busy" @click="confirm">
-          <AppLoading v-if="busy" :text="deleting ? ui.saving : ui.publishing" /><template v-else>{{ deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.publish }}</template>
+          <AppLoading v-if="busy" :text="deleting ? ui.saving : ui.publishing" /><template v-else>{{ deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish }}</template>
         </button>
       </div>
     </template>
