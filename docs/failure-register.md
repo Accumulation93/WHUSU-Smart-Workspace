@@ -1393,3 +1393,5 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 跨组织复制入口改按15类配置的分享或接收能力显示，不依赖权限分配资格；复制页只列出已授权类型和操作，仅接收部门配置时直接进入部门接收列表，不先请求无权的场地来源列表。检查使用 `server/test/authorizationPortalEntry.test.js` 的实际页面与权限方法、`authorizationMiniPage.test.js`、`organizationCopyMiniPage.test.js`，以及 `web/tests/e2e/authorization-portal-entry.spec.js` 从门户真实点击后检查新版三页签、普通岗位仅接收入口和无权限隐藏。实体手机与Pad未现场验证，浏览器夹具不能代替原生设备结果。
 
 同轮补齐岗位性质的人事字典常规入口、受信导航白名单和能力映射，入口仅凭当前角色的岗位性质读取权限显示，不推断旧权限；`scripts/assignment-nature-entry-test.js` 以及三档Chrome共6项入口检查通过。原生现场结果由微信实际操作另行记录。
+
+完整CI随后发现旧权限保存导航测试仍假定门户进入旧管理页。该用例明确限定切换前兼容模式，改为通过真实客户端路由进入旧深链并保留历史栈；原保存中禁止返回、保存后回读和返回门户的全部断言保持不变。切换后的旧页面只读和新版门户三页签分别独立验证，不能为保住旧测试把门户指回旧页。

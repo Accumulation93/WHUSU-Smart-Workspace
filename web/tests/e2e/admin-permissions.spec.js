@@ -84,7 +84,7 @@ test('permission controls keep their shape, group changes respect fixed grants a
   await expect(cards.first()).toBeFocused();
 });
 
-test('saving permissions blocks browser back until the result has been reread', async ({ page }) => {
+test('pre-cutover legacy deep link blocks browser back while saving until reread', async ({ page }) => {
   await mockApi(page, { activeContextId: 'ctx-admin' });
   const admin = { id: 'admin', name: 'Administrator', adminLevelLabel: 'Administrator' };
   await page.route('**/api/listPermissionManagedAdmins', route => route.fulfill({ json: { status: 'success', list: [admin] } }));
@@ -93,7 +93,8 @@ test('saving permissions blocks browser back until the result has been reread', 
   const pending = new Promise(resolve => { release = resolve; });
   await page.route('**/api/saveAdminPermissions', async route => { await pending; await route.fulfill({ json: { status: 'success', groups: [] } }); });
   await page.goto('/web/portal');
-  await page.getByRole('button', { name: copy.portal.permissions, exact: true }).click();
+  await expect(page.locator('.page').first()).toBeVisible();
+  await page.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'adminPermissions' }));
   await page.locator('.admin-row').click();
   await page.getByRole('dialog').getByRole('button', { name: copy.admin.permissionsSave, exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('button', { name: copy.admin.permissionsSaving })).toBeDisabled();
