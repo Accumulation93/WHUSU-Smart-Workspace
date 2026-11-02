@@ -12,7 +12,7 @@ Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false,
-    previewOnly: false, expanded: {}, isSuper: false, delegations: [], showDelegations: false,
+    previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
   onLoad: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -25,14 +25,14 @@ Page({
     this._inspectionTarget = null;
     this.setData({ selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
     this.setData({ inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false });
-    this.setData({ ready: false, canCopy: false, cards: [], schemes: [], effective: [], expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+    this.setData({ ready: false, canCopy: false, cards: [], schemes: [], effective: [], effectiveGroups: [], effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
     readCurrentAuthorizationAccess().then(access => {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ canCopy: canOpenConfigurationCopy(access) });
     }).catch(() => {});
-    this.setData({ loading: true, ready: false, notice: '', cards: [], schemes: [], effective: [],
+    this.setData({ loading: true, ready: false, notice: '', cards: [], schemes: [], effective: [], effectiveGroups: [],
       selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
     try {
       const management = await callFunction({ name: 'getAuthorizationManagement', data: {} });
@@ -59,12 +59,28 @@ Page({
   refreshCards: function() {
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
-    this.setData({ cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword),
+    this.setData({ cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
         labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
   },
-  search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); },
+  search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
+  refreshEffectiveGroups: function() {
+    const keyword = this.data.keyword.trim().toLowerCase();
+    const groups = [];
+    for (const item of this.data.effective) {
+      if (keyword && ![item.label, item.statusText, item.reasonText].join(' ').toLowerCase().includes(keyword)) continue;
+      const key = item.capability.split('.')[0];
+      let group = groups.find(row => row.key === key);
+      if (!group) { group = { key, label: ui.businessGroups[key] || ui.effective, items: [] }; groups.push(group); }
+      group.items.push(item);
+    }
+    this.setData({ effectiveGroups: groups.map(item => Object.assign({}, item, { countText: ui.effectiveCount(item.items.length) })) });
+  },
+  toggleEffectiveGroup: function(event) {
+    const key = event.currentTarget.dataset.key;
+    this.setData({ effectiveExpanded: Object.assign({}, this.data.effectiveExpanded, { [key]: !this.data.effectiveExpanded[key] }) });
+  },
   toggleSelection: function() {
     this.setData({ selecting: !this.data.selecting, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
   },
@@ -149,7 +165,7 @@ Page({
   },
   inspect: async function() {
     const request = orgSession.beginRequest(this, 'authorizationInspection');
-    this.setData({ inspecting: true, effective: [], notice: '' });
+    this.setData({ inspecting: true, effective: [], effectiveGroups: [], notice: '' });
     try {
       const result = await callFunction({ name: 'getEffectiveAuthorization', data: this._inspectionTarget || {} });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -159,6 +175,7 @@ Page({
         statusText: ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[item.status] || ui.denied,
         reasonText: ui.reasons[item.reason] || ui.businessCheckRequired
       })) });
+      this.refreshEffectiveGroups();
     } catch (error) {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ notice: getErrorText(error, ui.operationFailed) });
     } finally {

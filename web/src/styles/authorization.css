@@ -1,0 +1,19 @@
+.authorization-workspace .panel-head { align-items: center; gap: var(--ui-inline-gap); }
+.authorization-workspace .panel-head > .section-title { flex: 1; min-width: 0; }
+.authorization-workspace .panel-head > .btn { flex: none; width: auto; white-space: nowrap; }
+.authorization-workspace .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.authorization-workspace .tabs > button { min-width: 0; width: 100%; margin: 0; word-break: normal; }
+.authorization-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-inline-gap); }
+.authorization-tools > button { flex: none; width: auto; min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border-radius: var(--ui-compact-radius); }
+.authorization-rule-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--ui-field-gap); }
+.authorization-rule-actions > button { min-width: 0; margin: 0; }
+.authorization-workspace .switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap); }
+.authorization-module > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap); min-height: var(--ui-control-height); cursor: pointer; }
+.authorization-module > summary > strong { min-width: 0; flex: 1; }
+.authorization-resource { margin-top: var(--ui-list-gap); }
+.authorization-resource > summary { padding-block: var(--ui-control-padding-y); cursor: pointer; }
+.authorization-nature-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap); flex-wrap: wrap; }
+.authorization-nature-row > strong { min-width: 0; flex: 1; }
+.authorization-workspace .button-row > button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.authorization-workspace .button-row { gap: var(--ui-field-gap); }
+.authorization-workspace button.authorization-edit:not(:disabled) { color: var(--ui-text-muted); background: var(--ui-field-bg); border: var(--ui-field-border); font-weight: 600; box-shadow: none; }

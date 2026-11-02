@@ -9,7 +9,7 @@ const { splitSystemDateTime, systemDateTimeToIsoUtc } = require('../../../../uti
 
 Page({
   data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '',
-    draft: null, sections: null, capabilityGroups: [], fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
+    draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
     preview: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
   onLoad: function(options) {
     this._options = options;
@@ -21,7 +21,7 @@ Page({
   onUnload: function() { this.clear(); },
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null; this._previewRequest = null;
-    this.setData({ ready: false, draft: null, sections: null, capabilityGroups: [], fieldOptions: [], fieldsIncompatible: false, picker: '', pickerOptions: [], pickerValue: [], preview: null, impactRows: [], busy: false, directory: {}, schemes: [], recipientNames: [] });
+    this.setData({ ready: false, draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', expanded: {}, fieldOptions: [], fieldsIncompatible: false, picker: '', pickerOptions: [], pickerValue: [], preview: null, impactRows: [], busy: false, directory: {}, schemes: [], recipientNames: [] });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorizationEditor');
@@ -62,6 +62,17 @@ Page({
       group.items.push({ key: item.key, label: ui.actions[item.action] || ui.unknownCapability, selected: draft.policy.capabilities.includes(item.key) });
     }
     const recipients = presentation.policySections({ subjects: draft.audience || [] }, this._directory, this._state.catalog, ui).subjects;
+    const businesses = [];
+    const keyword = this.data.capabilityKeyword.trim().toLowerCase();
+    for (const group of groups) {
+      const items = group.items.filter(item => !keyword || (group.label + ' ' + item.label).toLowerCase().includes(keyword));
+      if (!items.length) continue;
+      const key = group.key.split('.')[0];
+      let business = businesses.find(item => item.key === key);
+      if (!business) { business = { key, label: ui.businessGroups[key] || ui.capabilities, groups: [], selectedCount: 0 }; businesses.push(business); }
+      business.groups.push(Object.assign({}, group, { items }));
+      business.selectedCount += group.items.filter(item => item.selected).length;
+    }
     const recipientNames = [];
     for (const subject of recipients) recipientNames.push(...subject.lines);
     const availableFields = editor.availableFields(draft, this._state.catalog);
@@ -70,7 +81,8 @@ Page({
     for (const capability of this._state.catalog) {
       if (draft.policy.capabilities.includes(capability.key)) Object.assign(fieldLabels, capability.fieldLabels || {});
     }
-    this.setData({ draft, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, recipientNames,
+    this.setData({ draft, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, capabilityBusinesses: businesses, selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
+      organizationSelected: draft.policy.scopes.some(item => item.kind === 'organization'), selfSelected: draft.policy.scopes.some(item => item.kind === 'self'),
       organizationScope: availableScopes.includes('organization'), selfScope: availableScopes.includes('self'), assignmentScope: availableScopes.includes('assignmentScope'),
       fieldOptions: availableFields.map(key => ({ key, label: fieldLabels[key] || ui.fieldLabels[key] || ui.unavailableReference,
         selected: Boolean(draft.policy.fields && draft.policy.fields.includes(key)) })),
@@ -82,6 +94,19 @@ Page({
       }) });
   },
   nameInput: function(event) { this.setData({ 'draft.name': event.detail.value }); },
+  searchCapabilities: function(event) { this.setData({ capabilityKeyword: event.detail.value }); this.updateDraft(this.data.draft); },
+  chooseEffect: function(event) {
+    const effect = event.currentTarget.dataset.effect;
+    if (this.data.busy || !['allow', 'deny'].includes(effect)) return;
+    const draft = editor.createDraft(this.data.draft); draft.policy.effect = effect; this.updateDraft(draft);
+  },
+  changeEnabled: function(event) {
+    if (this.data.busy) return;
+    const draft = editor.createDraft(this.data.draft);
+    if (this.data.kind === 'delegation') draft.delegationEnabled = !!event.detail.value;
+    else draft.policy.enabled = !!event.detail.value;
+    this.updateDraft(draft);
+  },
   field: function(event) {
     if (this.data.busy) return;
     this.updateDraft(editor.toggleField(this.data.draft, event.currentTarget.dataset.key, this._state.catalog));

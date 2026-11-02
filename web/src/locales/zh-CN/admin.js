@@ -6,7 +6,6 @@ import src_signaturePad from './shared/generated/subpackages/audit/components/si
 import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_signatureManager from './shared/generated/subpackages/audit/pages/signatureManager/signatureManager.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
-import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -42,7 +41,7 @@ export default Object.freeze({
   permissionsSaved: src_adminPermissions.copy_e47065f3f1,
   permissionsSaveFailed: src_signatureManager.copy_215e3c57da,
   permissionsLoadFailed: src_myApprovalHistory.copy_e52119b17e,
-  tabHr: src_accountSecurity.copy_166a418985,
+  tabHr: src_authorization.businessGroups.hr,
   memberSearchPlaceholder: src_pendingVenueApprovals.copy_2ea2cd3a4f,
   memberEmpty: src_web.admin.memberEmpty,
   memberDetailTitle: src_web.admin.memberDetailTitle,

@@ -59,6 +59,46 @@ function fixture() {
   return { state, directory, calls, api };
 }
 
+test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派生资料', async () => {
+  for (const relative of ['pages/authorizationEditor/authorizationEditor.json', 'components/authorization-dimensions/authorization-dimensions.json']) {
+    const config = JSON.parse(fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org', relative), 'utf8'));
+    assert.equal(config.usingComponents['ui-icon'], '/components/ui-icon/ui-icon');
+  }
+  const source = fixture();
+  source.state.catalog.push({ key: 'hr.departments.read', resourceType: 'hr.departments', action: 'read', scopes: ['organization'], fields: [] });
+  const page = pageHarness(source.api);
+  await page.load();
+  const draft = editor.createDraft();
+  draft.policy.capabilities = ['venue.bookings.read'];
+  draft.policy.scopes = [{ kind: 'organization' }];
+  page.updateDraft(draft);
+  assert.equal(page.data.capabilityBusinesses.length, 2);
+  assert.equal(page.data.organizationSelected, true);
+  assert.equal(page.data.selfSelected, false);
+  page.searchCapabilities({ detail: { value: page.data.capabilityGroups[0].label } });
+  assert.equal(page.data.capabilityBusinesses.length, 1);
+  assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
+  page.chooseEffect({ currentTarget: { dataset: { effect: 'deny' } } });
+  assert.equal(page.data.draft.policy.effect, 'deny');
+  page.changeEnabled({ detail: { value: false } });
+  assert.equal(page.data.draft.policy.enabled, false);
+  page.onHide();
+  assert.equal(page.data.capabilityBusinesses.length, 0);
+
+  const home = pageHarness(source.api, {}, 'authorization');
+  home.setData({ effective: [
+    { capability: 'venue.bookings.read', label: 'Borrowing', statusText: 'Allowed', reasonText: '' },
+    { capability: 'hr.departments.read', label: 'Departments', statusText: 'Denied', reasonText: '' }
+  ] });
+  home.refreshEffectiveGroups();
+  assert.equal(home.data.effectiveGroups.length, 2);
+  home.setData({ keyword: 'Departments' }); home.refreshEffectiveGroups();
+  assert.equal(home.data.effectiveGroups.length, 1);
+  assert.equal(home.data.effective.length, 2);
+  home.onHide();
+  assert.equal(home.data.effectiveGroups.length, 0);
+});
+
 test('字段限制通过实际页面方法保存回读，取消全部选中不能放宽', async () => {
   const source = fixture();
   source.state.catalog[0].fields = ['text', 'sortOrder'];

@@ -7,7 +7,7 @@
     <view class="copy-field">
       <view>{{text.kind}}</view>
       <picker class="ui-field-control-host" range="{{kinds}}" range-key="name" value="{{kindIndex}}" disabled="{{busy || confirmation}}" bindchange="changeKind">
-        <view class="picker-display ui-field-control">{{kinds[kindIndex].name}}</view>
+        <view class="picker-display ui-field-control"><text>{{kinds[kindIndex].name}}</text><ui-icon name="chevron-right" tone="muted" size-role="row-leading" /></view>
       </picker>
     </view>
     <view class="copy-tabs">
@@ -48,7 +48,7 @@
         <view>{{item.kindLabel}} · {{item.label}}</view>
         <button wx:if="{{item.kind === 'person' || item.kind === 'assignments'}}" class="secondary-btn ui-motion-button" disabled="{{busy || !detailReady}}" data-index="{{index}}" bindtap="openPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.selectedLabel}}</button>
         <picker wx:else class="ui-field-control-host" range="{{item.choices}}" range-key="name" value="{{item.selectedIndex < 0 ? 0 : item.selectedIndex}}" disabled="{{busy || !detailReady}}" data-index="{{index}}" bindchange="chooseReference">
-          <view class="picker-display ui-field-control">{{item.selectedLabel}}</view>
+          <view class="picker-display ui-field-control"><text>{{item.selectedLabel}}</text><ui-icon name="chevron-right" tone="muted" size-role="row-leading" /></view>
         </picker>
       </view>
     </block>
@@ -67,7 +67,7 @@
       <view wx:if="{{tab === 'source'}}" class="copy-field">
         <view>{{text.target}}</view>
         <picker class="ui-field-control-host" range="{{organizations}}" range-key="name" value="{{item.targetIndex < 0 ? 0 : item.targetIndex}}" disabled="{{busy || !ready}}" data-index="{{index}}" bindchange="chooseTarget">
-          <view class="picker-display ui-field-control">{{item.targetName}}</view>
+          <view class="picker-display ui-field-control"><text>{{item.targetName}}</text><ui-icon name="chevron-right" tone="muted" size-role="row-leading" /></view>
         </picker>
       </view>
       <view class="card-actions">

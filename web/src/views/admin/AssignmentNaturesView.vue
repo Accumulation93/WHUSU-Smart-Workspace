@@ -1,6 +1,6 @@
 <template>
-  <div class="page stack">
-    <WorkspaceHero :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="ui.nature" :person-name="session.context?.name || session.user?.name" :organization-name="session.context?.organizationName" @switch="router.push({name:'workRole'})" />
+  <div class="page stack authorization-workspace">
+    <WorkspaceHero :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="ui.nature" :person-name="session.context?.name || session.user?.name" :identity-name="roleLabelOf(session.context)" :organization-name="session.context?.organizationName" @switch="router.push({name:'workRole'})" />
     <section class="card stack">
       <h2 class="section-title">{{ ui.nature }}</h2>
       <AppLoading v-if="loading" :text="ui.loading" />
@@ -8,12 +8,12 @@
       <button v-if="failed" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
       <form v-if="ready && (draft.id || canCreate)" class="stack" @submit.prevent="save">
         <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" :disabled="busy" /></label>
-        <div class="nature-actions"><button class="btn btn-primary" :disabled="busy || loading || saved">{{ ui.save }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="reset">{{ ui.cancel }}</button></div>
+        <div class="nature-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="reset">{{ ui.cancel }}</button><button class="btn btn-primary" :disabled="busy || loading || saved">{{ ui.save }}</button></div>
       </form>
     </section>
-    <article v-for="row in rows" :key="row.id" class="card stack">
+    <article v-for="row in rows" :key="row.id" class="card authorization-nature-row">
       <strong>{{ row.name }}</strong>
-      <div class="nature-actions"><button v-if="row.canUpdate" class="btn-quiet" :disabled="busy || loading || failed" @click="edit(row)">{{ ui.edit }}</button><button v-if="row.canDelete && !['staff','liaison','other'].includes(row.id)" class="btn-quiet btn-quiet-danger" :disabled="busy || loading || failed" @click="remove(row)">{{ ui.remove }}</button></div>
+      <div class="nature-actions"><button v-if="row.canUpdate" class="btn-quiet authorization-edit" :disabled="busy || loading || failed" @click="edit(row)">{{ ui.edit }}</button><button v-if="row.canDelete && !['staff','liaison','other'].includes(row.id)" class="btn-quiet btn-quiet-danger" :disabled="busy || loading || failed" @click="remove(row)">{{ ui.remove }}</button></div>
     </article>
   </div>
 </template>
@@ -23,10 +23,11 @@ import {useRouter} from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AppLoading from '@/components/AppLoading.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
-import {session} from '@/runtime/session.js';
+import {session,roleLabelOf} from '@/runtime/session.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {confirmAction} from '@/runtime/notify.js';
 import {useCopiedConfigurationEditor} from '@/runtime/copiedConfigurationEditor.js';
+import '@/styles/authorization.css';
 const router=useRouter(),rows=ref([]),draft=ref({name:''}),loading=ref(false),busy=ref(false),ready=ref(false),failed=ref(false),saved=ref(false),notice=ref('');
 const canCreate=ref(false);
 let generation=0,disposed=false;

@@ -9,6 +9,11 @@ module.exports = Object.freeze({
   rules: '授权规则',
   schemes: '权限方案',
   effective: '实际权限',
+  searchEffective: '搜索操作或权限',
+  searchOperations: '搜索可授权操作',
+  effectiveCount: count => '共 ' + count + ' 项',
+  selectedOperations: count => '已选 ' + count + ' 项操作',
+  businessGroups: { hr: '人事信息', scoring: '考核评分', audit: '审核', venue: '场地', calendar: '日程', auth: '账号治理', system: '系统管理', authorization: '授权管理', notifications: '通知', identity: '身份核验', files: '文件', messages: '消息', contacts: '通讯录' },
   capabilityNames: {
     'identity.cards.read': '查看本人身份卡',
     'identity.cards.create': '生成本人身份码',

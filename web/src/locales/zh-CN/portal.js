@@ -5,9 +5,7 @@ import src_authorization from './shared/authorization.js';
 import src_calendar from './shared/calendar.js';
 import src_common from './shared/common.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
-import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_mySubmissions from './shared/generated/subpackages/audit/pages/mySubmissions/mySubmissions.js';
-import src_accountSecurity from './shared/generated/subpackages/org/pages/accountSecurity/accountSecurity.js';
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
@@ -23,10 +21,10 @@ export default Object.freeze({
   appName: src_authorization.appName,
   pageName: src_main.portal.pageName,
   organizationName: src_common.organizationName,
-  audit: src_myApprovalHistory.copy_56d416c578,
-  venue: src_authorization.configurationCopy.referenceKinds.venue,
-  scoring: src_admin.copy_33a502217d,
-  hr: src_accountSecurity.copy_166a418985,
+  audit: src_authorization.businessGroups.audit,
+  venue: src_authorization.businessGroups.venue,
+  scoring: src_authorization.businessGroups.scoring,
+  hr: src_authorization.businessGroups.hr,
   system: src_admin.copy_5b4cf5d1bf,
   scan: src_main.portal.cards.scan,
   messages: src_main.portal.cards.messages,
@@ -39,7 +37,7 @@ export default Object.freeze({
   admin: src_authorization.adminRole,
   unset: src_venueBooking.copy_ad183b164d,
   welcome: src_home.text.welcome,
-  notification: src_authorization.resources["notifications.items"],
+  notification: src_authorization.businessGroups.notifications,
   todo: src_main.portal.messages.todo,
   readFailed: src_main.portal.messages.readFailed,
   deleteFailed: src_adminGovernance.failed,
@@ -64,7 +62,7 @@ export default Object.freeze({
   current: src_home.text.current,
   enter: src_common.actions.enter,
   loadingMore: src_main.portal.view.loadingMore,
-  notificationTitle: src_authorization.resources["notifications.items"],
+  notificationTitle: src_authorization.businessGroups.notifications,
   markAllRead: src_mySubmissions.copy_6830671a51,
   noNotifications: src_main.portal.view.noNotifications,
   notificationType: src_main.portal.view.notificationType,

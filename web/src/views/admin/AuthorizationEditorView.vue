@@ -1,5 +1,5 @@
 <template>
-  <div class="page stack authorization-editor">
+  <div class="page stack authorization-editor authorization-workspace">
     <WorkspaceHero tone="admin" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
       :organization-name="organizationName" @switch="leave" />
     <AppLoading v-if="loading" :text="ui.loading" />
@@ -28,14 +28,15 @@
         <section class="card stack">
           <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" maxlength="80" :disabled="busy" required /></label>
           <template v-if="kind === 'delegation'">
-            <label class="field"><span class="field-label">{{ ui.state }}</span><select v-model="draft.delegationEnabled" class="field-input" :disabled="busy"><option :value="true">{{ ui.enabled }}</option><option :value="false">{{ ui.disabled }}</option></select></label>
+            <div class="switch-row"><span class="field-label">{{ draft.delegationEnabled ? ui.enabled : ui.disabled }}</span><UiSwitch :checked="draft.delegationEnabled" :label="ui.state" :disabled="busy" @change="draft.delegationEnabled = $event.target.checked" /></div>
             <h2 class="section-title">{{ ui.delegateRecipients }}</h2>
             <button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegates'">{{ ui.adminGrants }}</button>
             <span v-for="item in recipientNames" :key="item.key">{{ item.value }}</span>
           </template>
-          <div v-if="kind === 'rule'" class="row row-wrap">
-            <label class="field"><span class="field-label">{{ ui.effect }}</span><select v-model="draft.policy.effect" class="field-input" :disabled="busy"><option value="allow">{{ ui.allow }}</option><option value="deny">{{ ui.deny }}</option></select></label>
-            <label class="field"><span class="field-label">{{ ui.state }}</span><select v-model="draft.policy.enabled" class="field-input" :disabled="busy"><option :value="true">{{ ui.enabled }}</option><option :value="false">{{ ui.disabled }}</option></select></label>
+          <div v-if="kind === 'rule'" class="stack">
+            <span class="field-label">{{ ui.effect }}</span>
+            <div class="choice-grid" :aria-label="ui.effect"><button v-for="value in ['allow', 'deny']" :key="value" type="button" class="choice-card" :class="{ selected: draft.policy.effect === value }" :aria-pressed="draft.policy.effect === value" :disabled="busy" @click="draft.policy.effect = value">{{ ui[value] }}</button></div>
+            <div class="switch-row"><span class="field-label">{{ draft.policy.enabled ? ui.enabled : ui.disabled }}</span><UiSwitch :checked="draft.policy.enabled" :label="ui.state" :disabled="busy" @change="draft.policy.enabled = $event.target.checked" /></div>
           </div>
         </section>
         <section v-if="kind !== 'scheme'" class="card stack">
@@ -52,10 +53,14 @@
         <section class="card stack">
           <h2 class="section-title">{{ kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities }}</h2>
           <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ ui.selectOperations }}</option><option v-for="scheme in state.schemes.filter(item => item.publishedVersion)" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
-          <details v-for="group in capabilityGroups" :key="group.key" class="glass-panel">
+          <label class="field"><span class="field-label">{{ ui.searchOperations }}</span><input v-model="operationQuery" class="field-input" :placeholder="ui.searchOperations" /></label>
+          <details v-for="module in capabilityModules" :key="module.key" class="glass-panel authorization-module" :open="!!operationQuery">
+            <summary><strong>{{ module.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(module.count) }}</span></summary>
+            <details v-for="group in module.groups" :key="group.key" class="authorization-resource" :open="!!operationQuery">
             <summary>{{ group.label }}</summary>
             <div class="choice-grid"><button v-for="item in group.items" :key="item.key" type="button" class="choice-card"
               :class="{ selected: draft.policy.capabilities.includes(item.key) }" :aria-pressed="draft.policy.capabilities.includes(item.key)" :disabled="busy || !!draft.schemeId" @click="draft = editor.toggleCapability(draft, item.key, state.catalog)">{{ ui.actions[item.action] || ui.unknownCapability }}</button></div>
+            </details>
           </details>
         </section>
         <template v-if="kind !== 'scheme'">
@@ -95,6 +100,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AppLoading from '@/components/AppLoading.vue';
+import UiSwitch from '@/components/UiSwitch.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import AuthorizationDimensions from '@/components/AuthorizationDimensions.vue';
@@ -105,6 +111,7 @@ import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { formatListTime, getSystemTimezoneConfig } from '@/runtime/dateTime.js';
 import { showToast } from '@/runtime/notify.js';
+import '@/styles/authorization.css';
 const router = useRouter();
 const route = useRoute();
 const kind = computed(() => ['scheme', 'delegation'].includes(route.query.kind) ? route.query.kind : 'rule');
@@ -120,6 +127,7 @@ const busy = ref(false);
 const notice = ref('');
 const preview = ref(null);
 const picker = ref('');
+const operationQuery = ref('');
 let generation = 0;
 let disposed = false;
 let previewRequest = null;
@@ -139,6 +147,20 @@ const capabilityGroups = computed(() => {
     groups.get(item.resourceType).items.push(item);
   }
   return [...groups.values()];
+});
+const capabilityModules = computed(() => {
+  const modules = new Map();
+  const query = operationQuery.value.trim().toLowerCase();
+  for (const group of capabilityGroups.value) {
+    const items = group.items.filter(item => !query || capabilityText(item.key).toLowerCase().includes(query));
+    if (!items.length) continue;
+    const key = group.key.split('.')[0];
+    if (!modules.has(key)) modules.set(key, { key, label: ui.businessGroups[key] || ui.unknownCapability, groups: [], count: 0 });
+    const module = modules.get(key);
+    module.groups.push({ ...group, items });
+    module.count += items.length;
+  }
+  return [...modules.values()];
 });
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function fieldNames(policy) { return presentation.policySections(policy, directory.value, state.value.catalog, ui).fieldLabels; }
@@ -163,7 +185,7 @@ function changeTime(key, value) {
 }
 function clear() {
   generation++; ready.value = false; busy.value = false; preview.value = null; previewRequest = null;
-  picker.value = ''; draft.value = editor.createDraft(); state.value = { rules: [], schemes: [], catalog: [] };
+  picker.value = ''; operationQuery.value = ''; draft.value = editor.createDraft(); state.value = { rules: [], schemes: [], catalog: [] };
   directory.value = { assignments: [], adminGrants: [] }; notice.value = '';
 }
 async function load() {
@@ -232,6 +254,8 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .authorization-editor .panel-head > .btn { flex: none; width: auto; min-width: 0; }
 .choice-grid, .button-row, .impact-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .choice-grid { margin-top: var(--ui-list-gap); }
+.impact-columns { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 520px) { .impact-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .choice-card { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: var(--ui-compact-height); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: var(--ui-field-border); border-radius: var(--ui-compact-radius); background: var(--ui-field-bg); color: var(--ui-text); font: inherit; line-height: var(--ui-leading-control); text-align: center; cursor: pointer; }
 .choice-card.selected { border-color: var(--ui-blue-700); background: var(--ui-chip-blue-bg); }
 details > summary { cursor: pointer; }

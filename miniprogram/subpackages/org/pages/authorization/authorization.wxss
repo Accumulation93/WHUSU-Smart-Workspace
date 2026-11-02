@@ -1,9 +1,9 @@
 @import "../adminPermissions/adminPermissions.wxss";
-.authorization-tabs, .authorization-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; margin-bottom: 20rpx; }
-.authorization-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.authorization-tabs > button, .authorization-actions > button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.authorization-tabs, .authorization-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); margin-bottom: var(--ui-action-gap); }
+.authorization-tabs { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); padding: var(--ui-label-gap); border: 1rpx solid rgba(255,255,255,.8); border-radius: var(--ui-tab-shell-radius); background: linear-gradient(135deg,rgba(255,255,255,.85),rgba(239,246,255,.7)); }
+.authorization-tabs > button, .authorization-actions > button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; white-space: normal; word-break: normal; overflow-wrap: break-word; }
 .authorization-tab { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: var(--ui-tab-min-height); padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x); border-radius: var(--ui-tab-radius); font-size: var(--ui-type-control); line-height: var(--ui-leading-control); text-align: center; color: #2563eb; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.88)); }
-.authorization-tab-active { color: #fff; background: linear-gradient(135deg, #2563eb, #3b82f6); }
+.secondary-btn.authorization-tab-active { color: #fff; background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: rgba(59,130,246,.65); }
 .authorization-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
 .authorization-chip { padding: 6rpx 12rpx; border-radius: var(--ui-compact-radius); color: #2563eb; background: linear-gradient(135deg, rgba(219,234,254,.76), rgba(224,242,254,.76)); border: 1rpx solid rgba(147,197,253,.64); font-size: var(--ui-type-meta); line-height: 1.5; }
 .authorization-details { margin: 16rpx 0; }
@@ -11,5 +11,34 @@
 .authorization-actions { margin-top: 16rpx; margin-bottom: 0; }
 .authorization-page .selection-option-card { padding: 20rpx; border: 1rpx solid rgba(147,197,253,.64); border-radius: var(--ui-compact-radius); background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.88)); }
 .authorization-page .selection-option-card-selected { border-color: #3b82f6; background: linear-gradient(135deg, rgba(219,234,254,.76), rgba(239,246,255,.92)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.36); }
+.permission-page button { box-sizing: border-box; min-width: 0; max-width: 100%; margin: 0; }
+.permission-page .permission-section-head { align-items: center; gap: var(--ui-inline-gap); }
+.permission-page .permission-section-title { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.permission-page .permission-section-head > button { flex: none; width: auto; white-space: nowrap; }
+.permission-page .authorization-chip { flex: none; max-width: 100%; box-sizing: border-box; }
+.authorization-toolbar, .authorization-body, .authorization-section { display: flex; flex-direction: column; gap: var(--ui-field-gap); min-width: 0; }
+.authorization-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap); min-width: 0; }
+.authorization-title { flex: 1; min-width: 0; font-size: var(--ui-type-section); font-weight: 700; color: #0f172a; line-height: var(--ui-leading-heading); overflow-wrap: break-word; }
+.permission-page .authorization-compact { flex: none; width: auto; min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); font-size: var(--ui-type-control); line-height: var(--ui-leading-control); white-space: nowrap; }
+.permission-page .authorization-row-actions, .permission-page .card-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--ui-inline-gap); margin-top: var(--ui-action-gap); padding-top: var(--ui-action-gap); border-top: 1rpx solid rgba(219,229,241,.9); }
+.permission-page .authorization-row-actions > button, .permission-page .card-actions > button { flex: none; width: auto; min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); line-height: var(--ui-leading-control); }
+.permission-page .authorization-compact { border-radius: var(--ui-compact-radius); }
+.permission-page .authorization-row-actions > .authorization-link { display: flex; align-items: center; justify-content: center; text-align: center; min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border-radius: var(--ui-compact-radius); font-size: var(--ui-type-control); font-weight: 600; line-height: 1.25; color: #2563eb; background: rgba(219,234,254,.65); border: 1rpx solid rgba(147,197,253,.45); box-shadow: none; }
+.permission-page .authorization-row-actions > .authorization-link-danger { color: #dc2626; background: rgba(254,226,226,.65); border-color: rgba(252,165,165,.45); }
+.permission-page button.authorization-edit, .permission-page .authorization-row-actions > button.authorization-edit { color: var(--ui-text-muted, #64748b); background: linear-gradient(135deg,rgba(255,255,255,.96),rgba(246,249,255,.88)); border-color: rgba(147,197,253,.45); font-weight: 600; box-shadow: none; }
+.permission-page .authorization-disclosure { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap); width: 100%; min-height: var(--ui-control-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); text-align: left; font-size: var(--ui-type-control); line-height: var(--ui-leading-control); color: #1e293b; border: 1rpx solid rgba(191,219,254,.7); background: linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,246,255,.8)); }
+.authorization-summary { min-width: 0; color: #64748b; font-size: var(--ui-type-meta); line-height: var(--ui-leading-body); overflow-wrap: break-word; }
+.authorization-field { display: flex; flex-direction: column; gap: var(--ui-label-gap); min-width: 0; }
+.authorization-status { flex: none; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border-radius: var(--ui-compact-radius); color: #15803d; background: linear-gradient(135deg,rgba(209,250,229,.8),rgba(240,253,244,.9)); font-size: var(--ui-type-meta); line-height: var(--ui-leading-body); }
+.authorization-status-warning { color: #c2410c; background: linear-gradient(135deg,rgba(255,237,213,.8),rgba(255,247,237,.9)); }
+.authorization-footer { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-inline-gap); padding-top: var(--ui-action-gap); }
+.authorization-footer > button { width: 100%; }
+.authorization-comparison { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-field-gap); }
+.authorization-comparison > view { min-width: 0; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: 1rpx solid rgba(191,219,254,.7); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.95),rgba(239,246,255,.7)); }
+.effective-group { display: flex; flex-direction: column; gap: var(--ui-inline-gap); }
+.permission-page > .permission-card { margin-top: var(--ui-card-gap); margin-bottom: var(--ui-card-gap); }
+.permission-page .authorization-disclosure { box-sizing: border-box; border-radius: var(--ui-field-radius); }
+.permission-page .authorization-actions, .permission-page .authorization-footer, .permission-page .authorization-row-actions { gap: var(--ui-field-gap); }
+@media (min-width: 520px) { .authorization-comparison { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 520px) { .authorization-page .selection-option-card { padding: 12px; } }
 @media (min-width: 520px) { .authorization-tabs, .authorization-actions { gap: 10px; margin-bottom: 14px; } .authorization-chips { gap: 8px; margin-bottom: 10px; } .authorization-chip { padding: 3px 8px; } .authorization-details { margin: 10px 0; } .authorization-label { margin-top: 10px; } .authorization-actions { margin-top: 10px; margin-bottom: 0; } }

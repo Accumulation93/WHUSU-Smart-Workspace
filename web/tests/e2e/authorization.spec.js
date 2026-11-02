@@ -29,6 +29,43 @@ async function setup(page) {
   return { state, calls };
 }
 
+test('authorization cards and grouped editor keep controls visible and preserve filtered selections', async ({ page }) => {
+  const { state } = await setup(page);
+  state.rules = [{ id: 'rule-a', version: 1, name: 'Example authorization rule', policy: {
+    effect: 'allow', enabled: true, subjects: [{ kind: 'assignments', ids: ['job-a'] }],
+    capabilities: [capability.key], scopes: [{ kind: 'self' }], fields: null
+  } }];
+  await page.goto('/web/admin/authorization');
+  await expect(page.locator('.tab-active')).toHaveText(ui.rules);
+  const actions = page.locator('.authorization-rule-actions');
+  await expect(actions.getByRole('button')).toHaveCount(3);
+  const bounds = await actions.getByRole('button').evaluateAll(elements => elements.map(element => {
+    const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, height: r.height };
+  }));
+  expect(bounds[0].right).toBeLessThan(bounds[1].left);
+  expect(bounds[1].right).toBeLessThan(bounds[2].left);
+  expect(Math.abs(bounds[0].top - bounds[1].top)).toBeLessThan(1);
+  const compactHeight = await actions.evaluate(element => Number.parseFloat(getComputedStyle(element).getPropertyValue('--ui-compact-height')));
+  expect(bounds.every(item => item.height >= compactHeight)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('authorization-list-refined.png'), fullPage: true, animations: 'disabled' });
+  await actions.getByRole('button', { name: ui.edit, exact: true }).click();
+  await expect(page.getByRole('switch', { name: ui.state })).toBeChecked();
+  await page.getByRole('switch', { name: ui.state }).uncheck();
+  await expect(page.getByRole('switch', { name: ui.state })).not.toBeChecked();
+  await page.getByRole('switch', { name: ui.state }).check();
+  await page.getByRole('button', { name: ui.deny, exact: true }).click();
+  await expect(page.getByRole('button', { name: ui.deny, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: ui.allow, exact: true }).click();
+  await expect(page.locator('.authorization-module')).not.toHaveAttribute('open');
+  await page.getByLabel(ui.searchOperations, { exact: true }).fill(ui.actions.read);
+  await expect(page.getByRole('button', { name: ui.actions.read, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel(ui.searchOperations, { exact: true }).fill('no matching operation');
+  await expect(page.locator('.authorization-module')).toHaveCount(0);
+  await page.getByLabel(ui.searchOperations, { exact: true }).fill(ui.actions.read);
+  await expect(page.getByRole('button', { name: ui.actions.read, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.screenshot({ path: test.info().outputPath('authorization-editor-refined.png'), fullPage: true, animations: 'disabled' });
+});
+
 test('field restrictions save and reopen without turning an empty selection into all fields', async ({ page }) => {
   const { state, calls } = await setup(page);
   state.catalog = [{ key: 'venue.purposes.update', resourceType: 'venue.purposes', action: 'update',
@@ -73,7 +110,8 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.getByRole('button', { name: ui.assignments, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('details').filter({ has: page.locator('summary', { hasText: ui.resources['venue.bookings'] }) }).locator('summary').click();
+  await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.locator('.authorization-resource > summary').filter({ hasText: ui.resources['venue.bookings'] }).click();
   await page.getByRole('button', { name: ui.actions.read, exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
@@ -199,7 +237,8 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.getByRole('button', { name: ui.assignments, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('summary', { hasText: ui.resources['venue.bookings'] }).click();
+  await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.locator('.authorization-resource > summary').filter({ hasText: ui.resources['venue.bookings'] }).click();
   await page.getByRole('button', { name: ui.actions.read, exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();

@@ -1,5 +1,5 @@
 <template>
-  <div class="page stack authorization-changes">
+  <div class="page stack authorization-changes authorization-workspace">
     <WorkspaceHero tone="admin" :page-name="ui.previewChanges" :person-name="personName" :identity-name="roleName" :organization-name="organizationName" @switch="leave" />
     <AppLoading v-if="loading" :text="ui.loading" />
     <section v-if="notice" class="card stack" role="alert"><p>{{ notice }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="load">{{ ui.refresh }}</button></section>
@@ -49,6 +49,7 @@ import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { formatListTime } from '@/runtime/dateTime.js';
+import '@/styles/authorization.css';
 const route = useRoute();
 const router = useRouter();
 const state = ref({ catalog: [], mode: '' });

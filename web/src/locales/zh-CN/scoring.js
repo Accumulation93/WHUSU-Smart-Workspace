@@ -9,7 +9,7 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   navigationTitle: src_admin.navigationTitle,
-  title: src_admin.copy_33a502217d,
+  title: src_authorization.businessGroups.scoring,
   taskTitle: src_scorerTasks.copy_3a550fe14c,
   taskNote: src_web.scoring.taskNote,
   fillTitle: src_score.copy_1f4d77229c,

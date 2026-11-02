@@ -39,6 +39,8 @@ test('receive a draft, explicitly map its venue, cancel then confirm and reread'
   const calls = await setup(page); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/web/admin/organization-copy');
+  await expect(page.getByLabel(text.kind, { exact: true })).toHaveClass('field-input');
+  await expect(page.locator('.tab-active')).toHaveText(text.source);
   await page.getByLabel(text.kind, { exact: true }).selectOption('venue.activityRules');
   await page.getByRole('button', { name: text.incoming, exact: true }).click();
   await page.getByRole('button', { name: text.receive, exact: true }).click();
@@ -46,6 +48,8 @@ test('receive a draft, explicitly map its venue, cancel then confirm and reread'
   await expect(page.getByText(text.periodCount('2026-11-01', '00:00', 12), { exact: true })).toBeVisible();
   await expect(page.getByText(text.sharedNotice, { exact: true })).toBeVisible();
   await page.getByLabel('Original venue', { exact: true }).selectOption('target-venue');
+  await expect(page.getByLabel('Original venue', { exact: true })).toHaveClass('field-input');
+  await page.screenshot({ path: test.info().outputPath('organization-copy-refined.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: text.apply, exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText(text.mapping('Original venue', 'Target venue'));
   await page.getByRole('dialog').getByRole('button', { name: ui.cancel, exact: true }).click();

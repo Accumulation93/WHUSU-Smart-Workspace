@@ -1,9 +1,9 @@
 <template>
-  <div class="page stack authorization-page">
+  <div class="page stack authorization-page authorization-workspace">
     <WorkspaceHero tone="admin" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
       :organization-name="organizationName" @switch="router.push({ name: 'workRole' })" />
     <nav class="tabs" :aria-label="ui.title">
-      <button v-for="item in tabs" :key="item" type="button" class="tab" :class="{ active: tab === item }"
+      <button v-for="item in tabs" :key="item" type="button" class="tab" :class="{ 'tab-active': tab === item }"
         :aria-current="tab === item ? 'page' : undefined" @click="selectTab(item)">{{ ui[item] }}</button>
     </nav>
     <p v-if="state.mode === 'shadow'" class="notice-line">{{ ui.previewOnly }}</p>
@@ -12,7 +12,6 @@
       <p>{{ notice }}</p><button type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
     </section>
     <template v-else-if="ready">
-      <section v-if="canCopy" class="card card-actions"><button type="button" class="btn btn-secondary" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button></section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
           <h2 class="section-title">{{ ui[tab] }}</h2>
@@ -22,10 +21,13 @@
           <UiIcon name="search" tone="muted" size-role="row-leading" />
           <input v-model="query" class="search-input" :placeholder="ui.search" :aria-label="ui.search" />
         </label>
+        <div class="authorization-tools">
+          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+          <button v-if="canCopy" type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
+        </div>
       </section>
       <template v-if="tab === 'rules'">
-        <section class="card stack">
-          <button type="button" class="btn btn-secondary" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+        <section v-if="selecting" class="card stack">
           <template v-if="selecting">
             <p class="muted">{{ ui.selectedRules(selectedRules.length) }}</p>
             <div class="button-row"><button type="button" class="btn btn-secondary" @click="selectShown">{{ ui.selectShown }}</button><button type="button" class="btn btn-secondary" @click="selectedRules = []">{{ ui.clearSelection }}</button></div>
@@ -38,8 +40,8 @@
               <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
               <div v-for="item in state.delegations" :key="item.id" class="glass-panel stack-tight">
                 <strong>{{ item.name }}</strong><span class="muted">{{ item.enabled ? ui.enabled : ui.disabled }}</span>
-                <button type="button" class="btn btn-secondary" @click="edit('delegation', item.id)">{{ ui.edit }}</button>
-                <button type="button" class="btn btn-danger" @click="router.push({ name: 'authorizationChanges', query: { kind: 'deleteDelegation', id: item.id } })">{{ ui.remove }}</button>
+                <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('delegation', item.id)">{{ ui.edit }}</button>
+                <button type="button" class="btn-quiet btn-quiet-danger" @click="router.push({ name: 'authorizationChanges', query: { kind: 'deleteDelegation', id: item.id } })">{{ ui.remove }}</button></div>
               </div>
             </div>
           </details>
@@ -52,13 +54,13 @@
             <h2 class="section-title">{{ rule.name }}</h2>
             <span class="chip" :class="rule.policy.effect === 'deny' ? 'chip-orange' : 'chip-blue'">{{ rule.effectText }}</span>
           </div>
-          <div class="row row-wrap"><span v-for="(label, index) in rule.capabilityLabels" :key="index" class="chip chip-sky">{{ label }}</span></div>
+          <div class="row row-wrap"><span v-for="(label, index) in rule.capabilityLabels.slice(0, 3)" :key="index" class="chip chip-sky">{{ label }}</span></div>
           <span class="muted">{{ rule.enabledText }}</span>
           <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" /></details>
-          <div class="button-row">
-            <button type="button" class="btn btn-secondary" @click="edit('rule', rule.id)">{{ ui.edit }}</button>
-            <button type="button" class="btn btn-secondary" @click="edit('rule', rule.id, true)">{{ ui.copy }}</button>
-            <button type="button" class="btn btn-danger" @click="changes('delete', rule.id)">{{ ui.remove }}</button>
+          <div class="card-actions authorization-rule-actions">
+            <button type="button" class="btn-quiet authorization-edit" @click="edit('rule', rule.id)">{{ ui.edit }}</button>
+            <button type="button" class="btn-quiet" @click="edit('rule', rule.id, true)">{{ ui.copy }}</button>
+            <button type="button" class="btn-quiet btn-quiet-danger" @click="changes('delete', rule.id)">{{ ui.remove }}</button>
           </div>
         </article>
       </template>
@@ -67,7 +69,7 @@
         <article v-for="scheme in schemes" :key="scheme.id" class="card stack">
           <div class="panel-head"><h2 class="section-title">{{ scheme.name }}</h2><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span></div>
           <div class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div>
-          <div class="button-row"><button type="button" class="btn btn-secondary" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.previewChanges }}</button></div>
+          <div class="button-row"><button type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.previewChanges }}</button></div>
         </article>
       </template>
       <section v-else class="card stack">
@@ -83,10 +85,14 @@
         <p v-if="inspectionNotice" class="notice-line" role="alert">{{ inspectionNotice }}</p>
         <template v-if="effective">
           <p class="muted">{{ inspectionLabel }}</p>
-          <details v-for="item in effective.capabilities" :key="item.capability" class="glass-panel">
+          <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="effectiveQuery" class="search-input" :placeholder="ui.searchEffective" :aria-label="ui.searchEffective" /></label>
+          <details v-for="group in effectiveGroups" :key="group.key" class="glass-panel authorization-module" :open="!!effectiveQuery">
+            <summary><strong>{{ group.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(group.items.length) }}</span></summary>
+          <details v-for="item in group.items" :key="item.capability" class="authorization-resource">
             <summary class="effective-summary"><strong>{{ capabilityText(item.capability) }}</strong><span class="chip" :class="item.status === 'denied' ? 'chip-orange' : 'chip-blue'">{{ statusText(item.status) }}</span></summary>
             <p class="muted">{{ ui.reasons[item.reason] || ui.businessCheckRequired }}</p>
             <div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong></div>
+          </details>
           </details>
         </template>
       </section>
@@ -110,6 +116,7 @@ import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
 import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
+import '@/styles/authorization.css';
 const router = useRouter();
 const tabs = computed(() => state.value.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref('rules');
@@ -121,6 +128,7 @@ const loading = ref(false);
 const ready = ref(false);
 const notice = ref('');
 const effective = ref(null);
+const effectiveQuery = ref('');
 const inspecting = ref(false);
 const inspectionNotice = ref('');
 const inspectionTarget = ref(null);
@@ -140,10 +148,22 @@ const roleName = computed(() => roleLabelOf(session.context));
 const organizationName = computed(() => session.context?.organizationName || '');
 const cards = computed(() => presentation.ruleCards(state.value.rules, directory.value, state.value.catalog, ui, query.value));
 const schemes = computed(() => state.value.schemes.filter(item => item.name.toLowerCase().includes(query.value.trim().toLowerCase())));
+const effectiveGroups = computed(() => {
+  const groups = new Map();
+  const query = effectiveQuery.value.trim().toLowerCase();
+  for (const item of effective.value?.capabilities || []) {
+    if (query && !capabilityText(item.capability).toLowerCase().includes(query)) continue;
+    const key = item.capability.split('.')[0];
+    if (!groups.has(key)) groups.set(key, { key, label: ui.businessGroups[key] || ui.unknownCapability, items: [] });
+    groups.get(key).items.push(item);
+  }
+  return [...groups.values()];
+});
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function statusText(value) { return ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[value] || ui.denied; }
 function clear() {
   canCopy.value = false;
+  effectiveQuery.value = '';
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
   closeInspection(); inspectionTarget.value = null; inspectionLabel.value = ui.ownRole; candidateLoading.value = false;

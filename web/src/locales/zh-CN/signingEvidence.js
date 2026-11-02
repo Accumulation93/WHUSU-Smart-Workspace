@@ -2,7 +2,6 @@
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
 import src_auditSigning from './shared/auditSigning.js';
 import src_authorization from './shared/authorization.js';
-import src_myApprovalHistory from './shared/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory.js';
 import src_pendingApprovals from './shared/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import src_verification from './shared/generated/subpackages/audit/pages/verification/verification.js';
@@ -12,7 +11,7 @@ export default Object.freeze({
   title: src_signingEvidence.title,
   technical: src_signingEvidence.technical,
   reportTitle: src_signingEvidence.reportTitle,
-  appName: src_myApprovalHistory.copy_56d416c578,
+  appName: src_authorization.businessGroups.audit,
   reportNavigationTitle: src_signingEvidence.reportNavigationTitle,
   reportIntro: src_signingEvidence.reportIntro,
   reportExpired: src_signingEvidence.reportExpired,

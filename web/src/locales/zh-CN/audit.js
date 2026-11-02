@@ -20,7 +20,7 @@ import src_web from './shared/web.js';
 
 export default Object.freeze({
   navigationTitle: src_web.audit.navigationTitle,
-  title: src_myApprovalHistory.copy_56d416c578,
+  title: src_authorization.businessGroups.audit,
   tabMySubmissions: src_mySubmissions.copy_fb0dc97a1d,
   tabPending: src_pendingApprovals.copy_5aaf844f1e,
   tabHistory: src_pendingVenueApprovals.copy_8650ae5bf6,

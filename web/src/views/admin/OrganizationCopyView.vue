@@ -1,17 +1,17 @@
 <template>
-  <div class="page copy-page stack">
+  <div class="page copy-page stack authorization-workspace">
     <WorkspaceHero :page-name="text.title" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'"
-      :person-name="session.context?.name || session.user?.name || ''" :role-name="roleLabelOf(session.context)"
+      :person-name="session.context?.name || session.user?.name || ''" :identity-name="roleLabelOf(session.context)"
       :organization-name="session.context?.organizationName || ''" @switch="router.push({ name: 'workRole' })" />
     <section class="card stack">
       <h2 class="section-title">{{ text.title }}</h2>
       <label class="field">{{ text.kind }}
-        <select class="field-select" :aria-label="text.kind" :value="kind" :disabled="busy" @change="changeKind($event.target.value)">
+        <select class="field-input" :aria-label="text.kind" :value="kind" :disabled="busy" @change="changeKind($event.target.value)">
           <option v-for="value in availableKinds" :key="value" :value="value">{{ ui.resources[value] }}</option>
         </select>
       </label>
       <nav class="tabs" :aria-label="text.title">
-        <button v-for="value in tabs" :key="value" type="button" class="tab" :class="{ active: tab === value }"
+        <button v-for="value in tabs" :key="value" type="button" class="tab" :class="{ 'tab-active': tab === value }"
           :disabled="busy" :aria-current="tab === value ? 'page' : undefined" @click="changeTab(value)">{{ text[value] }}</button>
       </nav>
     </section>
@@ -43,7 +43,7 @@
             :disabled="busy || !detailReady" @click="openPicker(item)">{{ selectedLabel(item) || text.choose }}</button>
           <label v-else class="field">
             <span class="muted">{{ text.choose }}</span>
-            <select v-model="mapping[item.token]" class="field-select" :disabled="busy || !detailReady" :aria-label="item.label">
+            <select v-model="mapping[item.token]" class="field-input" :disabled="busy || !detailReady" :aria-label="item.label">
               <option value="">{{ text.choose }}</option>
               <option v-for="choice in choicesFor(item)" :key="choice.id" :value="choice.id">{{ choice.name }}</option>
             </select>
@@ -68,15 +68,15 @@
         </div>
         <p v-if="item.organizationName" class="muted">{{ item.organizationName }}</p>
         <label v-if="tab === 'source'" class="field">{{ text.target }}
-          <select v-model="targets[item.id]" :aria-label="text.target" class="field-select" :disabled="busy || !ready">
+          <select v-model="targets[item.id]" :aria-label="text.target" class="field-input" :disabled="busy || !ready">
             <option value="">{{ text.choose }}</option><option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
           </select>
         </label>
         <div class="card-actions">
-          <button v-if="tab === 'source'" type="button" class="btn btn-secondary" :disabled="busy || !ready || !targets[item.id]" @click="share(item)">{{ text.share }}</button>
-          <button v-if="tab === 'incoming'" type="button" class="btn btn-primary" :disabled="busy || !ready" @click="receive(item)">{{ text.receive }}</button>
-          <button v-if="tab === 'drafts'" type="button" class="btn btn-secondary" :disabled="busy || !ready" @click="openDraft(item.id)">{{ text.open }}</button>
-          <button v-if="tab === 'outgoing' && item.enabled" type="button" class="btn btn-danger" :disabled="busy || !ready" @click="revoke(item)">{{ text.revoke }}</button>
+          <button v-if="tab === 'source'" type="button" class="btn-quiet" :disabled="busy || !ready || !targets[item.id]" @click="share(item)">{{ text.share }}</button>
+          <button v-if="tab === 'incoming'" type="button" class="btn-quiet btn-quiet-primary" :disabled="busy || !ready" @click="receive(item)">{{ text.receive }}</button>
+          <button v-if="tab === 'drafts'" type="button" class="btn-quiet" :disabled="busy || !ready" @click="openDraft(item.id)">{{ text.open }}</button>
+          <button v-if="tab === 'outgoing' && item.enabled" type="button" class="btn-quiet btn-quiet-danger" :disabled="busy || !ready" @click="revoke(item)">{{ text.revoke }}</button>
         </div>
       </article>
       <button v-if="next" type="button" class="btn btn-secondary" :disabled="loading || busy || !ready" @click="load(true)">{{ text.more }}</button>
@@ -98,6 +98,7 @@ import { session, roleLabelOf } from '@/runtime/session.js';
 import { describeConfiguration, copiedConfigurationDestination } from '@/shared/organizationCopyPresentation.js';
 import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
 import { configurationCopyOptions } from '@/shared/authorizationEntryView.js';
+import '@/styles/authorization.css';
 const router = useRouter();
 const route = useRoute();
 const text = ui.configurationCopy;
@@ -234,7 +235,6 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .copy-page { max-width: var(--ui-permission-page-width); }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .field { display: grid; gap: var(--ui-label-gap); min-width: 0; }
-.field-select { width: 100%; min-width: 0; }
 .panel-head { flex-wrap: wrap; }
 .copy-multiline { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
