@@ -9,15 +9,8 @@
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
-const ALLOWED_ADVISORIES = [
-  {
-    id: 'GHSA-86W9-CPQP-85RV',
-    module: 'node-forge',
-    severity: 'high',
-    reason: '官方暂无修复版本（1.4.0 已是最新）。该公告针对 node-forge 自身的 RSA PKCS#1 v1.5 验签，本仓库 CMS/PDF 验签使用 Node 原生 crypto.verify，未调用 forge 的 pki.rsa 校验路径。',
-    expires: '2026-12-31'
-  }
-];
+// node-forge 1.4.2已提供修复，撤销原公告豁免，旧版本必须被阻断。
+const ALLOWED_ADVISORIES = [];
 
 const BLOCKING_SEVERITIES = new Set(['high', 'critical']);
 
@@ -103,8 +96,8 @@ function selfTest() {
       }
     }
   };
-  if (collectBlockingFindings(allowedReport, now).length !== 0) {
-    throw new Error('已豁免公告不应阻断');
+  if (collectBlockingFindings(allowedReport, now).length !== 1) {
+    throw new Error('已有修复版本的旧公告必须阻断');
   }
   const blockedReport = {
     vulnerabilities: {
@@ -122,7 +115,7 @@ function selfTest() {
   if (findings.length !== 2) throw new Error('未豁免的告警与升级后的严重级别都必须阻断');
   const expired = collectBlockingFindings(allowedReport, new Date('2027-03-01T00:00:00Z'));
   if (expired.length !== 1) throw new Error('豁免到期后必须重新阻断');
-  console.log('依赖门禁自测通过：豁免生效、其它告警阻断、到期自动恢复阻断');
+  console.log('依赖门禁自测通过：旧公告、其它告警与严重级别升级均阻断');
 }
 
 function main() {
@@ -143,7 +136,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('[dependency-audit] 除已豁免公告外，无 high / critical 依赖告警');
+  console.log('[dependency-audit] 无未处理的 high / critical 依赖告警');
 }
 
 main();

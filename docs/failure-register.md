@@ -1371,3 +1371,11 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 账号治理目录已支持认证、恢复和账号的独立读取能力，但原生成员资料页签仍只判断修改能力。只读角色初始能查看资料，切换其他页签后却没有返回入口。补充 `canReadAuthGovernance` 条件，不增加任何写入能力；`hr-field-authorization-test.js` 读取真实 WXML 条件验证仅有读取权时可见、全部无权时不可见。
 
 同轮完整检查发现6份原生测试仍读取拆分前的页面壳，网页间距测试仍假设页签是页面直接子级。逐项更新为真实共享正文、Behavior与语义页签，保留原有导出、权限、生命周期和间距断言。20个原生测试文件最终从头重跑全部通过，网页间距18项通过；这不是完整CI通过，最终结果仍以对应提交的完整运行记录为准。
+
+## 2026-11-02：完整检查发现依赖安全公告更新
+
+本轮完整检查在最后的依赖审计被4项高危依赖阻断：body-parser、follow-redirects、multer、node-forge。没有生成成功证明或推送发布。已按官方补丁升级 Express 4.22.3、body-parser 1.20.9、follow-redirects 1.16.2、multer 2.5.0、node-forge 1.4.2，并把现有qs覆盖升级为6.17.1；不跨Express主版本升级。node-forge已有官方修复，删除原“无修复版本”豁免，旧版本公告在自测中仍必须阻断。
+
+依据为项目npm审计JSON及[body-parser公告](https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828)、[multer公告](https://github.com/expressjs/multer/security/advisories/GHSA-q7qp-rjg7-q26m)、[重定向公告](https://github.com/follow-redirects/follow-redirects/security/advisories/GHSA-mrwp-f3q8-3g9p)、[forge更新记录](https://raw.githubusercontent.com/digitalbazaar/forge/v1.4.2/CHANGELOG.md)。依赖审计与自测通过，真实HTTP请求容量、审核临时上传安全和800行×12列表格导出回读通过；CMS与PDF实际签署及完整CI结果另外记录。依赖审计通过仅表示当前无未处理high/critical公告，不表示所有严重级别均为零。
+
+升级后 `pdfSignature`、`signingEvidenceProtocol`、`signingEvidenceIntegration`、`auditVerificationMultiMatch` 4份专项通过，覆盖11项密码协议检查、OpenSSL独立CMS核验、隔离库真实3步签署保存回读、篡改拒绝及HTTP上传。npm复查遇TLS连接中断时按失败处理，未放宽检查；当前进程采用IPv4优先后取得官方完整报告并通过，不修改全局网络或证书配置。完整CI仍须在包含升级的提交上重跑。
