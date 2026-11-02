@@ -1,5 +1,5 @@
 'use strict';
-const ui = require('../../package-resources/locales/zh-CN/authorization');
+const ui = require('../../../../locales/zh-CN/authorization');
 const editor = require('../../utils/authorizationEditor');
 const presentation = require('../../utils/authorizationPresentation');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');

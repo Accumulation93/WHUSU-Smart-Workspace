@@ -33,6 +33,7 @@ const TRUSTED_ROUTES = {
   '/subpackages/org/pages/adminPermissions/adminPermissions': true,
   '/subpackages/org/pages/authorization/authorization': true,
   '/subpackages/org/pages/organizationCopy/organizationCopy': true,
+  '/subpackages/org/pages/assignmentNatures/assignmentNatures': true,
   '/subpackages/org/pages/authorizationEditor/authorizationEditor': true,
   '/subpackages/org/pages/authorizationChanges/authorizationChanges': true,
   '/subpackages/org/pages/identitySwitch/identitySwitch': true,

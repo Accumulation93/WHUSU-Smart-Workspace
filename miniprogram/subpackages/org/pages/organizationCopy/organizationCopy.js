@@ -1,7 +1,9 @@
 'use strict';
-const ui = require('../../package-resources/locales/zh-CN/authorization');
+const ui = require('../../../../locales/zh-CN/authorization');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
+const { configurationCopyOptions } = require('../../../../utils/authorizationEntryView');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { describeConfiguration, copiedConfigurationDestination } = require('../../utils/organizationCopyPresentation');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
@@ -42,6 +44,12 @@ Page({
     const request = orgSession.beginRequest(this, 'configurationCopy');
     this.setData({ loading: true, ready: false, notice: '' });
     try {
+      const access = await readCurrentAuthorizationAccess();
+      if (!this.current(request)) return;
+      const options = configurationCopyOptions(access, this.data.kind, this.data.tab);
+      this.setData({ kinds: options.kinds.map(id => ({ id, name: ui.resources[id] })), kind: options.kind,
+        kindIndex: options.kinds.indexOf(options.kind), tabs: options.tabs, tab: options.tab });
+      if (!options.kind) throw new Error(ui.forbidden);
       const result = await this.call(this.data.tab === 'incoming' ? 'listSharedOrganizationConfigurations' : 'getOrganizationConfigurationWorkspace',
         { kind: this.data.kind, tab: this.data.tab, after: more ? this.data.next : '' });
       if (!this.current(request)) return;
@@ -55,8 +63,8 @@ Page({
   more: function() { if (!this.data.loading && !this.data.busy && this.data.ready && this.data.next) this.load(true); },
   changeKind: function(event) {
     if (this.data.busy || this.data.confirmation) return;
-    const index = Number(event.detail.value); if (!kinds[index]) return;
-    this.clear(); this._active = true; this.setData({ kind: kinds[index], kindIndex: index }); this.load();
+    const index = Number(event.detail.value); const selected = this.data.kinds[index]; if (!selected) return;
+    this.clear(); this._active = true; this.setData({ kind: selected.id, kindIndex: index }); this.load();
   },
   changeTab: function(event) {
     if (this.data.busy || this.data.confirmation || !this.data.tabs.includes(event.currentTarget.dataset.tab)) return;

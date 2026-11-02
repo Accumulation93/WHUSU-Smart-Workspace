@@ -1,5 +1,5 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/adminPermissions/adminPermissions');
-const authorizationCopy = require('../../package-resources/locales/zh-CN/authorization');
+const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');

@@ -5,6 +5,11 @@ const text = ui.configurationCopy;
 
 async function setup(page) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', organizationId: 'org-1', contextId: 'ctx-admin', role: 'admin',
+    capabilities: ['venue.purposes.share', 'venue.purposes.receive', 'venue.activityRules.share', 'venue.activityRules.receive', 'venue.bookingWindows.receive'],
+    grantedCapabilities: ['venue.purposes.share', 'venue.purposes.receive', 'venue.activityRules.share', 'venue.activityRules.receive', 'venue.bookingWindows.receive']
+  } }));
   const calls = []; let state = 'draft';
   await page.route('**/api/getOrganizationConfigurationWorkspace', route => route.fulfill({ json: { status: 'success',
     items: [{ id: 'source-a', name: 'Meeting', version: 1 }], organizations: [{ id: 'target-org', name: 'Target organization' }] } }));

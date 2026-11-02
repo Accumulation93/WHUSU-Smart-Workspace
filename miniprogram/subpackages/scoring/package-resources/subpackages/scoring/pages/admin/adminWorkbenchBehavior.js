@@ -16,8 +16,8 @@ const eventBus = require('../../../../../../../utils/eventBus');
 const orgSession = require('../../../../../../../utils/orgSession');
 const authContext = require('../../../../../../../utils/authContext');
 const adminPermissions = require('../../../../../../../utils/adminPermissions');
-const authorizationCopy = require('../../../../locales/zh-CN/authorization');
-const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
+const authorizationCopy = require('../../../../../../../locales/zh-CN/authorization');
+const { readCurrentAuthorizationAccess } = require('../../../../../../../utils/authorizationAccess');
 const { navigateToTrustedRoute } = require('../../../../../../../utils/trustedNavigation');
 const utils = require('./modules/adminUtils');
 const { getNavigationBarMetrics } = require('../../../../../../../utils/navigationBarMetrics');
@@ -851,7 +851,7 @@ module.exports = Behavior({
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'],
       system: ['admins', 'settings'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
@@ -1258,6 +1258,11 @@ module.exports = Behavior({
     } else if (this.data.canReadAuthGovernance) {
       this.loadHrGovernanceDirectory();
     }
+  },
+
+  openAssignmentNatures() {
+    if (!this._pageVisible || !this.data.authorizationEnforced || !this.data.actionCapabilities['hr.assignmentNatures.read']) return;
+    navigateToTrustedRoute('/subpackages/org/pages/assignmentNatures/assignmentNatures');
   },
 
   switchTab(e) {

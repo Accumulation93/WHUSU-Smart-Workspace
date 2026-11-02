@@ -1,5 +1,5 @@
 'use strict';
-const ui = require('../../package-resources/locales/zh-CN/authorization');
+const ui = require('../../../../locales/zh-CN/authorization');
 const presentation = require('../../utils/authorizationPresentation');
 Component({
   properties: {

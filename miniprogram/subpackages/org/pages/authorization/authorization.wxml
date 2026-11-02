@@ -9,7 +9,7 @@
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button></view>
   <block wx:if="{{ready && !loading}}">
-    <view wx:if="{{tabs.length > 1}}" class="permission-card card-actions"><button class="secondary-btn ui-motion-button" bindtap="openOrganizationCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.configurationCopy.title}}</button></view>
+    <view wx:if="{{canCopy}}" class="permission-card card-actions"><button class="secondary-btn ui-motion-button" bindtap="openOrganizationCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.configurationCopy.title}}</button></view>
     <view wx:if="{{tab !== 'effective'}}" class="permission-card">
       <view class="permission-section-head"><view class="permission-section-title">{{ui[tab]}}</view><button class="primary-btn ui-motion-button" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{tab === 'rules' ? ui.createRule : ui.createScheme}}</button></view>
       <view class="permission-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="permission-search-input" value="{{keyword}}" bindinput="search" placeholder="{{ui.search}}" /></view>

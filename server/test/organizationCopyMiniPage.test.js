@@ -14,6 +14,8 @@ function harness(api) {
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
     Page(value) { definition = value; }, wx: { pageScrollTo() {} },
     require(name) {
+      if (name.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => ({ mode: 'enforced',
+        grantedCapabilities: ['venue.purposes.share', 'venue.purposes.receive', 'venue.activityRules.share', 'venue.activityRules.receive'] }) };
       if (name.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, showShortToast() {} };
       if (name.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };
       if (name.endsWith('/utils/orgSession')) return {

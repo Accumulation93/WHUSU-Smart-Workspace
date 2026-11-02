@@ -10,7 +10,7 @@ const {
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
 
-const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
+const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
 const TIMEZONE_OPTIONS = [
   { value: -12, label: localeCopy.copy_f9cadda36d },
   { value: -11, label: localeCopy.copy_4570b42d70 },

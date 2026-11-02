@@ -1,15 +1,17 @@
 'use strict';
-const ui = require('../../package-resources/locales/zh-CN/authorization');
+const ui = require('../../../../locales/zh-CN/authorization');
 const presentation = require('../../utils/authorizationPresentation');
 const { callFunction, getErrorText } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
+const { canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
-    ready: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false,
+    ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false,
     previewOnly: false, expanded: {}, isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
@@ -23,10 +25,13 @@ Page({
     this._inspectionTarget = null;
     this.setData({ selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
     this.setData({ inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false });
-    this.setData({ ready: false, cards: [], schemes: [], effective: [], expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+    this.setData({ ready: false, canCopy: false, cards: [], schemes: [], effective: [], expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
+    readCurrentAuthorizationAccess().then(access => {
+      if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ canCopy: canOpenConfigurationCopy(access) });
+    }).catch(() => {});
     this.setData({ loading: true, ready: false, notice: '', cards: [], schemes: [], effective: [],
       selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
     try {

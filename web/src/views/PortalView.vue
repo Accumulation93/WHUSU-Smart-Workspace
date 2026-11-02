@@ -212,6 +212,9 @@ import { confirmAction, showToast } from '@/runtime/notify.js';
 import { notifyModuleBuilding } from '@/runtime/porting.js';
 import { openMessageTarget } from '@/runtime/messageNavigation.js';
 import { logout, roleLabelOf, session } from '@/runtime/session.js';
+import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
+import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 
 const PORTAL_PREVIEW_LIMIT = 6;
 
@@ -236,7 +239,32 @@ let disposed = false;
 const appViewMode = ref('grid');
 const appSearchKeyword = ref('');
 
-const cards = computed(() => cardsForRole(session.activeRole));
+const portalAccess = ref(null);
+const shadowPermissionEntry = ref(false);
+let accessGeneration = 0;
+const cards = computed(() => {
+  const result = cardsForRole(session.activeRole).filter(card => card.key !== 'permissions'
+    || shadowPermissionEntry.value || (portalAccess.value?.mode === 'enforced'
+    && ['authorization.rules.read', 'authorization.schemes.read', 'authorization.effective.read', 'authorization.delegations.read']
+      .some(key => portalAccess.value.grantedCapabilities.includes(key))));
+  if (canOpenConfigurationCopy(portalAccess.value)) result.push({ key: 'organizationCopy',
+    label: authorizationCopy.configurationCopy.title, iconName: 'file', status: 'ready', route: { name: 'organizationCopy' } });
+  return result;
+});
+async function loadPortalAccess() {
+  const request = ++accessGeneration;
+  portalAccess.value = null;
+  shadowPermissionEntry.value = false;
+  try {
+    const access = await readCurrentAuthorizationAccess();
+    if (disposed || document.hidden || request !== accessGeneration) return;
+    portalAccess.value = access;
+    if (access?.mode === 'shadow' && session.activeRole === 'admin') {
+      const profile = requireSuccess(await callApi('getMyAdminPermissions', {}));
+      if (!disposed && !document.hidden && request === accessGeneration) shadowPermissionEntry.value = profile.canAccessPermissionSystem === true;
+    }
+  } catch (_) {}
+}
 
 const filteredCards = computed(() => {
   const keyword = appSearchKeyword.value.trim().toLowerCase();
@@ -352,10 +380,10 @@ async function onLogout() {
   router.replace({ name: 'login' });
 }
 
-onMounted(loadPreview);
-useMessageRefresh(() => notificationBusy.value ? undefined : loadPreview(), () => { generation++; });
-watch(() => session.context?.contextId, () => { todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0; loadPreview(); });
-onBeforeUnmount(() => { disposed = true; generation++; });
+onMounted(() => { loadPreview(); loadPortalAccess(); });
+useMessageRefresh(() => { loadPortalAccess(); return notificationBusy.value ? undefined : loadPreview(); }, () => { generation++; accessGeneration++; portalAccess.value = null; shadowPermissionEntry.value = false; });
+watch(() => session.context?.contextId, () => { todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0; loadPreview(); loadPortalAccess(); });
+onBeforeUnmount(() => { disposed = true; generation++; accessGeneration++; portalAccess.value = null; });
 </script>
 
 <style scoped>

@@ -7,7 +7,7 @@ const MANAGEMENT_RESOURCES = Object.freeze({
   results: ['scoring.results', 'scoring.tasks'], publications: ['scoring.publications'],
   hrInfo: ['hr.people', 'hr.import', 'hr.profileReview', 'hr.profileMigration', 'hr.directoryRules', 'auth.identity', 'auth.recovery', 'auth.accounts', 'auth.policy'],
   hrTemplates: ['hr.profileTemplates', 'hr.profileSelection'], departments: ['hr.departments'], workGroups: ['hr.workGroups'],
-  identities: ['hr.identities'], admins: ['system.adminAccounts'], settings: ['system.settings', 'system.organizations'],
+  identities: ['hr.identities'], assignmentNatures: ['hr.assignmentNatures'], admins: ['system.adminAccounts'], settings: ['system.settings', 'system.organizations'],
   auditTemplates: ['audit.templates'], auditStamps: ['audit.stamps'], auditSubmissions: ['audit.submissions'], auditVerification: ['audit.verification'],
   venue: ['venue.resources', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows', 'venue.openRules', 'venue.activityRules'],
   bookings: ['venue.bookings'], purposes: ['venue.purposes']
@@ -23,6 +23,7 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'hr.profileSelection': ['read', 'update'], 'hr.departments': ['read', 'create', 'update', 'delete'],
   'hr.profileMigration': ['read', 'request', 'approve', 'execute'],
   'hr.workGroups': ['read', 'create', 'update', 'delete'], 'hr.identities': ['read', 'create', 'update', 'delete'],
+  'hr.assignmentNatures': ['read'],
   'system.adminAccounts': ['read', 'create', 'update', 'delete'], 'system.settings': ['read', 'update'],
   'system.organizations': ['read', 'create', 'update', 'delete'], 'audit.templates': ['read', 'create', 'update', 'delete'],
   'audit.stamps': ['read', 'create', 'update', 'delete'], 'audit.submissions': ['read', 'delete'], 'audit.verification': ['read', 'configure', 'verify'],

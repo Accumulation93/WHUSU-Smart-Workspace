@@ -25,6 +25,7 @@
           <block wx:elif="{{tabKey === 'departments'}}">{{localeCopy.copy_c15260b37c}}</block>
           <block wx:elif="{{tabKey === 'workGroups'}}">{{localeCopy.copy_303b7a8611}}</block>
           <block wx:elif="{{tabKey === 'identities'}}">{{localeCopy.copy_38f7aca35c}}</block>
+          <block wx:elif="{{tabKey === 'assignmentNatures'}}">{{localeCopy.hrAssignmentNature}}</block>
           <block wx:elif="{{tabKey === 'admins'}}">{{localeCopy.copy_72d3c6f7c2}}</block>
           <block wx:elif="{{tabKey === 'settings'}}">{{localeCopy.copy_a8792b30e7}}</block>
           <block wx:elif="{{tabKey === 'publications'}}">{{localeCopy.copy_414b7d9da7}}</block>
@@ -2051,6 +2052,8 @@
         </view>
       </view>
     </viewport-portal>
+
+    <button wx:if="{{activeTab === 'assignmentNatures'}}" class="secondary-btn ui-motion-button" bindtap="openAssignmentNatures" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrAssignmentNature}}</button>
 
     <view class="section-stack" wx:if="{{activeTab === 'departments'}}">
       <view class="section-control-card">

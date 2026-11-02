@@ -1,5 +1,5 @@
 'use strict';
-const ui=require('../../package-resources/locales/zh-CN/authorization');
+const ui=require('../../../../locales/zh-CN/authorization');
 const {callFunction,getErrorText}=require('../../../../utils/api');
 const session=require('../../../../utils/orgSession');
 const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');

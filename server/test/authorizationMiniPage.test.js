@@ -13,6 +13,7 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
   let definition, generation = 0;
   const context = { Page(value) { definition = value; }, wx: { navigateBack() {}, pageScrollTo() {} },
     require(request) {
+      if (request.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => ({ mode: 'shadow', grantedCapabilities: [] }) };
       if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, showShortToast() {} };
       if (request.endsWith('/utils/orgSession')) return { consume() {}, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
       if (request.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };

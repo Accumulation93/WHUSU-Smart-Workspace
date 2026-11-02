@@ -16,6 +16,7 @@ const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
   { source: 'shared/authorizationAccessView.js', targets: [{ path: 'miniprogram/utils/authorizationAccessView.js' }, { path: 'web/src/shared/authorizationAccessView.js', format: 'esm' }] },
+  { source: 'shared/authorizationEntryView.js', targets: [{ path: 'miniprogram/utils/authorizationEntryView.js' }, { path: 'web/src/shared/authorizationEntryView.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/common.js', targets: [{ path: 'server/src/locales/zh-CN/common.js' }] },
   { source: 'shared/authorizationEditor.js', targets: [{ path: 'miniprogram/subpackages/org/utils/authorizationEditor.js' }, { path: 'web/src/shared/authorizationEditor.js', format: 'esm' }] },
   { source: 'shared/authorizationPresentation.js', targets: [{ path: 'miniprogram/subpackages/org/utils/authorizationPresentation.js' }, { path: 'web/src/shared/authorizationPresentation.js', format: 'esm' }] },

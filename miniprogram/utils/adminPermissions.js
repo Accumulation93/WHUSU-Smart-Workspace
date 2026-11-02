@@ -45,6 +45,7 @@ function getAdminProfile() {
 
 function hasAny(profile, keys) {
   if (!profile) return false;
+  if (profile.authorizationAccessUnavailable) return false;
   if (profile.adminLevel === 'super_admin') return true;
   if (profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
     return (keys || []).some(key => hasCapability(profile.authorizationAccess, key, true));
@@ -57,6 +58,7 @@ function hasAny(profile, keys) {
 
 function canAccessPermissionSystem(profile) {
   if (!profile) return false;
+  if (profile.authorizationAccessUnavailable) return false;
   if (profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
     return ['authorization.rules.read', 'authorization.schemes.read', 'authorization.effective.read',
       'authorization.delegations.read'].some(key => hasCapability(profile.authorizationAccess, key, true));
@@ -83,28 +85,42 @@ function savePermissionState(result, expectedSnapshot) {
     adminLevel: result.adminLevel || current.adminLevel,
     permissions: result.permissions || {},
     permissionKeys: result.permissionKeys || [],
-    canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem)
+    canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem),
+    authorizationAccess: result.authorizationAccess || null,
+    authorizationAccessUnavailable: result.authorizationAccessUnavailable === true
   });
   return require('./authContext').updateRuntimeProfile('admin', profile);
 }
 
 async function refreshMyPermissions() {
   const expectedSnapshot = require('./orgSession').getSnapshot();
-  const result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
-  if (result.status !== 'success') {
-    const error = new Error(result.message || localeCopy.copy_e52119b17e);
-    error.status = result.status;
+  let result;
+  try {
+    result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
+    if (!require('./orgSession').isCurrent(expectedSnapshot)) return null;
+    if (!result || result.status !== 'success') {
+      const error = new Error(result && result.message || localeCopy.copy_e52119b17e);
+      error.status = result && result.status;
+      throw error;
+    }
+    const access = await require('./authorizationAccess').readCurrentAuthorizationAccess();
+    if (!require('./orgSession').isCurrent(expectedSnapshot)) return null;
+    if (!access) throw new Error(localeCopy.copy_e52119b17e);
+    return savePermissionState(Object.assign({}, result, { authorizationAccess: access }), expectedSnapshot);
+  } catch (error) {
+    savePermissionState(Object.assign({}, result, { authorizationAccess: null, authorizationAccessUnavailable: true }), expectedSnapshot);
     throw error;
   }
-  return savePermissionState(result, expectedSnapshot);
 }
 
 function filterTabs(tabs, profile, map) {
+  if (profile && profile.authorizationAccessUnavailable) return [];
   if (profile && profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
     return (tabs || []).filter(tab => managementTabAllowed(profile.authorizationAccess, tab));
   }
   const permissionMap = map || TAB_PERMISSION_MAP;
   return (tabs || []).filter(function(tab) {
+    if (tab === 'assignmentNatures') return false;
     const keys = permissionMap[tab] || [];
     return hasAny(profile, tab === 'pending' || tab === 'bookings' ? keys : keys.concat(keys.map(key => key + '.delete')));
   });
@@ -117,7 +133,7 @@ function filterPortalCards(cards, profile) {
     if (profile && profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
       const tabs = {
         scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-        hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+        hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'],
         audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'],
         system: ['admins', 'settings'], venue: ['venue', 'bookings', 'pending', 'purposes']
       };

@@ -6,9 +6,9 @@ const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
-const { readCurrentAuthorizationAccess } = require('../../package-resources/utils/authorizationAccess');
+const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { managementTabAllowed } = require('../../../../utils/authorizationAccessView');
-const authorizationCopy = require('../../package-resources/locales/zh-CN/authorization');
+const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const { formatDateOnly, getSystemDate } = require('../../../../utils/dateTime');
 const {
   formatDateTextOnly,
@@ -685,7 +685,7 @@ Page({
     this._managementGeneration = generation;
     const groups = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
     let allowed = false;

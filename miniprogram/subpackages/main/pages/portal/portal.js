@@ -3,6 +3,9 @@ const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
+const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
+const { canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
+const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const authContext = require('../../../../utils/authContext');
 const identityCardCopy = require('../../../../locales/zh-CN/identityCard');
 const calendarCopy = require('../../../../locales/zh-CN/calendar');
@@ -64,7 +67,7 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'system', label: copy.cards.system, iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
   { key: 'venue', label: copy.cards.venueManage, iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
-  { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
+  { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
 ];
 
 function getDisplayWorkContext(user, activeRole) {
@@ -273,6 +276,7 @@ Page({
       this.setData({ appViewMode: savedView });
     }
     const currentUserState = this.refreshCurrentUser();
+    this.refreshAuthorizationEntry();
     if (!currentUserState.hasUser) this.restoreCurrentUser(activeSession);
     if (currentUserState.isAdminRole) this.refreshAdminPermissionState();
     this.loadOrganizationName();
@@ -318,6 +322,8 @@ Page({
   onHide() {
     deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
+    this._copyEntryAllowed = false;
+    this.refreshCurrentUser();
     orgSession.invalidateRequests(this);
     this._messageOverviewLoading = false;
     passwordBindingOffer.cancel(this);
@@ -371,7 +377,9 @@ Page({
     const activeRole = activeSession.role || '';
     const user = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
     const isAdminRole = activeRole === 'admin';
-    const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER;
+    const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER.slice();
+    if (this._copyEntryAllowed) portalCards.push({ key: 'organizationCopy', label: authorizationCopy.configurationCopy.title,
+      iconName: 'file', url: '/subpackages/org/pages/organizationCopy/organizationCopy', disabled: false });
 
     this.setData({
       activeRole,
@@ -411,7 +419,20 @@ Page({
       await adminPermissions.refreshMyPermissions();
       if (orgSession.isRequestCurrent(this, request)) this.refreshCurrentUser();
     } catch (error) {
+      if (this._isPageVisible && orgSession.isRequestCurrent(this, request)) this.refreshCurrentUser();
     }
+  },
+
+  async refreshAuthorizationEntry() {
+    this._copyEntryAllowed = false;
+    this.refreshCurrentUser();
+    const request = orgSession.beginRequest(this, 'portalAuthorization');
+    try {
+      const access = await readCurrentAuthorizationAccess();
+      if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request) || !access) return;
+      this._copyEntryAllowed = canOpenConfigurationCopy(access);
+      this.refreshCurrentUser();
+    } catch (_) {}
   },
 
   loadOrganizationName() {

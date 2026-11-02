@@ -45,6 +45,7 @@
     <AdminHrTemplatePanel v-else-if="activeTab === 'hrTemplates'" @busy="actionBusy = $event" />
     <AdminPublicationPanel v-else-if="activeTab === 'publications'" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
+    <section v-else-if="activeTab === 'assignmentNatures'" class="card stack"><button class="btn btn-secondary" :disabled="permissionLoading || !!permissionNotice" @click="router.push({ name: 'assignmentNatures' })">{{ authorizationCopy.nature }}</button></section>
     <section v-else-if="activeTab === 'hrInfo' && hrMode === 'profiles' && canMembers" class="card stack">
       <div class="panel-head">
         <div class="stack-tight">
@@ -125,6 +126,7 @@ import AdminAuditSubmissionPanel from '@/components/AdminAuditSubmissionPanel.vu
 import resultCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/resultBehavior.js';
 import copy from '@/locales/zh-CN/index.js';
 import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 import accountCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { adminModule, adminTabs } from '@/runtime/adminNavigation.js';

@@ -7,7 +7,7 @@
       <h2 class="section-title">{{ text.title }}</h2>
       <label class="field">{{ text.kind }}
         <select class="field-select" :aria-label="text.kind" :value="kind" :disabled="busy" @change="changeKind($event.target.value)">
-          <option v-for="value in kinds" :key="value" :value="value">{{ ui.resources[value] }}</option>
+          <option v-for="value in availableKinds" :key="value" :value="value">{{ ui.resources[value] }}</option>
         </select>
       </label>
       <nav class="tabs" :aria-label="text.title">
@@ -96,13 +96,15 @@ import { callApi, requireSuccess, errorText, createRequestId } from '@/runtime/a
 import { confirmAction, showToast, settleDialog } from '@/runtime/notify.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { describeConfiguration, copiedConfigurationDestination } from '@/shared/organizationCopyPresentation.js';
+import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
+import { configurationCopyOptions } from '@/shared/authorizationEntryView.js';
 const router = useRouter();
 const route = useRoute();
 const text = ui.configurationCopy;
 const kinds = ['venue.purposes', 'hr.departments', 'hr.identities', 'hr.workGroups', 'hr.assignmentNatures',
   'audit.templates', 'scoring.templates', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows', 'venue.openRules', 'venue.activityRules',
   'hr.directoryRules', 'calendar.rules', 'authorization.schemes'];
-const tabs = ['source', 'incoming', 'drafts', 'outgoing'];
+const tabs = ref([]), availableKinds = ref([]);
 const kind = ref(kinds.includes(route.query.kind) ? route.query.kind : kinds[0]), tab = ref('source'), items = ref([]), organizations = ref([]), targets = ref({});
 const loading = ref(false), busy = ref(false), notice = ref(''), next = ref(''), ready = ref(false);
 const draft = ref(null), detailReady = ref(false), references = ref([]), candidates = ref({}), mapping = ref({}), picker = ref(null);
@@ -140,6 +142,11 @@ async function load(more = false) {
   const request = ++generation;
   loading.value = true; ready.value = false; notice.value = '';
   try {
+    const access = await readCurrentAuthorizationAccess();
+    if (!current(request)) return;
+    const options = configurationCopyOptions(access, kind.value, tab.value);
+    availableKinds.value = options.kinds; tabs.value = options.tabs; kind.value = options.kind; tab.value = options.tab;
+    if (!options.kind) throw new Error(ui.forbidden);
     const result = await read(tab.value === 'incoming' ? 'listSharedOrganizationConfigurations' : 'getOrganizationConfigurationWorkspace',
       { kind: kind.value, tab: tab.value, after: more ? next.value : '' });
     if (!current(request)) return;

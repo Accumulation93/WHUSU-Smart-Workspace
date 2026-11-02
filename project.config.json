@@ -257,10 +257,6 @@
       },
       {
         "type": "file",
-        "value": "locales/zh-CN/authorization.js"
-      },
-      {
-        "type": "file",
         "value": "locales/zh-CN/contactDirectory.js"
       },
       {
@@ -738,10 +734,6 @@
       {
         "type": "file",
         "value": "utils/auditVerificationReport.js"
-      },
-      {
-        "type": "file",
-        "value": "utils/authorizationAccess.js"
       },
       {
         "type": "file",

@@ -12,7 +12,7 @@
       <p>{{ notice }}</p><button type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
     </section>
     <template v-else-if="ready">
-      <section v-if="state.canManage !== false" class="card card-actions"><button type="button" class="btn btn-secondary" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button></section>
+      <section v-if="canCopy" class="card card-actions"><button type="button" class="btn btn-secondary" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button></section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
           <h2 class="section-title">{{ ui[tab] }}</h2>
@@ -108,10 +108,13 @@ import ui from '@/locales/zh-CN/shared/authorization.js';
 import presentation from '@/shared/authorizationPresentation.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
+import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
+import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
 const router = useRouter();
 const tabs = computed(() => state.value.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref('rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
+const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
 const query = ref('');
 const loading = ref(false);
@@ -140,6 +143,7 @@ const schemes = computed(() => state.value.schemes.filter(item => item.name.toLo
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function statusText(value) { return ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[value] || ui.denied; }
 function clear() {
+  canCopy.value = false;
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
   closeInspection(); inspectionTarget.value = null; inspectionLabel.value = ui.ownRole; candidateLoading.value = false;
@@ -150,6 +154,7 @@ async function load() {
   clear();
   if (disposed || document.hidden || session.status !== 'authenticated') { loading.value = false; return; }
   const request = generation;
+  readCurrentAuthorizationAccess().then(access => { if (!disposed && request === generation) canCopy.value = canOpenConfigurationCopy(access); }).catch(() => {});
   loading.value = true;
   try {
     const management = await callApi('getAuthorizationManagement', {});
