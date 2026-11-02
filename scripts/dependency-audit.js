@@ -60,10 +60,11 @@ function readAuditReport() {
   const isWindows = process.platform === 'win32';
   const command = isWindows ? 'npm.cmd' : 'npm';
   try {
-    return execFileSync(command, ['audit', '--json'], {
+    return execFileSync(command, ['audit', '--json', '--fetch-retries=0', '--fetch-timeout=20000'], {
       cwd: serverDir,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      timeout: 30000,
       shell: isWindows
     });
   } catch (error) {
@@ -81,7 +82,19 @@ function requireCompleteReport(report) {
   return report;
 }
 
-function selfTest() {
+async function readCompleteReport(read = readAuditReport, sleep = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return requireCompleteReport(JSON.parse(read()));
+    } catch (error) {
+      if (attempt === 2) throw new Error('依赖审计连续3次未取得完整报告，不能判定安全检查通过');
+      console.error('[dependency-audit] 官方报告暂不可用，稍后重试；未判定检查通过');
+      await sleep(attempt === 0 ? 5000 : 15000);
+    }
+  }
+}
+
+async function selfTest() {
   const assert = require('node:assert/strict');
   for (const invalid of [null, {}, { error: { code: 'ECONNRESET' } }, { vulnerabilities: {} }]) {
     assert.throws(() => requireCompleteReport(invalid), /没有返回完整报告/);
@@ -115,15 +128,29 @@ function selfTest() {
   if (findings.length !== 2) throw new Error('未豁免的告警与升级后的严重级别都必须阻断');
   const expired = collectBlockingFindings(allowedReport, new Date('2027-03-01T00:00:00Z'));
   if (expired.length !== 1) throw new Error('豁免到期后必须重新阻断');
+  const complete = { vulnerabilities: blockedReport.vulnerabilities, metadata: { vulnerabilities: { high: 1, critical: 1 } } };
+  let attempts = 0;
+  const recovered = await readCompleteReport(() => {
+    attempts += 1;
+    return JSON.stringify(attempts < 3 ? { error: { code: 'ECONNRESET' } } : complete);
+  }, async () => {});
+  assert.equal(attempts, 3);
+  assert.equal(collectBlockingFindings(recovered, now).length, 2);
+  attempts = 0;
+  await assert.rejects(readCompleteReport(() => { attempts += 1; return '{}'; }, async () => {}), /连续3次/);
+  assert.equal(attempts, 3);
+  attempts = 0;
+  await readCompleteReport(() => { attempts += 1; return JSON.stringify(complete); }, async () => {});
+  assert.equal(attempts, 1);
   console.log('依赖门禁自测通过：旧公告、其它告警与严重级别升级均阻断');
 }
 
-function main() {
+async function main() {
   if (process.argv.includes('--self-test')) {
-    selfTest();
+    await selfTest();
     return;
   }
-  const report = requireCompleteReport(JSON.parse(readAuditReport()));
+  const report = await readCompleteReport();
   const findings = collectBlockingFindings(report);
   const exemptions = activeExemptions();
   exemptions.forEach((item) => {
@@ -139,4 +166,4 @@ function main() {
   console.log('[dependency-audit] 无未处理的 high / critical 依赖告警');
 }
 
-main();
+main().catch(error => { console.error(error.message); process.exitCode = 1; });

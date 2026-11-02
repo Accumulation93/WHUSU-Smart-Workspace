@@ -1379,3 +1379,5 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 依据为项目npm审计JSON及[body-parser公告](https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828)、[multer公告](https://github.com/expressjs/multer/security/advisories/GHSA-q7qp-rjg7-q26m)、[重定向公告](https://github.com/follow-redirects/follow-redirects/security/advisories/GHSA-mrwp-f3q8-3g9p)、[forge更新记录](https://raw.githubusercontent.com/digitalbazaar/forge/v1.4.2/CHANGELOG.md)。依赖审计与自测通过，真实HTTP请求容量、审核临时上传安全和800行×12列表格导出回读通过；CMS与PDF实际签署及完整CI结果另外记录。依赖审计通过仅表示当前无未处理high/critical公告，不表示所有严重级别均为零。
 
 升级后 `pdfSignature`、`signingEvidenceProtocol`、`signingEvidenceIntegration`、`auditVerificationMultiMatch` 4份专项通过，覆盖11项密码协议检查、OpenSSL独立CMS核验、隔离库真实3步签署保存回读、篡改拒绝及HTTP上传。npm复查遇TLS连接中断时按失败处理，未放宽检查；当前进程采用IPv4优先后取得官方完整报告并通过，不修改全局网络或证书配置。完整CI仍须在包含升级的提交上重跑。
+
+后续完整CI再次遭遇官方审计端点ECONNRESET。依赖检查增加最多3次获取完整报告的重试，间隔5秒、15秒，单次npm进程最长30秒。完整报告含漏洞时不重试消除告警，仍按原严重级别阻断；连续无报告保持失败。自测验证前两次无报告后恢复仍保留2项漏洞、三次不完整始终失败、有效报告仅请求一次。没有改为离线报告，也没有跳过依赖审计。
