@@ -18,7 +18,7 @@ for (const size of sizes) {
       await page.setViewportSize(size);
       const sheet = css('miniprogram/app.wxss', size.width) + css('miniprogram/subpackages/venue/pages/venueManage/venueManage.wxss', size.width);
       // The DOM fixture cannot reproduce WeChat's private scroll-view viewport bookkeeping.
-      await page.setContent(`<style>body{margin:0}page,view,picker,scroll-view{display:block}button,input{font:inherit}${sheet}
+      await page.setContent(`<meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0}page,view,picker,scroll-view{display:block}button,input{font:inherit}${sheet}
         scroll-view{overflow-y:auto!important}*{animation:none!important;transition:none!important}
         </style><page><view class="popup-mask ui-overlay"><view class="popup-card rule-editor-popup ui-dialog-shell ui-dialog-shell--complex ${grid ? 'ui-dialog-shell--grid' : ''}">
         <view class="popup-header rule-editor-popup-header ui-dialog-header"><view class="rule-editor-header-copy"><view class="popup-title">${ui.copy_20f94d2c18}${ui.copy_a9a18dd6e8}</view><view class="rule-editor-header-note">${ui.copy_9c9358d025}</view></view><text class="popup-close">${ui.copy_09614cef6c}</text></view>
@@ -26,6 +26,8 @@ for (const size of sizes) {
         <view class="flow-step-list">${[1, 2, 3, 4].map(number => `<view class="flow-step-card flow-step-card--editor"><view class="flow-step-head"><view class="flow-step-badge">${number}</view><view class="flow-step-name">${ui.copy_a9a18dd6e8} ${number}</view></view><view class="flow-step-rules-summary"><text class="flow-step-admin-note">${ui.copy_b856d92ba6}</text></view></view>`).join('')}</view>
         <view id="rule-flow-step-editor" class="rule-edit-box rule-edit-box--step ui-dialog-section"><view class="rule-editor-section-head"><view class="section-title-sm">${ui.copy_16fc906860}</view><text class="rule-editor-section-note">${ui.copy_391bf52121}</text></view><view class="field"><view class="field-label">${ui.copy_c5dd070c37}</view><input class="field-input" value="Review" /></view><view class="field"><view class="field-label">${ui.copy_97d10704ef}</view><view class="field-hint">${ui.copy_7ae01e1929}</view><button class="secondary-btn sm flow-add-rule-btn">${ui.copy_e36c6c6875}</button></view><view class="button-row"><button id="inner-cancel" class="secondary-btn">${ui.copy_06dbb49961}</button><button id="inner-save" class="primary-btn">${ui.copy_2fda3d6579}</button></view></view>
         </view></scroll-view><view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button id="outer-save" class="primary-btn">${ui.copy_f7597cecf5}</button></view></view></view></page>`);
+      const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+      expect(viewport).toEqual(size);
       for (const keyboard of [0, 240]) {
         await page.locator('page').evaluate((node, value) => node.style.setProperty('--kb-height', value + 'px'), keyboard);
         await page.locator('scroll-view').evaluate(node => { node.scrollTop = node.scrollHeight; });
