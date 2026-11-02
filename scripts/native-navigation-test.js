@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { readMarkup } = require('./lib/miniprogramSource');
 
 const root = path.resolve(__dirname, '..');
 const miniRoot = path.join(root, 'miniprogram');
@@ -43,12 +44,19 @@ routes.forEach((route) => {
   const registered = (pageConfig.usingComponents || {})['ui-navbar'];
   assert.strictEqual(registered, NAVBAR_COMPONENT, `${route} 必须注册统一顶栏组件 ui-navbar`);
 
-  const wxml = fs.readFileSync(path.join(miniRoot, `${route}.wxml`), 'utf8');
+  const wxml = readMarkup(path.join(miniRoot, `${route}.wxml`));
   assert.ok(NAVBAR_TITLE_BINDING.test(wxml), `${route} 必须渲染 ui-navbar 并绑定语言系统的标题`);
   assert.ok(!/<workspace-navigation\b/.test(wxml), `${route} 不得渲染旧的自定义导航组件`);
-  assert.ok(NAVBAR_HEIGHT_COMPENSATION.test(wxml), `${route} 最外层容器必须按顶栏高度补偿 100vh，避免底部多出空白`);
+  assert.ok(NAVBAR_HEIGHT_COMPENSATION.test(wxml)
+    || /embedded\s*\?\s*''\s*:\s*'min-height: calc\(100vh - '\s*\+\s*navTopPx\s*\+\s*'px\)'/.test(wxml),
+  `${route} 最外层容器必须按顶栏高度补偿 100vh，避免底部多出空白`);
 
-  const pageScript = fs.readFileSync(path.join(miniRoot, `${route}.js`), 'utf8');
+  let pageScript = fs.readFileSync(path.join(miniRoot, `${route}.js`), 'utf8');
+  const delegated = pageScript.match(/const\s+(\w+Behavior)\s*=\s*require\(['"]([^'"]+)['"]\)/);
+  if (delegated && pageScript.includes('behaviors: [' + delegated[1] + ']')) {
+    assert(/onResize\(\)\s*\{\s*this\.applyNavigationBarMetrics\(\)/.test(pageScript), route + '须将窗口变化转交真实Behavior');
+    pageScript += '\n' + fs.readFileSync(path.resolve(miniRoot, path.dirname(route), delegated[2] + '.js'), 'utf8');
+  }
   assert.ok(/utils\/navigationBarMetrics/.test(pageScript), `${route} 必须从 navigationBarMetrics 取顶栏高度`);
   assert.ok(/navTopPx\s*:/.test(pageScript), `${route} 必须在 data 里维护 navTopPx`);
 });

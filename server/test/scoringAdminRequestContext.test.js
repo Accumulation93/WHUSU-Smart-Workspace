@@ -169,6 +169,11 @@ async function run() {
       authorizedStatus: 'success',
       mocks: {
         '../models/scoreRuleAuthorization': {
+          async configurationCandidates(organizationId, reference) {
+            assert.strictEqual(organizationId, 'org-current');
+            assert.strictEqual(reference, undefined);
+            return { departments: [], identities: [], templates: [] };
+          },
           async list(organizationId, reference) {
             assert.strictEqual(organizationId, 'org-current');
             assert.strictEqual(reference, undefined);

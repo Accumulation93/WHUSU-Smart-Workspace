@@ -18,6 +18,8 @@ function loadRouter(modulePath, mocks) {
   delete require.cache[resolvedPath];
   const originalLoad = Module._load;
   Module._load = function(request, parent, isMain) {
+    // 新授权模型的相对路径层级不同；退役入口的任何数据库调用都必须立即失败。
+    if (request.endsWith('/config/db')) return { query: failOnCall, withTransaction: failOnCall, getConnection: failOnCall };
     if (Object.prototype.hasOwnProperty.call(mocks, request)) return mocks[request];
     return originalLoad.call(this, request, parent, isMain);
   };

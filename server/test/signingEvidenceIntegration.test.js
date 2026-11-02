@@ -41,6 +41,7 @@ async function run() {
     process.env.DB_PASSWORD = testPassword;
     process.env.DB_NAME = database;
     process.env.JWT_SECRET = crypto.randomBytes(32).toString('base64');
+    process.env.AUTH_IDENTITY_SECRET = crypto.randomBytes(32).toString('hex');
     process.env.AUDIT_UPLOAD_DIR = path.join(root, 'uploads');
     const primary = path.join(root, 'keys', 'keyring.json');
     const backup = path.join(root, 'backup', 'keyring.json');
@@ -99,6 +100,10 @@ async function run() {
       await processStep(1, 'pass');
       await processStep(2, 'sign');
       await processStep(3, 'stamp');
+      assert.equal((await evidenceModel.listEventFacts('case')).length, 3, '验签前确认真实事件与步骤关联可读');
+      assert((await evidenceModel.listCertificates()).length > 0, '验签前确认签署证书登记可读');
+      assert.deepEqual((await evidenceModel.listBySubmission('case')).map(row => [row.file_id, row.round]), [['file', 1], ['file', 1], ['file', 1]]);
+      assert.equal((await fileModel.getBySubmissionId('case'))[0].revision_round, 1);
       const verified = await verifySubmissionFiles({ id: 'case' }, { uploadedBytes: bytes });
       assert.equal(verified.valid, true, JSON.stringify(verified));
       assert.equal(verified.verificationSource, 'uploaded_file');

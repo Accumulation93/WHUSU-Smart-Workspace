@@ -6,6 +6,7 @@ import adminUi from '../../src/locales/zh-CN/shared/generated/subpackages/scorin
 import pickerUi from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import hrTemplateCopy from '../../src/locales/zh-CN/shared/hrTemplateSave.js';
 import migrationUi from '../../src/locales/zh-CN/shared/hrProfileMigration.js';
+import personnelCopy from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 
 async function grant(page, capabilities) {
   await mockApi(page);
@@ -15,6 +16,33 @@ async function grant(page, capabilities) {
     capabilities, grantedCapabilities: capabilities
   } }));
 }
+
+test('assignment editor creates a nature without losing its draft and rereads the saved assignment', async ({ page }) => {
+  await grant(page,['hr.people.read','hr.assignments.create','hr.assignments.update','hr.assignmentNatures.create']);
+  let natures=[{id:'staff',name:'Staff'}],assignments=[],natureWrites=0,assignmentWrites=0,failRead=false;
+  await page.route('**/api/listHrProfileAdminData',route=>route.fulfill({json:{status:'success',rows:[{id:'member',name:'Member',assignments:[]}]}}));
+  await page.route('**/api/getHrPersonDetail',route=>route.fulfill({json:{status:'success',profile:{name:'Member'},template:{fields:[]},values:{},membershipStatus:'active'}}));
+  await page.route('**/api/listAssignmentNatures',route=>route.fulfill({json:{status:'success',list:[],canCreate:true}}));
+  await page.route('**/api/listPersonIdentities',route=>route.fulfill({json:failRead?{status:'error',message:'Read failed'}:{status:'success',organizations:[{organizationId:'org-1',organizationName:'Organization',hrId:'member',canEditAssignments:true,canAddAssignment:true,assignments,dictionaries:{assignmentNatures:natures,departments:[{id:'dept',name:'Department'}],identities:[{id:'identity',name:'Identity'}],workGroups:[]}}]}}));
+  await page.route('**/api/saveAssignmentNature',route=>{expect(route.request().postDataJSON()).toEqual({name:'Project role'});natureWrites++;natures.push({id:'new-nature',name:'Project role'});failRead=true;return route.fulfill({json:{status:'success',nature:natures[1]}});});
+  await page.route('**/api/saveMembershipAssignment',route=>{const value=route.request().postDataJSON();expect(value).toEqual({id:'',hrId:'member',organizationId:'org-1',assignmentKind:'new-nature',departmentId:'dept',identityId:'identity',workGroupId:''});assignmentWrites++;assignments=[{...value,id:'assignment',canEdit:true,writableFields:['*'],assignmentNatureLabel:'Project role'}];return route.fulfill({json:{status:'success'}});});
+  await page.goto('/web/admin?subApp=hr&tab=hrInfo&hrId=member');
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('button',{name:adminUi.copy_9242c7c6e4,exact:true}).click();
+  await dialog.getByRole('combobox',{name:adminUi.copy_7ee1272d5b,exact:true}).selectOption('dept');
+  await dialog.getByRole('combobox',{name:adminUi.hrIdentityCategory,exact:true}).selectOption('identity');
+  await dialog.getByRole('button',{name:personnelCopy.addAssignmentNature,exact:true}).click();
+  await dialog.getByLabel(personnelCopy.assignmentNatureName).fill('Project role');
+  await dialog.getByRole('button',{name:personnelCopy.createAndSelectNature,exact:true}).click();
+  await expect(dialog.getByText('Read failed',{exact:true})).toBeVisible();failRead=false;
+  await dialog.getByRole('button',{name:personnelCopy.dictionaryRetry,exact:true}).click();
+  await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('new-nature');
+  await expect(dialog.getByRole('combobox',{name:adminUi.copy_7ee1272d5b,exact:true})).toHaveValue('dept');
+  await dialog.getByRole('button',{name:adminUi.copy_1b38edadcc,exact:true}).click();
+  await expect.poll(()=>assignmentWrites).toBe(1);expect(natureWrites).toBe(1);
+  await dialog.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true}).click();
+  await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('new-nature');
+});
 
 test('personnel template create edit and reopening use saved field definitions', async ({ page }) => {
   await grant(page, ['hr.profileTemplates.read','hr.profileTemplates.create','hr.profileTemplates.update']);

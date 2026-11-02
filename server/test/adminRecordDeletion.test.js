@@ -11,6 +11,9 @@ const database = {
   },
   async query(sql, params) {
     state.statements.push(sql);
+    if (sql.includes('SELECT id FROM organizations')) return [[{ id: 'org' }]];
+    if (sql.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
+    if (sql.includes('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
     if (sql.includes('FROM persons')) return [[{ status: 'active' }]];
     if (sql.includes('FROM accounts')) return [[{ status: 'verified', token_version: 1 }]];
     if (sql.includes('FROM auth_sessions')) return [state.session ? [{ token_version: 1 }] : []];

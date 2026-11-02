@@ -2025,7 +2025,7 @@ module.exports = Behavior({
         assignmentIdentityIndex: 0,
         assignmentWorkGroupIndex: 0,
         assignmentWorkGroupOptions: []
-      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
+      }, () => { this._scrollHrDetailTo('hr-assignment-editor'); this.loadAssignmentNaturePermission(); });
     },
 
     editMembershipAssignment(e) {
@@ -2061,12 +2061,65 @@ module.exports = Behavior({
         assignmentIdentityIndex: Math.max(0, identities.findIndex((row) => String(row.id) === String(item.identityId))),
         assignmentWorkGroupIndex: Math.max(0, workGroups.findIndex((row) => String(row.id) === String(item.workGroupId))),
         assignmentWorkGroupOptions: workGroups
-      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
+      }, () => { this._scrollHrDetailTo('hr-assignment-editor'); this.loadAssignmentNaturePermission(); });
+    },
+
+    async loadAssignmentNaturePermission() {
+      const request = orgSession.beginRequest(this, 'assignmentNature');
+      this.setData({ assignmentNatureCanCreate: false, assignmentNatureEditing: false, assignmentNatureName: '', assignmentNatureSavedId: '', assignmentNatureBusy: false, assignmentNatureNotice: '' });
+      if (String(this.data.membershipAssignmentForm.organizationId) !== orgSession.getSnapshot().orgId) return;
+      const fields = this.data.membershipAssignmentForm.writableFields;
+      if (this.data.membershipAssignmentForm.id && Array.isArray(fields) && fields.indexOf('*') < 0 && fields.indexOf('assignmentNature') < 0) return;
+      try {
+        const result = await this.callCloud('listAssignmentNatures', {});
+        if (orgSession.isRequestCurrent(this, request) && this.data.membershipAssignmentFormVisible) this.setData({ assignmentNatureCanCreate: result.status === 'success' && result.canCreate === true });
+      } catch (_) {}
+    },
+
+    editInlineAssignmentNature() {
+      if (!this.data.assignmentNatureCanCreate || this.data.assignmentNatureBusy) return;
+      this.setData({ assignmentNatureEditing: !this.data.assignmentNatureEditing, assignmentNatureName: '', assignmentNatureNotice: '', assignmentNatureSavedId: '' });
+    },
+
+    inputInlineAssignmentNature(e) { if (!this.data.assignmentNatureBusy && !this.data.assignmentNatureSavedId) this.setData({ assignmentNatureName: e.detail.value }); },
+
+    async saveInlineAssignmentNature() {
+      if (!this.data.assignmentNatureCanCreate || this.data.assignmentNatureBusy || !this.data.membershipAssignmentFormVisible) return;
+      const form = this.data.membershipAssignmentForm;
+      if (String(form.organizationId) !== orgSession.getSnapshot().orgId || !String(this.data.assignmentNatureName || '').trim()) return;
+      const request = orgSession.beginRequest(this, 'assignmentNature');
+      const current = () => orgSession.isRequestCurrent(this, request) && this.data.membershipAssignmentFormVisible;
+      this.setData({ assignmentNatureBusy: true, assignmentNatureNotice: '' });
+      try {
+        let id = this.data.assignmentNatureSavedId;
+        if (!id) {
+          const saved = await this.callCloud('saveAssignmentNature', { name: this.data.assignmentNatureName.trim() });
+          if (!current()) return;
+          if (saved.status !== 'success' || !saved.nature || !saved.nature.id) throw saved;
+          id = saved.nature.id;
+          this.setData({ assignmentNatureSavedId: id });
+        }
+        const read = await this.callCloud('listPersonIdentities', { hrId: form.hrId || this.data.detailHrId });
+        if (!current()) return;
+        if (read.status !== 'success') throw read;
+        const organization = (read.organizations || []).find(item => item.organizationId === form.organizationId);
+        const natures = organization && organization.dictionaries && organization.dictionaries.assignmentNatures || [];
+        const index = natures.findIndex(item => item.id === id);
+        if (index < 0) throw new Error(personnelSwitchCopy.chooseAssignmentNature);
+        this.setData({ assignmentKindValues: natures.map(item => item.id), assignmentKindOptions: natures.map(item => item.name),
+          personIdentityOrganizations: (this.data.personIdentityOrganizations || []).map(item => item.organizationId === form.organizationId ? Object.assign({}, item, { dictionaries: organization.dictionaries }) : item),
+          'membershipAssignmentForm.assignmentKind': id, 'membershipAssignmentForm.assignmentKindIndex': index,
+          assignmentNatureEditing: false, assignmentNatureSavedId: '', assignmentNatureName: '' });
+      } catch (error) { if (current()) this.setData({ assignmentNatureNotice: getErrorText(error, localeCopy.copy_215e3c57da) }); }
+      finally { if (current()) this.setData({ assignmentNatureBusy: false }); }
     },
 
     cancelMembershipAssignmentEdit() {
+      if (this.data.assignmentNatureBusy) return;
+      orgSession.beginRequest(this, 'assignmentNature');
       this.setData({
         membershipAssignmentFormVisible: false,
+        assignmentNatureEditing: false, assignmentNatureCanCreate: false, assignmentNatureSavedId: '',
         membershipAssignmentForm: {},
         assignmentDepartmentOptions: [],
         assignmentIdentityOptions: [],
@@ -2141,6 +2194,7 @@ module.exports = Behavior({
     },
 
     async saveMembershipAssignment() {
+      if (this.data.assignmentNatureBusy || this.data.assignmentNatureEditing) return;
       if (this.data.detailHrReadOnly) return;
       const form = this.data.membershipAssignmentForm || {};
       if (!form.departmentId || !form.identityId) {
@@ -2295,6 +2349,8 @@ module.exports = Behavior({
     },
 
     closeHrPersonDetail() {
+      if (this.data.assignmentNatureBusy) return;
+      orgSession.beginRequest(this, 'assignmentNature');
       this._hrPersonDetailRequestId = Number(this._hrPersonDetailRequestId || 0) + 1;
       this._hrPermanentDeletionPreviewSeq = Number(this._hrPermanentDeletionPreviewSeq || 0) + 1;
       this.setData({

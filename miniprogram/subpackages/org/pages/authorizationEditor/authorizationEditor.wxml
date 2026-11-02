@@ -1,6 +1,6 @@
 <page-meta page-style="{{(picker ? 'overflow:hidden;' : '') + '--ui-navbar-height:' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{ui.title}}" />
-<view class="permission-page">
+<view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="admin" />
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card">{{notice}}</view>

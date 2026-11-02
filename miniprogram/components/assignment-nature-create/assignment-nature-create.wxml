@@ -1,0 +1,10 @@
+<button wx:if="{{allowed && !editing}}" class="secondary-btn ui-motion-button" catchtap="toggle" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.addAssignmentNature}}</button>
+<view wx:if="{{editing}}" class="field nature-create">
+  <view class="field-label">{{copy.assignmentNatureName}}</view>
+  <input class="input" value="{{name}}" maxlength="80" disabled="{{busy || savedId}}" bindinput="input" adjust-position="{{false}}" cursor-spacing="24" />
+  <view wx:if="{{notice}}" class="empty-desc">{{notice}}</view>
+  <view class="button-row compact-row">
+    <button class="primary-btn ui-motion-button" disabled="{{busy || !name}}" catchtap="save" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{busy}}" />{{savedId ? copy.dictionaryRetry : copy.createAndSelectNature}}</button>
+    <button class="secondary-btn ui-motion-button" disabled="{{busy}}" catchtap="toggle" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.copy_06dbb49961}}</button>
+  </view>
+</view>

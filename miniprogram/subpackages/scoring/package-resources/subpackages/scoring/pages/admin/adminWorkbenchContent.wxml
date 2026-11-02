@@ -1475,6 +1475,7 @@
                 <picker range="{{assignmentKindOptions}}" value="{{membershipAssignmentForm.assignmentKindIndex < 0 ? 0 : membershipAssignmentForm.assignmentKindIndex}}" bindchange="onMembershipAssignmentKindChange">
                   <view class="picker-value">{{assignmentKindOptions[membershipAssignmentForm.assignmentKindIndex] || localeCopy.chooseAssignmentNature}}</view>
                 </picker>
+                <assignment-nature-create copy="{{localeCopy}}" allowed="{{assignmentNatureCanCreate}}" editing="{{assignmentNatureEditing}}" busy="{{assignmentNatureBusy}}" saved-id="{{assignmentNatureSavedId}}" name="{{assignmentNatureName}}" notice="{{assignmentNatureNotice}}" bind:toggle="editInlineAssignmentNature" bind:namechange="inputInlineAssignmentNature" bind:save="saveInlineAssignmentNature" />
               </view>
                 <view class="field assignment-editor-field">
                   <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>

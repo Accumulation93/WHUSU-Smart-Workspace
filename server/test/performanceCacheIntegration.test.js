@@ -33,7 +33,17 @@ async function run() {
     const migration = Buffer.concat([
       fs.readFileSync(path.resolve(__dirname, '../db/deploy/20260907120000_performance_cache_versions.sql')),
       Buffer.from('\n'),
-      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261019200000_notification_person_dismissals.sql'))
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261019200000_notification_person_dismissals.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261019210000_unified_calendar.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261023120000_notification_lifecycle_versions.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031173000_authorization_subject_versions.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261101013000_organization_venue_purposes.sql'))
     ]);
     for (let index = 0; index < 2; index += 1) {
       const applied = spawnSync(process.env.MYSQL_BIN || 'mysql', ['--protocol=TCP', '--host=' + adminOptions.host,

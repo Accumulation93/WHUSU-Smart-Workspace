@@ -1,6 +1,6 @@
 <page-meta page-style="--ui-navbar-height: {{navTopPx}}px;"></page-meta>
 <ui-navbar title="{{ui.previewChanges}}" />
-<view class="permission-page">
+<view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.previewChanges}}" tone="admin" />
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>

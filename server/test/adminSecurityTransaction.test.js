@@ -19,7 +19,13 @@ class IdentityError extends Error {
 
 const pool = {
   async withTransaction(callback) {
-    const connection = { id: 'transaction-connection' };
+    const connection = { id: 'transaction-connection', async query(sql, parameters) {
+      assert.deepStrictEqual(parameters, ['org-a']);
+      if (sql === 'SELECT id FROM organizations WHERE id=? FOR UPDATE') return [[{ id: 'org-a' }]];
+      if (sql === 'INSERT IGNORE INTO authorization_organizations (org_id) VALUES (?)') return [{}];
+      if (sql === 'SELECT mode FROM authorization_organizations WHERE org_id=? FOR UPDATE') return [[{ mode: scenario.mode || 'shadow' }]];
+      throw new Error('未预期的事务查询：' + sql);
+    } };
     transactionState.started += 1;
     try {
       const result = await callback(connection);
@@ -171,6 +177,12 @@ async function run() {
   assert.strictEqual(missingCredential.payload.status, 'not_found');
   assert.strictEqual(transactionState.committed, 1);
   assert.strictEqual(transactionState.auditEvents[0].outcome, 'not_found');
+
+  resetScenario({ mode: 'enforced' });
+  const switched = await invoke('/admin/auth/security/passphrase', { value: 'Strong-Passphrase-2026' });
+  assert.strictEqual(switched.statusCode, 403);
+  assert.strictEqual(transactionState.committed, 0);
+  assert.strictEqual(transactionState.persistedMutation, false, '模式已切换时旧授权不能继续写入口令');
 
   const modelSource = fs.readFileSync(
     path.resolve(__dirname, '../src/core/models/unifiedIdentity.js'),

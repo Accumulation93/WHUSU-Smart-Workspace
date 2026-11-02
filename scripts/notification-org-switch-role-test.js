@@ -10,7 +10,7 @@ const activationSource = fs.readFileSync(
   'utf8'
 );
 const adminSource = fs.readFileSync(
-  path.join(root, 'miniprogram', 'subpackages', 'scoring', 'pages', 'admin', 'admin.js'),
+  path.join(root, 'miniprogram', 'subpackages', 'scoring', 'pages', 'admin', 'adminWorkbenchBehavior.js'),
   'utf8'
 );
 
@@ -20,12 +20,12 @@ assert(
   '切换组织必须复用统一上下文激活，禁止维护平行角色缓存'
 );
 assert(
-  /onUnload\(\)\s*\{[\s\S]*?eventBus\.off\('org:changed'/.test(adminSource),
+  /workbenchUnload\(\)\s*\{[\s\S]*?eventBus\.off\('org:changed'/.test(adminSource),
   '管理页卸载时必须移除组织切换监听'
 );
 assert(
-  /_onOrgChanged\(event\)\s*\{[\s\S]*?!this\._pageVisible[\s\S]*?event\.role\s*!==\s*'admin'/.test(adminSource),
-  '隐藏的管理页及普通用户身份不得响应管理员组织切换'
+  /_onOrgChanged\(event\)\s*\{[\s\S]*?!this\._pageVisible[\s\S]*?\['user', 'admin'\]\.indexOf\(event\.role\) < 0[\s\S]*?this\.workbenchShow\(\)/.test(adminSource),
+  '隐藏页和无效角色不得响应切换；已授权普通岗位通过共享入口重新判权'
 );
 assert(
   /activeRole\s*!==\s*'admin'/.test(adminSource),

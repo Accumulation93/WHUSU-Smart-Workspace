@@ -27,6 +27,12 @@ function createHarness(options) {
   let directoryRows = [];
 
   const router = loadIsolated('../src/core/routes/hrProfile.js', {
+    '../models/hrAuthorization': { async prepareWrite(receivedConnection, reference, orgId) {
+      assert.equal(receivedConnection, connection);
+      assert.equal(reference, undefined);
+      assert.equal(orgId, 'org-a');
+      return async () => {};
+    } },
     '../services/adminRequestContext': { resolveCurrentAdmin: async () => null },
     '../services/selfHrProfileSubject': {
       resolveSelfHrProfileSubject: async () => settings.subject || {

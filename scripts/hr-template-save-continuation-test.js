@@ -124,7 +124,8 @@ async function main() {
   f.page.cancelHrProfileTemplateEditor();
   assert.equal(f.calls.length, 0, '展开、收起、编辑和取消均不得持久化');
   assert.equal(f.page.data.hrProfileTemplateList[0].fields[0].type, 'sequence', '草稿不得污染库中预览');
-  const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8');
+  const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8')
+    + fs.readFileSync(path.join(path.dirname(file), '../adminWorkbenchContent.wxml'), 'utf8');
   const editorWxml = fs.readFileSync(path.join(path.dirname(file),
     '../components/hrTemplateEditor/hrTemplateEditor.wxml'), 'utf8');
   const adminJson = fs.readFileSync(path.join(path.dirname(file), '../admin.json'), 'utf8');

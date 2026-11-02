@@ -25,6 +25,8 @@ const password = crypto.randomBytes(32).toString('hex');
     const fixture = await mysql.createConnection({ ...configuration, database, multipleStatements: true });
     try {
       await fixture.query(await fs.readFile(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await fixture.query('CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL, PRIMARY KEY(org_id,domain))');
+      await fixture.query(await fs.readFile(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
       await fixture.query('ALTER TABLE admin_info DROP COLUMN invite_code, DROP COLUMN invited_at, DROP COLUMN invite_expires_at, DROP COLUMN invite_consumed_at');
       await fixture.query('ALTER TABLE auth_sessions DROP COLUMN openid_hash');
     } finally { await fixture.end(); }

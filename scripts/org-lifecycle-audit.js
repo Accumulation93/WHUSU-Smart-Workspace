@@ -22,6 +22,10 @@ const rawNetworkExempt = new Set([
   'subpackages/main/pages/login/login.js'
 ]);
 const issues = [];
+const behaviorLifecycle = new Map([
+  ['subpackages/scoring/pages/admin/admin', { binding: 'adminWorkbenchBehavior', source: 'subpackages/scoring/package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior', prefix: 'workbench' }],
+  ['subpackages/venue/pages/venueManage/venueManage', { binding: 'venueManagementBehavior', source: 'subpackages/venue/pages/venueManage/venueManagementBehavior', prefix: 'management' }]
+]);
 const delegatedLifecycle = new Map([
   ['subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals', {
     tag: 'pending-approvals', source: 'subpackages/venue/components/pendingApprovals/pendingApprovals'
@@ -37,6 +41,22 @@ for (const page of pages) {
   const source = fs.readFileSync(path.join(miniRoot, relativeFile), 'utf8');
   if (!lifecycleExempt.has(page)) {
     let lifecycleSource = source;
+    const behavior = behaviorLifecycle.get(page);
+    if (behavior) {
+      const imported = source.match(new RegExp('const\\s+' + behavior.binding + '\\s*=\\s*require\\([\'\"]([^\'\"]+)[\'\"]\\)'));
+      const resolved = imported && path.posix.normalize(path.posix.join(path.posix.dirname(page), imported[1]));
+      if (resolved !== behavior.source || !source.includes('behaviors: [' + behavior.binding + ']')) {
+        add('invalid-behavior-lifecycle', relativeFile, '生命周期必须由实际注册的Behavior提供');
+      } else {
+        lifecycleSource = fs.readFileSync(path.join(miniRoot, behavior.source + '.js'), 'utf8');
+        for (const event of ['Show', 'Hide', 'Unload']) {
+          if (!new RegExp('on' + event + '\\(\\)\\s*\\{\\s*this\\.' + behavior.prefix + event + '\\(\\)').test(source)
+            || !new RegExp('\\b' + behavior.prefix + event + '\\s*\\(').test(lifecycleSource)) {
+            add('incomplete-behavior-lifecycle', relativeFile, '宿主必须完整转发生命周期到Behavior：' + event);
+          }
+        }
+      }
+    }
     const delegated = delegatedLifecycle.get(page);
     if (delegated) {
       const config = JSON.parse(fs.readFileSync(path.join(miniRoot, page + '.json'), 'utf8'));
@@ -52,10 +72,11 @@ for (const page of pages) {
         add('incomplete-component-lifecycle', delegated.source + '.js', '组件须处理页面隐藏、卸载与迟到响应');
       }
     }
-    if (!/require\([^\n]*orgSession/.test(lifecycleSource)) add('missing-org-session', relativeFile, '页面未接入组织快照工具');
+    const sessionBinding = lifecycleSource.match(/(?:const|let)\s+(\w+)\s*=\s*require\(['"][^'"\n]*orgSession['"]\)/);
+    if (!sessionBinding) add('missing-org-session', relativeFile, '页面未接入组织快照工具');
     if (!/\bonShow\s*[:(]/.test(source)) add('missing-on-show', relativeFile, '页面缺少 onShow 生命周期');
-    if (!/orgSession\.consume\(this\)/.test(lifecycleSource)) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
-    if (!/orgSession\.invalidateRequests\(this\)/.test(lifecycleSource)) add('missing-invalidate', relativeFile, '组织变化未使旧请求失效');
+    if (!sessionBinding || !new RegExp('\\b' + sessionBinding[1] + '\\.consume\\(this\\)').test(lifecycleSource)) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
+    if (!sessionBinding || !new RegExp('\\b' + sessionBinding[1] + '\\.invalidateRequests\\(this\\)').test(lifecycleSource)) add('missing-invalidate', relativeFile, '组织变化未使旧请求失效');
   }
 }
 

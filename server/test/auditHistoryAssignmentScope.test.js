@@ -85,7 +85,10 @@ const routeSource = fs.readFileSync(
   path.resolve(__dirname, '../src/modules/audit/routes/auditUser.js'),
   'utf8'
 );
-assert(routeSource.includes("WHERE ${historyAssignmentSql} = ?"),
+const modelSource = fs.readFileSync(path.resolve(__dirname, '../src/modules/audit/models/auditSubmission.js'), 'utf8');
+assert(routeSource.includes('submissionModel.getOwnHistory(assignmentId, limit, offset, reference)')
+  && modelSource.includes('WHERE ${historyAssignmentSql}=? AND s.org_id=? AND e.org_id=?')
+  && modelSource.includes('[assignmentId, organizationId, organizationId, ...scope.params, limit, offset]'),
   '我的审批历史查询必须绑定当前 assignmentId');
 assert(!routeSource.includes("eventPersonId === safeString(detailActor.personId)"),
   '普通用户详情不得再按自然人历史事件授权');

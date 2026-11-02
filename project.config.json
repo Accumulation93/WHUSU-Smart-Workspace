@@ -105,6 +105,22 @@
       },
       {
         "type": "file",
+        "value": "components/assignment-nature-create/assignment-nature-create.js"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-create/assignment-nature-create.json"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-create/assignment-nature-create.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-create/assignment-nature-create.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/audit-verification-matches/audit-verification-matches.js"
       },
       {

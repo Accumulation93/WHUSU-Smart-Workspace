@@ -96,6 +96,7 @@ async function run() {
       multipleStatements: true
     }));
     await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+    await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8').split('DELIMITER $$')[0]);
 
     process.env.DB_HOST = adminConfig.host;
     process.env.DB_PORT = String(adminConfig.port);

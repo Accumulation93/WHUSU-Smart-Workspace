@@ -299,7 +299,7 @@ test('本人资料首次、重复显示、岗位改变均触发后置采集，�
     data: { activeTab: 'profile' }, _subApp: 'hr',
     setData(patch) { Object.assign(this.data, patch); },
     refreshCurrentUser() {}, refreshUserFromCloud() {}, loadUserHrProfile() {},
-    loadAccountSecurity() {}, loadOrganizationName() {}
+    loadAccountSecurity() {}, loadOrganizationName() {}, loadManagementAccess() {}
   };
   definition.onShow.call(page);
   definition.onShow.call(page);

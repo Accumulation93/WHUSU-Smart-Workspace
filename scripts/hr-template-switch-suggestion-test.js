@@ -146,7 +146,7 @@ async function main() {
   assert.equal(context.sourceFields[0].compatibleTargetIds[0], 'new-phone');
   const calls = [];
   const page = Object.assign({
-    data: {}, setLoading() {}, setData(patch) {
+    data: { canSelectHrProfileTemplate: true }, setLoading() {}, setData(patch) {
       Object.keys(patch).forEach((key) => { this.data[key] = patch[key]; });
     },
     async callCloud(name, data) {

@@ -99,6 +99,12 @@
   ],
   "tests": [
     [
+      "scripts/assignment-nature-inline-test.js"
+    ],
+    [
+      "scripts/authorization-lifecycle-test.js"
+    ],
+    [
       "scripts/org-session-test.js"
     ],
     [

@@ -1,4 +1,8 @@
 [
+  "components/assignment-nature-create/assignment-nature-create.js",
+  "components/assignment-nature-create/assignment-nature-create.json",
+  "components/assignment-nature-create/assignment-nature-create.wxml",
+  "components/assignment-nature-create/assignment-nature-create.wxss",
   "components/audit-verification-matches/audit-verification-matches.js",
   "components/audit-verification-matches/audit-verification-matches.json",
   "components/audit-verification-matches/audit-verification-matches.wxml",

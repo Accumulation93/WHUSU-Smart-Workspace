@@ -312,7 +312,7 @@ async function run() {
     assert.equal(row.open_advance_days, 9);
     const [[other]] = await db.query("SELECT COUNT(*) count FROM venue_booking_policies WHERE org_id='other'");
     assert.equal(other.count, 0);
-    console.log('venue configuration authorization: persistence, fields, role revocation, organization and mode boundaries passed');
+    console.log('场地配置权限：保存回读、字段、撤权、组织与模式边界通过');
   } finally {
     if (listener) await new Promise(resolve => listener.close(resolve));
     if (pool) await pool.end();

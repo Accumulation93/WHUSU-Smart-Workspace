@@ -115,8 +115,10 @@ console.log('人事资料导出列选择测试通过');
 const fs = require('fs');
 const path = require('path');
 const base = path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin');
-const markup = fs.readFileSync(path.join(base, 'admin.wxml'), 'utf8');
-const styles = fs.readFileSync(path.join(base, 'admin.wxss'), 'utf8');
+const markup = fs.readFileSync(path.join(base, 'admin.wxml'), 'utf8')
+  + fs.readFileSync(path.join(base, 'adminWorkbenchContent.wxml'), 'utf8');
+const styles = fs.readFileSync(path.join(base, 'admin.wxss'), 'utf8')
+  + fs.readFileSync(path.join(base, 'adminWorkbenchStyles.wxss'), 'utf8');
 const dialogStart = markup.indexOf('<view class="modal-card hr-profile-export-modal');
 const dialogEnd = markup.indexOf('</viewport-portal>', dialogStart);
 const dialog = markup.slice(dialogStart, dialogEnd);
@@ -155,7 +157,7 @@ assert(content[0].className.includes('hr-profile-export-content'));
 const contentRule = styles.match(/\.hr-profile-export-content\s*\{([^}]+)\}/)[1];
 assert.match(contentRule, /padding-bottom:\s*var\(--ui-field-gap\)/, '末项留白须在内容盒内部计入滚动高度');
 const sharedStyles = fs.readFileSync(path.join(__dirname, '../miniprogram/app.wxss'), 'utf8');
-const gridRule = sharedStyles.match(/\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\.ui-dialog-shell--grid\s*\{([^}]+)\}/);
+const gridRule = sharedStyles.match(/\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--grid\s*,\s*\.ui-sheet-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--grid\s*\{([^}]+)\}/);
 assert(gridRule && /display:\s*grid\s*!important;/.test(gridRule[1])
     && /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/.test(gridRule[1]),
   '共享网格必须保留自适应标题、受约束正文与自适应底栏');

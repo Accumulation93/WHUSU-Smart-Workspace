@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('assert');
+const authorizationPath = require.resolve('../src/core/models/tableFileAuthorization');
+require.cache[authorizationPath] = { id: authorizationPath, filename: authorizationPath, loaded: true,
+  exports: { async allowed() { throw new Error('CSV纯转换测试不得调用授权服务'); } } };
 const { buildCsvBuffer } = require('../src/core/routes/buildTableFile');
 
 const csv = buildCsvBuffer([

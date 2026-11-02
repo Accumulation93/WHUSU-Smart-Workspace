@@ -76,5 +76,8 @@ module.exports = Object.freeze({
     other: '其他岗位'
   }),
   chooseAssignmentNature: '请选择岗位性质',
+  addAssignmentNature: '新增岗位性质',
+  assignmentNatureName: '岗位性质名称',
+  createAndSelectNature: '新增并选用',
   assignmentNatureMissing: '岗位性质未记录'
 });

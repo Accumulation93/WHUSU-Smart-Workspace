@@ -8,6 +8,9 @@ const path = require('path');
 const vm = require('vm');
 const { parseJsonBody } = require('../src/middleware/jsonBodyLimit');
 const { DEFAULT_JSON_BODY_BYTES, LARGE_JSON_BODY_BYTES } = require('../src/config/requestBodyLimits');
+const authorizationPath = require.resolve('../src/core/models/tableFileAuthorization');
+require.cache[authorizationPath] = { id: authorizationPath, filename: authorizationPath, loaded: true,
+  exports: { async allowed() { throw new Error('旧管理员表格导出用例不得进入新授权分支'); } } };
 
 async function run() {
   const app = express();

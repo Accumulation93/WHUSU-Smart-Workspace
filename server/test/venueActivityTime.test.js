@@ -4,11 +4,12 @@ const path = require('path');
 const vm = require('vm');
 const time = require('../../miniprogram/utils/dateTime');
 const detail = require('../../miniprogram/subpackages/venue/utils/venueBookingDetail');
+const loadVenueManagementPage = require('../../scripts/lib/loadVenueManagementPage');
 
 function loadPage(name) {
   const base = path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages', name);
   let definition;
-  vm.runInNewContext(fs.readFileSync(path.join(base, name + '.js'), 'utf8'), {
+  const environment = {
     Page(value) { definition = value; }, console, setTimeout, clearTimeout,
     require(request) {
       if (request.endsWith('/venueBookingDetail')) return detail;
@@ -16,7 +17,9 @@ function loadPage(name) {
       if (request.includes('locales/')) return require(path.resolve(base, request));
       return {};
     }
-  });
+  };
+  if (name === 'venueManage') definition = loadVenueManagementPage(environment);
+  else vm.runInNewContext(fs.readFileSync(path.join(base, name + '.js'), 'utf8'), environment);
   assert.ok(definition);
   return Object.assign({}, definition, { data: { scheduleVenueName: '测试场地' }, setData(patch) { Object.assign(this.data, patch); } });
 }
