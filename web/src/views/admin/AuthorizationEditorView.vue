@@ -25,7 +25,8 @@
         <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="preview = null">{{ ui.edit }}</button><button type="button" class="btn btn-primary" :disabled="busy" @click="save"><AppLoading v-if="busy" :text="ui.saving" /><template v-else>{{ ui.confirmChanges }}</template></button></div>
       </template>
       <form v-else class="stack" @submit.prevent="review">
-        <section class="card stack">
+        <section v-if="kind === 'rule'" class="card stack"><p class="muted">{{ ui.identityExplanation }}</p><button type="button" class="btn btn-secondary authorization-edit" :disabled="busy" @click="toggleAdvanced">{{ advanced ? ui.simpleSettings : ui.advancedSettings }}</button></section>
+        <section v-if="advanced" class="card stack">
           <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" maxlength="80" :disabled="busy" required /></label>
           <template v-if="kind === 'delegation'">
             <div class="switch-row"><span class="field-label">{{ draft.delegationEnabled ? ui.enabled : ui.disabled }}</span><UiSwitch :checked="draft.delegationEnabled" :label="ui.state" :disabled="busy" @change="draft.delegationEnabled = $event.target.checked" /></div>
@@ -40,19 +41,23 @@
           </div>
         </section>
         <section v-if="kind !== 'scheme'" class="card stack">
-          <h2 class="section-title">{{ kind === 'delegation' ? ui.delegationSubjects : ui.subjects }}</h2>
-          <p class="muted">{{ ui.betweenGroups }}</p>
+          <h2 class="section-title">{{ !advanced ? ui.stepPeople : kind === 'delegation' ? ui.delegationSubjects : ui.subjects }}</h2>
+          <p v-if="advanced" class="muted">{{ ui.betweenGroups }}</p>
           <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'assignments'">{{ ui.assignments }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'adminGrants'">{{ ui.adminGrants }}</button></div>
           <div v-for="(subject, index) in draft.policy.subjects" :key="index" class="glass-panel stack">
             <div class="panel-head"><strong>{{ subject.kind === 'assignmentScope' ? ui.alternativeGroup(index + 1) : ui[subject.kind] }}</strong><button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="draft.policy.subjects.splice(index, 1)">{{ ui.removeCondition }}</button></div>
             <AuthorizationDimensions v-if="subject.kind === 'assignmentScope'" v-model="subject.dimensions" :directory="directory" :disabled="busy" />
             <span v-else v-for="line in subjectLines(index)" :key="line.key">{{ line.value }}</span>
           </div>
-          <button type="button" class="btn btn-secondary" :disabled="busy" @click="draft.policy.subjects.push({ kind: 'assignmentScope', dimensions: {} })">{{ ui.addConditionGroup }}</button>
+          <button v-if="advanced" type="button" class="btn btn-secondary" :disabled="busy" @click="draft.policy.subjects.push({ kind: 'assignmentScope', dimensions: {} })">{{ ui.addConditionGroup }}</button>
         </section>
         <section class="card stack">
-          <h2 class="section-title">{{ kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities }}</h2>
-          <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ ui.selectOperations }}</option><option v-for="scheme in state.schemes.filter(item => item.publishedVersion)" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
+          <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities }}</h2>
+          <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ advanced ? ui.selectOperations : ui.identityPlaceholder }}</option><option v-for="scheme in state.schemes.filter(item => item.publishedVersion)" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
+          <p v-if="kind === 'rule' && !state.schemes.some(item => item.publishedVersion)" class="muted">{{ ui.noSchemes }}</p>
+          <details v-if="!advanced && draft.schemeId"><summary>{{ ui.selectedOperations(draft.policy.capabilities.length) }}</summary><div class="row row-wrap"><span v-for="key in draft.policy.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
+          <div v-if="sensitiveCapabilities.length" class="glass-panel stack-tight"><strong>{{ ui.sensitiveOperations }}</strong><span v-for="item in sensitiveCapabilities" :key="item.key">{{ capabilityText(item.key) }}</span></div>
+          <template v-if="advanced">
           <label class="field"><span class="field-label">{{ ui.searchOperations }}</span><input v-model="operationQuery" class="field-input" :placeholder="ui.searchOperations" /></label>
           <details v-for="module in capabilityModules" :key="module.key" class="glass-panel authorization-module" :open="!!operationQuery">
             <summary><strong>{{ module.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(module.count) }}</span></summary>
@@ -62,10 +67,11 @@
               :class="{ selected: draft.policy.capabilities.includes(item.key) }" :aria-pressed="draft.policy.capabilities.includes(item.key)" :disabled="busy || !!draft.schemeId" @click="draft = editor.toggleCapability(draft, item.key, state.catalog)">{{ ui.actions[item.action] || ui.unknownCapability }}</button></div>
             </details>
           </details>
+          </template>
         </section>
         <template v-if="kind !== 'scheme'">
           <section class="card stack">
-            <h2 class="section-title">{{ ui.scopes }}</h2>
+            <h2 class="section-title">{{ advanced ? ui.scopes : ui.stepScope }}</h2>
             <p class="muted">{{ ui.betweenGroups }}</p>
             <div v-for="(scope, index) in draft.policy.scopes" :key="index" class="glass-panel stack">
               <div class="panel-head"><strong>{{ scopeLabel(scope.kind) }}</strong><button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="draft.policy.scopes.splice(index, 1)">{{ ui.removeCondition }}</button></div>
@@ -74,7 +80,7 @@
             </div>
             <div class="choice-grid"><button v-for="value in scopeKinds" :key="value" type="button" class="btn btn-secondary" :disabled="busy" @click="addScope(value)">{{ scopeLabel(value) }}</button></div>
           </section>
-          <section class="card stack">
+          <section v-if="advanced" class="card stack">
             <h2 class="section-title">{{ ui.fields }}</h2>
             <div class="choice-grid">
               <button type="button" class="choice-card" :class="{ selected: draft.policy.fields === null }" :aria-pressed="draft.policy.fields === null" :disabled="busy" @click="draft = editor.allFields(draft)">{{ ui.allFields }}</button>
@@ -83,7 +89,7 @@
             <p v-if="draft.policy.fields && !draft.policy.fields.length" class="notice-line">{{ ui.noFieldSelected }}</p>
             <p v-if="draft.policy.fields?.some(field => !fieldOptions.includes(field))" class="notice-line">{{ ui.incompatibleFields }}</p>
           </section>
-          <section class="card stack">
+          <section v-if="advanced" class="card stack">
             <h2 class="section-title">{{ ui.conditions }}</h2>
             <label v-for="key in ['startsAt', 'endsAt']" :key="key" class="field"><span class="field-label">{{ ui[key] }}</span><input type="datetime-local" class="field-input" :disabled="busy" :value="localTime(draft.policy[key])" @change="changeTime(key, $event.target.value)" /></label>
           </section>
@@ -121,6 +127,9 @@ const organizationName = computed(() => session.context?.organizationName || '')
 const state = ref({ rules: [], schemes: [], catalog: [] });
 const directory = ref({ assignments: [], adminGrants: [] });
 const draft = ref(editor.createDraft());
+const advanced = ref(false);
+const sensitiveCapabilities = computed(() => state.value.catalog.filter(item => draft.value.policy.capabilities.includes(item.key)
+  && (['delete', 'export'].includes(item.action) || item.governance || item.delegation)));
 const ready = ref(false);
 const loading = ref(false);
 const busy = ref(false);
@@ -163,6 +172,11 @@ const capabilityModules = computed(() => {
   return [...modules.values()];
 });
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
+function toggleAdvanced() {
+  if (busy.value) return;
+  if (advanced.value && !editor.canSimplify(draft.value)) { notice.value = ui.simpleUnavailable; return; }
+  advanced.value = !advanced.value; notice.value = '';
+}
 function fieldNames(policy) { return presentation.policySections(policy, directory.value, state.value.catalog, ui).fieldLabels; }
 function fieldLabel(field) { return state.value.catalog.find(item => draft.value.policy.capabilities.includes(item.key) && item.fieldLabels?.[field])?.fieldLabels[field] || ui.fieldLabels[field] || ui.unavailableReference; }
 function subjectLines(index) { return presentation.policySections(draft.value.policy, directory.value, state.value.catalog, ui).subjects[index].lines; }
@@ -207,6 +221,7 @@ async function load() {
       else if (kind.value === 'rule') draft.value = route.query.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
       else { draft.value.name = item.name; draft.value.id = item.id; draft.value.version = item.version; draft.value.policy.capabilities = [...item.capabilities]; }
     }
+    advanced.value = kind.value !== 'rule' || !editor.canSimplify(draft.value);
     ready.value = true;
   } catch (error) { if (request === generation) notice.value = errorText(error, ui.operationFailed); }
   finally { if (request === generation) loading.value = false; }
@@ -222,7 +237,8 @@ async function review() {
       if (request !== generation) return;
       requireSuccess(result); showToast(ui.saveSuccess); leave();
     } else {
-      const payload = kind.value === 'delegation' ? editor.delegationRequest(draft.value, state.value.revision, state.value.catalog) : editor.request(draft.value, state.value.revision, state.value.catalog);
+      const prepared = kind.value === 'rule' && !advanced.value ? editor.prepareSimpleDraft(draft.value, state.value.schemes, ui) : draft.value;
+      const payload = kind.value === 'delegation' ? editor.delegationRequest(prepared, state.value.revision, state.value.catalog) : editor.request(prepared, state.value.revision, state.value.catalog);
       const result = await callApi(kind.value === 'delegation' ? 'previewAuthorizationDelegation' : 'previewAuthorizationRule', payload);
       if (request !== generation) return;
       requireSuccess(result); previewRequest = payload;

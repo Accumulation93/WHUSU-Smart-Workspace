@@ -59,6 +59,36 @@ function fixture() {
   return { state, directory, calls, api };
 }
 
+test('授权身份三步配置保存回读，复杂授权不因切换视图丢失限制', async () => {
+  const source = fixture();
+  source.state.schemes = [{ id: 'identity-a', name: '场地查看员', publishedVersion: 1,
+    capabilities: ['venue.bookings.read'], publishedCapabilities: ['venue.bookings.read'] }];
+  const page = pageHarness(source.api); await page.load();
+  assert.equal(page.data.advanced, false);
+  page.openPersonnel({ currentTarget: { dataset: { kind: 'assignments' } } });
+  page.confirmPersonnel({ detail: { keys: ['job-a'] } });
+  await page.review();
+  assert.equal(source.calls.filter(item => item.name === 'previewAuthorizationRule').length, 0);
+  page.selectScheme({ detail: { value: 1 } });
+  page.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
+  await page.review(); await page.save();
+  assert.equal(source.state.rules[0].name, '场地查看员授权');
+  assert.equal(source.state.rules[0].schemeId, 'identity-a');
+  assert.deepEqual(source.state.rules[0].policy.scopes, [{ kind: 'self' }]);
+  const reopened = pageHarness(source.api, { id: 'rule-a' }); await reopened.load();
+  assert.equal(reopened.data.advanced, false);
+  reopened.toggleAdvanced();
+  reopened.chooseEffect({ currentTarget: { dataset: { effect: 'deny' } } });
+  const before = JSON.stringify(reopened.data.draft);
+  reopened.toggleAdvanced();
+  assert.equal(reopened.data.advanced, true);
+  assert.equal(JSON.stringify(reopened.data.draft), before);
+  const home = pageHarness(source.api, {}, 'authorization'); await home.load();
+  assert.equal(home.data.recipientCards[0].name, '成员甲');
+  assert.equal(home.data.recipientCards[0].grants[0].identityName, '场地查看员');
+  home.onHide(); assert.equal(home.data.recipientCards.length, 0);
+});
+
 test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派生资料', async () => {
   for (const relative of ['pages/authorizationEditor/authorizationEditor.json', 'components/authorization-dimensions/authorization-dimensions.json']) {
     const config = JSON.parse(fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org', relative), 'utf8'));
@@ -104,6 +134,7 @@ test('字段限制通过实际页面方法保存回读，取消全部选中不�
   source.state.catalog[0].fields = ['text', 'sortOrder'];
   const page = pageHarness(source.api);
   await page.load();
+  page.toggleAdvanced();
   const draft = editor.createDraft();
   draft.name = '指定字段';
   draft.policy.subjects = [{ kind: 'assignments', ids: ['job-a'] }];
@@ -127,6 +158,7 @@ test('字段限制通过实际页面方法保存回读，取消全部选中不�
 
 test('小程序真实页面方法完成选择、预览、保存和重新打开，原参数不丢条件', async () => {
   const data = fixture(); const page = pageHarness(data.api); await page.load();
+  page.toggleAdvanced();
   page.nameInput({ detail: { value: '只查看本人借用' } });
   page.openPersonnel({ currentTarget: { dataset: { kind: 'assignments' } } });
   page.confirmPersonnel({ detail: { keys: ['job-a'] } });

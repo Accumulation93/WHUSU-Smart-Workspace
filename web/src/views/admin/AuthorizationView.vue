@@ -22,11 +22,26 @@
           <input v-model="query" class="search-input" :placeholder="ui.search" :aria-label="ui.search" />
         </label>
         <div class="authorization-tools">
+          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.rules : ui.advancedRules }}</button>
           <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
           <button v-if="canCopy" type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
         </div>
       </section>
       <template v-if="tab === 'rules'">
+        <template v-if="!showRules">
+          <p v-if="!recipients.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noDirectGrants }}</p>
+          <article v-for="person in recipients" :key="person.key" class="card stack">
+            <h2 class="section-title">{{ person.name }}</h2><p class="muted">{{ person.assignmentLabel }}</p>
+            <section v-for="grant in person.grants" :key="grant.id" class="glass-panel stack-tight">
+              <div class="panel-head"><strong>{{ grant.identityName }}</strong><span class="chip chip-blue">{{ grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText }}</span></div>
+              <p class="muted">{{ grant.scopeText }}</p><p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
+              <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
+              <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" /></details>
+              <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.edit }}</button></div>
+            </section>
+          </article>
+        </template>
+        <template v-else>
         <section v-if="selecting" class="card stack">
           <template v-if="selecting">
             <p class="muted">{{ ui.selectedRules(selectedRules.length) }}</p>
@@ -63,6 +78,7 @@
             <button type="button" class="btn-quiet btn-quiet-danger" @click="changes('delete', rule.id)">{{ ui.remove }}</button>
           </div>
         </article>
+        </template>
       </template>
       <template v-else-if="tab === 'schemes'">
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
@@ -138,6 +154,8 @@ const picker = ref('');
 const pickerOptions = ref([]);
 const pickerValue = ref([]);
 const selecting = ref(false);
+const showRules = ref(false);
+const recipients = computed(() => presentation.recipientCards(state.value.rules, state.value.schemes, directory.value, state.value.catalog, ui, query.value));
 const selectedRules = ref([]);
 let candidateGeneration = 0;
 let generation = 0;
@@ -166,6 +184,7 @@ function clear() {
   effectiveQuery.value = '';
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
+  showRules.value = false;
   closeInspection(); inspectionTarget.value = null; inspectionLabel.value = ui.ownRole; candidateLoading.value = false;
   state.value = { rules: [], schemes: [], catalog: [] }; directory.value = { assignments: [], adminGrants: [] };
   effective.value = null; ready.value = false; query.value = ''; inspecting.value = false; inspectionNotice.value = ''; notice.value = '';
@@ -234,7 +253,8 @@ function selectTab(value) {
   tab.value = value;
   if (value === 'effective' && ready.value) inspect();
 }
-function toggleSelection() { selecting.value = !selecting.value; selectedRules.value = []; }
+function toggleSelection() { showRules.value = true; selecting.value = !selecting.value; selectedRules.value = []; }
+function toggleRules() { showRules.value = !showRules.value; selecting.value = false; selectedRules.value = []; }
 function selectRule(id) {
   if (!selecting.value) return;
   selectedRules.value = selectedRules.value.includes(id) ? selectedRules.value.filter(value => value !== id) : [...selectedRules.value, id];

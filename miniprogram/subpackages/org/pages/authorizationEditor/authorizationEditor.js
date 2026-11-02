@@ -8,7 +8,7 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const { splitSystemDateTime, systemDateTimeToIsoUtc } = require('../../../../utils/dateTime');
 
 Page({
-  data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '',
+  data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
     draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
     preview: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
   onLoad: function(options) {
@@ -45,6 +45,7 @@ Page({
         else if (this.data.kind === 'rule') draft = this._options.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
         else { draft.name = item.name; draft.id = item.id; draft.version = item.version; draft.policy.capabilities = item.capabilities.slice(); }
       }
+      this.setData({ advanced: this.data.kind !== 'rule' || !editor.canSimplify(draft) });
       this.updateDraft(draft);
       this.setData({ ready: true, previewOnly: this._state.mode === 'shadow' });
     } catch (error) {
@@ -81,7 +82,9 @@ Page({
     for (const capability of this._state.catalog) {
       if (draft.policy.capabilities.includes(capability.key)) Object.assign(fieldLabels, capability.fieldLabels || {});
     }
-    this.setData({ draft, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, capabilityBusinesses: businesses, selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
+    const sensitiveLabels = this._state.catalog.filter(item => draft.policy.capabilities.includes(item.key)
+      && (['delete', 'export'].includes(item.action) || item.governance || item.delegation)).map(item => presentation.capabilityLabel(item.key, this._state.catalog, ui));
+    this.setData({ draft, sensitiveLabels, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, capabilityBusinesses: businesses, selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
       organizationSelected: draft.policy.scopes.some(item => item.kind === 'organization'), selfSelected: draft.policy.scopes.some(item => item.kind === 'self'),
       organizationScope: availableScopes.includes('organization'), selfScope: availableScopes.includes('self'), assignmentScope: availableScopes.includes('assignmentScope'),
       fieldOptions: availableFields.map(key => ({ key, label: fieldLabels[key] || ui.fieldLabels[key] || ui.unavailableReference,
@@ -94,6 +97,11 @@ Page({
       }) });
   },
   nameInput: function(event) { this.setData({ 'draft.name': event.detail.value }); },
+  toggleAdvanced: function() {
+    if (this.data.busy) return;
+    if (this.data.advanced && !editor.canSimplify(this.data.draft)) { this.setData({ notice: ui.simpleUnavailable }); return; }
+    this.setData({ advanced: !this.data.advanced, notice: '' });
+  },
   searchCapabilities: function(event) { this.setData({ capabilityKeyword: event.detail.value }); this.updateDraft(this.data.draft); },
   chooseEffect: function(event) {
     const effect = event.currentTarget.dataset.effect;
@@ -114,7 +122,7 @@ Page({
   allFields: function() { if (!this.data.busy) this.updateDraft(editor.allFields(this.data.draft)); },
   selectScheme: function(event) {
     const selected = this.data.schemes[Number(event.detail.value)];
-    if (!selected) return;
+    if (!selected || this.data.busy) return;
     const draft = editor.createDraft(this.data.draft); draft.schemeId = selected.id;
     if (selected.id) draft.policy.capabilities = selected.publishedCapabilities.slice();
     this.updateDraft(draft);
@@ -207,7 +215,9 @@ Page({
         if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
         showShortToast(ui.saveSuccess); wx.navigateBack();
       } else {
-        const payload = this.data.kind === 'delegation' ? editor.delegationRequest(this.data.draft, this._state.revision, this._state.catalog) : editor.request(this.data.draft, this._state.revision, this._state.catalog);
+        const draft = this.data.kind === 'rule' && !this.data.advanced
+          ? editor.prepareSimpleDraft(this.data.draft, this._state.schemes, ui) : this.data.draft;
+        const payload = this.data.kind === 'delegation' ? editor.delegationRequest(draft, this._state.revision, this._state.catalog) : editor.request(draft, this._state.revision, this._state.catalog);
         const result = await callFunction({ name: this.data.kind === 'delegation' ? 'previewAuthorizationDelegation' : 'previewAuthorizationRule', data: payload });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);

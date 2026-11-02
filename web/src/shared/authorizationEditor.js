@@ -87,6 +87,24 @@ function allFields(draft) {
   return next;
 }
 
+// 简化视图只适用于能完整表达的授权；切换视图不修改任何条件。
+function canSimplify(draft) {
+  const policy = draft.policy;
+  return policy.effect === 'allow' && policy.enabled === true && policy.fields === null
+    && policy.startsAt == null && policy.endsAt == null
+    && policy.subjects.every(item => ['assignments', 'adminGrants'].includes(item.kind))
+    && policy.scopes.every(item => ['organization', 'self', 'assignmentScope'].includes(item.kind))
+    && (!!draft.schemeId || policy.capabilities.length === 0);
+}
+
+function prepareSimpleDraft(draft, schemes, copy) {
+  const next = clone(draft);
+  const scheme = schemes.find(item => item.id === next.schemeId && item.publishedVersion);
+  if (!scheme || !canSimplify(next)) throw Object.assign(new Error('chooseIdentity'), { code: 'chooseIdentity' });
+  if (!next.name.trim()) next.name = Array.from(copy.identityGrantName(scheme.name)).slice(0, 80).join('');
+  return next;
+}
+
 function validation(draft, catalog) {
   if (!draft.name.trim() || Array.from(draft.name.trim()).length > 80) return 'invalidName';
   const policy = draft.policy;
@@ -134,7 +152,7 @@ function delegationRequest(draft, expectedRevision, catalog) {
 }
 
 const sharedModule = Object.freeze({ createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability,
-  availableFields, availableScopes, toggleField, allFields, validation, request, delegationRequest });
+  availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest });
 
-export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, availableFields, availableScopes, toggleField, allFields, validation, request, delegationRequest };
+export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest };
 export default sharedModule;

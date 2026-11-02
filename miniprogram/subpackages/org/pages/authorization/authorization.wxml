@@ -14,6 +14,7 @@
       <view class="permission-section-head"><view class="permission-section-title">{{ui[tab]}}</view><button class="primary-btn ui-motion-button" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{tab === 'rules' ? ui.createRule : ui.createScheme}}</button></view>
       <view class="permission-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="permission-search-input" value="{{keyword}}" bindinput="search" placeholder="{{ui.search}}" /></view>
       <block wx:if="{{tab === 'rules'}}">
+        <button class="secondary-btn ui-motion-button authorization-compact" bindtap="toggleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{showRules ? ui.rules : ui.advancedRules}}</button>
         <button class="secondary-btn ui-motion-button authorization-compact" bindtap="toggleSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{selecting ? ui.finishSelection : ui.batchSelect}}</button>
         <block wx:if="{{selecting}}">
           <view class="permission-admin-meta">{{selectedText}}</view>
@@ -23,6 +24,20 @@
       </block>
     </view>
     <block wx:if="{{tab === 'rules'}}">
+      <block wx:if="{{!showRules}}">
+        <view wx:if="{{!recipientCards.length}}" class="permission-empty">{{keyword ? ui.noMatchingRules : ui.noDirectGrants}}</view>
+        <view wx:for="{{recipientCards}}" wx:key="key" class="permission-card authorization-body">
+          <view class="permission-section-title">{{item.name}}</view><view class="permission-admin-meta">{{item.assignmentLabel}}</view>
+          <view wx:for="{{item.grants}}" wx:for-item="grant" wx:key="id" class="authorization-group authorization-body">
+            <view class="authorization-head"><view class="authorization-title">{{grant.identityName}}</view><text class="authorization-chip">{{grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText}}</text></view>
+            <view class="permission-admin-meta">{{grant.scopeText}}</view>
+            <view wx:if="{{grant.custom}}" class="permission-admin-meta">{{ui.customAuthorization}}</view>
+            <view wx:if="{{grant.sharedText}}" class="permission-admin-meta">{{grant.sharedText}}</view>
+            <view class="authorization-row-actions"><button class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{grant.id}}" data-kind="rule" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button></view>
+          </view>
+        </view>
+      </block>
+      <block wx:else>
       <view wx:if="{{isSuper}}" class="permission-card authorization-toolbar">
         <view class="authorization-disclosure ui-motion-card" bindtap="toggleDelegations" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{ui.delegations}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{showDelegations}}">
@@ -51,6 +66,7 @@
         </view>
         <view class="authorization-row-actions"><button class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{item.id}}" data-kind="rule" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button><button class="secondary-btn ui-motion-button authorization-link" data-id="{{item.id}}" data-kind="rule" data-copy="{{true}}" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.copy}}</button><button class="danger-btn ui-motion-button authorization-link authorization-link-danger" data-id="{{item.id}}" data-kind="delete" bindtap="changes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.remove}}</button></view>
       </view>
+      </block>
     </block>
     <block wx:elif="{{tab === 'schemes'}}">
       <view wx:if="{{!schemes.length}}" class="permission-empty">{{ui.noSchemes}}</view>

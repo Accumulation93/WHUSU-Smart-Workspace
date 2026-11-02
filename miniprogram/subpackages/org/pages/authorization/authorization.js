@@ -11,7 +11,7 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
-    ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false,
+    ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
@@ -23,9 +23,9 @@ Page({
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
-    this.setData({ selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
-    this.setData({ inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false });
-    this.setData({ ready: false, canCopy: false, cards: [], schemes: [], effective: [], effectiveGroups: [], effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+    this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '',
+      inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
+      ready: false, canCopy: false, cards: [], schemes: [], effective: [], effectiveGroups: [], effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
@@ -59,7 +59,8 @@ Page({
   refreshCards: function() {
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
-    this.setData({ cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
+    this.setData({ recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword),
+      cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
         labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
@@ -82,8 +83,9 @@ Page({
     this.setData({ effectiveExpanded: Object.assign({}, this.data.effectiveExpanded, { [key]: !this.data.effectiveExpanded[key] }) });
   },
   toggleSelection: function() {
-    this.setData({ selecting: !this.data.selecting, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
+    this.setData({ showRules: true, selecting: !this.data.selecting, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
   },
+  toggleRules: function() { this.setData({ showRules: !this.data.showRules, selecting: false, selectedRules: {}, selectedCount: 0 }); },
   selectRule: function(event) {
     if (!this.data.selecting) return;
     const id = event.currentTarget.dataset.id;

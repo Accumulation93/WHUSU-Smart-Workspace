@@ -96,4 +96,30 @@ function ruleCards(rules, directory, catalog, copy, query = '') {
   });
 }
 
-module.exports = { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards };
+// 只按明确的岗位或管理身份关联分组，不推算动态范围的实际授权结果。
+function recipientCards(rules, schemes, directory, catalog, copy, query = '') {
+  const indexes = makeIndexes(directory);
+  const schemeNames = new Map(schemes.map(item => [item.id, item.name]));
+  const groups = new Map();
+  for (const rule of ruleCards(rules, directory, catalog, copy)) {
+    const recipients = new Map();
+    for (const subject of rule.policy.subjects || []) {
+      if (!['assignments', 'adminGrants'].includes(subject.kind)) continue;
+      for (const id of subject.ids || []) recipients.set(subject.kind + ':' + id, { kind: subject.kind, id });
+    }
+    for (const [key, recipient] of recipients) {
+      const item = indexes[recipient.kind].get(recipient.id);
+      if (!groups.has(key)) groups.set(key, { key, name: item && item.name || copy.unavailableReference,
+        assignmentLabel: item && recipient.kind === 'assignments' ? assignmentLabel(item) : copy.adminGrants, grants: [] });
+      groups.get(key).grants.push({ ...rule, identityName: schemeNames.get(rule.schemeId) || rule.name || copy.customAuthorization,
+        custom: !schemeNames.has(rule.schemeId),
+        sharedText: recipients.size > 1 || rule.policy.subjects.some(subject => subject.kind === 'assignmentScope')
+          ? copy.sharedGrantNotice : '', scopeText: rule.scopes.map(scope => [scope.label].concat(scope.lines.map(line => line.label + '：' + line.value)).join(' · ')).join('；') });
+    }
+  }
+  const needle = query.trim().toLowerCase();
+  return Array.from(groups.values()).filter(item => !needle || [item.name, item.assignmentLabel].concat(
+    item.grants.map(grant => grant.name + ' ' + grant.identityName + ' ' + grant.capabilityLabels.join(' '))).join(' ').toLowerCase().includes(needle));
+}
+
+module.exports = { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards };

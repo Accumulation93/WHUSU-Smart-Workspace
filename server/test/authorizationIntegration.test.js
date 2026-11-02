@@ -78,8 +78,20 @@ async function run() {
     const scheme = await model.saveScheme({ name: '借用查看', capabilities: ['venue.bookings.read'] }, 'org', guard);
     const published = await model.publishScheme({ id: scheme.id, version: scheme.version, expectedRevision: (await state()).revision }, 'org', guard);
     assert.equal(published.publishedVersion, 1);
-    const bound = await model.saveRule({ name: '使用方案', policy: blank, schemeId: scheme.id, expectedRevision: (await state()).revision }, 'org', guard);
+    const frontendEditor = require('../../shared/authorizationEditor');
+    const frontendCopy = require('../../shared/locales/zh-CN/authorization');
+    const identityDraft = frontendEditor.createDraft();
+    identityDraft.policy = JSON.parse(JSON.stringify(blank));
+    identityDraft.schemeId = scheme.id;
+    const identityInput = frontendEditor.request(frontendEditor.prepareSimpleDraft(identityDraft, await model.listSchemes(admin, 'org'), frontendCopy),
+      (await state()).revision, [{ key: 'venue.bookings.read', scopes: ['organization'], fields: [] }]);
+    const bound = await model.saveRule(identityInput, 'org', guard);
     assert.equal(bound.schemeId, scheme.id);
+    const reopenedIdentity = (await state()).rules.find(rule => rule.id === bound.id);
+    assert.equal(reopenedIdentity.name, frontendCopy.identityGrantName(scheme.name));
+    assert.deepEqual(reopenedIdentity.policy.subjects, identityInput.policy.subjects);
+    assert.deepEqual(reopenedIdentity.policy.scopes, identityInput.policy.scopes);
+    assert.equal(frontendEditor.canSimplify(frontendEditor.createDraft(reopenedIdentity)), true);
     const draft = await model.saveScheme({ id: scheme.id, version: published.version, name: '借用操作',
       capabilities: ['venue.bookings.read', 'venue.bookings.create'] }, 'org', guard);
     const schemeDirectory = await model.listSchemes(admin, 'org');
