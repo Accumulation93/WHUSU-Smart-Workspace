@@ -65,6 +65,7 @@ module.exports = Behavior({
     hrProfileMigrationBehavior,
   ],
   data: {
+    embeddedWorkbench: false,
     directoryCopy: require('../../package-resources/locales/zh-CN/contactDirectory'),
     directoryPickerVisible: false,
     directoryBusy: false,

@@ -52,7 +52,9 @@ const timezoneKeys=['f9cadda36d','4570b42d70','757124dc6b','7cd25c7e87','55c5b5f
 const timezoneOptions=timezoneKeys.map((key,index)=>({value:index-12,label:utils['copy_'+key]}));
 const canManageOrganizations=computed(()=>props.profile?.adminLevel==='super_admin');
 const canManageSettings=computed(()=>hasAdminCapability(props.profile,'system.settings','system.settings.read'));
-const hasTimezone=ref(false),canEditTimezone=ref(false);
+const savedTimezoneAccess=props.state.timezoneAccess;
+const savedScope=[session.context?.organizationId,session.context?.contextId].join('|');
+const hasTimezone=ref(savedTimezoneAccess?.scope===savedScope && savedTimezoneAccess.hasTimezone===true),canEditTimezone=ref(savedTimezoneAccess?.scope===savedScope && savedTimezoneAccess.canEdit===true);
 const organizations=ref([]),defaultId=ref(''),loading=ref(false),busy=ref(false),ready=ref(false),notice=ref(''),actionNotice=ref('');
 const blocked=computed(()=>props.disabled || !ready.value || loading.value || busy.value || !!notice.value || props.state.pending);
 const defaultName=computed(()=>organizations.value.find(row=>row.id===defaultId.value)?.name || '');
@@ -67,6 +69,7 @@ async function load(){
     if(!config.config || (config.config.timezone !== undefined && (!Number.isInteger(config.config.timezone) || config.config.timezone < -12 || config.config.timezone > 14)) || !Array.isArray(list.list) || list.list.some(row=>!row?.id || typeof row.name!=='string'))throw new Error();
     hasTimezone.value=Number.isInteger(config.config.timezone);
     canEditTimezone.value=hasTimezone.value && (props.profile?.authorizationAccess?.mode==='enforced' ? config.config.canUpdateTimezone===true : canManageSettings.value);
+    props.state.timezoneAccess={scope:expected,hasTimezone:hasTimezone.value,canEdit:canEditTimezone.value};
     organizations.value=list.list;defaultId.value=config.config.currentOrganization || '';ready.value=true;notice.value='';
     if(!props.state.dirty || props.state.pending){props.state.timezone=config.config.timezone;props.state.dirty=false;}
     if(props.state.pending){props.state.pending=false;if(props.state.closeAfterRead){props.state.form=null;props.state.created=null;props.state.closeAfterRead=false;}}

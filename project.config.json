@@ -241,6 +241,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/authorization.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/contactDirectory.js"
       },
       {
@@ -453,6 +457,262 @@
       },
       {
         "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbench.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbench.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbench.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbench.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbenchBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbenchContent.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/adminCandidateList/adminCandidateList.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/dictionaryUsageDialog/dictionaryUsageDialog.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrImportIssueList/hrImportIssueList.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrTemplateEditor/hrTemplateEditor.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/gradeBand.wxs"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/activityBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/adminCandidateView.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/adminManagementBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/adminUtils.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/auditBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/auditPersonnelView.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/departmentBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/designationCandidateView.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/dictionaryFeedbackBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/dictionaryFeedbackView.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/hrInfoBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/hrProfileMigrationBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/hrTemplateSwitchDraft.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/identityBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/personnelViewModel.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/publicationBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/resultBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/ruleBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/settingsBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/sharedApi.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/stampGrantBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/templateBehavior.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/modules/workGroupBehavior.js"
+      },
+      {
+        "type": "file",
         "value": "utils/auditPreviewFiles.js"
       },
       {
@@ -462,6 +722,10 @@
       {
         "type": "file",
         "value": "utils/auditVerificationReport.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/authorizationAccess.js"
       },
       {
         "type": "file",

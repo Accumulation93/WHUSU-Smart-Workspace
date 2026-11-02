@@ -3,6 +3,7 @@ const adminWorkbenchBehavior = require('./adminWorkbenchBehavior');
 Component({
   options: { styleIsolation: 'apply-shared' },
   behaviors: [adminWorkbenchBehavior],
+  data: { embeddedWorkbench: true },
   properties: { subApp: { type: String, value: 'scoring' } },
   lifetimes: {
     attached() { this.workbenchLoad({ subApp: this.data.subApp }); this._workbenchShowing = true; this.workbenchShow(); },

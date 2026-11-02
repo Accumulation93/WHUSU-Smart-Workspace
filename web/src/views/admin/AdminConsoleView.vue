@@ -163,7 +163,7 @@ provideAdminCapabilities(profile);
 const actionBusy = ref(false);
 const activityState = reactive({ form: { id: '', name: '', description: '', startDate: '', endDate: '' }, resetAfterRead: false });
 const templateState = reactive({ form: emptyTemplateForm(), resetAfterRead: false, expanded: null });
-const settingsState = reactive({ timezone: 8, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
+const settingsState = reactive({ timezone: 8, timezoneAccess: null, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
 const ruleState = reactive({form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
 const emptyResultState = () => ({ filters: { department: resultCopy.copy_31d4595959, identity: resultCopy.copy_31d4595959, workGroup: resultCopy.copy_31d4595959, viewMode: 'overview', sortMode: 'score_desc' }, activityId: '', pending: false, target: null, department: '', scorer: null });
 const resultState = reactive(emptyResultState());
@@ -291,7 +291,7 @@ function resetView() {
   generation++; profile.value = null; activeTab.value = ''; rows.value = []; keyword.value = ''; loadNotice.value = '';
   Object.assign(activityState.form, { id: '', name: '', description: '', startDate: '', endDate: '' }); activityState.resetAfterRead = false;
   Object.assign(templateState.form, emptyTemplateForm()); templateState.resetAfterRead = false; templateState.expanded = null;
-  Object.assign(settingsState, { timezone: 8, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
+  Object.assign(settingsState, { timezone: 8, timezoneAccess: null, dirty: false, pending: false, closeAfterRead: false, form: null, created: null });
   Object.assign(ruleState, {form:emptyRuleForm(),activityId:'',configIndex:-1,filters:{department:'',identity:''},selected:[],pending:false,resetAfterRead:false});
   Object.assign(resultState, emptyResultState());
   Object.assign(auditTemplateState,{form:emptyAuditTemplate(),pending:false,resetAfterRead:false});
