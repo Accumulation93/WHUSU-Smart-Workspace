@@ -104,10 +104,13 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
       filterPortalCards(cards) { return cards; },
       refreshMyPermissions: async function() {}
     },
+    '../../../../utils/authorizationAccess': { readCurrentAuthorizationAccess: async function() { return null; } },
+    '../../../../utils/authorizationEntryView': require('../../shared/authorizationEntryView'),
     '../../../../utils/portalExit': { shouldClearAuthenticationOnPortalExit() { return false; } },
     '../../../../locales/zh-CN/main': locale,
     '../../../../locales/zh-CN/identityCard': require('../../miniprogram/locales/zh-CN/identityCard'),
     '../../../../locales/zh-CN/calendar': require('../../miniprogram/locales/zh-CN/calendar'),
+    '../../../../locales/zh-CN/authorization': require('../../shared/locales/zh-CN/authorization'),
     // 门户默认落地门户后会在无会话时探测微信会话；这里统一视为“无法确认”，不改变本测试的前置会话。
     '../../../../utils/startupSession': { probeStartupSession: () => Promise.resolve({ state: 'unavailable' }) },
     // 门户自绘顶栏从平台胶囊推算几何；桩值不影响本测试的消息链路断言。
