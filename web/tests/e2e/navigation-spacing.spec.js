@@ -98,7 +98,9 @@ test('web profile and directory retain a card gap below tabs', async ({ page }) 
   await page.goto('/web/hr/profile');
   for (const name of [directoryCopy.profile, directoryCopy.title, directoryCopy.profile]) {
     await page.getByRole('button', { name, exact: true }).click();
-    const gap = await page.locator('.page > .tabs').evaluate(el => {
+    const tabs = page.getByRole('tablist').filter({ has: page.getByRole('button', { name: directoryCopy.profile, exact: true }) });
+    await expect(tabs).toHaveCount(1);
+    const gap = await tabs.evaluate(el => {
       const next = el.nextElementSibling;
       return next.getBoundingClientRect().top - el.getBoundingClientRect().bottom;
     });

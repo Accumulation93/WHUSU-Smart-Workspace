@@ -34,3 +34,11 @@
 第二次发布不能是只改文档或空提交：现有发布器会直接跳过没有运行文件变化的提交，纯网页发布也不重启服务进程；实际进程仍在第一版目录时激活应拒绝。需按正常服务端滚动发布形成第二份实际运行的兼容版本，再执行生产对照与激活。
 
 复审后再次运行 `authorizationDeployment.test.js`（3项）、`deploymentAutomation.test.js` 和 `authorizationLegacyMigrationIntegration.test.js`，均退出0。此次没有新增运行代码修改、没有操作生产、没有运行完整CI；HR与迁移模型改动冻结，后续仅处理最终检查确认的缺陷。
+
+## 完整 CI 前的服务端逐文件检查
+
+按 `scripts/ci/run.js` 的 Git 文件清单顺序，使用 `TZ=UTC` 和本机 3362 端口执行全部 258 个顶层 `server/test/*.test.js`。首次 241 个通过、17 个失败；逐文件补齐新授权依赖的模拟、隔离库迁移和测试密钥，以及更新仍指向旧路由 SQL 的检查后，17 个失败文件全部复跑退出 0。没有以放宽业务权限或删除安全断言来通过检查。本次结果是首次扫描与失败复验的组合，不冒充修改后的全套重跑或完整 CI。
+
+原始日志保存在本机临时目录 `whusu-backend-final-20261102.log`、`whusu-backend-final-20261102-summary.log` 和 `whusu-backend-final-20261102-recheck.log`。复验保留账号治理撤权、旧接口零副作用、跨组织隔离、800 行表格真实导出，以及 3 步 PDF 实际签署与验签。
+
+人事前端方法检查 `hr-profile-export-test.js`、`hr-template-save-continuation-test.js` 和 `hr-template-switch-suggestion-test.js` 三项再次通过，包含 255 列导出选择和真实 Behavior 方法。岗位性质的新增、仅创建权目录最小返回、岗位保存与重新读取由 `authorizationIntegration.test.js` 的真实 HTTP 参数链验证；ROOT 已确认最终复跑通过。前述检查不代替微信现场操作、实体设备或生产发布。

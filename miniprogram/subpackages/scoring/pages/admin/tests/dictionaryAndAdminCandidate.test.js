@@ -10,7 +10,9 @@ const departmentBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'depa
 const identityBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'identityBehavior.js'), 'utf8');
 const workGroupBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'workGroupBehavior.js'), 'utf8');
 const adminManagementBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'adminManagementBehavior.js'), 'utf8');
-const wxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+const pageWxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+assert.match(pageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);
+const wxml = pageWxml + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchContent.wxml'), 'utf8');
 const dictionaryLoadFailureWxml = fs.readFileSync(
   path.join(adminRoot, 'components', 'dictionaryLoadFailure', 'dictionaryLoadFailure.wxml'),
   'utf8'

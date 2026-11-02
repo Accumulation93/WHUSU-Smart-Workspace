@@ -13,6 +13,13 @@ const sandbox = { module: { exports: {} }, Behavior: value => value,
 vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });
 const methods = sandbox.module.exports.methods;
 async function run() {
+  const content = fs.readFileSync(path.resolve(__dirname, '../miniprogram/subpackages/scoring/pages/admin/adminWorkbenchContent.wxml'), 'utf8');
+  const tab = content.split('\n').find(line => line.includes('data-mode="profiles"') && line.includes('switchHrInfoMode'));
+  assert(tab, '成员资料页签必须存在');
+  const expression = tab.match(/wx:if="\{\{([^}]+)\}\}"/)[1];
+  const flags = { canBrowseHrInfo: false, canReadAuthGovernance: true, canImportHr: false, canVerifyIdentity: false, canRecoverAccounts: false, canGlobalAccountManage: false };
+  assert.equal(vm.runInNewContext(expression, flags), true, '仅账号治理读取权限也必须能返回成员资料页签');
+  assert.equal(vm.runInNewContext(expression, { ...flags, canReadAuthGovernance: false }), false, '没有读取和操作权限时不显示成员资料页签');
   let saved;
   const host = { data: { authorizationEnforced: true, canManageHrPeople: true, detailCanManagePeople: true,
     detailHrId: 'member', detailWritableFieldIds: ['phone'], detailHrValues: { phone: '123', private: 'hidden', _name: '', _studentId: '' },

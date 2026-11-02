@@ -4,7 +4,9 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const source = fs.readFileSync(path.resolve(__dirname, '../admin.js'), 'utf8');
+const page = fs.readFileSync(path.resolve(__dirname, '../admin.js'), 'utf8');
+assert.match(page, /behaviors: \[adminWorkbenchBehavior\]/);
+const source = fs.readFileSync(path.resolve(__dirname, '../adminWorkbenchBehavior.js'), 'utf8');
 const organizationReset = source.slice(
   source.indexOf('if (organizationChanged) {'),
   source.indexOf('this.clearScoreResultsState();')

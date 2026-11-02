@@ -4,14 +4,20 @@ const path = require('node:path');
 const test = require('node:test');
 
 const adminRoot = path.resolve(__dirname, '..');
-const wxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+const pageWxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+assert.match(pageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);
+const wxml = pageWxml + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchContent.wxml'), 'utf8');
 const directoryControlsWxml = fs.readFileSync(path.join(adminRoot, 'components', 'hrDirectoryControls', 'hrDirectoryControls.wxml'), 'utf8');
 const deletionDialogWxml = fs.readFileSync(path.join(adminRoot, 'components', 'hrPermanentDeletionDialog', 'hrPermanentDeletionDialog.wxml'), 'utf8');
 const hrBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'hrInfoBehavior.js'), 'utf8');
 const authBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'authPersonnelBehavior.js'), 'utf8');
 const resultBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'resultBehavior.js'), 'utf8');
-const adminJs = fs.readFileSync(path.join(adminRoot, 'admin.js'), 'utf8');
-const adminWxss = fs.readFileSync(path.join(adminRoot, 'admin.wxss'), 'utf8');
+const adminPageJs = fs.readFileSync(path.join(adminRoot, 'admin.js'), 'utf8');
+assert.match(adminPageJs, /behaviors: \[adminWorkbenchBehavior\]/);
+const adminJs = adminPageJs + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchBehavior.js'), 'utf8');
+const pageWxss = fs.readFileSync(path.join(adminRoot, 'admin.wxss'), 'utf8');
+assert.match(pageWxss, /@import [^;]*adminWorkbenchStyles\.wxss/);
+const adminWxss = pageWxss + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchStyles.wxss'), 'utf8');
 const appJs = fs.readFileSync(path.resolve(adminRoot, '../../../../app.js'), 'utf8');
 const submissionDetailJs = fs.readFileSync(path.resolve(adminRoot, '../../../audit/pages/submissionDetail/submissionDetail.js'), 'utf8');
 const copyAuditJs = fs.readFileSync(path.resolve(adminRoot, '../../../../../scripts/user-visible-copy-audit.js'), 'utf8');
@@ -74,7 +80,8 @@ test('无账号成员可初始化口令且保存表单使用标准详情按钮�
   assert.match(hrBehavior, /canGlobalAccountManage && governance\.personId/);
   assert.doesNotMatch(hrBehavior, /canGlobalAccountManage && governance\.personId && governance\.accountId/);
   const formStart = wxml.indexOf('class="hr-account-security-form"');
-  const formEnd = wxml.indexOf('</view>\n            </view>', formStart);
+  const formEnd = wxml.indexOf('<view class="hr-account-devices"', formStart);
+  assert.ok(formStart >= 0 && formEnd > formStart);
   const form = wxml.slice(formStart, formEnd);
   assert.match(form, /button-row hr-account-security-form-actions/);
   assert.match(form, /localeCopy\.savePassphrase/);
@@ -238,9 +245,11 @@ test('认证治理降级目录可进入详情并构造完整岗位元组', () =>
   assert.doesNotMatch(hrBehavior, /legacy-department:|legacy-identity:|legacy-work-group:/);
   assert.match(authBehavior, /auth\.hasActiveBinding \? 'bound' : 'unbound'/);
   assert.match(authBehavior, /wxBindStatus: bindStatus/);
-  assert.match(hrBehavior, /canOpenGovernanceDetail = this\.data\.canVerifyIdentity[\s\S]*this\.data\.canGlobalAccountManage/);
-  assert.match(wxml, /canBrowseHrInfo \|\| canVerifyIdentity \|\| canRecoverAccounts \|\| canGlobalAccountManage/);
-  assert.match(adminJs, /canVerifyIdentity \|\| this\.data\.canRecoverAccounts \|\| this\.data\.canGlobalAccountManage/);
+  assert.match(hrBehavior, /canOpenGovernanceDetail = this\.data\.canReadAuthGovernance/);
+  assert.match(hrBehavior, /if \(!hrId \|\| \(!this\.data\.canBrowseHrInfo && !canOpenGovernanceDetail\)\) return;/);
+  assert.match(wxml, /canBrowseHrInfo \|\| canReadAuthGovernance/);
+  assert.match(adminJs, /canReadAuthGovernance: allowed\(\['auth\.identity\.verify', 'auth\.accounts\.recover', 'auth\.accounts\.global_manage'\], \['auth\.identity\.read', 'auth\.identity\.verify', 'auth\.recovery\.read', 'auth\.recovery\.update', 'auth\.accounts\.read', 'auth\.accounts\.update'\]\)/);
+  assert.match(adminJs, /else if \(this\.data\.canReadAuthGovernance\)/);
 });
 
 test('历史资料字段已作废，详情只保留资料审核历史', () => {

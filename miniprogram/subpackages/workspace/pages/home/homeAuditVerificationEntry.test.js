@@ -9,9 +9,13 @@ const homeJs = fs.readFileSync(path.join(__dirname, 'home.js'), 'utf8');
 const homeWxml = fs.readFileSync(path.join(__dirname, 'home.wxml'), 'utf8');
 const homeLocale = fs.readFileSync(path.join(root, 'locales/zh-CN/home.js'), 'utf8');
 const trustedNavigation = fs.readFileSync(path.join(root, 'utils/trustedNavigation.js'), 'utf8');
-const adminWxml = fs.readFileSync(
+const adminPageWxml = fs.readFileSync(
   path.join(root, 'subpackages/scoring/pages/admin/admin.wxml'),
   'utf8'
+);
+assert.match(adminPageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);
+const adminWxml = adminPageWxml + fs.readFileSync(
+  path.join(root, 'subpackages/scoring/pages/admin/adminWorkbenchContent.wxml'), 'utf8'
 );
 
 assert(homeJs.includes("name: 'getAuditVerificationAccess'"),

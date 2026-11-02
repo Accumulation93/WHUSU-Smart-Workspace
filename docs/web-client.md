@@ -97,7 +97,9 @@ shared/locales/zh-CN/**            ← 唯一来源（文案只写在这里）
 | 验签 | `/audit/verification`、`/audit/verification-report/:id` | 文件密码验签与验证报告 |
 | 考核评分 | `/scoring/tasks`、`/scoring/fill/:id` | 评分任务、公示结果与评优名单共用入口；按模板分组的评分填写（必填/上下限/步长校验） |
 | 场地借用 | `/venue/bookings`、`/venue/create`、`/venue/mine`、`/venue/pending`、`/venue/history`、`/venue/history/:id`、`/venue/manage` | 浏览场地、发起借用、我的借用、待我审批、历史与详情；管理端资料、规则、日程、借用与事由维护 |
-| 管理端 | `/admin?subApp=scoring/hr/system/audit`、`/admin/permissions`、`/admin/auth` | 按小程序子应用与权限显示页签；人事目录、部门/职能组/身份类别维护、管理权限可用，其他管理操作仍待补齐 |
+| 管理端 | `/admin?subApp=scoring/hr/system/audit`、`/admin/permissions`、`/admin/auth` | 按服务端授予的能力显示业务页签；人事、账号治理、审核配置、评分配置及系统配置复用对应管理组件，保存仍由服务端逐项核验 |
+| 统一授权 | `/admin/authorization`、`/admin/authorization/edit`、`/admin/authorization/changes` | 授权规则、权限方案、实际权限及保存前影响预览；旧权限迁移和生产启用状态见 `unified-authorization.md` |
+| 配置复制与岗位性质 | `/admin/organization-copy`、`/admin/assignment-natures` | 来源明确分享、目标接收草稿并核对关联；岗位性质按组织维护，填写岗位时可按权限新增选项 |
 | 基本设置 | `/system/config`、`/system/dictionary`、`/system/audit-template`、`/system/permissions` | 设置旧地址进入基本设置原有页签，字典旧地址进入人事部门维护；审核模板旧页面仍只读 |
 | 人事 | `/hr/profile` | 本人基础资料只读；补充资料按模板填写、保存或提交审核并回读 |
 | 兼容跳转 | `/switch`、`/account-security` | 与小程序同名页面的跳转 |
