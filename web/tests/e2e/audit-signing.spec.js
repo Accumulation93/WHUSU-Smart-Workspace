@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import copy from '../../src/locales/zh-CN/index.js';
 import text from '../../src/locales/zh-CN/shared/auditSigning.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 import { mockApi, submissionDetail, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 async function setup(page, options = {}) {
@@ -336,7 +337,8 @@ test('文件加载失败时禁止确认和落笔，原地重试恢复', async ({
 });
 test('审批拒绝保留书写，成功后读取失败只重读且不能重复审批', async ({ page }) => {
   const state = await setup(page); await enter(page); await stroke(page); await page.getByRole('button', { name: text.confirm, exact: true }).click();
-  state.refused = true; await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click(); await expect(page.locator('.notice-line', { hasText: '本步骤暂不能处理' })).toBeVisible();
+  state.refused = true; await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click(); await expect(page.locator('.notice-line', { hasText: feedback.forbidden })).toBeVisible();
+  await expect(page.getByText('本步骤暂不能处理', {exact:true})).toHaveCount(0);
   await enter(page); await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeEnabled(); await page.getByRole('button', { name: text.confirm, exact: true }).click();
   state.refused = false; state.failRead = true; await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect(page.getByRole('button', { name: copy.audit.actionApprove, exact: true })).toBeDisabled();

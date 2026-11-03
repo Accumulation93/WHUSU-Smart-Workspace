@@ -1,3 +1,3 @@
-<include src="./adminWorkbenchContent.wxml" />
-<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+<include src="../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchContent.wxml" />
+<wxs module="gradeBandWxs" src="../../package-resources/subpackages/scoring/pages/admin/gradeBand.wxs"></wxs>
 <wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>

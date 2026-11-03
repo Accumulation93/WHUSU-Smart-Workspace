@@ -1,5 +1,5 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
@@ -114,7 +114,7 @@ Page({
           this._openPendingBooking(bookings);
         });
       } else {
-        showShortToast(res.message || localeCopy.copy_e52119b17e);
+        showShortToast(localeCopy.copy_e52119b17e);
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
@@ -196,7 +196,7 @@ Page({
         try {
           const res = await callFunction({ name: 'cancelVenueBooking', data: { id } });
           if (res.status === 'success') {
-            showShortToast(res.message || localeCopy.copy_fd4601c1f9);
+            showShortToast(localeCopy.copy_fd4601c1f9);
             let bookings = that.data.bookings.map(function(b) {
               return b.id === id ? decorateBooking(Object.assign({}, b, { status: 'cancelled' })) : b;
             });
@@ -205,7 +205,7 @@ Page({
             eventBus.emit('venue:changed', { reason: 'cancel', bookingId: id });
             eventBus.emit('approval:done');
           }
-          else showShortToast(res.message);
+          else showShortToast(getErrorText(createResultError(res, localeCopy.copy_301f0250ef)));
         } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_301f0250ef)); }
       }
     });
@@ -233,12 +233,12 @@ Page({
         try {
           const res = await callFunction({ name: 'endVenueBooking', data: { id } });
           if (res.status === 'success') {
-            showShortToast(res.message || localeCopy.endSuccess);
+            showShortToast(localeCopy.endSuccess);
             await that.loadBookings();
             eventBus.emit('venue:changed', { reason: 'end', bookingId: id });
             eventBus.emit('approval:done');
           } else {
-            showShortToast(res.message || localeCopy.operationFailed);
+            showShortToast(getErrorText(createResultError(res, localeCopy.operationFailed)));
           }
         } catch (error) {
           showShortToast(getErrorText(error, localeCopy.operationFailed));

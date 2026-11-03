@@ -125,8 +125,11 @@ async function write(name, data, confirmation) {
   try {
     if (confirmation && !await confirmAction({ title: confirmation.title || ui.copy_7f31eec657, body: confirmation.body, danger: true, confirmText: copy.common.confirm, cancelText: copy.common.cancel })) return;
     if (!current() || !permitted()) return;
-    const result = requireSuccess(await callApi(name, data)); if (!current()) return;
-    awaitingRead.value = true; await load(); if (current()) showToast(result.message || ui.copy_5398fec054);
+    requireSuccess(await callApi(name, data)); if (!current()) return;
+    awaitingRead.value = true; await load();
+    const successText = { saveVenueApprovalWholeFlow: ui.approvalFlowSaved, saveVenueApprovalFlowMeta: ui.approvalFlowSaved,
+      saveVenueBookingRule: ui.bookingRuleSaved, deleteVenueApprovalFlow: ui.approvalFlowDeleted, deleteVenueBookingRule: ui.bookingRuleDeleted }[name];
+    if (current() && successText) showToast(successText);
   } catch (error) { if (current()) notice.value = errorText(error, ui.copy_215e3c57da); }
   finally { if (current()) busy.value = false; }
 }

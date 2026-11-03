@@ -1,6 +1,7 @@
 import text from '@/locales/zh-CN/shared/generated/subpackages/venue/utils/venueBookingDetail.js';
 import detailText from '@/locales/zh-CN/shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
 import { formatListTime } from './dateTime.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 
 export function venueStatus(booking) {
   if (booking.status !== 'approved') return booking.status || 'pending';
@@ -26,7 +27,7 @@ export function venueProgress(raw) {
   const isApproved = !isRejected && (Boolean(raw.isApproved) || currentStep >= totalSteps);
   return { ...raw, flowId, snapshots, totalSteps, currentStep, isRejected, isApproved,
     percent: isRejected ? 0 : isApproved ? 100 : Math.round(currentStep / totalSteps * 100),
-    text: isRejected ? text.copy_fb1a45d8be : isApproved ? text.copy_7602388726 : text.copy_29ec8299c4 + currentStep + '/' + totalSteps + text.copy_3cd1b8dd73 };
+    text: isRejected ? text.copy_fb1a45d8be : isApproved ? text.copy_7602388726 : factsCopy.completedSteps(currentStep, totalSteps) };
 }
 export function venueTimeRange(booking) {
   const start = formatListTime(booking.fullTimeStart || booking.timeStart, booking.fullTimeStart ? booking.fullTimeStartReviewStatus : booking.timeStartReviewStatus);

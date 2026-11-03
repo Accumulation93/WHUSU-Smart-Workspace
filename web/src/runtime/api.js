@@ -1,7 +1,15 @@
 import { WEB_CLIENT_TYPE, WEB_CLIENT_VERSION } from './version.js';
 import copy from '@/locales/zh-CN/index.js';
-import { isAuthEntry, isIdempotentWrite } from '@/shared/apiContracts.js';
+import { isAuthEntry, isIdempotentWrite, isReadOnly } from '@/shared/apiContracts.js';
 import { setSystemTimezoneConfig } from './dateTime.js';
+import feedbackCopy from '@/locales/zh-CN/shared/requestFeedback.js';
+import responseMessages from '@/locales/zh-CN/shared/responseMessages.js';
+import { feedbackText as resolveFeedback, presentResult, resultCode } from '@/shared/responseFeedback.js';
+import { createVenueFactsView } from '@/shared/venueFactsView.js';
+import venueFacts from '@/locales/zh-CN/shared/venueFacts.js';
+import venueStatuses from '@/locales/zh-CN/shared/generated/subpackages/venue/utils/venueBookingDetail.js';
+import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
+const venueView = createVenueFactsView(venueFacts, venueStatuses, venueCopy.copy_a1f843d887);
 
 /**
  * 网页接口调用入口。
@@ -14,6 +22,12 @@ import { setSystemTimezoneConfig } from './dateTime.js';
 const API_BASE = '/api/';
 
 let authenticationLostHandler = null;
+const localErrors = new WeakSet();
+const responseContexts = new WeakMap();
+
+function feedbackText(result, corpus, options) {
+  return resolveFeedback(result, corpus, Object.assign({ messages: responseMessages }, options));
+}
 
 export function setAuthenticationLostHandler(handler) {
   authenticationLostHandler = typeof handler === 'function' ? handler : null;
@@ -29,7 +43,20 @@ function apiError(fields) {
   error.statusCode = fields.statusCode || 0;
   error.requestId = fields.requestId || '';
   error.silent = fields.silent === true;
+  error.code = fields.code || fields.status || '';
+  localErrors.add(error);
   return error;
+}
+
+export function createLocalError(message) {
+  return apiError({ message });
+}
+
+export function createResultError(result, fallback) {
+  return apiError({
+    code: resultCode(result), status: result?.status, requestId: result?.requestId,
+    message: feedbackText(result, feedbackCopy, Object.assign({}, responseContexts.get(result), { fallback }))
+  });
 }
 
 /** 接口响应里带着当前系统时区配置，任何一次响应都可以刷新它。 */
@@ -49,13 +76,11 @@ function captureSystemTimezone(result) {
   }
 }
 
-function failureMessage(name, statusCode, result) {
+function failureMessage(name, statusCode, result, payload) {
   if (statusCode === 401) return copy.errors.sessionExpired;
   if (statusCode === 426) return copy.errors.upgradeRequired;
   if (result && result.status === 'origin_not_allowed') return copy.errors.originRejected;
-  if (statusCode === 403) return result && result.message ? result.message : copy.errors.permissionDenied;
-  if (statusCode === 0) return copy.errors.networkFailed;
-  return (result && result.message) || copy.errors.requestFailed;
+  return feedbackText(result, feedbackCopy, { statusCode, readOnly: isReadOnly(name, payload) });
 }
 
 export async function callApi(name, data, options) {
@@ -73,6 +98,7 @@ export async function callApi(name, data, options) {
         'Content-Type': 'application/json',
         'X-Client-Type': WEB_CLIENT_TYPE,
         'X-Client-Version': WEB_CLIENT_VERSION,
+        'X-Response-Format': 'codes-v1',
         'X-Request-Id': requestId
       },
       body: JSON.stringify(payload),
@@ -84,7 +110,7 @@ export async function callApi(name, data, options) {
     }
     throw apiError({
       status: 'network_failed',
-      message: copy.errors.networkFailed,
+      message: feedbackText(null, feedbackCopy, { readOnly: isReadOnly(name, payload) }),
       requestId
     });
   }
@@ -98,12 +124,18 @@ export async function callApi(name, data, options) {
   if (!result || typeof result !== 'object') result = {};
   captureSystemTimezone(result);
 
-  if (response.ok) return result;
+  if (response.ok) {
+    const context = { readOnly: isReadOnly(name, payload) };
+    const presented = venueView.response(name, presentResult(result, feedbackCopy, Object.assign({ messages: responseMessages }, context)));
+    responseContexts.set(presented, context);
+    return presented;
+  }
 
   const failure = apiError({
     status: result.status || '',
+    code: resultCode(result),
     statusCode: response.status,
-    message: failureMessage(name, response.status, result),
+    message: failureMessage(name, response.status, result, payload),
     requestId: (result && result.requestId) || requestId
   });
   if (failure.status === 'origin_not_allowed') {
@@ -122,13 +154,13 @@ export async function callApi(name, data, options) {
 
 export function errorText(error, fallback) {
   if (error && (error.silent || error.status === 'request_cancelled')) return '';
-  const text = String((error && error.message) || '').trim();
-  return text || fallback || copy.errors.requestFailed;
+  if (error && localErrors.has(error)) return error.message || fallback || feedbackCopy.unsupportedResult;
+  return feedbackText(error, feedbackCopy, { fallback });
 }
 
 export function requireSuccess(result, fallback) {
   if (!result || result.status !== 'success') {
-    throw apiError({ status: result?.status, message: result?.message || fallback || copy.errors.requestFailed });
+    throw createResultError(result, fallback);
   }
   return result;
 }

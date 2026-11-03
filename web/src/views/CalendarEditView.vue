@@ -4,6 +4,7 @@
     <AppLoading v-if="loading || busy" :text="busy ? copy.saving : copy.loading" /><p v-if="notice" class="notice-line" role="alert">{{ notice }}</p><button v-if="failed" class="btn btn-secondary" @click="load">{{ copy.retry }}</button>
     <form v-if="!loading && !failed" class="card stack" @submit.prevent="save">
       <h2 class="section-title">{{ sourceKind ? copy.participants : (draft.id ? copy.edit : copy.create) }}</h2>
+      <p v-if="sourceKind" class="muted">{{ copy.participationOnly }}</p>
       <template v-if="!sourceKind">
         <label class="field"><span class="field-label">{{ copy.name }}</span><input v-model="draft.title" class="field-input" :disabled="blocked" required /></label>
         <label class="field"><span class="field-label">{{ copy.location }}</span><input v-model="draft.location" class="field-input" :disabled="blocked" /></label>

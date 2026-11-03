@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import text from '../../src/locales/zh-CN/shared/adminGovernance.js';
+import responseMessages from '../../src/locales/zh-CN/shared/responseMessages.js';
 
 test('rule deletion alone cannot open booking records or approvals', async ({ page }) => {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -46,7 +47,8 @@ for (const kind of ['audit', 'venue']) {
     expect(writes).toBe(0);
     await button.click();
     await dialog.getByRole('button', { name: text.deleteConfirm, exact: true }).click();
-    await expect(page.getByText('Record changed', { exact: true })).toBeVisible();
+    await expect(page.getByText(responseMessages.record_changed, { exact: true })).toBeVisible();
+    await expect(page.getByText('Record changed', { exact: true })).toHaveCount(0);
     await expect(page.getByText(row.title, { exact: true })).toBeVisible();
     await button.click();
     await dialog.getByRole('button', { name: text.deleteConfirm, exact: true }).click();

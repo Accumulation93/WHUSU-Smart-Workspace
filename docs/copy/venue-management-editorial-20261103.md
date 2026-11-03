@@ -1,0 +1,366 @@
+# 场地管理语言逐项审稿
+
+源 `generated/subpackages/venue/pages/venueManage/venueManage.js`。场地开放时间与申请提交时间分开；共享场地排期不写成本组织私有规则。管理员审批仍需真实处理权限，不以“任一管理员”绕过权限。按源顺序逐项登记。
+
+## 服务端成功结果的前端专用语料
+
+仅在具体接口明确成功后使用，不从server.message猜动作。混合入口write必须按实际endpoint选，不笼统“操作成功”。多步骤执行只完成第一步不能套整体成功。
+
+| 新键 | 定稿 | 对应动作 |
+|---|---|---|
+| venueSaved | 场地已保存 | 场地新增／编辑 |
+| venueDeleted | 场地已删除 | 场地删除 |
+| openRuleSaved | 开放时间规则已保存 | 开放规则新增／编辑 |
+| openRuleDeleted | 开放时间规则已删除 | 开放规则删除 |
+| activityRuleSaved | 活动占用规则已保存 | 重复活动规则新增／编辑 |
+| activityRuleDeleted | 活动占用规则已删除 | 活动规则删除 |
+| bookingRuleSaved | 借用规则已保存 | 借用规则新增／编辑 |
+| bookingRuleDeleted | 借用规则已删除 | 借用规则删除 |
+| approvalFlowSaved | 审批流程已保存 | 审批流程保存 |
+| approvalFlowDeleted | 审批流程已删除 | 审批流程删除 |
+| approvalStepSaved | 审批步骤已保存 | 步骤保存 |
+| approvalStepDeleted | 审批步骤已删除 | 步骤删除 |
+| purposeSaved | 借用事由已保存 | 常用事由保存 |
+| purposeDeleted | 借用事由已删除 | 常用事由删除 |
+| bookingCreated | 借用已创建并生效 | 管理免审创建接口明确approved |
+| bookingCancelled | 借用已取消 | 取消借用 |
+| bookingEnded | 场地使用已结束 | 提前结束 |
+| bookingRejected | 借用申请已驳回 | 驳回 |
+| bookingApprovalStepPassed | 当前审批步骤已通过 | 一步审批成功，不保证整单已通过 |
+| bookingApproved | 借用申请已通过 | 结果明确整单approved才用 |
+| bookingTimeSaved | 借用时间已保存 | 修改借用时间 |
+| bookingWindowSaved | 借用申请的提交时间限制已保存 | saveVenueBookingWindow；不改变某条借用的实际时间 |
+
+若web write调用还含未列出的动作，应补对应事实，不用保存替代删除或创建。参数允许返回业务名可以独立显示，不把名称拼成服务端提示。
+
+| 键 | 定稿／处理 |
+|---|---|
+| timelineTicks | 保留时间刻度数组0:00、6:00、12:00、18:00、24:00 |
+| bookingPurposeDeletePrefix | 删除片段，使用bookingPurposeDelete(name)完整句 |
+| bookingPurposeDeleteSuffix | 删除片段；完整句：是否删除常用事由“{name}”？已被借用记录使用的事由不能删除。 |
+| bookingPurposeTooLong | 事由内容过长，请缩短后再保存（最大长度：200）。 |
+| approverAssignment | 处理岗位： |
+| bookingAssignment | 提交岗位 |
+| copy_00c8a8f256 | 全选 |
+| copy_017e3df1a1 | 周四 |
+| copy_02202fc2dc | 按步骤审批 |
+| copy_02419589be | 部门 |
+| copy_02719d6557 | 场地管理 |
+| copy_04d00bdf17 | 退回条件碎片，按具体维度显示不限部门／不限身份类别／不限职能组 |
+| copy_05302eb150 | 退回日期片段，新增 monthlyDateRange(month,startDay,endDay)：{month}月{startDay}日至{endDay}日。用于每月日期范围，不补不存在的年份。 |
+| copy_0531ed9e78 | 本次操作未获通过，请刷新后查看。（未知写结果必须公共反馈） |
+| copy_05c1604f42 | 使用场地 |
+| copy_0619714b64 | 不设置限制时，活动按所选周期持续重复；如需限制，请选择日期范围或重复次数中的一种。 |
+| copy_06426d6c41 | 暂无活动占用规则 |
+| copy_06a9527bac | 每月 |
+| copy_06dbb49961 | 取消 |
+| copy_076bb5d383 | 删除未获通过，请刷新列表后查看。 |
+| copy_082455b28c | 审批流程已新增 |
+| copy_09614cef6c | 关闭 |
+| copy_0b091cba77 | 结束时间必须晚于开始时间，请重新选择。 |
+| copy_0b739125af | 每次活动的结束时间 |
+| copy_0bc4f8819b | 按提前天数 |
+| copy_0c90eb0204 | 驳回 |
+| copy_0cedad90e4 | 选择身份类别 |
+| copy_0de5656de5 | 请切换到有权管理场地的工作角色。 |
+| copy_13293d504a | 每天 |
+| copy_1376e7cf03 | 请填写审批步骤名称。 |
+| copy_1557dfea5c | 设置审批岗位的部门范围 |
+| copy_168587d3a1 | 日 |
+| copy_16fc906860 | 编辑审批步骤 |
+| copy_188a745e76 | 补充场地使用说明 |
+| copy_19aa0fdb46 | 删除后，这个审批流程及其步骤、规则都会移除。 |
+| copy_1a6678cddf | 每周 |
+| copy_1aba371667 | 新增审批流程 |
+| copy_1ba7eec34e | 编辑场地 |
+| copy_1bb7eb3e1a | 通过 |
+| copy_1c5bbf664c | 已借用 |
+| copy_1deb0dba7e | 与借用岗位的身份类别相同 |
+| copy_1ede7526e5 | 退回日期范围“从”片段，使用完整时间范围 |
+| copy_20ba89a1cc | 借用管理 |
+| copy_20f94d2c18 | 编辑 |
+| copy_215e3c57da | 设置未能保存，请检查填写内容。 |
+| copy_2220286f1c | 已完成 |
+| copy_23f77c8074 | 删除未引用旧语料 |
+| copy_2406186d54 | 请先保存或取消编辑，再切换工作角色。 |
+| copy_257b230e01 | 维护场地资料、开放时间和借用审批流程。 |
+| copy_258347beac | 指定职能组 |
+| copy_259bd6c893 | 编辑借用事由 |
+| copy_25e1199dc3 | 说明 |
+| copy_26f68cb229 | 借用时间已保存 |
+| copy_27e5395986 | 更新 |
+| copy_28981b382e | 暂无借用记录 |
+| copy_28ed0d6bf2 | 添加日期范围 |
+| copy_2a0e50c5f6 | 清除 |
+| copy_2b4cce7bb9 | 开始时间 |
+| copy_2b4df49497 | 未设置 |
+| copy_2bd6adcbb9 | 结束时间 |
+| copy_2c3fe5c873 | 重复活动的起始日期 |
+| copy_2c67faf1c7 | 与借用岗位的职能组相同 |
+| copy_2cae5f609b | 场地位置 |
+| copy_2ea7993cca | 结束的月日不能早于开始的月日，请重新选择。 |
+| copy_2f48862253 | 周三 |
+| copy_2fda3d6579 | 保存步骤 |
+| copy_303b7a8611 | 职能组 |
+| copy_310413445b | 个审批步骤 |
+| copy_310d71700e | 待审批 |
+| copy_31b34bfc08 | 开始日期 |
+| copy_31d4595959 | 全部 |
+| copy_33109cf15b | 拖动滑块或输入开始和结束时间。 |
+| copy_34e2d1f8a0 | 组织 |
+| copy_35d04fd49e | 删除按钮计数片段，按钮固定“确认选择”，数量独立显示 |
+| copy_37ad645951 | 与借用岗位的部门相同 |
+| copy_391b522838 | 日程 |
+| copy_391bf52121 | 步骤名称与审批条件 |
+| copy_39fcaa02ad | 借用日期 |
+| copy_3b3b392755 | 审批意见： |
+| copy_40859eeee7 | 尚未保存的修改 |
+| copy_40d594ac66 | 借用详情 |
+| copy_41a9548e60 | 周五 |
+| copy_41c20cc066 | 审批意见 |
+| copy_4202a27ca6 | 时间（实际排期表头、借用详情和审批弹窗共用；各区域标题明确对象） |
+| copy_42c145fb7a | 选择部门 |
+| copy_438913e441 | 月 |
+| copy_43c26e4c16 | 选择身份类别 |
+| copy_4514e50856 | 请填写场地名称。 |
+| copy_4584f01925 | 设置重复活动的有效日期范围。 |
+| copy_474f638a6f | 身份类别 |
+| copy_493a127a99 | 步 |
+| copy_49c0b6fb34 | 编辑规则 |
+| copy_49eedaa56d | 活动 |
+| copy_49ef170f0b | 确认通过 |
+| copy_4aaadf87a1 | 结束时间 |
+| copy_4c3db5642e | 最早提交时间 |
+| copy_4d7c82caea | 日期范围 |
+| copy_4edcf754ff | 收起详情 |
+| copy_4f15bb9939 | 直接通过 |
+| copy_4f57bde8f7 | 分 |
+| copy_4f9ebda03b | 添加 |
+| copy_4fd7b5de41 | 新增 |
+| copy_50b84a6406 | 例如：工作日开放 |
+| copy_523e44b520 | 借用规则 |
+| copy_5398fec054 | 已删除 |
+| copy_560bd817fb | 请先选择开始时间。 |
+| copy_56feddb4d3 | 借用 |
+| copy_57ce9ac750 | 例如：部门例会 |
+| copy_59799547cb | 使用venueBooking.weekFrom(date)完整周标题 |
+| copy_5bb8799355 | 退回周期前缀，需完整周期说明 |
+| copy_5c507fbab7 | 重复方式 |
+| copy_5d5af942c5 | 已驳回 |
+| copy_5da3188f19 | 是否删除这个场地审批流程？ |
+| copy_5e2a277742 | 暂无开放时间规则 |
+| copy_5e9f82c1cf | 暂无场地 |
+| copy_5f360abfe1 | 小时 |
+| copy_61960b0ff3 | 新增开放时间规则 |
+| copy_62676bc383 | 不限制 |
+| copy_62a9684fcb | 尚未设置借用规则，借用将由有审批权限的管理员处理。（原默认流程事实保持，不能任意管理员） |
+| copy_630a85182f | 从所选开始时间起，按设定次数重复。 |
+| copy_638da8ae60 | 武汉大学学生会 |
+| copy_640342a015 | 指定身份类别 |
+| copy_644b2a280c | 查看借用记录，并处理当前组织中待你审批的申请。 |
+| copy_64af7c9964 | 新增规则 |
+| copy_652116de6d | 日期范围 |
+| copy_689e8f08db | 驳回借用申请 |
+| copy_6980750e90 | 活动时间 |
+| copy_6a72419c84 | 未开放 |
+| copy_6ba7eb982c | 已取消 |
+| copy_6ce770a0a6 | 请先选择日期。 |
+| copy_6cf453f19a | 按重复次数 |
+| copy_6e6ee2b747 | 场地开放时间 |
+| copy_6ee8d85d0a | 选择部门 |
+| copy_6f2d641ad8 | 借用管理 |
+| copy_6f806672e2 | 允许申请人选择审批流程 |
+| copy_70ae057f15 | 名称 |
+| copy_70d4911767 | 使用venueBooking.venueClosedAt(time)完整句 |
+| copy_717083eab1 | 分 |
+| copy_766176221d | 新增 |
+| copy_76c76a4d37 | 尚未设置审批流程，可新增流程并配置步骤。 |
+| copy_777a6a2574 | 指定审批岗位（网页person模式实际选择assignments并提交approverAssignmentId，兼容hrId不改变岗位语义） |
+| copy_789e05b4e1 | 占用时段 |
+| copy_7963fb24a5 | 添加审批步骤 |
+| copy_797923e7ce | 不设置时，不限制申请最早可以提前多久提交。 |
+| copy_79b93c0b36 | 上移 |
+| copy_7ae01e1929 | 尚未添加规则 |
+| copy_7bbe7387fa | 小时 |
+| copy_7c25b53857 | 本次占用 |
+| copy_7db68605c6 | 请填写借用事由。 |
+| copy_7de8083e58 | 审批岗位条件 |
+| copy_7df1ffb06a | 下移 |
+| copy_7e6312cdad | 最晚提交时间 |
+| copy_7f31eec657 | 确认删除 |
+| copy_8134da5aa0 | 选择日期 |
+| copy_824768a506 | 所选日期没有可借用时段，请选择其他日期。 |
+| copy_835048fcaf | 全部 |
+| copy_8516d4b714 | 场地说明 |
+| copy_858ac5210a | 已通过 |
+| copy_866290fa02 | 审批人： |
+| copy_890d7f4874 | 场地审批流程 |
+| copy_89a1221d70 | 设置审批岗位的职能组范围 |
+| copy_8a0b0acde8 | 仅所选日期 |
+| copy_8aa6e63e5e | 已借用 |
+| copy_8aeb2085ee | 选择星期 |
+| copy_8aee737e64 | 状态 |
+| copy_8b191a40d9 | 用户借用申请 |
+| copy_8bc3aa5b58 | 正在加载名称 |
+| copy_8dcf3fcf0b | 借用事由管理 |
+| copy_8ec6962e84 | 是否删除这个场地？ |
+| copy_8ed5dab532 | 场地名称 |
+| copy_8f73640107 | 待审批 |
+| copy_904f6072c4 | 新增审批步骤 |
+| copy_9084e6bc76 | 每年 |
+| copy_90f94d6263 | 详细说明（选填） |
+| copy_915ca9ad86 | 从所选起始日期开始，按设定的周期重复。 |
+| copy_91fd6d9600 | 借用时间 |
+| copy_92af9d9017 | 周一 |
+| copy_9384e056f9 | 与借用岗位的职能组相同 |
+| copy_93c50c01c0 | 第 |
+| copy_961862242a | 取消全选 |
+| copy_9639901862 | 借用申请 |
+| copy_96aab98a23 | 符合任意一组条件即可 |
+| copy_96eaa4c0be | 正在查询可借用时段 |
+| copy_97d10704ef | 审批规则 |
+| copy_9835b165c7 | 新审批流程 |
+| copy_9882d5696d | 删除按钮数量片段，独立摘要显示 |
+| copy_9aa3c3673c | 添加 |
+| copy_9ba3b8c8a9 | 场地借用 |
+| copy_9bec99c980 | 结束日期 |
+| copy_9c9358d025 | 为每个步骤设置可以审批的岗位。 |
+| copy_9d1ff80fae | 请选择日期。 |
+| copy_9d73203530 | 尚未设置日期范围 |
+| copy_9dc5c7d79f | 请补全表单中的必填内容。（具体缺项优先逐字段提示） |
+| copy_9dfd1d5a78 | 请先选择结束日期。 |
+| copy_9e545997b0 | 步 |
+| copy_a1f843d887 | 已占用 |
+| copy_a63100b45d | 通过借用申请 |
+| copy_a78ce83cab | 新增场地 |
+| copy_a7c33c8fee | 尚未添加日期范围 |
+| copy_a814b25100 | 周日 |
+| copy_a93266a8d4 | 请说明驳回原因，例如：时间冲突，请调整借用时间。 |
+| copy_a957bd837e | 日 |
+| copy_a97eb08acb | 事由内容 |
+| copy_a9a18dd6e8 | 借用规则 |
+| copy_aa4f0ed6cd | WHUSU智慧工作台 |
+| copy_ab2fdb5e0e | 每次活动的开始时间 |
+| copy_abf766aebc | 使用venueBooking.occupiedRange(time)完整句 |
+| copy_ac4d7a45e0 | 例如：部门负责人审批 |
+| copy_ac9827b75d | 保存借用时间 |
+| copy_acc985cabc | 删除 |
+| copy_acd4c5c171 | 活动 |
+| copy_ad310c8780 | 使用中 |
+| copy_af20193574 | 管理员审批 |
+| copy_af50edfca3 | 设置审批岗位的身份类别范围 |
+| copy_b1545efd70 | 最早提交时间不能晚于最晚提交时间，请调整。 |
+| copy_b3604f443f | 指定部门 |
+| copy_b439065096 | 提交后，借用直接生效。（仅管理免审创建） |
+| copy_b55eac70b1 | 暂无常用事由 |
+| copy_b7adca39ec | 已驳回 |
+| copy_b856d92ba6 | 由有权审批的管理员处理 |
+| copy_b8c87b0fb5 | 未设置结束日期 |
+| copy_b9966da09b | 地点 |
+| copy_baec508307 | 查看详情 |
+| copy_bb2dcb8a98 | 与借用岗位的部门相同 |
+| copy_bbb0cc00c9 | 借用事由 |
+| copy_bbbebc1abf | 场地 |
+| copy_bc011e4e3b | 部门 |
+| copy_bc3fac7db2 | 填写重复次数 |
+| copy_bd8dff5ca7 | 当前工作角色没有场地管理权限。 |
+| copy_bddb855314 | 审批意见（选填） |
+| copy_bdfe30a344 | 不设置时，可在借用开始前提交申请。 |
+| copy_be736f763d | 职能组 |
+| copy_bef4bbef62 | 例如：同意借用。 |
+| copy_bff49f783f | 本次操作未获通过，请刷新后查看。（仅明确拒绝） |
+| copy_c013e80e7c | 新增借用规则 |
+| copy_c01a9aef59 | 管理员 |
+| copy_c1392f7fda | 月 |
+| copy_c18d8cf657 | 时间范围 |
+| copy_c1961a2760 | 继续编辑 |
+| copy_c1965e0690 | 身份类别 |
+| copy_c1ce05d451 | 该时段已安排活动，请选择不重叠的借用时段。 |
+| copy_c312b03c06 | 新增借用事由 |
+| copy_c38d25de0f | 新增活动占用 |
+| copy_c38fbdddf0 | 删除已选数量片段，改独立摘要 |
+| copy_c3aaf70869 | 当前审批步骤 |
+| copy_c40bf9d8f0 | 活动重复限制（选填） |
+| copy_c44dbba9e9 | ␠至␠ |
+| copy_c46b04a9c5 | 该时段已被占用，请选择其他时段。 |
+| copy_c47f370afa | 选择 |
+| copy_c4df6642e3 | 活动占用详情 |
+| copy_c5aa06059a | 次 |
+| copy_c5d9511809 | 说明 |
+| copy_c5dd070c37 | 审批步骤名称 |
+| copy_c5ec30e07d | 审批类型 |
+| copy_c701dd2fcc | 保存场地 |
+| copy_c70f4ff52a | 指定审批岗位（实际assignment选择模式） |
+| copy_c7be2409d1 | 正在编辑借用事由 |
+| copy_c84650778a | 与借用岗位的身份类别相同 |
+| copy_c9c991ff82 | 退回校验前缀，新增 departmentWorkGroupRequired(name)：请为“{name}”至少选择一个职能组。仅在该已选部门存在可选职能组时使用。 |
+| copy_ca51b9c6c6 | 与5bb合并为repeatFrom(date)：从 {date} 开始重复 |
+| copy_caa70e7c13 | 场地开放时间 |
+| copy_cb696a9796 | 选择或填写借用事由 |
+| copy_cbbf92860a | 没有符合筛选条件的选项 |
+| copy_ccd219e5f1 | 超级管理员 |
+| copy_ccd4af477f | 借用申请未获提交，请检查填写内容。（明确拒绝才用） |
+| copy_cd42af3f87 | 确认驳回 |
+| copy_cd44fc09e3 | 重复活动的截止日期 |
+| copy_ce171a2581 | 已通过 |
+| copy_ce30bda5a2 | 借用人 |
+| copy_cea1da7603 | 搜索 |
+| copy_ceffdfcdd7 | 场地管理 |
+| copy_d2a13af3e2 | 活动时段（网页VenueActivityDetail仍在无具体occurrence时显示time，保留；不称每日，周期规则可能并非每天执行） |
+| copy_d37b64cc9d | 借用事由管理 |
+| copy_d4475123b9 | 例如：部门例会 |
+| copy_d4d4bfdeda | 设置申请人可选的常用借用事由。 |
+| copy_d52606f8f8 | 其他组织的借用仅显示占用时段。 |
+| copy_d63e494e70 | 时 |
+| copy_d71ef091dd | 输入关键词 |
+| copy_d862a02c58 | 至 |
+| copy_dae9f72578 | 未限制重复结束日期或次数 |
+| copy_dc59906817 | 已完成 |
+| copy_dcadcebf08 | 审批时间： |
+| copy_de00c3e48a | 页面资料已变化，请刷新后查看。 |
+| copy_deb776d2af | 开始时间 |
+| copy_df031d471b | 确认借用 |
+| copy_e040ae3016 | 编辑 |
+| copy_e168d7f67e | 使用中 |
+| copy_e3233a4b58 | 周二 |
+| copy_e36c6c6875 | 添加规则 |
+| copy_e52119b17e | 退回通用重试，按实际读取或写入使用公共反馈 |
+| copy_e5b5701d94 | 选择职能组 |
+| copy_e75039f02b | 我知道了 |
+| copy_e7f0a24301 | 待我审批 |
+| copy_e8d9493a44 | 至 |
+| copy_e90ee137d6 | 活动规则会占用相应场地时段，借用不能与这些时段重叠。 |
+| copy_ea512602ff | 规则管理 |
+| copy_eaa89ea408 | 按提前时长 |
+| copy_eb3a2a30a8 | 空闲 |
+| copy_eb5f7de0a2 | 重复次数 |
+| copy_ebc28de1cf | 按有效日期范围 |
+| copy_ebe09ed8ec | 这个活动会占用上述场地时段，借用不能与其重叠。 |
+| copy_ec235d40d8 | 时间轴 |
+| copy_eeb5f0e78e | 重复活动有效期： |
+| copy_eed7859498 | 选择职能组 |
+| copy_ef53c6fd58 | 未命名 |
+| copy_ef8b7ffa9b | 第 |
+| copy_efffdc0050 | 场地列表 |
+| copy_f10a13b6e1 | 规则 |
+| copy_f2c74088c9 | 周六 |
+| copy_f54e24d97d | 未设置开始日期 |
+| copy_f600823615 | 改approvalStepTitle(order)：第 {order} 步审批 |
+| copy_f7597cecf5 | 保存规则 |
+| copy_f81bcf5295 | 请先保存修改。 |
+| copy_fa045c9cde | 按身份类别确定审批岗位 |
+| copy_faae685bfa | 当前可审批的岗位范围 |
+| copy_fbf78f3644 | 活动占用规则 |
+| copy_fc99c4cc7b | 正在加载场地管理资料 |
+| copy_fd31650797 | 普通管理员 |
+| copy_fd4601c1f9 | 已取消 |
+| copy_fdb45fb38f | 请填写借用事由。 |
+| copy_fe59d1afcd | 不设置 |
+| allowDesignateFirstApprover | 允许发起人指定第一步审批岗位 |
+| allowDesignateNextApprover | 允许处理人指定下一步审批岗位 |
+| numericZeroPlaceholder | 0 |
+| venueStartTimePlaceholder | 09:00 |
+| venueEndTimePlaceholder | 18:00 |
+| navigationTitle | 场地管理 - WHUSU智慧工作台 |
+
+整份源已逐键登记，待核选择模式、日期边界以及碎片格式参数仍不能默认批准。保存、创建、删除、审批成功采用本稿开头专用语料，运行时不能直接输出服务端message。普通场地规则说明不应夸大管理资格；允许选择审批人也不等于可指定任意人。

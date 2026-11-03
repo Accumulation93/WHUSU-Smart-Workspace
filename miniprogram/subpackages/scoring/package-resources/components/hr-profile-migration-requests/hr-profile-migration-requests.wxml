@@ -18,7 +18,7 @@
   <view class="hr-switch-source" wx:for="{{myRequests}}" wx:key="id">
     <view class="hr-switch-source-head">
       <view class="hr-template-card-name">{{item.sourceOrgName}} {{item.targetOrgName}}</view>
-      <view class="status-chip none-chip">{{item.statusText}}</view>
+      <view class="status-chip none-chip">{{item.status === 'pending' ? copy.statusPending : item.status === 'executed' ? copy.statusExecuted : item.status === 'rejected' ? copy.statusRejected : item.status === 'cancelled' ? copy.statusCancelled : copy.statusUnknown}}</view>
     </view>
     <view class="hr-template-meta">{{copy.peoplePrefix}}{{item.personCount}}{{copy.peopleSuffix}}</view>
     <view class="hr-switch-delete-warning" wx:if="{{item.rejectReason}}">{{item.rejectReason}}</view>

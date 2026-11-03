@@ -1,4 +1,4 @@
-const adminWorkbenchBehavior = require('./adminWorkbenchBehavior');
+const adminWorkbenchBehavior = require('../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior');
 
 Component({
   options: { styleIsolation: 'apply-shared' },

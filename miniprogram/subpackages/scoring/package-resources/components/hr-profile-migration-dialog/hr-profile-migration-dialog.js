@@ -1,3 +1,4 @@
+const validationCopy = require('../../locales/zh-CN/hrValueValidation');
 Component({
   properties: {
     visible: { type: Boolean, value: false },
@@ -10,12 +11,13 @@ Component({
     selectedMembers: { type: Array, value: [] },
     sourceIndex: { type: Number, value: 0 },
     sourceOrgName: { type: String, value: '' },
+    targetOrgName: { type: String, value: '' },
     hasToken: { type: Boolean, value: false },
     fieldPlan: { type: Array, value: [] },
     report: { type: Array, value: [] },
     conflicts: { type: Array, value: [] }
   },
-  data: { memberPickerVisible: false },
+  data: { memberPickerVisible: false, validationCopy },
   methods: {
     onSourceChange(e) {
       this.triggerEvent('sourcechange', { index: Number(e.detail.value) });
@@ -49,9 +51,10 @@ Component({
       this.triggerEvent('preview');
     },
     onApply() {
-      if (this.data.loading || this.data.submitting || !this.data.hasToken) return;
+      if (this.data.loading || this.data.submitting || !this.data.hasToken || this.data.report.length) return;
       this.triggerEvent('apply');
     },
+    onBackToEdit() { if (!this.data.loading && !this.data.submitting) this.triggerEvent('backtoedit'); },
     onClose() {
       if (this.data.loading || this.data.submitting) return;
       this.setData({ memberPickerVisible: false });

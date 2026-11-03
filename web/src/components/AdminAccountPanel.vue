@@ -30,6 +30,8 @@ import GlassDialog from './GlassDialog.vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
+import accountCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/adminUtils.js';
+import homeCopy from '@/locales/zh-CN/shared/home.js';
 import { useAdminAuthorizationAccess, useAdminCapability } from '@/runtime/adminCapabilities.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
@@ -47,7 +49,15 @@ const current = () => !disposed && !document.hidden && originalScope === scope()
 async function load() {
   const request = ++generation; loading.value = true; notice.value = '';
   try { const result = requireSuccess(await callApi('listAdmins', {})); if (!current() || request !== generation) return;
-    rows.value = result.list || []; levels.value = result.creatableLevels || []; canCreate.value = enforced.value ? result.canCreate === true : result.canWrite === true;
+    const roleNames = { admin: homeCopy.text.admin, super_admin: homeCopy.text.superAdmin };
+    const states = { verified: accountCopy.hrAccountActive, frozen: accountCopy.hrAccountFrozen,
+      recovery_required: accountCopy.hrAccountRecoveryRequired, pending_verification: accountCopy.hrAccountPendingVerification };
+    rows.value = (result.list || []).map(row => ({ ...row,
+      adminLevelLabel: roleNames[row.adminLevel] || '',
+      authenticationStatusLabel: states[row.authenticationStatus] || accountCopy.hrAccountUnknown }));
+    levels.value = (result.creatableLevels || []).filter(level => Object.hasOwn(roleNames, level.value))
+      .map(level => ({ value: level.value, label: roleNames[level.value] }));
+    canCreate.value = enforced.value ? result.canCreate === true : result.canWrite === true;
     if (savedAwaitingRead.value) { form.value = null; savedAwaitingRead.value = false; }
   } catch (error) { if (current() && request === generation) notice.value = errorText(error, copy.errors.requestFailed); }
   finally { if (current() && request === generation) loading.value = false; }

@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { mockApi, callsOf } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import messageCopy from '../../src/locales/zh-CN/shared/messageFacts.js';
+import feedbackCopy from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 test('notifications load independently and todo failure is not an empty result', async ({ page }) => {
   await mockApi(page);
@@ -13,14 +15,17 @@ test('notifications load independently and todo failure is not an empty result',
   await page.route('**/api/listNotifications', route => route.fulfill({ json: { status: 'success', items: [{ id: 'notice', title: 'Independent notification', isRead: true }], unreadCount: 0 } }));
   try {
     await page.goto('/web/portal');
-    await expect(page.getByText('Independent notification')).toBeVisible();
+    await expect(page.getByText(messageCopy.unknownNotificationTitle)).toBeVisible();
+    await expect(page.getByText('Independent notification')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: new RegExp(messageCopy.unknownNotificationTitle) })).toBeDisabled();
     const loading = page.getByRole('status', { name: copy.common.loading });
     await expect(loading).toBeVisible();
     await expect(loading.locator('.spinner')).toBeVisible();
     expect(await loading.locator('.spinner').evaluate(node => getComputedStyle(node).animationName)).toBe('sharedSpin');
     await expect(page.getByText(copy.portal.view.noTodos, { exact: true })).toHaveCount(0);
   } finally { release(); }
-  await expect(page.getByRole('alert')).toHaveText('Todo request failed');
+  await expect(page.getByRole('alert')).toHaveText(feedbackCopy.readFailed);
+  await expect(page.getByText('Todo request failed')).toHaveCount(0);
   await expect(page.getByRole('status', { name: copy.common.loading })).toHaveCount(0);
   await expect(page.getByText(copy.portal.view.noTodos, { exact: true })).toHaveCount(0);
   await page.route('**/api/listTodos', route => route.fulfill({ json: { status: 'success', items: [], total: 0 } }));

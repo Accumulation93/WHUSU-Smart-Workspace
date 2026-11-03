@@ -87,8 +87,6 @@ export default Object.freeze({
   rejectReasonRequired: src_admin.hrRejectReasonRequired,
   commentDialogTitle: src_submissionDetail.copy_79e3568eee,
   signatureRequiredTitle: src_web.audit.signatureRequiredTitle,
-  signatureRequiredBody: src_web.audit.signatureRequiredBody,
-  designateRequiredBody: src_web.audit.designateRequiredBody,
   createTitle: src_mySubmissions.copy_c64e979552,
   createPanelNote: src_web.audit.createPanelNote,
   createTemplateLabel: src_web.audit.createTemplateLabel,

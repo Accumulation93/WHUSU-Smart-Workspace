@@ -6,6 +6,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pag
 import messages from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/templateBehavior.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 const q = (question='Question A') => ({question,scoreLabel:'Explanation',minValue:0,startValue:2,maxValue:10,stepValue:0.5});
 const initial = () => [{id:'t1',name:'Template A',description:'Description A',questions:[q()],questionCount:1}];
 async function setup(page, options={}) {
@@ -29,7 +30,7 @@ test('template edits preserve exact questions through rejection, tab switching a
   const {state}=await setup(page);await open(page);await edit(page);
   await expect(page.getByLabel(ui.copy_6cc2ee6bc8,{exact:true})).toHaveValue('2');
   await page.getByLabel(ui.copy_f7736be7ba).fill('Changed question');state.reject=true;
-  await page.getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();await expect(page.getByText('Save rejected')).toBeVisible();
+  await page.getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();await expect(page.getByText(feedback.writeResultUnknown)).toBeVisible();await expect(page.getByText('Save rejected')).toHaveCount(0);
   await expect(page.getByLabel(ui.copy_f7736be7ba)).toHaveValue('Changed question');
   await page.getByRole('tab',{name:ui.copy_5aa4cb13ec,exact:true}).click();await page.getByRole('tab',{name:ui.copy_5a49161fd7,exact:true}).click();
   await expect(page.getByLabel(ui.copy_f7736be7ba)).toHaveValue('Changed question');
@@ -41,7 +42,7 @@ test('template edits preserve exact questions through rejection, tab switching a
 
 test('template saved reread failure remains frozen across tabs and retries only the read',async({page})=>{
   const {state}=await setup(page);await open(page);await edit(page);state.failRead=true;
-  await page.getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();await expect(page.getByText('Read rejected')).toBeVisible();
+  await page.getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Read rejected')).toHaveCount(0);
   await expect(page.getByRole('button',{name:ui.copy_7e4100d002,exact:true})).toBeDisabled();
   await page.getByRole('tab',{name:ui.copy_5aa4cb13ec,exact:true}).click();await page.getByRole('tab',{name:ui.copy_5a49161fd7,exact:true}).click();
   await expect(page.getByLabel(ui.copy_a8f6e57e29,{exact:true})).toHaveValue('Template A');state.failRead=false;
@@ -56,7 +57,7 @@ test('template copies and confirmed deletes reread while rejected references ret
   const target=page.locator('.list-row').filter({has:page.getByText('Template A',{exact:true})});
   await target.getByRole('button',{name:ui.copy_acc985cabc,exact:true}).click();const confirm=page.getByRole('dialog',{name:messages.copy_697796da96});await expect(confirm).toContainText('Template A');
   await confirm.getByRole('button',{name:copy.common.cancel,exact:true}).click();expect(deletes).toBe(0);
-  await target.getByRole('button',{name:ui.copy_acc985cabc,exact:true}).click();await confirm.getByRole('button',{name:copy.common.confirm,exact:true}).click();await expect(page.getByText('Template referenced')).toBeVisible();await expect(page.getByText('Template A',{exact:true})).toBeVisible();
+  await target.getByRole('button',{name:ui.copy_acc985cabc,exact:true}).click();await confirm.getByRole('button',{name:copy.common.confirm,exact:true}).click();await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Template referenced')).toHaveCount(0);await expect(page.getByText('Template A',{exact:true})).toBeVisible();
 });
 
 test('questions reorder, remove and add with stable expansion and native numeric validation',async({page})=>{
@@ -74,8 +75,8 @@ test('CSV mapping distinguishes minimum and initial score, preserves multiline l
   const {state}=await setup(page);await open(page);await edit(page);
   await page.locator('input[type=file]').setInputFiles({name:'Imported.csv',mimeType:'text/csv',buffer:Buffer.from('\uFEFF问题内容,分值说明,最低分,起始分,最高分,分值间隔\r\nImported,"Two lines\nSecond, line",1,3,12,0.25\r\n')});
   const mapping=page.getByRole('dialog',{name:ui.copy_0601453416});await expect(mapping).toBeVisible();
-  await expect(mapping.getByLabel(ui.copy_9c0e348f1b+' · 起始分',{exact:true})).toHaveValue('startValue');
-  await expect(mapping.getByLabel(ui.copy_9c0e348f1b+' · 最低分',{exact:true})).toHaveValue('minValue');
+  await expect(mapping.getByLabel(ui.mappingQuestionField+' · 起始分',{exact:true})).toHaveValue('startValue');
+  await expect(mapping.getByLabel(ui.mappingQuestionField+' · 最低分',{exact:true})).toHaveValue('minValue');
   await mapping.getByRole('switch',{name:ui.copy_c1f37f0512,exact:true}).click();
   await mapping.getByRole('button',{name:ui.copy_b35531a5fd,exact:true}).click();await page.getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();
   expect(state.writes[0].questions).toHaveLength(2);expect(state.writes[0].questions[1]).toMatchObject({question:'Imported',scoreLabel:'Two lines\nSecond, line',minValue:'1',startValue:'3',maxValue:'12',stepValue:'0.25'});
@@ -110,7 +111,7 @@ test('long press question dragging reorders the actual payload and cancels witho
 test('Excel export uses exact headers, retries failures and corrupt CSV cannot replace the draft',async({page})=>{
   await setup(page);let exports=0;
   await page.route('**/api/buildTableFile',route=>{exports++;const body=route.request().postDataJSON();expect(body.headers.map(item=>item.key)).toEqual(['question','scoreLabel','minValue','startValue','maxValue','stepValue']);expect(body.headers.find(item=>item.key==='startValue').label).toBe('起始分');expect(body.rows[0]).toMatchObject({question:'Question A',startValue:'2'});return route.fulfill({json:exports===1?{status:'forbidden',message:'Export rejected'}:{status:'success',fileBase64:'d29ya2Jvb2s='}});});
-  await open(page);await edit(page);await page.getByRole('button',{name:ui.copy_37b2d47dd4,exact:true}).click();await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await expect(page.getByText('Export rejected')).toBeVisible();
+  await open(page);await edit(page);await page.getByRole('button',{name:ui.copy_37b2d47dd4,exact:true}).click();await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Export rejected')).toHaveCount(0);
   const download=page.waitForEvent('download');await page.getByRole('button',{name:messages.copy_5503123f4c,exact:true}).click();await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();expect((await download).suggestedFilename()).toBe(messages.copy_44db0286b0+'.xlsx');
   await page.locator('input[type=file]').setInputFiles({name:'Corrupt.csv',mimeType:'text/csv',buffer:Buffer.from('question\n"Unclosed')});await expect(page.getByLabel(ui.copy_f7736be7ba)).toHaveValue('Question A');await expect(page.getByRole('dialog',{name:ui.copy_0601453416})).toHaveCount(0);
 });

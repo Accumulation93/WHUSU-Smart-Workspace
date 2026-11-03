@@ -1,11 +1,23 @@
 const copy = require('../../../../locales/zh-CN/identityCard');
 const common = require('../../../../locales/zh-CN/common');
-const { callFunction } = require('../../../../utils/api');
+const heroCopy = require('../../../../locales/zh-CN/generated/components/workspace-hero/workspace-hero');
+const { callFunction, createResultError, createLocalError, getErrorText } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const eventBus = require('../../../../utils/eventBus');
 const { outputFile } = require('../../package-resources/utils/fileIO');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { formatDetailTime } = require('../../../../utils/dateTime');
+function presentCard(value) {
+  if (!value) return null;
+  const facts = value.positionFacts || {};
+  const position = facts.assignmentLabel || (facts.role === 'admin'
+    ? (facts.adminLevel === 'super_admin' ? heroCopy.copy_ccd219e5f1 : heroCopy.copy_c01a9aef59)
+    : facts.hasAssignment === false ? copy.noPosition : '');
+  return Object.assign({}, value, {
+    state: ({ admin_active: copy.adminActive, active: copy.active, no_position: copy.noPosition })[value.stateCode] || '',
+    position
+  });
+}
 Page({
   data: { copy, common, navigationTitle: copy.navigationTitle, navTopPx: 0, publicView: false, card: null, valid: false, loading: false, qrLoading: false, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '' },
   onLoad(options) {
@@ -60,8 +72,8 @@ Page({
     try {
       const result = await callFunction({ name: this._token ? 'verifyIdentityCard' : 'getMyIdentityCard', data: this._token ? { token: this._token } : {} });
       if (!current()) return;
-      if (result.status !== 'success') throw new Error(copy.failure);
-      this.setData({ loading: false, valid: result.valid, card: result.card || null, notice: result.valid ? '' : copy.unavailable });
+      if (result.status !== 'success') throw createResultError(result, copy.failure);
+      this.setData({ loading: false, valid: result.valid, card: presentCard(result.card), notice: result.valid ? '' : this._token ? copy.verificationUnavailable : copy.personalUnavailable });
       if (result.valid) {
         this.setData({ currentTimeText: formatDetailTime(Date.now()), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
         if (!this._token) this._clockTimer = setInterval(() => {
@@ -72,22 +84,23 @@ Page({
       this.setData({ qrLoading: true });
       const generated = await callFunction({ name: 'createMyIdentityCardCode', data: { envVersion: this._envVersion } });
       if (!current()) return;
-      if (generated.status !== 'success' || !generated.valid || !/^data:image\/(png|jpeg);base64,/.test(generated.image || '')) throw new Error(copy.qrFailure);
+      if (generated.status !== 'success') throw createResultError(generated, copy.qrFailure);
+      if (!generated.valid || !/^data:image\/(png|jpeg);base64,/.test(generated.image || '')) throw createLocalError(copy.qrFailure);
       const paths = [];
       try {
         for (const source of [generated.image, generated.verificationImage || generated.image]) {
-          if (!/^data:image\/(png|jpeg);base64,/.test(source)) throw new Error(copy.qrFailure);
+          if (!/^data:image\/(png|jpeg);base64,/.test(source)) throw createLocalError(copy.qrFailure);
           const filePath = wx.env.USER_DATA_PATH + '/identity-card-' + Date.now() + '-' + paths.length + (source.indexOf('image/png') >= 0 ? '.png' : '.jpg');
           await new Promise((resolve, reject) => wx.getFileSystemManager().writeFile({ filePath, data: source.slice(source.indexOf(',') + 1), encoding: 'base64', success: resolve, fail: reject }));
           paths.push(filePath);
         }
         if (!current()) return;
         this._imagePaths = paths;
-        this.setData({ image: paths[1], verificationImage: paths[1], miniProgramImage: paths[0], card: generated.card });
+        this.setData({ image: paths[1], verificationImage: paths[1], miniProgramImage: paths[0], card: presentCard(generated.card) });
       } finally {
         if (!current() || this._imagePaths !== paths) paths.forEach(filePath => wx.getFileSystemManager().unlink({ filePath, fail: function() {} }));
       }
-    } catch (_) { if (current()) this.setData({ notice: this.data.qrLoading ? copy.qrFailure : copy.failure }); }
+    } catch (error) { if (current()) this.setData({ notice: getErrorText(error, this.data.qrLoading ? copy.qrFailure : copy.failure) }); }
     finally { if (current()) this.setData({ loading: false, qrLoading: false }); }
   }
 });

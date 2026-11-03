@@ -10,9 +10,37 @@ const migrationModel = require('../models/hrProfileMigration');
 const { createNotification } = require('../../modules/audit/utils/notificationHelper');
 
 const HR_PERMISSIONS = ['hr.people', 'hr.profile_review'];
+const MIGRATION_FAILURE_KEYS = new Set([
+  'stale', 'invalidPlan', 'incompatibleAction', 'duplicateTargetField',
+  'fieldActionsRequired', 'sourceNotVisible', 'notFound', 'emptySelection',
+  'noPermissionToReview', 'invalidOperation', 'requestNotFound',
+  'rejectReasonRequired', 'forbidden'
+]);
 
 function migrationErrorMessage(error, fallback) {
   return String(error.code || '').startsWith('authorization_') ? copy.forbidden : error.message || fallback;
+}
+
+function migrationErrorResponse(error, fallback) {
+  const code = String(error.code || '');
+  const key = code.slice('hr_migration_'.length);
+  const known = code.startsWith('hr_migration_') && MIGRATION_FAILURE_KEYS.has(key);
+  return {
+    status: 'invalid_params',
+    code: code.startsWith('authorization_') ? 'authorization_forbidden'
+      : known ? code : 'hr_migration_unknown',
+    message: migrationErrorMessage(error, fallback)
+  };
+}
+
+function migrationRejection(status, key) {
+  return { status, code: 'hr_migration_' + key, message: copy[key] };
+}
+
+function missingRequest() {
+  const error = new Error(copy.requestNotFound);
+  error.code = 'hr_migration_requestNotFound';
+  return error;
 }
 
 async function resolveActor(req) {
@@ -82,7 +110,7 @@ async function notify(personId, orgId, title, body, targetId) {
 router.post('/getCrossOrgMigrationContext', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
+    if (!ensureHrPermission(actor)) return res.json(migrationRejection('forbidden', 'forbidden'));
     const visibleOrgIds = await migrationService.resolveVisibleOrgIds(actor);
     const [orgRows] = await pool.query(
       'SELECT id, name FROM organizations WHERE id IN (' + visibleOrgIds.map(() => '?').join(',') + ')'
@@ -97,7 +125,7 @@ router.post('/getCrossOrgMigrationContext', async (req, res) => {
       visibleOrgs: orgRows.map((row) => ({ id: safeString(row.id), name: safeString(row.name) }))
     };
     if (sourceOrgId) {
-      if (visibleOrgIds.indexOf(sourceOrgId) < 0) return res.json({ status: 'forbidden', message: copy.sourceNotVisible });
+      if (visibleOrgIds.indexOf(sourceOrgId) < 0) return res.json(migrationRejection('forbidden', 'sourceNotVisible'));
       const [sourceSnapshot, targetSnapshot, members] = await Promise.all([
         migrationService.loadActiveSnapshot(sourceOrgId),
         migrationService.loadActiveSnapshot(actor.orgId),
@@ -117,7 +145,7 @@ router.post('/getCrossOrgMigrationContext', async (req, res) => {
 router.post('/previewCrossOrgMigration', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
+    if (!ensureHrPermission(actor)) return res.json(migrationRejection('forbidden', 'forbidden'));
     const result = await migrationService.buildPlan(actor, req.body || {});
     return res.json({
       status: result.blockers.length ? 'mapping_blocked' : 'success',
@@ -129,7 +157,7 @@ router.post('/previewCrossOrgMigration', async (req, res) => {
       message: result.blockers.length ? copy.incompatibleAction : ''
     });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
+    return res.json(migrationErrorResponse(error, copy.invalidPlan));
   }
 });
 
@@ -141,8 +169,8 @@ async function rebuildPlan(actor, body) {
 router.post('/applyCrossOrgMigration', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
-    if (!actor.isSuper) return res.json({ status: 'forbidden', message: copy.noPermissionToReview });
+    if (!ensureHrPermission(actor)) return res.json(migrationRejection('forbidden', 'forbidden'));
+    if (!actor.isSuper) return res.json(migrationRejection('forbidden', 'noPermissionToReview'));
     const built = await rebuildPlan(actor, req.body);
     const token = safeString(req.body.switchToken);
     if (actor.authorized) {
@@ -171,15 +199,15 @@ router.post('/applyCrossOrgMigration', async (req, res) => {
     });
     return res.json({ status: 'success', message: copy.executed });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
+    return res.json(migrationErrorResponse(error, copy.invalidPlan));
   }
 });
 
 router.post('/submitCrossOrgMigrationRequest', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
-    if (actor.isSuper) return res.json({ status: 'forbidden', message: copy.invalidOperation });
+    if (!ensureHrPermission(actor)) return res.json(migrationRejection('forbidden', 'forbidden'));
+    if (actor.isSuper) return res.json(migrationRejection('forbidden', 'invalidOperation'));
     const built = await rebuildPlan(actor, req.body);
     if (actor.authorized) {
       const result = await require('../models/hrMigrationAuthorization').saveRequest(actor.authorizationReference, built, safeString(req.body.switchToken), false);
@@ -207,7 +235,7 @@ router.post('/submitCrossOrgMigrationRequest', async (req, res) => {
     });
     return res.json({ status: 'success', id: migrationId, message: copy.requestSubmitted });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.invalidPlan) });
+    return res.json(migrationErrorResponse(error, copy.invalidPlan));
   }
 });
 
@@ -224,15 +252,15 @@ router.post('/reviewCrossOrgMigrationRequest', async (req, res) => {
       return res.json({ status: 'success', message: action === 'approve' ? copy.requestApproved : copy.requestRejected });
     }
     const record = await migrationModel.getById(id);
-    if (!record || record.status !== 'pending') return res.json({ status: 'invalid_operation', message: copy.requestNotFound });
-    if (action === 'reject' && !reason) return res.json({ status: 'invalid_params', message: copy.rejectReasonRequired });
+    if (!record || record.status !== 'pending') return res.json(migrationRejection('invalid_operation', 'requestNotFound'));
+    if (action === 'reject' && !reason) return res.json(migrationRejection('invalid_params', 'rejectReasonRequired'));
     if (!(await canReviewSourceOrg(actor, record.sourceOrgId))) {
-      return res.json({ status: 'forbidden', message: copy.noPermissionToReview });
+      return res.json(migrationRejection('forbidden', 'noPermissionToReview'));
     }
-    if (!['reject', 'approve'].includes(action)) return res.json({ status: 'invalid_params', message: copy.invalidOperation });
+    if (!['reject', 'approve'].includes(action)) return res.json(migrationRejection('invalid_params', 'invalidOperation'));
     await migrationModel.legacyTransaction([record.sourceOrgId, record.targetOrgId], async connection => {
     const locked = await migrationModel.getById(id, connection, true);
-    if (!locked || locked.status !== 'pending') throw new Error(copy.requestNotFound);
+    if (!locked || locked.status !== 'pending') throw missingRequest();
     if (action === 'reject') {
       await migrationModel.updateStatus(id, {
         status: 'rejected',
@@ -256,7 +284,7 @@ router.post('/reviewCrossOrgMigrationRequest', async (req, res) => {
     await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, action === 'approve' ? copy.notifierApprovedBody : copy.notifierRejectedBody, id);
     return res.json({ status: 'success', message: action === 'approve' ? copy.requestApproved : copy.requestRejected });
   } catch (error) {
-    return res.json({ status: 'invalid_params', message: migrationErrorMessage(error, copy.stale) });
+    return res.json(migrationErrorResponse(error, copy.stale));
   }
 });
 
@@ -270,11 +298,11 @@ router.post('/cancelCrossOrgMigrationRequest', async (req, res) => {
     }
     const record = await migrationModel.getById(id);
     if (!record || record.status !== 'pending' || record.requestedByPersonId !== actor.personId) {
-      return res.json({ status: 'invalid_operation', message: copy.requestNotFound });
+      return res.json(migrationRejection('invalid_operation', 'requestNotFound'));
     }
     await migrationModel.legacyTransaction([record.sourceOrgId, record.targetOrgId], async connection => {
       const locked = await migrationModel.getById(id, connection, true);
-      if (!locked || locked.status !== 'pending' || locked.requestedByPersonId !== actor.personId) throw new Error(copy.requestNotFound);
+      if (!locked || locked.status !== 'pending' || locked.requestedByPersonId !== actor.personId) throw missingRequest();
       await migrationModel.updateStatus(id, { status: 'cancelled' }, connection);
     });
     await notify(record.requestedByPersonId, record.targetOrgId, copy.notifierTitle, copy.notifierCancelledBody, id);
@@ -287,7 +315,7 @@ router.post('/cancelCrossOrgMigrationRequest', async (req, res) => {
 router.post('/listCrossOrgMigrationRequests', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!ensureHrPermission(actor)) return res.json({ status: 'forbidden', message: copy.forbidden });
+    if (!ensureHrPermission(actor)) return res.json(migrationRejection('forbidden', 'forbidden'));
     const [mine, pending] = await Promise.all([
       migrationModel.listByRequester(actor.personId),
       migrationModel.listBySourceOrg(actor.orgId, ['pending'])
@@ -323,7 +351,7 @@ router.post('/listCrossOrgMigrationRequests', async (req, res) => {
 router.post('/getPersonOrgProfiles', async (req, res) => {
   try {
     const actor = await resolveActor(req);
-    if (!actor.isSuper) return res.json({ status: 'forbidden', message: copy.forbidden });
+    if (!actor.isSuper) return res.json(migrationRejection('forbidden', 'forbidden'));
     const personId = safeString(req.body.personId);
     if (!personId) return res.json({ status: 'invalid_params', message: copy.notFound });
     const [memberships] = await pool.query(

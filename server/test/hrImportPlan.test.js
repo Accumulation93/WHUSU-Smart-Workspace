@@ -47,6 +47,22 @@ test('姓名冲突和离任分到不同类别', () => {
   const plan = buildPlan(payload([['不同姓名', '001', ''], ['测试乙', '002', '']]), ctx);
   assert.deepEqual(plan.categories.map(item => item.key), ['name_difference', 'member_departed']); assert.equal(plan.summary.problemRowCount, 2);
 });
+test('问题保留列号、人员及数值限制，前端无需解析后端句子', () => {
+  const ctx = context();
+  ctx.fields = [{ id: 'f1', label: 'CONTACT_FIELD', type: 'text', required: true, minLength: 2, maxLength: 4 }];
+  const data = payload([['测试甲', '001', '', 'TOO_LONG']]);
+  data.headers.push('SOURCE_HEADER');
+  data.extensionMapping = [{ fieldId: 'f1', columnIndex: 3 }];
+  const issue = buildPlan(data, ctx).issues.find(item => item.field === 'f1');
+  assert.equal(issue.customFieldLabel, 'CONTACT_FIELD');
+  assert.deepEqual(issue.presentationFacts.columns, [{ field: 'f1', index: 4, header: 'SOURCE_HEADER' }]);
+  assert.deepEqual(issue.presentationFacts.people, [{ rowNumber: 2, name: '测试甲' }]);
+  assert.equal(issue.presentationFacts.fieldRule.minLength, 2);
+  assert.equal(issue.presentationFacts.fieldRule.maxLength, 4);
+  assert.equal(issue.after, 'TOO_LONG');
+  const missing = buildPlan(payload([['', '001', '']]), context()).issues[0];
+  assert.deepEqual(missing.presentationFacts.invalidFields, [{ field: 'name', kind: 'missing', maxLength: 100 }]);
+});
 test('新增无岗位成员与完全重复行归并', () => {
   const plan = buildPlan(payload([['新人', '009', ''], ['新人', '009', '']]), context());
   assert.equal(plan.summary.newMembers, 1); assert.equal(plan.summary.newAssignments, 0); assert.equal(plan.summary.canExecute, true);
@@ -199,7 +215,7 @@ test('展示分类拆分缺失与待确认、离任与停用，并保留处理�
   assert.equal(categoryTitle({ category: 'identity_conflict', field: 'name' }), '姓名不一致');
   assert.equal(categoryTitle({ category: 'identity_conflict' }), '同学号姓名不一致');
   assert.equal(categoryTitle({ category: 'unavailable', reason: 'unavailableAssignment' }), '原岗位已失效');
-  for (const [field, expected] of [['department', '部门未登记'], ['identity', '身份未登记'], ['workGroup', '职能组未登记']]) assert.equal(categoryTitle({ category: 'dictionary', field }), expected);
+  for (const [field, expected] of [['department', '部门未登记'], ['identity', '身份类别未登记'], ['workGroup', '职能组未登记']]) assert.equal(categoryTitle({ category: 'dictionary', field }), expected);
   for (const [category, expected] of [['ambiguous', '待选择对应岗位'], ['intent', '待确认岗位变更'], ['value_conflict', '与系统内容不一致'], ['row_conflict', '表内多行内容不一致'], ['duplicate', '岗位重复'], ['stale', '系统资料已更新']]) assert.equal(categoryTitle({ category }), expected);
 });
 test('同字段同值跨人归组，逐行动作及部门边界保留', () => {

@@ -9,7 +9,9 @@ function recurrenceLabel(activity) {
   if (!Array.isArray(days)) return '';
   if (activity.cycleType === 'weekly') return days.map(day => names[Number(day) - 1]).filter(Boolean).join('、');
   if (activity.cycleType === 'monthly') return localeCopy.copy_06a9527bac + days.join('、') + localeCopy.copy_168587d3a1;
-  if (activity.cycleType === 'yearly') return days.map(day => day.m + localeCopy.copy_438913e441 + (day.dStart || day.d) + (day.dEnd === undefined ? '' : localeCopy.copy_05302eb150 + day.dEnd) + localeCopy.copy_168587d3a1).join('、');
+  if (activity.cycleType === 'yearly') return days.map(day => day.dEnd === undefined
+    ? day.m + localeCopy.copy_438913e441 + (day.dStart || day.d) + localeCopy.copy_168587d3a1
+    : localeCopy.monthlyDateRange(day.m, day.dStart || day.d, day.dEnd)).join('、');
   return '';
 }
 Component({

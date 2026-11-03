@@ -40,7 +40,7 @@ const stampGrantBehavior = require('./modules/stampGrantBehavior');
 const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
 const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
 const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
-const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
+const migrationCopy = require('../../../../../../../locales/zh-CN/hrProfileMigration');
 const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 
 module.exports = Behavior({
@@ -66,7 +66,7 @@ module.exports = Behavior({
   ],
   data: {
     embeddedWorkbench: false,
-    directoryCopy: require('../../../../locales/zh-CN/contactDirectory'),
+    directoryCopy: require('../../../../../../../locales/zh-CN/contactDirectory'),
     directoryPickerVisible: false,
     directoryBusy: false,
     canManageDirectory: false,
@@ -553,6 +553,7 @@ module.exports = Behavior({
       this._hrProfileFilteredRows = [];
       this._hrList = [];
       this.setData({
+        authBatchOutcome: null, authActionLoadingKey: '',
         activeTab: preservedTab,
         activityList: [],
         currentActivityId: '',
@@ -720,6 +721,7 @@ module.exports = Behavior({
     this._auditPersonnelSource = [];
     this._hrList = [];
     this.setData({ user: null, hasPermission: false, actionCapabilities: {}, isSuperAdmin: false,
+      authBatchOutcome: null, authActionLoadingKey: '',
       auditPersonnelPickerVisible: false, auditPersonnelPickerOptions: [], auditPersonnelFilteredList: [],
       verificationPermissions: [], verificationGrantHrId: '', verificationGrantHrName: '', verificationResult: null,
       verificationFilePath: '', verificationFileName: '', verificationFileBase64: '', verificationFileSize: 0,

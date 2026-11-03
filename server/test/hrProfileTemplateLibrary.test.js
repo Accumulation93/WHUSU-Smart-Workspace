@@ -33,6 +33,13 @@ assert.strictEqual(validateMappedValue(numberTarget, '42.5'), '请填写整数')
 assert.strictEqual(validateMappedValue(numberTarget, '101'), '请填写不大于100的数字');
 assert.strictEqual(validateMappedValue(sequenceTarget, '本科'), '');
 assert.strictEqual(validateMappedValue(sequenceTarget, '博士'), '请选择已有选项');
+assert.strictEqual(library.validateMappedValueIssue(numberTarget, '42'), null);
+assert.deepStrictEqual(library.validateMappedValueIssue(numberTarget, '101'), {
+  reasonCode: 'number_too_large', reasonParams: { max: 100 }, error: validateMappedValue(numberTarget, '101')
+});
+assert.strictEqual(library.validateMappedValueIssue(sequenceTarget, '博士').reasonCode, 'option_missing');
+assert.strictEqual(library.validateMappedValueIssue({ type: 'phone' }, '+86 138-0000-0000'), null);
+assert.strictEqual(library.validateMappedValueIssue({ type: 'datetime' }, 'not-a-date').reasonCode, 'datetime_invalid');
 assert.deepStrictEqual(coerceMappedValue({ type: 'date' }, '2026-09-12T23:59:59+08:00'), { value: '2026-09-12' });
 assert.deepStrictEqual(coerceMappedValue({ type: 'date' }, '2026/9/2 08:00:00'), { value: '2026-09-02' });
 assert.deepStrictEqual(coerceMappedValue({ type: 'phone' }, '+86 138-0000-0000'), { value: '13800000000' });

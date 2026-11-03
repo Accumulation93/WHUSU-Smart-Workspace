@@ -19,28 +19,28 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const utils = require('./modules/adminUtils');
+const utils = require('../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
-const sharedApi = require('./modules/sharedApi');
-const activityBehavior = require('./modules/activityBehavior');
-const templateBehavior = require('./modules/templateBehavior');
-const ruleBehavior = require('./modules/ruleBehavior');
-const resultBehavior = require('./modules/resultBehavior');
-const hrInfoBehavior = require('./modules/hrInfoBehavior');
-const departmentBehavior = require('./modules/departmentBehavior');
-const workGroupBehavior = require('./modules/workGroupBehavior');
-const identityBehavior = require('./modules/identityBehavior');
-const adminManagementBehavior = require('./modules/adminManagementBehavior');
-const settingsBehavior = require('./modules/settingsBehavior');
-const publicationBehavior = require('./modules/publicationBehavior');
-const auditBehavior = require('./modules/auditBehavior');
-const stampGrantBehavior = require('./modules/stampGrantBehavior');
-const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
-const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
-const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
-const migrationCopy = require('../../package-resources/locales/zh-CN/hrProfileMigration');
+const sharedApi = require('../../package-resources/subpackages/scoring/pages/admin/modules/sharedApi');
+const activityBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/activityBehavior');
+const templateBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/templateBehavior');
+const ruleBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/ruleBehavior');
+const resultBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/resultBehavior');
+const hrInfoBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const departmentBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/departmentBehavior');
+const workGroupBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/workGroupBehavior');
+const identityBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/identityBehavior');
+const adminManagementBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/adminManagementBehavior');
+const settingsBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/settingsBehavior');
+const publicationBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/publicationBehavior');
+const auditBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/auditBehavior');
+const stampGrantBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/stampGrantBehavior');
+const authPersonnelBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
+const dictionaryFeedbackBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/dictionaryFeedbackBehavior');
+const hrProfileMigrationBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/hrProfileMigrationBehavior');
+const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
 const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 
 module.exports = Behavior({
@@ -66,7 +66,7 @@ module.exports = Behavior({
   ],
   data: {
     embeddedWorkbench: false,
-    directoryCopy: require('../../package-resources/locales/zh-CN/contactDirectory'),
+    directoryCopy: require('../../../../locales/zh-CN/contactDirectory'),
     directoryPickerVisible: false,
     directoryBusy: false,
     canManageDirectory: false,
@@ -553,6 +553,7 @@ module.exports = Behavior({
       this._hrProfileFilteredRows = [];
       this._hrList = [];
       this.setData({
+        authBatchOutcome: null, authActionLoadingKey: '',
         activeTab: preservedTab,
         activityList: [],
         currentActivityId: '',
@@ -720,6 +721,7 @@ module.exports = Behavior({
     this._auditPersonnelSource = [];
     this._hrList = [];
     this.setData({ user: null, hasPermission: false, actionCapabilities: {}, isSuperAdmin: false,
+      authBatchOutcome: null, authActionLoadingKey: '',
       auditPersonnelPickerVisible: false, auditPersonnelPickerOptions: [], auditPersonnelFilteredList: [],
       verificationPermissions: [], verificationGrantHrId: '', verificationGrantHrName: '', verificationResult: null,
       verificationFilePath: '', verificationFileName: '', verificationFileBase64: '', verificationFileSize: 0,

@@ -1,4 +1,18 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/api');
+const feedbackCopy = require('../locales/zh-CN/requestFeedback');
+const responseFeedback = require('./responseFeedback');
+const responseMessages = require('../locales/zh-CN/responseMessages');
+const { isReadOnly } = require('./apiContracts');
+const localErrors = new WeakSet();
+const venueView = require('./venueFactsView').createVenueFactsView(
+  require('../locales/zh-CN/venueFacts'),
+  require('../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail'),
+  require('../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking').copy_a1f843d887
+);
+
+function feedbackText(result, options) {
+  return responseFeedback.feedbackText(result, feedbackCopy, Object.assign({ messages: responseMessages }, options));
+}
 const API_BASE = 'https://accumulation93.com/api';
 // 客户端版本用于服务端区分小程序包是否已更新到修复版；改动上传、认证等链路时同步递增。
 const CLIENT_VERSION = '1.2.1-security';
@@ -48,6 +62,7 @@ function createRequestHeaders(requestId) {
     'X-Active-Org': session.orgId || '',
     'X-Role': session.role || '',
     'X-Client-Version': CLIENT_VERSION,
+    'X-Response-Format': 'codes-v1',
     'X-Request-Id': requestId || createRequestId()
   };
 }
@@ -66,7 +81,7 @@ function notifyUpgrade(result) {
   if (!result || result.status !== 'client_upgrade_required') return;
   try {
     const app = getApp();
-    if (app && app.notifyUpgradeRequired) app.notifyUpgradeRequired(result.message);
+    if (app && app.notifyUpgradeRequired) app.notifyUpgradeRequired(feedbackCopy.outdatedClient);
   } catch (_) {}
 }
 
@@ -113,7 +128,7 @@ function notifyOrgContextRequired(result) {
   orgPromptVisible = true;
   wx.showModal({
     title: localeCopy.copy_c6070950c1,
-    content: result.message || localeCopy.copy_db7d9fed8e,
+    content: feedbackCopy.roleUnavailable,
     showCancel: false,
     confirmText: localeCopy.copy_d869b80f50,
     complete: function() {
@@ -126,16 +141,19 @@ function notifyOrgContextRequired(result) {
   });
 }
 
-function createResponseError(res) {
-  const responseData = res.data || {};
-  return {
+function createResponseError(res, name, data) {
+  const responseData = responseFeedback.presentResult(res.data, feedbackCopy, { messages: responseMessages, readOnly: isReadOnly(name, data) });
+  const error = {
     errMsg: 'request:fail statusCode ' + res.statusCode,
-    message: responseData.message || '',
+    message: feedbackText(responseData, { statusCode: res.statusCode, readOnly: isReadOnly(name, data) }),
+    code: responseFeedback.resultCode(responseData),
     status: responseData.status || '',
     statusCode: res.statusCode,
     data: responseData,
     requestId: (res.header && (res.header['X-Request-Id'] || res.header['x-request-id'])) || ''
   };
+  localErrors.add(error);
+  return error;
 }
 
 function isAuthenticationFailure(statusCode, result) {
@@ -239,13 +257,14 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
             && !/^(get|list|verify|preview|export|parse|build)/.test(name)) {
             require('./messageQueries').invalidate();
           }
-          resolve(res.data);
-          scheduleResponseSideEffects(res.data);
+          const presented = venueView.response(name, responseFeedback.presentResult(res.data, feedbackCopy, { messages: responseMessages, readOnly: isReadOnly(name, data) }));
+          resolve(presented);
+          scheduleResponseSideEffects(presented);
           return;
         }
-        const responseData = res.data || {};
+        const responseData = responseFeedback.presentResult(res.data, feedbackCopy, { messages: responseMessages, readOnly: isReadOnly(name, data) });
         applyResponseSideEffects(responseData);
-        const responseError = createResponseError(res);
+        const responseError = createResponseError(res, name, data);
         if (responseData.status === 'org_context_required') responseError.silent = true;
         if (contextActivationDepth > 0
           && name !== 'auth/contexts/activate'
@@ -273,6 +292,8 @@ function requestOnce(name, data, requestId, allowAuthenticationRefresh, timeoutM
         }
         const requestError = err || { errMsg: 'request:fail unknown' };
         if (/timeout/i.test(requestError.errMsg || '')) requestError.timedOut = true;
+        requestError.message = feedbackText(null, { readOnly: isReadOnly(name, data), timedOut: requestError.timedOut });
+        localErrors.add(requestError);
         reject(requestError);
       }
     });
@@ -299,6 +320,7 @@ function requestOptionalWechatBinding(options) {
     header: createRequestHeaders(requestId), data: { code: options.code },
     success(response) {
       if (!current()) return fail();
+      response.data = responseFeedback.presentResult(response.data, feedbackCopy, { messages: responseMessages });
       if (options.success) options.success(response);
     },
     fail
@@ -320,6 +342,7 @@ function requestOptionalDeviceMetadata(options) {
     header: createRequestHeaders(requestId), data: { device: options.device },
     success(response) {
       if (!current()) return fail();
+      response.data = responseFeedback.presentResult(response.data, feedbackCopy, { messages: responseMessages });
       if (options.success) options.success(response);
     },
     fail
@@ -372,8 +395,22 @@ function showShortToast(title, icon) {
 
 function getErrorText(error, fallback) {
   if (error && (error.silent || error.status === 'request_cancelled')) return '';
-  const text = String((error && error.message) || '').trim();
-  return text || fallback;
+  if (error && localErrors.has(error)) return error.message || fallback || feedbackCopy.unsupportedResult;
+  return feedbackText(error, { fallback });
+}
+
+function createLocalError(message) {
+  const error = new Error(message);
+  localErrors.add(error);
+  return error;
+}
+
+function createResultError(result, fallback) {
+  const error = createLocalError(feedbackText(result, { fallback }));
+  error.code = responseFeedback.resultCode(result);
+  error.status = result && result.status || '';
+  error.requestId = result && result.requestId || '';
+  return error;
 }
 
 /**
@@ -404,6 +441,8 @@ module.exports = {
   endContextActivation: endContextActivation,
   showShortToast: showShortToast,
   getErrorText: getErrorText,
+  createLocalError: createLocalError,
+  createResultError: createResultError,
   isRequestCancelled: function(error) { return !!(error && (error.silent || error.status === 'request_cancelled')); },
   formatAuditTime: formatAuditTime,
   formatAuditDetailTime: formatAuditDetailTime

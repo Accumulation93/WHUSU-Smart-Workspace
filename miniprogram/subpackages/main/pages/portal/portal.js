@@ -1,5 +1,7 @@
 const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
+const { describeMessage } = require('../../../../utils/messageFactsView');
+const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -587,7 +589,9 @@ Page({
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
-      return Object.assign({}, item, extra);
+      return Object.assign({}, item, extra, describeMessage(item, messageFactsCopy, {
+        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl)
+      }));
     });
   },
 
@@ -614,6 +618,7 @@ Page({
           patch[prefix + 'Loading'] = false;
           patch[prefix + 'Error'] = false;
           patch[prefix + 'Count'] = isNotification ? res.unreadCount || 0 : res.total || 0;
+          if (!isNotification) patch.todoCountText = copy.view.todoCount(res.total > 99 ? '99+' : res.total || 0);
           if (this['_' + prefix + 'Fingerprint'] !== fingerprint) {
             orgSession.beginRequest(this, isNotification ? 'portalNotificationMore' : 'portalTodoMore');
             patch[prefix + 'LoadingMore'] = false;
@@ -668,6 +673,7 @@ Page({
       this.setData({
         todos: this.data.todos.concat(this.formatMessageItems(res.items, false)),
         todoCount: res.total || 0,
+        todoCountText: copy.view.todoCount(res.total > 99 ? '99+' : res.total || 0),
         todoNextCursor: res.nextCursor || '',
         messagePartial: !!res.partial
       });
@@ -771,7 +777,7 @@ Page({
   async onTodoTap(e) {
     const id = e.currentTarget.dataset.id;
     const item = (this.data.todos || []).find(function(row) { return row.id === id; });
-    if (!item) return;
+    if (!item || item.canOpen === false) return;
     const switchKind = this.messageSwitchKind(item);
     if (switchKind === 'organization') {
       this.openMessageSwitchDialog(item, 'todo');
@@ -788,7 +794,7 @@ Page({
     if (this._notificationSwiping) return;
     const id = e.currentTarget.dataset.id;
     const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
-    if (!current) return;
+    if (!current || current.canOpen === false) return;
     const switchKind = this.messageSwitchKind(current);
     if (switchKind === 'organization') {
       this.openMessageSwitchDialog(current, 'notification');

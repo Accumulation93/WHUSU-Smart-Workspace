@@ -92,7 +92,7 @@
 
     <section v-else-if="activeTab && activeTab !== 'hrInfo'" class="card stack">
       <span class="section-title">{{ activeLabel }}</span>
-      <p class="notice-line">{{ copy.admin.consoleNote }}</p>
+      <p class="notice-line">{{ copy.admin.managementPageUnavailable }}</p>
     </section>
     <HrProfileMigrationPanel v-if="activeTab === 'hrInfo' && hrMode === 'profiles' && canMigration" @busy="actionBusy = $event" />
     <HrAuthenticationPolicy v-if="activeTab === 'hrInfo' && hrMode === 'policy' && canReadAuthPolicy" @busy="actionBusy = $event" />

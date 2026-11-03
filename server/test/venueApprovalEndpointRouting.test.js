@@ -4,7 +4,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
 
-function loadVenuePage(relativePath) {
+function loadVenuePage(relativePath, responseFor) {
   const calls = [];
   const events = [];
   let pageDefinition = null;
@@ -16,6 +16,7 @@ function loadVenuePage(relativePath) {
   const apiStub = {
     async callFunction(options) {
       calls.push(options);
+      if (responseFor) return responseFor(options);
       if (options.name === 'approveVenueBookingStep') {
         return {
           status: 'success',
@@ -128,6 +129,8 @@ async function assertPendingPageRoute(pagePath, methodName, target, action, expe
     approvalAction: action,
     approvalComment: '测试意见',
     approvalSubmitting: false,
+    loaded: true,
+    pendingLoaded: true,
     nextApproverAssignmentIds: [],
     lastPendingCount: 1,
     lastPendingSignature: ''
@@ -170,6 +173,30 @@ async function assertManagePageRoute(target, action, expectedEndpoint) {
   assert.strictEqual(loaded.calls[0].name, expectedEndpoint, '管理端应按记录类型选择接口');
   assert.strictEqual(loaded.calls[0].data.id, target.id);
   assert.strictEqual(context.data.loading, false, '管理端完成后必须复位 loading');
+}
+
+async function assertPendingReadFailure(pagePath, loadMethod, failedKey, loadedKey) {
+  let fails = true;
+  const loaded = loadVenuePage(pagePath, async () => {
+    if (fails) throw new Error('network unavailable');
+    return { status: 'success', pending: [] };
+  });
+  const target = { id: 'existing-booking' };
+  const context = createPageContext(loaded.pageDefinition, {
+    pending: [target], approvalTarget: target, approvalAction: 'approve',
+    [loadedKey]: true
+  }, { _isPageVisible: true, _guardApprovalContext() { return true; }, _formatTime() { return '20:00'; } });
+  await context[loadMethod]();
+  assert.strictEqual(context.data[failedKey], true);
+  assert.deepStrictEqual(context.data.pending, [target], '读取失败不得删除已读事项');
+  const callsBefore = loaded.calls.length;
+  await context.submitApproval();
+  assert.strictEqual(loaded.calls.length, callsBefore, '读取失败后不可用旧事项提交审批');
+  fails = false;
+  await context[loadMethod]();
+  assert.strictEqual(context.data[failedKey], false);
+  assert.strictEqual(context.data[loadedKey], true);
+  assert.deepStrictEqual(context.data.pending, [], '只有读取成功为空才清空事项');
 }
 
 async function assertIndependentFlowDrafts() {
@@ -266,6 +293,8 @@ async function run() {
     await assertManagePageRoute(nestedLegacy, 'reject', 'rejectVenueBooking');
     await assertManagePageRoute(nestedWithoutFlowMarker, 'approve', 'approveVenueBooking');
     await assertIndependentFlowDrafts();
+    await assertPendingReadFailure('miniprogram/subpackages/venue/components/pendingApprovals/pendingApprovals.js', 'loadData', 'loadFailed', 'loaded');
+    await assertPendingReadFailure('miniprogram/subpackages/venue/pages/venueBooking/venueBooking.js', 'loadPendingData', 'pendingLoadFailed', 'pendingLoaded');
 
     console.log('场地历史非流程与流程审批分流测试通过');
   } finally {

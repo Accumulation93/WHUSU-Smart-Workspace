@@ -279,7 +279,7 @@
               </picker>
               <view wx:if="{{bookingWindowForm.open.mode === 'days'}}" class="booking-window-value-row">
                 <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
-                <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
+                <text class="booking-window-unit">{{localeCopy.durationDaysUnit}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.open.mode === 'duration'}}" class="booking-window-value-row">
                 <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.open.hours}}" data-side="open" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.open.hours}}{{localeCopy.copy_5f360abfe1}}</view></picker>
@@ -296,7 +296,7 @@
               </picker>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'days'}}" class="booking-window-value-row">
                 <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="{{localeCopy.numericZeroPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
-                <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
+                <text class="booking-window-unit">{{localeCopy.durationDaysUnit}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'duration'}}" class="booking-window-value-row">
                 <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.deadline.hours}}{{localeCopy.copy_5f360abfe1}}</view></picker>
@@ -361,7 +361,7 @@
                 <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}}</text>
               </view>
               <view wx:if="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values.length : ruleForm.cycleValues.length}}" class="chip-row">
-                <view wx:for="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values : ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}{{localeCopy.copy_c1392f7fda}}{{cv.dStart}}{{localeCopy.copy_a957bd837e}} - {{cv.dEnd}}{{localeCopy.copy_a957bd837e}}</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
+                <view wx:for="{{yearlyRangeLabels}}" wx:key="index" class="year-chip"><text>{{item}}</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
               </view>
               <view wx:else class="field-hint">{{localeCopy.copy_a7c33c8fee}}</view>
             </view>
@@ -469,7 +469,7 @@
               <view wx:if="{{ruleForm._flowSteps && ruleForm._flowSteps.length}}" class="flow-step-list">
                 <view class="flow-step-card flow-step-card--editor" wx:for="{{ruleForm._flowSteps}}" wx:key="index" wx:for-index="si">
                   <view class="flow-step-head">
-                    <view class="flow-step-badge">{{localeCopy.copy_ef8b7ffa9b}}{{si + 1}}{{localeCopy.copy_9e545997b0}}</view>
+                    <view class="flow-step-badge">{{item._stepNumberText}}</view>
                     <view class="flow-step-name">{{item.name || localeCopy.copy_ef53c6fd58}}</view>
                     <view class="flow-step-actions">
                       <text class="link sm ui-motion-chip" wx:if="{{si > 0}}" data-idx="{{si}}" catchtap="moveRuleFlowStepUp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_79b93c0b36}}</text>

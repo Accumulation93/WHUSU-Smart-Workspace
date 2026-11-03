@@ -1,4 +1,6 @@
 const auditSigningCopy = require('../../../package-resources/locales/zh-CN/auditSigning');
+const auditConditionsCopy = require('../../../package-resources/locales/zh-CN/auditConditions');
+const { buildConditions, buildStarterConditions } = require('../../../package-resources/utils/auditConditionView');
 const { inputFile } = require('../../../package-resources/utils/fileIO');
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
@@ -6,8 +8,8 @@ const localeCopy = require('../../../package-resources/locales/zh-CN/generated/s
  *
  * Tabs: auditTemplates | auditStamps | auditSubmissions | auditVerification
  */
-const utils = require('./adminUtils');
-const { formatAuditTime } = require('../../../../../utils/api');
+const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const { formatAuditTime, createResultError } = require('../../../../../utils/api');
 const { openAuditFile } = require('../../../package-resources/utils/filePreview');
 const {
   verificationCopy,
@@ -23,7 +25,7 @@ const {
   ALL_FILTER_KEY,
   buildAuditPersonnelFilterOptions,
   filterAuditPersonnel
-} = require('./auditPersonnelView');
+} = require('../../../package-resources/subpackages/scoring/pages/admin/modules/auditPersonnelView');
 const { showShortToast, getErrorText } = utils;
 
 const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
@@ -157,7 +159,7 @@ module.exports = Behavior({
   methods: {
     async loadAuditEditorData() {
       const result = await this.callCloud('getAuditTemplateEditorData', {});
-      if (result.status !== 'success' || !result.data) throw new Error(result.message || localeCopy.copy_b791913c7a);
+      if (result.status !== 'success' || !result.data) throw createResultError(result, localeCopy.copy_b791913c7a);
       this._hrList = result.data.people || [];
       this.setData({ departmentList: result.data.departments || [], identityList: result.data.identities || [],
         workGroupList: result.data.workGroups || [] });
@@ -547,7 +549,8 @@ module.exports = Behavior({
         } else { newCond._identNames = []; newCond._identName = ''; }
       }
       // Pre-compute display summary
-      newCond._summary = this._auditConditionSummary(newCond);
+      newCond = this._auditResolveCondition(newCond);
+      newCond._summary = newCond._approvalView.summary;
 
       let conditions = [...this.data.auditTemplateStepForm.conditions];
       if (this.data.auditStepConditionEditingIndex >= 0) {
@@ -571,36 +574,8 @@ module.exports = Behavior({
 
     // ── Build a human-readable summary for a single condition ──
     _auditConditionSummary(c) {
-      if (!c) return localeCopy.copy_2dcf2e1cdf;
-      if (c.conditionType === 'submitter') return governanceCopy.auditSubmitter;
-      if (c.conditionType === 'person') {
-        if (c.assignmentIds) {
-          let names = c.assignmentIds.split(',').map(function (id) {
-            return this._auditAssignmentName(id.trim());
-          }.bind(this)).filter(function (n) { return n; });
-          return names.length ? names.join('、') : localeCopy.copy_572c4dbb58;
-        }
-        return localeCopy.copy_b9283ec054;
-      }
-      // identity_scope — only show what's restricted, skip 'all'
-      let parts = [];
-      if (c.departmentScope === 'own') {
-        parts.push(localeCopy.copy_37ad645951);
-      } else if (c.departmentScope === 'specific' && c.specificDepartmentId) {
-        parts.push(this._auditDeptName(c.specificDepartmentId) || localeCopy.copy_b3604f443f);
-      }
-      if (c.workGroupScope === 'own') {
-        parts.push(localeCopy.copy_2c67faf1c7);
-      } else if (c.workGroupScope === 'specific' && c.specificWorkGroupId) {
-        parts.push(this._auditWgName(c.specificWorkGroupId) || localeCopy.copy_258347beac);
-      }
-      if (c.identityScope === 'own') {
-        parts.push(localeCopy.copy_c84650778a);
-      } else if (c.identityScope === 'specific' && c.specificIdentityId) {
-        parts.push(this._auditIdentityName(c.specificIdentityId) || localeCopy.copy_640342a015);
-      }
-      if (!parts.length) return localeCopy.copy_532dbd7fc1;
-      return parts.join(' · ');
+      if (!c) return auditConditionsCopy.approverRangeUnavailable;
+      return this._auditResolveCondition(c)._approvalView.summary;
     },
 
     /**
@@ -610,7 +585,6 @@ module.exports = Behavior({
      */
     _auditResolveCondition(c) {
       let r = Object.assign({}, c);
-      if (c.conditionType === 'submitter') return { conditionType: 'submitter', _summary: governanceCopy.auditSubmitter };
       if (c.conditionType === 'person') {
         if (c.assignmentIds) {
           let ids = c.assignmentIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -647,6 +621,17 @@ module.exports = Behavior({
           r._identName = '';
         }
       }
+      const countIds = value => String(value || '').split(',').map(value => value.trim()).filter(Boolean).length;
+      const fact = { conditionType: r.conditionType, personKind: r.assignmentIds ? 'assignment' : 'person', personNames: r._assignmentNames || [],
+        departmentScope: r.departmentScope, departmentNames: r._deptNames || [],
+        identityScope: r.identityScope, identityNames: r._identNames || [],
+        workGroupScope: r.workGroupScope, workGroupNames: r._wgNames || [] };
+      fact.unresolved = r.conditionType === 'person' ? !countIds(r.assignmentIds) || fact.personNames.length !== countIds(r.assignmentIds)
+        : [['department','specificDepartmentId'],['identity','specificIdentityId'],['workGroup','specificWorkGroupId']].some(([key,idKey]) =>
+          r[key+'Scope'] === 'specific' && (!countIds(r[idKey]) || fact[key+'Names'].length !== countIds(r[idKey])));
+      r._fact = fact;
+      r._approvalView = buildConditions({conditionFacts:[fact]},auditConditionsCopy);
+      r._starterView = buildStarterConditions({conditionFacts:[fact]},auditConditionsCopy,true);
       return r;
     },
 
@@ -917,7 +902,7 @@ module.exports = Behavior({
           if (!tab.workGroups.length) continue; // skip empty depts
           let hasSelection = tab.workGroups.some(function(wg) { return selectedIds[String(wg.id)]; });
           if (!hasSelection) {
-            showShortToast((tab.deptName || tab.deptId) + localeCopy.copy_bbef5f061c);
+            showShortToast(tab.deptName ? localeCopy.departmentWorkGroupRequired(tab.deptName) : auditConditionsCopy.approverRangeUnavailable);
             return;
           }
         }
@@ -1068,9 +1053,9 @@ module.exports = Behavior({
 
       let conditions = [...this.data.auditTemplateForm.starterConditions];
       if (this.data.auditStarterConditionEditingIndex >= 0) {
-        conditions[this.data.auditStarterConditionEditingIndex] = newCond;
+        conditions[this.data.auditStarterConditionEditingIndex] = this._auditResolveCondition(newCond);
       } else {
-        conditions.push(newCond);
+        conditions.push(this._auditResolveCondition(newCond));
       }
       this.setData({
         'auditTemplateForm.starterConditions': conditions,
@@ -1184,7 +1169,7 @@ module.exports = Behavior({
     _auditStarterSummary() {
       let conds = this.data.auditTemplateForm.starterConditions;
       if (!conds || !conds.length) return localeCopy.copy_44ce43b050;
-      return conds.map(function(c) { return this._auditConditionSummary(c); }.bind(this)).join(localeCopy.copy_17bcc41217);
+      return buildStarterConditions({conditionFacts:conds.map(c => this._auditResolveCondition(c)._fact)},auditConditionsCopy,true).summary;
     },
 
     async saveAuditFlowTemplate() {
@@ -1194,7 +1179,7 @@ module.exports = Behavior({
       // Validate each step has at least one condition
       for (let i = 0; i < form.steps.length; i++) {
         if (!form.steps[i].conditions || !form.steps[i].conditions.length) {
-          showShortToast(localeCopy.copy_93c50c01c0 + (i + 1) + localeCopy.copy_287253008b);
+          showShortToast(localeCopy.stepConditionRequired(i + 1));
           return;
         }
       }
@@ -1491,7 +1476,7 @@ module.exports = Behavior({
       try {
         const preview = await this.callCloud('previewAuditSubmissionDeletion', { id });
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (preview.status !== 'success') throw new Error(preview.message || governanceCopy.failed);
+        if (preview.status !== 'success') throw createResultError(preview, governanceCopy.failed);
         const confirmation = await new Promise(resolve => wx.showModal({ title: governanceCopy.deleteTitle,
           content: governanceCopy.deleteBody.replace('{0}', preview.record.title),
           confirmText: governanceCopy.deleteConfirm, cancelText: governanceCopy.cancel,
@@ -1499,7 +1484,7 @@ module.exports = Behavior({
         if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
         const result = await this.callCloud('deleteAuditSubmission', { id, revision: preview.record.revision });
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || governanceCopy.failed);
+        if (result.status !== 'success') throw createResultError(result, governanceCopy.failed);
         this.setData({ auditSubmissions: this.data.auditSubmissions.filter(item => item.id !== id) });
         eventBus.emit('approval:done', { submissionId: id, deleted: true });
         if (result.cleanupPending) wx.showModal({ title: governanceCopy.deleted, content: governanceCopy.cleanupPending, showCancel: false });
@@ -1638,32 +1623,8 @@ module.exports = Behavior({
               let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
 
               // Build approver description
-              let approverDesc = s.approverDesc || '';
-              if (!approverDesc) {
-                if (s.approverType === 'specific_person' || s.approverName) {
-                  approverDesc = localeCopy.copy_d3028048b3 + (s.approverName || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
-                } else {
-                  const identName = s.approverIdentityName || localeCopy.copy_c76fae0e08;
-                  const scopeType = s.scopeType || 'all';
-                  if (scopeType === 'all' || !scopeType) {
-                    approverDesc = localeCopy.copy_9b774f950c + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'same_department') {
-                    approverDesc = localeCopy.copy_fc98ff863c + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'same_work_group') {
-                    approverDesc = localeCopy.copy_d0348010eb + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'specific_department') {
-                    const deptName = s.scopeDepartmentName || localeCopy.copy_b3604f443f;
-                    approverDesc = localeCopy.copy_d3028048b3 + deptName + ' ' + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'specific_work_group') {
-                    const deptName = s.scopeDepartmentName || '';
-                    const wgName = s.scopeWorkGroupName || '';
-                    const location = [deptName, wgName].filter(Boolean).join('·') || localeCopy.copy_258347beac;
-                    approverDesc = localeCopy.copy_d3028048b3 + location + ' ' + identName + localeCopy.copy_7abed5378f;
-                  } else {
-                    approverDesc = localeCopy.copy_d3028048b3 + identName + localeCopy.copy_7abed5378f;
-                  }
-                }
-              }
+              const conditionView = buildConditions(s, auditConditionsCopy);
+              const approverDesc = conditionView.summary;
 
               const actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, either: auditSigningCopy.either, both: localeCopy.copy_a63d02480e };
               const actionLabel = actionMap[s.actionType] || s.actionType || localeCopy.copy_8e2f75159e;
@@ -1702,7 +1663,7 @@ module.exports = Behavior({
                 _key: 'step_' + s.id,
                 type: 'step', ...s,
                 flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
-                approverDesc, actionLabel,
+                approverDesc, conditionView, actionLabel,
                 processedAtText: s.processed_at
                   ? formatAuditTime(s.processed_at, s.processed_atReviewStatus)
                   : ''
@@ -1726,7 +1687,7 @@ module.exports = Behavior({
                   flowTimeline.splice(insertIdx, 0, {
                     _key: 'separator_r' + round + '_remaining',
                     type: 'separator',
-                    label: localeCopy.copy_361de3f050 + remainingCount + localeCopy.copy_239cbf0257
+                    label: localeCopy.pendingSteps(remainingCount)
                   });
                 }
               }
@@ -1975,7 +1936,7 @@ module.exports = Behavior({
         this.setLoading('auditVerificationCandidates', true);
         try {
           const result = await this.callCloud('listAuditVerificationCandidates', {});
-          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_b791913c7a);
+          if (result.status !== 'success') throw createResultError(result, localeCopy.copy_b791913c7a);
           candidates = result.candidates || [];
         } catch (error) {
           if (!error.silent) showShortToast(getErrorText(error, localeCopy.copy_b791913c7a));

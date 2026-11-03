@@ -164,7 +164,11 @@ async function read(actor, options = {}) {
         relatedTuples.add(tupleOf(item));
         return true;
       }).map(item => ({
-        key: contactKey(actor, item, nonce), label: item.assignment ? [item.assignment.departmentName, item.assignment.identityCategoryName, item.assignment.workGroupName].filter(Boolean).join(' · ') : copy.noPosition
+        key: contactKey(actor, item, nonce), hasAssignment: Boolean(item.assignment),
+        departmentName: item.assignment ? item.assignment.departmentName : '',
+        identityCategoryName: item.assignment ? item.assignment.identityCategoryName : '',
+        workGroupName: item.assignment ? item.assignment.workGroupName || '' : '',
+        label: item.assignment ? [item.assignment.departmentName, item.assignment.identityCategoryName, item.assignment.workGroupName].filter(Boolean).join(' · ') : copy.noPosition
       }));
       visible = visible.filter(item => contactKey(actor, item, nonce) === options.key);
       if (!visible.length) throw new policy.DirectoryError('contactUnavailable');
@@ -188,8 +192,8 @@ async function read(actor, options = {}) {
       seen.add(tuple);
       const department = assignment ? assignment.departmentName : copy.noPosition;
       const groupKey = assignment ? assignment.departmentId : '';
-      const group = groups.get(groupKey) || { key: generateId(), name: department, items: [] };
-      const card = { key: contactKey(actor, item, nonce), name: item.person.name, departmentName: department,
+      const group = groups.get(groupKey) || { key: generateId(), name: department, hasAssignment: Boolean(assignment), items: [] };
+      const card = { key: contactKey(actor, item, nonce), name: item.person.name, departmentName: department, hasAssignment: Boolean(assignment),
         identityCategoryName: assignment ? assignment.identityCategoryName : '', workGroupName: assignment ? assignment.workGroupName || '' : '',
         fields: (options.summaryOnly === true && !detail ? [] : item.fieldIds).map(id => ({ label: fieldById.get(id).label, type: fieldById.get(id).type,
           value: String(byValue.get(JSON.stringify([item.person.hrId, id])) || '') })), relatedKeys: [] };

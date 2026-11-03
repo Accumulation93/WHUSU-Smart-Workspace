@@ -45,7 +45,7 @@ import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 import { venueStatusLabel } from '@/runtime/venuePresentation.js';
@@ -87,12 +87,8 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listVenueApprovalHistory', {});
+    const result = requireSuccess(await callApi('listVenueApprovalHistory', {}));
     if (request !== generation) return;
-    if (result.status !== 'success') {
-      loadNotice.value = result.message || copy.venue.loadFailed;
-      return;
-    }
     items.value = Array.isArray(result.history) ? result.history : [];
   } catch (error) {
     if (request !== generation) return;

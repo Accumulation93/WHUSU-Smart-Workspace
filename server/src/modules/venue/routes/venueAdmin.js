@@ -694,7 +694,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
-      adminRows.forEach(item => { adminMap[item.id] = item.name || localeCopy.copy_c01a9aef59; });
+      adminRows.forEach(item => { adminMap[item.id] = safeString(item.name); });
     }
     if (hrIds.length) {
       try {
@@ -735,6 +735,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
         (hrList || []).forEach(h => {
           const org = safeString(h.org_id);
           userMap[h.id] = {
+            rawName: safeString(h.name),
             name: h.name || localeCopy.copy_de00c3e48a,
             department: deptMap[org + '|' + h.department_id] || '',
             identity: identMap[org + '|' + h.identity_id] || '',
@@ -758,6 +759,9 @@ router.post('/listAllVenueBookings', async (req, res) => {
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
+      displayFacts: { creatorType: b.creator_type || 'user',
+        creatorName: b.creator_type === 'admin' ? safeString(adminMap[b.creator_admin_id]) : safeString(applicant.name || userMap[b.user_hr_id] && userMap[b.user_hr_id].rawName),
+        assignmentLabel: safeString(applicant.assignmentLabel), venueName: safeString(b.venue_name) },
       creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
       creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
       userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),

@@ -56,6 +56,9 @@ function groupIssues(issues) {
     return Object.assign({}, first, {
       id: crypto.createHash('sha256').update(JSON.stringify(parts.map(item => item.id).sort())).digest('hex').slice(0, 32),
       rowNumbers, memberIssues: parts, name: '', studentId: '', targetId: '', targetLabel: '',
+      presentationFacts: first.presentationFacts ? Object.assign({}, first.presentationFacts, {
+        people: parts.flatMap(item => item.presentationFacts && item.presentationFacts.people || [])
+      }) : undefined,
       message: [first.columnText, first.detailMessage].filter(Boolean).join(copy.listSeparator),
       actions: first.blocking ? [{ type: 'exclude', rowNumbers }] : []
     });

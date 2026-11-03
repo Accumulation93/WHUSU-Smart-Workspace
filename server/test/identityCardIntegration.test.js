@@ -52,7 +52,12 @@ async function main() {
     assert.equal(publicResponse.headers.get('cache-control'),'no-store');
     const verified = await publicResponse.json();
     assert.equal(verified.card.name,'测试姓名');
-    assert.deepEqual(Object.keys(verified.card).sort(),['name','organization','position','state']);
+    assert.deepEqual(Object.keys(verified.card).sort(),['name','organization','position','positionFacts','state','stateCode']);
+    assert.equal(verified.card.stateCode, 'active');
+    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel','assignmentLabel','hasAssignment','role']);
+    assert.equal(verified.card.positionFacts.hasAssignment, true);
+    assert.equal(verified.card.positionFacts.assignmentLabel, actor.assignmentLabel);
+    assert.equal(verified.card.positionFacts.role, actor.role);
     assert(!JSON.stringify(verified).includes('private-student'));
     assert.equal((await model.verify('invalid')).valid,false);
     assert.equal((await model.verify('0'.repeat(32))).valid,false);

@@ -1,6 +1,6 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
-
+import common from '../../../../../common.js';
 const sharedModule = Object.freeze({
   navigationTitle: '管理员权限 - WHUSU智慧工作台',
   searchEmpty: '没有符合条件的管理员',
@@ -13,7 +13,7 @@ const sharedModule = Object.freeze({
   copy_2370e6144f: "人",
   copy_267c7ab9d4: "管理员权限",
   copy_2948683a6d: "管理员列表",
-  copy_2a0e50c5f6: "清除",
+  copy_2a0e50c5f6: "清除搜索",
   copy_40859eeee7: "未保存内容",
   copy_43ecd1ec09: "设置权限",
   copy_4dbdbf9dcd: '未填写',
@@ -22,18 +22,17 @@ const sharedModule = Object.freeze({
   copy_6214a926a3: "当前组织暂无可管理的管理员",
   copy_71db23a36b: "保存",
   copy_72d3c6f7c2: "管理员",
-  copy_80fba348b7: "学号",
   copy_835048fcaf: "全部",
   copy_9c0ceb5c90: "已启用",
-  copy_aa4f0ed6cd: "WHUSU智慧工作台",
+  copy_aa4f0ed6cd: common.brandName,
   copy_c1961a2760: "继续编辑",
   copy_ccd219e5f1: '超级管理员',
   copy_cea1da7603: "搜索",
   copy_d576d9e120: "正在加载管理员…",
-  copy_e3a7655873: '请切换到相应的管理权限。',
+  copy_e3a7655873: '请切换到有权查看本页的管理身份。',
   copy_e47065f3f1: '权限已生效',
   copy_e52119b17e: '请稍后重试',
-  copy_f679e67c6f: "搜索姓名或管理权限",
+  copy_f679e67c6f: "搜索姓名或管理身份",
   copy_f7eeef9596: "有未保存内容"
 });
 

@@ -3,7 +3,7 @@
     <div class="stack">
       <div class="schedule-nav">
         <button type="button" class="btn btn-secondary" :disabled="bookingBusy" @click="changeWeek(-7)">‹</button>
-        <span>{{ start }} {{ ui.copy_59799547cb }}</span>
+        <span>{{ ui.weekFrom(start) }}</span>
         <button type="button" class="btn btn-secondary" :disabled="bookingBusy" @click="changeWeek(7)">›</button>
       </div>
       <p v-if="notice" role="alert">{{ notice }}</p>
@@ -42,6 +42,7 @@ import VenueAdminBookingDialog from './VenueAdminBookingDialog.vue';
 import adminTime from '@/shared/venueAdminTimeSelection.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatDetailTime, formatListTime } from '@/runtime/dateTime.js';
 import { session } from '@/runtime/session.js';
@@ -88,11 +89,14 @@ function activityCycle(value) {
   let meta = value?.cycleValues || {};
   if (typeof meta === 'string') { try { meta = JSON.parse(meta); } catch { meta = {}; } }
   const from = meta.periodStartDate || meta.startDate, to = meta.periodEndDate || meta.endDate;
-  if (value?.cycleType === 'datetime_range') return (from || '--') + ' ' + (meta.periodStartTime || meta.startTime || '--:--') + ui.copy_c44dbba9e9 + (to || '--') + ' ' + (meta.periodEndTime || meta.endTime || '--:--');
-  if (value?.cycleType === 'repeat') return ui.copy_c895f6c29e + (from || '--') + ' ' + (meta.periodStartTime || meta.startTime || '--:--') + ui.copy_c44dbba9e9 + (to || '--') + ' ' + (meta.periodEndTime || meta.endTime || '--:--') + ui.copy_6d6ab79183 + (Number(meta.repeatCount) || 0) + ui.copy_c5aa06059a;
+  const startTime = meta.periodStartTime || meta.startTime, endTime = meta.periodEndTime || meta.endTime;
+  const completeRange = from && to && startTime && endTime;
+  if (value?.cycleType === 'datetime_range') return completeRange ? factsCopy.timeRange(from + ' ' + startTime, to + ' ' + endTime) : factsCopy.timeRangeMissing;
+  if (value?.cycleType === 'repeat') return [completeRange ? factsCopy.originalSchedule(from + ' ' + startTime, to + ' ' + endTime) : factsCopy.timeRangeMissing,
+    Number(meta.repeatCount) > 0 ? ui.repeatedOccurrences(Number(meta.repeatCount)) : factsCopy.repeatCountMissing].join('\n');
   const beginning = from ? from + ' ' + (meta.periodStartTime || meta.startTime || '00:00') : ui.copy_f54e24d97d;
   const ending = to ? to + ' ' + (meta.periodEndTime || meta.endTime || '23:59') : ui.copy_b8c87b0fb5;
-  return ui.copy_eeb5f0e78e + beginning + ui.copy_c44dbba9e9 + ending + (Number(meta.repeatCount) > 0 ? ui.copy_960969cd90 + Number(meta.repeatCount) + ui.copy_c5aa06059a : '');
+  return factsCopy.recurrenceValidity(beginning, ending) + (Number(meta.repeatCount) > 0 ? ' · ' + ui.repeatedOccurrences(Number(meta.repeatCount)) : '');
 }
 function close() { if (!bookingBusy.value) emit('close'); }
 function changeWeek(delta) { if (!bookingBusy.value) { start.value = addDays(start.value, delta); load(); } }

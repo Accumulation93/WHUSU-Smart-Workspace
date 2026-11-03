@@ -209,6 +209,8 @@ callFunction({ name: 'userLogin', data: { code }, success: res => { ... }, fail:
 
 ### 响应格式
 
+新版界面只按结构化结果码和事实参数引用共享前端语料。下述 `message` 是旧协议兼容字段，不可直接用于 Toast、弹窗或页面正文；嵌套 `description/content/error/statusText` 等系统说明同样禁止直显。业务原文按原权限正常展示，不把真实姓名、标题和用户意见当作系统提示删除。
+
 ```json
 { "status": "success", "data": { ... } }
 { "status": "login_success", "token": "...", "user": { ... } }

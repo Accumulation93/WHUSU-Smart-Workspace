@@ -1,4 +1,5 @@
 'use strict';
+const common = require('../../../../../../../../../../locales/zh-CN/common');
 
 module.exports = Object.freeze({
   copy_0dc99cac16: '审核中',
@@ -7,9 +8,9 @@ module.exports = Object.freeze({
   copy_2ad6b11547: "审批记录",
   copy_56d416c578: "审核",
   copy_5d5af942c5: '已驳回',
-  copy_638da8ae60: "武汉大学学生会",
+  copy_638da8ae60: common.organizationName,
   copy_86accadcca: "暂无审批记录",
-  copy_aa4f0ed6cd: "WHUSU智慧工作台",
+  copy_aa4f0ed6cd: common.brandName,
   copy_e52119b17e: '请稍后重试',
   copy_f69eaef5c5: "我的审批记录",
   processedAssignmentPrefix: '处理岗位：',

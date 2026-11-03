@@ -34,7 +34,7 @@
         <view class="template-select-item {{selectedTemplateId === item.id ? 'template-select-item-selected' : ''}} ui-motion-card" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" catchtap="onTemplateSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="radio-dot {{selectedTemplateId === item.id ? 'radio-dot-checked' : ''}}"></view>
           <view class="list-main">
-            <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}{{localeCopy.copy_9e545997b0}})</text></view>
+            <view class="list-name">{{item.name}} <text class="list-desc">{{item.stepCountText}}</text></view>
             <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
           </view>
         </view>
@@ -47,10 +47,12 @@
 
     <!-- Ad-hoc mode -->
     <view class="card" wx:if="{{createMode === 'ad_hoc'}}">
-      <view class="section-title">{{localeCopy.copy_265568fe85}}（{{adHocSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
+      <view class="section-title">{{localeCopy.copy_265568fe85}}</view><view class="section-desc">{{adHocStepCountText}}</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
-          <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? ((item.approverHrName || localeCopy.copy_5fff626dd6) + (item.approverAssignmentLabel ? ' · ' + item.approverAssignmentLabel : '')) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? signingCopy.either : localeCopy.copy_a63d02480e)))}}</view>
+          <view class="ad-hoc-step-title">{{item.stepText}}</view>
+          <approval-conditions value="{{item.conditionView}}" />
+          <view class="ad-hoc-step-desc">{{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? signingCopy.either : localeCopy.copy_a63d02480e)))}}</view>
           <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? localeCopy.copy_fc2ce54999 : localeCopy.copy_e31ec452dd}}</view>
         </view>
         <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
@@ -63,12 +65,13 @@
 
     <!-- Template step preview (person override) -->
     <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
-      <view class="section-title">{{localeCopy.copy_9c898a71af}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
+      <view class="section-title">{{localeCopy.templateStepPreviewTitle}}</view><view class="section-desc">{{templatePreviewStepCountText}}</view>
       <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
-          <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
+          <view class="tpl-step-preview-num">{{item.stepText}}</view>
           <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
+          <approval-conditions value="{{item.conditionView}}" />
           <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
           <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
             <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].assignmentIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
@@ -213,7 +216,7 @@
             <block wx:if="{{submission.status === 'draft'}}">{{localeCopy.copy_f90d5fcc1f}}</block>
             <block wx:elif="{{submission.status === 'pending'}}">{{localeCopy.copy_19e33b3f68}}</block>
             <block wx:elif="{{submission.status === 'in_progress'}}">{{localeCopy.copy_3714fd6353}}{{submission.currentStepIndex || 1}}{{localeCopy.copy_f600823615}}</block>
-            <block wx:elif="{{submission.status === 'rejected'}}">{{localeCopy.copy_ef8b7ffa9b}}{{submission.previousRejectStepIndex || '?'}}{{localeCopy.copy_f69a5ce118}}</block>
+            <block wx:elif="{{submission.status === 'rejected'}}">{{rejectedStepText}}</block>
             <block wx:elif="{{submission.status === 'approved'}}">{{localeCopy.copy_5477363bc5}}</block>
             <block wx:elif="{{submission.status === 'withdrawn'}}">{{localeCopy.copy_1860c2d121}}</block>
           </view>
@@ -224,10 +227,11 @@
       <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && canApproveCurrentStep}}">
         <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
-          {{activeApprovalStep.stepName || (localeCopy.copy_93c50c01c0 + activeApprovalStep.sortOrder + localeCopy.copy_493a127a99)}} · {{activeApprovalStep.actionLabel}}
+          {{activeApprovalStep.stepText}} · {{activeApprovalStep.actionLabel}}
           <text wx:if="{{activeApprovalStep.round > 1}}" class="approval-round-note">{{localeCopy.copy_bdabcbc8ff}}{{activeApprovalStep.round}}{{localeCopy.copy_d03f1546e9}}</text>
         </view>
         <view class="approval-step-desc">{{activeApprovalStep.approverDesc}}</view>
+        <approval-conditions value="{{activeApprovalStep.conditionView}}" />
 
         <!-- Signature / Stamp section (hidden for pass-only steps) -->
         <view wx:if="{{activeApprovalStep.actionType !== 'pass'}}" class="approval-sig-section">
@@ -300,7 +304,7 @@
             {{item.name}} · {{item.assignmentLabel}}
             <text data-assignment-id="{{item.assignmentId}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
           </view>
-          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info">{{localeCopy.copy_d5b151752b}}{{nextStepInfo.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{nextStepInfo.approverDesc}}</view>
+          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info"><view>{{nextStepInfo.stepText}}</view><approval-conditions value="{{nextStepInfo.conditionView}}" /></view>
         </view>
 
         <!-- Action buttons -->
@@ -383,7 +387,7 @@
               </view>
               <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <!-- Collapsed: key info only -->
-                <view class="flow-step-label">{{node.stepName || (localeCopy.copy_93c50c01c0 + (node.sortOrder || '?') + localeCopy.copy_493a127a99)}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_29f6c07d3f}}</text></view>
+                <view class="flow-step-label">{{node.stepText}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{node.roundText}}</text></view>
                 <view wx:if="{{node.flowIcon !== 'check' && node.flowIcon !== 'cross'}}" class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
@@ -414,12 +418,9 @@
                     <text class="flow-detail-label">{{localeCopy.copy_edbf7136ff}}</text>{{node.rejectionReason}}
                   </view>
                   <!-- Conditions detail (multi-condition OR logic) -->
-                  <view wx:if="{{node.conditionsDisplay && node.conditionsDisplay.length}}" class="flow-detail-conditions">
-                    <view class="flow-detail-conditions-label">{{localeCopy.copy_fbdf6b37eb}}</view>
-                    <view wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" class="flow-detail-cond-line">{{condLine}}</view>
-                  </view>
+                  <approval-conditions value="{{node.conditionView}}" />
                   <!-- Round info -->
-                  <view wx:if="{{node.round > 1}}" class="flow-detail-round">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_eeb3a23b87}}</view>
+                  <view wx:if="{{node.round > 1}}" class="flow-detail-round">{{node.roundText}}</view>
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
@@ -436,7 +437,7 @@
       <view wx:if="{{roundGroup.expanded && roundGroup.signatures.length}}">
         <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{roundGroup.signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{roundGroup.signatures}}" wx:key="id">
-          <view class="list-name"><person-link name="{{item.signerName}}" hr-id="{{item.signerHrId}}" /> · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
+          <view class="list-name"><person-link name="{{item.signerName}}" hr-id="{{item.signerHrId}}" /> · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{item.roundText}}</view>
           <view class="list-desc">{{item.signedAtText}}</view>
         </view>
       </view>
@@ -513,12 +514,13 @@
 
         <!-- 模板步骤：仅在模板允许时提供第一步审批人重指定。 -->
         <view class="card" wx:if="{{editType === 'template' && editTemplateId && templatePreviewSteps.length}}">
-          <view class="section-title">{{localeCopy.copy_5d2dc79b89}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
+          <view class="section-title">{{localeCopy.templateStepPreviewTitle}}</view><view class="section-desc">{{templatePreviewStepCountText}}</view>
           <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
           <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
             <view class="tpl-step-preview-main">
-              <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
+              <view class="tpl-step-preview-num">{{item.stepText}}</view>
               <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
+              <approval-conditions value="{{item.conditionView}}" />
               <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
               <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
                 <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].assignmentIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
@@ -538,10 +540,10 @@
 
         <!-- Ad-hoc steps editor -->
         <view class="card" wx:if="{{editType === 'ad_hoc'}}">
-          <view class="section-title">{{localeCopy.copy_265568fe85}}（{{editSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
+          <view class="section-title">{{localeCopy.copy_265568fe85}}</view><view class="section-desc">{{editStepCountText}}</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
-              <view class="ad-hoc-step-title">{{localeCopy.copy_ef8b7ffa9b}}{{index + 1}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? signingCopy.either : localeCopy.copy_a63d02480e)))}}</view>
+              <view class="ad-hoc-step-title">{{item.stepText}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : (item.actionType === 'either' ? signingCopy.either : localeCopy.copy_a63d02480e)))}}</view>
               <view class="ad-hoc-step-desc">{{item.approverDesc || localeCopy.copy_9f142da1e5}}</view>
               <!-- Show individual condition lines for OR logic -->
               <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" class="edit-cond-line">{{cond}}</view>
@@ -688,9 +690,9 @@
 
       <!-- Hint -->
       <view class="placement-hint">
-        {{localeCopy.copy_7f23b372a9}}{{placementType === 'stamp' ? localeCopy.copy_ed981b1744 : localeCopy.copy_0c02992813}}{{localeCopy.copy_8980340210}}
+        {{placementType === 'stamp' ? localeCopy.placeSelectedStamp : localeCopy.placeSelectedSignature}}
         <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}" class="placement-hint-page">
-          · {{localeCopy.copy_95cf78856c}}{{placementCurrentPage}}{{localeCopy.copy_999a2408c6}}
+          · {{placementPageText}}
         </text>
       </view>
 
@@ -701,7 +703,7 @@
               data-dir="prev" catchtap="onPlacementPageChange"
               wx:if="{{placementCurrentPage > 1}}"
               hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">◀ {{localeCopy.copy_6befa183d0}}</text>
-        <text class="placement-page-num">{{localeCopy.copy_ef8b7ffa9b}} {{placementCurrentPage}} / {{placementTotalPages}} {{localeCopy.copy_999a2408c6}}</text>
+        <text class="placement-page-num">{{placementPagePosition}}</text>
         <text class="placement-page-btn ui-motion-chip"
               data-dir="next" catchtap="onPlacementPageChange"
               wx:if="{{placementCurrentPage < placementTotalPages}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0f143c0d61}} ▶</text>
@@ -748,7 +750,8 @@
           <view class="placement-fallback-icon"><ui-icon name="file" tone="muted" size="48" ariaLabel="{{localeCopy.copy_9b8709737d}}" /></view>
           <view>{{placementFileName}}</view>
           <view class="placement-fallback-sub">
-            {{placementFileMime === 'application/pdf' ? localeCopy.copy_5833eb9b10 + placementCurrentPage + localeCopy.copy_f67213967c : localeCopy.copy_d14d285351 + (placementType === 'stamp' ? localeCopy.copy_ed981b1744 : localeCopy.copy_0c02992813)}}
+            {{placementType === 'stamp' ? localeCopy.placeSelectedStamp : localeCopy.placeSelectedSignature}}
+            <text wx:if="{{placementFileMime === 'application/pdf'}}"> · {{placementPageText}}</text>
           </view>
         </view>
       </scroll-view>
@@ -756,7 +759,7 @@
       <!-- Position info -->
       <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" class="placement-pos-info">
         {{localeCopy.copy_5d46d06a0e}}{{placementPosText}}
-        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · {{localeCopy.copy_ef8b7ffa9b}}{{placementCurrentPage}}{{localeCopy.copy_999a2408c6}}</text>
+        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · {{placementPageText}}</text>
       </view>
 
       <view class="placement-transform-panel" wx:if="{{placementActiveIdx >= 0}}">

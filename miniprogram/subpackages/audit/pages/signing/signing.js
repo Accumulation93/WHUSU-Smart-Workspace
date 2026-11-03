@@ -5,7 +5,7 @@ const assets = require('../../../../utils/auditSigningAssets');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
 const orgSession = require('../../../../utils/orgSession');
-const { callFunction } = require('../../../../utils/api');
+const { callFunction, createResultError, getErrorText } = require('../../../../utils/api');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { signingStepCurrent } = require('../../utils/auditStepView');
 const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
@@ -26,7 +26,7 @@ Page({
     this._saved = ink.clone(this._handoff.rollback || this._handoff.draft);
     this._fileDraft = drafts.store.file(this._handoff.draft, this._handoff.file.id);
     this.setData({ workspaceOrientation: this._handoff.pad === true ? 'landscape' : 'auto', fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
-      allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false,
+      allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false, hasStep: !!this._handoff.submissionId,
       mode: this._handoff.mode || 'browse', activeId: this._handoff.active || '',
       pdf: this._handoff.file.mimeType === 'application/pdf' });
     this.refreshMaterials(); this.validateStep();
@@ -205,9 +205,13 @@ Page({
     this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.cancelAdjustment(); this.syncHistory();
   },
   toggleSaveTemplate() { if (!this.data.saving) this.setData({ saveTemplate: !this.data.saveTemplate }); },
+  openConfirmHelp() { if (this.data.hasStep) this.setData({ confirmHelp: true }); },
+  closeConfirmHelp() { this.setData({ confirmHelp: false }); },
+  noop() {},
   async confirm() {
     if (!this.data.ready || this.data.saving || this.data.processing || this.data.notice) return;
     this.setData({ saving: true, exportNotice: '' });
+    let savingSignature = false;
     try {
       const history = this._fileDraft.history, pages = [...new Set(history.operations.slice(0, history.cursor).map(operation => operation.page))], exports = [];
       for (const page of pages) {
@@ -222,9 +226,11 @@ Page({
       if (!this._alive || !orgSession.isCurrent(this._scope) || this._handoff.draft.locked) return;
       if (this._handoff.pad && !exports.length) { this.setData({ exportNotice: copy.empty }); return; }
       if (this.data.allowSaveTemplate && this.data.saveTemplate && this._templateImageSaved !== exports[0].imageData) {
+        savingSignature = true;
         const result = await callFunction({ name: 'saveSignature', data: { id: '', name: copy.signature, imageData: exports[0].imageData } });
-        if (result.status !== 'success') throw new Error('save_failed');
+        if (result.status !== 'success') throw createResultError(result, copy.signatureSaveFailed);
         this._templateImageSaved = exports[0].imageData;
+        savingSignature = false;
       }
       if (!this._alive || !orgSession.isCurrent(this._scope) || this._handoff.draft.locked) return;
       this._fileDraft.exports = exports; this._finished = true;
@@ -233,7 +239,7 @@ Page({
         if (orgSession.isCurrent(this._scope) && !handoff.draft.locked && handoff.confirm) handoff.confirm(exports);
         resolve();
       }, fail: error => { this._finished = false; reject(error); } }));
-    } catch (error) { if (this._alive) this.setData({ exportNotice: error.message === 'too_large' ? copy.tooLarge : copy.exportFailed }); }
+    } catch (error) { if (this._alive) this.setData({ exportNotice: savingSignature ? getErrorText(error) : error.message === 'too_large' ? copy.tooLarge : copy.exportFailed }); }
     finally { if (this._alive) this.setData({ saving: false }); }
   },
   cancel() {

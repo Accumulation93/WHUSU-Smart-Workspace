@@ -51,9 +51,9 @@ Component({
         if (result.status !== 'success') throw result;
         if (this.data.admin) {
           this._metadata = result;
-          this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSummary(rule, result, copy) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
+          this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSections(rule, result, copy) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
         } else {
-          this._groups = view.decorateGroups(result.groups, dateFormatter);
+          this._groups = view.decorateGroups(result.groups, dateFormatter, copy);
           this.setData({ groups: view.filterGroups(this._groups, this.data.query), loadFailed: false });
         }
       } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, copy.loadFailed), loadFailed: true }); }
@@ -77,7 +77,7 @@ Component({
         const result = await callFunction({ name: 'getContactDirectory', data: { key } });
         if (!this.current(request) || this.data.detailKey !== key) return;
         if (result.status !== 'success' || !result.contact) throw result;
-        this.setData({ contact: Object.assign(view.decorateContact(result.contact, dateFormatter), { related: result.contact.relatedPositions || basic.related }) });
+        this.setData({ contact: view.decorateContact(result.contact, dateFormatter, copy) });
       } catch (error) { if (this.current(request) && this.data.detailKey === key) this.setData({ detailNotice: getErrorText(error, copy.loadFailed) }); }
       finally { if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false }); }
     },
@@ -92,7 +92,7 @@ Component({
       this.setData({ ['expandedFilters.' + key]: !this.data.expandedFilters[key] }, () => this.refreshEditor());
     },
     toggleFields: function() { this.setData({ fieldsExpanded: !this.data.fieldsExpanded }); },
-    copyValue: function(event) { wx.setClipboardData({ data: event.currentTarget.dataset.value, success: () => showShortToast(copy.copied) }); },
+    copyValue: function(event) { wx.setClipboardData({ data: event.currentTarget.dataset.value, success: () => showShortToast(copy.copied), fail: () => showShortToast(copy.copyFailed) }); },
     callPhone: function(event) { wx.makePhoneCall({ phoneNumber: event.currentTarget.dataset.phone }); },
     locate: function(event) {
       const key = event.currentTarget.dataset.key;

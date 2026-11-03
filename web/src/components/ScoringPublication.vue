@@ -92,6 +92,7 @@ import { onBeforeRouteLeave } from 'vue-router';
 import PersonnelPicker from './PersonnelPicker.vue';
 import ScoringResultRow from './ScoringResultRow.vue';
 import homeCopy from '@/locales/zh-CN/shared/home.js';
+import publicationView from '@/shared/scoringPublicationView.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
@@ -124,8 +125,8 @@ const panelData = computed(() => tab.value === 'results' ? results.value : merit
 const displayMode = computed(() => results.value?.displayMode || 'score');
 const sorted = rows => rows.map(item => ({ ...item, sortScore: typeof item.sortScore === 'number' ? item.sortScore : parseFloat(item.finalScore) || 0 }))
   .sort((a, b) => b.sortScore - a.sortScore);
-const groups = computed(() => (results.value?.groups || []).map(group => ({ ...group, members: sorted(group.members || []) })));
-const members = computed(() => groups.value.length ? sorted(groups.value.flatMap(group => group.members)) : sorted(results.value?.results || []));
+const groups = computed(() => (results.value?.groups || []).map(group => ({ ...group, groupLabel: publicationView.groupTitle(group, home), members: sorted((group.members || []).map(publicationView.memberView)) })));
+const members = computed(() => groups.value.length ? sorted(groups.value.flatMap(group => group.members)) : sorted((results.value?.results || []).map(publicationView.memberView)));
 function matches(member) {
   return ['identity', 'department', 'workGroup'].every(key => !filters[key] || member[key] === filters[key])
     && (!filters.grade || (member.grade || home.unrated) === filters.grade)

@@ -3,6 +3,7 @@ import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import manage from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 const pending = { id: 'booking-1', title: 'Booking A', venueName: 'Room A', userName: 'Applicant', description: 'Long booking description '.repeat(40),
   creatorAssignmentLabel: 'Saved role', timeStart: '2026-10-10T01:00:00Z', timeEnd: '2026-10-10T02:00:00Z',
@@ -70,7 +71,8 @@ test('venue rejection preserves the dialog on failure and permits retry', async 
   await page.getByRole('button', { name: ui.copy_0c90eb0204, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Booking A' });
   await dialog.getByRole('button', { name: ui.copy_cd42af3f87 }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Rejected request');
+  await expect(dialog.getByRole('alert')).toHaveText(feedback.forbidden);
+  await expect(page.getByText('Rejected request', { exact: true })).toHaveCount(0);
   await dialog.getByRole('button', { name: ui.copy_cd42af3f87 }).click();
   await expect(dialog).toHaveCount(0);
   expect(count).toBe(2);

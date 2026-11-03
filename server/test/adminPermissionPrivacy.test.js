@@ -76,7 +76,11 @@ app.use(require('../src/core/routes/adminPermissions'));
   const pagePath = path.resolve(__dirname, '../../miniprogram/subpackages/org/pages/adminPermissions/adminPermissions');
   let definition;
   vm.runInNewContext(fs.readFileSync(pagePath + '.js', 'utf8'), {
-    Page(value) { definition = value; }, require() { return {}; }
+    Page(value) { definition = value; }, require(id) {
+      if (id.endsWith('/legacyPermissionView')) return require('../../shared/legacyPermissionView');
+      if (id.endsWith('/legacyPermissions')) return require('../../shared/locales/zh-CN/legacyPermissions');
+      return {};
+    }
   });
   const page = { data: { admins: [{ name: target.name, studentId: target.student_id, adminLevelLabel: '普通管理员' }] }, setData(value) { Object.assign(this.data, value); } };
   definition.onKeywordInput.call(page, { detail: { value: target.student_id } });

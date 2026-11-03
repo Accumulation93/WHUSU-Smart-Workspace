@@ -13,7 +13,7 @@
         <span class="section-title">{{ copy.portal.view.todoTitle }}</span>
         <span class="message-head-actions">
           <span v-if="todoTotal > 0" class="todo-count">
-            {{ copy.portal.view.totalPrefix }} {{ todoTotal > 99 ? '99+' : todoTotal }} {{ copy.portal.view.itemSuffix }}
+            {{ portalCopy.view.todoCount(todoTotal > 99 ? '99+' : todoTotal) }}
           </span>
           <button type="button" class="message-text-action" @click="goMessages('todos')">
             {{ copy.portal.view.viewAll }}
@@ -206,6 +206,7 @@ import MessageRow from '@/components/MessageRow.vue';
 import UiIcon from '@/components/UiIcon.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { cardsForRole } from '@/runtime/modules.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
@@ -315,6 +316,7 @@ async function loadPreview() {
         if (!current()) return;
         todos.value = Array.isArray(result.items) ? result.items : [];
         todoTotal.value = Number(result.total ?? todos.value.length);
+        if (result.partial) todoError.value = copy.portal.partialOrganizationLoading;
       } catch (error) { if (current()) todoError.value = errorText(error, copy.portal.retryLater); }
       finally { if (current()) todosLoading.value = false; }
     })(),
@@ -324,6 +326,7 @@ async function loadPreview() {
         if (!current()) return;
         notifications.value = Array.isArray(result.items) ? result.items : [];
         unreadCount.value = Number(result.unreadCount || 0);
+        if (result.partial) notificationError.value = copy.portal.partialOrganizationLoading;
       } catch (error) { if (current()) notificationError.value = errorText(error, copy.portal.retryLater); }
       finally { if (current()) notificationsLoading.value = false; }
     })()

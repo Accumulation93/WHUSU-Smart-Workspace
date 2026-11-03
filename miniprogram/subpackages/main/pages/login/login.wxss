@@ -283,6 +283,10 @@ page {
 }
 
 .sheet-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-inline-gap);
   flex-shrink: 0;
   padding: 6rpx 0 6rpx 14rpx;
   color: #475569;

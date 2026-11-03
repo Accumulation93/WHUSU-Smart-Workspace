@@ -18,6 +18,7 @@
         <button type="button" class="btn-quiet" @click="router.push({ name: 'venueHistory' })">{{ copy.venue.historyTitle }}</button>
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+      <button v-if="loadNotice" type="button" class="btn btn-secondary" :disabled="loading" @click="load">{{ native.retryPending }}</button>
       <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!items.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a14c4e583b }}</div>
       <div v-else class="list">
@@ -38,11 +39,11 @@
             <button type="button" class="btn-quiet" @click="openDetail(item)">
               {{ copy.venue.detailTitle }}
             </button>
-            <template v-if="item.canProcessInCurrentContext === true">
+            <template v-if="item.canProcessInCurrentContext === true && !loadNotice && loaded">
               <button type="button" class="btn-quiet" @click="openDetail(item, 'approve')">{{ native.copy_1bb7eb3e1a }}</button>
               <button type="button" class="btn-quiet btn-quiet-danger" @click="openDetail(item, 'reject')">{{ native.copy_0c90eb0204 }}</button>
             </template>
-            <button v-else type="button" class="btn-quiet" @click="goWorkRole">{{ native.switchWorkContext }}</button>
+            <button v-else-if="item.canProcessInCurrentContext !== true" type="button" class="btn-quiet" @click="goWorkRole">{{ native.switchWorkContext }}</button>
           </div>
         </div>
       </div>
@@ -99,6 +100,7 @@ const route = useRoute();
 const items = ref([]);
 const loading = ref(true);
 const loadNotice = ref('');
+const loaded = ref(false);
 const target = ref(null);
 const action = ref('');
 const comment = ref('');
@@ -145,6 +147,7 @@ function goWorkRole() {
 }
 
 function openDetail(item, requestedAction = '') {
+  if (requestedAction && (loading.value || loadNotice.value || !loaded.value)) return;
   if (requestedAction && item.canProcessInCurrentContext !== true) return;
   target.value = item;
   action.value = requestedAction;
@@ -180,7 +183,7 @@ async function openPicker() {
 }
 async function submitApproval() {
   const current = target.value;
-  if (submitting.value || !action.value || current?.canProcessInCurrentContext !== true) return;
+  if (submitting.value || loading.value || loadNotice.value || !loaded.value || !action.value || current?.canProcessInCurrentContext !== true) return;
   const request = generation;
   const context = session.context?.contextId;
   const flow = Boolean(current.approvalFlowId) && current.approvalCurrentStep !== null
@@ -192,7 +195,7 @@ async function submitApproval() {
     const result = requireSuccess(await callApi(endpoint, { id: current.id, comment: comment.value,
       flowId: current.currentFlowId, nextApproverAssignmentIds: canDesignate.value ? selected.value.map(item => item.assignmentId) : [] }));
     if (request !== generation || context !== session.context?.contextId) return;
-    showToast(result.message || native.copy_f658e7b4d0 + (action.value === 'approve' ? native.copy_8e2f75159e : native.copy_b4432643e3));
+    showToast(action.value === 'approve' ? (flow ? native.stepApproved : native.approvalPassed) : native.approvalRejected);
     target.value = null;
     await load();
   } catch (error) { if (request === generation && context === session.context?.contextId) actionError.value = errorText(error); }
@@ -205,25 +208,20 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listPendingVenueApprovals', {});
+    const result = requireSuccess(await callApi('listPendingVenueApprovals', {}));
     if (request !== generation || context !== session.context?.contextId) return;
-    if (result.status !== 'success') {
-      items.value = [];
-      loadNotice.value = result.message || copy.venue.loadFailed;
-      return;
-    }
     items.value = Array.isArray(result.pending) ? result.pending : [];
+    loaded.value = true;
     await completeMessageReceipt(route);
   } catch (error) {
     if (request !== generation || context !== session.context?.contextId) return;
-    items.value = [];
     loadNotice.value = errorText(error, copy.venue.loadFailed);
   } finally {
     if (request === generation) loading.value = false;
   }
 }
 
-watch(() => session.context?.contextId, () => { generation++; target.value = null; pickerVisible.value = false; items.value = []; load(); });
+watch(() => session.context?.contextId, () => { generation++; loaded.value = false; target.value = null; pickerVisible.value = false; items.value = []; load(); });
 function updatePolling() {
   window.clearInterval(polling);
   if (!document.hidden) polling = window.setInterval(() => { if (!target.value && !loading.value) load(); }, 30000);

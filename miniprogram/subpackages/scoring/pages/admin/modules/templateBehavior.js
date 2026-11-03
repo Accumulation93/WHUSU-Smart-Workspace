@@ -1,7 +1,7 @@
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/templateBehavior');
 // Behavior: template tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('./adminUtils');
+const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
 const { TEMPLATE_CSV_FIELDS, emptyTemplateForm, createEmptyQuestion, normalizeTemplateQuestionForForm, moveItem, refreshTemplateConfigSortOrder } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');

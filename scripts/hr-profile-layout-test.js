@@ -143,7 +143,7 @@ assert(
 );
 assert(!/user\.workGroup\s*\|\|\s*['"]未设置['"]/.test(homeWxml), '不得恢复工作分工占位卡');
 assert(
-  (homeWxml.match(/工作分工（职能组）/g) || []).length >= 1,
+  homeWxml.includes('<view class="info-label">{{' + homeCopy.workDivision + '}}</view>') && homeCopy.workDivision === '职能组',
   '普通用户人事信息必须显示完整字段名称'
 );
 assert(/class="hr-member-person"/.test(adminWxml), '成员姓名和学号必须使用稳定的个人信息区');

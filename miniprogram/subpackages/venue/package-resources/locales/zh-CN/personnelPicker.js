@@ -20,9 +20,18 @@ module.exports = Object.freeze({
   loading: '正在加载候选人员…',
   empty: '暂无可选人员',
   noMatch: '没有符合筛选条件的人员',
-  noSelection: '暂未选择，可直接确认清空',
+  noSelection: '尚未选择；确认后将清空原有选择。',
+  loadingAssignments: '正在加载可选岗位',
+  emptyAssignments: '暂无可选岗位',
+  noMatchingAssignments: '没有符合筛选条件的岗位',
   unnamed: '未命名人员',
   assignmentUnavailable: '岗位信息暂不可用',
+  selectedPeopleCount: function(count) {
+    return '已选 ' + Number(count || 0) + ' 人';
+  },
+  selectedAssignmentCount: function(count) {
+    return '已选 ' + Number(count || 0) + ' 个岗位';
+  },
   selectedCount: function(count) {
     return '已选 ' + Number(count || 0) + ' 项';
   }

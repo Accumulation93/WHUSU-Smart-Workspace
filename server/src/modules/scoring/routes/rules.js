@@ -541,7 +541,7 @@ router.post('/deleteRateRule', async (req, res) => {
       return res.json({ status: 'rule_not_found', message: scoringCopy.scoringRuleNotFound });
     }
     if (outcome === 'referenced') {
-      return res.json({ status: 'conflict', message: scoringCopy.scoringRuleHasRecords });
+      return res.json({ status: 'conflict', code: 'scoring_rule_referenced', message: scoringCopy.scoringRuleHasRecords });
     }
     res.json({ status: 'success' });
   } catch (e) {

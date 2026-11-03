@@ -5,19 +5,19 @@
  *
  * 目标：网页端不得再自己保存任何一条中文文案，只能引用共享语言库
  * （shared/locales/zh-CN/**）。本脚本把网页语言文件里现有的字面量
- * 逐条换成对共享语言库的引用，并报告找不到对应条目的字面量。
+ * 保留已经登记的共享语料引用，并拒绝失效引用；不能按文案相同自动改绑。
  *
  *   node scripts/locale-align.js --report    # 只报告，不写文件
  *   node scripts/locale-align.js --write     # 生成引用式网页语言文件
  *
- * 找不到对应条目的字面量必须人工判断：要么改成共享语言库里的原话，
- * 要么登记为共享语言库新增条目（shared/locales/zh-CN/web.js）。
+ * 新增或修正引用在 locale-reference-bindings.json 显式登记，文案先由语言 Agent 定稿。
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const childProcess = require('node:child_process');
+const { readReferences, verifyReferences } = require('./lib/localeReferences');
 
 const ROOT = path.join(__dirname, '..');
 const SHARED_ROOT = path.join(ROOT, 'shared', 'locales');
@@ -151,58 +151,31 @@ function sharedImportPath(moduleKey) {
 async function main() {
   const write = process.argv.includes('--write');
   const index = sharedIndex();
+  const bindings = JSON.parse(fs.readFileSync(path.join(__dirname, 'locale-reference-bindings.json'), 'utf8'));
   const report = [];
   const generated = [];
 
   for (const [file, config] of Object.entries(VIEWS)) {
     const absolute = path.join(WEB_LOCALE_ROOT, file);
     if (!fs.existsSync(absolute)) continue;
-    const href = `file://${absolute.replace(/\\/g, '/')}`;
-    let source;
-    try {
-      source = (await import(href)).default;
-    } catch (_) {
-      // 已经生成过的语言文件只含引用，一旦共享语言库还没补齐就会导入失败；
-      // 这时退回读取已提交的原始文案，保证脚本可以反复运行。
-      source = committedDefault(absolute);
+    const entries = readReferences(fs.readFileSync(absolute, 'utf8'), file);
+    for (const [target, reference] of Object.entries(bindings[file] || {})) {
+      if (reference === null) {
+        const retired = entries.findIndex(item => item.path === target);
+        if (retired >= 0) entries.splice(retired, 1);
+        continue;
+      }
+      if (!reference || typeof reference.module !== 'string' || !Array.isArray(reference.segments)
+        || !reference.segments.length || reference.segments.some(segment => typeof segment !== 'string')) {
+        throw new Error(file + ': ' + target + ' 显式引用格式错误');
+      }
+      const entry = { path: target, ref: { ...reference, path: reference.segments.join('.') } };
+      const existing = entries.findIndex(item => item.path === target);
+      if (existing < 0) entries.push(entry);
+      else entries[existing] = entry;
     }
-    const leaves = flatten(source);
-
-    const entries = [];
-    const usedModules = new Set();
-    for (const leaf of leaves) {
-      if (!leaf.value || !/[\u3400-\u9fff]/.test(leaf.value)) {
-        // 非中文（纯符号、公式）保留原样，不需要引用语言库。
-        entries.push({ path: leaf.path, literal: leaf.value });
-        continue;
-      }
-      const candidates = index.byValue.get(leaf.value) || [];
-      const preferred = [];
-      for (const moduleKey of config.prefer || []) {
-        for (const candidate of candidates) {
-          if (candidate.module === moduleKey) preferred.push(candidate);
-        }
-      }
-      const hit = preferred[0] || candidates[0];
-      if (hit) {
-        usedModules.add(hit.module);
-        entries.push({ path: leaf.path, ref: { module: hit.module, path: hit.path, segments: hit.segments } });
-        continue;
-      }
-      // 小程序里确实没有对应说法的网页独有文案，登记在共享语言库的 web.js 分区里。
-      const webPath = config.webSection ? `${config.webSection}.${leaf.path}` : '';
-      const webModule = index.modules.get('web.js');
-      const webHit = webPath && webModule
-        ? webModule.leaves.find((item) => item.path === webPath && item.value === leaf.value)
-        : null;
-      if (!webHit) {
-        report.push({ file, path: leaf.path, value: leaf.value });
-        entries.push({ path: leaf.path, literal: leaf.value });
-        continue;
-      }
-      usedModules.add('web.js');
-      entries.push({ path: leaf.path, ref: { module: 'web.js', path: webPath } });
-    }
+    verifyReferences(entries, index.modules, file);
+    const usedModules = new Set(entries.filter(entry => entry.ref).map(entry => entry.ref.module));
 
     generated.push({ file, entries, usedModules: [...usedModules].sort() });
   }
@@ -215,7 +188,7 @@ async function main() {
   }
 
   if (process.argv.includes('--scaffold')) {
-    writeWebSection(report);
+    throw new Error('语料必须由独立语言 Agent 定稿；不支持自动生成文案。');
   }
 
   if (!write) {

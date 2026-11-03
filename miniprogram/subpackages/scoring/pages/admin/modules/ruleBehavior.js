@@ -2,9 +2,10 @@ const localeCopy = require('../../../package-resources/locales/zh-CN/generated/s
 const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 // Behavior: rule tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('./adminUtils');
+const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
 const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, buildRuleFilterOptions, markSelectedRules, filterRuleList, normalizeRuleFilters, createSelectedRuleIdMap, getScopeLabel, buildRuleClausesForBatchApply, buildRuleClausesForSave, normalizeClauseForEdit, moveItem, refreshTemplateConfigSortOrder } = utils;
 const orgSession = require('../../../../../utils/orgSession');
+const { createResultError } = require('../../../../../utils/api');
 const { navigateToTrustedRoute } = require('../../../../../utils/trustedNavigation');
 
 function canChangeRule(page, action) {
@@ -56,7 +57,7 @@ module.exports = Behavior({
         });
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status && result.status !== 'success') {
-          throw new Error(result.message || localeCopy.copy_58d149dfbb);
+          throw createResultError(result, localeCopy.copy_58d149dfbb);
         }
         if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [], templateList: (result.configurationCandidates || {}).templates || [] });
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);

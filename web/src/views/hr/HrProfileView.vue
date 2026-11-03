@@ -13,10 +13,11 @@
     <form v-else class="card stack" @submit.prevent="save">
       <div class="panel-head">
         <span class="section-title">{{ homeCopy.hr }}</span>
-        <span v-if="profileData && !loadNotice" class="chip chip-sky">{{ profileData.template?.modeText || homeCopy.noTemplate }}</span>
+        <span v-if="profileData && !loadNotice" class="chip chip-sky">{{ profileStatus.modeText || homeCopy.noTemplate }}</span>
       </div>
       <p v-if="profileData?.template?.description" class="muted">{{ profileData.template.description }}</p>
-      <span v-if="profileData?.statusText && !loadNotice" class="chip chip-sky">{{ profileData.statusText }}</span>
+      <span v-if="profileStatus.statusText && !loadNotice" class="chip chip-sky">{{ profileStatus.statusText }}</span>
+      <span v-if="profileStatus.completenessText && !loadNotice" class="chip chip-sky">{{ profileStatus.completenessText }}</span>
       <p v-if="profileData?.auditStatus === 'pending' && !loadNotice" class="muted">{{ homeCopy.profilePending }}</p>
       <p v-if="profileData?.rejectionReason" class="notice-line">{{ homeCopy.rejectionReasonPrefix }}{{ profileData.rejectionReason }}</p>
       <div v-if="fields.length" class="profile-fields">
@@ -65,6 +66,7 @@ import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import HrDateField from '@/components/HrDateField.vue';
 import copy from '@/locales/zh-CN/index.js';
 import homeLocale from '@/locales/zh-CN/shared/home.js';
+import profileStatusView from '@/shared/hrProfileStatusView.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -80,7 +82,8 @@ const profileData = ref(null);
 const values = ref({});
 const saving = ref(false);
 const saveNotice = ref('');
-const readonly = computed(() => profileData.value?.template?.editMode === 'readonly');
+const profileStatus = computed(() => profileStatusView.describeProfile(profileData.value, homeCopy));
+const readonly = computed(() => !profileStatus.value.editable);
 let generation = 0;
 onBeforeUnmount(() => { generation++; });
 function inputType(field) {

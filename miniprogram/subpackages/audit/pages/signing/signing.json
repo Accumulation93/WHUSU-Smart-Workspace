@@ -3,6 +3,7 @@
   "navigationBarTitleText": "",
   "usingComponents": {
     "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "ui-icon": "/components/ui-icon/ui-icon",
     "signature-pad": "/subpackages/audit/components/signaturePad/signaturePad"
   },
   "pageOrientation": "auto",

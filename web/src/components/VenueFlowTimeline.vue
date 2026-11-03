@@ -17,6 +17,7 @@ import copy from '@/locales/zh-CN/shared/generated/subpackages/venue/utils/flowT
 import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import { formatDetailTime } from '@/runtime/dateTime.js';
 import { venueProgress } from '@/runtime/venuePresentation.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 const props = defineProps({ progress: Object });
 const steps = computed(() => {
   const progress = venueProgress(props.progress);
@@ -29,7 +30,7 @@ const steps = computed(() => {
     const assignment = snapshot?.approverAssignmentSnapshot;
     return {
       key: `${progress.flowId || 'legacy'}-${index}`, snapshot,
-      name: progress.flowSteps?.[index]?.name || snapshot?.stepName || copy.copy_93c50c01c0 + (index + 1) + copy.copy_493a127a99,
+      name: progress.flowSteps?.[index]?.name || progress.flowSteps?.[index]?.stepName || snapshot?.stepName || factsCopy.defaultStepName(index + 1),
       state: rejected ? 'rejected' : done ? 'done' : 'pending',
       label: rejected ? copy.copy_70d7f7f742 : done ? (snapshot?.automatic ? copy.automaticApproved : copy.copy_2d8cba342c)
         : index === Number(progress.currentStep) && !progress.isRejected ? copy.copy_532a477356 : copy.copy_9baefe7c49,

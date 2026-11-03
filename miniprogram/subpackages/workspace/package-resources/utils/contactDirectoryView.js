@@ -31,37 +31,45 @@ function filterGroups(groups, query) {
     [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].join(' ').toLocaleLowerCase().includes(needle)) }))
     .filter(group => group.items.length);
 }
-function decorateGroups(groups, dateFormatter) {
+function decorateGroups(groups, dateFormatter, copy) {
+  const position = item => item.hasAssignment === false ? copy.noPosition : [item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean).join(' · ');
   const index = new Map();
   groups.forEach(group => group.items.forEach(item => index.set(item.key, item)));
-  return groups.map(group => Object.assign({}, group, { items: group.items.map(item => Object.assign({}, item, {
-    positionText: [item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean).join(' · '),
-    basicText: [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean).join(' · '),
+  return groups.map(group => Object.assign({}, group, { name: group.hasAssignment === false ? copy.noPosition : group.name, items: group.items.map(item => Object.assign({}, item, {
+    departmentName: item.hasAssignment === false ? copy.noPosition : item.departmentName,
+    positionText: position(item),
+    basicText: [item.name, position(item)].filter(Boolean).join(' · '),
     fields: (item.fields || []).map(field => Object.assign({}, field, {
       value: dateFormatter && field.type === 'date' ? dateFormatter.formatDateTextOnly(field.value)
         : dateFormatter && field.type === 'datetime' ? dateFormatter.formatDateTimeText(field.value) : field.value,
       phone: field.type === 'phone' && /^\+?[\d ()-]{3,30}$/.test(field.value) ? field.value : '' })),
-    related: (item.relatedKeys || []).filter(key => index.has(key)).map(key => ({ key, label: [index.get(key).departmentName, index.get(key).identityCategoryName, index.get(key).workGroupName].filter(Boolean).join(' · ') }))
+    related: Array.isArray(item.relatedPositions) ? item.relatedPositions.map(related => ({ key: related.key, label: position(related) })) : (item.relatedKeys || []).filter(key => index.has(key)).map(key => ({ key, label: position(index.get(key)) }))
   })) }));
 }
-function decorateContact(contact, dateFormatter) {
-  const item = decorateGroups([{ items: [contact] }], dateFormatter)[0].items[0];
+function decorateContact(contact, dateFormatter, copy) {
+  const item = decorateGroups([{ items: [contact] }], dateFormatter, copy)[0].items[0];
   item.copyText = [item.basicText].concat(item.fields.filter(field => field.value).map(field => field.label + '：' + field.value)).join('\n');
   return item;
 }
-function ruleSummary(rule, metadata, copy) {
-  const clauseText = clause => {
-    if (clause.type === 'self') return copy.self;
-    if (clause.type === 'people') return copy.selected.replace('{count}', String(clause.personIds.length));
-    return [['departmentIds', 'departments', 'sameDepartment'], ['identityCategoryIds', 'identities', 'sameIdentity'], ['workGroupIds', 'workGroups', 'sameWorkGroup']]
-      .map(([key, options, same]) => clause[same] ? copy[same] : (clause[key] || []).map(id => {
+function ruleSections(rule, metadata, copy) {
+  const clauseLines = clause => {
+    if (clause.type === 'self') return [copy.self];
+    if (clause.type === 'people') return [copy.selected.replace('{count}', String(clause.personIds.length))];
+    return [['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
+      .filter(([key, options, same]) => clause[same] || (clause[key] || []).length)
+      .map(([key, options, same, label]) => copy[label] + '：' + (clause[same] ? copy[same] : (clause[key] || []).map(id => {
         const option = (metadata[options] || []).find(item => item.id === id);
         if (!option) return copy.unnamed;
         const department = option.departmentId && metadata.departments.find(item => item.id === option.departmentId);
         return option.name + (department ? ' · ' + department.name : '');
-      }).join('、')).filter(Boolean).join(' / ');
+      }).join('、')));
   };
-  return ['audience', 'targets'].map(key => copy[key] + '：' + rule[key].map(clauseText).join('；'))
-    .concat([copy.columns + '：' + (rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly)]);
+  return ['audience', 'targets'].map(key => ({ key, title: copy[key], groups: rule[key].map((clause, index) => ({
+    key: index, title: copy.conditionGroupTitle(index + 1), hint: clause.type === 'scope' ? copy.samePositionHelp : '', lines: clauseLines(clause)
+  })) })).concat([{ key: 'fields', title: copy.columns, groups: [{ key: 'fields', title: '', hint: '',
+    lines: [rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly] }] }]);
 }
-module.exports = { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary };
+function ruleSummary(rule, metadata, copy) {
+  return ruleSections(rule, metadata, copy).map(section => section.title + '：' + section.groups.map(group => group.lines.join('；')).join('；'));
+}
+module.exports = { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary, ruleSections };

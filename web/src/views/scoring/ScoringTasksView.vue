@@ -114,7 +114,7 @@ async function load() {
     if (targetRead.status === 'rejected') throw targetRead.reason;
     const result = targetRead.value;
     if (['activity_paused', 'activity_not_started', 'activity_ended'].includes(result.status)) {
-      activityNotice.value = result.message || ({ activity_paused: home.activityPaused, activity_not_started: home.activityNotStarted, activity_ended: home.activityEnded })[result.status];
+      activityNotice.value = ({ activity_paused: home.activityPaused, activity_not_started: home.activityNotStarted, activity_ended: home.activityEnded })[result.status];
       targets.value = []; loadNotice.value = ''; return;
     }
     requireSuccess(result);

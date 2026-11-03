@@ -140,7 +140,7 @@ function buildPlan(payload, context) {
     }
     if (!newValue || newValue === oldValue || !oldValue) return newValue || oldValue;
     issue('value_conflict', 'differentValue', [row.rowNumber], {
-      field, targetId, before: oldValue, after: newValue, resolutionLabel: copy[policy] || '',
+      field, targetId, before: oldValue, after: newValue, resolution: policy, resolutionLabel: copy[policy] || '',
       actions: [action('policy', { rowNumber: row.rowNumber, field: policyKey, value: 'keep' }), action('policy', { rowNumber: row.rowNumber, field: policyKey, value: 'replace' })]
     }, policy === 'keep' || policy === 'replace');
     return policy === 'replace' ? newValue : oldValue;
@@ -269,7 +269,7 @@ function buildPlan(payload, context) {
       }
       const longField = ['department', 'identity', 'workGroup'].find(key => Array.from(next[key]).length > 100);
       if (longField) {
-        issue('invalid', 'invalidValue', [rowNumber], { targetId, field: longField, message: format(copy.longCell, [copy[longField], 100]) }); return;
+        issue('invalid', 'invalidValue', [rowNumber], { targetId, field: longField, invalidKind: 'too_long', maxLength: 100, message: format(copy.longCell, [copy[longField], 100]) }); return;
       }
       const key = targetId || values.studentId + ':' + tuple(next);
       if (!proposals.has(key)) proposals.set(key, []);
@@ -413,6 +413,33 @@ function buildPlan(payload, context) {
     if (!issueFields.length) issueFields = ['name', 'studentId'];
     // 分组依据使用问题本身，不能把人员姓名和行号拼入相同值的分组键。
     item.issueFields = issueFields;
+    const fieldRule = fields.get(item.field);
+    const member = first && members.get(first.studentId);
+    const activeAssignments = member ? member.assignments.filter(entry => entry.status === 'active') : [];
+    item.customFieldLabel = fieldRule ? fieldRule.label : '';
+    item.presentationFacts = {
+      columns: issueFields.map(field => {
+        const index = input.basicMapping[field] == null ? extensionColumns.get(field) : input.basicMapping[field];
+        return { field, index: index == null ? null : index + 1,
+          header: index == null ? '' : input.headers[index] };
+      }),
+      people: item.rowNumbers.map(rowNumber => ({ rowNumber, name: (rowsByNumber.get(rowNumber) || {}).name || '' })),
+      missingFields: item.reason === 'missingAssignment' ? issueFields.map(field => ({ field,
+        unmapped: input.basicMapping[field] == null && field !== 'nature' })) : [],
+      invalidFields: item.reason === 'missingIdentity' && first ? issueFields.map(field => ({ field,
+        kind: first.values[field] ? 'too_long' : 'missing', maxLength: field === 'name' ? 100 : 32 }))
+        : item.invalidKind ? [{ field: item.field, kind: item.invalidKind, maxLength: item.maxLength }] : [],
+      fieldRule: fieldRule ? { type: fieldRule.type, minLength: fieldRule.minLength, maxLength: fieldRule.maxLength,
+        allowDecimal: fieldRule.allowDecimal, numberRule: fieldRule.numberRule, minDigits: fieldRule.minDigits,
+        maxDigits: fieldRule.maxDigits, minValue: fieldRule.minValue, maxValue: fieldRule.maxValue, options: fieldRule.options } : null,
+      differences: item.reason === 'chooseIntent' && first ? issueFields.map(field => ({ field,
+        beforeValues: [...new Set(activeAssignments.map(entry => field === 'nature' ? natureText(entry[field]) : entry[field]))].filter(Boolean),
+        afterValue: field === 'nature' ? natureText(first.values[field]) : first.values[field] })) : [],
+      rowValues: item.reason === 'multipleValues' && Array.isArray(item.before) ? item.before.map(entry => ({ rowNumber: entry.rowNumber,
+        value: entry.value == null ? label(entry.next || entry) : entry.value })) : [],
+      beforeKind: item.category === 'dictionary' ? 'noRegisteredValue'
+        : item.reason === 'confirmNewAssignment' || item.reason === 'missingAssignment' && !activeAssignments.length ? 'noAssignment' : ''
+    };
     item.columnText = issueFields.map(columnLabel).join(copy.listSeparator);
     item.detailMessage = item.message;
     if (issueFields.includes('workGroup') && first) {

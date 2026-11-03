@@ -3,7 +3,8 @@ import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/identityCard.js';
 import { createRequire } from 'node:module';
 const verificationImage = await createRequire(import.meta.url)('../../../server/node_modules/qrcode').toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32), {width:1024,margin:4,errorCorrectionLevel:'H',color:{dark:'#000000ff',light:'#ffffff00'}});
-const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active};
+const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active,
+  stateCode:'active',positionFacts:{assignmentLabel:'Member · Department',role:'user',hasAssignment:true}};
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
 test('hero opens identity card while work-role button keeps its action', async ({page}, info) => {
   await mockApi(page);
@@ -56,7 +57,7 @@ test('anonymous verification reads only code and renders invalid state after ref
   await page.screenshot({path:info.outputPath('identity-verification.png'),fullPage:true,animations:'disabled'});
   valid=false;
   await page.getByRole('button',{name:copy.refreshVerification,exact:true}).click();
-  await expect(page.getByText(copy.unavailable,{exact:true})).toBeVisible();
+  await expect(page.getByText(copy.verificationUnavailable,{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:copy.retry,exact:true})).toBeVisible();
   await expect(page.locator('.identity-name')).toHaveCount(0);
   expect(reads).toBe(2);
@@ -77,7 +78,7 @@ test('code service failure retains basic identity and offers retry', async ({pag
   await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
   await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({status:503,json:{status:'identity_card_unavailable'}}));
   await page.goto('/web/identity-card');
-  await expect(page.getByText(copy.qrFailure,{exact:true})).toBeVisible();
+  await expect(page.getByText(copy.failure,{exact:true})).toBeVisible();
   await expect(page.locator('.workspace-person-name')).toHaveText(card.name);
   await expect(page.getByRole('button',{name:copy.refresh,exact:true})).toBeEnabled();
 });

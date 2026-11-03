@@ -1,6 +1,6 @@
 'use strict';
 const ui = require('../../../../locales/zh-CN/authorization');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, createResultError, createLocalError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { configurationCopyOptions } = require('../../../../utils/authorizationEntryView');
@@ -36,7 +36,7 @@ Page({
   current: function(request) { return this._active && orgSession.isRequestCurrent(this, request); },
   call: async function(name, data) {
     const result = await callFunction({ name, data });
-    if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+    if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
     return result;
   },
   load: async function(more) {
@@ -49,7 +49,7 @@ Page({
       const options = configurationCopyOptions(access, this.data.kind, this.data.tab);
       this.setData({ kinds: options.kinds.map(id => ({ id, name: ui.resources[id] })), kind: options.kind,
         kindIndex: options.kinds.indexOf(options.kind), tabs: options.tabs, tab: options.tab });
-      if (!options.kind) throw new Error(ui.forbidden);
+      if (!options.kind) throw createLocalError(ui.forbidden);
       const result = await this.call(this.data.tab === 'incoming' ? 'listSharedOrganizationConfigurations' : 'getOrganizationConfigurationWorkspace',
         { kind: this.data.kind, tab: this.data.tab, after: more ? this.data.next : '' });
       if (!this.current(request)) return;
@@ -93,7 +93,7 @@ Page({
         const references = (candidates.references || []).map(item => {
           let choices = item.kind === 'person' ? candidates.people : item.kind === 'assignments' ? candidates.assignments : candidates.choices[item.kind] || [];
           if (item.kind === 'field') choices = choices.filter(value => value.fieldType === item.fieldType);
-          return Object.assign({}, item, { choices, kindLabel: text.referenceKinds[item.kind], selectedIndex: -1, selectedLabel: text.choose });
+          return Object.assign({}, item, { choices, kindLabel: text.referenceKinds[item.kind], selectedIndex: -1, selectedLabel: text.chooseTargetOption });
         });
         this.setData({ references });
       }
@@ -111,7 +111,7 @@ Page({
     const item = this.data.references[index]; if (!item) return;
     this._mapping[item.token] = selected ? selected.id : '';
     this.setData({ ['references[' + index + '].selectedIndex']: selected ? item.choices.findIndex(value => value.id === selected.id) : -1,
-      ['references[' + index + '].selectedLabel']: selected ? [selected.name, selected.assignmentLabel].filter(Boolean).join(' · ') : text.choose,
+      ['references[' + index + '].selectedLabel']: selected ? [selected.name, selected.assignmentLabel].filter(Boolean).join(' · ') : text.chooseTargetOption,
       complete: this.data.references.every(value => Boolean(this._mapping[value.token])) });
   },
   openPicker: function(event) {

@@ -7,7 +7,8 @@
     </section>
     <section v-if="canManageOrganizations" class="card stack">
       <span class="list-row-title">{{ ui.copy_dfe3ef46ab }}</span>
-      <div v-if="defaultId" class="field"><span class="field-label">{{ ui.copy_e74c96dd07 }}</span><span class="break-all">{{ defaultName }}</span></div>
+      <p class="muted">{{ messages.systemDefaultOrganizationHelp }}</p>
+      <div v-if="defaultId" class="field"><span class="field-label">{{ messages.systemDefaultOrganization }}</span><span class="break-all">{{ defaultName }}</span></div>
       <button type="button" class="btn btn-secondary" :disabled="blocked" @click="openOrganization()">{{ ui.copy_6a843c55ad }}</button>
       <section v-if="organizations.length" class="list-row organization-list stack">
         <span class="list-row-title">{{ ui.copy_8cf734b362 }}</span>
@@ -85,7 +86,7 @@ async function run(write,fallback,success){
 function saveTimezone(){if(!canEditTimezone.value)return;return run(()=>callApi('saveSystemConfig',{timezone:props.state.timezone}).then(requireSuccess),messages.copy_215e3c57da,messages.copy_c1add6c36e);}
 function openOrganization(row){if(blocked.value || !canManageOrganizations.value)return;props.state.form={id:row?.id||'',name:row?.name||''};props.state.created=null;actionNotice.value='';}
 function closeOrganization(){if(busy.value || loading.value || props.state.pending)return;props.state.form=null;props.state.created=null;actionNotice.value='';}
-async function confirmDefault(name,create=false){return confirmAction({title:create?messages.copy_fcc6193afc:messages.copy_a58d703333,body:messages.copy_e7e3787584+name+'」。',confirmText:create?messages.copy_d5f0842283:messages.copy_6616a4de3c,cancelText:messages.copy_4b213fd88a});}
+async function confirmDefault(name,create=false){return confirmAction({title:messages.setSystemDefaultOrganization,body:messages.systemDefaultOrganizationHelp+'\n'+name,confirmText:create?messages.copy_d5f0842283:messages.copy_6616a4de3c,cancelText:messages.copy_4b213fd88a});}
 async function saveOrganization(makeDefault){
   if(blocked.value || !canManageOrganizations.value || !props.state.form)return;
   const target={id:props.state.form.id,name:props.state.form.name.trim()},expected=scope();
@@ -95,15 +96,15 @@ async function saveOrganization(makeDefault){
     if(makeDefault && !(await confirmDefault(target.name,true)))return;if(!current(expected) || props.disabled)return;
     let saved=props.state.created;
     if(!saved){const result=requireSuccess(await callApi('saveOrganization',target));if(!current(expected))return;if(makeDefault){if(!result.organization?.id)throw new Error();saved={id:result.organization.id,name:target.name};props.state.created=saved;}}
-    if(makeDefault)requireSuccess(await callApi('switchOrganization',{organizationId:saved.id,organizationName:saved.name}));
-    if(!current(expected))return;props.state.pending=true;props.state.closeAfterRead=true;await load();if(current(expected))showToast(makeDefault?messages.copy_0a1deb4187:messages.copy_d41345ef29);
-  }catch(error){if(current(expected)){actionNotice.value=errorText(error,props.state.created?messages.copy_53d5e0a0c8:messages.copy_215e3c57da);if(props.state.created)await load();}}
+    if(makeDefault){const result=await callApi('switchOrganization',{organizationId:saved.id,organizationName:saved.name});if(result.status!=='success'){if(current(expected))actionNotice.value=messages.organizationCreatedDefaultRejected(saved.name);return;}}
+    if(!current(expected))return;props.state.pending=true;props.state.closeAfterRead=true;await load();if(current(expected))showToast(makeDefault?messages.defaultOrganizationSaved(target.name):messages.copy_d41345ef29);
+  }catch(error){if(current(expected)){actionNotice.value=props.state.created?messages.organizationCreatedDefaultUnknown(props.state.created.name):errorText(error);if(props.state.created)await load();}}
   finally{if(current(expected))busy.value=false;}
 }
 async function setDefault(row){
   if(blocked.value || !canManageOrganizations.value)return;const target={id:row.id,name:row.name},expected=scope();busy.value=true;actionNotice.value='';
-  try{if(!(await confirmDefault(target.name)) || !current(expected) || props.disabled)return;requireSuccess(await callApi('switchOrganization',{organizationId:target.id,organizationName:target.name}));if(!current(expected))return;props.state.pending=true;await load();if(current(expected))showToast(messages.copy_0a1deb4187);}
-  catch(error){if(current(expected))actionNotice.value=errorText(error,messages.copy_53d5e0a0c8);}finally{if(current(expected))busy.value=false;}
+  try{if(!(await confirmDefault(target.name)) || !current(expected) || props.disabled)return;const result=await callApi('switchOrganization',{organizationId:target.id,organizationName:target.name});if(!current(expected))return;if(result.status!=='success'){actionNotice.value=messages.defaultOrganizationRejected;return;}props.state.pending=true;await load();if(current(expected))showToast(messages.defaultOrganizationSaved(target.name));}
+  catch(error){if(current(expected))actionNotice.value=messages.defaultOrganizationUnknown;}finally{if(current(expected))busy.value=false;}
 }
 async function deleteOrganization(row){
   if(blocked.value || !canManageOrganizations.value)return;const target={id:row.id,name:row.name},expected=scope();busy.value=true;actionNotice.value='';

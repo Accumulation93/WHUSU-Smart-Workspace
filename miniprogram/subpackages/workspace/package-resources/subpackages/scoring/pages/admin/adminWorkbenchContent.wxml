@@ -19,7 +19,7 @@
           <block wx:if="{{tabKey === 'activities'}}">{{localeCopy.copy_5aa4cb13ec}}</block>
           <block wx:elif="{{tabKey === 'templates'}}">{{localeCopy.copy_5a49161fd7}}</block>
           <block wx:elif="{{tabKey === 'rules'}}">{{localeCopy.copy_9ad6311419}}</block>
-          <block wx:elif="{{tabKey === 'results'}}">{{localeCopy.copy_ade4fb64f7}}</block>
+          <block wx:elif="{{tabKey === 'results'}}">{{localeCopy.scoringResultsTab}}</block>
           <block wx:elif="{{tabKey === 'hrInfo'}}">{{localeCopy.copy_166a418985}}</block>
           <block wx:elif="{{tabKey === 'hrTemplates'}}">{{localeCopy.copy_a0d495faa0}}</block>
           <block wx:elif="{{tabKey === 'departments'}}">{{localeCopy.copy_c15260b37c}}</block>
@@ -278,7 +278,7 @@
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">{{localeCopy.copy_a0fd73c81e}}</view>
             <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">{{localeCopy.copy_51996ace76}}</view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">{{localeCopy.copy_7efbce059c}}</view>
-            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">{{localeCopy.copy_9c0e348f1b}}</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">{{localeCopy.mappingQuestionField}}</view>
           </view>
           <view class="csv-mapping-row ui-data-row" wx:for="{{templateCsvImportRows}}" wx:key="header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
@@ -295,7 +295,7 @@
               <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">{{localeCopy.copy_727b16b970}}</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
-              <text class="csv-mapping-mobile-label">{{localeCopy.copy_9c0e348f1b}}</text>
+              <text class="csv-mapping-mobile-label">{{localeCopy.mappingQuestionField}}</text>
               <picker range="{{templateCsvImportMappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onTemplateCsvMappingChange"
@@ -335,11 +335,12 @@
           <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.scorerIdentityId)}}" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.scorerIdentity || localeCopy.copy_d1856227b6}}</view></picker>
         </view>
         <view class="button-row">
-          <button wx:if="{{!authorizationEnforced || (ruleForm.id ? actionCapabilities['scoring.rules.update'] : actionCapabilities['scoring.rules.create'])}}" class="primary-btn ui-motion-button" disabled="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveRule}}" />{{localeCopy.copy_04d8c1a10d}}</button>
-          <button wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.create']}}" class="secondary-btn ui-motion-button" bindtap="startCreateRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_32d3256b22}}</button>
-          <button wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.update']}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.batchSaveRules}}" bindtap="applyClausesToSelectedRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_08b30a529d}}</button>
+          <button wx:if="{{!authorizationEnforced || (ruleForm.id ? actionCapabilities['scoring.rules.update'] : actionCapabilities['scoring.rules.create'])}}" class="primary-btn ui-motion-button" disabled="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveRule}}" />{{localeCopy.saveScorerCategory}}</button>
+          <button wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.create']}}" class="secondary-btn ui-motion-button" bindtap="startCreateRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.createScorerCategory}}</button>
+          <button wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.update']}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.batchSaveRules}}" bindtap="applyClausesToSelectedRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.applyToSelectedScorerCategories}}</button>
           <button wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.create']}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.generateRules}}" bindtap="generateRuleCategoriesFinal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_40f8a2873c}}</button>
         </view>
+        <view wx:if="{{!authorizationEnforced || actionCapabilities['scoring.rules.create']}}" class="hint-text">{{localeCopy.generateScorerCategoriesHelp}}</view>
         <view class="rule-switch-row">
           <view>
             <view class="field-label">{{localeCopy.copy_b2c24eb575}}</view>
@@ -559,7 +560,7 @@
         </view>
         <view class="button-row compact-row">
           <button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{visibleRuleAllSelected ? localeCopy.copy_cc82c2aee6 : localeCopy.copy_e1d94e445d}}</button>
-          <button class="secondary-btn ui-motion-button" bindtap="reverseSelectVisibleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button>
+          <button class="secondary-btn ui-motion-button" bindtap="reverseSelectVisibleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.reverseFilteredRules}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetRuleFilters" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cec32bdb96}}</button>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
@@ -738,7 +739,7 @@
 
       <view class="list-card" wx:if="{{resultFilters.viewMode === 'overview' && selectedResultTarget}}">
         <view class="popup-header result-drill-header ui-dialog-header">
-          <view class="list-title">{{selectedResultTarget.name}}{{localeCopy.copy_a859dc349b}}<text class="result-drill-count">{{targetRecordRows.length}}</text></view>
+          <view class="list-title">{{selectedResultTarget.title}}<text class="result-drill-count">{{targetRecordRows.length}}</text></view>
           <text class="popup-close ui-motion-chip" bindtap="closeTargetScoreRecords" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8ec888d575}}</text>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}"
@@ -1044,6 +1045,17 @@
       bindcancel="onCrossOrgCancelEvent"
     />
 
+      <view class="list-card" wx:if="{{activeTab === 'hrInfo' && authBatchOutcome}}">
+        <view class="list-card-header" bindtap="toggleAuthBatchOutcome" aria-role="button" aria-expanded="{{authBatchOutcome.expanded}}">
+          <view class="section-title">{{authOutcomeCopy.title}}</view>
+          <text>{{authBatchOutcome.expanded ? localeCopy.copy_5fd0089e2a : localeCopy.copy_0addb950ff}}</text>
+        </view>
+        <view class="row row-wrap"><text class="chip" wx:for="{{authBatchOutcome.counts}}" wx:key="key">{{item.label}} {{item.count}}</text></view>
+        <view class="field-hint" wx:if="{{authBatchOutcome.hasUnknown}}">{{authOutcomeCopy.help}}</view>
+        <view wx:if="{{authBatchOutcome.expanded}}">
+          <view class="list-row" wx:for="{{authBatchOutcome.rows}}" wx:key="key"><text>{{item.name}}</text><text class="chip">{{item.label}}</text></view>
+        </view>
+      </view>
       <view class="list-card hr-directory-results" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
         <view class="list-card-header"><view class="field-hint">{{hrProfileResultSummary}}</view></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreHrProfileRows">
@@ -1165,7 +1177,7 @@
       <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
-            <view class="modal-title">{{localeCopy.copy_c6a717f074}}{{hrTemplateSwitchTarget.name}}」</view>
+            <view class="modal-title">{{hrTemplateSwitchTarget.title}}</view>
             <view class="hint-text">{{localeCopy.copy_59641d46c9}}</view>
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileTemplateSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_09614cef6c}}</view>
@@ -1235,9 +1247,11 @@
               <text class="hr-switch-block-member">{{item.memberName}}</text>
               <text class="hr-switch-block-pending" wx:if="{{item.pendingText}}">{{item.pendingText}}</text>
             </view>
-            <view class="hr-switch-block-route">{{item.fieldLabel}} → {{item.targetLabel}}</view>
+            <view class="hr-switch-block-route">{{validationCopy.sourceField}} · {{item.fieldLabel}}</view>
+            <view class="hr-switch-block-route">{{validationCopy.targetField}} · {{item.targetLabel}}</view>
             <view class="hr-switch-block-value">{{localeCopy.hrTemplateSwitchIncompatibleOriginalValue}}：{{item.rawValue}}</view>
-            <view class="hr-switch-block-reason">{{item.error}}</view>
+            <view class="hr-switch-block-reason">{{validationCopy.requirement}} · {{item.requirement}}</view>
+            <view wx:if="{{item.allowedOptions.length}}" class="hr-switch-block-route"><view>{{validationCopy.allowedOptions}}</view><view wx:for="{{item.allowedOptions}}" wx:for-item="option" wx:key="*this">{{option}}</view></view>
           </view>
           <view class="scroll-tail-space"></view>
           </view>
@@ -1262,6 +1276,7 @@
       bindmemberschange="onCrossOrgMembersChange"
       source-index="{{crossOrgMigrationSourceIndex}}"
       source-org-name="{{crossOrgMigrationSourceOrgName}}"
+      target-org-name="{{crossOrgMigrationTargetOrgName}}"
       has-token="{{crossOrgMigrationToken !== ''}}"
       field-plan="{{crossOrgMigrationFieldPlan}}"
       report="{{crossOrgMigrationReport}}"
@@ -1272,6 +1287,7 @@
       bindconflictchange="onCrossOrgConflictEvent"
       bindbatchconflict="onCrossOrgBatchConflictEvent"
       bindpreview="previewCrossOrgMigration"
+      bindbacktoedit="closeCrossOrgMigrationReport"
       bindapply="applyCrossOrgMigration"
       bindclose="closeCrossOrgMigration"
     />
@@ -1762,7 +1778,7 @@
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">{{localeCopy.copy_a0fd73c81e}}</view>
             <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">{{localeCopy.copy_51996ace76}}</view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">{{localeCopy.copy_7efbce059c}}</view>
-            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">{{localeCopy.copy_9c0e348f1b}}</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">{{localeCopy.mappingProfileField}}</view>
           </view>
           <view class="csv-mapping-row ui-data-row" wx:for="{{csvImportRows}}" wx:key="columnKey">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
@@ -1779,7 +1795,7 @@
               <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">{{localeCopy.copy_727b16b970}}</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
-              <text class="csv-mapping-mobile-label">{{localeCopy.copy_9c0e348f1b}}</text>
+              <text class="csv-mapping-mobile-label">{{localeCopy.mappingProfileField}}</text>
               <picker range="{{item.mappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onCsvMappingTargetChange"
@@ -2224,8 +2240,9 @@
 
       <view class="edit-box" wx:if="{{isSuperAdmin}}">
         <view class="list-title">{{localeCopy.copy_dfe3ef46ab}}</view>
+        <view class="hint-text">{{settingsCopy.systemDefaultOrganizationHelp}}</view>
         <view class="field" wx:if="{{systemDefaultOrganizationId}}">
-          <view class="field-label">{{localeCopy.copy_e74c96dd07}}</view>
+          <view class="field-label">{{settingsCopy.systemDefaultOrganization}}</view>
           <view class="field-value">{{systemDefaultOrganizationName}}</view>
         </view>
         <view class="button-row compact-row">
@@ -2273,7 +2290,8 @@
       <view class="rule-panel">
         <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_2e6a7d24f3}}</view></view>
         <view class="field"><view class="field-label">{{localeCopy.copy_5aa4cb13ec}}</view><picker range="{{activityList}}" range-key="name" value="{{pk.idx(activityList, publicationForm.activityId)}}" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || localeCopy.copy_6d3911624a}}</view></picker></view>
-        <view wx:if="{{publicationForm.activityId && (publicationForm.id ? canUpdatePublications : canCreatePublications)}}">
+        <view wx:if="{{publicationLoadFailed}}" class="hint-text">{{publicationCopy.publicationLoadFailed}}<button class="secondary-btn" disabled="{{publicationsLoading}}" bindtap="retryPublicationData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{publicationCopy.publicationRetry}}</button></view>
+        <view wx:if="{{!publicationLoadFailed && publicationForm.activityId && (publicationForm.id ? canUpdatePublications : canCreatePublications)}}">
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_e5c0e22c49}}</view></view><switch checked="{{!!publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
           <view class="button-row"><button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePublication}}" bindtap="savePublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePublication}}" />{{localeCopy.copy_a7cce01d43}}</button></view>
         </view>
@@ -2281,23 +2299,24 @@
 
       <view wx:if="{{publicationForm.id}}">
         <!-- ═══ 结果查看权限 ─── 类别 + 条款 ─── -->
-        <view class="rule-panel" wx:if="{{pubViewRuleForm.id ? canUpdatePublications : canCreatePublications}}">
+        <view class="rule-panel" wx:if="{{!publicationLoadFailed && (pubViewRuleForm.id ? canUpdatePublications : canCreatePublications)}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_a8bca898cb}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubViewRuleForm.granteeDepartmentId)}}" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.resultViewerDepartments}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubViewRuleForm.granteeDepartmentId)}}" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.resultViewerIdentity}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
           <view class="button-row">
-            <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubViewRule}}" />{{localeCopy.copy_95a84a25aa}}</button>
-            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button>
-            <button wx:if="{{canUpdatePublications}}" class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button>
-            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button>
+            <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubViewRule}}" />{{localeCopy.saveResultViewRule}}</button>
+            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.newResultViewRule}}</button>
+            <button wx:if="{{canUpdatePublications}}" class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.applySelectedViewRules}}</button>
+            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.generateViewRules}}</button>
           </view>
+          <view wx:if="{{canCreatePublications}}" class="muted-text">{{localeCopy.generateViewRulesHelp}}</view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId}}">
           <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">{{localeCopy.copy_dee3b2111f}}</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubViewClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7ab8854c73}}</button></view>
           <view class="rule-empty" wx:if="{{!pubViewRuleForm.clauses.length}}">{{localeCopy.copy_3fe1d6f4f6}}</view>
           <view class="rule-clause-card" wx:for="{{pubViewRuleForm.clauses}}" wx:key="index" wx:for-item="c">
-            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || localeCopy.copy_05686d877c}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{c.displayMode === 'grade' ? localeCopy.copy_5eb168c392 : localeCopy.copy_0951b4ad83}}</text></view></view>
+            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || localeCopy.copy_05686d877c}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{c.displayMode === 'grade' ? localeCopy.copy_5eb168c392 : localeCopy.copy_0951b4ad83}}</text></view></view>
             <view class="pill-actions rule-card-actions"><text class="pill-link ui-motion-chip" data-index="{{index}}" bindtap="editPubViewClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="pill-close ui-motion-chip" data-index="{{index}}" bindtap="removePubViewClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
           </view>
         </view>
@@ -2345,34 +2364,35 @@
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_17903d1b98}}</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
           <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" value="{{pk.idx(pubViewRuleFilterOptions.departments, pubViewRuleFilters.department)}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" value="{{pk.idx(pubViewRuleFilterOptions.identities, pubViewRuleFilters.identity)}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
-          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_e1d94e445d}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3b7c76c871}}</button></view>
+          <view wx:if="{{!publicationLoadFailed}}" class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_e1d94e445d}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3b7c76c871}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubViewRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection" aria-role="checkbox" aria-checked="{{!!pubViewRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubViewRuleListView}}" wx:key="id">
               <view class="selection-rule-summary"><view class="list-main"><view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} {{localeCopy.copy_fc5b4ba39e}}</text></view></view></view></view>
-              <view class="inline-actions rule-list-inline-actions card-actions" catchtap="noop"><text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canUpdatePublications}}" bindtap="editPubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeletePublications}}" bindtap="deletePubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
+              <view wx:if="{{!publicationLoadFailed}}" class="inline-actions rule-list-inline-actions card-actions" catchtap="noop"><text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canUpdatePublications}}" bindtap="editPubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeletePublications}}" bindtap="deletePubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
             </view>
-            <view class="rule-empty small-empty" wx:if="{{!pubViewRuleListView.length}}">{{localeCopy.copy_efd3ffe3d3}}</view>
+            <view class="rule-empty small-empty" wx:if="{{!publicationLoadFailed && !pubViewRuleListView.length}}">{{localeCopy.copy_efd3ffe3d3}}</view>
           </scroll-view>
         </view>
 
         <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
-        <view class="rule-panel rule-panel--spaced" wx:if="{{pubMeritRuleForm.id ? canUpdatePublications : canCreatePublications}}">
+        <view class="rule-panel rule-panel--spaced" wx:if="{{!publicationLoadFailed && (pubMeritRuleForm.id ? canUpdatePublications : canCreatePublications)}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_09bf239b61}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_10eaadc5f1}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_0bfd822c5b}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubMeritRuleForm.granteeDepartmentId)}}" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_9a5675654c}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.meritDesignatorDepartments}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubMeritRuleForm.granteeDepartmentId)}}" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.meritDesignatorIdentity}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
           <view class="button-row">
-            <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubMeritRule}}" />{{localeCopy.copy_95a84a25aa}}</button>
-            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_22296797fb}}</button>
-            <button wx:if="{{canUpdatePublications}}" class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_74e8862ad7}}</button>
-            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d7ab4890db}}</button>
+            <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubMeritRule}}" />{{localeCopy.saveMeritDesignationRule}}</button>
+            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.newMeritDesignationRule}}</button>
+            <button wx:if="{{canUpdatePublications}}" class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.applySelectedMeritRules}}</button>
+            <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.generateMeritRules}}</button>
           </view>
+          <view wx:if="{{canCreatePublications}}" class="muted-text">{{localeCopy.generateMeritRulesHelp}}</view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId}}">
           <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">{{localeCopy.copy_b8d5e5b952}}</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubMeritClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4c06e10093}}</button></view>
           <view class="rule-empty" wx:if="{{!pubMeritRuleForm.clauses.length}}">{{localeCopy.copy_a6aff2251a}}</view>
           <view class="rule-clause-card" wx:for="{{pubMeritRuleForm.clauses}}" wx:key="index" wx:for-item="c">
-            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || localeCopy.copy_f82a18c7a0}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{localeCopy.copy_5deaa526c3}} {{c.quotaLimit || localeCopy.copy_62676bc383}}</text><text class="rule-tag {{c.requireExactQuota ? 'tag-required' : 'tag-free'}}">{{c.requireExactQuota ? localeCopy.copy_6583057f67 : localeCopy.copy_1bc1338d71}}</text></view></view>
+            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || localeCopy.copy_f82a18c7a0}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel}}</text><text class="rule-tag tag-target">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{localeCopy.copy_5deaa526c3}} {{c.quotaLimit || localeCopy.copy_62676bc383}}</text><text class="rule-tag {{c.requireExactQuota ? 'tag-required' : 'tag-free'}}">{{c.requireExactQuota ? localeCopy.copy_6583057f67 : localeCopy.quotaMaximumOnlyLabel}}</text></view></view>
             <view class="pill-actions rule-card-actions"><text class="pill-link ui-motion-chip" data-clause-id="{{c.id}}" data-pub-id="{{publicationForm.id}}" bindtap="openDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2c3fe676c4}}</text><text class="pill-link ui-motion-chip" data-index="{{index}}" bindtap="editPubMeritClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="pill-close ui-motion-chip" data-index="{{index}}" bindtap="removePubMeritClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
           </view>
         </view>
@@ -2380,7 +2400,7 @@
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId && pubMeritRuleForm.isClauseEditorVisible}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_efa712e243}}</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_7844b14771}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_c95c079dfd}}</view><picker range="{{viewScopeOptions}}" range-key="label" value="{{pk.idx(viewScopeOptions, pubMeritRuleForm.clauseScopeType)}}" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.meritTargetScopeTitle}}</view><picker range="{{meritScopeOptions}}" range-key="label" value="{{pk.idx(meritScopeOptions, pubMeritRuleForm.clauseScopeType)}}" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.meritScopeUnknown}}</view></picker><view class="form-hint">{{localeCopy.meritScopeHelp}}</view></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.clauseTargetIdentityId)}}" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_f1dc48a65c}}</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="{{localeCopy.copy_cd42443afc}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_fa66c182e7}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_063079dbec}}</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
@@ -2390,13 +2410,13 @@
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_09bf239b61}}</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
           <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" value="{{pk.idx(pubMeritRuleFilterOptions.departments, pubMeritRuleFilters.department)}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" value="{{pk.idx(pubMeritRuleFilterOptions.identities, pubMeritRuleFilters.identity)}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
-          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_034e4a532e}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba3a4b8440}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b5c6b6df78}}</button></view>
+          <view wx:if="{{!publicationLoadFailed}}" class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_034e4a532e}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba3a4b8440}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b5c6b6df78}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubMeritRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubMeritRuleSelection" aria-role="checkbox" aria-checked="{{!!pubMeritRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubMeritRuleListView}}" wx:key="id">
               <view class="selection-rule-summary"><view class="list-main"><view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} {{localeCopy.copy_219552c39c}}</text></view></view></view></view>
-              <view class="inline-actions rule-list-inline-actions card-actions" catchtap="noop"><text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canUpdatePublications}}" bindtap="editPubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeletePublications}}" bindtap="deletePubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
+              <view wx:if="{{!publicationLoadFailed}}" class="inline-actions rule-list-inline-actions card-actions" catchtap="noop"><text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canUpdatePublications}}" bindtap="editPubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeletePublications}}" bindtap="deletePubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
             </view>
-            <view class="rule-empty small-empty" wx:if="{{!pubMeritRuleListView.length}}">{{localeCopy.copy_d6bea542aa}}</view>
+            <view class="rule-empty small-empty" wx:if="{{!publicationLoadFailed && !pubMeritRuleListView.length}}">{{localeCopy.copy_d6bea542aa}}</view>
           </scroll-view>
         </view>
       </view>
@@ -2512,37 +2532,7 @@
         <view class="list-title">{{localeCopy.copy_e47b779507}}</view>
         <view class="list-item" wx:for="{{auditTemplateForm.starterConditions}}" wx:key="index" wx:for-item="cond">
           <view class="list-main">
-            <view class="list-name">{{cond.conditionType === 'person' ? localeCopy.copy_9beb04f4f6 : localeCopy.copy_0dc18b5a1e}}</view>
-            <view class="chip-row chip-row--wrap">
-              <block wx:if="{{cond.conditionType === 'person'}}">
-                <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
-                <view class="list-desc audit-condition-token" wx:if="{{!cond._personNames || !cond._personNames.length}}">{{localeCopy.copy_d80d3752da}}</view>
-              </block>
-              <block wx:else>
-                <block wx:if="{{cond.departmentScope === 'own'}}">
-                  <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_f3a3b597fe}}</view>
-                </block>
-                <block wx:elif="{{cond.departmentScope === 'specific'}}">
-                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index">{{dname}}</view>
-                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._deptNames || !cond._deptNames.length}}">{{localeCopy.copy_f1643742d1}}</view>
-                </block>
-                <block wx:if="{{cond.workGroupScope === 'own'}}">
-                  <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_f741fcce8e}}</view>
-                </block>
-                <block wx:elif="{{cond.workGroupScope === 'specific'}}">
-                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index">{{wname}}</view>
-                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._wgNames || !cond._wgNames.length}}">{{localeCopy.copy_237707b205}}</view>
-                </block>
-                <block wx:if="{{cond.identityScope === 'own'}}">
-                  <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_150a5c7309}}</view>
-                </block>
-                <block wx:elif="{{cond.identityScope === 'specific'}}">
-                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index">{{iname}}</view>
-                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._identNames || !cond._identNames.length}}">{{localeCopy.copy_427890ecdb}}</view>
-                </block>
-                <view class="list-desc audit-condition-token" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}">{{localeCopy.copy_acca7e58d8}}</view>
-              </block>
-            </view>
+            <approval-conditions value="{{cond._starterView}}" show-group-title="{{false}}" />
           </view>
           <view class="list-actions card-actions card-actions--inline">
             <text class="link ui-motion-chip" data-index="{{index}}" bindtap="openStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
@@ -2686,41 +2676,7 @@
             <view class="list-title ui-dialog-inset">{{localeCopy.copy_28542c7241}}</view>
             <view class="list-item" wx:for="{{auditTemplateStepForm.conditions}}" wx:key="index" wx:for-item="cond">
               <view class="list-main">
-                <view class="list-name">{{cond.conditionType === 'submitter' ? governanceCopy.auditSubmitter : (cond.conditionType === 'person' ? localeCopy.copy_9beb04f4f6 : localeCopy.copy_0dc18b5a1e)}}</view>
-                <view class="chip-row chip-row--wrap">
-                  <block wx:if="{{cond.conditionType === 'person'}}">
-                    <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
-                    <view class="list-desc audit-condition-token" wx:if="{{!cond._personNames || !cond._personNames.length}}">{{localeCopy.copy_d80d3752da}}</view>
-                  </block>
-                  <block wx:elif="{{cond.conditionType === 'identity_scope'}}">
-                    <!-- Department badges -->
-                    <block wx:if="{{cond.departmentScope === 'own'}}">
-                      <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_f3a3b597fe}}</view>
-                    </block>
-                    <block wx:elif="{{cond.departmentScope === 'specific'}}">
-                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index">{{dname}}</view>
-                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._deptNames || !cond._deptNames.length}}">{{localeCopy.copy_f1643742d1}}</view>
-                    </block>
-                    <!-- Work Group badges -->
-                    <block wx:if="{{cond.workGroupScope === 'own'}}">
-                      <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_f741fcce8e}}</view>
-                    </block>
-                    <block wx:elif="{{cond.workGroupScope === 'specific'}}">
-                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index">{{wname}}</view>
-                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._wgNames || !cond._wgNames.length}}">{{localeCopy.copy_237707b205}}</view>
-                    </block>
-                    <!-- Identity badges -->
-                    <block wx:if="{{cond.identityScope === 'own'}}">
-                      <view class="status-chip info-chip audit-condition-token">{{localeCopy.copy_150a5c7309}}</view>
-                    </block>
-                    <block wx:elif="{{cond.identityScope === 'specific'}}">
-                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index">{{iname}}</view>
-                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._identNames || !cond._identNames.length}}">{{localeCopy.copy_427890ecdb}}</view>
-                    </block>
-                    <!-- All scopes = anyone -->
-                    <view class="list-desc audit-condition-token" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}">{{localeCopy.copy_acca7e58d8}}</view>
-                  </block>
-                </view>
+                <approval-conditions value="{{cond._approvalView}}" show-group-title="{{false}}" />
               </view>
               <view class="list-actions card-actions card-actions--inline">
                 <text class="link ui-motion-chip" data-index="{{index}}" catchtap="openStepConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
@@ -2756,8 +2712,8 @@
               <view class="list-title">{{auditStepConditionEditingIndex >= 0 ? localeCopy.copy_dc2056bbc9 : localeCopy.copy_4d3b682ec9}}</view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
-                <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73,governanceCopy.auditSubmitter]}}" value="{{auditStepConditionForm.conditionType === 'identity_scope' ? 0 : (auditStepConditionForm.conditionType === 'person' ? 1 : 2)}}" bindchange="onConditionTypeChange">
-                  <view class="picker-value">{{auditStepConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : (auditStepConditionForm.conditionType === 'person' ? localeCopy.copy_05970eea73 : governanceCopy.auditSubmitter)}}</view>
+                <picker range="{{[localeCopy.copy_0dc18b5a1e,localeCopy.copy_05970eea73,governanceCopy.auditSubmitter]}}" value="{{auditStepConditionForm.conditionType === 'identity_scope' ? 0 : (auditStepConditionForm.conditionType === 'person' ? 1 : 2)}}" bindchange="onConditionTypeChange">
+                  <view class="picker-value">{{auditStepConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_0dc18b5a1e : (auditStepConditionForm.conditionType === 'person' ? localeCopy.copy_05970eea73 : governanceCopy.auditSubmitter)}}</view>
                 </picker>
               </view>
 
@@ -2831,8 +2787,8 @@
             <view class="ui-dialog-scroll-content">
             <view class="field">
               <view class="field-label">{{localeCopy.copy_937301fe27}}</view>
-              <picker range="{{[localeCopy.copy_49b5b1ec92,localeCopy.copy_05970eea73]}}" value="{{auditStarterConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onStarterConditionTypeChange">
-                <view class="picker-value">{{auditStarterConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_49b5b1ec92 : localeCopy.copy_05970eea73}}</view>
+              <picker range="{{[localeCopy.copy_0dc18b5a1e,localeCopy.copy_05970eea73]}}" value="{{auditStarterConditionForm.conditionType === 'identity_scope' ? 0 : 1}}" bindchange="onStarterConditionTypeChange">
+                <view class="picker-value">{{auditStarterConditionForm.conditionType === 'identity_scope' ? localeCopy.copy_0dc18b5a1e : localeCopy.copy_05970eea73}}</view>
               </picker>
             </view>
             <block wx:if="{{auditStarterConditionForm.conditionType === 'person'}}">
@@ -3029,7 +2985,7 @@
                   </view>
                   <view class="flow-info">
                     <view class="flow-step-label">{{localeCopy.copy_ef8b7ffa9b}}{{node.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{node.actionLabel}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_29f6c07d3f}}</text></view>
-                    <view class="flow-step-approver">{{node.approverDesc}}</view>
+                    <approval-conditions value="{{node.conditionView}}" />
                     <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                     <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">{{node.processedAtText}}</view>
                     <view class="flow-step-comment" wx:if="{{node.comment}}">{{node.comment}}</view>

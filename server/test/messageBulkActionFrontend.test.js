@@ -100,6 +100,8 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
       isTrustedRoute() { return true; }
     },
     '../../../../utils/eventBus': { on() {}, off() {} },
+    '../../../../utils/messageFactsView': require('../../shared/messageFactsView'),
+    '../../../../locales/zh-CN/messageFacts': require('../../shared/locales/zh-CN/messageFacts'),
     '../../../../utils/adminPermissions': {
       filterPortalCards(cards) { return cards; },
       refreshMyPermissions: async function() {}

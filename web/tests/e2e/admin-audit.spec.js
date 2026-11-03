@@ -6,6 +6,8 @@ import personnel from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import stampCopy from '../../src/locales/zh-CN/shared/stampAuthorization.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import governance from '../../src/locales/zh-CN/shared/adminGovernance.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import conditions from '../../src/locales/zh-CN/shared/auditConditions.js';
 async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});
   const state={templates:[],stamps:[],permissions:[],calls:[],reject:false,failRead:false};
@@ -79,14 +81,14 @@ async function createTemplate(page,self=false){
 }
 test('发起人本人作为独立步骤条件保存并回读',async({page})=>{
   const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page,true);
-  await expect(page.getByText(governance.auditSubmitter,{exact:true})).toBeVisible();
+  await expect(page.getByText(conditions.approvalSubmitterCondition,{exact:true})).toBeVisible();
   await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();
   await expect(page.locator('.audit-row').filter({hasText:'New Flow'})).toBeVisible();
   expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body.steps[0].conditions).toEqual([{conditionType:'submitter'}]);
 });
 test('审核模板按原步骤参数保存，失败保留表单，成功后回读',async({page})=>{
   const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);
-  state.reject=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText('Save rejected')).toBeVisible();await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('New Flow');
+  state.reject=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Save rejected')).toHaveCount(0);await expect(page.getByLabel(ui.copy_53adcabdff,{exact:true})).toHaveValue('New Flow');
   state.reject=false;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.locator('.audit-row').filter({hasText:'New Flow'})).toBeVisible();
   const saved=state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body;
   expect(saved).not.toHaveProperty('resubmitMode');
@@ -121,11 +123,11 @@ test('步骤窗口短内容自然高度，条件编辑互斥，指定条件显�
   await dialog.getByRole('button',{name:ui.copy_d3da0e164a,exact:true}).click();await expect(dialog.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
   await dialog.getByLabel(personnel.department,{exact:true}).selectOption('specific');await dialog.getByRole('button',{name:personnel.choose,exact:true}).click();
   const picker=page.getByRole('dialog').last();await picker.getByRole('button',{name:'Office',exact:true}).click();await picker.getByRole('button',{name:personnel.confirm,exact:true}).click();
-  await dialog.getByRole('button',{name:personnel.confirm,exact:true}).click();await expect(dialog.getByText('Office',{exact:true})).toBeVisible();await expect(dialog.getByLabel(ui.copy_c5dd070c37)).toBeVisible();
+  await dialog.getByRole('button',{name:personnel.confirm,exact:true}).click();await expect(dialog.getByText(conditions.approvalSpecifiedValues('Office'),{exact:true})).toBeVisible();await expect(dialog.getByLabel(ui.copy_c5dd070c37)).toBeVisible();
   await dialog.getByRole('button',{name:copy.common.cancel,exact:true}).click();await expect(dialog).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
 });
 test('保存后目录失败跨页签保持，重试只读取不重复创建',async({page})=>{
-  const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);state.failRead=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText('Directory failed',{exact:false})).toBeVisible();
+  const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);state.failRead=true;await page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true}).click();await expect(page.getByText(feedback.readFailed,{exact:false})).toBeVisible();await expect(page.getByText('Directory failed')).toHaveCount(0);
   await page.getByRole('tab',{name:ui.copy_8ef1f4695c,exact:true}).click();await page.getByRole('tab',{name:ui.copy_7312ee863e,exact:true}).click();await expect(page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true})).toBeDisabled();
   state.failRead=false;await page.getByRole('button',{name:text.retry,exact:true}).click();await expect(page.getByRole('button',{name:ui.copy_c34e8a16c0,exact:true})).toBeEnabled();expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate')).toHaveLength(1);
 });
@@ -153,12 +155,12 @@ test('验签授权按自然人选择，无岗位人员仍可选；撤销须确�
 test('审核四页签保留单行和长值，目录失败不显示空列表',async({page})=>{
   const state=await setup(page);await page.setViewportSize({width:310,height:800});await open(page,'auditTemplates');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);await expect(page.getByRole('tab')).toHaveCount(4);
-  state.failRead=true;await page.getByRole('tab',{name:ui.copy_8ef1f4695c,exact:true}).click();await expect(page.getByText('Directory failed',{exact:false})).toBeVisible();await expect(page.getByText(ui.copy_0596fc0dc8,{exact:true})).toHaveCount(0);
+  state.failRead=true;await page.getByRole('tab',{name:ui.copy_8ef1f4695c,exact:true}).click();await expect(page.getByText(feedback.readFailed,{exact:false})).toBeVisible();await expect(page.getByText('Directory failed')).toHaveCount(0);await expect(page.getByText(ui.copy_0596fc0dc8,{exact:true})).toHaveCount(0);
 });
 
 test('步骤提供五种动作并保存签名或盖章，移除驳回续审设置',async({page})=>{
   const state=await setup(page);await open(page,'auditTemplates');await createTemplate(page);
-  await expect(page.getByLabel(ui.copy_a8c395216d,{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/直接回到驳回人|重新提交模式/)).toHaveCount(0);
   await page.getByRole('button',{name:ui.copy_16fc906860,exact:true}).click();
   const action=page.getByRole('dialog').getByRole('combobox',{name:ui.copy_6ce8bf8393,exact:true});
   await expect(action.locator('option')).toHaveCount(5);await action.selectOption('either');

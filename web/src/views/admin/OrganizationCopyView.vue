@@ -16,7 +16,7 @@
       </nav>
       <p class="muted">{{ text.tabHelp[tab] }}</p>
     </section>
-    <AppLoading v-if="loading || busy" :text="busy ? text.processing : ui.loading" />
+    <AppLoading v-if="loading || busy" :text="busy ? text.processing : text.loading" />
     <section v-if="notice" class="card stack" role="alert">
       <p>{{ notice }}</p><button type="button" class="btn btn-secondary" :disabled="busy || loading" @click="retry">{{ ui.retry }}</button>
     </section>
@@ -40,13 +40,14 @@
         <p v-if="references.length" class="muted">{{ text.referenceHelp }}</p>
         <p v-else-if="detailReady" class="muted">{{ text.noReferences }}</p>
         <div v-for="item in references" :key="item.token" class="glass-panel stack-tight">
-          <strong>{{ text.referenceKinds[item.kind] }} · {{ item.label }}</strong>
+          <span class="muted">{{ text.sourceOption }}</span><strong>{{ text.referenceKinds[item.kind] }} · {{ item.label }}</strong>
+          <span v-if="item.kind === 'person' || item.kind === 'assignments'" class="muted">{{ text.targetOption }}</span>
           <button v-if="item.kind === 'person' || item.kind === 'assignments'" type="button" class="btn btn-secondary"
-            :disabled="busy || !detailReady" @click="openPicker(item)">{{ selectedLabel(item) || text.choose }}</button>
+            :disabled="busy || !detailReady" @click="openPicker(item)">{{ selectedLabel(item) || text.chooseTargetOption }}</button>
           <label v-else class="field">
-            <span class="muted">{{ text.choose }}</span>
+            <span class="muted">{{ text.targetOption }}</span>
             <select v-model="mapping[item.token]" class="field-input" :disabled="busy || !detailReady" :aria-label="item.label">
-              <option value="">{{ text.choose }}</option>
+              <option value="">{{ text.chooseTargetOption }}</option>
               <option v-for="choice in choicesFor(item)" :key="choice.id" :value="choice.id">{{ choice.name }}</option>
             </select>
           </label>
@@ -94,7 +95,7 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AppLoading from '@/components/AppLoading.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
-import { callApi, requireSuccess, errorText, createRequestId } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText, createRequestId, createLocalError } from '@/runtime/api.js';
 import { confirmAction, showToast, settleDialog } from '@/runtime/notify.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { describeConfiguration, copiedConfigurationDestination } from '@/shared/organizationCopyPresentation.js';
@@ -149,7 +150,7 @@ async function load(more = false) {
     if (!current(request)) return;
     const options = configurationCopyOptions(access, kind.value, tab.value);
     availableKinds.value = options.kinds; tabs.value = options.tabs; kind.value = options.kind; tab.value = options.tab;
-    if (!options.kind) throw new Error(ui.forbidden);
+    if (!options.kind) throw createLocalError(ui.forbidden);
     const result = await read(tab.value === 'incoming' ? 'listSharedOrganizationConfigurations' : 'getOrganizationConfigurationWorkspace',
       { kind: kind.value, tab: tab.value, after: more ? next.value : '' });
     if (!current(request)) return;

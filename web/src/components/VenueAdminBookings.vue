@@ -113,7 +113,7 @@ async function submit() {
     const result = requireSuccess(await callApi(endpoint, { id: row.id, comment: comment.value }));
     if (!current()) return;
     target.value = null; action.value = ''; await load();
-    if (current()) showToast(result.message);
+    if (current()) showToast(endpoint.startsWith('reject') ? ui.bookingRejected : flow ? ui.bookingApprovalStepPassed : ui.bookingApproved);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_0531ed9e78); }
   finally { if (current()) busy.value = false; }
 }
@@ -128,7 +128,7 @@ async function remove(row) {
     const result = requireSuccess(await callApi('deleteVenueBooking', { id: row.id, revision: preview.record.revision }));
     if (!current()) return;
     rows.value = rows.value.filter(item => item.id !== row.id);
-    deleteNotice.value = result.message || governance.deleted;
+    deleteNotice.value = governance.deleted;
     await load();
   } catch (error) { if (current()) deleteNotice.value = errorText(error, governance.failed); }
   finally { if (current()) busy.value = false; }

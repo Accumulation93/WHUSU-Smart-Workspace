@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 async function setup(page, permission = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -48,7 +49,8 @@ test('venue editor uses native fields, preserves rejected input and reads back c
   expect(Math.abs(footer.firstWidth - footer.secondWidth)).toBeLessThan(1);
   expect(footer.topDifference).toBeLessThan(1);
   await dialog.getByRole('button', { name: ui.copy_c701dd2fcc }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Rejected venue');
+  await expect(dialog.getByRole('alert')).toHaveText(feedback.writeResultUnknown);
+  await expect(page.getByText('Rejected venue', { exact: true })).toHaveCount(0);
   await expect(dialog.getByLabel(ui.copy_25e1199dc3)).toHaveValue('Retained description');
   await dialog.getByRole('button', { name: ui.copy_c701dd2fcc }).click();
   await expect(dialog).toHaveCount(0);
@@ -102,7 +104,8 @@ test('venue delete confirms the named target, cancel does not write, rejection r
   expect(deletes).toBe(0);
   await remove.click();
   await page.getByRole('dialog').getByRole('button', { name: copy.common.confirm, exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Delete rejected');
+  await expect(page.getByRole('alert')).toHaveText(feedback.writeResultUnknown);
+  await expect(page.getByText('Delete rejected', { exact: true })).toHaveCount(0);
   await expect(page.locator('.venue-resource')).toContainText('Protected room');
   await remove.click();
   await page.getByRole('dialog').getByRole('button', { name: copy.common.confirm, exact: true }).click();

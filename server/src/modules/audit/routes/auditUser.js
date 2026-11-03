@@ -901,14 +901,14 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
   let displayParts = [];
   let approverDesc = '';
 
-  if (!conditionsJson) return { displayParts, approverDesc };
+  if (!conditionsJson) return { displayParts, approverDesc, conditionFacts: [] };
 
   let conditions;
   try {
     conditions = typeof conditionsJson === 'string' ? JSON.parse(conditionsJson) : conditionsJson;
-  } catch (_) { return { displayParts, approverDesc }; }
+  } catch (_) { return { displayParts, approverDesc, conditionFacts: [] }; }
 
-  if (!Array.isArray(conditions) || !conditions.length) return { displayParts, approverDesc };
+  if (!Array.isArray(conditions) || !conditions.length) return { displayParts, approverDesc, conditionFacts: [] };
   conditions = effectiveConditionsForAuthorization(conditions);
 
   for (const cond of conditions) {
@@ -964,7 +964,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
   }
 
   approverDesc = displayParts.join(' 或 ');
-  return { displayParts, approverDesc };
+  return { displayParts, approverDesc, conditionFacts: require('../utils/auditConditionFacts').conditionFacts(conditions, maps) };
 }
 
 // getSubmissionDetail
@@ -1313,6 +1313,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         processedAssignmentId: safeString(s.processed_assignment_id),
         processedContextSnapshot: parseSnapshot(s.processed_context_snapshot),
         stepConditionsJson: s.step_conditions_json || null,
+        conditionFacts: condDisplay.conditionFacts,
         stepConditionsDisplay: condDisplay.displayParts,
         approverDesc: condDisplay.approverDesc || legacyApproverDesc || localeCopy.copy_ae42f47cf6
       };
@@ -2858,6 +2859,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
         actionLabel: actionLabel,
         allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         displayParts: display.displayParts,
+        conditionFacts: display.conditionFacts,
         approverDesc: display.approverDesc || localeCopy.copy_8705219d19,
         // Pass raw conditions for client-side person override logic
         conditions: conds

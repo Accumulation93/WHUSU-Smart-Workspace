@@ -60,7 +60,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi } from '@/runtime/api.js';
+import { callApi, errorText } from '@/runtime/api.js';
 import { applyLoginResult, session } from '@/runtime/session.js';
 
 const route = useRoute();
@@ -80,7 +80,7 @@ function failureReason(error) {
   const status = String((error && error.status) || '');
   if (status === 'account_frozen') return copy.portal.view.authFrozen;
   if (status === 'login_failed' || status === 'auth_failed') return copy.login.loginInvalid;
-  return (error && error.message) || copy.login.loginUnavailable;
+  return errorText(error, copy.login.loginUnavailable);
 }
 
 async function onSubmit() {

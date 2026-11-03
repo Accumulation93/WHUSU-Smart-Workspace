@@ -19,7 +19,7 @@
       <view wx:for="{{rules}}" wx:key="id" class="directory-rule">
         <view class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="toggleRule" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
           <view class="directory-value">{{item.name}}</view><view class="directory-note">{{item.enabled ? copy.enabled : copy.disabled}}</view>
-          <view wx:for="{{item.summary}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view>
+          <view wx:for="{{item.summary}}" wx:for-item="section" wx:key="key" class="directory-stack"><view class="directory-label">{{section.title}}</view><view wx:if="{{section.key !== 'fields'}}" class="directory-note">{{copy.groupMatchHelp}}</view><view wx:for="{{section.groups}}" wx:for-item="group" wx:key="key" class="directory-stack"><view wx:if="{{group.title}}" class="directory-value">{{group.title}}</view><view wx:if="{{group.hint}}" class="directory-note">{{group.hint}}</view><view wx:for="{{group.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view></view></view>
         </view>
         <view class="card-actions directory-actions">
           <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="edit">{{copy.edit}}</button>

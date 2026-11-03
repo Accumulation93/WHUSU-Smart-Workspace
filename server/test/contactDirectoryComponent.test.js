@@ -67,9 +67,10 @@ async function main() {
   assert(lazy.component.data.contact.copyText.includes('电话：13800138000'));
   lazy.component.clearPrivate(); assert.equal(lazy.component.data.contact,null);
   const directCalls=[];
-  const direct=fixture(async input=>{ directCalls.push(input); return input.data.key ? {status:'success',contact:{...basic,key:input.data.key,relatedPositions:[{key:'other',label:'其他岗位'}]}} : {status:'success',groups:[]}; });
+  const direct=fixture(async input=>{ directCalls.push(input); return input.data.key ? {status:'success',contact:{...basic,key:input.data.key,relatedPositions:[{key:'other',label:'server-generated-label',hasAssignment:true,departmentName:'Department',identityCategoryName:'Role',workGroupName:''}]}} : {status:'success',groups:[]}; });
   direct.component.data.admin=false; direct.component.properties.initialKey='entry'; direct.component.activate(); await new Promise(resolve=>setImmediate(resolve));
   assert.equal(directCalls.length,1); assert.equal(directCalls[0].data.key,'entry');
+  assert.equal(direct.component.data.contact.related[0].label,'Department · Role');
   await direct.component.openContact({currentTarget:{dataset:{key:'other'}}});
   assert.equal(directCalls[1].data.key,'other'); assert.equal(direct.component.data.contact.key,'other');
   direct.component.closeContact(); await new Promise(resolve=>setImmediate(resolve)); assert.equal(directCalls[2].data.summaryOnly,true);

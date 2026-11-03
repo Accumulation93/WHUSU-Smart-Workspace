@@ -6,14 +6,19 @@
     <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
     <button v-if="!ready && !loading" type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
     <template v-if="ready">
+      <section class="card stack">
+        <h2 class="section-title">{{ kind === 'scheme' ? (draft.id ? ui.editSchemeTitle : ui.createSchemeTitle) : kind === 'delegation' ? (draft.id ? ui.editDelegationTitle : ui.createDelegationTitle) : draft.id ? ui.editRuleTitle : ui.createRuleTitle }}</h2>
+        <p class="muted">{{ kind === 'scheme' ? ui.schemeTaskHelp : kind === 'delegation' ? ui.delegationTaskHelp : ui.ruleTaskHelp }}</p>
+      </section>
       <p v-if="state.mode === 'shadow'" class="notice-line">{{ ui.previewOnly }}</p>
       <template v-if="preview">
         <section class="card stack">
           <h2 class="section-title">{{ ui.previewChanges }}</h2>
           <strong>{{ ui.impactCount(preview.impact.peopleCount, preview.impact.roleCount) }}</strong>
-          <p v-if="!preview.impact.roleCount" class="muted">{{ ui.noChange }}</p>
+          <p v-if="!preview.impact.roleCount" class="muted">{{ ui.noAffectedRoles }}</p>
           <p v-if="kind === 'delegation'" class="muted">{{ ui.delegationNotice }}</p>
-          <AuthorizationPolicySummary :policy="preview.rule.policy" :directory="directory" :catalog="state.catalog" />
+          <section v-if="kind === 'delegation'" class="stack-tight"><h3 class="field-label">{{ ui.delegateRecipients }}</h3><span v-for="line in recipientNames" :key="line.key">{{ line.value }}</span></section>
+          <AuthorizationPolicySummary :policy="preview.rule.policy" :directory="directory" :catalog="state.catalog" :delegation="kind === 'delegation'" />
         </section>
         <section v-for="item in preview.impact.roles" :key="item.role + ':' + item.subjectId" class="card stack-tight">
           <strong>{{ item.name }}</strong><span class="muted">{{ item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item) }}</span>
@@ -52,10 +57,12 @@
           <button v-if="advanced" type="button" class="btn btn-secondary" :disabled="busy" @click="draft.policy.subjects.push({ kind: 'assignmentScope', dimensions: {} })">{{ ui.addConditionGroup }}</button>
         </section>
         <section class="card stack">
-          <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities }}</h2>
+          <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle }}</h2>
+          <p class="muted">{{ kind === 'scheme' ? ui.schemeCapabilitiesHelp : kind === 'delegation' ? ui.delegationNotice : draft.policy.effect === 'deny' ? ui.denyCapabilitiesHelp : draft.schemeId ? ui.identityCapabilitiesHelp : ui.allowCapabilitiesHelp }}</p>
+          <p v-if="kind === 'rule' && draft.policy.effect === 'deny' && draft.schemeId" class="muted">{{ ui.identityCapabilitiesHelp }}</p>
           <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ advanced ? ui.selectOperations : ui.identityPlaceholder }}</option><option v-for="scheme in state.schemes.filter(item => item.publishedVersion)" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
-          <p v-if="kind === 'rule' && !state.schemes.some(item => item.publishedVersion)" class="muted">{{ ui.noSchemes }}</p>
-          <details v-if="!advanced && draft.schemeId"><summary>{{ ui.selectedOperations(draft.policy.capabilities.length) }}</summary><div class="row row-wrap"><span v-for="key in draft.policy.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
+          <div v-if="kind === 'rule' && !state.schemes.some(item => item.publishedVersion)" class="stack-tight"><p class="muted">{{ ui.noSchemes }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="router.push({ name: 'authorization', query: { tab: 'schemes' } })">{{ ui.identitySettingsEntry }}</button></div>
+          <details v-if="!advanced && draft.schemeId"><summary>{{ ui.identityCapabilitiesTitle }}</summary><p class="muted">{{ ui.selectedOperations(draft.policy.capabilities.length) }}</p><div class="row row-wrap"><span v-for="key in draft.policy.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
           <div v-if="sensitiveCapabilities.length" class="glass-panel stack-tight"><strong>{{ ui.sensitiveOperations }}</strong><span v-for="item in sensitiveCapabilities" :key="item.key">{{ capabilityText(item.key) }}</span></div>
           <template v-if="advanced">
           <label class="field"><span class="field-label">{{ ui.searchOperations }}</span><input v-model="operationQuery" class="field-input" :placeholder="ui.searchOperations" /></label>
@@ -71,7 +78,8 @@
         </section>
         <template v-if="kind !== 'scheme'">
           <section class="card stack">
-            <h2 class="section-title">{{ advanced ? ui.scopes : ui.stepScope }}</h2>
+            <h2 class="section-title">{{ kind === 'delegation' ? ui.delegationScopeTitle : advanced ? ui.scopes : ui.stepScope }}</h2>
+            <p class="muted">{{ kind === 'delegation' ? ui.delegationScopeHelp : ui.scopeHelp }}</p>
             <p class="muted">{{ ui.betweenGroups }}</p>
             <div v-for="(scope, index) in draft.policy.scopes" :key="index" class="glass-panel stack">
               <div class="panel-head"><strong>{{ scopeLabel(scope.kind) }}</strong><button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="draft.policy.scopes.splice(index, 1)">{{ ui.removeCondition }}</button></div>
@@ -81,7 +89,8 @@
             <div class="choice-grid"><button v-for="value in scopeKinds" :key="value" type="button" class="btn btn-secondary" :disabled="busy" @click="addScope(value)">{{ scopeLabel(value) }}</button></div>
           </section>
           <section v-if="advanced" class="card stack">
-            <h2 class="section-title">{{ ui.fields }}</h2>
+            <h2 class="section-title">{{ kind === 'delegation' ? ui.delegationFieldsTitle : draft.policy.effect === 'deny' ? ui.denyFieldsTitle : ui.allowFieldsTitle }}</h2>
+            <p class="muted">{{ kind === 'delegation' ? ui.delegationFieldsHelp : draft.policy.effect === 'deny' ? ui.denyFieldsHelp : ui.allowFieldsHelp }}</p>
             <div class="choice-grid">
               <button type="button" class="choice-card" :class="{ selected: draft.policy.fields === null }" :aria-pressed="draft.policy.fields === null" :disabled="busy" @click="draft = editor.allFields(draft)">{{ ui.allFields }}</button>
               <button v-for="field in fieldOptions" :key="field" type="button" class="choice-card" :class="{ selected: draft.policy.fields?.includes(field) }" :aria-pressed="!!draft.policy.fields?.includes(field)" :disabled="busy" @click="draft = editor.toggleField(draft, field, state.catalog)">{{ fieldLabel(field) }}</button>
@@ -113,7 +122,7 @@ import AuthorizationDimensions from '@/components/AuthorizationDimensions.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
 import editor from '@/shared/authorizationEditor.js';
 import presentation from '@/shared/authorizationPresentation.js';
-import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { formatListTime, getSystemTimezoneConfig } from '@/runtime/dateTime.js';
 import { showToast } from '@/runtime/notify.js';
@@ -211,12 +220,12 @@ async function load() {
     if (request !== generation) return;
     responses.forEach(requireSuccess); state.value = responses[0]; directory.value = responses[1];
     if (kind.value === 'delegation') {
-      if (!state.value.isSuper) throw new Error(ui.forbidden);
+      if (!state.value.isSuper) throw createLocalError(ui.forbidden);
       draft.value = editor.createDelegationDraft();
     }
     if (route.query.id) {
       const item = (kind.value === 'delegation' ? state.value.delegations : kind.value === 'rule' ? state.value.rules : state.value.schemes).find(item => item.id === route.query.id);
-      if (!item) throw new Error(ui.conflict);
+      if (!item) throw createLocalError(ui.conflict);
       if (kind.value === 'delegation') draft.value = editor.createDelegationDraft(item);
       else if (kind.value === 'rule') draft.value = route.query.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
       else { draft.value.name = item.name; draft.value.id = item.id; draft.value.version = item.version; draft.value.policy.capabilities = [...item.capabilities]; }
@@ -231,7 +240,7 @@ async function review() {
   const request = generation; busy.value = true; notice.value = '';
   try {
     if (kind.value === 'scheme') {
-      if (!draft.value.name.trim() || !draft.value.policy.capabilities.length) throw new Error(ui.invalidPolicy);
+      if (!draft.value.name.trim() || !draft.value.policy.capabilities.length) throw createLocalError(ui.invalidPolicy);
       const result = await callApi('saveAuthorizationScheme', { id: draft.value.id, version: draft.value.version,
         name: draft.value.name.trim(), capabilities: draft.value.policy.capabilities });
       if (request !== generation) return;
@@ -242,7 +251,7 @@ async function review() {
       const result = await callApi(kind.value === 'delegation' ? 'previewAuthorizationDelegation' : 'previewAuthorizationRule', payload);
       if (request !== generation) return;
       requireSuccess(result); previewRequest = payload;
-      preview.value = kind.value === 'delegation' ? { ...result, rule: { policy: result.delegation.envelope } } : result;
+      preview.value = kind.value === 'delegation' ? { ...result, rule: { policy: { ...result.delegation.envelope, enabled: result.delegation.enabled } } } : result;
       window.scrollTo({ top: 0 });
     }
   } catch (error) { if (request === generation) notice.value = ui[error.code] || errorText(error, ui.operationFailed); }

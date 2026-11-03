@@ -295,6 +295,7 @@
 
       <view class="profile-status" wx:if="{{hrProfile.loaded && !hrProfile.errorText}}">
         <view class="status-title">{{hrProfile.statusText}}</view>
+        <view class="status-desc" wx:if="{{hrProfile.completenessText}}">{{hrProfile.completenessText}}</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">{{copy.profilePending}}</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'rejected' && hrProfile.rejectionReason}}">{{copy.rejectionReasonPrefix}}{{hrProfile.rejectionReason}}</view>
       </view>
@@ -427,7 +428,7 @@
             data-index="{{index}}"
             bindinput="onHrProfileInput"
             value="{{item.value}}"
-            placeholder="{{copy.inputPrefix}}{{item.label}}"
+            placeholder="{{item.inputPlaceholder}}"
             disabled="{{hrProfile.errorText || hrProfile.template.editMode === 'readonly'}}"
           />
 
@@ -487,7 +488,7 @@
           </view>
 
           <view class="profile-session-panel">
-            <view class="profile-session-head"><view><view class="profile-credential-title">{{copy.loginDevices}}</view><view class="profile-credential-note">{{copy.loginDevicesDescription}}</view></view><view class="profile-session-count">{{accountSecurity.devices.length}} {{copy.deviceSuffix}}</view></view>
+            <view class="profile-session-head"><view><view class="profile-credential-title">{{accountSecurity.sessionMode ? copy.loginSessions : copy.loginDevices}}</view><view class="profile-credential-note">{{accountSecurity.sessionMode ? copy.loginSessionsDescription : copy.loginDevicesDescription}}</view></view><view class="profile-session-count">{{accountSecurity.devices.length}} {{accountSecurity.sessionMode ? copy.sessionSuffix : copy.deviceSuffix}}</view></view>
             <view class="profile-session-list">
               <view class="profile-session-row" wx:for="{{accountSecurity.devices}}" wx:key="_rowKey">
                 <view class="profile-session-copy">
@@ -496,9 +497,9 @@
                   <view class="profile-credential-note">{{copy.recentActivity}} {{item.lastSeenText}}</view>
                 </view>
                 <view class="profile-account-status" wx:if="{{item.currentDevice}}">{{copy.current}}</view>
-                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" disabled="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{accountSecurity.revokingDeviceKey === item._rowKey}}" />{{copy.signOutDevice}}</button>
+                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-row-key="{{item._rowKey}}" disabled="{{accountSecurity.revokingDeviceKey === item._rowKey}}" bindtap="revokeAccountDevice" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{accountSecurity.revokingDeviceKey === item._rowKey}}" />{{accountSecurity.sessionMode ? copy.endSession : copy.signOutDevice}}</button>
               </view>
-              <view class="empty-inline" wx:if="{{!accountSecurity.devices.length}}">{{copy.noDevices}}</view>
+              <view class="empty-inline" wx:if="{{!accountSecurity.devices.length}}">{{accountSecurity.sessionMode ? copy.noSessions : copy.noDevices}}</view>
             </view>
           </view>
         </block>

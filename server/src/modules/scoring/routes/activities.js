@@ -94,7 +94,7 @@ router.post('/saveScoreActivity', async (req, res) => {
     const outcome = await activityAuthorization.save({ id, newId: id ? '' : generateId(), name, description,
       startDate, endDate, hasPausedValue, requestedPaused }, orgId, reference, reference ? reference.personId : admin.id);
     if (outcome.status === 'not_found') return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
-    if (outcome.status === 'duplicate') return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
+    if (outcome.status === 'duplicate') return res.json({ status: 'duplicate', code: 'scoring_activity_duplicate', message: localeCopy.copy_8aeb0338bf });
     if (id) await pubCache.invalidate(id, orgId);
     await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
@@ -163,7 +163,7 @@ router.post('/deleteScoreActivity', async (req, res) => {
       return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
     }
     if (outcome.status === 'conflict') {
-      return res.json({ status: 'conflict', message: scoringCopy.activityHasHistoricalData });
+      return res.json({ status: 'conflict', code: 'scoring_activity_referenced', message: scoringCopy.activityHasHistoricalData });
     }
 
     await pubCache.invalidate(id, orgId);

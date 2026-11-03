@@ -397,7 +397,7 @@ function profileRow(row, member, fields, emptySummary) {
   result.currentSummary = summarize(result.currentValues) || emptySummary;
   result.pendingSummary = summarize(result.pendingValues);
   if (member.fields.has('reviewStatus')) {
-    for (const key of ['recordId', 'auditStatus', 'auditStatusText', 'rejectionReason', 'hasPending',
+    for (const key of ['recordId', 'auditStatus', 'reviewStatus', 'auditStatusText', 'rejectionReason', 'hasPending',
       'selfSubmittedAt', 'selfSubmittedByName', 'maintainedAt', 'maintainedByName', 'lastChangedAt']) result[key] = row[key];
     result.hasPending = row.hasPending && Object.keys(result.pendingValues).length > 0;
   }

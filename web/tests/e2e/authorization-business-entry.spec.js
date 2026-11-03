@@ -7,6 +7,7 @@ import pickerUi from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import hrTemplateCopy from '../../src/locales/zh-CN/shared/hrTemplateSave.js';
 import migrationUi from '../../src/locales/zh-CN/shared/hrProfileMigration.js';
 import personnelCopy from '../../src/locales/zh-CN/shared/adminPersonnel.js';
+import publicationCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/publicationBehavior.js';
 
 async function grant(page, capabilities) {
   await mockApi(page);
@@ -83,6 +84,30 @@ test('publication creates a view rule and reopens the persisted clauses without 
   await page.locator('article').filter({hasText:'Department · Identity'}).getByRole('button',{name:adminUi.copy_e040ae3016,exact:true}).click();
   await expect(page.getByRole('combobox',{name:adminUi.copy_0bfd822c5b,exact:true})).toHaveValue('dept');
   expect(reads).toBeGreaterThanOrEqual(2);
+});
+
+test('publication read failure preserves rows and prevents writes until successful retry', async ({ page }) => {
+  await grant(page,['scoring.publications.read','scoring.publications.create','scoring.publications.update','scoring.activities.read']);
+  let fails = false;
+  let writes = 0;
+  await page.route('**/api/listScoreActivities', route => route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity'}]}}));
+  await page.route('**/api/getResultPublication', route => route.fulfill({json: fails ? {status:'error'} : {status:'success',publication:{id:'publication',isPublished:false},viewRules:[{id:'rule',granteeDepartment:'Retained department',granteeIdentity:'Role',clauses:[]}],meritRules:[],configurationCandidates:{departments:[],identities:[]}}}));
+  await page.route('**/api/getMeritListSummary', route => route.fulfill({json:{status:'success',groups:[]}}));
+  await page.route('**/api/saveResultPublication', route => { writes++; return route.fulfill({json:{status:'success'}}); });
+  await page.goto('/web/admin?subApp=scoring&tab=publications');
+  const row = page.locator('article').filter({hasText:'Retained department'});
+  await expect(row).toBeVisible();
+  fails = true;
+  await page.getByRole('combobox',{name:adminUi.copy_5aa4cb13ec,exact:true}).selectOption('activity');
+  await expect(page.getByText(publicationCopy.publicationLoadFailed,{exact:true})).toBeVisible();
+  await expect(row).toBeVisible();
+  await expect(page.getByRole('button',{name:adminUi.copy_a7cce01d43,exact:true})).toBeDisabled();
+  await expect(row.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true})).toHaveCount(0);
+  expect(writes).toBe(0);
+  fails = false;
+  await page.getByRole('button',{name:publicationCopy.publicationRetry,exact:true}).click();
+  await expect(page.getByText(publicationCopy.publicationLoadFailed,{exact:true})).toHaveCount(0);
+  await expect(row.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true})).toBeVisible();
 });
 
 test('migration-only role selects minimal members and submits then rereads its request', async ({ page }) => {

@@ -1,5 +1,5 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/adminPermissions');
-const { callFunction } = require('./api');
+const { callFunction, createResultError, createLocalError } = require('./api');
 const { managementTabAllowed, hasCapability } = require('./authorizationAccessView');
 
 const TAB_PERMISSION_MAP = {
@@ -99,13 +99,11 @@ async function refreshMyPermissions() {
     result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
     if (!require('./orgSession').isCurrent(expectedSnapshot)) return null;
     if (!result || result.status !== 'success') {
-      const error = new Error(result && result.message || localeCopy.copy_e52119b17e);
-      error.status = result && result.status;
-      throw error;
+      throw createResultError(result, localeCopy.copy_e52119b17e);
     }
     const access = await require('./authorizationAccess').readCurrentAuthorizationAccess();
     if (!require('./orgSession').isCurrent(expectedSnapshot)) return null;
-    if (!access) throw new Error(localeCopy.copy_e52119b17e);
+    if (!access) throw createLocalError(localeCopy.copy_e52119b17e);
     return savePermissionState(Object.assign({}, result, { authorizationAccess: access }), expectedSnapshot);
   } catch (error) {
     savePermissionState(Object.assign({}, result, { authorizationAccess: null, authorizationAccessUnavailable: true }), expectedSnapshot);

@@ -11,11 +11,13 @@
     </section>
     <form v-if="form" ref="editor" class="card stack" @submit.prevent="save">
       <div class="card-actions"><span>{{ ui.copy_47f9d64667 }}</span><FileInput accept=".csv,.xlsx,.xls" :disabled="busy" @change="importFields" /></div>
+      <p class="muted">{{ labels.importTemplateFieldsNotice }}</p>
       <label class="field"><span class="field-label">{{ ui.copy_53adcabdff }}</span><input v-model="form.name" required class="field-input" :disabled="busy" /></label>
       <label class="field"><span class="field-label">{{ ui.copy_560dc33d09 }}</span><textarea v-model="form.description" class="field-input" :disabled="busy" /></label>
       <label class="field"><span class="field-label">{{ ui.copy_1037d0aa5f }}</span><select v-model="form.editMode" class="field-input" :disabled="busy"><option v-for="mode in modes" :key="mode.value" :value="mode.value">{{ mode.label }}</option></select></label>
-      <details v-for="(field,index) in form.fields" :key="field.key" class="list-row stack" open>
+      <details v-for="(field,index) in form.fields" :id="'hr-template-field-'+field.key" :key="field.key" class="list-row stack" open>
         <summary>{{ index + 1 }} · {{ field.label || labels.unnamedField }}</summary>
+        <p v-if="fieldErrors[field.key]" role="alert">{{ fieldErrors[field.key] }}</p>
         <label class="field"><span class="field-label">{{ ui.copy_93ab263567 }}</span><input v-model="field.label" required class="field-input" :disabled="busy" /></label>
         <label class="field"><span class="field-label">{{ ui.copy_54d366a2c5 }}</span><select v-model="field.type" class="field-input" :disabled="busy"><option v-for="(label,type) in types" :key="type" :value="type">{{ label }}</option></select></label>
         <label class="field"><span class="field-label">{{ labels.fieldHintLabel }}</span><textarea v-model="field.hint" maxlength="200" class="field-input" :disabled="busy" /></label>
@@ -34,29 +36,31 @@
     <GlassDialog v-if="importSheets.length" :title="ui.copy_47f9d64667" @close="importSheets=[]"><div class="stack"><button v-for="(sheet,index) in importSheets" :key="index" type="button" class="selection-option-card" @click="appendSheet(sheet)">{{ sheet.name }} · {{ sheet.headers.length }}</button></div></GlassDialog>
     <section v-if="active" class="card stack"><strong>{{ active.name }}</strong><span>{{ active.fields?.map(field=>field.label).join(' · ') }}</span><template v-if="canSelect"><label class="field"><span class="field-label">{{ ui.copy_f594467fe0 }}</span><textarea v-model="active.description" class="field-input" :disabled="busy" /></label><label class="field"><span class="field-label">{{ ui.copy_1037d0aa5f }}</span><select v-model="active.editMode" class="field-input" :disabled="busy"><option v-for="mode in modes" :key="mode.value" :value="mode.value">{{ mode.label }}</option></select></label><button class="btn btn-primary" :disabled="busy" @click="saveSettings">{{ ui.copy_71446eee47 }}</button></template></section>
     <GlassDialog v-if="switchDraft" :title="labels.applyAction + ' · ' + switchDraft.target.name" :busy="busy" @close="switchDraft=null">
-      <div class="stack"><article v-for="field in switchDraft.fields" :key="field.id" class="list-row stack"><strong>{{ field.label }}</strong><select v-model="field.action" class="field-input" :disabled="busy" @change="clearPreview"><option value="hide">{{ ui.hrTemplateSwitchActionHide }}</option><option value="map">{{ ui.hrTemplateSwitchActionMove }}</option><option value="delete">{{ ui.hrTemplateSwitchActionDelete }}</option></select><select v-if="field.action === 'map'" v-model="field.targetTemplateFieldId" class="field-input" :disabled="busy" @change="clearPreview"><option value="">—</option><option v-for="target in switchDraft.target.fields.filter(target=>field.compatibleTargetIds?.includes(target.id))" :key="target.id" :value="target.id">{{ target.label }}</option></select></article><p v-if="switchDraft.summary">{{ summaryText }}</p><p v-if="editorNotice" role="alert">{{ editorNotice }}</p><article v-for="(block,index) in switchDraft.blockers" :key="index" class="list-row stack"><strong>{{ switchDraft.fields.find(field=>field.id === block.sourceSnapshotFieldId)?.label }}</strong><span v-for="(item,itemIndex) in block.invalidItems" :key="itemIndex">{{ item.memberName }} · {{ item.error }}</span></article></div>
-      <template #footer><div class="card-actions"><button class="btn btn-secondary" :disabled="busy" @click="preview">{{ ui.copy_f6076cddc4 }}</button><button v-if="switchDraft.token && !switchDraft.blockers.length" class="btn btn-primary" :disabled="busy" @click="apply">{{ labels.applyAction }}</button></div></template>
+      <div class="stack"><article v-for="field in switchDraft.fields" :key="field.id" class="list-row stack"><strong>{{ field.label }}</strong><select v-model="field.action" class="field-input" :disabled="busy" @change="clearPreview"><option value="hide">{{ ui.hrTemplateSwitchActionHide }}</option><option value="map">{{ ui.hrTemplateSwitchActionMove }}</option><option value="delete">{{ ui.hrTemplateSwitchActionDelete }}</option></select><select v-if="field.action === 'map'" v-model="field.targetTemplateFieldId" class="field-input" :disabled="busy" @change="clearPreview"><option value="">—</option><option v-for="target in switchDraft.target.fields.filter(target=>field.compatibleTargetIds?.includes(target.id))" :key="target.id" :value="target.id">{{ target.label }}</option></select></article><p v-if="switchDraft.summary">{{ summaryText }}</p><p v-if="editorNotice" role="alert">{{ editorNotice }}</p><section v-for="block in switchDraft.blockers" :key="block.sourceSnapshotFieldId" class="stack"><HrValueIssue v-for="(item,itemIndex) in block.invalidItems" :key="[item.hrId,block.sourceSnapshotFieldId,itemIndex].join(':')" :item="{...block,...item}" /></section></div>
+      <template #footer><div class="card-actions"><button class="btn btn-secondary" :disabled="busy" @click="preview">{{ labels.previewTemplateSwitch }}</button><button v-if="switchDraft.token && !switchDraft.blockers.length" class="btn btn-primary" :disabled="busy" @click="apply">{{ labels.applyAction }}</button></div></template>
     </GlassDialog>
   </div>
 </template>
 <script setup>
 import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
+import HrValueIssue from './HrValueIssue.vue';
 import FileInput from './FileInput.vue';
 import { readTable } from '@/runtime/tableFiles.js';
 import { useAdminCapability } from '@/runtime/adminCapabilities.js';
-import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import { confirmAction } from '@/runtime/notify.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js';
 import labels from '@/locales/zh-CN/shared/hrTemplateSave.js';
 import display from '@/locales/zh-CN/shared/hrTemplateFieldDisplay.js';
+import templateValidationView from '@/shared/hrTemplateValidationView.js';
 import personnel from '@/locales/zh-CN/shared/adminPersonnel.js';
 const emit=defineEmits(['busy']);
 const canCreate=useAdminCapability('hr.profile_templates.manage','hr.profileTemplates.create'),canUpdate=useAdminCapability('hr.profile_templates.manage','hr.profileTemplates.update'),canDelete=useAdminCapability('hr.profile_templates.manage.delete','hr.profileTemplates.delete'),canSelect=useAdminCapability('hr.profile_templates.select','hr.profileSelection.update');
 const rows=ref([]),active=ref(null),form=ref(null),editor=ref(null),loading=ref(false),busy=ref(false),notice=ref(''),editorNotice=ref(''),savedAwaitingRead=ref(false),switchDraft=ref(null);
-const importSheets=ref([]);
+const importSheets=ref([]),fieldErrors=ref({});
 const types=display.types,modes=[{value:'direct',label:ui.copy_42143afbe4},{value:'audit',label:ui.copy_98dc7c613a},{value:'readonly',label:ui.copy_a1399ed0a2}];
 const numericLabels={minLength:ui.copy_5354228d3f,maxLength:ui.copy_453aeb2049,minDigits:ui.copy_5354228d3f,maxDigits:ui.copy_37c16943eb,minValue:ui.copy_c536f98c27,maxValue:ui.copy_c7710f6c1e};
 let generation=0,disposed=false,fieldKey=0;
@@ -64,11 +68,30 @@ const scope=()=>[session.context?.organizationId,session.context?.contextId].joi
 function newField(source={}){return {...source,key:++fieldKey,label:source.label||'',type:source.type||'text',hint:source.hint||'',required:source.required===true,allowDecimal:source.allowDecimal!==false,numberRule:source.numberRule||'value_range',optionsText:(source.options||[]).join('\n')};}
 async function edit(row){if(busy.value || !(row?canUpdate.value:canCreate.value))return;form.value={id:row?.id,name:row?.name||'',description:row?.description||'',editMode:row?.editMode||'direct',fields:(row?.fields||[{}]).map(newField)};editorNotice.value='';await nextTick();editor.value?.scrollIntoView({block:'start'});}
 function move(index,delta){const target=index+delta;if(busy.value||target<0||target>=form.value.fields.length)return;const [field]=form.value.fields.splice(index,1);form.value.fields.splice(target,0,field);}
-async function importFields(event){const file=event.target.files?.[0];if(!file||!form.value||busy.value)return;await perform(async current=>{const sheets=await readTable(file);if(!current()||!form.value)return;if(!sheets.length)throw new Error(messages.copy_b673ee708c);importSheets.value=sheets;});}
-async function appendSheet(sheet){if(!form.value||busy.value)return;const expected=scope(),target=form.value;const replace=await confirmAction({title:messages.copy_d0fc81b30f,body:sheet.headers.join(' · '),confirmText:messages.copy_50a212e945,cancelText:messages.copy_01c502a089});if(disposed||scope()!==expected||target!==form.value)return;const fields=sheet.headers.map(label=>newField({label:String(label),type:'text'}));form.value.fields=replace?fields:form.value.fields.concat(fields);importSheets.value=[];}
+async function importFields(event){const file=event.target.files?.[0];if(!file||!form.value||busy.value)return;await perform(async current=>{const sheets=await readTable(file);if(!current()||!form.value)return;if(!sheets.length)throw createLocalError(messages.copy_b673ee708c);importSheets.value=sheets;});}
+async function appendSheet(sheet){if(!form.value||busy.value)return;const expected=scope(),target=form.value;const replace=await confirmAction({title:messages.copy_d0fc81b30f,body:sheet.headers.join(' · '),confirmText:messages.copy_50a212e945,cancelText:messages.copy_01c502a089});if(disposed||scope()!==expected||target!==form.value)return;const fields=sheet.headers.map(label=>newField({label:String(label),type:'text'}));form.value.fields=replace?fields:form.value.fields.concat(fields);importSheets.value=[];editorNotice.value=labels.importFieldsAsText;}
 async function load(){const request=++generation,expected=scope();loading.value=true;try{const result=requireSuccess(await callApi('listHrProfileTemplates',{}));if(disposed||request!==generation||expected!==scope())return false;rows.value=result.list||[];active.value=result.activeSnapshot||null;notice.value='';if(savedAwaitingRead.value){savedAwaitingRead.value=false;form.value=null;}return true;}catch(error){if(!disposed&&request===generation)notice.value=errorText(error,messages.copy_e52119b17e);return false;}finally{if(!disposed&&request===generation)loading.value=false;}}
 async function perform(action){if(busy.value)return;const expected=scope(),request=generation;busy.value=true;editorNotice.value='';try{await action(()=>!disposed&&expected===scope()&&request===generation);}catch(error){if(!disposed&&expected===scope())editorNotice.value=errorText(error,labels.failureMessage);}finally{busy.value=false;}}
-async function save(){if(!form.value||!(form.value.id?canUpdate.value:canCreate.value)||savedAwaitingRead.value)return;await perform(async current=>{const fields=form.value.fields.map(field=>{const value={label:field.label.trim(),type:field.type,hint:field.hint,required:field.required,allowDecimal:field.allowDecimal,numberRule:field.numberRule,options:field.optionsText.split('\n').map(item=>item.trim()).filter(Boolean)};for(const key of Object.keys(numericLabels))value[key]=field[key]==null||field[key]===''?null:Number(field[key]);return value;});requireSuccess(await callApi('saveHrProfileTemplateDefinition',{id:form.value.id,name:form.value.name.trim(),description:form.value.description,editMode:form.value.editMode,fields}));if(!current())return;savedAwaitingRead.value=true;await load();});}
+async function save(){
+  if(!form.value||!(form.value.id?canUpdate.value:canCreate.value)||savedAwaitingRead.value)return;
+  fieldErrors.value={};
+  await perform(async current=>{
+    const target=form.value,keys=target.fields.map(field=>field.key);
+    const fields=target.fields.map(field=>{const value={label:field.label.trim(),type:field.type,hint:field.hint,required:field.required,allowDecimal:field.allowDecimal,numberRule:field.numberRule,options:field.optionsText.split('\n').map(item=>item.trim()).filter(Boolean)};for(const key of Object.keys(numericLabels))value[key]=field[key]==null||field[key]===''?null:Number(field[key]);return value;});
+    const result=await callApi('saveHrProfileTemplateDefinition',{id:target.id,name:target.name.trim(),description:target.description,editMode:target.editMode,fields});
+    if(!current()||target!==form.value)return;
+    if(result.code==='hr_template_definition_invalid'){
+      const issue=templateValidationView.describe(result.validationIssue,fields,labels),key=keys[issue.fieldIndex];
+      editorNotice.value=issue.message;
+      if(key!==undefined&&target.fields.some(field=>field.key===key)){
+        fieldErrors.value={[key]:issue.message};
+        await nextTick();document.getElementById('hr-template-field-'+key)?.scrollIntoView({block:'nearest'});
+      }
+      return;
+    }
+    requireSuccess(result);savedAwaitingRead.value=true;await load();
+  });
+}
 async function duplicate(row){if(!canCreate.value)return;await perform(async current=>{requireSuccess(await callApi('duplicateHrProfileTemplateDefinition',{id:row.id}));if(current())await load();});}
 async function remove(row){if(!canDelete.value||busy.value||!await confirmAction({title:messages.copy_f81d32f71f,body:row.name+'\n'+messages.copy_6fae2b39f0,danger:true})||!canDelete.value)return;await perform(async current=>{requireSuccess(await callApi('deleteHrProfileTemplateDefinition',{id:row.id}));if(current())await load();});}
 async function saveSettings(){if(!canSelect.value)return;await perform(async current=>{requireSuccess(await callApi('saveOrgHrProfileTemplateSettings',{description:active.value.description,editMode:active.value.editMode}));if(current())await load();});}

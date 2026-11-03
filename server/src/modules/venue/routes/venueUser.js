@@ -431,7 +431,7 @@ router.post('/getVenueSchedule', async (req, res) => {
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
-      adminRows.forEach(item => { adminMap[item.id] = item.name || localeCopy.copy_c01a9aef59; });
+      adminRows.forEach(item => { adminMap[item.id] = safeString(item.name); });
     }
     if (hrIds.length) {
       try {
@@ -472,6 +472,7 @@ router.post('/getVenueSchedule', async (req, res) => {
         (hrList || []).forEach(h => {
           const org = safeString(h.org_id);
           userMap[h.id] = {
+            rawName: safeString(h.name),
             name: h.name || localeCopy.copy_de00c3e48a,
             department: deptMap[org + '|' + h.department_id] || '',
             identity: identMap[org + '|' + h.identity_id] || '',
@@ -545,6 +546,9 @@ router.post('/getVenueSchedule', async (req, res) => {
           userId: b.user_hr_id,
           userHrId: b.user_hr_id,
           creatorType: b.creator_type || 'user',
+          displayFacts: { creatorType: b.creator_type || 'user',
+            creatorName: b.creator_type === 'admin' ? safeString(adminMap[b.creator_admin_id]) : safeString(applicant.name || userMap[b.user_hr_id] && userMap[b.user_hr_id].rawName),
+            assignmentLabel: safeString(applicant.assignmentLabel), venueName: safeString(visibleVenue.name) },
           creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
           creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
           userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
@@ -1149,6 +1153,8 @@ router.post('/listMyVenueBookings', async (req, res) => {
       title: b.title,
       description: b.description,
       userName: display.name || b.user_name || localeCopy.copy_de00c3e48a,
+      displayFacts: { creatorType: b.creator_type || 'user', creatorName: safeString(display.name || b.user_name),
+        assignmentLabel: safeString(display.assignmentLabel), venueName: safeString(b.venue_name) },
       userDept: display.department,
       userIdentity: display.identity,
       userWorkGroup: display.workGroup,
@@ -1363,6 +1369,8 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         title: booking.title,
         description: booking.description,
         userName: (applicantHrInfo && applicantHrInfo.name) || localeCopy.copy_de00c3e48a,
+        displayFacts: { creatorType: booking.creator_type || 'user', creatorName: safeString(applicantHrInfo && applicantHrInfo.name),
+          assignmentLabel: safeString(applicantHrInfo && applicantHrInfo.assignment_label), venueName: safeString(booking.venue_name) },
         userDept: (applicantHrInfo && applicantHrInfo.department_name) || '',
         userIdentity: (applicantHrInfo && applicantHrInfo.identity_name) || '',
         userWorkGroup: (applicantHrInfo && applicantHrInfo.work_group_name) || '',
@@ -1475,6 +1483,8 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
         title: booking.title,
         description: booking.description,
         applicantName: applicant.name || booking.applicant_name || localeCopy.copy_de00c3e48a,
+        displayFacts: { creatorType: booking.creator_type || 'user', creatorName: safeString(applicant.name || booking.applicant_name),
+          assignmentLabel: safeString(applicant.assignmentLabel), venueName: safeString(booking.venue_name) },
         applicantDepartmentId: applicant.departmentId,
         applicantAssignmentId: applicant.assignmentId,
         applicantAssignmentLabel: applicant.assignmentLabel || localeCopy.historicalAssignmentMissing,
@@ -1564,6 +1574,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     ).map(function(step, index) {
       return {
         stepIndex: index,
+        displayFacts: { stepName: safeString(step.name) },
         stepName: safeString(step.name) || ('第' + (index + 1) + localeCopy.copy_493a127a99)
       };
     });
@@ -1573,6 +1584,12 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       const flowStep = flowSteps[stepIndex];
       return {
         id: String(booking.id) + '-approval-' + index,
+        displayFacts: {
+          stepName: safeString(snapshot.stepName) || safeString(flowStep && flowStep.displayFacts.stepName),
+          approverType: safeString(snapshot.approverIdentityType),
+          approverName: safeString(snapshot.approverName) || safeString(approverNameMap[safeString(snapshot.approverHrId)]),
+          assignmentLabel: safeString(snapshot.approverAssignmentSnapshot && snapshot.approverAssignmentSnapshot.assignmentLabel)
+        },
         stepIndex: Number.isFinite(stepIndex) ? stepIndex : 0,
         stepName: safeString(snapshot.stepName) || (flowStep && flowStep.stepName) || localeCopy.copy_28b6b31abf,
         approverName: safeString(snapshot.approverName) || approverNameMap[safeString(snapshot.approverHrId)] || (snapshot.approverIdentityType === 'admin' ? '管理员' : '审批人'),
@@ -1608,6 +1625,8 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       status: 'success',
       detail: {
         id: booking.id,
+        displayFacts: { creatorType: booking.creator_type || 'user', creatorName: safeString(applicant.name || booking.applicant_name),
+          assignmentLabel: safeString(applicant.assignmentLabel), venueName: safeString(booking.venue_name) },
         venueName: safeString(booking.venue_name) || localeCopy.copy_bbcf12ed5f,
         venueLocation: safeString(booking.venue_location),
         orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',

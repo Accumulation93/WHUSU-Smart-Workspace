@@ -1,8 +1,9 @@
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
 // Behavior: activity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('./adminUtils');
+const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
 const orgSession = require('../../../../../utils/orgSession');
+const { createResultError } = require('../../../../../utils/api');
 const { emptyActivityForm } = utils;
 
 module.exports = Behavior({
@@ -14,7 +15,7 @@ module.exports = Behavior({
         const result = await this.callCloud('listScoreActivities');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (!result || result.status !== 'success') {
-          const error = new Error(result && result.message ? result.message : localeCopy.copy_8b63ce8619);
+          const error = createResultError(result, localeCopy.copy_8b63ce8619);
           error.status = result && result.status ? result.status : 'error';
           throw error;
         }

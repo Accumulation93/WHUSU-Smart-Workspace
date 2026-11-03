@@ -1,7 +1,14 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const accountCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
 const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
 const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const validationCopy = require('../../../../../locales/zh-CN/hrValueValidation');
+const valueValidation = require('../../../../../utils/hrValueValidation');
+const templateValidationView = require('../../../../../utils/hrTemplateValidationView');
+const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
+const homeCopy = require('../../../../../../../../locales/zh-CN/home').text;
 const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
@@ -11,6 +18,7 @@ const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, getErrorText, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../../../../utils/orgSession');
+const { createLocalError, createResultError } = require('../../../../../../../../utils/api');
 const { formatListTime, formatDetailTime } = require('../../../../../../../../utils/dateTime');
 const {
   formatDateTextOnly,
@@ -176,7 +184,7 @@ function validateHrTemplateField(field, copy) {
   if (!String(field.label || '').trim()) return localeCopy.copy_b559e020b7;
   // 填写说明是给成员看的提示文字：纯文本、最多 200 字，超长就地指出。
   if (Array.from(String(field.hint || '')).length > HR_FIELD_HINT_MAX_LENGTH) {
-    return localeFormat(copy.fieldHintTooLong, [HR_FIELD_HINT_MAX_LENGTH]);
+    return copy.fieldHintTooLong(HR_FIELD_HINT_MAX_LENGTH);
   }
   if (field.type === 'sequence' && !parseHrFieldOptions(field.optionsText).length) {
     return copy.fieldOptionsRequired;
@@ -272,7 +280,7 @@ function toHrProfileListRow(item) {
     studentId: item.studentId,
     wxBindStatus: item.wxBindStatus,
     auditStatus: item.auditStatus,
-    auditStatusText: item.auditStatusText,
+    auditStatusText: describeProfile(item, homeCopy).statusText,
     assignmentCount: item.assignmentCount,
     hasPending: item.hasPending,
     selected: Boolean(item.selected),
@@ -281,8 +289,8 @@ function toHrProfileListRow(item) {
     accountId: item.accountId || '',
     auth: item.auth || null,
     governanceAvailable: Boolean(item.governanceAvailable),
-    accountState: item.accountState || 'unbound',
-    accountStateText: item.accountStateText || localeCopy.copy_ba9b0425fd,
+    accountState: item.accountState || 'unknown',
+    accountStateText: item.accountStateText || accountCopy.accountStateUnknown,
     accountStateClass: item.accountStateClass || 'unbound-chip',
     verificationText: item.verificationText || '',
     recoveryText: item.recoveryText || '',
@@ -506,6 +514,7 @@ function decorateDeletionRules(rows) {
 
 module.exports = Behavior({
   data: {
+    validationCopy,
     hrTemplateCopy: templateSaveCopy,
     hrTemplatePreviewId: '',
     hrTemplateExpandedFieldIds: [],
@@ -656,7 +665,7 @@ module.exports = Behavior({
         this._hrPermanentDeletionClientRequestId = createPermanentDeletionClientRequestId();
       } catch (error) {
         if (this._hrPermanentDeletionPreviewSeq !== requestSeq) return;
-        wx.showToast({ title: error && error.message || localeCopy.hrDeletionPreviewFailed, icon: 'none' });
+        wx.showToast({ title: getErrorText(error, localeCopy.hrDeletionPreviewFailed), icon: 'none' });
       } finally {
         if (this._hrPermanentDeletionPreviewSeq === requestSeq) {
           this.setData({ hrPermanentDeletionLoading: false });
@@ -771,7 +780,7 @@ module.exports = Behavior({
         });
         await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
       } catch (error) {
-        wx.showToast({ title: error && error.message || localeCopy.hrDeletionExecuteFailed, icon: 'none' });
+        wx.showToast({ title: getErrorText(error, localeCopy.hrDeletionExecuteFailed), icon: 'none' });
       } finally {
         this.setData({ hrPermanentDeletionLoading: false });
       }
@@ -1005,15 +1014,12 @@ module.exports = Behavior({
       }
     },
 
-    /** 服务端只说“某某不合法”时，尽量把这句话贴到对应的字段行上。 */
-    markHrTemplateServerError(message) {
+    /** 按本次提交的资料项标识定位，不从提示语猜测字段。 */
+    markHrTemplateServerError(message, submittedFieldId) {
       const text = String(message || '').trim();
       const fields = this.data.hrProfileTemplateForm.fields || [];
       if (!text || !fields.length) return;
-      const matched = fields.find((field) => {
-        const label = String(field.label || '').trim();
-        return label && text.indexOf(label) >= 0;
-      });
+      const matched = submittedFieldId && fields.find(field => String(field.id) === submittedFieldId);
       if (!matched) return;
       const fieldId = String(matched.id);
       const errors = Object.assign({}, this._hrTemplateFieldErrors || {}, { [fieldId]: text });
@@ -1228,7 +1234,7 @@ module.exports = Behavior({
           localeCopy.copy_e6b5e03497, (label) => localeFormat(localeCopy.copy_209c97537d, [label]));
         this.setData({
           hrTemplateSwitchVisible: true,
-          hrTemplateSwitchTarget: result.targetTemplate,
+          hrTemplateSwitchTarget: Object.assign({}, result.targetTemplate, { title: adminCopy.applyTemplateTitle(result.targetTemplate.name) }),
           hrTemplateSwitchSources: sources,
           hrTemplateSwitchToken: '',
           hrTemplateSwitchSummary: null
@@ -1334,15 +1340,14 @@ module.exports = Behavior({
             const fieldLabel = source ? source.label : blocker.sourceSnapshotFieldId;
             const targetLabel = target ? target.displayLabel : blocker.targetTemplateFieldId;
             (blocker.invalidItems || []).forEach((item, itemIndex) => {
-              rows.push({
+              rows.push(Object.assign(valueValidation.detail(Object.assign({}, blocker, item), itemIndex, validationCopy), {
                 key: `${blocker.sourceSnapshotFieldId}:${itemIndex}`,
                 memberName: item.memberName || personnelSwitchCopy.hrTemplateSwitchIncompatibleUnnamedMember,
                 fieldLabel,
                 targetLabel,
                 rawValue: item.rawValue || personnelSwitchCopy.hrTemplateSwitchIncompatibleEmptyValue,
-                error: item.error,
                 pendingText: item.isPending ? personnelSwitchCopy.hrTemplateSwitchIncompatiblePending : ''
-              });
+              }));
             });
           });
           this.setData({
@@ -1705,7 +1710,7 @@ module.exports = Behavior({
               pending_activation: localeCopy.copy_1ceaebed03,
               unbound: localeCopy.copy_ba9b0425fd
             };
-            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || localeCopy.copy_ba9b0425fd;
+            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || localeCopy.copy_1ceaebed03;
           } else if (column.source === 'auditStatus') {
             exportRow[column.key] = item.auditStatusText || '';
           } else if (column.source === 'assignmentNatures') {
@@ -1925,7 +1930,7 @@ module.exports = Behavior({
           detailHrPendingValues: pendingValues,
           detailHrComparisonRows: detailComparisonRows,
           detailHrAuditStatus: result.auditStatus || 'none',
-          detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
+          detailHrAuditStatusText: describeProfile(result, homeCopy).statusText,
           detailHrRejectionReason: result.rejectionReason || '',
           detailHrSelfSubmittedText: formatDetailTime(result.selfSubmittedAt, {
             reviewStatus: result.selfSubmittedAtReviewStatus
@@ -2105,7 +2110,7 @@ module.exports = Behavior({
         const organization = (read.organizations || []).find(item => item.organizationId === form.organizationId);
         const natures = organization && organization.dictionaries && organization.dictionaries.assignmentNatures || [];
         const index = natures.findIndex(item => item.id === id);
-        if (index < 0) throw new Error(personnelSwitchCopy.chooseAssignmentNature);
+        if (index < 0) throw createLocalError(personnelSwitchCopy.chooseAssignmentNature);
         this.setData({ assignmentKindValues: natures.map(item => item.id), assignmentKindOptions: natures.map(item => item.name),
           personIdentityOrganizations: (this.data.personIdentityOrganizations || []).map(item => item.organizationId === form.organizationId ? Object.assign({}, item, { dictionaries: organization.dictionaries }) : item),
           'membershipAssignmentForm.assignmentKind': id, 'membershipAssignmentForm.assignmentKindIndex': index,
@@ -3008,15 +3013,14 @@ module.exports = Behavior({
 
         wx.showModal({
           title: localeCopy.copy_d0fc81b30f,
-          content: localeCopy.copy_a7e6a633a4 + headers.length + localeCopy.copy_fbdaa51ccc + headerPreview
-            + localeCopy.copy_f37be3c249 + '\n' + detectedSummary,
+          content: [localeCopy.templateColumnsPreview(headers.length), headerPreview, detectedSummary].join('\n'),
           confirmText: localeCopy.copy_50a212e945,
           cancelText: localeCopy.copy_01c502a089,
           success: function (modalRes) {
             const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
             if (modalRes.confirm) _this.setData({ hrTemplateExpandedFieldIds: [] });
             _this.applyHrTemplateFields(fields);
-            wx.showToast({ title: localeCopy.copy_4c8603086a + headers.length + localeCopy.copy_a68c09e48e, icon: 'success' });
+            wx.showToast({ title: localeCopy.templateColumnsRead(headers.length), icon: 'success' });
             _this.focusHrTemplateEditor(false, String(newFields[0] && newFields[0].id || ''));
           }
         });
@@ -3145,11 +3149,11 @@ module.exports = Behavior({
         if (!isCurrent()) return;
         wx.hideLoading();
         if (!result || result.status !== 'success') {
-          // 服务端仍会复核；能把原因对到某个字段时就地标出来并滚过去。
-          const serverMessage = result && typeof result.message === 'string' && result.message.trim()
-            ? result.message.trim()
-            : templateSaveCopy.failureMessage;
-          this.markHrTemplateServerError(serverMessage);
+          const issue = result && result.code === 'hr_template_definition_invalid'
+            ? templateValidationView.describe(result.validationIssue, fields, templateSaveCopy) : null;
+          const serverMessage = issue ? issue.message : getErrorText(createResultError(result), templateSaveCopy.failureMessage);
+          const fieldId = issue && issue.fieldIndex >= 0 ? String(fields[issue.fieldIndex].id || '') : '';
+          if (String(this.data.hrProfileTemplateForm.id || '') === String(form.id || '')) this.markHrTemplateServerError(serverMessage, fieldId);
           wx.showModal({ title: templateSaveCopy.failureTitle,
             content: serverMessage,
             showCancel: false });
@@ -3175,7 +3179,7 @@ module.exports = Behavior({
       } catch (error) {
         if (isCurrent() && !(error && error.silent)) {
           wx.hideLoading();
-          wx.showModal({ title: templateSaveCopy.failureTitle, content: templateSaveCopy.failureMessage, showCancel: false });
+          wx.showModal({ title: templateSaveCopy.failureTitle, content: getErrorText(error, templateSaveCopy.failureMessage), showCancel: false });
         }
       } finally {
         if (this._hrTemplateSaveRequest === request) {
@@ -3715,11 +3719,11 @@ module.exports = Behavior({
             showValidationErrors: true,
             validationErrors: skippedErrors,
             validationErrorCards: this.buildValidationErrorCards(skippedErrors),
-            validationErrorSummary: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_067b107bd7 + skippedErrors.length + localeCopy.copy_c6e80c1d75
+            validationErrorSummary: localeCopy.importedRecordsWithIssues(Number(result.count || 0), skippedErrors.length)
           });
           wx.showToast({ title: localeCopy.copy_8c05f916f4, icon: 'success' });
         } else {
-          wx.showToast({ title: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_9aec79b593, icon: 'success' });
+          wx.showToast({ title: localeCopy.importedRecords(Number(result.count || 0)), icon: 'success' });
         }
       } catch (error) {
         wx.showToast({ title: localeCopy.copy_0c9080582a, icon: 'none' });

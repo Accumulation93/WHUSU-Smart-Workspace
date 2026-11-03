@@ -13,7 +13,7 @@ vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
   wx: { navigateBack(options) { order.push('back'); options.success(); } },
   require(name) {
     if (name.endsWith('/orgSession')) return { isCurrent: () => current };
-    if (name.endsWith('/api')) return { callFunction: async options => { calls.push(options); return { status: rejectSave ? 'error' : 'success' }; } };
+    if (name.endsWith('/api')) return { ...ownRequire(name), callFunction: async options => { calls.push(options); return { status: rejectSave ? 'error' : 'success' }; } };
     return ownRequire(name);
   }
 }, { filename: source });

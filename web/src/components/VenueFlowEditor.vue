@@ -2,7 +2,7 @@
   <GlassDialog :title="ui.copy_20f94d2c18 + ui.copy_a9a18dd6e8" :busy="busy" @close="$emit('close')">
     <p class="muted">{{ ui.copy_9c9358d025 }}</p>
     <div v-for="(item, index) in value.steps" :key="index" class="list-row step-card">
-      <div class="row row-wrap"><strong>{{ ui.copy_ef8b7ffa9b }}{{ index + 1 }}{{ ui.copy_9e545997b0 }}</strong><strong class="break-all">{{ item.name }}</strong></div>
+      <div class="row row-wrap"><strong>{{ factsCopy.stepNumber(index + 1) }}</strong><strong class="break-all">{{ item.name }}</strong></div>
       <div class="row row-wrap"><button v-if="index > 0" type="button" class="btn-quiet" :disabled="disabled" @click="move(index, -1)">{{ ui.copy_79b93c0b36 }}</button><button v-if="index + 1 < value.steps.length" type="button" class="btn-quiet" :disabled="disabled" @click="move(index, 1)">{{ ui.copy_7df1ffb06a }}</button><button type="button" class="btn-quiet" :disabled="disabled" @click="editStep(index)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="disabled" @click="value.steps.splice(index, 1)">{{ ui.copy_acc985cabc }}</button></div>
       <p v-if="!item.rules.length" class="muted">{{ ui.copy_b856d92ba6 }}</p>
       <div v-for="(rule, ruleIndex) in item.rules" :key="ruleIndex" class="condition-summary"><strong>{{ ui.copy_96aab98a23 }}</strong><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div></div>
@@ -39,6 +39,7 @@ import DictionaryPicker from '@/components/DictionaryPicker.vue';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import controls from '@/locales/zh-CN/shared/controlLayout.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { clone } from '@/runtime/venueRules.js';
 import { session } from '@/runtime/session.js';

@@ -14,7 +14,7 @@
       <p v-if="!loading && !rules.length && !loadFailed" class="empty-state">{{ copy.noRules }}</p>
       <article v-for="rule in rules" :key="rule.id" class="list-row stack">
         <label class="row"><input v-model="selected" type="checkbox" :value="rule.id" :disabled="blocked" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
-        <p v-for="line in view.ruleSummary(rule, metadata, copy)" :key="line" class="muted">{{ line }}</p>
+        <section v-for="section in view.ruleSections(rule, metadata, copy)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><p v-if="section.key !== 'fields'" class="muted">{{ copy.groupMatchHelp }}</p><div v-for="group in section.groups" :key="group.key" class="glass-panel stack-tight"><strong v-if="group.title">{{ group.title }}</strong><span v-if="group.hint" class="muted">{{ group.hint }}</span><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span></div></section>
         <div class="card-actions">
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule)">{{ copy.edit }}</button>
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule, true)">{{ copy.copy }}</button>

@@ -1,5 +1,7 @@
 const calendarDateTime = require('../../../../utils/dateTime');
-const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
+const factsCopy = require('../../../../locales/zh-CN/venueFacts');
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
+const pendingCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
@@ -82,15 +84,18 @@ function formatActivityCycleLabel(type, values) {
     periodEndDate: parsed.endDate || '',
     periodEndTime: parsed.endTime || '23:59'
   };
-  if (type === 'datetime_range') return (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + localeCopy.copy_c44dbba9e9 + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--');
+  const completeRange = meta.periodStartDate && meta.periodStartTime && meta.periodEndDate && meta.periodEndTime;
+  const rangeStart = meta.periodStartDate + ' ' + meta.periodStartTime;
+  const rangeEnd = meta.periodEndDate + ' ' + meta.periodEndTime;
+  if (type === 'datetime_range') return completeRange ? factsCopy.timeRange(rangeStart, rangeEnd) : factsCopy.timeRangeMissing;
   if (type === 'repeat') {
-    const unit = meta.intervalUnit === 'week' ? localeCopy.copy_b80d60c556 : localeCopy.copy_fcd3dd2cc8;
-    return localeCopy.copy_c895f6c29e + (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + localeCopy.copy_c44dbba9e9 + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--') + localeCopy.copy_6d6ab79183 + (Number(meta.repeatCount) || 0) + localeCopy.copy_c5aa06059a;
+    return [completeRange ? factsCopy.originalSchedule(rangeStart, rangeEnd) : factsCopy.timeRangeMissing,
+      Number(meta.repeatCount) > 0 ? localeCopy.repeatedOccurrences(Number(meta.repeatCount)) : factsCopy.repeatCountMissing].join('\n');
   }
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
   const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
-  const count = Number(meta.repeatCount) > 0 ? localeCopy.copy_960969cd90 + Number(meta.repeatCount) + localeCopy.copy_c5aa06059a : '';
-  return localeCopy.copy_eeb5f0e78e + start + localeCopy.copy_c44dbba9e9 + end + count;
+  const count = Number(meta.repeatCount) > 0 ? ' · ' + localeCopy.repeatedOccurrences(Number(meta.repeatCount)) : '';
+  return factsCopy.recurrenceValidity(start, end) + count;
 }
 function calcBlock(ts, te) { const s=timeToMin(ts),e=timeToMin(te); return { top:Math.round((s-BASE_MIN)/60*HOUR_HEIGHT), height:Math.max(Math.round((e-s)/60*HOUR_HEIGHT),20) }; }
 function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s.timeStart),end:timeToMin(s.timeEnd)})); }
@@ -101,26 +106,26 @@ function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) ret
 function snapMin(min) { return Math.round(min / SNAP) * SNAP; }
 
 function formatBookingWindow(window) {
-  if (!window) return { openText: localeCopy.copy_584ba3052b, deadlineText: localeCopy.copy_9e824e777e };
+  if (!window) return { openText: localeCopy.submissionOpenUnlimited, deadlineText: localeCopy.submissionDeadlineAtStart };
   const formatAdvance = function(minutes) {
     const total = Math.max(0, Number(minutes) || 0);
     const hours = Math.floor(total / 60);
     const remain = total % 60;
-    if (!hours) return remain + localeCopy.copy_82b3c19342;
-    if (!remain) return hours + localeCopy.copy_57f8fbd947;
-    return hours + localeCopy.copy_7bbe7387fa + remain + localeCopy.copy_82b3c19342;
+    if (!hours) return localeCopy.durationMinutes(remain);
+    if (!remain) return localeCopy.durationHours(hours);
+    return localeCopy.durationHoursMinutes(hours, remain);
   };
   const formatOpen = function(mode, days, minutes) {
-    if (!mode) return localeCopy.copy_584ba3052b;
-    if (mode === 'days') return localeCopy.copy_44ce05c859 + (Number(days) || 0) + localeCopy.copy_d08fb8244e;
-    if (minutes === null || minutes === undefined) return localeCopy.copy_584ba3052b;
-    return localeCopy.copy_44ce05c859 + formatAdvance(minutes);
+    if (!mode) return localeCopy.submissionOpenUnlimited;
+    if (mode === 'days') return localeCopy.submissionOpenDays(Number(days) || 0);
+    if (minutes === null || minutes === undefined) return localeCopy.submissionOpenUnlimited;
+    return localeCopy.submissionOpenDuration(formatAdvance(minutes));
   };
   const formatDeadline = function(mode, days, minutes) {
-    if (!mode) return localeCopy.copy_9e824e777e;
-    if (mode === 'days') return localeCopy.copy_db4932f471 + (Number(days) || 0) + localeCopy.copy_d08fb8244e;
-    if (minutes === null || minutes === undefined) return localeCopy.copy_9e824e777e;
-    return localeCopy.copy_db4932f471 + formatAdvance(minutes);
+    if (!mode) return localeCopy.submissionDeadlineAtStart;
+    if (mode === 'days') return localeCopy.submissionDeadlineDays(Number(days) || 0);
+    if (minutes === null || minutes === undefined || Number(minutes) === 0) return localeCopy.submissionDeadlineAtStart;
+    return localeCopy.submissionDeadlineDuration(formatAdvance(minutes));
   };
   return {
     openText: formatOpen(window.openAdvanceMode, window.openAdvanceDays, window.openAdvanceMinutes),
@@ -310,7 +315,7 @@ Page({
     hasActiveAssignment: false,
     activeTab: 'browse', loading: false,
     venues: [],
-    scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '',
+    scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '', scheduleWeekLabel: '',
     timetableColumns: [], timetableHours: HOURS,
     bookingDetailVisible: false, bookingDetail: null,
     activityDetailVisible: false, activityDetail: null,
@@ -341,6 +346,9 @@ Page({
 
     // ── Approvals tab ──
     pending: [],
+    pendingCopy,
+    pendingLoadFailed: false,
+    pendingLoaded: false,
     lastUpdateTime: '',
     lastPendingCount: 0,
     lastPendingSignature: '',
@@ -388,7 +396,7 @@ Page({
       this._clearApprovalSyncTimer();
       orgSession.invalidateRequests(this);
       this.setData({
-        venues: [], timetableColumns: [], purposes: [], myBookings: [], pending: [],
+        venues: [], timetableColumns: [], purposes: [], myBookings: [], pending: [], pendingLoadFailed: false, pendingLoaded: false,
         pendingApprovalCount: 0, lastPendingCount: 0, lastPendingSignature: '',
         scheduleVisible: false, bookingDetailVisible: false, bookingDetail: null,
         activityDetailVisible: false, activityDetail: null,
@@ -534,6 +542,7 @@ Page({
   async loadTimetable() {
     const request = orgSession.beginRequest(this, 'venueTimetable');
     let _a = this.data, scheduleVenueId = _a.scheduleVenueId, scheduleWeekStart = _a.scheduleWeekStart;
+    this.setData({ scheduleWeekLabel: localeCopy.weekFrom(scheduleWeekStart) });
     const dateTo = addDateDays(scheduleWeekStart, 6);
     wx.showLoading({title:localeCopy.copy_fc99c4cc7b});
     try {
@@ -641,7 +650,7 @@ Page({
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
     const end = booking.timeEndDisplay || '';
-    const timeText = (start || end) ? ((start ? start + localeCopy.copy_c44dbba9e9 : '') + (end || '')) : '';
+    const timeText = start && end ? factsCopy.timeRange(start, end) : factsCopy.timeRangeMissing;
     this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
   },
   closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
@@ -656,7 +665,7 @@ Page({
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       cycleType: activity.cycleType, cycleValues: activity.cycleValues,
-      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + '\n' + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
+      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? factsCopy.timeRange(formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus), formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus)) : factsCopy.timeRangeMissing,
       note: localeCopy.copy_c1ce05d451
     }});
   },
@@ -1094,13 +1103,13 @@ Page({
       let openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots));
       let gap = findOpenGap(startMin, endMin, openMerged);
       if (gap >= 0) {
-        if (!opts.silent) showShortToast(minToTime(gap) + localeCopy.copy_70d4911767);
+        if (!opts.silent) showShortToast(localeCopy.venueClosedAt(minToTime(gap)));
         return false;
       }
       let blockedMerged = buildBlockedIntervals(dayData);
       let conflict = findBlockedOverlap(startMin, endMin, blockedMerged);
       if (conflict) {
-        if (!opts.silent) showShortToast(minToTime(conflict.start) + localeCopy.copy_21268f5ef7);
+        if (!opts.silent) showShortToast(localeCopy.occupiedRange(minToTime(conflict.start)));
         return false;
       }
     }
@@ -1802,10 +1811,10 @@ Page({
     let rs = timeToMin(st), re = timeToMin(et);
     let mo = mergeIntervals(slotsToIntervals(openSlots));
     let gap = findOpenGap(rs, re, mo);
-    if(gap >= 0) return minToTime(gap) + localeCopy.copy_70d4911767;
+    if(gap >= 0) return localeCopy.venueClosedAt(minToTime(gap));
     let mb = mergeIntervals([].concat(slotsToIntervals(bookedSlots), slotsToIntervals(activitySlots)));
     let conflict = findBlockedOverlap(rs, re, mb);
-    if(conflict) return minToTime(conflict.start) + localeCopy.copy_abf766aebc;
+    if(conflict) return localeCopy.occupiedRange(minToTime(conflict.start));
     return null;
   },
 
@@ -1923,18 +1932,24 @@ Page({
         });
         this.setData({
           pending: pending,
+          pendingLoadFailed: false,
+          pendingLoaded: true,
           pendingApprovalCount: pending.length,
           lastPendingCount: pending.length,
           lastPendingSignature: this._buildPendingSignature(pending),
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
+        this.setData({ pendingLoadFailed: true });
         showShortToast(res.message || localeCopy.copy_bba7f8b8ba);
       } else {
-        showShortToast(res.message || localeCopy.copy_e52119b17e);
+        this.setData({ pendingLoadFailed: true });
+        showShortToast(pendingCopy.copy_e52119b17e);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({ pendingLoadFailed: true });
+      showShortToast(pendingCopy.copy_e52119b17e);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -2003,6 +2018,7 @@ Page({
   // ── Approval actions ──
 
   openApprove(e) {
+    if (this.data.loading || this.data.pendingLoadFailed || !this.data.pendingLoaded) return;
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (!item) return;
@@ -2021,6 +2037,7 @@ Page({
   },
 
   openReject(e) {
+    if (this.data.loading || this.data.pendingLoadFailed || !this.data.pendingLoaded) return;
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return sameRecordId(p.id, id); });
     if (!item) return;
@@ -2069,6 +2086,7 @@ Page({
   },
 
   async submitApproval() {
+    if (this.data.approvalSubmitting || this.data.loading || this.data.pendingLoadFailed || !this.data.pendingLoaded) return;
     let that = this;
     let target = this.data.approvalTarget;
     let action = this.data.approvalAction;
@@ -2076,7 +2094,6 @@ Page({
     if (!target || !action || !this._guardApprovalContext(target)) return;
 
     let endpoint = resolveVenueApprovalEndpoint(target, action);
-    let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     this.setData({ approvalSubmitting: true });
     try {
@@ -2084,7 +2101,7 @@ Page({
       if (action === 'approve') data.nextApproverAssignmentIds = this.data.nextApproverAssignmentIds || [];
       let res = await callFunction({ name: endpoint, data: data });
       if (res.status === 'success') {
-        showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
+        showShortToast(action === 'approve' ? (isFlowApprovalTarget(target) ? pendingCopy.stepApproved : pendingCopy.approvalPassed) : pendingCopy.approvalRejected);
         that.closeApproval();
 
         const targetId = target.id;

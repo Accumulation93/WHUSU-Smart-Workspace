@@ -15,6 +15,16 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 const MANIFEST = [
+  { source: 'shared/hrTemplateValidationView.js', targets: [{ path: 'miniprogram/utils/hrTemplateValidationView.js' }, { path: 'web/src/shared/hrTemplateValidationView.js', format: 'esm' }] },
+  { source: 'shared/venueFactsView.js', targets: [{ path: 'miniprogram/utils/venueFactsView.js' }, { path: 'web/src/shared/venueFactsView.js', format: 'esm' }] },
+  { source: 'shared/legacyPermissionView.js', targets: [{ path: 'miniprogram/utils/legacyPermissionView.js' }, { path: 'web/src/shared/legacyPermissionView.js', format: 'esm' }] },
+  { source: 'shared/hrImportIssueView.js', targets: [{ path: 'miniprogram/utils/hrImportIssueView.js' }, { path: 'web/src/shared/hrImportIssueView.js', format: 'esm' }] },
+  { source: 'shared/messageFactsView.js', targets: [{ path: 'miniprogram/utils/messageFactsView.js' }, { path: 'web/src/shared/messageFactsView.js', format: 'esm' }] },
+  { source: 'shared/scoringPublicationView.js', targets: [{ path: 'miniprogram/utils/scoringPublicationView.js' }, { path: 'web/src/shared/scoringPublicationView.js', format: 'esm' }] },
+  { source: 'shared/hrProfileStatusView.js', targets: [{ path: 'miniprogram/utils/hrProfileStatusView.js' }, { path: 'web/src/shared/hrProfileStatusView.js', format: 'esm' }] },
+  { source: 'shared/auditConditionView.js', targets: [{ path: 'miniprogram/utils/auditConditionView.js' }, { path: 'web/src/shared/auditConditionView.js', format: 'esm' }] },
+  { source: 'shared/hrValueValidation.js', targets: [{ path: 'miniprogram/utils/hrValueValidation.js' }, { path: 'web/src/shared/hrValueValidation.js', format: 'esm' }] },
+  { source: 'shared/responseFeedback.js', targets: [{ path: 'miniprogram/utils/responseFeedback.js' }, { path: 'web/src/shared/responseFeedback.js', format: 'esm' }] },
   { source: 'shared/authorizationAccessView.js', targets: [{ path: 'miniprogram/utils/authorizationAccessView.js' }, { path: 'web/src/shared/authorizationAccessView.js', format: 'esm' }] },
   { source: 'shared/authorizationEntryView.js', targets: [{ path: 'miniprogram/utils/authorizationEntryView.js' }, { path: 'web/src/shared/authorizationEntryView.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/common.js', targets: [{ path: 'server/src/locales/zh-CN/common.js' }] },
@@ -81,7 +91,7 @@ const MANIFEST = [
   },
   {
     source: 'shared/apiContracts.js',
-    targets: [{ path: 'web/src/shared/apiContracts.js', format: 'esm' }]
+    targets: [{ path: 'miniprogram/utils/apiContracts.js' }, { path: 'web/src/shared/apiContracts.js', format: 'esm' }]
   },
   {
     source: 'shared/dateTimeFormat.js',
@@ -122,7 +132,7 @@ function normalize(text) {
 const EXPORT_CONVENTION = /(?:^|\n)module\.exports = (?:Object\.freeze\()?\{([\s\S]*?)\}(?:\))?;\s*$/;
 
 // 唯一源里的相对依赖，网页副本要换成 ES 模块的 import。
-const REQUIRE_CONVENTION = /^const (\w+) = require\('\.\/([\w.-]+)'\);\s*$/gm;
+const REQUIRE_CONVENTION = /^const (\w+) = require\('((?:\.\.?\/)+[\w./-]+)'\);\s*$/gm;
 
 // 导出清单只有两种写法：标识符清单（可以换行、带注释）或对象字面量。
 // 只有前者需要逐个校验名字，后者整体作为默认导出。
@@ -153,7 +163,10 @@ function toEsm(content, target) {
   const isObjectLiteral = names === null;
   const head = content
     .slice(0, match.index)
-    .replace(REQUIRE_CONVENTION, "import $1 from './$2.js';");
+    .replace(REQUIRE_CONVENTION, function (_, binding, dependency) {
+      const modulePath = dependency.endsWith('.js') ? dependency : dependency + '.js';
+      return 'import ' + binding + " from '" + modulePath + "';";
+    });
   const body = head + '\nconst sharedModule = Object.freeze({' + match[1] + '});\n';
   const named = isObjectLiteral ? '' : 'export { ' + names.join(', ') + ' };';
   const banner = '// 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；'

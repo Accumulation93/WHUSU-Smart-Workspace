@@ -46,7 +46,7 @@
 
           <view class="personnel-picker-section ui-dialog-list-panel">
             <view class="personnel-picker-section-head">{{candidateHeading}}</view>
-            <view class="personnel-picker-empty" wx:if="{{loading}}"><app-loading text="{{localeCopy.loading}}" /></view>
+            <view class="personnel-picker-empty" wx:if="{{loading}}"><app-loading text="{{selectionLevel === 'assignment' ? localeCopy.loadingAssignments : localeCopy.loading}}" /></view>
             <view class="personnel-picker-error" wx:elif="{{errorText}}"><text>{{errorText}}</text><text class="link ui-motion-chip" catchtap="retry" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.retry}}</text></view>
             <scroll-view wx:else enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="personnel-picker-list personnel-picker-option-list ui-dialog-scroll--pane ui-dialog-selection-options">
               <view class="personnel-picker-card selection-option-card ui-motion-chip {{item._selected ? 'personnel-picker-card-selected' : ''}}" wx:for="{{filteredOptions}}" wx:key="selectionKey" data-key="{{item.selectionKey}}" catchtap="toggleOption" aria-role="checkbox" aria-checked="{{item._selected}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -60,8 +60,8 @@
                   </view>
                 </view>
               </view>
-              <view class="personnel-picker-empty" wx:if="{{!optionCount}}">{{localeCopy.empty}}</view>
-              <view class="personnel-picker-empty" wx:elif="{{!filteredOptions.length}}">{{localeCopy.noMatch}}</view>
+              <view class="personnel-picker-empty" wx:if="{{!optionCount}}">{{selectionLevel === 'assignment' ? localeCopy.emptyAssignments : localeCopy.empty}}</view>
+              <view class="personnel-picker-empty" wx:elif="{{!filteredOptions.length}}">{{selectionLevel === 'assignment' ? localeCopy.noMatchingAssignments : localeCopy.noMatch}}</view>
               <view class="scroll-tail-space"></view>
             </scroll-view>
           </view>

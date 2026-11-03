@@ -10,6 +10,12 @@ const TOKEN_TTL_MS = 15 * 60 * 1000;
 const MAX_MEMBERS = 2000;
 const MAX_FIELDS = 200;
 
+function migrationFailure(key) {
+  const error = new Error(copy[key]);
+  error.code = 'hr_migration_' + key;
+  return error;
+}
+
 function hashPlan(plan) {
   return crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex');
 }
@@ -22,13 +28,13 @@ function encodeToken(payload) {
 
 function decodeToken(token) {
   const parts = safeString(token).split('.');
-  if (parts.length !== 2) throw new Error(copy.stale);
+  if (parts.length !== 2) throw migrationFailure('stale');
   const expected = crypto.createHmac('sha256', JWT_SECRET).update(parts[0]).digest('base64url');
   const left = Buffer.from(parts[1]);
   const right = Buffer.from(expected);
-  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw new Error(copy.stale);
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw migrationFailure('stale');
   const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
-  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw new Error(copy.stale);
+  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw migrationFailure('stale');
   return payload;
 }
 
@@ -146,24 +152,24 @@ function normalizeFieldActions(sourceFields, targetFields, rawActions) {
   const actions = list.map((raw) => {
     const sourceFieldId = safeString(raw && raw.sourceFieldId);
     const source = sourceMap.get(sourceFieldId);
-    if (!source) throw new Error(copy.invalidPlan);
+    if (!source) throw migrationFailure('invalidPlan');
     const action = raw && raw.action === 'copy' ? 'copy' : 'skip';
     const targetTemplateFieldId = action === 'copy' ? safeString(raw.targetTemplateFieldId) : '';
     const conflictPolicy = raw && raw.conflictPolicy === 'overwrite' ? 'overwrite' : 'keep';
     if (action === 'copy') {
       const target = targetMap.get(targetTemplateFieldId);
-      if (!target) throw new Error(copy.invalidPlan);
+      if (!target) throw migrationFailure('invalidPlan');
       if (!templateLibrary.isPotentiallyCompatible(source.type, target.type)) {
-        throw new Error(copy.incompatibleAction);
+        throw migrationFailure('incompatibleAction');
       }
-      if (usedTargets.has(targetTemplateFieldId)) throw new Error(copy.duplicateTargetField);
+      if (usedTargets.has(targetTemplateFieldId)) throw migrationFailure('duplicateTargetField');
       usedTargets.add(targetTemplateFieldId);
     }
     return { sourceFieldId, action, targetTemplateFieldId, conflictPolicy };
   });
   if (actions.length !== sourceFields.length) {
     sourceFields.forEach((field) => {
-      if (!actions.some((item) => item.sourceFieldId === field.id)) throw new Error(copy.fieldActionsRequired);
+      if (!actions.some((item) => item.sourceFieldId === field.id)) throw migrationFailure('fieldActionsRequired');
     });
   }
   return actions;
@@ -173,6 +179,7 @@ function buildTargetFieldMap(snapshot) {
   const map = new Map();
   (snapshot.fields || []).forEach((field) => {
     map.set(field.id, {
+      label: field.label,
       type: field.type,
       min_length: field.minLength,
       max_length: field.maxLength,
@@ -191,20 +198,20 @@ function buildTargetFieldMap(snapshot) {
 async function buildPlan(actor, payload) {
   const sourceOrgId = safeString(payload && payload.sourceOrgId);
   const targetOrgId = safeString(actor.orgId);
-  if (!sourceOrgId || sourceOrgId === targetOrgId) throw new Error(copy.invalidPlan);
+  if (!sourceOrgId || sourceOrgId === targetOrgId) throw migrationFailure('invalidPlan');
   if (!actor.isSuper) {
     const visible = await resolveVisibleOrgIds(actor);
-    if (visible.indexOf(sourceOrgId) < 0) throw new Error(copy.sourceNotVisible);
+    if (visible.indexOf(sourceOrgId) < 0) throw migrationFailure('sourceNotVisible');
   }
   const [sourceSnapshot, targetSnapshot] = await Promise.all([
     loadActiveSnapshot(sourceOrgId),
     loadActiveSnapshot(targetOrgId)
   ]);
-  if (!sourceSnapshot || !targetSnapshot) throw new Error(copy.notFound);
+  if (!sourceSnapshot || !targetSnapshot) throw migrationFailure('notFound');
 
   const rawPersonIds = Array.isArray(payload.personIds) ? payload.personIds.map(safeString).filter(Boolean) : [];
   const personIds = Array.from(new Set(rawPersonIds)).slice(0, MAX_MEMBERS);
-  if (!personIds.length) throw new Error(copy.emptySelection);
+  if (!personIds.length) throw migrationFailure('emptySelection');
 
   const fieldActions = normalizeFieldActions(
     sourceSnapshot.fields.slice(0, MAX_FIELDS),
@@ -243,14 +250,19 @@ async function buildPlan(actor, payload) {
       if (!value.trim()) continue;
       hasValue = true;
       const targetField = targetFieldMap.get(action.targetTemplateFieldId);
-      const error = templateLibrary.validateMappedValue(targetField, value);
-      if (error) {
+      const issue = templateLibrary.validateMappedValueIssue(targetField, value);
+      if (issue) {
         blockers.push({
           personId,
           memberName: member.name,
           fieldLabel: sourceField ? sourceField.label : action.sourceFieldId,
+          sourceFieldLabel: sourceField ? sourceField.label : '',
+          targetFieldLabel: targetField.label || '',
+          allowedOptions: targetField.type === 'sequence' ? JSON.parse(targetField.options_json || '[]') : [],
           rawValue: value,
-          error
+          error: issue.error,
+          reasonCode: issue.reasonCode,
+          reasonParams: issue.reasonParams
         });
         continue;
       }
@@ -317,7 +329,7 @@ async function buildPlan(actor, payload) {
 async function executePlan(actor, plan, token, connection = null) {
   const payload = decodeToken(token);
   if (payload.sourceOrgId !== plan.sourceOrgId || payload.targetOrgId !== plan.targetOrgId
-    || payload.planHash !== hashPlan(plan)) throw new Error(copy.stale);
+    || payload.planHash !== hashPlan(plan)) throw migrationFailure('stale');
   const run = async (conn) => {
     if (!actor.authorized) {
       for (const orgId of [plan.sourceOrgId, plan.targetOrgId].sort()) {
@@ -336,7 +348,7 @@ async function executePlan(actor, plan, token, connection = null) {
     ]);
     if (!sourceSnapshot || !targetSnapshot
       || sourceSnapshot.id !== plan.sourceSnapshotId
-      || targetSnapshot.id !== plan.targetSnapshotId) throw new Error(copy.stale);
+      || targetSnapshot.id !== plan.targetSnapshotId) throw migrationFailure('stale');
     const targetFieldMap = new Map(targetSnapshot.fields.map((field) => [field.id, field]));
     const copied = [];
     for (const person of plan.persons) {
@@ -359,7 +371,7 @@ async function executePlan(actor, plan, token, connection = null) {
         if (action.action !== 'copy') continue;
         const targetField = targetFieldMap.get(action.targetTemplateFieldId);
         if (!targetField) {
-          if (actor.authorized) throw new Error(copy.stale);
+          if (actor.authorized) throw migrationFailure('stale');
           continue;
         }
         const rawValue = person.values ? person.values[action.sourceFieldId] : '';
@@ -378,7 +390,7 @@ async function executePlan(actor, plan, token, connection = null) {
           options_json: JSON.stringify(targetField.options || [])
         }, value);
         if (mapped.error) {
-          if (actor.authorized) throw new Error(copy.stale);
+          if (actor.authorized) throw migrationFailure('stale');
           continue;
         }
         const [existing] = await conn.query(

@@ -16,5 +16,4 @@ export default Object.freeze({
   identityLabel: src_authorization.fieldLabels.identityCategoryId,
   workGroupLabel: src_adminPersonnel.dictionaryUsageCategories.work_groups,
   assignmentLabel: src_adminPersonnel.adminCandidatePositionPrefix,
-  profileReadOnlyNote: src_web.hr.profileReadOnlyNote,
 });

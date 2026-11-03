@@ -1,8 +1,10 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
-const { callFunction, showShortToast, getErrorText, formatAuditTime, formatAuditDetailTime } = require('../../../../../../../../utils/api');
+const { callFunction, showShortToast, getErrorText, createResultError, formatAuditTime, formatAuditDetailTime } = require('../../../../../../../../utils/api');
 const authContext = require('../../../../../../../../utils/authContext');
 const orgSession = require('../../../../../../../../utils/orgSession');
 const dateTime = require('../../../../../../../../utils/dateTime');
+const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
+const homeCopy = require('../../../../../../../../locales/zh-CN/home').text;
 const { buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 
 const DIRECTORY_LIMIT = 2000;
@@ -31,7 +33,7 @@ function decorateAccount(item) {
   };
   return Object.assign({}, item, {
     selected: false,
-    statusLabel: labels[item.accountStatus] || localeCopy.copy_8e4abe3d58
+    statusLabel: labels[item.accountStatus] || localeCopy.accountStateUnknown
   });
 }
 
@@ -127,11 +129,20 @@ function splitIntoBatches(ids, size) {
 }
 
 async function runBatchedAuthAction(options) {
+  const assertCurrent = () => {
+    if (options.isCurrent && !options.isCurrent()) {
+      const error = new Error('auth_batch_context_changed');
+      error.silent = true;
+      throw error;
+    }
+  };
   const batches = splitIntoBatches(options.ids, options.batchSize);
   const results = [];
   const completedIds = [];
   const failures = [];
   for (let index = 0; index < batches.length; index += 1) {
+    assertCurrent();
+    if (options.isCurrent && !options.isCurrent()) break;
     const batchIds = batches[index];
     try {
       const data = Object.assign({}, options.extraData || {}, {
@@ -139,14 +150,31 @@ async function runBatchedAuthAction(options) {
         [options.idField]: batchIds
       });
       const result = await callFunction({ name: options.name, data });
-      if (result.status !== 'success') throw new Error(result.message || options.failureMessage);
+      assertCurrent();
+      if (result.status !== 'success') {
+        const rejected = ['invalid_params', 'forbidden', 'permission_denied', 'auth_failed', 'not_found'].indexOf(result.code || result.status) !== -1;
+        failures.push({ ids: batchIds, state: rejected ? 'rejected' : 'unknown' });
+        if (options.onOutcome) options.onOutcome(batchIds, rejected ? 'rejected' : 'unknown');
+        continue;
+      }
       results.push(result);
-      completedIds.push.apply(completedIds, batchIds);
+      const issuedKey = options.idField === 'claimIds' ? 'claimId' : options.idField === 'personIds' ? 'personId' : 'accountId';
+      const issuedIds = options.action.indexOf('issue') === 0
+        ? new Set((result.issued || []).filter(item => item.code || item.verificationCode).map(item => String(item[issuedKey] || ''))) : null;
+      const completed = issuedIds ? batchIds.filter(id => issuedIds.has(id)) : batchIds;
+      const unconfirmed = issuedIds ? batchIds.filter(id => !issuedIds.has(id)) : [];
+      completedIds.push.apply(completedIds, completed);
+      if (options.onOutcome) options.onOutcome(completed, 'confirmed');
+      if (unconfirmed.length) {
+        failures.push({ ids: unconfirmed, state: 'unknown' });
+        if (options.onOutcome) options.onOutcome(unconfirmed, 'unknown');
+      }
     } catch (error) {
-      failures.push(error);
+      assertCurrent();
+      failures.push({ ids: batchIds, state: 'unknown' });
+      if (options.onOutcome) options.onOutcome(batchIds, 'unknown');
     }
   }
-  if (!results.length && failures.length) throw failures[0];
   return { results, completedIds, failures };
 }
 
@@ -165,7 +193,7 @@ function issuedCodesDialogData(kind, rows, extra) {
   return Object.assign({
     authIssuedCodes: rows,
     authIssuedCodeKind: kind === 'recovery' ? 'recovery' : 'verification'
-  }, extra || {}, { showAuthCodeDialog: true });
+  }, extra || {}, { showAuthCodeDialog: rows.length > 0 });
 }
 
 function issuedCodeTexts(kind) {
@@ -247,6 +275,8 @@ module.exports = Behavior({
     authPolicy: null,
     authPolicyLoading: false,
     authPolicyLoadFailed: false,
+    authBatchOutcome: null,
+    authOutcomeCopy: { title: localeCopy.batchResultTitle, help: localeCopy.batchUnconfirmedHelp },
       authIssuedCodes: [],
       authIssuedCodeKind: 'verification',
       showAuthCodeDialog: false,
@@ -268,6 +298,30 @@ module.exports = Behavior({
   },
 
   methods: {
+    beginAuthBatchOperation(key) {
+      this._authBatchRequest = orgSession.beginRequest(this, 'authBatchOutcome');
+      this.setData({ authActionLoadingKey: key, authBatchOutcome: null });
+      return this._authBatchRequest;
+    },
+    runBatchedAuthAction(options) {
+      const request = this._authBatchRequest || orgSession.beginRequest(this, 'authBatchOutcome');
+      const candidates = (this._hrProfileRawRows || []).concat(this._authPendingClaimsRaw || [], this._authEligiblePeopleRaw || [], this._authAccountsRaw || []);
+      const names = new Map();
+      candidates.forEach(row => {
+        [row.id, row.hrId, row.personId, row.accountId, row.claimId, row.auth && row.auth.pendingClaimId].filter(Boolean).forEach(id => names.set(String(id), row.name || localeCopy.copy_6e1cafa10a));
+      });
+      return runBatchedAuthAction(Object.assign({}, options, { isCurrent: () => orgSession.isRequestCurrent(this, request), onOutcome: (ids, state) => {
+        if (!orgSession.isRequestCurrent(this, request) || !ids.length) return;
+        const previous = this.data.authBatchOutcome || { rows: [] };
+        const labels = { confirmed: localeCopy.batchCompleted, rejected: localeCopy.batchRejected, unknown: localeCopy.batchUnconfirmed };
+        const rows = previous.rows.concat(ids.map(id => ({ key: options.idField + ':' + id, name: names.get(String(id)) || localeCopy.copy_6e1cafa10a, state, label: labels[state] })));
+        const counts = Object.keys(labels).map(stateKey => ({ key: stateKey, label: labels[stateKey], count: rows.filter(row => row.state === stateKey).length }));
+        this.setData({ authBatchOutcome: { rows, counts, expanded: previous.expanded === true, hasUnknown: rows.some(row => row.state === 'unknown') } });
+      } }));
+    },
+    toggleAuthBatchOutcome() {
+      if (this.data.authBatchOutcome) this.setData({ 'authBatchOutcome.expanded': !this.data.authBatchOutcome.expanded });
+    },
     initializeAuthPersonnel() {
       const tabs = [];
       if (this.data.canManageAuthPolicy) tabs.push({ key: 'policy', label: localeCopy.copy_aef40f4a64 });
@@ -302,7 +356,7 @@ module.exports = Behavior({
       const organizationId = orgSession.getSnapshot().orgId || '';
       const result = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
       if (!orgSession.isRequestCurrent(this, request)) return new Map();
-      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
+      if (result.status !== 'success') throw createResultError(result, localeCopy.copy_e58fa637eb);
       const selected = new Set(this.data.selectedHrMemberIds || []);
       const rows = (result.rows || []).map((item) => decorateGovernanceRow(item, selected.has(String(item.hrId || item.id || ''))));
       this._hrGovernanceRows = rows;
@@ -333,7 +387,8 @@ module.exports = Behavior({
           workGroups: row.workGroups,
           assignmentCount: row.assignmentCount,
           auditStatus: row.auditStatus,
-          auditStatusText: row.auditStatusText,
+          reviewStatus: row.reviewStatus,
+          auditStatusText: describeProfile(row, homeCopy).statusText,
           isComplete: row.isComplete
         }), selected.has(String(row.id || ''))));
       });
@@ -504,7 +559,7 @@ module.exports = Behavior({
             action: 'issue_code', claimId: row.auth.pendingClaimId,
             expiresInHours: this.data.verificationCodeHours
           } });
-          if (result.status !== 'success' || !result.verificationCode) throw new Error(result.message || localeCopy.copy_9662ceba48);
+          if (result.status !== 'success' || !result.verificationCode) throw createResultError(result);
           issued = { key: row.auth.pendingClaimId, personName: row.name, studentId: row.studentId, code: result.verificationCode };
           this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
         } else {
@@ -514,7 +569,7 @@ module.exports = Behavior({
             expiresInHours: this.data.verificationCodeHours
           } });
           const item = result.status === 'success' && result.issued && result.issued[0];
-          if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
+          if (!item || !item.code) throw createResultError(result);
           issued = { key: item.inviteId || row.personId, personName: row.name, studentId: row.studentId, code: item.code };
           this.patchHrGovernance(row.personId, { hasActiveInvite: true });
         }
@@ -532,13 +587,13 @@ module.exports = Behavior({
       const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId);
       const inviteRows = rows.filter((item) => item.personId && item.auth && !item.auth.pendingClaimId && !item.auth.hasBindingHistory);
       if (!claimRows.length && !inviteRows.length) return showShortToast(localeCopy.copy_0bc2266433);
-      this.setData({ authActionLoadingKey: 'member-verify-batch' });
+      const batchRequest = this.beginAuthBatchOperation('member-verify-batch');
       try {
         const issued = [];
         const patches = [];
         if (claimRows.length) {
           const names = new Map(claimRows.map((item) => [item.auth.pendingClaimId, item]));
-          const result = await runBatchedAuthAction({
+          const result = await this.runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
             ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
             failureMessage: localeCopy.copy_d7ceb7b422,
@@ -553,7 +608,7 @@ module.exports = Behavior({
           });
         }
         if (inviteRows.length) {
-          const result = await runBatchedAuthAction({
+          const result = await this.runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
             failureMessage: localeCopy.copy_d7ceb7b422,
@@ -571,14 +626,14 @@ module.exports = Behavior({
             }
           });
         }
-        if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
+        if (!issued.length) return;
         this.patchHrGovernanceBatch(patches);
         this.setData(issuedCodesDialogData('verification', issued, { selectedHrMemberIds: [] }));
         this.refreshHrMemberSelection();
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -606,7 +661,7 @@ module.exports = Behavior({
         authMemberConfirmPersonId: '',
         authMemberConfirmHrId: '',
         authMemberConfirmName: isBatch
-          ? localeCopy.credentialSelectedPrefix + targets.length + localeCopy.credentialSelectedSuffix
+          ? localeCopy.selectedCredentialMembers(targets.length)
           : targets[0].name,
         authMemberConfirmFrozen: false,
         authMemberConfirmDeviceRowKey: ''
@@ -624,7 +679,7 @@ module.exports = Behavior({
     async _revokeHrVerificationTargets(targets, isBatch) {
       if (!this.data.canVerifyIdentity || !targets || !targets.length || this.data.authActionLoadingKey) return;
       const loadingKey = isBatch ? 'member-verify-revoke-batch' : 'member-verify-revoke-' + targets[0].hrId;
-      this.setData({ authActionLoadingKey: loadingKey });
+      const batchRequest = this.beginAuthBatchOperation(loadingKey);
       try {
         if (!isBatch) {
           const target = targets[0];
@@ -634,7 +689,8 @@ module.exports = Behavior({
           } : {
             action: 'revoke_invites', personIds: [target.personId], organizationId: target.organizationId || orgSession.getSnapshot().orgId || ''
           } });
-          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
+          if (!orgSession.isRequestCurrent(this, batchRequest)) return;
+          if (result.status !== 'success') throw createResultError(result);
           this.patchHrGovernance(target.personId, isClaimCode
             ? { hasActiveClaimCode: false }
             : { hasActiveInvite: false });
@@ -646,7 +702,7 @@ module.exports = Behavior({
         const results = [];
         const patches = [];
         if (claimRows.length) {
-          const result = await runBatchedAuthAction({
+          const result = await this.runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'revoke_codes', idField: 'claimIds',
             ids: claimRows.map((item) => item.pendingClaimId), batchSize: 50,
             failureMessage: localeCopy.copy_e9798c95c0
@@ -659,7 +715,7 @@ module.exports = Behavior({
           });
         }
         if (inviteRows.length) {
-          const result = await runBatchedAuthAction({
+          const result = await this.runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
             failureMessage: localeCopy.copy_e9798c95c0,
@@ -680,7 +736,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -702,7 +758,7 @@ module.exports = Behavior({
           action: 'issue_codes', accountIds: [row.accountId], organizationId: row.organizationId || orgSession.getSnapshot().orgId || ''
         } });
         const item = result.status === 'success' && result.issued && result.issued[0];
-        if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
+        if (!item || !item.code) throw createResultError(result);
         this.patchHrGovernance(row.personId, { hasRecoveryCode: true });
         this.setData(issuedCodesDialogData('recovery', [{
           key: row.accountId, personName: row.name, studentId: item.studentId || row.studentId, code: item.code
@@ -721,9 +777,9 @@ module.exports = Behavior({
         item.canIssueRecovery
       ));
       if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_3947b0ede8);
-      this.setData({ authActionLoadingKey: 'member-recovery-batch' });
+      const batchRequest = this.beginAuthBatchOperation('member-recovery-batch');
       try {
-        const result = await runBatchedAuthAction({
+        const result = await this.runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'issue_codes', idField: 'accountIds',
           ids: rows.map((item) => item.accountId), batchSize: 100,
           failureMessage: localeCopy.copy_e5392c8b50,
@@ -741,7 +797,7 @@ module.exports = Behavior({
             code: item.code
           };
         });
-        if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
+        if (!issued.length) return;
         this.setData(issuedCodesDialogData('recovery', issued));
         this.patchHrGovernanceBatch(patches);
         this.setData({ selectedHrMemberIds: [] });
@@ -749,7 +805,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -775,7 +831,7 @@ module.exports = Behavior({
     async _revokeHrRecoveryTargets(targets, isBatch) {
       if (!this.data.canGlobalAccountManage || !targets || !targets.length || this.data.authActionLoadingKey) return;
       const loadingKey = isBatch ? 'member-recovery-revoke' : 'member-recovery-revoke-' + targets[0].hrId;
-      this.setData({ authActionLoadingKey: loadingKey });
+      const batchRequest = this.beginAuthBatchOperation(loadingKey);
       try {
         if (!isBatch) {
           const target = targets[0];
@@ -784,12 +840,13 @@ module.exports = Behavior({
             accountIds: [target.accountId],
             organizationId: target.organizationId || orgSession.getSnapshot().orgId || ''
           } });
-          if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
+          if (!orgSession.isRequestCurrent(this, batchRequest)) return;
+          if (result.status !== 'success') throw createResultError(result);
           this.patchHrGovernance(target.personId, { hasRecoveryCode: false });
           showShortToast(localeCopy.copy_42e9898395, 'success');
           return;
         }
-        const result = await runBatchedAuthAction({
+        const result = await this.runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'revoke_codes', idField: 'accountIds',
           ids: targets.map((item) => item.accountId), batchSize: 100,
           failureMessage: localeCopy.copy_5254a703ec,
@@ -808,7 +865,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -903,7 +960,7 @@ module.exports = Behavior({
         } })
       ]);
       if (results[0].status !== 'success' || governanceResult.status !== 'success') {
-        throw new Error(results[0].message || localeCopy.copy_e58fa637eb);
+        throw createResultError(results[0], localeCopy.copy_e58fa637eb);
       }
       this._authPendingClaimsRaw = (results[0].list || []).map(decorateClaim);
       this._authEligiblePeopleRaw = uniquePeople((governanceResult.rows || [])
@@ -932,7 +989,7 @@ module.exports = Behavior({
         } })
       ]);
       if (results[0].status !== 'success' || results[1].status !== 'success' || governanceResult.status !== 'success') {
-        throw new Error(results[0].message || results[1].message || localeCopy.copy_e58fa637eb);
+        throw createResultError(results.find(result => result.status !== 'success'), localeCopy.copy_e58fa637eb);
       }
       this._authRecoveryRequestsRaw = (results[0].list || []).map(decorateClaim);
       const legacyByPerson = new Map((results[1].list || []).map((item) => [String(item.personId || ''), item]));
@@ -962,7 +1019,7 @@ module.exports = Behavior({
       try {
         const result = await callFunction({ name: 'admin/auth/policy', data: { action: 'get' } });
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
+        if (result.status !== 'success') throw createResultError(result, localeCopy.copy_e58fa637eb);
         this.setData({ authPolicy: mapPolicy(result.policy), authPolicyLoadFailed: false });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -1042,7 +1099,7 @@ module.exports = Behavior({
           expiresInHours: this.data.verificationCodeHours
         } });
         if (result.status !== 'success' || !result.verificationCode) {
-          throw new Error(result.message || localeCopy.copy_9662ceba48);
+          throw createResultError(result);
         }
         this._authPendingClaimsRaw = (this._authPendingClaimsRaw || []).map((item) =>
           item.id === claimId ? Object.assign({}, item, { hasActiveCode: true }) : item);
@@ -1065,9 +1122,9 @@ module.exports = Behavior({
       if (!ids.length || this.data.authActionLoadingKey) return;
       const claimRowsById = {};
       (this._authPendingClaimsRaw || []).forEach((item) => { claimRowsById[item.id] = item; });
-      this.setData({ authActionLoadingKey: 'claim-batch' });
+      const batchRequest = this.beginAuthBatchOperation('claim-batch');
       try {
-        const batchResult = await runBatchedAuthAction({
+        const batchResult = await this.runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
           ids, batchSize: 50, failureMessage: localeCopy.copy_9662ceba48,
           extraData: { expiresInHours: this.data.verificationCodeHours }
@@ -1087,16 +1144,16 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
     async issueSelectedInitialCodes() {
       const ids = this.data.selectedAuthEligiblePersonIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'invite-batch' });
+      const batchRequest = this.beginAuthBatchOperation('invite-batch');
       try {
-        const batchResult = await runBatchedAuthAction({
+        const batchResult = await this.runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
           ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
           extraData: {
@@ -1120,16 +1177,16 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
     async revokeSelectedInitialCodes() {
       const ids = this.data.selectedAuthEligiblePersonIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'invite-revoke' });
+      const batchRequest = this.beginAuthBatchOperation('invite-revoke');
       try {
-        const batchResult = await runBatchedAuthAction({
+        const batchResult = await this.runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
           ids, batchSize: 100, failureMessage: localeCopy.copy_8351ecc192,
           extraData: { organizationId: this.data.authScopeOrganizationId }
@@ -1144,7 +1201,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -1256,7 +1313,7 @@ module.exports = Behavior({
       try {
         const result = await callFunction({ name: 'admin/auth/security/passphrase', data: { personId, value } });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || localeCopy.copy_215e3c57da);
+          throw createResultError(result);
         }
         this.setData({
           showDetailPassphraseForm: false,
@@ -1286,8 +1343,8 @@ module.exports = Behavior({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'device-revoke',
         authMemberConfirmActionLabel: localeCopy.copy_c3f53dd501,
-        authMemberConfirmTitle: localeCopy.copy_78b51a10ec,
-        authMemberConfirmMessage: localeCopy.copy_69d8cb0e31 + String(device.deviceLabel || localeCopy.copy_e169da88b9),
+        authMemberConfirmTitle: device.sessionId ? localeCopy.endSessionTitle : localeCopy.signOutDeviceTitle,
+        authMemberConfirmMessage: (device.sessionId ? localeCopy.endSessionBody : localeCopy.signOutDeviceBody)(String(device.deviceLabel || localeCopy.copy_e169da88b9)),
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
         authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
@@ -1331,7 +1388,7 @@ module.exports = Behavior({
             : { personId, deviceKey: String(device.deviceKey || '') }
         });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || localeCopy.copy_bff49f783f);
+          throw createResultError(result);
         }
         const removedCount = Math.max(Number(result.revokedCount || (targetSessionId ? 1 : 0)), 1);
         const devices = (security.devices || []).filter(function(item) { return item._rowKey !== rowKey; });
@@ -1339,7 +1396,7 @@ module.exports = Behavior({
           'detailHrSecurity.devices': devices,
           'detailHrGovernance.auth.activeSessionCount': Math.max(Number(this.data.detailHrGovernance.auth.activeSessionCount || 0) - removedCount, 0)
         });
-        showShortToast(localeCopy.copy_c69999ba88, 'success');
+        showShortToast(targetSessionId ? localeCopy.endSessionDone : localeCopy.signOutDeviceDone, 'success');
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_bff49f783f));
       } finally {
@@ -1356,7 +1413,7 @@ module.exports = Behavior({
       try {
         const result = await callFunction({ name: 'admin/auth/security/passphrase/revoke', data: { personId } });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || localeCopy.copy_bff49f783f);
+          throw createResultError(result);
         }
         this.setData({ 'detailHrSecurity.passphraseSet': false });
         showShortToast(localeCopy.copy_8986ce443d, 'success');
@@ -1466,7 +1523,7 @@ module.exports = Behavior({
         const result = await callFunction({ name: 'admin/auth/recoveries', data: {
           action: 'approve', recoveryRequestId: pending.id
         } });
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_0531ed9e78);
+        if (result.status !== 'success') throw createResultError(result);
         this._authRecoveryRequestsRaw = (this._authRecoveryRequestsRaw || [])
           .filter((item) => item.id !== pending.id);
         this.patchHrGovernance(pending.personId, {
@@ -1496,7 +1553,7 @@ module.exports = Behavior({
         const result = await callFunction({ name: 'admin/auth/accounts', data: {
           action: frozen ? 'unfreeze' : 'freeze', personId
         } });
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_89be75a701);
+        if (result.status !== 'success') throw createResultError(result);
         const nextStatus = result.accountStatus || (frozen ? 'verified' : 'frozen');
         const rawIndex = (this._authAccountsRaw || []).findIndex((item) => item.personId === personId);
         const currentRow = rawIndex >= 0 ? this._authAccountsRaw[rawIndex] : null;
@@ -1527,9 +1584,9 @@ module.exports = Behavior({
       if (!this.data.canGlobalAccountManage) return;
       const ids = this.data.selectedAuthAccountIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'recovery-code' });
+      const batchRequest = this.beginAuthBatchOperation('recovery-code');
       try {
-        const batchResult = await runBatchedAuthAction({
+        const batchResult = await this.runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'issue_codes', idField: 'accountIds',
           ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
           extraData: { organizationId: this.data.authScopeOrganizationId }
@@ -1553,7 +1610,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -1561,9 +1618,9 @@ module.exports = Behavior({
       if (!this.data.canGlobalAccountManage) return;
       const ids = this.data.selectedAuthAccountIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
-      this.setData({ authActionLoadingKey: 'recovery-code-revoke' });
+      const batchRequest = this.beginAuthBatchOperation('recovery-code-revoke');
       try {
-        const batchResult = await runBatchedAuthAction({
+        const batchResult = await this.runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'revoke_codes', idField: 'accountIds',
           ids, batchSize: 100, failureMessage: localeCopy.copy_8351ecc192,
           extraData: { organizationId: this.data.authScopeOrganizationId }
@@ -1578,7 +1635,7 @@ module.exports = Behavior({
       } catch (error) {
         showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
-        this.setData({ authActionLoadingKey: '' });
+        if (orgSession.isRequestCurrent(this, batchRequest)) this.setData({ authActionLoadingKey: '' });
       }
     },
 
@@ -1625,7 +1682,7 @@ module.exports = Behavior({
           sheetName: texts.sheetName
         });
         if (!result || result.status !== 'success' || !result.fileBase64) {
-          showShortToast((result && result.message) || localeCopy.credentialExportFailed);
+          showShortToast(localeCopy.credentialExportFailed);
           return;
         }
         await saveAndShareFile(result.fileBase64, fileName, result.extension || 'xlsx');
@@ -1676,7 +1733,7 @@ module.exports = Behavior({
           claimEndsAt: combinePolicyDateTime(policy.claimEndsDate, policy.claimEndsTime)
         }) });
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
+        if (result.status !== 'success') throw createResultError(result);
         this.setData({ authPolicy: mapPolicy(result.policy || policy) });
         showShortToast(localeCopy.copy_0aacec2714, 'success');
       } catch (error) {

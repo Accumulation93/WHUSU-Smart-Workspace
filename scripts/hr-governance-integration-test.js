@@ -18,6 +18,7 @@ global.wx = {
 };
 
 const behavior = require('../miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
+const accountCopy = require('../shared/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
 const context = {
   data: Object.assign({}, behavior.data, {
     canVerifyIdentity: true,
@@ -76,7 +77,7 @@ const merged = context.mergeHrGovernanceRows([
   { id: 'hr-2', name: '乙', studentId: '002' }
 ], governance);
 assert.strictEqual(merged.length, 2);
-assert.strictEqual(merged[0].accountStateText, '正常');
+assert.strictEqual(merged[0].accountStateText, accountCopy.copy_8e4abe3d58);
 assert.strictEqual(merged[0].recoveryText, '尚未生成恢复码');
 assert.strictEqual(merged[1].verificationText, '尚未生成认证码');
 assert.strictEqual(merged[1].canSelectForAuth, true);
@@ -94,7 +95,7 @@ const priorityRows = context.mergeHrGovernanceRows([
   ['unbound', { id: 'unbound', personId: 'p-unbound', auth: { status: 'pending_verification', hasBindingHistory: false } }]
 ]));
 assert.deepStrictEqual(priorityRows.map((item) => item.accountStateText), [
-  '冻结中', '正常', '正常', '未创建账号'
+  accountCopy.copy_f6eb285e87, accountCopy.copy_8e4abe3d58, accountCopy.copy_8e4abe3d58, accountCopy.accountNotCreated
 ]);
 const independentRows = context.mergeHrGovernanceRows([
   { id: 'password' }, { id: 'wechat' }, { id: 'recovery' }, { id: 'pending' }, { id: 'missing' }
@@ -111,7 +112,7 @@ assert.strictEqual(independentRows[0].accountStateText, independentRows[1].accou
 assert.strictEqual(independentRows[0].canIssueVerification, false, '口令已认证人员不应重新要求身份认证');
 assert.strictEqual(independentRows[0].wxBindStatus, 'unbound', '正常账号不等于已绑定微信');
 assert.strictEqual(independentRows[1].wxBindStatus, 'bound');
-assert.strictEqual(independentRows[4].accountStateText, '账号状态暂时不可用', '未取得状态不能伪装成无账号');
+assert.strictEqual(independentRows[4].accountStateText, accountCopy.accountStateUnknown, '未取得状态不能伪装成无账号');
 const directoryUtils = require('../miniprogram/subpackages/scoring/pages/admin/modules/adminUtils');
 const normalFilter = directoryUtils.emptyHrProfileFilters();
 normalFilter.accountStates = ['verified'];

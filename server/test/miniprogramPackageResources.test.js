@@ -51,6 +51,21 @@ try {
   sync(root, true);
   assert.ok(graph(root, true).files.includes('utils/report.js'));
   assert.ok(!fs.existsSync(path.join(root, replica)));
+  // 共享管理工作台源也要跟随资源归属变化，不能只更新上传副本而遗留失效源码引用。
+  put('miniprogram/app.json', { pages: ['home'], subPackages: [
+    { root: 'subpackages/a', pages: ['page'] }, { root: 'subpackages/b', pages: ['page'] },
+    { root: 'subpackages/scoring', pages: ['pages/admin/admin'] }, { root: 'subpackages/workspace', pages: ['page'] }
+  ] });
+  put('miniprogram/locales/zh-CN/workbench.js', 'module.exports = { title: "fixture" };');
+  put('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js', "module.exports = require('../../../../locales/zh-CN/workbench');");
+  put('miniprogram/subpackages/scoring/pages/admin/admin.js', "require('./adminWorkbenchBehavior'); Page({});");
+  put('miniprogram/subpackages/workspace/page.js', "require('../scoring/pages/admin/adminWorkbenchBehavior'); Page({});");
+  sync(root, true);
+  assert.match(read('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), /package-resources/);
+  put('miniprogram/home.js', "require('./utils/report'); require('./locales/zh-CN/workbench'); Page({});");
+  sync(root, true);
+  assert.doesNotMatch(read('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), /package-resources/);
+  assert.equal(sync(root).unusedJs, 0);
   put('miniprogram/subpackages/a/page.js', "require('../b/page'); Page({});");
   assert.throws(() => sync(root, true), /跨分包/);
   console.log('资源分包：真实入口、无效引用、共享副本、单一语言源、篡改拒绝及主包归属变化通过');

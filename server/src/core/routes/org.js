@@ -40,17 +40,17 @@ router.post('/saveOrganization', async (req, res) => {
     }
 
     if (!name) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_a032183564 });
+      return res.json({ status: 'invalid_params', code: 'organization_name_required', message: localeCopy.copy_a032183564 });
     }
 
     const [dups] = await pool.query('SELECT id FROM organizations WHERE name = ?', [name]);
     if (dups.some((r) => String(r.id) !== id)) {
-      return res.json({ status: 'duplicate', message: localeCopy.copy_674b57afda });
+      return res.json({ status: 'duplicate', code: 'organization_duplicate', message: localeCopy.copy_674b57afda });
     }
 
     if (id) {
       const changed = await organizationModel.update(id, name, referenceFromRequest(req));
-      if (!changed) return res.json({ status: 'not_found', message: localeCopy.copy_2c1bc34f7e });
+      if (!changed) return res.json({ status: 'not_found', code: 'organization_unavailable', message: localeCopy.copy_2c1bc34f7e });
       res.json({ status: 'success', organization: { id, name }, message: localeCopy.copy_b32b720d56 });
     } else {
       const newId = generateId();
@@ -68,7 +68,7 @@ router.post('/saveOrganization', async (req, res) => {
 router.post('/deleteOrganization', async (req, res) => {
   try {
     const id = safeString(req.body.organizationId || req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_cc9e4b8129 });
+    if (!id) return res.json({ status: 'invalid_params', code: 'organization_unavailable', message: localeCopy.copy_cc9e4b8129 });
 
     // 仅全局超级管理员可操作
     const operator = await resolveRequestAdmin(req);
@@ -85,10 +85,10 @@ router.post('/deleteOrganization', async (req, res) => {
       connection => organizationModel.authorizeGovernance(connection, referenceFromRequest(req), 'delete'));
 
     if (result.status === 'not_found') {
-      return res.json({ status: 'not_found', message: localeCopy.copy_2c1bc34f7e });
+      return res.json({ status: 'not_found', code: 'organization_unavailable', message: localeCopy.copy_2c1bc34f7e });
     }
     if (result.status === 'current') {
-      return res.json({ status: 'forbidden', message: localeCopy.copy_9bb30f5ebb });
+      return res.json({ status: 'forbidden', code: 'organization_is_default', message: localeCopy.copy_9bb30f5ebb });
     }
     if (result.status === 'not_empty') {
       return res.json({

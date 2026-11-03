@@ -1,13 +1,16 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/org/pages/adminPermissions/adminPermissions');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
+const legacyCopy = require('../../package-resources/locales/zh-CN/legacyPermissions');
+const { createLegacyPermissionView } = require('../../package-resources/utils/legacyPermissionView');
+const permissionView = createLegacyPermissionView(legacyCopy);
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 
 function cloneGroups(groups) {
-  return (groups || []).map(function(group) {
+  return permissionView.groups(groups).map(function(group) {
     const permissions = (group.permissions || []).map(function(item) { return Object.assign({}, item); });
     const editablePermissions = permissions.filter(function(item) { return item.editable; });
     return Object.assign({}, group, {
@@ -23,6 +26,8 @@ Page({
   data: {
     localeCopy,
     authorizationCopy,
+    legacyCopy,
+    loadError: '',
     readOnly: false,
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
@@ -53,6 +58,7 @@ Page({
       this.setData({
         organizationName: state.snapshot.orgName || '',
         admins: [],
+        loadError: '',
         filteredAdmins: [],
         selectedAdmin: null,
         permissionGroups: [],
@@ -79,7 +85,7 @@ Page({
 
   async loadPage() {
     const request = orgSession.beginRequest(this, 'permissionPage');
-    this.setData({ loading: true });
+    this.setData({ loading: true, loadError: '' });
     try {
       const profile = await adminPermissions.refreshMyPermissions();
       if (!orgSession.isRequestCurrent(this, request)) return;
@@ -94,17 +100,18 @@ Page({
       }
       const result = await callFunction({ name: 'listPermissionManagedAdmins', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e52119b17e);
-      const admins = (result.list || []).slice();
+      if (result.status !== 'success') throw createResultError(result, localeCopy.copy_e52119b17e);
+      const admins = (result.list || []).map(permissionView.admin);
       this.setData({
         admins: admins,
         readOnly: result.readOnly === true,
         filteredAdmins: admins,
-        operatorLevelLabel: result.operatorLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_1557b96093
+        directoryCountText: legacyCopy.directoryPeopleCount(admins.length),
+        operatorLevelLabel: permissionView.admin({ adminLevel: result.operatorLevel }).adminLevelLabel
       });
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
+        this.setData({ loadError: getErrorText(error, localeCopy.copy_e52119b17e) });
       }
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
@@ -117,24 +124,24 @@ Page({
       return String(item.name || '').toLowerCase().indexOf(keyword) >= 0
         || String(item.adminLevelLabel || '').toLowerCase().indexOf(keyword) >= 0;
     });
-    this.setData({ keyword: e.detail.value, filteredAdmins: filteredAdmins });
+    this.setData({ keyword: e.detail.value, filteredAdmins: filteredAdmins, directoryCountText: legacyCopy.directoryPeopleCount(filteredAdmins.length) });
   },
 
   clearKeyword() {
-    this.setData({ keyword: '', filteredAdmins: this.data.admins });
+    this.setData({ keyword: '', filteredAdmins: this.data.admins, directoryCountText: legacyCopy.directoryPeopleCount(this.data.admins.length) });
   },
 
   async openAdmin(e) {
-    if (this.data.saving) return;
+    if (this.data.saving || this.data.loading || this.data.loadError) return;
     const adminId = e.currentTarget.dataset.id;
     const request = orgSession.beginRequest(this, 'permissionDetail');
     this.setData({ loading: true });
     try {
       const result = await callFunction({ name: 'getAdminPermissionDetail', data: { adminId: adminId } });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e52119b17e);
+      if (result.status !== 'success') throw createResultError(result, localeCopy.copy_e52119b17e);
       this.setData({
-        selectedAdmin: result.admin,
+        selectedAdmin: permissionView.admin(result.admin),
         readOnly: result.readOnly === true,
         permissionGroups: cloneGroups(result.groups),
         editorVisible: true
@@ -198,7 +205,7 @@ Page({
         data: { adminId: this.data.selectedAdmin.id, permissions: permissionMap }
       });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
+      if (result.status !== 'success') throw createResultError(result);
       showShortToast(localeCopy.copy_e47065f3f1, 'success');
       this.setData({ permissionGroups: cloneGroups(result.groups), editorVisible: false, selectedAdmin: null });
       await this.loadPage();
@@ -210,10 +217,11 @@ Page({
   },
 
   onOrgTap() {
-    if (this.data.editorVisible) {
+    if (this.data.editorVisible && !this.data.readOnly) {
       this.setData({ contextSwitchGuardVisible: true });
       return;
     }
+    this.closeEditor();
     navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 

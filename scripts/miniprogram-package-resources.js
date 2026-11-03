@@ -187,7 +187,7 @@ function sync(root = ROOT, write = false) {
   }
   // 只重定位依赖引用：JS字符串节点、JSON组件路径以及逐字符解析的模板/样式静态路径，不改业务标签。
   for (const file of walk(state.mini).map(item => slash(path.relative(state.mini, item)))) {
-    if (file.includes(RESOURCE_DIR) || state.mapping.has(file) || !['.js', '.json', '.wxml', '.wxss'].includes(path.posix.extname(file))
+    if (file.includes(RESOURCE_DIR) || (state.mapping.has(file) && !file.startsWith(SHARED_WORKBENCH_ROOT)) || !['.js', '.json', '.wxml', '.wxss'].includes(path.posix.extname(file))
       || file.includes('/tests/') || file.endsWith('.test.js')) continue;
     const full = path.join(state.mini, file);
     const source = fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n');

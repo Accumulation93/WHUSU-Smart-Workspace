@@ -1,6 +1,8 @@
 const calendarDateTime = require('../../../../utils/dateTime');
+const factsCopy = require('../../../../locales/zh-CN/venueFacts');
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const bookingCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
+const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
@@ -28,6 +30,12 @@ const BASE_MIN = 0;
 const HEADER_H = 58; // rpx — matches .tt-time-header height
 const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
 const BOOKING_PURPOSE_MAX_LENGTH = 200;
+
+function yearlyRangeLabels(value) {
+  const rows = Array.isArray(value) ? value : value && Array.isArray(value.values) ? value.values : [];
+  return rows.map(row => row && row.m && (row.dStart || row.d) && (row.dEnd || row.d)
+    ? localeCopy.monthlyDateRange(row.m, row.dStart || row.d, row.dEnd || row.d) : factsCopy.timeRangeMissing);
+}
 
 function canOperate(page, resource, action) {
   return page._authorizationVisible !== false && (!page.data.authorizationEnforced || (page.data.actionCapabilities || {})[resource + '.' + action] === true);
@@ -214,9 +222,9 @@ function formatActivityCycleLabel(type, values) {
   const mode = meta.periodMode || (Number(meta.repeatCount) > 0 && !meta.periodEndDate ? 'count' : (meta.periodStartDate || meta.periodEndDate ? 'range' : 'none'));
   if (mode === 'none') return localeCopy.copy_dae9f72578;
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
-  if (mode === 'count') return localeCopy.copy_5bb8799355 + start + localeCopy.copy_ca51b9c6c6 + (Number(meta.repeatCount) || 0) + localeCopy.copy_c5aa06059a;
+  if (mode === 'count') return [localeCopy.repeatFrom(start), bookingCopy.repeatedOccurrences(Number(meta.repeatCount) || 0)].join('\n');
   const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
-  return localeCopy.copy_eeb5f0e78e + start + localeCopy.copy_c44dbba9e9 + end;
+  return factsCopy.recurrenceValidity(start, end);
 }
 
 function emptyBookingWindow() {
@@ -745,10 +753,10 @@ module.exports = Behavior({
         data: { id: editId, name: editName, location: editLocation, description: editDesc }
       });
       if (res.status === 'success') {
-        showShortToast(res.message);
+        showShortToast(localeCopy.venueSaved);
         this.setData({ editing: false });
         this.loadVenues();
-      } else showShortToast(res.message);
+      } else throw createResultError(res, localeCopy.copy_215e3c57da);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
     finally { this.setData({ loading: false }); }
   },
@@ -763,8 +771,8 @@ module.exports = Behavior({
         if (!r.confirm) return;
         try {
           const res = await callFunction({ name: 'deleteVenue', data: { id } });
-          if (res.status === 'success') { showShortToast(localeCopy.copy_5398fec054); that.loadVenues(); }
-          else showShortToast(res.message);
+          if (res.status === 'success') { showShortToast(localeCopy.venueDeleted); that.loadVenues(); }
+          else throw createResultError(res, localeCopy.copy_076bb5d383);
         } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
       }
     });
@@ -873,7 +881,7 @@ module.exports = Behavior({
       return label + '：' + (names || localeCopy.copy_8bc3aa5b58);
     }
     if (scope === 'same') return label + '：' + sameLabel;
-    return label + localeCopy.copy_04d00bdf17;
+    return factsCopy.unlimitedScope(label);
   },
 
   _formatRuleScopeValue(scope, ids, sourceList, sameLabel) {
@@ -906,8 +914,9 @@ module.exports = Behavior({
   },
 
   _decorateFlowSteps(steps) {
-    return (steps || []).map(step => ({
+    return (steps || []).map((step, index) => ({
       ...step,
+      _stepNumberText: factsCopy.stepNumber(index + 1),
       rules: (step.rules || []).map(rule => this._decorateRuleDisplay(rule))
     }));
   },
@@ -996,6 +1005,7 @@ module.exports = Behavior({
     this.setData({
       ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
       ruleEditorScrollIntoView: '',
+      yearlyRangeLabels: yearlyRangeLabels(form.cycleValues),
       weeklyChecked: buildWeeklyChecked(form.cycleValues),
       monthlyChecked: buildMonthlyChecked(form.cycleValues)
     });
@@ -1138,6 +1148,7 @@ module.exports = Behavior({
     this.setData({
       'ruleForm.cycleType': ct,
       'ruleForm._cycleTypeIndex': idx,
+      yearlyRangeLabels: [],
       'ruleForm.cycleValues': cycleValues,
       weeklyChecked: [false, false, false, false, false, false, false],
       monthlyChecked: Array(31).fill(false)
@@ -1248,7 +1259,7 @@ module.exports = Behavior({
     if (!dup) {
       vals.push({ m: sm, dStart: sd, dEnd: ed });
       vals.sort((a, b) => (Number(a.m) - Number(b.m)) || (Number(a.dStart) - Number(b.dStart)));
-      this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
+      this.setData({ yearlyRangeLabels: yearlyRangeLabels(vals), 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
     }
   },
 
@@ -1258,7 +1269,7 @@ module.exports = Behavior({
     const currentValues = this.data.ruleForm.cycleValues;
     let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
     vals.splice(idx, 1);
-    this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
+    this.setData({ yearlyRangeLabels: yearlyRangeLabels(vals), 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
   },
 
   // ── Range cycle type date handlers ──
@@ -1302,7 +1313,7 @@ module.exports = Behavior({
       if (ruleForm.ruleType === 'flow') {
         // Save the whole approval flow
         const stepsData = (ruleForm._flowSteps || []).map((s, i) => ({
-          name: s.name || (localeCopy.copy_93c50c01c0 + (i + 1) + localeCopy.copy_493a127a99),
+          name: s.name || factsCopy.defaultStepName(i + 1),
           sortOrder: i + 1,
           approvalMode: (s.rules || []).length ? 'hr_rule' : 'admin_any',
           rules: (s.rules || []).map(r => ({
@@ -1353,7 +1364,9 @@ module.exports = Behavior({
     try {
       const res = await callFunction({ name: endpoint, data });
       if (res.status === 'success') {
-        showShortToast(res.message);
+        const successText = { saveVenueOpenRule: localeCopy.openRuleSaved, saveVenueActivityRule: localeCopy.activityRuleSaved,
+          saveVenueApprovalWholeFlow: localeCopy.approvalFlowSaved, saveVenueBookingRule: localeCopy.bookingRuleSaved }[endpoint];
+        if (successText) showShortToast(successText);
         this.setData({ ruleEditorVisible: false });
         await Promise.all([
           this.loadOpenRules(),
@@ -1361,7 +1374,7 @@ module.exports = Behavior({
           this.loadApprovalFlow()
         ]);
         await this.loadBookingRules();
-      } else showShortToast(res.message);
+      } else throw createResultError(res, localeCopy.copy_215e3c57da);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
   },
 
@@ -1374,11 +1387,11 @@ module.exports = Behavior({
     try {
       const res = await callFunction({ name: ep, data: { id } });
       if (res.status === 'success') {
-        showShortToast(localeCopy.copy_5398fec054);
+        showShortToast(type === 'open' ? localeCopy.openRuleDeleted : type === 'activity' ? localeCopy.activityRuleDeleted : localeCopy.bookingRuleDeleted);
         this.loadOpenRules();
         this.loadActivityRules();
         this.loadBookingRules();
-      } else showShortToast(res.message);
+      } else throw createResultError(res, localeCopy.copy_076bb5d383);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
   },
 
@@ -1389,16 +1402,18 @@ module.exports = Behavior({
     if (type === 'daily') return localeCopy.copy_13293d504a;
     const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return {}; } })() : (values || {});
     if (type === 'range') {
-      if (v && v.startDate && v.endDate) return v.startDate + localeCopy.copy_c44dbba9e9 + v.endDate;
+      if (v && v.startDate && v.endDate) return factsCopy.timeRange(v.startDate, v.endDate);
       return localeCopy.copy_9d73203530;
     }
     const arr = Array.isArray(v) ? v : ((v && Array.isArray(v.values)) ? v.values : []);
     const weekNames = ['', localeCopy.copy_92af9d9017, localeCopy.copy_e3233a4b58, localeCopy.copy_2f48862253, localeCopy.copy_017e3df1a1, localeCopy.copy_41a9548e60, localeCopy.copy_f2c74088c9, localeCopy.copy_a814b25100];
     if (type === 'weekly') return arr.map(i => weekNames[Number(i)] || i).join('、') || localeCopy.copy_2b4df49497;
-    if (type === 'monthly') return localeCopy.copy_06a9527bac + arr.map(i => Number(i)).join('、') + localeCopy.copy_168587d3a1;
+    if (type === 'monthly') return arr.length && arr.every(i => Number.isInteger(Number(i)) && Number(i) >= 1 && Number(i) <= 31)
+      ? localeCopy.monthlyDays(arr.map(i => Number(i)).join('、')) : factsCopy.timeRangeMissing;
     if (type === 'yearly') return arr.map(c => {
-      if (c.dEnd !== undefined) return (c.m || '?') + localeCopy.copy_438913e441 + (c.dStart || '?') + localeCopy.copy_05302eb150 + (c.dEnd || '?') + localeCopy.copy_168587d3a1;
-      return (c.m || '?') + localeCopy.copy_438913e441 + (c.d || '?') + localeCopy.copy_168587d3a1;
+      if (!c || !c.m || !(c.dStart || c.d)) return factsCopy.timeRangeMissing;
+      if (c.dEnd !== undefined) return c.dEnd ? localeCopy.monthlyDateRange(c.m, c.dStart || c.d, c.dEnd) : factsCopy.timeRangeMissing;
+      return localeCopy.yearlyDate(c.m, c.dStart || c.d);
     }).join('、');
     return JSON.stringify(arr);
   },
@@ -1413,7 +1428,7 @@ module.exports = Behavior({
       venueName: this.data.rulesVenueName,
       cycleLabel: rule._detailCycleLabel || rule._cycleLabel || '',
       cycleType: rule.cycle_type, cycleValues: rule.cycle_values,
-      legacyTime: (rule.time_start || '09:00').substring(0, 5) + localeCopy.copy_c44dbba9e9 + (rule.time_end || '18:00').substring(0, 5),
+      legacyTime: rule.time_start && rule.time_end ? factsCopy.timeRange(rule.time_start.substring(0, 5), rule.time_end.substring(0, 5)) : factsCopy.timeRangeMissing,
       note: rule.cycle_type === 'datetime_range' || rule.cycle_type === 'repeat' ? localeCopy.copy_ebe09ed8ec : localeCopy.copy_e90ee137d6
     }});
   },
@@ -1443,7 +1458,7 @@ module.exports = Behavior({
       if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
       const result = await callFunction({ name: 'deleteVenueBooking', data: { id, revision: preview.record.revision } });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || governanceCopy.failed);
+      if (result.status !== 'success') throw createResultError(result, governanceCopy.failed);
       this.setData({ bookings: this.data.bookings.filter(item => item.id !== id), selectedBooking: null });
       eventBus.emit('venue:changed', { reason: 'deleted' });
       showShortToast(governanceCopy.deleted);
@@ -1596,7 +1611,9 @@ module.exports = Behavior({
     if (!target) return;
 
     const endpoint = resolveVenueApprovalEndpoint(target, approvalPopupAction);
-    const label = approvalPopupAction === 'approve' ? localeCopy.copy_ce171a2581 : localeCopy.copy_5d5af942c5;
+    const label = approvalPopupAction === 'approve'
+      ? (endpoint === 'approveVenueBookingStep' ? localeCopy.bookingApprovalStepPassed : localeCopy.bookingApproved)
+      : localeCopy.bookingRejected;
 
     this.setData({ loading: true });
     try {
@@ -1605,14 +1622,14 @@ module.exports = Behavior({
         data: { id: approvalPopupId, comment: approvalPopupComment }
       });
       if (res.status === 'success') {
-        showShortToast(res.message || label);
+        showShortToast(label);
         this.closeApprovalPopup();
         this.loadBookingsData();
         if (this.data.scheduleVisible) this.loadVenueTimetable();
         eventBus.emit('venue:changed', { reason: approvalPopupAction, bookingId: approvalPopupId });
         eventBus.emit('approval:done');
       } else {
-        showShortToast(res.message);
+        throw createResultError(res, localeCopy.copy_0531ed9e78);
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
@@ -1807,7 +1824,7 @@ module.exports = Behavior({
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
     const end = booking.timeEndDisplay || '';
-    const timeText = (start || end) ? ((start ? start + localeCopy.copy_c44dbba9e9 : '') + (end || '')) : '';
+    const timeText = start && end ? factsCopy.timeRange(start, end) : factsCopy.timeRangeMissing;
     this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
   },
   closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
@@ -1849,7 +1866,7 @@ module.exports = Behavior({
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       cycleType: activity.cycleType, cycleValues: activity.cycleValues,
-      occurrenceTime: formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus) + '\n' + localeCopy.copy_c44dbba9e9 + formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus),
+      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? factsCopy.timeRange(formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus), formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus)) : factsCopy.timeRangeMissing,
       note: localeCopy.copy_c1ce05d451
     }});
   },
@@ -1898,7 +1915,7 @@ module.exports = Behavior({
       const res = await callFunction({ name: 'getVenueSchedule',
         data: { venueId: this.data.scheduleVenueId, dateFrom: dateStr, dateTo: dateStr } });
       if (generation !== this._adminAvailabilityGeneration || !this.data.adminBookingVisible || !orgSession.isRequestCurrent(this, request)) return;
-      if (res.status !== 'success') { showShortToast(res.message || localeCopy.copy_e52119b17e); return; }
+      if (res.status !== 'success') throw createResultError(res, localeCopy.copy_e52119b17e);
       const dayData = (res.dailySchedules || [])[0];
       const first = adminTimeSelection.freeRanges(dayData)[0];
       const start = presetTime || this.data.adminBookingTimeStart || (first ? adminTimeSelection.time(first[0]) : '');
@@ -2035,7 +2052,7 @@ module.exports = Behavior({
       if (gap >= 0) {
         const h = String(Math.floor(gap / 60)).padStart(2, '0');
         const mi = String(gap % 60).padStart(2, '0');
-        showShortToast(h + ':' + mi + localeCopy.copy_70d4911767); return;
+        showShortToast(bookingCopy.venueClosedAt(h + ':' + mi)); return;
       }
       const mergedBlocked = mergeIntervals([
         ...slotsToIntervals(_adminDayData.bookedSlots || []),
@@ -2045,7 +2062,7 @@ module.exports = Behavior({
       if (conflict) {
         const h = String(Math.floor(conflict.start / 60)).padStart(2, '0');
         const mi = String(conflict.start % 60).padStart(2, '0');
-        showShortToast(h + ':' + mi + localeCopy.copy_abf766aebc); return;
+        showShortToast(bookingCopy.occupiedRange(h + ':' + mi)); return;
       }
     }
 
@@ -2057,10 +2074,10 @@ module.exports = Behavior({
                 timeStart, timeEnd }
       });
       if (res.status === 'success') {
-        showShortToast(res.message);
+        showShortToast(localeCopy.bookingCreated);
         this.setData({ adminBookingVisible: false });
         if (this.data.scheduleVisible) this.loadVenueTimetable();
-      } else showShortToast(res.message);
+      } else throw createResultError(res, localeCopy.copy_ccd4af477f);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_ccd4af477f)); }
     finally { this.setData({ loading: false }); }
   },
@@ -2112,10 +2129,10 @@ module.exports = Behavior({
         data: { id: purposeEditId, text: normalizedText }
       });
       if (res.status === 'success') {
-        showShortToast(res.message);
+        showShortToast(localeCopy.purposeSaved);
         this.setData({ purposeEditId: '', purposeEditText: '' });
         this.loadPurposes();
-      } else showShortToast(res.message);
+      } else throw createResultError(res, localeCopy.copy_215e3c57da);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
   },
 
@@ -2128,7 +2145,7 @@ module.exports = Behavior({
     const that = this;
     wx.showModal({
       title: localeCopy.copy_7f31eec657,
-      content: localeCopy.bookingPurposeDeletePrefix + target.text + localeCopy.bookingPurposeDeleteSuffix,
+      content: localeCopy.bookingPurposeDelete(target.text),
       confirmText: localeCopy.copy_acc985cabc,
       cancelText: localeCopy.copy_06dbb49961,
       success: function(modalResult) {
@@ -2143,8 +2160,8 @@ module.exports = Behavior({
     if (!target || !target.id) return;
     try {
       const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id: target.id } });
-      if (res.status === 'success') { showShortToast(localeCopy.copy_5398fec054); this.loadPurposes(); }
-      else showShortToast(res.message);
+      if (res.status === 'success') { showShortToast(localeCopy.purposeDeleted); this.loadPurposes(); }
+      else throw createResultError(res, localeCopy.copy_076bb5d383);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_076bb5d383)); }
   },
 
@@ -2241,9 +2258,9 @@ module.exports = Behavior({
         data: { venueId: this.data.rulesVenueId, bookingWindow: windowForm }
       });
       if (res.status === 'success') {
-        showShortToast(res.message || localeCopy.copy_26f68cb229);
+        showShortToast(localeCopy.bookingWindowSaved);
         await this.loadBookingRules();
-      } else showShortToast(res.message || localeCopy.copy_215e3c57da);
+      } else throw createResultError(res, localeCopy.copy_215e3c57da);
     } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
   },
 
@@ -2290,7 +2307,7 @@ module.exports = Behavior({
           if (field === 'allow_user_select') patch.allowUserSelectFlow = value;
         }
         this.setData(patch);
-      } else showShortToast(res.message || localeCopy.copy_bff49f783f);
+      } else throw createResultError(res, localeCopy.copy_bff49f783f);
     } catch (err) { showShortToast(getErrorText(err, localeCopy.copy_bff49f783f)); }
   },
 
@@ -2307,10 +2324,10 @@ module.exports = Behavior({
         try {
           const res = await callFunction({ name: 'deleteVenueApprovalFlow', data: { flowId: id, venueId: this.data.rulesVenueId } });
           if (res.status === 'success') {
-            showShortToast(localeCopy.copy_5398fec054);
+            showShortToast(localeCopy.approvalFlowDeleted);
             this.setData({ selectedFlowId: '' });
             await this.loadApprovalFlow();
-          } else showShortToast(res.message || localeCopy.copy_bff49f783f);
+          } else throw createResultError(res, localeCopy.copy_bff49f783f);
         } catch (err) { showShortToast(getErrorText(err, localeCopy.copy_bff49f783f)); }
       }
     });
@@ -2417,7 +2434,7 @@ module.exports = Behavior({
     const idx = parseInt(e.currentTarget.dataset.idx);
     const steps = [...(this.data.ruleForm._flowSteps || [])];
     steps.splice(idx, 1);
-    this.setData({ 'ruleForm._flowSteps': steps });
+    this.setData({ 'ruleForm._flowSteps': this._decorateFlowSteps(steps) });
   },
 
   moveRuleFlowStepUp(e) {
@@ -2425,7 +2442,7 @@ module.exports = Behavior({
     if (idx <= 0) return;
     const steps = [...(this.data.ruleForm._flowSteps || [])];
     [steps[idx - 1], steps[idx]] = [steps[idx], steps[idx - 1]];
-    this.setData({ 'ruleForm._flowSteps': steps });
+    this.setData({ 'ruleForm._flowSteps': this._decorateFlowSteps(steps) });
   },
 
   moveRuleFlowStepDown(e) {
@@ -2434,7 +2451,7 @@ module.exports = Behavior({
     if (idx >= steps.length - 1) return;
     const s = [...steps];
     [s[idx], s[idx + 1]] = [s[idx + 1], s[idx]];
-    this.setData({ 'ruleForm._flowSteps': s });
+    this.setData({ 'ruleForm._flowSteps': this._decorateFlowSteps(s) });
   },
 
   saveRuleFlowStep() {
@@ -2460,7 +2477,7 @@ module.exports = Behavior({
       steps.push(stepData);
     }
     this.setData({
-      'ruleForm._flowSteps': steps,
+      'ruleForm._flowSteps': this._decorateFlowSteps(steps),
       'ruleForm._editingStepIdx': null,
       'ruleForm._editingConditionIdx': null,
       'ruleForm._editingStepName': '',
@@ -2781,7 +2798,7 @@ module.exports = Behavior({
           if (!tab.workGroups.length) continue;
           const hasSelection = tab.workGroups.some(wg => selected[String(wg.id)]);
           if (!hasSelection) {
-            wx.showToast({ title: localeCopy.copy_c9c991ff82 + (tab.deptName || tab.deptId) + localeCopy.copy_eed7859498, icon: 'none' });
+            wx.showToast({ title: localeCopy.departmentWorkGroupRequired(tab.deptName || localeCopy.copy_de00c3e48a), icon: 'none' });
             return;
           }
         }

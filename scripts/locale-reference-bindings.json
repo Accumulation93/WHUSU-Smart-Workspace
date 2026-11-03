@@ -1,0 +1,38 @@
+{
+  "admin.js": {
+    "consoleNote": null,
+    "accountDirectoryReadOnly": { "module": "zh-CN/web.js", "segments": ["admin", "accountDirectoryReadOnly"] },
+    "managementPageUnavailable": { "module": "zh-CN/web.js", "segments": ["admin", "managementPageUnavailable"] },
+    "permissionsStudentId": null,
+    "memberSearchPlaceholder": { "module": "zh-CN/adminPersonnel.js", "segments": ["memberSearchPlaceholder"] }
+  },
+  "system.js": {
+    "dictionaryNote": null,
+    "currentOrganizationLabel": { "module": "zh-CN/generated/subpackages/scoring/pages/admin/modules/settingsBehavior.js", "segments": ["systemDefaultOrganization"] }
+  },
+  "portal.js": {
+    "scanCopyAction": { "module": "zh-CN/portal.js", "segments": ["view", "scanCopyAction"] }
+  },
+  "scoring.js": {
+    "activityLabel": { "module": "zh-CN/home.js", "segments": ["text", "currentActivity"] }
+  },
+  "hr.js": { "profileReadOnlyNote": null },
+  "venue.js": { "adminNote": null },
+  "audit.js": { "signatureRequiredBody": null, "designateRequiredBody": null },
+  "login.js": {
+    "studentId": { "module": "zh-CN/login.js", "segments": ["view", "studentId"] },
+    "studentIdPlaceholder": { "module": "zh-CN/login.js", "segments": ["view", "studentIdPlaceholder"] },
+    "titleClaim": { "module": "zh-CN/login.js", "segments": ["view", "titleClaim"] }
+  },
+  "workRole.js": {
+    "currentOrg": { "module": "zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch.js", "segments": ["copy_e74c96dd07"] },
+    "assignmentTitle": { "module": "zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch.js", "segments": ["copy_5ccdea4fbf"] },
+    "currentContextLabel": { "module": "zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch.js", "segments": ["copy_58063dc31f"] },
+    "selectRole": { "module": "zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch.js", "segments": ["copy_e8b001bfef"] }
+  },
+  "hero.js": {
+    "appName": { "module": "zh-CN/common.js", "segments": ["brandName"] },
+    "adminLabel": { "module": "zh-CN/generated/components/workspace-hero/workspace-hero.js", "segments": ["copy_c01a9aef59"] },
+    "superAdminLabel": { "module": "zh-CN/generated/components/workspace-hero/workspace-hero.js", "segments": ["copy_ccd219e5f1"] }
+  }
+}

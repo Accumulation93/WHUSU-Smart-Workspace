@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import copy from '../../src/locales/zh-CN/index.js';
+import messageCopy from '../../src/locales/zh-CN/shared/messageFacts.js';
 import { callsOf, mockApi, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 const WEB_BASE = '/web';
@@ -13,18 +14,19 @@ for (const location of ['portal', 'messages?tab=notifications']) {
     let removed = false;
     await page.route('**/api/listNotifications', async route => {
       await route.fulfill({json:{status:'success',items:removed?[]:[{
-        id:'cross-device',title:'跨设备删除测试',description:'通知',organizationId:'org',
+        id:'cross-device',type:'submission_progress',title:'跨设备删除测试',description:'通知',organizationId:'org',
         organizationName:'组织',isRead:false,createdAt:'2026-10-19T00:00:00Z'
       }],total:removed?0:1,unreadCount:removed?0:1,nextCursor:''}});
     });
     await page.clock.install();
     await page.goto(`${WEB_BASE}/${location}`);
-    await expect(page.getByText('跨设备删除测试',{exact:true})).toBeVisible();
+    await expect(page.getByText(messageCopy.notifications.submission_progress[0],{exact:true})).toBeVisible();
+    await expect(page.getByText('跨设备删除测试',{exact:true})).toHaveCount(0);
     removed = true;
     await page.clock.fastForward(31000);
-    await expect(page.getByText('跨设备删除测试',{exact:true})).toHaveCount(0);
+    await expect(page.getByText(messageCopy.notifications.submission_progress[0],{exact:true})).toHaveCount(0);
     await page.reload();
-    await expect(page.getByText('跨设备删除测试',{exact:true})).toHaveCount(0);
+    await expect(page.getByText(messageCopy.notifications.submission_progress[0],{exact:true})).toHaveCount(0);
   });
 }
 
@@ -67,7 +69,7 @@ test('登录状态在使用中失效时回到登录页并说明原因', async ({
   const api = await mockApi(page);
   await login(page);
   // 等门户首屏数据加载完再让会话失效，避免把启动中的请求误判成失效触发点。
-  await expect(page.getByText('有一条新的审核申请')).toBeVisible();
+  await expect(page.getByText(messageCopy.notifications.submission_progress[0])).toBeVisible();
 
   // 服务端会话失效后，下一次业务请求会返回登录失效。
   api.setSessionAlive(false);
@@ -88,9 +90,9 @@ test('门户通知进入对应详情后标记已读', async ({ page }) => {
   await expect(footer.locator('.footer-org')).not.toHaveText(ORG_NAME);
 
   await expect(page.getByText('场地借用审批')).toBeVisible();
-  await expect(page.getByText('有一条新的审核申请')).toBeVisible();
+  await expect(page.getByText(messageCopy.notifications.submission_progress[0])).toBeVisible();
 
-  await page.getByText('有一条新的审核申请').click();
+  await page.getByText(messageCopy.notifications.submission_progress[0]).click();
   await expect(page).toHaveURL(/\/audit\/submission\/submission-1$/);
   await expect.poll(() => callsOf(api.calls, 'markNotificationRead').length).toBe(1);
 
@@ -143,7 +145,7 @@ test('消息中心按页签加载待办与通知，并可全部删除', async ({
   expect(callsOf(api.calls, 'listTodos').length).toBeGreaterThan(0);
 
   await page.getByRole('button', { name: copy.messages.view.notifications }).click();
-  await expect(page.getByText('有一条新的审核申请')).toBeVisible();
+  await expect(page.getByText(messageCopy.notifications.submission_progress[0])).toBeVisible();
   expect(callsOf(api.calls, 'listNotifications').length).toBeGreaterThan(0);
 
   await page.getByRole('button', { name: copy.messages.view.clearAll }).click();

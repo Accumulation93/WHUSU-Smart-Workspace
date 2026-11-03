@@ -11,8 +11,9 @@
         </select>
       </label>
     </div>
-    <p class="muted">{{ ui.selectedCount(selected.length) }}</p>
-    <div v-if="!filtered.length" class="empty-state">{{ query ? ui.noMatch : ui.empty }}</div>
+    <p class="muted">{{ mode === 'person' ? ui.selectedPeopleCount(selected.length) : ui.selectedAssignmentCount(selected.length) }}</p>
+    <p v-if="!selected.length" class="muted">{{ ui.noSelection }}</p>
+    <div v-if="!filtered.length" class="empty-state">{{ options.length ? (mode === 'person' ? ui.noMatch : ui.noMatchingAssignments) : (mode === 'person' ? ui.empty : ui.emptyAssignments) }}</div>
     <button v-for="item in filtered" :key="keyOf(item)" type="button" class="list-row personnel-option"
       :class="{ 'personnel-option-selected': selected.includes(keyOf(item)) }"
       :aria-pressed="selected.includes(keyOf(item))" :disabled="busy" @click="toggle(keyOf(item))">

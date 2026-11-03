@@ -23,6 +23,7 @@
   <view class="partial-notice" wx:if="{{partial}}">
     <ui-icon name="bell" tone="primary" size="28" ariaLabel="{{copy.loadingHint}}" />
     <text>{{copy.partialOrganizationLoading}}</text>
+    <button class="secondary-btn" bindtap="retryOverview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{performanceCopy.retry}}</button>
   </view>
 
   <view class="card message-card">
@@ -55,9 +56,10 @@
             </view>
             <view class="message-title">{{item.title}}</view>
             <view class="message-desc">{{item.description}}</view>
+            <view class="message-desc" wx:for="{{item.detailLines}}" wx:for-item="line" wx:key="label">{{line.label}}: {{line.value}}</view>
             <view class="message-time">{{item.createdAtText}}</view>
           </view>
-          <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
+          <ui-icon wx:if="{{item.canOpen}}" name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
         </view>
       </view>
 

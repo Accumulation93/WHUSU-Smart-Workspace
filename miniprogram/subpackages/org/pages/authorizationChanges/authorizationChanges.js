@@ -1,7 +1,7 @@
 'use strict';
 const ui = require('../../../../locales/zh-CN/authorization');
 const presentation = require('../../utils/authorizationPresentation');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, createResultError, createLocalError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { formatListTime } = require('../../../../utils/dateTime');
@@ -20,7 +20,7 @@ Page({
   },
   call: async function(name, data) {
     const result = await callFunction({ name, data });
-    if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+    if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
     return result;
   },
   load: async function() {
@@ -32,9 +32,9 @@ Page({
       this._state = results[0]; this._directory = results[1];
       let result;
       if (this.data.deletingDelegation) {
-        if (!this._state.isSuper) throw new Error(ui.forbidden);
+        if (!this._state.isSuper) throw createLocalError(ui.forbidden);
         const selected = this._state.delegations.find(item => item.id === this._options.id);
-        if (!selected) throw new Error(ui.conflict);
+        if (!selected) throw createLocalError(ui.conflict);
         this._payload = { id: selected.id, version: selected.version, expectedRevision: this._state.revision };
         result = await this.call('previewAuthorizationDelegationDeletion', this._payload);
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -43,16 +43,16 @@ Page({
           rules: [{ id: selected.id, name: selected.name, impact: { before: result.delegation.envelope, roles: result.impact.roles } }] };
       } else if (this.data.deleting) {
         const ids = this._options.ids ? JSON.parse(this._options.ids) : [this._options.id];
-        if (!Array.isArray(ids) || !ids.length || ids.length > 500 || new Set(ids).size !== ids.length) throw new Error(ui.invalidPolicy);
+        if (!Array.isArray(ids) || !ids.length || ids.length > 500 || new Set(ids).size !== ids.length) throw createLocalError(ui.invalidPolicy);
         const selected = ids.map(id => this._state.rules.find(rule => rule.id === id));
-        if (selected.some(item => !item)) throw new Error(ui.conflict);
+        if (selected.some(item => !item)) throw createLocalError(ui.conflict);
         this._payload = { expectedRevision: this._state.revision, rules: selected.map(rule => ({ id: rule.id, version: rule.version })) };
         result = await this.call('previewAuthorizationRuleDeletion', this._payload);
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
         this.setData({ targetName: ui.selectedRules(selected.length) });
       } else {
         const scheme = this._state.schemes.find(item => item.id === this._options.id);
-        if (!scheme) throw new Error(ui.conflict);
+        if (!scheme) throw createLocalError(ui.conflict);
         this._payload = { id: scheme.id, version: scheme.version, expectedRevision: this._state.revision };
         const values = await Promise.all([this.call('previewAuthorizationScheme', this._payload), this.call('getAuthorizationSchemeVersions', { id: scheme.id })]);
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;

@@ -1,6 +1,15 @@
 'use strict';
 
 module.exports = Object.freeze({
+  systemDefaultOrganization: '默认组织',
+  setSystemDefaultOrganization: '设置默认组织',
+  systemDefaultOrganizationHelp: '设置系统默认使用的组织，不切换你当前的工作角色。',
+  settingDefaultOrganization: '正在设置默认组织',
+  defaultOrganizationSaved: name => '默认组织已设为“' + name + '”。',
+  defaultOrganizationRejected: '默认组织未能设置，请核对后重试。',
+  defaultOrganizationUnknown: '暂未确认默认组织是否设置成功，请刷新设置后查看。',
+  organizationCreatedDefaultUnknown: name => '组织“' + name + '”已创建，但暂未确认默认组织是否设置成功。请刷新设置后查看，不要重复创建组织。',
+  organizationCreatedDefaultRejected: name => '组织“' + name + '”已创建，但默认组织未能设置。请在默认组织设置中重新选择，不要重复创建组织。',
   copy_076bb5d383: '删除失败，请重试',
   copy_0a1deb4187: '默认组织已更新',
   copy_0ff87aff65: '正在修改默认组织...',

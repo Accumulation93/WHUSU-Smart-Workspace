@@ -68,7 +68,7 @@ async function save() {
     if (!current()) return;
     props.state.awaitingRead = true;
     await load();
-    if (current()) showToast(result.message);
+    if (current()) showToast(ui.purposeSaved);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_215e3c57da); }
   finally { if (current()) busy.value = false; }
 }
@@ -78,14 +78,14 @@ async function remove(row) {
   const current = () => !disposed && expected === scope();
   busy.value = true; actionNotice.value = '';
   try {
-    const confirmed = await confirmAction({ title: ui.copy_7f31eec657, body: ui.bookingPurposeDeletePrefix + target.text + ui.bookingPurposeDeleteSuffix,
+    const confirmed = await confirmAction({ title: ui.copy_7f31eec657, body: ui.bookingPurposeDelete(target.text),
       confirmText: ui.copy_acc985cabc, cancelText: ui.copy_06dbb49961, danger: true });
     if (!confirmed || !current() || props.disabled || !canDeleteRecord.value) return;
     requireSuccess(await callApi('deleteVenueBookingPurpose', { id: target.id }));
     if (!current()) return;
     if (props.state.id === target.id) props.state.awaitingRead = true;
     await load();
-    if (current()) showToast(ui.copy_5398fec054);
+    if (current()) showToast(ui.purposeDeleted);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_076bb5d383); }
   finally { if (current()) busy.value = false; }
 }

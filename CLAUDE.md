@@ -192,7 +192,7 @@ page {
 4. WXML/WXSS 修改后渲染无误
 5. 完整用户操作链无断点
 6. 小程序改动运行 `node scripts/miniprogram-compat-audit.js`，并用微信开发者工具真实编译主包及全部分包
-7. 用户可见文案只允许来自 `miniprogram/locales/zh-CN/**` 或 `server/src/locales/zh-CN/**`；运行改动范围对应的 `--strict-localization` 审计
+7. 新前端系统文案唯一源为 `shared/locales/zh-CN/**`，小程序与网页只使用生成副本。后端返回的 message、error、description 等系统句子不能直接显示；按已审结果码及业务事实引用前端语料。姓名、用户填写的标题和意见等业务原文不属于系统文案。服务端旧消息仅用于旧客户端兼容，不能作为新版文案来源；运行改动范围对应的 `--strict-localization` 审计。
 8. 网页改动运行 `cd web && npm run build`、`cd web && npm run test:e2e`（需 `PLAYWRIGHT_CHANNEL=chrome`）与 `cd web && node scripts/parity-audit.mjs`，并在真实浏览器里打开改动页面确认
 9. 文案或共用层改动运行 `node scripts/sync-shared-modules.js`、`node scripts/locale-single-source-audit.js`、`node scripts/locale-align.js --report`；文案唯一来源是 `shared/locales/zh-CN/**`，网页语言文件是生成物（不允许含中文）
 

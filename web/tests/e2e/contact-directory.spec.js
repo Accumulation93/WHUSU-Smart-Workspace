@@ -51,6 +51,12 @@ test('directory only renders granted values and navigates visible positions', as
     expect(box.height).toBeGreaterThanOrEqual(40);
     expect(await action.locator('img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
   }
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: () => Promise.reject(new Error('clipboard unavailable')) }));
+  await copyAction.click();
+  await expect(page.getByRole('status')).toHaveText(ui.copyFailed);
+  await expect(phoneAction).toBeVisible();
+  await expect(page.getByText('13800138000', { exact: true })).toBeVisible();
+  expect(detailReads).toBe(1);
   await page.screenshot({path:testInfo.outputPath('contact-detail.png'),fullPage:true,animations:'disabled'});
   await expect(page.getByRole('button', { name: ui.copyContact, exact: true })).toHaveCount(1);
   await page.locator('summary').click();

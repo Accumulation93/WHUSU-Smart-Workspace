@@ -25,7 +25,7 @@
         <select v-model.number="range[side].day" class="field-input" :aria-label="(side === 'start' ? ui.copy_1ede7526e5 : ui.copy_d862a02c58) + ui.copy_a957bd837e" :disabled="disabled"><option v-for="day in 31" :key="day" :value="day">{{ day }}{{ ui.copy_a957bd837e }}</option></select>
       </div>
       <button type="button" class="btn-quiet" :disabled="disabled" @click="addRange">{{ ui.copy_9aa3c3673c }}</button>
-      <div class="row row-wrap"><button v-for="(item, index) in values" :key="index" type="button" class="btn-quiet" :disabled="disabled" @click="values.splice(index, 1)">{{ item.m }}{{ ui.copy_c1392f7fda }}{{ item.dStart ?? item.d }} - {{ item.dEnd ?? item.d }}{{ ui.copy_a957bd837e }} ×</button></div>
+      <div class="row row-wrap"><button v-for="(item, index) in values" :key="index" type="button" class="btn-quiet" :disabled="disabled" @click="values.splice(index, 1)">{{ item?.m && (item.dStart ?? item.d) && (item.dEnd ?? item.d) ? ui.monthlyDateRange(item.m, item.dStart ?? item.d, item.dEnd ?? item.d) : factsCopy.timeRangeMissing }} ×</button></div>
       <p v-if="!values.length" class="muted">{{ ui.copy_a7c33c8fee }}</p>
     </div>
     <div v-if="value.cycleType === 'range'" class="field">
@@ -53,6 +53,7 @@ import { computed, reactive, ref } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import flow from '@/locales/zh-CN/shared/venueFlowManagement.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 import { activityValues, cycleTypes, weekNames } from '@/runtime/venueRules.js';
 const props = defineProps({ type: String, value: { type: Object, required: true }, busy: Boolean, disabled: Boolean });
 defineEmits(['close', 'save']);

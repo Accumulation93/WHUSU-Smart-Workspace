@@ -176,7 +176,7 @@ async function save() {
     if (!current()) return;
     savedAwaitingRead.value = true;
     await load();
-    if (current()) showToast(result.message);
+    if (current()) showToast(ui.venueSaved);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_215e3c57da); }
   finally { if (current()) busy.value = false; }
 }

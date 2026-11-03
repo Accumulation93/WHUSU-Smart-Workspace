@@ -1,6 +1,8 @@
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import booking from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import controls from '@/locales/zh-CN/shared/controlLayout.js';
 import flow from '@/locales/zh-CN/shared/venueFlowManagement.js';
+import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const weekNames = [ui.copy_92af9d9017, ui.copy_e3233a4b58, ui.copy_2f48862253, ui.copy_017e3df1a1, ui.copy_41a9548e60, ui.copy_f2c74088c9, ui.copy_a814b25100];
@@ -27,18 +29,23 @@ export function cycleLabel(type, value) {
   if (type === 'datetime_range') return flow.continuousOccupancy;
   if (type === 'repeat') return flow.intervalOccupancy;
   if (type === 'daily') return ui.copy_13293d504a;
-  if (type === 'range') return parsed.startDate && parsed.endDate ? parsed.startDate + ui.copy_c44dbba9e9 + parsed.endDate : ui.copy_9d73203530;
+  if (type === 'range') return parsed.startDate && parsed.endDate ? factsCopy.timeRange(parsed.startDate, parsed.endDate) : ui.copy_9d73203530;
   if (type === 'weekly') return values.map(day => weekNames[Number(day) - 1]).filter(Boolean).join(controls.listSeparator) || ui.copy_2b4df49497;
-  if (type === 'monthly') return ui.copy_06a9527bac + values.join(controls.listSeparator) + ui.copy_168587d3a1;
-  if (type === 'yearly') return values.map(item => item.m + ui.copy_438913e441 + (item.dStart ?? item.d) + (item.dEnd === undefined ? '' : ui.copy_05302eb150 + item.dEnd) + ui.copy_168587d3a1).join(controls.listSeparator);
+  if (type === 'monthly') return values.length && values.every(day => Number.isInteger(Number(day)) && Number(day) >= 1 && Number(day) <= 31)
+    ? ui.monthlyDays(values.map(Number).join(controls.listSeparator)) : factsCopy.timeRangeMissing;
+  if (type === 'yearly') return values.map(item => {
+    if (!item || !item.m || !(item.dStart ?? item.d)) return factsCopy.timeRangeMissing;
+    return item.dEnd === undefined ? ui.yearlyDate(item.m, item.dStart ?? item.d)
+      : item.dEnd ? ui.monthlyDateRange(item.m, item.dStart ?? item.d, item.dEnd) : factsCopy.timeRangeMissing;
+  }).join(controls.listSeparator);
   return '';
 }
 export function activityPeriodLabel(type, value) {
   const meta = activityValues(type, value);
   if (meta.periodMode === 'none') return ui.copy_dae9f72578;
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + meta.periodStartTime : ui.copy_f54e24d97d;
-  if (meta.periodMode === 'count') return ui.copy_5bb8799355 + start + ui.copy_ca51b9c6c6 + meta.repeatCount + ui.copy_c5aa06059a;
-  return ui.copy_eeb5f0e78e + start + ui.copy_c44dbba9e9 + (meta.periodEndDate ? meta.periodEndDate + ' ' + meta.periodEndTime : ui.copy_b8c87b0fb5);
+  if (meta.periodMode === 'count') return [ui.repeatFrom(start), booking.repeatedOccurrences(meta.repeatCount)].join('\n');
+  return factsCopy.recurrenceValidity(start, meta.periodEndDate ? meta.periodEndDate + ' ' + meta.periodEndTime : ui.copy_b8c87b0fb5);
 }
 export function bookingWindowForm(row) {
   const result = { open: { mode: 'none', days: 7, hours: 0, minutes: 0 }, deadline: { mode: 'none', days: 0, hours: 0, minutes: 0 } };

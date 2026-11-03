@@ -63,7 +63,7 @@ import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import mineCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js';
 import { completeMessageReceipt } from '@/runtime/messageReceipt.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
@@ -144,12 +144,8 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listMyVenueBookings', {});
+    const result = requireSuccess(await callApi('listMyVenueBookings', {}));
     if (request !== generation) return;
-    if (result.status !== 'success') {
-      loadNotice.value = result.message || copy.venue.loadFailed;
-      return;
-    }
     bookings.value = Array.isArray(result.bookings) ? result.bookings : [];
     const bookingId = String(route.query.bookingId || '');
     if (bookingId && openedBookingId !== bookingId) {
@@ -181,12 +177,8 @@ async function cancelBooking(booking) {
   if (!confirmed || busy.value || context !== session.context?.contextId) return;
   busy.value = true;
   try {
-    const result = await callApi('cancelVenueBooking', { id: booking.id });
+    requireSuccess(await callApi('cancelVenueBooking', { id: booking.id }));
     if (context !== session.context?.contextId) return;
-    if (result.status !== 'success') {
-      loadNotice.value = result.message || copy.venue.cancelFailed;
-      return;
-    }
     await load();
   } catch (error) {
     if (context === session.context?.contextId) loadNotice.value = errorText(error, copy.venue.cancelFailed);
@@ -205,12 +197,8 @@ async function endBooking(booking) {
   if (!confirmed || busy.value || context !== session.context?.contextId) return;
   busy.value = true;
   try {
-    const result = await callApi('endVenueBooking', { id: booking.id });
+    requireSuccess(await callApi('endVenueBooking', { id: booking.id }));
     if (context !== session.context?.contextId) return;
-    if (result.status !== 'success') {
-      loadNotice.value = result.message || copy.venue.endUnavailable;
-      return;
-    }
     showToast(copy.venue.endSuccess);
     await load();
   } catch (error) {

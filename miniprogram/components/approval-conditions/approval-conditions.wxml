@@ -1,0 +1,10 @@
+<view wx:if="{{value.groups.length}}" class="flow-detail-conditions">
+  <view wx:if="{{value.hint}}" class="hint-text">{{value.hint}}</view>
+  <view wx:if="{{value.valuesHint}}" class="hint-text">{{value.valuesHint}}</view>
+  <view wx:for="{{value.groups}}" wx:key="title" class="condition-card">
+    <view wx:if="{{showGroupTitle}}" class="field-label">{{item.title}}</view>
+    <view>{{item.text}}</view>
+    <view wx:for="{{item.rows}}" wx:for-item="dimension" wx:key="key" class="flow-detail-cond-line"><view class="field-label">{{dimension.label}}</view><view>{{dimension.value}}</view></view>
+    <view wx:if="{{item.notice}}" class="hint-text">{{item.notice}}</view>
+  </view>
+</view>

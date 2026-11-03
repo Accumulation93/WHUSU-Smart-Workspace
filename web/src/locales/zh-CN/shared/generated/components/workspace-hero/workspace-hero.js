@@ -1,9 +1,9 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
-
+import common from '../../../common.js';
 const sharedModule = Object.freeze({
   copy_0c1ba11af0: '正在加载工作角色…',
-  copy_0cb5ae8471: 'WHUSU智慧工作台',
+  copy_0cb5ae8471: common.brandName,
   copy_511b01626f: "当前组织与工作角色",
   copy_6d7a32c169: '正在加载组织信息…',
   copy_b58ff21ac7: "切换组织与工作角色",

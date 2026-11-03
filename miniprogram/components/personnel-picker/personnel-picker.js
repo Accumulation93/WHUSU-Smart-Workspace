@@ -133,7 +133,7 @@ Component({
       this.setData(Object.assign(patch, {
         selectedItems: selected.map(key => Object.assign({}, this._byKey.get(key), { _selected: true })),
         draftKeys: keys || [],
-        selectedCountText: localeCopy.selectedCount((keys || []).length)
+        selectedCountText: (this.properties.selectionLevel === 'person' ? localeCopy.selectedPeopleCount : localeCopy.selectedAssignmentCount)((keys || []).length)
       }));
     },
 

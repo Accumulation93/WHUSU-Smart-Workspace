@@ -8,6 +8,8 @@ const digest = token => crypto.createHash('sha256').update(token).digest('hex');
 function present(context) {
   return { name: context.name, organization: context.organizationName,
     position: context.assignmentLabel || context.identityName,
+    positionFacts: { assignmentLabel: context.assignmentLabel || '', role: context.role || '', adminLevel: context.adminLevel || '', hasAssignment: Boolean(context.assignmentId) },
+    stateCode: context.role === 'admin' ? 'admin_active' : context.assignmentId ? 'active' : 'no_position',
     state: context.role === 'admin' ? copy.adminActive : context.assignmentId ? copy.active : copy.noPosition };
 }
 async function current(connection, accountId, contextId, orgId) {

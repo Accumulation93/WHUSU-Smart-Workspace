@@ -1,1 +1,1 @@
-@import './adminWorkbenchStyles.wxss';
+@import '../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss';

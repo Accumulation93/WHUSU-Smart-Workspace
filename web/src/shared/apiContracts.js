@@ -33,6 +33,100 @@ const AUTH_ENTRY_APIS = Object.freeze({
   'auth/recovery/complete': true
 });
 
+// 经逐路由核对的只读接口；未登记不推测为只读。
+const READ_ONLY_APIS = Object.freeze({
+  listScoreActivities: true,
+  getCurrentScoreActivity: true,
+  getScoreResults: true,
+  listDepartments: true,
+  listIdentities: true,
+  listWorkGroups: true,
+  getSystemConfig: true,
+  listOrganizations: true,
+  getCurrentOrganization: true,
+  listMyOrganizations: true,
+  'admin/listMyOrganizations': true,
+  'auth/contexts': true,
+  'auth/security': true,
+  'admin/auth/security': true,
+  'admin/auth/audit': true,
+  getMyAdminPermissions: true,
+  listPermissionManagedAdmins: true,
+  getAdminPermissionDetail: true,
+  listAdmins: true,
+  getAdminAccountCandidates: true,
+  getHrPersonDetail: true,
+  listHrProfileAdminData: true,
+  previewAuthorizationRule: true,
+  previewAuthorizationRuleDeletion: true,
+  previewAuthorizationScheme: true,
+  previewAuthorizationDelegation: true,
+  previewAuthorizationDelegationDeletion: true,
+  listCrossOrgMigrationRequests: true,
+  getPersonOrgProfiles: true,
+  previewAuditSubmissionDeletion: true,
+  previewVenueBookingDeletion: true,
+  listVenues: true,
+  listVenueOpenRules: true,
+  listVenueActivityRules: true,
+  getVenueRuleCandidates: true,
+  listVenueBookingRules: true,
+  listVenueApprovalFlows: true,
+  getHrProfileTemplateSwitchContext: true,
+  previewHrProfileTemplateSwitch: true,
+  getCrossOrgMigrationContext: true,
+  previewCrossOrgMigration: true,
+  getAuditTemplateEditorData: true,
+  listAuditVerificationCandidates: true,
+  listAuditFlowTemplates: true,
+  listMySignatures: true,
+  listMyStamps: true,
+  listStamps: true,
+  getMyStampImage: true,
+  getUserHrProfile: true,
+  listHrProfileTemplates: true,
+  getHrImportPreview: true,
+  getHrImportResult: true,
+  getHrImportMetadata: true,
+  getCalendarConfiguration: true,
+  getCalendarRules: true,
+  getCalendar: true,
+  getCalendarParticipants: true,
+  getCurrentAuthorizationAccess: true,
+  listAuthorizedDictionary: true,
+  getAuthorizationManagement: true,
+  getEffectiveAuthorization: true,
+  listAssignmentNatures: true,
+  getAuthorizationCandidates: true,
+  getAuthorizationSchemeVersions: true,
+  listSharedOrganizationConfigurations: true,
+  getOrganizationConfigurationDraft: true,
+  getOrganizationConfigurationWorkspace: true,
+  getOrganizationConfigurationCandidates: true,
+  getContactDirectory: true,
+  getContactDirectoryConfiguration: true,
+  resolvePersonLinks: true,
+  getMyIdentityCard: true,
+  verifyIdentityCard: true,
+  getMessageOverview: true,
+  listTodos: true,
+  getTodoCount: true,
+  listNotifications: true,
+  getNotificationUnreadCount: true
+});
+
+function isReadOnly(name, data) {
+  const api = String(name || '');
+  if (READ_ONLY_APIS[api] === true) return true;
+  const value = data && data.action;
+  const action = value == null ? '' : String(value).trim();
+  if (api === 'admin/auth/claims') return ['', 'list', 'eligible'].includes(action);
+  if (api === 'admin/auth/recoveries') return ['', 'list', 'eligible_accounts'].includes(action);
+  if (api === 'admin/auth/accounts') return ['', 'list'].includes(action);
+  if (api === 'admin/auth/policy') return action === 'get';
+  return false;
+}
+
 function isIdempotentWrite(name) {
   return IDEMPOTENT_WRITE_APIS[String(name || '')] === true;
 }
@@ -44,9 +138,11 @@ function isAuthEntry(name) {
 const sharedModule = Object.freeze({
   IDEMPOTENT_WRITE_APIS,
   AUTH_ENTRY_APIS,
+  READ_ONLY_APIS,
+  isReadOnly,
   isIdempotentWrite,
   isAuthEntry
 });
 
-export { IDEMPOTENT_WRITE_APIS, AUTH_ENTRY_APIS, isIdempotentWrite, isAuthEntry };
+export { IDEMPOTENT_WRITE_APIS, AUTH_ENTRY_APIS, READ_ONLY_APIS, isReadOnly, isIdempotentWrite, isAuthEntry };
 export default sharedModule;

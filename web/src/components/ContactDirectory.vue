@@ -26,6 +26,7 @@
       <div class="card-actions"><button class="btn btn-secondary" @click="closeContact">{{ copy.back }}</button></div>
       <div class="card directory-identity"><div class="stack-tight"><span class="muted">{{ copy.details }}</span><h2 class="section-title">{{ contact?.name }}</h2><div class="directory-tags"><span class="chip chip-blue">{{ contact?.departmentName }}</span><span v-if="contact?.identityCategoryName" class="chip">{{ contact.identityCategoryName }}</span><span v-if="contact?.workGroupName" class="chip">{{ contact.workGroupName }}</span></div></div><button v-if="!detailLoading && !detailNotice" class="btn btn-secondary directory-icon-action" :aria-label="copy.copyContact" :title="copy.copyContact" @click="copyValue(contact.copyText)"><UiIcon name="copy" size-role="context-leading" /></button></div>
       <AppLoading v-if="detailLoading" :text="copy.loadingDetail" />
+      <p v-if="copyNotice" class="notice-line" role="status">{{ copyNotice }}</p>
       <p v-if="detailNotice" class="notice-line" role="alert">{{ detailNotice }}</p>
       <div v-if="detailNotice" class="card-actions"><button class="btn btn-secondary" @click="openContact(detailKey)">{{ copy.retry }}</button></div>
       <template v-if="!detailLoading && !detailNotice">
@@ -50,13 +51,14 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import copy from '@/locales/zh-CN/shared/contactDirectory.js';
 import view from '@/shared/contactDirectoryView.js';
-import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import dateFormatter from '@/runtime/hrProfileDate.js';
 import UiIcon from './UiIcon.vue';
 const props = defineProps({ initialKey: { type: String, default: '' } });
 const groups = ref([]), query = ref(''), loading = ref(false), notice = ref('');
 const contact = ref(null), detailKey = ref(''), detailLoading = ref(false), detailNotice = ref(''), detailPanel = ref(null);
+const copyNotice = ref('');
 let detailGeneration = 0;
 const filtered = computed(() => view.filterGroups(groups.value, query.value));
 let generation = 0, disposed = false;
@@ -67,31 +69,33 @@ async function load() {
   const current = () => !disposed && !document.hidden && request === generation && expected === scope();
   try {
     const result = requireSuccess(await callApi('getContactDirectory', { summaryOnly: true }));
-    if (current()) groups.value = view.decorateGroups(result.groups, dateFormatter);
+    if (current()) groups.value = view.decorateGroups(result.groups, dateFormatter, copy);
   } catch (error) { if (current()) notice.value = errorText(error, copy.loadFailed); }
   finally { if (current()) loading.value = false; }
 }
 async function copyValue(value) {
-  try { await navigator.clipboard.writeText(value); }
-  catch { detailNotice.value = copy.operationFailed; }
+  const expected = scope(), request = detailGeneration;
+  copyNotice.value = '';
+  try { await navigator.clipboard.writeText(value); if (!disposed && expected === scope() && request === detailGeneration) copyNotice.value = copy.copied; }
+  catch { if (!disposed && expected === scope() && request === detailGeneration) copyNotice.value = copy.copyFailed; }
 }
 async function openContact(key) {
   const basic = groups.value.flatMap(group => group.items).find(item => item.key === key) || (key === props.initialKey || contact.value?.related?.some(item => item.key === key) ? { key, name: '', related: [] } : null);
   if (!basic) return;
   const request = ++detailGeneration, expected = scope();
-  detailKey.value = key; contact.value = basic; detailLoading.value = true; detailNotice.value = '';
+  detailKey.value = key; contact.value = basic; detailLoading.value = true; detailNotice.value = ''; copyNotice.value = '';
   await nextTick(); detailPanel.value?.scrollIntoView({ block: 'start' });
   const current = () => !disposed && !document.hidden && request === detailGeneration && expected === scope();
   try {
     const result = requireSuccess(await callApi('getContactDirectory', { key }));
     if (current()) {
-      if (!result.contact) throw new Error(copy.contactUnavailable);
-      contact.value = { ...view.decorateContact(result.contact, dateFormatter), related: result.contact.relatedPositions || basic.related };
+      if (!result.contact) throw createLocalError(copy.contactUnavailable);
+      contact.value = view.decorateContact(result.contact, dateFormatter, copy);
     }
   } catch (error) { if (current()) detailNotice.value = errorText(error, copy.loadFailed); }
   finally { if (current()) detailLoading.value = false; }
 }
-function clearDetail() { detailGeneration++; contact.value = null; detailKey.value = ''; detailLoading.value = false; detailNotice.value = ''; }
+function clearDetail() { detailGeneration++; contact.value = null; detailKey.value = ''; detailLoading.value = false; detailNotice.value = ''; copyNotice.value = ''; }
 async function closeContact() {
   const key = detailKey.value; clearDetail(); await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
   if (!groups.value.length) load();

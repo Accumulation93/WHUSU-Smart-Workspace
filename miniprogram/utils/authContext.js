@@ -1,6 +1,8 @@
 const { authContext: localeCopy } = require('../locales/zh-CN/main');
 const {
   callFunction,
+  createResultError,
+  createLocalError,
   markAuthenticationReady,
   beginContextActivation,
   endContextActivation
@@ -528,13 +530,11 @@ async function refreshCatalog() {
   const expectedSnapshot = orgSession.getSnapshot();
   const result = await callFunction({ name: 'auth/contexts', data: {} });
   if (!result || result.status !== 'success') {
-    const error = new Error((result && result.message) || localeCopy.reopenWorkContext);
-    error.status = result && result.status;
-    throw error;
+    throw createResultError(result, localeCopy.reopenWorkContext);
   }
   if (!orgSession.isCurrent(expectedSnapshot)
     || (result.currentContextId && stringValue(result.currentContextId) !== expectedSnapshot.contextId)) {
-    const staleError = new Error(localeCopy.reopenWorkContext);
+    const staleError = createLocalError(localeCopy.reopenWorkContext);
     staleError.status = 'stale_context';
     throw staleError;
   }
@@ -630,9 +630,7 @@ async function activateContext(contextId) {
       data: { contextId: contextId }
     });
     if (!result || result.status !== 'success' || !result.context) {
-      const error = new Error((result && result.message) || localeCopy.switchFailed);
-      error.status = result && result.status;
-      throw error;
+      throw createResultError(result, localeCopy.switchFailed);
     }
     return applyActivatedResult(result);
   } finally {
@@ -653,9 +651,7 @@ async function activateSelection(organizationId, contextReference) {
       }
     });
     if (!result || result.status !== 'success' || !result.context) {
-      const error = new Error((result && result.message) || localeCopy.switchFailed);
-      error.status = result && result.status;
-      throw error;
+      throw createResultError(result, localeCopy.switchFailed);
     }
     return applyActivatedResult(result);
   } finally {

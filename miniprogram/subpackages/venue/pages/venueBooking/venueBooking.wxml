@@ -102,13 +102,17 @@ module.exports = { hour: hour, min: min };
         <text class="pending-update-time">{{localeCopy.copy_47cd44e2ed}} {{lastUpdateTime}}</text>
         <text class="pending-refresh-btn ui-motion-chip" bindtap="loadPendingData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ {{localeCopy.copy_545113905f}}</text>
       </view>
+      <view wx:if="{{pendingLoadFailed}}" class="stack-tight">
+        <text>{{pendingCopy.copy_e52119b17e}}</text>
+        <button class="btn-quiet" disabled="{{loading}}" bindtap="loadPendingData">{{pendingCopy.retryPending}}</button>
+      </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="pending-item-main">
             <view class="pending-item-name">{{item.title || localeCopy.copy_9639901862}}</view>
             <view class="pending-item-meta">
               <view class="audit-chip audit-chip-progress">{{localeCopy.copy_36be0dfa1c}}</view>
-              <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{item.currentStepName}}</view>
+              <view class="pending-item-step">{{item._currentStepText}} · {{item.currentStepName}}</view>
               <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} {{localeCopy.copy_dc59906817}}</view>
             </view>
             <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStartText}} {{localeCopy.copy_e8d9493a44}} {{item.timeEndText}}</view>
@@ -118,12 +122,12 @@ module.exports = { hour: hour, min: min };
               <view class="context-switch-detail" wx:if="{{item._requiredContextText}}">{{item._requiredContextText}}</view>
             </view>
           </view>
-          <view class="pending-actions-col" wx:if="{{!item._requiresContextSwitch}}">
+          <view class="pending-actions-col" wx:if="{{!item._requiresContextSwitch && !pendingLoadFailed && !loading}}">
             <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</text>
             <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</text>
           </view>
         </view>
-        <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
+        <view class="audit-empty-state" wx:if="{{!pending.length && !loading && pendingLoaded && !pendingLoadFailed}}">
           <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="{{localeCopy.copy_ff86a949be}}" /></view>
           <view class="audit-empty-text">{{localeCopy.copy_a14c4e583b}}</view>
         </view>
@@ -142,7 +146,7 @@ module.exports = { hour: hour, min: min };
       </view>
       <view class="schedule-nav">
         <text class="nav-arrow ui-motion-card" catchtap="onTimetablePrevWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'‹'}}</text>
-        <text class="nav-label">{{scheduleWeekStart}} {{localeCopy.copy_59799547cb}}</text>
+        <text class="nav-label">{{scheduleWeekLabel}}</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-content ui-dialog-content--workspace ui-dialog-scroll--both ui-data-grid--specialized">
@@ -404,7 +408,7 @@ module.exports = { hour: hour, min: min };
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalTarget.timeStartText}} — {{approvalTarget.timeEndText}}</text></view>
           <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{approvalTarget.description}}</text></view>
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag pending">{{localeCopy.copy_310d71700e}}</text></view>
-          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">{{localeCopy.copy_9e26c149ee}}</text><text class="detail-val">{{localeCopy.copy_ef8b7ffa9b}}{{approvalTarget.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{approvalTarget.currentStepName}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">{{localeCopy.copy_9e26c149ee}}</text><text class="detail-val">{{approvalTarget._currentStepText}} · {{approvalTarget.currentStepName}}</text></view>
 
           <!-- Approval action area -->
           <view wx:if="{{approvalAction}}" class="approval-action-area">

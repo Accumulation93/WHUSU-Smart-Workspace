@@ -25,13 +25,14 @@ const MAX_SIGNATURE_NAME_CHARS = 100;
 
 function validateSignatureTemplateInput(name, imageData) {
   if (Array.from(name).length > MAX_SIGNATURE_NAME_CHARS) {
-    return { error: { status: 'invalid_params', message: localeCopy.signatureNameTooLong } };
+    return { error: { status: 'invalid_params', code: 'signature_name_too_long', message: localeCopy.signatureNameTooLong } };
   }
   const inspected = inspectAuditImageData(imageData);
   if (!inspected.ok) {
     return {
       error: {
         status: 'invalid_params',
+        code: inspected.reason === 'too_large' ? 'signature_image_too_large' : 'signature_image_invalid',
         message: inspected.reason === 'too_large'
           ? localeCopy.signatureImageTooLarge
           : localeCopy.signatureImageInvalid
@@ -135,7 +136,7 @@ router.post('/saveSignature', async (req, res) => {
     const isDefault = req.body.isDefault === true;
 
     if (!imageData) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_a35b383a47 });
+      return res.json({ status: 'invalid_params', code: 'signature_image_required', message: localeCopy.copy_a35b383a47 });
     }
     const validation = validateSignatureTemplateInput(name, imageData);
     if (validation.error) return res.json(validation.error);
@@ -279,22 +280,22 @@ router.post('/verifySignatureChain', async (req, res) => {
     }
 
     if (fileHash && !/^[a-fA-F0-9]{64}$/.test(fileHash)) {
-      return res.json({ status: 'invalid_params', message: localeCopy.verificationInputInvalid });
+      return res.json({ status: 'invalid_params', code: 'verification_input_invalid', message: localeCopy.verificationInputInvalid });
     }
 
     if (submissionId.length > 64 || submissionNumber.length > 64) {
-      return res.json({ status: 'invalid_params', message: localeCopy.verificationInputInvalid });
+      return res.json({ status: 'invalid_params', code: 'verification_input_invalid', message: localeCopy.verificationInputInvalid });
     }
     let resolvedFileHash = fileHash.toLowerCase();
     let uploadedBytes = null;
     if (Object.prototype.hasOwnProperty.call(req.body, 'fileBase64')) {
       uploadedBytes = decodeVerificationFile(fileBase64);
       if (!uploadedBytes) {
-        return res.json({ status: 'invalid_params', message: localeCopy.verificationFileInvalid });
+        return res.json({ status: 'invalid_params', code: 'verification_file_invalid', message: localeCopy.verificationFileInvalid });
       }
       const actualHash = crypto.createHash('sha256').update(uploadedBytes).digest('hex');
       if (resolvedFileHash && !equalHex(resolvedFileHash, actualHash)) {
-        return res.json({ status: 'invalid_params', message: signingCopy.inputMismatch });
+        return res.json({ status: 'invalid_params', code: 'verification_input_mismatch', message: signingCopy.inputMismatch });
       }
       resolvedFileHash = actualHash;
     }

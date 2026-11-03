@@ -1,4 +1,5 @@
 'use strict';
+const common = require('../../../../../common');
 
 module.exports = Object.freeze({
   copy_109f042664: "待审批列表",
@@ -6,17 +7,17 @@ module.exports = Object.freeze({
   copy_322d34ce9c: "提交人：",
   copy_36be0dfa1c: "待我处理",
   copy_47cd44e2ed: "更新于",
-  copy_49cbf30d6b: '签字',
+  copy_49cbf30d6b: '签名',
   copy_545113905f: "刷新",
   copy_56d416c578: "审核",
   copy_5aaf844f1e: "待我审批",
-  copy_638da8ae60: "武汉大学学生会",
+  copy_638da8ae60: common.organizationName,
   copy_7e6630535d: '盖章',
   copy_8e2f75159e: '通过',
   copy_9e545997b0: "步",
   copy_a14c4e583b: "暂无待审批事项",
-  copy_a63d02480e: '签字+盖章',
-  copy_aa4f0ed6cd: "WHUSU智慧工作台",
+  copy_a63d02480e: '签名＋盖章',
+  copy_aa4f0ed6cd: common.brandName,
   copy_bba7f8b8ba: '请切换到可审批的岗位',
   copy_e52119b17e: '请稍后重试',
   copy_ef8b7ffa9b: "第",
@@ -27,7 +28,7 @@ module.exports = Object.freeze({
   cancel: '取消',
   currentWorkContext: '当前工作角色',
   noAssignmentTitle: '当前没有可用岗位',
-  requiredOrganizationPrefix: '要求组织：',
+  requiredOrganizationPrefix: '所属组织：',
   requiredAssignmentPrefix: '可处理岗位：',
   eligibleAssignmentsPrefix: '请切换到以下可处理岗位：',
   assignmentSeparator: '、',

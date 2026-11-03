@@ -114,7 +114,7 @@ async function submit() {
     const result = requireSuccess(await callApi('createAdminVenueBooking', { venueId: props.venue.id, title: title.value.trim(), description: description.value,
       timeStart: props.date + 'T' + start.value, timeEnd: props.date + 'T' + end.value, clientRequestId: requestId }));
     if (!current()) return;
-    showToast(result.message); emit('saved', result.id);
+    showToast(ui.bookingCreated); emit('saved', result.id);
   } catch (error) { if (current()) notice.value = errorText(error, ui.copy_ccd4af477f); }
   finally { if (current()) busy.value = false; }
 }

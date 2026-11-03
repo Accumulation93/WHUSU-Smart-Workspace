@@ -2,12 +2,14 @@
 const ui = require('../../../../locales/zh-CN/authorization');
 const editor = require('../../utils/authorizationEditor');
 const presentation = require('../../utils/authorizationPresentation');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, createResultError, createLocalError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { splitSystemDateTime, systemDateTimeToIsoUtc } = require('../../../../utils/dateTime');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
+  openIdentitySettings: function() { if (!this.data.busy) navigateToTrustedRoute('/subpackages/org/pages/authorization/authorization?tab=schemes'); },
   data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
     draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
     preview: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
@@ -29,18 +31,18 @@ Page({
     try {
       const results = await Promise.all([callFunction({ name: 'getAuthorizationManagement', data: {} }), callFunction({ name: 'getAuthorizationCandidates', data: {} })]);
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      for (const result of results) if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+      for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
       this.setData({ directory: this._directory,
         schemes: [{ id: '', name: ui.selectOperations }].concat(this._state.schemes.filter(item => item.publishedVersion)) });
       let draft = editor.createDraft();
       if (this.data.kind === 'delegation') {
-        if (!this._state.isSuper) throw new Error(ui.forbidden);
+        if (!this._state.isSuper) throw createLocalError(ui.forbidden);
         draft = editor.createDelegationDraft();
       }
       if (this._options.id) {
         const item = (this.data.kind === 'delegation' ? this._state.delegations : this.data.kind === 'rule' ? this._state.rules : this._state.schemes).find(row => row.id === this._options.id);
-        if (!item) throw new Error(ui.conflict);
+        if (!item) throw createLocalError(ui.conflict);
         if (this.data.kind === 'delegation') draft = editor.createDelegationDraft(item);
         else if (this.data.kind === 'rule') draft = this._options.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
         else { draft.name = item.name; draft.id = item.id; draft.version = item.version; draft.policy.capabilities = item.capabilities.slice(); }
@@ -209,10 +211,10 @@ Page({
     try {
       if (this.data.kind === 'scheme') {
         const draft = this.data.draft;
-        if (!draft.name.trim() || !draft.policy.capabilities.length) throw new Error(ui.invalidPolicy);
+        if (!draft.name.trim() || !draft.policy.capabilities.length) throw createLocalError(ui.invalidPolicy);
         const result = await callFunction({ name: 'saveAuthorizationScheme', data: { id: draft.id, version: draft.version, name: draft.name.trim(), capabilities: draft.policy.capabilities } });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+        if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
         showShortToast(ui.saveSuccess); wx.navigateBack();
       } else {
         const draft = this.data.kind === 'rule' && !this.data.advanced
@@ -220,8 +222,10 @@ Page({
         const payload = this.data.kind === 'delegation' ? editor.delegationRequest(draft, this._state.revision, this._state.catalog) : editor.request(draft, this._state.revision, this._state.catalog);
         const result = await callFunction({ name: this.data.kind === 'delegation' ? 'previewAuthorizationDelegation' : 'previewAuthorizationRule', data: payload });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+        if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
         this._previewRequest = payload;
+        const previewPolicy = this.data.kind === 'delegation' ? result.delegation.envelope : result.rule.policy;
+        this.updateDraft(Object.assign({}, draft, { policy: previewPolicy }));
         this.setData({ preview: result, impactText: ui.impactCount(result.impact.peopleCount, result.impact.roleCount),
           impactRows: result.impact.roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name,
             assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item),
@@ -245,7 +249,7 @@ Page({
     try {
       const result = await callFunction({ name: this.data.kind === 'delegation' ? 'saveAuthorizationDelegation' : 'saveAuthorizationRule', data: this._previewRequest });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+      if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       showShortToast(ui.saveSuccess); wx.navigateBack();
     } catch (error) {
       if (this._active && orgSession.isRequestCurrent(this, request)) { this._previewRequest = null; this.setData({ notice: getErrorText(error, ui.operationFailed), preview: null, impactRows: [] }); }

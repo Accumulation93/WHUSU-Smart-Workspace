@@ -3,18 +3,19 @@ import { mockApi } from './fixtures.js';
 import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import pickerCopy from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 const home = homeCopy.text;
 const candidates = [
   { id: 'assignment-a', assignmentId: 'assignment-a', name: 'Member A', targetIdentityId: 'identity-a', identity: 'Identity A', department: 'Department A', assignmentLabel: 'Identity A · Department A', isSelected: true },
   { id: 'assignment-b', assignmentId: 'assignment-b', name: 'Member A', targetIdentityId: 'identity-a', identity: 'Identity A', department: 'Department B', assignmentLabel: 'Identity A · Department B', isSelected: false }
 ];
 const result = { status: 'success', groups: [
-  { clauseId: 'view-a', groupLabel: 'Published department A', displayMode: 'score', members: [
-    { assignmentId: 'assignment-a', name: 'Member A', identity: 'Identity A', department: 'Department A', finalScore: '0.000', sortScore: 0 },
-    { assignmentId: 'assignment-b', name: 'Member B', identity: 'Identity B', department: 'Department B', finalScore: '98.125', sortScore: 98.125 }
+  { clauseId: 'view-a', scopeType: 'same_department_all', groupLabel: 'Published department A', displayMode: 'score', members: [
+    { assignmentId: 'assignment-a', name: 'Member A', displayFacts: {identityCategoryName:'Identity A',departmentName:'Department A'}, finalScore: '0.000', sortScore: 0 },
+    { assignmentId: 'assignment-b', name: 'Member B', displayFacts: {identityCategoryName:'Identity B',departmentName:'Department B'}, finalScore: '98.125', sortScore: 98.125 }
   ] },
-  { clauseId: 'view-b', groupLabel: 'Published department B', displayMode: 'grade', members: [
-    { assignmentId: 'assignment-c', name: 'Member C', identity: 'Identity A', department: 'Department C', grade: 'Excellent', sortScore: 99 }
+  { clauseId: 'view-b', scopeType: 'all_people', groupLabel: 'Published department B', displayMode: 'grade', members: [
+    { assignmentId: 'assignment-c', name: 'Member C', displayFacts: {identityCategoryName:'Identity A',departmentName:'Department C',gradeName:'Excellent'}, sortScore: 99 }
   ] }
 ] };
 function meritResponse(ids = ['assignment-a']) {
@@ -43,7 +44,7 @@ test('historical publication uses original tabs, grouped scores, filters and zer
   await page.goto('/web/scoring/tasks');
   await expect(page.getByRole('tab')).toHaveText([home.scoring, home.results, home.meritList]);
   await page.getByRole('tab', { name: home.results, exact: true }).click();
-  await page.getByRole('button', { name: /Published department A/ }).click();
+  await page.getByRole('button', { name: new RegExp(home.publicationGroupDepartment) }).click();
   await expect(page.locator('.result-member strong')).toHaveText(['Member B', 'Member A']);
   await expect(page.locator('.result-score strong')).toHaveText(['98.125', '0.000']);
   await page.getByPlaceholder(home.resultSearchPlaceholder).fill('Department C');
@@ -79,7 +80,8 @@ test('merit picker preserves business rejection, submits assignment IDs, reads s
   await dialog.locator('.personnel-option').first().click();
   await dialog.locator('.personnel-option').last().click();
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
-  await expect(dialog.getByText('Quota changed')).toBeVisible();
+  await expect(dialog.getByText(feedback.writeResultUnknown)).toBeVisible();
+  await expect(dialog.getByText('Quota changed')).toHaveCount(0);
   await expect(dialog.locator('.personnel-option').last()).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
   await expect(dialog).toHaveCount(0);

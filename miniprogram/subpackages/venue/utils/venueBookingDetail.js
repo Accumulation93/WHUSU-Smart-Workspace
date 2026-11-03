@@ -1,4 +1,5 @@
-const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
+const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
+const factsCopy = require('../../../locales/zh-CN/venueFacts');
 const { buildFlowTimeline } = require('./flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
 const { formatListTime, formatDetailTime, parseAbsoluteTime, systemDateTimeToTimestamp, addDateDays } = require('../../../utils/dateTime');
@@ -69,7 +70,7 @@ function prepareVenueBookingDetail(item) {
     workGroup: detail.userWorkGroup
   }, '');
   detail.displayStatus = detail.displayStatus || computeDisplayStatus(detail);
-  detail._statusLabel = STATUS_LABELS[detail.displayStatus] || detail.displayStatus || localeCopy.copy_4cfdf3f638;
+  detail._statusLabel = STATUS_LABELS[detail.displayStatus] || localeCopy.copy_4cfdf3f638;
 
   const rawProgress = detail.approvalProgress;
   if (!rawProgress || !Number(rawProgress.totalSteps)) {
@@ -101,7 +102,7 @@ function prepareVenueBookingDetail(item) {
   detail._approvalBarColor = rejected ? 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);' : '';
   detail._approvalProgressText = rejected
     ? localeCopy.copy_fb1a45d8be
-    : (approved ? localeCopy.copy_7602388726 : localeCopy.copy_29ec8299c4 + currentStep + '/' + totalSteps + localeCopy.copy_3cd1b8dd73);
+    : (approved ? localeCopy.copy_7602388726 : factsCopy.completedSteps(currentStep, totalSteps));
   detail._flowTimeline = buildFlowTimeline(progress);
   return detail;
 }

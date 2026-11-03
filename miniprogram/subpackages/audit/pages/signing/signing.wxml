@@ -26,6 +26,7 @@
     </view>
     </scroll-view>
     <view class="signing-bottom-bar">
+    <button wx:if="{{hasStep}}" class="secondary-btn signing-toggle" aria-label="{{copy.draftConfirmHelpAction}}" bindtap="openConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="toast-info" sizeRole="context-leading" /></button>
     <button class="secondary-btn signing-toggle" aria-expanded="{{layersExpanded}}" bindtap="toggleLayers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.adjustLayers}} {{layers.length}}</button>
     <view class="signing-pages" wx:if="{{totalPages > 1}}"><button class="secondary-btn" disabled="{{page <= 1 || loading || saving}}" bindtap="previous" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">◀</button><view>{{page}} / {{totalPages}}</view><button class="secondary-btn" disabled="{{page >= totalPages || loading || saving}}" bindtap="next" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">▶</button></view>
     <view wx:if="{{allowSaveTemplate}}" class="selection-option-card signing-save-option {{saveTemplate ? 'selection-option-card-selected' : ''}}" aria-role="checkbox" aria-checked="{{saveTemplate}}" catchtap="toggleSaveTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveToLibrary}}</view>
@@ -36,3 +37,4 @@
   </view>
 </view>
 <app-toast />
+<viewport-portal wx:if="{{confirmHelp}}"><view class="ui-overlay"><view class="ui-overlay-blocker" bindtap="closeConfirmHelp" catchtouchmove="noop"></view><view class="popup-card ui-dialog-shell ui-dialog-shell--compact ui-dialog-shell--grid"><view class="ui-dialog-header"><view class="ui-dialog-title">{{copy.draftConfirmHelpTitle}}</view></view><scroll-view class="ui-dialog-body ui-dialog-scroll--natural" scroll-y="{{true}}"><view class="ui-dialog-scroll-content">{{copy.draftConfirmHelp}}</view></scroll-view><view class="ui-dialog-footer"><button class="secondary-btn" bindtap="closeConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.close}}</button></view></view></view></viewport-portal>

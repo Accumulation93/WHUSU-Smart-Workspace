@@ -46,6 +46,8 @@ async function listAuditItems(actor, orgId, countOnly, reference) {
       id: 'audit:' + safeString(step.id),
       type: 'todo',
       sourceType: 'audit_approval',
+      displayFacts: { businessTitle: safeString(step.title || step.submission_number),
+        submitterName: safeString(submitter && submitter.name), stepOrder: Number(step.sort_order) || null },
       title: safeString(step.title || step.submission_number || localeCopy.copy_ee071473de),
       description: localeCopy.copy_6438951f7d + safeString((submitter && submitter.name) || localeCopy.copy_de00c3e48a) +
         localeCopy.copy_80f5cda995 + safeString(step.sort_order) + localeCopy.copy_493a127a99,
@@ -108,6 +110,9 @@ async function listVenueItems(actor, orgId, countOnly, reference) {
       id: 'venue:' + safeString(booking.id),
       type: 'todo',
       sourceType: 'venue_approval',
+      displayFacts: { businessTitle: safeString(booking.title), venueName: safeString(booking.venue_name),
+        applicantName: safeString(applicant && applicant.name), currentStepName,
+        stepOrder: Number.isFinite(Number(booking.approval_current_step)) ? Number(booking.approval_current_step) + 1 : null },
       title: safeString(booking.title || localeCopy.copy_592351d93c),
       description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || localeCopy.copy_de00c3e48a) +
         localeCopy.copy_70c04ce8e3 + safeString((applicant && applicant.name) || localeCopy.copy_de00c3e48a) +
@@ -134,6 +139,7 @@ async function listScoringItems(actor, orgId, countOnly, reference) {
     id: 'scoring:' + safeString(task.activity.id),
     type: 'todo',
     sourceType: 'scoring_task',
+    displayFacts: { businessTitle: safeString(task.activity.name), pendingCount: Number(task.pendingCount) || 0 },
     title: safeString(task.activity.name || localeCopy.copy_33a502217d),
     description: localeCopy.copy_50fc130639 + task.pendingCount + localeCopy.copy_67a5467bc2,
     category: 'scoring',
@@ -159,6 +165,7 @@ async function listHrProfileItems(actor, orgId, countOnly, reference) {
     id: 'hr-profile:' + safeString(record.id),
     type: 'todo',
     sourceType: 'hr_profile_review',
+    displayFacts: { businessTitle: safeString(record.name) },
     title: safeString(record.name || localeCopy.copy_0a1d44e805),
     description: messageCopy.profileReviewDescription,
     category: 'hr',

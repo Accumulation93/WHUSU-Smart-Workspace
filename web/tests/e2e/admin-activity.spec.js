@@ -5,6 +5,8 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pag
 import messages from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/activityBehavior.js';
 import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import authorizationCopy from '../../src/locales/zh-CN/shared/authorization.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import responseMessages from '../../src/locales/zh-CN/shared/responseMessages.js';
 
 async function setup(page) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -84,7 +86,7 @@ test('activity saves native parameters, rereads results and keeps an unfinished 
     expect(body).toMatchObject({ id: '', name: 'Activity', description: 'Description', startDate: '2026-10-09', endDate: '2026-10-10' });
     expect(body).not.toHaveProperty('participantGranularity');
     expect(body).not.toHaveProperty('isPaused');
-    if (writes === 1) return route.fulfill({ json: { status: 'duplicate', message: 'Rejected activity' } });
+    if (writes === 1) return route.fulfill({ json: { status: 'duplicate', code: 'scoring_activity_duplicate', message: 'Rejected activity' } });
     list = [{ ...body, id: 'a1', isCurrent: false, isPaused: false }];
     return route.fulfill({ json: { status: 'success' } });
   });
@@ -101,7 +103,8 @@ test('activity saves native parameters, rereads results and keeps an unfinished 
   await page.getByRole('tab', { name: ui.copy_5aa4cb13ec }).click();
   await expect(page.getByLabel(ui.copy_a782814703)).toHaveValue('Activity');
   await page.getByRole('button', { name: ui.copy_189d8358eb }).click();
-  await expect(page.getByText('Rejected activity')).toBeVisible();
+  await expect(page.getByText(responseMessages.scoring_activity_duplicate)).toBeVisible();
+  await expect(page.getByText('Rejected activity')).toHaveCount(0);
   await expect(page.getByLabel(ui.copy_a782814703)).toHaveValue('Activity');
   await page.getByRole('button', { name: ui.copy_189d8358eb }).click();
   await expect(page.locator('.activity-row')).toContainText('Activity');
@@ -128,7 +131,7 @@ test('current activity and deletion require confirmation while pause and restore
   });
   await page.route('**/api/deleteScoreActivity', route => {
     calls.push('delete');
-    if (calls.filter(name => name === 'delete').length === 1) return route.fulfill({ json: { status: 'conflict', message: 'Historical records prevent deletion' } });
+    if (calls.filter(name => name === 'delete').length === 1) return route.fulfill({ json: { status: 'conflict', code: 'scoring_activity_referenced', message: 'Historical records prevent deletion' } });
     deleted = true; return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/admin?subApp=scoring');
@@ -147,7 +150,8 @@ test('current activity and deletion require confirmation while pause and restore
   await card.getByRole('button', { name: ui.copy_acc985cabc }).click();
   await expect(page.getByRole('dialog')).toContainText(messages.copy_1d38f8a471);
   await page.getByRole('dialog').getByRole('button', { name: copy.common.confirm, exact: true }).click();
-  await expect(page.getByText('Historical records prevent deletion')).toBeVisible();
+  await expect(page.getByText(responseMessages.scoring_activity_referenced)).toBeVisible();
+  await expect(page.getByText('Historical records prevent deletion')).toHaveCount(0);
   await expect(card).toContainText('Existing activity');
   expect(calls).toEqual(['current', 'pause', 'pause', 'delete']);
   await card.getByRole('button', { name: ui.copy_acc985cabc }).click();
@@ -167,7 +171,8 @@ test('successful activity save followed by failed reread cannot create a duplica
   await page.goto('/web/admin?subApp=scoring');
   await page.getByLabel(ui.copy_a782814703).fill('Saved activity');
   await page.getByRole('button', { name: ui.copy_189d8358eb }).click();
-  await expect(page.getByText('Read unavailable')).toBeVisible();
+  await expect(page.getByText(feedback.readFailed)).toBeVisible();
+  await expect(page.getByText('Read unavailable')).toHaveCount(0);
   await expect(page.getByRole('button', { name: ui.copy_189d8358eb })).toBeDisabled();
   await page.getByRole('tab', { name: ui.copy_5a49161fd7 }).click();
   await page.getByRole('tab', { name: ui.copy_5aa4cb13ec }).click();

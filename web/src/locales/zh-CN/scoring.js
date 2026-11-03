@@ -14,7 +14,7 @@ export default Object.freeze({
   taskNote: src_web.scoring.taskNote,
   fillTitle: src_score.copy_1f4d77229c,
   adminTitle: src_web.scoring.adminTitle,
-  activityLabel: src_authorization.fieldLabels.isCurrent,
+  activityLabel: src_home.text.currentActivity,
   activityEmpty: src_score.copy_400aa44fd7,
   activityWindowClosed: src_web.scoring.activityWindowClosed,
   progressLabel: src_web.scoring.progressLabel,

@@ -45,7 +45,7 @@ import AppLoading from '@/components/AppLoading.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
 import presentation from '@/shared/authorizationPresentation.js';
-import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { formatListTime } from '@/runtime/dateTime.js';
@@ -83,9 +83,9 @@ async function load() {
     if (request !== generation) return;
     responses.forEach(requireSuccess); state.value = responses[0]; directory.value = responses[1];
     if (deletingDelegation.value) {
-      if (!state.value.isSuper) throw new Error(ui.forbidden);
+      if (!state.value.isSuper) throw createLocalError(ui.forbidden);
       const selected = state.value.delegations.find(item => item.id === route.query.id);
-      if (!selected) throw new Error(ui.conflict);
+      if (!selected) throw createLocalError(ui.conflict);
       targetName.value = selected.name;
       payload = { id: selected.id, version: selected.version, expectedRevision: state.value.revision };
       const response = await callApi('previewAuthorizationDelegationDeletion', payload);
@@ -95,9 +95,9 @@ async function load() {
         rules: [{ id: selected.id, name: selected.name, impact: { before: response.delegation.envelope, roles: response.impact.roles } }] };
     } else if (deleting.value) {
       const ids = route.query.ids ? JSON.parse(String(route.query.ids)) : [route.query.id];
-      if (!Array.isArray(ids) || !ids.length || ids.length > 500 || new Set(ids).size !== ids.length) throw new Error(ui.invalidPolicy);
+      if (!Array.isArray(ids) || !ids.length || ids.length > 500 || new Set(ids).size !== ids.length) throw createLocalError(ui.invalidPolicy);
       const selected = ids.map(id => state.value.rules.find(rule => rule.id === id));
-      if (selected.some(rule => !rule)) throw new Error(ui.conflict);
+      if (selected.some(rule => !rule)) throw createLocalError(ui.conflict);
       targetName.value = ui.selectedRules(selected.length);
       payload = { expectedRevision: state.value.revision, rules: selected.map(rule => ({ id: rule.id, version: rule.version })) };
       const response = await callApi('previewAuthorizationRuleDeletion', payload);
@@ -105,7 +105,7 @@ async function load() {
       requireSuccess(response); result.value = response;
     } else {
       const scheme = state.value.schemes.find(item => item.id === route.query.id);
-      if (!scheme) throw new Error(ui.conflict);
+      if (!scheme) throw createLocalError(ui.conflict);
       targetName.value = scheme.name;
       payload = { id: scheme.id, version: scheme.version, expectedRevision: state.value.revision };
       const responses = await Promise.all([callApi('previewAuthorizationScheme', payload), callApi('getAuthorizationSchemeVersions', { id: scheme.id })]);

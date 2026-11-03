@@ -3,7 +3,7 @@
     <AppLoading v-if="loading" :text="copy.common.loading" />
     <div v-else-if="notice" class="stack"><p class="notice-line">{{ notice }}</p><button class="btn btn-secondary" @click="load">{{ directory.retry }}</button></div>
     <div v-else-if="detail" class="stack">
-      <div class="detail-identity"><h2>{{ detail.profile.name }}</h2><span class="muted">{{ detail.profile.studentId }}</span><span class="chip">{{ detail.auditStatusText }}</span></div>
+      <div class="detail-identity"><h2>{{ detail.profile.name }}</h2><span class="muted">{{ detail.profile.studentId }}</span><span v-if="profileStatus.statusText" class="chip">{{ profileStatus.statusText }}</span><span v-if="profileStatus.completenessText" class="chip">{{ profileStatus.completenessText }}</span></div>
       <div v-if="assignments.length" class="stack-tight"><span class="section-title">{{ copy.hr.assignmentLabel }}</span><div v-for="(assignment,index) in assignments" :key="index" class="chip chip-blue">{{ [assignment.identityCategoryName, assignment.department, assignment.workGroup].filter(Boolean).join(' · ') }}</div></div>
       <p v-else class="muted">{{ directory.noPosition }}</p>
       <form id="hr-person-profile" class="detail-fields" @submit.prevent="save">
@@ -33,6 +33,8 @@ import HrAssignmentEditor from './HrAssignmentEditor.vue';
 import adminUi from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import copy from '@/locales/zh-CN/index.js';
 import directory from '@/locales/zh-CN/shared/contactDirectory.js';
+import homeLocale from '@/locales/zh-CN/shared/home.js';
+import profileStatusView from '@/shared/hrProfileStatusView.js';
 import formatter from '@/runtime/hrProfileDate.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { personLinkScope } from '@/runtime/personLinks.js';
@@ -41,6 +43,7 @@ defineEmits(['close','refresh']);
 const governanceBusy=ref(false);
 const assignmentBusy=ref(false);
 const detail=ref(null),loading=ref(false),notice=ref('');
+const profileStatus=computed(()=>profileStatusView.describeProfile(detail.value,homeLocale.text));
 const values=ref({}),saving=ref(false),saveNotice=ref('');
 const fields=computed(()=>(detail.value?.template?.fields||[]).map(field=>{const raw=detail.value.values?.[field.id];return {...field,writable:detail.value.membershipStatus!=='left'&&(detail.value.writableFieldIds||[]).includes(field.id),value:raw==null?'':field.type==='date'?formatter.formatDateTextOnly(raw):field.type==='datetime'?formatter.formatDateTimeText(raw):String(raw)};}));
 let generation=0,alive=true;

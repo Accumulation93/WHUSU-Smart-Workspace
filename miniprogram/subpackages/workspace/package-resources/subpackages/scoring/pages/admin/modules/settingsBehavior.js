@@ -4,8 +4,10 @@ const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/s
 const utils = require('./adminUtils');
 const orgSession = require('../../../../../../../../utils/orgSession');
 const dateTime = require('../../../../../../../../utils/dateTime');
+const { createResultError, getErrorText } = require('../../../../../../../../utils/api');
 
 module.exports = Behavior({
+  data: { settingsCopy: localeCopy },
   methods: {
     applySystemDefaultOrganization(organizationId, organizationName) {
       this.setData({
@@ -178,8 +180,8 @@ module.exports = Behavior({
       if (!id || !name) return;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: localeCopy.copy_a58d703333,
-          content: localeCopy.copy_e7e3787584 + name + '」。',
+          title: localeCopy.setSystemDefaultOrganization,
+          content: localeCopy.systemDefaultOrganizationHelp + '\n' + name,
           confirmText: localeCopy.copy_6616a4de3c,
           cancelText: localeCopy.copy_4b213fd88a,
           success: function (res) { resolve(res.confirm); }
@@ -188,7 +190,7 @@ module.exports = Behavior({
       if (!confirm) return;
 
       this.setLoading('switchOrganization', true);
-      wx.showLoading({ title: localeCopy.copy_0ff87aff65, mask: true });
+      wx.showLoading({ title: localeCopy.settingDefaultOrganization, mask: true });
 
       try {
         const result = await this.callCloud('switchOrganization', {
@@ -196,13 +198,13 @@ module.exports = Behavior({
           organizationName: name
         });
         if (result.status === 'success') {
-          wx.showToast({ title: result.message || localeCopy.copy_0a1deb4187, icon: 'success' });
+          wx.showToast({ title: localeCopy.defaultOrganizationSaved(name), icon: 'success' });
           this.applySystemDefaultOrganization(id, name);
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_53d5e0a0c8, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result, localeCopy.defaultOrganizationRejected)), icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: localeCopy.copy_53d5e0a0c8, icon: 'none' });
+        wx.showToast({ title: localeCopy.defaultOrganizationUnknown, icon: 'none' });
       }
       wx.hideLoading();
       this.setLoading('switchOrganization', false);
@@ -216,8 +218,8 @@ module.exports = Behavior({
       const organizationName = this.data.orgFormData.name;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: localeCopy.copy_fcc6193afc,
-          content: localeCopy.copy_e7e3787584 + organizationName + '」。',
+          title: localeCopy.setSystemDefaultOrganization,
+          content: localeCopy.systemDefaultOrganizationHelp + '\n' + organizationName,
           confirmText: localeCopy.copy_d5f0842283,
           cancelText: localeCopy.copy_4b213fd88a,
           success: function (res) { resolve(res.confirm); }
@@ -228,30 +230,34 @@ module.exports = Behavior({
       this.setLoading('switchOrganization', true);
       wx.showLoading({ title: localeCopy.copy_4706701186, mask: true });
 
+      let createdOrganization = null;
       try {
-        // 第一步：创建组织。
+        // 创建确认后立即保存已生成的编号，后续失败不能重复创建。
         const saveResult = await this.callCloud('saveOrganization', { name: organizationName });
         if (saveResult.status !== 'success') {
           wx.hideLoading();
-          wx.showToast({ title: saveResult.message || localeCopy.copy_b3614bb93e, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(saveResult)), icon: 'none' });
           this.setLoading('switchOrganization', false);
           return;
         }
 
-        // 第二步：切换系统组织并刷新当前管理上下文。
+        createdOrganization = saveResult.organization;
+        this.setData({ orgFormData: { id: createdOrganization.id, name: organizationName } });
+        await this.loadOrganizations();
+        // 设置系统默认值，不切换当前会话。
         const result = await this.callCloud('switchOrganization', {
           organizationId: saveResult.organization.id,
           organizationName
         });
         if (result.status === 'success') {
-          wx.showToast({ title: result.message || localeCopy.copy_0a1deb4187, icon: 'success' });
+          wx.showToast({ title: localeCopy.defaultOrganizationSaved(organizationName), icon: 'success' });
           this.closeOrgForm();
           this.applySystemDefaultOrganization(saveResult.organization.id, organizationName);
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_53d5e0a0c8, icon: 'none' });
+          wx.showToast({ title: localeCopy.organizationCreatedDefaultRejected(organizationName), icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: localeCopy.copy_53d5e0a0c8, icon: 'none' });
+        wx.showToast({ title: createdOrganization ? localeCopy.organizationCreatedDefaultUnknown(organizationName) : getErrorText(e), icon: 'none' });
       }
       wx.hideLoading();
       this.setLoading('switchOrganization', false);

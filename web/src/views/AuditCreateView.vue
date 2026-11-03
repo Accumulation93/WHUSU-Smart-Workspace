@@ -98,7 +98,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, createResultError, errorText } from '@/runtime/api.js';
 import { MAX_AUDIT_FILE_BYTES, formatTemplate, readFileAsBase64 } from '@/runtime/audit.js';
 import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
@@ -200,7 +200,7 @@ async function submit() {
         mimeType: item.file.type || ''
       });
       if (uploadResult.status !== 'success') {
-        throw new Error(uploadResult.message || copy.audit.actionFailed);
+        throw createResultError(uploadResult, copy.audit.actionFailed);
       }
       serverFiles.push({
         fileId: uploadResult.fileId,
@@ -219,7 +219,7 @@ async function submit() {
       stepOverrides: []
     });
     if (created.status !== 'success') {
-      throw new Error(created.message || copy.audit.actionFailed);
+      throw createResultError(created, copy.audit.actionFailed);
     }
     showToast(copy.audit.createDone);
     router.replace({ name: 'auditMySubmissions' });

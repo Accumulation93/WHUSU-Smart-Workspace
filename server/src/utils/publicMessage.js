@@ -40,7 +40,19 @@ function protectPublicMessage(body) {
   return Object.assign({}, body, { message: fallbackForStatus(body.status) });
 }
 
+// 新前端按结构化结果解释提示；旧客户端继续使用原响应以保持兼容。
+// 不递归删除业务字段，嵌套问题报告必须由各模块显式返回原因码与事实参数。
+function protocolResponse(body, responseFormat) {
+  if (responseFormat !== 'codes-v1') return protectPublicMessage(body);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  const result = Object.assign({}, body);
+  delete result.message;
+  result.feedbackVersion = 1;
+  return result;
+}
+
 module.exports = {
   fallbackForStatus,
-  protectPublicMessage
+  protectPublicMessage,
+  protocolResponse
 };

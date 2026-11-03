@@ -130,7 +130,9 @@ function invoke(handler, body) {
     const directory = await invoke(listOrganizations, {});
     assert.strictEqual(directory.status, 'success');
     assert.strictEqual(directory.list.find((item) => item.id === created.organization.id).name, '组织 D 修改');
-    assert.strictEqual((await invoke(saveOrganization, { name: '组织 D 修改' })).status, 'duplicate');
+    const duplicate = await invoke(saveOrganization, { name: '组织 D 修改' });
+    assert.strictEqual(duplicate.status, 'duplicate');
+    assert.strictEqual(duplicate.code, 'organization_duplicate');
     const [createdRows] = await pool.query('SELECT id FROM organizations WHERE name = ?', ['组织 D 修改']);
     assert.strictEqual(createdRows.length, 1);
 
@@ -159,6 +161,7 @@ function invoke(handler, body) {
 
     const currentDelete = await invoke(deleteOrganization, { organizationId: 'org-b' });
     assert.strictEqual(currentDelete.status, 'forbidden');
+    assert.strictEqual(currentDelete.code, 'organization_is_default');
 
     const populatedDelete = await invoke(deleteOrganization, { organizationId: 'org-a' });
     assert.strictEqual(populatedDelete.status, 'organization_not_empty');

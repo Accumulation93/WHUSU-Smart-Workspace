@@ -1,6 +1,7 @@
 const copy = require('../../package-resources/locales/zh-CN/hrImport');
 const { format } = require('../../package-resources/locales/runtime');
-const { callFunction } = require('../../../../utils/api');
+const { callFunction, createResultError, createLocalError, getErrorText } = require('../../../../utils/api');
+const issueView = require('../../package-resources/utils/hrImportIssueView');
 const { chooseTableFile, saveAndShareFile } = require('../../package-resources/utils/tableFile');
 const orgSession = require('../../../../utils/orgSession');
 const eventBus = require('../../../../utils/eventBus');
@@ -61,7 +62,7 @@ Page({
   restart() { if (this.data.completed) this.resetSession(); },
   async api(name, data) {
     const result = await callFunction({ name, data: data || {} });
-    if (result.status !== 'success') { const error = new Error(result.message || copy.errorDetails); error.code = result.status; error.issues = result.issues; throw error; }
+    if (result.status !== 'success') { const error = createResultError(result, copy.errorDetails); error.code = result.code || result.status; error.issues = result.issues; throw error; }
     return result;
   },
   async loadMetadata() {
@@ -78,7 +79,7 @@ Page({
       this.setData({ mappingOptions: this._mappingOptions, fields: result.fields,
         natureValues, natureOptions: [copy.chooseNature].concat(natures.map(item => item.name)),
         natureIndex: Math.max(0, natureValues.indexOf(selectedNature)) });
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ metadataLoading: false }); }
   },
   async chooseFile() {
@@ -90,7 +91,7 @@ Page({
       const file = await chooseTableFile((name, data) => this.api(name, data));
       // 微信文件选择可能暂时隐藏页面；返回后只接受原账号及工作角色的结果。
       if (this._destroyed || !orgSession.isCurrent(request.snapshot) || !file) return;
-      if (!file.rows.length) throw new Error(copy.emptyFile);
+      if (!file.rows.length) throw createLocalError(copy.emptyFile);
       this._file = file; this._previewId = '';
       this._sourceRows = clone(file.rows);
       this._decisions = { rows: {}, dictionaries: [], sources: {} };
@@ -106,7 +107,7 @@ Page({
       });
       this._pendingActions = null; this._editorClears = {};
       this.setData({ stage: 'mapping', mappings, fileSummary: format(copy.fileSummary, [file.fileName, file.rows.length]), completed: false, editor: null, confirmAction: null });
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (!this._destroyed && orgSession.isCurrent(request.snapshot)) this.setData({ busy: false }); }
   },
   onMappingChange(event) {
@@ -121,7 +122,7 @@ Page({
   payload() {
     const basicMapping = {}; const extensionMapping = [];
     const targets = this.data.mappings.filter(item => item.target).map(item => item.target);
-    if (new Set(targets).size !== targets.length) throw new Error(copy.invalidMapping);
+    if (new Set(targets).size !== targets.length) throw createLocalError(copy.invalidMapping);
     this.data.mappings.forEach(item => {
       if (item.target.indexOf('profile:') === 0) extensionMapping.push({ fieldId: item.target.slice(8), columnIndex: item.index });
       else if (item.target) basicMapping[item.target] = item.index;
@@ -143,7 +144,7 @@ Page({
       this._views = {}; this._completeIssueRows = new Map();
       this._summary = result.summary;
       this._selected.clear();
-      const categories = result.categories.map(item => Object.assign({}, item, { summaryText: format(copy.categoryCount, [item.count]) }));
+      const categories = result.categories.map(item => Object.assign({}, item, { title: issueView.categoryTitle(item.key, copy), summaryText: format(copy.categoryCount, [item.count]) }));
       const current = categories.find(item => item.key === this.data.category);
       const category = current ? current.key : (categories.find(item => item.count) || categories[0] || {}).key || '';
       const summary = result.summary;
@@ -151,7 +152,7 @@ Page({
         summaryText: format(copy.summary, [summary.problemCount, summary.problemRowCount, summary.resolvedCount]),
         executionText: format(copy.executionSummary, [summary.newMembers, summary.newAssignments, summary.updatedAssignments, summary.profileValues, summary.newDictionaries, summary.excludedRows]) });
       await this.loadItems(false, true);
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   async loadItems(append, continuingPreview) {
@@ -163,7 +164,7 @@ Page({
       const result = await this.api('getHrImportPreview', { previewId: this._previewId, category: this.data.category, view: this.data.view, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const personKeys = this.importPersonKeys();
-      const items = result.items.map((item, index) => Object.assign({}, item, {
+      const items = result.items.map(item => item.category ? issueView.presentIssue(item, copy) : Object.assign({}, item, { message:'', resolutionLabel:'', beforeLabel:copy.before, afterLabel:copy.after })).map((item, index) => Object.assign({}, item, {
         id: item.id || this.data.view + ':' + (offset + index), index: offset + index, title: item.message || copy[item.type] || (this.data.view === 'rows' ? copy.peopleView : copy.excluded),
         cardTitle: item.category === 'dictionary' && item.categoryTitle ? item.categoryTitle : item.category ? [item.fieldLabel, item.categoryTitle || copy[item.category] || copy.problems].filter(Boolean).join(' · ') : item.name || copy[item.type] || copy.excluded,
         scopeText: format(copy.involvedPeopleRows, [new Set(item.rowNumbers.map(number => personKeys.get(number) || 'row:' + number)).size, item.rowNumbers.length]),
@@ -177,7 +178,7 @@ Page({
       if (append) items.forEach((item, index) => { patch['items[' + (offset + index) + ']'] = item; });
       else patch.items = items;
       await new Promise(resolve => this.setData(patch, resolve));
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (!continuingPreview && this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   switchList(patch) {
@@ -251,13 +252,13 @@ Page({
       const result = complete ? { items: complete.slice(offset, offset + 40), hasMore: offset + 40 < complete.length }
         : await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      const rows = result.items.map(row => Object.assign({}, row, { title: format(copy.issuePerson, [row.rowNumber, row.name]),
+      const rows = result.items.map(row => issueView.presentIssue(row, copy)).map(row => Object.assign({}, row, { content:row.message, title: format(copy.issuePerson, [row.rowNumber, row.name]),
         actions: row.actions.map(action => Object.assign({}, action, { label: actionLabel(action) })) }));
       const patch = { ['items[' + index + '].expanded']: true, ['items[' + index + '].rowsMore']: result.hasMore };
       if (offset) rows.forEach((row, rowIndex) => { patch['items[' + index + '].rows[' + (offset + rowIndex) + ']'] = row; });
       else patch['items[' + index + '].rows'] = rows;
       this.setData(patch);
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   performRowAction(event) {
@@ -267,6 +268,7 @@ Page({
     const row = item && item.rows && item.rows[Number(data.row)];
     const action = row && row.actions[Number(data.action)];
     if (!action) return;
+    if (action.type === 'refresh') return this.preview();
     if (action.type === 'edit' || action.type === 'select') return this.openRow(action.rowNumber, action.type);
     this.askActions([action], format(copy.singleRowAction, [row.rowNumber, row.name, action.label]));
   },
@@ -325,16 +327,16 @@ Page({
       while (rows.length < item.rowNumbers.length) {
         const result = await this.api('getHrImportPreview', { previewId: this._previewId, issueId: item.issueRef == null ? item.id : item.issueRef, rowNumbers: item.rowNumbers, offset: rows.length });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-        if (!result.items || !result.items.length) throw new Error(copy.errorDetails);
-        rows.push(...result.items);
+        if (!result.items || !result.items.length) throw createLocalError(copy.errorDetails);
+        rows.push(...result.items.map(row => issueView.presentIssue(row, copy)));
       }
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const expected = new Set(item.rowNumbers);
-      if (rows.length !== expected.size || new Set(rows.map(row => row.rowNumber)).size !== expected.size || rows.some(row => !expected.has(row.rowNumber))) throw new Error(copy.errorDetails);
+      if (rows.length !== expected.size || new Set(rows.map(row => row.rowNumber)).size !== expected.size || rows.some(row => !expected.has(row.rowNumber))) throw createLocalError(copy.errorDetails);
       rows.forEach(row => { row.selected = mode === 'all' || !row.selected; });
       this._completeIssueRows.set(key, rows);
       this.updateIssueSelection(index, rows.filter(row => row.selected));
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   batchIssueRows(event) {
@@ -472,7 +474,7 @@ Page({
         this._editorClears = {};
         this.setData({ editor, editorOptions: this.editorOptions(editor.values) }, () => this.scrollToSection('#import-row-editor'));
       }
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   closePicker() { this.setData({ pickerVisible: false }); },
@@ -583,10 +585,10 @@ Page({
       if (this._active && orgSession.isRequestCurrent(this, request)) {
         this._lastExecutionError = error.code || 'unknown';
         const stale = ['import_stale', 'import_problems', 'import_expired', 'permission_denied'].includes(error.code);
-        const patch = { error: error.message, stage: stale ? 'review' : 'confirm', canExecute: false, requestId: stale ? '' : this.data.requestId };
+        const patch = { error: getErrorText(error), stage: stale ? 'review' : 'confirm', canExecute: false, requestId: stale ? '' : this.data.requestId };
         if (error.code === 'import_stale' && error.issues && error.issues.length) {
           this._staleIssue = true; this._views = {}; this._selected.clear();
-          const item = error.issues[0];
+          const item = issueView.presentIssue(error.issues[0], copy);
           Object.assign(patch, { view: 'open', category: 'stale', hasMore: false, total: 1, selectedCount: 0,
             categories: [{ key: 'stale', title: copy.stale, count: 1, summaryText: format(copy.groupSummary, [1, item.rowNumbers.length, 0]) }],
             summaryText: format(copy.summary, [1, item.rowNumbers.length, 0]),
@@ -606,7 +608,7 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       const name = issues ? copy.issueFile : copy.maintenanceFile;
       await saveAndShareFile(result.fileBase64, name, 'xlsx');
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: error.message || copy.exportFailed }); }
+    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ error: getErrorText(error) }); }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   }
 });

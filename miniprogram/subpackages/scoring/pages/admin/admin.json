@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "onReachBottomDistance": 120,
   "usingComponents": {
+    "approval-conditions": "/subpackages/scoring/package-resources/components/approval-conditions/approval-conditions",
     "assignment-nature-create": "/subpackages/scoring/package-resources/components/assignment-nature-create/assignment-nature-create",
     "contact-directory": "/subpackages/scoring/package-resources/components/contact-directory/contact-directory",
     "audit-verification-result": "/subpackages/scoring/package-resources/components/audit-verification-result/audit-verification-result",

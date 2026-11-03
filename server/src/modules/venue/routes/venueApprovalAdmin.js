@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueApprovalAdmin');
+const authorizationCopy = require('../../../locales/zh-CN/authorization');
 const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
@@ -571,7 +572,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     });
   } catch (e) {
     await conn.rollback();
-    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_6b48c1ab98 });
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: authorizationCopy.forbidden });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
@@ -624,7 +625,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     const matchedFlow = venueApprovalMultiFlow.selectMatchedFlow(eligibility, safeString(req.body.flowId));
     if (!matchedFlow) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_00853d1d28 });
     }
     const rejectStep = Number(matchedFlow.st.stepIndex);
     const rejectedAt = new Date().toISOString();
@@ -695,7 +696,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     res.json({ status: 'success', message: localeCopy.copy_c7b826b0c0 });
   } catch (e) {
     await conn.rollback();
-    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_6b48c1ab98 });
+    if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: authorizationCopy.forbidden });
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();

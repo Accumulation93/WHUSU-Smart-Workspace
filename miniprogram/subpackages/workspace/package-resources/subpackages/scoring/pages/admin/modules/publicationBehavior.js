@@ -5,9 +5,33 @@ const { format: localeFormat } = require('../../../../../locales/runtime');
 const utils = require('./adminUtils');
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../../../../utils/orgSession');
+const { createResultError, getErrorText } = require('../../../../../../../../utils/api');
 const designationCandidateView = require('./designationCandidateView');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const homeCopy = require('../../../../../../../../locales/zh-CN/home').text;
+const meritScopes = [
+  { value: 'all_people', aliases: ['all_people', 'identity_only'], label: adminCopy.meritScopeOrganization },
+  { value: 'same_department_identity', aliases: ['same_department_identity', 'same_department_all'], label: adminCopy.meritScopeDepartment },
+  { value: 'same_work_group_identity', aliases: ['same_work_group_identity', 'same_work_group_all'], label: adminCopy.meritScopeWorkGroup }
+];
+function meritScopeOptions(current) { return meritScopes.map(item => ({ value: item.aliases.indexOf(current) >= 0 ? current : item.value, label: item.label })); }
+function scopeLabel(value, merit) {
+  const option = merit ? meritScopes.find(item => item.aliases.indexOf(value) >= 0) : utils.VIEW_SCOPE_OPTIONS.find(item => item.value === value);
+  return option ? option.label : (merit ? adminCopy.meritScopeUnknown : homeCopy.publicationGroupUnknown);
+}
+function presentRules(rows, merit) {
+  return (rows || []).map(row => Object.assign({}, row, { clauses: (row.clauses || []).map(clause => Object.assign({}, clause, { scopeLabel: scopeLabel(clause.scopeType, merit), targetIdentity: merit || ['same_department_identity', 'same_work_group_identity'].indexOf(clause.scopeType) >= 0 ? clause.targetIdentity : '' })) }));
+}
+function confirmReplaceRules(rows, merit) {
+  return new Promise(resolve => wx.showModal({
+    title: merit ? adminCopy.applySelectedMeritRules : adminCopy.applySelectedViewRules,
+    content: [merit ? adminCopy.replaceMeritRuleClausesConfirm : adminCopy.replaceViewRuleClausesConfirm, ...rows.map(row => [row.granteeDepartment, row.granteeIdentity].filter(Boolean).join(' · '))].join('\n'),
+    success: result => resolve(Boolean(result.confirm)), fail: () => resolve(false)
+  }));
+}
 
 function canPublish(page, action) {
+  if (['create','update','delete'].indexOf(action) >= 0 && (page.data.publicationLoadFailed || page.data.loadingMap && page.data.loadingMap.publications || !orgSession.isCurrent(page._publicationLoadedSession) || page._publicationLoadedActivity !== String((page.data.publicationForm || {}).activityId || ''))) return false;
   if (page.data.authorizationEnforced) return (page.data.actionCapabilities || {})['scoring.publications.' + action] === true;
   return page.data.isSuperAdmin || (page.data.user && page.data.user.permissions || {})[action === 'delete' ? 'scoring.publications.delete' : 'scoring.publications'] === true;
 }
@@ -30,12 +54,15 @@ function emptyMeritSummaryState() {
 }
 
 module.exports = Behavior({
+  data: { publicationCopy: localeCopy, publicationLoadFailed: false, meritScopeOptions: meritScopeOptions('all_people') },
   methods: {
+    retryPublicationData() { return this.loadPublicationData(this.data.publicationForm.activityId); },
     async loadPublicationData(activityId) {
       const request = orgSession.beginRequest(this, 'publicationData');
       const selectedActivityId = String(activityId || '');
       if (!activityId) {
         this.setData({
+          publicationLoadFailed: false,
           publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
           pubViewRuleList: [],
           pubViewRuleListView: [],
@@ -47,18 +74,21 @@ module.exports = Behavior({
         });
         return;
       }
-      this.setData(emptyMeritSummaryState());
+      if (this._publicationLoadedActivity !== selectedActivityId || !orgSession.isCurrent(this._publicationLoadedSession)) this.setData(Object.assign(emptyMeritSummaryState(), { pubViewRuleList: [], pubViewRuleListView: [], pubMeritRuleList: [], pubMeritRuleListView: [], designationList: [], publicationAssignmentCandidates: [] }));
       this.setLoading('publications', true);
       try {
         const result = await this.callCloud('getResultPublication', { activityId });
         if (!orgSession.isRequestCurrent(this, request)
           || String((this.data.publicationForm && this.data.publicationForm.activityId) || '') !== selectedActivityId) return;
         if (result.status === 'success') {
+          this._publicationLoadedActivity = selectedActivityId;
+          this._publicationLoadedSession = orgSession.getSnapshot();
           const pub = result.publication;
           if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [] });
-          const viewRules = result.viewRules || [];
-          const meritRules = result.meritRules || [];
+          const viewRules = presentRules(result.viewRules, false);
+          const meritRules = presentRules(result.meritRules, true);
           this.setData({
+            publicationLoadFailed: false,
             publicationForm: pub ? { id: pub.id, activityId: pub.activityId, activityName: this.data.publicationForm.activityName, isPublished: !!pub.isPublished } : { id: '', activityId, activityName: this.data.publicationForm.activityName, isPublished: false },
             pubViewRuleList: viewRules, pubViewRuleListView: viewRules,
             pubMeritRuleList: meritRules, pubMeritRuleListView: meritRules,
@@ -71,27 +101,11 @@ module.exports = Behavior({
           this.rebuildPubMeritRuleFilters(meritRules);
           if (pub) await this.loadMeritListSummary(activityId);
         } else {
-          this.setData({
-            pubViewRuleList: [],
-            pubViewRuleListView: [],
-            pubMeritRuleList: [],
-            pubMeritRuleListView: [],
-            designationList: [],
-            publicationAssignmentCandidates: [],
-            ...emptyMeritSummaryState()
-          });
+          this.setData({ publicationLoadFailed: true });
         }
       } catch (e) {
         if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
-          this.setData({
-            pubViewRuleList: [],
-            pubViewRuleListView: [],
-            pubMeritRuleList: [],
-            pubMeritRuleListView: [],
-            designationList: [],
-            publicationAssignmentCandidates: [],
-            ...emptyMeritSummaryState()
-          });
+          this.setData({ publicationLoadFailed: true });
         }
       }
       if (orgSession.isRequestCurrent(this, request)) this.setLoading('publications', false);
@@ -193,9 +207,9 @@ module.exports = Behavior({
           saveAndShareFile(result.fileContent, result.fileName || localeCopy.copy_08f97574f4, result.extension || 'xlsx');
           wx.showToast({ title: localeFormat(localeCopy.copy_6b2200af27, [result.rowCount || 0]), icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_2b61466286, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_2b61466286), icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_2b61466286), icon: 'none' }); }
       this.setLoading('exportMeritSummary', false);
     },
 
@@ -249,10 +263,10 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
         if (result.status === 'success') {
-          wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' });
+          wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' });
           this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
-        } else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
+        } else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
       this.setLoading('savePublication', false);
     },
 
@@ -319,14 +333,14 @@ module.exports = Behavior({
     async savePubViewRule() {
       if (!canPublish(this, this.data.pubViewRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubViewRuleForm;
-      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
+      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.viewerScopeRequired, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubViewRule', true);
       try {
         const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
         if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
+        else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
       this.setLoading('savePubViewRule', false);
     },
 
@@ -335,7 +349,7 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_1c746ef3fb, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
+      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_1c746ef3fb, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: getErrorText(createResultError(r), localeCopy.copy_076bb5d383), icon: 'none' }); } } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_076bb5d383), icon: 'none' }); } } });
     },
 
     // ─── View Rule Clause Editor ───,
@@ -428,10 +442,10 @@ module.exports = Behavior({
           if (result.status === 'success') {
             wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [result.count || ids.length]), icon: 'success' });
           } else {
-            wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+            wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_076bb5d383), icon: 'none' });
           }
         } catch (error) {
-          wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
+          wx.showToast({ title: getErrorText(error, localeCopy.copy_076bb5d383), icon: 'none' });
         }
         await that.loadPublicationData(that.data.publicationForm.activityId);
       } });
@@ -454,14 +468,14 @@ module.exports = Behavior({
     async savePubMeritRule() {
       if (!canPublish(this, this.data.pubMeritRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubMeritRuleForm;
-      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
+      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.meritDesignatorScopeRequired, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubMeritRule', true);
       try {
         const result = await this.callCloud('savePubMeritRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
         if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
+        else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
       this.setLoading('savePubMeritRule', false);
     },
 
@@ -470,16 +484,16 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_323c50bf75, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
+      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_323c50bf75, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: getErrorText(createResultError(r), localeCopy.copy_076bb5d383), icon: 'none' }); } } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_076bb5d383), icon: 'none' }); } } });
     },
 
     // ─── Merit Rule Clause Editor ───,
 
-    openPubMeritClauseEditor() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': localeCopy.copy_9a2854d17d, 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
+    openPubMeritClauseEditor() { this.setData({ meritScopeOptions: meritScopeOptions('all_people'), 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': adminCopy.meritScopeOrganization, 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
 
     cancelPubMeritClauseEdit() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 }); },
 
-    onPubMeritClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubMeritRuleForm.clauseScopeType': scope.value, 'pubMeritRuleForm.clauseScopeLabel': scope.label }); },
+    onPubMeritClauseScopeChange(e) { const scope = this.data.meritScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubMeritRuleForm.clauseScopeType': scope.value, 'pubMeritRuleForm.clauseScopeLabel': scope.label, meritScopeOptions: meritScopeOptions(scope.value) }); },
 
     onPubMeritClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.clauseTargetIdentityId': ident.id, 'pubMeritRuleForm.clauseTargetIdentity': ident.name }); },
 
@@ -496,7 +510,7 @@ module.exports = Behavior({
       this.setData({ 'pubMeritRuleForm.clauses': clauses, 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 });
     },
 
-    editPubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubMeritRuleForm.clauses[idx]; if (!c) return; this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': idx, 'pubMeritRuleForm.clauseScopeType': c.scopeType, 'pubMeritRuleForm.clauseScopeLabel': c.scopeLabel, 'pubMeritRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubMeritRuleForm.clauseTargetIdentity': c.targetIdentity, 'pubMeritRuleForm.clauseQuotaLimit': c.quotaLimit || 0, 'pubMeritRuleForm.clauseRequireExactQuota': c.requireExactQuota || false }); },
+    editPubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubMeritRuleForm.clauses[idx]; if (!c) return; this.setData({ meritScopeOptions: meritScopeOptions(c.scopeType), 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': idx, 'pubMeritRuleForm.clauseScopeType': c.scopeType, 'pubMeritRuleForm.clauseScopeLabel': scopeLabel(c.scopeType, true), 'pubMeritRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubMeritRuleForm.clauseTargetIdentity': c.targetIdentity, 'pubMeritRuleForm.clauseQuotaLimit': c.quotaLimit || 0, 'pubMeritRuleForm.clauseRequireExactQuota': c.requireExactQuota || false }); },
 
     removePubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubMeritRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubMeritRuleForm.clauses': clauses }); },
 
@@ -521,10 +535,10 @@ module.exports = Behavior({
           if (result.status === 'success') {
             wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [result.count || ids.length]), icon: 'success' });
           } else {
-            wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+            wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_076bb5d383), icon: 'none' });
           }
         } catch (error) {
-          wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
+          wx.showToast({ title: getErrorText(error, localeCopy.copy_076bb5d383), icon: 'none' });
         }
         await that.loadPublicationData(that.data.publicationForm.activityId);
       } });
@@ -543,14 +557,13 @@ module.exports = Behavior({
           const parts = [];
           if (result.createdCount > 0) parts.push(localeFormat(localeCopy.copy_d50cdab568, [result.createdCount]));
           if (result.skippedCount > 0) parts.push(localeFormat(localeCopy.copy_01ed9fb4f4, [result.skippedCount]));
-          if (result.backfilledCount > 0) parts.push(localeFormat(localeCopy.copy_1f152441c7, [result.backfilledCount]));
           const msg = parts.length > 0 ? parts.join('，') : localeCopy.copy_2b3035d391;
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_9662ceba48, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_9662ceba48), icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_9662ceba48, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_9662ceba48), icon: 'none' }); }
       this.setLoading('generatePubViewRules', false);
     },
 
@@ -565,14 +578,13 @@ module.exports = Behavior({
           const parts = [];
           if (result.createdCount > 0) parts.push(localeFormat(localeCopy.copy_d50cdab568, [result.createdCount]));
           if (result.skippedCount > 0) parts.push(localeFormat(localeCopy.copy_01ed9fb4f4, [result.skippedCount]));
-          if (result.backfilledCount > 0) parts.push(localeFormat(localeCopy.copy_1f152441c7, [result.backfilledCount]));
           const msg = parts.length > 0 ? parts.join('，') : localeCopy.copy_2b3035d391;
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_9662ceba48, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_9662ceba48), icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_9662ceba48, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_9662ceba48), icon: 'none' }); }
       this.setLoading('generatePubMeritRules', false);
     },
 
@@ -710,9 +722,9 @@ module.exports = Behavior({
       this.setLoading('saveDesignations', true);
       try {
         const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationAssignmentIds: assignmentIds });
-        if (result.status === 'success') { wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
+        if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
+        else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
       this.setLoading('saveDesignations', false);
     },
     // ─── Batch category creation (replaces old batch form) ───,
@@ -746,6 +758,8 @@ module.exports = Behavior({
       const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
       const selected = (this.data.pubViewRuleList || []).filter(item => this.data.pubViewRuleSelectedIds[item.id]);
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
+      const expected = orgSession.getSnapshot();
+      if (!await confirmReplaceRules(selected, false) || !orgSession.isCurrent(expected) || !canPublish(this, 'update') || this.data.publicationForm.id !== pubId || this.data.pubBatchRunning) return;
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubViewRules', true);
       try {
@@ -760,10 +774,10 @@ module.exports = Behavior({
         if (result.status === 'success') {
           wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [result.count || selected.length]), icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_0531ed9e78), icon: 'none' });
         }
         await this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_0531ed9e78), icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubViewRules', false);
         this.setData({ pubBatchRunning: false });
@@ -780,6 +794,8 @@ module.exports = Behavior({
       const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
       const selected = (this.data.pubMeritRuleList || []).filter(item => this.data.pubMeritRuleSelectedIds[item.id]);
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
+      const expected = orgSession.getSnapshot();
+      if (!await confirmReplaceRules(selected, true) || !orgSession.isCurrent(expected) || !canPublish(this, 'update') || this.data.publicationForm.id !== pubId || this.data.pubBatchRunning) return;
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubMeritRules', true);
       try {
@@ -794,10 +810,10 @@ module.exports = Behavior({
         if (result.status === 'success') {
           wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [result.count || selected.length]), icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_0531ed9e78), icon: 'none' });
         }
         await this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_0531ed9e78), icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubMeritRules', false);
         this.setData({ pubBatchRunning: false });

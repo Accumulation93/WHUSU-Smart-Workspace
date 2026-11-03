@@ -1,5 +1,6 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const factsCopy = require('../../../../locales/zh-CN/venueFacts');
+const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const personnelPickerCopy = require('../../package-resources/locales/zh-CN/personnelPicker');
@@ -67,6 +68,8 @@ Component({
     localeCopy,
     pending: [],
     loading: false,
+    loadFailed: false,
+    loaded: false,
     lastUpdateTime: '',
     pendingHeaderText: localeCopy.copy_1fc8f9baba,
     lastPendingCount: 0,
@@ -100,7 +103,7 @@ Component({
       this._clearApprovalSyncTimer();
       orgSession.invalidateRequests(this);
       this.setData({
-        pending: [], lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
+        pending: [], loadFailed: false, loaded: false, lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
         pendingHeaderText: localeCopy.copy_1fc8f9baba,
         approvalVisible: false, approvalTarget: null, expandedNodeKey: '', loading: false
       });
@@ -123,7 +126,7 @@ Component({
       this._boundVenueChanged = null;
     }
     if (this._attached) {
-      this.setData({ pending: [], loading: false, approvalVisible: false, approvalTarget: null,
+      this.setData({ pending: [], loading: false, loadFailed: false, loaded: false, approvalVisible: false, approvalTarget: null,
         approvalAction: '', approvalComment: '', nextApproverPickerVisible: false,
         nextApproverCandidates: [], nextApproverAssignmentIds: [], nextApproverSelections: [],
         nextApproverName: '', expandedNodeKey: '', approvalSubmitting: false });
@@ -239,19 +242,24 @@ Component({
           return item;
         });
         this.setData({
+          loadFailed: false,
+          loaded: true,
           pending: pending,
           lastPendingCount: pending.length,
           lastPendingSignature: this._buildPendingSignature(pending),
           lastUpdateTime: this._formatTime(),
-          pendingHeaderText: pending.length ? (localeCopy.copy_1264209cb6 + this._formatTime()) : localeCopy.copy_1fc8f9baba
+          pendingHeaderText: pending.length ? factsCopy.updatedAt(this._formatTime()) : localeCopy.copy_1fc8f9baba
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || localeCopy.copy_bba7f8b8ba);
+        this.setData({ loadFailed: true });
+        showShortToast(getErrorText(createResultError(res, localeCopy.copy_bba7f8b8ba)));
       } else {
-        showShortToast(res.message || localeCopy.copy_e52119b17e);
+        this.setData({ loadFailed: true });
+        showShortToast(localeCopy.copy_e52119b17e);
       }
     } catch (e) {
       if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request)) return;
+      this.setData({ loadFailed: true });
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
@@ -265,6 +273,7 @@ Component({
   // ═══ Approval actions ═══
 
   openApprove(e) {
+    if (this.data.loading || this.data.loadFailed || !this.data.loaded) return;
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
@@ -292,6 +301,7 @@ Component({
   },
 
   openReject(e) {
+    if (this.data.loading || this.data.loadFailed || !this.data.loaded) return;
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
@@ -329,7 +339,7 @@ Component({
           nextApproverPickerVisible: true,
           nextApproverCandidates: decorateApproverCandidates(res.candidates)
         });
-      } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
+      } else showShortToast(localeCopy.copy_e58fa637eb);
     } catch (e) {
       if (this._isPageVisible && orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e58fa637eb));
     }
@@ -352,7 +362,7 @@ Component({
   },
 
   async submitApproval() {
-    if (!this._isPageVisible || this.data.approvalSubmitting) return;
+    if (!this._isPageVisible || this.data.approvalSubmitting || this.data.loading || this.data.loadFailed || !this.data.loaded) return;
     let that = this;
     let target = this.data.approvalTarget;
     let action = this.data.approvalAction;
@@ -361,7 +371,6 @@ Component({
     if (!target || !action || !this._guardApprovalContext(target)) return;
 
     let endpoint = resolveVenueApprovalEndpoint(target, action);
-    let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     const request = orgSession.beginRequest(this, 'pendingVenueSubmit');
     this.setData({ approvalSubmitting: true });
@@ -377,7 +386,7 @@ Component({
       });
       if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
-        showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
+        showShortToast(action === 'approve' ? (isFlowApprovalTarget(target) ? localeCopy.stepApproved : localeCopy.approvalPassed) : localeCopy.approvalRejected);
         this.setData({ approvalSubmitting: false });
         that.closeApproval();
 
@@ -397,11 +406,11 @@ Component({
         await that.loadData();
       } else if (res.status === 'forbidden') {
         showWorkContextModal({
-          content: res.message || localeCopy.requiredContextGeneric,
+          content: localeCopy.requiredContextGeneric,
           onConfirm: this.goWorkContextSwitch.bind(this)
         });
       } else {
-        showShortToast(res.message || localeCopy.copy_0531ed9e78);
+        showShortToast(getErrorText(createResultError(res, localeCopy.copy_0531ed9e78)));
       }
     } catch (e) {
       if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request)) return;

@@ -6,9 +6,24 @@
   <view wx:if="{{notice}}" class="permission-card">{{notice}}</view>
   <button wx:if="{{!ready && !loading}}" class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button>
   <block wx:if="{{ready}}">
+    <view class="permission-card authorization-section">
+      <view class="permission-section-title">{{kind === 'scheme' ? (draft.id ? ui.editSchemeTitle : ui.createSchemeTitle) : kind === 'delegation' ? (draft.id ? ui.editDelegationTitle : ui.createDelegationTitle) : draft.id ? ui.editRuleTitle : ui.createRuleTitle}}</view>
+      <view class="permission-admin-meta">{{kind === 'scheme' ? ui.schemeTaskHelp : kind === 'delegation' ? ui.delegationTaskHelp : ui.ruleTaskHelp}}</view>
+    </view>
     <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
     <block wx:if="{{preview}}">
-      <view class="permission-card"><view class="permission-section-title">{{ui.previewChanges}}</view><view>{{impactText}}</view><view wx:if="{{!impactRows.length}}">{{ui.noChange}}</view><view wx:if="{{kind === 'delegation'}}" class="permission-admin-meta">{{ui.delegationNotice}}</view></view>
+      <view class="permission-card"><view class="permission-section-title">{{ui.previewChanges}}</view><view>{{impactText}}</view><view wx:if="{{!impactRows.length}}">{{ui.noAffectedRoles}}</view><view wx:if="{{kind === 'delegation'}}" class="permission-admin-meta">{{ui.delegationNotice}}</view></view>
+      <view class="permission-card authorization-section">
+        <view class="authorization-chips"><text class="authorization-chip">{{sections.effectText}}</text><text class="authorization-chip">{{kind === 'delegation' ? (draft.delegationEnabled ? ui.enabled : ui.disabled) : sections.enabledText}}</text></view>
+        <block wx:if="{{kind === 'delegation'}}"><view class="authorization-label">{{ui.delegateRecipients}}</view><view wx:for="{{recipientNames}}" wx:key="key">{{item.value}}</view></block>
+        <view class="authorization-label">{{kind === 'delegation' ? ui.delegationSubjects : ui.subjects}}</view>
+        <view wx:for="{{sections.subjects}}" wx:key="key" wx:for-item="subject" class="authorization-group"><view>{{subject.label}}</view><view wx:for="{{subject.lines}}" wx:key="key" wx:for-item="line">{{line.label}} {{line.value}}</view></view>
+        <view class="authorization-label">{{kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities}}</view><view wx:for="{{sections.capabilityLabels}}" wx:key="*this">{{item}}</view>
+        <view class="authorization-label">{{kind === 'delegation' ? ui.delegationScopeTitle : ui.scopes}}</view>
+        <view wx:for="{{sections.scopes}}" wx:key="key" wx:for-item="scope" class="authorization-group"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:key="key" wx:for-item="line">{{line.label}} {{line.value}}</view></view>
+        <view class="authorization-label">{{kind === 'delegation' ? ui.delegationFieldsTitle : ui.fields}}</view><view wx:for="{{sections.fieldLabels}}" wx:key="*this">{{item}}</view>
+        <view class="authorization-label">{{ui.conditions}}</view><view wx:if="{{!draft.policy.startsAt && !draft.policy.endsAt}}">{{ui.noConditions}}</view><block wx:for="{{periods}}" wx:key="key"><view wx:if="{{item.date}}">{{item.label}} · {{item.date}} {{item.time}}</view></block>
+      </view>
       <view wx:for="{{impactRows}}" wx:key="key" class="permission-card">
         <view class="permission-section-title">{{item.name}}</view><view class="permission-admin-meta">{{item.assignmentLabel}}</view>
         <view class="authorization-comparison">
@@ -40,11 +55,13 @@
         <button wx:if="{{advanced}}" class="secondary-btn ui-motion-button" data-part="subjects" disabled="{{busy}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.addConditionGroup}}</button>
       </view>
       <view class="permission-card">
-        <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'delegation' ? ui.delegationCapabilities : ui.capabilities}}</view>
+        <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle}}</view>
+        <view class="permission-admin-meta">{{kind === 'scheme' ? ui.schemeCapabilitiesHelp : kind === 'delegation' ? ui.delegationNotice : draft.policy.effect === 'deny' ? ui.denyCapabilitiesHelp : draft.schemeId ? ui.identityCapabilitiesHelp : ui.allowCapabilitiesHelp}}</view>
+        <view wx:if="{{kind === 'rule' && draft.policy.effect === 'deny' && draft.schemeId}}" class="permission-admin-meta">{{ui.identityCapabilitiesHelp}}</view>
         <picker wx:if="{{kind === 'rule'}}" range="{{schemes}}" range-key="name" value="{{schemeIndex}}" disabled="{{busy}}" bindchange="selectScheme"><view class="authorization-input">{{!advanced && !draft.schemeId ? ui.identityPlaceholder : schemes[schemeIndex].name}}</view></picker>
-        <view wx:if="{{kind === 'rule' && schemes.length === 1}}" class="permission-admin-meta">{{ui.noSchemes}}</view>
+        <view wx:if="{{kind === 'rule' && schemes.length === 1}}" class="authorization-group"><view class="permission-admin-meta">{{ui.noSchemes}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="openIdentitySettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button></view>
         <view class="authorization-summary">{{selectedCapabilityText}}</view>
-        <block wx:if="{{!advanced && draft.schemeId}}"><view class="authorization-disclosure ui-motion-card" data-key="identity" bindtap="toggleGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{ui.capabilities}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view><view wx:if="{{expanded.identity}}" class="authorization-chips"><text wx:for="{{sections.capabilityLabels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></block>
+        <block wx:if="{{!advanced && draft.schemeId}}"><view class="authorization-disclosure ui-motion-card" data-key="identity" bindtap="toggleGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{ui.identityCapabilitiesTitle}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view><view wx:if="{{expanded.identity}}" class="authorization-chips"><text wx:for="{{sections.capabilityLabels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></block>
         <view wx:if="{{sensitiveLabels.length}}" class="authorization-group"><view class="authorization-label">{{ui.sensitiveOperations}}</view><view wx:for="{{sensitiveLabels}}" wx:key="*this">{{item}}</view></view>
         <block wx:if="{{advanced}}">
         <view class="permission-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="permission-search-input" value="{{capabilityKeyword}}" bindinput="searchCapabilities" placeholder="{{ui.searchOperations}}" /></view>
@@ -55,7 +72,7 @@
         </block>
       </view>
       <view wx:if="{{kind !== 'scheme'}}" class="permission-card">
-        <view class="permission-section-title">{{advanced ? ui.scopes : ui.stepScope}}</view><view class="permission-admin-meta">{{ui.betweenGroups}}</view>
+        <view class="permission-section-title">{{kind === 'delegation' ? ui.delegationScopeTitle : advanced ? ui.scopes : ui.stepScope}}</view><view class="permission-admin-meta">{{kind === 'delegation' ? ui.delegationScopeHelp : ui.scopeHelp}}</view><view class="permission-admin-meta">{{ui.betweenGroups}}</view>
         <view class="authorization-actions"><button wx:if="{{organizationScope}}" class="secondary-btn ui-motion-button authorization-option {{organizationSelected ? 'authorization-option-selected' : ''}}" data-kind="organization" disabled="{{busy}}" bindtap="toggleScope" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.currentOrganization}}</button><button wx:if="{{selfScope}}" class="secondary-btn ui-motion-button authorization-option {{selfSelected ? 'authorization-option-selected' : ''}}" data-kind="self" disabled="{{busy}}" bindtap="toggleScope" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.ownRecords}}</button></view>
         <view wx:for="{{sections.scopes}}" wx:key="key" wx:for-item="scope" class="authorization-group">
           <view class="permission-section-head"><view class="authorization-label">{{scope.label}}</view><button class="secondary-btn ui-motion-button" data-part="scopes" data-index="{{index}}" disabled="{{busy}}" bindtap="removeGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.removeCondition}}</button></view>
@@ -64,7 +81,8 @@
         <button wx:if="{{assignmentScope}}" class="secondary-btn ui-motion-button" data-part="scopes" disabled="{{busy}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.addConditionGroup}}</button>
       </view>
       <view wx:if="{{kind !== 'scheme' && advanced}}" class="permission-card">
-        <view class="permission-section-title">{{ui.fields}}</view>
+        <view class="permission-section-title">{{kind === 'delegation' ? ui.delegationFieldsTitle : draft.policy.effect === 'deny' ? ui.denyFieldsTitle : ui.allowFieldsTitle}}</view>
+        <view class="permission-admin-meta">{{kind === 'delegation' ? ui.delegationFieldsHelp : draft.policy.effect === 'deny' ? ui.denyFieldsHelp : ui.allowFieldsHelp}}</view>
         <view class="authorization-actions">
           <button class="secondary-btn ui-motion-button authorization-option {{draft.policy.fields === null ? 'authorization-option-selected' : ''}}" disabled="{{busy}}" bindtap="allFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allFields}}</button>
           <button wx:for="{{fieldOptions}}" wx:key="key" class="secondary-btn ui-motion-button authorization-option {{item.selected ? 'authorization-option-selected' : ''}}" data-key="{{item.key}}" disabled="{{busy}}" bindtap="field" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.label}}</button>

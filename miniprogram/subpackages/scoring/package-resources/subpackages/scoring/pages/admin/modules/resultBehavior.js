@@ -1,4 +1,5 @@
 const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: result tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
@@ -342,7 +343,7 @@ module.exports = Behavior({
       const keepRows = options.keepRows === true;
 
       const loadingData = {
-        selectedResultTarget: target,
+        selectedResultTarget: Object.assign({}, target, { title: adminCopy.targetScoresTitle(target.name) }),
         targetRecordLoading: true
       };
       if (!keepRows) {

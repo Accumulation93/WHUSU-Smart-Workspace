@@ -17,6 +17,48 @@
       "scripts/locale-align-runtime-test.js"
     ],
     [
+      "scripts/locale-reference-test.js"
+    ],
+    [
+      "server/test/responseFeedback.test.js"
+    ],
+    [
+      "server/test/messageFactsView.test.js"
+    ],
+    [
+      "server/test/scoringPublicationView.test.js"
+    ],
+    [
+      "server/test/legacyPermissionView.test.js"
+    ],
+    [
+      "server/test/venueFactsView.test.js"
+    ],
+    [
+      "server/test/hrTemplateValidationFacts.test.js"
+    ],
+    [
+      "scripts/copy-quality-audit-test.js"
+    ],
+    [
+      "server/test/authBatchFeedbackMini.test.js"
+    ],
+    [
+      "server/test/hrImportIssueView.test.js"
+    ],
+    [
+      "server/test/hrValueValidationView.test.js"
+    ],
+    [
+      "server/test/hrProfileStatusView.test.js"
+    ],
+    [
+      "server/test/auditConditionFacts.test.js"
+    ],
+    [
+      "server/test/auditConditionView.test.js"
+    ],
+    [
       "scripts/org-lifecycle-audit.js",
       "--strict"
     ],

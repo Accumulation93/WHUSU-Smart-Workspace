@@ -130,27 +130,34 @@ function normalizeDefinitionField(field) {
   return normalized;
 }
 
-function validateDefinition(name, editMode, fields) {
-  if (!safeString(name).trim()) return localeCopy.copy_b5f5bd64a7;
-  if (!EDIT_MODES.includes(editMode)) return localeCopy.copy_359c94be19;
-  if (!fields.length) return localeCopy.copy_2b0e6179da;
+function validateDefinitionIssue(name, editMode, fields) {
+  if (!safeString(name).trim()) return { reasonCode: 'template_name_required', message: localeCopy.copy_b5f5bd64a7 };
+  if (!EDIT_MODES.includes(editMode)) return { reasonCode: 'template_edit_mode_invalid', message: localeCopy.copy_359c94be19 };
+  if (!fields.length) return { reasonCode: 'template_fields_required', message: localeCopy.copy_2b0e6179da };
   const labels = new Set();
-  for (const field of fields) {
-    if (!field.label) return localeCopy.copy_b559e020b7;
-    if (!field.type) return localeCopy.copy_fd1e62ce41;
+  for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+    const field = fields[fieldIndex];
+    const issue = (reasonCode, message, params) => Object.assign({ reasonCode, fieldIndex, message }, params);
+    if (!field.label) return issue('field_name_required', localeCopy.copy_b559e020b7);
+    if (!field.type) return issue('field_type_invalid', localeCopy.copy_fd1e62ce41);
     const labelKey = field.label.toLocaleLowerCase('zh-CN');
-    if (labels.has(labelKey)) return localeFormat(localeCopy.copy_8757e8a233, [field.label]);
+    if (labels.has(labelKey)) return issue('field_name_duplicate', localeFormat(localeCopy.copy_8757e8a233, [field.label]));
     labels.add(labelKey);
-    if (field.type === 'sequence' && !field.options.length) return localeFormat(localeCopy.copy_c38d4ca5a6, [field.label]);
+    if (field.type === 'sequence' && !field.options.length) return issue('field_options_required', localeFormat(localeCopy.copy_c38d4ca5a6, [field.label]));
     if (field.hint && hintLength(field.hint) > HINT_MAX_LENGTH) {
-      return localeFormat(personnelCopy.profileFieldHintTooLong, [field.label, HINT_MAX_LENGTH]);
+      return issue('field_hint_too_long', localeFormat(personnelCopy.profileFieldHintTooLong, [field.label, HINT_MAX_LENGTH]), { limit: HINT_MAX_LENGTH });
     }
-    if (field.minLength != null && !Number.isFinite(field.minLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
-    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
-    if (field.minValue != null && !Number.isFinite(field.minValue)) return localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]);
-    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]);
+    if (field.minLength != null && !Number.isFinite(field.minLength)) return issue('field_length_invalid', localeFormat(localeCopy.copy_defd7b1cf3, [field.label]), { bound: 'min' });
+    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return issue('field_length_invalid', localeFormat(localeCopy.copy_defd7b1cf3, [field.label]), { bound: 'max' });
+    if (field.minValue != null && !Number.isFinite(field.minValue)) return issue('field_value_invalid', localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]), { bound: 'min' });
+    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return issue('field_value_invalid', localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]), { bound: 'max' });
   }
-  return '';
+  return null;
+}
+
+function validateDefinition(name, editMode, fields) {
+  const issue = validateDefinitionIssue(name, editMode, fields);
+  return issue ? issue.message : '';
 }
 
 async function insertDefinitionFields(connection, templateId, fields) {
@@ -216,8 +223,11 @@ async function saveDefinition(data, operator, authorize) {
   const description = safeString(data.description).trim();
   const editMode = safeString(data.editMode || 'direct');
   const fields = (Array.isArray(data.fields) ? data.fields : []).map(normalizeDefinitionField);
-  const error = validateDefinition(name, editMode, fields);
-  if (error) return { status: 'invalid_params', message: error };
+  const error = validateDefinitionIssue(name, editMode, fields);
+  if (error) {
+    const { message, ...validationIssue } = error;
+    return { status: 'invalid_params', code: 'hr_template_definition_invalid', message, validationIssue };
+  }
 
   try {
     return await pool.withTransaction(async (connection) => {
@@ -363,32 +373,42 @@ function isPotentiallyCompatible(sourceType, targetType) {
 }
 
 function validateMappedValue(targetField, rawValue) {
+  const issue = validateMappedValueIssue(targetField, rawValue);
+  return issue ? issue.error : '';
+}
+
+function validateMappedValueIssue(targetField, rawValue) {
+  const issue = (reasonCode, error, reasonParams) => ({ reasonCode, reasonParams: reasonParams || {}, error });
   const mapped = coerceMappedValue(targetField, rawValue);
-  if (mapped.error) return mapped.error;
+  if (mapped.error) {
+    const codes = { number: 'number_invalid', sequence: 'option_missing', date: 'date_invalid',
+      datetime: 'datetime_invalid', phone: 'phone_invalid', email: 'email_invalid' };
+    return issue(codes[targetField.type] || 'type_unsupported', mapped.error);
+  }
   const value = mapped.value;
-  if (!value) return '';
+  if (!value) return null;
   if (targetField.type === 'text') {
-    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return localeFormat(localeCopy.copy_8ca7d2480d, [targetField.min_length]);
-    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return localeFormat(localeCopy.copy_ff3132c386, [targetField.max_length]);
-    return '';
+    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return issue('text_too_short', localeFormat(localeCopy.copy_8ca7d2480d, [targetField.min_length]), { min: Number(targetField.min_length) });
+    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return issue('text_too_long', localeFormat(localeCopy.copy_ff3132c386, [targetField.max_length]), { max: Number(targetField.max_length) });
+    return null;
   }
   if (targetField.type === 'number') {
-    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return localeCopy.copy_545ff439c4;
+    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return issue('integer_required', localeCopy.copy_545ff439c4);
     const numberValue = Number(value);
-    if (!Number.isFinite(numberValue)) return localeCopy.copy_53fc596039;
+    if (!Number.isFinite(numberValue)) return issue('number_invalid', localeCopy.copy_53fc596039);
     if (targetField.number_rule === 'length_range') {
       const length = value.replace(/^[+-]/, '').replace('.', '').length;
-      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return localeFormat(localeCopy.copy_a895a90413, [targetField.min_digits]);
-      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return localeFormat(localeCopy.copy_7de56b7e93, [targetField.max_digits]);
+      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return issue('digits_too_short', localeFormat(localeCopy.copy_a895a90413, [targetField.min_digits]), { min: Number(targetField.min_digits) });
+      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return issue('digits_too_long', localeFormat(localeCopy.copy_7de56b7e93, [targetField.max_digits]), { max: Number(targetField.max_digits) });
     } else {
-      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return localeFormat(localeCopy.copy_912d3d3bf0, [targetField.min_value]);
-      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return localeFormat(localeCopy.copy_4ac7b5e1be, [targetField.max_value]);
+      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return issue('number_too_small', localeFormat(localeCopy.copy_912d3d3bf0, [targetField.min_value]), { min: Number(targetField.min_value) });
+      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return issue('number_too_large', localeFormat(localeCopy.copy_4ac7b5e1be, [targetField.max_value]), { max: Number(targetField.max_value) });
     }
-    return '';
+    return null;
   }
   if (targetField.type === 'sequence' || targetField.type === 'date' || targetField.type === 'datetime'
-    || targetField.type === 'phone' || targetField.type === 'email') return '';
-  return localeCopy.copy_114e62ddbf;
+    || targetField.type === 'phone' || targetField.type === 'email') return null;
+  return issue('type_unsupported', localeCopy.copy_114e62ddbf);
 }
 
 function normalizeActions(sourceFields, targetFields, rawActions) {
@@ -479,7 +499,7 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
     );
     const invalidItems = [];
     for (const row of rows) {
-      const error = validateMappedValue({
+      const issue = validateMappedValueIssue({
         type: target.type,
         min_length: target.minLength,
         max_length: target.maxLength,
@@ -491,12 +511,15 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
         max_value: target.maxValue,
         options_json: JSON.stringify(target.options || [])
       }, row.field_value);
-      if (error) {
+      if (issue) {
         invalidItems.push({
+          issueId: safeString(row.id),
           memberName: safeString(row.name),
           rawValue: row.field_value == null ? '' : String(row.field_value),
           isPending: Boolean(row.is_pending),
-          error
+          error: issue.error,
+          reasonCode: issue.reasonCode,
+          reasonParams: issue.reasonParams
         });
       }
     }
@@ -504,6 +527,9 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
       blockers.push({
         sourceSnapshotFieldId: action.sourceSnapshotFieldId,
         targetTemplateFieldId: target.id,
+        sourceFieldLabel: (context.sourceFields.find(field => field.id === action.sourceSnapshotFieldId) || {}).label || '',
+        targetFieldLabel: target.label,
+        allowedOptions: target.type === 'sequence' ? target.options || [] : [],
         invalidCount: invalidItems.length,
         invalidItems
       });
@@ -744,10 +770,12 @@ module.exports = {
   isPotentiallyCompatible,
   coerceMappedValue,
   validateMappedValue,
+  validateMappedValueIssue,
   saveOrgSettings,
   currentOrgId,
   _test: {
     validateDefinition,
+    validateDefinitionIssue,
     isPotentiallyCompatible,
     coerceMappedValue,
     validateMappedValue,

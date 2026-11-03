@@ -101,7 +101,7 @@ Page({
         name: 'saveSignature',
         data: {
           id: editingSig ? editingSig.id : '',
-          name: editingSig ? editingSig.name : (localeCopy.copy_66a2af4df9 + formatAbsoluteDate(Date.now())),
+          name: editingSig ? editingSig.name : localeCopy.signatureDefaultName(formatAbsoluteDate(Date.now())),
           imageData: imageData
         }
       });

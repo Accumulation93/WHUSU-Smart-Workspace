@@ -5,7 +5,7 @@ const sharedModule = Object.freeze({
   unknownType: '未指定类型',
   noCompatibleTarget: '当前模板没有类型匹配的资料项，已改为隐藏保存；如不再需要，请选择“删除现有资料”。',
   typeAutoMapped(name, type) {
-    return '新模板中的“' + name + '”已改为' + type + '，默认移入现有资料并自动转换格式。';
+    return '新模板中的“' + name + '”类型为' + type + '，已选择移入现有资料；应用前将检查内容能否转换。';
   },
   targetLabel(name, type) { return name + ' · ' + type; },
   typeChanged(name, type) {

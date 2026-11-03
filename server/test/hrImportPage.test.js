@@ -5,6 +5,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 const copy = require('../src/locales/zh-CN/hrImport');
 const source = fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/scoring/pages/hrImport/hrImport.js'), 'utf8');
+function dictionaryFacts(rowNumber, name) {
+  return { category:'dictionary', reason:'newDictionary', field:'workGroup', after:'新名称', rowNumbers:[rowNumber],
+    presentationFacts:{columns:[{field:'workGroup',index:3,header:'职能组'}],people:[{rowNumber,name}],beforeKind:'noRegisteredValue'} };
+}
 
 function createPage(call, file) {
   let definition;
@@ -20,7 +24,8 @@ function createPage(call, file) {
   const format = (value, args) => value.replace(/\{(\d+)\}/g, (_, index) => String(args[index]));
   const imports = {
     '../../package-resources/locales/zh-CN/hrImport': copy, '../../package-resources/locales/runtime': { format },
-    '../../../../utils/api': { callFunction: call }, '../../package-resources/utils/tableFile': { chooseTableFile: (...args) => files.chooseTableFile(...args), saveAndShareFile: (...args) => files.saveAndShareFile(...args) },
+    '../../../../utils/api': { ...require('../../miniprogram/utils/api'), callFunction: call }, '../../package-resources/utils/tableFile': { chooseTableFile: (...args) => files.chooseTableFile(...args), saveAndShareFile: (...args) => files.saveAndShareFile(...args) },
+    '../../package-resources/utils/hrImportIssueView': require('../../shared/hrImportIssueView'),
     '../../../../utils/orgSession': session, '../../../../utils/eventBus': { emit() {} },
     '../../../../utils/messageQueries': { invalidate() {} },
     '../../../../utils/navigationBarMetrics': { getNavigationBarMetrics: () => ({ totalHeight: 88 }) }
@@ -135,7 +140,7 @@ async function main() {
   console.log('PASS 统一改名仅修改对应列，已有职能组选择限定本部门且首项可选');
   const expanded = createPage(async ({ data }) => {
     assert.equal(data.issueId, 'group-issue');
-    return { status: 'success', items: [{ rowNumber: 3, name: '测试乙', actions: [{ type: 'dictionary', value: 'key', rowNumbers: [3] }] }], hasMore: false };
+    return { status: 'success', items: [{ ...dictionaryFacts(3,'测试乙'), rowNumber: 3, name: '测试乙', actions: [{ type: 'dictionary', value: 'key', rowNumbers: [3] }] }], hasMore: false };
   });
   expanded.page._previewId = 'preview'; expanded.page.data.items = [{ id: 'group-issue', rowNumbers: [2, 3] }];
   await expanded.page.expandIssue({ currentTarget: { dataset: { index: 0 } } });
@@ -150,7 +155,7 @@ async function main() {
     detailCalls += 1;
     const entries = scopeRows.slice(data.offset, data.offset + 40).map((row, index) => {
       const rowNumber = data.offset + index + 2;
-      return { rowNumber, name: row[0], actions: [{ type: 'dictionary', value: 'k', rowNumbers: [rowNumber] }, { type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] }] };
+      return { ...dictionaryFacts(rowNumber,row[0]), rowNumber, name: row[0], actions: [{ type: 'dictionary', value: 'k', rowNumbers: [rowNumber] }, { type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] }] };
     });
     return { status: 'success', items: entries, hasMore: data.offset + entries.length < 45 };
   }, { fileName: 'subset.xlsx', headers: ['姓名', '学号', '职能组'], rows: scopeRows });
@@ -193,6 +198,7 @@ async function main() {
     groupCalls += 1;
     if (failGroup) throw new Error('测试读取失败');
     return { status: 'success', items: groupRows.slice(data.offset, data.offset + 40).map((row, offset) => ({
+      ...dictionaryFacts(data.offset + offset + 2, row[0]),
       rowNumber: data.offset + offset + 2, name: row[0], actions: [{ type: 'edit', rowNumber: data.offset + offset + 2 }, { type: 'exclude', rowNumbers: [data.offset + offset + 2] }]
     })), hasMore: data.offset + 40 < groupRows.length };
   }, { fileName: 'whole.xlsx', headers: ['姓名', '学号', '职能组'], rows: groupRows });
@@ -224,7 +230,7 @@ async function main() {
   console.log('PASS 全组选中85行含未加载页，43人去重，反选取消缓存及失败保留原选择');
 
   const headings = createPage(async ({ name }) => name === 'getHrImportMetadata' ? { status: 'success', fields: [] } : {
-    status: 'success', total: 1, hasMore: false, items: [{ id: 'group', name: '第一个人', category: 'dictionary', categoryTitle: copy.work_group_unregistered, fieldLabel: copy.workGroup,
+    status: 'success', total: 1, hasMore: false, items: [{ ...dictionaryFacts(2,'第一个人'), id: 'group', name: '第一个人', category: 'dictionary', categoryTitle: 'untrusted title', fieldLabel: copy.workGroup,
       rowNumbers: [2, 3, 4], message: '具体问题', actions: [] }]
   }, { fileName: 'headings.xlsx', headers: ['姓名', '学号'], rows: [['第一个人', '001'], ['第一个人', '001'], ['第二个人', '002']] });
   await headings.page.chooseFile(); headings.page._previewId = 'headings'; await headings.page.loadItems(false);
@@ -255,7 +261,7 @@ async function main() {
   const processing = waiting.page.confirmAction(); assert.equal(waiting.page.data.busy, true); assert.equal(waiting.page.data.busyText, copy.processing);
   await Promise.resolve(); await Promise.resolve();
   releasePreview({ status: 'invalid_import', message: '测试检查失败' }); await processing;
-  assert.equal(waiting.page.data.busy, false); assert.equal(waiting.page.data.error, '测试检查失败');
+  assert.equal(waiting.page.data.busy, false); assert.equal(waiting.page.data.error, copy.errorDetails);
   const hidden = waiting.page.preview(); waiting.page.onHide(); await hidden;
   assert.equal(waiting.page.data.busy, false); assert.equal(waiting.page.data.metadataLoading, false);
   assert(wxml.includes('<app-toast loading="{{busy || metadataLoading}}"'));

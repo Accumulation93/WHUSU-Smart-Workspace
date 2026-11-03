@@ -1,10 +1,13 @@
 const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const messageScope = require('../../../../utils/messageScope');
+const { describeMessage } = require('../../../../utils/messageFactsView');
+const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const authContext = require('../../../../utils/authContext');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
 const {
+  isTrustedRoute,
   navigateToTrustedRoute,
   reLaunchPortalThenNavigate
 } = require('../../../../utils/trustedNavigation');
@@ -138,13 +141,15 @@ Page({
     this.setData({ activeTab: tab });
   },
 
-  formatItems(items) {
+  formatItems(items, isNotification) {
     return (items || []).map(function(item) {
       return Object.assign({}, item, {
         categoryLabel: CATEGORY_LABELS[item.category] || copy.messages.notification,
         createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
-      });
+      }, describeMessage(item, messageFactsCopy, {
+        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl)
+      }));
     });
   },
 
@@ -214,7 +219,7 @@ Page({
         if (this['_' + prefix + 'Fingerprint'] !== fingerprint) {
           orgSession.beginRequest(this, isNotification ? 'messageNotificationsMore' : 'messageTodosMore');
           patch.loadingMore = false;
-          patch[isNotification ? 'notifications' : 'todos'] = this.formatItems(result.items);
+          patch[isNotification ? 'notifications' : 'todos'] = this.formatItems(result.items, isNotification);
           patch[prefix + 'Cursor'] = result.nextCursor || '';
           this['_' + prefix + 'Fingerprint'] = fingerprint;
         }
@@ -318,7 +323,7 @@ Page({
         }
         throw new Error(result.message || copy.messages.retryLater);
       }
-      const items = this.formatItems(result.items);
+      const items = this.formatItems(result.items, isNotifications);
       if (isNotifications) {
         this.setData({
           notifications: this.data.notifications.concat(items),
@@ -392,7 +397,7 @@ Page({
 
   async onTodoTap(e) {
     const item = this.findItem('todo', e.currentTarget.dataset.id);
-    if (!item) return;
+    if (!item || item.canOpen === false) return;
     const switchKind = this.contextSwitchKind(item);
     if (switchKind === 'organization') {
       this.openSwitchDialog(item, 'todo');
@@ -440,7 +445,7 @@ Page({
 
   async onNotificationTap(e) {
     const item = this.findItem('notification', e.currentTarget.dataset.id);
-    if (!item) return;
+    if (!item || item.canOpen === false) return;
     const switchKind = this.contextSwitchKind(item);
     if (switchKind === 'organization') {
       this.openSwitchDialog(item, 'notification');

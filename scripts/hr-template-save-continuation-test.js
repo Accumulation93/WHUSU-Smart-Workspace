@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const file = path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js');
 const localRequire = require('node:module').createRequire(file);
+const templateCopy = require('../shared/locales/zh-CN/hrTemplateSave');
 
 function fixture(options = {}) {
   let definition;
@@ -39,8 +40,8 @@ function fixture(options = {}) {
     },
     require(name) {
       if (name.endsWith('/orgSession')) return orgSession;
-      if (name.includes('/locales/') || name === './adminUtils' || name === './hrTemplateSwitchDraft'
-        || name.endsWith('/utils/hrFieldMatching')) return localRequire(name);
+      if (name.includes('/locales/') || name.endsWith('/adminUtils') || name.endsWith('/hrTemplateSwitchDraft')
+        || name.endsWith('/utils/hrFieldMatching') || name.endsWith('/utils/hrTemplateValidationView') || name.endsWith('/utils/api')) return localRequire(name);
       if (name.endsWith('/utils/tableFile')) {
         return {
           chooseTableFile: () => Promise.resolve(options.tableFile || null),
@@ -163,10 +164,10 @@ async function main() {
   f.modals[0].success({ confirm: true });
   assert.equal(f.calls.length, 2);
 
-  f = fixture({ save: async () => ({ status: 'invalid_params', message: '请选择完整的序列选项' }) });
+  f = fixture({ save: async () => ({ status: 'invalid_params', code: 'hr_template_definition_invalid', validationIssue: {reasonCode:'field_options_required',fieldIndex:0}, message: 'untrusted-server-message' }) });
   const draft = f.page.data.hrProfileTemplateForm;
   await f.page.saveHrProfileTemplate();
-  assert.equal(f.modals[0].content, '请选择完整的序列选项');
+  assert.equal(f.modals[0].content, templateCopy.fieldIssue(1,'fixture-field',templateCopy.field_options_required));
   assert.equal(f.page.data.hrProfileTemplateForm, draft);
   assert.equal(f.page.data.showHrTemplateEditor, true);
   assert.equal(f.calls.length, 1);
@@ -347,7 +348,8 @@ async function main() {
   await f.page.importTableFields();
   await turn();
   const importModal = f.modals[f.modals.length - 1];
-  assert(importModal.content.includes('按列名识别'), '导入确认框要说明识别结果');
+  assert(importModal.content.includes('根据表格列名和内容建议类型'), '导入确认框要说明建议依据');
+  assert(importModal.content.includes('请检查后保存'), '类型建议不能冒充已经确认的结果');
   importModal.success({ confirm: true });
   const importedTypes = plain(f.page.data.hrProfileTemplateForm.fields).map(item => item.type);
   assert.deepEqual(importedTypes, ['text', 'text', 'phone', 'email', 'date', 'number', 'text', 'number'],
@@ -362,13 +364,13 @@ async function main() {
   ] };
   await f.page.saveHrProfileTemplate();
   assert.equal(f.calls.length, 0, '本地就能发现的问题不应该打扰服务端');
-  assert.equal(f.page.data.hrTemplateFormError, '请填写模板名称');
+  assert.equal(f.page.data.hrTemplateFormError, templateCopy.template_name_required);
   assert.equal(f.scrolls[f.scrolls.length - 1].selector, '.hr-template-editor', '模板名出错要回到编辑器顶部');
   f.page.data.hrProfileTemplateForm.name = 'fixture';
   await f.page.saveHrProfileTemplate();
   assert.equal(f.page.data.hrTemplateFormError, '有 1 处需要修改，已定位到第一处');
   assert.equal(f.page.data.hrTemplateErrorCount, 1);
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, '请填写资料项名称');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, templateCopy.field_name_required);
   assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v1');
 
   f = fixture();
@@ -382,10 +384,10 @@ async function main() {
   await f.page.saveHrProfileTemplate();
   assert.equal(f.calls.length, 0);
   assert.equal(f.page.data.hrTemplateErrorCount, 4);
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[1].errorText, '和前面的「重复名」重名');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[1].errorText, '资料项名称“重复名”重复，请修改。');
   assert.equal(f.page.data.hrProfileTemplateForm.fields[2].errorText, '最小长度不能大于最大长度');
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[3].errorText, '这里要填数字，留空表示不限');
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[4].errorText, '序列至少要有一个选项');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[3].errorText, '请输入数字；不限制时可留空。');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[4].errorText, '序列资料项至少需要一个选项');
   assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v2', '滚到第一处问题');
 
   // —— 字段「填写说明」：多行可存、只改说明也算未保存、超长就地拦下 ——
@@ -414,7 +416,7 @@ async function main() {
   await f.page.saveHrProfileTemplate();
   assert.equal(f.calls.length, 0, '超长填写说明不得提交');
   assert.equal(f.page.data.hrTemplateErrorCount, 1);
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, '填写说明最多200字');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[0].errorText, templateCopy.fieldHintTooLong(200));
   assert.equal(f.page.data.hrTemplateFormError, '有 1 处需要修改，已定位到第一处');
 
   console.log('人事模板编辑：顺序调整、多字段展开、未保存提醒、删除确认、选项预览、导入识别、就地校验、保存后续通过');

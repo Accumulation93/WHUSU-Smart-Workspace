@@ -1,6 +1,9 @@
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
 const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 const fieldMatching = require('../../../package-resources/utils/hrFieldMatching');
+const { describeProfile } = require('../../../package-resources/utils/hrProfileStatusView');
+const homeCopy = require('../../../../../locales/zh-CN/home').text;
+const { getErrorText: getApiErrorText } = require('../../../../../utils/api');
 const {
   normalizeDateLiteral,
   normalizeDateTimeInstant,
@@ -85,10 +88,10 @@ function toNumber(value, fallback = 0) {
 }
 
 const TEMPLATE_CSV_FIELDS = [
-  { key: 'question',   label: localeCopy.copy_1af596e2ba, aliases: [localeCopy.copy_12fc5f1a33, localeCopy.copy_1af596e2ba, localeCopy.copy_b66cf0dd1d, 'question'] },
+  { key: 'question',   label: localeCopy.questionContent, aliases: [localeCopy.copy_12fc5f1a33, localeCopy.copy_1af596e2ba, localeCopy.copy_b66cf0dd1d, 'question'] },
   { key: 'scoreLabel', label: localeCopy.copy_fd0da10351, aliases: [localeCopy.copy_fd0da10351, localeCopy.copy_28d0daa28f, 'scoreLabel', localeCopy.copy_1702a69e64, localeCopy.copy_10b1158748] },
   { key: 'minValue',   label: localeCopy.copy_e24b33ba5f,   aliases: [localeCopy.copy_e24b33ba5f, localeCopy.copy_c741409c82, 'minValue', 'min', localeCopy.copy_9a2cca25f2] },
-  { key: 'startValue', label: localeCopy.copy_4366ed3bb6,   aliases: [localeCopy.copy_4366ed3bb6, localeCopy.copy_ce2a519308, 'startValue', 'start', localeCopy.copy_62f0d4f3c1] },
+  { key: 'startValue', label: localeCopy.initialScore,   aliases: [localeCopy.copy_4366ed3bb6, localeCopy.copy_ce2a519308, 'startValue', 'start', localeCopy.copy_62f0d4f3c1] },
   { key: 'maxValue',   label: localeCopy.copy_8ca6566932,   aliases: [localeCopy.copy_8ca6566932, localeCopy.copy_fb031f3568, 'maxValue', 'max', localeCopy.copy_103f952a56] },
   { key: 'stepValue',  label: localeCopy.copy_4b62966880,   aliases: [localeCopy.copy_4b62966880, localeCopy.copy_8c44208d45, 'stepValue', 'step', localeCopy.copy_13d5166c86] }
 ];
@@ -530,15 +533,15 @@ function buildRuleClausesForBatchApply(form = {}) {
 }
 
 function buildRuleClauseText(clause = {}) {
-  const scopeText = clause.scopeLabel || getScopeLabel(clause.scopeType) || localeCopy.copy_f8d4dcaa31;
-  const identityText = clause.targetIdentity ? localeFormat(localeCopy.copy_2603da8ac7, [clause.targetIdentity]) : '';
+  const scopeText = getScopeLabel(clause.scopeType) || localeCopy.copy_f8d4dcaa31;
+  const identityText = clause.targetIdentity ? localeCopy.targetIdentitySummary(clause.targetIdentity) : '';
   const completeText = clause.requireAllComplete ? localeCopy.copy_a610bcb008 : localeCopy.copy_67c8d6955e;
   const questionText = (clause.templateConfigs || []).length
     ? (clause.templateConfigs || [])
       .map((config) => localeFormat(localeCopy.copy_6a6e8afeff, [config.templateName || localeCopy.copy_a3c996a525, config.weight, config.sortOrder]))
       .join('、')
     : localeCopy.copy_52740940a5;
-  return `${scopeText}${identityText}${completeText} [${questionText}]`;
+  return [scopeText, identityText, completeText, questionText].filter(Boolean).join('；');
 }
 
 function buildRuleListItem(rule = {}) {
@@ -643,9 +646,7 @@ function showShortToast(title, icon = 'none') {
 }
 
 function getErrorText(error, fallback) {
-  if (error && (error.silent || error.status === 'request_cancelled')) return '';
-  const text = String((error && error.message) || '').trim();
-  return text || fallback;
+  return getApiErrorText(error, fallback);
 }
 
 const HR_PROFILE_SEARCH_FIELDS = [
@@ -815,7 +816,7 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
   const filtered = (rows || []).filter((item) => {
     if (!includesSelected('membershipStatuses', item.membershipStatus || 'active')) return false;
     if (!includesSelected('positionStates', Number(item.assignmentCount || 0) > 0 ? 'with_position' : 'without_position')) return false;
-    if (!includesSelected('profileStatuses', item.auditStatus || 'none')) return false;
+    if (!includesSelected('profileStatuses', item.reviewStatus || (item.auditStatus === 'none' ? '' : item.auditStatus) || '')) return false;
     if (!includesSelected('completenessStates', item.isComplete ? 'complete' : 'incomplete')) return false;
     if (!includesSelected('accountStates', item.accountState || 'unbound')) return false;
     if (!includesSelected('bindingStates', item.wxBindStatus === 'bound' ? 'bound' : 'unbound')) return false;
@@ -849,7 +850,7 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
         workGroup: (item.workGroups || []).join(' '),
         membershipStatus: item.membershipStatusText,
         accountStatus: item.accountStateText,
-        profileStatus: item.auditStatusText
+        profileStatus: describeProfile(item, homeCopy).statusText
       };
       const field = filters.searchField || 'all';
       const assignmentFieldValues = {
@@ -859,7 +860,7 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
         workGroup: matchingAssignments.map((assignment) => assignment.workGroup || '').join(' ')
       };
       const haystack = field === 'all'
-        ? [item.name, item.studentId, assignmentText, item.membershipStatusText, item.accountStateText, item.auditStatusText].join(' ')
+        ? [item.name, item.studentId, assignmentText, item.membershipStatusText, item.accountStateText, describeProfile(item, homeCopy).statusText].join(' ')
         : (Object.prototype.hasOwnProperty.call(assignmentFieldValues, field)
           ? assignmentFieldValues[field]
           : searchValues[field]);
@@ -1109,15 +1110,16 @@ function validateCsvValueAgainstField(value, fieldDef) {
   let v = normalizeEmptyValue(value);
   let fieldType = (fieldDef && fieldDef.type) || 'text';
   let typeLabel = getFieldTypeDisplayName(fieldDef);
+  const fieldLabel = String(fieldDef && fieldDef.label || typeLabel);
 
   if (!v) return { ok: true };
 
   if (fieldType === 'text') {
     if (fieldDef.minLength && v.length < Number(fieldDef.minLength)) {
-      return { ok: false, reason: localeCopy.copy_75b9fa45e1 + fieldDef.minLength + localeCopy.copy_32f0d98c34, fieldType: typeLabel };
+      return { ok: false, reason: localeFormat(localeCopy.copy_245abb6cb3, [fieldLabel, fieldDef.minLength]), fieldType: typeLabel };
     }
     if (fieldDef.maxLength && v.length > Number(fieldDef.maxLength)) {
-      return { ok: false, reason: localeCopy.copy_b882dba21a + fieldDef.maxLength + localeCopy.copy_b4e32a17b0, fieldType: typeLabel };
+      return { ok: false, reason: localeFormat(localeCopy.copy_0d42479c01, [fieldLabel, fieldDef.maxLength]), fieldType: typeLabel };
     }
     return { ok: true };
   }
@@ -1131,17 +1133,17 @@ function validateCsvValueAgainstField(value, fieldDef) {
     if (fieldDef.numberRule === 'length_range') {
       let nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
       if (fieldDef.minDigits && nlen < Number(fieldDef.minDigits)) {
-        return { ok: false, reason: localeCopy.copy_1f410a2c02 + fieldDef.minDigits + localeCopy.copy_b75c3b7064, fieldType: typeLabel };
+        return { ok: false, reason: localeFormat(localeCopy.copy_8d415deaa0, [fieldLabel, fieldDef.minDigits]), fieldType: typeLabel };
       }
       if (fieldDef.maxDigits && nlen > Number(fieldDef.maxDigits)) {
-        return { ok: false, reason: localeCopy.copy_48c9426863 + fieldDef.maxDigits + localeCopy.copy_b75c3b7064, fieldType: typeLabel };
+        return { ok: false, reason: localeFormat(localeCopy.copy_8ce15854f9, [fieldLabel, fieldDef.maxDigits]), fieldType: typeLabel };
       }
     } else {
       if (fieldDef.minValue !== '' && fieldDef.minValue != null && num < Number(fieldDef.minValue)) {
-        return { ok: false, reason: localeCopy.copy_7beca82ea5 + fieldDef.minValue + localeCopy.copy_8a85cc9b8b, fieldType: typeLabel };
+        return { ok: false, reason: localeFormat(localeCopy.copy_2c1cbd4cee, [fieldLabel, fieldDef.minValue]), fieldType: typeLabel };
       }
       if (fieldDef.maxValue !== '' && fieldDef.maxValue != null && num > Number(fieldDef.maxValue)) {
-        return { ok: false, reason: localeCopy.copy_144ee0fab3 + fieldDef.maxValue + localeCopy.copy_8a85cc9b8b, fieldType: typeLabel };
+        return { ok: false, reason: localeFormat(localeCopy.copy_3f2df8f2ed, [fieldLabel, fieldDef.maxValue]), fieldType: typeLabel };
       }
     }
     return { ok: true };

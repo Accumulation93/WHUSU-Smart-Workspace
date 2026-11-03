@@ -1,10 +1,12 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
-const directoryCopy = require('../../package-resources/locales/zh-CN/contactDirectory');
+const directoryCopy = require('../../../../locales/zh-CN/contactDirectory');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
+const { describeProfile } = require('../../package-resources/utils/hrProfileStatusView');
+const publicationView = require('../../package-resources/utils/scoringPublicationView');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { managementTabAllowed } = require('../../../../utils/authorizationAccessView');
@@ -52,6 +54,7 @@ function emptyAccountSecurityState() {
     loaded: false,
     account: null,
     devices: [],
+    sessionMode: false,
     allowRecoveryCode: false,
     allowPassphrase: false,
     passphrase: '',
@@ -66,14 +69,15 @@ function emptyAccountSecurityState() {
  * 合成一台；没有识别码的会话合成一条“无法识别的设备”。
  */
 function decorateAccountDevices(devices, sessions) {
-  const list = Array.isArray(devices) && devices.length
+  const sessionMode = !Array.isArray(devices);
+  const list = !sessionMode
     ? devices
     : (sessions || []).map(function(item) {
-      // 兼容还没返回 devices 的服务端：每条会话先各自算一台，并保留 sessionId 供吊销。
+      // 旧响应保留独立登录记录，不推测设备数量。
       return Object.assign({}, item, {
         deviceKey: item.deviceKey || '',
         sessionId: item.id || '',
-        recognized: item.recognized !== false,
+        recognized: false,
         sessionCount: 1,
         currentDevice: Boolean(item.currentDevice || item.current)
       });
@@ -81,17 +85,17 @@ function decorateAccountDevices(devices, sessions) {
   return list.map(function(item) {
     const recognized = item.recognized !== false;
     return Object.assign({}, item, {
-      // 设备维度用 deviceKey 作为唯一键；兼容模式（一条会话一台设备）用会话 id。
-      _rowKey: item.deviceKey ? 'device:' + item.deviceKey : 'session:' + String(item.sessionId || ''),
+      // 设备目录按设备区分；旧响应按登录记录区分。
+      _rowKey: !sessionMode && item.deviceKey ? 'device:' + item.deviceKey : 'session:' + String(item.sessionId || ''),
       deviceKey: String(item.deviceKey || ''),
       sessionId: String(item.sessionId || ''),
       lastSeenText: formatAuditTime(String(item.lastSeenAt || ''), item.lastSeenAtReviewStatus),
-      deviceTitle: item.currentDevice
+      deviceTitle: sessionMode ? (item.currentDevice ? copy.text.currentSession : copy.text.otherSession) : item.currentDevice
         ? copy.text.currentDevice
         : (recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
       // 识别不出来的设备标题已经说明了情况，这里不再重复占一行。
       deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ')
-        || (recognized ? copy.text.deviceModelUnavailable : '')
+        || (!sessionMode && recognized ? copy.text.deviceModelUnavailable : '')
       // 登录设备只按设备区分：不展示当前身份与组织，避免看起来像按身份分行。
     });
   });
@@ -267,6 +271,7 @@ function normalizeDisplayField(field = {}, valueMap = {}) {
   const result = {
     ...field,
     value: rawValue,
+    inputPlaceholder: copy.format.required(field.label),
     // 日期字段提交与校验使用 YYYY-MM-DD，展示统一为 2004.08.31 简略格式。
     displayValue: field.type === 'date' ? formatDateTextOnly(rawValue) : rawValue,
     typeLabel: getProfileFieldTypeLabel(field.type),
@@ -337,15 +342,15 @@ function validateProfileField(field = {}, rawValue) {
   }
 
   if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
-    return copy.format.select(field.label);
+    return copy.format.selectValid(field.label);
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
-    return copy.format.selectValid(field.label);
+    return copy.format.check(field.label);
   }
 
   if (field.type === 'datetime' && !isValidDateTimeString(value)) {
-    return copy.format.selectValid(field.label);
+    return copy.format.check(field.label);
   }
 
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
@@ -923,6 +928,8 @@ Page({
       : { ...baseValues };
     const nextTemplate = template ? {
       ...template,
+      modeText: describeProfile({ template }, copy.text).modeText,
+      editMode: ['direct', 'audit', 'readonly'].indexOf(template.editMode) >= 0 ? template.editMode : 'readonly',
       fields: (template.fields || []).map((field) => normalizeDisplayField(field, formValues))
     } : null;
 
@@ -934,7 +941,8 @@ Page({
         template: nextTemplate,
         pendingValues,
         auditStatus: result.auditStatus || 'none',
-        statusText: result.statusText || copy.text.profileNotSubmitted,
+        statusText: describeProfile(result, copy.text).statusText,
+        completenessText: describeProfile(result, copy.text).completenessText,
         rejectionReason: result.rejectionReason || '',
         errorText: ''
       }
@@ -994,6 +1002,7 @@ Page({
           loaded: true,
           account: result.account || null,
           devices: decorateAccountDevices(result.devices, result.sessions),
+          sessionMode: !Array.isArray(result.devices),
           allowRecoveryCode: Boolean(policy.allowRecoveryCode),
           allowPassphrase: Boolean(policy.allowPassphrase)
         })
@@ -1093,7 +1102,7 @@ Page({
       }
       const devices = (this.data.accountSecurity.devices || []).filter((item) => item._rowKey !== revokeKey);
       this.setData({ 'accountSecurity.devices': devices });
-      showShortToast(copy.text.deviceSignedOut, 'success');
+      showShortToast(this.data.accountSecurity.sessionMode ? copy.text.sessionEnded : copy.text.deviceSignedOut, 'success');
     } catch (error) {
       showShortToast(getErrorText(error, copy.text.retry));
     } finally {
@@ -1402,9 +1411,9 @@ Page({
         // Enrich groups with sorting
         const enrichedGroups = groups.map(group => ({
           ...group,
+          groupLabel: publicationView.groupTitle(group, copy.text),
           members: (group.members || []).map(m => ({
-            ...m,
-            grade: m.grade || '',
+            ...publicationView.memberView(m),
             sortScore: typeof m.sortScore === 'number' ? m.sortScore : (parseFloat(m.finalScore) || 0)
           })).sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0))
         }));
@@ -1417,8 +1426,7 @@ Page({
         let sorted = [];
         if (flatResults.length && !enrichedGroups.length) {
           const results = flatResults.map(r => ({
-            ...r,
-            grade: r.grade || '',
+            ...publicationView.memberView(r),
             finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
             sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
           }));
@@ -1723,7 +1731,7 @@ Page({
         userDesigSearchKeyword: ''
       });
     } catch (e) {
-      wx.showToast({ title: copy.text.refreshLater, icon: 'none' });
+      wx.showToast({ title: getErrorText(e), icon: 'none' });
     }
     this.setData({ userDesigLoading: false });
   },

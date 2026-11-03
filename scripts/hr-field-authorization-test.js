@@ -7,7 +7,9 @@ const filename = path.resolve(__dirname, '../miniprogram/subpackages/scoring/pag
 const checked = [];
 const sandbox = { module: { exports: {} }, Behavior: value => value,
   require(name) {
-    if (name === './adminUtils') return { validateProfileField(field) { checked.push(field.id); return ''; } };
+    if (name === './adminUtils' || name === '../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils') {
+      return { validateProfileField(field) { checked.push(field.id); return ''; } };
+    }
     return {};
   }, wx: { showToast() { throw new Error('合法字段保存不应要求姓名或学号'); } } };
 vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });

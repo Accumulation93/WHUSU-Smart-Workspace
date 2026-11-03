@@ -1,4 +1,5 @@
 const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
+const factsCopy = require('../../../locales/zh-CN/venueFacts');
 const { formatListTime } = require('../../../utils/dateTime');
 const orgSession = require('../../../utils/orgSession');
 const authContext = require('../../../utils/authContext');
@@ -67,6 +68,8 @@ function decorateRequiredWorkContexts(contexts) {
 
 function decoratePendingBooking(item) {
   const row = Object.assign({}, item || {});
+  row._currentStepText = Number.isInteger(row.currentStepIndex) && row.currentStepIndex >= 0
+    ? factsCopy.stepNumber(row.currentStepIndex + 1) : factsCopy.stepNameMissing;
   row.timeStartText = formatListTime(row.fullTimeStart || row.timeStart, {
     reviewStatus: row.fullTimeStart ? row.fullTimeStartReviewStatus : row.timeStartReviewStatus
   });

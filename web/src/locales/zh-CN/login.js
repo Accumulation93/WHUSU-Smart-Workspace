@@ -3,7 +3,6 @@
 import src_authorization from './shared/authorization.js';
 import src_common from './shared/common.js';
 import src_submissionDetail from './shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
-import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
 import src_api from './shared/generated/utils/api.js';
 import src_authContext from './shared/generated/utils/authContext.js';
@@ -41,7 +40,7 @@ export default Object.freeze({
   titleRecoveryRotated: src_login.view.titleRecoveryRotated,
   titleRecoveryPending: src_login.view.titleRecoveryPending,
   titleRecovery: src_login.view.titleRecovery,
-  titleClaim: src_authorization.resources["auth.identity"],
+  titleClaim: src_login.view.titleClaim,
   closeWithIcon: src_login.view.closeWithIcon,
   recoveryStartNote: src_login.view.recoveryStartNote,
   claimStartNote: src_login.view.claimStartNote,
@@ -49,8 +48,8 @@ export default Object.freeze({
   chooseOrganization: src_api.copy_c6070950c1,
   name: src_authorization.adminExportColumns["0"],
   namePlaceholder: src_admin.copy_971b628f49,
-  studentId: src_adminPermissions.copy_80fba348b7,
-  studentIdPlaceholder: src_admin.copy_f4094dd21d,
+  studentId: src_login.view.studentId,
+  studentIdPlaceholder: src_login.view.studentIdPlaceholder,
   continueAction: src_login.view.continueAction,
   claimUnavailable: src_login.view.claimUnavailable,
   submitRecovery: src_login.view.submitRecovery,

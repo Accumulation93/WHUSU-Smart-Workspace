@@ -14,6 +14,7 @@ import src_venueManage from './shared/generated/subpackages/venue/pages/venueMan
 import src_home from './shared/home.js';
 import src_login from './shared/login.js';
 import src_main from './shared/main.js';
+import src_portal from './shared/portal.js';
 
 export default Object.freeze({
   partialOrganizationLoading: src_main.portal.partialOrganizationLoading,
@@ -75,7 +76,7 @@ export default Object.freeze({
   clearSearch: src_identitySwitch.copy_ed081670d5,
   scanResultTitle: src_main.portal.view.scanResultTitle,
   scanExternalHint: src_main.portal.view.scanExternalHint,
-  scanCopyAction: src_authorization.configurationCopy.preview,
+  scanCopyAction: src_portal.view.scanCopyAction,
   scanCloseAction: src_authorization.close,
   scanFailed: src_main.portal.view.scanFailed,
   navLoginAction: src_login.view.loginTitle,

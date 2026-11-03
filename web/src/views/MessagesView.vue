@@ -53,7 +53,7 @@
         </span>
       </div>
 
-      <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+      <div v-if="loadNotice" class="notice-line"><p>{{ loadNotice }}</p><button class="btn btn-secondary" :disabled="loading" @click="loadFirstPage(activeTab)">{{ performanceCopy.retry }}</button></div>
 
       <div v-if="loading && !items.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!items.length" class="empty-state">
@@ -100,6 +100,7 @@ import { useRoute, useRouter } from 'vue-router';
 import MessageRow from '@/components/MessageRow.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import performanceCopy from '@/locales/zh-CN/shared/messagePerformance.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction } from '@/runtime/notify.js';
 import { openMessageTarget } from '@/runtime/messageNavigation.js';

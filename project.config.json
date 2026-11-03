@@ -105,6 +105,22 @@
       },
       {
         "type": "file",
+        "value": "components/approval-conditions/approval-conditions.js"
+      },
+      {
+        "type": "file",
+        "value": "components/approval-conditions/approval-conditions.json"
+      },
+      {
+        "type": "file",
+        "value": "components/approval-conditions/approval-conditions.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/approval-conditions/approval-conditions.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/assignment-nature-create/assignment-nature-create.js"
       },
       {
@@ -249,15 +265,15 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/auditConditions.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/auditSigning.js"
       },
       {
         "type": "file",
         "value": "locales/zh-CN/auditVerification.js"
-      },
-      {
-        "type": "file",
-        "value": "locales/zh-CN/contactDirectory.js"
       },
       {
         "type": "file",
@@ -401,10 +417,6 @@
       },
       {
         "type": "file",
-        "value": "locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking.js"
-      },
-      {
-        "type": "file",
         "value": "locales/zh-CN/generated/subpackages/venue/pages/venueBookings/venueBookings.js"
       },
       {
@@ -414,10 +426,6 @@
       {
         "type": "file",
         "value": "locales/zh-CN/generated/subpackages/venue/utils/flowTimeline.js"
-      },
-      {
-        "type": "file",
-        "value": "locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail.js"
       },
       {
         "type": "file",
@@ -441,15 +449,19 @@
       },
       {
         "type": "file",
-        "value": "locales/zh-CN/hrProfileMigration.js"
-      },
-      {
-        "type": "file",
         "value": "locales/zh-CN/hrTemplateFieldDisplay.js"
       },
       {
         "type": "file",
         "value": "locales/zh-CN/hrTemplateSave.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/hrValueValidation.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/legacyPermissions.js"
       },
       {
         "type": "file",
@@ -725,6 +737,10 @@
       },
       {
         "type": "file",
+        "value": "utils/auditConditionView.js"
+      },
+      {
+        "type": "file",
         "value": "utils/auditPreviewFiles.js"
       },
       {
@@ -773,6 +789,10 @@
       },
       {
         "type": "file",
+        "value": "utils/hrImportIssueView.js"
+      },
+      {
+        "type": "file",
         "value": "utils/hrProfileDate.js"
       },
       {
@@ -781,11 +801,31 @@
       },
       {
         "type": "file",
+        "value": "utils/hrProfileStatusView.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/hrTemplateValidationView.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/hrValueValidation.js"
+      },
+      {
+        "type": "file",
         "value": "utils/imageDataUrl.js"
       },
       {
         "type": "file",
+        "value": "utils/legacyPermissionView.js"
+      },
+      {
+        "type": "file",
         "value": "utils/personLinks.js"
+      },
+      {
+        "type": "file",
+        "value": "utils/scoringPublicationView.js"
       },
       {
         "type": "file",

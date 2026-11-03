@@ -1,6 +1,6 @@
 <template>
   <div class="page signing-page stack">
-    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :allow-save-template="handoff.allowSaveTemplate" :rollback="handoff.rollback" :initial-preview="initialPreview" @confirm="done" @cancel="back" />
+    <AuditSigningWorkspace v-if="valid" :draft="handoff.draft" :file="handoff.file" :submission-id="handoff.submissionId" :initial-mode="handoff.mode" :active="handoff.active" :pad="handoff.pad" :allow-save-template="handoff.allowSaveTemplate" :rollback="handoff.rollback" :initial-preview="initialPreview" @confirm="done" @cancel="back" />
     <section v-else class="card stack"><AppLoading v-if="checking" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="retryable" class="btn-quiet" @click="validate">{{ text.retry }}</button><button class="btn btn-secondary" @click="back">{{ text.back }}</button></section>
   </div>
 </template>

@@ -1,7 +1,7 @@
 'use strict';
 const ui = require('../../../../locales/zh-CN/authorization');
 const presentation = require('../../utils/authorizationPresentation');
-const { callFunction, getErrorText } = require('../../../../utils/api');
+const { callFunction, getErrorText, createResultError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
@@ -15,7 +15,7 @@ Page({
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
-  onLoad: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
+  onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.load(); },
   onHide: function() { this.clear(); },
@@ -37,12 +37,12 @@ Page({
     try {
       const management = await callFunction({ name: 'getAuthorizationManagement', data: {} });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (management.status !== 'success') throw new Error(management.message || ui.operationFailed);
+      if (management.status !== 'success') throw createResultError(management, ui.operationFailed);
       const directory = management.canManage === false ? { status: 'success', assignments: [], adminGrants: [] }
         : await callFunction({ name: 'getAuthorizationCandidates', data: {} });
       const results = [management, directory];
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      for (const result of results) if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+      for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
       this.setData({ tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
         tab: management.canManage === false ? 'effective' : this.data.tab });
@@ -59,7 +59,7 @@ Page({
   refreshCards: function() {
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
-    this.setData({ recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword),
+    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword),
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
@@ -144,7 +144,7 @@ Page({
     try {
       const result = await callFunction({ name: 'getAuthorizationCandidates', data: { purpose: 'inspection' } });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+      if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       const options = presentation.personnelOptions(result, role);
       const target = this._inspectionTarget;
       this.setData({ picker: role, pickerOptions: options, pickerValue: target && target.role === role
@@ -171,7 +171,7 @@ Page({
     try {
       const result = await callFunction({ name: 'getEffectiveAuthorization', data: this._inspectionTarget || {} });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || ui.operationFailed);
+      if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this.setData({ effective: result.capabilities.map(item => Object.assign({}, item, {
         label: presentation.capabilityLabel(item.capability, this._state.catalog, ui),
         statusText: ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[item.status] || ui.denied,

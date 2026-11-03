@@ -1,8 +1,9 @@
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior');
+const adminCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const { format: localeFormat } = require('../../../package-resources/locales/runtime');
 // Behavior: result tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('./adminUtils');
+const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
 const { emptyResultFilters, toNumber, clampNumber, formatScoreFixed3, buildProgressFillStyle, buildResultFilterOptions, getErrorText } = utils;
 const { saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
@@ -342,7 +343,7 @@ module.exports = Behavior({
       const keepRows = options.keepRows === true;
 
       const loadingData = {
-        selectedResultTarget: target,
+        selectedResultTarget: Object.assign({}, target, { title: adminCopy.targetScoresTitle(target.name) }),
         targetRecordLoading: true
       };
       if (!keepRows) {

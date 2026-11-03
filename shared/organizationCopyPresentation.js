@@ -64,7 +64,7 @@ function describeConfiguration(kind, payload, ui) {
   if (kind === 'hr.directoryRules' || kind === 'calendar.rules') {
     const rule = p.rule || {};
     add(text.audience, (rule.audience || []).map((c, index) => text.conditionGroup(index + 1, audience(c))));
-    add(text.targets, (rule.targets || []).map((c, index) => text.conditionGroup(index + 1, audience(c))));
+    add(kind === 'hr.directoryRules' ? text.directoryTargets : text.calendarTargets, (rule.targets || []).map((c, index) => text.conditionGroup(index + 1, audience(c))));
     if (kind === 'calendar.rules') add(text.action, (rule.actions || []).map(action => text.calendarActions[action] || text.unknownCapability));
     else add(text.fields, [(rule.fieldIds || []).length ? names(rule.fieldIds) : text.basicFieldsOnly]);
   }

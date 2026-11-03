@@ -1,6 +1,7 @@
 const { outputFile, inputFile } = require('./fileIO');
 const localeCopy = require('../locales/zh-CN/generated/utils/tableFile');
 const { encodeBinaryBase64, decodeBinaryBase64 } = require('./binaryBase64');
+const { createResultError, getErrorText } = require('../../../../utils/api');
 /**
  * Table file utility — unified CSV / Excel import & export helpers.
  * Works identically in both legacy cloud and current server implementations.
@@ -471,7 +472,7 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
       callCloudFn('parseTableFile', { fileBase64: base64, fileName: fileName }).then(function (result) {
         wx.hideLoading();
         if (!result || result.status !== 'success' || !result.sheets || !result.sheets.length) {
-          wx.showToast({ title: (result && result.message) || localeCopy.copy_cc78fc735e, icon: 'none' });
+          wx.showToast({ title: getErrorText(createResultError(result, localeCopy.copy_cc78fc735e)), icon: 'none' });
           resolve(null);
           return;
         }

@@ -91,6 +91,7 @@ export const TODO_ITEM = {
   id: 'venue:booking-1',
   type: 'todo',
   sourceType: 'venue_approval',
+  displayFacts: { businessTitle: '场地借用审批', applicantName: '综合事务', venueName: '活动室', stepOrder: 1 },
   title: '场地借用审批',
   description: '综合事务 提交的活动室借用等待处理',
   category: 'venue',
@@ -102,7 +103,7 @@ export const TODO_ITEM = {
 
 export const NOTIFICATION_ITEM = {
   id: 'notification-1',
-  type: 'pending_approval',
+  type: 'submission_progress',
   title: '有一条新的审核申请',
   description: '请及时处理',
   category: 'audit',

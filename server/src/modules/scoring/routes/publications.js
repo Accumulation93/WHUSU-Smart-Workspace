@@ -468,11 +468,11 @@ function getPublicationRuleIdBatch(body) {
  * Apply grade bands to a numeric score. Returns the first matching grade name,
  * or '未评级' if no band matches. Bands must be sorted by sort_order ascending.
  */
-function applyGradeBands(score, bands) {
-  if (!Array.isArray(bands) || !bands.length) return localeCopy.copy_201bb379be;
+function applyGradeBands(score, bands, unmatched = localeCopy.copy_201bb379be) {
+  if (!Array.isArray(bands) || !bands.length) return unmatched;
   // Ensure numeric comparison (defensive: score may come as string from some paths)
   const numScore = Number(score);
-  if (!Number.isFinite(numScore)) return localeCopy.copy_201bb379be;
+  if (!Number.isFinite(numScore)) return unmatched;
   for (const band of bands) {
     const minScore = Number(band.minScore != null ? band.minScore : band.min_score);
     const maxScore = Number(band.maxScore != null ? band.maxScore : band.max_score);
@@ -483,7 +483,7 @@ function applyGradeBands(score, bands) {
   }
   // Debug: log when a score doesn't match any band (helps catch config mismatches)
   logger.debug('No grade band matched', { numScore, bandCount: bands.length });
-  return localeCopy.copy_201bb379be;
+  return unmatched;
 }
 
 function rejectRetiredEndpoint(res) {
@@ -1223,6 +1223,12 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
           department: safeString(member.department) || lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || localeCopy.copy_25e27df7c6,
           identity: safeString(member.identity) || lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || localeCopy.copy_25e27df7c6,
           workGroup: safeString(member.workGroup) || lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || localeCopy.copy_25e27df7c6,
+          displayFacts: {
+            departmentName: safeString(member.department) || lookups.departmentsById.get(member.departmentId) || '',
+            identityCategoryName: safeString(member.identity) || lookups.identitiesById.get(member.identityId) || '',
+            workGroupName: safeString(member.workGroup) || lookups.workGroupsById.get(member.workGroupId) || '',
+            gradeName: clauseDisplayMode === 'grade' ? applyGradeBands(rawScore, clauseGradeBands, '') : ''
+          },
           sortScore: rawScore,
           finalScore: Number(rawScore).toFixed(3)
         };
@@ -1256,6 +1262,8 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       groups.push({
         clauseId: clause.id,
         displayMode: clauseDisplayMode,
+        scopeType: safeString(clause.scope_type),
+        targetIdentityName,
         groupLabel,
         memberCount: members.length,
         members

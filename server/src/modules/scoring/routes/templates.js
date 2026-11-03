@@ -124,11 +124,11 @@ router.post('/saveScoreTemplate', async (req, res) => {
     const description = safeString(req.body.description);
     const questions = Array.isArray(req.body.questions) ? req.body.questions : [];
 
-    if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_9a51765619 });
+    if (!name) return res.json({ status: 'invalid_params', code: 'scoring_template_name_required', message: localeCopy.copy_9a51765619 });
 
     const normalizedQs = questions.map(normalizeQuestion);
     if (!normalizedQs.length || normalizedQs.some((item) => !isValidQuestion(item))) {
-      return res.json({ status: 'invalid_params', message: scoringCopy.templateQuestionsInvalid });
+      return res.json({ status: 'invalid_params', code: 'scoring_template_questions_invalid', message: scoringCopy.templateQuestionsInvalid });
     }
 
     const nowUtc = nowMysqlUtc();
@@ -227,7 +227,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
       return { status: removed ? 'success' : 'not_found' };
     });
     if (outcome.status === 'referenced') {
-      return res.json({ status: 'forbidden', message: localeCopy.copy_1680976116 });
+      return res.json({ status: 'forbidden', code: 'scoring_template_referenced', message: localeCopy.copy_1680976116 });
     }
     if (outcome.status === 'not_found') {
       return res.json({ status: 'not_found', message: localeCopy.copy_785b6d700c });

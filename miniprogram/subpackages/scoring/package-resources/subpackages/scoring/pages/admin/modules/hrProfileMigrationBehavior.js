@@ -1,5 +1,7 @@
 const orgSession = require('../../../../../../../../utils/orgSession');
-const copy = require('../../../../../locales/zh-CN/hrProfileMigration');
+const valueValidation = require('../../../../../utils/hrValueValidation');
+const validationCopy = require('../../../../../locales/zh-CN/hrValueValidation');
+const copy = require('../../../../../../../../locales/zh-CN/hrProfileMigration');
 const { showShortToast, getErrorText } = require('./adminUtils');
 const { formatDateTextOnly } = require('../../../../../utils/hrProfileDate');
 
@@ -88,6 +90,7 @@ module.exports = Behavior({
           if (result.status !== 'success') return showShortToast(result.message || copy.failed);
           this.setData({
             crossOrgMigrationOrgs: result.visibleOrgs || [],
+            crossOrgMigrationTargetOrgName: ((result.visibleOrgs || []).find(org => org.id === result.targetOrgId) || {}).name || orgSession.getSnapshot().orgName || '',
             crossOrgMigrationMembers: [], crossOrgMigrationSelectedMembers: [],
             canDirectCrossOrgMigration: Boolean(result.canDirect),
             crossOrgMigrationSourceOrgId: '',
@@ -183,7 +186,7 @@ module.exports = Behavior({
         conflictPolicy: item.conflictPolicy || 'keep'
       }));
       const request = orgSession.beginRequest(this, 'crossOrgMigration');
-      this.setData({ crossOrgMigrationLoading: true });
+      this.setData({ crossOrgMigrationLoading: true, crossOrgMigrationToken: '' });
       try {
         const result = await this.callCloud('previewCrossOrgMigration', { sourceOrgId, personIds, fieldActions });
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -191,9 +194,9 @@ module.exports = Behavior({
           return showShortToast(result.message || copy.failed);
         }
         this.setData({
-          crossOrgMigrationToken: result.switchToken || '',
+          crossOrgMigrationToken: result.status === 'success' && !(result.blockers || []).length ? result.switchToken || '' : '',
           crossOrgMigrationReport: result.status === 'mapping_blocked'
-            ? (result.blockers || []).map((item, index) => Object.assign({}, item, { _key: 'b' + index }))
+            ? (result.blockers || []).map((item,index) => valueValidation.detail(item,index,validationCopy))
             : [],
           crossOrgMigrationConflicts: (result.conflicts || []).map((item, index) => Object.assign({}, item, { _key: 'c' + index })),
           crossOrgMigrationSummary: result.summary || null
@@ -206,7 +209,7 @@ module.exports = Behavior({
     },
 
     closeCrossOrgMigrationReport() {
-      this.setData({ crossOrgMigrationReport: [] });
+      this.setData({ crossOrgMigrationReport: [], crossOrgMigrationToken: '' });
     },
 
     onCrossOrgFieldActionChange(e) {
@@ -272,7 +275,7 @@ module.exports = Behavior({
       const sourceOrgId = this.data.crossOrgMigrationSourceOrgId;
       const personIds = this.resolveCrossOrgPersonIds();
       if (!sourceOrgId || !personIds.length) return showShortToast(copy.noMembers);
-      if (!this.data.crossOrgMigrationToken) return showShortToast(copy.failed);
+      if (!this.data.crossOrgMigrationToken || (this.data.crossOrgMigrationReport || []).length) return showShortToast(copy.failed);
       const direct = Boolean(this.data.canDirectCrossOrgMigration);
       const name = direct ? 'applyCrossOrgMigration' : 'submitCrossOrgMigrationRequest';
       const request = orgSession.beginRequest(this, 'crossOrgMigration');

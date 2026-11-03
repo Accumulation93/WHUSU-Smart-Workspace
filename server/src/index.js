@@ -21,7 +21,7 @@ const { verifySchemaContract } = require('./utils/schemaContract');
 const unifiedIdentityModel = require('./core/models/unifiedIdentity');
 const notificationOutboxModel = require('./modules/audit/models/notificationOutbox');
 const auditFileStorageMaintenance = require('./modules/audit/services/auditFileStorageMaintenance');
-const { protectPublicMessage } = require('./utils/publicMessage');
+const { protocolResponse } = require('./utils/publicMessage');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -83,7 +83,7 @@ app.use((req, res, next) => {
     if (body && typeof body === 'object' && !Array.isArray(body) && !body.requestId) {
       body.requestId = req.requestId || '';
     }
-    return sendJson(protectPublicMessage(body));
+    return sendJson(protocolResponse(body, req.get('X-Response-Format')));
   };
   next();
 });
@@ -125,7 +125,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'https://accumulation93.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Client-Type', 'X-Request-Id']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Client-Type', 'X-Request-Id', 'X-Response-Format']
   }));
 app.use(clientVersionMiddleware);
 

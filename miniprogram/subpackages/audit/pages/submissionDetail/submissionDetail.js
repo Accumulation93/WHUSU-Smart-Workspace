@@ -14,6 +14,8 @@ const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 const signingDrafts = require('../../../../utils/auditSigningDrafts');
 const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 const { presentAuditStep, groupAuditRounds } = require('../../utils/auditStepView');
+const { buildConditions } = require('../../package-resources/utils/auditConditionView');
+const conditionCopy = require('../../package-resources/locales/zh-CN/auditConditions');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
@@ -23,9 +25,34 @@ function normalizeApprovalActionTypeForView(value) {
   return value === 'stamp' ? 'estamp' : (value || 'pass');
 }
 
-function normalizeApprovalStepForView(step) {
+function normalizeApprovalStepForView(step, index) {
+  const conditionView = buildConditions(step, conditionCopy);
   return Object.assign({}, step || {}, {
-    actionType: normalizeApprovalActionTypeForView(step && step.actionType)
+    actionType: normalizeApprovalActionTypeForView(step && step.actionType),
+    stepText: step && step.name || localeCopy.stepNumber(Number(step && (step.sortOrder || step.stepIndex)) || index + 1),
+    conditionView,
+    approverDesc: conditionView.summary
+  });
+}
+
+function decorateAdHocSteps(steps) {
+  return steps.map((step, index) => {
+    let fact;
+    if (step.approverType === 'specific_person') {
+      const label = [step.approverHrName, step.approverAssignmentLabel].filter(Boolean).join(' · ');
+      fact = { conditionType: 'person', personKind: 'assignment', personNames: label ? [label] : [], unresolved: !step.approverHrName || !step.approverAssignmentLabel };
+    } else {
+      const scope = step.scopeType;
+      const departmentScope = scope === 'all' ? 'all' : (scope === 'same_department' || scope === 'same_work_group' ? 'own' : (scope === 'specific_department' || scope === 'specific_work_group' ? 'specific' : ''));
+      const workGroupScope = scope === 'same_work_group' ? 'own' : (scope === 'specific_work_group' ? 'specific' : (departmentScope ? 'all' : ''));
+      fact = {
+        conditionType: 'identity_scope', identityScope: 'specific', identityNames: step.approverIdentityName ? [step.approverIdentityName] : [],
+        departmentScope, departmentNames: step.scopeDepartmentName ? [step.scopeDepartmentName] : [],
+        workGroupScope, workGroupNames: step.scopeWorkGroupName ? [step.scopeWorkGroupName] : [],
+        unresolved: !step.approverIdentityName || !departmentScope || (departmentScope === 'specific' && !step.scopeDepartmentName) || (workGroupScope === 'specific' && !step.scopeWorkGroupName)
+      };
+    }
+    return Object.assign({}, step, { stepText: step.name || localeCopy.stepNumber(index + 1), conditionView: buildConditions({ conditionFacts: [fact] }, conditionCopy) });
   });
 }
 
@@ -79,6 +106,9 @@ Page({
     createDesc: '',
     uploadedFiles: [], // { fileId, fileName, mimeType, fileSize, fileHash, tmpPath }
     adHocSteps: [],
+    adHocStepCountText: localeCopy.stepCount(0),
+    editStepCountText: localeCopy.stepCount(0),
+    templatePreviewStepCountText: localeCopy.stepCount(0),
     adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
     adHocStepEditorVisible: false,
 
@@ -192,6 +222,9 @@ Page({
     placementFileMime: '',       // mime type of the file being previewed
     placementTotalPages: 1,      // total pages (for PDFs)
     placementCurrentPage: 1,     // current page being shown
+    placementPageText: localeCopy.pageNumber(1),
+    placementPagePosition: localeCopy.pagePositionUnknown,
+    placementPageFactsKnown: false,
     placementLoading: false,     // loading page preview
     placementPosText: '',        // formatted position text for display
     placementCanvasMaxHeight: 300, // computed max canvas height in px
@@ -413,7 +446,7 @@ Page({
     try {
       const res = await callFunction({ name: 'listAvailableFlowTemplates', data: {} });
       if (res.status === 'success') {
-        this.setData({ flowTemplates: res.templates || [] });
+        this.setData({ flowTemplates: (res.templates || []).map(item => Object.assign({}, item, { stepCountText: localeCopy.stepCount(item.stepCount || 0) })) });
       }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_fbc220bedd));
@@ -458,6 +491,7 @@ Page({
         });
         this.setData({
           templatePreviewSteps: steps,
+          templatePreviewStepCountText: localeCopy.stepCount(steps.length),
           templateStepOverrides: overrides
         });
       }
@@ -812,7 +846,8 @@ Page({
     }
 
     this.setData({
-      adHocSteps: steps,
+      adHocSteps: decorateAdHocSteps(steps),
+      adHocStepCountText: localeCopy.stepCount(steps.length),
       personPickerVisible: false
     });
   },
@@ -896,7 +931,8 @@ Page({
     });
 
     this.setData({
-      adHocSteps: steps,
+      adHocSteps: decorateAdHocSteps(steps),
+      adHocStepCountText: localeCopy.stepCount(steps.length),
       adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
       adHocStepEditorVisible: false,
       identityPickerScopeIndex: 0,
@@ -910,7 +946,7 @@ Page({
     const idx = e.currentTarget.dataset.index;
     const steps = [...this.data.adHocSteps];
     steps.splice(idx, 1);
-    this.setData({ adHocSteps: steps });
+    this.setData({ adHocSteps: decorateAdHocSteps(steps), adHocStepCountText: localeCopy.stepCount(steps.length) });
   },
 
   // ── Helpers for step display ──
@@ -1267,14 +1303,14 @@ Page({
               let interLabelMap = { withdraw: localeCopy.copy_0f438fa581, resubmit: localeCopy.copy_aed5de2d69, submit: localeCopy.copy_c94eb77b73, edit: localeCopy.copy_cacc39a0fd, approve: localeCopy.copy_126a0e1f4c, reject: localeCopy.copy_e4c3cdbf04 };
               let interStepLabel = '';
               if ((interEvt.eventType === 'approve' || interEvt.eventType === 'reject') && interEvt.stepIndex) {
-                interStepLabel = localeCopy.copy_93c50c01c0 + interEvt.stepIndex + localeCopy.copy_493a127a99;
+                interStepLabel = localeCopy.stepNumber(interEvt.stepIndex);
               }
               flowTimeline.push({
                 _key: 'lifecycle_inter_' + interEvt.id, round: interEvt.round || 1,
                 type: 'lifecycle',
                 event: interEvt.eventType,
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
-                subLabel: (interEvt.round > 1 ? localeCopy.copy_93c50c01c0 + interEvt.round + localeCopy.copy_4707e47a7a : '') + interStepLabel,
+                subLabel: [interEvt.round > 1 ? localeCopy.roundNumber(interEvt.round) : '', interStepLabel].filter(Boolean).join(' · '),
                 time: formatAuditTime(interEvt.createdAt, interEvt.createdAtReviewStatus),
                 iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
@@ -1291,7 +1327,7 @@ Page({
                 type: 'lifecycle',
                 event: 'resubmit',
                 label: localeCopy.copy_aed5de2d69,
-                subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
+                subLabel: localeCopy.roundNumber(round),
                 time: formatAuditTime(resubmitEvt.createdAt, resubmitEvt.createdAtReviewStatus),
                 iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
@@ -1307,7 +1343,7 @@ Page({
                 type: 'lifecycle',
                 event: 'resubmit',
                 label: localeCopy.copy_aed5de2d69,
-                subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
+                subLabel: localeCopy.roundNumber(round),
                 iconName: 'edit',
                 operatorName: '',
                 comment: ''
@@ -1334,43 +1370,8 @@ Page({
               continue;
             }
 
-            let approverDesc = step.approverDesc || '';
-            let conditionsDisplay = step.stepConditionsDisplay || [];
-
-            // If the server approverDesc is empty or looks incomplete (no actual names),
-            // try to build a better description from individual fields or conditions display
-            if (!approverDesc || approverDesc.indexOf(localeCopy.copy_86bbf0d28e) >= 0) {
-              // Try conditions display first (multi-condition, more detailed)
-              if (conditionsDisplay.length) {
-                approverDesc = conditionsDisplay.join(localeCopy.copy_17bcc41217);
-              }
-              // If still empty, fall back to individual fields
-              if (!approverDesc || approverDesc.indexOf(localeCopy.copy_86bbf0d28e) >= 0) {
-                if (step.approverType === 'specific_person' || (step.approverName && step.approverName !== localeCopy.copy_86bbf0d28e)) {
-                  approverDesc = localeCopy.copy_d3028048b3 + (step.approverName || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
-                } else {
-                  let identName = step.approverIdentityName || localeCopy.copy_c76fae0e08;
-                  let scopeType = step.scopeType || 'all';
-                  if (scopeType === 'all' || !scopeType) {
-                    approverDesc = localeCopy.copy_9b774f950c + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'same_department') {
-                    approverDesc = localeCopy.copy_fc98ff863c + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'same_work_group') {
-                    approverDesc = localeCopy.copy_d0348010eb + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'specific_department') {
-                    let deptName = step.scopeDepartmentName || localeCopy.copy_b3604f443f;
-                    approverDesc = localeCopy.copy_d3028048b3 + deptName + ' ' + identName + localeCopy.copy_7abed5378f;
-                  } else if (scopeType === 'specific_work_group') {
-                    let deptName2 = step.scopeDepartmentName || '';
-                    let wgName = step.scopeWorkGroupName || '';
-                    let location = [deptName2, wgName].filter(Boolean).join('·') || localeCopy.copy_258347beac;
-                    approverDesc = localeCopy.copy_d3028048b3 + location + ' ' + identName + localeCopy.copy_7abed5378f;
-                  } else {
-                    approverDesc = localeCopy.copy_d3028048b3 + identName + localeCopy.copy_7abed5378f;
-                  }
-                }
-              }
-            }
+            const conditionView = buildConditions(step, conditionCopy);
+            const approverDesc = conditionView.summary;
 
             let actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, either: signingCopy.either, both: localeCopy.copy_a63d02480e };
             let actionLabel = actionMap[step.actionType] || step.actionType || localeCopy.copy_8e2f75159e;
@@ -1484,7 +1485,7 @@ Page({
               flowTagClass: flowTagClass,
               approverDesc: approverDesc,
               actionLabel: actionLabel,
-              conditionsDisplay: conditionsDisplay
+              conditionView
             });
           }
 
@@ -1506,7 +1507,7 @@ Page({
                 flowTimeline.splice(insertIdx, 0, {
                   _key: 'separator_r' + round + '_remaining', round,
                   type: 'separator',
-                  label: localeCopy.copy_361de3f050 + remainingCount + localeCopy.copy_239cbf0257
+                  label: localeCopy.remainingApprovalSteps(remainingCount)
                 });
               }
             }
@@ -1526,7 +1527,7 @@ Page({
             type: 'lifecycle',
             event: lateEvt.eventType,
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
-            subLabel: lateEvt.round > 1 ? localeCopy.copy_93c50c01c0 + lateEvt.round + localeCopy.copy_14144be09d : '',
+            subLabel: lateEvt.round > 1 ? localeCopy.roundNumber(lateEvt.round) : '',
             time: formatAuditTime(lateEvt.createdAt, lateEvt.createdAtReviewStatus),
             iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
@@ -1600,6 +1601,8 @@ Page({
             if (!nextStepInfo && activeApprovalStep && flowTimeline[fi].sortOrder === (activeApprovalStep.sortOrder + 1)) {
               nextStepInfo = {
                 sortOrder: flowTimeline[fi].sortOrder,
+                stepText: localeCopy.stepNumber(flowTimeline[fi].sortOrder),
+                conditionView: flowTimeline[fi].conditionView,
                 approverDesc: flowTimeline[fi].approverDesc,
                 allowApproverDesignation: flowTimeline[fi].allowApproverDesignation === true
               };
@@ -1627,11 +1630,12 @@ Page({
                 id: rawStep.id,
                 sortOrder: rawStep.sortOrder,
                 stepName: rawStep.stepName || rawStep.name || '',
+                stepText: rawStep.stepName || rawStep.name || localeCopy.stepNumber(rawStep.sortOrder),
                 actionType: rawStep.actionType,
                 actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || localeCopy.copy_8e2f75159e,
-                approverDesc: rawStep.approverDesc || localeCopy.copy_ae42f47cf6,
+                approverDesc: buildConditions(rawStep, conditionCopy).summary,
                 round: rawStep.round || 1,
-                conditionsDisplay: rawStep.stepConditionsDisplay || [],
+                conditionView: buildConditions(rawStep, conditionCopy),
                 processedAssignmentView: workContextView.normalizeSnapshot(rawStep.processedContextSnapshot)
               };
               computedActiveStepId = rawStep.id;
@@ -1650,7 +1654,9 @@ Page({
           if (nextRawStep) {
             nextStepInfo = {
               sortOrder: nextRawStep.sortOrder,
-              approverDesc: nextRawStep.approverDesc || localeCopy.copy_a5674f1e5b,
+              stepText: localeCopy.stepNumber(nextRawStep.sortOrder),
+              conditionView: buildConditions(nextRawStep, conditionCopy),
+              approverDesc: buildConditions(nextRawStep, conditionCopy).summary,
               allowApproverDesignation: nextRawStep.allowApproverDesignation === true
             };
           }
@@ -1665,20 +1671,26 @@ Page({
           this._signingDraft = signingDrafts.store.open(key); this._signingStepId = activeApprovalStep.id;
           this._signingDraft.pendingRead = false;
         } else if (this._signingDraft) { this._signingDraft.locked = true; this._signingDraft.pendingRead = false; }
+        flowTimeline.forEach(node => {
+          node.roundText = Number(node.round) > 0 ? localeCopy.roundNumber(node.round) : '';
+          node.stepText = node.stepName || (Number(node.sortOrder) > 0 ? localeCopy.stepNumber(node.sortOrder) : '');
+        });
         this.setData({
           signingReadFailed: false, pendingActionRead: false,
           submission: submissionView,
+          rejectedStepText: Number.isInteger(Number(submissionView.previousRejectStepIndex)) && Number(submissionView.previousRejectStepIndex) > 0 ? localeCopy.rejectedAtStep(submissionView.previousRejectStepIndex) : localeCopy.rejectedStepUnknown,
           flowTimeline: flowTimeline,
           flowRounds: groupAuditRounds(submissionView, rawSteps, serverEvents).map(group => ({
             round: group.round, title: signingCopy.roundTitle.replace('{0}', group.round),
             status: group.status, statusText: signingCopy.roundStates[group.status] || signingCopy.stopped,
-            signatures: (res.signatures || []).filter(item => Number(item.round || 1) === group.round).map(item => Object.assign({}, item, { signedAtText: formatAuditDetailTime(item.signedAt, item.signedAtReviewStatus) })),
+            signatures: (res.signatures || []).filter(item => Number(item.round || 1) === group.round).map(item => Object.assign({}, item, { roundText: localeCopy.roundNumber(item.round || 1), signedAtText: formatAuditDetailTime(item.signedAt, item.signedAtReviewStatus) })),
             expanded: group.expanded, nodes: flowTimeline.filter(node => Number(node.round || 1) === group.round)
           })),
           rawStepCount: rawSteps.length,
           steps: rawSteps,
           files: res.files || [],
           signatures: (res.signatures || []).map((item) => Object.assign({}, item, {
+            roundText: localeCopy.roundNumber(item.round || 1),
             signedAtText: formatAuditDetailTime(item.signedAt, item.signedAtReviewStatus)
           })),
           flowProgressPercent: flowProgressPercent,
@@ -1942,7 +1954,7 @@ Page({
 
     // If user wants to save this signature to library
     if (this.data.sigSaveNew) {
-      let saveName = this.data.sigSaveName || (localeCopy.copy_66a2af4df9 + formatAbsoluteDate(Date.now()));
+      let saveName = this.data.sigSaveName || localeCopy.signatureDefaultName(formatAbsoluteDate(Date.now()));
       callFunction({
         name: 'saveSignature',
         data: { id: '', name: saveName, imageData: imageData }
@@ -1992,7 +2004,7 @@ Page({
   _computeSigPosText: function (sig) {
     if (!sig || sig.positionX == null || sig.positionY == null) return '';
     let text = (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%';
-    if (sig.page && sig.page > 1) text += localeCopy.copy_6acb97d4c6 + sig.page + localeCopy.copy_f67213967c;
+    if (sig.page && sig.page > 1) text += ' · ' + localeCopy.pageNumber(sig.page);
     return text;
   },
 
@@ -2281,9 +2293,13 @@ Page({
         data: { fileId: fileId, page: page || 1 }
       });
       if (res.status === 'success') {
+        const pageFactsKnown = Number.isInteger(res.page) && Number.isInteger(res.totalPages) && res.page > 0 && res.totalPages >= res.page;
         let updateData = {
           placementTotalPages: res.totalPages || 1,
           placementCurrentPage: res.page || 1,
+          placementPageText: pageFactsKnown ? localeCopy.pageNumber(res.page) : localeCopy.pagePositionUnknown,
+          placementPagePosition: pageFactsKnown ? localeCopy.pagePosition(res.page, res.totalPages) : localeCopy.pagePositionUnknown,
+          placementPageFactsKnown: pageFactsKnown,
           placementFileMime: res.mimeType || that.data.placementFileMime,
           placementLoading: false
         };
@@ -2338,6 +2354,8 @@ Page({
     if (newPage !== this.data.placementCurrentPage) {
       this.setData({
         placementCurrentPage: newPage,
+        placementPageText: this.data.placementPageFactsKnown ? localeCopy.pageNumber(newPage) : localeCopy.pagePositionUnknown,
+        placementPagePosition: this.data.placementPageFactsKnown ? localeCopy.pagePosition(newPage, this.data.placementTotalPages) : localeCopy.pagePositionUnknown,
         placementFileImage: '',
         placementLoading: true
       });
@@ -2389,6 +2407,8 @@ Page({
       placementSize: Math.round((sig.size || 1) * 100),
       placementRotation: sig.rotation || 0,
       placementCurrentPage: page,
+      placementPageText: this.data.placementPageFactsKnown ? localeCopy.pageNumber(page) : localeCopy.pagePositionUnknown,
+      placementPagePosition: this.data.placementPageFactsKnown ? localeCopy.pagePosition(page, this.data.placementTotalPages) : localeCopy.pagePositionUnknown,
       placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%'
     });
 
@@ -2836,10 +2856,12 @@ Page({
       editDesc: submission.description || '',
       editType: submission.type || 'template',
       editTemplateId: submission.templateId || '',
+      editStepCountText: localeCopy.stepCount(submission.type === 'ad_hoc' ? steps.length : 0),
       templatePreviewSteps: [],
       templateStepOverrides: existingTemplateOverrides,
-      editSteps: submission.type === 'ad_hoc' ? steps.map(function(s) {
+      editSteps: submission.type === 'ad_hoc' ? steps.map(function(s, index) {
         return {
+          stepText: localeCopy.stepNumber(index + 1),
           name: s.stepName || s.name || '',
           approverType: s.approverType || 'identity',
           approverHrId: s.approverHrId || '',
@@ -2856,8 +2878,8 @@ Page({
           scopeWorkGroupName: s.scopeWorkGroupName || '',
           // Include conditions for multi-select / OR display
           stepConditionsJson: s.stepConditionsJson || null,
-          stepConditionsDisplay: s.stepConditionsDisplay || [],
-          approverDesc: s.approverDesc || ''
+          conditionView: buildConditions(s, conditionCopy),
+          approverDesc: buildConditions(s, conditionCopy).summary
         };
       }) : [],
       editFiles: files,
@@ -2987,7 +3009,8 @@ Page({
     });
 
     this.setData({
-      editSteps: steps,
+      editSteps: steps.map((step, index) => Object.assign({}, step, { stepText: localeCopy.stepNumber(index + 1) })),
+      editStepCountText: localeCopy.stepCount(steps.length),
       editStepEditorVisible: false,
       editStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' }
     });
@@ -3118,14 +3141,14 @@ Page({
         }]
       });
     }
-    this.setData({ editSteps: steps, editPersonPickerVisible: false });
+    this.setData({ editSteps: steps.map((step, index) => Object.assign({}, step, { stepText: localeCopy.stepNumber(index + 1) })), editStepCountText: localeCopy.stepCount(steps.length), editPersonPickerVisible: false });
   },
 
   removeEditStep(e) {
     let idx = e.currentTarget.dataset.index;
     let steps = [...this.data.editSteps];
     steps.splice(idx, 1);
-    this.setData({ editSteps: steps });
+    this.setData({ editSteps: steps.map((step, index) => Object.assign({}, step, { stepText: localeCopy.stepNumber(index + 1) })), editStepCountText: localeCopy.stepCount(steps.length) });
   },
 
   // ── Edit: File management ──

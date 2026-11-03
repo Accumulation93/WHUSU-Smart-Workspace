@@ -88,8 +88,8 @@ for (const nextType of ['number', 'sequence']) {
   const converted = buildSwitchSources([oldField], [newField], '', String)[0];
   assert.equal(converted.action, 'map');
   assert.equal(converted.targetTemplateFieldId, 'new');
-  assert.match(converted.suggestionText, /已改为/);
-  assert.match(converted.suggestionText, /默认移入现有资料并自动转换格式/);
+  assert.match(converted.suggestionText, /已选择移入现有资料/);
+  assert.match(converted.suggestionText, /应用前将检查内容能否转换/);
   assert.equal(converted.targetOptions[1].label, '同名字段');
   assert.equal(converted.targetOptions[1].displayLabel, '同名字段 · ' + (nextType === 'number' ? '数字' : '序列'));
   assert.equal(newField.displayLabel, undefined, '展示标签不能修改原模板数据');
@@ -173,7 +173,7 @@ async function main() {
   };
   await page.startHrProfileTemplateSwitch({ currentTarget: { dataset: { id: 'template-new' } } });
   assert.equal(page.data.hrTemplateSwitchSources[0].action, 'map');
-  assert.match(page.data.hrTemplateSwitchSources[0].suggestionText, /默认移入现有资料并自动转换格式/);
+  assert.match(page.data.hrTemplateSwitchSources[0].suggestionText, /应用前将检查内容能否转换/);
   page.onHrTemplateSwitchActionChange({ currentTarget: { dataset: { index: 0 } }, detail: { value: 1 } });
   page.onHrTemplateSwitchTargetChange({ currentTarget: { dataset: { index: 0 } }, detail: { value: 1 } });
   assert.equal(page.buildHrTemplateSwitchActions()[0].action, 'map');

@@ -14,7 +14,7 @@
     <template v-else-if="ready">
       <section class="card stack">
         <p class="muted">{{ ui.tabHelp[tab] }}</p>
-        <template v-if="tab === 'rules' && !state.schemes.length"><p>{{ ui.firstUse }}</p><button type="button" class="btn btn-primary" @click="edit('scheme')">{{ ui.createScheme }}</button></template>
+        <template v-if="tab === 'rules' && !state.schemes.some(item => item.publishedVersion)"><p>{{ ui.noSchemes }}</p><button type="button" class="btn btn-primary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button></template>
       </section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
@@ -124,7 +124,7 @@
 </template>
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import UiIcon from '@/components/UiIcon.vue';
 import AppLoading from '@/components/AppLoading.vue';
@@ -139,7 +139,7 @@ import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
 import '@/styles/authorization.css';
 const router = useRouter();
 const tabs = computed(() => state.value.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective']);
-const tab = ref('rules');
+const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });

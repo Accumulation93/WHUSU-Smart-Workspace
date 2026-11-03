@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import authorizationCopy from '../../src/locales/zh-CN/shared/authorization.js';
+import legacyCopy from '../../src/locales/zh-CN/shared/legacyPermissions.js';
 
 test('legacy management stays readable after cutover but cannot change or save grants', async ({ page }) => {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -15,9 +16,13 @@ test('legacy management stays readable after cutover but cannot change or save g
   await expect(page.getByText(authorizationCopy.legacyReadOnly, { exact: true })).toBeVisible();
   await page.getByRole('button').filter({ hasText: admin.name }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('switch', { name: 'Read', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.unknown, exact: true })).toBeDisabled();
+  await expect(dialog.getByText('Permissions', { exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('contentinfo').getByRole('button', { name: copy.common.close, exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: copy.admin.permissionsSave, exact: true })).toHaveCount(0);
   expect(saves).toBe(0);
+  await dialog.getByRole('contentinfo').getByRole('button', { name: copy.common.close, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test('permission directory follows server list shape, retains failed edits and rereads saved grants', async ({ page }) => {
@@ -41,12 +46,13 @@ test('permission directory follows server list shape, retains failed edits and r
   await page.getByRole('button').filter({ hasText: admin.name }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('switch', { name: 'Write accounts', exact: true }).check();
-  await expect(dialog.getByRole('switch', { name: 'Read accounts', exact: true })).toBeChecked();
-  await expect(dialog.getByRole('switch', { name: 'Fixed permission', exact: true })).toBeDisabled();
+  await dialog.getByRole('switch', { name: legacyCopy.permissions['system.admin_accounts.write'][0], exact: true }).check();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.permissions['system.admin_accounts.read'][0], exact: true })).toBeChecked();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.unknown, exact: true })).toBeDisabled();
   await dialog.getByRole('button', { name: copy.admin.permissionsSave, exact: true }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Save rejected');
-  await expect(dialog.getByRole('switch', { name: 'Write accounts', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('alert')).not.toHaveText('Save rejected');
+  await expect(dialog.getByRole('alert')).not.toBeEmpty();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.permissions['system.admin_accounts.write'][0], exact: true })).toBeChecked();
   await dialog.getByRole('button', { name: copy.admin.permissionsSave, exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect.poll(() => reads).toBe(2);
@@ -60,7 +66,7 @@ test('permission controls keep their shape, group changes respect fixed grants a
   const rows = [1, 2].map(id => ({ id: String(id), name: 'Administrator ' + id, adminLevelLabel: 'Administrator', grantedCount: 0, applicableCount: 1 }));
   await page.route('**/api/listPermissionManagedAdmins', route => route.fulfill({ json: { status: 'success', list: rows } }));
   await page.route('**/api/getAdminPermissionDetail', route => route.fulfill({ json: { status: 'success', admin: rows[0], groups: [{ key: 'group', label: 'Permission group', permissions: [
-    { key: 'editable', label: 'Editable permission', description: 'Long description '.repeat(12), editable: true, granted: false },
+    { key: 'hr.people', label: 'Editable permission', description: 'Long description '.repeat(12), editable: true, granted: false },
     { key: 'fixed', label: 'Fixed permission', editable: false, granted: true }
   ] }] } }));
   await page.goto('/web/admin/permissions');
@@ -71,12 +77,12 @@ test('permission controls keep their shape, group changes respect fixed grants a
   else expect(positions[1].y).toBeGreaterThan(positions[0].y);
   await cards.first().click();
   const dialog = page.getByRole('dialog');
-  const group = dialog.getByRole('switch', { name: 'Permission group · ' + copy.admin.permissionsAll });
+  const group = dialog.getByRole('switch', { name: legacyCopy.unknownGroup + ' · ' + copy.admin.permissionsAll });
   await group.check();
-  await expect(dialog.getByRole('switch', { name: 'Editable permission', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.permissions['hr.people'][0], exact: true })).toBeChecked();
   await group.uncheck();
-  await expect(dialog.getByRole('switch', { name: 'Editable permission', exact: true })).not.toBeChecked();
-  await expect(dialog.getByRole('switch', { name: 'Fixed permission', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.permissions['hr.people'][0], exact: true })).not.toBeChecked();
+  await expect(dialog.getByRole('switch', { name: legacyCopy.unknown, exact: true })).toBeChecked();
   const size = await group.boundingBox();
   expect(size.width).toBe(52); expect(size.height).toBe(32);
   await page.keyboard.press('Escape');

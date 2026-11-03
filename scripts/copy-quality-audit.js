@@ -7,12 +7,12 @@
  * 却整目录跳过 locales/**，导致语言文件里的文案值不受任何规则约束。
  * 本脚本补齐这一层，按已确认的文案规范检查：
  *
- *   R1 首尾空格      R2 以标点开头/结尾   R3 以冒号结尾
+ *   R1 首尾空格      R2 残缺首尾标点   R3 以冒号结尾
  *   R4 符号装饰      R5 半角括号/半角省略号
  *   R6 碎片词条      R7 内部术语黑名单
- *   R8 同一键跨文件文案不一致
- *   R9 引用了不存在的 hash 键（copy_xxxxxxxxxx）
- *   R10 声明但未被引用的 hash 键（死键）
+ *   R8 同一资源中重复声明的文案不一致（生成副本由 sync-shared-modules 检查）
+ *   R9 引用了当前资源不存在的 hash 键，或已声明的引用值无效
+ *   R10 扫描两端后仍没有引用证据的 hash 键（动态来源另列人工核实）
  *
  * 用法：
  *   node scripts/copy-quality-audit.js            # 报告全部命中项
@@ -23,12 +23,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const { canonicalResource, declaredHashKeys, referenceInventory, hasBoundaryFragment, invalidExportedHashKeys } = require('./lib/copyQualityReferences');
 
 const ROOT = path.resolve(__dirname, '..');
 const MINI_ROOT = path.join(ROOT, 'miniprogram');
-const LOCALE_ROOT = path.join(MINI_ROOT, 'locales', 'zh-CN');
 const SERVER_LOCALE_ROOT = path.join(ROOT, 'server', 'src', 'locales', 'zh-CN');
 const WEB_LOCALE_ROOT = path.join(ROOT, 'web', 'src', 'locales', 'zh-CN');
+const SHARED_LOCALE_ROOT = path.join(ROOT, 'shared', 'locales', 'zh-CN');
 const HASH_KEY = /^copy_[0-9a-f]{10}$/;
 
 // 单字/单token 碎片：它们只能靠拼接才成句，必须与相邻文案合并。
@@ -38,6 +39,7 @@ const INTERNAL_TERMS = /(预检|字段|字典|凭据|缓存|快照|会话|令牌
 const GLYPHS = /[▼▲◀▶✓✗✕○●◯✎⌫⟳]/;
 
 function walk(dir, output = []) {
+  if (!fs.existsSync(dir)) return output;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, output);
@@ -89,30 +91,29 @@ function collectCopy(file) {
   return entries;
 }
 
-function collectReferencedHashKeys() {
-  const used = new Set();
-  const stack = [MINI_ROOT, path.join(ROOT, 'server', 'src')];
+function collectReferenceFiles() {
+  const used = [];
+  const stack = [MINI_ROOT, path.join(ROOT, 'server', 'src'), path.join(ROOT, 'web', 'src')];
   while (stack.length) {
     const dir = stack.pop();
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === 'locales' || entry.name === 'node_modules') continue;
+        if (entry.name === 'locales' || entry.name === 'node_modules' || entry.name === 'package-resources') continue;
         stack.push(full);
         continue;
       }
-      if (!/\.(?:js|wxml|wxs|json)$/.test(entry.name)) continue;
-      const text = fs.readFileSync(full, 'utf8');
-      for (const found of text.matchAll(/copy_[0-9a-f]{10}/g)) used.add(found[0]);
+      if (!/\.(?:js|vue|wxml|wxs|json)$/.test(entry.name)) continue;
+      used.push(full);
     }
   }
   return used;
 }
 
-const files = walk(LOCALE_ROOT)
+const files = walk(SHARED_LOCALE_ROOT)
   .filter((file) => !file.endsWith(`${path.sep}runtime.js`))
   .concat(fs.existsSync(SERVER_LOCALE_ROOT) ? walk(SERVER_LOCALE_ROOT) : [])
-  .concat(fs.existsSync(WEB_LOCALE_ROOT) ? walk(WEB_LOCALE_ROOT) : []);
+  .concat(fs.existsSync(WEB_LOCALE_ROOT) ? walk(WEB_LOCALE_ROOT).filter(file => !file.includes(`${path.sep}shared${path.sep}`)) : []);
 const entries = files.flatMap(collectCopy);
 // 文案质量规则作用于小程序与网页文案；服务端文案本轮只参与“键是否声明”的判定。
 const miniEntries = entries.filter((entry) => !entry.file.startsWith('server/'));
@@ -130,15 +131,16 @@ function report(rule, entry, detail) {
 
 const byKey = new Map();
 for (const entry of miniEntries) {
-  if (!byKey.has(entry.key)) byKey.set(entry.key, []);
-  byKey.get(entry.key).push(entry);
+  const resourceKey = canonicalResource(ROOT, path.join(ROOT, entry.file)) + ':' + entry.key;
+  if (!byKey.has(resourceKey)) byKey.set(resourceKey, []);
+  byKey.get(resourceKey).push(entry);
 
   const text = entry.text;
   const hasCjk = /[\u3400-\u9fff]/.test(text);
   if (!hasCjk) continue;
 
   if (/^\s|\s$/.test(text)) report('R1-首尾空格', entry);
-  if (/^[，。、；：！？）】」』.!?,;:)\]]/.test(text) || /[，。、；（【「『,;:(\[]$/.test(text)) report('R2-首尾标点', entry);
+  if (hasBoundaryFragment(text)) report('R2-首尾标点', entry);
   if (/：$|:$/.test(text)) report('R3-尾部冒号', entry);
   if (GLYPHS.test(text)) report('R4-符号装饰', entry);
   if (/[()]/.test(text) || /\.\.\./.test(text)) report('R5-半角标点', entry);
@@ -146,28 +148,44 @@ for (const entry of miniEntries) {
   if (INTERNAL_TERMS.test(text)) report('R7-内部术语', entry);
 }
 
-for (const [key, group] of byKey) {
-  // 语义键按页面/模块命名，天然可以逐页不同；只有内容寻址的 hash 键要求跨文件一致。
-  if (!HASH_KEY.test(key)) continue;
+for (const group of byKey.values()) {
+  // 相同历史 hash 可以在不同模块表达不同意思；只比较同一资源中的声明。
+  if (!HASH_KEY.test(group[0].key)) continue;
   const texts = Array.from(new Set(group.map((item) => item.text)));
   if (texts.length > 1) {
     for (const entry of group) report('R8-同键文案不一致', entry, texts.join(' | '));
   }
 }
 
-const referenced = collectReferencedHashKeys();
-const declared = new Set(entries.map((entry) => entry.key).filter((key) => HASH_KEY.test(key)));
-for (const key of referenced) {
-  if (HASH_KEY.test(key) && !declared.has(key)) {
-    report('R9-引用未声明的键', { file: 'miniprogram/**', key, text: '', line: 0 });
+const references = referenceInventory(ROOT, files, collectReferenceFiles().concat(files));
+// 与语言生成器一致，仅加载仓库中的 CommonJS 语料模块；不执行格式化函数。
+// 声明了键却指向 undefined 仍必须失败，不能只凭属性名认为合法。
+for (const file of files.filter(item => !item.startsWith(WEB_LOCALE_ROOT))) {
+  try {
+    for (const key of invalidExportedHashKeys(require(file))) {
+      report('R9-语料引用值无效', { file: relative(file), key, text: '', line: 0 });
+    }
+  } catch (error) {
+    report('R9-语料模块加载失败', { file: relative(file), key: '', text: '', line: 0 }, error.message);
   }
 }
-const deadKeys = entries.filter((entry) => HASH_KEY.test(entry.key) && !referenced.has(entry.key));
-for (const entry of deadKeys) report('R10-死键', entry);
+for (const item of references.missing) {
+  report('R9-引用未声明的键', { file: relative(item.file), key: item.key, text: '', line: 0 }, item.resource);
+}
+// 未解析的动态/聚合引用不能被当作不存在。仅在已完整扫描且没有任何候选引用时报告死键。
+for (const file of files) {
+  const resource = canonicalResource(ROOT, file);
+  for (const key of declaredHashKeys(fs.readFileSync(file, 'utf8'))) {
+    if (!(references.used.get(resource) || new Set()).has(key) && !references.uncertain.has(key)) {
+      report('R10-死键', { file: relative(file), key, text: '', line: 0 });
+    }
+  }
+}
 
 const summary = new Map();
 for (const item of findings) summary.set(item.rule, (summary.get(item.rule) || 0) + 1);
 console.log(`用户文案质量审计：${files.length} 个语言文件，${entries.length} 条文案值，命中 ${findings.length} 条`);
+console.log(`另有 ${references.uncertain.size} 个动态或聚合 hash 引用需结合调用链人工核实，未据此删除语料。`);
 for (const [rule, count] of Array.from(summary.entries()).sort()) {
   console.log(`  ${rule}: ${count}`);
 }
@@ -177,3 +195,4 @@ if (findings.length) {
 }
 
 if (process.argv.includes('--strict') && findings.length) process.exitCode = 1;
+if (process.argv.includes('--json')) console.log(JSON.stringify({ findings, uncertainHashKeys: Array.from(references.uncertain) }));

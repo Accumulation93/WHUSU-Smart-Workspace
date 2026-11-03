@@ -4,6 +4,8 @@
     <section ref="organizationPanel" class="card stack">
       <div class="card-title">{{ copy.workRole.organizationLabel }}</div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
+      <AppLoading v-if="loading" :text="copy.common.loading" />
+      <button v-if="!loading && !loaded" type="button" class="btn btn-secondary" @click="ensureLoaded">{{ copy.common.retry }}</button>
       <label v-if="organizations.length > 4" class="field">
         <span class="field-label">{{ copy.common.search }}</span>
         <input
@@ -13,8 +15,8 @@
           :placeholder="copy.workRole.searchPlaceholder"
         />
       </label>
-      <div v-if="!organizations.length" class="empty-state">{{ copy.workRole.noSelectableOrg }}</div>
-      <div v-else class="row row-wrap">
+      <div v-if="loaded && !organizations.length" class="empty-state">{{ copy.workRole.noSelectableOrg }}</div>
+      <div v-else-if="organizations.length" class="row row-wrap">
         <button
           v-for="organization in filteredOrganizations"
           :key="organization.id"
@@ -31,7 +33,7 @@
 
     <section class="card stack">
       <div class="card-title">{{ copy.workRole.assignmentTitle }}</div>
-      <div v-if="!assignments.length" class="empty-state">{{ copy.workRole.emptyAssignment }}</div>
+      <div v-if="loaded && !assignments.length && !admins.length" class="empty-state">{{ copy.workRole.emptyAssignment }}</div>
       <div v-else class="list">
         <button
           v-for="item in assignments"
@@ -84,6 +86,7 @@ import copy from '@/locales/zh-CN/index.js';
 import { errorText } from '@/runtime/api.js';
 import { activateContext, reloadSession, roleLabelOf, session } from '@/runtime/session.js';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
+import AppLoading from '@/components/AppLoading.vue';
 
 const router = useRouter();
 const organizationPanel = ref(null);
@@ -92,6 +95,7 @@ const draftOrganizationId = ref('');
 const applying = ref(false);
 const loadNotice = ref('');
 const loaded = ref(false);
+const loading = ref(false);
 
 const organizations = computed(() => session.organizations || []);
 const currentOrganizationId = computed(() => (session.context && session.context.organizationId) || '');
@@ -109,14 +113,25 @@ const assignments = computed(() => draftContexts.value.filter((item) => item.rol
 const admins = computed(() => draftContexts.value.filter((item) => item.role === 'admin'));
 
 async function ensureLoaded() {
-  // 直接打开这个地址时，会话资料可能还没取到，需要自己补一次。
-  loaded.value = true;
-  if (session.status !== 'authenticated') {
-    await reloadSession();
+  if (loading.value) return;
+  loading.value = true;
+  loaded.value = false;
+  loadNotice.value = '';
+  try {
+    if (session.status !== 'authenticated') await reloadSession();
+    if (session.status !== 'authenticated') {
+      loadNotice.value = session.notice || copy.workRole.loadFailed;
+      return;
+    }
+    draftOrganizationId.value = currentOrganizationId.value
+      || (organizations.value[0] && organizations.value[0].id)
+      || '';
+    loaded.value = true;
+  } catch (error) {
+    loadNotice.value = errorText(error, copy.workRole.loadFailed);
+  } finally {
+    loading.value = false;
   }
-  draftOrganizationId.value = currentOrganizationId.value
-    || (organizations.value[0] && organizations.value[0].id)
-    || '';
 }
 
 async function apply(item) {

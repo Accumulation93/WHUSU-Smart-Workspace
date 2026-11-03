@@ -53,6 +53,7 @@
     </div>
     </div>
     <div class="signing-bottom-bar">
+    <button v-if="submissionId" class="btn-quiet" :aria-label="text.draftConfirmHelpAction" @click="confirmHelp=true"><UiIcon name="toast-info" /></button>
     <button class="btn-quiet" :aria-expanded="layersExpanded" @click="layersExpanded = !layersExpanded; toolsExpanded = false">{{ text.adjustLayers }} {{ layers.length }}</button>
     <div class="signing-toolbar" v-if="totalPages > 1"><button class="btn-quiet" :disabled="page <= 1 || busy" @click="loadPage(page - 1)">◀</button><span>{{ page }} / {{ totalPages }}</span><button class="btn-quiet" :disabled="page >= totalPages || busy" @click="loadPage(page + 1)">▶</button></div>
     <p v-if="exportNotice" class="notice-line">{{ exportNotice }}</p>
@@ -61,11 +62,13 @@
     </div>
     <canvas ref="inkRef" class="signing-export-canvas"></canvas>
   </section>
+  <GlassDialog v-if="confirmHelp" :title="text.draftConfirmHelpTitle" @close="confirmHelp=false"><p>{{ text.draftConfirmHelp }}</p><template #footer><button class="btn btn-secondary" @click="confirmHelp=false">{{ text.close }}</button></template></GlassDialog>
 </template>
 <script setup>
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, reactive, watch } from 'vue';
 import text from '@/locales/zh-CN/shared/auditSigning.js';
-import { callApi, requireSuccess } from '@/runtime/api.js';
+import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
+import GlassDialog from '@/components/GlassDialog.vue';
 import { confirmAction } from '@/runtime/notify.js';
 import { signingDrafts, restoreDraft } from '@/runtime/signingDrafts.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
@@ -74,7 +77,8 @@ import { recolorLayer, blankPageSize, pageWidthMm, signatureWidthMm, withSignatu
 import { signatureGeometry } from '@/shared/auditSignatureGeometry.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 const requests = auditRequests();
-const props = defineProps({ draft: {type:Object,required:true}, file: {type:Object,required:true}, initialMode: {type:String,default:'browse'}, active: {type:String,default:''}, pad: Boolean, allowSaveTemplate: Boolean, rollback: Object, initialPreview: Object });
+const props = defineProps({ draft: {type:Object,required:true}, file: {type:Object,required:true}, submissionId: String, initialMode: {type:String,default:'browse'}, active: {type:String,default:''}, pad: Boolean, allowSaveTemplate: Boolean, rollback: Object, initialPreview: Object });
+const confirmHelp=ref(false);
 const saveTemplate=ref(false);
 const toolsExpanded=ref(false), layersExpanded=ref(false);
 const emit = defineEmits(['confirm','cancel']);
@@ -181,7 +185,7 @@ function rotateMaterial(value){adjustment.value=null;if(activeMaterial.value)com
 async function changeHistory(forward){if(busy.value||saving.value)return;const target=(forward?redo:undo)(fileDraft.history,props.draft.materials);if(target===null)return;if(target!==page.value)await loadPage(target);else render();}
 async function clearInk(){if(busy.value||saving.value)return;if(await confirmAction({title:text.clearTitle,body:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive||busy.value||saving.value)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
 async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);for(const layer of (props.pad?[null]:inkExportGroups(fileDraft.history,props.draft.materials.filter(item=>item.fileId===props.file.id),number))){const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);const region=layer?groupExportRegion(layer,size.width,size.height):{left:0,top:0,width:size.width,height:size.height};canvas.width=region.width;canvas.height=region.height;if(layer)renderExportGroup(ctx,document.createElement('canvas'),fileDraft.history,layer,size.width,size.height,region);else renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const raw=crop.toDataURL('image/png'),imageData=props.pad?withSignatureWidth(raw,pageWidthMm({pad:true})*bounds.width/size.width):raw;if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+(layer?layer.id+'_page_'+number:number),inkLayerId:layer?layer.id:'',layerOrder:layer?layer.order:0,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/size.width,positionX:(region.left+bounds.left+bounds.width/2)/size.width,positionY:(region.top+bounds.top+bounds.height/2)/size.height,size:1,rotation:0,page:number});}}return exports;}
-async function confirm(){saving.value=true;exportNotice.value='';try{fileDraft.exports=await exportPages();if(props.pad&&!fileDraft.exports.length){exportNotice.value=text.empty;return;}if(props.allowSaveTemplate&&saveTemplate.value)requireSuccess(await requests.call('saveSignature',{id:'',name:text.signature,imageData:fileDraft.exports[0].imageData}));if(!alive)return;finished=true;emit('confirm',fileDraft.exports);}catch(error){exportNotice.value=error.message==='too_large'?text.tooLarge:text.exportFailed;}finally{saving.value=false;}}
+async function confirm(){saving.value=true;exportNotice.value='';let savingSignature=false;try{fileDraft.exports=await exportPages();if(props.pad&&!fileDraft.exports.length){exportNotice.value=text.empty;return;}if(props.allowSaveTemplate&&saveTemplate.value){savingSignature=true;requireSuccess(await requests.call('saveSignature',{id:'',name:text.signature,imageData:fileDraft.exports[0].imageData}),text.signatureSaveFailed);savingSignature=false;}if(!alive)return;finished=true;emit('confirm',fileDraft.exports);}catch(error){exportNotice.value=savingSignature?errorText(error):error.message==='too_large'?text.tooLarge:text.exportFailed;}finally{saving.value=false;}}
 function cancel(){restoreDraft(props.draft,saved);finished=true;emit('cancel');}
 onMounted(()=>{observer=new ResizeObserver(resize);observer.observe(stageRef.value);loadPage(page.value);});
 watch([mode,activeId],()=>{cancelAdjustment();cancelGesture();render();});

@@ -190,7 +190,14 @@ async function details(payload, actor) {
           action.type === 'source' || action.sourceKey ? { affectedRows: issue.rowNumbers } : {}));
       if (row) actions.push({ type: 'edit', rowNumber }, { type: 'exclude', rowNumbers: [rowNumber] });
       else actions.push({ type: 'undo', rowNumber });
-      return { rowNumber, name: row && row.name || sourceName || copy.unnamedPerson, content: rowIssue.message || (row ? planner.label(row.values) : ''), actions };
+      return { rowNumber, name: row && row.name || sourceName || '', content: rowIssue.message || (row ? planner.label(row.values) : ''), actions,
+        category: rowIssue.category, reason: rowIssue.reason, field: rowIssue.field, customFieldLabel: rowIssue.customFieldLabel,
+        before: rowIssue.before, after: rowIssue.after, presentationFacts: rowIssue.presentationFacts ? Object.assign({}, rowIssue.presentationFacts, {
+          people: (rowIssue.presentationFacts.people || []).filter(person => person.rowNumber === rowNumber)
+        }) : undefined,
+        unavailableKind: rowIssue.unavailableKind, dictionaryDepartment: rowIssue.dictionaryDepartment,
+        rowNumbers: [rowNumber], state: rowIssue.state, operation: rowIssue.operation, resolution: rowIssue.resolution,
+        scopeDepartment: rowIssue.scopeDepartment, issueFields: rowIssue.issueFields };
     });
     return { status: 'success', items, total: issue.rowNumbers.length, hasMore: offset + items.length < issue.rowNumbers.length };
   }

@@ -208,7 +208,8 @@ function testMigrationAndFrontendContract() {
   assert.match(messageCenter, /organizationId/);
   assert.match(messageCenterView, /organization-filter/);
   assert.match(messageCenterView, /organization-meta-name/);
-  assert.match(messageCenterView, /部分组织暂未加载/);
+  assert.match(messageCenterView, /部分组织的内容暂未加载，请重试/);
+  assert.match(messageCenterView, /bindtap="retryOverview"/);
   assert.match(messageCenterStyle, /\.message-switch-mask[\s\S]*background:\s*rgba\(15,\s*23,\s*42,\s*0\.34\)/);
   assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*background:\s*linear-gradient\(145deg/);
   assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*box-shadow:/);

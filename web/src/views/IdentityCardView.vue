@@ -5,12 +5,12 @@
       <header v-if="publicView" class="identity-header stack">
         <div class="row"><span class="identity-result-icon"><UiIcon name="shield" tone="white" size-role="feature-leading" /></span><div><p class="identity-brand">{{ common.brandName }}</p><h2>{{ copy.verifyTitle }}</h2></div></div>
         <div v-if="valid && card" class="identity-result"><UiIcon name="check" size-role="context-trailing" /><strong>{{ copy.verified }}</strong></div>
-        <template v-if="card"><h1 class="identity-name">{{ card.name }}</h1><span>{{ card.state }}</span></template>
+        <template v-if="card"><h1 class="identity-name">{{ card.name }}</h1><span v-if="card.state">{{ card.state }}</span></template>
       </header>
       <div class="identity-body stack">
       <AppLoading v-if="loading" :text="copy.loading" />
       <template v-if="card">
-        <span v-if="!publicView" class="chip chip-green identity-own-status">{{ card.state }}</span>
+        <span v-if="!publicView && card.state" class="chip chip-green identity-own-status">{{ card.state }}</span>
         <div v-if="!publicView || checkedAtText" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ publicView ? copy.checkedAt : copy.currentTime }}</span><div class="identity-time-value">{{ publicView ? checkedAtText : currentTimeText }}</div></div></div>
         <div class="identity-fields"><div class="identity-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
         <div class="identity-field"><span class="muted">{{ copy.position }}</span><strong class="break-all">{{ card.position }}</strong></div></div>
@@ -34,7 +34,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import copy from '@/locales/zh-CN/shared/identityCard.js';
 import common from '@/locales/zh-CN/shared/common.js';
-import { callApi, requireSuccess } from '@/runtime/api.js';
+import heroCopy from '@/locales/zh-CN/shared/generated/components/workspace-hero/workspace-hero.js';
+import { callApi, requireSuccess, createLocalError, errorText } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import { formatDetailTime } from '@/runtime/dateTime.js';
 import { outputFile } from '@/runtime/fileIO.js';
@@ -46,6 +47,15 @@ const publicView = computed(() => route.name === 'identityCardVerify');
 const card = ref(null), miniProgramImage = ref(''), verificationImage = ref(''), codeMode = ref('verification'), valid = ref(false), notice = ref(''), loading = ref(false), qrLoading = ref(false);
 const image = computed(() => codeMode.value === 'verification' ? verificationImage.value : miniProgramImage.value);
 const currentTimeText = ref(''), checkedAtText = ref('');
+function presentCard(value) {
+  if (!value) return null;
+  const facts = value.positionFacts || {};
+  const position = facts.assignmentLabel || (facts.role === 'admin'
+    ? (facts.adminLevel === 'super_admin' ? heroCopy.copy_ccd219e5f1 : heroCopy.copy_c01a9aef59)
+    : facts.hasAssignment === false ? copy.noPosition : '');
+  return { ...value, state: ({ admin_active: copy.adminActive, active: copy.active, no_position: copy.noPosition })[value.stateCode] || '',
+    position };
+}
 let generation = 0, disposed = false, clockTimer;
 function clear() { clearInterval(clockTimer); clockTimer = undefined; currentTimeText.value = ''; checkedAtText.value = ''; generation++; card.value = null; miniProgramImage.value = ''; verificationImage.value = ''; codeMode.value = 'verification'; valid.value = false; notice.value = ''; loading.value = false; qrLoading.value = false; }
 function showOriginal() {
@@ -64,8 +74,8 @@ async function load() {
   try {
     const result = requireSuccess(await callApi(publicView.value ? 'verifyIdentityCard' : 'getMyIdentityCard', publicView.value ? {token: String(route.query.token || '')} : {}));
     if (!current()) return;
-    valid.value = result.valid; card.value = result.card || null; loading.value = false;
-    if (!result.valid) { notice.value = copy.unavailable; return; }
+    valid.value = result.valid; card.value = presentCard(result.card); loading.value = false;
+    if (!result.valid) { notice.value = publicView.value ? copy.verificationUnavailable : copy.personalUnavailable; return; }
     checkedAtText.value = result.checkedAt ? formatDetailTime(result.checkedAt) : '';
     currentTimeText.value = formatDetailTime(Date.now());
     if (!publicView.value) clockTimer = setInterval(() => {
@@ -75,11 +85,11 @@ async function load() {
     qrLoading.value = true;
     const generated = requireSuccess(await callApi('createMyIdentityCardCode', {}));
     if (!current()) return;
-    if (!generated.valid || !/^data:image\/(png|jpeg);base64,/.test(generated.image || '')) throw new Error();
+    if (!generated.valid || !/^data:image\/(png|jpeg);base64,/.test(generated.image || '')) throw createLocalError(copy.qrFailure);
     const verification = generated.verificationImage || generated.image;
-    if (!/^data:image\/(png|jpeg);base64,/.test(verification)) throw new Error();
-    miniProgramImage.value = generated.image; verificationImage.value = verification; card.value = generated.card;
-  } catch (_) { if (current()) notice.value = qrLoading.value ? copy.qrFailure : copy.failure; }
+    if (!/^data:image\/(png|jpeg);base64,/.test(verification)) throw createLocalError(copy.qrFailure);
+    miniProgramImage.value = generated.image; verificationImage.value = verification; card.value = presentCard(generated.card);
+  } catch (error) { if (current()) notice.value = errorText(error, qrLoading.value ? copy.qrFailure : copy.failure); }
   finally { if (current()) { loading.value = false; qrLoading.value = false; } }
 }
 function visibility() { if (document.hidden) clear(); else load(); }

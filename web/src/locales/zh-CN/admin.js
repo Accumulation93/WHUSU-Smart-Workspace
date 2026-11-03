@@ -1,5 +1,6 @@
 // 由 scripts/locale-align.js 从共享语言库生成，请勿直接修改。
 // 唯一来源：shared/locales/zh-CN/**；改文案请改共享语言库后重新运行本脚本。
+import src_adminPersonnel from './shared/adminPersonnel.js';
 import src_authorization from './shared/authorization.js';
 import src_contactDirectory from './shared/contactDirectory.js';
 import src_signaturePad from './shared/generated/subpackages/audit/components/signaturePad/signaturePad.js';
@@ -9,7 +10,6 @@ import src_submissionDetail from './shared/generated/subpackages/audit/pages/sub
 import src_adminPermissions from './shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import src_identitySwitch from './shared/generated/subpackages/org/pages/identitySwitch/identitySwitch.js';
 import src_admin from './shared/generated/subpackages/scoring/pages/admin/admin.js';
-import src_pendingVenueApprovals from './shared/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js';
 import src_web from './shared/web.js';
 
 export default Object.freeze({
@@ -31,7 +31,6 @@ export default Object.freeze({
   permissionsClear: src_signaturePad.copy_2a0e50c5f6,
   permissionsCountSuffix: src_submissionDetail.copy_2370e6144f,
   permissionsUnnamed: src_adminPermissions.copy_06e8d3a970,
-  permissionsStudentId: src_adminPermissions.copy_80fba348b7,
   permissionsNotFilled: src_contactDirectory.unnamed,
   permissionsEnabled: src_authorization.enabled,
   permissionsOf: src_adminPermissions.copy_0278c19d5a,
@@ -42,10 +41,11 @@ export default Object.freeze({
   permissionsSaveFailed: src_signatureManager.copy_215e3c57da,
   permissionsLoadFailed: src_myApprovalHistory.copy_e52119b17e,
   tabHr: src_authorization.businessGroups.hr,
-  memberSearchPlaceholder: src_pendingVenueApprovals.copy_2ea2cd3a4f,
+  memberSearchPlaceholder: src_adminPersonnel.memberSearchPlaceholder,
   memberEmpty: src_web.admin.memberEmpty,
   memberDetailTitle: src_web.admin.memberDetailTitle,
   memberCountSuffix: src_submissionDetail.copy_2370e6144f,
   accountStatusLabel: src_admin.hrAccountStatus,
-  consoleNote: src_web.admin.consoleNote,
+  accountDirectoryReadOnly: src_web.admin.accountDirectoryReadOnly,
+  managementPageUnavailable: src_web.admin.managementPageUnavailable,
 });

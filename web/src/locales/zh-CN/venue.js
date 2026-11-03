@@ -55,7 +55,6 @@ export default Object.freeze({
   notFound: src_myVenueBookings.bookingNotFound,
   emptyPending: src_web.venue.emptyPending,
   emptyHistory: src_web.venue.emptyHistory,
-  adminNote: src_web.venue.adminNote,
   mineNote: src_web.venue.mineNote,
   loadFailed: src_myApprovalHistory.copy_e52119b17e,
   submitting: src_web.audit.createSubmitting,

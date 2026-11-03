@@ -1,4 +1,5 @@
 const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
+const factsCopy = require('../../../locales/zh-CN/venueFacts');
 const { formatAssignmentLabel } = require('./workContextPresentation');
 const { formatDetailTime } = require('../../../utils/dateTime');
 /**
@@ -32,8 +33,8 @@ function buildFlowTimeline(prog) {
   for (let si = 0; si < totalSteps; si++) {
     let state, icon, label;
     let snap = snapMap[flowId + ':' + si] || null;
-    let stepName = (flowSteps[si] && flowSteps[si].name) || (snap && snap.stepName)
-      || (localeCopy.copy_93c50c01c0 + (si + 1) + localeCopy.copy_493a127a99);
+    let stepName = (flowSteps[si] && (flowSteps[si].name || flowSteps[si].stepName)) || (snap && snap.stepName)
+      || factsCopy.defaultStepName(si + 1);
 
     if (prog.isRejected) {
       if (si < rejectStep)           { state = 'done';     icon = '✓';     label = localeCopy.copy_2d8cba342c; }

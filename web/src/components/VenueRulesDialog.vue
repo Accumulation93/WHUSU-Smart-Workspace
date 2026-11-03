@@ -105,7 +105,13 @@ function viewActivity(row) { if (active.value === 'activity' && !busy.value) act
 async function write(endpoint, payload) {
   if (blocked.value || !current()) return;
   busy.value = true; actionNotice.value = '';
-  try { const result = requireSuccess(await callApi(endpoint, payload)); if (!current()) return; awaitingRead.value = true; await load(); if (current()) showToast(result.message); }
+  try {
+    requireSuccess(await callApi(endpoint, payload));
+    if (!current()) return;
+    awaitingRead.value = true; await load();
+    const successText = { saveVenueActivityRule: ui.activityRuleSaved, saveVenueOpenRule: ui.openRuleSaved, saveVenueBookingWindow: ui.bookingWindowSaved }[endpoint];
+    if (current() && successText) showToast(successText);
+  }
   catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_215e3c57da); }
   finally { if (current()) busy.value = false; }
 }
@@ -119,7 +125,7 @@ function saveRule() {
     if (meta.periodMode !== 'none' && !meta.periodStartDate) { actionNotice.value = ui.copy_6ce770a0a6; return; }
     if (meta.periodMode === 'range' && !meta.periodEndDate) { actionNotice.value = ui.copy_9dfd1d5a78; return; }
     if (meta.periodMode === 'count' && (!Number.isInteger(meta.repeatCount) || meta.repeatCount < 1 || meta.repeatCount > 1000)) { actionNotice.value = ui.copy_bc3fac7db2; return; }
-    if (meta.periodMode === 'range' && meta.periodStartDate + meta.periodStartTime >= meta.periodEndDate + meta.periodEndTime) { actionNotice.value = ui.copy_2ea7993cca; return; }
+    if (meta.periodMode === 'range' && meta.periodStartDate + meta.periodStartTime >= meta.periodEndDate + meta.periodEndTime) { actionNotice.value = ui.copy_0b091cba77; return; }
   }
   const payload = { id: value.id, venueId: props.venue.id, cycleType: value.cycleType, cycleValues: value.cycleValues, timeStart: value.timeStart, timeEnd: value.timeEnd };
   payload[value.type === 'activity' ? 'activityName' : 'name'] = value.name;
@@ -138,7 +144,7 @@ async function remove(row) {
   try {
     if (!await confirmAction({ title: ui.copy_7f31eec657, body: target.name, danger: true, confirmText: copy.common.confirm, cancelText: copy.common.cancel }) || !current() || !canDeleteRecord.value) return;
     requireSuccess(await callApi(type === 'open' ? 'deleteVenueOpenRule' : 'deleteVenueActivityRule', { id: target.id }));
-    if (current()) { awaitingRead.value = true; await load(); showToast(ui.copy_5398fec054); }
+    if (current()) { awaitingRead.value = true; await load(); if (current()) showToast(type === 'open' ? ui.openRuleDeleted : ui.activityRuleDeleted); }
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_076bb5d383); }
   finally { if (current()) busy.value = false; }
 }

@@ -26,9 +26,10 @@
           </span>
         </div>
       </div>
-      <button type="button" class="message-open" @click="$emit('open', item)">
-        <span class="notification-title">{{ item.title }}</span>
-        <span v-if="item.description" class="notification-desc">{{ item.description }}</span>
+      <button type="button" class="message-open" :disabled="!presentation.canOpen" @click="$emit('open', item)">
+        <span class="notification-title">{{ presentation.title }}</span>
+        <span v-if="presentation.description" class="notification-desc">{{ presentation.description }}</span>
+        <span v-for="line in presentation.detailLines" :key="line.label" class="notification-desc">{{ line.label }}: {{ line.value }}</span>
         <span class="notification-time">{{ timeText }}</span>
       </button>
     </div>
@@ -43,6 +44,9 @@ import { computed } from 'vue';
 import UiIcon from '@/components/UiIcon.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { formatListTime } from '@/runtime/dateTime.js';
+import { describeMessage } from '@/shared/messageFactsView.js';
+import messageFactsCopy from '@/locales/zh-CN/shared/messageFacts.js';
+import { messageRoute } from '@/runtime/messageNavigation.js';
 
 /**
  * 待办与通知行。
@@ -58,6 +62,9 @@ const props = defineProps({
 });
 
 defineEmits(['open']);
+const presentation = computed(() => describeMessage(props.item, messageFactsCopy, {
+  notification: props.kind === 'notification', canOpen: Boolean(messageRoute(props.item))
+}));
 
 const unread = computed(() => props.kind === 'notification' && props.item.isRead === false);
 
@@ -73,11 +80,10 @@ const timeText = computed(() => formatListTime(
 ));
 
 const categoryText = computed(() => {
-  if (props.item.categoryLabel) return props.item.categoryLabel;
   return copy.messages.categoryLabels[props.item.category] || '';
 });
 
-const contextName = computed(() => props.item.workContextName || props.item.identityName || '');
+const contextName = computed(() => presentation.value.workContextName);
 
 const organizationName = computed(() => props.item.organizationName || '');
 

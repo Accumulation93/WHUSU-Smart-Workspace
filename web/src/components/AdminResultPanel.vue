@@ -29,7 +29,7 @@
       </div>
     </section>
     <section v-if="filters.viewMode === 'overview' && state.target" ref="targetPanel" class="card stack">
-      <div class="panel-head"><strong>{{ state.target.name }}{{ ui.copy_a859dc349b }} {{ targetRows.length }}</strong><button type="button" class="btn-quiet" :disabled="busy" @click="closeTarget">{{ ui.copy_8ec888d575 }}</button></div>
+      <div class="panel-head"><strong>{{ ui.targetScoresTitle(state.target.name) }} <span class="chip">{{ targetRows.length }}</span></strong><button type="button" class="btn-quiet" :disabled="busy" @click="closeTarget">{{ ui.copy_8ec888d575 }}</button></div>
       <div v-if="notice.target" class="stack-tight" role="alert"><span class="notice-line">{{ notice.target }}</span><button type="button" class="btn-quiet" :disabled="loading.target || busy" @click="retry('target')">{{ personnel.dictionaryRetry }}</button></div>
       <span v-if="loading.target" class="muted"><AppLoading :text="ui.copy_80c4bdb2f5" /></span>
       <div class="result-scroll list">
@@ -88,7 +88,8 @@ import GlassDialog from './GlassDialog.vue';
 import ScoringResultRow from './ScoringResultRow.vue';
 import ScoringProgress from './ScoringProgress.vue';
 import UiIcon from './UiIcon.vue';
-import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
+import { callApi, createLocalError, errorText, requireSuccess } from '@/runtime/api.js';
+import feedback from '@/locales/zh-CN/shared/requestFeedback.js';
 import { session } from '@/runtime/session.js';
 import { hasAdminCapability } from '@/runtime/adminCapabilities.js';
 import { formatListTime, formatDetailTime, getSystemTimezoneConfig } from '@/runtime/dateTime.js';
@@ -135,7 +136,7 @@ async function request(name, data) {
   const timer = setTimeout(() => controller.abort(), 30000);
   const entry = { controller, timer }; requests.add(entry);
   try { return requireSuccess(await callApi(name, data, { signal: controller.signal })); }
-  catch (error) { if (!disposed && controller.signal.aborted) throw new Error(copy.errors.networkFailed); throw error; }
+  catch (error) { if (!disposed && controller.signal.aborted) throw createLocalError(feedback.readTimeout); throw error; }
   finally { clearTimeout(timer); requests.delete(entry); }
 }
 async function read(channel, data, apply) {

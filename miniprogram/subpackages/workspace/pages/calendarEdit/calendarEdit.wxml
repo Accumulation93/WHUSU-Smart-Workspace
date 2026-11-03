@@ -6,6 +6,7 @@
   <view wx:if="{{notice}}" class="card calendar-stack"><text>{{notice}}</text><button wx:if="{{failed}}" class="ui-motion-button secondary-btn" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>
   <view wx:if="{{!loading && !failed}}" class="card calendar-stack">
     <view class="section-title">{{sourceKind ? copy.participants : draft.id ? copy.edit : copy.create}}</view>
+    <view wx:if="{{sourceKind}}" class="muted">{{copy.participationOnly}}</view>
     <block wx:if="{{!sourceKind}}">
       <view class="field-label">{{copy.name}}</view><input class="field-input" value="{{draft.title}}" maxlength="-1" disabled="{{busy || saved}}" data-field="title" bindinput="field" />
       <view class="field-label">{{copy.location}}</view><input class="field-input" value="{{draft.location}}" maxlength="-1" disabled="{{busy || saved}}" data-field="location" bindinput="field" />

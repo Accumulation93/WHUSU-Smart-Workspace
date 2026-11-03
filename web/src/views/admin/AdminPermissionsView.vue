@@ -15,7 +15,7 @@
         <span class="panel-title-group">
           <span class="section-title">{{ copy.admin.permissionsListTitle }}</span>
         </span>
-        <span class="chip chip-blue">{{ filteredAdmins.length }} {{ copy.admin.permissionsCountSuffix }}</span>
+        <span class="chip chip-blue">{{ legacyCopy.directoryPeopleCount(filteredAdmins.length) }}</span>
       </div>
 
       <div class="search-bar">
@@ -77,7 +77,7 @@
             <div class="panel-head">
               <span class="panel-title-group">
                 <span class="value">{{ group.label }}</span>
-                <span class="panel-note">{{ group.description }}</span>
+                <span v-if="group.description" class="panel-note">{{ group.description }}</span>
               </span>
               <label class="switch">
                 <span class="muted">{{ copy.admin.permissionsAll }}</span>
@@ -107,7 +107,7 @@
         <p v-if="editorNotice" class="notice-line" role="alert">{{ editorNotice }}</p>
         <template #footer>
           <button type="button" class="btn btn-secondary" :disabled="saving" @click="closeEditor">
-            {{ copy.common.cancel }}
+            {{ readOnly ? permissionCopy.copy_09614cef6c : copy.common.cancel }}
           </button>
           <button v-if="!readOnly" type="button" class="btn btn-primary" :disabled="saving" @click="savePermissions">
             {{ saving ? copy.admin.permissionsSaving : copy.admin.permissionsSave }}
@@ -130,12 +130,15 @@ import GlassDialog from '@/components/GlassDialog.vue';
 import UiSwitch from '@/components/UiSwitch.vue';
 import permissionCopy from '@/locales/zh-CN/shared/generated/subpackages/org/pages/adminPermissions/adminPermissions.js';
 import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
+import legacyCopy from '@/locales/zh-CN/shared/legacyPermissions.js';
+import { createLegacyPermissionView } from '@/shared/legacyPermissionView.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
+const permissionView = createLegacyPermissionView(legacyCopy);
 
 const admins = ref([]);
 const readOnly = ref(false);
@@ -185,12 +188,13 @@ function grantStyle(item) {
 
 function goWorkRole() {
   if (saving.value) return;
-  if (editor.value) { switchGuard.value = true; return; }
+  if (editor.value && !readOnly.value) { switchGuard.value = true; return; }
+  closeEditor();
   router.push({ name: 'workRole' });
 }
 
 function cloneGroups(source) {
-  return (Array.isArray(source) ? source : []).map((group) => Object.assign({}, group, {
+  return permissionView.groups(source).map((group) => Object.assign({}, group, {
     permissions: (Array.isArray(group.permissions) ? group.permissions : [])
       .map((item) => Object.assign({}, item))
   }));
@@ -239,7 +243,7 @@ async function loadAdmins() {
     const result = await callApi('listPermissionManagedAdmins', {});
     if (request !== generation) return;
     requireSuccess(result);
-    admins.value = Array.isArray(result.list) ? result.list : [];
+    admins.value = (Array.isArray(result.list) ? result.list : []).map(permissionView.admin);
     readOnly.value = result.readOnly === true;
   } catch (error) {
     if (request === generation) notice.value = errorText(error, copy.admin.permissionsLoadFailed);
@@ -258,7 +262,7 @@ async function openAdmin(item, event) {
     const result = await callApi('getAdminPermissionDetail', { adminId: item.id });
     if (request !== generation) return;
     requireSuccess(result);
-    selected.value = result.admin || item;
+    selected.value = permissionView.admin(result.admin || item);
     readOnly.value = result.readOnly === true;
     groups.value = cloneGroups(result.groups);
     groups.value.forEach(refreshGroupState);

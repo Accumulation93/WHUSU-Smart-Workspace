@@ -5,6 +5,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pag
 import messages from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/resultBehavior.js';
 import personnel from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 const target = (id, name, score, department = 'Department A') => ({ id, targetId: id, name, finalScore: score, department, identity: 'Identity A', workGroup: department === 'Department A' ? 'Group A' : '', expectedScorerCount: 2, submittedScorerCount: 1 });
 async function setup(page) {
   await page.addInitScript(()=>{window.showSaveFilePicker=undefined;});
@@ -74,20 +75,20 @@ test('completion drills open original scorer target popup and refresh all facts 
 test('revoke cancellation and business rejection preserve the detail and allow a single successful retry', async ({ page }) => {
   const state = await setup(page); await open(page); await detail(page); const revoke = recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a });
   await revoke.click(); await expect(page.getByRole('dialog', { name: messages.copy_a000713b84 })).toContainText('Scorer One → Zed'); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_4b213fd88a }).click(); expect(state.writes).toHaveLength(0);
-  state.reject = true; await revoke.click(); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_d6c748ac95 }).click(); await expect(recordDialog(page).getByText('Revoke rejected')).toBeVisible();
+  state.reject = true; await revoke.click(); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_d6c748ac95 }).click(); await expect(recordDialog(page).getByText(feedback.writeResultUnknown)).toBeVisible();await expect(recordDialog(page).getByText('Revoke rejected')).toHaveCount(0);
   state.reject = false; await revoke.click(); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_d6c748ac95 }).click(); await expect(recordDialog(page)).toHaveCount(0); await expect(page.getByRole('button').filter({ hasText: 'Scorer One' })).toBeDisabled(); expect(state.writes).toHaveLength(2);
 });
 
 test('successful revoke with read failure survives tabs, freezes stale actions and retries only reads', async ({ page }) => {
   const state = await setup(page); await open(page); await detail(page); state.fail = 'overview'; await recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a }).click(); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_d6c748ac95 }).click();
-  await expect(page.getByText('Result read failed')).toBeVisible(); await expect(page.locator('.result-rank-card').first()).toBeDisabled(); await page.getByRole('tab', { name: ui.copy_5aa4cb13ec }).click(); await page.getByRole('tab', { name: ui.copy_ade4fb64f7 }).click(); await expect(page.getByText('Result read failed')).toBeVisible();
+  await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Result read failed')).toHaveCount(0); await expect(page.locator('.result-rank-card').first()).toBeDisabled(); await page.getByRole('tab', { name: ui.copy_5aa4cb13ec }).click(); await page.getByRole('tab', { name: ui.scoringResultsTab }).click(); await expect(page.getByText(feedback.forbidden)).toBeVisible();
   state.fail = ''; await page.getByRole('button', { name: personnel.dictionaryRetry }).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); expect(state.writes).toHaveLength(1); await expect(page.getByRole('button').filter({ hasText: 'Scorer One' })).toBeDisabled();
 });
 
 test('all three exports respect returned workbook extension and failed export keeps chooser for retry', async ({ page }) => {
   const state = await setup(page); await open(page);
   for (const [reportType, label] of [['overview', ui.copy_03f903662b], ['detail', ui.copy_8b73330188], ['completion', ui.copy_779db553f1]]) {
-    await page.getByRole('button', { name: label, exact: true }).click(); if (reportType === 'overview') { state.reject = true; await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); await expect(page.getByText('Export rejected')).toBeVisible(); state.reject = false; }
+    await page.getByRole('button', { name: label, exact: true }).click(); if (reportType === 'overview') { state.reject = true; await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); await expect(page.getByText(feedback.writeResultUnknown)).toBeVisible();await expect(page.getByText('Export rejected')).toHaveCount(0); state.reject = false; }
     const download = page.waitForEvent('download'); await page.getByRole('dialog').getByRole('button', { name: messages.copy_7ffcbc33aa }).click(); await page.getByRole('dialog',{name:fileIO.output}).getByRole('button',{name:fileIO.save,exact:true}).click();expect((await download).suggestedFilename()).toBe('Results.xlsx'); await expect(page.getByRole('dialog')).toHaveCount(0); expect(state.exports.at(-1)).toMatchObject({ activityId: 'a1', timezone: 8, reportType, format: 'csv' }); expect(state.exports.at(-1)).not.toHaveProperty('dataType');
   }
 });
@@ -97,8 +98,8 @@ test('fine permissions independently hide export and revoke actions', async ({ p
 });
 
 test('result read and detail failures are retriable without false empty state or stale record actions', async ({ page }) => {
-  const state = await setup(page); state.fail = 'overview'; await page.goto('/web/admin?subApp=scoring&tab=results'); await expect(page.getByText('Result read failed')).toBeVisible(); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); state.fail = ''; await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled();
-  state.fail = 'recordDetail'; await page.locator('.result-rank-card').filter({ hasText: 'Zed' }).click(); await page.getByRole('button').filter({ hasText: 'Scorer One' }).click(); await expect(recordDialog(page).getByText('Result read failed')).toBeVisible(); await expect(recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a })).toHaveCount(0); state.fail = ''; await recordDialog(page).getByRole('button', { name: personnel.dictionaryRetry }).click(); await expect(recordDialog(page).getByText('Question 1', { exact: true })).toBeVisible();
+  const state = await setup(page); state.fail = 'overview'; await page.goto('/web/admin?subApp=scoring&tab=results'); await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Result read failed')).toHaveCount(0); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); state.fail = ''; await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled();
+  state.fail = 'recordDetail'; await page.locator('.result-rank-card').filter({ hasText: 'Zed' }).click(); await page.getByRole('button').filter({ hasText: 'Scorer One' }).click(); await expect(recordDialog(page).getByText(feedback.forbidden)).toBeVisible(); await expect(recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a })).toHaveCount(0); state.fail = ''; await recordDialog(page).getByRole('button', { name: personnel.dictionaryRetry }).click(); await expect(recordDialog(page).getByText('Question 1', { exact: true })).toBeVisible();
 });
 
 test('no current activity avoids result requests and long result list stays inside its original scroll area', async ({ page }) => {
@@ -107,7 +108,7 @@ test('no current activity avoids result requests and long result list stays insi
 });
 
 test('narrow controls remain complete and busy revoke blocks return, tabs and closing without repeated writes', async ({ page }) => {
-  const state = await setup(page); await page.setViewportSize({ width: 310, height: 720 }); await page.goto('/web/portal'); await page.getByRole('button', { name: ui.copy_33a502217d, exact: true }).click(); await page.getByRole('tab', { name: ui.copy_ade4fb64f7, exact: true }).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const state = await setup(page); await page.setViewportSize({ width: 310, height: 720 }); await page.goto('/web/portal'); await page.getByRole('button', { name: ui.copy_33a502217d, exact: true }).click(); await page.getByRole('tab', { name: ui.scoringResultsTab, exact: true }).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await detail(page); let release; state.gate = new Promise(resolve => { release = resolve; }); await recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a }).click(); await page.getByRole('dialog', { name: messages.copy_a000713b84 }).getByRole('button', { name: messages.copy_d6c748ac95 }).click(); await expect.poll(() => state.writes.length).toBe(1); await expect(page.getByRole('tab').first()).toBeDisabled(); await page.goBack(); await expect(page).toHaveURL(/tab=results/); await page.keyboard.press('Escape'); await expect(recordDialog(page)).toBeVisible(); release(); await expect(recordDialog(page)).toHaveCount(0); expect(state.writes).toHaveLength(1);
 });
 
@@ -117,11 +118,11 @@ test('closing an inline drill during refresh does not strand the main loading st
 });
 
 test('switching current activity removes old drills and initial dictionary failure does not show empty results', async ({ page }) => {
-  const state = await setup(page); await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'forbidden', message: 'Dictionary read failed' } })); await page.goto('/web/admin?subApp=scoring&tab=results'); await expect(page.getByText('Dictionary read failed')).toBeVisible(); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); expect(state.requests).toHaveLength(0);
+  const state = await setup(page); await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'forbidden', message: 'Dictionary read failed' } })); await page.goto('/web/admin?subApp=scoring&tab=results'); await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Dictionary read failed')).toHaveCount(0); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); expect(state.requests).toHaveLength(0);
   await page.unroute('**/api/listDepartments'); await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Department A' }] } })); await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); await page.locator('.result-rank-card').filter({ hasText: 'Zed' }).click(); await expect(page.getByRole('button').filter({ hasText: 'Scorer One' })).toBeEnabled();
   state.current = 'a2'; await refresh(page).click(); await expect(page.getByText('Activity a2', { exact: true })).toBeVisible(); await expect(page.getByRole('button').filter({ hasText: 'Scorer One' })).toHaveCount(0); expect(state.requests.at(-1).activityId).toBe('a2');
 });
 
 test('a timed out result request offers explicit retry and cannot be misreported as no results', async ({ page }) => {
-  await page.clock.install(); const state = await setup(page); state.readGate = new Promise(() => {}); await page.goto('/web/admin?subApp=scoring&tab=results'); await expect.poll(() => state.requests.length).toBe(1); await page.clock.fastForward(30001); await expect(page.getByText(copy.errors.networkFailed, { exact: true })).toBeVisible(); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); state.readGate = null; await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); expect(state.writes).toHaveLength(0);
+  await page.clock.install(); const state = await setup(page); state.readGate = new Promise(() => {}); await page.goto('/web/admin?subApp=scoring&tab=results'); await expect.poll(() => state.requests.length).toBe(1); await page.clock.fastForward(30001); await expect(page.getByText(feedback.readTimeout, { exact: true })).toBeVisible(); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); state.readGate = null; await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled(); expect(state.writes).toHaveLength(0);
 });

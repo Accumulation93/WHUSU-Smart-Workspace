@@ -12,6 +12,7 @@ async function main() {
     require(name){
       if(name.endsWith('/identityCard')) return copy;
       if(name.endsWith('/common')) return {brandName:'brand'};
+      if(name.endsWith('/workspace-hero')) return require('../../shared/locales/zh-CN/generated/components/workspace-hero/workspace-hero');
       if(name.endsWith('/eventBus')) return {on(){},off(){}};
       if(name.endsWith('/navigationBarMetrics')) return {getNavigationBarMetrics:()=>({totalHeight:50})};
       if(name.endsWith('/orgSession')) return {getSnapshot:()=>({token:'session',role}),beginRequest:()=>version,isRequestCurrent:(page,request)=>request===version,invalidateRequests(){version++;}};
@@ -23,8 +24,10 @@ async function main() {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../miniprogram/subpackages/org/pages/identityCard/identityCard.js'),'utf8'),sandbox);
   const page=Object.assign({},definition,{data:{...definition.data},setData(values){Object.assign(this.data,values);}});
   page.onLoad({});
-  responder=async options=>options.name==='getMyIdentityCard'?{status:'success',valid:true,card:{name:'person'}}:{status:'success',valid:true,card:{name:'person'},image:'data:image/jpeg;base64,/9j/'};
+  const person = {name:'person',stateCode:'active',state:'untrusted',positionFacts:{role:'user',hasAssignment:true,assignmentLabel:'position'}};
+  responder=async options=>options.name==='getMyIdentityCard'?{status:'success',valid:true,card:person}:{status:'success',valid:true,card:person,image:'data:image/jpeg;base64,/9j/'};
   await page.load();
+  assert.equal(page.data.card.state,copy.active); assert.equal(page.data.card.position,'position');
   assert.equal(timers.size,1); assert(page.data.currentTimeText);
   role='admin'; await page.load(); assert.equal(page.data.heroTone,'admin'); assert.equal(timers.size,1);
   assert.equal(calls[1].data.envVersion,'develop'); assert.equal(writes[0].encoding,'base64'); assert.equal(writes[0].data,'/9j/'); assert(page.data.image.endsWith('.jpg'));

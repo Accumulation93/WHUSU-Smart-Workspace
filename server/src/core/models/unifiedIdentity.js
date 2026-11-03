@@ -2891,7 +2891,7 @@ async function issueInitialInvites(personIds, organizationId, actor, options) {
             AND NOT EXISTS (SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id WHERE a.person_id = p.id)
           ORDER BY om.org_id LIMIT 20 FOR UPDATE`, orgParams
       );
-      if (actor.authorizeGovernance && !rows.length) throw new IdentityError('member_not_found', localeCopy.copy_3b60b7e276, 404);
+      if (actor.authorizeGovernance && !rows.length) throw new IdentityError('member_not_found', localeCopy.copy_014ac651ad, 404);
       for (const row of rows) {
         const targetOrgId = safeString(row.org_id);
         const inviteId = generateId();

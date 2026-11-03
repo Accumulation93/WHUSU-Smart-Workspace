@@ -1,0 +1,274 @@
+# 成员资料行为：独立语言逐项审稿
+
+源 `generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js`。本人、组织成员、岗位、全局人员与账号必须分清；离开组织不等于删除，业务历史保留不等于没有清理任何资料。所有明确拒绝句不用于未知写入结果。导入表格到编辑草稿不表示已导入成员数据库。
+
+| 键 | 定稿／处理 |
+|---|---|
+| importRowPrefix | 第␠ |
+| importRowSuffix | ␠行 |
+| hrTemplateSwitchPreviewFailed | 模板适用情况未能检查，请重试。 |
+| copy_01c502a089 | 追加 |
+| copy_028fbc8a93 | 请先修改列出的问题资料。 |
+| copy_0304ae11cd | 内容类型 |
+| copy_03e326cb9b | 表格已读取（尚未写入成员资料时不能称导入成功） |
+| copy_0531ed9e78 | 本次操作未获通过，请刷新成员详情后查看。 |
+| copy_067b107bd7 | 退回数量拼句，需用完整导入结果函数 |
+| copy_076bb5d383 | 删除未获通过，请查看删除前检查结果。 |
+| copy_0a6ad98837 | 管理身份已添加 |
+| copy_0aacec2714 | 已保存 |
+| copy_0c9080582a | 导入未获通过，请查看表格检查结果。 |
+| copy_0efc367eca | 删除后无法恢复。 |
+| copy_0f62b98983 | 是否驳回这次资料修改？ |
+| copy_142861823e | 基本信息 |
+| copy_171e9799a7 | 已绑定微信（仅wxBindStatus=bound） |
+| copy_1ceaebed03 | 微信绑定状态暂未确认（仅历史pending_activation兼容） |
+| copy_209c97537d | 建议移入“{0}” |
+| copy_215e3c57da | 资料未能保存，请检查填写内容。 |
+| copy_23bb2dcf13 | 项内容 |
+| copy_2550a901e4 | 请选择部门和身份类别。 |
+| copy_266af79ece | 暂无可选项 |
+| copy_27ee30d786 | 删除资料并应用 |
+| copy_2b61466286 | 成员资料文件未能生成，请重试。 |
+| copy_2b8b8bf904 | 当前组织 |
+| copy_2ba036eb5f | 导入问题明细 |
+| copy_2e92a9de4f | 请先修改列出的表格问题。 |
+| copy_32dc191e8f | 微信未能解绑，请刷新成员详情后查看。 |
+| copy_37795f5bde | 请选择需要导出的资料项。 |
+| copy_393f20aba2 | 删除未引用旧语料 |
+| copy_3c946202ff | 姓名 |
+| copy_3cfda2ecef | 有 {0} 项资料不符合新模板要求，请查看明细并修改后重试。 |
+| copy_3e8d61586a | 删除后，这个岗位不能再用于后续操作，已有业务记录会保留。 |
+| copy_4217b924a4 | 具体问题 |
+| copy_474f638a6f | 身份类别 |
+| copy_4c8603086a | 退回导入结果前缀，必须完整数量句 |
+| copy_4f261c7609 | 资料修改已驳回 |
+| copy_4f9250c03f | 请填写姓名和学号。 |
+| copy_50a212e945 | 替换 |
+| copy_5196fb52ef | 原内容 |
+| copy_52128a24e4 | 微信已解绑 |
+| copy_530e6c15c0 | 成员资料未能加载，请重试。 |
+| copy_5398fec054 | 已删除 |
+| copy_54e953f1bb | 无 |
+| copy_5503123f4c | Excel 表格（.xlsx） |
+| copy_553705a0cd | 资料项 |
+| copy_564cc6648b | 移除超级管理员身份 |
+| copy_5951b5b0a2 | （待审核） |
+| copy_5babf47a71 | 项资料 |
+| copy_5d5af942c5 | 已驳回 |
+| copy_5daecbb537 | 等（仅名单省略，不用于错误解释） |
+| copy_5fbd09dc2e | 已补齐 {0} 项基础资料（须真实写成功） |
+| copy_6195ef12a0 | 未命名资料项 |
+| copy_62676bc383 | 不限制 |
+| copy_6278f75572 | 待导入表格 |
+| copy_62e4cca082 | 未发现需要处理的表格问题 |
+| copy_62f8e70200 | 所属部门 |
+| copy_64dc3d4fff | 成员资料 |
+| copy_67f2697101 | 未提交审核 |
+| copy_688794e754 | 资料修改已通过审核 |
+| copy_68f7277730 | 全部部门 |
+| copy_6c43597611 | 通过审核 |
+| copy_6cc69fb176 | 全部岗位的职能组 |
+| copy_6d61e35304 | 基本资料 |
+| copy_6dbd8065fb | 资料修改未能驳回，请刷新详情后查看。 |
+| copy_6dbeb580ce | 添加后，此人将获得超级管理员身份，可管理全部组织；业务与数据保护限制仍然适用。 |
+| copy_6fae2b39f0 | 是否删除这份资料模板？ |
+| copy_7310bccaf5 | 彻底删除 |
+| copy_735e0a8bcf | 岗位已保存 |
+| copy_74e7385966 | 正在更新资料 |
+| copy_75349a79ee | 模板已应用（仅模板应用成功场景） |
+| copy_7582cffe69 | 内容已变化，请重新核对并确认。 |
+| copy_79a04f117c | 岗位 |
+| copy_7ffcbc33aa | CSV 文本（.csv） |
+| copy_838181f305 | 成员列表未能加载，请重试。 |
+| copy_860f24df0a | 移除后，此人将不能再使用这项管理身份。 |
+| copy_89be75a701 | 资料未能更新，请刷新详情后查看。 |
+| copy_8c05f916f4 | 成员资料已导入（仅真实入库成功） |
+| copy_8ca66f00b4 | 添加超级管理员 |
+| copy_8da6e35182 | 移除管理身份 |
+| copy_927e8200f7 | 未命名表格列 |
+| copy_94b36657df | 成员详情未能加载，请重试。 |
+| copy_97366c6f6d | 确认永久删除 |
+| copy_99f5426801 | 删除组织成员资料 |
+| copy_9aec79b593 | 条 |
+| copy_9e71d66edf | 数值范围：{0}–{1} |
+| copy_9ec66981b8 | 补充资料 |
+| copy_a10c814f32 | 是否通过这次资料修改？ |
+| copy_a62f5b5e20 | 当前工作表 |
+| copy_a68c09e48e | 项 |
+| copy_a751bbfc34 | 已更新 |
+| copy_a79c2f21ae | 确认应用 |
+| copy_a7e6a633a4 | 退回表格错误数量前缀 |
+| copy_ab34b1e15d | 职能组可留空。（独立说明，不拼其他句） |
+| copy_ad2391977b | 资料修改未能审核通过，请刷新详情后查看。 |
+| copy_aee6f6c499 | 退回错误字段拼句，使用字段名与具体要求独立行 |
+| copy_af444f2b01 | 驳回资料修改 |
+| copy_b433d31323 | 复制未完成，请重试。 |
+| copy_b559e020b7 | 请填写资料项名称。 |
+| copy_b673ee708c | 表格为空或无法读取，请检查文件后重新选择。 |
+| copy_b702b25b77 | 未发现需要补齐的基础资料。 |
+| copy_b722908172 | 关闭 |
+| copy_ba9b0425fd | 未绑定微信（仅wxBindStatus=unbound；账号状态缺失不得用此键） |
+| copy_bb51235352 | 导入问题清单 |
+| copy_bc04d9e2e3 | 删除岗位 |
+| copy_bfcf17946a | 数字位数：{0}–{1} |
+| copy_c24b3e04d9 | 岗位和管理身份未能加载，请重试。 |
+| copy_c45d6ea9d1 | 资料模板未能应用，请检查处理方式。 |
+| copy_c6e80c1d75 | 退回未导入数量尾句 |
+| copy_c76384305a | 批量资料维护失败（仅诊断，不直出异常内容） |
+| copy_cb8ac66b1a | 全部岗位的所属部门 |
+| copy_cbb853db1b | 学号（仅授权人事资料及导出） |
+| copy_cc6172e63c | 已复制 |
+| copy_cc78fc735e | 请检查表格格式后重新选择。 |
+| copy_ce171a2581 | 已通过 |
+| copy_d03e81ea80 | 请填写资料模板名称。 |
+| copy_d0fc81b30f | 从表格读取资料项 |
+| copy_d593ce302d | “{0}”需要填写整数。 |
+| copy_d631c78751 | 长度范围：{0}–{1} |
+| copy_d661ec9421 | 请为以下资料选择对应的表格列。 |
+| copy_ddb6dca5b6 | 待审核资料 |
+| copy_defcb9a40c | 请选择资料对应的表格列。 |
+| copy_deff18cd29 | 请选择目标资料项。（若其他对象须拆键） |
+| copy_e3070392e0 | 补充资料审核状态 |
+| copy_e39c036ae6 | -成员资料（文件名后缀） |
+| copy_e52119b17e | 退回通用重试，按具体请求结果分类 |
+| copy_e58fa637eb | 退回通用重试，按具体请求结果分类 |
+| copy_e59729af18 | 当前没有可导出的资料。 |
+| copy_e69d9e7df1 | 全部岗位的身份类别 |
+| copy_e6b5e03497 | 请选择新的资料项。 |
+| copy_e6f89839f1 | 请填写姓名和学号。 |
+| copy_ea656e2ae7 | 移入 {0} 项，隐藏并保留 {1} 项，永久删除 {2} 项。{3}（应用前计划，不能写已完成） |
+| copy_f37be3c249 | 请选择替换现有资料项，或追加到末尾。（仅模板字段表格读取） |
+| copy_f39423b4c5 | 正在导入资料 |
+| copy_f6076cddc4 | 确认应用资料模板 |
+| copy_f81d32f71f | 删除资料模板 |
+| copy_f93247534b | 微信绑定状态 |
+| copy_fbdaa51ccc | 退回资料数量半句，改完整标题格式 |
+| copy_fe59d1afcd | 不设置 |
+| integrityCheckCompleted | 基础资料检查已完成 |
+| integrityCheckFailed | 基础资料检查未能完成，请重试。 |
+| leaveOrganizationTitle | 离开当前组织 |
+| leaveOrganizationMessage | 该成员将离开当前组织，所有岗位会停用；全局账号和业务历史会保留。 |
+| membershipLeft | 已离开当前组织 |
+| membershipReactivated | 已重新加入当前组织 |
+| membershipReactivateFailed | 成员未能重新加入，请刷新详情后查看。 |
+| personCorrectionPreviewFailed | 姓名与学号的修改影响未能检查，请重试。 |
+| personCorrectionApplyFailed | 姓名与学号未能修改，请刷新详情后查看。 |
+| personMergeFailed | 人员记录未能合并，请刷新详情后查看。 |
+| rejectionReasonRequired | 请填写驳回原因。 |
+| hrMembershipActive | 在职 |
+| hrDirectoryShownOfTotal | 已显示 {0} 人，共 {1} 人 |
+| hrDirectoryTotalOnly | 共 {0} 人 |
+| hrMembershipLeft | 已离开 |
+| hrHistoricalPosition | 历史岗位 |
+| hrReactivatedNoPosition | 已重新加入当前组织，请为该成员设置岗位。 |
+| hrMemberStatus | 成员状态 |
+| hrJoinedAt | 加入时间 |
+| hrLeftAt | 离开时间 |
+| hrAssignmentNature | 岗位性质 |
+| hrProfileCompleteness | 资料完整度 |
+| hrAccountStatus | 账号状态 |
+| hrBindingStatus | 微信绑定状态 |
+| hrExportMembershipStatus | 成员状态 |
+| hrExportJoinedAt | 加入时间 |
+| hrExportLeftAt | 离开时间 |
+| hrNatureStaff | 本会岗位 |
+| hrNatureLiaison | 学院对接岗位 |
+| hrNatureOther | 其他岗位 |
+| hrDeletionPreviewFailed | 删除前检查未能完成，请重试。 |
+| hrDeletionExecuteFailed | 删除操作未获通过，请重新检查删除范围。 |
+| hrDeletionStudentIdMismatch | 输入的学号不一致，请核对待删除成员。 |
+| hrMembershipDeleted | 本组织的成员资料已永久删除 |
+| hrPersonDeleted | 该人员及全局账号已彻底删除 |
+
+## 删除明细与资料历史
+
+这些标签按服务端明确的明细key映射，不能用数据库表名直接显示。实际未返回某项时不展示；不能把将清理、已清理、保留三种结果混成同一结论。
+
+| 键 | 定稿 |
+|---|---|
+| hrDeletionBlockScoring | 评分记录 |
+| hrDeletionBlockScoringDesignation | 评优指定记录 |
+| hrDeletionBlockAuditSubmission | 审核申请 |
+| hrDeletionBlockAuditStep | 审批处理记录 |
+| hrDeletionBlockSignature | 文件签署记录 |
+| hrDeletionBlockAuditEvent | 审核操作记录 |
+| hrDeletionBlockVenue | 场地借用与审批记录 |
+| hrDeletionBlockProfileReview | 资料审核历史 |
+| hrDeletionBlockReviewedProfile | 已审核的资料 |
+| hrDeletionBlockMergedHistory | 账号合并历史 |
+| hrDeletionBlockCurrentOperator | 不能删除当前操作账号 |
+| hrDeletionBlockLastSuperAdmin | 不能删除最后一名有效超级管理员 |
+| hrDeletionCleanupHr | 本组织成员基本资料 |
+| hrDeletionCleanupProfile | 未审核的补充资料 |
+| hrDeletionCleanupProfileValues | 补充资料内容 |
+| hrDeletionCleanupGlobalProfile | 跨组织共用的生效资料 |
+| hrDeletionCleanupGlobalProfileRestored | 从其他组织保留的生效资料 |
+| hrDeletionCleanupGlobalProfileHistory | 跨组织资料修改历史 |
+| hrDeletionCleanupSignatureTemplate | 未使用的个人签名模板 |
+| hrDeletionCleanupNotification | 通知 |
+| hrDeletionCleanupNotificationOutbox | 尚未发送的通知 |
+| hrDeletionCleanupReadCursor | 消息阅读状态 |
+| hrDeletionCleanupVerificationPermission | 文件验证权限 |
+| hrDeletionCleanupAdminGrant | 管理权限授权 |
+| hrDeletionCleanupAdminRecord | 本组织管理身份 |
+| hrDeletionCleanupAdminAuditPreserved | 保留的权限变更记录 |
+| hrDeletionCleanupAdminAuditRedacted | 已解除人员关联的权限记录 |
+| hrDeletionCleanupAdminOverride | 单独设置的管理权限 |
+| hrDeletionCleanupAdminOverrideIssuer | 已解除人员关联的权限设置记录 |
+| hrDeletionCleanupIdentityInvite | 账号认证邀请 |
+| hrDeletionCleanupIssuedIdentityInvite | 该成员签发的认证邀请 |
+| hrDeletionCleanupIdentityToken | 该成员的身份验证记录 |
+| hrDeletionCleanupIssuedIdentityToken | 该成员签发的身份验证记录 |
+| hrDeletionCleanupIdentityClaim | 账号认证申请 |
+| hrDeletionCleanupRecoveryRequest | 账号恢复申请 |
+| hrDeletionCleanupRecoveryApproval | 账号恢复审批中的人员指定 |
+| hrDeletionCleanupSession | 登录记录 |
+| hrDeletionCleanupLegacyBinding | 旧版账号绑定 |
+| hrDeletionCleanupAccount | 全局账号 |
+| hrDeletionCleanupWechatBinding | 微信绑定 |
+| hrDeletionCleanupRecoveryCredential | 账号恢复凭据 |
+| hrDeletionCleanupAuthAudit | 已解除人员关联的安全记录 |
+| hrDeletionCleanupAssignment | 岗位 |
+| hrDeletionCleanupMembership | 组织成员关系 |
+| hrDeletionCleanupPerson | 全局人员资料 |
+| hrDeletionCleanupCache | 评分临时数据 |
+| hrDeletionCleanupLegacyChallenge | 旧版认证请求 |
+| hrDeletionCleanupBootstrapSession | 首次认证记录 |
+| hrDeletionCleanupAuthPolicy | 认证设置中的人员关联 |
+| hrDeletionRelatedData | 关联资料 |
+| hrDeletionAuditTemplate | 审核模板 |
+| hrDeletionVenueRule | 场地规则 |
+| hrDeletionUnknownOrganization | 组织名称未记录 |
+| hrDeletionReferenceStepCondition | 审批步骤候选条件 |
+| hrDeletionReferenceApprovalStep | 已指定的审批人 |
+| hrDeletionReferenceStarterCondition | 申请发起人条件 |
+| hrDeletionReferenceVenueApprover | 场地审批人 |
+| hrDeletionStepOrder | 第 {0} 步 |
+| hrHistoricalProfileFields | 历史资料项 |
+| hrHistoricalProfileFieldsHint | 这些资料项已从当前模板中移除，保留的历史内容仍可查看。 |
+| hrHistoricalPendingValue | 历史待审核内容 |
+| hrProfileReviewHistory | 资料审核历史 |
+| hrReviewAction | 处理结果 |
+| hrReviewOperator | 处理人 |
+| hrReviewReason | 处理说明 |
+| hrReviewActionApproved | 审核通过 |
+| hrReviewActionRejected | 审核驳回 |
+| hrReviewActionMaintained | 管理员维护 |
+| hrReviewActionUpdated | 资料更新 |
+| hrReviewUnknownReviewer | 处理人未记录 |
+
+全键已登记。旧导入数量碎片及账号状态仍需核真实调用；不能将待核条目静默保留为已批准。对原内容缺失的授权投影一律省略，不写未填写。
+
+## 数量事实核实后的完整格式
+
+frontend已确认：3023处读取模板列数为headers.length；3722导入结果count为已导入记录数，skippedErrors.length是问题项数，不能作为未导入人数或记录数。
+
+| 新键／函数 | 定稿 | 使用情境 |
+|---|---|---|
+| templateColumnsRead(count) | 已读取 {count} 个表格列，可用于设置资料项。 | 读取表头到模板编辑草稿 |
+| templateColumnsPreview(count) | 表格共有 {count} 列，请选择替换现有资料项或追加到末尾。 | 表头读取确认 |
+| importedRecords(count) | 已导入 {count} 条成员记录。 | 已执行并确认写入 |
+| importedRecordsWithIssues(count,issues) | 已导入 {count} 条成员记录；跳过的记录有 {issues} 项问题，请查看明细。 | 部分导入，逐行问题列表必须可打开 |
+| profileItemsCount(count) | {count} 项资料 | 内容数量摘要 |
+
+对应旧4c860/067/c6e/a7e/fbdaa等片段必须按真实调用替换完整句，不按相同字段名一律替换为同一个格式函数。模板列数不能写成导入成员数，问题项数不能写成人数。

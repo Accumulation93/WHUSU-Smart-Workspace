@@ -2,7 +2,7 @@
 
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
 const orgSession = require('../../../../../../../../utils/orgSession');
-const { showShortToast, getErrorText } = require('../../../../../../../../utils/api');
+const { showShortToast, getErrorText, createResultError } = require('../../../../../../../../utils/api');
 
 module.exports = Behavior({
   data: {
@@ -34,7 +34,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('listStampCandidates', {});
         if (!orgSession.isRequestCurrent(this, request) || !this.data.stampGrantVisible || this.data.stampGrantId !== stampId) return;
-        if (result.status !== 'success') throw new Error(result.message || stampCopy.candidatesFailed);
+        if (result.status !== 'success') throw createResultError(result, stampCopy.candidatesFailed);
         this.setData({ stampGrantOptions: result.candidates || [], stampGrantLoading: false });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || !this.data.stampGrantVisible || this.data.stampGrantId !== stampId) return;
@@ -56,7 +56,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveStampGrants', { stampId, assignmentIds });
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (result.status !== 'success') throw new Error(result.message || stampCopy.saveFailed);
+        if (result.status !== 'success') throw createResultError(result);
         this.setData({ stampGrantSaving: false });
         this.closeStampGrants();
         showShortToast(stampCopy.saved);

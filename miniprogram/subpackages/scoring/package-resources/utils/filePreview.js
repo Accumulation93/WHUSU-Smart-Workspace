@@ -12,7 +12,7 @@ const localeCopy = require('../locales/zh-CN/generated/utils/filePreview');
  *   openAuditFile({ fileId: 'xxx', fileName: 'xxx.pdf' });
  */
 
-const { API_BASE, createRequestHeaders } = require('../../../../utils/api');
+const { API_BASE, createRequestHeaders, createResultError, getErrorText } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const MAX_BASE64_LENGTH = 36 * 1024 * 1024;
 
@@ -97,8 +97,9 @@ function fallbackDownload(fileId, fileName, callback) {
       }
       hideLoading();
       if (res.statusCode !== 200 || !res.data || res.data.status !== 'success') {
-        toast((res.data && res.data.message) || localeCopy.copy_535998c496);
-        if (callback) callback(new Error('api failed'));
+        const error = createResultError(res.data, localeCopy.copy_535998c496);
+        toast(getErrorText(error));
+        if (callback) callback(error);
         return;
       }
 
@@ -138,9 +139,9 @@ function fallbackDownload(fileId, fileName, callback) {
           } catch (syncErr) {
             wx.showModal({
               title: localeCopy.copy_fee4566726,
-              content: localeCopy.copy_883987ec9c + (result.fileName || localeCopy.copy_0c28c344e7) +
-                localeCopy.copy_b6d7510119 + ((result.fileSize / 1024).toFixed(1)) + ' KB' +
-                localeCopy.copy_123db04018,
+              content: localeCopy.fileWriteFailed(result.fileName || fileName || localeCopy.copy_0c28c344e7,
+                typeof result.fileSize === 'number' && Number.isFinite(result.fileSize) && result.fileSize >= 0
+                  ? (result.fileSize / 1024).toFixed(1) + ' KB' : localeCopy.fileSizeUnknown),
               showCancel: false
             });
             if (callback) callback(syncErr);

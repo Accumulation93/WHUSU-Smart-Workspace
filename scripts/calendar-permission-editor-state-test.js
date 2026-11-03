@@ -15,6 +15,10 @@ function loadPage(relative, respond) {
     require(name) {
       if (name.includes('locales/')) return require(path.resolve(path.dirname(filename), name));
       if (name.endsWith('/calendarView')) return require(path.resolve(path.dirname(filename), name));
+      if (name.endsWith('/legacyPermissionView')) return require('../shared/legacyPermissionView');
+      if (name.endsWith('/adminPermissions')) return {
+        refreshMyPermissions: async () => ({}), canAccessPermissionSystem: () => true
+      };
       if (name.endsWith('/orgSession')) return {
         beginRequest: () => revision, isRequestCurrent: (_, value) => revision === value,
         invalidateRequests() { revision++; }, consume: () => ({ changed: false }),
@@ -22,6 +26,7 @@ function loadPage(relative, respond) {
       };
       if (name.endsWith('/api')) return {
         async callFunction(input) { calls.push(input); return respond(input); },
+        createResultError: () => new Error('local-read-error'),
         showShortToast(value) { notices.push(value); }, getErrorText: error => error.message
       };
       return {};
@@ -61,6 +66,7 @@ async function main() {
     const loaded = loadPage('miniprogram/subpackages/org/pages/adminPermissions/adminPermissions.js', () => response);
     const page = loaded.instance;
     page._active = true;
+    page.data.loading = false;
     page.data.selectedAdmin = { id: 'admin' };
     page.data.permissionGroups = [{ permissions: [{ key: 'venue.resources', editable: true, granted: true }] }];
     let reloaded = false;
@@ -78,6 +84,7 @@ async function main() {
   }
   const active = loadPage('miniprogram/subpackages/org/pages/adminPermissions/adminPermissions.js', async () => ({ status: 'success', admin: { id: 'admin' }, groups: [] }));
   active.instance._active = true;
+  active.instance.data.loading = false;
   active.instance.loadPage = async () => {};
   await active.instance.openAdmin({ currentTarget: { dataset: { id: 'admin' } } });
   assert.equal(active.instance.data.editorVisible, true);
@@ -85,6 +92,20 @@ async function main() {
   assert.equal(active.instance.data.editorVisible, false);
   assert.equal(active.instance.data.saving, false);
   assert.equal(active.notices.length, 1);
+  let available = false;
+  const retry = loadPage('miniprogram/subpackages/org/pages/adminPermissions/adminPermissions.js', async () =>
+    available ? { status: 'success', list: [], readOnly: true } : { status: 'error', message: 'SERVER_MESSAGE' });
+  retry.instance._active = true;
+  await retry.instance.loadPage();
+  assert.equal(retry.instance.data.loadError, 'local-read-error');
+  assert.equal(retry.instance.data.loading, false);
+  await retry.instance.openAdmin({ currentTarget: { dataset: { id: 'admin' } } });
+  assert.equal(retry.calls.length, 1);
+  available = true;
+  await retry.instance.loadPage();
+  assert.equal(retry.instance.data.loadError, '');
+  assert.equal(retry.instance.data.readOnly, true);
+  assert.equal(retry.instance.data.filteredAdmins.length, 0);
   console.log('编辑界面状态回归通过：参会配置授权/失权2例，权限详情/保存离页迟到2例，正常详情/保存2例；非设备渲染或后端授权测试。');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

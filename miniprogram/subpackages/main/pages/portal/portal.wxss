@@ -488,6 +488,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .portal-message-partial {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10rpx;
   margin-bottom: var(--ui-card-gap);
@@ -500,6 +501,8 @@ button, input, textarea, picker, view, text, scroll-view {
   background: linear-gradient(135deg, rgba(240,249,255,0.94), rgba(224,242,254,0.72));
   box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
+.portal-message-partial > text { flex: 1 1 180px; min-width: 0; }
+.portal-message-partial > button { flex: 0 0 auto; width: auto; margin: 0; }
 
 /* 门户左上角的退出登录图标键：放进门户顶栏的左侧槽位。
    已登录时点它退出登录，未登录时同一位置进登录页（无障碍文案随状态切换）。 */

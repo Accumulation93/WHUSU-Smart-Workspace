@@ -5,6 +5,7 @@ const utils = require('./adminUtils');
 const { emptyWorkGroupForm } = utils;
 const orgSession = require('../../../../../../../../utils/orgSession');
 const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const { createResultError, getErrorText } = require('../../../../../../../../utils/api');
 
 module.exports = Behavior({
   methods: {
@@ -16,9 +17,7 @@ module.exports = Behavior({
         const result = management ? await this.callCloud('listAuthorizedDictionary', { kind: 'work_group' }) : await this.callCloud('listWorkGroups');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          const failure = new Error('work_group_list_failed');
-          failure.userMessage = result.message || personnelCopy.dictionaryLoadFailed.workGroups.description;
-          throw failure;
+          throw createResultError(result, personnelCopy.dictionaryLoadFailed.workGroups.description);
         }
         const workGroups = (management ? result.list || [] : result.workGroups || []).map((item) => {
           const department = this.data.departmentList.find(d => (
@@ -38,7 +37,7 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         this.setDictionaryLoadFailure(
           'workGroups',
-          error && error.userMessage || personnelCopy.dictionaryLoadFailed.workGroups.description
+          personnelCopy.dictionaryLoadFailed.workGroups.description
         );
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('workGroups', false);
@@ -128,7 +127,7 @@ module.exports = Behavior({
 
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || localeCopy.copy_215e3c57da,
+            title: getErrorText(createResultError(result, localeCopy.copy_215e3c57da)),
             icon: 'none'
           });
           return;
@@ -143,7 +142,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: localeCopy.copy_215e3c57da,
+          title: getErrorText(error),
           icon: 'none'
         });
       } finally {
@@ -162,7 +161,7 @@ module.exports = Behavior({
       const confirm = await new Promise((resolve) => {
         wx.showModal({
           title: localeCopy.copy_2bc5d4cf83,
-          content: localeCopy.copy_e9870f418c,
+          content: [target && target.name, localeCopy.copy_e9870f418c].filter(Boolean).join('\n\n'),
           confirmText: localeCopy.copy_7f31eec657,
           cancelText: localeCopy.copy_4b213fd88a,
           success: (res) => resolve(!!res.confirm),
@@ -182,7 +181,7 @@ module.exports = Behavior({
             result.usages
           )) return;
           wx.showToast({
-            title: result.message || localeCopy.copy_076bb5d383,
+            title: getErrorText(createResultError(result, localeCopy.copy_076bb5d383)),
             icon: 'none'
           });
           return;
@@ -196,7 +195,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: localeCopy.copy_076bb5d383,
+          title: getErrorText(error),
           icon: 'none'
         });
       }

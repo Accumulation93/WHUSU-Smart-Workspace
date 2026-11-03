@@ -48,10 +48,10 @@ router.post('/saveWorkGroup', async (req, res) => {
     const description = safeString(req.body.description);
 
     if (!name) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_52f38ea0cf });
+      return res.json({ status: 'invalid_params', code: 'work_group_name_required', message: localeCopy.copy_52f38ea0cf });
     }
     if (!departmentId) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_502fd5f067 });
+      return res.json({ status: 'invalid_params', code: 'work_group_department_required', message: localeCopy.copy_502fd5f067 });
     }
 
     const orgId = req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
@@ -68,16 +68,16 @@ router.post('/saveWorkGroup', async (req, res) => {
       authorizationReference: req.unifiedAuthorization?.reference
     });
     if (saved.status === 'invalid_department') {
-      return res.json({ status: 'invalid_department', message: personnelCopy.workGroupDepartmentInvalid });
+      return res.json({ status: 'invalid_department', code: 'work_group_department_unavailable', message: personnelCopy.workGroupDepartmentInvalid });
     }
     if (saved.status === 'duplicate') {
-      return res.json({ status: 'duplicate', message: localeCopy.copy_a7a8b23213 });
+      return res.json({ status: 'duplicate', code: 'work_group_duplicate', message: localeCopy.copy_a7a8b23213 });
     }
     if (saved.status === 'in_use') {
-      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: saved.usages });
+      return res.json({ status: 'in_use', code: 'work_group_department_in_use', message: personnelCopy.dictionaryInUse, usages: saved.usages });
     }
     if (saved.status !== 'success') {
-      return res.json({ status: saved.status, message: localeCopy.copy_c4f6a0088b });
+      return res.json({ status: saved.status, code: saved.status === 'not_found' ? 'work_group_unavailable' : saved.status, message: localeCopy.copy_c4f6a0088b });
     }
     res.json(id
       ? { status: 'success', message: localeCopy.copy_4fdb08add2 }
@@ -94,15 +94,15 @@ router.post('/deleteWorkGroup', async (req, res) => {
     if (!req.unifiedAuthorization && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_c4f6a0088b });
+    if (!id) return res.json({ status: 'invalid_params', code: 'work_group_unavailable', message: localeCopy.copy_c4f6a0088b });
 
     const orgId = req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
     const deletion = await dictionaryUsage.deleteUnused('work_group', id, orgId, req.unifiedAuthorization?.reference);
     if (deletion.status === 'in_use') {
-      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
+      return res.json({ status: 'in_use', code: 'work_group_in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
     }
     if (deletion.status !== 'success') {
-      return res.json({ status: deletion.status, message: localeCopy.copy_c4f6a0088b });
+      return res.json({ status: deletion.status, code: deletion.status === 'not_found' ? 'work_group_unavailable' : deletion.status, message: localeCopy.copy_c4f6a0088b });
     }
     res.json({ status: 'success', message: localeCopy.copy_1d828c61a6 });
   } catch (e) {

@@ -15,15 +15,16 @@ export function scheduleInstant(value) {
 }
 export function bookingWindowLabels(window) {
   function label(side) {
-    const fallback = side === 'open' ? native.copy_584ba3052b : native.copy_9e824e777e;
-    const prefix = side === 'open' ? native.copy_44ce05c859 : native.copy_db4932f471;
+    const fallback = side === 'open' ? native.submissionOpenUnlimited : native.submissionDeadlineAtStart;
     const mode = window?.[side + 'AdvanceMode'];
     if (!mode) return fallback;
-    if (mode === 'days') return prefix + Number(window[side + 'AdvanceDays'] || 0) + native.copy_d08fb8244e;
+    if (mode === 'days') return side === 'open' ? native.submissionOpenDays(Number(window.openAdvanceDays || 0)) : native.submissionDeadlineDays(Number(window.deadlineAdvanceDays || 0));
     const minutes = window[side + 'AdvanceMinutes'];
     if (minutes == null) return fallback;
     const total = Math.max(0, Number(minutes) || 0), hours = Math.floor(total / 60), remain = total % 60;
-    return prefix + (!hours ? remain + native.copy_82b3c19342 : !remain ? hours + native.copy_57f8fbd947 : hours + native.copy_7bbe7387fa + remain + native.copy_82b3c19342);
+    if (side === 'deadline' && total === 0) return native.submissionDeadlineAtStart;
+    const duration = !hours ? native.durationMinutes(remain) : !remain ? native.durationHours(hours) : native.durationHoursMinutes(hours, remain);
+    return side === 'open' ? native.submissionOpenDuration(duration) : native.submissionDeadlineDuration(duration);
   }
   return [label('open'), label('deadline')];
 }
@@ -54,8 +55,8 @@ export function rangeError(day, date, start, end, window) {
     cursor = Math.max(cursor, toMinute(slot.timeEnd));
     if (cursor >= to) break;
   }
-  if (cursor < to) return toTime(cursor) + native.copy_70d4911767;
+  if (cursor < to) return native.venueClosedAt(toTime(cursor));
   const blocked = [...(day?.bookedSlots || []), ...(day?.activitySlots || [])]
     .find(slot => toMinute(slot.timeStart) < to && toMinute(slot.timeEnd) > from);
-  return blocked ? blocked.timeStart + native.copy_abf766aebc : '';
+  return blocked ? native.occupiedRange(blocked.timeStart) : '';
 }

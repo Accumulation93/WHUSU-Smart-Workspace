@@ -103,12 +103,8 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listVenuesForBooking', {});
+    const result = requireSuccess(await callApi('listVenuesForBooking', {}));
     if (request !== generation || context !== session.context?.contextId) return;
-    if (result.status !== 'success') {
-      loadNotice.value = result.message || copy.venue.loadFailed;
-      return;
-    }
     venues.value = Array.isArray(result.venues) ? result.venues : [];
   } catch (error) {
     if (request !== generation || context !== session.context?.contextId) return;

@@ -173,7 +173,7 @@ async function submit() {
       timeStart: date.value + 'T' + start.value, timeEnd: date.value + 'T' + end.value, flowId: flowId.value,
       firstApproverAssignmentIds: allowDesignate.value ? selected.value.map(item => item.assignmentId) : [], clientRequestId: requestId }));
     if (!current()) return;
-    showToast(result.message || copy.venue.createDone);
+    showToast(copy.venue.createDone);
     emit('saved', result.id);
   } catch (error) { if (current()) notice.value = errorText(error); }
   finally { submitting.value = false; }
