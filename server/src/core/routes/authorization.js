@@ -25,6 +25,7 @@ const ERRORS = Object.freeze({
   invalid_authorization_delegation: [400, 'invalidPolicy'],
   assignment_nature_invalid: [400, 'invalidNature'],
   assignment_nature_name_invalid: [400, 'invalidName'],
+  assignment_nature_description_invalid: [400, 'invalidPolicy'],
   assignment_nature_duplicate: [409, 'duplicateNature'],
   assignment_nature_in_use: [409, 'natureInUse'],
   assignment_nature_legacy_required: [409, 'legacyNatureRequired'],

@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('node:assert/strict');
+process.env.DB_USER = process.env.DB_USER || 'nature_description_copy_test';
+process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'nature_description_copy_test';
+const adapter = require('../src/core/models/organizationDictionaryCopy').createAdapter('hr.assignmentNatures');
+assert.deepEqual(adapter.normalize({ name: '性质' }), { name: '性质' });
+assert.deepEqual(adapter.normalize({ name: '性质', description: '第一行\n第二行😀' }), { name: '性质', description: '第一行\n第二行😀' });
+assert.equal(Array.from(adapter.normalize({ name: '性质', description: '😀'.repeat(2000) }).description).length, 2000);
+assert.throws(() => adapter.normalize({ name: '性质', description: '😀'.repeat(2001) }), { code: 'config_copy_invalid' });
+assert.throws(() => adapter.normalize({ name: '性质', description: null }), { code: 'config_copy_invalid' });
+console.log('assignment nature description copy: 5 checks passed');

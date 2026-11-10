@@ -17,8 +17,8 @@ async function initialize(connection, organizationId) {
 }
 
 async function list(connection, organizationId) {
-  const [rows] = await connection.query('SELECT id, name, version FROM assignment_natures WHERE org_id = ? ORDER BY created_at, id', [organizationId]);
-  return rows;
+  const [rows] = await connection.query('SELECT id, name, description, version FROM assignment_natures WHERE org_id = ? ORDER BY created_at, id', [organizationId]);
+  return rows.map(row => ({ ...row, description: row.description || '', deleteRestrictionCode: LEGACY.includes(row.id) ? 'legacy_required' : '' }));
 }
 
 async function resolve(connection, organizationId, value) {
@@ -32,6 +32,8 @@ async function save(input, organizationId, authorize) {
   if (typeof authorize !== 'function') fail('authorization_guard_required');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   if (!name || Array.from(name).length > 80) fail('assignment_nature_name_invalid');
+  const hasDescription = Object.prototype.hasOwnProperty.call(input, 'description');
+  if (hasDescription && (typeof input.description !== 'string' || Array.from(input.description).length > 2000)) fail('assignment_nature_description_invalid');
   if (input.id && (typeof input.id !== 'string' || !/^[A-Za-z0-9_-]{1,32}$/.test(input.id)
     || !Number.isSafeInteger(input.version) || input.version < 1)) fail('authorization_conflict');
   return pool.withTransaction(async connection => {
@@ -41,14 +43,18 @@ async function save(input, organizationId, authorize) {
       [organizationId, name, input.id || '']);
     if (duplicates.length) fail('assignment_nature_duplicate');
     const id = input.id || crypto.randomBytes(16).toString('hex');
+    let description = hasDescription ? input.description : '';
     if (input.id) {
-      const [result] = await connection.query('UPDATE assignment_natures SET name = ?, version = version + 1 WHERE org_id = ? AND id = ? AND version = ?',
-        [name, organizationId, id, input.version]);
+      const [existing] = await connection.query('SELECT description FROM assignment_natures WHERE org_id = ? AND id = ? AND version = ? FOR UPDATE', [organizationId, id, input.version]);
+      if (!existing.length) fail('authorization_conflict');
+      if (!hasDescription) description = existing[0].description || '';
+      const [result] = await connection.query('UPDATE assignment_natures SET name = ?, description = ?, version = version + 1 WHERE org_id = ? AND id = ? AND version = ?',
+        [name, description, organizationId, id, input.version]);
       if (result.affectedRows !== 1) fail('authorization_conflict');
     } else {
-      await connection.query('INSERT INTO assignment_natures (id, org_id, name) VALUES (?, ?, ?)', [id, organizationId, name]);
+      await connection.query('INSERT INTO assignment_natures (id, org_id, name, description) VALUES (?, ?, ?, ?)', [id, organizationId, name, description]);
     }
-    return { id, name, version: input.id ? input.version + 1 : 1 };
+    return { id, name, description, version: input.id ? input.version + 1 : 1 };
   });
 }
 

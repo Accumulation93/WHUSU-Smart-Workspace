@@ -19,7 +19,7 @@ function createAdapter(kind) {
     if (!raw || typeof raw.name !== 'string' || !raw.name.trim()
       || Array.from(raw.name.trim()).length > definition.nameLimit) fail('config_copy_invalid');
     const result = { name: raw.name.trim() };
-    if (!definition.nature) {
+    if (!definition.nature || Object.prototype.hasOwnProperty.call(raw, 'description')) {
       if (typeof raw.description !== 'string' || Array.from(raw.description).length > 2000) fail('config_copy_invalid');
       result.description = raw.description;
     }
@@ -43,11 +43,11 @@ function createAdapter(kind) {
       return { departmentId: raw.departmentId };
     },
     async source(connection, orgId, id) {
-      const columns = definition.nature ? 'name' : definition.department ? 'name, description, department_id' : 'name, description';
+      const columns = definition.department ? 'name, description, department_id' : 'name, description';
       const [rows] = await connection.query(`SELECT ${columns} FROM ${definition.table} WHERE org_id = ? AND id = ? FOR SHARE`, [orgId, id]);
       if (!rows.length) fail('config_copy_missing');
       const payload = { name: rows[0].name };
-      if (!definition.nature) payload.description = rows[0].description || '';
+      payload.description = rows[0].description || '';
       if (definition.department) {
         const [departments] = await connection.query('SELECT id, name FROM departments WHERE org_id = ? AND id = ? FOR SHARE', [orgId, rows[0].department_id]);
         if (!departments.length) fail('config_copy_reference');
@@ -73,7 +73,7 @@ function createAdapter(kind) {
       if (duplicates.length) fail('config_copy_duplicate');
       const id = definition.nature ? crypto.randomBytes(16).toString('hex') : crypto.randomUUID();
       if (definition.nature) {
-        await connection.query('INSERT INTO assignment_natures (org_id, id, name) VALUES (?, ?, ?)', [orgId, id, payload.name]);
+        await connection.query('INSERT INTO assignment_natures (org_id, id, name, description) VALUES (?, ?, ?, ?)', [orgId, id, payload.name, payload.description || '']);
       } else if (definition.department) {
         await connection.query('INSERT INTO work_groups (org_id, id, name, description, department_id) VALUES (?, ?, ?, ?, ?)',
           [orgId, id, payload.name, payload.description, departmentId]);

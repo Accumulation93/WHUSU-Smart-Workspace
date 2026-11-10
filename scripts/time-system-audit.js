@@ -50,9 +50,29 @@ function isRawAbsoluteTimeField(fieldName) {
   return RAW_ABSOLUTE_FIELD_PATTERN.test(fieldName);
 }
 
-function isLocaleReference(expression, tokenIndex) {
+function isLocaleReference(expression, tokenIndex, bindings = new Set()) {
   const prefix = expression.slice(0, tokenIndex);
-  return /(?:^|[^A-Za-z0-9_$])(?:localeCopy|locale|i18n|translations?)\s*\.\s*$/i.test(prefix);
+  const matched = prefix.match(/(?:^|[^A-Za-z0-9_$])([A-Za-z_$][A-Za-z0-9_$]*)\s*\.\s*$/);
+  return /(?:^|[^A-Za-z0-9_$])(?:localeCopy|locale|i18n|translations?)\s*\.\s*$/i.test(prefix)
+    || Boolean(matched && bindings.has(matched[1]));
+}
+
+function localeDataBindings(root, file) {
+  const script = path.join(root, file.replace(/\.wxml$/, '.js'));
+  if (!fs.existsSync(script)) return new Set();
+  const source = maskJavaScriptComments(fs.readFileSync(script, 'utf8'));
+  const data = source.match(/\bdata\s*:\s*\{([^}]*)\}/);
+  const bindings = new Set();
+  if (!data) return bindings;
+  const imports = /\bconst\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*require\(['"]([^'"\n]+)['"]\)/g;
+  let match;
+  while ((match = imports.exec(source))) {
+    const resolved = path.resolve(path.dirname(script), match[2]) + '.js';
+    const relative = path.relative(path.join(root, 'miniprogram'), resolved).replace(/\\/g, '/');
+    if (!relative.startsWith('../') && /(?:^|\/)locales\/zh-CN\//.test(relative) && fs.existsSync(resolved)
+      && new RegExp('(?:^|,)\\s*' + match[1] + '\\s*(?:,|$)').test(data[1])) bindings.add(match[1]);
+  }
+  return bindings;
 }
 
 function isDatabaseTimeTextContext(source, index) {
@@ -178,13 +198,13 @@ function scanIsoLiterals(findings, file, source) {
   }
 }
 
-function scanWxml(findings, file, source) {
+function scanWxml(findings, file, source, bindings) {
   const searchableSource = maskXmlComments(source);
   extractMustacheExpressions(searchableSource).forEach((expression) => {
     const tokenPattern = /[A-Za-z_$][A-Za-z0-9_$]*/g;
     let token;
     while ((token = tokenPattern.exec(expression.text))) {
-      if (isLocaleReference(expression.text, token.index)) continue;
+      if (isLocaleReference(expression.text, token.index, bindings)) continue;
       if (!isRawAbsoluteTimeField(token[0])) continue;
       addFinding(
         findings,
@@ -237,7 +257,7 @@ function scanRepository(root = DEFAULT_ROOT) {
   listFiles(root, 'miniprogram', new Set(['.js', '.wxs', '.wxml', '.json'])).forEach((absolutePath) => {
     const relativePath = toPosix(path.relative(root, absolutePath));
     const source = fs.readFileSync(absolutePath, 'utf8');
-    if (absolutePath.endsWith('.wxml')) scanWxml(findings, relativePath, source);
+    if (absolutePath.endsWith('.wxml')) scanWxml(findings, relativePath, source, localeDataBindings(root, relativePath));
     else if (relativePath !== 'miniprogram/utils/dateTime.js') {
       scanMiniProgramJavaScript(findings, relativePath, source);
     }

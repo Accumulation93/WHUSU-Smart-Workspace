@@ -25,10 +25,11 @@ test('assignment nature saves, rereads, and reopens its persisted value',async({
   await page.route('**/api/saveAssignmentNature',route=>{saved=route.request().postDataJSON();rows=[{...saved,version:2,canUpdate:true,canDelete:true}];return route.fulfill({json:{status:'success',nature:rows[0]}});});
   await page.goto('/web/admin/assignment-natures?copyKind=hr.assignmentNatures&copyId=copied-nature');
   const input=page.getByLabel(ui.name,{exact:true});await expect(input).toHaveValue('Copied nature');
-  await input.fill('Revised nature');await page.getByRole('button',{name:ui.save,exact:true}).click();
+  await input.fill('Revised nature');await page.getByLabel(ui.description,{exact:true}).fill('First line\nSecond line');await page.getByRole('button',{name:ui.save,exact:true}).click();
   await expect(input).toHaveValue('');
-  expect(saved).toEqual({id:'copied-nature',name:'Revised nature',version:1});
+  expect(saved).toEqual({id:'copied-nature',name:'Revised nature',description:'First line\nSecond line',version:1});
   await page.reload();await expect(input).toHaveValue('Revised nature');
+  await expect(page.getByLabel(ui.description,{exact:true})).toHaveValue('First line\nSecond line');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath('assignment-natures.png'),fullPage:true,animations:'disabled'});
 });

@@ -30,6 +30,9 @@ async function run() {
     const migration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8');
     await admin.query(migration);
     await admin.query(migration);
+    const descriptionMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8');
+    await admin.query(descriptionMigration);
+    await admin.query(descriptionMigration);
     const versionMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261031173000_authorization_subject_versions.sql'), 'utf8');
     await admin.query(versionMigration);
     await admin.query(versionMigration);
@@ -395,12 +398,25 @@ async function run() {
     assert.equal((await post('getAuthorizationCandidates', {}, true)).status, 401);
     assert.equal((await post('getEffectiveAuthorization', {}, true)).status, 401);
     assert.equal((await post('saveAssignmentNature', { name: '未登录性质' }, true)).status, 401);
-    const natureCreated = await (await post('saveAssignmentNature', { name: 'HTTP岗位性质' })).json();
+    const natureCreated = await (await post('saveAssignmentNature', { name: 'HTTP岗位性质', description: '面向专项工作\n支持多行说明😀' })).json();
     assert.equal(natureCreated.status, 'success');
     const natureUpdated = await (await post('saveAssignmentNature', { ...natureCreated.nature, name: 'HTTP岗位性质改名' })).json();
     assert.equal(natureUpdated.nature.version, 2);
     const natureDirectory = await (await post('listAssignmentNatures', {})).json();
     assert.equal(natureDirectory.list.find(item => item.id === natureCreated.nature.id).name, 'HTTP岗位性质改名');
+    assert.equal(natureDirectory.list.find(item => item.id === natureCreated.nature.id).description, '面向专项工作\n支持多行说明😀');
+    const legacyNatureUpdate = await (await post('saveAssignmentNature', { id: natureCreated.nature.id, name: 'HTTP岗位性质改名', version: 2 })).json();
+    assert.equal(legacyNatureUpdate.nature.description, natureCreated.nature.description);
+    assert.equal((await admin.query('SELECT description FROM assignment_natures WHERE org_id=? AND id=?', ['org', natureCreated.nature.id]))[0][0].description, natureCreated.nature.description);
+    const clearedNature = await (await post('saveAssignmentNature', { ...legacyNatureUpdate.nature, description: '' })).json();
+    assert.equal(clearedNature.status, 'success');
+    assert.equal((await admin.query('SELECT description FROM assignment_natures WHERE org_id=? AND id=?', ['org', natureCreated.nature.id]))[0][0].description, '');
+    assert.equal((await post('saveAssignmentNature', { name: '超长描述', description: '😀'.repeat(2001) })).status, 400);
+    assert.equal((await post('saveAssignmentNature', { name: '非法描述', description: null })).status, 400);
+    const maxDescriptionNature = await (await post('saveAssignmentNature', { name: '描述边界', description: '😀'.repeat(2000) })).json();
+    assert.equal(maxDescriptionNature.status, 'success');
+    assert.equal(natureDirectory.list.find(item => item.id === 'staff').deleteRestrictionCode, 'legacy_required');
+    assert.equal((await post('deleteAssignmentNature', { id: 'staff', version: 1 })).status, 409);
     assert.equal((await post('saveAssignmentNature', { ...natureCreated.nature, name: '旧版本' })).status, 409);
     assert.equal((await post('saveAssignmentNature', { name: 'HTTP岗位性质改名' })).status, 409);
     const superExplanation = await (await post('getEffectiveAuthorization', {})).json();
@@ -463,7 +479,7 @@ async function run() {
     const deleteResponse = await post('deleteAuthorizationRules', { expectedRevision: reopened.revision, rules: [{ id: httpRule.id, version: httpRule.version }] });
     assert.equal(deleteResponse.status, 200);
     assert(!(await (await post('getAuthorizationManagement', {})).json()).rules.some(rule => rule.id === httpRule.id));
-    assert.equal((await post('deleteAssignmentNature', natureUpdated.nature)).status, 200);
+    assert.equal((await post('deleteAssignmentNature', clearedNature.nature)).status, 200);
     assert(!(await (await post('listAssignmentNatures', {})).json()).list.some(item => item.id === natureCreated.nature.id));
     const inspectionPolicy = { ...scoped, capabilities: ['authorization.effective.read'],
       subjects: [{ kind: 'adminGrants', ids: ['regular'] }], scopes: [{ kind: 'records', ids: ['assignment'] }] };

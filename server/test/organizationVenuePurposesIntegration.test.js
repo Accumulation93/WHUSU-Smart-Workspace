@@ -172,10 +172,11 @@ async function run() {
     assert.equal((await admin.query("SELECT COUNT(*) AS n FROM organization_config_copy_changes WHERE action = 'apply'"))[0][0].n, 1);
     console.log('配置复制事由适配器：白名单成包、来源与目标分开校验、接收仅草稿、重复请求、撤回分享、独立副本、重名拒绝及失败不改草稿通过；不包含真实授权链或两端界面。');
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
     await admin.query(`INSERT INTO departments(id,org_id,name,description) VALUES ('a-dept','a','共同名称','部门说明'),('b-dept','b','共同名称','');
       INSERT INTO identities(id,org_id,name,description) VALUES ('a-identity','a','成员类别','类别说明');
       INSERT INTO work_groups(id,org_id,department_id,name,description) VALUES ('a-group','a','a-dept','同名职能组','职能组说明');
-      INSERT INTO assignment_natures(id,org_id,name) VALUES ('a-nature','a','可扩展性质');`);
+      INSERT INTO assignment_natures(id,org_id,name,description) VALUES ('a-nature','a','可扩展性质','仅用于专项工作岗位');`);
     const dictionaryGuard = async (_connection, ref, kind, action) => {
       assert(['a', 'b'].includes(ref.organizationId));
       assert(['hr.departments', 'hr.identities', 'hr.workGroups', 'hr.assignmentNatures'].includes(kind));
@@ -203,6 +204,18 @@ async function run() {
     const natureResult = await copying.apply({ id: natureDraft.id, version: 1 }, target, dictionaryGuard);
     assert.equal(natureResult.resultId.length, 32);
     assert.equal((await admin.query('SELECT name FROM assignment_natures WHERE org_id = ? AND id = ?', ['b', natureResult.resultId]))[0][0].name, '可扩展性质');
+    assert.equal((await admin.query('SELECT description FROM assignment_natures WHERE org_id = ? AND id = ?', ['b', natureResult.resultId]))[0][0].description, '仅用于专项工作岗位');
+    const oldNatureShare = await copying.share({ kind: 'hr.assignmentNatures', sourceRecordId: 'a-nature', targetOrganizationId: 'b' }, source, dictionaryGuard);
+    const oldNaturePayload = { name: '旧版分享的岗位性质' };
+    const oldNatureJson = JSON.stringify(oldNaturePayload);
+    const oldNatureHash = crypto.createHash('sha256').update(oldNatureJson).digest('hex');
+    await admin.query('UPDATE organization_config_shares SET payload_json=?,payload_hash=? WHERE id=?', [oldNatureJson, oldNatureHash, oldNatureShare.id]);
+    const oldNatureDraft = await copying.receive({ shareId: oldNatureShare.id, shareVersion: 1, requestId: 'old-nature-copy' }, target, dictionaryGuard);
+    assert.deepEqual((await copying.detail({ id: oldNatureDraft.id }, target, dictionaryGuard)).payload, oldNaturePayload);
+    const oldNatureResult = await copying.apply({ id: oldNatureDraft.id, version: 1 }, target, dictionaryGuard);
+    const [oldNatureRows] = await admin.query('SELECT name,description FROM assignment_natures WHERE org_id=? AND id=?', ['b', oldNatureResult.resultId]);
+    assert.deepEqual(oldNatureRows[0], { name: oldNaturePayload.name, description: '' });
+    assert.equal((await admin.query('SELECT payload_hash FROM organization_config_shares WHERE id=?', [oldNatureShare.id]))[0][0].payload_hash, oldNatureHash);
     await admin.query(`INSERT INTO score_question_templates(id,org_id,name,description,created_by)
       VALUES ('source-template','a','可复用评分表','保留题目与数值','source-private-actor');
       INSERT INTO score_questions(id,template_id,sort_order,question,score_label,min_value,start_value,max_value,step_value)

@@ -8,3 +8,5 @@
 .nature-link::after { border: 0; }
 .nature-danger { color: #dc2626; background: linear-gradient(135deg,rgba(254,242,242,.96),rgba(254,226,226,.72)); }
 .nature-notice { font-size: var(--ui-type-body); line-height: 1.6; }
+.nature-description { color: #64748b; font-size: var(--ui-type-body); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: var(--ui-label-gap); }
+.nature-editor .nature-description-input { display: block; min-height: 88px; height: auto; box-sizing: border-box; width: 100%; }

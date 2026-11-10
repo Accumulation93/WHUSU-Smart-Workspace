@@ -161,10 +161,17 @@ function testAuditScanner() {
       path.join(fixtureRoot, 'server/node_modules/ignored.js'),
       "const ignoredDependencyTime = new Date().toISOString().slice(0, 19);\n"
     );
+    writeFixture(path.join(fixtureRoot, 'miniprogram/locales/zh-CN/card.js'), "module.exports = { checkedAt: '核验时间' };\n");
+    writeFixture(path.join(fixtureRoot, 'miniprogram/pages/label/label.js'), "const copy = require('../../locales/zh-CN/card'); Page({data:{copy}});\n");
+    writeFixture(path.join(fixtureRoot, 'miniprogram/pages/label/label.wxml'), '<text>{{copy.checkedAt}}</text>');
+    writeFixture(path.join(fixtureRoot, 'miniprogram/pages/untrusted/untrusted.js'), "const copy = {checkedAt: ''}; Page({data:{copy}});\n");
+    writeFixture(path.join(fixtureRoot, 'miniprogram/pages/untrusted/untrusted.wxml'), '<text>{{copy.checkedAt}}</text>');
     const findings = timeAudit.scanRepository(fixtureRoot);
     const rawTimeFindings = findings.filter((item) => item.rule === 'wxml-raw-absolute-time');
     const manualUtcFindings = findings.filter((item) => item.rule === 'manual-utc-sql-text');
-    assert.strictEqual(rawTimeFindings.length, 6);
+    assert.strictEqual(rawTimeFindings.length, 7);
+    assert.equal(rawTimeFindings.some(item => item.file.includes('/label/')), false);
+    assert.equal(rawTimeFindings.some(item => item.file.includes('/untrusted/')), true);
     ['createdAt', 'inviteExpiresAt', 'claimStartsAt', 'snapshotStartedAt', 'valueUpdatedAt', 'lockedUntil']
       .forEach((fieldName) => {
         assert.ok(rawTimeFindings.some((item) => item.detail.includes(fieldName)));

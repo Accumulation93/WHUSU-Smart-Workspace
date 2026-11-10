@@ -27,10 +27,26 @@ const behaviorLifecycle = new Map([
   ['subpackages/venue/pages/venueManage/venueManage', { binding: 'venueManagementBehavior', source: 'subpackages/venue/pages/venueManage/venueManagementBehavior', prefix: 'management' }]
 ]);
 const delegatedLifecycle = new Map([
+  ['subpackages/org/pages/assignmentNatures/assignmentNatures', {
+    tag: 'assignment-nature-editor', source: 'subpackages/org/package-resources/components/assignment-nature-editor/assignment-nature-editor', eventDriven: true
+  }],
   ['subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals', {
     tag: 'pending-approvals', source: 'subpackages/venue/components/pendingApprovals/pendingApprovals'
   }]
 ]);
+
+function hasEventDrivenLifecycle(source) {
+  const binding = source.match(/(?:const|let)\s+(\w+)\s*=\s*require\(['"][^'"\n]*orgSession['"]\)/);
+  if (!binding || !new RegExp('\\b' + binding[1] + '\\.isRequestCurrent\\(this,').test(source)
+    || !new RegExp('\\b' + binding[1] + '\\.invalidateRequests\\(this\\)').test(source)) return false;
+  if (!/pageLifetimes\s*:\s*\{\s*hide\(\)\s*\{\s*this\.stop\(\);\s*\}\s*,\s*show\(\)\s*\{\s*if\s*\(!this\._visible\)\s*this\.activate\(\)/.test(source)
+    || !/detached\(\)\s*\{\s*this\.stop\(\)/.test(source)
+    || !/attached\(\)\s*\{\s*this\.activate\(\)/.test(source)
+    || !/this\._changed\s*=\s*\(\)\s*=>\s*\{\s*this\.stop\(\);\s*this\.activate\(\);/.test(source)) return false;
+  const events = source.match(/(?:const|let)\s+(\w+)\s*=\s*require\(['"][^'"\n]*eventBus['"]\)/);
+  return !!events && ['org:changed', 'auth:contextChanged', 'auth:selectionChanged'].every(event =>
+    ['on', 'off'].every(method => source.includes(events[1] + '.' + method + "('" + event + "', this._changed)")));
+}
 
 function add(rule, file, message) {
   issues.push({ rule, file: file.replace(/\\/g, '/'), message });
@@ -58,6 +74,7 @@ for (const page of pages) {
       }
     }
     const delegated = delegatedLifecycle.get(page);
+    let eventDrivenLifecycle = false;
     if (delegated) {
       const config = JSON.parse(fs.readFileSync(path.join(miniRoot, page + '.json'), 'utf8'));
       const markup = fs.readFileSync(path.join(miniRoot, page + '.wxml'), 'utf8');
@@ -67,15 +84,17 @@ for (const page of pages) {
       if (resolved !== delegated.source || !markup.includes('<' + delegated.tag)
         || /\bcallFunction\s*\(/.test(source)) add('invalid-lifecycle-delegation', relativeFile, '请求委托须指向实际组件，页面新增请求须自行校验');
       lifecycleSource = fs.readFileSync(path.join(miniRoot, delegated.source + '.js'), 'utf8');
-      if (!/pageLifetimes\s*:\s*\{[\s\S]*?\bhide\s*\(/.test(lifecycleSource)
-        || !/\bdetached\s*\(/.test(lifecycleSource) || !/orgSession\.isRequestCurrent\(this,/.test(lifecycleSource)) {
+      eventDrivenLifecycle = delegated.eventDriven === true && hasEventDrivenLifecycle(lifecycleSource);
+      if (delegated.eventDriven && !eventDrivenLifecycle) add('incomplete-event-component-lifecycle', delegated.source + '.js', '事件驱动组件须完整失效请求、清理订阅并响应隐藏和重新显示');
+      if (!delegated.eventDriven && (!/pageLifetimes\s*:\s*\{[\s\S]*?\bhide\s*\(/.test(lifecycleSource)
+        || !/\bdetached\s*\(/.test(lifecycleSource) || !/orgSession\.isRequestCurrent\(this,/.test(lifecycleSource))) {
         add('incomplete-component-lifecycle', delegated.source + '.js', '组件须处理页面隐藏、卸载与迟到响应');
       }
     }
     const sessionBinding = lifecycleSource.match(/(?:const|let)\s+(\w+)\s*=\s*require\(['"][^'"\n]*orgSession['"]\)/);
     if (!sessionBinding) add('missing-org-session', relativeFile, '页面未接入组织快照工具');
     if (!/\bonShow\s*[:(]/.test(source)) add('missing-on-show', relativeFile, '页面缺少 onShow 生命周期');
-    if (!sessionBinding || !new RegExp('\\b' + sessionBinding[1] + '\\.consume\\(this\\)').test(lifecycleSource)) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
+    if (!eventDrivenLifecycle && (!sessionBinding || !new RegExp('\\b' + sessionBinding[1] + '\\.consume\\(this\\)').test(lifecycleSource))) add('missing-consume', relativeFile, 'onShow 未消费组织版本');
     if (!sessionBinding || !new RegExp('\\b' + sessionBinding[1] + '\\.invalidateRequests\\(this\\)').test(lifecycleSource)) add('missing-invalidate', relativeFile, '组织变化未使旧请求失效');
   }
 }
@@ -115,6 +134,11 @@ function hasVisibleInternalIdentifier(source) {
 
 if (process.argv.includes('--self-test')) {
   const assert = require('node:assert/strict');
+  const component = fs.readFileSync(path.join(miniRoot, 'components/assignment-nature-editor/assignment-nature-editor.js'), 'utf8');
+  assert.equal(hasEventDrivenLifecycle(component), true);
+  for (const fragment of ['session.invalidateRequests(this)', 'session.isRequestCurrent(this,', "eventBus.on('auth:selectionChanged', this._changed)", "eventBus.off('org:changed', this._changed)", 'hide() { this.stop(); }', 'detached() { this.stop(); }']) {
+    assert.equal(hasEventDrivenLifecycle(component.replace(fragment, '')), false, fragment);
+  }
   assert.equal(hasVisibleInternalIdentifier('<button bindtap="openIdentitySettings">{{ui.identitySettingsEntry}}</button>'), false);
   assert.equal(hasVisibleInternalIdentifier('<text>{{person.openid}}</text>'), true);
   assert.equal(hasVisibleInternalIdentifier('<text>OpenID</text>'), true);
