@@ -172,7 +172,7 @@ test('评分填写按题目校验并与服务端约定一致', async ({ page }) 
   await inputs.nth(0).fill('20');
   await inputs.nth(1).fill('8');
   await page.getByRole('button', { name: copy.scoring.actionSubmit }).click();
-  await expect(page.getByText(new RegExp('第 1 项的分数需要在'))).toBeVisible();
+  await expect(page.getByText(copy.scoring.questionRange.replace('{0}', '1').replace('{1}', '0').replace('{2}', '10'), { exact: true })).toBeVisible();
 
   // 合法分值与步长可以提交
   await inputs.nth(0).fill('9.5');

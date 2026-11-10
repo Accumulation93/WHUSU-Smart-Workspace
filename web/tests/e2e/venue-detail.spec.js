@@ -4,6 +4,7 @@ import copy from '../../src/locales/zh-CN/index.js';
 const booking = {
   id: 'detail-booking', title: 'Saved venue request', venueName: 'Meeting room', status: 'pending',
   orgName: 'Historical organization', userName: 'Applicant', creatorAssignmentLabel: 'Historical assignment',
+  displayFacts: { creatorName: 'Applicant', creatorType: 'user', assignmentLabel: 'Historical assignment', venueName: 'Meeting room' },
   userDept: 'Historical department', userIdentity: 'Historical identity', userWorkGroup: 'Historical group',
   description: 'Saved description '.repeat(100), timeStart: '2035-01-01T01:00:00.000Z', timeEnd: '2035-01-01T02:00:00.000Z',
   approvalProgress: { flowId: 'flow-a', currentStep: 0, totalSteps: 3,

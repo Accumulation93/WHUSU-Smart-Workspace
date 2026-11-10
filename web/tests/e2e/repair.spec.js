@@ -2,14 +2,16 @@ import { expect, test } from '@playwright/test';
 import { mockApi, callsOf } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import homeLocale from '../../src/locales/zh-CN/shared/home.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 const homeCopy = homeLocale.text;
 
 test('notification stays unread when its detail cannot be opened', async ({ page }) => {
   const api = await mockApi(page);
   await page.route('**/api/getSubmissionDetail', route => route.fulfill({ json: { status: 'forbidden', message: 'detail unavailable' } }));
   await page.goto('/web/portal');
-  await page.locator('.notification-item').filter({ hasText: '有一条新的审核申请' }).click();
-  await expect(page.getByText('detail unavailable')).toBeVisible();
+  await page.locator('section').filter({ has: page.getByText(copy.portal.view.notificationTitle, { exact: true }) }).locator('.notification-item').click();
+  await expect(page.getByText(feedback.forbidden)).toBeVisible();
+  await expect(page.getByText('detail unavailable')).toHaveCount(0);
   expect(callsOf(api.calls, 'markNotificationRead')).toHaveLength(0);
 });
 
@@ -18,7 +20,8 @@ test('business rejection does not show approval success', async ({ page }) => {
   await page.route('**/api/approveStep', route => route.fulfill({ json: { status: 'forbidden', message: 'approval denied' } }));
   await page.goto('/web/audit/submission/submission-1');
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
-  await expect(page.getByText('approval denied')).toBeVisible();
+  await expect(page.getByText(feedback.forbidden)).toBeVisible();
+  await expect(page.getByText('approval denied')).toHaveCount(0);
   await expect(page.getByText(copy.audit.approveDone, { exact: true })).toHaveCount(0);
 });
 
@@ -57,7 +60,7 @@ test('venue history uses id and detail response from server', async ({ page }) =
   let request;
   await page.route('**/api/getVenueApprovalHistoryDetail', route => {
     request = route.request().postDataJSON();
-    return route.fulfill({ json: { status: 'success', detail: { title: 'Saved booking', venueName: 'Room A', userName: 'Applicant', applicantAssignmentLabel: 'Saved role', approvalProgress: null } } });
+    return route.fulfill({ json: { status: 'success', detail: { title: 'Saved booking', venueName: 'Room A', userName: 'Applicant', applicantAssignmentLabel: 'Saved role', displayFacts: { creatorType: 'user', creatorName: 'Applicant', assignmentLabel: 'Saved role', venueName: 'Room A' }, approvalProgress: null } } });
   });
   await page.goto('/web/venue/history/booking-1');
   await expect(page.getByRole('heading', { name: 'Saved booking' })).toBeVisible();

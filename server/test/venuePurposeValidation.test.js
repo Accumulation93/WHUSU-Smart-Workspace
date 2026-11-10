@@ -47,7 +47,7 @@ test('事由删除继续保留数据库引用阻断并返回 locale 提示', () 
   assert.match(deleteSource, /venueBookingPurposeModel\.remove\(id, orgId\)/);
   assert.match(deleteSource, /ER_ROW_IS_REFERENCED/);
   assert.match(deleteSource, /ER_ROW_IS_REFERENCED_2/);
-  assert.match(deleteSource, /status: 'conflict', message: localeCopy\.bookingPurposeReferenced/);
+  assert.match(deleteSource, /status: 'conflict', code: 'venue_purpose_referenced', message: localeCopy\.bookingPurposeReferenced/);
   assert.match(localeSource, /bookingPurposeReferenced:/);
   assert.doesNotMatch(deleteSource, /message: safeString\(e\.message\)/);
 });

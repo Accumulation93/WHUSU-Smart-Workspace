@@ -257,6 +257,8 @@ async function listForActor(connection,actor,input,permissions={}) {
       const card={id:event.id,occurrenceDate:item.occurrenceDate,version:event.version,title:item.title,startAt:item.startAt,endAt:item.endAt,
         allDay:item.allDay,location:item.location,sourceKind:event.sourceKind,visibility:event.visibility,timezoneOffset:event.spec.timezoneOffset,
         participantCount:participants.length,attending,canUpdate:canUpdate && event.sourceKind==='manual',canCancel:canCancel && event.sourceKind==='manual'};
+      if(item.startAtReviewStatus)card.startAtReviewStatus=item.startAtReviewStatus;
+      if(item.endAtReviewStatus)card.endAtReviewStatus=item.endAtReviewStatus;
       if (input.export===true) Object.assign(card,{description:item.description,reminders:item.reminders || []});
       if (input.detailId===event.id && input.occurrenceDate===item.occurrenceDate) Object.assign(card,{description:item.description,participants:publicMembers(participants,actor.organizationId),
         form:occurrences.form(Object.assign({},item,{startAt:Date.parse(item.startAt),endAt:Date.parse(item.endAt)})),

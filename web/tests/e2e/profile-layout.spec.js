@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import home from '../../src/locales/zh-CN/shared/home.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 const ui = home.text;
 test('profile follows native field grid and keeps the submitted values when reread fails', async ({ page }) => {
   await mockApi(page);
@@ -25,7 +26,8 @@ test('profile follows native field grid and keeps the submitted values when rere
   expect(third.width).toBeGreaterThan(first.width + second.width);
   await page.getByLabel('Email').fill('draft@example.com');
   await page.getByRole('button', { name: ui.saveProfile, exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Profile reload failed');
+  await expect(page.getByRole('alert')).toHaveText(feedback.readFailed);
+  await expect(page.getByText('Profile reload failed')).toHaveCount(0);
   await expect(page.getByLabel('Email')).toHaveValue('draft@example.com');
   await expect(page.getByRole('button', { name: ui.saveProfile, exact: true })).toBeDisabled();
   await expect(page.getByText(ui.noExtraProfile, { exact: true })).toHaveCount(0);

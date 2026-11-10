@@ -120,7 +120,8 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
       getNavigationBarMetrics: () => ({ statusBarHeight: 20, barHeight: 44, capsuleInset: 88, totalHeight: 64 })
     },
     '../../../../locales/zh-CN/messagePerformance': require('../../miniprogram/locales/zh-CN/messagePerformance'),
-    '../../../../utils/messageQueries': { invalidate() {}, load(name, data) { return api.callFunction({ name, data }); } }
+    '../../../../utils/messageQueries': { invalidate() {}, load(name, data) { return api.callFunction({ name, data }); } },
+    '../../../../utils/dateTime': require('../../miniprogram/utils/dateTime')
   };
   const wx = {
     getStorageSync(key) {

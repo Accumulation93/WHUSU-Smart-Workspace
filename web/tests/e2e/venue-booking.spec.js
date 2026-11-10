@@ -3,6 +3,7 @@ import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 async function setup(page) {
   await mockApi(page);
@@ -66,7 +67,7 @@ test('time selection refuses occupied spans and legacy create URL uses the same 
   await keyboard.getByRole('button', { name: '0', exact: true }).click();
   await keyboard.getByRole('button', { name: ui.copy_bd24ac5b0c, exact: true }).click();
   await dialog.getByRole('button', { name: ui.copy_d5973d50ff, exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText(ui.copy_abf766aebc);
+  await expect(dialog.getByRole('alert')).toHaveText(ui.occupiedRange('12:00'));
   await expect(end.getByRole('button', { name: ui.copy_7bbe7387fa })).toHaveText('11');
   await expect(end.getByRole('button', { name: ui.copy_9feed17479 })).toHaveText('30');
   await end.getByRole('button', { name: ui.copy_7bbe7387fa }).click();
@@ -94,7 +95,8 @@ for (const [endpoint, response] of retryCases) {
     await dialog.getByLabel(ui.copy_bbb0cc00c9).fill('Preserved meeting');
     await dialog.getByLabel(ui.copy_5b5ccadb74).fill('Preserved explanation');
     await dialog.getByLabel(ui.copy_39fcaa02ad).fill('2035-10-10');
-    await expect(dialog.getByRole('alert')).toContainText('Temporarily unavailable');
+    await expect(dialog.getByRole('alert')).toContainText(feedback.readFailed);
+    await expect(dialog.getByText('Temporarily unavailable',{exact:true})).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: ui.copy_02ef2f799d })).toBeDisabled();
     if (endpoint === 'getVenueSchedule') await expect(dialog.getByText(ui.copy_824768a506, { exact: true })).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: copy.common.retry, exact: true })).toBeEnabled();

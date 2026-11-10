@@ -108,7 +108,8 @@ vm.runInNewContext(fs.readFileSync(behaviorFile, 'utf8'), {
   module: { exports: {} },
   Behavior(value) { behavior = value; return value; },
   require(name) {
-    if (name === './hrTemplateSwitchDraft' || name.includes('/locales/')) return localRequire(name);
+    if (name.endsWith('/hrTemplateSwitchDraft') || name.includes('/locales/')) return localRequire(name);
+    if (name.endsWith('/adminUtils')) return { showShortToast(message) { throw new Error(message); } };
     if (name.endsWith('/orgSession')) return {
       beginRequest() { return {}; },
       isRequestCurrent() { return true; }

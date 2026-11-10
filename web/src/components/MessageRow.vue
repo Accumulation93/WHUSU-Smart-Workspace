@@ -30,6 +30,7 @@
         <span class="notification-title">{{ presentation.title }}</span>
         <span v-if="presentation.description" class="notification-desc">{{ presentation.description }}</span>
         <span v-for="line in presentation.detailLines" :key="line.label" class="notification-desc">{{ line.label }}: {{ line.value }}</span>
+        <span v-if="presentation.actionNotice" class="notification-desc">{{ presentation.actionNotice }}</span>
         <span class="notification-time">{{ timeText }}</span>
       </button>
     </div>
@@ -43,7 +44,7 @@
 import { computed } from 'vue';
 import UiIcon from '@/components/UiIcon.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { formatListTime } from '@/runtime/dateTime.js';
+import { formatListTime, formatDetailTime, formatDateOnly } from '@/runtime/dateTime.js';
 import { describeMessage } from '@/shared/messageFactsView.js';
 import messageFactsCopy from '@/locales/zh-CN/shared/messageFacts.js';
 import { messageRoute } from '@/runtime/messageNavigation.js';
@@ -63,7 +64,7 @@ const props = defineProps({
 
 defineEmits(['open']);
 const presentation = computed(() => describeMessage(props.item, messageFactsCopy, {
-  notification: props.kind === 'notification', canOpen: Boolean(messageRoute(props.item))
+  notification: props.kind === 'notification', canOpen: Boolean(messageRoute(props.item)), formatDateTime: formatDetailTime, formatDate: formatDateOnly
 }));
 
 const unread = computed(() => props.kind === 'notification' && props.item.isRead === false);
@@ -113,5 +114,11 @@ const iconName = computed(() => {
   font-size: inherit;
   text-align: left;
   cursor: pointer;
+}
+.message-open .notification-desc {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 </style>

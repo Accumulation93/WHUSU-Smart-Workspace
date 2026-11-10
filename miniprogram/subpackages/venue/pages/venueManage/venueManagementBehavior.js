@@ -307,7 +307,7 @@ module.exports = Behavior({
       { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
       { key: 'bookings', label: localeCopy.copy_20ba89a1cc },
       { key: 'pending', label: localeCopy.copy_e7f0a24301 },
-      { key: 'purposes', label: localeCopy.copy_8dcf3fcf0b }
+      { key: 'purposes', label: localeCopy.bookingPurposesTab }
     ],
 
     venues: [],
@@ -571,16 +571,16 @@ module.exports = Behavior({
       { key: 'venue', label: localeCopy.copy_ceffdfcdd7 },
       { key: 'bookings', label: localeCopy.copy_20ba89a1cc },
       { key: 'pending', label: localeCopy.copy_e7f0a24301 },
-      { key: 'purposes', label: localeCopy.copy_8dcf3fcf0b }
+      { key: 'purposes', label: localeCopy.bookingPurposesTab }
     ];
     const allowedKeys = adminPermissions.filterTabs(allTabs.map(function(item) { return item.key; }), profile, adminPermissions.VENUE_TAB_PERMISSION_MAP);
     const visibleTabs = allTabs.filter(function(item) { return allowedKeys.indexOf(item.key) >= 0; });
     const activeTab = allowedKeys.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (allowedKeys[0] || '');
     const ruleTabs = [
-      { key: 'open', label: localeCopy.copy_caa70e7c13, resources: ['venue.openRules'] },
-      { key: 'activity', label: localeCopy.copy_6980750e90, resources: ['venue.activityRules'] },
-      { key: 'booking', label: localeCopy.copy_523e44b520, resources: ['venue.approvals', 'venue.bookingRules'] },
-      { key: 'bookingWindow', label: localeCopy.copy_91fd6d9600, resources: ['venue.bookingWindows'] }
+      { key: 'open', label: localeCopy.rulesTabOpen, title: localeCopy.rulesSectionOpen, resources: ['venue.openRules'] },
+      { key: 'activity', label: localeCopy.rulesTabActivity, title: localeCopy.rulesSectionActivity, resources: ['venue.activityRules'] },
+      { key: 'booking', label: localeCopy.rulesTabApproval, title: localeCopy.rulesSectionApproval, resources: ['venue.approvals', 'venue.bookingRules'] },
+      { key: 'bookingWindow', label: localeCopy.rulesTabWindow, title: localeCopy.rulesSectionWindow, resources: ['venue.bookingWindows'] }
     ].filter(tab => access.mode === 'enforced'
       ? tab.resources.some(resource => ['read', 'create', 'update', 'delete'].some(action => actionCapabilities[resource + '.' + action]))
       : ['open', 'activity'].includes(tab.key) || adminPermissions.hasAny(profile, ['venue.approvals', 'venue.approvals.delete']));

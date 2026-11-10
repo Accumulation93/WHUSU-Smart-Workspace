@@ -8,6 +8,7 @@ import hrTemplateCopy from '../../src/locales/zh-CN/shared/hrTemplateSave.js';
 import migrationUi from '../../src/locales/zh-CN/shared/hrProfileMigration.js';
 import personnelCopy from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import publicationCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/publicationBehavior.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 async function grant(page, capabilities) {
   await mockApi(page);
@@ -35,7 +36,7 @@ test('assignment editor creates a nature without losing its draft and rereads th
   await dialog.getByRole('button',{name:personnelCopy.addAssignmentNature,exact:true}).click();
   await dialog.getByLabel(personnelCopy.assignmentNatureName).fill('Project role');
   await dialog.getByRole('button',{name:personnelCopy.createAndSelectNature,exact:true}).click();
-  await expect(dialog.getByText('Read failed',{exact:true})).toBeVisible();failRead=false;
+  await expect(dialog.getByText(feedback.readFailed,{exact:true})).toBeVisible();await expect(dialog.getByText('Read failed',{exact:true})).toHaveCount(0);failRead=false;
   await dialog.getByRole('button',{name:personnelCopy.dictionaryRetry,exact:true}).click();
   await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('new-nature');
   await expect(dialog.getByRole('combobox',{name:adminUi.copy_7ee1272d5b,exact:true})).toHaveValue('dept');
@@ -75,14 +76,14 @@ test('publication creates a view rule and reopens the persisted clauses without 
   await page.route('**/api/getMeritListSummary',route=>route.fulfill({json:{status:'success',groups:[]}}));
   await page.route('**/api/savePubViewRule',route=>{const value=route.request().postDataJSON();expect(value.publicationId).toBe('publication');expect(value.clauses).toEqual([{scopeType:'own_results',targetIdentityId:'',displayMode:'score',gradeBands:[]}]);rules=[{...value,id:'rule',granteeDepartment:'Department',granteeIdentity:'Identity',clauses:value.clauses.map((clause,index)=>({...clause,id:'clause-'+index}))}];return route.fulfill({json:{status:'success'}});});
   await page.goto('/web/admin?subApp=scoring&tab=publications');
-  await page.locator('section').filter({has:page.getByText(adminUi.copy_17903d1b98,{exact:true})}).getByRole('button',{name:adminUi.copy_32d3256b22,exact:true}).click();
-  await page.getByRole('combobox',{name:adminUi.copy_0bfd822c5b,exact:true}).selectOption('dept');
-  await page.getByRole('combobox',{name:adminUi.copy_9a5675654c,exact:true}).selectOption('identity');
-  await page.getByRole('button',{name:adminUi.copy_04d8c1a10d,exact:true}).click();
+  await page.locator('section').filter({has:page.getByText(adminUi.copy_17903d1b98,{exact:true})}).getByRole('button',{name:adminUi.newResultViewRule,exact:true}).click();
+  await page.getByRole('combobox',{name:adminUi.resultViewerDepartments,exact:true}).selectOption('dept');
+  await page.getByRole('combobox',{name:adminUi.resultViewerIdentity,exact:true}).selectOption('identity');
+  await page.getByRole('button',{name:adminUi.saveResultViewRule,exact:true}).click();
   await expect(page.locator('form')).toHaveCount(0);
   await expect(page.locator('article').filter({hasText:'Department · Identity'})).toBeVisible();
   await page.locator('article').filter({hasText:'Department · Identity'}).getByRole('button',{name:adminUi.copy_e040ae3016,exact:true}).click();
-  await expect(page.getByRole('combobox',{name:adminUi.copy_0bfd822c5b,exact:true})).toHaveValue('dept');
+  await expect(page.getByRole('combobox',{name:adminUi.resultViewerDepartments,exact:true})).toHaveValue('dept');
   expect(reads).toBeGreaterThanOrEqual(2);
 });
 
@@ -127,7 +128,7 @@ test('migration-only role selects minimal members and submits then rereads its r
   await page.getByRole('combobox',{name:migrationUi.targetField,exact:true}).selectOption('targetField');
   await page.getByRole('button',{name:migrationUi.preview,exact:true}).click();
   await page.getByRole('button',{name:migrationUi.submitRequest,exact:true}).click();
-  await page.getByRole('dialog',{name:migrationUi.submitRequest,exact:true}).getByRole('button').last().click();
+  await page.getByRole('dialog',{name:migrationUi.confirmTransferTitle,exact:true}).getByRole('button',{name:migrationUi.submitRequest,exact:true}).click();
   await expect(page.locator('article').filter({hasText:'Source organization'})).toBeVisible();
   await expect(page.locator('form')).toHaveCount(0);
   expect(reads).toBeGreaterThanOrEqual(2);

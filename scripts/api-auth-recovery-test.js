@@ -24,7 +24,7 @@ async function run() {
     orgSession.commitFastContext({ token: mode + '-expired', orgId: 'org-one', role: 'user', contextId: 'ctx-one' });
     await assert.rejects(api.callFunction({ name: 'getCurrentOrganization' }), (error) => error.silent === true);
     assert.strictEqual(orgSession.getSnapshot().token || '', '');
-    assert.strictEqual(storage.authLoginNotice, '登录已过期，请重新登录');
+    assert.strictEqual(storage.authLoginNotice, require('../shared/locales/zh-CN/generated/utils/api').copy_c337bd9350);
   }
   assert.strictEqual(requests.length, 2, '失效请求不得自动换号或重放');
   assert.strictEqual(loginCalls, 0);

@@ -19,11 +19,14 @@ global.wx = {
 };
 
 const apiPath = path.resolve(__dirname, '..', 'miniprogram', 'utils', 'api.js');
+const actualApi = require(apiPath);
 require.cache[apiPath] = {
   id: apiPath,
   filename: apiPath,
   loaded: true,
   exports: {
+    createLocalError: actualApi.createLocalError,
+    createResultError: actualApi.createResultError,
     callFunction(options) { return callFunctionHandler(options); },
     markAuthenticationReady() {},
     beginContextActivation() {},

@@ -24,7 +24,7 @@ const timeline = buildFlowTimeline({
 assert.strictEqual(timeline.length, 2);
 assert.strictEqual(timeline[0].approverName, '甲');
 assert.strictEqual(timeline[1].isAutomatic, true);
-assert.strictEqual(timeline[1].label, '✓ 自动通过');
+assert.strictEqual(timeline[1].label, '自动通过');
 assert.ok(timeline.every(function(item) { return item.approverName !== '乙'; }),
   '其他并行路线相同步骤序号不得覆盖当前路线');
 

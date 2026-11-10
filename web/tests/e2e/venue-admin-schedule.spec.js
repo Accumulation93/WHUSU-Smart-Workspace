@@ -4,6 +4,8 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages
 import userUi from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import controls from '../../src/locales/zh-CN/shared/controlLayout.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import messages from '../../src/locales/zh-CN/shared/responseMessages.js';
 
 async function setup(page, canBook = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -33,7 +35,7 @@ async function openBooking(page, state) { await page.getByRole('button', { name:
 test('admin schedule without booking permission has no create targets but shows protected occupancy', async ({ page }) => {
   await setup(page, false);
   await expect(page.locator('.schedule-target')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Occupied', exact: true }).click();
+  await page.getByRole('button', { name: userUi.copy_a1f843d887, exact: true }).click();
   await expect(page.getByRole('dialog', { name: userUi.copy_a1f843d887, exact: true })).toContainText('10:00');
   await expect(page.getByText('Saved description', { exact: true })).toHaveCount(0);
 });
@@ -43,7 +45,7 @@ test('admin booking uses locked date, native hour and minute selection, rejects 
   await page.route('**/api/createAdminVenueBooking', route => {
     const body = route.request().postDataJSON(); writes++;
     expect(body).toEqual({ venueId: 'v1', title: 'Meeting', description: 'Saved description', timeStart: state.date + 'T09:00', timeEnd: state.date + 'T10:00', clientRequestId: expect.any(String) });
-    if (writes === 1) { originalId = body.clientRequestId; return route.fulfill({ json: { status: 'conflict', message: 'Rejected booking' } }); }
+    if (writes === 1) { originalId = body.clientRequestId; return route.fulfill({ json: { status: 'conflict', code: 'venue_booking_existing_conflict', message: 'Rejected booking' } }); }
     expect(body.clientRequestId).toBe(originalId); state.saved = true;
     return route.fulfill({ json: { status: 'success', id: 'saved' } });
   });
@@ -61,7 +63,7 @@ test('admin booking uses locked date, native hour and minute selection, rejects 
   await handle.press('ArrowLeft'); await expect(start.getByLabel(userUi.copy_9feed17479)).toHaveValue('00');
   await dialog.getByLabel(ui.copy_90f94d6263).fill('Saved description');
   await dialog.getByRole('button', { name: ui.copy_df031d471b, exact: true }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Rejected booking'); await expect(dialog.getByLabel(ui.copy_90f94d6263)).toHaveValue('Saved description');
+  await expect(dialog.getByRole('alert')).toHaveText(messages.venue_booking_existing_conflict); await expect(dialog.getByLabel(ui.copy_90f94d6263)).toHaveValue('Saved description');
   await dialog.getByRole('button', { name: ui.copy_df031d471b, exact: true }).click();
   await expect(dialog).toHaveCount(0); await expect(page.locator('.schedule-grid').getByRole('button', { name: 'Meeting', exact: true })).toBeVisible();
   await page.locator('.schedule-grid').getByRole('button', { name: 'Meeting', exact: true }).click();
@@ -74,11 +76,11 @@ test('admin booking retries unavailable day without losing fields and saved rere
   await page.route('**/api/createAdminVenueBooking', route => { writes++; state.saved = true; state.failWeekly = true; return route.fulfill({ json: { status: 'success', id: 'saved' } }); });
   await openBooking(page, state); const dialog = editor(page);
   await dialog.getByLabel(ui.copy_bbb0cc00c9).fill('Meeting');
-  await expect(dialog.getByRole('alert')).toHaveText('Schedule failed'); await expect(dialog.getByRole('button', { name: ui.copy_df031d471b, exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('alert')).toHaveText(feedback.readFailed); await expect(dialog.getByRole('button', { name: ui.copy_df031d471b, exact: true })).toBeDisabled();
   state.failDaily = false; await dialog.getByRole('button', { name: copy.common.retry, exact: true }).click();
   await expect(dialog.getByLabel(ui.copy_bbb0cc00c9)).toHaveValue('Meeting');
   await dialog.getByRole('button', { name: ui.copy_df031d471b, exact: true }).click();
-  await expect(dialog).toHaveCount(0); await expect(page.getByRole('alert')).toHaveText('Schedule failed');
+  await expect(dialog).toHaveCount(0); await expect(page.getByRole('alert')).toHaveText(feedback.readFailed);
   await expect(page.locator('.schedule-target')).toHaveCount(0);
   state.failWeekly = false; await page.getByRole('button', { name: copy.common.retry, exact: true }).click();
   await expect(page.locator('.schedule-grid').getByRole('button', { name: 'Meeting', exact: true })).toBeVisible(); expect(writes).toBe(1);

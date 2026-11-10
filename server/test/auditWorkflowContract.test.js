@@ -116,7 +116,7 @@ assert(adminRouteSource.includes("const orgId = await getCurrentOrgId();")
 assert(adminWxmlSource.includes('auditTemplateStepEditorVisible')
   && adminWxmlSource.includes('catchtouchmove="noop"'),
   '审批步骤弹窗必须锁住背景触摸，内部 scroll-view 才能独立滚动');
-assert(adminWxmlSource.includes('允许指定本步骤审批人')
+assert(adminWxmlSource.includes('允许指定本步骤的审批岗位')
   && adminWxmlSource.includes('onStepApproverDesignationChange'),
   '步骤编辑器必须提供允许和不允许两种审批人指定模式');
 assert(submissionWxmlSource.includes('item.stepIndex === 1 && item.allowApproverDesignation')

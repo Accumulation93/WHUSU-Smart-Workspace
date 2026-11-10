@@ -510,7 +510,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
       if (conflict) {
         await conn.rollback();
-        return res.json({ status: 'conflict', message: localeCopy.copy_dcd1184a46 });
+        return res.json({ status: 'conflict', code: 'venue_approval_time_conflict', message: localeCopy.copy_dcd1184a46 });
       }
     }
 

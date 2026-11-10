@@ -96,7 +96,7 @@ const visibleTabs = computed(() => [
   { key: 'venue', label: ui.copy_ceffdfcdd7, permissions: ['venue.resources', 'venue.approvals', 'venue.approvals.delete'] },
   { key: 'bookings', label: ui.copy_20ba89a1cc, permissions: ['venue.bookings', 'venue.approvals', 'venue.bookings_delete'] },
   { key: 'pending', label: ui.copy_e7f0a24301, permissions: ['venue.approvals'] },
-  { key: 'purposes', label: ui.copy_8dcf3fcf0b, permissions: ['venue.purposes'] }
+  { key: 'purposes', label: ui.bookingPurposesTab, permissions: ['venue.purposes'] }
 ].filter(tab => profile.value?.authorizationAccess?.mode === 'enforced'
   ? managementTabAllowed(profile.value.authorizationAccess, tab.key)
   : hasAny(['pending', 'bookings'].includes(tab.key) ? tab.permissions : tab.permissions.concat(tab.permissions.map(key => key + '.delete')))));

@@ -108,11 +108,23 @@ for (const file of walk(miniRoot, '.js')) {
   }
 }
 
+function hasVisibleInternalIdentifier(source) {
+  return />\s*{{[^}]*\b(?:openid|hrId|fileId|adminId)\b[^}]*}}\s*</i.test(source)
+    || /(?:文件ID|\bOpenID\b|数据库编号|随机编号)/i.test(source);
+}
+
+if (process.argv.includes('--self-test')) {
+  const assert = require('node:assert/strict');
+  assert.equal(hasVisibleInternalIdentifier('<button bindtap="openIdentitySettings">{{ui.identitySettingsEntry}}</button>'), false);
+  assert.equal(hasVisibleInternalIdentifier('<text>{{person.openid}}</text>'), true);
+  assert.equal(hasVisibleInternalIdentifier('<text>OpenID</text>'), true);
+  assert.equal(hasVisibleInternalIdentifier('<text>文件ID</text>'), true);
+}
+
 for (const file of walk(miniRoot, '.wxml')) {
   const relativeFile = path.relative(miniRoot, file).replace(/\\/g, '/');
   const source = fs.readFileSync(file, 'utf8');
-  if (/>\s*{{[^}]*\b(?:openid|hrId|fileId|adminId)\b[^}]*}}\s*</i.test(source)
-      || /(?:文件ID|OpenID|数据库编号|随机编号)/i.test(source)) {
+  if (hasVisibleInternalIdentifier(source)) {
     add('visible-internal-id', relativeFile, '可见文本疑似暴露内部技术标识');
   }
 }

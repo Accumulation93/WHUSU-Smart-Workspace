@@ -53,7 +53,17 @@ module.exports = async function identityCardAuthorizationCases(db) {
     assert.equal(await count(), 1);
     const verified = await call('verifyIdentityCard', { token: firstToken }, false);
     assert.equal(verified.valid, true);
-    assert.deepEqual(Object.keys(verified.card).sort(), ['name', 'organization', 'position', 'state']);
+    assert.deepEqual(Object.keys(verified.card).sort(), ['name', 'organization', 'position', 'positionFacts', 'state', 'stateCode']);
+    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel', 'assignmentLabel', 'hasAssignment', 'role']);
+    assert.deepEqual(verified.card.positionFacts, {
+      assignmentLabel: context.assignmentLabel || '', role: context.role || '',
+      adminLevel: context.adminLevel || '', hasAssignment: Boolean(context.assignmentId)
+    });
+    assert.equal(verified.card.stateCode, 'active');
+    // 公开事实只解释岗位和状态，不能携带账号、人员、岗位编号或学号。
+    for (const privateValue of ['dir-account', 'dir-person', 'dir-assignment', context.contextId]) {
+      assert.equal(JSON.stringify(verified.card).includes(privateValue), false);
+    }
     await deny('read');
     assert.equal((await call('getMyIdentityCard')).valid, false);
     assert.equal((await call('verifyIdentityCard', { token: firstToken }, false)).valid, false);

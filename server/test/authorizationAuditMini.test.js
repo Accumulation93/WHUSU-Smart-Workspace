@@ -11,9 +11,10 @@ function harness(actions, respond) {
   const calls = [], toasts = [];
   const context = { module: { exports: {} }, Behavior: value => value,
     require(name) {
-      if (name === './auditPersonnelView') return require(path.resolve(path.dirname(filename), name));
-      if (name === './adminUtils') return { showShortToast: value => toasts.push(value), getErrorText: error => error.message };
+      if (name.endsWith('/auditPersonnelView')) return require(path.resolve(path.dirname(filename), name));
+      if (name.endsWith('/adminUtils')) return { showShortToast: value => toasts.push(value), getErrorText: error => error.message };
       if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
+      if (name.endsWith('/api')) return require(path.resolve(path.dirname(filename), name));
       if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
       return {};
     } };
@@ -69,5 +70,5 @@ test('验签只读不能配置或执行，慢候选显示加载并阻止重复�
   await pending;
   assert.equal(source.page.data.loadingMap.auditVerificationCandidates, false);
   assert.equal(source.page.data.auditPersonnelPickerVisible, false);
-  assert.equal(source.toasts[0], 'Unavailable');
+  assert.equal(source.toasts[0], require('../../shared/locales/zh-CN/requestFeedback').forbidden);
 });

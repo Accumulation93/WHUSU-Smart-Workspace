@@ -30,7 +30,7 @@ test('活动重复、历史引用与删除前记录变化使用具体本地拒�
     assert.equal(feedback.feedbackText({ code, message: 'UNTRUSTED' }, copy, { messages }), messages[code]);
   }
   assert.equal(feedback.feedbackText({ status: 'conflict' }, copy, { messages }), copy.writeResultUnknown);
-  for (const name of ['listScoreActivities', 'listDepartments', 'listIdentities', 'listWorkGroups', 'getSystemConfig']) {
+  for (const name of ['listScoreActivities', 'getRateTargets', 'getScoreFormData', 'listDepartments', 'listIdentities', 'listWorkGroups', 'getSystemConfig']) {
     assert.equal(isReadOnly(name), true);
   }
   assert.equal(isReadOnly('saveScoreActivity'), false);
@@ -60,6 +60,14 @@ test('业务事实和成功结构保留，成功消息不从后端显示', () =>
   assert.equal(output.message, '');
   assert.equal(output.data, data);
   assert.equal(feedback.presentResult(null, copy).status, 'unrecognized_response');
+});
+
+test('场地借用明确冲突按已审结果码说明，不解析后端句子', () => {
+  for (const code of ['venue_booking_outside_open_hours', 'venue_booking_activity_conflict', 'venue_booking_existing_conflict', 'venue_booking_request_changed']) {
+    assert.equal(feedback.feedbackText({ status: 'conflict', code, message: 'UNTRUSTED' }, copy, { messages }), messages[code]);
+    assert.ok(messages[code]);
+  }
+  assert.equal(feedback.feedbackText({ status: 'conflict', message: messages.venue_booking_existing_conflict }, copy, { messages }), copy.writeResultUnknown);
 });
 
 test('HTTP认证和限流优先，等待时间只接收受约束整数', () => {

@@ -165,7 +165,7 @@ async function listAuthorized(connection, actor, options) {
       params
     ),
     options.countOnly ? Promise.resolve([[], []]) : connection.query(
-      `SELECT id, type, title, description, category, target_type, target_id, target_url,
+      `SELECT id, type, title, description, category, target_type, target_id, target_url, event_key, recipient_type, recipient_id,
               is_read, created_at
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
@@ -180,7 +180,7 @@ async function listAuthorized(connection, actor, options) {
   const rows = rowsResult[0];
   const countRow = counts[0] || { total: 0, unread_count: 0 };
   return {
-    items: rows,
+    items: await require('./notificationFacts').project(connection, rows, actor, orgId, access, active),
     total: Number(countRow.total || 0),
     unreadCount: Number(countRow.unread_count || 0),
     expiresAt: Math.min(access.expiresAt, active.expiresAt, countRow.oldest_created_at ? new Date(countRow.oldest_created_at).getTime() + RETENTION_DAYS * 86400000 : Infinity),

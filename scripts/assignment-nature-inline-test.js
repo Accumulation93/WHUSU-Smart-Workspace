@@ -5,7 +5,9 @@ const vm = require('node:vm');
 const path = require('node:path');
 const filename = path.resolve(__dirname, '../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js');
 const session = { beginRequest(host) { return ++host.sequence; }, isRequestCurrent(host, request) { return host.sequence === request; }, getSnapshot() { return { orgId: 'org' }; } };
-const sandbox = { module: { exports: {} }, Behavior: value => value, require(name) { if (name.endsWith('/orgSession')) return session; if (name === './adminUtils') return { getErrorText: error => error.message }; return {}; } };
+const api = require('../miniprogram/utils/api');
+const behaviorCopy = require(path.resolve(path.dirname(filename), '../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior'));
+const sandbox = { module: { exports: {} }, Behavior: value => value, require(name) { if (name.endsWith('/orgSession')) return session; if (name.endsWith('/adminUtils')) return { getErrorText: api.getErrorText }; if (name.endsWith('/api')) return api; if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name)); return {}; } };
 vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });
 const methods = sandbox.module.exports.methods;
 async function run() {
@@ -18,7 +20,7 @@ async function run() {
       if (failRead) return { status: 'error', message: 'read failed' };
       return { status: 'success', organizations: [{ organizationId: 'org', dictionaries: { assignmentNatures: [{ id: 'staff', name: 'Staff' }, { id: 'nature', name: 'New nature' }] } }] }; } };
   await methods.saveInlineAssignmentNature.call(host);
-  assert.equal(host.data.assignmentNatureSavedId, 'nature'); assert.equal(host.data.assignmentNatureNotice, 'read failed');
+  assert.equal(host.data.assignmentNatureSavedId, 'nature'); assert.equal(host.data.assignmentNatureNotice, behaviorCopy.copy_215e3c57da);
   failRead = false; await methods.saveInlineAssignmentNature.call(host);
   assert.equal(writes, 1); assert.equal(reads, 2); assert.equal(host.data.membershipAssignmentForm.assignmentKind, 'nature');
   assert.equal(host.data.membershipAssignmentForm.departmentId, 'department'); assert.equal(host.data.membershipAssignmentForm.identityId, 'identity');

@@ -55,7 +55,7 @@ assert.strictEqual(context.data.hrProfileExportColumns.length, 17);
 // 状态之后固定跟“本人提交时间 / 管理员维护时间 / 管理员维护人 / 资料最后变更时间”，资料项列顺延到其后。
 assert.strictEqual(context.data.hrProfileExportColumns[11].label, '本人提交时间');
 assert.strictEqual(context.data.hrProfileExportColumns[12].label, '管理员维护时间');
-assert.strictEqual(context.data.hrProfileExportColumns[13].label, '管理员维护人');
+assert.strictEqual(context.data.hrProfileExportColumns[13].label, '维护管理员');
 assert.strictEqual(context.data.hrProfileExportColumns[14].label, '资料最后变更时间');
 assert.strictEqual(context.data.hrProfileExportColumns[15].label, '喜欢的颜色');
 assert.strictEqual(context.data.hrProfileExportColumns[16].label, '喜欢的颜色（待审核）');
@@ -80,15 +80,15 @@ assert.strictEqual(captured.format, 'xlsx');
 context.onHrProfileExportColumnChange({ detail: { value: ['name', 'wxBindStatus'] } });
 context.confirmHrProfileExport();
 assert.deepStrictEqual(captured.rows, [
-  { name: '张三', wxBindStatus: '已绑定' },
-  { name: '李四', wxBindStatus: '待激活' }
+  { name: '张三', wxBindStatus: '已绑定微信' },
+  { name: '李四', wxBindStatus: '微信绑定状态暂未确认' }
 ]);
 
 // 提交信息随成员资料一起导出：本人提交与管理员维护各一组，互不覆盖。
 context.onHrProfileExportColumnChange({ detail: { value: ['name', 'auditStatus', 'selfSubmittedAt', 'maintainedAt', 'maintainedBy', 'lastChangedAt'] } });
 context.confirmHrProfileExport();
 assert.deepStrictEqual(captured.headers.map((header) => header.label), [
-  '姓名', '补充资料状态', '本人提交时间', '管理员维护时间', '管理员维护人', '资料最后变更时间'
+  '姓名', '补充资料审核状态', '本人提交时间', '管理员维护时间', '维护管理员', '资料最后变更时间'
 ]);
 assert.deepStrictEqual(captured.rows, [
   {

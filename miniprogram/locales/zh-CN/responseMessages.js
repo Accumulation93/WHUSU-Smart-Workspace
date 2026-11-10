@@ -9,6 +9,13 @@ const home = require('./home');
 
 // 每项映射由独立语言审稿确认，保留所属模块的唯一文案。
 module.exports = {
+  venue_purpose_duplicate: '已有相同内容的常用事由，请修改后再保存。',
+  venue_purpose_referenced: '这个事由已被借用记录使用，不能删除。',
+  venue_approval_time_conflict: '借用时段与已有借用重叠，无法通过审批。请查看场地安排后再处理。',
+  venue_booking_outside_open_hours: '所选时段不在场地开放时间内，请调整借用时间。',
+  venue_booking_activity_conflict: '所选时段与周期性活动重叠，请选择其他时间。',
+  venue_booking_existing_conflict: '所选时段与已有借用重叠，请选择其他时间。',
+  venue_booking_request_changed: authorization.bookingRequestChanged,
   organization_name_required: '请填写组织名称。',
   organization_duplicate: '系统中已存在同名组织，请换一个名称。',
   organization_unavailable: '无法找到这个组织，请刷新列表后重新选择。',

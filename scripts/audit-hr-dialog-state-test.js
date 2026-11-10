@@ -12,7 +12,8 @@ vm.runInNewContext(fs.readFileSync(path.join(admin, 'modules/auditBehavior.js'),
   Behavior(value) { behavior = value; return value; },
   require(name) {
     if (name.includes('locales/')) return require(path.resolve(admin, 'modules', name));
-    if (name === './adminUtils') return { showShortToast() {}, getErrorText: error => error.message };
+    if (name.endsWith('/adminUtils')) return { showShortToast() {}, getErrorText: error => error.message };
+    if (name.endsWith('/auditConditionView')) return require(path.join(root, 'shared/auditConditionView'));
     return {};
   },
   wx: { nextTick(callback) { callback(); }, createSelectorQuery() {

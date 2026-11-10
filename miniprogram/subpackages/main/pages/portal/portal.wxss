@@ -751,7 +751,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .notification-desc {
   color: #64748b; font-size: var(--ui-type-caption); margin-top: 2rpx;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  white-space: normal; overflow-wrap: anywhere; line-height: var(--ui-leading-body);
 }
 
 .notification-time {

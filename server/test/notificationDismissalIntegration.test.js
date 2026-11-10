@@ -46,7 +46,7 @@ async function main() {
     const {orgStorage} = require('../src/utils/orgContext');
     await admin.query("INSERT INTO organizations(id,name) VALUES ('org','组织'),('other','其他组织')");
     await admin.query("INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('p','人员','p','p'),('q','他人','q','q')");
-    const user={type:'user',id:'hr',personId:'p'}, manager={type:'admin',id:'admin',personId:'p'}, other={type:'user',id:'other-user',personId:'q'};
+    const user={type:'user',id:'hr',personId:'p',assignmentId:'job'}, manager={type:'admin',id:'admin',personId:'p'}, other={type:'user',id:'other-user',personId:'q'};
     const contexts=[user,manager].map((actor,i)=>({organizationId:'org',organizationName:'组织',contextId:'ctx'+i,actor}));
     const accessible = require('../src/core/services/accessibleOrganizations');
     accessible.listAccessibleActorContexts=async()=>contexts;
@@ -106,6 +106,8 @@ async function main() {
     assert.equal((await post('deleteNotification',{id:'null-b',organizationId:'org'})).status,'success');
     // 审批提醒按真实轮次与步骤失效，延迟投递不能让旧进度重新出现。
     await admin.query("INSERT INTO audit_submissions(id,submission_number,submitted_by,org_id,status,current_step_index) VALUES ('audit-life','life','hr','org','in_progress',2)");
+    await admin.query("UPDATE audit_submissions SET title='消息事实申请',submitted_assignment_id='job' WHERE id='audit-life'");
+    await admin.query("INSERT INTO audit_events(id,submission_id,org_id,round,step_index,event_type,operator_assignment_id) VALUES ('facts-event','audit-life','org',1,1,'approve','review-job')");
     await admin.query("INSERT INTO audit_submission_steps(id,submission_id,org_id,sort_order,round,status,processed_at) VALUES ('life-1','audit-life','org',1,1,'approved',NOW()),('life-2','audit-life','org',2,1,'pending',NULL),('life-3','audit-life','org',3,1,'pending',NULL)");
     const notifyAudit=async(id,round,step,action)=>orgStorage.run('org',()=>model.create(id,{orgId:'org',recipientType:'user',recipientId:'hr',type:'submission_'+action,title:'审批状态',targetType:'submission',targetId:'audit-life',eventKey:['audit','audit-life',round,step,action,'user','hr'].join(':')}));
     const assertAudit=async(ids)=>{
@@ -117,6 +119,13 @@ async function main() {
     };
     await notifyAudit('progress-1',1,1,'progress');
     await assertAudit(['progress-1']);
+    const factResponse = await post('listNotifications');
+    assert.equal(factResponse.items[0].displayFacts.businessTitle, '消息事实申请');
+    assert.equal(factResponse.items[0].displayFacts.event.completedStepOrder, 1);
+    assert.equal(factResponse.items[0].displayFacts.event.nextStepOrder, undefined);
+    assert.equal(factResponse.items[0].displayFacts.current.stepOrder, 2);
+    assert.equal(factResponse.items[0].event_key, undefined);
+    assert.equal(factResponse.items[0].displayFacts.submitted_assignment_id, undefined);
     await admin.query("UPDATE audit_submission_steps SET status='approved',processed_at=NOW() WHERE id='life-2'");
     await admin.query("UPDATE audit_submissions SET current_step_index=3 WHERE id='audit-life'");
     await assertAudit([]); // 不等下一条通知投递，旧进度和缓存立即失效。
@@ -174,12 +183,21 @@ async function main() {
     const lifecycle=require('../src/modules/audit/models/notificationLifecycle');
     let keys=await lifecycle.calendarKeys('org','p',now); assert.equal(keys.keys.length,1);
     await notify('calendar-now','calendar_reminder','calendar','cal',keys.keys[0]); await assertAudit(['calendar-now']);
+    const calendarResponse = await post('listNotifications');
+    assert.equal(calendarResponse.items[0].displayFacts.businessTitle, '日程');
+    assert.equal(calendarResponse.items[0].displayFacts.startTime, new Date(spec.startAt).toISOString());
     await admin.query("UPDATE calendar_events SET spec_json=? WHERE id='cal'",[JSON.stringify(makeSpec(start+86400000,end+86400000))]); await assertAudit([]);
     await admin.query("UPDATE calendar_events SET spec_json=? WHERE id='cal'",[JSON.stringify(spec)]); await assertAudit(['calendar-now']);
     assert.equal((await lifecycle.calendarKeys('org','p',end+1)).keys.length,0);
     await admin.query("INSERT INTO calendar_exits(id,org_id,event_id,person_id,occurrence_date,scope) VALUES ('exit','org','cal','p','2000-01-01','series')"); await assertAudit([]);
     await admin.query("DELETE FROM calendar_exits WHERE id='exit'"); await assertAudit(['calendar-now']);
     await admin.query("UPDATE calendar_events SET status='cancelled' WHERE id='cal'"); await assertAudit([]);
+    const allDaySpec=require('../src/core/services/calendarOccurrences').normalizeSpec({title:'全天日程',allDay:true,startDate:'2027-01-01',endDate:'2027-01-03',recurrence:{frequency:'none'},reminders:[15]},480);
+    await admin.query("UPDATE calendar_events SET status='active',spec_json=? WHERE id='cal'",[JSON.stringify(allDaySpec)]);
+    const allDayKeys=await lifecycle.calendarKeys('org','p',Date.parse('2026-12-31T16:01:00Z'));
+    const allDayFacts=allDayKeys.facts.get(allDayKeys.keys[0]);
+    assert.equal(allDayFacts.startDate,'2027-01-01');
+    assert.equal(allDayFacts.endDateInclusive,'2027-01-02');
     await assert.rejects(notify('unregistered','unknown_type','system','x'),error=>error.code==='NOTIFICATION_LIFECYCLE_REQUIRED');
     console.log('PASS 通知跨身份删除；审批、场地、人事、评分、公示与日程失效；乱序投递、列表计数、缓存更新和双次迁移');
   } finally {

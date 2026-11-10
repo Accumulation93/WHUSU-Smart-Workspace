@@ -574,10 +574,10 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     ]);
     const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
     const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
-    if (!covered) return res.json({ status: 'conflict', message: localeCopy.copy_ac59b4dfc5 });
+    if (!covered) return res.json({ status: 'conflict', code: 'venue_booking_outside_open_hours', message: localeCopy.copy_ac59b4dfc5 });
     const activitySlots = buildActivitySlots(dateText, activityRules, timezoneOffset);
     const activityConflict = activitySlots.some((slot) => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart);
-    if (activityConflict) return res.json({ status: 'conflict', message: localeCopy.copy_f64d815664 });
+    if (activityConflict) return res.json({ status: 'conflict', code: 'venue_booking_activity_conflict', message: localeCopy.copy_f64d815664 });
 
     await conn.beginTransaction();
     const orgId = await getCurrentOrgId();
@@ -613,7 +613,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);
     if (conflict) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: localeCopy.copy_4695db56e2 });
+      return res.json({ status: 'conflict', code: 'venue_booking_existing_conflict', message: localeCopy.copy_4695db56e2 });
     }
     await venueBookingModel.create(id, {
       venueId,
@@ -650,7 +650,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
     if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    if (e.code === 'IDEMPOTENCY_RESOURCE_CONFLICT') return res.status(409).json({ status: 'conflict', message: authorizationCopy.bookingRequestChanged });
+    if (e.code === 'IDEMPOTENCY_RESOURCE_CONFLICT') return res.status(409).json({ status: 'conflict', code: 'venue_booking_request_changed', message: authorizationCopy.bookingRequestChanged });
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_6fb89690d9 });
     }
@@ -1094,7 +1094,7 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
   } catch (e) {
     if (e && e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     if (e && e.code === 'venue_purpose_missing') return res.json({ status: 'not_found', message: authorizationCopy.purposeUnavailable });
-    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: localeCopy.copy_09f81fd1db });
+    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', code: 'venue_purpose_duplicate', message: localeCopy.copy_09f81fd1db });
     console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
     res.json({ status: 'error', message: localeCopy.copy_215e3c57da });
   }
@@ -1117,7 +1117,7 @@ router.post('/deleteVenueBookingPurpose', async (req, res) => {
     if (existing) {
       // 历史结构未保存 purpose_id，只能用借用记录中的事由文本快照判定引用。
       if (await venueBookingPurposeModel.isReferenced(existing.text, orgId)) {
-        return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
+        return res.json({ status: 'conflict', code: 'venue_purpose_referenced', message: localeCopy.bookingPurposeReferenced });
       }
     }
     await venueBookingPurposeModel.remove(id, orgId);
@@ -1125,9 +1125,9 @@ router.post('/deleteVenueBookingPurpose', async (req, res) => {
   } catch (e) {
     if (e && e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     if (e && e.code === 'venue_purpose_missing') return res.json({ status: 'not_found', message: authorizationCopy.purposeUnavailable });
-    if (e && e.code === 'venue_purpose_referenced') return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
+    if (e && e.code === 'venue_purpose_referenced') return res.json({ status: 'conflict', code: 'venue_purpose_referenced', message: localeCopy.bookingPurposeReferenced });
     if (e && (e.code === 'ER_ROW_IS_REFERENCED' || e.code === 'ER_ROW_IS_REFERENCED_2')) {
-      return res.json({ status: 'conflict', message: localeCopy.bookingPurposeReferenced });
+      return res.json({ status: 'conflict', code: 'venue_purpose_referenced', message: localeCopy.bookingPurposeReferenced });
     }
     res.json({ status: 'error', message: localeCopy.bookingPurposeDeleteFailed });
   }

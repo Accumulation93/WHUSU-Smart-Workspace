@@ -44,7 +44,7 @@ module.exports = async function submissionCrudMatrix(orgStorage) {
       module: { exports: {} }, Behavior(value) { behavior = value; return value; },
       wx: { showToast() {} },
       require(name) {
-        if (name === './adminUtils') return { emptyDepartmentForm: () => ({}), emptyIdentityForm: () => ({}) };
+        if (name.endsWith('/adminUtils')) return { emptyDepartmentForm: () => ({}), emptyIdentityForm: () => ({}), showShortToast() {}, getErrorText: error => error.message };
         if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
         return {};
       }

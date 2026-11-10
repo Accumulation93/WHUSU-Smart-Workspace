@@ -14,15 +14,15 @@ test('weekly schedule preserves privacy, opens details and carries selected free
       openSlots: [{ timeStart: '09:00', timeEnd: '18:00' }],
       bookedSlots: [
         { title: 'Occupied slot', timeStart: '12:00', timeEnd: '13:00', visibility: 'occupancy_only', userName: 'Must not reveal' },
-        { title: 'Visible booking', timeStart: '14:00', timeEnd: '15:00', fullTimeStart: body.dateFrom + ' 14:00', fullTimeEnd: body.dateFrom + ' 15:00', visibility: 'details', userName: 'Allowed applicant', description: 'Booking details', status: 'approved' }
+        { title: 'Visible booking', timeStart: '14:00', timeEnd: '15:00', fullTimeStart: body.dateFrom + ' 14:00', fullTimeEnd: body.dateFrom + ' 15:00', visibility: 'details', userName: 'Allowed applicant', displayFacts:{creatorType:'user',creatorName:'Allowed applicant',assignmentLabel:'Member · Department',venueName:'Room A'}, description: 'Booking details', status: 'approved' }
       ], activitySlots: [{ ruleName: 'Planned activity', timeStart: '16:00', timeEnd: '17:00', activity: { name: 'Planned activity', occurrenceStart: body.dateFrom + ' 16:00', occurrenceEnd: body.dateFrom + ' 17:00', cycleType: 'daily', cycleValues: { repeatCount: 3 } } }]
     }] } });
   });
   await page.route('**/api/getVenueApprovalFlowOptions', route => route.fulfill({ json: { status: 'success', flows: [] } }));
   await page.route('**/api/listVenueBookingPurposes', route => route.fulfill({ json: { status: 'success', purposes: [] } }));
   await page.goto('/web/venue/bookings');
-  await expect(page.getByText(ui.copy_584ba3052b, { exact: true })).toBeVisible();
-  await expect(page.getByText(ui.copy_9e824e777e, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.submissionOpenUnlimited, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.submissionDeadlineAtStart, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
   const schedule = page.getByRole('dialog', { name: 'Room A', exact: true });
   await expect(schedule).toBeVisible();
@@ -31,7 +31,8 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   const headings = await schedule.locator('.schedule-heading').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().bottom));
   expect(Math.max(...headings) - Math.min(...headings)).toBeLessThan(1);
   expect(requests[0]).toMatchObject({ dateFrom: '2035-01-01', dateTo: '2035-01-07' });
-  await schedule.getByRole('button', { name: 'Occupied slot', exact: true }).click();
+  await expect(schedule.getByRole('button',{name:'Occupied slot',exact:true})).toHaveCount(0);
+  await schedule.getByRole('button', { name: ui.copy_a1f843d887, exact: true }).click();
   const occupied = page.getByRole('dialog', { name: ui.copy_a1f843d887 });
   await expect(occupied).toBeVisible();
   await expect(page.getByText('Must not reveal')).toHaveCount(0);

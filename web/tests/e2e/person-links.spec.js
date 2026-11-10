@@ -16,7 +16,7 @@ test('authorized person opens only that contact, related positions reauthorize, 
     const request=route.request().postDataJSON();
     if(!request.key){lists++;return route.fulfill({json:{status:'success',groups:[]}});}
     expect([key,other]).toContain(request.key);
-    return route.fulfill({json:{status:'success',contact:{key:request.key,name:'Authorized person',departmentName:request.key===key?'Department A':'Department B',identityCategoryName:'Member',fields:[{label:'Phone',type:'phone',value:'13800138000'}],relatedPositions:request.key===key?[{key:other,label:'Department B · Member'}]:[]}}});
+    return route.fulfill({json:{status:'success',contact:{key:request.key,name:'Authorized person',hasAssignment:true,departmentName:request.key===key?'Department A':'Department B',identityCategoryName:'Member',fields:[{label:'Phone',type:'phone',value:'13800138000'}],relatedPositions:request.key===key?[{key:other,hasAssignment:true,departmentName:'Department B',identityCategoryName:'Member',workGroupName:'',label:'Department B · Member'}]:[]}}});
   });
   await page.goto('/web/audit/pending');
   const link=page.getByRole('link',{name:PENDING_STEP.submitterName,exact:true});

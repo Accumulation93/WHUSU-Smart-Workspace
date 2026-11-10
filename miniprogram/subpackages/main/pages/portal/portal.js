@@ -2,6 +2,7 @@ const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = r
 const eventBus = require('../../../../utils/eventBus');
 const { describeMessage } = require('../../../../utils/messageFactsView');
 const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
+const { formatDetailTime, formatDateOnly } = require('../../../../utils/dateTime');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -590,7 +591,7 @@ Page({
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
       return Object.assign({}, item, extra, describeMessage(item, messageFactsCopy, {
-        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl)
+        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl), formatDateTime: (value, reviewStatus) => formatDetailTime(value, { reviewStatus }), formatDate: formatDateOnly
       }));
     });
   },

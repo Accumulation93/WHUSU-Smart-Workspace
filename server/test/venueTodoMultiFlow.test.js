@@ -4,6 +4,9 @@ const assert = require('assert');
 const Module = require('module');
 
 let evaluatedState = '';
+const reviewPath = require.resolve('../src/middleware/timeReviewPresentation');
+require.cache[reviewPath] = { id: reviewPath, filename: reviewPath, loaded: true,
+  exports: { async annotateTimeReviewPresentation(rows) { rows[0].time_startReviewStatus = 'review_required'; } } };
 // 本文件只验证旧模式的多流程业务资格；真实授权数据库链由 authorizationIntegration 覆盖。
 const modePath = require.resolve('../src/core/models/authorizationBusinessRoute');
 require.cache[modePath] = { id: modePath, filename: modePath, loaded: true, exports: { async isEnforced() { return false; } } };
@@ -63,6 +66,8 @@ Module._load = originalLoad;
   assert.strictEqual(items[0].displayFacts.businessTitle, '并行流程借用');
   assert.strictEqual(items[0].displayFacts.venueName, '会议室');
   assert.strictEqual(items[0].displayFacts.currentStepName, '流程 B 第一步');
+  assert.strictEqual(items[0].displayFacts.startTimeReviewStatus, 'review_required');
+  assert.strictEqual(items[0].displayFacts.startTime, '2026-08-26T02:00:00.000Z');
   assert.match(items[0].description, /流程 B 第一步/);
   assert.match(evaluatedState, /flow-b/, '消息中心必须使用多流程状态而不是单一旧流程列');
   console.log('消息中心场地多流程待办一致性测试通过');

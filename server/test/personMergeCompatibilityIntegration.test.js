@@ -20,7 +20,7 @@ const adminConfig = {
 };
 
 function versionOf(value) {
-  return String(new Date(value).getTime());
+  return String(new Date(value.replace(' ', 'T') + 'Z').getTime());
 }
 
 async function invokeAdminLogin(router, openid) {

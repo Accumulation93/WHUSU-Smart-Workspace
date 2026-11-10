@@ -5,16 +5,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const actualApi = require('../../miniprogram/utils/api');
+const feedback = require('../../shared/locales/zh-CN/requestFeedback');
 
 function runtime() {
   let snapshot = { orgId: 'org', contextId: 'job', role: 'user', version: 1 };
   let complete;
   const requests = [];
   const context = { module: { exports: {} }, require(name) {
-    if (name === './api') return { callFunction: input => { requests.push(input); return new Promise(resolve => { complete = resolve; }); } };
+    if (name === './api') return { createResultError: actualApi.createResultError, createLocalError: actualApi.createLocalError, callFunction: input => { requests.push(input); return new Promise(resolve => { complete = resolve; }); } };
     if (name === './orgSession') return { getSnapshot: () => snapshot, isCurrent: expected => expected === snapshot };
     if (name === './authorizationAccessView') return require('../../shared/authorizationAccessView');
-    if (name.startsWith('../locales/')) return { copy_e52119b17e: 'Permission unavailable' };
+    if (name.startsWith('../locales/')) return require(path.resolve(__dirname, '../../miniprogram/utils', name));
     throw new Error('unexpected_dependency:' + name);
   } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../miniprogram/utils/authorizationAccess.js'), 'utf8'), context);
@@ -45,7 +47,7 @@ test('返回失败不冒充空成功，也不回退旧管理身份', async () =>
   const state = runtime();
   const reading = state.read();
   state.finish({ status: 'forbidden' });
-  await assert.rejects(reading, /Permission unavailable/);
+  await assert.rejects(reading, error => error.message === feedback.forbidden);
   assert.equal(state.requests.length, 1);
 });
 

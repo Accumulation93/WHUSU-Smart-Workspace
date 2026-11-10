@@ -19,6 +19,7 @@ async function calendarKeys(orgId, personId, now, permissions = {}, connection =
     from:new Date(now).toISOString(), to:new Date(now + 8 * 86400000).toISOString(), export:true
   }, permissions);
   const keys = [];
+  const facts = new Map();
   let expiresAt = Infinity;
   for (const item of instances) {
     const starts = Date.parse(item.startAt), ends = Date.parse(item.endAt);
@@ -29,10 +30,20 @@ async function calendarKeys(orgId, personId, now, permissions = {}, connection =
       if (at > now) expiresAt = Math.min(expiresAt, at);
     }
     if (!due.length) continue;
-    keys.push(['calendar', item.id, item.occurrenceDate, Math.min(...due), starts].join(':'));
+    const key = ['calendar', item.id, item.occurrenceDate, Math.min(...due), starts].join(':');
+    keys.push(key);
+    facts.set(key, { businessTitle: item.title || '', startTime: item.startAt, endTime: item.endAt,
+      location: item.location || '', allDay: Boolean(item.allDay) });
+    if (item.startAtReviewStatus) facts.get(key).startTimeReviewStatus = item.startAtReviewStatus;
+    if (item.endAtReviewStatus) facts.get(key).endTimeReviewStatus = item.endAtReviewStatus;
+    if (item.allDay && Number.isFinite(Number(item.timezoneOffset)) && Number.isFinite(starts) && Number.isFinite(ends) && ends > starts) {
+      const offset = Number(item.timezoneOffset) * 60000;
+      Object.assign(facts.get(key), { startDate: new Date(starts + offset).toISOString().slice(0, 10),
+        endDateInclusive: new Date(ends - 1 + offset).toISOString().slice(0, 10) });
+    }
     expiresAt = Math.min(expiresAt, ends);
   }
-  return { keys, expiresAt };
+  return { keys, expiresAt, facts };
 }
 
 async function prepare(actor, orgId, permissions = {}, connection = pool) {
@@ -45,19 +56,23 @@ async function prepare(actor, orgId, permissions = {}, connection = pool) {
     ? await calendarKeys(orgId, actor.personId, now, permissions, connection)
     : { keys: [], expiresAt: Infinity };
   const scoring = [];
+  const scoringFacts = new Map();
   let expiresAt = calendar.expiresAt;
   if (present.has('score_activity_started') || present.has('score_deadline_24h')) {
     const data = require('./messageData');
     const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
     const users = await memo('notificationScorers:' + orgId, () => data.listBoundUsersInOrg(orgId));
-    for (const user of users.filter(value => value.person_id === actor.personId && value.id === actor.id)) {
+    for (const user of users.filter(value => value.person_id === actor.personId && value.id === actor.id
+      && actor.assignmentId && value.assignment_id === actor.assignmentId)) {
       const task = await getUserScoringTask(user, null, new Date(now), Object.assign({}, actor, { assignmentId: user.assignment_id }));
       if (task && task.pendingCount > 0) {
         scoring.push(task.activity.id);
+        scoringFacts.set(task.activity.id, { businessTitle: task.activity.name || '', deadline: task.dueAt || null });
         if (task.dueAt) expiresAt = Math.min(expiresAt, new Date(task.dueAt).getTime() + 1);
       }
     }
   }
-  return { calendar: calendar.keys, scoring: [...new Set(scoring)], expiresAt };
+  return { calendar: calendar.keys, scoring: [...new Set(scoring)], expiresAt,
+    calendarFacts: calendar.facts || new Map(), scoringFacts };
 }
 module.exports = { policies, prepare, calendarKeys };

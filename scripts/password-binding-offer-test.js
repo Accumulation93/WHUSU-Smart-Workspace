@@ -23,6 +23,7 @@ function fixture(throwAt) {
           requests.push(options); return { abort() { options.aborted = true; } };
         } };
       if (name === '../locales/zh-CN/main') return require('../miniprogram/locales/zh-CN/main');
+      if (name.startsWith('../locales/') || ['./responseFeedback', './apiContracts', './venueFactsView'].includes(name)) return require(path.resolve(__dirname, '../miniprogram/utils', name));
       throw new Error(name);
     },
     setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
@@ -114,6 +115,7 @@ console.log('登录后微信绑定资格、失败隔离、取消及身份切换�
       if (name === './orgSession') return { getSnapshot: () => Object.assign({}, state) };
       if (name === './dateTime') return {};
       if (name === '../locales/zh-CN/generated/utils/api') return {};
+      if (name.startsWith('../locales/') || ['./responseFeedback', './apiContracts', './venueFactsView'].includes(name)) return require(path.resolve(__dirname, '../miniprogram/utils', name));
       throw new Error(name);
     },
     wx: { request(options) { requests.push(options); return { abort() {} }; } }

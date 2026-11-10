@@ -45,7 +45,9 @@ function instance(saveTemplate) {
     assert.equal(entry.data.workspaceOrientation, blank ? 'landscape' : 'auto', '只有空白签名板固定横屏，文件签署跟随设备');
   }
   assert.equal(JSON.parse(fs.readFileSync(source.replace('.js', '.json'), 'utf8')).pageOrientation, 'auto');
-  assert(fs.readFileSync(source.replace('.js', '.wxml'), 'utf8').startsWith('<page-meta page-orientation="{{workspaceOrientation}}" />'));
+  const markup = fs.readFileSync(source.replace('.js', '.wxml'), 'utf8');
+  assert(markup.startsWith('<page-meta page-orientation="{{workspaceOrientation}}"'));
+  assert(markup.includes("confirmHelp ? 'overflow: hidden;' : ''"));
   const plain = instance(false); await plain.confirm();
   assert.equal(calls.length, 0); assert.deepEqual(order, ['back', 'confirm']);
   order.length = 0;

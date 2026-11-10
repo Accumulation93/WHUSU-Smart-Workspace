@@ -60,7 +60,8 @@
     ],
     [
       "scripts/org-lifecycle-audit.js",
-      "--strict"
+      "--strict",
+      "--self-test"
     ],
     [
       "scripts/security-audit.js",

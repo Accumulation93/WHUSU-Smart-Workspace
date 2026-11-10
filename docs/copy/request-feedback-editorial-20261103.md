@@ -153,3 +153,30 @@ identity_card_unavailable表示服务端读取失败，不表示卡过期。身�
 这三类都是明确业务拒绝，不得使用操作结果未知提示。记录变化后必须重新读取并重新确认，不自动重复删除；活动存在历史数据不引导用户批量删除历史来绕过保护。
 
 新增 `scoring_rule_referenced` → `scoringRuleHasRecords`：**这个评分人分类已有评分记录，不能删除。** 已读 scoring/routes/rules.js 的 deleteRateRule：事务中按 rule_id 和 org_id 查 score_records，存在则整次拒绝，不删除分类或其条款。界面被删除对象是“评分人分类”（部门与身份类别组合），不是整场评分活动，也不是单个评分记录。不得把其他保存接口的 conflict 映射到此句，不指引用户清除历史来绕过保护。
+
+## CI 回归补充：场地管理员借用明确拒绝
+
+已核 venueAdmin 的 createAdminVenueBooking：开放时间、周期活动冲突在写入前拒绝；已有借用冲突事务回滚。以下仅用于对应明确分支，不替换任意 conflict。
+
+| 建议稳定码 | 建议语料键 | 完整定稿 |
+|---|---|---|
+| venue_booking_outside_open_hours | bookingOutsideOpenHours | 所选时段不在场地开放时间内，请调整借用时间。 |
+| venue_booking_activity_conflict | bookingActivityConflict | 所选时段与周期性活动重叠，请选择其他时间。 |
+| venue_booking_existing_conflict | bookingExistingConflict | 所选时段与已有借用重叠，请选择其他时间。 |
+| venue_booking_request_changed | bookingRequestChanged | 这次提交的借用内容与此前不同，请先查看借用记录，确认后再重新打开页面操作。 |
+
+最后一项不复用 requestFeedback.referenceChanged：它不是人员、场地等引用数据失效，而是相同提交标识对应的请求内容不一致。新定稿替换 authorization.bookingRequestChanged 原句，不声称上一份借用一定保存成功，不建议直接重复提交。requestDeduplication.complete 也可能抛相同码，故不能仅凭此码承诺已有成品记录。
+
+## 2026-11-10 补充：常用事由与审批冲突
+
+已逐处读取 venueAdmin 的事由保存、删除分支，以及 venueApprovalAdmin 的审批冲突回滚分支。以下均为明确拒绝，不使用“结果暂未确认”。
+
+| 稳定码 | 建议前端语料键 | 完整定稿 | 真实使用范围 |
+|---|---|---|---|
+| venue_purpose_duplicate | bookingPurposeDuplicate | 已有相同内容的常用事由，请修改后再保存。 | saveVenueBookingPurpose 的 ER_DUP_ENTRY；不将其他保存异常判为重名 |
+| venue_purpose_referenced | bookingPurposeReferenced | 这个事由已被借用记录使用，不能删除。 | deleteVenueBookingPurpose 的引用检查、venue_purpose_referenced 及外键引用错误分支 |
+| venue_approval_time_conflict | approvalTimeConflict | 借用时段与已有借用重叠，无法通过审批。请查看场地安排后再处理。 | 审批过程 findConflict 命中并回滚，不要求审批人修改申请时间 |
+
+当前共享前端库中未找到 bookingPurposeReferenced；只有服务端旧语料存在同名键。因此批准新增前端唯一语料，不能把服务端文本直接下发作为界面文案。该语义与已批准“已被借用记录使用的事由不能删除”的确认说明一致，不修改删除规则。
+
+审批冲突不等于申请已被驳回，也不代表本次审批保存成功。提示仅说明不能完成通过动作；不要把重叠记录的姓名、标题或其他未授权资料附入错误。是否允许改期由原业务入口和权限决定，本句不额外承诺改期或自动重试。

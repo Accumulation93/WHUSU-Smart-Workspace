@@ -5,7 +5,7 @@ const presentation = require('../../utils/authorizationPresentation');
 const { callFunction, getErrorText, showShortToast, createResultError, createLocalError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
-const { splitSystemDateTime, systemDateTimeToIsoUtc } = require('../../../../utils/dateTime');
+const { splitSystemDateTime, systemDateTimeToIsoUtc, formatDetailTime } = require('../../../../utils/dateTime');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
@@ -226,7 +226,7 @@ Page({
         this._previewRequest = payload;
         const previewPolicy = this.data.kind === 'delegation' ? result.delegation.envelope : result.rule.policy;
         this.updateDraft(Object.assign({}, draft, { policy: previewPolicy }));
-        this.setData({ preview: result, impactText: ui.impactCount(result.impact.peopleCount, result.impact.roleCount),
+        this.setData({ preview: result, previewPeriods: ['startsAt', 'endsAt'].filter(key => previewPolicy[key]).map(key => ({ key, label: ui[key], value: formatDetailTime(previewPolicy[key]) })), impactText: ui.impactCount(result.impact.peopleCount, result.impact.roleCount),
           impactRows: result.impact.roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name,
             assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item),
             before: (item.before && item.before.capabilities || []).map(key => presentation.capabilityLabel(key, this._state.catalog, ui)),

@@ -107,6 +107,14 @@ async function main() {
   const apiRequests = [];
   let apiSuccess = 0; let apiFailure = 0;
   const api = load('miniprogram/utils/api.js', {
+    './apiContracts': require('../shared/apiContracts'),
+    './responseFeedback': require('../shared/responseFeedback'),
+    './venueFactsView': require('../shared/venueFactsView'),
+    '../locales/zh-CN/requestFeedback': require('../shared/locales/zh-CN/requestFeedback'),
+    '../locales/zh-CN/responseMessages': require('../shared/locales/zh-CN/responseMessages'),
+    '../locales/zh-CN/venueFacts': require('../shared/locales/zh-CN/venueFacts'),
+    '../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail': require('../shared/locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail'),
+    '../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking': require('../shared/locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking'),
     './orgSession': { getSnapshot: () => Object.assign({}, authState) },
     './dateTime': {}, '../locales/zh-CN/generated/utils/api': {}
   }, { wx: { request: options => { apiRequests.push(options); return { abort() {} }; } } });

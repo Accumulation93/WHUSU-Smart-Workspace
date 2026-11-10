@@ -1046,7 +1046,7 @@
     />
 
       <view class="list-card" wx:if="{{activeTab === 'hrInfo' && authBatchOutcome}}">
-        <view class="list-card-header" bindtap="toggleAuthBatchOutcome" aria-role="button" aria-expanded="{{authBatchOutcome.expanded}}">
+        <view class="list-card-header ui-motion-card" bindtap="toggleAuthBatchOutcome" aria-role="button" aria-expanded="{{authBatchOutcome.expanded}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="section-title">{{authOutcomeCopy.title}}</view>
           <text>{{authBatchOutcome.expanded ? localeCopy.copy_5fd0089e2a : localeCopy.copy_0addb950ff}}</text>
         </view>

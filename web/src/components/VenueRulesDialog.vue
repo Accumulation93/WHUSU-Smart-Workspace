@@ -1,6 +1,7 @@
 <template>
   <GlassDialog :title="ui.copy_ea512602ff + ' · ' + venue.name" :busy="busy || approvalBusy || awaitingRead" @close="close">
     <template #toolbar><nav class="tabs rule-tabs"><button v-for="tab in tabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': active === tab.key }" :aria-pressed="active === tab.key" :disabled="busy || approvalBusy || awaitingRead" @click="active = tab.key; load()">{{ tab.label }}</button></nav></template>
+    <h2 class="section-title">{{ tabs.find(tab => tab.key === active)?.title }}</h2>
     <VenueApprovalRules v-if="active === 'booking'" :venue="venue" :window-value="windowForm" @busy="approvalBusy = $event" @editing="approvalEditing = $event" />
     <template v-else>
       <p v-if="loading" class="muted"><AppLoading :text="copy.common.loading" /></p>
@@ -57,7 +58,7 @@ const active = ref(copyTab && route.query.venueId === props.venue.id ? copyTab :
 const editor = ref(null), activity = ref(null), loading = ref(false), busy = ref(false), loadNotice = ref(''), actionNotice = ref(''), awaitingRead = ref(false);
 const approvalBusy = ref(false), approvalEditing = ref(false);
 const tabs = computed(() => {
-  const items = [{ key: 'open', label: ui.copy_caa70e7c13 }, { key: 'activity', label: ui.copy_6980750e90 }, { key: 'booking', label: ui.copy_523e44b520 }, { key: 'bookingWindow', label: ui.copy_91fd6d9600 }];
+  const items = [{ key: 'open', label: ui.rulesTabOpen, title: ui.rulesSectionOpen }, { key: 'activity', label: ui.rulesTabActivity, title: ui.rulesSectionActivity }, { key: 'booking', label: ui.rulesTabApproval, title: ui.rulesSectionApproval }, { key: 'bookingWindow', label: ui.rulesTabWindow, title: ui.rulesSectionWindow }];
   if (authorizationAccess.value?.mode !== 'enforced') return items.filter(item => ['open', 'activity'].includes(item.key) || props.canApprove || canReadApprovals.value);
   const resources = { open: ['venue.openRules'], activity: ['venue.activityRules'], booking: ['venue.approvals', 'venue.bookingRules'], bookingWindow: ['venue.bookingWindows'] };
   return items.filter(item => resources[item.key].some(key => authorizationAccess.value.grantedCapabilities.some(capability => capability.startsWith(key + '.'))));

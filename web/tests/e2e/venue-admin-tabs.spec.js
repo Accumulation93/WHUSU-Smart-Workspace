@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import copy from '../../src/locales/zh-CN/index.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import messages from '../../src/locales/zh-CN/shared/responseMessages.js';
 
 async function setup(page, permissions = { 'venue.resources': true, 'venue.bookings': true, 'venue.approvals': true, 'venue.purposes': true, 'venue.purposes.delete': true }) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -31,12 +33,12 @@ test('native venue tabs preserve purpose drafts and successful writes reread wit
   await page.route('**/api/saveVenueBookingPurpose', route => {
     saves++; const body = route.request().postDataJSON();
     expect(body).toEqual({ id: '', text: 'Meeting' });
-    if (saves === 1) return route.fulfill({ json: { status: 'duplicate', message: 'Rejected purpose' } });
+    if (saves === 1) return route.fulfill({ json: { status: 'duplicate', code: 'venue_purpose_duplicate', message: 'Rejected purpose' } });
     purposes = [{ id: 'p1', text: body.text }]; failRead = true;
     return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/venue/manage');
-  await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_ceffdfcdd7, ui.copy_20ba89a1cc, ui.copy_e7f0a24301, ui.copy_8dcf3fcf0b]);
+  await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_ceffdfcdd7, ui.copy_20ba89a1cc, ui.copy_e7f0a24301, ui.bookingPurposesTab]);
   const originalViewport = page.viewportSize();
   await page.setViewportSize({ width: 310, height: 844 });
   const tabGeometry = await page.locator('.venue-admin-tabs button').evaluateAll(elements => elements.map(element => {
@@ -51,17 +53,17 @@ test('native venue tabs preserve purpose drafts and successful writes reread wit
   }
   expect(Math.max(...tabGeometry.map(item => item.top)) - Math.min(...tabGeometry.map(item => item.top))).toBeLessThan(1);
   await page.setViewportSize(originalViewport);
-  await tab(page, ui.copy_8dcf3fcf0b).click();
+  await tab(page, ui.bookingPurposesTab).click();
   await page.getByLabel(ui.copy_a97eb08acb).fill(' Meeting ');
   await tab(page, ui.copy_ceffdfcdd7).click();
-  await tab(page, ui.copy_8dcf3fcf0b).click();
+  await tab(page, ui.bookingPurposesTab).click();
   await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue(' Meeting ');
   await page.getByRole('button', { name: ui.copy_4f9ebda03b, exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Rejected purpose');
+  await expect(page.getByRole('alert')).toHaveText(messages.venue_purpose_duplicate);
   await page.getByRole('button', { name: ui.copy_4f9ebda03b, exact: true }).click();
   await expect(page.getByRole('button', { name: copy.common.retry, exact: true })).toBeEnabled();
   await tab(page, ui.copy_ceffdfcdd7).click();
-  await tab(page, ui.copy_8dcf3fcf0b).click();
+  await tab(page, ui.bookingPurposesTab).click();
   await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue(' Meeting ');
   await expect(page.getByRole('button', { name: ui.copy_4f9ebda03b, exact: true })).toBeDisabled();
   failRead = false;
@@ -82,11 +84,11 @@ test('purpose edit accepts 200 unicode codepoints, rejects 201 and delete confir
   });
   await page.route('**/api/deleteVenueBookingPurpose', route => {
     deletes++; expect(route.request().postDataJSON()).toEqual({ id: 'p1' });
-    if (deletes === 1) return route.fulfill({ json: { status: 'conflict', message: 'Referenced purpose' } });
+    if (deletes === 1) return route.fulfill({ json: { status: 'conflict', code: 'venue_purpose_referenced', message: 'Referenced purpose' } });
     purposes = []; return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/venue/manage');
-  await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_8dcf3fcf0b]);
+  await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.bookingPurposesTab]);
   await page.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
   const input = page.getByLabel(ui.copy_a97eb08acb);
   await input.fill('😀'.repeat(201));
@@ -123,7 +125,7 @@ test('purpose edit accepts 200 unicode codepoints, rejects 201 and delete confir
   await expect(page.getByRole('dialog')).toContainText('😀'.repeat(200));
   await page.getByRole('dialog').getByRole('button', { name: ui.copy_06dbb49961, exact: true }).click(); expect(deletes).toBe(0);
   await remove.click(); await page.getByRole('dialog').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Referenced purpose');
+  await expect(page.getByRole('alert')).toHaveText(messages.venue_purpose_referenced);
   await expect(page.locator('.purpose-row')).toHaveCount(1);
   await remove.click(); await page.getByRole('dialog').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click();
   await expect(page.getByText(ui.copy_b55eac70b1, { exact: true })).toBeVisible(); expect(deletes).toBe(2);
@@ -137,12 +139,12 @@ test('purpose saving blocks tabs and navigation then leaving clears the unsaved 
     started = true; await new Promise(resolve => { release = resolve; }); await route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/portal'); await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click();
-  await tab(page, ui.copy_8dcf3fcf0b).click(); await page.getByLabel(ui.copy_a97eb08acb).fill('Pending');
+  await tab(page, ui.bookingPurposesTab).click(); await page.getByLabel(ui.copy_a97eb08acb).fill('Pending');
   await page.getByRole('button', { name: ui.copy_4f9ebda03b, exact: true }).click(); await expect.poll(() => started).toBe(true);
   await expect(tab(page, ui.copy_ceffdfcdd7)).toBeDisabled(); await page.goBack(); await expect(page).toHaveURL(/venue\/manage$/);
   release(); await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue('');
   await page.getByLabel(ui.copy_a97eb08acb).fill('Unsaved'); await page.goBack(); await expect(page).toHaveURL(/portal$/);
-  await page.goForward(); await tab(page, ui.copy_8dcf3fcf0b).click(); await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue('');
+  await page.goForward(); await tab(page, ui.bookingPurposesTab).click(); await expect(page.getByLabel(ui.copy_a97eb08acb)).toHaveValue('');
 });
 
 test('management list merges pending outside date range, filters computed status and opens the shared detail', async ({ page }) => {
@@ -179,16 +181,16 @@ test('management approval keeps failed comments and uses step endpoint with nati
   await page.route('**/api/listAllVenueBookings', route => route.fulfill({ json: failRead ? { status: 'error', message: 'Read failed' } : { status: 'success', bookings: saved ? [] : [booking] } }));
   await page.route('**/api/approveVenueBookingStep', route => {
     writes++; expect(route.request().postDataJSON()).toEqual({ id: 'b1', comment: 'Approved comment' });
-    if (writes === 1) return route.fulfill({ json: { status: 'conflict', message: 'Approval rejected' } });
+    if (writes === 1) return route.fulfill({ json: { status: 'conflict', code: 'venue_approval_time_conflict', message: 'Approval rejected' } });
     saved = true; failRead = true; return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/venue/manage'); await tab(page, ui.copy_20ba89a1cc).click();
   await page.locator('.booking-row').getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByLabel(ui.copy_bddb855314).fill('Approved comment');
   await dialog.getByRole('button', { name: ui.copy_49ef170f0b, exact: true }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Approval rejected'); await expect(dialog.getByLabel(ui.copy_bddb855314)).toHaveValue('Approved comment');
+  await expect(dialog.getByRole('alert')).toHaveText(messages.venue_approval_time_conflict); await expect(dialog.getByLabel(ui.copy_bddb855314)).toHaveValue('Approved comment');
   await dialog.getByRole('button', { name: ui.copy_49ef170f0b, exact: true }).click();
-  await expect(dialog).toHaveCount(0); await expect(page.getByRole('alert')).toHaveText('Read failed');
+  await expect(dialog).toHaveCount(0); await expect(page.getByRole('alert')).toHaveText(feedback.readFailed);
   await expect(page.locator('.booking-row').getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true })).toBeDisabled();
   failRead = false; await page.getByRole('button', { name: copy.common.retry, exact: true }).click();
   await expect(page.locator('.booking-row')).toHaveCount(0); expect(writes).toBe(2);
@@ -205,7 +207,7 @@ test('booking permission alone shows no approvals and independent read failures 
   await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_20ba89a1cc]);
   await expect(page.locator('.booking-actions')).toHaveCount(0);
   fail = true; await page.getByRole('button', { name: ui.copy_dc59906817, exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Pending read failed'); await expect(page.locator('.booking-row')).toContainText('Retained');
+  await expect(page.getByRole('alert')).toHaveText(feedback.readFailed); await expect(page.locator('.booking-row')).toContainText('Retained');
   await page.locator('.booking-row').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
   fail = false; await page.getByRole('button', { name: copy.common.retry, exact: true }).click(); await expect(page.locator('.booking-row')).toHaveCount(0);
 });

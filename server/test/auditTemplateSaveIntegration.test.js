@@ -59,7 +59,8 @@ const options = {
     vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
       module: { exports: {} }, Behavior(value) { behavior = value; return value; },
       require(name) {
-        if (name === './adminUtils') return { showShortToast() {}, getErrorText(error) { return error.message; } };
+        if (name.endsWith('/adminUtils')) return { showShortToast() {}, getErrorText(error) { return error.message; } };
+        if (name.includes('/locales/')) return require(path.resolve(path.dirname(source), name));
         return {};
       }
     }, { filename: source });

@@ -121,6 +121,7 @@ function mapNotification(row, context) {
   return Object.assign({
     id: safeString(row.id),
     type: safeString(row.type),
+    displayFacts: row.displayFacts || {},
     title: safeString(row.title),
     description: safeString(row.description),
     category: safeString(row.category || 'system'),

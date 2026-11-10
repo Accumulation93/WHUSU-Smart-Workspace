@@ -199,6 +199,7 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="ui-dialog-scroll-content">
+        <block wx:for="{{ruleTabs}}" wx:key="key"><view wx:if="{{rulesTab === item.key}}" class="section-title">{{item.title}}</view></block>
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{authorizationEnforced ? actionCapabilities['venue.openRules.create'] : canEditVenueResources}}" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">{{localeCopy.copy_5e2a277742}}</view>

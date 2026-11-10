@@ -9,12 +9,14 @@ async function read(connection,events,orgId,offset,from,to) {
   if (bookings.length) {
     const rows=(await connection.query(`SELECT b.id,b.title,b.description,b.time_start,b.time_end,b.status,v.name AS venue_name,v.location
       FROM venue_bookings b JOIN venues v ON v.id=b.venue_id WHERE b.creator_org_id=? AND b.id IN (${placeholders(bookings)})`,[orgId,...bookings]))[0];
+    await require('../../middleware/timeReviewPresentation').annotateTimeReviewPresentation(rows);
     for (const row of rows) {
       if (row.status!=='approved') { result.set('venue_booking:'+row.id,[]); continue; }
       const start=new Date(row.time_start),end=new Date(row.time_end);
       result.set('venue_booking:'+row.id,[{occurrenceDate:dateText(start.getTime()+offset*60000),title:row.title,
         description:row.description || '',location:[row.venue_name,row.location].filter(Boolean).join(' · '),
-        startAt:start.toISOString(),endAt:end.toISOString(),allDay:false}]);
+        startAt:start.toISOString(),endAt:end.toISOString(),allDay:false,
+        startAtReviewStatus:row.time_startReviewStatus,endAtReviewStatus:row.time_endReviewStatus}]);
     }
   }
   const activities=events.filter(event=>event.sourceKind==='venue_activity').map(event=>event.sourceId);

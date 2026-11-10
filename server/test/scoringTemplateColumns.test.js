@@ -10,13 +10,13 @@ let definition;
 vm.runInNewContext(fs.readFileSync(path.join(base, 'templateBehavior.js'), 'utf8'), {
   module: { exports: {} }, Behavior(value) { definition = value; return value; },
   require(name) {
-    if (name === './adminUtils') return utils;
+    if (name.endsWith('/adminUtils')) return utils;
     if (name.includes('/locales/')) return require(path.resolve(base, name));
     return {};
   }
 });
 const fields = utils.TEMPLATE_CSV_FIELDS;
-assert.strictEqual(fields.find(item => item.key === 'startValue').label, '起始分');
+assert.strictEqual(fields.find(item => item.key === 'startValue').label, '初始分值');
 assert.strictEqual(fields.find(item => item.key === 'minValue').label, '最低分');
 assert.strictEqual(pageCopy.copy_6cc2ee6bc8, '起始分');
 assert.strictEqual(exportCopy.copy_4366ed3bb6, '起始分');
@@ -29,7 +29,7 @@ const oldWx = global.wx;
 // 使用真实 Behavior 方法的宿主上下文，确认导出列回导时不会丢失起始分。
 const source = fs.readFileSync(path.join(base, 'templateBehavior.js'), 'utf8');
 vm.runInNewContext(source, { module: { exports: {} }, Behavior(value) { definition = value; return value; }, wx: { showToast() {} },
-  require(name) { if (name === './adminUtils') return utils; if (name.includes('/locales/')) return require(path.resolve(base, name)); return {}; }
+  require(name) { if (name.endsWith('/adminUtils')) return utils; if (name.includes('/locales/')) return require(path.resolve(base, name)); return {}; }
 });
 definition.methods.confirmTemplateCsvImport.call(page);
 assert.strictEqual(data.templateForm.questions[0].minValue, '1');

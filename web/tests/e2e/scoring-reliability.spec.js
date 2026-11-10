@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import scoreCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/score/score.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 const target = { id: 'assignment-target', assignmentId: 'assignment-target', name: 'Score target', department: 'Department', identity: 'Identity', isScored: false };
 function form(score = '') {
@@ -51,7 +52,8 @@ test('failed target reads show a retry instead of a false empty directory', asyn
     ? { status: 'unavailable', message: 'Directory unavailable' }
     : { status: 'success', currentActivity: { name: 'Activity' }, targets: [target] } }));
   await page.goto('/web/scoring/tasks');
-  await expect(page.getByText('Directory unavailable')).toBeVisible();
+  await expect(page.getByText(feedback.readFailed)).toBeVisible();
+  await expect(page.getByText('Directory unavailable')).toHaveCount(0);
   await expect(page.getByText(copy.scoring.activityEmpty, { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: scoreCopy.retryLoad }).click();
   await expect(page.getByText(target.name)).toBeVisible();
@@ -65,7 +67,8 @@ test('form load retry stays on page and draft navigation can be cancelled', asyn
     ? { status: 'unavailable', message: 'Form unavailable' } : form(5) }));
   await page.goto('/web/scoring/tasks');
   await page.locator('.target-card').filter({ hasText: target.name }).click();
-  await expect(page.getByText('Form unavailable')).toBeVisible();
+  await expect(page.getByText(feedback.readFailed)).toBeVisible();
+  await expect(page.getByText('Form unavailable')).toHaveCount(0);
   await page.getByRole('button', { name: scoreCopy.retryLoad }).click();
   const input = page.locator('.score-input');
   await input.fill('7');

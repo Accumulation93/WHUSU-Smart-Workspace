@@ -3,6 +3,15 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import venueCopy from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 
+const fixtureCopy = {
+  copy_20f94d2c18: venueCopy.copy_20f94d2c18,
+  copy_a9a18dd6e8: venueCopy.copy_a9a18dd6e8,
+  copy_9c9358d025: venueCopy.copy_9c9358d025,
+  copy_09614cef6c: venueCopy.copy_09614cef6c,
+  copy_f7597cecf5: venueCopy.copy_f7597cecf5,
+  copy_d37b64cc9d: venueCopy.copy_d37b64cc9d
+};
+
 const stylesheet = fileURLToPath(new URL('../../../miniprogram/app.wxss', import.meta.url));
 const sizes = [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }];
 
@@ -138,7 +147,7 @@ for (const size of [{ width: 320, height: 568 }, { width: 390, height: 667 }, { 
         document.querySelector('#cancel').remove();
         document.querySelector('#save').textContent = copy.copy_f7597cecf5;
         document.querySelector('#extra').style.display = 'block';
-      }, venueCopy);
+      }, fixtureCopy);
       for (const keyboard of [0, 240]) {
         await page.locator('page').evaluate((node, value) => node.style.setProperty('--kb-height', value + 'px'), keyboard);
         const measurements = await page.locator('.ui-dialog-shell').evaluate(shell => {
@@ -173,7 +182,7 @@ for (const size of [{ width: 320, height: 568 }, ...sizes]) {
         final.textContent = copy.copy_f7597cecf5;
         document.querySelector('.ui-dialog-scroll-content').append(final);
         final.addEventListener('click', () => { document.body.dataset.innerSaved = 'true'; });
-      }, { modifier, copy: venueCopy });
+      }, { modifier, copy: fixtureCopy });
       const short = await page.locator('.ui-dialog-shell').boundingBox();
       await page.locator('#expand').click();
       const long = await page.locator('.ui-dialog-shell').boundingBox();

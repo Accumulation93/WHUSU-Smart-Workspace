@@ -20,7 +20,7 @@ function home() {
       return {};
     }
   }, { filename });
-  const page = { ...definition, data: structuredClone(definition.data), _isPageVisible: true,
+  const page = { ...definition, data: JSON.parse(JSON.stringify(definition.data)), _isPageVisible: true,
     setData(patch) { Object.assign(this.data, patch); }, loadAuditBadgeCounts() {}, loadAuditVerificationAccess() {} };
   return { page, finish: value => finish(value) };
 }

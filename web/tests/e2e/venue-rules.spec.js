@@ -4,6 +4,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages
 import copy from '../../src/locales/zh-CN/index.js';
 import flowCopy from '../../src/locales/zh-CN/shared/venueFlowManagement.js';
 import controls from '../../src/locales/zh-CN/shared/controlLayout.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 async function setup(page, canApprove = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
@@ -41,7 +42,7 @@ for (const type of ['datetime_range', 'repeat']) {
       state.activity[0] = { ...state.activity[0], activity_name: body.activityName, cycle_values: body.cycleValues };
       return route.fulfill({ json: { status: 'success' } });
     });
-    await ruleTab(page, ui.copy_6980750e90).click();
+    await ruleTab(page, ui.rulesTabActivity).click();
     await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
     const dialog = page.getByRole('dialog').last();
     await expect(dialog.getByText(type === 'repeat' ? flowCopy.intervalOccupancy : flowCopy.continuousOccupancy, { exact: true })).toBeVisible();
@@ -72,7 +73,7 @@ for (const type of ['identity', 'person']) {
         scopeWorkGroupId: 'w1', sortOrder: 9 });
       return route.fulfill({ json: { status: 'success' } });
     });
-    await ruleTab(page, ui.copy_523e44b520).click();
+    await ruleTab(page, ui.rulesTabApproval).click();
     const row = page.locator('.approval-row');
     await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
     await expect(page.getByLabel(ui.copy_c5ec30e07d)).toHaveValue(type);
@@ -100,7 +101,7 @@ test('inactive copied flow stays editable without confirming a change to the liv
     expect(body).not.toHaveProperty('isActive');
     return route.fulfill({ json: { status: 'success' } });
   });
-  await ruleTab(page, ui.copy_523e44b520).click();
+  await ruleTab(page, ui.rulesTabApproval).click();
   const row = page.locator('.approval-row').filter({ hasText: 'Copied flow' });
   await expect(row).toContainText(flowCopy.disabled);
   await row.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
@@ -125,7 +126,7 @@ test('specified approver picker saves the chosen assignment and reopens the save
     state.rules[0].approver_hr_id = body.approverHrId;
     return route.fulfill({ json: { status: 'success' } });
   });
-  await ruleTab(page, ui.copy_523e44b520).click();
+  await ruleTab(page, ui.rulesTabApproval).click();
   await page.locator('.approval-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
   await page.getByRole('button', { name: 'Reviewer · Identity category · Department', exact: true }).click();
   const picker = page.getByRole('dialog').last();
@@ -140,18 +141,18 @@ test('specified approver picker saves the chosen assignment and reopens the save
 
 test('open rules use native cycle fields and preserve rejection before save and reread', async ({ page }) => {
   const state = await setup(page, false); let saves = 0;
-  await expect(page.locator('.rule-tabs button')).toHaveText([ui.copy_caa70e7c13, ui.copy_6980750e90]);
+  await expect(page.locator('.rule-tabs button')).toHaveText([ui.rulesTabOpen, ui.rulesTabActivity]);
   await page.route('**/api/saveVenueOpenRule', route => {
     saves++; const body = route.request().postDataJSON();
     expect(body).toEqual({ id: '', venueId: 'v1', name: 'Office hours', cycleType: 'weekly', cycleValues: [1, 3], timeStart: '09:00', timeEnd: '18:00' });
-    if (saves === 1) return route.fulfill({ json: { status: 'conflict', message: 'Rejected rule' } });
+    if (saves === 1) return route.fulfill({ json: { status: 'forbidden', message: 'Rejected rule' } });
     state.open = [{ id: 'o1', name: body.name, cycle_type: body.cycleType, cycle_values: body.cycleValues, time_start: body.timeStart, time_end: body.timeEnd }];
     return route.fulfill({ json: { status: 'success', id: 'o1' } });
   });
   await page.getByRole('button', { name: ui.copy_61960b0ff3, exact: true }).click();
   await page.getByLabel(ui.copy_70ae057f15).fill('Office hours');
   await page.getByRole('button', { name: ui.copy_92af9d9017, exact: true }).click(); await page.getByRole('button', { name: ui.copy_2f48862253, exact: true }).click();
-  await save(page).click(); await expect(page.getByRole('alert')).toHaveText('Rejected rule');
+  await save(page).click(); await expect(page.getByRole('alert')).toHaveText(feedback.forbidden); await expect(page.getByText('Rejected rule',{exact:true})).toHaveCount(0);
   await expect(page.getByLabel(ui.copy_70ae057f15)).toHaveValue('Office hours');
   await save(page).click(); await expect(page.locator('.rule-row')).toContainText('Office hours');
   expect(saves).toBe(2);
@@ -168,7 +169,7 @@ test('activity count and time range are mutually exclusive and save native value
     state.activity = [{ id: 'a1', activity_name: body.activityName, cycle_type: body.cycleType, cycle_values: body.cycleValues, time_start: body.timeStart, time_end: body.timeEnd }];
     return route.fulfill({ json: { status: 'success' } });
   });
-  await ruleTab(page, ui.copy_6980750e90).click(); await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await ruleTab(page, ui.rulesTabActivity).click(); await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
   await page.getByLabel(ui.copy_70ae057f15).fill('Recurring meeting'); await page.getByLabel(ui.copy_5c507fbab7).selectOption('monthly');
   await page.getByRole('button', { name: '5', exact: true }).click();
   await page.getByRole('button', { name: ui.copy_ebc28de1cf, exact: true }).click();
@@ -188,7 +189,7 @@ test('saved rule reread failure keeps the draft and blocks a duplicate write and
     return route.fulfill({ json: { status: 'success' } });
   });
   await page.getByRole('button', { name: ui.copy_61960b0ff3, exact: true }).click(); await page.getByLabel(ui.copy_70ae057f15).fill('Saved once'); await page.getByLabel(ui.copy_5c507fbab7).selectOption('daily');
-  await save(page).click(); await expect(page.getByRole('dialog').last().getByRole('alert')).toHaveText('Read failed'); await expect(save(page)).toBeDisabled();
+  await save(page).click(); await expect(page.getByRole('dialog').last().getByRole('alert')).toHaveText(feedback.readFailed); await expect(page.getByText('Read failed',{exact:true})).toHaveCount(0); await expect(save(page)).toBeDisabled();
   await page.keyboard.press('Escape'); await expect(page.getByLabel(ui.copy_70ae057f15)).toHaveValue('Saved once');
   state.failRead = false; await page.getByRole('dialog').last().getByRole('button', { name: copy.common.retry, exact: true }).click(); await expect(page.locator('.rule-row')).toContainText('Saved once'); expect(saves).toBe(1);
 });
@@ -201,8 +202,8 @@ test('booking window retains independent modes, validates order and rereads the 
     expect(body).toEqual({ venueId: 'v1', bookingWindow: { open: { mode: 'days', days: 2, hours: 0, minutes: 0 }, deadline: { mode: 'duration', days: 0, hours: 1, minutes: 30 } } });
     state.window.openAdvanceDays = 2; state.window.openAdvanceMinutes = 2880; return route.fulfill({ json: { status: 'success' } });
   });
-  await ruleTab(page, ui.copy_91fd6d9600).click(); await expect(page.getByLabel(ui.copy_4c3db5642e)).toHaveValue('days');
-  const day = page.getByLabel(ui.copy_a957bd837e, { exact: true }); await day.fill('0');
+  await ruleTab(page, ui.rulesTabWindow).click(); await expect(page.getByLabel(ui.copy_4c3db5642e)).toHaveValue('days');
+  const day = page.getByLabel(ui.durationDaysUnit, { exact: true }); await day.fill('0');
   await page.getByRole('button', { name: ui.copy_ac9827b75d, exact: true }).click(); await expect(page.getByRole('alert')).toHaveText(ui.copy_b1545efd70); expect(writes).toBe(0);
   await day.fill('2'); await page.getByRole('button', { name: ui.copy_ac9827b75d, exact: true }).click(); await expect(day).toHaveValue('2'); expect(writes).toBe(1);
 });
@@ -215,7 +216,7 @@ test('flow steps and specific conditions write back only after confirmation and 
     expect(body.flowId).toBe(''); expect(body.allowDesignateFirst).toBe(false); expect(body.allowDesignateNext).toBe(false);
     state.flows = [{ id: 'f1', name: body.flowName, steps: [{ name: 'Review', approval_mode: 'hr_rule', rules: [{ department_scope: 'specific', specific_department_id: 'd1', work_group_scope: 'all', specific_work_group_id: '', identity_scope: 'all', specific_identity_id: '' }] }] }]; return route.fulfill({ json: { status: 'success' } });
   });
-  await ruleTab(page, ui.copy_523e44b520).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click();
+  await ruleTab(page, ui.rulesTabApproval).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click();
   await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Review');
   await page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true }).click(); await expect(page.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
   await page.getByLabel(ui.copy_02419589be, { exact: true }).selectOption('specific'); await page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true }).click();
@@ -231,7 +232,7 @@ test('flow flags stay independent and switching to direct approval requires conf
     metaWrites++; expect(route.request().postDataJSON()).toEqual({ venueId: 'v1', flowId: 'f1', name: 'Review flow', allowUserSelect: false, allowDesignateFirst: true, allowDesignateNext: true }); state.flows[0].allow_designate_next = 1; return route.fulfill({ json: { status: 'success' } });
   });
   await page.route('**/api/saveVenueBookingRule', route => { directWrites++; expect(route.request().postDataJSON().ruleType).toBe('direct'); state.flows = []; state.rules = [{ id: 'b1', rule_type: 'direct' }]; return route.fulfill({ json: { status: 'success' } }); });
-  await ruleTab(page, ui.copy_523e44b520).click(); await page.getByRole('switch', { name: ui.allowDesignateNextApprover, exact: true }).check(); await expect(page.getByRole('switch', { name: ui.allowDesignateNextApprover, exact: true })).toBeEnabled(); expect(metaWrites).toBe(1);
+  await ruleTab(page, ui.rulesTabApproval).click(); await page.getByRole('switch', { name: ui.allowDesignateNextApprover, exact: true }).check(); await expect(page.getByRole('switch', { name: ui.allowDesignateNextApprover, exact: true })).toBeEnabled(); expect(metaWrites).toBe(1);
   await page.getByRole('button', { name: ui.copy_c013e80e7c, exact: true }).click(); await page.getByLabel(ui.copy_c5ec30e07d).selectOption('direct'); await save(page).click();
   await expect(page.getByRole('dialog').last()).toContainText(flowCopy.flowToDirect); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.cancel, exact: true }).click(); expect(directWrites).toBe(0);
   await save(page).click(); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.confirm, exact: true }).click(); await expect(page.locator('.approval-row')).toContainText(ui.copy_4f15bb9939); expect(directWrites).toBe(1);
@@ -245,13 +246,13 @@ test('yearly date ranges and explicit open dates use native payloads and deletio
     else expect(body.cycleValues).toEqual({ startDate: '2026-10-13', endDate: '2026-10-20' });
     state.open = [{ id: 'o1', name: body.name, cycle_type: body.cycleType, cycle_values: body.cycleValues, time_start: body.timeStart, time_end: body.timeEnd }]; return route.fulfill({ json: { status: 'success' } });
   });
-  await page.route('**/api/deleteVenueOpenRule', route => { deletes++; expect(route.request().postDataJSON()).toEqual({ id: 'o1' }); if (deletes === 1) return route.fulfill({ json: { status: 'in_use', message: 'Referenced rule' } }); state.open = []; return route.fulfill({ json: { status: 'success' } }); });
+  await page.route('**/api/deleteVenueOpenRule', route => { deletes++; expect(route.request().postDataJSON()).toEqual({ id: 'o1' }); if (deletes === 1) return route.fulfill({ json: { status: 'forbidden', message: 'Deletion forbidden' } }); state.open = []; return route.fulfill({ json: { status: 'success' } }); });
   await page.getByRole('button', { name: ui.copy_61960b0ff3, exact: true }).click(); await page.getByLabel(ui.copy_70ae057f15).fill('Annual hours'); await page.getByLabel(ui.copy_5c507fbab7).selectOption('yearly');
   await page.getByRole('button', { name: ui.copy_9aa3c3673c, exact: true }).click(); await save(page).click(); await expect(page.locator('.rule-row')).toContainText('Annual hours');
   await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click(); await page.getByLabel(ui.copy_5c507fbab7).selectOption('range');
   await page.getByLabel(ui.copy_1ede7526e5, { exact: true }).fill('2026-10-13'); await page.getByLabel(ui.copy_d862a02c58, { exact: true }).fill('2026-10-20'); await save(page).click();
   await page.locator('.rule-row').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click(); await expect(page.getByRole('dialog').last()).toContainText('Annual hours'); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.cancel, exact: true }).click(); expect(deletes).toBe(0);
-  await page.locator('.rule-row').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.confirm, exact: true }).click(); await expect(page.getByRole('alert')).toHaveText('Referenced rule');
+  await page.locator('.rule-row').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.confirm, exact: true }).click(); await expect(page.getByRole('alert')).toHaveText(feedback.forbidden); await expect(page.getByText('Deletion forbidden',{exact:true})).toHaveCount(0);
   await page.locator('.rule-row').getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: copy.common.confirm, exact: true }).click(); await expect(page.locator('.rule-row')).toHaveCount(0); expect(deletes).toBe(2);
 });
 
@@ -270,7 +271,7 @@ test('dictionary choices cancel their draft and work groups follow selected depa
   await setup(page);
   await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Department one' }, { id: 'd2', name: 'Department two' }] } }));
   await page.route('**/api/listWorkGroups', route => route.fulfill({ json: { status: 'success', workGroups: [{ id: 'w1', name: 'Group one', departmentId: 'd1', departmentName: 'Department one' }, { id: 'w2', name: 'Group two', departmentId: 'd2', departmentName: 'Department two' }] } }));
-  await ruleTab(page, ui.copy_523e44b520).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click(); await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Draft step'); await page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true }).click();
+  await ruleTab(page, ui.rulesTabApproval).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click(); await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Draft step'); await page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true }).click();
   await page.getByLabel(ui.copy_02419589be, { exact: true }).selectOption('specific'); await page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true }).click(); await page.getByRole('button', { name: 'Department two', exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: ui.copy_06dbb49961, exact: true }).click(); await expect(page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true }).click(); await page.getByLabel(ui.copy_cea1da7603, { exact: true }).fill('one'); await page.getByRole('button', { name: ui.copy_00c8a8f256, exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: controls.confirmSelection, exact: true }).click();
   await page.getByLabel(ui.copy_303b7a8611, { exact: true }).selectOption('specific'); await page.getByRole('button', { name: ui.copy_e5b5701d94, exact: true }).click(); const dialog = page.getByRole('dialog').last(); await expect(dialog).toContainText('Group one'); await expect(dialog).not.toContainText('Group two');
@@ -279,9 +280,9 @@ test('dictionary choices cancel their draft and work groups follow selected depa
 
 test('malformed flow conditions fail closed and reference failures retain the draft with a working retry', async ({ page }) => {
   const state = await setup(page); state.flows = [{ id: 'f1', name: 'Malformed flow', steps: [{ name: 'Review', approval_mode: 'hr_rule', rules: [{ department_scope: 'unknown', work_group_scope: 'all', identity_scope: 'all' }] }] }];
-  await ruleTab(page, ui.copy_523e44b520).click(); await expect(page.getByRole('alert')).toBeVisible(); await expect(page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true })).toBeDisabled();
+  await ruleTab(page, ui.rulesTabApproval).click(); await expect(page.getByRole('alert')).toBeVisible(); await expect(page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true })).toBeDisabled();
   state.flows = []; await page.getByRole('button', { name: copy.common.retry, exact: true }).click();
   let failed = true; await page.route('**/api/listDepartments', route => route.fulfill({ json: failed ? { status: 'error', message: 'Directory failed' } : { status: 'success', departments: [] } }));
-  await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click(); await expect(page.getByRole('dialog').last().getByRole('alert')).toHaveText('Directory failed'); await expect(save(page)).toBeDisabled();
+  await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click(); await expect(page.getByRole('dialog').last().getByRole('alert')).toHaveText(feedback.readFailed); await expect(page.getByText('Directory failed',{exact:true})).toHaveCount(0); await expect(save(page)).toBeDisabled();
   await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Keep draft'); failed = false; await page.getByRole('dialog').last().getByRole('button', { name: copy.common.retry, exact: true }).click(); await expect(page.getByLabel(ui.copy_c5dd070c37)).toHaveValue('Keep draft');
 });

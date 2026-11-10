@@ -117,7 +117,7 @@ const sharedModule = Object.freeze({
   adminExportColumns: ['姓名', '管理身份'],
   superAdminRole: '超级管理员',
   adminRole: '普通管理员',
-  bookingRequestChanged: '这次借用已提交，但重试内容不同。请重新打开借用页面后再提交。',
+  bookingRequestChanged: '这次提交的借用内容与此前不同，请先查看借用记录，确认后再重新打开页面操作。',
   legacyDelegationName: '原有权限分配范围',
   fieldLabels: Object.freeze({ text: '事由内容', sortOrder: '显示顺序', name: '名称', description: '说明', departmentId: '所属部门', questions: '题目与分值',
     timezone: '显示时区', currentOrganization: '默认组织',

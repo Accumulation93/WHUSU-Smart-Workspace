@@ -768,7 +768,7 @@ function scanVenueFlowVisibilityContract() {
   const findings = [];
   const checks = [
     ['借用规则页缺少审批流程列表', /approvalFlows/],
-    ['借用规则页未说明暂无审批流程', /暂无审批流程/],
+    ['借用规则页未说明暂无审批流程', /wx:if="\{\{!approvalFlows\.length\}\}"[^>]*>尚未设置审批流程，可新增流程并配置步骤。/],
     ['借用规则页缺少“指定第一步审批人”独立开关', /data-field="allow_designate_first"/],
     ['借用规则页缺少“指定下一步审批人”独立开关', /data-field="allow_designate_next"/]
   ];
@@ -1985,6 +1985,8 @@ const report = {
   compactVisualContractIssues,
   duplicateGlobalUiContracts,
   signatureCoordinateIssues,
+  pickerValueIssues,
+  dialogScrollLockIssues,
   selectionCardIssues,
   controlSurfaceIssues,
   styles

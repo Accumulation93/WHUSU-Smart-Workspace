@@ -3,6 +3,7 @@ const orgSession = require('../../../../utils/orgSession');
 const messageScope = require('../../../../utils/messageScope');
 const { describeMessage } = require('../../../../utils/messageFactsView');
 const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
+const { formatDetailTime, formatDateOnly } = require('../../../../utils/dateTime');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
 const authContext = require('../../../../utils/authContext');
 const notificationReceipt = require('../../../../utils/notificationNavigationReceipt');
@@ -148,7 +149,7 @@ Page({
         createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       }, describeMessage(item, messageFactsCopy, {
-        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl)
+        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl), formatDateTime: (value, reviewStatus) => formatDetailTime(value, { reviewStatus }), formatDate: formatDateOnly
       }));
     });
   },

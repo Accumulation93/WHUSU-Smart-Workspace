@@ -13,6 +13,9 @@ async function run() {
   vm.runInNewContext(source, {
     Page: value => { definition = value; },
     require: id => {
+      if (id.endsWith('/messageFactsView')) return require('../shared/messageFactsView');
+      if (id.endsWith('/messageFacts')) return require('../shared/locales/zh-CN/messageFacts');
+      if (id.endsWith('/trustedNavigation')) return require('../miniprogram/utils/trustedNavigation');
       if (id.endsWith('/main')) return require('../miniprogram/locales/zh-CN/main');
       if (id.endsWith('/messagePerformance')) return require('../miniprogram/locales/zh-CN/messagePerformance');
       if (id.endsWith('/orgSession')) return {

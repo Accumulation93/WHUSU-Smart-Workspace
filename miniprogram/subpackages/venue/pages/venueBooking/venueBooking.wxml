@@ -104,7 +104,7 @@ module.exports = { hour: hour, min: min };
       </view>
       <view wx:if="{{pendingLoadFailed}}" class="stack-tight">
         <text>{{pendingCopy.copy_e52119b17e}}</text>
-        <button class="btn-quiet" disabled="{{loading}}" bindtap="loadPendingData">{{pendingCopy.retryPending}}</button>
+        <button class="secondary-btn ui-motion-button" disabled="{{loading}}" bindtap="loadPendingData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pendingCopy.retryPending}}</button>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">

@@ -152,7 +152,7 @@ assert(
   '管理端成员卡不得展示属于岗位的部门、身份或工作分工'
 );
 assert(
-  /class="assignment-fact"[\s\S]*?所属部门[\s\S]*?class="assignment-fact"[\s\S]*?身份[\s\S]*?工作分工（职能组）/.test(adminWxml),
+  /class="assignment-fact"[\s\S]*?所属部门[\s\S]*?class="assignment-fact"[\s\S]*?身份类别[\s\S]*?职能组/.test(adminWxml),
   '部门、身份和工作分工必须在岗位详情中分别展示'
 );
 assert(
@@ -181,7 +181,7 @@ assert(
 const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{activeTab === 'hrInfo'[\s\S]*?<\/view>\s*<view class="hr-template-workspace"/);
 assert(createMemberForm, '应保留新增成员表单');
 assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '新增成员表单只能填写人员基础信息');
-assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
+assert(/保存并继续填写资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
 
 assert(/activeTab === 'hrInfo' && hrInfoMode === 'profiles'/.test(adminWxml)
     && /bindissueverification="issueSelectedHrVerificationCodes"/.test(adminWxml)

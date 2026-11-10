@@ -47,7 +47,8 @@ async function listAuditItems(actor, orgId, countOnly, reference) {
       type: 'todo',
       sourceType: 'audit_approval',
       displayFacts: { businessTitle: safeString(step.title || step.submission_number),
-        submitterName: safeString(submitter && submitter.name), stepOrder: Number(step.sort_order) || null },
+        submitterName: safeString(submitter && submitter.name), stepOrder: Number(step.sort_order) || null,
+        currentStepOrder: Number(step.sort_order) || null, currentStepName: safeString(step.step_name) },
       title: safeString(step.title || step.submission_number || localeCopy.copy_ee071473de),
       description: localeCopy.copy_6438951f7d + safeString((submitter && submitter.name) || localeCopy.copy_de00c3e48a) +
         localeCopy.copy_80f5cda995 + safeString(step.sort_order) + localeCopy.copy_493a127a99,
@@ -86,6 +87,7 @@ async function listVenueItems(actor, orgId, countOnly, reference) {
       && Number(booking.approval_total_steps) > 0
     );
     let currentStepName = '';
+    let currentStepOrder = null;
     let applicant = applicantMap.get(booking.user_hr_id) || null;
     if (isFlowBooking) {
       const authorization = await venueApprovalMultiFlow.evaluateActorEligibility(
@@ -97,6 +99,7 @@ async function listVenueItems(actor, orgId, countOnly, reference) {
       const summary = authorization.summary || { flowSummary: [] };
       const firstActive = (summary.flowSummary || []).find((item) => item.active && !item.completed);
       currentStepName = safeString(firstActive && firstActive.stepName);
+      if (firstActive && Number.isInteger(firstActive.stepIndex) && firstActive.stepIndex >= 0) currentStepOrder = firstActive.stepIndex + 1;
       applicant = authorization.applicantHrInfo || applicant;
     } else {
       const applicantAssignment = await memo('bookingApplicant:' + orgId + ':' + booking.id, () => resolveBookingApplicantAssignment(booking));
@@ -111,7 +114,8 @@ async function listVenueItems(actor, orgId, countOnly, reference) {
       type: 'todo',
       sourceType: 'venue_approval',
       displayFacts: { businessTitle: safeString(booking.title), venueName: safeString(booking.venue_name),
-        applicantName: safeString(applicant && applicant.name), currentStepName,
+        applicantName: safeString(applicant && applicant.name), currentStepName, currentStepOrder,
+        startTime: require('../../../utils/dateTime').toIsoUtc(booking.time_start), endTime: require('../../../utils/dateTime').toIsoUtc(booking.time_end),
         stepOrder: Number.isFinite(Number(booking.approval_current_step)) ? Number(booking.approval_current_step) + 1 : null },
       title: safeString(booking.title || localeCopy.copy_592351d93c),
       description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || localeCopy.copy_de00c3e48a) +
@@ -124,6 +128,14 @@ async function listVenueItems(actor, orgId, countOnly, reference) {
       createdAt: booking.created_at,
       dueAt: booking.time_start || null
     });
+  }
+  if (!countOnly && items.length) {
+    const timeRows = items.map(item => ({ id: item.targetId, time_start: item.displayFacts.startTime, time_end: item.displayFacts.endTime }));
+    await require('../../../middleware/timeReviewPresentation').annotateTimeReviewPresentation(timeRows);
+    for (let index = 0; index < items.length; index += 1) {
+      if (timeRows[index].time_startReviewStatus) items[index].displayFacts.startTimeReviewStatus = timeRows[index].time_startReviewStatus;
+      if (timeRows[index].time_endReviewStatus) items[index].displayFacts.endTimeReviewStatus = timeRows[index].time_endReviewStatus;
+    }
   }
   return items;
 }
@@ -139,7 +151,8 @@ async function listScoringItems(actor, orgId, countOnly, reference) {
     id: 'scoring:' + safeString(task.activity.id),
     type: 'todo',
     sourceType: 'scoring_task',
-    displayFacts: { businessTitle: safeString(task.activity.name), pendingCount: Number(task.pendingCount) || 0 },
+    displayFacts: { businessTitle: safeString(task.activity.name), pendingCount: Number(task.pendingCount) || 0,
+      deadline: task.dueAt || null },
     title: safeString(task.activity.name || localeCopy.copy_33a502217d),
     description: localeCopy.copy_50fc130639 + task.pendingCount + localeCopy.copy_67a5467bc2,
     category: 'scoring',
@@ -165,7 +178,7 @@ async function listHrProfileItems(actor, orgId, countOnly, reference) {
     id: 'hr-profile:' + safeString(record.id),
     type: 'todo',
     sourceType: 'hr_profile_review',
-    displayFacts: { businessTitle: safeString(record.name) },
+    displayFacts: { businessTitle: safeString(record.name), memberName: safeString(record.name) },
     title: safeString(record.name || localeCopy.copy_0a1d44e805),
     description: messageCopy.profileReviewDescription,
     category: 'hr',

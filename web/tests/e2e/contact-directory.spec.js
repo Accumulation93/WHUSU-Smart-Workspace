@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/contactDirectory.js';
+import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 test('directory only renders granted values and navigates visible positions', async ({ page }, testInfo) => {
   await mockApi(page);
@@ -9,7 +10,7 @@ test('directory only renders granted values and navigates visible positions', as
     const body = route.request().postDataJSON();
     if (body.key) {
       detailReads++;
-      return route.fulfill({ json: { status: 'success', contact: { key: 'a', name: 'Same name', departmentName: 'Department A', identityCategoryName: 'Member', workGroupName: '', fields: [{ label: 'Phone', type: 'phone', value: '13800138000' }], relatedKeys: [] } } });
+      return route.fulfill({ json: { status: 'success', contact: { key: 'a', name: 'Same name', departmentName: 'Department A', identityCategoryName: 'Member', workGroupName: '', fields: [{ label: 'Phone', type: 'phone', value: '13800138000' }], relatedKeys: ['b'], relatedPositions: [{key:'b',departmentName:'Department B',identityCategoryName:'Leader',workGroupName:''}] } } });
     }
     expect(body.summaryOnly).toBe(true);
     reads++;
@@ -144,6 +145,23 @@ test('contact detail shows pending feedback, retries, and discards a response af
   expect(attempts).toBe(3);
 });
 
+test('contact detail never restores related positions from an older directory response', async ({page}) => {
+  await mockApi(page);
+  await page.route('**/api/getContactDirectory', route => {
+    const {key} = route.request().postDataJSON();
+    const person = {key:'a',name:'Visible person',departmentName:'Department A',identityCategoryName:'Member',fields:[]};
+    return route.fulfill({json:key
+      ? {status:'success',contact:{...person,relatedKeys:[],relatedPositions:[]}}
+      : {status:'success',groups:[{key:'group',name:'Department A',items:[{...person,relatedKeys:['b']},{key:'b',name:'Visible person',departmentName:'Department B',identityCategoryName:'Leader',fields:[],relatedKeys:['a']}]}]}});
+  });
+  await page.goto('/web/hr/profile');
+  await page.getByRole('button',{name:ui.title,exact:true}).click();
+  await page.locator('#contact-a').click();
+  await expect(page.getByRole('button',{name:ui.copyContact,exact:true})).toBeVisible();
+  await expect(page.locator('summary')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Department B · Leader',exact:true})).toHaveCount(0);
+});
+
 test('directory load failure offers retry and never retains previous contacts', async ({page}) => {
   await mockApi(page);
   let reads=0;
@@ -152,7 +170,8 @@ test('directory load failure offers retry and never retains previous contacts', 
     : {status:'success',groups:[]}}));
   await page.goto('/web/hr/profile');
   await page.getByRole('button',{name:ui.title,exact:true}).click();
-  await expect(page.getByRole('alert')).toHaveText(ui.loadFailed);
+  await expect(page.getByRole('alert')).toHaveText(feedback.readFailed);
+  await expect(page.getByText(ui.loadFailed,{exact:true})).toHaveCount(0);
   await expect(page.locator('.directory-position')).toHaveCount(0);
   await page.getByRole('button',{name:ui.retry,exact:true}).click();
   await expect(page.getByText(ui.empty,{exact:true})).toBeVisible();

@@ -1,4 +1,4 @@
-<page-meta page-orientation="{{workspaceOrientation}}" />
+<page-meta page-orientation="{{workspaceOrientation}}" page-style="--ui-navbar-height: {{navTopPx}}px; {{confirmHelp ? 'overflow: hidden;' : ''}}" />
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page signing-page" style="min-height: calc(100vh - {{navTopPx}}px); height: calc(100vh - {{navTopPx}}px)">
   <view class="card signing-card">
@@ -37,4 +37,13 @@
   </view>
 </view>
 <app-toast />
-<viewport-portal wx:if="{{confirmHelp}}"><view class="ui-overlay"><view class="ui-overlay-blocker" bindtap="closeConfirmHelp" catchtouchmove="noop"></view><view class="popup-card ui-dialog-shell ui-dialog-shell--compact ui-dialog-shell--grid"><view class="ui-dialog-header"><view class="ui-dialog-title">{{copy.draftConfirmHelpTitle}}</view></view><scroll-view class="ui-dialog-body ui-dialog-scroll--natural" scroll-y="{{true}}"><view class="ui-dialog-scroll-content">{{copy.draftConfirmHelp}}</view></scroll-view><view class="ui-dialog-footer"><button class="secondary-btn" bindtap="closeConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.close}}</button></view></view></view></viewport-portal>
+<viewport-portal wx:if="{{confirmHelp}}">
+  <view class="popup-mask ui-overlay" bindtap="closeConfirmHelp">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--compact ui-dialog-shell--grid" catchtap="noop">
+      <view class="ui-dialog-header"><view class="ui-dialog-title">{{copy.draftConfirmHelpTitle}}</view></view>
+      <scroll-view class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}"><view class="ui-dialog-scroll-content">{{copy.draftConfirmHelp}}</view></scroll-view>
+      <view class="ui-dialog-footer"><button class="secondary-btn" bindtap="closeConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</button></view>
+    </view>
+  </view>
+</viewport-portal>

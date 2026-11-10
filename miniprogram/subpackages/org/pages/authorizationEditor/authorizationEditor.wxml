@@ -22,7 +22,7 @@
         <view class="authorization-label">{{kind === 'delegation' ? ui.delegationScopeTitle : ui.scopes}}</view>
         <view wx:for="{{sections.scopes}}" wx:key="key" wx:for-item="scope" class="authorization-group"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:key="key" wx:for-item="line">{{line.label}} {{line.value}}</view></view>
         <view class="authorization-label">{{kind === 'delegation' ? ui.delegationFieldsTitle : ui.fields}}</view><view wx:for="{{sections.fieldLabels}}" wx:key="*this">{{item}}</view>
-        <view class="authorization-label">{{ui.conditions}}</view><view wx:if="{{!draft.policy.startsAt && !draft.policy.endsAt}}">{{ui.noConditions}}</view><block wx:for="{{periods}}" wx:key="key"><view wx:if="{{item.date}}">{{item.label}} · {{item.date}} {{item.time}}</view></block>
+        <view class="authorization-label">{{ui.conditions}}</view><view wx:if="{{!previewPeriods.length}}">{{ui.noConditions}}</view><view wx:for="{{previewPeriods}}" wx:key="key">{{item.label}} · {{item.value}}</view>
       </view>
       <view wx:for="{{impactRows}}" wx:key="key" class="permission-card">
         <view class="permission-section-title">{{item.name}}</view><view class="permission-admin-meta">{{item.assignmentLabel}}</view>
