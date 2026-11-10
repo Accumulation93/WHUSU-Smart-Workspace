@@ -451,15 +451,11 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-preview-scroll .notification-item,
-.message-preview-scroll .notification-swipe-row {
+.message-preview-scroll .portal-message-row {
   margin-bottom: 0;
 }
 
-.message-preview-scroll .notification-swipe-row + .notification-swipe-row {
-  margin-top: var(--ui-message-preview-gap, 8rpx);
-}
-
-.message-preview-scroll > .notification-item + .notification-item {
+.message-preview-scroll .portal-message-row + .portal-message-row {
   margin-top: var(--ui-message-preview-gap, 8rpx);
 }
 
@@ -594,10 +590,6 @@ button, input, textarea, picker, view, text, scroll-view {
   transition: box-shadow 0.14s ease;
 }
 
-.todo-item {
-  border-color: rgba(147,197,253,0.42);
-}
-
 .notification-swipe-row {
   position: relative;
   overflow: hidden;
@@ -625,6 +617,7 @@ button, input, textarea, picker, view, text, scroll-view {
   z-index: 0;
 }
 
+.todo-item,
 .notification-unread {
   background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(239,246,255,0.84) 100%);
   border-color: rgba(147,197,253,0.55);
@@ -1168,6 +1161,10 @@ button, input, textarea, picker, view, text, scroll-view {
   .notification-item {
     gap: 10px;
     padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .notification-swipe-row {
     border-radius: 12px;
   }
 

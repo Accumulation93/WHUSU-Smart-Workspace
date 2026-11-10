@@ -117,3 +117,36 @@ test('historical notifications without event facts do not invent completed steps
   await expect(page.getByText('Private obsolete title')).toHaveCount(0);
   await expect(page.getByText('Previously completed step 99')).toHaveCount(0);
 });
+
+test('three todos and notifications share spacing surfaces and preserve their complete last card', async ({ page }) => {
+  const facts = { businessTitle: 'Conference preparation', venueName: 'North meeting room', startTime, endTime };
+  await installMessages(page,
+    [0, 1, 2].map(index => ({ id: `spacing-notification-${index}`, type: 'booking_approved', isRead: false, targetUrl: auditUrl, displayFacts: { ...facts, businessTitle: `${facts.businessTitle} ${index}` } })),
+    [0, 1, 2].map(index => ({ id: `spacing-todo-${index}`, type: 'todo', sourceType: 'venue_approval', targetUrl: auditUrl, displayFacts: { ...facts, businessTitle: `${facts.businessTitle} ${index}`, applicantName: 'Applicant B' } })));
+  await page.goto('/web/portal');
+  await expect(page.locator('.notification-item')).toHaveCount(6);
+  const lists = page.locator('.message-preview-scroll');
+  const measurements = [];
+  for (let index = 0; index < 2; index += 1) {
+    const list = lists.nth(index);
+    await list.scrollIntoViewIfNeeded();
+    measurements.push(await list.evaluate(element => {
+      const cards = [...element.querySelectorAll('.notification-item')];
+      const rectangles = cards.map(card => card.getBoundingClientRect());
+      const style = getComputedStyle(cards[0]);
+      return { gaps: rectangles.slice(1).map((rect, i) => rect.top - rectangles[i].bottom),
+        surface: [style.backgroundImage, style.borderColor, style.borderRadius, style.padding],
+        cards: cards.map(card => ({ client: card.clientHeight, scroll: card.scrollHeight })) };
+    }));
+    await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    const last = list.locator('.notification-item').last();
+    const bounds = await last.evaluate(element => ({ card: element.getBoundingClientRect().bottom, viewport: element.closest('.message-preview-scroll').getBoundingClientRect().bottom }));
+    expect(bounds.card).toBeLessThanOrEqual(bounds.viewport + 1);
+    await expect(last).toContainText('18:00');
+  }
+  expect(measurements[0].surface).toEqual(measurements[1].surface);
+  for (const result of measurements) {
+    for (const gap of result.gaps) { expect(gap).toBeGreaterThan(0); expect(gap).toBeCloseTo(measurements[1].gaps[0], 1); }
+    for (const card of result.cards) expect(card.scroll).toBeLessThanOrEqual(card.client + 1);
+  }
+});

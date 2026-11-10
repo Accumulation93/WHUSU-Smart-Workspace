@@ -35,7 +35,8 @@
       <view class="notification-empty" wx:if="{{!todos.length && !todoLoading && !todoError}}">
         <text class="notification-empty-text">{{copy.noTodos}}</text>
       </view>
-      <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="id"
+      <view class="portal-message-row" wx:for="{{todos}}" wx:key="id">
+      <view class="notification-item todo-item ui-motion-card"
             data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : 'clock'}}" tone="primary" sizeRole="message-leading" ariaLabel="{{copy.todoType}}" /></view>
         <view class="notification-body">
@@ -59,6 +60,7 @@
         </view>
         <ui-icon wx:if="{{item.canOpen}}" name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
       </view>
+      </view>
       <view class="message-loading-more" wx:if="{{todoLoadingMore}}"><app-loading text="{{copy.loadingMore}}" /></view>
     </scroll-view>
   </view>
@@ -77,7 +79,7 @@
       <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading && !notificationError}}">
         <text class="notification-empty-text">{{copy.noNotifications}}</text>
       </view>
-      <view class="notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
+      <view class="portal-message-row notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
         <view class="notification-item {{item.isRead ? 'notification-read' : 'notification-unread'}} {{item._showDelete ? 'notification-shifted' : ''}} ui-motion-card"
               style="transform: translateX({{item._swipeX || 0}}px);"
               data-id="{{item.id}}" data-url="{{item.targetUrl}}"

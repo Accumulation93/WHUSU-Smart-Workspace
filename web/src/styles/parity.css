@@ -252,10 +252,11 @@
   text-align: left;
 }
 
-.notification-item-todo {
-  border-color: rgba(147, 197, 253, 0.42);
+.message-preview-scroll > .notification-item {
+  flex-shrink: 0;
 }
 
+.notification-item-todo,
 .notification-unread {
   border-color: rgba(147, 197, 253, 0.55);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);

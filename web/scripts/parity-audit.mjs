@@ -149,7 +149,7 @@ for (const point of BREAKPOINTS) {
   const messageRow = await read('.notification-item');
   if (messageRow) {
     check('消息行圆角 8px', messageRow.borderRadius, '8px');
-    contains('消息行底色是玻璃渐变', messageRow.backgroundImage, 'rgba(255, 255, 255, 0.82)');
+    check('待办与未读通知使用同一玻璃底色', messageRow.backgroundImage, 'linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%)');
   }
 
   const footer = await read('.footer-name');
