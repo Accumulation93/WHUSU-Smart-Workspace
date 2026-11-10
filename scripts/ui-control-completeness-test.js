@@ -56,5 +56,8 @@ assert.strictEqual(lockIssues('<page-meta page-style="{{approvalVisible ? \'over
 assert.strictEqual(lockIssues('<page-meta page-style="{{otherFlag ? \'overflow: hidden;\' : \'\'}}"></page-meta><view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}"></view>'), 1);
 assert.strictEqual(lockIssues('<personnel-picker visible="{{pickerVisible}}"></personnel-picker>'), 1);
 assert.strictEqual(lockIssues('<page-meta page-style="{{pickerVisible ? \'overflow: hidden;\' : \'\'}}"></page-meta><personnel-picker visible="{{pickerVisible}}"></personnel-picker>'), 0);
+assert.strictEqual(lockIssues('<page-meta page-style="--ui-navbar-height: {{navTopPx}}px; {{confirmHelp ? \'overflow: hidden;\' : \'\'}}" /><viewport-portal wx:if="{{confirmHelp}}"></viewport-portal>'), 0);
+assert.strictEqual(lockIssues('<page-meta page-style="--ui-navbar-height: {{navTopPx}}px; {{otherFlag ? \'overflow: hidden;\' : \'\'}}" /><viewport-portal wx:if="{{confirmHelp}}"></viewport-portal>'), 1);
+assert.strictEqual(lockIssues('<page-meta data-condition="{{count > 0}}" page-style="{{confirmHelp ? \'overflow: hidden;\' : \'\'}}" /><viewport-portal wx:if="{{confirmHelp}}"></viewport-portal>'), 0);
 assert.strictEqual(lockIssues('<view class="page"><view class="card"></view></view>'), 0);
 console.log('全局控件完整显示审计：正反例均通过');

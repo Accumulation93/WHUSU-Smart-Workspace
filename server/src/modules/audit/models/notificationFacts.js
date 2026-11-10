@@ -153,7 +153,7 @@ async function project(connection, rows, actor, organizationId, access, prepared
   }
   const timed = rows.filter(row => {
     const value = facts.get(row.id) || {};
-    return row.type.startsWith('booking_') && (value.startTime || value.endTime);
+    return ['booking_approved', 'booking_rejected', 'booking_cancelled'].includes(row.type) && (value.startTime || value.endTime);
   });
   if (timed.length) {
     let reviews;

@@ -25,6 +25,7 @@ for (const match of initSql.matchAll(/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?\s*\
 // 跨组织例外必须由已认证账号自然人、已授权主键、一次性邀请或后台维护范围限定。
 // 微信不得用于业务操作者发现；旧绑定仅允许显式恢复、迁移与清理路径。
 const CROSS_ORG_ALLOWLIST = [
+  { file: 'server/src/modules/audit/models/notificationFacts.js', sql: /^SELECT m\.id,m\.status,s\.name AS source_name,t\.name AS target_name\s+FROM org_hr_profile_migrations m JOIN organizations s ON s\.id=m\.source_org_id JOIN organizations t ON t\.id=m\.target_org_id\s+WHERE \(m\.source_org_id=\? OR m\.target_org_id=\?\) AND m\.id IN \(\?\)$/i, reason: '迁移通知仅按当前页已授权收件目标读取；来源或目标组织必须等于当前组织，随后逐条核验当前角色的 hr.profileMigration.read。notificationFacts.test.js 验证双组织参数、限定目标主键及无读取权限不返回事实，不允许其他查询复用例外' },
   { file: 'server/src/core/models/authorizationCutover.js', sql: /^UPDATE authorization_organizations SET mode='enforced',revision=revision\+1,legacy_migrated_at=UTC_TIMESTAMP\(3\)$/i, reason: '仅发布协调器全组织切换；同事务持全局切换锁并锁定全部组织，逐组织核对迁移摘要后统一启用，隔离库验证失败整体回滚' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT id, file_path FROM admin_record_file_cleanup WHERE next_attempt_at <= UTC_TIMESTAMP\(3\)$/i, reason: '后台只领取已在授权删除事务中登记的附件任务，按时间分页且最多一百项' },
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT id FROM audit_submission_files WHERE file_path = \? OR original_file_path = \? UNION ALL SELECT id FROM audit_signing_evidence WHERE input_file_path = \? OR output_file_path = \? LIMIT 1$/i, reason: '永久清理前检查所有组织对同一绝对文件路径的引用，存在任何引用都保留文件' },

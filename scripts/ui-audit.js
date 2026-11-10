@@ -299,8 +299,10 @@ function dialogVisibilityFlags(source) {
 function scanDialogScrollLock(source, file = '') {
   const flags = dialogVisibilityFlags(source);
   if (!flags.length) return [];
-  const meta = source.match(/<page-meta[^>]*page-style="\{\{([^}]*)\}\}"/);
-  const locked = new Set(meta ? [...meta[1].matchAll(/[A-Za-z_$][\w$]*/g)].map((match) => match[0]) : []);
+  const meta = tokenizeWxml(source).find((token) => /^<page-meta(?:\s|\/?>)/.test(token.raw));
+  const pageStyle = meta ? attrValue(meta.raw, 'page-style') : '';
+  const expressions = [...pageStyle.matchAll(/\{\{([\s\S]*?)\}\}/g)].map((match) => match[1]).join(' ');
+  const locked = new Set([...expressions.matchAll(/[A-Za-z_$][\w$]*/g)].map((match) => match[0]));
   const issues = [];
   const seen = new Set();
   for (const item of flags) {

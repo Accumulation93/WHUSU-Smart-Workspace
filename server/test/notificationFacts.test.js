@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { project, fromPrepared } = require('../src/modules/audit/models/notificationFacts');
 
+test('未知或缺失通知类型保留空事实，不触发业务读取', async () => {
+  const rows = [{ id: 'old' }, { id: 'unknown', type: 'unknown', description: '不可直接显示' }];
+  const result = await project({ async query() { throw new Error('未知类型不得读取业务'); } }, rows, {}, 'org', {}, {});
+  assert.ok(result.every(row => Object.keys(row.displayFacts).length === 0));
+});
+
 test('审核批量事实使用事件轮次，拒绝当前岗位无关或明确禁止的资料', async () => {
   const queries = [];
   const connection = { async query(sql, params) {
@@ -55,10 +61,14 @@ test('已授权预备事实按类型读取，不解析旧描述或伪造安全�
 test('资料仅本人、迁移需当前权限、公示需同岗查看规则，未知历史不猜事件', async () => {
   let queries = 0;
   let hasPublicationClause = true;
-  const connection = { async query(sql) {
+  const connection = { async query(sql, params) {
     queries += 1;
     if (sql.includes('FROM hr_profile_records')) return [[{ id: 'profile', hr_id: 'hr', person_id: 'p', name: '姓名', audit_status: 'rejected', rejection_reason: '资料不全', reviewed_at: '2026-11-10 00:00:00' }]];
-    if (sql.includes('FROM org_hr_profile_migrations')) return [[{ id: 'migration', status: 'executed', source_name: '来源', target_name: '目标' }]];
+    if (sql.includes('FROM org_hr_profile_migrations')) {
+      assert.match(sql, /WHERE \(m.source_org_id=\? OR m.target_org_id=\?\) AND m.id IN \(\?\)/);
+      assert.deepEqual(params, ['org', 'org', ['migration']]);
+      return [[{ id: 'migration', status: 'executed', source_name: '来源', target_name: '目标' }]];
+    }
     if (sql.includes('FROM result_publications')) return [[{ id: 'pub', name: '活动' }]];
     if (sql.includes('FROM pub_view_rules')) {
       assert.match(sql, /EXISTS \(SELECT 1 FROM pub_view_rule_clauses c WHERE c.rule_id=v.id AND c.org_id=v.org_id\)/);

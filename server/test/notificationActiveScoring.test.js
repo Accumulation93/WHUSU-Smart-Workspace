@@ -21,14 +21,16 @@ Module._load = function(name, parent, main) {
 const lifecycle = require('../src/modules/audit/models/notificationLifecycle');
 (async () => {
   try {
-    const actor = { id: 'hr', type: 'user', personId: 'person' };
+    const actor = { id: 'hr', type: 'user', personId: 'person', assignmentId: 'job1' };
     const active = await lifecycle.prepare(actor, 'org');
     assert.deepEqual(active.scoring, ['activity']);
-    assert.deepEqual(checked, ['job1', 'job2']);
+    assert.deepEqual(checked, ['job1']);
     assert.equal(active.expiresAt, Date.parse(dueAt) + 1);
     pending = 0;
     assert.deepEqual((await lifecycle.prepare(actor, 'org')).scoring, []);
     assert.deepEqual((await lifecycle.prepare({ ...actor, id: 'unknown' }, 'org')).scoring, []);
-    console.log('PASS 评分通知按本人有效岗位合并，完成后消失，截止时间限制缓存');
+    pending = 2;
+    assert.deepEqual((await lifecycle.prepare({ ...actor, assignmentId: undefined }, 'org')).scoring, []);
+    console.log('PASS 评分通知限定当前有效岗位，完成后消失，截止时间限制缓存');
   } finally { Module._load = original; }
 })().catch(error => { console.error(error); process.exitCode = 1; });
