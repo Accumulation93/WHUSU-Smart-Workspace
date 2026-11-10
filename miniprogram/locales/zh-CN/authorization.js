@@ -315,10 +315,9 @@ module.exports = Object.freeze({
     referenceKinds: Object.freeze({ department: '部门', identity: '身份类别', workGroup: '职能组',
       person: '人员', assignments: '审批岗位', field: '补充资料', venue: '场地' })
   }),
-  invalidNature: '岗位性质已不存在，请重新选择。',
+  invalidNature: '请选择有效的岗位性质。',
   duplicateNature: '已有同名岗位性质，请直接选择。',
   natureInUse: '这个岗位性质仍有记录使用，不能删除。',
-  legacyNatureRequired: '这个岗位性质供旧版使用，可以改名，不能删除。',
   actions: Object.freeze({ read: '查看', create: '新增', update: '修改', delete: '永久删除', export: '导出',
     createApproved: '免审新增借用',
     parse: '读取表格', build: '生成表格',

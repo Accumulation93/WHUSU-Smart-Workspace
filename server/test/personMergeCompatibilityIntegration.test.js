@@ -112,6 +112,8 @@ async function run() {
 
     const { legacyHash } = require('../src/core/services/identityCrypto');
     await seed(fixture, legacyHash);
+    await fixture.query('CREATE TABLE cache_domain_versions (org_id VARCHAR(64) NOT NULL, domain VARCHAR(32) NOT NULL, version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id,domain))');
+    await fixture.query("INSERT INTO assignment_natures (id,org_id,name) VALUES ('staff','org-target','staff')");
     const governance = require('../src/core/models/personGovernance');
     const unifiedIdentity = require('../src/core/models/unifiedIdentity');
     const identityModel = require('../src/core/models/unifiedIdentity');
@@ -161,6 +163,40 @@ async function run() {
         work_group_id: null, legacy_work_group_id: null
       }
     ]);
+
+    await fixture.query(`
+      INSERT INTO organizations (id,name) VALUES ('org-nature-sync','nature-sync');
+      INSERT INTO departments (id,name,org_id) VALUES ('nature-department','nature-department','org-nature-sync');
+      INSERT INTO identities (id,name,org_id) VALUES ('nature-identity','nature-identity','org-nature-sync');
+      INSERT INTO assignment_natures (id,org_id,name) VALUES
+        ('staff','org-nature-sync','staff'),('custom-sync','org-nature-sync','custom-sync');
+      INSERT INTO hr_info (id,name,student_id,department_id,identity_id,org_id)
+        VALUES ('hr-custom-sync','custom-sync','nature-custom-001','nature-department','nature-identity','org-nature-sync');
+    `);
+    await appPool.withTransaction(connection => unifiedIdentity.syncLegacyHrRecords(connection, ['hr-custom-sync']));
+    await fixture.query("UPDATE membership_assignments SET assignment_kind='custom-sync' WHERE id='hr-custom-sync' AND org_id='org-nature-sync'");
+    const natureModel = require('../src/core/models/assignmentNature');
+    await natureModel.remove({ id: 'staff', version: 1 }, 'org-nature-sync', async () => {});
+    await appPool.withTransaction(async connection => {
+      await connection.query("UPDATE hr_info SET work_group_id=NULL WHERE id='hr-custom-sync'");
+      await unifiedIdentity.syncLegacyHrRecords(connection, ['hr-custom-sync']);
+    });
+    const [retainedNature] = await fixture.query(`SELECT a.assignment_kind,n.id AS valid_nature
+      FROM membership_assignments a JOIN assignment_natures n ON n.id=a.assignment_kind AND n.org_id=a.org_id
+      WHERE a.id='hr-custom-sync' AND a.org_id='org-nature-sync'`);
+    assert.deepStrictEqual(retainedNature, [{ assignment_kind: 'custom-sync', valid_nature: 'custom-sync' }]);
+    await assert.rejects(appPool.withTransaction(async connection => {
+      await connection.query(`INSERT INTO hr_info (id,name,student_id,department_id,identity_id,org_id)
+        VALUES ('hr-missing-nature','missing-nature','nature-missing-001','nature-department','nature-identity','org-nature-sync')`);
+      await unifiedIdentity.syncLegacyHrRecords(connection, ['hr-missing-nature']);
+    }), error => error.code === 'assignment_nature_invalid');
+    const [rolledBackNature] = await fixture.query(`SELECT
+      (SELECT COUNT(*) FROM hr_info WHERE id='hr-missing-nature') AS hr_count,
+      (SELECT COUNT(*) FROM persons WHERE normalized_student_id='nature-missing-001') AS person_count,
+      (SELECT COUNT(*) FROM organization_memberships WHERE legacy_hr_id='hr-missing-nature') AS membership_count,
+      (SELECT COUNT(*) FROM membership_assignments WHERE id='hr-missing-nature') AS assignment_count,
+      (SELECT COUNT(*) FROM assignment_natures WHERE org_id='org-nature-sync' AND id='staff') AS deleted_nature_count`);
+    assert.deepStrictEqual(rolledBackNature[0], { hr_count: 0, person_count: 0, membership_count: 0, assignment_count: 0, deleted_nature_count: 0 });
 
     await assert.rejects(governance.mergePersons({
       sourcePersonId: 'person-source',

@@ -397,6 +397,9 @@ async function syncLegacyHrRecords(connection, hrIds) {
   );
   let synced = 0;
   let skipped = 0;
+  for (const orgId of Array.from(new Set(rows.map(row => row.org_id))).sort()) {
+    await lockOrganizationDictionaryWrites(orgId, connection);
+  }
   for (const row of rows) {
     const normalizedStudentId = normalizeStudentId(row.student_id);
     const name = normalizeName(row.name);
@@ -487,13 +490,21 @@ async function syncLegacyHrRecords(connection, hrIds) {
     }
     const assignmentId = safeString(row.id);
     if (departmentValid && identityValid) {
+      const [existingAssignments] = await connection.query('SELECT assignment_kind FROM membership_assignments WHERE id = ? AND membership_id = ? AND org_id = ? FOR UPDATE', [assignmentId, membershipId, row.org_id]);
+      const assignmentKind = existingAssignments.length ? existingAssignments[0].assignment_kind : 'staff';
+      try {
+        await assignmentNature.resolve(connection, row.org_id, assignmentKind);
+      } catch (error) {
+        if (error.code !== 'assignment_nature_invalid') throw error;
+        throw new IdentityError('assignment_nature_invalid', personnelCopy.assignmentNatureInvalid, 400);
+      }
       const [duplicateAssignments] = await connection.query(
         `SELECT id FROM membership_assignments
           WHERE membership_id = ? AND org_id = ? AND status = 'active'
-            AND assignment_kind = 'staff' AND department_id = ? AND identity_id = ?
+            AND assignment_kind = ? AND department_id = ? AND identity_id = ?
             AND COALESCE(work_group_id, '') = ? AND id <> ?
           LIMIT 1 FOR UPDATE`,
-        [membershipId, row.org_id, departmentId, identityId, workGroupId, assignmentId]
+        [membershipId, row.org_id, assignmentKind, departmentId, identityId, workGroupId, assignmentId]
       );
       if (duplicateAssignments.length) {
         await connection.query(
@@ -513,7 +524,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
           `INSERT INTO membership_assignments
              (id, membership_id, org_id, assignment_kind, department_id, identity_id,
               work_group_id, status)
-            VALUES (?, ?, ?, 'staff', ?, ?, ?, 'active')
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
             ON DUPLICATE KEY UPDATE membership_id = VALUES(membership_id), org_id = VALUES(org_id), department_id = VALUES(department_id),
               identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
               status = 'active', revoked_by_departure_id = NULL, updated_at = NOW()`,
@@ -521,6 +532,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
             assignmentId,
             membershipId,
             row.org_id,
+            assignmentKind,
             departmentId,
             identityId,
             workGroupId || null

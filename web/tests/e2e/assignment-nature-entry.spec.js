@@ -53,16 +53,19 @@ test('nature create permission alone does not imply dictionary read access', asy
   await expect(page.getByRole('button', { name: ui.nature, exact: true })).toHaveCount(0);
 });
 
-test('reserved nature exposes deletion explanation without issuing a delete request', async ({page}) => {
+test('initial nature uses the same confirmation and deletion as any other nature', async ({page}) => {
   await setup(page,['hr.assignmentNatures.read','hr.assignmentNatures.delete']);
   let deletions=0;
-  await page.route('**/api/listAssignmentNatures',r=>r.fulfill({json:{status:'success',list:[{id:'staff',name:'Reserved nature',description:'Description',version:1,canUpdate:false,canDelete:true,deleteRestrictionCode:'legacy_required'}],canCreate:false}}));
+  await page.route('**/api/listAssignmentNatures',r=>r.fulfill({json:{status:'success',list:deletions?[]:[{id:'staff',name:'Initial nature',description:'Description',version:1,canUpdate:false,canDelete:true,deleteRestrictionCode:''}],canCreate:false}}));
   await page.route('**/api/deleteAssignmentNature',r=>{deletions++;return r.fulfill({json:{status:'success'}});});
   await page.goto('/web/admin?subApp=hr&tab=assignmentNatures');
   const row=page.locator('.dictionary-row');
-  await expect(row.getByText(nature.reserved,{exact:true})).toBeVisible();
   await expect(row.getByRole('button',{name:nature.edit,exact:true})).toHaveCount(0);
   await row.getByRole('button',{name:nature.remove,exact:true}).click();
   expect(deletions).toBe(0);
+  await expect(page.getByRole('dialog')).toContainText(nature.removeConfirm('Initial nature'));
+  await page.getByRole('dialog').getByRole('button',{name:nature.remove,exact:true}).click();
+  await expect(row).toHaveCount(0);
+  expect(deletions).toBe(1);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

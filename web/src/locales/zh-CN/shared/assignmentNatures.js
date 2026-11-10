@@ -11,7 +11,6 @@ const sharedModule = Object.freeze({
   descriptionPlaceholder: '说明适用的岗位或人员，可不填',
   descriptionTooLong: '描述不能超过2000字。',
   inUse: '这个岗位性质已用于岗位、规则或历史记录，不能删除。',
-  reserved: '这个岗位性质是系统保留项，不能删除。',
   edit: '编辑',
   remove: '删除',
   removeTitle: '删除岗位性质',

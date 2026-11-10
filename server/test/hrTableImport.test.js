@@ -85,6 +85,9 @@ async function main() {
       CREATE TABLE organizations (id VARCHAR(64) PRIMARY KEY);
       INSERT INTO organizations(id) VALUES ('org-test-44');
       CREATE TABLE authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(16) NOT NULL DEFAULT 'shadow');
+      CREATE TABLE organization_dictionary_locks (org_id VARCHAR(64) PRIMARY KEY);
+      CREATE TABLE assignment_natures (id VARCHAR(32) NOT NULL, org_id VARCHAR(64) NOT NULL, name VARCHAR(80) NOT NULL, PRIMARY KEY (org_id,id));
+      INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','org-test-44','staff');
       CREATE TABLE departments (
         id VARCHAR(64) PRIMARY KEY, name VARCHAR(100) NOT NULL, org_id VARCHAR(64) NOT NULL,
         created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,

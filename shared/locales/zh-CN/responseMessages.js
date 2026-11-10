@@ -96,7 +96,6 @@ module.exports = {
   assignment_nature_name_invalid: authorization.invalidName,
   assignment_nature_duplicate: authorization.duplicateNature,
   assignment_nature_in_use: authorization.natureInUse,
-  assignment_nature_legacy_required: authorization.legacyNatureRequired,
   config_copy_invalid: authorization.copyInvalid,
   config_copy_conflict: authorization.copyConflict,
   config_copy_missing: authorization.copyMissing,

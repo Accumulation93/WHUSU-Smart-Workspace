@@ -102,6 +102,7 @@ function invoke(handler, body) {
     await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
       version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id,domain))`);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111010000_assignment_nature_initialization.sql'), 'utf8'));
 
     process.env.DB_HOST = adminConfig.host;
     process.env.DB_PORT = String(adminConfig.port);

@@ -173,7 +173,7 @@ async function testLegacySyncDoesNotReactivateImplicitly() {
   );
   const leftResult = await unifiedIdentity.syncLegacyHrRecords(leftConnection, ['hr-1']);
   assert.deepStrictEqual(leftResult, { synced: 0, skipped: 1 });
-  assert.strictEqual(leftConnection.executed.length, 2);
+  assert(!leftConnection.executed.some(item => /^(INSERT INTO|UPDATE) (persons|organization_memberships|membership_assignments)\b/.test(item.sql)));
 
   const mergedConnection = createConnection(
     { id: 'membership-merged', person_id: 'person-merged', status: 'active' },
@@ -204,6 +204,8 @@ async function testLegacySyncRequiresValidAssignmentDimensions() {
           return [[{ id: 'person-1', name: hrRow.name, status: 'active' }]];
         }
         if (normalized.startsWith('SELECT EXISTS(')) return [[references]];
+        if (normalized.startsWith('SELECT assignment_kind FROM membership_assignments')) return [[]];
+        if (normalized.includes('FROM assignment_natures')) return [[{ id: 'staff', name: 'staff' }]];
         if (normalized.includes('FROM work_groups')) {
           return workGroupDepartmentId === null ? [[]] : [[{ department_id: workGroupDepartmentId }]];
         }
@@ -238,7 +240,7 @@ async function testLegacySyncRequiresValidAssignmentDimensions() {
   assert(mismatchedGroup.executed.some((item) => item.sql.startsWith('UPDATE hr_info SET work_group_id = NULL')));
   const assignmentInsert = mismatchedGroup.executed.find((item) => item.sql.startsWith('INSERT INTO membership_assignments'));
   assert(assignmentInsert, '部门和身份有效时必须创建活跃兼容岗位');
-  assert.deepStrictEqual(assignmentInsert.params.slice(3), ['department-1', 'identity-1', null]);
+  assert.deepStrictEqual(assignmentInsert.params.slice(3), ['staff', 'department-1', 'identity-1', null]);
   assert(assignmentInsert.sql.includes("status = 'active'"));
 }
 

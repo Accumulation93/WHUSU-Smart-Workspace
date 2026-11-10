@@ -28,7 +28,6 @@ const ERRORS = Object.freeze({
   assignment_nature_description_invalid: [400, 'invalidPolicy'],
   assignment_nature_duplicate: [409, 'duplicateNature'],
   assignment_nature_in_use: [409, 'natureInUse'],
-  assignment_nature_legacy_required: [409, 'legacyNatureRequired'],
   config_copy_invalid: [400, 'copyInvalid'],
   config_copy_conflict: [409, 'copyConflict'],
   config_copy_missing: [404, 'copyMissing'],

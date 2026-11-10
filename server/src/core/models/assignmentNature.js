@@ -5,20 +5,23 @@ const pool = require('../../config/db');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 
 function fail(code) { throw Object.assign(new Error(code), { code }); }
-const LEGACY = Object.freeze(['staff', 'liaison', 'other']);
+const INITIAL_NATURES = Object.freeze(['staff', 'liaison', 'other']);
 const { assignmentNatureLabels } = require('../../locales/zh-CN/adminPersonnel');
 
 async function initialize(connection, organizationId) {
   await connection.query('INSERT IGNORE INTO authorization_organizations (org_id) VALUES (?)', [organizationId]);
-  for (const id of LEGACY) {
+  const [state] = await connection.query('SELECT natures_initialized FROM authorization_organizations WHERE org_id = ? FOR UPDATE', [organizationId]);
+  if (state[0].natures_initialized) return;
+  for (const id of INITIAL_NATURES) {
     await connection.query('INSERT IGNORE INTO assignment_natures (id, org_id, name) VALUES (?, ?, ?)',
       [id, organizationId, assignmentNatureLabels[id]]);
   }
+  await connection.query('UPDATE authorization_organizations SET natures_initialized = 1 WHERE org_id = ?', [organizationId]);
 }
 
 async function list(connection, organizationId) {
   const [rows] = await connection.query('SELECT id, name, description, version FROM assignment_natures WHERE org_id = ? ORDER BY created_at, id', [organizationId]);
-  return rows.map(row => ({ ...row, description: row.description || '', deleteRestrictionCode: LEGACY.includes(row.id) ? 'legacy_required' : '' }));
+  return rows.map(row => ({ ...row, description: row.description || '', deleteRestrictionCode: '' }));
 }
 
 async function resolve(connection, organizationId, value) {
@@ -96,8 +99,6 @@ async function remove(input, organizationId, authorize) {
   if (typeof authorize !== 'function') fail('authorization_guard_required');
   if (!input || typeof input.id !== 'string' || !/^[A-Za-z0-9_-]{1,32}$/.test(input.id)
     || !Number.isSafeInteger(input.version) || input.version < 1) fail('authorization_conflict');
-  // 旧客户端仍会提交这三种性质；保留其编号，仅允许改显示名称。
-  if (LEGACY.includes(input.id)) fail('assignment_nature_legacy_required');
   return pool.withTransaction(async connection => {
     await authorize(connection);
     await lockOrganizationDictionaryWrites(organizationId, connection);
