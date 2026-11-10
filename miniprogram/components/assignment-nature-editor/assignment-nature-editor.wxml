@@ -1,0 +1,15 @@
+<view class="section-stack nature-editor">
+  <view class="section-control-card"><view class="section-title">{{ui.title}}</view></view>
+  <view class="edit-box" wx:if="{{ready && (draft.id || canCreate)}}">
+    <view class="list-title">{{draft.id ? ui.editTitle : ui.add}}</view>
+    <view class="field"><view class="field-label">{{ui.name}}</view><input class="field-input" value="{{draft.name}}" placeholder="{{ui.namePlaceholder}}" disabled="{{busy || loading || saved || failed}}" bindinput="name" adjust-position="{{false}}" cursor-spacing="24" /></view>
+    <view class="button-row"><button class="primary-btn ui-motion-button" disabled="{{busy || loading || saved || failed}}" bindtap="save" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{busy}}" />{{ui.save}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy || saved}}" bindtap="reset" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button></view>
+  </view>
+  <view class="list-card">
+    <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
+    <view wx:if="{{notice}}" class="nature-notice">{{notice}}</view>
+    <button wx:if="{{failed}}" class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button>
+    <view class="list-item list-item-stacked" wx:for="{{rows}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="card-actions"><button wx:if="{{item.canUpdate}}" class="secondary-btn nature-link ui-motion-chip" data-id="{{item.id}}" disabled="{{busy || loading || failed || saved}}" bindtap="edit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button><button wx:if="{{item.canDelete && item.id !== 'staff' && item.id !== 'liaison' && item.id !== 'other'}}" class="danger-btn nature-link nature-danger ui-motion-chip" data-id="{{item.id}}" disabled="{{busy || loading || failed || saved}}" bindtap="remove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{ui.remove}}</button></view></view></view>
+    <view wx:if="{{ready && !loading && !failed && !rows.length}}" class="empty-inline">{{ui.empty}}</view>
+  </view>
+</view>

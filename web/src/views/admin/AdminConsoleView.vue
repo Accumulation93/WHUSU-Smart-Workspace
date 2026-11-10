@@ -45,7 +45,7 @@
     <AdminHrTemplatePanel v-else-if="activeTab === 'hrTemplates'" @busy="actionBusy = $event" />
     <AdminPublicationPanel v-else-if="activeTab === 'publications'" @busy="actionBusy = $event" />
     <AdminDictionaryPanel v-else-if="['departments', 'workGroups', 'identities'].includes(activeTab)" :key="activeTab" :kind="activeTab" :state="dictionaryStates[activeTab]" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
-    <section v-else-if="activeTab === 'assignmentNatures'" class="card stack"><button class="btn btn-secondary" :disabled="permissionLoading || !!permissionNotice" @click="router.push({ name: 'assignmentNatures' })">{{ authorizationCopy.nature }}</button></section>
+    <AssignmentNatureEditor v-else-if="activeTab === 'assignmentNatures' && !permissionLoading && !permissionNotice" @busy="actionBusy = $event" />
     <section v-else-if="activeTab === 'hrInfo' && hrMode === 'profiles' && canMembers" class="card stack">
       <div class="panel-head">
         <div class="stack-tight">
@@ -109,6 +109,7 @@ import HrPersonDetail from '@/components/HrPersonDetail.vue';
 import directoryCopy from '@/locales/zh-CN/shared/contactDirectory.js';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AdminDictionaryPanel from '@/components/AdminDictionaryPanel.vue';
+import AssignmentNatureEditor from '@/components/AssignmentNatureEditor.vue';
 import AdminActivityPanel from '@/components/AdminActivityPanel.vue';
 import AdminTemplatePanel from '@/components/AdminTemplatePanel.vue';
 import AdminSettingsPanel from '@/components/AdminSettingsPanel.vue';

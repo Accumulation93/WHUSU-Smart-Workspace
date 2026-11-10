@@ -2069,7 +2069,7 @@
       </view>
     </viewport-portal>
 
-    <button wx:if="{{activeTab === 'assignmentNatures'}}" class="secondary-btn ui-motion-button" bindtap="openAssignmentNatures" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{localeCopy.hrAssignmentNature}}</button>
+    <assignment-nature-editor id="assignment-nature-editor" wx:if="{{activeTab === 'assignmentNatures' && hasPermission && permissionChecked}}" bindbusychange="onDirectoryBusyChange" />
 
     <view class="section-stack" wx:if="{{activeTab === 'departments'}}">
       <view class="section-control-card">

@@ -1,1 +1,8 @@
-{"navigationStyle":"custom","usingComponents":{"ui-navbar":"/components/ui-navbar/ui-navbar","workspace-hero":"/components/workspace-hero/workspace-hero","app-loading":"/components/app-loading/app-loading"}}
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "workspace-hero": "/components/workspace-hero/workspace-hero",
+    "assignment-nature-editor": "/subpackages/org/package-resources/components/assignment-nature-editor/assignment-nature-editor"
+  }
+}

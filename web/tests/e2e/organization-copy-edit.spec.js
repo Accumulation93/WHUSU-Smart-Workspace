@@ -1,6 +1,6 @@
 import {expect,test} from '@playwright/test';
 import {mockApi} from './fixtures.js';
-import ui from '../../src/locales/zh-CN/shared/authorization.js';
+import ui from '../../src/locales/zh-CN/shared/assignmentNatures.js';
 
 test('copied department opens its original editor and saves the selected record',async({page})=>{
   await mockApi(page,{activeContextId:'ctx-admin'});

@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "onReachBottomDistance": 120,
   "usingComponents": {
+    "assignment-nature-editor": "/subpackages/scoring/package-resources/components/assignment-nature-editor/assignment-nature-editor",
     "approval-conditions": "/subpackages/scoring/package-resources/components/approval-conditions/approval-conditions",
     "assignment-nature-create": "/subpackages/scoring/package-resources/components/assignment-nature-create/assignment-nature-create",
     "contact-directory": "/subpackages/scoring/package-resources/components/contact-directory/contact-directory",

@@ -1,0 +1,23 @@
+'use strict';
+module.exports = {
+  title: '岗位性质',
+  add: '新增岗位性质',
+  editTitle: '编辑岗位性质',
+  name: '岗位性质名称',
+  namePlaceholder: '请输入岗位性质名称',
+  nameRequired: '请填写岗位性质名称。',
+  edit: '编辑',
+  remove: '删除',
+  removeTitle: '删除岗位性质',
+  removeConfirm: name => `确定删除“${name}”吗？`,
+  save: '保存',
+  cancel: '取消',
+  retry: '重试',
+  loading: '正在加载岗位性质',
+  saving: '正在保存岗位性质',
+  deleting: '正在删除岗位性质',
+  empty: '暂无岗位性质',
+  loadFailed: '岗位性质未能加载，请重试。',
+  saveFailed: '岗位性质未能保存，请重试。',
+  deleteFailed: '岗位性质未能删除，请重试。'
+};

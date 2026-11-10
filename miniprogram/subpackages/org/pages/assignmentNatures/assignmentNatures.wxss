@@ -1,4 +1,4 @@
-@import "../organizationCopy/organizationCopy.wxss";
+@import "../../../main/styles/home.wxss";
 .authorization-field .field-input { display: block; width: 100%; min-height: var(--ui-field-control-height); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); box-sizing: border-box; line-height: var(--ui-leading-body); border: 1rpx solid rgba(191,219,254,.8); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.98),rgba(239,246,255,.86)); }
 .nature-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-inline-gap); }
 .nature-row-actions { display: flex; align-items: center; gap: var(--ui-inline-gap); margin-left: auto; }

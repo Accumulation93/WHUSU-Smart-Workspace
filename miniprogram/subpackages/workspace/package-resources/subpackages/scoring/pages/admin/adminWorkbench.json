@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "assignment-nature-editor": "/subpackages/workspace/package-resources/components/assignment-nature-editor/assignment-nature-editor",
     "assignment-nature-create": "/subpackages/workspace/package-resources/components/assignment-nature-create/assignment-nature-create",
     "contact-directory": "/subpackages/workspace/package-resources/components/contact-directory/contact-directory",
     "audit-verification-result": "/subpackages/workspace/package-resources/components/audit-verification-result/audit-verification-result",

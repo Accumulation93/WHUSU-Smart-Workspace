@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/authorization.js';
+import nature from '../../src/locales/zh-CN/shared/assignmentNatures.js';
 
 async function setup(page, capabilities) {
   await mockApi(page);
@@ -18,11 +19,31 @@ test('nature read permission exposes the personnel dictionary entry and reaches 
   } }); });
   await page.goto('/web/admin?subApp=hr');
   await expect(page.getByRole('tab', { name: ui.nature, exact: true })).toBeVisible();
-  await page.getByRole('button', { name: ui.nature, exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/assignment-natures$/);
+  await page.getByRole('tab', { name: ui.nature, exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\?subApp=hr/);
   await expect(page.getByText('Current nature', { exact: true })).toBeVisible();
   expect(reads).toBe(1);
   await expect(page.getByRole('button', { name: ui.save, exact: true })).toHaveCount(0);
+});
+
+test('inline nature editor saves and rereads and blocks duplicate writes after read failure', async ({page}) => {
+  await setup(page,['hr.assignmentNatures.read','hr.assignmentNatures.create','hr.assignmentNatures.update','hr.departments.read']);
+  let rows=[{id:'custom',name:'Before',version:1,canUpdate:true,canDelete:true}],writes=0,fail=false;
+  await page.route('**/api/listAssignmentNatures',r=>r.fulfill({json:fail?{status:'error'}:{status:'success',list:rows,canCreate:true}}));
+  await page.route('**/api/saveAssignmentNature',r=>{writes++; rows=[{...rows[0],...r.request().postDataJSON(),version:2}];fail=true;return r.fulfill({json:{status:'success'}});});
+  await page.goto('/web/admin?subApp=hr&tab=assignmentNatures');
+  await page.getByRole('button',{name:nature.edit,exact:true}).click();
+  await page.getByLabel(nature.name,{exact:true}).fill('After');
+  await page.getByRole('button',{name:nature.save,exact:true}).click();
+  await expect(page.getByRole('button',{name:nature.save,exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:nature.retry,exact:true})).toBeVisible();
+  expect(writes).toBe(1);fail=false;
+  await page.getByRole('button',{name:nature.retry,exact:true}).click();
+  await expect(page.getByLabel(nature.name,{exact:true})).toHaveValue('');
+  await expect(page.getByText('After',{exact:true})).toBeVisible();
+  const tabs=page.getByRole('tab');await tabs.filter({hasText:'部门'}).click();
+  await page.getByRole('tab',{name:ui.nature,exact:true}).click();
+  await expect(page.getByText('After',{exact:true})).toBeVisible();expect(writes).toBe(1);
 });
 
 test('nature create permission alone does not imply dictionary read access', async ({ page }) => {

@@ -49,26 +49,28 @@ for (const relative of ['subpackages/scoring/pages/admin/admin', 'subpackages/ve
 
 async function run() {
   let resolveRead;
-  const filename = path.resolve(__dirname, '../miniprogram/subpackages/org/pages/assignmentNatures/assignmentNatures.js');
-  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), { Page: value => { definition = value; }, wx: global.wx,
+  const filename = path.resolve(__dirname, '../miniprogram/components/assignment-nature-editor/assignment-nature-editor.js');
+  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), { Component: value => { definition = value; }, wx: global.wx,
     require(name) {
       if (name.endsWith('/orgSession')) return session;
+      if (name.endsWith('/eventBus')) return { on() {}, off() {} };
       if (name.endsWith('/api')) return { callFunction: () => new Promise(resolve => { resolveRead = resolve; }), getErrorText: () => 'failed' };
       if (name.endsWith('/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 80 }) };
       return {};
     }
   }, { filename });
   const page = instance(definition);
-  page.onShow();
-  page.onHide();
+  page.triggerEvent = () => {};
+  definition.lifetimes.attached.call(page);
+  definition.pageLifetimes.hide.call(page);
   resolveRead({ status: 'success', list: [{ id: 'late' }], canCreate: true });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(page.data.rows.length, 0, '岗位性质隐藏后的迟到目录不得恢复');
-  page.onShow();
+  definition.pageLifetimes.show.call(page);
   resolveRead({ status: 'success', list: [{ id: 'current' }], canCreate: true });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(page.data.rows[0].id, 'current', '重新进入可读取新目录');
-  page.onUnload();
+  definition.lifetimes.detached.call(page);
   assert.equal(page.data.rows.length, 0);
   console.log('授权生命周期：2个真实Page/Behavior隐藏卸载及岗位性质迟到读取、重新进入通过');
 }

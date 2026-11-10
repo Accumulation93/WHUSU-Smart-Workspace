@@ -137,6 +137,22 @@
       },
       {
         "type": "file",
+        "value": "components/assignment-nature-editor/assignment-nature-editor.js"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-editor/assignment-nature-editor.json"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-editor/assignment-nature-editor.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/assignment-nature-editor/assignment-nature-editor.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/audit-verification-matches/audit-verification-matches.js"
       },
       {
@@ -262,6 +278,10 @@
       {
         "type": "file",
         "value": "locales/zh-CN/adminPersonnel.js"
+      },
+      {
+        "type": "file",
+        "value": "locales/zh-CN/assignmentNatures.js"
       },
       {
         "type": "file",
