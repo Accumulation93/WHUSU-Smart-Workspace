@@ -15,7 +15,7 @@ function presentCard(value) {
     : facts.hasAssignment === false ? copy.noPosition : '');
   return Object.assign({}, value, {
     state: ({ admin_active: copy.adminActive, active: copy.active, no_position: copy.noPosition })[value.stateCode] || '',
-    position
+    position, department: facts.department || '', identityCategory: facts.identityCategory || '', workGroup: facts.workGroup || '', hasPositionDetails: Boolean(facts.department || facts.identityCategory || facts.workGroup)
   });
 }
 Page({
@@ -76,7 +76,7 @@ Page({
       this.setData({ loading: false, valid: result.valid, card: presentCard(result.card), notice: result.valid ? '' : this._token ? copy.verificationUnavailable : copy.personalUnavailable });
       if (result.valid) {
         this.setData({ currentTimeText: formatDetailTime(Date.now()), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
-        if (!this._token) this._clockTimer = setInterval(() => {
+        this._clockTimer = setInterval(() => {
           if (current()) this.setData({ currentTimeText: formatDetailTime(Date.now()) });
         }, 1000);
       }

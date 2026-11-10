@@ -36,7 +36,11 @@ async function main() {
   page.onLoad({scene:'a'.repeat(32)}); calls.length=0;
   responder=async()=>({status:'success',valid:true,card:{name:'public'}});
   await page.load(); assert.equal(calls.length,1); assert.equal(calls[0].name,'verifyIdentityCard'); assert.equal(page.data.card.name,'public');
-  assert.equal(timers.size,0);
+  assert.equal(timers.size,1);
+  const checkedTime=page.data.checkedAtText;
+  const readsBeforeTick=calls.length;
+  [...timers.values()][0]();
+  assert.equal(page.data.checkedAtText,checkedTime); assert.equal(calls.length,readsBeforeTick);
   let release;
   responder=()=>new Promise(resolve=>{release=resolve;});
   const pending=page.load(); page.onHide(); release({status:'success',valid:true,card:{name:'late'}}); await pending; assert.equal(page.data.card,null);

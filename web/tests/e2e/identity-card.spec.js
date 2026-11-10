@@ -50,7 +50,7 @@ test('anonymous verification reads only code and renders invalid state after ref
   await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
   await expect(page.locator('.identity-name')).toHaveText(card.name);
   await expect(page.getByText(copy.verified,{exact:true})).toBeVisible();
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-10-23 16:00:00');
+  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-10-23 16:00:00');
   await expect(page.locator('.identity-image')).toHaveCount(0);
   await expect(page.locator('.workspace-context-card')).toHaveCount(0);
   await expect(page.locator('.workspace-hero')).toBeVisible();
@@ -109,7 +109,7 @@ test('verification uses plain detail fields and shows no-position only once', as
   expect(presentation.gap).toBeGreaterThanOrEqual(8);
   expect(presentation.chips).toBe(0);
   expect(presentation.overflow).toBe(false);
-  for (const field of presentation.fields) expect(field).toEqual({border:'0px',background:'none'});
+  for (const field of presentation.fields) { expect(field.border).toBe('1px'); expect(field.background).toContain('linear-gradient'); }
 });
 test('code service failure retains basic identity and offers retry', async ({page}) => {
   await mockApi(page);
@@ -119,4 +119,17 @@ test('code service failure retains basic identity and offers retry', async ({pag
   await expect(page.getByText(copy.failure,{exact:true})).toBeVisible();
   await expect(page.locator('.workspace-person-name')).toHaveText(card.name);
   await expect(page.getByRole('button',{name:copy.refresh,exact:true})).toBeEnabled();
+});
+
+test('public identity exposes structured position cards and a local clock without revalidation', async ({page}) => {
+  await mockApi(page,{authenticated:false});
+  let reads=0;
+  await page.route('**/api/verifyIdentityCard',r=>{ reads++; return r.fulfill({json:{status:'success',valid:true,checkedAt:'2026-11-10T08:00:00.000Z',card:{...card,positionFacts:{...card.positionFacts,department:'Department A',identityCategory:'Coordinator',workGroup:'Group A'}}}}); });
+  await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
+  await expect(page.locator('.identity-field')).toHaveCount(4);
+  for (const value of ['Department A','Coordinator','Group A']) await expect(page.locator('.identity-field').getByText(value,{exact:true})).toBeVisible();
+  const clock=page.locator('.identity-live-time .identity-time-value');
+  const first=await clock.innerText(); await expect(clock).not.toHaveText(first);
+  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-11-10 16:00:00');
+  expect(reads).toBe(1);
 });

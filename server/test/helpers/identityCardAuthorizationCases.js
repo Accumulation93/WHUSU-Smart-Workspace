@@ -54,10 +54,11 @@ module.exports = async function identityCardAuthorizationCases(db) {
     const verified = await call('verifyIdentityCard', { token: firstToken }, false);
     assert.equal(verified.valid, true);
     assert.deepEqual(Object.keys(verified.card).sort(), ['name', 'organization', 'position', 'positionFacts', 'state', 'stateCode']);
-    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel', 'assignmentLabel', 'hasAssignment', 'role']);
+    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel', 'assignmentLabel', 'department', 'hasAssignment', 'identityCategory', 'role', 'workGroup']);
     assert.deepEqual(verified.card.positionFacts, {
       assignmentLabel: context.assignmentLabel || '', role: context.role || '',
-      adminLevel: context.adminLevel || '', hasAssignment: Boolean(context.assignmentId)
+      adminLevel: context.adminLevel || '', hasAssignment: Boolean(context.assignmentId),
+      department: context.department || '', identityCategory: context.identityCategoryName || '', workGroup: context.workGroup || ''
     });
     assert.equal(verified.card.stateCode, 'active');
     // 公开事实只解释岗位和状态，不能携带账号、人员、岗位编号或学号。

@@ -31,7 +31,8 @@ async function main() {
     await admin.query("INSERT INTO accounts(id,person_id,status) VALUES ('account','person','verified')");
     await admin.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr','测试姓名','private-student','org')");
     await admin.query("INSERT INTO organization_memberships(id,person_id,legacy_hr_id,org_id) VALUES ('member','person','hr','org')");
-    await admin.query("INSERT INTO membership_assignments(id,membership_id,org_id,department_id,identity_id) VALUES ('job','member','org','d','i')");
+    await admin.query("INSERT INTO work_groups(id,name,department_id,org_id) VALUES ('g','文秘 · 会务组','d','org')");
+    await admin.query("INSERT INTO membership_assignments(id,membership_id,org_id,department_id,identity_id,work_group_id) VALUES ('job','member','org','d','i','g')");
     const actor = (await identity.listContexts('account', admin))[0];
     assert(actor.assignmentId);
     let token;
@@ -54,7 +55,10 @@ async function main() {
     assert.equal(verified.card.name,'测试姓名');
     assert.deepEqual(Object.keys(verified.card).sort(),['name','organization','position','positionFacts','state','stateCode']);
     assert.equal(verified.card.stateCode, 'active');
-    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel','assignmentLabel','hasAssignment','role']);
+    assert.deepEqual(Object.keys(verified.card.positionFacts).sort(), ['adminLevel','assignmentLabel','department','hasAssignment','identityCategory','role','workGroup']);
+    assert.equal(verified.card.positionFacts.department, '部门');
+    assert.equal(verified.card.positionFacts.identityCategory, '成员');
+    assert.equal(verified.card.positionFacts.workGroup, '文秘 · 会务组');
     assert.equal(verified.card.positionFacts.hasAssignment, true);
     assert.equal(verified.card.positionFacts.assignmentLabel, actor.assignmentLabel);
     assert.equal(verified.card.positionFacts.role, actor.role);
@@ -70,6 +74,11 @@ async function main() {
     await admin.query("UPDATE accounts SET status='verified' WHERE id='account'");
     await admin.query("UPDATE membership_assignments SET status='inactive' WHERE id='job'");
     assert.equal((await model.verify(token)).valid,false);
+    const unassigned = (await identity.listContexts('account', admin)).find(item => !item.assignmentId && item.role === 'user');
+    assert(unassigned);
+    const unassignedCard = await model.mine('account', unassigned);
+    assert.equal(unassignedCard.valid, true);
+    for (const field of ['department', 'identityCategory', 'workGroup']) assert.equal(unassignedCard.card.positionFacts[field], '');
     await admin.query("UPDATE membership_assignments SET status='active' WHERE id='job'");
     await admin.query('UPDATE identity_cards SET expires_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND)');
     assert.equal((await model.verify(token)).valid,false);

@@ -14,8 +14,12 @@
       <template v-if="card && (!publicView || (valid && !loading))">
         <span v-if="!publicView && card.state" class="chip chip-green identity-own-status">{{ card.state }}</span>
         <div v-if="!publicView" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
-        <div class="identity-fields"><div class="identity-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
-        <div class="identity-field"><span class="muted">{{ copy.position }}</span><strong class="break-all">{{ card.position }}</strong></div></div>
+        <div class="identity-fields"><div class="identity-field identity-organization-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
+        <div v-if="publicView && card.department" class="identity-field"><span class="muted">{{ copy.department }}</span><strong class="break-all">{{ card.department }}</strong></div>
+        <div v-if="publicView && card.identityCategory" class="identity-field"><span class="muted">{{ copy.identityCategory }}</span><strong class="break-all">{{ card.identityCategory }}</strong></div>
+        <div v-if="publicView && card.workGroup" class="identity-field"><span class="muted">{{ copy.functionGroup }}</span><strong class="break-all">{{ card.workGroup }}</strong></div>
+        <div v-if="!publicView || !card.hasPositionDetails" class="identity-field"><span class="muted">{{ copy.position }}</span><strong class="break-all">{{ card.position }}</strong></div></div>
+        <div v-if="publicView" class="identity-time identity-live-time"><UiIcon name="clock" tone="primary" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
         <div v-if="publicView && checkedAtText" class="identity-time"><UiIcon name="clock" tone="muted" size-role="context-trailing" /><div><span class="muted">{{ copy.checkedAt }}</span><div class="identity-time-value">{{ checkedAtText }}</div></div></div>
         <div v-if="!publicView" class="stack identity-code">
           <div class="row row-between row-wrap identity-code-heading"><strong>{{ copy.liveCheck }}</strong><span class="muted">{{ copy.expiryHint }}</span></div>
@@ -60,7 +64,7 @@ function presentCard(value) {
     ? (facts.adminLevel === 'super_admin' ? heroCopy.copy_ccd219e5f1 : heroCopy.copy_c01a9aef59)
     : facts.hasAssignment === false ? copy.noPosition : '');
   return { ...value, state: ({ admin_active: copy.adminActive, active: copy.active, no_position: copy.noPosition })[value.stateCode] || '',
-    position };
+    position, department: facts.department || '', identityCategory: facts.identityCategory || '', workGroup: facts.workGroup || '', hasPositionDetails: Boolean(facts.department || facts.identityCategory || facts.workGroup) };
 }
 let generation = 0, disposed = false, clockTimer;
 function clear() { clearInterval(clockTimer); clockTimer = undefined; currentTimeText.value = ''; checkedAtText.value = ''; generation++; card.value = null; miniProgramImage.value = ''; verificationImage.value = ''; codeMode.value = 'verification'; valid.value = false; notice.value = ''; loading.value = false; qrLoading.value = false; }
@@ -84,7 +88,7 @@ async function load() {
     if (!result.valid) { notice.value = publicView.value ? copy.verificationUnavailable : copy.personalUnavailable; return; }
     checkedAtText.value = result.checkedAt ? formatDetailTime(result.checkedAt) : '';
     currentTimeText.value = formatDetailTime(Date.now());
-    if (!publicView.value) clockTimer = setInterval(() => {
+    clockTimer = setInterval(() => {
       if (current()) currentTimeText.value = formatDetailTime(Date.now());
     }, 1000);
     if (publicView.value) return;
@@ -125,8 +129,13 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .identity-verification .identity-header,
 .identity-verification .identity-body { border-radius: var(--ui-card-radius); border: var(--ui-card-border); background: var(--ui-card-bg); box-shadow: var(--ui-card-shadow); backdrop-filter: blur(12px); }
 .identity-verification .identity-member-state { color: var(--ui-text-muted); }
-.identity-verification .identity-result { font-size: var(--ui-type-body); gap: var(--ui-inline-gap); padding: 0; background: none; border-radius: 0; }
-.identity-verification .identity-field { padding: 0; border: 0; border-radius: 0; background: none; }
+.identity-verification .identity-result { font-size: var(--ui-type-section); font-weight: 800; gap: var(--ui-inline-gap); padding: var(--ui-field-gap); background: var(--ui-chip-green-bg); border-radius: var(--ui-field-radius); align-self: stretch; }
+.identity-verification .identity-member-state { font-size: var(--ui-type-emphasis); font-weight: 600; }
+.identity-verification .identity-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.identity-verification .identity-organization-field { grid-column: 1 / -1; }
+.identity-verification .identity-field { box-shadow: var(--ui-card-shadow); backdrop-filter: blur(12px); }
+.identity-verification .identity-field { padding: var(--ui-field-gap); border: 1px solid var(--ui-line-blue); border-radius: var(--ui-field-radius); background: var(--ui-field-bg); }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid var(--ui-line-blue); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
 .identity-verification .identity-time-value { color: var(--ui-text-muted); font-size: var(--ui-type-meta); font-weight: 400; overflow-wrap: anywhere; }
+.identity-verification .identity-live-time .identity-time-value { color: var(--ui-text); font-size: var(--ui-type-emphasis); font-weight: 700; }
 </style>

@@ -15,9 +15,13 @@
         <view wx:if="{{!publicView && card.state}}" class="identity-own-status">{{card.state}}</view>
         <view wx:if="{{!publicView}}" class="identity-time"><ui-icon name="clock" sizeRole="context-trailing" /><view><view class="identity-card-label">{{timeLabel}}</view><view class="identity-time-value">{{currentTimeText}}</view></view></view>
         <view class="identity-card-fields">
-          <view class="identity-card-field"><text class="identity-card-label">{{copy.organization}}</text><text class="identity-card-value">{{card.organization}}</text></view>
-          <view class="identity-card-field"><text class="identity-card-label">{{copy.position}}</text><text class="identity-card-value">{{card.position}}</text></view>
+          <view class="identity-card-field identity-organization-field"><text class="identity-card-label">{{copy.organization}}</text><text class="identity-card-value">{{card.organization}}</text></view>
+          <view wx:if="{{publicView && card.department}}" class="identity-card-field"><text class="identity-card-label">{{copy.department}}</text><text class="identity-card-value">{{card.department}}</text></view>
+          <view wx:if="{{publicView && card.identityCategory}}" class="identity-card-field"><text class="identity-card-label">{{copy.identityCategory}}</text><text class="identity-card-value">{{card.identityCategory}}</text></view>
+          <view wx:if="{{publicView && card.workGroup}}" class="identity-card-field"><text class="identity-card-label">{{copy.functionGroup}}</text><text class="identity-card-value">{{card.workGroup}}</text></view>
+          <view wx:if="{{!publicView || !card.hasPositionDetails}}" class="identity-card-field"><text class="identity-card-label">{{copy.position}}</text><text class="identity-card-value">{{card.position}}</text></view>
         </view>
+        <view wx:if="{{publicView}}" class="identity-time identity-live-time"><ui-icon name="clock" tone="primary" sizeRole="context-trailing" /><view><view class="identity-card-label">{{copy.currentTime}}</view><view class="identity-time-value">{{currentTimeText}}</view></view></view>
         <view wx:if="{{publicView && checkedAtText}}" class="identity-time"><ui-icon name="clock" tone="muted" sizeRole="context-trailing" /><view><view class="identity-card-label">{{copy.checkedAt}}</view><view class="identity-time-value">{{checkedAtText}}</view></view></view>
         <view wx:if="{{!publicView}}" class="identity-card-code">
           <view class="identity-code-heading"><text class="identity-card-value">{{copy.liveCheck}}</text><text class="identity-card-label">{{copy.expiryHint}}</text></view>

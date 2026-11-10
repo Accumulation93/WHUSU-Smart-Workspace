@@ -32,8 +32,12 @@
 .identity-verification .identity-card-header,
 .identity-verification .identity-card-body { border-radius: var(--ui-card-radius); border: 1px solid rgba(255,255,255,.8); background: linear-gradient(135deg,rgba(255,255,255,.98),rgba(239,246,255,.92)); box-shadow: 0 12px 32px rgba(37,99,235,.12),inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); }
 .identity-verification .identity-card-status { margin: 0; color: #64748b; padding: 0; background: none; }
-.identity-verification .identity-card-result { margin: 0; font-size: var(--ui-type-body); gap: var(--ui-inline-gap); padding: 0; background: none; border-radius: 0; }
-.identity-verification .identity-card-field { padding: 0; background: none; border: 0; border-radius: 0; gap: var(--ui-label-gap); }
-.identity-verification .identity-card-fields { gap: var(--ui-field-gap); }
+.identity-verification .identity-card-result { margin: 0; font-size: var(--ui-type-section); font-weight: 800; gap: var(--ui-inline-gap); padding: var(--ui-field-gap); background: linear-gradient(135deg,rgba(209,250,229,.78),rgba(239,246,255,.8)); border-radius: var(--ui-field-radius); }
+.identity-verification .identity-card-status { font-size: var(--ui-type-emphasis); font-weight: 600; }
+.identity-verification .identity-card-field { padding: var(--ui-field-gap); background: linear-gradient(135deg,rgba(255,255,255,.82),rgba(239,246,255,.5)); border: 1px solid rgba(147,197,253,.3); border-radius: var(--ui-field-radius); gap: var(--ui-label-gap); }
+.identity-verification .identity-card-fields { gap: var(--ui-field-gap); grid-template-columns: repeat(2,minmax(0,1fr)); }
+.identity-verification .identity-organization-field { grid-column: 1 / -1; }
+.identity-verification .identity-card-field { box-shadow: 0 4px 12px rgba(37,99,235,.06),inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid rgba(147,197,253,.3); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
 .identity-verification .identity-time-value { font-size: var(--ui-type-meta); color: #64748b; font-weight: 400; overflow-wrap: anywhere; }
+.identity-verification .identity-live-time .identity-time-value { color: #0f172a; font-size: var(--ui-type-emphasis); font-weight: 700; }
