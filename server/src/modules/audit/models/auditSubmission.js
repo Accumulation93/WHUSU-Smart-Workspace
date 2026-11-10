@@ -146,7 +146,7 @@ async function countOwnUnread(hrId, assignmentId, reference) {
     const scope = ownCursorScope(organizationId, hrId, assignmentId, activeSession);
     const [rows] = await connection.query(`SELECT COUNT(*) AS unread_count FROM audit_submissions s
       LEFT JOIN audit_read_cursors c ON c.submission_id=s.id AND c.org_id=s.org_id AND c.hr_id=?
-      WHERE ${scope.sql} AND (c.submission_id IS NULL OR NOT(c.last_read_status <=> s.status)
+      WHERE ${scope.sql} AND (c.submission_id IS NULL OR NOT(c.last_read_status COLLATE utf8mb4_unicode_ci <=> s.status COLLATE utf8mb4_unicode_ci)
         OR NOT(c.last_read_step_index <=> s.current_step_index))`, [hrId, ...scope.params]);
     return Number(rows[0].unread_count);
   });

@@ -1495,3 +1495,11 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 ## 2026-11-10：背景锁审计未识别混合样式表达式
 
 签署页的 page-style 同时包含顶栏变量与 confirmHelp 的 overflow:hidden 条件，旧审计只接受整个属性由一对 Mustache 包裹，误报缺少背景锁。审计改用现有逐字符 WXML tokenizer 取得完整 page-meta 属性，再逐个读取其中表达式；不修改产品布局、不跳过签署页。补充混合属性正确锁定、遗漏真实标志仍拒绝、前置表达式含大于号三项正反例。控件检查及严格UI审计通过；不据此声称实体设备验证完成。
+
+## 2026-11-10：审核未读计数的历史列排序规则不同导致消息接口失败
+
+生产只读检查发现 getUnreadCounts 当日有8条排序规则冲突日志。information_schema 确认 audit_read_cursors.last_read_status 使用 utf8mb4_0900_ai_ci，而 audit_submissions.status 使用 utf8mb4_unicode_ci；countOwnUnread 直接对两列执行隐式 `<=>` 比较，MySQL拒绝查询。既有隔离测试两列排序规则相同，未覆盖历史结构差异。
+
+仅在状态比较两侧明确使用 utf8mb4_unicode_ci，保留空值安全比较、步骤比较、当前组织、提交人、当前岗位和统一授权过滤；不修改生产结构或业务记录。没有结构变更，因此不新增迁移。
+
+防复发检查在 authorizationIntegration.test.js 调用的 auditVerificationAuthorizationCases.js 中，将隔离库游标列设为生产所用的不同排序规则，先确认旧比较真实抛出 ER_CANT_AGGREGATE_2COLLATIONS，再通过HTTP执行 getUnreadCounts、markSubmissionRead、markAllSubmissionsRead 并回读游标。覆盖首次未读、相同值已读、空游标状态、状态变化、步骤变化，以及其他岗位和其他组织记录拒绝写入；既有禁止规则和502条批量用例继续执行。隔离数据库专项、租户SQL审计和时间体系审计通过；未据此宣称已发布或手机现场验证通过。
