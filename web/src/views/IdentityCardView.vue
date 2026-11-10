@@ -2,14 +2,16 @@
   <div class="page page-narrow stack">
     <WorkspaceHero :signed-in="isAuthenticated" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="publicView ? copy.verifyTitle : copy.title" :person-name="publicView ? viewerName : (card?.name || '')" :identity-name="publicView ? viewerPosition : (card?.position || '')" :organization-name="publicView ? viewerOrganization : (card?.organization || '')" @switch="router.push({ name: 'workRole' })" />
     <section class="card identity-card" :class="{'identity-verification': publicView}">
-      <header v-if="publicView" class="identity-header stack">
+      <header v-if="publicView && valid && card && !loading" class="identity-header stack">
         <div class="row"><UiIcon name="shield" tone="primary" size-role="feature-leading" /><h2>{{ copy.verifyTitle }}</h2></div>
-        <template v-if="card"><h1 class="identity-name">{{ card.name }}</h1><span v-if="card.state && card.stateCode !== 'no_position'" class="chip chip-blue identity-member-state">{{ card.state }}</span></template>
+        <h1 class="identity-name">{{ card.name }}</h1>
         <div v-if="valid && card" class="identity-result"><UiIcon name="check" size-role="context-trailing" /><strong>{{ copy.verified }}</strong></div>
+        <span v-if="card.state && card.stateCode !== 'no_position'" class="identity-member-state">{{ card.state }}</span>
       </header>
       <div class="identity-body stack">
+      <h2 v-if="publicView && (!valid || !card || loading)">{{ copy.verifyTitle }}</h2>
       <AppLoading v-if="loading" :text="copy.loading" />
-      <template v-if="card">
+      <template v-if="card && (!publicView || (valid && !loading))">
         <span v-if="!publicView && card.state" class="chip chip-green identity-own-status">{{ card.state }}</span>
         <div v-if="!publicView" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
         <div class="identity-fields"><div class="identity-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
@@ -119,8 +121,11 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .identity-code-heading, .identity-code-tabs { width: 100%; }
 .identity-image { width: calc(var(--ui-control-height) * 6); max-width: 100%; aspect-ratio: 1; object-fit: contain; }
 .identity-body > .btn, .identity-code > .btn { flex: none; height: auto; width: 100%; }
-.identity-verification .identity-member-state { align-self: flex-start; }
-.identity-verification .identity-result { font-size: var(--ui-type-label); gap: var(--ui-inline-gap); }
+.identity-verification { display: flex; flex-direction: column; gap: var(--ui-card-gap); background: none; border: 0; box-shadow: none; backdrop-filter: none; overflow: visible; }
+.identity-verification .identity-header,
+.identity-verification .identity-body { border-radius: var(--ui-card-radius); border: var(--ui-card-border); background: var(--ui-card-bg); box-shadow: var(--ui-card-shadow); backdrop-filter: blur(12px); }
+.identity-verification .identity-member-state { color: var(--ui-text-muted); }
+.identity-verification .identity-result { font-size: var(--ui-type-body); gap: var(--ui-inline-gap); padding: 0; background: none; border-radius: 0; }
 .identity-verification .identity-field { padding: 0; border: 0; border-radius: 0; background: none; }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid var(--ui-line-blue); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
 .identity-verification .identity-time-value { color: var(--ui-text-muted); font-size: var(--ui-type-meta); font-weight: 400; overflow-wrap: anywhere; }

@@ -28,8 +28,11 @@
 /* 核验结果复用浅色详情表面；本人身份卡保持原布局。 */
 .identity-verification .identity-card-heading { gap: var(--ui-inline-gap); }
 .identity-verification .identity-card-name { margin: 0; }
-.identity-verification .identity-card-status { margin: 0; align-self: flex-start; color: #1d4ed8; padding: var(--ui-label-gap) var(--ui-inline-gap); border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,rgba(219,234,254,.76),rgba(239,246,255,.9)); }
-.identity-verification .identity-card-result { margin: 0; align-self: flex-start; font-size: var(--ui-type-label); gap: var(--ui-inline-gap); padding: var(--ui-label-gap) var(--ui-inline-gap); }
+.identity-verification { display: flex; flex-direction: column; gap: var(--ui-card-gap); background: none; border: 0; box-shadow: none; backdrop-filter: none; overflow: visible; }
+.identity-verification .identity-card-header,
+.identity-verification .identity-card-body { border-radius: var(--ui-card-radius); border: 1px solid rgba(255,255,255,.8); background: linear-gradient(135deg,rgba(255,255,255,.98),rgba(239,246,255,.92)); box-shadow: 0 12px 32px rgba(37,99,235,.12),inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); }
+.identity-verification .identity-card-status { margin: 0; color: #64748b; padding: 0; background: none; }
+.identity-verification .identity-card-result { margin: 0; font-size: var(--ui-type-body); gap: var(--ui-inline-gap); padding: 0; background: none; border-radius: 0; }
 .identity-verification .identity-card-field { padding: 0; background: none; border: 0; border-radius: 0; gap: var(--ui-label-gap); }
 .identity-verification .identity-card-fields { gap: var(--ui-field-gap); }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid rgba(147,197,253,.3); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }

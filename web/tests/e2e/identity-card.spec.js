@@ -100,10 +100,14 @@ test('verification uses plain detail fields and shows no-position only once', as
   await expect(page.getByText(copy.noPosition,{exact:true})).toHaveCount(1);
   const presentation = await page.evaluate(() => ({
     header:getComputedStyle(document.querySelector('.identity-header')).backgroundImage,
+    gap:document.querySelector('.identity-body').getBoundingClientRect().top-document.querySelector('.identity-header').getBoundingClientRect().bottom,
+    chips:document.querySelectorAll('.identity-verification .chip').length,
     fields:[...document.querySelectorAll('.identity-field')].map(el=>({border:getComputedStyle(el).borderTopWidth,background:getComputedStyle(el).backgroundImage})),
     overflow:document.documentElement.scrollWidth>innerWidth
   }));
-  expect(presentation.header).toBe('none');
+  expect(presentation.header).toContain('linear-gradient');
+  expect(presentation.gap).toBeGreaterThanOrEqual(8);
+  expect(presentation.chips).toBe(0);
   expect(presentation.overflow).toBe(false);
   for (const field of presentation.fields) expect(field).toEqual({border:'0px',background:'none'});
 });

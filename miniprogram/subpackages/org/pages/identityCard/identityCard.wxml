@@ -2,15 +2,16 @@
 <view class="page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero app-name="{{common.brandName}}" page-name="{{publicView ? copy.verifyTitle : copy.title}}" tone="{{heroTone || 'blue'}}" />
   <view class="identity-card {{publicView ? 'identity-verification' : ''}}">
-    <view wx:if="{{publicView}}" class="identity-card-header">
+    <view wx:if="{{publicView && valid && card && !loading}}" class="identity-card-header">
       <view class="identity-card-heading"><ui-icon name="shield" tone="primary" sizeRole="feature-leading" /><view class="identity-card-title">{{copy.verifyTitle}}</view></view>
       <view wx:if="{{card}}" class="identity-card-name">{{card.name}}</view>
-      <view wx:if="{{card.state && card.stateCode !== 'no_position'}}" class="identity-card-status"><text>{{card.state}}</text></view>
       <view wx:if="{{valid && card}}" class="identity-card-result"><ui-icon name="check" sizeRole="context-trailing" /><text>{{copy.verified}}</text></view>
+      <view wx:if="{{card.state && card.stateCode !== 'no_position'}}" class="identity-card-status"><text>{{card.state}}</text></view>
     </view>
     <view class="identity-card-body">
+      <view wx:if="{{publicView && (!valid || !card || loading)}}" class="identity-card-title">{{copy.verifyTitle}}</view>
       <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
-      <block wx:if="{{card}}">
+      <block wx:if="{{card && (!publicView || (valid && !loading))}}">
         <view wx:if="{{!publicView && card.state}}" class="identity-own-status">{{card.state}}</view>
         <view wx:if="{{!publicView}}" class="identity-time"><ui-icon name="clock" sizeRole="context-trailing" /><view><view class="identity-card-label">{{timeLabel}}</view><view class="identity-time-value">{{currentTimeText}}</view></view></view>
         <view class="identity-card-fields">
