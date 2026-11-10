@@ -1,19 +1,20 @@
 <template>
   <div class="page page-narrow stack">
     <WorkspaceHero v-if="!publicView" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="copy.title" :person-name="card?.name || ''" :identity-name="card?.position || ''" :organization-name="card?.organization || ''" @switch="router.push({ name: 'workRole' })" />
-    <section class="card identity-card">
+    <section class="card identity-card" :class="{'identity-verification': publicView}">
       <header v-if="publicView" class="identity-header stack">
-        <div class="row"><span class="identity-result-icon"><UiIcon name="shield" tone="white" size-role="feature-leading" /></span><div><p class="identity-brand">{{ common.brandName }}</p><h2>{{ copy.verifyTitle }}</h2></div></div>
+        <div class="row"><UiIcon name="shield" tone="primary" size-role="feature-leading" /><h2>{{ copy.verifyTitle }}</h2></div>
+        <template v-if="card"><h1 class="identity-name">{{ card.name }}</h1><span v-if="card.state && card.stateCode !== 'no_position'" class="chip chip-blue identity-member-state">{{ card.state }}</span></template>
         <div v-if="valid && card" class="identity-result"><UiIcon name="check" size-role="context-trailing" /><strong>{{ copy.verified }}</strong></div>
-        <template v-if="card"><h1 class="identity-name">{{ card.name }}</h1><span v-if="card.state">{{ card.state }}</span></template>
       </header>
       <div class="identity-body stack">
       <AppLoading v-if="loading" :text="copy.loading" />
       <template v-if="card">
         <span v-if="!publicView && card.state" class="chip chip-green identity-own-status">{{ card.state }}</span>
-        <div v-if="!publicView || checkedAtText" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ publicView ? copy.checkedAt : copy.currentTime }}</span><div class="identity-time-value">{{ publicView ? checkedAtText : currentTimeText }}</div></div></div>
+        <div v-if="!publicView" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
         <div class="identity-fields"><div class="identity-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
         <div class="identity-field"><span class="muted">{{ copy.position }}</span><strong class="break-all">{{ card.position }}</strong></div></div>
+        <div v-if="publicView && checkedAtText" class="identity-time"><UiIcon name="clock" tone="muted" size-role="context-trailing" /><div><span class="muted">{{ copy.checkedAt }}</span><div class="identity-time-value">{{ checkedAtText }}</div></div></div>
         <div v-if="!publicView" class="stack identity-code">
           <div class="row row-between row-wrap identity-code-heading"><strong>{{ copy.liveCheck }}</strong><span class="muted">{{ copy.expiryHint }}</span></div>
           <AppLoading v-if="qrLoading" :text="copy.generating" />
@@ -99,7 +100,7 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 </script>
 <style scoped>
 .identity-card { width: 100%; margin-inline: auto; padding: 0; overflow: hidden; }
-.identity-header { padding: var(--ui-card-padding-y) var(--ui-card-padding-x); background: var(--ui-hero-admin-bg); color: var(--ui-on-primary); border-bottom: var(--ui-hero-border); }
+.identity-header { padding: var(--ui-card-padding-y) var(--ui-card-padding-x); color: var(--ui-text); border-bottom: 1px solid var(--ui-line-blue); }
 .identity-header h2 { font-size: var(--ui-type-section); line-height: 1.5; }
 .identity-brand { font-size: var(--ui-type-meta); color: var(--ui-on-primary); }
 .identity-result-icon { display: flex; align-items: center; justify-content: center; padding: var(--ui-field-gap); border-radius: var(--ui-field-radius); background: var(--ui-hero-context-bg); border: var(--ui-hero-context-border); }
@@ -115,4 +116,9 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .identity-code-heading, .identity-code-tabs { width: 100%; }
 .identity-image { width: calc(var(--ui-control-height) * 6); max-width: 100%; aspect-ratio: 1; object-fit: contain; }
 .identity-body > .btn, .identity-code > .btn { flex: none; height: auto; width: 100%; }
+.identity-verification .identity-member-state { align-self: flex-start; }
+.identity-verification .identity-result { font-size: var(--ui-type-label); gap: var(--ui-inline-gap); }
+.identity-verification .identity-field { padding: 0; border: 0; border-radius: 0; background: none; }
+.identity-verification .identity-time { border-bottom: 0; border-top: 1px solid var(--ui-line-blue); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
+.identity-verification .identity-time-value { color: var(--ui-text-muted); font-size: var(--ui-type-meta); font-weight: 400; overflow-wrap: anywhere; }
 </style>

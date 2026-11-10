@@ -73,6 +73,22 @@ test('admin identity retains dark hero and clock advances without network pollin
   await expect(page.locator('.identity-time-value')).not.toHaveText(first);
   expect(reads).toBe(1);
 });
+
+test('verification uses plain detail fields and shows no-position only once', async ({page}) => {
+  await mockApi(page,{authenticated:false});
+  const longCard = {...card,name:'Example member with a long display name',organization:'Example university organization '.repeat(10),stateCode:'no_position',positionFacts:{role:'user',hasAssignment:false}};
+  await page.route('**/api/verifyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card:longCard,checkedAt:'2026-11-10T08:00:00.000Z'}}));
+  await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
+  await expect(page.getByText(copy.noPosition,{exact:true})).toHaveCount(1);
+  const presentation = await page.evaluate(() => ({
+    header:getComputedStyle(document.querySelector('.identity-header')).backgroundImage,
+    fields:[...document.querySelectorAll('.identity-field')].map(el=>({border:getComputedStyle(el).borderTopWidth,background:getComputedStyle(el).backgroundImage})),
+    overflow:document.documentElement.scrollWidth>innerWidth
+  }));
+  expect(presentation.header).toBe('none');
+  expect(presentation.overflow).toBe(false);
+  for (const field of presentation.fields) expect(field).toEqual({border:'0px',background:'none'});
+});
 test('code service failure retains basic identity and offers retry', async ({page}) => {
   await mockApi(page);
   await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
