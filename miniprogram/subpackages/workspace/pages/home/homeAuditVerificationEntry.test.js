@@ -27,7 +27,10 @@ assert(homeWxml.includes('wx:if="{{auditCanVerify}}"'),
 assert(homeWxml.includes('{{copy.auditVerification}}'));
 assert(homeWxml.includes('{{copy.auditVerificationDescription}}'));
 assert(homeLocale.includes("auditVerification: '文件验签'"));
-assert(homeLocale.includes("auditVerificationDescription: '核对审核文件与签名'"));
+const sharedHomeCopy = require(path.join(root, '../shared/locales/zh-CN/home')).text;
+const generatedHomeCopy = require(path.join(root, 'locales/zh-CN/home')).text;
+assert.strictEqual(generatedHomeCopy.auditVerificationDescription, sharedHomeCopy.auditVerificationDescription);
+assert(generatedHomeCopy.auditVerificationDescription);
 assert(trustedNavigation.includes("'/subpackages/audit/pages/verification/verification'"));
 
 assert(adminWxml.includes("activeTab === 'auditVerification'"),

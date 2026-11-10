@@ -82,9 +82,9 @@ test('字典删除被引用时消费 usages 并展示分类数量弹窗', () => 
     { category: 'venue_rules', count: 0 }
   ]);
   assert.deepEqual(rows, [
-    { category: 'positions', label: '成员岗位', count: 2, countText: '2 条引用' },
-    { category: 'audit_templates', label: '审核模板', count: 1, countText: '1 条引用' },
-    { category: 'unknown_future_category', label: '其他业务内容', count: 3, countText: '3 条引用' }
+    { category: 'positions', label: personnelCopy.dictionaryUsageCategories.positions, count: 2, countText: personnelCopy.dictionaryUsageCount(2) },
+    { category: 'audit_templates', label: personnelCopy.dictionaryUsageCategories.audit_templates, count: 1, countText: personnelCopy.dictionaryUsageCount(1) },
+    { category: 'unknown_future_category', label: personnelCopy.dictionaryUsageCategories.unknown, count: 3, countText: personnelCopy.dictionaryUsageCount(3) }
   ]);
 });
 

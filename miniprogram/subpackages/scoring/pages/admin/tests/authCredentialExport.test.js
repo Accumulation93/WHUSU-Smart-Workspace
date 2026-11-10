@@ -30,6 +30,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 function createHarness() {
   const state = { toasts: [], writes: [], actionSheetItems: null, actionSheetTapIndex: 0, modalCount: 0 };
   const realTableFile = require(tableFilePath);
+  const realApi = require(path.resolve(moduleDir, '../../../../../utils/api'));
   const wxStub = {
     getStorageSync: () => '',
     env: { USER_DATA_PATH: '/tmp/wx-user-data' },
@@ -57,11 +58,13 @@ function createHarness() {
     Behavior: (config) => { state.config = config; return config; },
     require: (id) => {
       if (id.indexOf('locales/zh-CN/generated') >= 0) return require(path.resolve(moduleDir, id));
+      if (id === '../../../../../locales/zh-CN/home' || id === '../../../package-resources/utils/hrProfileStatusView') return require(path.resolve(moduleDir, id));
       if (/utils\/api$/.test(id)) {
         return {
           callFunction: () => Promise.reject(new Error('未预期的 callFunction')),
           showShortToast: (text) => state.toasts.push(String(text == null ? '' : text)),
-          getErrorText: (error, fallback) => String(error && error.message || fallback || ''),
+          getErrorText: realApi.getErrorText,
+          createResultError: realApi.createResultError,
           formatAuditTime: () => '',
           formatAuditDetailTime: () => ''
         };
