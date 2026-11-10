@@ -230,7 +230,7 @@
   --ui-card-action-divider-gap: 8px;
   --ui-footer-gap: 16px;
   --ui-message-preview-row: 77px;
-  --ui-message-preview-gap: 4px;
+  --ui-message-preview-gap: 8px;
   --ui-inline-control-height: 28px;
   --ui-dialog-title-size: 15px;
   --ui-dialog-body-size: 12.5px;
@@ -354,7 +354,7 @@
     --ui-card-action-divider-gap: 12px;
     --ui-footer-gap: 20px;
     --ui-message-preview-row: 96px;
-    --ui-message-preview-gap: 6px;
+    --ui-message-preview-gap: 8px;
     --ui-inline-control-height: 32px;
   }
 }

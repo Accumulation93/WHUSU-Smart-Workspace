@@ -257,13 +257,10 @@
 }
 
 .notification-item-todo,
+.notification-read,
 .notification-unread {
   border-color: rgba(147, 197, 253, 0.55);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.84) 100%);
-}
-
-.notification-read {
-  opacity: 0.78;
 }
 
 .notification-dot {

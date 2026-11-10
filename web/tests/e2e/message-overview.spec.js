@@ -121,7 +121,7 @@ test('historical notifications without event facts do not invent completed steps
 test('three todos and notifications share spacing surfaces and preserve their complete last card', async ({ page }) => {
   const facts = { businessTitle: 'Conference preparation', venueName: 'North meeting room', startTime, endTime };
   await installMessages(page,
-    [0, 1, 2].map(index => ({ id: `spacing-notification-${index}`, type: 'booking_approved', isRead: false, targetUrl: auditUrl, displayFacts: { ...facts, businessTitle: `${facts.businessTitle} ${index}` } })),
+    [0, 1, 2].map(index => ({ id: `spacing-notification-${index}`, type: 'booking_approved', isRead: index === 1, targetUrl: auditUrl, displayFacts: { ...facts, businessTitle: `${facts.businessTitle} ${index}` } })),
     [0, 1, 2].map(index => ({ id: `spacing-todo-${index}`, type: 'todo', sourceType: 'venue_approval', targetUrl: auditUrl, displayFacts: { ...facts, businessTitle: `${facts.businessTitle} ${index}`, applicantName: 'Applicant B' } })));
   await page.goto('/web/portal');
   await expect(page.locator('.notification-item')).toHaveCount(6);
@@ -136,7 +136,7 @@ test('three todos and notifications share spacing surfaces and preserve their co
       const style = getComputedStyle(cards[0]);
       return { gaps: rectangles.slice(1).map((rect, i) => rect.top - rectangles[i].bottom),
         surface: [style.backgroundImage, style.borderColor, style.borderRadius, style.padding],
-        cards: cards.map(card => ({ client: card.clientHeight, scroll: card.scrollHeight })) };
+        cards: cards.map(card => { const s = getComputedStyle(card); return { client: card.clientHeight, scroll: card.scrollHeight, surface: [s.backgroundImage, s.borderColor, s.borderRadius, s.padding], opacity: s.opacity }; }) };
     }));
     await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
     const last = list.locator('.notification-item').last();
@@ -146,7 +146,7 @@ test('three todos and notifications share spacing surfaces and preserve their co
   }
   expect(measurements[0].surface).toEqual(measurements[1].surface);
   for (const result of measurements) {
-    for (const gap of result.gaps) { expect(gap).toBeGreaterThan(0); expect(gap).toBeCloseTo(measurements[1].gaps[0], 1); }
-    for (const card of result.cards) expect(card.scroll).toBeLessThanOrEqual(card.client + 1);
+    for (const gap of result.gaps) expect(gap).toBeCloseTo(8, 1);
+    for (const card of result.cards) { expect(card.scroll).toBeLessThanOrEqual(card.client + 1); expect(card.surface).toEqual(measurements[0].surface); expect(card.opacity).toBe('1'); }
   }
 });

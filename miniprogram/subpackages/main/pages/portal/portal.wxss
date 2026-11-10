@@ -445,6 +445,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-preview-scroll {
+  --ui-message-preview-gap: 8px;
   height: auto;
   max-height: calc(var(--ui-message-preview-row, 154rpx) * 3 + var(--ui-message-preview-gap, 8rpx) * 2);
   min-height: 52rpx;
@@ -618,13 +619,10 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .todo-item,
+.notification-read,
 .notification-unread {
   background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(239,246,255,0.84) 100%);
   border-color: rgba(147,197,253,0.55);
-}
-
-.notification-read {
-  opacity: 0.78;
 }
 
 .notification-dot {
