@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mockApi } from './fixtures.js';
+import { mockApi, CURRENT_CONTEXT } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/identityCard.js';
 import { createRequire } from 'node:module';
 const verificationImage = await createRequire(import.meta.url)('../../../server/node_modules/qrcode').toDataURL('https://accumulation93.com/web/identity-card/verify?token=' + 'a'.repeat(32), {width:1024,margin:4,errorCorrectionLevel:'H',color:{dark:'#000000ff',light:'#ffffff00'}});
@@ -53,6 +53,8 @@ test('anonymous verification reads only code and renders invalid state after ref
   await expect(page.locator('.identity-time-value')).toHaveText('2026-10-23 16:00:00');
   await expect(page.locator('.identity-image')).toHaveCount(0);
   await expect(page.locator('.workspace-context-card')).toHaveCount(0);
+  await expect(page.locator('.workspace-hero')).toBeVisible();
+  await expect(page.locator('.workspace-hero .workspace-person-name')).toHaveCount(0);
   await expect(page.getByRole('button',{name:copy.retry,exact:true})).toHaveCount(0);
   await page.screenshot({path:info.outputPath('identity-verification.png'),fullPage:true,animations:'disabled'});
   valid=false;
@@ -62,6 +64,22 @@ test('anonymous verification reads only code and renders invalid state after ref
   await expect(page.locator('.identity-name')).toHaveCount(0);
   expect(reads).toBe(2);
 });
+
+for (const activeContextId of ['ctx-assignment', 'ctx-admin']) {
+  test(`verification keeps viewer hero separate from subject for ${activeContextId}`, async ({ page }) => {
+    await mockApi(page, { activeContextId });
+    await page.route('**/api/verifyIdentityCard', r => r.fulfill({ json: { status: 'success', valid: true, card, checkedAt: '2026-10-23T08:00:00.000Z' } }));
+    await page.goto('/web/identity-card/verify?token=' + 'a'.repeat(32));
+    await expect(page.locator('.workspace-person-name')).toHaveText(CURRENT_CONTEXT.name);
+    await expect(page.locator('.identity-name')).toHaveText(card.name);
+    await expect(page.locator('.workspace-hero')).not.toContainText(card.name);
+    await expect(page.locator('.workspace-hero-admin')).toHaveCount(activeContextId === 'ctx-admin' ? 1 : 0);
+    const gap = await page.evaluate(() => document.querySelector('.identity-card').getBoundingClientRect().top - document.querySelector('.workspace-hero').getBoundingClientRect().bottom);
+    expect(gap).toBeGreaterThanOrEqual(8);
+    await page.locator('.workspace-context-card').click();
+    await expect(page).toHaveURL(/work-role/);
+  });
+}
 test('admin identity retains dark hero and clock advances without network polling', async ({page}) => {
   await mockApi(page,{activeContextId:'ctx-admin'});
   let reads=0;

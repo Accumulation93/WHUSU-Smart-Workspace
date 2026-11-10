@@ -1,6 +1,6 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero wx:if="{{!publicView}}" app-name="{{common.brandName}}" page-name="{{copy.title}}" tone="{{heroTone}}" />
+  <workspace-hero app-name="{{common.brandName}}" page-name="{{publicView ? copy.verifyTitle : copy.title}}" tone="{{heroTone || 'blue'}}" />
   <view class="identity-card {{publicView ? 'identity-verification' : ''}}">
     <view wx:if="{{publicView}}" class="identity-card-header">
       <view class="identity-card-heading"><ui-icon name="shield" tone="primary" sizeRole="feature-leading" /><view class="identity-card-title">{{copy.verifyTitle}}</view></view>

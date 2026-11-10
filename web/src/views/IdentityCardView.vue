@@ -1,6 +1,6 @@
 <template>
   <div class="page page-narrow stack">
-    <WorkspaceHero v-if="!publicView" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="copy.title" :person-name="card?.name || ''" :identity-name="card?.position || ''" :organization-name="card?.organization || ''" @switch="router.push({ name: 'workRole' })" />
+    <WorkspaceHero :signed-in="isAuthenticated" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'" :page-name="publicView ? copy.verifyTitle : copy.title" :person-name="publicView ? viewerName : (card?.name || '')" :identity-name="publicView ? viewerPosition : (card?.position || '')" :organization-name="publicView ? viewerOrganization : (card?.organization || '')" @switch="router.push({ name: 'workRole' })" />
     <section class="card identity-card" :class="{'identity-verification': publicView}">
       <header v-if="publicView" class="identity-header stack">
         <div class="row"><UiIcon name="shield" tone="primary" size-role="feature-leading" /><h2>{{ copy.verifyTitle }}</h2></div>
@@ -37,7 +37,7 @@ import copy from '@/locales/zh-CN/shared/identityCard.js';
 import common from '@/locales/zh-CN/shared/common.js';
 import heroCopy from '@/locales/zh-CN/shared/generated/components/workspace-hero/workspace-hero.js';
 import { callApi, requireSuccess, createLocalError, errorText } from '@/runtime/api.js';
-import { session } from '@/runtime/session.js';
+import { session, isAuthenticated, roleLabelOf } from '@/runtime/session.js';
 import { formatDetailTime } from '@/runtime/dateTime.js';
 import { outputFile } from '@/runtime/fileIO.js';
 import UiIcon from '@/components/UiIcon.vue';
@@ -45,6 +45,9 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 const route = useRoute();
 const router = useRouter();
 const publicView = computed(() => route.name === 'identityCardVerify');
+const viewerName = computed(() => session.context?.name || session.user?.name || '');
+const viewerPosition = computed(() => session.context ? (session.context.assignmentLabel || session.context.identityName || roleLabelOf(session.context)) : '');
+const viewerOrganization = computed(() => session.context?.organizationName || session.activeOrg?.name || '');
 const card = ref(null), miniProgramImage = ref(''), verificationImage = ref(''), codeMode = ref('verification'), valid = ref(false), notice = ref(''), loading = ref(false), qrLoading = ref(false);
 const image = computed(() => codeMode.value === 'verification' ? verificationImage.value : miniProgramImage.value);
 const currentTimeText = ref(''), checkedAtText = ref('');
