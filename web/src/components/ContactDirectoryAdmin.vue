@@ -14,7 +14,7 @@
       <p v-if="!loading && !rules.length && !loadFailed" class="empty-state">{{ copy.noRules }}</p>
       <article v-for="rule in rules" :key="rule.id" class="list-row stack">
         <label class="row"><input v-model="selected" type="checkbox" :value="rule.id" :disabled="blocked" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
-        <section v-for="section in view.ruleSections(rule, metadata, copy, relations)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><p v-if="section.key !== 'fields'" class="muted">{{ copy.groupMatchHelp }}</p><div v-for="group in section.groups" :key="group.key" class="glass-panel stack-tight"><strong v-if="group.title">{{ group.title }}</strong><span v-if="group.hint" class="muted">{{ group.hint }}</span><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span></div></section>
+        <section v-for="section in view.ruleSections(rule, metadata, copy, relations)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><p v-if="section.hint" class="muted">{{ section.hint }}</p><div v-for="group in section.groups" :key="group.key" class="glass-panel stack-tight"><strong v-if="group.title">{{ group.title }}</strong><span v-if="group.hint" class="muted">{{ group.hint }}</span><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span></div></section>
         <div class="card-actions">
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule)">{{ copy.edit }}</button>
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule, true)">{{ copy.copy }}</button>
@@ -25,17 +25,20 @@
     <form v-if="draft" ref="editor" class="card stack" @submit.prevent="save">
       <label class="field"><span class="field-label">{{ copy.name }}</span><input v-model="draft.name" class="field-input" :placeholder="copy.namePlaceholder" :disabled="blocked" /></label>
       <section v-for="section in sections" :key="section" class="stack">
-        <h3 class="section-title">{{ copy[section] }}</h3><p class="muted">{{ copy.conditionHint }}</p>
+        <h3 class="section-title">{{ copy[section] }}</h3><p class="muted">{{ copy[section + 'Help'] }}</p>
         <div v-for="(clause, index) in draft[section]" :key="index" class="list-row stack">
+          <h4 class="field-label">{{ copy[section + 'GroupTitle'](index + 1) }}</h4>
+          <span class="field-label">{{ copy[section + 'Type'] }}</span>
           <select :value="clause.type" class="field-input" :disabled="blocked" :aria-label="copy[section]" @change="draft[section][index] = view.blankClause($event.target.value)">
-            <option value="people">{{ copy.selectPeople }}</option><option value="scope">{{ copy.scope }}</option><option v-if="section === 'targets'" value="self">{{ copy.self }}</option>
+            <option value="people">{{ copy[section + 'People'] }}</option><option value="scope">{{ copy[section + 'Scope'] }}</option><option v-if="section === 'targets'" value="self">{{ copy.self }}</option>
           </select>
           <template v-if="clause.type === 'people'">
             <span>{{ format(copy.selected, clause.personIds.length) }}</span>
             <p class="break-all">{{ names(clause.personIds) }}</p>
-            <button type="button" class="btn btn-secondary" :disabled="blocked" @click="picker = { section, index }">{{ copy.choose }}</button>
+            <button type="button" class="btn btn-secondary" :disabled="blocked" @click="picker = { section, index }">{{ section === 'audience' ? copy.chooseAudience : copy.chooseTargets }}</button>
           </template>
           <template v-if="clause.type === 'scope'">
+            <p class="muted">{{ section === 'audience' ? copy.audienceOptionalScopeHelp : copy.optionalScopeHelp }}</p><p v-if="section === 'targets'" class="muted">{{ copy.sameScopeHelp }}</p>
             <p v-if="clause.natureIds == null && !clause.sameNature" class="notice-line">{{ relations.legacyScopeHelp }}</p>
             <label v-if="section==='targets'" class="row"><input v-model="clause.sameNature" type="checkbox" :disabled="blocked" @change="clause.natureIds=[]" />{{ relations.directorySameNatureSummary }}</label>
             <div class="field"><span class="field-label">{{ relations.nature }}</span><div class="directory-options"><label v-for="option in metadata.natures || []" :key="option.id" class="selection-option-card" :class="{'personnel-option-selected':(clause.natureIds || []).includes(option.id)}"><input type="checkbox" :checked="(clause.natureIds || []).includes(option.id)" :disabled="blocked" @change="toggleNature(clause,option.id)" />{{ option.name }}</label></div></div>
@@ -49,18 +52,21 @@
               </div>
             </details>
           </template>
-          <button type="button" class="btn btn-secondary" :disabled="blocked || draft[section].length === 1" @click="draft[section].splice(index, 1)">{{ copy.removeCondition }}</button>
+          <p class="muted">{{ clause.type === 'self' ? copy.selfHelp : copy[section + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')] }}</p>
+          <button type="button" class="btn btn-secondary" :disabled="blocked || draft[section].length === 1" @click="draft[section].splice(index, 1)">{{ section === 'audience' ? copy.removeAudience : copy.removeTargets }}</button>
         </div>
-        <button type="button" class="btn btn-secondary" :disabled="blocked" @click="draft[section].push(view.blankClause('scope'))">{{ copy.addCondition }}</button>
+        <button type="button" class="btn btn-secondary" :disabled="blocked" @click="draft[section].push(view.blankClause('scope'))">{{ section === 'audience' ? copy.addAudience : copy.addTargets }}</button>
       </section>
-      <details class="directory-filter stack-tight"><summary><span class="field-label">{{ copy.columns }}</span><span class="muted">{{ format(copy.selectedOptions, draft.fieldIds.length) }}</span></summary><p class="muted">{{ copy.baseColumns }}</p>
+      <h3 class="section-title">{{ copy.columns }}</h3><p class="muted">{{ copy.columnsHelp }}</p><p class="muted">{{ copy.baseColumns }}</p>
+      <details class="directory-filter stack-tight"><summary><span class="field-label">{{ copy.chooseFields }}</span><span class="muted">{{ draft.fieldIds.length ? format(copy.selectedOptions, draft.fieldIds.length) : copy.baseOnly }}</span></summary>
       <p v-if="!metadata.fields.length" class="muted">{{ copy.noFields }}</p>
       <div class="directory-options"><label v-for="field in metadata.fields" :key="field.id" class="selection-option-card" :class="{ 'personnel-option-selected': draft.fieldIds.includes(field.id) }"><input v-model="draft.fieldIds" type="checkbox" :value="field.id" :disabled="blocked" />{{ field.label }}</label></div>
       </details>
       <label class="row"><input v-model="draft.enabled" type="checkbox" :disabled="blocked" />{{ copy.enable }}</label>
+      <p class="muted">{{ copy.ruleEffectHelp }}</p>
       <div class="card-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="draft = null">{{ copy.cancel }}</button><button class="btn btn-primary" :disabled="blocked">{{ copy.save }}</button></div>
     </form>
-    <PersonnelPicker v-if="picker" :title="copy.choose" mode="person" :options="people" :value="people.filter(person => draft[picker.section][picker.index].personIds.includes(person.id))" @cancel="picker = null" @confirm="confirmPeople" />
+    <PersonnelPicker v-if="picker" :title="picker.section === 'audience' ? copy.chooseAudience : copy.chooseTargets" mode="person" :options="people" :value="people.filter(person => draft[picker.section][picker.index].personIds.includes(person.id))" @cancel="picker = null" @confirm="confirmPeople" />
     <GlassDialog v-if="deletion" :title="copy.remove" :busy="busy" @close="deletion = null">
       <p>{{ format(copy.confirmDelete, deletion.length) }}</p><p v-for="rule in deletion" :key="rule.id">{{ rule.name }}</p>
       <template #footer><button class="btn btn-secondary" :disabled="busy" @click="deletion = null">{{ copy.cancel }}</button><button class="btn btn-danger" :disabled="busy" @click="act('delete', deletion)">{{ copy.remove }}</button></template>

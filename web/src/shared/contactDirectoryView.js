@@ -56,24 +56,24 @@ function decorateContact(contact, dateFormatter, copy) {
 function ruleSections(rule, metadata, copy, relations) {
   const clauseLines = clause => {
     if (clause.type === 'self') return [copy.self];
-    if (clause.type === 'people') return [copy.selected.replace('{count}', String(clause.personIds.length))];
+    if (clause.type === 'people') return [copy.specifiedPeopleLine(clause.personIds.length, (metadata.people || []).filter(person => clause.personIds.includes(person.personId)).map(person => person.name).join('、'))];
     const nature = !relations ? '' : clause.sameNature ? relations.directorySameNatureSummary : clause.natureIds == null ? relations.legacyScope : (clause.natureIds || []).map(id => ((metadata.natures || []).find(item => item.id === id) || {}).name || copy.unnamed).join('、');
-    return [nature].concat([['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
+    return [relations ? copy.scopeFieldLine(relations.nature, nature) : nature].concat([['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
       .filter(([key, options, same]) => clause[same] || (clause[key] || []).length)
-      .map(([key, options, same, label]) => copy[label] + '：' + (clause[same] ? copy[same] : (clause[key] || []).map(id => {
+      .map(([key, options, same, label]) => copy.scopeFieldLine(copy[label], (clause[same] ? copy[same] : (clause[key] || []).map(id => {
         const option = (metadata[options] || []).find(item => item.id === id);
         if (!option) return copy.unnamed;
         const department = option.departmentId && metadata.departments.find(item => item.id === option.departmentId);
-        return option.name + (department ? ' · ' + department.name : '');
-      }).join('、'))));
+        return copy.optionWithDepartment(option.name, department && department.name);
+      }).join('、')))));
   };
-  return ['audience', 'targets'].map(key => ({ key, title: copy[key], groups: rule[key].map((clause, index) => ({
-    key: index, title: copy.conditionGroupTitle(index + 1), hint: clause.type === 'scope' ? copy.samePositionHelp : '', lines: clauseLines(clause)
+  return ['audience', 'targets'].map(key => ({ key, title: copy[key], hint: copy[key + 'Help'], groups: rule[key].map((clause, index) => ({
+    key: index, title: copy[key + 'GroupTitle'](index + 1), hint: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')], lines: clauseLines(clause)
   })) })).concat([{ key: 'fields', title: copy.columns, groups: [{ key: 'fields', title: '', hint: '',
     lines: [rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly] }] }]);
 }
 function ruleSummary(rule, metadata, copy, relations) {
-  return ruleSections(rule, metadata, copy, relations).map(section => section.title + '：' + section.groups.map(group => group.lines.join('；')).join('；'));
+  return ruleSections(rule, metadata, copy, relations).map(section => copy.summarySection(section.title, section.groups.map(group => group.lines)));
 }
 const sharedModule = Object.freeze({ blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary, ruleSections });
 

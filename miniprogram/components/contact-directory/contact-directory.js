@@ -127,11 +127,12 @@ Component({
       if (!draft || !metadata) return;
       const peopleById = new Map(this.data.people.map(person => [person.personId, person.name]));
       const departments = new Map(metadata.departments.map(item => [item.id, item.name]));
-      const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], clauses: draft[key].map((clause, index) => ({
+      const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], help: copy[key + 'Help'], typeLabel: copy[key + 'Type'], addLabel: key === 'audience' ? copy.addAudience : copy.addTargets, removeLabel: key === 'audience' ? copy.removeAudience : copy.removeTargets, chooseLabel: key === 'audience' ? copy.chooseAudience : copy.chooseTargets, optionalHelp: key === 'audience' ? copy.audienceOptionalScopeHelp : copy.optionalScopeHelp, clauses: draft[key].map((clause, index) => ({
+        title: copy[key + 'GroupTitle'](index + 1), help: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')],
         sameNature: Boolean(clause.sameNature),legacyNature: clause.natureIds == null && !clause.sameNature,
         natures: (metadata.natures || []).map(item => ({ id:item.id, name:item.name, selected:(clause.natureIds || []).includes(item.id) })),
         index, type: clause.type, typeIndex: ['people', 'scope', 'self'].indexOf(clause.type),
-        labels: key === 'targets' ? this.data.typeLabels : this.data.typeLabels.slice(0, 2),
+        labels: key === 'targets' ? [copy.targetsPeople, copy.targetsScope, copy.self] : [copy.audiencePeople, copy.audienceScope],
         selectedText: copy.selected.replace('{count}', String((clause.personIds || []).length)),
         names: (clause.personIds || []).map(id => peopleById.get(id) || copy.unnamed).join('、'),
         dimensions: dimensions.map(dimension => Object.assign({}, dimension, {
@@ -140,7 +141,7 @@ Component({
           summary: clause[dimension.same] ? copy[dimension.same] : ((clause[dimension.key] || []).length ? copy.selectedOptions.replace('{count}', String(clause[dimension.key].length)) : copy.any),
           sameLabel: copy[dimension.same], isSame: Boolean(clause[dimension.same]),
           choices: (metadata[dimension.options] || []).filter(option => dimension.key !== 'identityCategoryIds' || clause.sameNature || (option.natureIds || []).some(id => (clause.natureIds || []).includes(id))).map(option => ({ id: option.id,
-            name: option.name + (option.departmentId ? ' · ' + (departments.get(option.departmentId) || '') : ''),
+            name: copy.optionWithDepartment(option.name, departments.get(option.departmentId)),
             selected: (clause[dimension.key] || []).includes(option.id) }))
         }))
       })) }));
@@ -191,7 +192,7 @@ Component({
       if (this.blocked()) return;
       this._picker = event.currentTarget.dataset;
       const ids = this.data.draft[this._picker.section][Number(this._picker.index)].personIds;
-      this.setData({ pickerVisible: true, pickerValue: ids }); this.triggerEvent('pickerchange', { visible: true });
+      this.setData({ pickerVisible: true, pickerValue: ids, pickerTitle: this._picker.section === 'audience' ? copy.chooseAudience : copy.chooseTargets }); this.triggerEvent('pickerchange', { visible: true });
     },
     closePeople: function() { this._picker = null; this.setData({ pickerVisible: false, pickerValue: [] }); this.triggerEvent('pickerchange', { visible: false }); },
     confirmPeople: function(event) {

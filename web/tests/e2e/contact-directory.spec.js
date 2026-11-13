@@ -91,11 +91,11 @@ test('directory-only admin can configure without loading member records, copy an
   await page.goto('/web/admin?subApp=hr');
   await page.getByRole('button', {name:ui.add,exact:true}).click();
   await page.getByPlaceholder(ui.namePlaceholder).fill('Contact policy');
-  await page.getByRole('button', {name:ui.choose,exact:true}).click();
+  await page.getByRole('button', {name:ui.chooseAudience,exact:true}).click();
   const dialog=page.getByRole('dialog');
   await dialog.getByRole('button').filter({hasText:'Visible candidate'}).click();
   await dialog.getByRole('button',{name:'确认',exact:true}).click();
-  await page.locator('summary').filter({hasText:ui.columns}).click();
+  await page.locator('summary').filter({hasText:ui.chooseFields}).click();
   await page.getByLabel('Phone',{exact:true}).check();
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:testInfo.outputPath('directory-editor.png'),fullPage:true,animations:'disabled'});
