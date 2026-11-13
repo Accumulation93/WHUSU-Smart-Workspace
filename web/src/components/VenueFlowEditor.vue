@@ -5,7 +5,7 @@
       <div class="row row-wrap"><strong>{{ factsCopy.stepNumber(index + 1) }}</strong><strong class="break-all">{{ item.name }}</strong></div>
       <div class="row row-wrap"><button v-if="index > 0" type="button" class="btn-quiet" :disabled="disabled" @click="move(index, -1)">{{ ui.copy_79b93c0b36 }}</button><button v-if="index + 1 < value.steps.length" type="button" class="btn-quiet" :disabled="disabled" @click="move(index, 1)">{{ ui.copy_7df1ffb06a }}</button><button type="button" class="btn-quiet" :disabled="disabled" @click="editStep(index)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="disabled" @click="value.steps.splice(index, 1)">{{ ui.copy_acc985cabc }}</button></div>
       <p v-if="!item.rules.length" class="muted">{{ ui.copy_b856d92ba6 }}</p>
-      <div v-for="(rule, ruleIndex) in item.rules" :key="ruleIndex" class="condition-summary"><strong>{{ ui.copy_96aab98a23 }}</strong><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div></div>
+      <div v-for="(rule, ruleIndex) in item.rules" :key="ruleIndex" class="condition-summary"><strong>{{ ui.copy_96aab98a23 }}</strong><div class="condition-line"><span class="muted">{{ relations.nature }}</span><span class="break-all">{{ natureSummary(rule) }}</span></div><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div></div>
     </div>
     <button type="button" class="btn btn-secondary" :disabled="disabled" @click="editStep(-1)">+ {{ ui.copy_7963fb24a5 }}</button>
     <div v-if="step && !condition" ref="stepEditor" class="list-row step-card">
@@ -13,12 +13,14 @@
       <label class="field"><span class="field-label">{{ ui.copy_c5dd070c37 }}</span><input v-model="step.name" class="field-input" :placeholder="ui.copy_ac4d7a45e0" :disabled="disabled" /></label>
       <span class="field-label">{{ ui.copy_97d10704ef }}</span>
       <p v-if="!step.rules.length" class="muted">{{ ui.copy_7ae01e1929 }}</p>
-      <div v-for="(rule, index) in step.rules" :key="index" class="condition-summary"><strong>{{ ui.copy_7de8083e58 }}</strong><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="disabled" @click="editCondition(index)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="disabled" @click="step.rules.splice(index, 1)">{{ ui.copy_acc985cabc }}</button></div></div>
+      <div v-for="(rule, index) in step.rules" :key="index" class="condition-summary"><strong>{{ ui.copy_7de8083e58 }}</strong><div class="condition-line"><span class="muted">{{ relations.nature }}</span><span class="break-all">{{ natureSummary(rule) }}</span></div><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="disabled" @click="editCondition(index)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="disabled" @click="step.rules.splice(index, 1)">{{ ui.copy_acc985cabc }}</button></div></div>
       <button type="button" class="btn btn-secondary" :disabled="disabled" @click="editCondition(-1)">+ {{ ui.copy_e36c6c6875 }}</button>
       <div class="editor-actions"><button type="button" class="btn btn-secondary" :disabled="disabled" @click="step = null">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" :disabled="disabled" @click="saveStep">{{ ui.copy_2fda3d6579 }}</button></div>
     </div>
     <div v-if="condition" ref="conditionEditor" class="list-row step-card">
       <strong>{{ conditionIndex < 0 ? ui.copy_64af7c9964 : ui.copy_49c0b6fb34 }}</strong><span>{{ step.name }}</span>
+      <p v-if="legacyNature" class="notice-line">{{ relations.legacyScopeHelp }}</p>
+      <div class="field"><span class="field-label">{{ relations.nature }}</span><button v-for="item in references.natures" :key="item.id" type="button" class="list-row nature-option" :class="{'nature-option-selected':(condition.natureIds || []).includes(item.id)}" :aria-pressed="(condition.natureIds || []).includes(item.id)" :disabled="disabled" @click="toggleNature(item.id)">{{ item.name }}</button></div>
       <div v-for="field in fields" :key="field.key" class="field">
         <span class="field-label">{{ field.label }}</span><span class="muted">{{ field.hint }}</span>
         <select :value="condition[field.scope]" class="field-input" :aria-label="field.label" :disabled="disabled" @change="condition[field.scope] = $event.target.value; condition[field.ids] = ''"><option value="all">{{ ui.copy_31d4595959 }}</option><option value="same">{{ field.same }}</option><option value="specific">{{ field.specific }}</option></select>
@@ -30,7 +32,7 @@
     <p v-if="notice" role="alert" class="notice-line">{{ notice }}</p><slot />
     <template #footer><button type="button" class="btn btn-primary" :disabled="disabled || !!step || !!condition || referenceLoading || !!referenceNotice" @click="$emit('save')">{{ ui.copy_f7597cecf5 }}</button></template>
   </GlassDialog>
-  <DictionaryPicker v-if="picker" :title="picker.title" :options="references[picker.key]" :value="ids(condition[picker.ids])" :departments="picker.key === 'workGroups' && condition.departmentScope === 'specific' ? references.departments.filter(item => ids(condition.specificDepartmentId).includes(item.id)) : []" @cancel="picker = null" @confirm="condition[picker.ids] = $event.join(','); picker = null" />
+  <DictionaryPicker v-if="picker" :title="picker.title" :options="picker.key === 'identities' ? references.identities.filter(item => (item.natureIds || []).some(id => (condition.natureIds || []).includes(id))) : references[picker.key]" :value="ids(condition[picker.ids])" :departments="picker.key === 'workGroups' && condition.departmentScope === 'specific' ? references.departments.filter(item => ids(condition.specificDepartmentId).includes(item.id)) : []" @cancel="picker = null" @confirm="condition[picker.ids] = $event.join(','); picker = null" />
 </template>
 <script setup>
 import { nextTick, onBeforeUnmount, ref } from 'vue';
@@ -40,6 +42,8 @@ import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import controls from '@/locales/zh-CN/shared/controlLayout.js';
 import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
+import { confirmAction } from '@/runtime/notify.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { clone } from '@/runtime/venueRules.js';
 import { session } from '@/runtime/session.js';
@@ -52,9 +56,11 @@ const fields = [
 ];
 const references = ref({ departments: [], workGroups: [], identities: [] }), referenceLoading = ref(false), referenceNotice = ref('');
 const step = ref(null), stepIndex = ref(null), condition = ref(null), conditionIndex = ref(null), picker = ref(null), notice = ref('');
+const legacyNature = ref(false);
 const stepEditor = ref(null), conditionEditor = ref(null);
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|'); const originalScope = scope(); let disposed = false, generation = 0;
 const ids = text => String(text || '').split(',').map(value => value.trim()).filter(Boolean);
+function natureSummary(rule){return rule.natureIds==null?relations.legacyScope:(rule.natureIds||[]).map(id=>references.value.natures.find(item=>item.id===id)?.name||relations.mappingInvalid).join(controls.listSeparator);}
 function summary(rule, field) {
   if (rule[field.scope] === 'same') return field.same;
   if (rule[field.scope] !== 'specific') return ui.copy_62676bc383;
@@ -70,10 +76,14 @@ function saveStep() {
 }
 function move(index, delta) { const items = props.value.steps; [items[index], items[index + delta]] = [items[index + delta], items[index]]; }
 function editCondition(index) {
-  conditionIndex.value = index; condition.value = index < 0 ? { departmentScope: 'all', specificDepartmentId: '', workGroupScope: 'all', specificWorkGroupId: '', identityScope: 'all', specificIdentityId: '' } : clone(step.value.rules[index]); notice.value = ''; reveal(conditionEditor);
+  conditionIndex.value = index; condition.value = index < 0 ? { natureIds:[],departmentScope: 'all', specificDepartmentId: '', workGroupScope: 'all', specificWorkGroupId: '', identityScope: 'all', specificIdentityId: '' } : clone(step.value.rules[index]); notice.value = ''; reveal(conditionEditor);
+  legacyNature.value=index>=0&&condition.value.natureIds==null;
 }
-function saveCondition() {
+async function toggleNature(id){const values=condition.value.natureIds||[],next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);const invalid=references.value.identities.filter(item=>ids(condition.value.specificIdentityId).includes(item.id)&&!(item.natureIds||[]).some(value=>next.includes(value)));if(invalid.length&&!await confirmAction({title:relations.incompatibleSelectionTitle,body:[relations.incompatibleSelectionHelp,...invalid.map(item=>item.name)].join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:ui.copy_06dbb49961}))return;condition.value.natureIds=next;condition.value.specificIdentityId=ids(condition.value.specificIdentityId).filter(value=>!invalid.some(item=>item.id===value)).join(',');}
+async function saveCondition() {
+  if(!(condition.value.natureIds||[]).length){notice.value=relations.selectNatureRequired;return;}
   if (fields.some(field => condition.value[field.scope] === 'specific' && !ids(condition.value[field.ids]).length)) { notice.value = ui.copy_8bc3aa5b58; return; }
+  if(legacyNature.value&&!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp((references.value.natures||[]).filter(item=>condition.value.natureIds.includes(item.id)).map(item=>item.name)),confirmText:relations.confirmScopeChange,cancelText:ui.copy_06dbb49961}))return;
   if (conditionIndex.value < 0) step.value.rules.push(clone(condition.value)); else step.value.rules[conditionIndex.value] = clone(condition.value);
   condition.value = null; conditionIndex.value = null; notice.value = ''; reveal(stepEditor);
 }
@@ -82,7 +92,7 @@ async function loadReferences() {
   try {
     const results = await Promise.all(['listDepartments', 'listWorkGroups', 'listIdentities'].map(name => callApi(name, {}).then(requireSuccess)));
     if (disposed || originalScope !== scope() || request !== generation) return;
-    const next = { departments: results[0].departments, workGroups: results[1].workGroups, identities: results[2].identities };
+    const next = { departments: results[0].departments, workGroups: results[1].workGroups, identities: results[2].identities, natures: results[2].natureOptions || [] };
     if (Object.values(next).some(list => !Array.isArray(list))) throw new Error();
     references.value = next; referenceNotice.value = '';
   } catch (error) { if (!disposed && originalScope === scope() && request === generation) referenceNotice.value = errorText(error, ui.copy_e52119b17e); }
@@ -96,4 +106,6 @@ loadReferences(); onBeforeUnmount(() => { disposed = true; generation++; });
 .condition-line { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ui-inline-gap); }
 .editor-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .scope-picker { flex: 1; min-width: 0; text-align: left; cursor: pointer; white-space: normal; }
+.nature-option { width: 100%; text-align:left; color:var(--ui-text); font:inherit; }
+.nature-option-selected { border-color:var(--ui-blue-700);background:var(--ui-chip-blue-bg); }
 </style>

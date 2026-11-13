@@ -35,6 +35,9 @@ function buildConditions(step, copy) {
         else group.notice = copy.approvalConditionIncomplete;
         return { key,label,value };
       });
+      const natureNames=names(fact.natureNames);
+      group.rows.unshift({key:'nature',label:copy.approvalNatureLabel,value:fact.natureIds==null?copy.approvalLegacyNature:natureNames||copy.approvalDimensionUnavailable});
+      if(fact.natureIds!=null&&(!Array.isArray(fact.natureIds)||!fact.natureIds.length||!Array.isArray(fact.natureNames)||fact.natureNames.length!==fact.natureIds.length))group.notice=copy.approvalConditionIncomplete;
     } else { group.text=copy.approverRangeUnavailable; group.notice=copy.approvalConditionIncomplete; }
     return group;
   });

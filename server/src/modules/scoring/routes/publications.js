@@ -26,6 +26,8 @@ const pubCache = require('../utils/pubCache');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
+const publicationNatureScope = require('../models/publicationNatureScope');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const publicationAuthorization = require('../models/publicationAuthorization');
@@ -50,6 +52,9 @@ function rejectPublicationRule(status, message) {
 }
 
 function respondPublicationRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
+  if (['identity_natures_required', 'identity_nature_invalid', 'identity_nature_mismatch'].includes(error.code)) {
+    return respondScoringResponse(res, { status: 'invalid_params', reason: error.code });
+  }
   if (error.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
   return respondScoringResponse(res, {
     status: error instanceof PublicationRuleRequestError ? error.status : 'error',
@@ -143,7 +148,7 @@ async function normalizePubViewRuleInput(connection, orgId, body) {
       }
       gradeBands.push({ minScore, maxScore, gradeName });
     }
-    dedupedClauses.push({ scopeType, targetIdentityId, displayMode, gradeBands });
+    dedupedClauses.push({ scopeType, targetIdentityId, displayMode, gradeBands, natureIds: natureRulePolicy.normalize(clause.natureIds) });
   }
 
   await assertPublicationDictionaryReferences(
@@ -158,7 +163,8 @@ async function normalizePubViewRuleInput(connection, orgId, body) {
     granteeDepartmentId,
     granteeIdentityId,
     key: publicationId + '::' + granteeDepartmentId + '::' + granteeIdentityId,
-    clauses: dedupedClauses
+    clauses: dedupedClauses,
+    natureIds: await publicationNatureScope.prepare(connection, orgId, 'view', { ...source, id, publicationId, granteeDepartmentId, granteeIdentityId }, dedupedClauses)
   };
 }
 
@@ -218,6 +224,7 @@ async function savePubViewRuleWithConnection(connection, orgId, input) {
       );
     }
   }
+  await publicationNatureScope.persist(connection, orgId, 'view', ruleId, input);
   return ruleId;
 }
 
@@ -266,6 +273,7 @@ async function normalizePubMeritRuleInput(connection, orgId, body) {
     dedupedClauses.push({
       scopeType,
       targetIdentityId,
+      natureIds: natureRulePolicy.normalize(clause.natureIds),
       quotaLimit: Math.max(0, parseInt(String(clause.quotaLimit), 10) || 0),
       requireExactQuota: clause.requireExactQuota === true
     });
@@ -283,7 +291,8 @@ async function normalizePubMeritRuleInput(connection, orgId, body) {
     granteeDepartmentId,
     granteeIdentityId,
     key: publicationId + '::' + granteeDepartmentId + '::' + granteeIdentityId,
-    clauses: dedupedClauses
+    clauses: dedupedClauses,
+    natureIds: await publicationNatureScope.prepare(connection, orgId, 'merit', { ...source, id, publicationId, granteeDepartmentId, granteeIdentityId }, dedupedClauses)
   };
 }
 
@@ -365,6 +374,7 @@ async function savePubMeritRuleWithConnection(connection, orgId, input) {
       [oldClauseId, ruleId, orgId]
     );
   }
+  await publicationNatureScope.persist(connection, orgId, 'merit', ruleId, input);
   return ruleId;
 }
 
@@ -503,10 +513,12 @@ async function fetchOrgLookups() {
   const key = await require('../utils/sharedCache').versionedKey('publicationLookups:' + orgId, orgId);
   const cached = _orgLookupsCache.get(key);
   if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) return cached.value;
-  const [departments, identities, workGroups] = await Promise.all([
-    departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
+  const [departments, identities, workGroups, natures] = await Promise.all([
+    departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll(), require('../../../core/models/assignmentNature').list(pool, orgId)
   ]);
-  const value = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
+  const value = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups),
+    identities: identities.map(row => ({ id: row.id, name: row.name, natureIds: row.natureIds || [] })),
+    natures: natures.map(row => ({ id: row.id, name: row.name })) };
   if (!key.includes(':uncached:')) {
     if (_orgLookupsCache.size >= 64) _orgLookupsCache.delete(_orgLookupsCache.keys().next().value);
     _orgLookupsCache.set(key, { value, timestamp: now });
@@ -681,6 +693,7 @@ router.post('/getResultPublication', async (req, res) => {
     const enrichedViewRules = viewRuleRows.map(r => {
       const clauses = (viewClausesMap.get(r.id) || []).map(c => ({
         id: c.id, ruleId: c.rule_id, scopeType: c.scope_type,
+        natureIds: natureRulePolicy.normalize(c.nature_ids),
         scopeLabel: scopeLabelMap[c.scope_type] || c.scope_type,
         targetIdentityId: c.target_identity_id || '',
         targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
@@ -690,6 +703,7 @@ router.post('/getResultPublication', async (req, res) => {
       }));
       return {
         id: r.id, publicationId: r.publication_id,
+        natureIds: natureRulePolicy.normalize(r.nature_ids),
         granteeDepartmentId: r.grantee_department_id,
         granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id,
@@ -701,6 +715,7 @@ router.post('/getResultPublication', async (req, res) => {
     const enrichedMeritRules = meritRuleRows.map(r => {
       const clauses = (meritClausesMap.get(r.id) || []).map(c => ({
         id: c.id, ruleId: c.rule_id, scopeType: c.scope_type,
+        natureIds: natureRulePolicy.normalize(c.nature_ids),
         scopeLabel: scopeLabelMap[c.scope_type] || c.scope_type,
         targetIdentityId: c.target_identity_id || '',
         targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
@@ -709,6 +724,7 @@ router.post('/getResultPublication', async (req, res) => {
       }));
       return {
         id: r.id, publicationId: r.publication_id,
+        natureIds: natureRulePolicy.normalize(r.nature_ids),
         granteeDepartmentId: r.grantee_department_id,
         granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id,
@@ -729,6 +745,8 @@ router.post('/getResultPublication', async (req, res) => {
     const assignmentCandidates = activeAssignments.map((assignment) => ({
       id: publicationAssignments.assignmentIdOf(assignment),
       assignmentId: publicationAssignments.assignmentIdOf(assignment),
+      assignmentNature: safeString(assignment.assignment_kind),
+      assignmentNatureName: (lookups.natures.find(item => item.id === assignment.assignment_kind) || {}).name || '',
       name: safeString(assignment.name),
       departmentId: safeString(assignment.department_id),
       department: lookups.departmentsById.get(safeString(assignment.department_id)) || '',
@@ -751,7 +769,8 @@ router.post('/getResultPublication', async (req, res) => {
       meritListDesignations: enrichedDesignations, assignmentCandidates,
       configurationCandidates: {
         departments: Array.from(lookups.departmentsById, ([id, name]) => ({ id, name })),
-        identities: Array.from(lookups.identitiesById, ([id, name]) => ({ id, name }))
+        identities: lookups.identities,
+        natures: lookups.natures
       }
     });
   } catch (e) {
@@ -854,7 +873,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     await assertPublicationExists(conn, orgId, publicationId);
     await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
     const [[clause]] = await conn.query(
-      `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
+      `SELECT pmrc.*, pmr.nature_ids AS grantee_nature_ids, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
          FROM pub_merit_rule_clauses pmrc
          JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
@@ -888,7 +907,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
       const [rows] = await conn.query(
-        `SELECT pmrc.scope_type, pmrc.target_identity_id,
+        `SELECT pmrc.scope_type, pmrc.target_identity_id, pmrc.nature_ids, pmr.nature_ids AS grantee_nature_ids,
                 pmr.grantee_department_id, pmr.grantee_identity_id
            FROM pub_merit_rule_clauses pmrc
            JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
@@ -903,6 +922,8 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     } else {
       allClauseScopes = [{
         scope_type: clause.scope_type,
+        nature_ids: clause.nature_ids,
+        grantee_nature_ids: clause.grantee_nature_ids,
         target_identity_id: clause.target_identity_id,
         grantee_department_id: clause.grantee_department_id,
         grantee_identity_id: clause.grantee_identity_id
@@ -922,10 +943,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     for (const targetAssignment of designationTargets) {
       let matchesAnyClause = false;
       for (const sc of allClauseScopes) {
-        const granteeAssignments = activeAssignments.filter((assignment) => (
-          safeString(assignment.department_id) === safeString(sc.grantee_department_id)
-          && safeString(assignment.identity_id) === safeString(sc.grantee_identity_id)
-        ));
+        const granteeAssignments = activeAssignments.filter(assignment => publicationAssignments.matchesRuleGrantee(assignment, sc));
         matchesAnyClause = granteeAssignments.some((granteeAssignment) => (
           publicationAssignments.matchesMeritClause(targetAssignment, sc, granteeAssignment)
         ));
@@ -1050,7 +1068,7 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
     };
 
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
-    const matchingRules = viewRuleRows.filter(r => safeString(r.grantee_department_id) === viewer.departmentId && safeString(r.grantee_identity_id) === viewer.identityId);
+    const matchingRules = viewRuleRows.filter(r => publicationAssignments.matchesRuleGrantee(viewerRecord, r));
     if (!matchingRules.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
     // Collect all matching clauses (with per-clause display_mode)
@@ -1122,6 +1140,7 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
     const allMembers = memberPresentation.rows;
 
     function matchScope(target, clause) {
+      if (!natureRulePolicy.matches(clause.nature_ids, target.assignmentKind)) return false;
       const st = safeString(clause.scope_type);
       if (st === 'own_results') return target.id === viewer.id;
       if (st === 'same_department_identity') return target.departmentId === viewer.departmentId && target.identityId === safeString(clause.target_identity_id);
@@ -1439,7 +1458,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       return respondScoringResponse(res, { status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
     }
     const [[clause]] = await pool.query(
-      `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
+      `SELECT pmrc.*, pmr.nature_ids AS grantee_nature_ids, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
          FROM pub_merit_rule_clauses pmrc
          JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
@@ -1697,6 +1716,7 @@ router.post('/listPubViewRules', async (req, res) => {
     for (const r of rules) {
       const clauses = (clausesByRule.get(r.id) || []).map(c => ({
         id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '',
+        natureIds: natureRulePolicy.normalize(c.nature_ids),
         targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
         displayMode: safeString(c.display_mode) || 'score',
         gradeBands: gradeBandsByClause.get(c.id) || [],
@@ -1704,6 +1724,7 @@ router.post('/listPubViewRules', async (req, res) => {
       }));
       result.push({
         id: r.id, publicationId: r.publication_id,
+        natureIds: natureRulePolicy.normalize(r.nature_ids),
         granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id, granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
         clauseCount: clauses.length, clauses
@@ -1824,10 +1845,11 @@ router.post('/listPubMeritRules', async (req, res) => {
       const clauses = clausesByRule.get(r.id) || [];
       result.push({
         id: r.id, publicationId: r.publication_id,
+        natureIds: natureRulePolicy.normalize(r.nature_ids),
         granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id, granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
         clauseCount: clauses.length,
-        clauses: clauses.map(c => ({ id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '', targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '', quotaLimit: c.quota_limit || 0, requireExactQuota: (c.require_exact_quota === 1), sortOrder: c.sort_order }))
+        clauses: clauses.map(c => ({ id: c.id, natureIds: natureRulePolicy.normalize(c.nature_ids), scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '', targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '', quotaLimit: c.quota_limit || 0, requireExactQuota: (c.require_exact_quota === 1), sortOrder: c.sort_order }))
       });
     }
     respondScoringResponse(res, { status: 'success', rules: result });

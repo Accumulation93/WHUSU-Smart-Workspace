@@ -19,6 +19,7 @@ function filterCandidatesForClause(candidates, clause) {
     rows.forEach(function(candidate) {
       if (candidate.departmentId === granteeDepartmentId
         && candidate.identityId === granteeIdentityId
+        && (!source.granteeNatureIds || source.granteeNatureIds.indexOf(candidate.assignmentNature) >= 0)
         && candidate.workGroupId) {
         granteeWorkGroupIds.add(candidate.workGroupId);
       }
@@ -26,6 +27,7 @@ function filterCandidatesForClause(candidates, clause) {
   }
 
   return rows.filter(function(candidate) {
+    if (source.natureIds && source.natureIds.indexOf(candidate.assignmentNature) < 0) return false;
     if (IDENTITY_REQUIRED_SCOPES.indexOf(scopeType) >= 0
       && candidate.identityId !== targetIdentityId) return false;
     if (scopeType === 'all_people' || scopeType === 'identity_only') return true;

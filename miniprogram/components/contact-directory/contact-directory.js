@@ -1,5 +1,6 @@
 'use strict';
 const copy = require('../../locales/zh-CN/contactDirectory');
+const relations = require('../../locales/zh-CN/identityNatureRelations');
 const view = require('../../utils/contactDirectoryView');
 const { callFunction, getErrorText, showShortToast } = require('../../utils/api');
 const session = require('../../utils/orgSession');
@@ -14,7 +15,7 @@ const dimensions = [
 Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
-  data: { copy, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
+  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
@@ -51,7 +52,7 @@ Component({
         if (result.status !== 'success') throw result;
         if (this.data.admin) {
           this._metadata = result;
-          this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSections(rule, result, copy) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
+          this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSections(rule, result, copy, relations) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
         } else {
           this._groups = view.decorateGroups(result.groups, dateFormatter, copy);
           this.setData({ groups: view.filterGroups(this._groups, this.data.query), loadFailed: false });
@@ -117,6 +118,7 @@ Component({
       const id = event.currentTarget.dataset.id;
       const existing = this.data.rules.find(rule => rule.id === id);
       const draft = existing ? view.payload(existing) : view.blankRule();
+      this._legacyNatureEdit=['audience','targets'].some(key=>draft[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));
       if (event.currentTarget.dataset.copy) { delete draft.id; delete draft.version; }
       this.setData({ draft, expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
     },
@@ -126,6 +128,8 @@ Component({
       const peopleById = new Map(this.data.people.map(person => [person.personId, person.name]));
       const departments = new Map(metadata.departments.map(item => [item.id, item.name]));
       const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], clauses: draft[key].map((clause, index) => ({
+        sameNature: Boolean(clause.sameNature),legacyNature: clause.natureIds == null && !clause.sameNature,
+        natures: (metadata.natures || []).map(item => ({ id:item.id, name:item.name, selected:(clause.natureIds || []).includes(item.id) })),
         index, type: clause.type, typeIndex: ['people', 'scope', 'self'].indexOf(clause.type),
         labels: key === 'targets' ? this.data.typeLabels : this.data.typeLabels.slice(0, 2),
         selectedText: copy.selected.replace('{count}', String((clause.personIds || []).length)),
@@ -135,7 +139,7 @@ Component({
           expanded: Boolean(this.data.expandedFilters[key + '-' + index + '-' + dimension.key]),
           summary: clause[dimension.same] ? copy[dimension.same] : ((clause[dimension.key] || []).length ? copy.selectedOptions.replace('{count}', String(clause[dimension.key].length)) : copy.any),
           sameLabel: copy[dimension.same], isSame: Boolean(clause[dimension.same]),
-          choices: metadata[dimension.options].map(option => ({ id: option.id,
+          choices: (metadata[dimension.options] || []).filter(option => dimension.key !== 'identityCategoryIds' || clause.sameNature || (option.natureIds || []).some(id => (clause.natureIds || []).includes(id))).map(option => ({ id: option.id,
             name: option.name + (option.departmentId ? ' · ' + (departments.get(option.departmentId) || '') : ''),
             selected: (clause[dimension.key] || []).includes(option.id) }))
         }))
@@ -161,12 +165,21 @@ Component({
       if (this.data.draft[section].length < 2) return;
       this.setData({ ['draft.' + section]: this.data.draft[section].filter((item, i) => i !== Number(index)) }, () => this.refreshEditor());
     },
-    toggleChoice: function(event) {
+    toggleChoice: async function(event) {
       if (this.blocked()) return;
       const { section, index, key, id } = event.currentTarget.dataset;
       const path = section ? 'draft.' + section + '[' + index + '].' + key : 'draft.fieldIds';
-      const old = section ? this.data.draft[section][Number(index)][key] : this.data.draft.fieldIds;
-      this.setData({ [path]: old.includes(id) ? old.filter(value => value !== id) : old.concat([id]) }, () => this.refreshEditor());
+      const old = (section ? this.data.draft[section][Number(index)][key] : this.data.draft.fieldIds) || [];
+      const next = old.includes(id) ? old.filter(value => value !== id) : old.concat([id]);
+      const patch = { [path]: next };
+      if(key === 'natureIds') {
+        const draft=this.data.draft,clause=draft[section][Number(index)];
+        const invalid=(this._metadata.identities||[]).filter(item=>(clause.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(nature=>next.includes(nature)));
+        if(invalid.length){const result=await wx.showModal({title:relations.incompatibleSelectionTitle,content:[relations.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==draft)return;}
+        patch['draft.'+section+'['+index+'].sameNature']=false;
+        patch['draft.'+section+'['+index+'].identityCategoryIds']=(clause.identityCategoryIds||[]).filter(value=>!invalid.some(item=>item.id===value));
+      }
+      this.setData(patch, () => this.refreshEditor());
     },
     sameChange: function(event) {
       if (this.blocked()) return;
@@ -198,7 +211,13 @@ Component({
     },
     selectAll: function() { if (!this.blocked()) this.setSelection(this.data.rules.map(rule => rule.id)); },
     clearSelection: function() { if (!this.blocked()) this.setSelection([]); },
-    save: function() { if (!this.blocked()) this.write('saveContactDirectoryRule', view.payload(this.data.draft)); },
+    save: async function() {
+      if(this.blocked())return;
+      if(['audience','targets'].some(key=>this.data.draft[key].some(clause=>clause.type==='scope'&&!(clause.natureIds||[]).length&&!clause.sameNature))){this.setData({notice:relations.selectNatureRequired});return;}
+      const source=this.data.draft;
+      if(this._legacyNatureEdit){const clauses=source.audience.concat(source.targets).filter(clause=>clause.type==='scope');const labels=(this._metadata.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.directorySameNatureSummary);const result=await wx.showModal({title:relations.legacyScopeChangeTitle,content:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==source)return;}
+      this.write('saveContactDirectoryRule',view.payload(source));
+    },
     toggleEnabled: function(event) {
       if (this.blocked()) return;
       const rule = this.data.rules.find(item => item.id === event.currentTarget.dataset.id);

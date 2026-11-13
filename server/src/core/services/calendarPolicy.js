@@ -3,9 +3,9 @@ const directory = require('./contactDirectoryPolicy');
 const { CalendarError } = require('./calendarRecurrence');
 const ACTIONS = new Set(['assign', 'update', 'cancel']);
 
-function normalize(input) {
+function normalize(input, previous) {
   try {
-    const rule = directory.normalizeRule(Object.assign({}, input, {fieldIds:[]}));
+    const rule = directory.normalizeRule(Object.assign({}, input, {fieldIds:[]}), previous);
     if (!Array.isArray(input.actions) || !input.actions.length || input.actions.some(value=>!ACTIONS.has(value))) throw new CalendarError('invalidRule');
     return Object.assign(rule, {actions:Array.from(new Set(input.actions)).sort()});
   } catch (error) {

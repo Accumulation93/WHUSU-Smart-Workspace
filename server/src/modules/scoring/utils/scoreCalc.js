@@ -65,7 +65,7 @@ function validateCalculationSnapshot(record, activityId) {
   if (!isSupportedCalculationSnapshotVersion(snapshot.version)) {
     return { ok: false, reason: 'unsupported_snapshot_version' };
   }
-  if (Number(snapshot.version) === CALCULATION_SNAPSHOT_VERSION
+  if (Number(snapshot.version) >= CALCULATION_SNAPSHOT_VERSION
     && !isCanonicalCalculationSnapshot(snapshot)) {
     return { ok: false, reason: 'non_canonical_snapshot' };
   }

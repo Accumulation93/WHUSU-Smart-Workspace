@@ -15,7 +15,11 @@ function conditionFacts(conditions, maps) {
     const departments = names(item.specificDepartmentId, source.deptMap);
     const identities = names(item.specificIdentityId, source.identityMap);
     const groups = names(item.specificWorkGroupId, source.wgMap);
+    const natureIds = item.natureIds == null ? null : Array.isArray(item.natureIds) ? item.natureIds : [];
+    const natures = names(natureIds, source.natureMap);
     return {
+      natureIds,
+      natureNames: natures.values,
       conditionType: String(item.conditionType || ''),
       personNames: people.values,
       departmentScope: String(item.departmentScope || ''),
@@ -24,7 +28,7 @@ function conditionFacts(conditions, maps) {
       identityNames: identities.values,
       workGroupScope: String(item.workGroupScope || ''),
       workGroupNames: groups.values,
-      unresolved: people.unresolved || departments.unresolved || identities.unresolved || groups.unresolved
+      unresolved: people.unresolved || departments.unresolved || identities.unresolved || groups.unresolved || natures.unresolved || (natureIds !== null && !natureIds.length)
     };
   });
 }

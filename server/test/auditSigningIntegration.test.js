@@ -28,10 +28,11 @@ async function run() {
     // 先模拟升级前结构，再验证新增字段迁移的执行与重复执行。
     await admin.query('ALTER TABLE audit_submission_files DROP COLUMN original_file_path, DROP COLUMN original_file_hash, DROP COLUMN original_file_size');
     await admin.query('ALTER TABLE audit_submissions DROP COLUMN description');
-    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql', '20261018010000_audit_drop_resubmit_mode.sql', '20261031160000_unified_authorization.sql']) {
+    for (const migration of ['20260906180000_audit_signing_evidence.sql', '20260906123000_stamp_person_assignment_grants.sql', '20261014143000_audit_signature_geometry_v3.sql', '20261017233000_audit_fresh_round_originals.sql', '20261018010000_audit_drop_resubmit_mode.sql', '20261031160000_unified_authorization.sql', '20261111100000_identity_nature_links.sql', '20261111101000_business_rule_natures.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', migration), 'utf8'); await admin.query(sql); await admin.query(sql);
     }
     // 生产绝对时间字段已由 UTC 迁移升级为毫秒；隔离初始库补齐同一事实。
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
     await admin.query('ALTER TABLE audit_submission_signatures MODIFY signed_at DATETIME(3) NOT NULL');
     Object.assign(process.env, { DB_HOST: options.host, DB_PORT: String(options.port), DB_USER: testUser,
       DB_PASSWORD: testPassword, DB_NAME: database, JWT_SECRET: crypto.randomBytes(32).toString('base64'),
@@ -121,7 +122,7 @@ async function run() {
     await admin.query("INSERT INTO stamp_assignment_grants (id,org_id,stamp_id,assignment_id,person_id) VALUES ('grant-a','org-a','stamp-a','assignment-a','person-a')");
     const saved = await post('approveStep', payload); assert.equal(saved.status, 'success', JSON.stringify(saved));
     const reread = await post('getSubmissionDetail', { submissionId: 'submission-1' });
-    assert.equal(reread.status, 'success'); assert.equal(reread.submission.status, 'approved');
+    assert.equal(reread.status, 'success', JSON.stringify(reread)); assert.equal(reread.submission.status, 'approved');
     assert.equal(reread.signatures.length, 3);
     const handwritten = reread.signatures.find(item => item.signatureType === 'signature' && item.widthRatio != null);
     assert(Math.abs(handwritten.widthRatio - payload.signatures[0].widthRatio) <= 0.00000001);

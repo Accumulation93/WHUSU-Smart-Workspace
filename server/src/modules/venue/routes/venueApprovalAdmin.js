@@ -29,6 +29,7 @@ const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
 const { toAssignmentSnapshot } = require('../services/venueAssignmentContext');
 const { effectiveBookingStart } = require('../services/venueEffectiveBookingTime');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 function readDesignationAssignmentIds(body, listKey, legacyKey) {
   const source = body || {};
@@ -238,6 +239,16 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     }
     await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
+    if (flowIdParam) {
+      const previous = (await ruleModel.getByFlowId(flowIdParam, conn)).map(rule => ({
+        natureIds: natureRulePolicy.normalize(rule.nature_ids), departmentScope: rule.department_scope,
+        specificDepartmentId: rule.specific_department_id, workGroupScope: rule.work_group_scope,
+        specificWorkGroupId: rule.specific_work_group_id, identityScope: rule.identity_scope, specificIdentityId: rule.specific_identity_id
+      }));
+      const keyOf = rule => JSON.stringify([rule.departmentScope || 'all', rule.specificDepartmentId || '',
+        rule.workGroupScope || 'all', rule.specificWorkGroupId || '', rule.identityScope || 'all', rule.specificIdentityId || '']);
+      natureRulePolicy.preserveMissing(stepsData.flatMap(step => step.rules), previous, keyOf);
+    }
     for (const step of stepsData) {
       for (const rule of step.rules) {
         await dictionaryUsage.assertDictionaryReferences(Object.assign({
@@ -307,6 +318,7 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
       for (let j = 0; j < rules.length; j++) {
         const rd = rules[j];
         await ruleModel.create(generateId(), {
+          natureIds: rd.natureIds,
           stepId,
           sortOrder: j + 1,
           departmentScope: rd.departmentScope || 'all',

@@ -1,5 +1,6 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const identityNatureRule = require('../../../core/models/identityNatureRule');
 
 async function getByTemplateStepId(templateStepId, conn) {
   const orgId = await getCurrentOrgId();
@@ -43,6 +44,7 @@ async function create(id, data, conn) {
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
+  const natureIds = await identityNatureRule.validate(db, orgId, data.natureIds, specificIdentityId);
   await db.query(
     `INSERT INTO audit_flow_template_step_conditions
      (id, template_step_id, sort_order, condition_type,
@@ -50,14 +52,15 @@ async function create(id, data, conn) {
       department_scope, specific_department_id,
       work_group_scope, specific_work_group_id,
       identity_scope, specific_identity_id,
-      org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      nature_ids, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, templateStepId, sortOrder || 1, conditionType || 'identity_scope',
       personHrIds || null, assignmentIds || null,
       departmentScope || 'all', specificDepartmentId || null,
       workGroupScope || 'all', specificWorkGroupId || null,
       identityScope || 'all', specificIdentityId || null,
+      natureIds === null ? null : JSON.stringify(natureIds),
       orgId
     ]
   );

@@ -11,9 +11,10 @@ test('conditions preserve each group and each same-position dimension', () => {
   ] }, copy);
   assert.equal(view.groups.length, 2);
   assert.equal(view.groups[0].text, copy.approvalSubmitterCondition);
-  assert.equal(view.groups[1].rows[0].value, copy.approvalOwnDepartment);
-  assert.equal(view.groups[1].rows[1].value, copy.approvalSpecifiedValues('role-a、role-b'));
-  assert.equal(view.groups[1].rows[2].value, copy.approvalAllWorkGroups);
+  assert.equal(view.groups[1].rows[0].value, require('../../shared/locales/zh-CN/identityNatureRelations').legacyScope);
+  assert.equal(view.groups[1].rows[1].value, copy.approvalOwnDepartment);
+  assert.equal(view.groups[1].rows[2].value, copy.approvalSpecifiedValues('role-a、role-b'));
+  assert.equal(view.groups[1].rows[3].value, copy.approvalAllWorkGroups);
   assert.equal(view.hint, copy.approvalConditionGroupsHint);
 });
 
@@ -21,8 +22,8 @@ test('missing conditions never become an unrestricted range or server-provided d
   const view = buildConditions({ approverDesc: 'untrusted-server-display', conditionFacts: [
     { conditionType: 'identity_scope', departmentScope: 'specific', departmentNames: ['known'], unresolved: true }
   ] }, copy);
-  assert.equal(view.groups[0].rows[0].value, copy.approvalSpecifiedValues('known'));
-  assert.equal(view.groups[0].rows[1].value, copy.approvalDimensionUnavailable);
+  assert.equal(view.groups[0].rows[1].value, copy.approvalSpecifiedValues('known'));
+  assert.equal(view.groups[0].rows[2].value, copy.approvalDimensionUnavailable);
   assert.equal(view.groups[0].notice, copy.approvalConditionIncomplete);
   assert.equal(JSON.stringify(view).includes('untrusted-server-display'), false);
   assert.equal(buildConditions({ approverDesc: 'untrusted' }, copy).summary, copy.approverRangeUnavailable);

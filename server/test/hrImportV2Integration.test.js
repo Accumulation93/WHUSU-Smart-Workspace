@@ -31,6 +31,7 @@ async function main() {
     await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY (org_id, domain))`);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     await admin.query("INSERT INTO departments (id,name,org_id) VALUES ('d1','部门甲','org-test')");
     await admin.query("INSERT INTO identities (id,name,org_id) VALUES ('i1','成员','org-test')");
     await admin.query("INSERT INTO work_groups (id,name,department_id,org_id) VALUES ('g1','组甲','d1','org-test')");

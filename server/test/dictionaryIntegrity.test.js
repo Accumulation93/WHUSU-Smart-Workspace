@@ -150,6 +150,7 @@ async function testDictionaryDeleteLocksAndDeletesInOneTransaction() {
     if (sql.startsWith('SELECT id,')) return [[]];
     if (sql.startsWith('SELECT id FROM')) return [[]];
     if (sql.startsWith('DELETE FROM identities')) return [{ affectedRows: 1 }];
+    if (sql.startsWith('DELETE FROM identity_nature_links') || sql.startsWith('DELETE FROM identity_nature_states')) return [{ affectedRows: 0 }];
     throw new Error(`未处理 SQL: ${sql}`);
   });
   const originalGetConnection = pool.getConnection;

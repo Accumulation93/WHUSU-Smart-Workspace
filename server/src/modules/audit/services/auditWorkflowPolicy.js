@@ -1,6 +1,7 @@
 'use strict';
 
 const { safeString } = require('../../../utils/helpers');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 const STEP_ACTION_TYPES = new Set(['pass', 'sign', 'estamp', 'both', 'either']);
 const CONDITION_TYPES = new Set(['identity_scope', 'person', 'submitter']);
@@ -16,6 +17,8 @@ function normalizeConditionScope(value) {
 
 function validateConditionShape(condition) {
   const item = condition || {};
+  try { natureRulePolicy.normalize(item.natureIds); }
+  catch (_) { return { ok: false, reason: 'identity_natures_required' }; }
   const conditionType = normalizeConditionType(item.conditionType);
   if (!CONDITION_TYPES.has(conditionType)) {
     return { ok: false, reason: 'condition_type_invalid' };

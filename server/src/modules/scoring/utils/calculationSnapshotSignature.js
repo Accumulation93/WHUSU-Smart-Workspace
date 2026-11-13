@@ -41,11 +41,11 @@ function projectTemplate(item) {
   };
 }
 
-function projectCalculationPolicy(source) {
+function projectCalculationPolicy(source, signatureVersion) {
   const snapshot = source || {};
   const rule = snapshot.rule || {};
   const clause = snapshot.clause || {};
-  return {
+  const projected = {
     rule: {
       id: rule.id,
       scorerDepartmentId: rule.scorerDepartmentId,
@@ -61,23 +61,28 @@ function projectCalculationPolicy(source) {
     },
     templates: (snapshot.templates || []).map(projectTemplate)
   };
+  if (Number(signatureVersion || snapshot.version) === 3) {
+    projected.rule.natureIds = rule.natureIds === null ? null : rule.natureIds;
+    projected.clause.natureIds = clause.natureIds === null ? null : clause.natureIds;
+  }
+  return projected;
 }
 
-function calculationPolicyDigest(source) {
+function calculationPolicyDigest(source, signatureVersion) {
   return crypto.createHash('sha256')
-    .update(JSON.stringify(projectCalculationPolicy(source)))
+    .update(JSON.stringify(projectCalculationPolicy(source, signatureVersion)))
     .digest('hex');
 }
 
 function buildCalculationPolicySignature(source, signatureVersion = 2) {
-  const version = Number(signatureVersion) === 1 ? 1 : 2;
-  return 'v' + version + ':' + calculationPolicyDigest(source);
+  const version = Number(signatureVersion) === 3 ? 3 : (Number(signatureVersion) === 1 ? 1 : 2);
+  return 'v' + version + ':' + calculationPolicyDigest(source, version);
 }
 
 function validateCalculationPolicySignature(source, signature) {
   const value = String(signature || '').trim();
-  const match = /^v(1|2):([0-9a-f]{64})$/.exec(value);
-  return Boolean(match && match[2] === calculationPolicyDigest(source));
+  const match = /^v(1|2|3):([0-9a-f]{64})$/.exec(value);
+  return Boolean(match && match[2] === calculationPolicyDigest(source, Number(match[1])));
 }
 
 module.exports = {

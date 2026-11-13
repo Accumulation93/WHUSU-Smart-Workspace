@@ -4,12 +4,15 @@ const crypto = require('node:crypto');
 const directory = require('./contactDirectory');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const { normalizeFlowSteps } = require('../../modules/venue/utils/approvalFlowValidation');
+const natureRulePolicy = require('../services/natureRulePolicy');
+const identityNatureRule = require('./identityNatureRule');
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DIMENSIONS = [['department', 'Department'], ['identity', 'Identity'], ['workGroup', 'WorkGroup']];
 function fail(code = 'config_copy_invalid') { throw Object.assign(new Error(code), { code }); }
 function translateRule(raw, translate) {
   if (!raw || typeof raw !== 'object') fail();
-  const result = {};
+  const selected = natureRulePolicy.normalize(raw.natureIds);
+  const result = { natureIds: selected === null ? null : selected.map(id => translate('nature', id)) };
   for (const [lower, upper] of DIMENSIONS) {
     const scope = raw[lower + 'Scope'];
     if (!['all', 'same', 'specific'].includes(scope)) fail();
@@ -31,7 +34,7 @@ function normalize(raw) {
     || ['allowUserSelect', 'allowDesignateFirst', 'allowDesignateNext'].some(key => typeof raw[key] !== 'boolean')) fail();
   const entries = new Map();
   const references = raw.references.map(item => {
-    if (!item || !['venue', 'department', 'identity', 'workGroup'].includes(item.kind)
+    if (!item || !['venue', 'nature', 'department', 'identity', 'workGroup'].includes(item.kind)
       || typeof item.token !== 'string' || !ID.test(item.token) || entries.has(item.token)
       || typeof item.label !== 'string' || !item.label || Array.from(item.label).length > 600) fail();
     const value = { token: item.token, kind: item.kind, label: item.label };
@@ -56,7 +59,7 @@ function normalize(raw) {
 }
 function indexes(data) {
   const departments = new Map(data.departments.map(item => [item.id, item.name]));
-  return { department: departments,
+  return { department: departments, nature: new Map((data.natures || []).map(item => [item.id, item.name])),
     identity: new Map(data.identities.map(item => [item.id, item.name])),
     workGroup: new Map(data.workGroups.map(item => [item.id,
       [item.name, departments.get(item.departmentId)].filter(Boolean).join(' · ')])) };
@@ -100,6 +103,7 @@ module.exports = {
       allowDesignateFirst: flow.allow_designate_first === 1, allowDesignateNext: flow.allow_designate_next === 1,
       steps: steps.map(step => ({ name: step.name, approvalMode: step.approval_mode,
         rules: (byStep.get(step.id) || []).map(rule => translateRule({ departmentScope: rule.department_scope,
+          natureIds: natureRulePolicy.normalize(rule.nature_ids),
           specificDepartmentId: rule.specific_department_id, identityScope: rule.identity_scope, specificIdentityId: rule.specific_identity_id,
           workGroupScope: rule.work_group_scope, specificWorkGroupId: rule.specific_work_group_id }, translate)) })), references });
   },
@@ -118,6 +122,9 @@ module.exports = {
       return id;
     };
     const steps = payload.steps.map(step => Object.assign({}, step, { rules: step.rules.map(rule => translateRule(rule, translate)) }));
+    for (const rule of steps.flatMap(step => step.rules)) {
+      await identityNatureRule.validate(connection, orgId, rule.natureIds, rule.specificIdentityId);
+    }
     const [duplicates] = await connection.query('SELECT id FROM venue_approval_flows WHERE org_id=? AND venue_id=? AND name=? FOR UPDATE', [orgId, venueId, payload.name]);
     if (duplicates.length) fail('config_copy_duplicate');
     const id = crypto.randomUUID();
@@ -131,9 +138,10 @@ module.exports = {
       for (let position = 0; position < step.rules.length; position += 1) {
         const rule = step.rules[position];
         await connection.query(`INSERT INTO venue_approval_flow_step_rules(id,org_id,step_id,sort_order,department_scope,
-          specific_department_id,identity_scope,specific_identity_id,work_group_scope,specific_work_group_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), orgId, stepId, position + 1, rule.departmentScope,
-          rule.specificDepartmentId, rule.identityScope, rule.specificIdentityId, rule.workGroupScope, rule.specificWorkGroupId]);
+          specific_department_id,identity_scope,specific_identity_id,work_group_scope,specific_work_group_id,nature_ids)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), orgId, stepId, position + 1, rule.departmentScope,
+          rule.specificDepartmentId, rule.identityScope, rule.specificIdentityId, rule.workGroupScope, rule.specificWorkGroupId,
+          rule.natureIds === null ? null : JSON.stringify(rule.natureIds)]);
       }
     }
     return id;

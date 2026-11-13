@@ -326,13 +326,14 @@
         <view class="rule-panel-head">
           <view class="rule-panel-title">{{localeCopy.copy_557a7fc9dc}}</view>
         </view>
+        <view class="field"><view class="field-label">{{ruleRelations.nature}}</view><view wx:if="{{ruleForm.legacyNature}}" class="rule-panel-subtitle">{{ruleRelations.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{ruleScorerNatureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="toggleRuleNature">{{item.name}}</view></view></view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_2c2a412327}}</view>
           <picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, ruleForm.scorerDepartmentId)}}" bindchange="onRuleScorerDepartmentChange"><view class="picker-value">{{ruleForm.scorerDepartment || localeCopy.copy_eada426deb}}</view></picker>
         </view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_bf4cf396ad}}</view>
-          <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.scorerIdentityId)}}" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.scorerIdentity || localeCopy.copy_d1856227b6}}</view></picker>
+          <picker disabled="{{!ruleForm.natureIds.length}}" range="{{ruleScorerIdentities}}" range-key="name" value="{{pk.idx(ruleScorerIdentities, ruleForm.scorerIdentityId)}}" bindchange="onRuleScorerIdentityChange"><view class="picker-value">{{ruleForm.natureIds.length ? (ruleForm.scorerIdentity || ruleRelations.selectIdentity) : ruleRelations.chooseNatureFirst}}</view></picker>
         </view>
         <view class="button-row">
           <button wx:if="{{!authorizationEnforced || (ruleForm.id ? actionCapabilities['scoring.rules.update'] : actionCapabilities['scoring.rules.create'])}}" class="primary-btn ui-motion-button" disabled="{{loadingMap.saveRule}}" bindtap="saveRuleCategory" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveRule}}" />{{localeCopy.saveScorerCategory}}</button>
@@ -360,6 +361,7 @@
         <view class="rule-empty" wx:if="{{!ruleForm.clauses.length}}">{{localeCopy.copy_1f4cbedfa9}}</view>
         <view class="rule-clause-card" wx:for="{{ruleForm.clauses}}" wx:key="index">
           <view class="rule-clause-main">
+            <view class="rule-tag-row"><text class="field-label">{{ruleRelations.nature}}</text><text wx:if="{{item.natureIds === null}}" class="rule-tag tag-scope">{{ruleRelations.legacyScope}}</text><text wx:for="{{item.natureIds}}" wx:for-item="natureId" wx:key="*this" class="rule-tag tag-scope">{{ruleNatureNameMap[natureId] || ruleRelations.natureMissing}}</text></view>
             <view class="rule-clause-title">{{item.targetIdentity || localeCopy.copy_c2453e59bf}}</view>
             <view class="rule-tag-row">
               <text class="rule-tag tag-scope">{{item.scopeLabel || item.scopeType}}</text>
@@ -400,8 +402,11 @@
           </picker>
         </view>
         <view class="field">
+          <view class="field-label">{{ruleRelations.nature}}</view><view wx:if="{{ruleForm.clauseNatureIds === null}}" class="rule-panel-subtitle">{{ruleRelations.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{ruleTargetNatureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" data-target="clause" aria-checked="{{item.selected}}" catchtap="toggleRuleNature">{{item.name}}</view></view>
+        </view>
+        <view class="field">
           <view class="field-label">{{localeCopy.copy_ca92a29121}}</view>
-          <picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, ruleForm.clauseTargetIdentityId)}}" bindchange="onRuleTargetIdentityChange"><view class="picker-value">{{ruleForm.clauseTargetIdentity || localeCopy.copy_6de6e1f11f}}</view></picker>
+          <picker disabled="{{!ruleForm.clauseNatureIds.length}}" range="{{ruleTargetIdentities}}" range-key="name" value="{{pk.idx(ruleTargetIdentities, ruleForm.clauseTargetIdentityId)}}" bindchange="onRuleTargetIdentityChange"><view class="picker-value">{{ruleForm.clauseNatureIds.length ? (ruleForm.clauseTargetIdentity || ruleRelations.selectIdentity) : ruleRelations.chooseNatureFirst}}</view></picker>
         </view>
         <view class="rule-switch-row">
           <view>
@@ -572,6 +577,7 @@
             <view class="selection-rule-summary">
                 <view class="list-main">
                   <view class="rule-list-info">
+                    <view class="rule-tag-row"><text class="field-label">{{ruleRelations.nature}}</text><text wx:if="{{item.natureIds === null}}" class="rule-tag tag-scope">{{ruleRelations.legacyScope}}</text><text wx:for="{{item.natureIds}}" wx:for-item="natureId" wx:key="*this" class="rule-tag tag-scope">{{ruleNatureNameMap[natureId] || ruleRelations.natureMissing}}</text></view>
                     <view class="rule-list-main-line">
                       <text class="rule-info-text">{{item.scorerDepartment || localeCopy.copy_0fe86822a1}} / {{item.scorerIdentity || localeCopy.copy_ad183b164d}}</text>
                     </view>
@@ -1276,7 +1282,7 @@
       bindmemberschange="onCrossOrgMembersChange"
       source-index="{{crossOrgMigrationSourceIndex}}"
       source-org-name="{{crossOrgMigrationSourceOrgName}}"
-      target-org-name="{{crossOrgMigrationTargetOrgName}}"
+      target-org-name="{{crossOrgMigrationTargetOrgName || ''}}"
       has-token="{{crossOrgMigrationToken !== ''}}"
       field-plan="{{crossOrgMigrationFieldPlan}}"
       report="{{crossOrgMigrationReport}}"
@@ -1437,10 +1443,12 @@
                   <view class="assignment-card" wx:for="{{orgItem.assignments}}" wx:key="id" wx:for-item="assignmentItem" wx:for-index="assignmentIndex">
                     <view class="assignment-card-main">
                       <view class="assignment-card-title-row">
+                        <view class="assignment-kind-label">{{assignmentItem.assignmentNatureLabel || relationCopy.natureMissing}}</view>
                         <view class="assignment-card-title">{{assignmentItem.assignmentLabel || localeCopy.hrNoPosition}}</view>
                         <view class="assignment-card-badges">
                           <view class="status-chip former-chip" wx:if="{{assignmentItem.historical}}">{{localeCopy.hrHistoricalPosition}}</view>
-                          <view class="assignment-kind-label">{{assignmentItem.assignmentNatureLabel || localeCopy.assignmentNatureMissing}}</view>
+                          <view class="status-chip" wx:if="{{assignmentItem.configurationStatus === 'pending'}}">{{relationCopy.positionPaused}}</view>
+                          <view class="field-hint" wx:if="{{assignmentItem.configurationStatus === 'pending'}}">{{relationCopy.adminPositionPausedHelp}}</view>
                         </view>
                       </view>
                       <view class="assignment-facts">
@@ -2178,55 +2186,29 @@
       </view>
     </view>
 
-    <view class="section-stack" wx:if="{{activeTab === 'identities'}}">
-      <view class="section-control-card">
-        <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
-      </view>
-      <view class="edit-box" wx:if="{{authorizationEnforced ? (identityForm.id ? actionCapabilities['hr.identities.update'] : actionCapabilities['hr.identities.create']) : (isSuperAdmin || user.permissions['hr.identities'])}}">
-        <view class="list-title">{{identityForm.id ? localeCopy.copy_018d741992 : localeCopy.copy_7e6fe80a00}}</view>
-        <view class="field">
-          <view class="field-label">{{localeCopy.copy_827d50f428}}</view>
-          <input class="field-input" data-field="name" bindinput="onIdentityFieldInput" value="{{identityForm.name}}" placeholder="{{localeCopy.copy_5056ad7eb7}}" adjust-position="{{false}}" cursor-spacing="24" />
-        </view>
-        <view class="field">
-          <view class="field-label">{{localeCopy.copy_07d8551536}}</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onIdentityFieldInput" value="{{identityForm.description}}" placeholder="{{localeCopy.copy_14671f2231}}" adjust-position="{{false}}" cursor-spacing="24" />
-        </view>
-        <view class="button-row">
-          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveIdentity}}" bindtap="saveIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveIdentity}}" />{{localeCopy.copy_637d8a9907}}</button>
-          <button class="secondary-btn ui-motion-button" bindtap="startCreateIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b0588a53d}}</button>
-        </view>
-      </view>
-
-      <view class="list-card">
-        <view class="list-title">{{localeCopy.copy_88898b98bf}}</view>
-        <dictionary-load-failure
-          visible="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'error'}}"
-          title="{{localeCopy.dictionaryLoadFailed.identities.title}}"
-          message="{{dictionaryLoadState.identities.message}}"
-          retry-text="{{localeCopy.dictionaryRetry}}"
-          bindretry="retryIdentityList"
-        />
-        <scroll-view wx:if="{{dictionaryLoadState.identities.status !== 'error' || identityList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
-          <view class="card-loading-overlay" wx:if="{{loadingMap.identities}}">
-            <app-loading compact="{{true}}" />
-          </view>
-          <block wx:else>
-          <view class="list-item list-item-stacked" wx:for="{{authorizationEnforced ? managedIdentityList : identityList}}" wx:key="id">
-            <view class="list-main">
-              <view class="list-name">{{item.name}}</view>
-              <view class="list-desc">{{item.description}}</view>
-              <view class="inline-actions list-actions-below card-actions">
-                <text class="link ui-motion-chip" data-index="{{index}}" wx:if="{{authorizationEnforced ? item.canUpdate : (isSuperAdmin || user.permissions['hr.identities'])}}" bindtap="editIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{authorizationEnforced ? item.canDelete : (isSuperAdmin || user.permissions['hr.identities.delete'])}}" bindtap="deleteIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
-              </view>
-            </view>
-          </view>
-          </block>
-        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'ready' && !identityList.length}}">{{localeCopy.copy_177c107dbc}}</view>
-      </view>
-    </view>
+    <identity-manager
+      active-tab="{{activeTab}}"
+      loading-map="{{loadingMap}}"
+      dictionary-load-state="{{dictionaryLoadState}}"
+      identity-relation-enabled="{{identityRelationEnabled}}"
+      relation-copy="{{relationCopy}}"
+      locale-copy="{{localeCopy}}"
+      identity-nature-filter="{{identityNatureFilter}}"
+      identity-nature-options="{{identityNatureOptions}}"
+      authorization-enforced="{{authorizationEnforced}}"
+      identity-form="{{identityForm}}"
+      action-capabilities="{{actionCapabilities}}"
+      is-super-admin="{{isSuperAdmin}}"
+      user="{{user}}"
+      identity-nature-selection="{{identityNatureSelection}}"
+      identity-action-notice="{{identityActionNotice}}"
+      identity-list="{{identityList}}"
+      identity-visible-list="{{identityVisibleList}}"
+      identity-preview="{{identityPreview}}"
+      identity-force-stage="{{identityForceStage}}"
+      identity-description-choice="{{identityDescriptionChoice}}"
+      bindaction="onIdentityManagerAction"
+    />
 
     <view class="section-stack" wx:if="{{activeTab === 'settings'}}">
       <view class="section-control-card">
@@ -2301,8 +2283,9 @@
         <!-- ═══ 结果查看权限 ─── 类别 + 条款 ─── -->
         <view class="rule-panel" wx:if="{{!publicationLoadFailed && (pubViewRuleForm.id ? canUpdatePublications : canCreatePublications)}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_a8bca898cb}}</view></view>
+          <view class="field"><view class="field-label">{{publicationNatureCopy.resultViewerNatures}}</view><view wx:if="{{pubViewRuleForm.legacyNatureScope}}" class="rule-panel-subtitle">{{publicationNatureCopy.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{pubViewRuleForm.natureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-form="pubViewRuleForm" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="togglePublicationNature">{{item.name}}</view></view></view>
           <view class="field"><view class="field-label">{{localeCopy.resultViewerDepartments}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubViewRuleForm.granteeDepartmentId)}}" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.resultViewerIdentity}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.resultViewerIdentity}}</view><picker disabled="{{!pubViewRuleForm.natureIds.length}}" range="{{pubViewRuleForm.applicableIdentities}}" range-key="name" value="{{pk.idx(pubViewRuleForm.applicableIdentities, pubViewRuleForm.granteeIdentityId)}}" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.natureIds.length ? (pubViewRuleForm.granteeIdentity || publicationNatureCopy.selectIdentity) : publicationNatureCopy.chooseNatureFirst}}</view></picker></view>
           <view class="button-row">
             <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubViewRule}}" />{{localeCopy.saveResultViewRule}}</button>
             <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.newResultViewRule}}</button>
@@ -2324,8 +2307,9 @@
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId && pubViewRuleForm.isClauseEditorVisible}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_9e2afcd01b}}</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_247f66ca71}}</view></view>
+          <view class="field"><view class="field-label">{{publicationNatureCopy.resultTargetNatures}}</view><view wx:if="{{pubViewRuleForm.clauseLegacyNatureScope}}" class="rule-panel-subtitle">{{publicationNatureCopy.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{pubViewRuleForm.clauseNatureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-form="pubViewRuleForm" data-clause="true" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="togglePublicationNature">{{item.name}}</view></view></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_dee3b2111f}}</view><picker range="{{viewScopeOptions}}" range-key="label" value="{{pk.idx(viewScopeOptions, pubViewRuleForm.clauseScopeType)}}" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || localeCopy.copy_4fd2c90e08}}</view></picker></view>
-          <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">{{localeCopy.copy_c8eafec97e}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubViewRuleForm.clauseTargetIdentityId)}}" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
+          <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">{{localeCopy.copy_c8eafec97e}}</view><picker disabled="{{!pubViewRuleForm.clauseNatureIds.length}}" range="{{pubViewRuleForm.clauseApplicableIdentities}}" range-key="name" value="{{pk.idx(pubViewRuleForm.clauseApplicableIdentities, pubViewRuleForm.clauseTargetIdentityId)}}" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseNatureIds.length ? (pubViewRuleForm.clauseTargetIdentity || publicationNatureCopy.selectIdentity) : publicationNatureCopy.chooseNatureFirst}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_41f0769610}}</view><picker range="{{displayModeOptions}}" range-key="label" value="{{pk.idx(displayModeOptions, pubViewRuleForm.clauseDisplayMode)}}" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? localeCopy.copy_23eefbcaad : localeCopy.copy_8a8b68c027}}</view></picker></view>
           <!-- 等第区间编辑器（仅等第模式，每条条款独立配置） -->
           <view wx:if="{{pubViewRuleForm.clauseDisplayMode === 'grade'}}">
@@ -2377,8 +2361,9 @@
         <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
         <view class="rule-panel rule-panel--spaced" wx:if="{{!publicationLoadFailed && (pubMeritRuleForm.id ? canUpdatePublications : canCreatePublications)}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_09bf239b61}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_10eaadc5f1}}</view></view>
+          <view class="field"><view class="field-label">{{publicationNatureCopy.meritDesignatorNatures}}</view><view wx:if="{{pubMeritRuleForm.legacyNatureScope}}" class="rule-panel-subtitle">{{publicationNatureCopy.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{pubMeritRuleForm.natureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-form="pubMeritRuleForm" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="togglePublicationNature">{{item.name}}</view></view></view>
           <view class="field"><view class="field-label">{{localeCopy.meritDesignatorDepartments}}</view><picker range="{{departmentList}}" range-key="name" value="{{pk.idx(departmentList, pubMeritRuleForm.granteeDepartmentId)}}" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || localeCopy.copy_eada426deb}}</view></picker></view>
-          <view class="field"><view class="field-label">{{localeCopy.meritDesignatorIdentity}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || localeCopy.copy_d1856227b6}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.meritDesignatorIdentity}}</view><picker disabled="{{!pubMeritRuleForm.natureIds.length}}" range="{{pubMeritRuleForm.applicableIdentities}}" range-key="name" value="{{pk.idx(pubMeritRuleForm.applicableIdentities, pubMeritRuleForm.granteeIdentityId)}}" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.natureIds.length ? (pubMeritRuleForm.granteeIdentity || publicationNatureCopy.selectIdentity) : publicationNatureCopy.chooseNatureFirst}}</view></picker></view>
           <view class="button-row">
             <button class="primary-btn ui-motion-button" disabled="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.savePubMeritRule}}" />{{localeCopy.saveMeritDesignationRule}}</button>
             <button wx:if="{{canCreatePublications}}" class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.newMeritDesignationRule}}</button>
@@ -2400,8 +2385,9 @@
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId && pubMeritRuleForm.isClauseEditorVisible}}">
           <view class="rule-panel-head"><view class="rule-panel-title">{{localeCopy.copy_efa712e243}}</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_6e9de47ad4 : localeCopy.copy_7844b14771}}</view></view>
+          <view class="field"><view class="field-label">{{publicationNatureCopy.meritTargetNatures}}</view><view wx:if="{{pubMeritRuleForm.clauseLegacyNatureScope}}" class="rule-panel-subtitle">{{publicationNatureCopy.legacyScopeHelp}}</view><view class="selection-options-grid"><view wx:for="{{pubMeritRuleForm.clauseNatureOptions}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-form="pubMeritRuleForm" data-clause="true" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="togglePublicationNature">{{item.name}}</view></view></view>
           <view class="field"><view class="field-label">{{localeCopy.meritTargetScopeTitle}}</view><picker range="{{meritScopeOptions}}" range-key="label" value="{{pk.idx(meritScopeOptions, pubMeritRuleForm.clauseScopeType)}}" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || localeCopy.meritScopeUnknown}}</view></picker><view class="form-hint">{{localeCopy.meritScopeHelp}}</view></view>
-          <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker range="{{identityList}}" range-key="name" value="{{pk.idx(identityList, pubMeritRuleForm.clauseTargetIdentityId)}}" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || localeCopy.copy_5ece2c09c8}}</view></picker></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_31e8aaf67d}}</view><picker disabled="{{!pubMeritRuleForm.clauseNatureIds.length}}" range="{{pubMeritRuleForm.clauseApplicableIdentities}}" range-key="name" value="{{pk.idx(pubMeritRuleForm.clauseApplicableIdentities, pubMeritRuleForm.clauseTargetIdentityId)}}" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseNatureIds.length ? (pubMeritRuleForm.clauseTargetIdentity || publicationNatureCopy.selectIdentity) : publicationNatureCopy.chooseNatureFirst}}</view></picker></view>
           <view class="field"><view class="field-label">{{localeCopy.copy_f1dc48a65c}}</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="{{localeCopy.copy_cd42443afc}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
           <view class="rule-switch-row"><view><view class="field-label">{{localeCopy.copy_fa66c182e7}}</view><view class="rule-panel-subtitle">{{localeCopy.copy_063079dbec}}</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubMeritClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? localeCopy.copy_31b3c65645 : localeCopy.copy_0bc13740e4}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubMeritClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_02a9c01344}}</button></view>
@@ -2728,6 +2714,8 @@
 
               <!-- Identity scope condition fields -->
               <block wx:elif="{{auditStepConditionForm.conditionType === 'identity_scope'}}">
+                <view wx:if="{{auditStepConditionForm.legacyNature}}" class="hint-text">{{relationCopy.legacyScopeHelp}}</view>
+                <view class="field identity-relations"><view class="field-label">{{relationCopy.nature}}</view><view class="selection-options-grid"><view wx:for="{{auditNatureList}}" wx:key="id" class="selection-option-card {{auditStepConditionForm.natureSelection[item.id] ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" data-target="step" aria-checked="{{!!auditStepConditionForm.natureSelection[item.id]}}" catchtap="toggleAuditNature">{{item.name}}</view></view></view>
                 <view class="field">
                   <view class="field-label">{{localeCopy.copy_e8ca7f8024}}</view>
                   <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf,localeCopy.copy_4b405169cb]}}" value="{{auditStepConditionForm.departmentScope === 'all' ? 0 : (auditStepConditionForm.departmentScope === 'specific' ? 1 : 2)}}" data-field="departmentScope" bindchange="onConditionScopeChange">
@@ -2799,6 +2787,8 @@
               </view>
             </block>
             <block wx:else>
+              <view wx:if="{{auditStarterConditionForm.legacyNature}}" class="hint-text">{{relationCopy.legacyScopeHelp}}</view>
+              <view class="field identity-relations"><view class="field-label">{{relationCopy.nature}}</view><view class="selection-options-grid"><view wx:for="{{auditNatureList}}" wx:key="id" class="selection-option-card {{auditStarterConditionForm.natureSelection[item.id] ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" data-target="starter" aria-checked="{{!!auditStarterConditionForm.natureSelection[item.id]}}" catchtap="toggleAuditNature">{{item.name}}</view></view></view>
               <view class="field">
                 <view class="field-label">{{localeCopy.copy_e8ca7f8024}}</view>
                 <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2aad29e5cf]}}" value="{{auditStarterConditionForm.departmentScope === 'all' ? 0 : 1}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">

@@ -1,6 +1,7 @@
 'use strict';
 const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
 const copy=require('../../../../locales/zh-CN/calendar');
+const relations=require('../../../../locales/zh-CN/identityNatureRelations');
 const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
@@ -25,6 +26,7 @@ Page({
       if(this._options.sourceKind){const result=await callFunction({name:'getCalendarParticipants',data:{sourceKind:this._options.sourceKind,sourceId:this._options.sourceId,edit:true}});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);if(!result.canEdit)throw new Error(copy.unavailable);draft=Object.assign({},draft,{targets:result.targets,version:result.version});if(result.people)config.people=result.people;}
       else if(this._options.id){const result=await callFunction({name:'getCalendar',data:Object.assign({},view.period(this._options.date,'week',config.timezoneOffset),{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);const item=result.items.find(value=>value.id===this._options.id&&value.occurrenceDate===this._options.date);if(!item||!item.canUpdate)throw new Error(copy.unavailable);this._original=item;draft=view.edit(item,config.timezoneOffset);}
       this._loaded=true;this._context=orgSession.getSnapshot().contextId;
+      this._legacyNatureEdit=(draft.targets||[]).some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature);
       this.setData({draft,metadata:config,loading:false,frequencyIndex:frequencies.indexOf(draft.recurrence.frequency),scopeIndex:scopes.indexOf(draft.scope),reminderIndex:Math.max(0,reminders.indexOf(draft.reminders[0]===undefined?-1:draft.reminders[0])),endMode:draft.recurrence.until?1:draft.recurrence.count?2:0});this.decorate();
     }catch(error){if(current())this.setData({loading:false,failed:true,notice:error.message||copy.operationFailed});}
   },
@@ -43,7 +45,10 @@ Page({
   back:function(){if(!this.data.busy)wx.navigateBack();},
   async save(){
     if(this.data.busy||this.data.loading||this.data.saved||this.data.failed)return;
+    if((this.data.sourceKind||this.data.draft.visibility==='organization')&&(this.data.draft.targets||[]).some(clause=>clause.type==='scope'&&!clause.sameNature&&!(clause.natureIds||[]).length)){this.setData({notice:relations.selectNatureRequired});return;}
     if(orgSession.getSnapshot().contextId!==this._context){this._loaded=false;this.load();return;}
+    const source=this.data.draft;
+    if(this._legacyNatureEdit&&(this.data.sourceKind||source.visibility==='organization')){const clauses=(source.targets||[]).filter(clause=>clause.type==='scope');const labels=(this.data.metadata.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.calendarSameNatureSummary);const result=await wx.showModal({title:relations.legacyScopeChangeTitle,content:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==source)return;}
     const request=orgSession.beginRequest(this,'calendarSave'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({busy:true,notice:''});
     try{
       const body=JSON.parse(JSON.stringify(this.data.draft));

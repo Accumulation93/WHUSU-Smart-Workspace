@@ -47,6 +47,12 @@ test('授权启用后拒绝无协议旧提交和删解释器的提交，允许�
     tool.assertGitRelease(state, directory, compatible);
     write('server/new.txt', 'new'); const next = commit('后续版本');
     tool.assertGitRelease(state, directory, next);
+    write('server/authorization-protocol.json', '{"version":2,"activationReady":true}');
+    for (const file of ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js', 'server/scripts/finalizeIdentityNatures.js']) write(file, 'module.exports = {};');
+    const natureReady = commit('Nature protocol');
+    const natureState = { phase: 'enforced', minimum_protocol: 2, fallback_sha: natureReady };
+    assert.throws(() => tool.assertGitRelease(natureState, directory, next));
+    tool.assertGitRelease(natureState, directory, natureReady);
     fs.unlinkSync(path.join(directory, 'server/src/core/services/authorizationSession.js'));
     const broken = commit('缺失解释器');
     assert.throws(() => tool.assertGitRelease(state, directory, broken));
@@ -64,6 +70,9 @@ test('发布和授权切换共用锁，回退检查先于链接与数据库恢�
   assert(rollback.indexOf('check_authorization_release') < rollback.indexOf('deploymentDatabase.js" restore'));
   assert.match(activate, /flock -n 9/);
   assert.match(activate, /\$DEPLOY_DIR\/deploy.lock/);
+  const natureActivate = fs.readFileSync(path.resolve(__dirname, '../scripts/finalizeIdentityNatures.sh'), 'utf8');
+  assert.match(natureActivate, /flock -n 9/);
+  assert.match(natureActivate, /\$DEPLOY_DIR\/deploy.lock/);
   assert.match(deploy, /authorizationDeployment\.js" protected-shas/);
   assert.match(deploy, /CAN_PRUNE_RELEASES=0/);
   assert(deploy.indexOf('AUTHORIZATION_PROTECTED_SHAS"$') < deploy.lastIndexOf('worktree remove --force'));

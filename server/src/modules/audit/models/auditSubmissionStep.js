@@ -1,4 +1,6 @@
 const pool = require('../../../config/db');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
+const identityNatureRule = require('../../../core/models/identityNatureRule');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const { getColumns, requireSnapshotColumns } = require('../services/auditSchemaCapabilities');
 const { memo, getState } = require('../../../utils/requestWork');
@@ -76,6 +78,7 @@ async function getTemplateStepConditions(templateStepId) {
   if (!condRows.length) return null;
   return condRows.map(c => ({
     conditionType: c.condition_type,
+    natureIds: natureRulePolicy.normalize(c.nature_ids),
     personHrIds: c.person_hr_ids,
     assignmentIds: c.assignment_ids,
     departmentScope: c.department_scope,
@@ -205,6 +208,7 @@ function matchesAnyCondition(conditions, approver, submitter) {
 
   for (const cond of effectiveConditions) {
     if (!validateConditionShape(cond).ok) return false;
+    if (!natureRulePolicy.matches(cond.natureIds, approver.assignment_kind)) continue;
     if (cond.conditionType === 'submitter') {
       // 本人绑定申请发起时的自然人与岗位，不能在换岗后扩大权限。
       const submitters = Array.isArray(submitter) ? submitter : [submitter];
@@ -239,6 +243,7 @@ function matchesAnyCondition(conditions, approver, submitter) {
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
   if (!validateConditionShape(cond).ok || cond.conditionType !== 'identity_scope') return false;
+  if (!natureRulePolicy.matches(cond.natureIds, approver.assignment_kind)) return false;
   const submitters = Array.isArray(submitter) ? submitter.filter(Boolean) : (submitter ? [submitter] : []);
   // Department check
   let deptScope = cond.departmentScope || 'all';
@@ -327,6 +332,12 @@ async function create(id, data, conn) {
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
+  const conditions = typeof stepConditionsJson === 'string' ? JSON.parse(stepConditionsJson) : stepConditionsJson;
+  if (Array.isArray(conditions)) {
+    for (const condition of conditions) {
+      await identityNatureRule.validate(db, orgId, condition.natureIds, condition.specificIdentityId);
+    }
+  }
   await db.query(
     `INSERT INTO audit_submission_steps
      (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id,

@@ -138,10 +138,11 @@ function subjectMatches(subject, actor) {
     : dimensionsMatch(subject.dimensions, assignment, null);
 }
 
-function scopeMatches(scope, actor, resource) {
+function scopeMatches(scope, actor, resource, effect) {
   if (scope.kind === 'organization') return true;
   if (scope.kind === 'records') return scope.ids.includes(resource.id);
   if (scope.kind === 'self') return Boolean(resource.ownerPersonId && resource.ownerPersonId === actor.personId);
+  if (resource.assignment && resource.assignment.configurationStatus === 'pending' && effect !== 'deny') return false;
   // 一次只判断资源当前这条岗位；不能在多个岗位之间拼接条件，也不能扩散字段授权。
   return Boolean(resource.assignment && resource.assignment.organizationId === resource.organizationId
     && dimensionsMatch(scope.dimensions, resource.assignment, actor.assignment));
@@ -185,7 +186,7 @@ function evaluate({ actor, resource, capability, policies, prepared, catalog, no
       if (!policy.enabled || policy.organizationId !== actor.organizationId || !policy.capabilities.includes(capability)
         || (policy.startsAt && now < Date.parse(policy.startsAt)) || (policy.endsAt && now >= Date.parse(policy.endsAt))) continue;
       if (policy.subjects.some(subject => subjectMatches(subject, actor))
-        && policy.scopes.some(scope => scopeMatches(scope, actor, resource))) matched.push(policy);
+        && policy.scopes.some(scope => scopeMatches(scope, actor, resource, policy.effect))) matched.push(policy);
     }
   } catch (_) {
     // 损坏的禁止规则也必须阻止本次计算，不能略过异常规则继续放行。

@@ -148,6 +148,9 @@
       "scripts/assignment-nature-inline-test.js"
     ],
     [
+      "scripts/identity-nature-frontend-test.js"
+    ],
+    [
       "scripts/authorization-lifecycle-test.js"
     ],
     [

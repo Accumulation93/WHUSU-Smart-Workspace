@@ -9,6 +9,22 @@ const { createResultError, getErrorText } = require('../../../../../utils/api');
 const designationCandidateView = require('../../../package-resources/subpackages/scoring/pages/admin/modules/designationCandidateView');
 const adminCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
+const natureCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
+function natureFields(page, form) {
+  const value = form || {}, natures = page.data.publicationNatures || [], identities = page.data.identityList || [];
+  const selected = value.natureIds || [], clauseSelected = value.clauseNatureIds || [];
+  return Object.assign({}, value, {
+    natureIds: selected, clauseNatureIds: clauseSelected,
+    natureOptions: natures.map(item => Object.assign({}, item, { selected: selected.indexOf(item.id) >= 0 })),
+    clauseNatureOptions: natures.map(item => Object.assign({}, item, { selected: clauseSelected.indexOf(item.id) >= 0 })),
+    applicableIdentities: identities.filter(item => (item.natureIds || []).some(id => selected.indexOf(id) >= 0)),
+    clauseApplicableIdentities: identities.filter(item => (item.natureIds || []).some(id => clauseSelected.indexOf(id) >= 0))
+  });
+}
+function confirmNatureChange(names) {
+  return new Promise(resolve => wx.showModal({ title: natureCopy.legacyScopeChangeTitle,
+    content: natureCopy.legacyScopeChangeHelp(names), success: result => resolve(Boolean(result.confirm)), fail: () => resolve(false) }));
+}
 const meritScopes = [
   { value: 'all_people', aliases: ['all_people', 'identity_only'], label: adminCopy.meritScopeOrganization },
   { value: 'same_department_identity', aliases: ['same_department_identity', 'same_department_all'], label: adminCopy.meritScopeDepartment },
@@ -54,8 +70,45 @@ function emptyMeritSummaryState() {
 }
 
 module.exports = Behavior({
-  data: { publicationCopy: localeCopy, publicationLoadFailed: false, meritScopeOptions: meritScopeOptions('all_people') },
+  data: { publicationCopy: localeCopy, publicationNatureCopy: natureCopy, publicationNatures: [], publicationLoadFailed: false, meritScopeOptions: meritScopeOptions('all_people') },
   methods: {
+    async togglePublicationNature(e) {
+      const name = e.currentTarget.dataset.form, clause = e.currentTarget.dataset.clause === 'true';
+      if (['pubViewRuleForm', 'pubMeritRuleForm'].indexOf(name) < 0) return;
+      const original = this.data[name], key = clause ? 'clauseNatureIds' : 'natureIds', id = e.currentTarget.dataset.id;
+      if (!(this.data.publicationNatures || []).some(item => item.id === id)) return;
+      const ids = (original[key] || []).indexOf(id) >= 0 ? original[key].filter(value => value !== id) : [...(original[key] || []), id];
+      const field = clause ? 'clauseTargetIdentityId' : 'granteeIdentityId', label = clause ? 'clauseTargetIdentity' : 'granteeIdentity';
+      const next = Object.assign({}, original, { [key]: ids });
+      const selected = (this.data.identityList || []).find(item => item.id === original[field]);
+      if (selected && !(selected.natureIds || []).some(value => ids.indexOf(value) >= 0)) {
+        const session = orgSession.getSnapshot();
+        const confirmed = await new Promise(resolve => wx.showModal({ title: natureCopy.incompatibleSelectionTitle,
+          content: [natureCopy.incompatibleSelectionHelp, selected.name].join('\n'), success: result => resolve(Boolean(result.confirm)), fail: () => resolve(false) }));
+        if (!confirmed || !orgSession.isCurrent(session) || this.data[name] !== original) return;
+        next[field] = ''; next[label] = '';
+      }
+      this.setData({ [name]: natureFields(this, next) });
+    },
+    async confirmPublicationNatures(form) {
+      const entries = [form].concat(form.clauses || []);
+      if (entries.some(item => !Array.isArray(item.natureIds) || !item.natureIds.length)) {
+        wx.showToast({ title: natureCopy.selectNatureRequired, icon: 'none' }); return false;
+      }
+      const session = orgSession.getSnapshot();
+      for (const entry of entries.filter(item => item.legacyNatureScope)) {
+        if (!await confirmNatureChange((this.data.publicationNatures || []).filter(item => entry.natureIds.indexOf(item.id) >= 0).map(item => item.name))) return false;
+        if (!orgSession.isCurrent(session)) return false;
+      }
+      return true;
+    },
+    async confirmPublicationBatchNatures(form, rows) {
+      if (!await this.confirmPublicationNatures(form)) return false;
+      if (rows.some(row => !row.natureIds)) {
+        return confirmNatureChange((this.data.publicationNatures || []).filter(item => form.natureIds.indexOf(item.id) >= 0).map(item => item.name));
+      }
+      return true;
+    },
     retryPublicationData() { return this.loadPublicationData(this.data.publicationForm.activityId); },
     async loadPublicationData(activityId) {
       const request = orgSession.beginRequest(this, 'publicationData');
@@ -84,7 +137,7 @@ module.exports = Behavior({
           this._publicationLoadedActivity = selectedActivityId;
           this._publicationLoadedSession = orgSession.getSnapshot();
           const pub = result.publication;
-          if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [] });
+          if (result.configurationCandidates) this.setData({ departmentList: result.configurationCandidates.departments || [], identityList: result.configurationCandidates.identities || [], publicationNatures: result.configurationCandidates.natures || [] });
           const viewRules = presentRules(result.viewRules, false);
           const meritRules = presentRules(result.meritRules, true);
           this.setData({
@@ -99,6 +152,7 @@ module.exports = Behavior({
           });
           this.rebuildPubViewRuleFilters(viewRules);
           this.rebuildPubMeritRuleFilters(meritRules);
+          this.setData({ pubViewRuleForm: natureFields(this, this.data.pubViewRuleForm), pubMeritRuleForm: natureFields(this, this.data.pubMeritRuleForm) });
           if (pub) await this.loadMeritListSummary(activityId);
         } else {
           this.setData({ publicationLoadFailed: true });
@@ -319,7 +373,7 @@ module.exports = Behavior({
     // ─── View Rule Category CRUD ───,
 
     startNewPubViewRule() {
-      this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
+      this.setData({ pubViewRuleForm: natureFields(this, { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] }) });
     },
 
     editPubViewRule(e) {
@@ -327,17 +381,18 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubViewRuleList.find(r => r.id === id);
       if (!rule) return;
-      this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
+      this.setData({ pubViewRuleForm: natureFields(this, { id: rule.id, natureIds: rule.natureIds || [], legacyNatureScope: !rule.natureIds, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ ...c, natureIds: c.natureIds || [], legacyNatureScope: !c.natureIds, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) }) });
     },
 
     async savePubViewRule() {
       if (!canPublish(this, this.data.pubViewRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubViewRuleForm;
+      if (!await this.confirmPublicationNatures(f) || this.data.pubViewRuleForm !== f || !canPublish(this, f.id ? 'update' : 'create')) return;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.viewerScopeRequired, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubViewRule', true);
       try {
-        const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
+        const result = await this.callCloud('savePubViewRule', { id: f.id, natureIds: f.natureIds, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
         if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
         else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
       } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
@@ -354,13 +409,13 @@ module.exports = Behavior({
 
     // ─── View Rule Clause Editor ───,
 
-    openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': localeCopy.copy_9a4a6e8793, 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
+    openPubViewClauseEditor() { this.setData({ pubViewRuleForm: natureFields(this, Object.assign({}, this.data.pubViewRuleForm, { isClauseEditorVisible: true, clauseNatureIds: [], clauseLegacyNatureScope: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [] })) }); },
 
     cancelPubViewClauseEdit() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 }); },
 
     onPubViewClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubViewRuleForm.clauseScopeType': scope.value, 'pubViewRuleForm.clauseScopeLabel': scope.label }); },
 
-    onPubViewClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.clauseTargetIdentityId': ident.id, 'pubViewRuleForm.clauseTargetIdentity': ident.name }); },
+    onPubViewClauseTargetIdentChange(e) { const ident = this.data.pubViewRuleForm.clauseApplicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.clauseTargetIdentityId': ident.id, 'pubViewRuleForm.clauseTargetIdentity': ident.name }); },
 
     // ─── Per-clause display mode & grade band handlers ───,
 
@@ -406,7 +461,8 @@ module.exports = Behavior({
 
     addPubViewClause() {
       const f = this.data.pubViewRuleForm;
-      const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, displayMode: f.clauseDisplayMode || 'score', gradeBands: f.clauseDisplayMode === 'grade' ? (f.clauseGradeBands || []).map(gb => ({ ...gb })) : [] };
+      if (!(f.clauseNatureIds || []).length) { wx.showToast({ title: natureCopy.selectNatureRequired, icon: 'none' }); return; }
+      const clause = { natureIds: f.clauseNatureIds.slice(), legacyNatureScope: f.clauseLegacyNatureScope, scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, displayMode: f.clauseDisplayMode || 'score', gradeBands: f.clauseDisplayMode === 'grade' ? (f.clauseGradeBands || []).map(gb => ({ ...gb })) : [] };
       const clauses = [...f.clauses];
       if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
       this.setData({ 'pubViewRuleForm.clauses': clauses, 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 });
@@ -416,14 +472,14 @@ module.exports = Behavior({
       const idx = parseInt(e.currentTarget.dataset.index, 10);
       const c = this.data.pubViewRuleForm.clauses[idx];
       if (!c) return;
-      this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': idx, 'pubViewRuleForm.clauseScopeType': c.scopeType, 'pubViewRuleForm.clauseScopeLabel': c.scopeLabel || '', 'pubViewRuleForm.clauseTargetIdentityId': c.targetIdentityId || '', 'pubViewRuleForm.clauseTargetIdentity': c.targetIdentity || '', 'pubViewRuleForm.clauseDisplayMode': c.displayMode || 'score', 'pubViewRuleForm.clauseGradeBands': (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) });
+      this.setData({ pubViewRuleForm: natureFields(this, Object.assign({}, this.data.pubViewRuleForm, { isClauseEditorVisible: true, clauseNatureIds: c.natureIds || [], clauseLegacyNatureScope: c.legacyNatureScope, clauseEditingIndex: idx, clauseScopeType: c.scopeType, clauseScopeLabel: c.scopeLabel || '', clauseTargetIdentityId: c.targetIdentityId || '', clauseTargetIdentity: c.targetIdentity || '', clauseDisplayMode: c.displayMode || 'score', clauseGradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) });
     },
 
     removePubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubViewRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubViewRuleForm.clauses': clauses }); },
 
     onPubViewRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubViewRuleForm.granteeDepartmentId': dept.id, 'pubViewRuleForm.granteeDepartment': dept.name }); },
 
-    onPubViewRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
+    onPubViewRuleIdentChange(e) { const ident = this.data.pubViewRuleForm.applicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
 
     // ─── View Rule Category List batch ops ───
     togglePubViewRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
@@ -454,7 +510,7 @@ module.exports = Behavior({
     // ─── Merit Rule Category CRUD ───,
 
     startNewPubMeritRule() {
-      this.setData({ pubMeritRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] } });
+      this.setData({ pubMeritRuleForm: natureFields(this, { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] }) });
     },
 
     editPubMeritRule(e) {
@@ -462,17 +518,18 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubMeritRuleList.find(r => r.id === id);
       if (!rule) return;
-      this.setData({ pubMeritRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: (rule.clauses || []).map(c => ({ ...c })) } });
+      this.setData({ pubMeritRuleForm: natureFields(this, { id: rule.id, natureIds: rule.natureIds || [], legacyNatureScope: !rule.natureIds, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: (rule.clauses || []).map(c => ({ ...c, natureIds: c.natureIds || [], legacyNatureScope: !c.natureIds })) }) });
     },
 
     async savePubMeritRule() {
       if (!canPublish(this, this.data.pubMeritRuleForm.id ? 'update' : 'create')) return;
       const f = this.data.pubMeritRuleForm;
+      if (!await this.confirmPublicationNatures(f) || this.data.pubMeritRuleForm !== f || !canPublish(this, f.id ? 'update' : 'create')) return;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.meritDesignatorScopeRequired, icon: 'none' }); return; }
       if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubMeritRule', true);
       try {
-        const result = await this.callCloud('savePubMeritRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
+        const result = await this.callCloud('savePubMeritRule', { id: f.id, natureIds: f.natureIds, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
         if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
         else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
       } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
@@ -489,13 +546,13 @@ module.exports = Behavior({
 
     // ─── Merit Rule Clause Editor ───,
 
-    openPubMeritClauseEditor() { this.setData({ meritScopeOptions: meritScopeOptions('all_people'), 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': adminCopy.meritScopeOrganization, 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
+    openPubMeritClauseEditor() { this.setData({ meritScopeOptions: meritScopeOptions('all_people'), pubMeritRuleForm: natureFields(this, Object.assign({}, this.data.pubMeritRuleForm, { isClauseEditorVisible: true, clauseNatureIds: [], clauseLegacyNatureScope: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: adminCopy.meritScopeOrganization, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false })) }); },
 
     cancelPubMeritClauseEdit() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 }); },
 
     onPubMeritClauseScopeChange(e) { const scope = this.data.meritScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubMeritRuleForm.clauseScopeType': scope.value, 'pubMeritRuleForm.clauseScopeLabel': scope.label, meritScopeOptions: meritScopeOptions(scope.value) }); },
 
-    onPubMeritClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.clauseTargetIdentityId': ident.id, 'pubMeritRuleForm.clauseTargetIdentity': ident.name }); },
+    onPubMeritClauseTargetIdentChange(e) { const ident = this.data.pubMeritRuleForm.clauseApplicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.clauseTargetIdentityId': ident.id, 'pubMeritRuleForm.clauseTargetIdentity': ident.name }); },
 
     onPubMeritClauseQuotaInput(e) { this.setData({ 'pubMeritRuleForm.clauseQuotaLimit': Math.max(0, parseInt(e.detail.value, 10) || 0) }); },
 
@@ -503,20 +560,21 @@ module.exports = Behavior({
 
     addPubMeritClause() {
       const f = this.data.pubMeritRuleForm;
+      if (!(f.clauseNatureIds || []).length) { wx.showToast({ title: natureCopy.selectNatureRequired, icon: 'none' }); return; }
       if (!f.clauseTargetIdentityId) { wx.showToast({ title: localeCopy.copy_5ece2c09c8, icon: 'none' }); return; }
-      const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, quotaLimit: f.clauseQuotaLimit, requireExactQuota: f.clauseRequireExactQuota };
+      const clause = { natureIds: f.clauseNatureIds.slice(), legacyNatureScope: f.clauseLegacyNatureScope, scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, quotaLimit: f.clauseQuotaLimit, requireExactQuota: f.clauseRequireExactQuota };
       const clauses = [...f.clauses];
       if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
       this.setData({ 'pubMeritRuleForm.clauses': clauses, 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 });
     },
 
-    editPubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubMeritRuleForm.clauses[idx]; if (!c) return; this.setData({ meritScopeOptions: meritScopeOptions(c.scopeType), 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': idx, 'pubMeritRuleForm.clauseScopeType': c.scopeType, 'pubMeritRuleForm.clauseScopeLabel': scopeLabel(c.scopeType, true), 'pubMeritRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubMeritRuleForm.clauseTargetIdentity': c.targetIdentity, 'pubMeritRuleForm.clauseQuotaLimit': c.quotaLimit || 0, 'pubMeritRuleForm.clauseRequireExactQuota': c.requireExactQuota || false }); },
+    editPubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubMeritRuleForm.clauses[idx]; if (!c) return; this.setData({ meritScopeOptions: meritScopeOptions(c.scopeType), pubMeritRuleForm: natureFields(this, Object.assign({}, this.data.pubMeritRuleForm, { isClauseEditorVisible: true, clauseNatureIds: c.natureIds || [], clauseLegacyNatureScope: c.legacyNatureScope, clauseEditingIndex: idx, clauseScopeType: c.scopeType, clauseScopeLabel: scopeLabel(c.scopeType, true), clauseTargetIdentityId: c.targetIdentityId, clauseTargetIdentity: c.targetIdentity, clauseQuotaLimit: c.quotaLimit || 0, clauseRequireExactQuota: c.requireExactQuota || false })) }); },
 
     removePubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubMeritRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubMeritRuleForm.clauses': clauses }); },
 
     onPubMeritRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubMeritRuleForm.granteeDepartmentId': dept.id, 'pubMeritRuleForm.granteeDepartment': dept.name }); },
 
-    onPubMeritRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.granteeIdentityId': ident.id, 'pubMeritRuleForm.granteeIdentity': ident.name }); },
+    onPubMeritRuleIdentChange(e) { const ident = this.data.pubMeritRuleForm.applicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.granteeIdentityId': ident.id, 'pubMeritRuleForm.granteeIdentity': ident.name }); },
 
     // ─── Merit Rule Category List batch ops ───
     togglePubMeritRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubMeritRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubMeritRuleListView.every(r => map[r.id]); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
@@ -607,6 +665,7 @@ module.exports = Behavior({
           for (const c of (rule.clauses || [])) {
             allClauses.push({
               ...c,
+              granteeNatureIds: rule.natureIds,
               granteeDepartmentId: rule.granteeDepartmentId,
               granteeIdentityId: rule.granteeIdentityId
             });
@@ -642,6 +701,8 @@ module.exports = Behavior({
         });
         const currentIdSet = new Set(currentIds);
         const filtered = designationCandidateView.filterCandidatesForClause(assignmentCandidates, {
+          natureIds: clause.natureIds,
+          granteeNatureIds: clause.granteeNatureIds,
           scopeType,
           granteeDepartmentId: granteeDeptId,
           granteeIdentityId,
@@ -755,16 +816,19 @@ module.exports = Behavior({
       if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
-      const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
+      const form = this.data.pubViewRuleForm;
+      const templateClauses = (form.clauses || []).map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
       const selected = (this.data.pubViewRuleList || []).filter(item => this.data.pubViewRuleSelectedIds[item.id]);
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       const expected = orgSession.getSnapshot();
       if (!await confirmReplaceRules(selected, false) || !orgSession.isCurrent(expected) || !canPublish(this, 'update') || this.data.publicationForm.id !== pubId || this.data.pubBatchRunning) return;
+      if (!await this.confirmPublicationBatchNatures(form, selected) || !orgSession.isCurrent(expected) || this.data.pubViewRuleForm !== form || !canPublish(this, 'update')) return;
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubViewRules', true);
       try {
         const rules = selected.map(item => ({
           id: item.id,
+          natureIds: item.natureIds || form.natureIds,
           publicationId: pubId,
           granteeDepartmentId: item.granteeDepartmentId,
           granteeIdentityId: item.granteeIdentityId,
@@ -791,16 +855,19 @@ module.exports = Behavior({
       if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
-      const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
+      const form = this.data.pubMeritRuleForm;
+      const templateClauses = (form.clauses || []).map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
       const selected = (this.data.pubMeritRuleList || []).filter(item => this.data.pubMeritRuleSelectedIds[item.id]);
       if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       const expected = orgSession.getSnapshot();
       if (!await confirmReplaceRules(selected, true) || !orgSession.isCurrent(expected) || !canPublish(this, 'update') || this.data.publicationForm.id !== pubId || this.data.pubBatchRunning) return;
+      if (!await this.confirmPublicationBatchNatures(form, selected) || !orgSession.isCurrent(expected) || this.data.pubMeritRuleForm !== form || !canPublish(this, 'update')) return;
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubMeritRules', true);
       try {
         const rules = selected.map(item => ({
           id: item.id,
+          natureIds: item.natureIds || form.natureIds,
           publicationId: pubId,
           granteeDepartmentId: item.granteeDepartmentId,
           granteeIdentityId: item.granteeIdentityId,

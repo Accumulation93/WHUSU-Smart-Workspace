@@ -25,6 +25,7 @@ async function main() {
     await admin.query("INSERT INTO organizations(id,name) VALUES ('org','测试组织'),('other','其他组织')");
     await admin.query('CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id,domain))');
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     await admin.query("INSERT INTO departments(id,name,org_id) VALUES ('d','部门','org')");
     await admin.query("INSERT INTO identities(id,name,org_id) VALUES ('i','成员','org')");
     await admin.query("INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('person','测试姓名','private-student','private-student')");

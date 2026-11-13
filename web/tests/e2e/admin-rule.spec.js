@@ -7,18 +7,19 @@ import copy from '../../src/locales/zh-CN/index.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 import responseMessages from '../../src/locales/zh-CN/shared/responseMessages.js';
 import utilityCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/adminUtils.js';
+import relations from '../../src/locales/zh-CN/shared/identityNatureRelations.js';
 const config=(id='t1',name='Template A')=>({templateId:id,templateName:name,weight:1,sortOrder:1,calculationMethod:'weighted_average',trimHighCount:0,trimLowCount:0});
-const clause=()=>({scopeType:'all_people',targetIdentityId:'',targetIdentity:'',requireAllComplete:false,templateConfigs:[config()]});
-const rule=(id='r1',department='Department A',allow=false)=>({id,activityId:'a1',activityName:'Activity A',scorerDepartmentId:id==='r1'?'d1':'d2',scorerDepartment:department,scorerIdentityId:'i1',scorerIdentity:'Identity A',allowSelfAssessment:allow,clauses:[clause()]});
+const clause=()=>({natureIds:['staff'],scopeType:'all_people',targetIdentityId:'',targetIdentity:'',requireAllComplete:false,templateConfigs:[config()]});
+const rule=(id='r1',department='Department A',allow=false)=>({id,natureIds:['staff'],activityId:'a1',activityName:'Activity A',scorerDepartmentId:id==='r1'?'d1':'d2',scorerDepartment:department,scorerIdentityId:'i1',scorerIdentity:'Identity A',allowSelfAssessment:allow,clauses:[clause()]});
 async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});const state={rules:[rule(),rule('r2','Department B',true)],reads:0,writes:[],reject:false,failRead:false,current:true};
   const fulfill=(route,json)=>route.fulfill({json});
   await page.route('**/api/getMyAdminPermissions',route=>fulfill(route,{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'scoring.rules':true,'scoring.rules.delete':true,'scoring.templates':true,'scoring.activities':true}}));
   await page.route('**/api/listScoreActivities',route=>fulfill(route,{status:'success',currentActivityId:state.current?'a1':'',list:[{id:'a1',name:'Activity A',isCurrent:state.current}]}));
   await page.route('**/api/listDepartments',route=>fulfill(route,{status:'success',departments:[{id:'d1',name:'Department A'},{id:'d2',name:'Department B'}]}));
-  await page.route('**/api/listIdentities',route=>fulfill(route,{status:'success',identities:[{id:'i1',name:'Identity A'}]}));
+  await page.route('**/api/listIdentities',route=>fulfill(route,{status:'success',identities:[{id:'i1',name:'Identity A',natureIds:['staff']}]}));
   await page.route('**/api/listScoreTemplates',route=>fulfill(route,{status:'success',list:[{id:'t1',name:'Template A',questions:[]},{id:'t2',name:'Template B',questions:[]}]}));
-  await page.route('**/api/listRateRules',route=>{state.reads++;return fulfill(route,state.failRead?{status:'forbidden',message:'Rule read failed'}:{status:'success',rules:state.rules});});
+  await page.route('**/api/listRateRules',route=>{state.reads++;return fulfill(route,state.failRead?{status:'forbidden',message:'Rule read failed'}:{status:'success',rules:state.rules,configurationCandidates:{assignmentNatures:[{id:'staff',name:'Nature A'},{id:'liaison',name:'Nature B'}]}});});
   for(const name of ['saveRateRule','batchSaveRateRules','generateRateTargetRules','deleteRateRule'])await page.route('**/api/'+name,route=>{
     const body=route.request().postDataJSON();state.writes.push({name,body});if(state.reject)return fulfill(route,{status:'conflict',...(name==='deleteRateRule'?{code:'scoring_rule_referenced'}:{}),message:'Rule rejected'});
     if(name==='saveRateRule'){const saved={...body,id:body.id||'r-new'};state.rules=state.rules.filter(row=>row.id!==saved.id).concat(saved);}
@@ -27,9 +28,9 @@ async function setup(page){
     return fulfill(route,{status:'success',ruleCount:state.rules.length});
   });return state;
 }
-async function open(page){await page.goto('/web/admin?subApp=scoring&tab=rules');await expect(page.getByRole('checkbox').filter({hasText:'Department A'})).toBeVisible();}
+async function open(page){await page.goto('/web/admin?subApp=scoring&tab=rules');await expect(page.getByRole('checkbox').filter({hasText:'Department A'})).toBeVisible();await page.getByRole('button',{name:'Nature A',exact:true}).click();}
 const row=(page,name='Department A')=>page.getByRole('checkbox').filter({hasText:name});
-async function newClause(page){await page.getByRole('button',{name:ui.copy_80708ed559,exact:true}).click();await page.getByLabel(ui.copy_4a52d5ce73,{exact:true}).selectOption('all_people');await page.getByRole('button',{name:ui.copy_104a8f33bb,exact:true}).click();await page.locator('.template-editor').getByLabel(ui.copy_5a49161fd7,{exact:true}).selectOption('t1');}
+async function newClause(page){await page.getByRole('button',{name:ui.copy_80708ed559,exact:true}).click();await page.getByRole('button',{name:'Nature A',exact:true}).last().click();await page.getByLabel(ui.copy_4a52d5ce73,{exact:true}).selectOption('all_people');await page.getByRole('button',{name:ui.copy_104a8f33bb,exact:true}).click();await page.locator('.template-editor').getByLabel(ui.copy_5a49161fd7,{exact:true}).selectOption('t1');}
 async function storeConfig(page){await page.locator('.template-editor').getByRole('button',{name:ui.copy_7e4100d002,exact:true}).click();}
 const saveCategory=page=>page.getByRole('button',{name:ui.saveScorerCategory,exact:true});
 
@@ -43,7 +44,7 @@ test('new category includes pending clause and template drafts with native weigh
 });
 
 test('clause editor validates scope and weights, confirms explicitly and cancels without changing saved clauses',async({page})=>{
- await setup(page);await open(page);await page.getByRole('button',{name:ui.copy_80708ed559,exact:true}).click();await page.getByRole('button',{name:ui.copy_8d32562588,exact:true}).click();await expect(page.getByText(messages.copy_7151fd51a0)).toBeVisible();await page.getByRole('button',{name:ui.copy_6dd2900f2a,exact:true}).click();await expect(page.getByLabel(ui.copy_4a52d5ce73,{exact:true})).toHaveCount(0);
+ await setup(page);await open(page);await page.getByRole('button',{name:ui.copy_80708ed559,exact:true}).click();await page.getByRole('button',{name:ui.copy_8d32562588,exact:true}).click();await expect(page.getByText(relations.selectNatureRequired)).toBeVisible();await page.getByRole('button',{name:'Nature A',exact:true}).last().click();await page.getByRole('button',{name:ui.copy_8d32562588,exact:true}).click();await expect(page.getByText(messages.copy_7151fd51a0)).toBeVisible();await page.getByRole('button',{name:ui.copy_6dd2900f2a,exact:true}).click();await expect(page.getByLabel(ui.copy_4a52d5ce73,{exact:true})).toHaveCount(0);
  await newClause(page);await page.getByLabel(ui.copy_30e235fb56,{exact:true}).fill('0');await storeConfig(page);await expect(page.getByText(utilityCopy.copy_ba359df757)).toBeVisible();await page.getByLabel(ui.copy_30e235fb56,{exact:true}).fill('1');await storeConfig(page);await page.getByRole('button',{name:ui.copy_8d32562588,exact:true}).click();await expect(page.getByLabel(ui.copy_4a52d5ce73,{exact:true})).toHaveCount(0);await expect(page.getByText('Template A',{exact:true})).toBeVisible();
 });
 
@@ -77,4 +78,28 @@ test('keyboard edit is isolated from whole-card selection and long press reorder
 test('pending category save disables controls and browser return with complete narrow fields',async({page})=>{
  await setup(page);await page.setViewportSize({width:310,height:800});await page.goto('/web/portal');await page.getByRole('button',{name:ui.copy_33a502217d,exact:true}).click();await page.getByRole('tab',{name:ui.copy_9ad6311419,exact:true}).click();await row(page).getByRole('button',{name:ui.copy_e040ae3016,exact:true}).click();
  let release;const held=new Promise(resolve=>{release=resolve;});await page.route('**/api/saveRateRule',async route=>{await held;await route.fulfill({json:{status:'success'}});});await saveCategory(page).click();await expect(page.getByLabel(ui.copy_1a978b0d52,{exact:true})).toBeDisabled();await expect(page.getByRole('tab',{name:ui.copy_5aa4cb13ec,exact:true})).toBeDisabled();await page.goBack();await expect(page).toHaveURL(/admin/);release();await expect(saveCategory(page)).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+});
+
+test('legacy scorer nature needs explicit choice and range confirmation before saving',async({page})=>{
+ const state=await setup(page);state.rules[0].natureIds=null;await open(page);
+ await row(page).getByRole('button',{name:ui.copy_e040ae3016,exact:true}).click();
+ await expect(page.getByText(relations.legacyScopeHelp)).toBeVisible();
+ await saveCategory(page).click();await expect(page.getByText(relations.selectNatureRequired)).toBeVisible();expect(state.writes).toHaveLength(0);
+ await page.getByRole('button',{name:'Nature A',exact:true}).click();await saveCategory(page).click();
+ await expect(page.getByRole('dialog')).toContainText(relations.legacyScopeChangeHelp(['Nature A']));
+ await page.getByRole('dialog').getByRole('button',{name:copy.common.cancel,exact:true}).click();expect(state.writes).toHaveLength(0);
+ await saveCategory(page).click();await page.getByRole('dialog').getByRole('button',{name:relations.confirmScopeChange,exact:true}).click();
+ await expect.poll(()=>state.writes.length).toBe(1);expect(state.writes[0].body.natureIds).toEqual(['staff']);
+});
+
+test('nature change keeps identity until explicit clear confirmation and cancel restores selection',async({page})=>{
+ await setup(page);await open(page);await row(page).getByRole('button',{name:ui.copy_e040ae3016,exact:true}).click();
+ await page.getByRole('button',{name:'Nature B',exact:true}).click();await page.getByRole('button',{name:'Nature A',exact:true}).click();
+ await expect(page.getByRole('dialog')).toContainText('Identity A');
+ await page.getByRole('dialog').getByRole('button',{name:copy.common.cancel,exact:true}).click();
+ await expect(page.getByLabel(ui.copy_bf4cf396ad,{exact:true})).toHaveValue('i1');
+ await expect(page.getByRole('button',{name:'Nature A',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'Nature A',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:relations.clearIncompatibleSelection,exact:true}).click();
+ await expect(page.getByLabel(ui.copy_bf4cf396ad,{exact:true})).toHaveValue('');
+ await expect(page.getByLabel(ui.copy_bf4cf396ad,{exact:true}).locator('option[value="i1"]')).toHaveCount(0);
 });

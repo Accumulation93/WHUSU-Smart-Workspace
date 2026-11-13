@@ -24,7 +24,7 @@
                     <view class="personnel-picker-name">{{item._displayName}}</view>
                     <view class="personnel-picker-assignment" wx:if="{{selectionLevel === 'assignment'}}">{{item._assignmentText}}</view>
                     <view class="personnel-picker-assignment-list" wx:else>
-                      <view class="personnel-picker-assignment" wx:for="{{item.assignments}}" wx:key="assignmentId" wx:for-item="assignment">{{assignment.assignmentLabel || localeCopy.assignmentUnavailable}}</view>
+                      <view class="personnel-picker-assignment" wx:for="{{item.assignments}}" wx:key="assignmentId" wx:for-item="assignment">{{assignment.assignmentNatureLabel || relations.natureMissing}} · {{assignment.assignmentLabel || localeCopy.assignmentUnavailable}}</view>
                     </view>
                   </view>
                 </view>
@@ -35,6 +35,7 @@
 
           <view class="personnel-picker-toolbar ui-dialog-toolbar">
             <view class="personnel-picker-filter-grid">
+              <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{relations.nature}}</view><picker class="ui-field-control-host" range="{{natureOptions}}" value="{{natureIndex}}" bindchange="onNatureChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{natureIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{natureOptions[natureIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
               <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.department}}</view><picker class="ui-field-control-host" range="{{departmentOptions}}" value="{{departmentIndex}}" bindchange="onDepartmentChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{departmentIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{departmentOptions[departmentIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
               <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.identity}}</view><picker class="ui-field-control-host" range="{{identityOptions}}" value="{{identityIndex}}" bindchange="onIdentityChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{identityIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{identityOptions[identityIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
               <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.workGroup}}</view><picker class="ui-field-control-host" range="{{workGroupOptions}}" value="{{workGroupIndex}}" bindchange="onWorkGroupChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{workGroupIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{workGroupOptions[workGroupIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
@@ -55,7 +56,7 @@
                     <view class="personnel-picker-name">{{item._displayName}}</view>
                     <view class="personnel-picker-assignment" wx:if="{{selectionLevel === 'assignment'}}">{{item._assignmentText}}</view>
                     <view class="personnel-picker-assignment-list" wx:else>
-                      <view class="personnel-picker-assignment" wx:for="{{item.assignments}}" wx:key="assignmentId" wx:for-item="assignment">{{assignment.assignmentLabel || localeCopy.assignmentUnavailable}}</view>
+                      <view class="personnel-picker-assignment" wx:for="{{item.assignments}}" wx:key="assignmentId" wx:for-item="assignment">{{assignment.assignmentNatureLabel || relations.natureMissing}} · {{assignment.assignmentLabel || localeCopy.assignmentUnavailable}}</view>
                     </view>
                   </view>
                 </view>

@@ -38,7 +38,7 @@ const mocks = {
     async getByIdForUpdate(id) { calls.push('lockTemplate'); return id === 'existing' ? { id } : null; }
   },
   '../models/auditFlowTemplateStep': { create: record('step'), removeByTemplateId: record('removeSteps') },
-  '../models/auditFlowTemplateStepCondition': { create: record('condition') },
+  '../models/auditFlowTemplateStepCondition': { create: record('condition'), getByTemplateId: async () => [] },
   '../services/auditPersonAssignmentCondition': {
     async resolveAndValidateBindings(condition) {
       return { ok: Boolean(condition.personHrIds && condition.assignmentIds), condition, reason: 'invalid_binding' };
@@ -50,7 +50,8 @@ const sandbox = {
   require(name) {
     if (mocks[name]) return mocks[name];
     if (name === 'express' || name.includes('/locales/') || name.endsWith('/helpers')
-      || name.endsWith('/auditWorkflowPolicy') || name.endsWith('/auditManagementAuthorization')) return realRequire(name);
+      || name.endsWith('/auditWorkflowPolicy') || name.endsWith('/auditManagementAuthorization')
+      || name.endsWith('/natureRulePolicy') || name.endsWith('/identityNatureRule')) return realRequire(name);
     return {};
   }
 };

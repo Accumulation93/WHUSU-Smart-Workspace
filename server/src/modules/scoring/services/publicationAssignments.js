@@ -1,4 +1,5 @@
 const { safeString } = require('../../../utils/helpers');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 function assignmentIdOf(assignment) {
   return safeString(assignment && (assignment.assignment_id || assignment.assignmentId || assignment.id));
@@ -54,12 +55,17 @@ function resolveRequestedAssignments(requestedIds, assignments) {
 
 function matchesRuleGrantee(assignment, rule) {
   if (!assignment || !rule) return false;
+  const natures = rule.grantee_nature_ids === undefined
+    ? (rule.nature_ids === undefined ? rule.natureIds : rule.nature_ids) : rule.grantee_nature_ids;
+  if (!natureRulePolicy.matches(natures, assignment.assignment_kind || assignment.assignmentKind || assignment.assignmentNature)) return false;
   return safeString(assignment.department_id || assignment.departmentId) === safeString(rule.grantee_department_id || rule.granteeDepartmentId)
     && safeString(assignment.identity_id || assignment.identityId) === safeString(rule.grantee_identity_id || rule.granteeIdentityId);
 }
 
 function matchesMeritClause(target, clause, viewer) {
   if (!target || !clause || !viewer) return false;
+  if (!natureRulePolicy.matches(clause.nature_ids === undefined ? clause.natureIds : clause.nature_ids,
+    target.assignment_kind || target.assignmentKind || target.assignmentNature)) return false;
   const targetIdentityId = safeString(target.identity_id || target.identityId);
   const requiredIdentityId = safeString(clause.target_identity_id || clause.targetIdentityId);
   if (requiredIdentityId && targetIdentityId !== requiredIdentityId) return false;
@@ -240,7 +246,10 @@ function collectRuleCategories(assignments) {
     const identityCategoryId = safeString(assignment.identity_id || assignment.identityId);
     if (!departmentId || !identityCategoryId) return;
     const key = departmentId + '::' + identityCategoryId;
-    if (!categories.has(key)) categories.set(key, { deptId: departmentId, identId: identityCategoryId });
+    if (!categories.has(key)) categories.set(key, { deptId: departmentId, identId: identityCategoryId, natureIds: [] });
+    const natureId = safeString(assignment.assignment_kind || assignment.assignmentKind || assignment.assignmentNature);
+    const category = categories.get(key);
+    if (natureId && !category.natureIds.includes(natureId)) category.natureIds.push(natureId);
   });
   return categories;
 }

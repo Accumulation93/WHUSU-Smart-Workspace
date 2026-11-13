@@ -36,11 +36,28 @@ async function run() {
     const natureInitializationMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111010000_assignment_nature_initialization.sql'), 'utf8');
     await admin.query(natureInitializationMigration);
     await admin.query(natureInitializationMigration);
+    const identityNatureMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8');
+    await admin.query(identityNatureMigration);
+    await admin.query(identityNatureMigration);
+    await admin.query('UPDATE identity_nature_rollouts SET enabled=1');
+    const businessNatureMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'), 'utf8');
+    await admin.query(businessNatureMigration);
+    await admin.query(businessNatureMigration);
+    const scoringNatureMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111102000_scoring_rule_natures.sql'), 'utf8');
+    await admin.query(scoringNatureMigration);
+    await admin.query(scoringNatureMigration);
+    const publicationNatureMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111103000_publication_rule_natures.sql'), 'utf8');
+    await admin.query(publicationNatureMigration);
+    await admin.query(publicationNatureMigration);
+    const identityNameMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261111104000_identity_name_exact_key.sql'), 'utf8');
+    await admin.query(identityNameMigration);
+    await admin.query(identityNameMigration);
     const versionMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261031173000_authorization_subject_versions.sql'), 'utf8');
     await admin.query(versionMigration);
     await admin.query(versionMigration);
     Object.assign(process.env, { DB_HOST: host, DB_PORT: String(port), DB_NAME: database, DB_USER: username, DB_PASSWORD: password });
     pool = require('../src/config/db');
+    await require('./helpers/identityNatureSessionCases')(admin);
     await admin.query("INSERT INTO organizations(id,name) VALUES ('dictionary-shadow','旧权限并发测试')");
     const dictionaryDefinition = require('../src/core/models/dictionaryDefinition');
     const concurrentDefinitions = await Promise.all([
@@ -141,6 +158,8 @@ async function run() {
     assert.equal((await model.read(admin, 'other')).rules.length, 0);
     async function checkAudienceCopies() {
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261018230000_hr_contact_directory.sql'), 'utf8'));
+    await require('./identityNatureIntegrationCases')(admin);
+    await require('./businessNatureIntegrationCases')(admin);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261019210000_unified_calendar.sql'), 'utf8'));
     await admin.query("INSERT INTO departments(id,name,org_id) VALUES ('target-department','目标部门','other')");
     const audience = JSON.stringify([{ type: 'scope', departmentIds: ['department'] }]);
@@ -183,6 +202,7 @@ async function run() {
     await admin.query("INSERT INTO organization_memberships(id, person_id, org_id, legacy_hr_id) VALUES ('membership','person','org','hr')");
     await admin.query("INSERT INTO departments(id,name,org_id) VALUES ('department','测试部门','org')");
     await admin.query("INSERT INTO identities(id,name,org_id) VALUES ('identity','测试类别','org')");
+    await admin.query("INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('org','identity','staff')");
     await admin.query(`INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
       VALUES ('assignment','membership','org','staff','department','identity')`);
     await admin.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
@@ -253,6 +273,7 @@ async function run() {
     await admin.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('regular','person','org','admin')");
     await admin.query(`INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
       VALUES ('second-assignment','membership','org','liaison','department','identity')`);
+    await admin.query("INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('org','identity','liaison')");
     const superCandidates = await readCandidates(admin, reference);
     assert.equal(superCandidates.assignments.length, 2);
     assert.equal(superCandidates.adminGrants.length, 1);
@@ -321,6 +342,7 @@ async function run() {
     assert.deepEqual((await natures.list(admin, 'new-organization')).map(row => row.id).sort(), ['liaison', 'other', 'staff']);
     const assignmentModel = require('../src/core/models/unifiedIdentity');
     const usedNature = await natures.save({ name: '专项工作岗位' }, 'org', natureGuard);
+    await admin.query('INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES (?,?,?)', ['org', 'identity', usedNature.id]);
     const assignmentInput = { id: 'assignment', legacyHrId: 'hr', organizationId: 'org',
       assignmentKind: usedNature.id, departmentId: 'department', identityId: 'identity', workGroupId: '' };
     await assignmentModel.saveMembershipAssignment(assignmentInput, { personId: 'person', contextId: 'context' }, natureGuard);
@@ -1040,6 +1062,7 @@ async function run() {
     assert.equal(savedPeopleRule.enabled, 0);
     assert.deepEqual(typeof savedPeopleRule.field_ids_json === 'string' ? JSON.parse(savedPeopleRule.field_ids_json) : savedPeopleRule.field_ids_json, ['target-field']);
     await admin.query(`INSERT INTO identities(id,org_id,name) VALUES ('target-identity','other','目标身份');
+      INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('other','target-identity','staff');
       INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
       VALUES ('target-assignment','target-membership','other','staff','target-department','target-identity');
       INSERT INTO audit_flow_templates(id,org_id,name,starter_type,starter_conditions_json)

@@ -171,6 +171,7 @@ async function run() {
     );
     await database.query(authorizationCompatibility);
     await database.query(authorizationCompatibility);
+    await database.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     // 设备字段由后续独立迁移负责；在本测试夹具中补齐它们，验证统一身份模型
     // 在旧库完成身份迁移后也能安全创建带设备信息的会话。
     await database.query(`

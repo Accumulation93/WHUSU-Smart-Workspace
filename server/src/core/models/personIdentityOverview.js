@@ -127,7 +127,12 @@ async function listPersonIdentityData(legacyHrId, readableOrganizationIds, edita
       pool.query(`SELECT id, org_id, name, version FROM assignment_natures
         WHERE org_id IN (${editableSql}) ORDER BY name`, editableIds).then((result) => result[0])
     ]);
-    dictionaries = { departments, identities, workGroups, assignmentNatures };
+    const decoratedIdentities = [];
+    for (const organizationId of editableIds) {
+      decoratedIdentities.push(...await require('./identityNature').decorate(pool, organizationId,
+        identities.filter(row => row.org_id === organizationId)));
+    }
+    dictionaries = { departments, identities: decoratedIdentities, workGroups, assignmentNatures };
   }
 
   return {

@@ -8,6 +8,7 @@ assert.deepStrictEqual(normalizeRule({
   specificWorkGroupId: 'ignored',
   identityScope: 'same'
 }), {
+  natureIds: null,
   departmentScope: 'specific',
   specificDepartmentId: 'dept-1,dept-2',
   workGroupScope: 'all',

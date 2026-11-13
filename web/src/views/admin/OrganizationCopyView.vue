@@ -40,7 +40,7 @@
         <p v-if="references.length" class="muted">{{ text.referenceHelp }}</p>
         <p v-else-if="detailReady" class="muted">{{ text.noReferences }}</p>
         <div v-for="item in references" :key="item.token" class="glass-panel stack-tight">
-          <span class="muted">{{ text.sourceOption }}</span><strong>{{ text.referenceKinds[item.kind] }} · {{ item.label }}</strong>
+          <span class="muted">{{ text.sourceOption }}</span><strong>{{ item.kind === 'nature' ? relations.sourceNature : text.referenceKinds[item.kind] }} · {{ item.label }}</strong>
           <span v-if="item.kind === 'person' || item.kind === 'assignments'" class="muted">{{ text.targetOption }}</span>
           <button v-if="item.kind === 'person' || item.kind === 'assignments'" type="button" class="btn btn-secondary"
             :disabled="busy || !detailReady" @click="openPicker(item)">{{ selectedLabel(item) || text.chooseTargetOption }}</button>
@@ -52,6 +52,8 @@
             </select>
           </label>
         </div>
+        <section v-if="draft.kind === 'hr.identities' && !draft.payload.natureReferences?.length" class="stack-tight"><p>{{ relations.legacyCopyHelp }}</p><button v-for="item in candidates.choices?.nature || []" :key="item.id" type="button" class="list-row personnel-option" :class="{'personnel-option-selected':legacyNatureIds.includes(item.id)}" :aria-pressed="legacyNatureIds.includes(item.id)" @click="toggleLegacyNature(item.id)">{{ item.name }}</button></section>
+        <section v-if="identityMerge" class="glass-panel stack"><h3>{{ identityMerge.mode === 'merge' ? relations.mergeTitle : relations.affectedTitle }}</h3><p v-if="identityMerge.mode === 'merge'">{{ relations.copyMergeHelp(draft.payload.name) }}</p><p>{{ relations.addedNatureHelp }}</p><span>{{ (identityMerge.natureIds || []).map(id => candidates.choices?.nature?.find(item => item.id === id)?.name).filter(Boolean).join(' · ') }}</span><template v-if="identityMerge.descriptionConflict"><strong>{{ relations.descriptionConflictTitle }}</strong><label class="field"><input v-model="identityDescriptionChoice" type="radio" value="existing" />{{ relations.keepExisting }}<span class="break-all">{{ identityMerge.existingDescription || relations.emptyDescription }}</span></label><label class="field"><input v-model="identityDescriptionChoice" type="radio" value="incoming" />{{ relations.useIncoming }}<span class="break-all">{{ identityMerge.incomingDescription || relations.emptyDescription }}</span></label></template></section>
       </template>
       <div class="button-row">
         <button type="button" class="btn btn-secondary" :disabled="busy" @click="back">{{ text.back }}</button>
@@ -89,6 +91,7 @@
   </div>
 </template>
 <script setup>
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
@@ -112,9 +115,11 @@ const tabs = ref([]), availableKinds = ref([]);
 const kind = ref(kinds.includes(route.query.kind) ? route.query.kind : kinds[0]), tab = ref('source'), items = ref([]), organizations = ref([]), targets = ref({});
 const loading = ref(false), busy = ref(false), notice = ref(''), next = ref(''), ready = ref(false);
 const draft = ref(null), detailReady = ref(false), references = ref([]), candidates = ref({}), mapping = ref({}), picker = ref(null);
+const legacyNatureIds=ref([]),identityMerge=ref(null),identityDescriptionChoice=ref('');
+function toggleLegacyNature(id){if(busy.value)return;legacyNatureIds.value=legacyNatureIds.value.includes(id)?legacyNatureIds.value.filter(value=>value!==id):[...legacyNatureIds.value,id];identityMerge.value=null;}
 const requestIds = new Map();
 let generation = 0, operation = 0, disposed = false, ownsConfirmation = false;
-const complete = computed(() => references.value.every(item => Boolean(mapping.value[item.token])));
+const complete = computed(() => references.value.every(item => Boolean(mapping.value[item.token])) && (draft.value?.kind !== 'hr.identities' || references.value.some(item=>item.kind==='nature') || legacyNatureIds.value.length));
 const preview = computed(() => describeConfiguration(draft.value?.kind, draft.value?.activation?.payload || draft.value?.payload, ui));
 const editDestination = computed(() => copiedConfigurationDestination(draft.value));
 function editCopy() { if (!busy.value && detailReady.value && editDestination.value) router.push({ name: editDestination.value.name, query: editDestination.value.query }); }
@@ -138,6 +143,7 @@ function clear() {
   if (ownsConfirmation) { settleDialog(false); ownsConfirmation = false; }
   items.value = []; organizations.value = []; targets.value = {}; ready.value = false;
   draft.value = null; detailReady.value = false; references.value = []; candidates.value = {}; mapping.value = {}; picker.value = null;
+  identityMerge.value=null;identityDescriptionChoice.value='';legacyNatureIds.value=[];
   next.value = ''; notice.value = ''; loading.value = false; busy.value = false; requestIds.clear();
 }
 async function read(name, data) { const result = await callApi(name, data); requireSuccess(result); return result; }
@@ -170,10 +176,12 @@ async function openDraft(id) {
     const result = await read('getOrganizationConfigurationDraft', { id });
     if (!current(request)) return;
     draft.value = result; references.value = []; candidates.value = {}; mapping.value = {};
+    legacyNatureIds.value=[];identityMerge.value=null;identityDescriptionChoice.value='';
     if (result.state === 'draft' && result.shareAvailable) {
       const options = await read('getOrganizationConfigurationCandidates', { id });
       if (!current(request)) return;
       candidates.value = options; references.value = options.references || [];
+      if(result.kind==='hr.identities') references.value=(result.payload.natureReferences || []).map(item=>({token:'nature:'+item.id,kind:'nature',label:item.name}));
       mapping.value = Object.fromEntries(references.value.map(item => [item.token, '']));
     }
     detailReady.value = true;
@@ -214,10 +222,18 @@ function receive(item) {
 }
 function revoke(item) { mutation('revokeOrganizationConfigurationShare', { id: item.id, version: item.version },
   text.revokeConfirm(item.name, item.organizationName), text.revoked, () => load()); }
-function applyDraft() {
+async function applyDraft() {
   if (!complete.value || !detailReady.value || !draft.value?.shareAvailable) return;
   const id = draft.value.id;
-  mutation('applyOrganizationConfigurationDraft', { id, version: draft.value.version, references: { ...mapping.value } },
+  let resolved={...mapping.value};
+  if(draft.value.kind==='hr.identities') {
+    const natureIds=references.value.length?[...new Set(references.value.map(item=>mapping.value[item.token]))]:legacyNatureIds.value.slice();
+    const key=JSON.stringify(natureIds);
+    if(!identityMerge.value||identityMerge.value.key!==key){busy.value=true;const request=generation;try{const result=await read('saveIdentity',{name:draft.value.payload.name,description:draft.value.payload.description||'',natureIds,preview:true});if(current(request)){identityMerge.value={...result.preview,key};identityDescriptionChoice.value='';}}catch(error){if(current(request))notice.value=errorText(error,ui.operationFailed);}finally{if(current(request))busy.value=false;}return;}
+    if(identityMerge.value.descriptionConflict&&!identityDescriptionChoice.value){notice.value=relations.chooseDescription;return;}
+    resolved={natureIds,natureMapping:Object.fromEntries(references.value.map(item=>[item.token.slice(7),mapping.value[item.token]])),impactToken:identityMerge.value.impactToken,descriptionChoice:identityDescriptionChoice.value};
+  }
+  mutation('applyOrganizationConfigurationDraft', { id, version: draft.value.version, references: resolved },
     [text.applyConfirm(recordName(draft.value.payload)), ...references.value.map(item => text.mapping(item.label, selectedLabel(item)))].join('\n'),
     text.copied, () => openDraft(id));
 }
@@ -243,4 +259,6 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .field { display: grid; gap: var(--ui-label-gap); min-width: 0; }
 .panel-head { flex-wrap: wrap; }
 .copy-multiline { white-space: pre-wrap; overflow-wrap: anywhere; }
+.personnel-option { width:100%;font:inherit;color:var(--ui-text);text-align:left;cursor:pointer; }
+.personnel-option-selected { border-color:var(--ui-blue-700);background:var(--ui-chip-blue-bg); }
 </style>

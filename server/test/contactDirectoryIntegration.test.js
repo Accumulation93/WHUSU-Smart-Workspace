@@ -19,6 +19,9 @@ async function main() {
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
     const migration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261018230000_hr_contact_directory.sql'), 'utf8');
     await admin.query(migration); await admin.query(migration);
+    await admin.query('CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,PRIMARY KEY(org_id,domain))');
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     Object.assign(process.env, { DB_HOST: host, DB_PORT: String(port), DB_NAME: database, DB_USER: username, DB_PASSWORD: password });
     pool = require('../src/config/db');
     const model = require('../src/core/models/contactDirectory');
@@ -94,7 +97,8 @@ async function main() {
     await assert.rejects(model.read({ ...actor, organizationId: 'other' }, { key }), error => error.code === 'contactUnavailable');
     await assert.rejects(model.read(actor, { key: key.slice(0, -1) + (key.endsWith('0') ? '1' : '0') }), error => error.code === 'contactUnavailable');
     await assert.rejects(model.save(Object.assign({},saved,{fieldIds:['secret']}),'org',authorize),error=>error.code==='staleReferences');
-    await assert.rejects(model.save(saved,'other',authorize),error=>['staleReferences','work_context_required'].includes(error.code));
+    await assert.rejects(model.save(saved,'other',authorize),error=>error.code==='conflict');
+    assert.equal((await model.configuration('other',authorize)).rules.length,0);
     await assert.rejects(model.save(input,'org',async()=>{throw new Error('denied');}),/denied/);
     const updated = await model.save(Object.assign({},saved,{name:'修改后'}),'org',authorize); assert.equal(updated.version,2);
     await assert.rejects(model.save(saved,'org',authorize),error=>error.code==='conflict');

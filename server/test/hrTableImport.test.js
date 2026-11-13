@@ -84,7 +84,7 @@ async function main() {
     await schemaConnection.query(`
       CREATE TABLE organizations (id VARCHAR(64) PRIMARY KEY);
       INSERT INTO organizations(id) VALUES ('org-test-44');
-      CREATE TABLE authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(16) NOT NULL DEFAULT 'shadow');
+      CREATE TABLE authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(16) NOT NULL DEFAULT 'shadow', revision BIGINT UNSIGNED NOT NULL DEFAULT 0);
       CREATE TABLE organization_dictionary_locks (org_id VARCHAR(64) PRIMARY KEY);
       CREATE TABLE assignment_natures (id VARCHAR(32) NOT NULL, org_id VARCHAR(64) NOT NULL, name VARCHAR(80) NOT NULL, PRIMARY KEY (org_id,id));
       INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','org-test-44','staff');
@@ -172,6 +172,8 @@ async function main() {
       );
     `);
     await schemaConnection.end();
+    await adminConnection.query('USE ??', [database]);
+    await adminConnection.query(fs.readFileSync(require('path').join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
 
     process.env.DB_HOST = host;
     process.env.DB_PORT = String(port);

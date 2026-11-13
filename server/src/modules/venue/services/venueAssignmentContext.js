@@ -1,4 +1,5 @@
 const pool = require('../../../config/db');
+const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const { safeString } = require('../../../utils/helpers');
 
@@ -110,6 +111,8 @@ const ASSIGNMENT_SELECT = `SELECT ma.id AS assignment_id, ma.membership_id, ma.o
   LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
   LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id`;
 
+const CONFIGURED_ASSIGNMENT = ` AND (${assignmentPredicate('ma')})`;
+
 async function loadAssignmentById(assignmentId, orgId, activeOnly, conn) {
   const id = safeString(assignmentId);
   if (!id) return null;
@@ -121,6 +124,7 @@ async function loadAssignmentById(assignmentId, orgId, activeOnly, conn) {
   }
   if (activeOnly !== false) {
     where += " AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'";
+    where += CONFIGURED_ASSIGNMENT;
   }
   const db = conn || pool;
   const [rows] = await db.query(ASSIGNMENT_SELECT + where + ' LIMIT 1', params);
@@ -134,7 +138,7 @@ async function listActiveAssignmentsByPerson(personId, orgId) {
     where += ' AND ma.org_id = ?';
     params.push(safeString(orgId));
   }
-  const [rows] = await pool.query(ASSIGNMENT_SELECT + where + ' ORDER BY ma.created_at, ma.id', params);
+  const [rows] = await pool.query(ASSIGNMENT_SELECT + where + CONFIGURED_ASSIGNMENT + ' ORDER BY ma.created_at, ma.id', params);
   return rows.map(normalizeAssignment);
 }
 
@@ -146,7 +150,7 @@ async function listActiveAssignmentsByLegacyHrId(legacyHrId, orgId, conn) {
     params.push(safeString(orgId));
   }
   const db = conn || pool;
-  const [rows] = await db.query(ASSIGNMENT_SELECT + where + ' ORDER BY ma.created_at, ma.id', params);
+  const [rows] = await db.query(ASSIGNMENT_SELECT + where + CONFIGURED_ASSIGNMENT + ' ORDER BY ma.created_at, ma.id', params);
   return rows.map(normalizeAssignment);
 }
 
@@ -155,6 +159,7 @@ async function listActiveAssignmentsByOrg(orgId, conn) {
   const [rows] = await db.query(
     ASSIGNMENT_SELECT
       + " WHERE ma.org_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'"
+      + CONFIGURED_ASSIGNMENT
       + ' ORDER BY p.name, ma.created_at, ma.id',
     [safeString(orgId)]
   );
@@ -288,6 +293,7 @@ async function listApproverCandidates(orgId, excludeLegacyHrId) {
   const [rows] = await pool.query(
     ASSIGNMENT_SELECT
       + " WHERE ma.org_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'"
+      + CONFIGURED_ASSIGNMENT
       + ' ORDER BY p.name, p.student_id, ma.created_at, ma.id',
     [safeString(orgId)]
   );

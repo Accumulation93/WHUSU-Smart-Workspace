@@ -36,24 +36,32 @@ import {onBeforeRouteLeave,useRoute,useRouter} from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import CalendarConditions from '@/components/CalendarConditions.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import view from '@/shared/calendarView.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
 import {formatAbsoluteDate} from '@/runtime/dateTime.js';
+import {confirmAction} from '@/runtime/notify.js';
 const route=useRoute(),router=useRouter(),sourceKind=String(route.query.sourceKind || ''),sourceId=String(route.query.sourceId || '');
 const draft=ref(view.blank(String(route.query.date || formatAbsoluteDate(new Date())))),metadata=ref({people:[],departments:[],identities:[],workGroups:[],timezoneOffset:480});
 const loading=ref(true),busy=ref(false),failed=ref(false),notice=ref(''),saved=ref(false),endMode=ref('none'),reminder=ref(15),original=ref(null);
 const blocked=computed(()=>loading.value||busy.value||failed.value||saved.value);
 const frequencies=['none','daily','weekly','monthly','yearly'];
 const reminderOptions=[{value:-1,label:'reminderNone'},{value:0,label:'reminderStart'},{value:5,label:'reminderFive'},{value:15,label:'reminderFifteen'},{value:30,label:'reminderThirty'},{value:60,label:'reminderHour'},{value:1440,label:'reminderDay'}];
-let generation=0,disposed=false,lastPayload='',requestId='';
+let generation=0,disposed=false,lastPayload='',requestId='',legacyNatureEdit=false;
 async function load(){const own=++generation;loading.value=true;failed.value=false;notice.value='';try{const config=requireSuccess(await callApi(sourceKind ? 'getCalendarParticipants' : 'getCalendarConfiguration',sourceKind ? {sourceKind,sourceId,edit:true} : {}));if(own!==generation||disposed)return;metadata.value=config;
   if(sourceKind){draft.value.targets=config.targets || [{type:'self'}];draft.value.version=config.version;}
   else if(route.query.id){const date=String(route.query.date);const result=requireSuccess(await callApi('getCalendar',{...view.period(date,'week',config.timezoneOffset),managed:true,detailId:route.query.id,occurrenceDate:date}));if(own!==generation||disposed)return;const item=result.items.find(item=>item.id===route.query.id&&item.occurrenceDate===date);if(!item?.canUpdate)throw new Error(copy.unavailable);original.value=item;draft.value=view.edit(item,config.timezoneOffset);endMode.value=draft.value.recurrence.until ? 'until' : draft.value.recurrence.count ? 'count' : 'none';reminder.value=draft.value.reminders?.[0] ?? -1;}
+legacyNatureEdit=(draft.value.targets||[]).some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature);
 }catch(error){if(own===generation){failed.value=true;notice.value=errorText(error,copy.operationFailed);}}finally{if(own===generation)loading.value=false;}}
 function allDayChanged(){if(draft.value.allDay && draft.value.endDate<=draft.value.startDate)draft.value.endDate=view.addDays(draft.value.startDate,1);}
 function scopeChanged(){if(draft.value.scope==='series' && original.value?.seriesForm){draft.value.startDate=original.value.seriesForm.startDate;draft.value.endDate=original.value.seriesForm.endDate;draft.value.startTime=original.value.seriesForm.startTime;draft.value.endTime=original.value.seriesForm.endTime;}}
-async function save(){if(blocked.value)return;busy.value=true;notice.value='';const own=generation;try{const body=JSON.parse(JSON.stringify(draft.value));if(sourceKind){body.sourceKind=sourceKind;body.sourceId=sourceId;}else{body.reminders=reminder.value<0 ? [] : [reminder.value];if(endMode.value!=='until')delete body.recurrence.until;if(endMode.value!=='count')delete body.recurrence.count;if(body.recurrence.frequency!=='weekly')body.recurrence.weekdays=[];}
+async function save(){
+  if(blocked.value)return;
+  if((sourceKind||draft.value.visibility==='organization')&&(draft.value.targets||[]).some(clause=>clause.type==='scope'&&!clause.sameNature&&!(clause.natureIds||[]).length)){notice.value=relations.selectNatureRequired;return;}
+  const source=draft.value;
+  if(legacyNatureEdit&&(sourceKind||source.visibility==='organization')){const clauses=(source.targets||[]).filter(clause=>clause.type==='scope');const labels=(metadata.value.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.calendarSameNatureSummary);if(!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel})||draft.value!==source)return;}
+  busy.value=true;notice.value='';const own=generation;try{const body=JSON.parse(JSON.stringify(source));if(sourceKind){body.sourceKind=sourceKind;body.sourceId=sourceId;}else{body.reminders=reminder.value<0 ? [] : [reminder.value];if(endMode.value!=='until')delete body.recurrence.until;if(endMode.value!=='count')delete body.recurrence.count;if(body.recurrence.frequency!=='weekly')body.recurrence.weekdays=[];}
   if(!sourceKind&&!body.id){const payload=JSON.stringify(body);if(payload!==lastPayload){lastPayload=payload;requestId=crypto.randomUUID();}body.clientRequestId=requestId;}
   requireSuccess(await callApi(sourceKind ? 'saveCalendarParticipants' : 'saveCalendarEvent',body));if(own!==generation||disposed)return;saved.value=true;busy.value=false;await router.replace({name:'calendar'});
 }catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;}}

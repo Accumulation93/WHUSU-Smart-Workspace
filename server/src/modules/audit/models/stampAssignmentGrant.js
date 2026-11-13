@@ -1,6 +1,7 @@
 'use strict';
 
 const pool = require('../../../config/db');
+const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const { generateId } = require('../../../utils/helpers');
 const { lockPersonDeletionBarrier } = require('../../../core/models/hrMemberDeletion');
@@ -23,7 +24,8 @@ const candidateSelect = `SELECT ma.id AS assignmentId, om.person_id AS personId,
   JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
   JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
   LEFT JOIN work_groups wg ON wg.id = ma.work_group_id AND wg.org_id = ma.org_id
-  WHERE ma.org_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'`;
+  WHERE ma.org_id = ? AND ma.status = 'active' AND om.status = 'active' AND p.status = 'active'
+    AND (${assignmentPredicate('ma')})`;
 
 function presentCandidate(row) {
   return Object.assign({}, row, {
@@ -43,6 +45,7 @@ async function listGrants(connection = pool) {
     `SELECT g.stamp_id AS stampId, g.assignment_id AS assignmentId, g.person_id AS personId,
         p.name, d.name AS departmentName, i.name AS identityCategoryName, wg.name AS workGroupName,
         (ma.status = 'active' AND om.status = 'active' AND p.status = 'active'
+          AND (${assignmentPredicate('ma')})
           AND om.person_id = g.person_id) AS available
       FROM stamp_assignment_grants g
       JOIN stamps s ON s.id = g.stamp_id AND s.org_id = g.org_id
@@ -112,6 +115,7 @@ async function getAuthorizedStamps(assignment, stampIds, connection, options) {
         AND om.person_id = g.person_id AND om.status = 'active'
       JOIN persons p ON p.id = g.person_id AND p.status = 'active'
       WHERE s.org_id = ? AND g.assignment_id = ? AND g.person_id = ?${clause}
+        AND (${assignmentPredicate('ma')})
       ORDER BY s.id${connection ? ' FOR UPDATE' : ''}`, params);
   return rows;
 }

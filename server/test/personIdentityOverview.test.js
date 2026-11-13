@@ -50,6 +50,7 @@ Module._load = function(request, parent, isMain) {
   return originalLoad.call(this, request, parent, isMain);
 };
 const personIdentityOverview = require('../src/core/models/personIdentityOverview');
+require('../src/core/models/identityNature');
 Module._load = originalLoad;
 
 (async () => {

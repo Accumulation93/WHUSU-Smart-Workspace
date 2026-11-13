@@ -19,6 +19,8 @@ const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const ruleAuthorization = require('../models/scoreRuleAuthorization');
+const ruleNatures = require('../models/ruleNatures');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 const RULE_SCOPE_LABEL_MAP = {
   same_department_identity: scoringCopy.scopeSameDepartmentIdentity,
@@ -46,6 +48,7 @@ function rejectRateRule(status, message) {
 }
 
 function respondRateRuleError(res, error, fallbackMessage = scoringCopy.ruleOperationFailed) {
+  if (error.code && error.code.startsWith('identity_')) return res.json({ status: error.code });
   if (error.code === 'authorization_forbidden') {
     return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
   }
@@ -189,6 +192,7 @@ async function normalizeRateRuleInput(connection, orgId, body) {
     }
     templateConfigs.sort((left, right) => left.sortOrder - right.sortOrder);
     normalizedClauses.push({
+      natureIds: natureRulePolicy.normalize(clause.natureIds),
       scopeType,
       targetIdentityId,
       requireAllComplete: clause.requireAllComplete === true,
@@ -229,8 +233,11 @@ async function normalizeRateRuleInput(connection, orgId, body) {
     rejectRateRule('duplicate_category', localeCopy.copy_b92191d8ca);
   }
 
+  const natureIds = await ruleNatures.prepare(connection, orgId,
+    { id, activityId, scorerDepartmentId, scorerIdentityId, natureIds: source.natureIds }, dedupedClauses);
   return {
     id,
+    natureIds,
     activityId,
     activityName: safeString(activity.name),
     scorerDepartmentId,
@@ -296,11 +303,13 @@ async function saveRateRuleWithConnection(connection, orgId, input) {
     }
   }
 
+  await ruleNatures.persist(connection, orgId, ruleId, input.natureIds);
   for (const clause of input.clauses) {
     const clauseId = generateId();
     await connection.query(
-      'INSERT INTO rate_rule_clauses (id, rule_id, scope_type, target_identity_id, require_all_complete, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [clauseId, ruleId, clause.scopeType, clause.targetIdentityId || null, clause.requireAllComplete ? 1 : 0, orgId]
+      'INSERT INTO rate_rule_clauses (id, rule_id, scope_type, target_identity_id, require_all_complete, org_id, nature_ids) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [clauseId, ruleId, clause.scopeType, clause.targetIdentityId || null, clause.requireAllComplete ? 1 : 0, orgId,
+        clause.natureIds === null ? null : JSON.stringify(clause.natureIds)]
     );
     for (let index = 0; index < clause.templateConfigs.length; index++) {
       const config = clause.templateConfigs[index];
@@ -315,6 +324,7 @@ async function saveRateRuleWithConnection(connection, orgId, input) {
     id: ruleId,
     rule: {
       id: ruleId,
+      natureIds: input.natureIds,
       activityId: input.activityId,
       activityName: input.activityName,
       scorerDepartmentId: input.scorerDepartmentId,
@@ -366,6 +376,7 @@ function normalizeClause(clause, lookups) {
   const targetIdentityId = safeString(clause.targetIdentityId);
   const templateConfigs = Array.isArray(clause.templateConfigs) ? clause.templateConfigs : [];
   return {
+    natureIds: natureRulePolicy.normalize(clause.natureIds),
     scopeType,
     scopeLabel: RULE_SCOPE_LABEL_MAP[scopeType] || scopeType,
     targetIdentityId,
@@ -439,7 +450,7 @@ router.post('/listRateRules', async (req, res) => {
           trimHighCount: Number(cfg.trim_high_count || 0),
           trimLowCount: Number(cfg.trim_low_count || 0)
         })).sort((a, b) => a.sortOrder - b.sortOrder);
-        return { scopeType: c.scope_type, targetIdentityId: c.target_identity_id, requireAllComplete: !!c.require_all_complete, templateConfigs: configs };
+        return { scopeType: c.scope_type, targetIdentityId: c.target_identity_id, natureIds: natureRulePolicy.normalize(c.nature_ids), requireAllComplete: !!c.require_all_complete, templateConfigs: configs };
       });
 
       const clauses = rawClauses.map((clause) => normalizeClause(clause, lookups));
@@ -450,6 +461,7 @@ router.post('/listRateRules', async (req, res) => {
         scorerDepartmentId: item.scorer_department_id,
         scorerDepartment: safeString(lookups.departmentsById.get(item.scorer_department_id)),
         scorerIdentityId: item.scorer_identity_id,
+        natureIds: natureRulePolicy.normalize(item.nature_ids),
         scorerIdentity: safeString(lookups.identitiesById.get(item.scorer_identity_id)),
         allowSelfAssessment: item.allow_self_assessment !== 0,
         clauses,

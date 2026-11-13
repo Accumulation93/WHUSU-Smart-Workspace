@@ -21,6 +21,7 @@ const sharedCache = require('../utils/sharedCache');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const { respondScoringResponse, publicScoringHeaders } = require('../utils/scoringPrivacy');
 const participantService = require('../services/participants');
+const natureCondition = require('../utils/natureCondition');
 const { authorizedResultRead } = require('../services/authorizedResultRead');
 const {
   validateCalculationSnapshot,
@@ -365,6 +366,7 @@ function normalizeRuleClause(rawClause, orgLookups) {
   const targetIdentityId = safeString(rawClause.target_identity_id);
   return {
     scopeType: safeString(rawClause.scope_type),
+    natureIds: natureCondition.normalize(rawClause.nature_ids),
     targetIdentityId,
     targetIdentity: getLookupName(orgLookups.identitiesById, targetIdentityId),
     requireAllComplete: !!rawClause.require_all_complete,
@@ -406,6 +408,7 @@ async function loadRulesWithClauses(activityId, orgLookups) {
       scorerKey: item.scorer_key,
       scorerDepartmentId: item.scorer_department_id,
       scorerIdentityId: item.scorer_identity_id,
+      natureIds: natureCondition.normalize(item.nature_ids),
       scorerDepartment: getLookupName(orgLookups.departmentsById, item.scorer_department_id),
       scorerIdentity: getLookupName(orgLookups.identitiesById, item.scorer_identity_id),
       allowSelfAssessment: item.allow_self_assessment !== 0,
@@ -426,6 +429,7 @@ function matchesTargetIdentity(target, clause) {
   return safeString(target.identityId) && safeString(target.identityId) === safeString(clause.targetIdentityId);
 }
 function matchesClauseTarget(target, scorer, clause) {
+  if (!natureCondition.matches(clause.natureIds, target)) return false;
   const st = safeString(clause.scopeType);
   if (st === 'same_department_identity') return sameDepartment(target, scorer) && matchesTargetIdentity(target, clause);
   if (st === 'same_department_all') return sameDepartment(target, scorer);
@@ -489,7 +493,7 @@ function buildTaskData(members, rules, records) {
 
   rules.forEach((rule) => {
     const ruleKey = makeOrgRuleKey(rule.scorerDepartmentId, rule.scorerIdentityId);
-    const scorers = membersByRuleKey.get(ruleKey) || [];
+    const scorers = (membersByRuleKey.get(ruleKey) || []).filter(member => natureCondition.matches(rule.natureIds, member));
     rule.clauses.forEach((clause, clauseIndex) => {
       if (!clause.templateConfigs.length) return;
       const scopeType = safeString(clause.scopeType);
@@ -514,6 +518,7 @@ function buildTaskData(members, rules, records) {
         }
 
         candidates.forEach((target) => {
+          if (!natureCondition.matches(clause.natureIds, target)) return;
           if (!rule.allowSelfAssessment && participantService.isSameNaturalPerson(scorer, target)) return;
           const taskKey = `${safeString(rule._id)}::${clauseIndex}::${scorerKey}::${target.id}`;
           expectedPairs.set(taskKey, {

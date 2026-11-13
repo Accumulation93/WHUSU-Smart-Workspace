@@ -3,6 +3,7 @@
 const pool = require('../../config/db');
 const { createAuthorizationSession } = require('../services/authorizationSession');
 const { authorizationError } = require('../services/authorizationError');
+const { assignmentPredicate } = require('./identityNatureEligibility');
 
 const READ_CAPABILITIES = ['hr.people.read', 'hr.profileReview.read'];
 const WRITE_CAPABILITIES = ['hr.people.update', 'hr.profileReview.approve'];
@@ -19,6 +20,7 @@ async function directory(reference, options = {}) {
     const resourceType = capability => capability.slice(0, capability.lastIndexOf('.'));
     const scopes = capabilities.map(capability => session.queryScope({ resourceType: resourceType(capability),
       organization: 'c.org_id', id: 'c.id', ownerPersonId: 'c.person_id', assignmentValid: 'c.assignment_valid',
+      assignmentConfigured: 'c.assignment_configured',
       dimensions: { natureId: 'c.assignment_kind', departmentId: 'c.assignment_department_id',
         identityCategoryId: 'c.assignment_identity_id', workGroupId: 'c.assignment_work_group_id' } }, capability));
     const [rows] = await connection.query(`WITH c AS (
@@ -28,6 +30,7 @@ async function directory(reference, options = {}) {
         a.identity_id AS assignment_identity_id, a.work_group_id AS assignment_work_group_id,
         d.name AS assignment_department_name, i.name AS assignment_identity_name,
         w.name AS assignment_work_group_name, n.name AS assignment_nature_name,
+        CASE WHEN ${assignmentPredicate('a')} THEN 1 ELSE 0 END AS assignment_configured,
         CASE WHEN a.id IS NOT NULL AND m.status='active' AND a.status='active'
           AND d.id IS NOT NULL AND i.id IS NOT NULL AND n.id IS NOT NULL
           AND (a.work_group_id IS NULL OR a.work_group_id='' OR w.id IS NOT NULL) THEN 1 ELSE 0 END AS assignment_valid
@@ -47,6 +50,7 @@ async function directory(reference, options = {}) {
     for (const row of rows) {
       const assignment = row.assignment_id ? { id: row.assignment_id, organizationId: reference.organizationId,
         personId: row.person_id, active: row.assignment_valid === 1, natureId: row.assignment_kind,
+        configurationStatus: row.assignment_configured === 1 ? 'ready' : 'pending',
         departmentId: row.assignment_department_id, identityCategoryId: row.assignment_identity_id,
         workGroupId: row.assignment_work_group_id || null } : null;
       const decisions = capabilities.map(capability => session.check({ capability,
@@ -68,6 +72,7 @@ async function directory(reference, options = {}) {
       }
       if (assignment && allowed.some(decision => decision.fields.includes('assignments'))) {
         member.assignments.push({ assignmentId: assignment.id, assignmentNature: row.assignment_kind,
+          configurationStatus: assignment.configurationStatus,
           assignmentNatureLabel: row.assignment_nature_name || '', departmentId: assignment.departmentId,
           department: row.assignment_department_name || '', identityCategoryId: assignment.identityCategoryId,
           identityCategoryName: row.assignment_identity_name || '', workGroupId: assignment.workGroupId || '',
@@ -163,6 +168,7 @@ async function reviewTodos(reference, organizationId, contextId) {
     const prepared = preparePolicies(state.rules.map(rule => rule.policy), catalog);
     const [rows] = await connection.query(`SELECT r.id,r.hr_id,h.name,r.requested_at,r.updated_at,m.person_id,
       a.id AS assignment_id,a.assignment_kind,a.department_id,a.identity_id,a.work_group_id,
+      CASE WHEN ${assignmentPredicate('a')} THEN 1 ELSE 0 END AS assignment_configured,
       CASE WHEN a.status='active' AND d.id IS NOT NULL AND i.id IS NOT NULL AND n.id IS NOT NULL
         AND (a.work_group_id IS NULL OR a.work_group_id='' OR w.id IS NOT NULL) THEN 1 ELSE 0 END AS valid_assignment
       FROM hr_profile_records r JOIN hr_info h ON h.id=r.hr_id AND h.org_id=r.org_id
@@ -187,6 +193,7 @@ async function reviewTodos(reference, organizationId, contextId) {
       if (!requestedFields?.length) continue;
       const resource = { id: row.hr_id, type: 'hr.profileReview', organizationId, ownerPersonId: row.person_id,
         assignment: row.assignment_id ? { id: row.assignment_id, organizationId, personId: row.person_id,
+          configurationStatus: row.assignment_configured === 1 ? 'ready' : 'pending',
           active: row.valid_assignment === 1, natureId: row.assignment_kind, departmentId: row.department_id,
           identityCategoryId: row.identity_id, workGroupId: row.work_group_id || null } : null };
       const check = (action, fields) => evaluate({ actor, resource, capability: 'hr.profileReview.' + action,
@@ -309,6 +316,7 @@ async function personIdentities(reference, hrId) {
       const resource = { id: item.assignmentId, type: 'hr.assignments', organizationId: reference.organizationId,
         ownerPersonId: member.row.person_id, assignment: { id: item.assignmentId, organizationId: reference.organizationId,
           personId: member.row.person_id, active, natureId: item.assignmentNature, departmentId: item.departmentId,
+          configurationStatus: item.configurationStatus,
           identityCategoryId: item.identityCategoryId, workGroupId: item.workGroupId || null } };
       const update = session.check({ capability: 'hr.assignments.update', resource, businessAllowed: active });
       return { ...item, id: item.assignmentId, assignmentKind: item.assignmentNature, identityId: item.identityCategoryId,

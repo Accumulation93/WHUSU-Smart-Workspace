@@ -2,7 +2,7 @@
 function blankClause(type) {
   if (type === 'self') return { type };
   if (type === 'people') return { type, personIds: [] };
-  return { type: 'scope', departmentIds: [], identityCategoryIds: [], workGroupIds: [] };
+  return { type: 'scope', natureIds: [], departmentIds: [], identityCategoryIds: [], workGroupIds: [] };
 }
 function blankRule() { return { name: '', enabled: true, audience: [blankClause('people')], targets: [blankClause('self')], fieldIds: [] }; }
 function payload(rule) {
@@ -10,7 +10,7 @@ function payload(rule) {
     if (clause.type === 'people') return { type: clause.type, personIds: clause.personIds.slice() };
     if (clause.type === 'self') return { type: 'self' };
     const value = { type: 'scope' };
-    ['departmentIds', 'identityCategoryIds', 'workGroupIds', 'sameDepartment', 'sameIdentity', 'sameWorkGroup'].forEach(key => {
+    ['natureIds', 'sameNature', 'departmentIds', 'identityCategoryIds', 'workGroupIds', 'sameDepartment', 'sameIdentity', 'sameWorkGroup'].forEach(key => {
       if (clause[key] !== undefined) value[key] = clause[key];
     });
     return value;
@@ -22,6 +22,7 @@ function peopleOptions(people) {
   return (people || []).map(person => ({ id: person.personId, personId: person.personId, name: person.name,
     assignments: (person.assignments || []).map(assignment => Object.assign({}, assignment, {
       assignmentId: assignment.id, department: assignment.departmentName, identity: assignment.identityCategoryName,
+      assignmentNatureLabel: assignment.assignmentNatureLabel || assignment.assignmentNatureName || assignment.natureName || '',
       workGroup: assignment.workGroupName, assignmentLabel: [assignment.identityCategoryName, assignment.departmentName, assignment.workGroupName].filter(Boolean).join(' · ')
     })) }));
 }
@@ -51,25 +52,26 @@ function decorateContact(contact, dateFormatter, copy) {
   item.copyText = [item.basicText].concat(item.fields.filter(field => field.value).map(field => field.label + '：' + field.value)).join('\n');
   return item;
 }
-function ruleSections(rule, metadata, copy) {
+function ruleSections(rule, metadata, copy, relations) {
   const clauseLines = clause => {
     if (clause.type === 'self') return [copy.self];
     if (clause.type === 'people') return [copy.selected.replace('{count}', String(clause.personIds.length))];
-    return [['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
+    const nature = !relations ? '' : clause.sameNature ? relations.directorySameNatureSummary : clause.natureIds == null ? relations.legacyScope : (clause.natureIds || []).map(id => ((metadata.natures || []).find(item => item.id === id) || {}).name || copy.unnamed).join('、');
+    return [nature].concat([['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
       .filter(([key, options, same]) => clause[same] || (clause[key] || []).length)
       .map(([key, options, same, label]) => copy[label] + '：' + (clause[same] ? copy[same] : (clause[key] || []).map(id => {
         const option = (metadata[options] || []).find(item => item.id === id);
         if (!option) return copy.unnamed;
         const department = option.departmentId && metadata.departments.find(item => item.id === option.departmentId);
         return option.name + (department ? ' · ' + department.name : '');
-      }).join('、')));
+      }).join('、'))));
   };
   return ['audience', 'targets'].map(key => ({ key, title: copy[key], groups: rule[key].map((clause, index) => ({
     key: index, title: copy.conditionGroupTitle(index + 1), hint: clause.type === 'scope' ? copy.samePositionHelp : '', lines: clauseLines(clause)
   })) })).concat([{ key: 'fields', title: copy.columns, groups: [{ key: 'fields', title: '', hint: '',
     lines: [rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly] }] }]);
 }
-function ruleSummary(rule, metadata, copy) {
-  return ruleSections(rule, metadata, copy).map(section => section.title + '：' + section.groups.map(group => group.lines.join('；')).join('；'));
+function ruleSummary(rule, metadata, copy, relations) {
+  return ruleSections(rule, metadata, copy, relations).map(section => section.title + '：' + section.groups.map(group => group.lines.join('；')).join('；'));
 }
 module.exports = { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary, ruleSections };

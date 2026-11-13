@@ -109,6 +109,9 @@ function validation(draft, catalog) {
   if (!draft.name.trim() || Array.from(draft.name.trim()).length > 80) return 'invalidName';
   const policy = draft.policy;
   if (!policy.subjects.length || !policy.capabilities.length || !policy.scopes.length) return 'invalidPolicy';
+  if (policy.subjects.concat(policy.scopes).some(clause => clause.kind === 'assignmentScope'
+    && !(clause.dimensions && (clause.dimensions.natureId === 'same'
+      || Array.isArray(clause.dimensions.natureId) && clause.dimensions.natureId.length)))) return 'selectNatureRequired';
   const definitions = policy.capabilities.map(key => catalog.find(item => item.key === key));
   if (definitions.some(item => !item)) return 'invalidPolicy';
   if (policy.subjects.some(subject => subject.kind === 'assignmentScope'

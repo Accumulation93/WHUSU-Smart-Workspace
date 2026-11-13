@@ -485,6 +485,7 @@
                       <view class="flow-condition-preview" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
                         <view class="flow-condition-preview-label">{{localeCopy.copy_96aab98a23}}</view>
                         <view class="flow-condition-preview-values">
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{natureCopy.nature}}</text><text class="flow-condition-preview-value">{{rule._natureValue}}</text></view>
                           <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_02419589be}}</text><text class="flow-condition-preview-value">{{rule._departmentValue}}</text></view>
                           <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-condition-preview-value">{{rule._workGroupValue}}</text></view>
                           <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-condition-preview-value">{{rule._identityValue}}</text></view>
@@ -512,6 +513,7 @@
                         <view class="flow-rule-summary">
                           <view class="flow-rule-card-label">{{localeCopy.copy_7de8083e58}}</view>
                           <view class="flow-rule-card-lines">
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{natureCopy.nature}}</text><text class="flow-rule-card-value">{{item._natureValue}}</text></view>
                             <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_02419589be}}</text><text class="flow-rule-card-value">{{item._departmentValue}}</text></view>
                             <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-rule-card-value">{{item._workGroupValue}}</text></view>
                             <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-rule-card-value">{{item._identityValue}}</text></view>
@@ -537,10 +539,13 @@
               <block wx:if="{{ruleForm._editingConditionIdx !== null}}">
                 <view id="rule-flow-condition-editor" class="rule-edit-box rule-edit-box--condition ui-dialog-section">
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? localeCopy.copy_49c0b6fb34 : localeCopy.copy_64af7c9964}}</view><text class="rule-editor-section-note">{{ruleForm._editingStepName || localeCopy.copy_c3aaf70869}}</text></view>
+                  <view wx:if="{{ruleForm._editingCondition.legacyNature}}" class="hint-text">{{natureCopy.legacyScopeHelp}}</view>
+                  <view class="field"><view class="field-label">{{natureCopy.nature}}</view><view class="nature-choice-grid"><view wx:for="{{allNatures}}" wx:key="id" class="selection-option-card nature-choice {{ruleForm._editingCondition.natureSelection[item.id] ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{!!ruleForm._editingCondition.natureSelection[item.id]}}" catchtap="toggleFlowNature">{{item.name}}</view></view></view>
 
                   <view class="flow-rule-detail">
                     <view class="flow-rule-detail-title">{{localeCopy.copy_faae685bfa}}</view>
                     <view class="flow-rule-card-lines">
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{natureCopy.nature}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._natureValue}}</text></view>
                       <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_02419589be}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._departmentValue}}</text></view>
                       <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._workGroupValue}}</text></view>
                       <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._identityValue}}</text></view>

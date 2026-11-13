@@ -104,6 +104,19 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
       assert.equal(batch.status, 'success', JSON.stringify(batch));
       const listKey = kind === 'View' ? 'viewRules' : 'meritRules';
       assert.equal((await post('getResultPublication', { activityId: 'rule-activity' }))[listKey].length, 2);
+      await pool.query("INSERT IGNORE INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('submit-a','audit-identity','staff')");
+      const scoped = { ...ruleForm, id: made.id, natureIds: ['staff'], clauses: ruleForm.clauses.map(clause => ({ ...clause, natureIds: ['staff'] })) };
+      assert.equal((await post('savePub' + kind + 'Rule', scoped)).status, 'success');
+      let savedRule = (await post('getResultPublication', { activityId: 'rule-activity' }))[listKey].find(rule => rule.id === made.id);
+      assert.deepEqual(savedRule.natureIds, ['staff']);
+      assert.deepEqual(savedRule.clauses[0].natureIds, ['staff']);
+      assert.equal((await post('savePub' + kind + 'Rule', { ...ruleForm, id: made.id })).status, 'success');
+      savedRule = (await post('getResultPublication', { activityId: 'rule-activity' }))[listKey].find(rule => rule.id === made.id);
+      assert.deepEqual(savedRule.natureIds, ['staff']);
+      assert.deepEqual(savedRule.clauses[0].natureIds, ['staff']);
+      const rejectedNature = await post('savePub' + kind + 'Rule', { ...scoped, clauses: [...scoped.clauses, { ...scoped.clauses[0], scopeType: 'all_people', targetIdentityId: '', natureIds: ['missing-nature'] }] });
+      assert.notEqual(rejectedNature.status, 'success');
+      assert.deepEqual((await post('getResultPublication', { activityId: 'rule-activity' }))[listKey].find(rule => rule.id === made.id), savedRule);
       if (kind === 'Merit') {
         const clause = (await pool.query('SELECT id FROM pub_merit_rule_clauses WHERE rule_id=?', [made.id]))[0][0];
         const designationForm = { publicationId, clauseIds: [clause.id], designationAssignmentIds: ['audit-assignment'] };
@@ -265,8 +278,19 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     assert(ruleCandidates.templates.some(item => item.id === 'rule-template'));
     assert(ruleCandidates.templates.every(item => Object.keys(item).sort().join(',') === 'id,name'));
     assert(ruleCandidates.departments.every(item => Object.keys(item).sort().join(',') === 'id,name'));
+    const scopedForm = { ...form, id: first.id, natureIds: ['staff'],
+      clauses: form.clauses.map(clause => ({ ...clause, natureIds: ['staff'] })) };
+    const scopedSaved = await post('saveRateRule', scopedForm);
+    assert.equal(scopedSaved.status, 'success', JSON.stringify(scopedSaved));
+    const scopedReadBack = (await post('listRateRules', {})).rules[0];
+    assert.deepEqual(scopedReadBack.natureIds, ['staff']);
+    assert.deepEqual(scopedReadBack.clauses[0].natureIds, ['staff']);
+    assert.equal((await post('saveRateRule', { ...scopedForm, natureIds: ['missing-nature'] })).status, 'identity_nature_invalid');
+    assert.deepEqual((await post('listRateRules', {})).rules[0].natureIds, ['staff']);
     assert.equal((await post('saveRateRule', { ...form, id: first.id, allowSelfAssessment: false })).status, 'success');
     assert.equal((await post('listRateRules', {})).rules[0].allowSelfAssessment, false);
+    assert.deepEqual((await post('listRateRules', {})).rules[0].natureIds, ['staff']);
+    assert.deepEqual((await post('listRateRules', {})).rules[0].clauses[0].natureIds, ['staff']);
     assert.equal((await post('batchSaveRateRules', { rules: [
       { ...form, id: first.id, allowSelfAssessment: true },
       { ...form, id: second.id, scorerDepartmentId: 'rule-other-department' }

@@ -1,5 +1,6 @@
 const auditSigningCopy = require('../../../package-resources/locales/zh-CN/auditSigning');
 const auditConditionsCopy = require('../../../package-resources/locales/zh-CN/auditConditions');
+const natureCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
 const { buildConditions, buildStarterConditions } = require('../../../package-resources/utils/auditConditionView');
 const { inputFile } = require('../../../package-resources/utils/fileIO');
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
@@ -157,12 +158,28 @@ module.exports = Behavior({
   },
 
   methods: {
+    async toggleAuditNature(e) {
+      const prefix = e.currentTarget.dataset.target === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
+      const form = this.data[prefix], id = e.currentTarget.dataset.id, current = form.natureIds || [];
+      const next = current.includes(id) ? current.filter(value => value !== id) : current.concat(id);
+      const selected = String(form.specificIdentityId || '').split(',').filter(Boolean);
+      const invalid = (this.data.identityList || []).filter(item => selected.includes(item.id) && !(item.natureIds || []).some(value => next.includes(value)));
+      if(invalid.length){const answer=await new Promise(resolve=>wx.showModal({title:natureCopy.incompatibleSelectionTitle,content:[natureCopy.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:natureCopy.clearIncompatibleSelection,cancelText:localeCopy.copy_4b213fd88a,success:result=>resolve(result.confirm),fail:()=>resolve(false)}));if(!answer||this.data[prefix]!==form)return;}
+      const kept=selected.filter(value=>!invalid.some(item=>item.id===value));
+      this.setData({[prefix+'.natureIds']:next,[prefix+'.natureSelection']:next.reduce((result,value)=>{result[value]=true;return result;},{}),[prefix+'.specificIdentityId']:kept.join(','),[prefix+'.specificIdentityName']:kept.map(value=>this._auditIdentityName(value)).join('、')});
+    },
+    async _confirmAuditNature(form) {
+      if(!(form.natureIds||[]).length){wx.showModal({title:natureCopy.nature,content:natureCopy.selectNatureRequired,showCancel:false});return false;}
+      if(!form.legacyNature)return true;
+      const names=(this.data.auditNatureList||[]).filter(item=>form.natureIds.includes(item.id)).map(item=>item.name);
+      return new Promise(resolve=>wx.showModal({title:natureCopy.legacyScopeChangeTitle,content:natureCopy.legacyScopeChangeHelp(names),confirmText:natureCopy.confirmScopeChange,success:result=>resolve(result.confirm),fail:()=>resolve(false)}));
+    },
     async loadAuditEditorData() {
       const result = await this.callCloud('getAuditTemplateEditorData', {});
       if (result.status !== 'success' || !result.data) throw createResultError(result, localeCopy.copy_b791913c7a);
       this._hrList = result.data.people || [];
       this.setData({ departmentList: result.data.departments || [], identityList: result.data.identities || [],
-        workGroupList: result.data.workGroups || [] });
+        workGroupList: result.data.workGroups || [], auditNatureList: result.data.natures || [] });
     },
     // ═══════════════════════════════════════════════════════
     // Shared helpers
@@ -455,6 +472,7 @@ module.exports = Behavior({
         const cond = this.data.auditTemplateStepForm.conditions[index];
         this.setData({
           auditStepConditionForm: {
+            natureIds: cond.natureIds, natureSelection: (cond.natureIds || []).reduce((result,id)=>{result[id]=true;return result;},{}), legacyNature: cond.natureIds == null,
             conditionType: cond.conditionType || 'identity_scope',
             departmentScope: cond.departmentScope || 'all',
             specificDepartmentId: cond.specificDepartmentId || '',
@@ -477,6 +495,7 @@ module.exports = Behavior({
       } else {
         this.setData({
           auditStepConditionForm: {
+            natureIds: [], natureSelection: {}, legacyNature: false,
             conditionType: 'identity_scope',
             departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
             workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
@@ -506,10 +525,11 @@ module.exports = Behavior({
       this.setData({ ['auditStepConditionForm.' + field]: scopes[idx] || 'all' });
     },
 
-    confirmStepCondition() {
+    async confirmStepCondition() {
       let cond = this.data.auditStepConditionForm;
+      if(cond.conditionType === 'identity_scope' && !await this._confirmAuditNature(cond)) return;
       let newCond = {
-        conditionType: cond.conditionType
+        conditionType: cond.conditionType, natureIds: cond.natureIds
       };
 
       if (cond.conditionType === 'person') {
@@ -623,6 +643,7 @@ module.exports = Behavior({
       }
       const countIds = value => String(value || '').split(',').map(value => value.trim()).filter(Boolean).length;
       const fact = { conditionType: r.conditionType, personKind: r.assignmentIds ? 'assignment' : 'person', personNames: r._assignmentNames || [],
+        natureIds:r.natureIds,natureNames:(this.data.auditNatureList||[]).filter(item=>(r.natureIds||[]).includes(item.id)).map(item=>item.name),
         departmentScope: r.departmentScope, departmentNames: r._deptNames || [],
         identityScope: r.identityScope, identityNames: r._identNames || [],
         workGroupScope: r.workGroupScope, workGroupNames: r._wgNames || [] };
@@ -652,7 +673,7 @@ module.exports = Behavior({
           list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '', deptId: w.departmentId || '' }; });
           break;
         case 'specificIdentityId':
-          list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
+          list = (this.data.identityList || []).filter(item => (item.natureIds || []).some(id => (this.data.auditStepConditionForm.natureIds || []).includes(id))).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
           break;
         case 'personHrIds':
           list = this._auditAssignmentOptions();
@@ -965,6 +986,7 @@ module.exports = Behavior({
         let c = this.data.auditTemplateForm.starterConditions[index];
         this.setData({
           auditStarterConditionForm: {
+            natureIds: c.natureIds, natureSelection: (c.natureIds || []).reduce((result,id)=>{result[id]=true;return result;},{}), legacyNature: c.natureIds == null,
             conditionType: c.conditionType || 'identity_scope',
             departmentScope: c.departmentScope || 'all',
             specificDepartmentId: c.specificDepartmentId || '',
@@ -986,6 +1008,7 @@ module.exports = Behavior({
       } else {
         this.setData({
           auditStarterConditionForm: {
+            natureIds: [], natureSelection: {}, legacyNature: false,
             conditionType: 'identity_scope',
             departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
             workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
@@ -1014,9 +1037,10 @@ module.exports = Behavior({
       this.setData({ ['auditStarterConditionForm.' + field]: scopes[idx] || 'all' });
     },
 
-    confirmStarterCondition() {
+    async confirmStarterCondition() {
       let cond = this.data.auditStarterConditionForm;
-      let newCond = { conditionType: cond.conditionType };
+      if(cond.conditionType === 'identity_scope' && !await this._confirmAuditNature(cond)) return;
+      let newCond = { conditionType: cond.conditionType, natureIds: cond.natureIds };
 
       if (cond.conditionType === 'person') {
         if (!cond.personHrIds || !cond.assignmentIds) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
@@ -1086,7 +1110,7 @@ module.exports = Behavior({
           list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '', deptId: w.departmentId || '' }; });
           break;
         case 'specificIdentityId':
-          list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
+          list = (this.data.identityList || []).filter(item => (item.natureIds || []).some(id => (this.data.auditStarterConditionForm.natureIds || []).includes(id))).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
           break;
         case 'personHrIds':
           list = this._auditAssignmentOptions();
@@ -1190,7 +1214,7 @@ module.exports = Behavior({
           return {
             name: s.name || '',
             conditions: s.conditions.map(function(c) {
-              let cond = { conditionType: c.conditionType };
+              let cond = { conditionType: c.conditionType, natureIds: c.natureIds };
               if (c.conditionType === 'submitter') return cond;
               if (c.conditionType === 'person') {
                 cond.personHrIds = c.personHrIds;
@@ -1211,7 +1235,7 @@ module.exports = Behavior({
         });
 
         let starterCondsToSend = (form.starterConditions || []).map(function(c) {
-          let cond = { conditionType: c.conditionType };
+          let cond = { conditionType: c.conditionType, natureIds: c.natureIds };
           if (c.conditionType === 'person') {
             cond.personHrIds = c.personHrIds;
             cond.assignmentIds = c.assignmentIds;

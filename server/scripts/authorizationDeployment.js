@@ -41,7 +41,9 @@ function readRelease(directory, expectedSha, minimum = 1) {
   if (git(resolved, ['rev-parse', 'HEAD']) !== expectedSha) throw Error('authorization_release_sha_mismatch');
   readReleaseProtocol(resolved, expectedSha, minimum);
   for (const relative of ['server/src/core/services/authorizationSession.js', 'server/src/core/models/authorizationCutover.js',
-    'server/scripts/authorizationDeployment.js', 'server/node_modules/mysql2/package.json']) {
+    'server/scripts/authorizationDeployment.js', 'server/node_modules/mysql2/package.json',
+    ...(minimum >= 2 ? ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js',
+      'server/scripts/finalizeIdentityNatures.js'] : [])]) {
     if (!fs.statSync(path.join(resolved, relative)).isFile()) throw Error('authorization_release_incomplete');
   }
   return resolved;
@@ -63,6 +65,10 @@ function assertGitRelease(state, repository, sha) {
   git(repository, ['merge-base', '--is-ancestor', state.fallback_sha, sha]);
   for (const file of ['server/scripts/authorizationDeployment.js', 'server/src/core/services/authorizationSession.js', 'server/src/core/models/authorizationCutover.js']) {
     git(repository, ['cat-file', '-e', sha + ':' + file]);
+  }
+  if (Number(state.minimum_protocol) >= 2) {
+    for (const file of ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js',
+      'server/scripts/finalizeIdentityNatures.js']) git(repository, ['cat-file', '-e', sha + ':' + file]);
   }
 }
 

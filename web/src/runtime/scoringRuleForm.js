@@ -15,11 +15,14 @@ function emptyRuleForm() {
     scorerDepartment: '',
     scorerIdentityId: '',
     scorerIdentity: '',
+    natureIds: [],
+    legacyNature: false,
     allowSelfAssessment: true,
     clauseScope: RULE_SCOPE_OPTIONS[0].value,
     clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
     clauseTargetIdentityId: '',
     clauseTargetIdentity: '',
+    clauseNatureIds: [],
     clauseRequireAllComplete: false,
     clauseTemplateId: '',
     clauseTemplateName: '',
@@ -58,6 +61,7 @@ function normalizeClauseForEdit(clause = {}) {
     scopeType: clause.scopeType || RULE_SCOPE_OPTIONS[0].value,
     scopeLabel: getScopeLabel(clause.scopeType || RULE_SCOPE_OPTIONS[0].value),
     targetIdentityId: String(clause.targetIdentityId || '').trim(),
+    natureIds: Array.isArray(clause.natureIds) ? clause.natureIds.slice() : null,
     targetIdentity: String(clause.targetIdentity || '').trim(),
     requireAllComplete: clause.requireAllComplete === true,
     templateConfigs
@@ -204,6 +208,7 @@ function buildRuleClausesForSave(form = {}) {
   }
 
   const nextClause = {
+    natureIds: Array.isArray(form.clauseNatureIds) ? form.clauseNatureIds.slice() : null,
     scopeType: clauseScope,
     scopeLabel: getScopeLabel(clauseScope),
     targetIdentityId,

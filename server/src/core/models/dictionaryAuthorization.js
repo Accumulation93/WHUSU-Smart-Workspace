@@ -30,7 +30,8 @@ async function list(kind, reference) {
       list.push({ id: row.id, ...session.project({ name: row.name, description: row.description || '', departmentId: row.department_id }, read),
         canUpdate: check('read', fields).allowed && check('update', fields).allowed, canDelete: check('delete').allowed });
     }
-    return { list };
+    return { list: kind === 'identity' ? await require('./identityNature').decorate(connection, reference.organizationId, list) : list,
+      ...(kind === 'identity' ? { natureOptions: await require('./identityNature').natureOptions(connection, reference.organizationId) } : {}) };
   });
 }
 

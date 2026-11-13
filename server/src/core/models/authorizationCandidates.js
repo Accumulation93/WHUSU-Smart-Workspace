@@ -1,5 +1,7 @@
 'use strict';
 
+const { assignmentPredicate } = require('./identityNatureEligibility');
+
 // 配置授权所需的最小岗位目录；不读取学号、认证资料或补充资料值。
 async function read(connection, organizationId, selection = null) {
   const selectedAssignment = selection && selection.role === 'user' ? selection.subjectId : null;
@@ -18,6 +20,7 @@ async function read(connection, organizationId, selection = null) {
     JOIN identities i ON i.id = a.identity_id AND i.org_id = a.org_id
     LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
     WHERE a.org_id = ? AND a.status = 'active'
+      AND ${assignmentPredicate('a')}
       ${selectedAssignment ? 'AND a.id = ?' : ''}
       AND (a.work_group_id IS NULL OR a.work_group_id = '' OR w.id IS NOT NULL)
     ORDER BY p.name, a.id`, selectedAssignment ? [organizationId, selectedAssignment] : [organizationId]);
@@ -40,7 +43,8 @@ async function readDimensions(connection, organizationId) {
   const [workGroups] = await connection.query(`SELECT w.id, w.name, w.department_id AS departmentId, d.name AS departmentName
     FROM work_groups w JOIN departments d ON d.id = w.department_id AND d.org_id = w.org_id
     WHERE w.org_id = ? ORDER BY w.name, w.id`, [organizationId]);
-  return { natureId: nature, departmentId: departments, identityCategoryId: identities, workGroupId: workGroups };
+  return { natureId: nature, departmentId: departments,
+    identityCategoryId: await require('./identityNature').decorate(connection, organizationId, identities), workGroupId: workGroups };
 }
 
 module.exports = { read, readDimensions };

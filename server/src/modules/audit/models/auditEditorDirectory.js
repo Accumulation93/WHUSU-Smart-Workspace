@@ -4,6 +4,9 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
+const identityNature = require('../../../core/models/identityNature');
+const assignmentNature = require('../../../core/models/assignmentNature');
+const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 
 // 审核编辑只返回名称与岗位选择所需字段，不读取学号或补充资料。
 async function people(connection = pool) {
@@ -14,15 +17,19 @@ async function people(connection = pool) {
       JOIN persons p ON p.id = om.person_id AND p.status = 'active'
       WHERE h.org_id = ? ORDER BY p.name, h.id`, [orgId]),
     connection.query(`SELECT ma.id AS assignment_id, om.legacy_hr_id AS hr_id,
+      ma.assignment_kind, assignment_nature.name AS assignment_nature_name,
       ma.department_id, d.name AS department_name, ma.identity_id, i.name AS identity_name,
       ma.work_group_id, wg.name AS work_group_name
       FROM membership_assignments ma
+      LEFT JOIN assignment_natures assignment_nature ON assignment_nature.org_id=ma.org_id AND assignment_nature.id=ma.assignment_kind
       JOIN organization_memberships om ON om.id = ma.membership_id AND om.org_id = ma.org_id AND om.status = 'active'
       JOIN persons p ON p.id = om.person_id AND p.status = 'active'
       LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
       LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
       LEFT JOIN work_groups wg ON wg.id = ma.work_group_id AND wg.org_id = ma.org_id
-      WHERE ma.org_id = ? AND ma.status = 'active' ORDER BY ma.id`, [orgId])
+      WHERE ma.org_id = ? AND ma.status = 'active'
+        AND (${assignmentPredicate('ma')})
+      ORDER BY ma.id`, [orgId])
   ]);
   const grouped = new Map();
   assignments.forEach(item => {
@@ -32,6 +39,7 @@ async function people(connection = pool) {
   return rows.map(row => ({ id: row.id, name: row.name,
     assignments: (grouped.get(row.id) || []).map(item => ({
       assignmentId: item.assignment_id, assignmentLabel: [item.identity_name, item.department_name, item.work_group_name].filter(Boolean).join(' · '),
+      assignmentNature: item.assignment_kind, assignmentNatureName: item.assignment_nature_name,
       departmentId: item.department_id, department: item.department_name,
       identityCategoryId: item.identity_id, identity: item.identity_name,
       workGroupId: item.work_group_id, workGroup: item.work_group_name
@@ -46,13 +54,15 @@ async function templates(connection) {
       connection.query('SELECT id,name FROM identities WHERE org_id=? ORDER BY name,id', [orgId]),
       connection.query('SELECT id,name,department_id AS departmentId FROM work_groups WHERE org_id=? ORDER BY name,id', [orgId])
     ]);
-    return { people: members, departments, identities, workGroups };
+    return { people: members, departments, identities: await identityNature.decorate(connection, orgId, identities), workGroups,
+      natures: await assignmentNature.list(connection, orgId) };
   }
   const [members, departments, identities, workGroups] = await Promise.all([
     people(), departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
   ]);
   const dictionary = rows => rows.map(row => ({ id: row.id, name: row.name,
     ...(row.department_id ? { departmentId: row.department_id } : {}) }));
-  return { people: members, departments: dictionary(departments), identities: dictionary(identities), workGroups: dictionary(workGroups) };
+  return { people: members, departments: dictionary(departments), identities, workGroups: dictionary(workGroups),
+    natures: await assignmentNature.list(pool, await getCurrentOrgId()) };
 }
 module.exports = { people, templates };

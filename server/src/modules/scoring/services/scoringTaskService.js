@@ -9,6 +9,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const { memo, getState } = require('../../../utils/requestWork');
 const { getSystemDate, parseSystemDateTime } = require('../../../utils/dateTime');
 const systemConfig = require('../../../core/models/systemConfig');
+const natureCondition = require('../utils/natureCondition');
 
 function scopeKey(scope) {
   return JSON.stringify([scope.scopeType, scope.departmentId || '', scope.workGroupId || '', scope.identityId || '']);
@@ -87,6 +88,7 @@ function buildClauseScope(clause, scorer) {
 }
 
 function targetMatchesClause(target, clause, scorer) {
+  if (!natureCondition.matches(clause.nature_ids, target)) return false;
   const scopeType = safeString(clause.scope_type);
   if (scopeType === 'same_department_identity') {
     return target.department_id === scorer.department_id && target.identity_id === clause.target_identity_id;
@@ -121,7 +123,7 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
 
   const scorerKey = makeOrgRuleKey(scorer.department_id, scorer.identity_id);
   const rule = await memo('scoreRule:' + orgId + ':' + activity.id + ':' + scorerKey, () => rateRuleModel.getByKey(activity.id, scorerKey));
-  if (!rule || !rule.is_active) return null;
+  if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) return null;
 
   const clauses = await memo('scoreClauses:' + orgId + ':' + rule.id, () => rateRuleClauseModel.getByRuleId(rule.id));
   if (!clauses.length) return null;
@@ -143,12 +145,21 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
   );
   const expectedIds = new Set();
   const targetIndex = await memo('scoreTargetIndex:' + orgId, () => buildTargetIndex(targets));
-  const uniqueScopes = new Set(scopes.map(scopeKey));
+  const scopedClauses = new Map();
+  for (const clause of activeClauses) {
+    const scope = buildClauseScope(clause, scorer);
+    if (!scope) continue;
+    const key = scopeKey(scope);
+    if (!scopedClauses.has(key)) scopedClauses.set(key, []);
+    scopedClauses.get(key).push(clause);
+  }
   // 全员范围已覆盖其他范围，避免反复遍历重叠的大集合。
   const allKey = scopeKey({ scopeType: 'all_people' });
-  const keys = uniqueScopes.has(allKey) ? [allKey] : Array.from(uniqueScopes);
+  const unrestrictedAll = (scopedClauses.get(allKey) || []).some(clause => clause.nature_ids == null);
+  const keys = unrestrictedAll ? [allKey] : Array.from(scopedClauses.keys());
   for (const key of keys) {
     for (const target of targetIndex.get(key) || []) {
+      if (!scopedClauses.get(key).some(clause => natureCondition.matches(clause.nature_ids, target))) continue;
       if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(target, scorer)) continue;
       if (canCreateTarget && !canCreateTarget(target)) continue;
       expectedIds.add(target.id);

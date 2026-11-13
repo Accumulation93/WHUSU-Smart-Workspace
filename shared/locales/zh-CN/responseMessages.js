@@ -6,9 +6,18 @@ const directory = require('./contactDirectory');
 const identityCard = require('./identityCard');
 const hrProfileMigration = require('./hrProfileMigration');
 const home = require('./home');
+const identityRelations = require('./identityNatureRelations');
 
 // 每项映射由独立语言审稿确认，保留所属模块的唯一文案。
 module.exports = {
+  identity_natures_required: identityRelations.selectNatureRequired,
+  identity_nature_invalid: identityRelations.mappingInvalid,
+  identity_nature_mismatch: identityRelations.incompatible,
+  identity_change_conflict: identityRelations.reloadRequired,
+  identity_change_preview_required: identityRelations.previewRequired,
+  identity_description_choice_required: identityRelations.chooseDescription,
+  identity_nature_in_use: identityRelations.associationInUse,
+  identity_configuration_not_enabled: identityRelations.configurationNotEnabled,
   venue_purpose_duplicate: '已有相同内容的常用事由，请修改后再保存。',
   venue_purpose_referenced: '这个事由已被借用记录使用，不能删除。',
   venue_approval_time_conflict: '借用时段与已有借用重叠，无法通过审批。请查看场地安排后再处理。',

@@ -1,6 +1,9 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
+import relations from './identityNatureRelations.js';
 const sharedModule = Object.freeze({
+  approvalNatureLabel: relations.nature,
+  approvalLegacyNature: relations.legacyScope,
   starterConditionGroupsHint: '发起岗位符合以下任意一组条件即可；每组条件须在同一岗位上同时满足。',
   starterConditionGroup: index => `发起条件组 ${index}`,
   starterIdentityScopeHint: '发起岗位须同时符合以下条件。',

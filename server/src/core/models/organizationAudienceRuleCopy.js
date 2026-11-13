@@ -7,7 +7,7 @@ const directoryPolicy = require('../services/contactDirectoryPolicy');
 const calendarPolicy = require('../services/calendarPolicy');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
-const DIMENSIONS = ['personIds', 'departmentIds', 'identityCategoryIds', 'workGroupIds', 'fieldIds'];
+const DIMENSIONS = ['personIds', 'natureIds', 'departmentIds', 'identityCategoryIds', 'workGroupIds', 'fieldIds'];
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 function parse(value) { return typeof value === 'string' ? JSON.parse(value) : value; }
 function transform(rule, convert) {
@@ -70,6 +70,7 @@ function createAdapter(kind) {
       const data = await directory.catalog(connection, orgId, true);
       try { directoryPolicy.validateReferences(rule, data); } catch (_) { fail('config_copy_reference'); }
       const catalogs = {
+        natureIds: new Map((data.natures || []).map(item => [item.id, { label: item.name }])),
         personIds: new Map(data.people.map(item => [item.personId, { label: item.name }])),
         departmentIds: new Map(data.departments.map(item => [item.id, { label: item.name }])),
         identityCategoryIds: new Map(data.identities.map(item => [item.id, { label: item.name }])),

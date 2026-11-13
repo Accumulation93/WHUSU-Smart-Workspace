@@ -17,7 +17,7 @@ async function setup(page, canApprove = true) {
   await page.route('**/api/listVenueApprovalFlows', route => route.fulfill({ json: { status: 'success', flows: state.flows } }));
   await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Long department name' }] } }));
   await page.route('**/api/listWorkGroups', route => route.fulfill({ json: { status: 'success', workGroups: [{ id: 'w1', name: 'Working group' }] } }));
-  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [{ id: 'i1', name: 'Identity category' }] } }));
+  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', natureOptions:[{id:'staff',name:'Staff'}],identities: [{ id: 'i1', name: 'Identity category',natureIds:['staff'] }] } }));
   await page.route('**/api/getVenueRuleCandidates', route => route.fulfill({ json: { status: 'success',
     identities: [{ id: 'i1', name: 'Identity category' }], departments: [{ id: 'd1', name: 'Department' }],
     workGroups: [{ id: 'w1', name: 'Working group', departmentId: 'd1' }],
@@ -130,7 +130,7 @@ test('specified approver picker saves the chosen assignment and reopens the save
   await page.locator('.approval-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
   await page.getByRole('button', { name: 'Reviewer · Identity category · Department', exact: true }).click();
   const picker = page.getByRole('dialog').last();
-  await picker.getByRole('button', { name: 'Second reviewer Second position' }).click();
+  await picker.getByRole('button', { name: /Second reviewer.*Second position/ }).click();
   await picker.locator('.dialog-footer').getByRole('button').last().click();
   await expect(page.getByRole('button', { name: 'Second reviewer · Second position', exact: true })).toBeVisible();
   await save(page).click();
@@ -212,13 +212,14 @@ test('flow steps and specific conditions write back only after confirmation and 
   const state = await setup(page); let writes = 0;
   await page.route('**/api/saveVenueApprovalWholeFlow', route => {
     const body = route.request().postDataJSON(); writes++;
-    expect(body.steps).toEqual([{ name: 'Review', sortOrder: 1, approvalMode: 'hr_rule', rules: [{ departmentScope: 'specific', specificDepartmentId: 'd1', workGroupScope: 'all', specificWorkGroupId: '', identityScope: 'all', specificIdentityId: '' }] }]);
+    expect(body.steps).toEqual([{ name: 'Review', sortOrder: 1, approvalMode: 'hr_rule', rules: [{ natureIds:['staff'],departmentScope: 'specific', specificDepartmentId: 'd1', workGroupScope: 'all', specificWorkGroupId: '', identityScope: 'all', specificIdentityId: '' }] }]);
     expect(body.flowId).toBe(''); expect(body.allowDesignateFirst).toBe(false); expect(body.allowDesignateNext).toBe(false);
     state.flows = [{ id: 'f1', name: body.flowName, steps: [{ name: 'Review', approval_mode: 'hr_rule', rules: [{ department_scope: 'specific', specific_department_id: 'd1', work_group_scope: 'all', specific_work_group_id: '', identity_scope: 'all', specific_identity_id: '' }] }] }]; return route.fulfill({ json: { status: 'success' } });
   });
   await ruleTab(page, ui.rulesTabApproval).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click();
   await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Review');
   await page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true }).click(); await expect(page.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
+  await page.getByRole('button',{name:'Staff',exact:true}).click();
   await page.getByLabel(ui.copy_02419589be, { exact: true }).selectOption('specific'); await page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true }).click();
   await page.getByRole('button', { name: 'Long department name', exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: controls.confirmSelection, exact: true }).click();
   await page.getByRole('dialog').last().getByRole('button', { name: ui.copy_f7597cecf5, exact: true }).first().click();

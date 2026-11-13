@@ -340,9 +340,14 @@ async function candidates(input, reference, guard) {
     await guard(connection, reference, draft.kind, 'create', '');
     if (draft.state !== 'draft') fail('config_copy_conflict');
     const payload = adapter(draft.kind).normalize(parse(draft.payload_json));
+    if (draft.kind === 'hr.identities') {
+      const [natures] = await connection.query('SELECT id,name FROM assignment_natures WHERE org_id=? ORDER BY name,id', [reference.organizationId]);
+      return { references: (payload.natureReferences || []).map(item => ({ token: item.id, kind: 'nature', label: item.name })),
+        choices: { nature: natures }, people: [], assignments: [], requiresNatureSelection: true };
+    }
     const rawReferences = draft.kind === 'hr.workGroups'
       ? [{ token: 'departmentId', kind: 'department', label: payload.sourceDepartmentName }] : payload.references || [];
-    const aliases = { personIds: 'person', departmentIds: 'department', identityCategoryIds: 'identity', workGroupIds: 'workGroup', fieldIds: 'field' };
+    const aliases = { personIds: 'person', departmentIds: 'department', identityCategoryIds: 'identity', workGroupIds: 'workGroup', fieldIds: 'field', natureIds: 'nature' };
     const references = rawReferences.map(item => Object.assign({}, item, { kind: aliases[item.kind] || item.kind }));
     const kinds = new Set(references.map(item => item.kind));
     const result = { references, choices: {}, people: [], assignments: [] };
@@ -353,6 +358,7 @@ async function candidates(input, reference, guard) {
     const departments = new Map(data.departments.map(item => [item.id, item.name]));
     if (kinds.has('department')) result.choices.department = data.departments;
     if (kinds.has('identity')) result.choices.identity = data.identities;
+    if (kinds.has('nature')) result.choices.nature = data.natures;
     if (kinds.has('workGroup')) result.choices.workGroup = data.workGroups.map(item => ({ id: item.id,
       name: [item.name, departments.get(item.departmentId)].filter(Boolean).join(' · ') }));
     if (kinds.has('field')) result.choices.field = data.fields.map(item => ({ id: item.id, name: item.label, fieldType: item.type }));

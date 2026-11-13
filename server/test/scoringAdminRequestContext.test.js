@@ -25,6 +25,7 @@ function loadRoute(relativePath, dependencyMocks) {
           if (sql.startsWith('INSERT IGNORE INTO authorization_organizations')) return [{ affectedRows: 0 }];
           if (sql.startsWith('SELECT mode FROM authorization_organizations')) return [[{ mode: 'shadow' }]];
           if (sql.includes('FROM score_questions q')) return [[]];
+          if (sql.includes('FROM rate_target_rules')) return [[]];
           throw new Error('unexpected_fixture_query:' + sql);
         } });
       }
@@ -121,6 +122,9 @@ async function run() {
 
   const emptyListModel = { async getAll() { return []; } };
   const scoringRouteMocks = {
+    '../../../core/models/department': { async getAll() { return []; } },
+    '../../../core/models/identity': { async getAll() { return []; } },
+    '../../../core/models/workGroup': { async getAll() { return []; } },
     '../models/scoreActivity': {
       async getById() { return null; },
       async getCurrent() { return null; }

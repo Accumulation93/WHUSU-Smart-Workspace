@@ -286,6 +286,12 @@ async function persistPlan(connection, plan, context, actor) {
         await connection.query('INSERT INTO departments (id, name, org_id) VALUES (?, ?, ?)', [id, item.name, orgId]); departmentIds.set(item.name, id);
       } else if (type === 'identity') {
         await connection.query('INSERT INTO identities (id, name, org_id) VALUES (?, ?, ?)', [id, item.name, orgId]); identityIds.set(item.name, id);
+        const natureIds = Array.from(new Set(plan.assignments.filter(entry => entry.next && entry.next.identity === item.name).map(entry => entry.next.nature)));
+        for (const natureId of natureIds) {
+          if (!context.natures.some(nature => nature.id === natureId)) throw Object.assign(new Error('identity_nature_invalid'), { code: 'identity_nature_invalid' });
+          await connection.query('INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES (?,?,?)', [orgId, id, natureId]);
+        }
+        await connection.query('INSERT INTO identity_nature_states(org_id,identity_id,version) VALUES (?,?,1)', [orgId, id]);
       } else {
         await connection.query('INSERT INTO work_groups (id, name, department_id, org_id) VALUES (?, ?, ?, ?)', [id, item.name, departmentIds.get(item.department), orgId]);
         groupIds.set(JSON.stringify([item.department, item.name]), id);
@@ -312,6 +318,7 @@ async function persistPlan(connection, plan, context, actor) {
     const data = { departmentId: departmentIds.get(item.next.department), identityId: identityIds.get(item.next.identity),
       workGroupId: item.next.workGroup ? groupIds.get(JSON.stringify([item.next.department, item.next.workGroup])) : '' };
     await identity.validateAssignmentReferences(connection, orgId, data);
+    await require('./identityNature').assertAssignment(connection, orgId, data.identityId, item.next.nature);
     const assignmentId = item.targetId || generateId();
     if (item.targetId) await connection.query(`UPDATE membership_assignments SET assignment_kind = ?, department_id = ?, identity_id = ?, work_group_id = ?, title = NULL, updated_at = UTC_TIMESTAMP(3)
       WHERE id = ? AND membership_id = ? AND org_id = ? AND status = 'active'`,

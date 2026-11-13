@@ -32,6 +32,7 @@ const { canonicalizeCalculationSnapshot } = require('../utils/calculationSnapsho
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const { authorizedParticipationRead } = require('../services/authorizedParticipationRead');
 const participationAuthorization = require('../models/participationAuthorization');
+const natureCondition = require('../utils/natureCondition');
 
 function normalizeActivityDate(value) {
   if (!value) return '';
@@ -104,6 +105,7 @@ function normalizeClause(clauseData, templateConfigs) {
     id: safeString(clauseData.id),
     scopeType: safeString(clauseData.scope_type),
     targetIdentityId: safeString(clauseData.target_identity_id),
+    natureIds: natureCondition.normalize(clauseData.nature_ids),
     requireAllComplete: clauseData.require_all_complete === 1,
     templateConfigs: (templateConfigs || []).map(tc => ({
       templateId: tc.template_id,
@@ -204,6 +206,7 @@ function buildTemplateConfigSignature(templateConfigs, templatesById) {
 
 function matchesClauseTarget(clause, scorer, target) {
   if (!clause || !scorer || !target) return false;
+  if (!natureCondition.matches(clause.natureIds, target)) return false;
   if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
     return false;
   }
@@ -234,12 +237,14 @@ function buildCalculationContextSnapshot(options) {
   const policy = {
     rule: {
       id: safeString(options.rule.id),
+      natureIds: natureCondition.normalize(options.rule.nature_ids),
       scorerDepartmentId: safeString(options.scorer.departmentId),
       scorerIdentityCategoryId: safeString(options.scorer.identityId),
       allowSelfAssessment: Number(options.rule.allow_self_assessment) === 1
     },
     clause: {
       id: safeString(options.clause.id),
+      natureIds: natureCondition.normalize(options.clause.natureIds),
       scopeType: safeString(options.clause.scopeType),
       targetIdentityCategoryId: safeString(options.clause.targetIdentityId),
       requireAllComplete: options.clause.requireAllComplete === true,
@@ -483,7 +488,7 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
 
-    if (!rule || !rule.is_active) {
+    if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) {
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
@@ -512,6 +517,7 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
 
       const targets = allHrInfo.filter(item => {
         const target = normalizeHrPerson(item, lookups);
+        if (!natureCondition.matches(clause.natureIds, target)) return false;
         if (clause.scopeType === 'same_department_identity') return target.departmentId === scorer.departmentId && target.identityId === clause.targetIdentityId;
         if (clause.scopeType === 'same_department_all') return target.departmentId === scorer.departmentId;
         if (clause.scopeType === 'same_work_group_identity') return target.departmentId === scorer.departmentId && target.workGroupId === scorer.workGroupId && target.identityId === clause.targetIdentityId;
@@ -619,7 +625,7 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
 
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
-    if (!rule || !rule.is_active) {
+    if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) {
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
@@ -629,6 +635,7 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
     const matchedClauseEntries = [];
 
     for (const clause of ruleFull.clauses) {
+      if (!natureCondition.matches(clause.natureIds, targetPerson)) continue;
       if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
         continue;
       }
@@ -966,7 +973,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
-    if (!rule || !rule.is_active) {
+    if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) {
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_50b40b1390 });
     }
 
@@ -978,6 +985,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     for (const clause of ruleFull.clauses) {
       if (!clause.templateConfigs.length) continue;
+      if (!natureCondition.matches(clause.natureIds, targetPerson)) continue;
       if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) continue;
 
       let match = false;
@@ -1254,6 +1262,7 @@ router.post('/getScorerTaskStatus', require('../services/authorizedResultRead').
         scorerKey: makeOrgRuleKey(rule.scorer_department_id, rule.scorer_identity_id),
         clauses: clauses.map(c => ({
           scopeType: safeString(c.scope_type),
+          natureIds: natureCondition.normalize(c.nature_ids),
           targetIdentityId: safeString(c.target_identity_id),
           templateConfigs: (configsByClause.get(c.id) || []).map(tc => ({
             templateId: tc.template_id, weight: Number(tc.weight), sortOrder: Number(tc.sort_order)
@@ -1273,7 +1282,7 @@ router.post('/getScorerTaskStatus', require('../services/authorizedResultRead').
 
     const scorerMap = new Map();
     rulesData.forEach(rule => {
-      const scorers = membersByRuleKey.get(rule.scorerKey) || [];
+      const scorers = (membersByRuleKey.get(rule.scorerKey) || []).filter(member => natureCondition.matches(rule.nature_ids, member));
       (rule.clauses || []).forEach(clause => {
         if (!clause.templateConfigs || !clause.templateConfigs.length) return;
         scorers.forEach(sc => {
@@ -1290,6 +1299,7 @@ router.post('/getScorerTaskStatus', require('../services/authorizedResultRead').
           }
           const sr = scorerMap.get(sk);
           members.forEach(target => {
+            if (!natureCondition.matches(clause.natureIds, target)) return;
             let match = false;
             if (clause.scopeType === 'same_department_identity') match = target.departmentId === sc.departmentId && target.identityId === clause.targetIdentityId;
             else if (clause.scopeType === 'same_department_all') match = target.departmentId === sc.departmentId;
@@ -1501,6 +1511,7 @@ router.post('/exportScorerTaskStatus', require('../services/authorizedResultRead
         scorerKey: makeOrgRuleKey(rule.scorer_department_id, rule.scorer_identity_id),
         clauses: clauses.map(c => ({
           scopeType: safeString(c.scope_type),
+          natureIds: natureCondition.normalize(c.nature_ids),
           targetIdentityId: safeString(c.target_identity_id),
           templateConfigs: (configsByClause.get(c.id) || []).map(tc => ({
             templateId: tc.template_id, weight: Number(tc.weight), sortOrder: Number(tc.sort_order)
@@ -1520,7 +1531,7 @@ router.post('/exportScorerTaskStatus', require('../services/authorizedResultRead
 
     const scorerMap = new Map();
     rulesData.forEach(rule => {
-      const scorers = membersByRuleKey.get(rule.scorerKey) || [];
+      const scorers = (membersByRuleKey.get(rule.scorerKey) || []).filter(member => natureCondition.matches(rule.nature_ids, member));
       (rule.clauses || []).forEach(clause => {
         if (!clause.templateConfigs || !clause.templateConfigs.length) return;
         scorers.forEach(sc => {
@@ -1537,6 +1548,7 @@ router.post('/exportScorerTaskStatus', require('../services/authorizedResultRead
           }
           const sr = scorerMap.get(sk);
           members.forEach(target => {
+            if (!natureCondition.matches(clause.natureIds, target)) return;
             let match = false;
             if (clause.scopeType === 'same_department_identity') match = target.departmentId === sc.departmentId && target.identityId === clause.targetIdentityId;
             else if (clause.scopeType === 'same_department_all') match = target.departmentId === sc.departmentId;

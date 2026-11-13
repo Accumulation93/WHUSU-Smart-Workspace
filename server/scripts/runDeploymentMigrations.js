@@ -13,7 +13,9 @@ const DESTRUCTIVE_PATTERN = /\b(DROP\s+(TABLE|DATABASE|COLUMN|INDEX)|TRUNCATE\s+
 const DESTRUCTIVE_DIRECTIVE_PATTERN = /^\s*--\s*@destructive\b/im;
 
 function isDestructiveMigration(content) {
-  return DESTRUCTIVE_DIRECTIVE_PATTERN.test(content) || DESTRUCTIVE_PATTERN.test(content);
+  // 已核验的同一原子 DDL 先建替代唯一索引；不豁免独立删索引或其他破坏操作。
+  const classified = content.replaceAll('ALTER TABLE identities ADD UNIQUE INDEX idx_identity_exact_name(org_id,name_exact_key), DROP INDEX idx_ident_name, ALGORITHM=INPLACE, LOCK=NONE', 'ONLINE_IDENTITY_NAME_INDEX_REPLACEMENT');
+  return DESTRUCTIVE_DIRECTIVE_PATTERN.test(content) || DESTRUCTIVE_PATTERN.test(classified);
 }
 
 function checksum(content) {

@@ -19,10 +19,11 @@ async function run() {
   let db;
   try {
     await admin.query('CREATE DATABASE `' + database + '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    db = mysql.createPool(Object.assign({}, config, { database, connectionLimit: 5 }));
+    db = mysql.createPool(Object.assign({}, config, { database, connectionLimit: 5, multipleStatements: true }));
     const definitions = [
       'organizations (id VARCHAR(64) PRIMARY KEY)',
-      "authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(24) NOT NULL DEFAULT 'shadow')",
+      "authorization_organizations (org_id VARCHAR(64) PRIMARY KEY, mode VARCHAR(24) NOT NULL DEFAULT 'shadow', revision BIGINT UNSIGNED NOT NULL DEFAULT 1)",
+      'assignment_natures (org_id VARCHAR(64), id VARCHAR(32), PRIMARY KEY(org_id,id))',
       'persons (id VARCHAR(64) PRIMARY KEY, name VARCHAR(100), student_id VARCHAR(64), status VARCHAR(24))',
       'organization_memberships (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64), person_id VARCHAR(64), status VARCHAR(24))',
       'departments (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64), name VARCHAR(100))',
@@ -36,6 +37,7 @@ async function run() {
     const migration = fs.readFileSync(path.join(__dirname, '../db/deploy/20260906123000_stamp_person_assignment_grants.sql'), 'utf8');
     await db.query(migration);
     await db.query(migration);
+    await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     await db.query("INSERT INTO persons VALUES ('p1','同名','test-private-1','active'),('p2','同名','test-private-2','active')");
     await db.query("INSERT INTO organization_memberships VALUES ('m1','o1','p1','active'),('m2','o1','p2','active'),('m3','o2','p1','active')");
     await db.query("INSERT INTO departments VALUES ('d1','o1','部门甲'),('d2','o2','部门乙')");

@@ -25,6 +25,9 @@ async function run() {
     await db.query(`CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(org_id,domain)); INSERT INTO organizations(id,name) VALUES ('org','场地授权测试'),('other','其他组织')`);
     await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
+    await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
+    await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'), 'utf8'));
     await db.query(`INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('person','测试人员','fixture','fixture');
       INSERT INTO accounts(id,person_id) VALUES ('account','person');
       INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr','测试人员','fixture','org');

@@ -3,13 +3,14 @@
 const assert = require('node:assert/strict');
 
 module.exports = async function auditAuthorizationCases(pool, orgStorage, router) {
-  await pool.query("INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','submit-a','任职')");
+  await pool.query("INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','submit-a','任职') ON DUPLICATE KEY UPDATE name=VALUES(name)");
   await pool.query("INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('audit-person','授权测试成员','audit-fixture','audit-fixture')");
   await pool.query("INSERT INTO accounts(id,person_id) VALUES ('audit-account','audit-person')");
   await pool.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('audit-hr','授权测试成员','audit-fixture','submit-a')");
   await pool.query("INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('audit-member','audit-person','submit-a','audit-hr')");
   await pool.query("INSERT INTO departments(id,name,org_id) VALUES ('audit-department','测试部门','submit-a')");
   await pool.query("INSERT INTO identities(id,name,org_id) VALUES ('audit-identity','测试身份','submit-a')");
+  await pool.query("INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('submit-a','audit-identity','staff')");
   await pool.query("INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id) VALUES ('audit-assignment','audit-member','submit-a','staff','audit-department','audit-identity')");
   await pool.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
     VALUES ('audit-session','audit-account','','audit-context','assignment','audit-assignment','submit-a','user',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`);

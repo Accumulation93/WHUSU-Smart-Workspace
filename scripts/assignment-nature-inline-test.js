@@ -23,9 +23,10 @@ async function run() {
   assert.equal(host.data.assignmentNatureSavedId, 'nature'); assert.equal(host.data.assignmentNatureNotice, behaviorCopy.copy_215e3c57da);
   failRead = false; await methods.saveInlineAssignmentNature.call(host);
   assert.equal(writes, 1); assert.equal(reads, 2); assert.equal(host.data.membershipAssignmentForm.assignmentKind, 'nature');
-  assert.equal(host.data.membershipAssignmentForm.departmentId, 'department'); assert.equal(host.data.membershipAssignmentForm.identityId, 'identity');
+  assert.equal(host.data.membershipAssignmentForm.departmentId, 'department');
+  assert.equal(host.data.membershipAssignmentForm.identityId, '', '新性质尚无适用身份，不得沿用原身份');
   assert.equal(host.data.personIdentityOrganizations[0].dictionaries.assignmentNatures[1].id, 'nature');
   host.data.assignmentNatureCanCreate = false; await methods.saveInlineAssignmentNature.call(host); assert.equal(writes, 1);
-  console.log('岗位内新增性质：真实方法请求、失败后仅回读、选中新项、保留已填部门身份、更新目录、未授权不写入通过。');
+  console.log('岗位内新增性质：真实方法请求、失败后仅回读、选中新项、保留部门并清除未关联身份、更新目录、未授权不写入通过。');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

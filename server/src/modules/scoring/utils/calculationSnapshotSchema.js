@@ -1,8 +1,10 @@
 'use strict';
 
 const { buildCalculationPolicySignature } = require('./calculationSnapshotSignature');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 const CALCULATION_SNAPSHOT_VERSION = 2;
+const NATURE_CALCULATION_SNAPSHOT_VERSION = 3;
 const LEGACY_CALCULATION_SNAPSHOT_VERSION = 1;
 
 function text(value) {
@@ -124,7 +126,13 @@ function canonicalizeCalculationSnapshot(source) {
     templates: (Array.isArray(snapshot.templates) ? snapshot.templates : [])
       .map((template, index) => canonicalTemplate(template, index + 1))
   };
-  canonical.calculationPolicySignature = buildCalculationPolicySignature(canonical, 2);
+  if (Number(snapshot.version) === NATURE_CALCULATION_SNAPSHOT_VERSION
+    || rule.natureIds != null || clause.natureIds != null) {
+    canonical.version = NATURE_CALCULATION_SNAPSHOT_VERSION;
+    canonical.rule.natureIds = natureRulePolicy.normalize(rule.natureIds);
+    canonical.clause.natureIds = natureRulePolicy.normalize(clause.natureIds);
+  }
+  canonical.calculationPolicySignature = buildCalculationPolicySignature(canonical, canonical.version);
   return canonical;
 }
 
@@ -137,17 +145,23 @@ function stableJson(value) {
 }
 
 function isCanonicalCalculationSnapshot(snapshot) {
-  return Number(snapshot && snapshot.version) === CALCULATION_SNAPSHOT_VERSION
-    && stableJson(snapshot) === stableJson(canonicalizeCalculationSnapshot(snapshot));
+  try {
+    return [CALCULATION_SNAPSHOT_VERSION, NATURE_CALCULATION_SNAPSHOT_VERSION].includes(Number(snapshot && snapshot.version))
+      && stableJson(snapshot) === stableJson(canonicalizeCalculationSnapshot(snapshot));
+  } catch (_) {
+    return false;
+  }
 }
 
 function isSupportedCalculationSnapshotVersion(value) {
   const version = Number(value);
-  return version === LEGACY_CALCULATION_SNAPSHOT_VERSION || version === CALCULATION_SNAPSHOT_VERSION;
+  return version === LEGACY_CALCULATION_SNAPSHOT_VERSION || version === CALCULATION_SNAPSHOT_VERSION
+    || version === NATURE_CALCULATION_SNAPSHOT_VERSION;
 }
 
 module.exports = {
   CALCULATION_SNAPSHOT_VERSION,
+  NATURE_CALCULATION_SNAPSHOT_VERSION,
   LEGACY_CALCULATION_SNAPSHOT_VERSION,
   canonicalizeCalculationSnapshot,
   isCanonicalCalculationSnapshot,

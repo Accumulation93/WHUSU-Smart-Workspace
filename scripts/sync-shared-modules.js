@@ -33,6 +33,7 @@ const MANIFEST = [
   { source: 'shared/organizationCopyPresentation.js', targets: [{ path: 'miniprogram/subpackages/org/utils/organizationCopyPresentation.js' }, { path: 'web/src/shared/organizationCopyPresentation.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/adminPersonnel.js', targets: [{ path: 'server/src/locales/zh-CN/adminPersonnel.js' }] },
   { source: 'shared/locales/zh-CN/authorization.js', targets: [{ path: 'server/src/locales/zh-CN/authorization.js' }] },
+  { source: 'shared/locales/zh-CN/identityNatureRelations.js', targets: [{ path: 'server/src/locales/zh-CN/identityNatureRelations.js' }] },
   { source: 'shared/locales/zh-CN/venueFlowManagement.js', targets: [{ path: 'server/src/locales/zh-CN/venueFlowManagement.js' }] },
   { source: 'shared/calendarView.js', targets: [{ path: 'miniprogram/utils/calendarView.js' }, { path: 'web/src/shared/calendarView.js', format: 'esm' }] },
   { source: 'shared/locales/zh-CN/calendar.js', targets: [{ path: 'server/src/locales/zh-CN/calendar.js' }] },

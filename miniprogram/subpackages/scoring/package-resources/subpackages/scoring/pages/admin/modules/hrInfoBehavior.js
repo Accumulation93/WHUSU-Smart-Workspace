@@ -5,6 +5,7 @@ const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
 const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
 const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 const validationCopy = require('../../../../../locales/zh-CN/hrValueValidation');
+const identityRelationCopy = require('../../../../../../../../locales/zh-CN/identityNatureRelations');
 const valueValidation = require('../../../../../utils/hrValueValidation');
 const templateValidationView = require('../../../../../utils/hrTemplateValidationView');
 const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
@@ -2006,7 +2007,7 @@ module.exports = Behavior({
       if (!organization || !organization.canEditAssignments) return;
       const dictionaries = organization.dictionaries || {};
       const natures = dictionaries.assignmentNatures || [];
-      const natureIndex = Math.max(0, natures.findIndex(item => item.id === 'staff'));
+      const natureIndex = -1;
       this.setData({
         membershipAssignmentFormVisible: true,
         assignmentKindValues: natures.map(item => item.id),
@@ -2025,7 +2026,7 @@ module.exports = Behavior({
           hrId: organization.hrId
         },
         assignmentDepartmentOptions: dictionaries.departments || [],
-        assignmentIdentityOptions: dictionaries.identities || [],
+        assignmentIdentityOptions: [],
         assignmentDepartmentIndex: 0,
         assignmentIdentityIndex: 0,
         assignmentWorkGroupIndex: 0,
@@ -2042,7 +2043,7 @@ module.exports = Behavior({
       if (!organization || !organization.canEditAssignments || !item) return;
       const dictionaries = organization.dictionaries || {};
       const departments = dictionaries.departments || [];
-      const identities = dictionaries.identities || [];
+      const identities = (dictionaries.identities || []).filter(row => (row.natureIds || []).indexOf(item.assignmentKind) >= 0);
       const natures = dictionaries.assignmentNatures || [];
       const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
         (dictionaries.workGroups || [])
@@ -2114,6 +2115,7 @@ module.exports = Behavior({
         this.setData({ assignmentKindValues: natures.map(item => item.id), assignmentKindOptions: natures.map(item => item.name),
           personIdentityOrganizations: (this.data.personIdentityOrganizations || []).map(item => item.organizationId === form.organizationId ? Object.assign({}, item, { dictionaries: organization.dictionaries }) : item),
           'membershipAssignmentForm.assignmentKind': id, 'membershipAssignmentForm.assignmentKindIndex': index,
+          'membershipAssignmentForm.identityId': '', 'membershipAssignmentForm.identity': '', assignmentIdentityOptions: (organization.dictionaries.identities || []).filter(item => (item.natureIds || []).indexOf(id) >= 0), assignmentIdentityIndex: 0,
           assignmentNatureEditing: false, assignmentNatureSavedId: '', assignmentNatureName: '' });
       } catch (error) { if (current()) this.setData({ assignmentNatureNotice: getErrorText(error, localeCopy.copy_215e3c57da) }); }
       finally { if (current()) this.setData({ assignmentNatureBusy: false }); }
@@ -2148,9 +2150,18 @@ module.exports = Behavior({
     onMembershipAssignmentKindChange(e) {
       if (this.data.detailHrReadOnly) return;
       const index = Number(e.detail.value) || 0;
+      const natureId = (this.data.assignmentKindValues || [])[index] || '';
+      const form = this.data.membershipAssignmentForm;
+      const organization = (this.data.personIdentityOrganizations || []).find(item => item.organizationId === form.organizationId);
+      const identities = (((organization || {}).dictionaries || {}).identities || []).filter(item => (item.natureIds || []).indexOf(natureId) >= 0);
+      const selected = identities.findIndex(item => item.id === form.identityId);
       this.setData({
         'membershipAssignmentForm.assignmentKindIndex': index,
-        'membershipAssignmentForm.assignmentKind': (this.data.assignmentKindValues || [])[index] || ''
+        'membershipAssignmentForm.assignmentKind': natureId,
+        'membershipAssignmentForm.identityId': selected < 0 ? '' : form.identityId,
+        'membershipAssignmentForm.identity': selected < 0 ? '' : form.identity,
+        assignmentIdentityOptions: identities, assignmentIdentityIndex: Math.max(0, selected),
+        assignmentNatureNotice: selected < 0 && form.identityId ? identityRelationCopy.incompatible : ''
       });
     },
 
@@ -2202,6 +2213,7 @@ module.exports = Behavior({
       if (this.data.assignmentNatureBusy || this.data.assignmentNatureEditing) return;
       if (this.data.detailHrReadOnly) return;
       const form = this.data.membershipAssignmentForm || {};
+      if (!(this.data.assignmentIdentityOptions || []).some(item => item.id === form.identityId && (item.natureIds || []).indexOf(form.assignmentKind) >= 0)) { this.setData({ assignmentNatureNotice: identityRelationCopy.incompatible }); return; }
       if (!form.departmentId || !form.identityId) {
         wx.showToast({ title: localeCopy.copy_2550a901e4, icon: 'none' });
         return;

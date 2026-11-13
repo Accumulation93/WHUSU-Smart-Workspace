@@ -1,5 +1,8 @@
 'use strict';
+const relations = require('./identityNatureRelations');
 module.exports = {
+  approvalNatureLabel: relations.nature,
+  approvalLegacyNature: relations.legacyScope,
   starterConditionGroupsHint: '发起岗位符合以下任意一组条件即可；每组条件须在同一岗位上同时满足。',
   starterConditionGroup: index => `发起条件组 ${index}`,
   starterIdentityScopeHint: '发起岗位须同时符合以下条件。',

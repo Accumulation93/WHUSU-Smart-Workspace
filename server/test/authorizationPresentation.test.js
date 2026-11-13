@@ -35,7 +35,8 @@ test('不同部门的同名职能组分别带所属部门，不按名称合并�
   assert.equal(indexes.dimensions.workGroupId.get('group-a'), '甲部门 · 宣传组');
   assert.equal(indexes.dimensions.workGroupId.get('group-b'), '乙部门 · 宣传组');
   const lines = presentation.dimensionLines({ workGroupId: ['group-b'] }, indexes, copy);
-  assert.equal(lines[0].value, '乙部门 · 宣传组');
+  assert.equal(lines[0].value, copy.legacyNatureScope);
+  assert.equal(lines.find(item => item.key === 'workGroupId').value, '乙部门 · 宣传组');
 });
 
 test('两端展示保留同名不同岗位，失效引用不泄露内部编号', () => {
@@ -76,7 +77,7 @@ test('复制去除原记录关联，不修改旧规则；保存保留字段和�
 test('空岗位条件、字段交叉与无效期限不能进入预览提交', () => {
   const draft = editor.createDraft(rule);
   draft.policy.subjects = [{ kind: 'assignmentScope', dimensions: {} }];
-  assert.throws(() => editor.request(draft, 12, catalog), /invalidPolicy/);
+  assert.throws(() => editor.request(draft, 12, catalog), /selectNatureRequired/);
   draft.policy.subjects = rule.policy.subjects;
   draft.policy.fields = ['unknown']; assert.equal(editor.validation(draft, catalog), 'incompatibleFields');
   draft.policy.fields = null; draft.policy.startsAt = '2026-11-02T00:00:00.000Z'; draft.policy.endsAt = '2026-11-01T00:00:00.000Z';
@@ -106,7 +107,8 @@ test('原生运行环境不依赖Object.hasOwn或flatMap', () => {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../shared/authorizationPresentation.js'), 'utf8'), context);
   const value = context.module.exports;
   const lines = value.dimensionLines({ departmentId: ['dept-a'] }, value.makeIndexes(directory), copy);
-  assert.equal(lines[0].value, '甲部门');
+  assert.equal(lines[0].value, copy.legacyNatureScope);
+  assert.equal(lines.find(item => item.key === 'departmentId').value, '甲部门');
   assert.equal(value.ruleCards([rule], directory, catalog, copy, '借用').length, 1);
 });
 

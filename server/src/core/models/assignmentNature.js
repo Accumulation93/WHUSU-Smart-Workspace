@@ -104,6 +104,8 @@ async function remove(input, organizationId, authorize) {
     await lockOrganizationDictionaryWrites(organizationId, connection);
     const [assignments] = await connection.query('SELECT id FROM membership_assignments WHERE org_id = ? AND assignment_kind = ? LIMIT 1 FOR UPDATE', [organizationId, input.id]);
     if (assignments.length) fail('assignment_nature_in_use');
+    const [identities] = await connection.query('SELECT identity_id FROM identity_nature_links WHERE org_id = ? AND nature_id = ? LIMIT 1 FOR UPDATE', [organizationId, input.id]);
+    if (identities.length) fail('assignment_nature_in_use');
     const [rules] = await connection.query('SELECT policy_json FROM authorization_rules WHERE org_id = ? FOR UPDATE', [organizationId]);
     const [delegations] = await connection.query('SELECT envelope_json FROM authorization_delegations WHERE org_id = ? FOR UPDATE', [organizationId]);
     if (rules.some(row => containsNature(row.policy_json, input.id)) || delegations.some(row => containsNature(row.envelope_json, input.id))) fail('assignment_nature_in_use');

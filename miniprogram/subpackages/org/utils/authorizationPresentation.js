@@ -48,12 +48,16 @@ function capabilityLabel(key, catalog, copy) {
 }
 
 function dimensionLines(dimensions, indexes, copy) {
-  return DIMENSIONS.filter(key => Object.prototype.hasOwnProperty.call(dimensions || {}, key)).map(key => {
+  const lines = DIMENSIONS.filter(key => Object.prototype.hasOwnProperty.call(dimensions || {}, key)).map(key => {
     const selected = dimensions[key];
     const names = selected === 'same' ? copy.sameAsViewer : Array.isArray(selected) && selected.length
       ? selected.map(id => indexes.dimensions[key].get(id) || copy.unavailableReference).join('、') : copy.unavailableReference;
     return { key, label: copy[DIMENSION_LABELS[key]], value: names };
   });
+  if (!Object.prototype.hasOwnProperty.call(dimensions || {}, 'natureId')) {
+    lines.unshift({ key: 'natureId', label: copy.nature, value: copy.legacyNatureScope });
+  }
+  return lines;
 }
 
 function policySections(policy, directory, catalog, copy) {

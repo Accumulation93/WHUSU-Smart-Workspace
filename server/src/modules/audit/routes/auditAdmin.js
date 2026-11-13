@@ -30,6 +30,8 @@ const {
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const { inspectAuditImageData } = require('../utils/auditImageData');
 const managementAuthorization = require('../models/auditManagementAuthorization');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
+const identityNatureRule = require('../../../core/models/identityNatureRule');
 
 function collectDictionaryReferences(condition) {
   const item = condition || {};
@@ -109,6 +111,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
         starterConditionsJson: t.starter_conditions_json || null,
         starterConditions: starterConditions.map(function(c) { return {
           conditionType: safeString(c.conditionType),
+          natureIds: natureRulePolicy.normalize(c.natureIds),
           personHrIds: safeString(c.personHrIds),
           assignmentIds: safeString(c.assignmentIds),
           departmentScope: safeString(c.departmentScope),
@@ -136,6 +139,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
             id: safeString(c.id),
             sortOrder: c.sort_order,
             conditionType: safeString(c.condition_type),
+            natureIds: natureRulePolicy.normalize(c.nature_ids),
             personHrIds: safeString(c.person_hr_ids),
             assignmentIds: safeString(c.assignment_ids),
             departmentScope: safeString(c.department_scope),
@@ -295,7 +299,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     let starterConditionsJson = null;
     if (starterConditions.length) {
       starterConditionsJson = JSON.stringify(starterConditions.map(function(c) {
-        let cond = { conditionType: c.conditionType };
+        let cond = { conditionType: c.conditionType, natureIds: natureRulePolicy.normalize(c.natureIds) };
         if (c.conditionType === 'person') {
           cond.personHrIds = c.personHrIds || '';
           cond.assignmentIds = c.assignmentIds || '';
@@ -318,6 +322,30 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       const activeSession = await managementAuthorization.session(conn, orgId, reference);
       managementAuthorization.check(activeSession, orgId, 'audit.templates', id ? 'update' : 'create', newTemplateId,
         ['name', 'description', 'starterConditions', 'steps', 'isActive']);
+      await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
+      if (id) {
+        const previous = await flowTemplateModel.getByIdForUpdate(id, conn);
+        if (previous) {
+          const keyOf = condition => JSON.stringify([condition.conditionType,
+            condition.personHrIds || '', condition.assignmentIds || '', condition.departmentScope || 'all', condition.specificDepartmentId || '',
+            condition.workGroupScope || 'all', condition.specificWorkGroupId || '', condition.identityScope || 'all', condition.specificIdentityId || '']);
+          const oldStarters = previous.starter_conditions_json ? JSON.parse(previous.starter_conditions_json) : [];
+          natureRulePolicy.preserveMissing(starterConditions, oldStarters, keyOf);
+          if (starterConditionsJson) {
+            const prepared = JSON.parse(starterConditionsJson);
+            prepared.forEach((condition, index) => { condition.natureIds = starterConditions[index].natureIds || null; });
+            starterConditionsJson = JSON.stringify(prepared);
+          }
+          const oldConditions = (await flowTemplateStepConditionModel.getByTemplateId(id, conn)).map(condition => ({
+            conditionType: condition.condition_type, natureIds: natureRulePolicy.normalize(condition.nature_ids),
+            personHrIds: condition.person_hr_ids, assignmentIds: condition.assignment_ids,
+            departmentScope: condition.department_scope, specificDepartmentId: condition.specific_department_id,
+            workGroupScope: condition.work_group_scope, specificWorkGroupId: condition.specific_work_group_id,
+            identityScope: condition.identity_scope, specificIdentityId: condition.specific_identity_id
+          }));
+          natureRulePolicy.preserveMissing(steps.flatMap(step => step.conditions || []), oldConditions, keyOf);
+        }
+      }
       const allConditions = starterConditions.slice();
       for (const step of steps) {
         const stepConditions = Array.isArray(step.conditions) ? step.conditions : [];
@@ -326,8 +354,8 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           allConditions.push({ specificIdentityId: step.approverIdentityId });
         }
       }
-      await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
       for (const condition of allConditions) {
+        await identityNatureRule.validate(conn, orgId, condition.natureIds, condition.specificIdentityId);
         if (condition.conditionType === 'person') {
           const binding = await resolveAndValidateBindings(condition, orgId, conn);
           if (!binding.ok) {
@@ -423,6 +451,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
               templateStepId: stepId,
               sortOrder: j + 1,
               conditionType: safeString(cond.conditionType) || 'identity_scope',
+              natureIds: natureRulePolicy.normalize(cond.natureIds),
               personHrIds: safeString(cond.personHrIds) || null,
               assignmentIds: safeString(cond.assignmentIds) || null,
               departmentScope: safeString(cond.departmentScope) || 'all',

@@ -5,11 +5,14 @@ function substitute(relative, exports) { const id = require.resolve(relative); r
 const calls = [];
 substitute('../src/core/models/authorizationBusinessRoute', { async isEnforced() { return false; }, async requireLegacyWrite(connection, orgId) { assert.equal(orgId, 'org-a'); } });
 substitute('../src/config/db', { async withTransaction(work) { return work(this); }, async query(sql, values) {
-  assert.deepEqual(values, ['org-a']); calls.push(sql);
+  assert.equal(values[0], 'org-a'); calls.push(sql);
   assert(!/student_id/i.test(sql), '审核目录不得读取学号');
   if (sql.includes('FROM hr_info h')) return [[{ id: 'hr-a', name: '成员甲', student_id: 'PRIVATE-STUDENT' }, { id: 'hr-empty', name: '无岗位成员' }]];
   if (sql.includes('FROM membership_assignments ma')) return [[{ assignment_id: 'assignment-a', hr_id: 'hr-a', department_id: 'dept-a', department_name: '部门甲', identity_id: 'identity-a', identity_name: '成员', student_id: 'PRIVATE-STUDENT' }]];
   if (/FROM (departments|identities|work_groups) /.test(sql)) return [[{ id: 'dictionary', name: '字典' }]];
+  if (sql.includes('FROM identity_nature_links')) { assert.deepEqual(values, ['org-a', ['dictionary']]); return [[{ identity_id:'dictionary', nature_id:'staff' }]]; }
+  if (sql.includes('FROM identity_nature_states')) { assert.deepEqual(values, ['org-a', ['dictionary']]); return [[{ identity_id:'dictionary', version:1 }]]; }
+  if (sql.includes('FROM assignment_natures')) return [[{ id:'staff', name:'staff' }]];
   throw Error('unexpected_query');
 } });
 for (const name of ['department','identity','workGroup']) substitute('../src/core/models/' + name, { getAll: async () => [{ id: name, name: '字典', student_id: 'PRIVATE-STUDENT', description: '不需要的详情' }] });
@@ -38,12 +41,17 @@ async function main() {
           const members = result.data ? result.data.people : result.candidates;
           assert.equal(members.length, 2); assert.equal(members[1].assignments.length, 0, '在职无岗位人员保留在自然人授权目录');
           assert.equal(members[0].assignments[0].assignmentId, 'assignment-a');
+          if (result.data) {
+            assert.deepEqual(result.data.identities[0].natureIds, ['staff']);
+            assert.equal(result.data.identities[0].version, 1);
+            assert.equal(result.data.natures[0].id, 'staff');
+          }
         } else assert.notEqual(result.status, 'success', '未认证、普通用户及细权限明确拒绝均不能读取');
       }
     }
     assert.equal(calls.filter(sql => sql.includes('FROM hr_info h') || sql.includes('FROM membership_assignments ma')).length, 8,
       '每次成功目录查询只有两次人员查询，拒绝请求不读取目录');
-    assert.equal(calls.length, 14, '模板目录在同事务另读3类必要字典，拒绝请求不读取目录');
+    assert.equal(calls.length, 20, '模板目录另读性质及关联版本，拒绝请求不读取目录');
     console.log('审核专用目录 HTTP 验证通过：两类管理员、细权限拒绝、未认证、组织参数、无岗位与身份隐私');
   } finally { await new Promise(resolve => server.close(resolve)); }
 }

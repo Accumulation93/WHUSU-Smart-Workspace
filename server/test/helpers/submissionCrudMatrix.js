@@ -6,6 +6,10 @@ const vm = require('node:vm');
 
 // 在调用方创建的空白隔离库逐项执行；不使用生产身份或业务数据。
 module.exports = async function submissionCrudMatrix(orgStorage) {
+  await require('../../src/config/db').withTransaction(async connection => {
+    await require('../../src/core/models/assignmentNature').initialize(connection, 'submit-a');
+    await require('../../src/core/models/identityNature').finalize(connection, 'submit-a');
+  });
   const routers = [
     require('../../src/core/routes/departments'), require('../../src/core/routes/identities'),
     require('../../src/core/routes/workGroups'), require('../../src/modules/scoring/routes/templates'),
@@ -24,7 +28,7 @@ module.exports = async function submissionCrudMatrix(orgStorage) {
   };
   const plans = [
     { save: 'saveDepartment', list: 'listDepartments', remove: 'deleteDepartment', key: 'departments', body: {} },
-    { save: 'saveIdentity', list: 'listIdentities', remove: 'deleteIdentity', key: 'identities', body: {} },
+    { save: 'saveIdentity', list: 'listIdentities', remove: 'deleteIdentity', key: 'identities', body: { natureIds: ['staff'] } },
     { save: 'saveWorkGroup', list: 'listWorkGroups', remove: 'deleteWorkGroup', key: 'workGroups', body: {} },
     { save: 'saveScoreTemplate', list: 'listScoreTemplates', remove: 'deleteScoreTemplate', key: 'list',
       body: { questions: [{ question: '测试题目', minValue: 0, startValue: 0, maxValue: 100, stepValue: 1 }] } },
@@ -46,14 +50,30 @@ module.exports = async function submissionCrudMatrix(orgStorage) {
       require(name) {
         if (name.endsWith('/adminUtils')) return { emptyDepartmentForm: () => ({}), emptyIdentityForm: () => ({}), showShortToast() {}, getErrorText: error => error.message };
         if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
+        if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
+        if (name.endsWith('/api')) return { createResultError: result => Object.assign(new Error(JSON.stringify(result)), result), getErrorText: error => error.message };
         return {};
       }
     }, { filename });
-    const page = { data: { [kind + 'Form']: body }, setLoading() {}, setData() {},
+    const directory = kind === 'identity' ? await call('listIdentities', {}) : null;
+    const existing = directory && directory.identities.find(item => item.id === body.id);
+    const page = { data: { [kind + 'Form']: { ...body, ...(existing ? { version: existing.version } : {}) }, loadingMap: {},
+      identityRelationEnabled: directory && directory.relationEnabled, identityNatureOptions: directory ? directory.natureOptions : [] },
+      setLoading(key, value) { this.data.loadingMap[key] = value; }, setData(patch) { Object.assign(this.data, patch); },
       loadDepartmentList: async () => {}, loadIdentityList: async () => {}, loadWorkGroupList: async () => {}, updateHrFormOptions() {},
       async callCloud(name, payload) { response = await call(name, JSON.parse(JSON.stringify(payload))); return response; } };
-    await behavior.methods[plan.save].call(page);
+    Object.assign(page, behavior.methods);
+    page.loadDepartmentList = async () => {};
+    page.loadIdentityList = async () => {};
+    await page[plan.save]();
     assert.ok(response, '真实页面必须发出保存请求');
+    if (kind === 'identity') {
+      assert.equal(response.status, 'success', JSON.stringify(response));
+      assert.ok(response.preview && page.data.identityPreview, '真实页面必须先显示影响预览');
+      await page.confirmIdentityPreview();
+      assert.equal(response.status, 'success', JSON.stringify(response));
+      assert.equal(response.preview, undefined, '确认必须实际保存，不能仅返回预览');
+    }
     return response;
   };
   for (const plan of plans) {
@@ -73,9 +93,10 @@ module.exports = async function submissionCrudMatrix(orgStorage) {
       '组织目录必须隔离；既有公共场地目录保持全局可见');
     assert.equal((await call(plan.save, { ...body, name: '' })).status, 'invalid_params');
     if (plan.save === 'saveDepartment' || plan.save === 'saveIdentity') {
-      assert.equal((await call(plan.save, { ...body, id: record.id }, 'submit-b')).status, 'not_found',
+      const legacyBody = { name: body.name, description: body.description };
+      assert.equal((await call(plan.save, { ...legacyBody, id: record.id }, 'submit-b')).status, 'not_found',
         plan.save + ' 不得把跨组织未写入报告为保存成功');
-      assert.equal((await call(plan.save, { ...body, id: 'missing-dictionary' })).status, 'not_found',
+      assert.equal((await call(plan.save, { ...legacyBody, id: 'missing-dictionary' })).status, 'not_found',
         plan.save + ' 已删除项目不得假报成功');
       assert.equal((await call(plan.list, {}))[plan.key].find(item => item.id === record.id).name, body.name + '-edited');
     }

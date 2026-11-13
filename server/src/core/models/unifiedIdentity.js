@@ -7,6 +7,7 @@ const { memo } = require('../../utils/requestWork');
 const { usableLoginCredentialSql } = require('./accountLoginState');
 const { generateId, safeString } = require('../../utils/helpers');
 const assignmentNature = require('./assignmentNature');
+const natureEligibility = require('./identityNatureEligibility');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const {
   hmac,
@@ -171,7 +172,8 @@ async function lockActiveBusinessSubjects(connection, subjects) {
       assignmentSql = `
         JOIN membership_assignments ma
           ON ma.membership_id = om.id AND ma.org_id = om.org_id
-         AND ma.id = ? AND ma.status = 'active'`;
+         AND ma.id = ? AND ma.status = 'active'
+         AND ${natureEligibility.assignmentPredicate('ma')}`;
     }
     const legacySql = subject.legacyHrId ? ' AND om.legacy_hr_id = ?' : '';
     const params = (subject.assignmentId ? [subject.assignmentId] : [])
@@ -491,13 +493,15 @@ async function syncLegacyHrRecords(connection, hrIds) {
     const assignmentId = safeString(row.id);
     if (departmentValid && identityValid) {
       const [existingAssignments] = await connection.query('SELECT assignment_kind FROM membership_assignments WHERE id = ? AND membership_id = ? AND org_id = ? FOR UPDATE', [assignmentId, membershipId, row.org_id]);
-      const assignmentKind = existingAssignments.length ? existingAssignments[0].assignment_kind : 'staff';
+      const assignmentKind = existingAssignments.length ? existingAssignments[0].assignment_kind
+        : await natureEligibility.isEnabled(connection, row.org_id) ? '' : 'staff';
       try {
         await assignmentNature.resolve(connection, row.org_id, assignmentKind);
       } catch (error) {
         if (error.code !== 'assignment_nature_invalid') throw error;
         throw new IdentityError('assignment_nature_invalid', personnelCopy.assignmentNatureInvalid, 400);
       }
+      await require('./identityNature').assertAssignment(connection, row.org_id, identityId, assignmentKind);
       const [duplicateAssignments] = await connection.query(
         `SELECT id FROM membership_assignments
           WHERE membership_id = ? AND org_id = ? AND status = 'active'
@@ -556,6 +560,7 @@ async function listMembershipAssignments(legacyHrId, organizationId) {
   const [rows] = await pool.query(
     `SELECT ma.id, ma.membership_id, ma.assignment_kind, ma.title,
             ma.department_id, ma.identity_id, ma.work_group_id,
+            CASE WHEN ${natureEligibility.assignmentPredicate('ma')} THEN 'ready' ELSE 'pending' END AS configurationStatus,
             d.name AS department_name, i.name AS identity_name,
             w.name AS work_group_name
        FROM organization_memberships om
@@ -584,6 +589,7 @@ async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
   const [rows] = await pool.query(
     `SELECT om.legacy_hr_id, ma.id AS assignment_id, ma.assignment_kind,
             ma.department_id, ma.identity_id, ma.work_group_id,
+            CASE WHEN ${natureEligibility.assignmentPredicate('ma')} THEN 'ready' ELSE 'pending' END AS configuration_status,
             n.name AS assignment_nature_name,
             d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
        FROM organization_memberships om
@@ -621,6 +627,7 @@ async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
         assignmentId: safeString(row.assignment_id),
         assignmentNature: safeString(row.assignment_kind),
         assignmentNatureLabel: safeString(row.assignment_nature_name),
+        configurationStatus: safeString(row.configuration_status),
         departmentId: safeString(row.department_id),
         department: safeString(row.department_name),
         identityCategoryId: safeString(row.identity_id),
@@ -689,6 +696,7 @@ async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
   const [rows] = await pool.query(
     `SELECT om.legacy_hr_id, om.status AS membership_status,
             ma.id AS assignment_id, ma.assignment_kind, ma.status AS assignment_status,
+            CASE WHEN ${natureEligibility.assignmentPredicate('ma')} THEN 'ready' ELSE 'pending' END AS configuration_status,
             nature.name AS assignment_nature_name,
             ma.department_id, ma.identity_id, ma.work_group_id,
             d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
@@ -731,6 +739,7 @@ async function listDirectoryAssignmentSummaries(legacyHrIds, organizationId) {
         workGroupId: safeString(row.work_group_id),
         workGroup: safeString(row.work_group_name),
         historical: safeString(row.membership_status) === 'left',
+        configurationStatus: safeString(row.configuration_status),
         assignmentLabel: buildAssignmentLabel(row)
       };
       summary.count += 1;
@@ -821,6 +830,7 @@ async function saveMembershipAssignment(data, actor, authorize) {
     const departmentId = safeString(data.departmentId);
     const identityId = safeString(data.identityId);
     const workGroupId = safeString(data.workGroupId);
+    await require('./identityNature').assertAssignment(connection, organizationId, identityId, assignmentKind);
     const [duplicateRows] = await connection.query(
       `SELECT id FROM membership_assignments
         WHERE membership_id = ? AND org_id = ? AND status = 'active'
@@ -1299,6 +1309,7 @@ async function queryContexts(accountId, connection) {
          ON CONVERT(w.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.work_group_id
         AND CONVERT(w.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = om.org_id
        WHERE a.id = ? AND ${accountStatusCondition}
+         AND ${natureEligibility.assignmentPredicate('ma')}
       ORDER BY o.created_at DESC, ma.created_at ASC, ma.id ASC`,
     [safeString(accountId)]
   );
@@ -1316,6 +1327,7 @@ async function queryContexts(accountId, connection) {
           SELECT 1
             FROM membership_assignments ma
            WHERE ma.membership_id = om.id AND ma.org_id = om.org_id AND ma.status = 'active'
+             AND ${natureEligibility.assignmentPredicate('ma')}
         )
       ORDER BY o.created_at DESC, om.created_at ASC, om.id ASC`,
     [safeString(accountId)]

@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "identity-manager": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/components/identityManager/identityManager",
     "assignment-nature-editor": "/subpackages/workspace/package-resources/components/assignment-nature-editor/assignment-nature-editor",
     "assignment-nature-create": "/subpackages/workspace/package-resources/components/assignment-nature-create/assignment-nature-create",
     "contact-directory": "/subpackages/workspace/package-resources/components/contact-directory/contact-directory",

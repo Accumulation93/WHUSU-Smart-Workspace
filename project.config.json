@@ -641,6 +641,22 @@
       },
       {
         "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/identityManager/identityManager.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/identityManager/identityManager.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/identityManager/identityManager.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/identityManager/identityManager.wxss"
+      },
+      {
+        "type": "file",
         "value": "subpackages/scoring/pages/admin/components/scoreRecordDetailDialog/scoreRecordDetailDialog.js"
       },
       {

@@ -26,7 +26,7 @@ async function codeChecks() {
   for (const args of [...checks.static, ...checks.tests]) await run(process.execPath, args);
   for (const file of files.filter(file => /^miniprogram\/.*\.test\.js$/.test(file) || /^server\/test\/[^/]+\.test\.js$/.test(file))) await run(process.execPath, [file]);
   const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
-  for (const file of ['deployProduction.sh', 'deployEntrypoint.sh', 'setupCollabSession.sh']) await run(bash, ['-n', 'server/scripts/' + file]);
+  for (const file of ['deployProduction.sh', 'deployEntrypoint.sh', 'setupCollabSession.sh', 'finalizeIdentityNatures.sh']) await run(bash, ['-n', 'server/scripts/' + file]);
   await run(process.platform === 'win32' ? 'powershell.exe' : 'pwsh', ['-NoProfile', '-Command', "[scriptblock]::Create((Get-Content -Raw 'scripts/remote-collab.ps1')) | Out-Null"]);
   await run(process.execPath, ['scripts/dependency-audit.js', '--self-test']);
   await run(process.execPath, ['scripts/dependency-audit.js']);

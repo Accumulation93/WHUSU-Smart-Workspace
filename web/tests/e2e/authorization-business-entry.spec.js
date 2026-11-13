@@ -25,13 +25,14 @@ test('assignment editor creates a nature without losing its draft and rereads th
   await page.route('**/api/listHrProfileAdminData',route=>route.fulfill({json:{status:'success',rows:[{id:'member',name:'Member',assignments:[]}]}}));
   await page.route('**/api/getHrPersonDetail',route=>route.fulfill({json:{status:'success',profile:{name:'Member'},template:{fields:[]},values:{},membershipStatus:'active'}}));
   await page.route('**/api/listAssignmentNatures',route=>route.fulfill({json:{status:'success',list:[],canCreate:true}}));
-  await page.route('**/api/listPersonIdentities',route=>route.fulfill({json:failRead?{status:'error',message:'Read failed'}:{status:'success',organizations:[{organizationId:'org-1',organizationName:'Organization',hrId:'member',canEditAssignments:true,canAddAssignment:true,assignments,dictionaries:{assignmentNatures:natures,departments:[{id:'dept',name:'Department'}],identities:[{id:'identity',name:'Identity'}],workGroups:[]}}]}}));
+  await page.route('**/api/listPersonIdentities',route=>route.fulfill({json:failRead?{status:'error',message:'Read failed'}:{status:'success',organizations:[{organizationId:'org-1',organizationName:'Organization',hrId:'member',canEditAssignments:true,canAddAssignment:true,assignments,dictionaries:{assignmentNatures:natures,departments:[{id:'dept',name:'Department'}],identities:[{id:'identity',name:'Identity',natureIds:['staff']}],workGroups:[]}}]}}));
   await page.route('**/api/saveAssignmentNature',route=>{expect(route.request().postDataJSON()).toEqual({name:'Project role'});natureWrites++;natures.push({id:'new-nature',name:'Project role'});failRead=true;return route.fulfill({json:{status:'success',nature:natures[1]}});});
-  await page.route('**/api/saveMembershipAssignment',route=>{const value=route.request().postDataJSON();expect(value).toEqual({id:'',hrId:'member',organizationId:'org-1',assignmentKind:'new-nature',departmentId:'dept',identityId:'identity',workGroupId:''});assignmentWrites++;assignments=[{...value,id:'assignment',canEdit:true,writableFields:['*'],assignmentNatureLabel:'Project role'}];return route.fulfill({json:{status:'success'}});});
+  await page.route('**/api/saveMembershipAssignment',route=>{const value=route.request().postDataJSON();expect(value).toEqual({id:'',hrId:'member',organizationId:'org-1',assignmentKind:'staff',departmentId:'dept',identityId:'identity',workGroupId:''});assignmentWrites++;assignments=[{...value,id:'assignment',canEdit:true,writableFields:['*'],assignmentNatureLabel:'Staff'}];return route.fulfill({json:{status:'success'}});});
   await page.goto('/web/admin?subApp=hr&tab=hrInfo&hrId=member');
   const dialog=page.getByRole('dialog');
   await dialog.getByRole('button',{name:adminUi.copy_9242c7c6e4,exact:true}).click();
   await dialog.getByRole('combobox',{name:adminUi.copy_7ee1272d5b,exact:true}).selectOption('dept');
+  await dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true}).selectOption('staff');
   await dialog.getByRole('combobox',{name:adminUi.hrIdentityCategory,exact:true}).selectOption('identity');
   await dialog.getByRole('button',{name:personnelCopy.addAssignmentNature,exact:true}).click();
   await dialog.getByLabel(personnelCopy.assignmentNatureName).fill('Project role');
@@ -40,10 +41,13 @@ test('assignment editor creates a nature without losing its draft and rereads th
   await dialog.getByRole('button',{name:personnelCopy.dictionaryRetry,exact:true}).click();
   await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('new-nature');
   await expect(dialog.getByRole('combobox',{name:adminUi.copy_7ee1272d5b,exact:true})).toHaveValue('dept');
+  await expect(dialog.getByRole('combobox',{name:adminUi.hrIdentityCategory,exact:true}).locator('option[value="identity"]')).toHaveCount(0);
+  await dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true}).selectOption('staff');
+  await dialog.getByRole('combobox',{name:adminUi.hrIdentityCategory,exact:true}).selectOption('identity');
   await dialog.getByRole('button',{name:adminUi.copy_1b38edadcc,exact:true}).click();
   await expect.poll(()=>assignmentWrites).toBe(1);expect(natureWrites).toBe(1);
   await dialog.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true}).click();
-  await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('new-nature');
+  await expect(dialog.getByRole('combobox',{name:adminUi.hrAssignmentNature,exact:true})).toHaveValue('staff');
 });
 
 test('personnel template create edit and reopening use saved field definitions', async ({ page }) => {
@@ -72,12 +76,15 @@ test('publication creates a view rule and reopens the persisted clauses without 
   await grant(page,['scoring.publications.read','scoring.publications.create','scoring.publications.update','scoring.activities.read']);
   let rules=[],reads=0;
   await page.route('**/api/listScoreActivities',route=>route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity'}]}}));
-  await page.route('**/api/getResultPublication',route=>{reads++;return route.fulfill({json:{status:'success',publication:{id:'publication',activityId:'activity',isPublished:false},viewRules:rules,meritRules:[],assignmentCandidates:[],meritListDesignations:[],configurationCandidates:{departments:[{id:'dept',name:'Department'}],identities:[{id:'identity',name:'Identity'}]}}});});
+  await page.route('**/api/getResultPublication',route=>{reads++;return route.fulfill({json:{status:'success',publication:{id:'publication',activityId:'activity',isPublished:false},viewRules:rules,meritRules:[],assignmentCandidates:[],meritListDesignations:[],configurationCandidates:{departments:[{id:'dept',name:'Department'}],natures:[{id:'staff',name:'Staff'}],identities:[{id:'identity',name:'Identity',natureIds:['staff']}]}}});});
   await page.route('**/api/getMeritListSummary',route=>route.fulfill({json:{status:'success',groups:[]}}));
-  await page.route('**/api/savePubViewRule',route=>{const value=route.request().postDataJSON();expect(value.publicationId).toBe('publication');expect(value.clauses).toEqual([{scopeType:'own_results',targetIdentityId:'',displayMode:'score',gradeBands:[]}]);rules=[{...value,id:'rule',granteeDepartment:'Department',granteeIdentity:'Identity',clauses:value.clauses.map((clause,index)=>({...clause,id:'clause-'+index}))}];return route.fulfill({json:{status:'success'}});});
+  await page.route('**/api/savePubViewRule',route=>{const value=route.request().postDataJSON();expect(value.publicationId).toBe('publication');expect(value.natureIds).toEqual(['staff']);expect(value.clauses).toEqual([{natureIds:['staff'],scopeType:'own_results',targetIdentityId:'',displayMode:'score',gradeBands:[]}]);rules=[{...value,id:'rule',granteeDepartment:'Department',granteeIdentity:'Identity',clauses:value.clauses.map((clause,index)=>({...clause,id:'clause-'+index}))}];return route.fulfill({json:{status:'success'}});});
   await page.goto('/web/admin?subApp=scoring&tab=publications');
   await page.locator('section').filter({has:page.getByText(adminUi.copy_17903d1b98,{exact:true})}).getByRole('button',{name:adminUi.newResultViewRule,exact:true}).click();
   await page.getByRole('combobox',{name:adminUi.resultViewerDepartments,exact:true}).selectOption('dept');
+  await expect(page.getByRole('combobox',{name:adminUi.resultViewerIdentity,exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Staff',exact:true}).first().click();
+  await page.getByRole('button',{name:'Staff',exact:true}).last().click();
   await page.getByRole('combobox',{name:adminUi.resultViewerIdentity,exact:true}).selectOption('identity');
   await page.getByRole('button',{name:adminUi.saveResultViewRule,exact:true}).click();
   await expect(page.locator('form')).toHaveCount(0);

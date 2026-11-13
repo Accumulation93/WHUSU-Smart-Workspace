@@ -52,6 +52,8 @@ function matchingRule(rows, params) {
 const connection = {
   async query(sql, params = []) {
     const normalized = normalizeSql(sql);
+    if (normalized.startsWith('SELECT id,nature_ids FROM pub_')) return [[]];
+    if (normalized.startsWith('UPDATE pub_') && normalized.includes('SET nature_ids=')) return [{ affectedRows: 1 }];
     if (normalized.startsWith('SELECT id FROM result_publications')) {
       return [state.publications.filter((row) => row.id === params[0] && row.org_id === params[1])];
     }

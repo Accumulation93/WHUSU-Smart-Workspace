@@ -4,6 +4,7 @@ const pool = require('../../../config/db');
 const { createAuthorizationSession } = require('../../../core/services/authorizationSession');
 const { requireLegacyWrite } = require('../../../core/models/authorizationBusinessRoute');
 const { authorizationError } = require('../../../core/services/authorizationError');
+const identityNature = require('../../../core/models/identityNature');
 
 async function begin(connection, organizationId, reference) {
   if (!reference) {
@@ -62,7 +63,8 @@ async function configurationCandidates(organizationId, reference, activityId) {
     const [departments] = await connection.query('SELECT id,name FROM departments WHERE org_id=? ORDER BY name,id', [organizationId]);
     const [identities] = await connection.query('SELECT id,name FROM identities WHERE org_id=? ORDER BY name,id', [organizationId]);
     const [templates] = await connection.query('SELECT id,name FROM score_question_templates WHERE org_id=? ORDER BY name,id', [organizationId]);
-    return { departments, identities, templates };
+    const [assignmentNatures] = await connection.query('SELECT id,name FROM assignment_natures WHERE org_id=? ORDER BY name,id', [organizationId]);
+    return { departments, identities: await identityNature.decorate(connection, organizationId, identities), templates, assignmentNatures };
   });
 }
 

@@ -2,6 +2,7 @@
 
 // 授权始终在同一个岗位元组上判断；未知条件不能退化为全员。
 const DIMENSIONS = [
+  ['natureIds', 'nature', 'sameNature'],
   ['departmentIds', 'departmentId', 'sameDepartment'],
   ['identityCategoryIds', 'identityCategoryId', 'sameIdentity'],
   ['workGroupIds', 'workGroupId', 'sameWorkGroup']
@@ -44,7 +45,27 @@ function normalizeClauses(value, target) {
     return result;
   });
 }
-function normalizeRule(input) {
+function preserveNatureConditions(input, previous) {
+  if (!previous) return input;
+  const result = Object.assign({}, input);
+  const key = clause => JSON.stringify(DIMENSIONS.filter(d => d[0] !== 'natureIds')
+    .map(([plural, , same]) => [ids(clause[plural] || []), clause[same] === true]));
+  for (const part of ['audience', 'targets']) {
+    const old = (previous[part] || []).filter(clause => clause.type === 'scope');
+    if (!old.some(clause => (clause.natureIds || []).length || clause.sameNature)) continue;
+    result[part] = (input[part] || []).map(clause => {
+      if (clause.type !== 'scope' || clause.natureIds !== undefined || clause.sameNature !== undefined) return clause;
+      const matches = old.filter(prior => key(prior) === key(clause));
+      const choices = [...new Set(matches.map(prior => JSON.stringify([prior.natureIds || [], prior.sameNature === true])))];
+      if (choices.length !== 1) fail('staleReferences');
+      const [natureIds, sameNature] = JSON.parse(choices[0]);
+      return Object.assign({}, clause, { natureIds }, part === 'targets' ? { sameNature } : {});
+    });
+  }
+  return result;
+}
+function normalizeRule(source, previous) {
+  const input = preserveNatureConditions(source, previous);
   if (!input || typeof input !== 'object') fail();
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   if (!name || Array.from(name).length > 80 || typeof input.enabled !== 'boolean') fail();
@@ -66,6 +87,7 @@ function referenceIds(rule) {
 }
 function referenceIndex(catalog) {
   return { people: new Set(catalog.people.map(person => person.personId)), fields: new Set(catalog.fields.map(field => field.id)),
+    natureIds: new Set(catalog.natureIds || []),
     departmentIds: new Set(catalog.departmentIds), identityCategoryIds: new Set(catalog.identityCategoryIds), workGroupIds: new Set(catalog.workGroupIds) };
 }
 function validateReferences(rule, catalog, index = referenceIndex(catalog)) {
@@ -75,7 +97,14 @@ function validateReferences(rule, catalog, index = referenceIndex(catalog)) {
     if (clause.type !== 'scope') continue;
     for (const [plural] of DIMENSIONS) {
       const allowed = index[plural];
-      if (clause[plural].some(id => !allowed.has(id))) fail('staleReferences');
+      if ((clause[plural] || []).some(id => !allowed.has(id))) fail('staleReferences');
+    }
+    if ((clause.natureIds || []).length && clause.identityCategoryIds.length) {
+      const identities = new Map((catalog.identities || []).map(identity => [identity.id, identity]));
+      if (clause.identityCategoryIds.some(id => {
+        const identity = identities.get(id);
+        return !identity || !Array.isArray(identity.natureIds) || !identity.natureIds.some(nature => clause.natureIds.includes(nature));
+      })) fail('staleReferences');
     }
   }
   const fields = index.fields;
@@ -89,7 +118,16 @@ function grants(rules, people, viewer, catalog) {
     : clause.type === 'scope' ? { valueSets: Object.fromEntries(DIMENSIONS.map(([plural]) => [plural, new Set(clause[plural])])) } : {});
   const activeClauses = clauses => clauses.map(clause => clause.type === 'people'
     ? Object.assign({}, clause, { personIds: clause.personIds.filter(id => activePeople.has(id)) }) : clause)
-    .filter(clause => clause.type !== 'people' || clause.personIds.length);
+    .filter(clause => {
+      if (clause.type === 'people' && !clause.personIds.length) return false;
+      try {
+        validateReferences({ audience: [clause], targets: [], fieldIds: [] }, catalog, index);
+        return true;
+      } catch (error) {
+        if (!(error instanceof DirectoryError)) throw error;
+        return false;
+      }
+    });
   for (const raw of rules) {
     if (!raw.enabled) continue;
     try {
@@ -127,4 +165,4 @@ function removePerson(rule, personId) {
   const targets = clean(rule.targets);
   return Object.assign({}, rule, { audience, targets, enabled: Boolean(rule.enabled && audience.length && targets.length) });
 }
-module.exports = { DirectoryError, normalizeRule, normalizeClauses, validateReferences, referenceIds, grants, removePerson };
+module.exports = { DirectoryError, normalizeRule, normalizeClauses, validateReferences, referenceIds, grants, removePerson, preserveNatureConditions };

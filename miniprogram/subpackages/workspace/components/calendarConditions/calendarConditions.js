@@ -1,11 +1,12 @@
 'use strict';
 const copy=require('../../../../locales/zh-CN/calendar');
+const relations=require('../../../../locales/zh-CN/identityNatureRelations');
 const directory=require('../../package-resources/utils/contactDirectoryView');
 const dimensions=[{key:'departmentIds',same:'sameDepartment',label:'department',options:'departments'},{key:'identityCategoryIds',same:'sameIdentity',label:'identity',options:'identities'},{key:'workGroupIds',same:'sameWorkGroup',label:'workGroup',options:'workGroups'}];
 Component({
   options:{styleIsolation:'apply-shared'},
   properties:{value:{type:Array,value:[]},metadata:{type:Object,value:{}},audience:Boolean,disabled:Boolean},
-  data:{copy,rows:[],types:[],pickerVisible:false,people:[],selected:[]},
+  data:{copy,relations,rows:[],types:[],pickerVisible:false,people:[],selected:[]},
   observers:{'value,metadata,audience':function(){this.rebuild();}},
   pageLifetimes:{hide:function(){this.closePicker();}},
   methods:{
@@ -13,10 +14,11 @@ Component({
       const types=this.properties.audience ? ['people','scope'] : ['self','people','scope'];
       const people=directory.peopleOptions(this.properties.metadata.people);
       const rows=this.properties.value.map((clause,index)=>({index,type:clause.type,typeIndex:types.indexOf(clause.type),
+        sameNature:Boolean(clause.sameNature),legacyNature:clause.natureIds==null&&!clause.sameNature,natures:(this.properties.metadata.natures||[]).map(item=>({id:item.id,name:item.name,selected:(clause.natureIds||[]).includes(item.id)})),
         names:people.filter(person=>(clause.personIds||[]).includes(person.id)).map(person=>person.name).join(' / '),
         count:(clause.personIds||[]).length,dimensions:dimensions.map(dimension=>({key:dimension.key,same:dimension.same,label:copy[dimension.label],sameLabel:copy[dimension.same],
           checked:Boolean(clause[dimension.same]),expanded:Boolean(this._expanded && this._expanded[index+dimension.key]),
-          count:(clause[dimension.key]||[]).length,options:(this.properties.metadata[dimension.options]||[]).map(option=>({id:option.id,name:option.name+(option.departmentId?' · '+((this.properties.metadata.departments||[]).find(item=>item.id===option.departmentId)||{}).name:''),
+          count:(clause[dimension.key]||[]).length,options:(this.properties.metadata[dimension.options]||[]).filter(option=>dimension.key!=='identityCategoryIds'||clause.sameNature||(option.natureIds||[]).some(id=>(clause.natureIds||[]).includes(id))).map(option=>({id:option.id,name:option.name+(option.departmentId?' · '+((this.properties.metadata.departments||[]).find(item=>item.id===option.departmentId)||{}).name:''),
             selected:(clause[dimension.key]||[]).includes(option.id)}))}))}));
       this._types=types;this.setData({rows,people,types:types.map(type=>copy[type==='people'?'choosePeople':type==='scope'?'chooseScope':'self'])});
     },
@@ -26,7 +28,13 @@ Component({
     add:function(){this.publish(this.properties.value.concat(directory.blankClause('scope')));},
     remove:function(e){if(this.properties.value.length>1)this.publish(this.properties.value.filter((_,i)=>i!==Number(e.currentTarget.dataset.index)));},
     expand:function(e){const key=e.currentTarget.dataset.index+e.currentTarget.dataset.key;this._expanded=this._expanded||{};this._expanded[key]=!this._expanded[key];this.rebuild();},
-    toggle:function(e){const {index,key,id}=e.currentTarget.dataset;this.patch(Number(index),clause=>{const values=clause[key]||[];clause[key]=values.includes(id)?values.filter(value=>value!==id):values.concat(id);});},
+    toggle:async function(e){
+      const {index,key,id}=e.currentTarget.dataset,source=this.properties.value[Number(index)];if(this.properties.disabled||!source)return;
+      const values=source[key]||[],next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);
+      const invalid=key==='natureIds'?(this.properties.metadata.identities||[]).filter(item=>(source.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(nature=>next.includes(nature))):[];
+      if(invalid.length){const result=await wx.showModal({title:relations.incompatibleSelectionTitle,content:[relations.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:copy.cancel});if(!result.confirm||this.properties.value[Number(index)]!==source)return;}
+      this.patch(Number(index),clause=>{clause[key]=next;if(key==='natureIds'){delete clause.sameNature;clause.identityCategoryIds=(clause.identityCategoryIds||[]).filter(value=>!invalid.some(item=>item.id===value));}});
+    },
     same:function(e){const {index,key,same}=e.currentTarget.dataset;this.patch(Number(index),clause=>{clause[same]=Boolean(e.detail.value);clause[key]=[];});},
     openPicker:function(e){if(this.properties.disabled)return;this._pickerIndex=Number(e.currentTarget.dataset.index);this.setData({pickerVisible:true,selected:this.properties.value[this._pickerIndex].personIds||[]});this.triggerEvent('pickerchange',{visible:true});},
     closePicker:function(){this.setData({pickerVisible:false,selected:[]});this.triggerEvent('pickerchange',{visible:false});},

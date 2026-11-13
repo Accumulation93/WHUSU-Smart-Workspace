@@ -165,7 +165,7 @@ const AUTHORIZATION_USAGE = Object.freeze([
   ['authorization_delegations', 'envelope_json']
 ]);
 
-async function countAuthorizationUsage(kind, id, organizationId, connection, lockRows = false) {
+async function countAuthorizationUsage(kind, id, organizationId, connection, lockRows = false, record = () => {}) {
   // 兼容结构上线前允许旧程序执行；表一旦存在，查询失败或损坏条件都不能被忽略。
   const [schema] = await connection.query(`SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name FROM information_schema.columns
     WHERE table_schema = DATABASE() AND table_name IN (?, ?)`, ['authorization_rules', 'authorization_delegations']);
@@ -178,7 +178,7 @@ async function countAuthorizationUsage(kind, id, organizationId, connection, loc
     const [rows] = await connection.query(`SELECT id, ${column} AS condition_json FROM ${table}
       WHERE org_id = ?${lockRows ? ' FOR UPDATE' : ''}`, [organizationId]);
     for (const row of rows) {
-      if (containsJsonReference(row.condition_json, kind, id)) records.add(table + ':' + row.id);
+      if (containsJsonReference(row.condition_json, kind, id)) { records.add(table + ':' + row.id); record(table, row.id); }
     }
   }
   return records.size;
@@ -190,6 +190,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
   const orgId = safeString(organizationId);
   if (!DIRECT_USAGE[normalizedKind] || !normalizedId || !orgId) return [];
   const lockRows = options.lock === true;
+  const record = typeof options.record === 'function' ? options.record : () => {};
   const categoryCounts = new Map();
   const add = (category, count) => {
     if (count > 0) categoryCounts.set(category, (categoryCounts.get(category) || 0) + count);
@@ -201,6 +202,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
         : `SELECT COUNT(*) AS total FROM ${table} WHERE ${column} = ? AND org_id = ?`,
       [normalizedId, orgId]
     );
+    if (lockRows) rows.forEach(row => record(table, row.id));
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
   for (const [table, column, category] of CSV_USAGE[normalizedKind]) {
@@ -212,6 +214,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
             WHERE FIND_IN_SET(?, REPLACE(COALESCE(${column}, ''), ' ', '')) > 0 AND org_id = ?`,
       [normalizedId, orgId]
     );
+    if (lockRows) rows.forEach(row => record(table, row.id));
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
   const optional = OPTIONAL_DIRECT_USAGE[normalizedKind] || [];
@@ -231,6 +234,7 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
         : `SELECT COUNT(*) AS total FROM ${table} WHERE ${column} = ? AND org_id = ?`,
       [normalizedId, orgId]
     );
+    if (lockRows) rows.forEach(row => record(table, row.id));
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
   for (const [table, column, category] of JSON_USAGE[normalizedKind] || []) {
@@ -240,7 +244,9 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
         WHERE org_id = ? AND ${column} IS NOT NULL AND ${column} <> ''${lockRows ? ' FOR UPDATE' : ''}`,
       [orgId]
     );
-    add(category, rows.filter((row) => containsJsonReference(row.condition_json, normalizedKind, normalizedId)).length);
+    const matching = rows.filter((row) => containsJsonReference(row.condition_json, normalizedKind, normalizedId));
+    matching.forEach(row => record(table, row.id));
+    add(category, matching.length);
   }
   for (const [table, column, category, organizationColumn = 'org_id'] of SNAPSHOT_USAGE) {
     const [rows] = await connection.query(
@@ -251,9 +257,17 @@ async function countUsage(kind, id, organizationId, connection = pool, options =
             WHERE COALESCE(${column}, '') LIKE CONCAT('%', ?, '%') AND ${organizationColumn} = ?`,
       [normalizedId, orgId]
     );
+    if (lockRows) rows.forEach(row => record(table, row.id));
     add(category, lockRows ? rows.length : Number(rows[0] && rows[0].total || 0));
   }
-  add('authorization_rules', await countAuthorizationUsage(normalizedKind, normalizedId, orgId, connection, lockRows));
+  add('authorization_rules', await countAuthorizationUsage(normalizedKind, normalizedId, orgId, connection, lockRows, record));
+  if (normalizedKind === 'identity' && await tableExists('organization_config_copy_drafts', connection)) {
+    const [drafts] = await connection.query(`SELECT d.id FROM organization_config_copy_drafts d
+      JOIN organization_config_shares s ON s.id=d.share_id
+      WHERE s.source_org_id=? AND s.kind=? AND s.source_record_id=? AND d.state='draft'${lockRows ? ' FOR UPDATE' : ''}`, [orgId, 'hr.identities', normalizedId]);
+    drafts.forEach(row => record('organization_config_copy_drafts', row.id));
+    add('copy_drafts', drafts.length);
+  }
   return Array.from(categoryCounts.entries()).map(([category, count]) => ({ category, count }));
 }
 
@@ -367,6 +381,10 @@ async function deleteUnused(kind, id, organizationId, authorizationReference) {
     if (usages.length) {
       await connection.rollback();
       return { status: 'in_use', usages };
+    }
+    if (normalizedKind === 'identity') {
+      await connection.query('DELETE FROM identity_nature_links WHERE identity_id=? AND org_id=?', [normalizedId, orgId]);
+      await connection.query('DELETE FROM identity_nature_states WHERE identity_id=? AND org_id=?', [normalizedId, orgId]);
     }
     const [result] = await connection.query(
       `DELETE FROM ${table} WHERE id = ? AND org_id = ?`,

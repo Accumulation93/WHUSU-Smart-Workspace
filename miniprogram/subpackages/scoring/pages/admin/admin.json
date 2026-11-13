@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "onReachBottomDistance": 120,
   "usingComponents": {
+    "identity-manager": "/subpackages/scoring/package-resources/subpackages/scoring/pages/admin/components/identityManager/identityManager",
     "assignment-nature-editor": "/subpackages/scoring/package-resources/components/assignment-nature-editor/assignment-nature-editor",
     "approval-conditions": "/subpackages/scoring/package-resources/components/approval-conditions/approval-conditions",
     "assignment-nature-create": "/subpackages/scoring/package-resources/components/assignment-nature-create/assignment-nature-create",

@@ -4,7 +4,7 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 async function getAll() {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query('SELECT * FROM identities WHERE org_id = ? ORDER BY name', [orgId]);
-  return rows;
+  return require('./identityNature').decorate(pool, orgId, rows);
 }
 
 async function getById(id) {

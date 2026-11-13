@@ -60,9 +60,9 @@ async function configuration(actor,authorize,editingRules=false) {
     const canArrange=permissions.eventAuthorization ? permissions.eventAuthorization.can('create',null) : permissions.manage;
     const allowed=canArrange || editingRules ? new Set(data.people.map(person=>person.personId)) : policy.allowedPeople(stored,'assign',actor,data);
     const people=data.people.filter(person=>allowed.has(person.personId)).map(person=>({personId:person.personId,name:person.name,
-      assignments:person.assignments.map(a=>({id:a.id,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
+      assignments:person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
         departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))}));
-    return {people,departments:data.departments,identities:data.identities,workGroups:data.workGroups,
+    return {people,natures:data.natures,departments:data.departments,identities:data.identities,workGroups:data.workGroups,
       rules:editingRules ? stored.map(rule=>authorization ? {...rule,canUpdate:authorization.can('update',rule.id),canDelete:authorization.can('delete',rule.id)} : rule) : [],
       canCreate:editingRules && (!authorization || authorization.can('create','')),
       permissions:{manage:permissions.showManaged===true || permissions.manage,rules:permissions.showRules===true || permissions.rules,
@@ -70,9 +70,14 @@ async function configuration(actor,authorize,editingRules=false) {
   });
 }
 async function saveRule(input,actor,authorize) {
-  const rule=policy.normalize(input);
+  let rule=policy.normalize(input);
   return pool.withTransaction(async connection=>{
     await authorize(connection,'rules',{action:rule.id ? 'update' : 'create',ids:[rule.id || '']});
+    if (rule.id) {
+      const [previous]=await connection.query('SELECT * FROM calendar_rules WHERE id=? AND org_id=?',[rule.id,actor.organizationId]);
+      if (!previous.length) throw new CalendarError('conflict');
+      rule=policy.normalize(input,{audience:parse(previous[0].audience_json),targets:parse(previous[0].targets_json)});
+    }
     await identity.lockActiveBusinessSubjects(connection,directoryPolicy.referenceIds(rule).map(personId=>({personId,organizationId:actor.organizationId})));
     await lockOrganizationDictionaryWrites(actor.organizationId,connection);
     directoryPolicy.validateReferences(rule,await directory.catalog(connection,actor.organizationId,true));

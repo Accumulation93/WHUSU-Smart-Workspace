@@ -3,6 +3,8 @@
 const pool = require('../../config/db');
 const { generateId } = require('../../utils/helpers');
 const identity = require('./unifiedIdentity');
+const identityNature = require('./identityNature');
+const { assignmentPredicate } = require('./identityNatureEligibility');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const policy = require('../services/contactDirectoryPolicy');
 const copy = require('../../locales/zh-CN/contactDirectory');
@@ -19,7 +21,8 @@ function decode(row) {
 async function catalog(connection, orgId, lock = false) {
   const suffix = lock ? ' FOR SHARE' : '';
   const departments = (await connection.query('SELECT id, name FROM departments WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
-  const identities = (await connection.query('SELECT id, name FROM identities WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
+  const identities = await identityNature.decorate(connection, orgId, (await connection.query('SELECT id, name FROM identities WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0]);
+  const natures = (await connection.query('SELECT id, name FROM assignment_natures WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
   const workGroups = (await connection.query('SELECT id, name, department_id AS departmentId FROM work_groups WHERE org_id = ? ORDER BY id' + suffix, [orgId]))[0];
   const fields = (await connection.query(`SELECT f.id, f.label, f.type FROM org_hr_profile_template_snapshot_fields f
     JOIN org_hr_profile_template_snapshots s ON s.id = f.snapshot_id
@@ -38,6 +41,7 @@ async function catalog(connection, orgId, lock = false) {
     JOIN identities i ON i.id = a.identity_id AND i.org_id = a.org_id
     LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
     WHERE a.org_id = ? AND a.status = 'active' AND (a.work_group_id IS NULL OR a.work_group_id = '' OR w.id IS NOT NULL)
+      AND (${assignmentPredicate('a')})
     ORDER BY a.id${suffix}`, [orgId]))[0];
   const byMembership = new Map();
   for (const assignment of assignments) {
@@ -46,7 +50,7 @@ async function catalog(connection, orgId, lock = false) {
     byMembership.set(assignment.membershipId, list);
   }
   const people = members.map(member => Object.assign({}, member, { assignments: byMembership.get(member.membershipId) || [] }));
-  return { departments, identities, workGroups, fields, people,
+  return { natures, natureIds: natures.map(row => row.id), departments, identities, workGroups, fields, people,
     departmentIds: departments.map(row => row.id), identityCategoryIds: identities.map(row => row.id), workGroupIds: workGroups.map(row => row.id) };
 }
 async function list(connection, orgId, scope) {
@@ -60,18 +64,23 @@ async function configuration(orgId, authorize) {
     if (authorization && !rules.length && !authorization.can('read', '') && !authorization.can('create', '')) throw new policy.DirectoryError('forbidden');
     const data = await catalog(connection, orgId);
     const people = data.people.map(person => ({ personId: person.personId, name: person.name,
-      assignments: person.assignments.map(assignment => ({ id: assignment.id, departmentId: assignment.departmentId,
+      assignments: person.assignments.map(assignment => ({ id: assignment.id, nature: assignment.nature, departmentId: assignment.departmentId,
         identityCategoryId: assignment.identityCategoryId, workGroupId: assignment.workGroupId,
         departmentName: assignment.departmentName, identityCategoryName: assignment.identityCategoryName, workGroupName: assignment.workGroupName })) }));
     return { rules: rules.map(rule => authorization ? { ...rule, canUpdate: authorization.can('update', rule.id), canDelete: authorization.can('delete', rule.id) } : rule),
       canCreate: !authorization || authorization.can('create', ''), people, fields: data.fields,
-      departments: data.departments, identities: data.identities, workGroups: data.workGroups };
+      natures: data.natures, departments: data.departments, identities: data.identities, workGroups: data.workGroups };
   });
 }
 async function save(input, orgId, authorize) {
-  const rule = policy.normalizeRule(input);
+  let rule = policy.normalizeRule(input);
   return pool.withTransaction(async connection => {
     await authorize(connection, { action: rule.id ? 'update' : 'create', ids: [rule.id || ''] });
+    if (rule.id) {
+      const [previous] = await connection.query('SELECT * FROM hr_contact_directory_rules WHERE id=? AND org_id=?', [rule.id, orgId]);
+      if (!previous.length) throw new policy.DirectoryError('conflict');
+      rule = policy.normalizeRule(input, decode(previous[0]));
+    }
     await identity.lockActiveBusinessSubjects(connection, policy.referenceIds(rule).map(personId => ({ personId, organizationId: orgId })));
     await lockOrganizationDictionaryWrites(orgId, connection);
     const data = await catalog(connection, orgId, true);

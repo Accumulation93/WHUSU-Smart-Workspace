@@ -12,7 +12,7 @@ Page({
   openIdentitySettings: function() { if (!this.data.busy) navigateToTrustedRoute('/subpackages/org/pages/authorization/authorization?tab=schemes'); },
   data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
     draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
-    preview: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
+    preview: null, originalSections: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
   onLoad: function(options) {
     this._options = options;
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, kind: ['scheme', 'delegation'].includes(options.kind) ? options.kind : 'rule' });
@@ -23,6 +23,7 @@ Page({
   onUnload: function() { this.clear(); },
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null; this._previewRequest = null;
+    this.setData({ originalSections: null });
     this.setData({ ready: false, draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', expanded: {}, fieldOptions: [], fieldsIncompatible: false, picker: '', pickerOptions: [], pickerValue: [], preview: null, impactRows: [], busy: false, directory: {}, schemes: [], recipientNames: [] });
   },
   load: async function() {
@@ -48,6 +49,8 @@ Page({
         else { draft.name = item.name; draft.id = item.id; draft.version = item.version; draft.policy.capabilities = item.capabilities.slice(); }
       }
       this.setData({ advanced: this.data.kind !== 'rule' || !editor.canSimplify(draft) });
+      this.setData({ originalSections: draft.id && this.data.kind !== 'scheme'
+        ? presentation.policySections(draft.policy, this._directory, this._state.catalog, ui) : null });
       this.updateDraft(draft);
       this.setData({ ready: true, previewOnly: this._state.mode === 'shadow' });
     } catch (error) {

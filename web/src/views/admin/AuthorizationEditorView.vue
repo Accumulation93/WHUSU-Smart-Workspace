@@ -18,6 +18,7 @@
           <p v-if="!preview.impact.roleCount" class="muted">{{ ui.noAffectedRoles }}</p>
           <p v-if="kind === 'delegation'" class="muted">{{ ui.delegationNotice }}</p>
           <section v-if="kind === 'delegation'" class="stack-tight"><h3 class="field-label">{{ ui.delegateRecipients }}</h3><span v-for="line in recipientNames" :key="line.key">{{ line.value }}</span></section>
+          <template v-if="originalPolicy"><h3 class="field-label">{{ ui.beforeChange }}</h3><AuthorizationPolicySummary :policy="originalPolicy" :directory="directory" :catalog="state.catalog" :delegation="kind === 'delegation'" /><h3 class="field-label">{{ ui.afterChange }}</h3></template>
           <AuthorizationPolicySummary :policy="preview.rule.policy" :directory="directory" :catalog="state.catalog" :delegation="kind === 'delegation'" />
         </section>
         <section v-for="item in preview.impact.roles" :key="item.role + ':' + item.subjectId" class="card stack-tight">
@@ -144,6 +145,7 @@ const loading = ref(false);
 const busy = ref(false);
 const notice = ref('');
 const preview = ref(null);
+const originalPolicy = ref(null);
 const picker = ref('');
 const operationQuery = ref('');
 let generation = 0;
@@ -208,6 +210,7 @@ function changeTime(key, value) {
 }
 function clear() {
   generation++; ready.value = false; busy.value = false; preview.value = null; previewRequest = null;
+  originalPolicy.value = null;
   picker.value = ''; operationQuery.value = ''; draft.value = editor.createDraft(); state.value = { rules: [], schemes: [], catalog: [] };
   directory.value = { assignments: [], adminGrants: [] }; notice.value = '';
 }
@@ -231,6 +234,7 @@ async function load() {
       else { draft.value.name = item.name; draft.value.id = item.id; draft.value.version = item.version; draft.value.policy.capabilities = [...item.capabilities]; }
     }
     advanced.value = kind.value !== 'rule' || !editor.canSimplify(draft.value);
+    originalPolicy.value = draft.value.id && kind.value !== 'scheme' ? editor.createDraft(draft.value).policy : null;
     ready.value = true;
   } catch (error) { if (request === generation) notice.value = errorText(error, ui.operationFailed); }
   finally { if (request === generation) loading.value = false; }

@@ -2,6 +2,8 @@
   <div class="stack">
     <label class="field"><span class="field-label">{{ native.copy_937301fe27 }}</span><select v-model="form.conditionType" class="field-input"><option value="identity_scope">{{ native.copy_0dc18b5a1e }}</option><option value="person">{{ native.copy_05970eea73 }}</option><option v-if="allowSubmitter" value="submitter">{{ governance.auditSubmitter }}</option></select></label>
     <template v-if="form.conditionType === 'identity_scope'">
+      <p v-if="legacyNature" class="notice-line">{{ relations.legacyScopeHelp }}</p>
+      <div class="field"><span class="field-label">{{ relations.nature }}</span><button v-for="item in directory.natures || []" :key="item.id" class="list-row personnel-option" :class="{'personnel-option-selected':(form.natureIds || []).includes(item.id)}" :aria-pressed="(form.natureIds || []).includes(item.id)" @click="toggleNature(item.id)">{{ item.name }}</button></div>
       <div v-for="field in scopes" :key="field.key" class="field">
         <label class="field"><span class="field-label">{{ field.label }}</span><select v-model="form[field.key+'Scope']" :aria-label="field.label" class="field-input"><option value="all">{{ personnel.all }}</option><option v-if="allowSubmitter" value="own">{{ native.copy_4b405169cb }}</option><option v-else-if="form[field.key+'Scope'] === 'own'" value="own" disabled>{{ conditionCopy.starterConditionNeedsReview }}</option><option value="specific">{{ native.copy_2aad29e5cf }}</option></select></label>
         <button v-if="form[field.key+'Scope'] === 'specific'" class="btn-quiet" @click="chooseRange(field)">{{ rangeText(field) || personnel.choose }}</button>
@@ -23,25 +25,31 @@ import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages
 import personnel from '@/locales/zh-CN/shared/personnelPicker.js';
 import governance from '@/locales/zh-CN/shared/adminGovernance.js';
 import conditionCopy from '@/locales/zh-CN/shared/auditConditions.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
+import { confirmAction } from '@/runtime/notify.js';
 import { clone } from '@/shared/auditInk.js';
 const props=defineProps({value:Object,directory:Object,allowSubmitter:Boolean});const emit=defineEmits(['confirm','cancel']);
 const form=reactive(Object.assign({conditionType:'identity_scope',departmentScope:'all',workGroupScope:'all',identityScope:'all',specificDepartmentId:'',specificWorkGroupId:'',specificIdentityId:'',personHrIds:'',assignmentIds:''},clone(props.value||{})));
+const legacyNature=props.value?.natureIds==null&&!!props.value;
 const scopes=[{key:'department',id:'specificDepartmentId',list:'departments',label:personnel.department},{key:'workGroup',id:'specificWorkGroupId',list:'workGroups',label:personnel.workGroup},{key:'identity',id:'specificIdentityId',list:'identities',label:personnel.identity}];
 const ids=value=>String(value||'').split(',').filter(Boolean);
 const options=computed(()=>props.directory.people.flatMap(person=>(person.assignments||[]).map(item=>({...item,id:person.id,name:person.name}))));
 const chosenPeople=computed(()=>options.value.filter(item=>ids(form.assignmentIds).includes(item.assignmentId)));
 const peopleVisible=ref(false),range=ref(null),rangeSelected=ref([]),notice=ref('');
-const rangeOptions=computed(()=>!range.value?[]:props.directory[range.value.list].filter(item=>range.value.key!=='workGroup'||form.departmentScope!=='specific'||ids(form.specificDepartmentId).includes(item.departmentId)));
+const rangeOptions=computed(()=>!range.value?[]:props.directory[range.value.list].filter(item=>(range.value.key!=='workGroup'||form.departmentScope!=='specific'||ids(form.specificDepartmentId).includes(item.departmentId))&&(range.value.key!=='identity'||(item.natureIds||[]).some(id=>(form.natureIds||[]).includes(id)))));
+async function toggleNature(id){const values=form.natureIds||[],next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);const invalid=props.directory.identities.filter(item=>ids(form.specificIdentityId).includes(item.id)&&!(item.natureIds||[]).some(value=>next.includes(value)));if(invalid.length&&!await confirmAction({title:relations.incompatibleSelectionTitle,body:[relations.incompatibleSelectionHelp,...invalid.map(item=>item.name)].join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:personnel.cancelSelection}))return;form.natureIds=next;form.specificIdentityId=ids(form.specificIdentityId).filter(value=>!invalid.some(item=>item.id===value)).join(',');}
 function rangeText(field){return props.directory[field.list].filter(item=>ids(form[field.id]).includes(item.id)).map(item=>item.name).join(' · ');}
 function chooseRange(field){range.value=field;rangeSelected.value=ids(form[field.id]);}
 function toggleRange(id){rangeSelected.value=rangeSelected.value.includes(id)?rangeSelected.value.filter(value=>value!==id):[...rangeSelected.value,id];}
 function confirmRange(){form[range.value.id]=rangeSelected.value.join(',');range.value=null;}
 function choosePeople(rows){form.assignmentIds=rows.map(item=>item.assignmentId).join(',');form.personHrIds=[...new Set(rows.map(item=>item.id))].join(',');peopleVisible.value=false;}
-function confirm(){
+async function confirm(){
   if(!props.allowSubmitter && (form.conditionType==='submitter'||(form.conditionType==='identity_scope'&&scopes.some(field=>form[field.key+'Scope']==='own')))){notice.value=conditionCopy.starterConditionNeedsReview;return;}
   if(form.conditionType==='submitter'){if(props.allowSubmitter)emit('confirm',{conditionType:'submitter'});return;}
   if(form.conditionType==='person' && (!form.assignmentIds || chosenPeople.value.length!==ids(form.assignmentIds).length)){notice.value=messages.copy_4c3b518dca;return;}
+  if(form.conditionType==='identity_scope'&&!(form.natureIds||[]).length){notice.value=relations.selectNatureRequired;return;}
   if(form.conditionType==='identity_scope' && scopes.some(field=>form[field.key+'Scope']==='specific'&&!ids(form[field.id]).length)){notice.value=messages.copy_4c3b518dca;return;}
+  if(form.conditionType==='identity_scope'&&legacyNature&&!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp((props.directory.natures||[]).filter(item=>form.natureIds.includes(item.id)).map(item=>item.name)),confirmText:relations.confirmScopeChange,cancelText:personnel.cancelSelection}))return;
   emit('confirm',clone(form));
 }
 </script>

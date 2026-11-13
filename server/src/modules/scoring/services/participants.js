@@ -1,4 +1,5 @@
 const pool = require('../../../config/db');
+const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 const { safeString } = require('../../../utils/helpers');
 const { memo } = require('../../../utils/requestWork');
 
@@ -30,6 +31,7 @@ async function queryParticipants(orgId, selection, connection = pool) {
        JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
        LEFT JOIN work_groups wg ON wg.id = ma.work_group_id AND wg.org_id = ma.org_id
       WHERE ma.org_id = ? AND ma.status = 'active'${predicate}
+        AND (${assignmentPredicate('ma')})
       ORDER BY p.name, ma.created_at ASC, ma.id ASC${selection ? ' LIMIT 2' : ''}`,
     params
   );

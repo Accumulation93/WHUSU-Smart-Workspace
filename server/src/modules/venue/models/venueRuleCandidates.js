@@ -1,16 +1,22 @@
 'use strict';
+const identityNature = require('../../../core/models/identityNature');
+const assignmentNature = require('../../../core/models/assignmentNature');
+const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 
 // 规则配置专用目录，不依赖人事管理权，也不读取学号、账号或补充资料。
 async function read(connection, organizationId) {
   const [assignments] = await connection.query(`SELECT a.id AS assignmentId, m.legacy_hr_id AS hrId,
+      a.assignment_kind AS assignmentNature, assignment_nature.name AS assignmentNatureName,
       p.name, d.name AS department, i.name AS identity, w.name AS workGroup
     FROM membership_assignments a
+    LEFT JOIN assignment_natures assignment_nature ON assignment_nature.org_id=a.org_id AND assignment_nature.id=a.assignment_kind
     JOIN organization_memberships m ON m.id = a.membership_id AND m.org_id = a.org_id AND m.status = 'active'
     JOIN persons p ON p.id = m.person_id AND p.status = 'active'
     JOIN departments d ON d.id = a.department_id AND d.org_id = a.org_id
     JOIN identities i ON i.id = a.identity_id AND i.org_id = a.org_id
     LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
     WHERE a.org_id = ? AND a.status = 'active'
+      AND (${assignmentPredicate('a')})
       AND (a.work_group_id IS NULL OR a.work_group_id = '' OR w.id IS NOT NULL)
     ORDER BY p.name, a.id`, [organizationId]);
   const [identities] = await connection.query('SELECT id, name FROM identities WHERE org_id = ? ORDER BY name, id', [organizationId]);
@@ -20,7 +26,8 @@ async function read(connection, organizationId) {
     WHERE w.org_id = ? ORDER BY w.name, w.id`, [organizationId]);
   return { assignments: assignments.map(row => ({ ...row,
     assignmentLabel: [row.identity, row.department, row.workGroup].filter(Boolean).join(' · ') })),
-  identities, departments, workGroups };
+  identities: await identityNature.decorate(connection, organizationId, identities), departments, workGroups,
+  natures: await assignmentNature.list(connection, organizationId) };
 }
 
 module.exports = { read };

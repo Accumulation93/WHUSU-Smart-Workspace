@@ -1,0 +1,56 @@
+import { expect, test } from '@playwright/test';
+import { mockApi } from './fixtures.js';
+import relations from '../../src/locales/zh-CN/shared/identityNatureRelations.js';
+import ui from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
+import authorization from '../../src/locales/zh-CN/shared/authorization.js';
+
+test('identity merge previews and binds the chosen description before saving and reading back', async ({page}) => {
+  await mockApi(page,{activeContextId:'ctx-admin'});
+  await page.route('**/api/getMyAdminPermissions',r=>r.fulfill({json:{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'hr.identities':true}}}));
+  let rows=[{id:'i1',name:'Leader',description:'Original',natureIds:['staff'],version:3}],reads=0;
+  const requests=[];
+  await page.route('**/api/listIdentities',r=>{reads++;return r.fulfill({json:{status:'success',identities:rows,natureOptions:[{id:'staff',name:'Staff'},{id:'liaison',name:'Liaison'}]}});});
+  await page.route('**/api/listAssignmentNatures',r=>r.fulfill({json:{status:'success',list:[{id:'staff',name:'Staff'},{id:'liaison',name:'Liaison'}]}}));
+  await page.route('**/api/saveIdentity',r=>{const body=r.request().postDataJSON();requests.push(body);if(body.preview)return r.fulfill({json:{status:'success',preview:{id:'i1',version:3,mode:'merge',natureIds:['staff','liaison'],addedNatureIds:['liaison'],removedNatureIds:[],descriptionConflict:true,existingDescription:'Original',incomingDescription:'Incoming',usages:[],impactToken:'frozen-preview'}}});rows=[{...rows[0],description:'Incoming',natureIds:['staff','liaison'],version:4}];return r.fulfill({json:{status:'success',id:'i1'}});});
+  await page.goto('/web/admin?subApp=hr&tab=identities');
+  await page.getByRole('button',{name:'Liaison',exact:true}).click();
+  await page.getByLabel(ui.copy_827d50f428,{exact:true}).fill('Leader');
+  await page.getByLabel(ui.copy_07d8551536,{exact:true}).fill('Incoming');
+  await page.getByRole('button',{name:ui.copy_637d8a9907,exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog).toContainText(relations.mergeTitle);
+  await expect(dialog.getByRole('button',{name:relations.mergeConfirm,exact:true})).toBeDisabled();
+  expect(requests).toHaveLength(1);
+  await dialog.getByRole('button',{name:new RegExp(relations.useIncoming)}).click();
+  await dialog.getByRole('button',{name:relations.mergeConfirm,exact:true}).click();
+  await expect.poll(()=>reads).toBe(2);
+  expect(requests[1]).toMatchObject({natureIds:['liaison'],impactToken:'frozen-preview',mergeVersion:3,descriptionChoice:'incoming',forceDetach:false});
+  await expect(page.locator('article')).toContainText('Incoming');
+  await expect(page.locator('article')).toContainText('Staff · Liaison');
+});
+
+test('identity copy requires each source nature mapping and previews the target merge', async ({page})=>{
+  await mockApi(page,{activeContextId:'ctx-admin'});
+  const text=authorization.configurationCopy,calls=[];let state='draft';
+  const capabilities=['hr.identities.receive','hr.identities.create','hr.identities.update'];
+  await page.route('**/api/getCurrentAuthorizationAccess',r=>r.fulfill({json:{status:'success',mode:'enforced',organizationId:'org-1',contextId:'ctx-admin',role:'admin',capabilities,grantedCapabilities:capabilities}}));
+  await page.route('**/api/listSharedOrganizationConfigurations',r=>r.fulfill({json:{status:'success',items:[{id:'share',version:1,payload:{name:'Leader'},sourceOrganizationName:'Source'}]}}));
+  await page.route('**/api/getOrganizationConfigurationWorkspace',r=>r.fulfill({json:{status:'success',items:[],organizations:[]}}));
+  await page.route('**/api/receiveOrganizationConfiguration',r=>r.fulfill({json:{status:'success',id:'draft'}}));
+  await page.route('**/api/getOrganizationConfigurationDraft',r=>r.fulfill({json:{status:'success',id:'draft',kind:'hr.identities',version:1,state,shareAvailable:true,payload:{name:'Leader',description:'Description',natureReferences:[{id:'source-staff',name:'Source staff'}]}}}));
+  await page.route('**/api/getOrganizationConfigurationCandidates',r=>r.fulfill({json:{status:'success',requiresNatureSelection:true,choices:{nature:[{id:'target-staff',name:'Target staff'}]}}}));
+  await page.route('**/api/saveIdentity',r=>{calls.push(r.request().postDataJSON());return r.fulfill({json:{status:'success',preview:{mode:'merge',natureIds:['target-staff'],addedNatureIds:['target-staff'],descriptionConflict:false,impactToken:'copy-preview'}}});});
+  await page.route('**/api/applyOrganizationConfigurationDraft',r=>{calls.push(r.request().postDataJSON());state='applied';return r.fulfill({json:{status:'success',id:'draft'}});});
+  await page.goto('/web/admin/organization-copy?kind=hr.identities');
+  await page.getByRole('navigation').getByRole('button',{name:text.incoming,exact:true}).click();
+  await page.locator('article').getByRole('button',{name:text.receive,exact:true}).click();
+  await expect(page.getByRole('button',{name:text.apply,exact:true})).toBeDisabled();
+  await page.getByLabel('Source staff',{exact:true}).selectOption('target-staff');
+  await page.getByRole('button',{name:text.apply,exact:true}).click();
+  await expect(page.getByText(relations.copyMergeHelp('Leader'),{exact:true})).toBeVisible();
+  expect(calls).toHaveLength(1);
+  await page.getByRole('button',{name:text.apply,exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:text.confirmCopy,exact:true}).click();
+  await expect(page.getByText(text.applied,{exact:true})).toBeVisible();
+  expect(calls[1].references).toEqual({natureIds:['target-staff'],natureMapping:{'source-staff':'target-staff'},impactToken:'copy-preview',descriptionChoice:''});
+});

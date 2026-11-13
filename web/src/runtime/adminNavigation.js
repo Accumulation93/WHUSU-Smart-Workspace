@@ -3,7 +3,7 @@ import { managementTabAllowed } from '@/shared/authorizationAccessView.js';
 
 export const ADMIN_MODULES = Object.freeze({
   scoring: { label: adminCopy.copy_33a502217d, tabs: ['activities', 'templates', 'rules', 'results', 'publications'] },
-  hr: { label: adminCopy.copy_eb65126cfe, tabs: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'] },
+  hr: { label: adminCopy.copy_eb65126cfe, tabs: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'assignmentNatures', 'identities'] },
   system: { label: adminCopy.copy_5b4cf5d1bf, tabs: ['admins', 'settings'] },
   audit: { label: adminCopy.copy_4f6ab0ccf7, tabs: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'] }
 });

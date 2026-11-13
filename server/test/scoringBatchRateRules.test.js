@@ -41,6 +41,18 @@ function normalizeSql(sql) {
 const connection = {
   async query(sql, params = []) {
     const normalized = normalizeSql(sql);
+    if (normalized.startsWith('SELECT id, nature_ids FROM rate_target_rules')) {
+      return [state.rules.filter(row => row.org_id === params[0] && (params[1] ? row.id === params[2]
+        : row.activity_id === params[4] && row.scorer_key === params[5]))];
+    }
+    if (normalized.startsWith('SELECT scope_type, target_identity_id, nature_ids FROM rate_rule_clauses')) {
+      return [state.clauses.filter(row => row.rule_id === params[0] && row.org_id === params[1])];
+    }
+    if (normalized.startsWith('UPDATE rate_target_rules SET nature_ids')) {
+      const row = state.rules.find(item => item.id === params[1] && item.org_id === params[2]);
+      if (row) row.nature_ids = params[0];
+      return [{ affectedRows: row ? 1 : 0 }];
+    }
     if (normalized.startsWith('SELECT id, name FROM score_activities')) {
       return [state.activities.filter((row) => row.id === params[0] && row.org_id === params[1])];
     }
@@ -125,7 +137,7 @@ const connection = {
       return [{ affectedRows: 1 }];
     }
     if (normalized.startsWith('INSERT INTO rate_rule_clauses')) {
-      state.clauses.push({ id: params[0], rule_id: params[1], scope_type: params[2], org_id: params[5] });
+      state.clauses.push({ id: params[0], rule_id: params[1], scope_type: params[2], target_identity_id: params[3], org_id: params[5], nature_ids: params[6] });
       return [{ affectedRows: 1 }];
     }
     if (normalized.startsWith('INSERT INTO clause_template_configs')) {

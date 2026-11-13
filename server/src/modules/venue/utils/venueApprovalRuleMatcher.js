@@ -1,3 +1,5 @@
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
+
 function parseCsvIds(value) {
   if (!value) return [];
   return String(value).split(',').map(item => item.trim()).filter(Boolean);
@@ -5,6 +7,8 @@ function parseCsvIds(value) {
 
 function matchesRule(rule, approverHrInfo, applicantHrInfo) {
   if (!rule || !approverHrInfo) return false;
+  if (!natureRulePolicy.matches(rule.nature_ids === undefined ? rule.natureIds : rule.nature_ids,
+    approverHrInfo.assignment_kind || approverHrInfo.assignmentKind)) return false;
 
   const validScopes = ['all', 'same', 'specific'];
   if (!validScopes.includes(rule.department_scope)

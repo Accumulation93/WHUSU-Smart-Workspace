@@ -159,10 +159,11 @@ test('identity creation and successful deletion both reread the authoritative li
   await setup(page, { 'hr.identities': true, 'hr.identities.delete': true });
   let rows = [];
   let reads = 0;
-  await page.route('**/api/listIdentities', route => { reads++; return route.fulfill({ json: { status: 'success', identities: rows } }); });
+  await page.route('**/api/listIdentities', route => { reads++; return route.fulfill({ json: { status: 'success', identities: rows, natureOptions: [{id:'staff',name:'Staff'}] } }); });
   await page.route('**/api/saveIdentity', route => {
     const body = route.request().postDataJSON();
-    expect(body).toEqual({ id: '', name: 'Created identity', description: 'Description' });
+    expect(body).toMatchObject({ id: '', name: 'Created identity', description: 'Description', natureIds:['staff'] });
+    if(body.preview)return route.fulfill({json:{status:'success',preview:{mode:'create',natureIds:['staff'],addedNatureIds:['staff'],removedNatureIds:[],usages:[],impactToken:'create'}}});
     rows = [{ ...body, id: 'identity-new' }];
     return route.fulfill({ json: { status: 'success', id: 'identity-new' } });
   });
@@ -172,9 +173,11 @@ test('identity creation and successful deletion both reread the authoritative li
     return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/admin?subApp=hr&tab=identities');
+  await page.getByRole('button',{name:'Staff',exact:true}).click();
   await page.getByLabel(ui.copy_827d50f428).fill('Created identity');
   await page.getByLabel(ui.copy_07d8551536).fill('Description');
   await page.getByRole('button', { name: ui.copy_637d8a9907 }).click();
+  await page.getByRole('dialog').getByRole('button', { name: ui.copy_637d8a9907,exact:true }).click();
   await expect(page.locator('article')).toContainText('Created identity');
   await page.getByRole('button', { name: ui.copy_acc985cabc, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: departmentCopy.copy_7f31eec657, exact: true }).click();

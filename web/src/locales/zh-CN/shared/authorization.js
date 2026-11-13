@@ -1,7 +1,13 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
 import common from './common.js';
+import identityNatureRelations from './identityNatureRelations.js';
 const sharedModule = Object.freeze({
+  selectNatureRequired: identityNatureRelations.selectNatureRequired,
+  legacyNatureScope: identityNatureRelations.legacyScope,
+  legacyNatureScopeHelp: identityNatureRelations.legacyScopeHelp,
+  chooseNatureFirst: identityNatureRelations.chooseNatureFirst,
+  ruleInvalidCombination: identityNatureRelations.ruleInvalidCombination,
   appName: common.brandName,
   title: '权限管理',
   businessManagement: '管理',

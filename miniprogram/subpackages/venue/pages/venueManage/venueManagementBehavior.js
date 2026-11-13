@@ -1,5 +1,12 @@
 const calendarDateTime = require('../../../../utils/dateTime');
 const factsCopy = require('../../../../locales/zh-CN/venueFacts');
+const natureCopy = require('../../../../locales/zh-CN/identityNatureRelations');
+function readNatureIds(rule) {
+  const value=rule.natureIds==null?rule.nature_ids:rule.natureIds;
+  if(value==null)return null;
+  if(Array.isArray(value))return value;
+  try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed:[];}catch(error){return [];}
+}
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/venueManage/venueManage');
 const bookingCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
@@ -384,7 +391,7 @@ module.exports = Behavior({
     ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
 
     // Reference data
-    allIdentities: [],
+    allIdentities: [], natureCopy, allNatures: [],
     allHrPersons: [],
 
     // Yearly date picker state
@@ -703,6 +710,7 @@ module.exports = Behavior({
       if (!orgSession.isRequestCurrent(this, request)) return;
       this.setData({
         allIdentities: (identRes.status === 'success' ? identRes.identities : []) || [],
+        allNatures: identRes.natureOptions || [],
         allHrPersons: (hrRes.status === 'success' ? hrRes.list : []) || []
       }, () => this._refreshRuleEditorRuleLabels());
     } catch (_) {}
@@ -892,6 +900,7 @@ module.exports = Behavior({
 
   _decorateRuleDisplay(rule) {
     const next = { ...(rule || {}) };
+    next._natureValue=next.natureIds==null?natureCopy.legacyScope:(next.natureIds||[]).map(id=>(this.data.allNatures||[]).find(item=>item.id===id)).map(item=>item?item.name:natureCopy.mappingInvalid).join('、')||natureCopy.selectNatureRequired;
     next._departmentLabel = this._formatRuleScopeLabel(
       next.departmentScope, next.specificDepartmentId, this.data.allDepartments, localeCopy.copy_bc011e4e3b, localeCopy.copy_bb2dcb8a98
     );
@@ -940,6 +949,7 @@ module.exports = Behavior({
     next._departmentValue = display._departmentValue;
     next._workGroupValue = display._workGroupValue;
     next._identityValue = display._identityValue;
+    next._natureValue = display._natureValue;
     return next;
   },
 
@@ -1317,6 +1327,7 @@ module.exports = Behavior({
           sortOrder: i + 1,
           approvalMode: (s.rules || []).length ? 'hr_rule' : 'admin_any',
           rules: (s.rules || []).map(r => ({
+            natureIds: r.natureIds,
             departmentScope: r.departmentScope || 'all',
             specificDepartmentId: r.specificDepartmentId || '',
             workGroupScope: r.workGroupScope || 'all',
@@ -2348,6 +2359,7 @@ module.exports = Behavior({
         approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
         rules: (s.rules || []).map(function(r) {
           return {
+            natureIds: readNatureIds(r),
             departmentScope: r.department_scope || 'all', specificDepartmentId: r.specific_department_id || '',
             workGroupScope: r.work_group_scope || 'all', specificWorkGroupId: r.specific_work_group_id || '',
             identityScope: r.identity_scope || 'all', specificIdentityId: r.specific_identity_id || ''
@@ -2462,6 +2474,7 @@ module.exports = Behavior({
       name,
       approvalMode: (this.data.ruleForm._editingStepRules || []).length ? 'hr_rule' : 'admin_any',
       rules: (this.data.ruleForm._editingStepRules || []).map(r => this._decorateRuleDisplay({
+        natureIds: r.natureIds,
         departmentScope: r.departmentScope || 'all',
         specificDepartmentId: r.specificDepartmentId || '',
         workGroupScope: r.workGroupScope || 'all',
@@ -2505,7 +2518,7 @@ module.exports = Behavior({
 
   openAddRuleFlowCondition() {
     const condition = this._decorateEditingCondition({
-      deptScope: 'all', deptIds: [],
+      natureIds: [], natureSelection: {}, legacyNature: false, deptScope: 'all', deptIds: [],
       wgScope: 'all', wgIds: [],
       identScope: 'all', identIds: []
     });
@@ -2526,7 +2539,7 @@ module.exports = Behavior({
     const wgIds = parseCsvArray(rule.specificWorkGroupId);
     const identIds = parseCsvArray(rule.specificIdentityId);
     const condition = this._decorateEditingCondition({
-      deptScope: rule.departmentScope || 'all',
+      natureIds: rule.natureIds, natureSelection: (rule.natureIds || []).reduce((result,id)=>{result[id]=true;return result;},{}), legacyNature: rule.natureIds == null, deptScope: rule.departmentScope || 'all',
       deptIds,
       wgScope: rule.workGroupScope || 'all',
       wgIds,
@@ -2548,11 +2561,21 @@ module.exports = Behavior({
     this.setData({ 'ruleForm._editingStepRules': rules });
   },
 
-  saveRuleFlowCondition() {
+  async toggleFlowNature(e) {
+    const form=this.data.ruleForm._editingCondition,id=e.currentTarget.dataset.id,values=form.natureIds||[];
+    const next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);
+    const invalid=(this.data.allIdentities||[]).filter(item=>(form.identIds||[]).includes(item.id)&&!(item.natureIds||[]).some(value=>next.includes(value)));
+    if(invalid.length){const answer=await new Promise(resolve=>wx.showModal({title:natureCopy.incompatibleSelectionTitle,content:[natureCopy.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),success:r=>resolve(r.confirm),fail:()=>resolve(false)}));if(!answer||this.data.ruleForm._editingCondition!==form)return;}
+    this.setData({'ruleForm._editingCondition':this._decorateEditingCondition(Object.assign({},form,{natureIds:next,natureSelection:next.reduce((result,value)=>{result[value]=true;return result;},{}),identIds:(form.identIds||[]).filter(value=>!invalid.some(item=>item.id===value))}))});
+  },
+  async saveRuleFlowCondition() {
     const cond = this.data.ruleForm._editingCondition;
     if (!cond) return;
+    if(!(cond.natureIds||[]).length){wx.showModal({title:natureCopy.nature,content:natureCopy.selectNatureRequired,showCancel:false});return;}
+    if(cond.legacyNature){const answer=await new Promise(resolve=>wx.showModal({title:natureCopy.legacyScopeChangeTitle,content:natureCopy.legacyScopeChangeHelp((this.data.allNatures||[]).filter(item=>cond.natureIds.includes(item.id)).map(item=>item.name)),success:r=>resolve(r.confirm),fail:()=>resolve(false)}));if(!answer||this.data.ruleForm._editingCondition!==cond)return;}
     const rules = [...(this.data.ruleForm._editingStepRules || [])];
     const ruleData = {
+      natureIds: cond.natureIds,
       departmentScope: cond.deptScope || 'all',
       specificDepartmentId: (cond.deptScope === 'specific' && cond.deptIds) ? cond.deptIds.join(',') : '',
       workGroupScope: cond.wgScope || 'all',
@@ -2626,7 +2649,7 @@ module.exports = Behavior({
       title = localeCopy.copy_eed7859498; items = this.data.allWorkGroups; idField = 'id'; nameField = 'name';
       selectedIdsArray = this.data.ruleForm._editingCondition.wgIds || [];
     } else {
-      title = localeCopy.copy_43c26e4c16; items = this.data.allIdentities; idField = 'id'; nameField = 'name';
+      title = localeCopy.copy_43c26e4c16; items = this.data.allIdentities.filter(item=>(item.natureIds||[]).some(id=>(this.data.ruleForm._editingCondition.natureIds||[]).includes(id))); idField = 'id'; nameField = 'name';
       selectedIdsArray = this.data.ruleForm._editingCondition.identIds || [];
     }
 

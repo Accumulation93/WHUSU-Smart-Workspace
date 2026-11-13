@@ -10,9 +10,14 @@ const clause={scopeType:'all_people',targetIdentityId:'',requireAllComplete:fals
 const row={id:'rule-a',activityId:'activity-a',scorerDepartmentId:'department-a',scorerDepartment:'部门 A',scorerIdentityId:'identity-a',scorerIdentity:'身份 A',allowSelfAssessment:false,clauses:[clause]};
 const page={data:{ruleList:[],ruleListView:[],ruleFilters:utils.emptyRuleFilters(),selectedRuleIds:[],currentActivityId:'activity-a',activityList:[{id:'activity-a',name:'活动 A'}],ruleForm:utils.emptyRuleForm()},setData(patch){Object.assign(this.data,patch);},setLoading(){},async loadRuleList(){}};
 page.setRuleListState=definition.methods.setRuleListState;
+page.refreshRuleNatureChoices=definition.methods.refreshRuleNatureChoices;
 page.setRuleListState([row],['rule-a']);
+page.data.ruleForm.clauseNatureIds=['staff'];
 assert.equal(page.data.ruleList[0].allowSelfAssessment,false);
 definition.methods.editRule.call(page,{currentTarget:{dataset:{id:'rule-a'}}});
+page.data.ruleForm.clauseNatureIds=['staff'];
+page.data.ruleForm.clauses[0].natureIds=['staff'];
+page.data.ruleList[0].natureIds=['staff'];
 assert.equal(page.data.ruleForm.allowSelfAssessment,false);
 assert.equal(utils.buildRuleListItem({...row,allowSelfAssessment:true}).allowSelfAssessment,true);
 assert.equal(utils.buildRuleListItem({...row,allowSelfAssessment:undefined}).allowSelfAssessment,true);

@@ -712,6 +712,7 @@ module.exports = Behavior({
   },
 
   workbenchHide() {
+    this._identityPendingPayload = null;
     this._pageVisible = false;
     this._pageVisibilityGeneration = (this._pageVisibilityGeneration || 0) + 1;
     this._authorizationReadGeneration = (this._authorizationReadGeneration || 0) + 1;
@@ -721,6 +722,7 @@ module.exports = Behavior({
     this._auditPersonnelSource = [];
     this._hrList = [];
     this.setData({ user: null, hasPermission: false, actionCapabilities: {}, isSuperAdmin: false,
+      identityPreview: null, identityVisibleList: [], identityNatureOptions: [], identityActionNotice: '',
       authBatchOutcome: null, authActionLoadingKey: '',
       auditPersonnelPickerVisible: false, auditPersonnelPickerOptions: [], auditPersonnelFilteredList: [],
       verificationPermissions: [], verificationGrantHrId: '', verificationGrantHrName: '', verificationResult: null,
@@ -853,7 +855,7 @@ module.exports = Behavior({
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'],
+      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'assignmentNatures', 'identities'],
       system: ['admins', 'settings'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };

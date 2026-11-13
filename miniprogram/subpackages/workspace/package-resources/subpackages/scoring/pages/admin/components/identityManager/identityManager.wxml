@@ -1,0 +1,79 @@
+    <view class="section-stack identity-relations" wx:if="{{activeTab === 'identities'}}">
+      <view wx:if="{{!loadingMap.identities && dictionaryLoadState.identities.status !== 'error' && !identityRelationEnabled}}" class="section-control-card"><view class="hint-text">{{relationCopy.configurationNotEnabled}}</view><button class="secondary-btn ui-motion-button" catchtap="retryIdentityList" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.dictionaryRetry}}</button></view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
+        <view class="field-label">{{relationCopy.nature}}</view>
+        <view class="selection-options-grid" wx:if="{{identityRelationEnabled}}">
+          <view class="selection-option-card {{!identityNatureFilter ? 'selection-option-card-selected' : ''}}" aria-checked="{{!identityNatureFilter}}" catchtap="onIdentityNatureFilter">{{relationCopy.allNatures}}</view>
+          <view class="selection-option-card {{identityNatureFilter === 'pending' ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityNatureFilter === 'pending'}}" data-id="pending" catchtap="onIdentityNatureFilter">{{relationCopy.pendingFilter}}</view>
+          <view class="selection-option-card {{identityNatureFilter === item.id ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityNatureFilter === item.id}}" wx:for="{{identityNatureOptions}}" wx:key="id" data-id="{{item.id}}" catchtap="onIdentityNatureFilter">{{item.name}}</view>
+        </view>
+      </view>
+      <view class="edit-box" wx:if="{{identityRelationEnabled && (authorizationEnforced ? (identityForm.id ? actionCapabilities['hr.identities.update'] : actionCapabilities['hr.identities.create']) : (isSuperAdmin || user.permissions['hr.identities']))}}">
+        <view class="list-title">{{identityForm.id ? localeCopy.copy_018d741992 : localeCopy.copy_7e6fe80a00}}</view>
+        <view class="field"><view class="field-label">{{relationCopy.applicableNatures}}</view><view class="selection-options-grid"><view wx:for="{{identityNatureOptions}}" wx:key="id" class="selection-option-card {{identityNatureSelection[item.id] ? 'selection-option-card-selected' : ''}}" aria-checked="{{!!identityNatureSelection[item.id]}}" data-id="{{item.id}}" catchtap="toggleIdentityNature">{{item.name}}</view></view></view>
+        <view class="field">
+          <view class="field-label">{{localeCopy.copy_827d50f428}}</view>
+          <input class="field-input" data-field="name" bindinput="onIdentityFieldInput" value="{{identityForm.name}}" placeholder="{{localeCopy.copy_5056ad7eb7}}" adjust-position="{{false}}" cursor-spacing="24" />
+        </view>
+        <view class="field">
+          <view class="field-label">{{localeCopy.copy_07d8551536}}</view>
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onIdentityFieldInput" value="{{identityForm.description}}" placeholder="{{localeCopy.copy_14671f2231}}" adjust-position="{{false}}" cursor-spacing="24" />
+        </view>
+        <view class="button-row">
+          <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveIdentity}}" bindtap="saveIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveIdentity}}" />{{localeCopy.copy_637d8a9907}}</button>
+          <button class="secondary-btn ui-motion-button" bindtap="startCreateIdentity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b0588a53d}}</button>
+        </view>
+        <view wx:if="{{identityActionNotice}}" class="hint-text">{{identityActionNotice}}</view>
+      </view>
+
+      <view class="list-card">
+        <view class="list-title">{{localeCopy.copy_88898b98bf}}</view>
+        <dictionary-load-failure
+          visible="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'error'}}"
+          title="{{localeCopy.dictionaryLoadFailed.identities.title}}"
+          message="{{dictionaryLoadState.identities.message}}"
+          retry-text="{{localeCopy.dictionaryRetry}}"
+          bindretry="retryIdentityList"
+        />
+        <scroll-view wx:if="{{dictionaryLoadState.identities.status !== 'error' || identityList.length}}" enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.identities}}">
+            <app-loading compact="{{true}}" />
+          </view>
+          <block wx:else>
+          <view class="list-item list-item-stacked" wx:for="{{identityVisibleList}}" wx:key="id">
+            <view class="list-main">
+              <view class="chip chip-blue" wx:if="{{identityRelationEnabled}}">{{item.natureText}}</view>
+              <view class="list-name">{{item.name}}</view>
+              <view class="list-desc">{{item.description}}</view>
+              <view class="inline-actions list-actions-below card-actions">
+                <text class="link ui-motion-chip" data-index="{{item.sourceIndex}}" wx:if="{{authorizationEnforced ? item.canUpdate : (isSuperAdmin || user.permissions['hr.identities'])}}" bindtap="editIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{authorizationEnforced ? item.canDelete : (isSuperAdmin || user.permissions['hr.identities.delete'])}}" bindtap="deleteIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+              </view>
+            </view>
+          </view>
+          </block>
+        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+        <view class="empty-inline" wx:if="{{!loadingMap.identities && dictionaryLoadState.identities.status === 'ready' && !identityList.length}}">{{localeCopy.copy_177c107dbc}}</view>
+      </view>
+    </view>
+    <viewport-portal wx:if="{{identityPreview}}">
+      <view class="modal-mask ui-overlay" catchtap="closeIdentityPreview">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+        <view class="modal-card identity-relations ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
+          <view class="ui-dialog-header"><view class="list-title">{{identityForceStage ? relationCopy.forceTitle : identityPreview.mode === 'merge' ? relationCopy.mergeTitle : identityPreview.removedNatureIds.length ? relationCopy.unlinkTitle : relationCopy.affectedTitle}}</view></view>
+          <scroll-view class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{true}}" bounces="{{false}}">
+            <view class="ui-dialog-scroll-content">
+              <view class="field"><view class="list-name">{{identityPreview.name}}</view><view wx:if="{{identityPreview.mode === 'merge'}}" class="hint-text">{{identityPreview.mergeText}}</view></view>
+              <view class="field"><view class="field-label">{{identityPreview.mode === 'merge' ? relationCopy.mergedNatures : relationCopy.applicableNatures}}</view><view>{{identityPreview.natureText || relationCopy.pending}}</view></view>
+              <view wx:if="{{identityPreview.addedNatureIds.length}}" class="field"><view class="field-label">{{relationCopy.addedNatures}}</view><view>{{identityPreview.addedText}}</view><view class="hint-text">{{relationCopy.addedNatureHelp}}</view></view>
+              <view wx:if="{{identityPreview.descriptionConflict}}" class="field"><view class="field-label">{{relationCopy.descriptionConflictTitle}}</view><view class="selection-option-card {{identityDescriptionChoice === 'existing' ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityDescriptionChoice === 'existing'}}" data-choice="existing" catchtap="chooseIdentityDescription"><view class="list-name">{{relationCopy.keepExisting}}</view><view>{{identityPreview.existingDescription || relationCopy.emptyDescription}}</view></view><view class="selection-option-card {{identityDescriptionChoice === 'incoming' ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityDescriptionChoice === 'incoming'}}" data-choice="incoming" catchtap="chooseIdentityDescription"><view class="list-name">{{relationCopy.useIncoming}}</view><view>{{identityPreview.incomingDescription || relationCopy.emptyDescription}}</view></view></view>
+              <view wx:if="{{identityPreview.usages.length}}" class="field"><view class="field-label">{{relationCopy.affectedTitle}}</view><view class="list-item" wx:for="{{identityPreview.usages}}" wx:key="kind"><view>{{item.label}} · {{item.count}}</view><view wx:for="{{item.details}}" wx:for-item="detail" wx:key="id"><view wx:if="{{detail.natureName}}" class="field-hint">{{detail.natureName}}</view><view wx:if="{{detail.assignmentLabel}}">{{detail.assignmentLabel}}</view><view wx:if="{{detail.title}}">{{detail.title}}</view></view><view wx:if="{{item.hiddenCount > 0}}" class="field-hint">{{item.hiddenText}}</view></view></view>
+              <view wx:if="{{identityForceStage}}" class="hint-text">{{identityPreview.forceText}}</view>
+              <view wx:if="{{identityActionNotice}}" class="hint-text">{{identityActionNotice}}</view>
+            </view>
+          </scroll-view>
+          <view class="ui-dialog-footer button-row"><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.saveIdentity}}" catchtap="closeIdentityPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button><button class="{{identityForceStage ? 'danger-btn' : 'primary-btn'}} ui-motion-button" disabled="{{loadingMap.saveIdentity || (identityPreview.descriptionConflict && !identityDescriptionChoice)}}" catchtap="confirmIdentityPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveIdentity}}" />{{identityForceStage ? relationCopy.forceConfirm : identityPreview.mode === 'merge' ? relationCopy.mergeConfirm : identityPreview.removedNatureIds.length ? relationCopy.unlinkConfirm : localeCopy.copy_637d8a9907}}</button></view>
+        </view>
+      </view>
+    </viewport-portal>

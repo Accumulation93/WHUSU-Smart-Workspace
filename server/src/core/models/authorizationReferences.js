@@ -2,6 +2,7 @@
 
 const { CATALOG } = require('../services/authorizationCatalog');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
+const { assignmentPredicate } = require('./identityNatureEligibility');
 
 // 表名仅来自此固定登记，不接收请求中的表名或列名。
 const RESOURCE_TABLES = Object.freeze({
@@ -63,6 +64,12 @@ async function validateReferences(connection, policy) {
       for (const [key, values] of Object.entries(clause.dimensions)) {
         if (values !== 'same') values.forEach(id => dimensions.get(key).add(id));
       }
+      const natures = clause.dimensions.natureId;
+      const identities = clause.dimensions.identityCategoryId;
+      if (Array.isArray(natures)) {
+        await require('./identityNatureRule').validate(connection, orgId, natures,
+          Array.isArray(identities) ? identities : []);
+      }
     }
   }
   for (const [key, ids] of dimensions) {
@@ -83,6 +90,7 @@ async function validateReferences(connection, policy) {
         AND n.org_id = a.org_id COLLATE utf8mb4_unicode_ci
       LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
       WHERE a.org_id = ? AND a.status = 'active' AND a.id IN (${placeholders(values)})
+        AND ${assignmentPredicate('a')}
         AND (a.work_group_id IS NULL OR a.work_group_id = '' OR w.id IS NOT NULL) FOR SHARE`, [orgId, ...values]);
     if (rows.length !== values.length) stale();
   }

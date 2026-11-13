@@ -1,6 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueApprovalMultiFlow');
 const approvalCopy = require('../../../locales/zh-CN/venueApproval');
 const pool = require('../../../config/db');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 const { safeString } = require('../../../utils/helpers');
 const { memo } = require('../../../utils/requestWork');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
@@ -130,6 +131,7 @@ function jsonValue(raw) {
 function immutableRule(rule) {
   const source = rule || {};
   return {
+    nature_ids: source.nature_ids === undefined ? source.natureIds || null : source.nature_ids,
     id: safeString(source.id),
     sort_order: Number(source.sort_order || source.sortOrder) || 0,
     assignment_id: safeString(source.assignment_id || source.assignmentId),
@@ -148,6 +150,8 @@ function isValidScope(scope) {
 }
 
 function isValidImmutableRule(rule) {
+  try { natureRulePolicy.normalize(rule && rule.nature_ids); }
+  catch (_) { return false; }
   if (!rule || !isValidScope(rule.department_scope)
     || !isValidScope(rule.work_group_scope)
     || !isValidScope(rule.identity_scope)) return false;
@@ -166,6 +170,7 @@ function canonicalCsv(value) {
 
 function canonicalRuleSignature(rule) {
   return [
+    JSON.stringify(natureRulePolicy.normalize(rule.nature_ids)),
     safeString(rule.assignment_id), safeString(rule.legacy_hr_id),
     safeString(rule.department_scope), canonicalCsv(rule.specific_department_id),
     safeString(rule.work_group_scope), canonicalCsv(rule.specific_work_group_id),

@@ -1,5 +1,7 @@
 'use strict';
 
+const { assignmentPredicate } = require('./identityNatureEligibility');
+
 // 读取授权事实时不使用客户端岗位、姓名或微信标识；写事务可锁定同一会话重新核实。
 async function loadActor(connection, reference, lock = false) {
   if (!reference || !reference.accountId || !reference.sessionId || !reference.contextId
@@ -42,7 +44,8 @@ async function loadRole(connection, session, lock) {
     const [members] = await connection.query(`SELECT m.id FROM organization_memberships m
       WHERE m.id = ? AND m.person_id = ? AND m.org_id = ? AND m.status = 'active'
         AND NOT EXISTS (SELECT 1 FROM membership_assignments a
-          WHERE a.membership_id = m.id AND a.org_id = m.org_id AND a.status = 'active')${suffix}`,
+          WHERE a.membership_id = m.id AND a.org_id = m.org_id AND a.status = 'active'
+            AND ${assignmentPredicate('a')})${suffix}`,
     [session.subjectId, session.personId, session.organizationId]);
     return members.length ? actor : null;
   }
@@ -57,6 +60,7 @@ async function loadRole(connection, session, lock) {
       AND n.org_id = a.org_id COLLATE utf8mb4_unicode_ci
     LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
     WHERE a.id = ? AND a.org_id = ? AND m.person_id = ? AND a.status = 'active'
+      AND ${assignmentPredicate('a')}
       AND (a.work_group_id IS NULL OR a.work_group_id = '' OR w.id IS NOT NULL)${suffix}`,
   [session.subjectId, session.organizationId, session.personId]);
   if (!assignments[0]) return null;

@@ -43,7 +43,11 @@ async function run() {
       Buffer.from('\n'),
       fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031173000_authorization_subject_versions.sql')),
       Buffer.from('\n'),
-      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261101013000_organization_venue_purposes.sql'))
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261101013000_organization_venue_purposes.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'))
     ]);
     for (let index = 0; index < 2; index += 1) {
       const applied = spawnSync(process.env.MYSQL_BIN || 'mysql', ['--protocol=TCP', '--host=' + adminOptions.host,

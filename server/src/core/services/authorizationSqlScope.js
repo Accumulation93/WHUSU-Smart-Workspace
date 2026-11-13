@@ -24,12 +24,13 @@ function createScopeCompiler(input) {
   if (!input || typeof input.resourceType !== 'string' || !input.resourceType) throw authorizationError('invalid_authorization_resource_type');
   const descriptor = { resourceType: input.resourceType, organization: column(input.organization), id: column(input.id),
     ownerPersonId: input.ownerPersonId ? column(input.ownerPersonId) : null,
-    assignmentValid: input.assignmentValid ? column(input.assignmentValid) : null, dimensions: {} };
+    assignmentValid: input.assignmentValid ? column(input.assignmentValid) : null,
+    assignmentConfigured: input.assignmentConfigured ? column(input.assignmentConfigured) : null, dimensions: {} };
   for (const [key, value] of Object.entries(input.dimensions || {})) {
     if (!['natureId', 'departmentId', 'identityCategoryId', 'workGroupId'].includes(key)) throw authorizationError('invalid_authorization_dimension');
     descriptor.dimensions[key] = column(value);
   }
-  function scopePredicate(scope, actor) {
+  function scopePredicate(scope, actor, effect) {
     if (scope.kind === 'organization') return { sql: '1 = 1', params: [] };
     if (scope.kind === 'records') return membership(descriptor.id, scope.ids);
     if (scope.kind === 'self') {
@@ -40,7 +41,11 @@ function createScopeCompiler(input) {
       // 尤其不能把无法解释的禁止条件当作“不匹配”，否则会扩大读取范围。
       throw authorizationError('authorization_scope_not_supported');
     }
-    return joined([{ sql: 'COALESCE(' + descriptor.assignmentValid + ' = 1, 0)', params: [] }].concat(Object.entries(scope.dimensions).map(([key, selected]) => {
+    const prerequisites = [{ sql: 'COALESCE(' + descriptor.assignmentValid + ' = 1, 0)', params: [] }];
+    if (effect !== 'deny' && descriptor.assignmentConfigured) {
+      prerequisites.push({ sql: 'COALESCE(' + descriptor.assignmentConfigured + ' = 1, 0)', params: [] });
+    }
+    return joined(prerequisites.concat(Object.entries(scope.dimensions).map(([key, selected]) => {
       const values = selected === 'same'
         ? actor.assignment && actor.assignment.active === true && actor.assignment[key] ? [actor.assignment[key]] : []
         : selected;
@@ -67,7 +72,7 @@ function createScopeCompiler(input) {
         if (!policy.enabled || policy.organizationId !== actor.organizationId || !policy.capabilities.includes(capability)
           || (policy.startsAt && now < Date.parse(policy.startsAt)) || (policy.endsAt && now >= Date.parse(policy.endsAt))
           || !policy.subjects.some(subject => subjectMatches(subject, actor))) continue;
-        const predicate = joined(policy.scopes.map(scope => scopePredicate(scope, actor)), 'OR');
+        const predicate = joined(policy.scopes.map(scope => scopePredicate(scope, actor, policy.effect)), 'OR');
         if (policy.effect === 'allow') allows.push(predicate);
         else if (policy.fields === null) denies.push(predicate);
       }

@@ -29,6 +29,7 @@ async function run() {
     await admin.query(migration); await admin.query(migration);
     assert.equal((await admin.query('SELECT COUNT(*) AS n FROM organization_venue_booking_purposes'))[0][0].n, 2);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     Object.assign(process.env, { DB_HOST: host, DB_PORT: String(port), DB_NAME: database, DB_USER: user, DB_PASSWORD: password });
     pool = require('../src/config/db');
     const model = require('../src/modules/venue/models/venueBookingPurpose');
@@ -176,7 +177,14 @@ async function run() {
     await admin.query(`INSERT INTO departments(id,org_id,name,description) VALUES ('a-dept','a','共同名称','部门说明'),('b-dept','b','共同名称','');
       INSERT INTO identities(id,org_id,name,description) VALUES ('a-identity','a','成员类别','类别说明');
       INSERT INTO work_groups(id,org_id,department_id,name,description) VALUES ('a-group','a','a-dept','同名职能组','职能组说明');
-      INSERT INTO assignment_natures(id,org_id,name,description) VALUES ('a-nature','a','可扩展性质','仅用于专项工作岗位');`);
+      INSERT INTO assignment_natures(id,org_id,name,description) VALUES ('a-nature','a','可扩展性质','仅用于专项工作岗位'),('b-nature','b','目标性质','');
+      INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('a','a-identity','a-nature');
+      INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('copy-person','复制测试','copy-fixture','copy-fixture');
+      INSERT INTO accounts(id,person_id) VALUES ('copy-account','copy-person');
+      INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('copy-grant','copy-person','b','super_admin');
+      INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
+        VALUES ('copy-session','copy-account','','target-context','admin','copy-grant','b','admin',1,UTC_TIMESTAMP()+INTERVAL 1 DAY);`);
+    Object.assign(target, { accountId: 'copy-account', personId: 'copy-person', sessionId: 'copy-session' });
     const dictionaryGuard = async (_connection, ref, kind, action) => {
       assert(['a', 'b'].includes(ref.organizationId));
       assert(['hr.departments', 'hr.identities', 'hr.workGroups', 'hr.assignmentNatures'].includes(kind));
@@ -189,8 +197,14 @@ async function run() {
     const departmentDraft = await dictionaryDraft('hr.departments', 'a-dept', 'department');
     await assert.rejects(copying.apply({ id: departmentDraft.id, version: 1 }, target, dictionaryGuard), /duplicate/);
     const identityDraft = await dictionaryDraft('hr.identities', 'a-identity', 'identity');
-    const identityResult = await copying.apply({ id: identityDraft.id, version: 1 }, target, dictionaryGuard);
+    await assert.rejects(copying.apply({ id: identityDraft.id, version: 1 }, target, dictionaryGuard), /reference/);
+    await pool.withTransaction(connection => require('../src/core/models/identityNature').finalize(connection, 'b'));
+    await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='b'");
+    const identityResult = await copying.apply({ id: identityDraft.id, version: 1,
+      references: { natureIds: ['b-nature'], natureMapping: { 'a-nature': 'b-nature' } } }, target, dictionaryGuard);
+    await admin.query("UPDATE authorization_organizations SET mode='shadow' WHERE org_id='b'");
     assert.equal((await admin.query('SELECT description FROM identities WHERE id = ? AND org_id = ?', [identityResult.resultId, 'b']))[0][0].description, '类别说明');
+    assert.deepEqual((await admin.query('SELECT nature_id FROM identity_nature_links WHERE identity_id=? AND org_id=?', [identityResult.resultId, 'b']))[0].map(row => row.nature_id), ['b-nature']);
     const groupDraft = await dictionaryDraft('hr.workGroups', 'a-group', 'work-group');
     await assert.rejects(copying.apply({ id: groupDraft.id, version: 1 }, target, dictionaryGuard), /reference/);
     await assert.rejects(copying.apply({ id: groupDraft.id, version: 1, references: { departmentId: 'a-dept' } }, target, dictionaryGuard), /reference/);

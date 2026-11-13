@@ -13,7 +13,7 @@ const {
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
 
-const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
+const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'assignmentNatures', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
 const TIMEZONE_OPTIONS = [
   { value: -12, label: localeCopy.copy_f9cadda36d },
   { value: -11, label: localeCopy.copy_4570b42d70 },
@@ -144,11 +144,14 @@ function emptyRuleForm() {
     scorerDepartment: '',
     scorerIdentityId: '',
     scorerIdentity: '',
+    natureIds: [],
+    legacyNature: false,
     allowSelfAssessment: true,
     clauseScope: RULE_SCOPE_OPTIONS[0].value,
     clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
     clauseTargetIdentityId: '',
     clauseTargetIdentity: '',
+    clauseNatureIds: [],
     clauseRequireAllComplete: false,
     clauseTemplateId: '',
     clauseTemplateName: '',
@@ -271,7 +274,8 @@ function emptyIdentityForm() {
   return {
     id: '',
     name: '',
-    description: ''
+    description: '',
+    natureIds: []
   };
 }
 
@@ -346,6 +350,7 @@ function normalizeClauseForEdit(clause = {}) {
     scopeType: clause.scopeType || RULE_SCOPE_OPTIONS[0].value,
     scopeLabel: getScopeLabel(clause.scopeType || RULE_SCOPE_OPTIONS[0].value),
     targetIdentityId: String(clause.targetIdentityId || '').trim(),
+    natureIds: Array.isArray(clause.natureIds) ? clause.natureIds.slice() : null,
     targetIdentity: String(clause.targetIdentity || '').trim(),
     requireAllComplete: clause.requireAllComplete === true,
     templateConfigs
@@ -492,6 +497,7 @@ function buildRuleClausesForSave(form = {}) {
   }
 
   const nextClause = {
+    natureIds: Array.isArray(form.clauseNatureIds) ? form.clauseNatureIds.slice() : null,
     scopeType: clauseScope,
     scopeLabel: getScopeLabel(clauseScope),
     targetIdentityId,
@@ -554,6 +560,7 @@ function buildRuleListItem(rule = {}) {
     scorerDepartment: String(rule.scorerDepartment || '').trim(),
     scorerIdentityId: String(rule.scorerIdentityId || '').trim(),
     scorerIdentity: String(rule.scorerIdentity || '').trim(),
+    natureIds: Array.isArray(rule.natureIds) ? rule.natureIds.slice() : null,
     allowSelfAssessment: rule.allowSelfAssessment !== false,
     clauses,
     ruleCount: clauses.length,

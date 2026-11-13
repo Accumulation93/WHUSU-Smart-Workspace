@@ -1,6 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/utils/approvalFlowValidation');
 const { format: localeFormat } = require('../../../locales/runtime');
 const { safeString } = require('../../../utils/helpers');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 
 const MAX_FLOW_STEPS = 12;
 const MAX_STEP_RULES = 20;
@@ -29,6 +30,7 @@ function normalizeRule(rawRule) {
   const workGroupScope = normalizeScope(raw.workGroupScope);
   const identityScope = normalizeScope(raw.identityScope);
   return {
+    natureIds: natureRulePolicy.normalize(raw.natureIds),
     departmentScope,
     specificDepartmentId: normalizeSpecificIds(departmentScope, raw.specificDepartmentId, localeCopy.department),
     workGroupScope,

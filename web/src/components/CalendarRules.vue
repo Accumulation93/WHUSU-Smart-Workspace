@@ -27,15 +27,23 @@ import {computed,nextTick,onBeforeUnmount,ref,watch} from 'vue';
 import CalendarConditions from './CalendarConditions.vue';
 import GlassDialog from './GlassDialog.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
 import {useCopiedConfigurationEditor} from '@/runtime/copiedConfigurationEditor.js';
+import {confirmAction} from '@/runtime/notify.js';
 const metadata=ref({rules:[],people:[],departments:[],identities:[],workGroups:[]}),selected=ref([]),draft=ref(null),deletion=ref(null),busy=ref(false),loading=ref(false),notice=ref(''),saved=ref(false);
 const editor=ref(null);
-let generation=0,disposed=false;
+let generation=0,disposed=false,legacyNatureEdit=false;
 async function load() { const own=++generation;loading.value=true;notice.value='';try { const result=requireSuccess(await callApi('getCalendarRules',{}));if(own!==generation||disposed)return;metadata.value=result;selected.value=[];if(saved.value){draft.value=null;saved.value=false;} }catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{if(own===generation)loading.value=false;} }
-async function edit(rule,duplicate) { draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false;await nextTick();editor.value?.scrollIntoView({block:'start'}); }
-async function save() { if(busy.value||loading.value||saved.value||!draft.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('saveCalendarRule',draft.value));if(own!==generation)return;saved.value=true;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
+async function edit(rule,duplicate) { draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};legacyNatureEdit=['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false;await nextTick();editor.value?.scrollIntoView({block:'start'}); }
+async function save() {
+  if(busy.value||loading.value||saved.value||!draft.value)return;
+  if(['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&!(clause.natureIds||[]).length&&!clause.sameNature))){notice.value=relations.selectNatureRequired;return;}
+  const source=draft.value;
+  if(legacyNatureEdit){const clauses=source.audience.concat(source.targets).filter(clause=>clause.type==='scope');const labels=(metadata.value.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.calendarSameNatureSummary);if(!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel})||draft.value!==source)return;}
+  busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('saveCalendarRule',source));if(own!==generation)return;saved.value=true;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;}
+}
 async function batch(action,rules) { if(busy.value||loading.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
 function visibility(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}
 document.addEventListener('visibilitychange',visibility);

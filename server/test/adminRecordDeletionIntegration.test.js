@@ -33,6 +33,7 @@ const password = crypto.randomBytes(32).toString('hex');
       await fixture.query(`CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,PRIMARY KEY(org_id,domain));
         INSERT INTO organizations(id,name) VALUES ('org','删除测试组织'),('other-org','其他组织')`);
       await fixture.query(await fs.readFile(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+      await fixture.query(await fs.readFile(path.resolve(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
       const workContextMigration = await fs.readFile(path.resolve(__dirname, '../db/deploy/20261101140000_record_deletion_work_context.sql'), 'utf8');
       await fixture.query(workContextMigration); await fixture.query(workContextMigration);
     } finally { await fixture.end(); }

@@ -23,6 +23,7 @@ async function main() {
     await root.query(sql); await root.query(sql);
     await root.query('CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,PRIMARY KEY(org_id,domain))');
     await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031160000_unified_authorization.sql'),'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261111100000_identity_nature_links.sql'),'utf8'));
     Object.assign(process.env,{DB_HOST:host,DB_PORT:String(port),DB_NAME:database,DB_USER:username,DB_PASSWORD:password});
     pool=require('../src/config/db');
     const model=require('../src/core/models/calendar');

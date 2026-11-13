@@ -5,6 +5,8 @@ const directory = require('./contactDirectory');
 const identity = require('./unifiedIdentity');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const policy = require('../../modules/audit/services/auditWorkflowPolicy');
+const natureRulePolicy = require('../services/natureRulePolicy');
+const identityNatureRule = require('./identityNatureRule');
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DIMENSIONS = [['department', 'Department'], ['identity', 'Identity'], ['workGroup', 'WorkGroup']];
 function fail(code = 'config_copy_invalid') { throw Object.assign(new Error(code), { code }); }
@@ -15,13 +17,15 @@ function list(value) {
 }
 function condition(raw, translate, starter = false) {
   if (!raw || !['identity_scope', 'person', 'submitter'].includes(raw.conditionType)) fail();
+  const selected = natureRulePolicy.normalize(raw.natureIds);
+  const natureIds = selected === null ? null : selected.map(id => translate('nature', id));
   if (raw.conditionType === 'submitter') {
     if (starter) fail();
-    return { conditionType: 'submitter' };
+    return { conditionType: 'submitter', natureIds };
   }
-  if (raw.conditionType === 'person') return { conditionType: 'person',
+  if (raw.conditionType === 'person') return { conditionType: 'person', natureIds,
     assignmentIds: list(raw.assignmentIds).map(id => translate('assignments', id)).join(',') };
-  const result = { conditionType: 'identity_scope' };
+  const result = { conditionType: 'identity_scope', natureIds };
   for (const [lower, upper] of DIMENSIONS) {
     const scope = raw[lower + 'Scope'];
     if (!['all', 'own', 'specific'].includes(scope)) fail();
@@ -39,7 +43,7 @@ function normalize(raw) {
     || !Array.isArray(raw.references) || raw.references.length > 20000) fail();
   const referenceMap = new Map();
   const references = raw.references.map(item => {
-    if (!item || !['assignments', 'department', 'identity', 'workGroup'].includes(item.kind)
+    if (!item || !['assignments', 'nature', 'department', 'identity', 'workGroup'].includes(item.kind)
       || typeof item.token !== 'string' || !ID.test(item.token) || referenceMap.has(item.token)
       || typeof item.label !== 'string' || !item.label || Array.from(item.label).length > 600) fail();
     const result = { token: item.token, kind: item.kind, label: item.label };
@@ -71,7 +75,8 @@ function indexes(data) {
     personId: person.personId, hrId: person.hrId,
     label: [person.name, job.identityCategoryName, job.departmentName, job.workGroupName].filter(Boolean).join(' · ')
   });
-  return { assignments, department: new Map(data.departments.map(item => [item.id, { label: item.name }])),
+  return { assignments, nature: new Map((data.natures || []).map(item => [item.id, { label: item.name }])),
+    department: new Map(data.departments.map(item => [item.id, { label: item.name }])),
     identity: new Map(data.identities.map(item => [item.id, { label: item.name }])),
     workGroup: new Map(data.workGroups.map(item => [item.id, { label: item.name }])) };
 }
@@ -128,6 +133,7 @@ module.exports = {
         name: step.name || '', actionType: step.action_type, allowApproverDesignation: step.allow_approver_designation === 1,
         conditions: (byStep.get(step.id) || []).map(item => portable({
           conditionType: item.condition_type, personHrIds: item.person_hr_ids, assignmentIds: item.assignment_ids,
+          natureIds: natureRulePolicy.normalize(item.nature_ids),
           departmentScope: item.department_scope, specificDepartmentId: item.specific_department_id,
           identityScope: item.identity_scope, specificIdentityId: item.specific_identity_id,
           workGroupScope: item.work_group_scope, specificWorkGroupId: item.specific_work_group_id
@@ -158,6 +164,9 @@ module.exports = {
     }
     const starters = payload.starterConditions.map(item => materialize(item, true));
     const steps = payload.steps.map(step => Object.assign({}, step, { conditions: step.conditions.map(item => materialize(item, false)) }));
+    for (const item of starters.concat(steps.flatMap(step => step.conditions))) {
+      await identityNatureRule.validate(connection, orgId, item.natureIds, item.specificIdentityId);
+    }
     const [duplicates] = await connection.query('SELECT id FROM audit_flow_templates WHERE org_id=? AND name=? FOR UPDATE', [orgId, payload.name]);
     if (duplicates.length) fail('config_copy_duplicate');
     const id = crypto.randomUUID();
@@ -170,10 +179,11 @@ module.exports = {
       for (let position = 0; position < step.conditions.length; position += 1) {
         const value = step.conditions[position];
         await connection.query(`INSERT INTO audit_flow_template_step_conditions(id,org_id,template_step_id,sort_order,condition_type,
-          person_hr_ids,assignment_ids,department_scope,specific_department_id,identity_scope,specific_identity_id,work_group_scope,specific_work_group_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), orgId, stepId, position + 1, value.conditionType,
+          person_hr_ids,assignment_ids,department_scope,specific_department_id,identity_scope,specific_identity_id,work_group_scope,specific_work_group_id,nature_ids)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), orgId, stepId, position + 1, value.conditionType,
           value.personHrIds || null, value.assignmentIds || null, value.departmentScope || 'all', value.specificDepartmentId || null,
-          value.identityScope || 'all', value.specificIdentityId || null, value.workGroupScope || 'all', value.specificWorkGroupId || null]);
+          value.identityScope || 'all', value.specificIdentityId || null, value.workGroupScope || 'all', value.specificWorkGroupId || null,
+          value.natureIds === null ? null : JSON.stringify(value.natureIds)]);
       }
     }
     return id;

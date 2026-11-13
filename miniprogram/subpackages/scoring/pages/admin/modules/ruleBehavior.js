@@ -7,6 +7,7 @@ const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, 
 const orgSession = require('../../../../../utils/orgSession');
 const { createResultError } = require('../../../../../utils/api');
 const { navigateToTrustedRoute } = require('../../../../../utils/trustedNavigation');
+const relations = require('../../../../../locales/zh-CN/identityNatureRelations');
 
 function canChangeRule(page, action) {
   return !page.data.authorizationEnforced
@@ -14,7 +15,58 @@ function canChangeRule(page, action) {
 }
 
 module.exports = Behavior({
+  data: { ruleRelations: relations, ruleNatureList: [], ruleScorerNatureOptions: [], ruleTargetNatureOptions: [], ruleScorerIdentities: [], ruleTargetIdentities: [] },
   methods: {
+    refreshRuleNatureChoices() {
+      const scorer = this.data.ruleForm.natureIds || [], target = this.data.ruleForm.clauseNatureIds || [];
+      const identities = this.data.identityList || [], natures = this.data.ruleNatureList || [];
+      this.setData({
+        ruleNatureNameMap: natures.reduce((names, item) => { names[item.id] = item.name; return names; }, {}),
+        ruleScorerNatureOptions: (natures || []).map(item => ({ ...item, selected: scorer.indexOf(item.id) >= 0 })),
+        ruleTargetNatureOptions: (natures || []).map(item => ({ ...item, selected: target.indexOf(item.id) >= 0 })),
+        ruleScorerIdentities: (identities || []).filter(item => (item.natureIds || []).some(id => scorer.indexOf(id) >= 0)),
+        ruleTargetIdentities: (identities || []).filter(item => (item.natureIds || []).some(id => target.indexOf(id) >= 0))
+      });
+    },
+    async toggleRuleNature(e) {
+      const request = orgSession.beginRequest(this, 'ruleNatureSelection');
+      const baseline = JSON.stringify(this.data.ruleForm);
+      const target = e.currentTarget.dataset.target === 'clause';
+      const field = target ? 'clauseNatureIds' : 'natureIds';
+      const identityField = target ? 'clauseTargetIdentityId' : 'scorerIdentityId';
+      const nameField = target ? 'clauseTargetIdentity' : 'scorerIdentity';
+      const selected = this.data.ruleForm[field] || [], id = e.currentTarget.dataset.id;
+      const next = selected.indexOf(id) >= 0 ? selected.filter(value => value !== id) : selected.concat(id);
+      const chosen = (this.data.identityList || []).find(item => item.id === this.data.ruleForm[identityField]);
+      const patch = { ['ruleForm.' + field]: next };
+      if (chosen && !(chosen.natureIds || []).some(value => next.indexOf(value) >= 0)) {
+        const result = await wx.showModal({ title: relations.incompatibleSelectionTitle,
+          content: [relations.incompatibleSelectionHelp, chosen.name].join('\n'), confirmText: relations.clearIncompatibleSelection });
+        if (!result.confirm || !orgSession.isRequestCurrent(this, request) || baseline !== JSON.stringify(this.data.ruleForm)) return;
+        patch['ruleForm.' + identityField] = ''; patch['ruleForm.' + nameField] = '';
+      }
+      this.setData(patch);
+      this.refreshRuleNatureChoices();
+    },
+    async confirmRuleNatureScope(values) {
+      const request = orgSession.beginRequest(this, 'ruleNatureConfirmation');
+      const baseline = JSON.stringify(this.data.ruleForm);
+      const result = await wx.showModal({ title: relations.legacyScopeChangeTitle,
+        content: relations.legacyScopeChangeHelp((this.data.ruleNatureList || []).filter(item => values.indexOf(item.id) >= 0).map(item => item.name)),
+        confirmText: relations.confirmScopeChange });
+      return result.confirm && orgSession.isRequestCurrent(this, request) && baseline === JSON.stringify(this.data.ruleForm);
+    },
+    async validateRuleNatures(clauses) {
+      const form = this.data.ruleForm;
+      if (!form.natureIds || !form.natureIds.length || clauses.some(clause => !clause.natureIds || !clause.natureIds.length)) {
+        wx.showToast({ title: relations.selectNatureRequired, icon: 'none' }); return false;
+      }
+      if (form.legacyNature && !await this.confirmRuleNatureScope(form.natureIds)) return false;
+      const previous = form.clauseEditingIndex >= 0 && form.clauses[form.clauseEditingIndex];
+      if (previous && previous.natureIds == null && form.clauseNatureIds && form.clauseNatureIds.length
+        && !await this.confirmRuleNatureScope(form.clauseNatureIds)) return false;
+      return true;
+    },
     setRuleListState(ruleList = [], selectedRuleIds = this.data.selectedRuleIds, filters = this.data.ruleFilters) {
       const normalizedList = (ruleList || []).map((item) => buildRuleListItem(item));
       const ruleIdSet = new Set(normalizedList.map((item) => item.id).filter(Boolean));
@@ -60,6 +112,8 @@ module.exports = Behavior({
           throw createResultError(result, localeCopy.copy_58d149dfbb);
         }
         if (this.data.authorizationEnforced) this.setData({ departmentList: (result.configurationCandidates || {}).departments || [], identityList: (result.configurationCandidates || {}).identities || [], templateList: (result.configurationCandidates || {}).templates || [] });
+        this.setData({ ruleNatureList: (result.configurationCandidates || {}).assignmentNatures || [] });
+        this.refreshRuleNatureChoices();
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
@@ -213,6 +267,7 @@ module.exports = Behavior({
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
+          clauseNatureIds: [],
           clauseScope: RULE_SCOPE_OPTIONS[0].value,
           clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
           clauseTargetIdentityId: '',
@@ -229,6 +284,7 @@ module.exports = Behavior({
           isTemplateConfigEditorVisible: false
         }
       });
+      this.refreshRuleNatureChoices();
     },
 
     openTemplateConfigEditor() {
@@ -253,6 +309,7 @@ module.exports = Behavior({
         ruleForm: emptyRuleForm(),
         draggingClauseTemplateIndex: -1
       });
+      this.refreshRuleNatureChoices();
     },
 
     onRuleScorerDepartmentChange(e) {
@@ -269,7 +326,7 @@ module.exports = Behavior({
 
     onRuleScorerIdentityChange(e) {
       const index = Number(e.detail.value);
-      const identityObj = this.data.identityList[index] || {};
+      const identityObj = this.data.ruleScorerIdentities[index] || {};
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -281,7 +338,7 @@ module.exports = Behavior({
 
     onRuleTargetIdentityChange(e) {
       const index = Number(e.detail.value);
-      const identityObj = this.data.identityList[index] || {};
+      const identityObj = this.data.ruleTargetIdentities[index] || {};
       this.setData({
         ruleForm: {
           ...this.data.ruleForm,
@@ -366,6 +423,10 @@ module.exports = Behavior({
       const selectedRules = (this.data.ruleList || []).filter((item) => (this.data.selectedRuleIds || []).includes(item.id));
       const clauseResult = buildRuleClausesForBatchApply(this.data.ruleForm);
       const clauses = clauseResult.clauses || [];
+      if (selectedRules.some(rule => !rule.natureIds || !rule.natureIds.length)
+        || clauses.some(clause => !clause.natureIds || !clause.natureIds.length)) {
+        wx.showToast({ title: relations.selectNatureRequired, icon: 'none' }); return;
+      }
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
 
       if (!this.data.currentActivityId || !currentActivity) {
@@ -397,6 +458,7 @@ module.exports = Behavior({
       try {
         const rules = selectedRules.map((rule) => ({
             id: rule.id,
+            natureIds: rule.natureIds,
             activityId: this.data.currentActivityId,
             activityName: currentActivity.name || '',
             scorerDepartmentId: rule.scorerDepartmentId,
@@ -672,7 +734,7 @@ module.exports = Behavior({
       this.cancelClauseTemplateConfigInline();
     },
 
-    addRuleClause() {
+    async addRuleClause() {
       const {
         clauseScope,
         clauseTargetIdentityId,
@@ -682,6 +744,11 @@ module.exports = Behavior({
         clauseTemplateConfigs,
         clauses
       } = this.data.ruleForm;
+      if (!this.data.ruleForm.clauseNatureIds || !this.data.ruleForm.clauseNatureIds.length) {
+        wx.showToast({ title: relations.selectNatureRequired, icon: 'none' }); return;
+      }
+      if (clauseEditingIndex >= 0 && clauses[clauseEditingIndex].natureIds == null
+        && !await this.confirmRuleNatureScope(this.data.ruleForm.clauseNatureIds)) return;
       if (clauseScope !== 'all_people' && !clauseTargetIdentityId && clauseScope.indexOf('_all') === -1) {
         wx.showToast({
           title: localeCopy.copy_7151fd51a0,
@@ -691,6 +758,7 @@ module.exports = Behavior({
       }
 
       const nextClause = {
+        natureIds: this.data.ruleForm.clauseNatureIds.slice(),
         scopeType: clauseScope,
         scopeLabel: getScopeLabel(clauseScope),
         targetIdentityId: clauseTargetIdentityId,
@@ -726,6 +794,7 @@ module.exports = Behavior({
         ruleForm: {
           ...this.data.ruleForm,
           clauses: nextClauses,
+          clauseNatureIds: [],
           clauseScope: RULE_SCOPE_OPTIONS[0].value,
           clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
           clauseTargetIdentityId: '',
@@ -781,6 +850,7 @@ module.exports = Behavior({
         ruleForm: {
           ...this.data.ruleForm,
           clauseScope: targetClause.scopeType || RULE_SCOPE_OPTIONS[0].value,
+          clauseNatureIds: targetClause.natureIds || null,
           clauseScopeLabel: getScopeLabel(targetClause.scopeType),
           clauseTargetIdentityId: targetClause.targetIdentityId || '',
           clauseTargetIdentity: targetClause.targetIdentity || '',
@@ -796,6 +866,7 @@ module.exports = Behavior({
           isTemplateConfigEditorVisible: false
         }
       });
+      this.refreshRuleNatureChoices();
     },
 
     cancelRuleClauseEdit() {
@@ -803,6 +874,7 @@ module.exports = Behavior({
         clauseTemplateInlineEditIndex: -1,
         ruleForm: {
           ...this.data.ruleForm,
+          clauseNatureIds: [],
           clauseScope: RULE_SCOPE_OPTIONS[0].value,
           clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
           clauseTargetIdentityId: '',
@@ -835,6 +907,9 @@ module.exports = Behavior({
       this.setData({
         ruleForm: {
           id: target.id,
+          natureIds: target.natureIds || [],
+          legacyNature: target.natureIds == null,
+          clauseNatureIds: [],
           scorerDepartmentId: target.scorerDepartmentId || '',
           scorerDepartment: target.scorerDepartment || '',
           scorerIdentityId: target.scorerIdentityId || '',
@@ -860,6 +935,7 @@ module.exports = Behavior({
         },
         activeTab: 'rules'
       });
+      this.refreshRuleNatureChoices();
     },
 
     async saveRuleCategory() {
@@ -867,6 +943,7 @@ module.exports = Behavior({
       const { id, scorerDepartmentId, scorerDepartment, scorerIdentityId, scorerIdentity } = this.data.ruleForm;
       const clauseResult = buildRuleClausesForSave(this.data.ruleForm);
       const clauses = clauseResult.clauses || [];
+      if (!await this.validateRuleNatures(clauses)) return;
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
@@ -896,6 +973,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveRateRule', {
           id,
+          natureIds: this.data.ruleForm.natureIds,
           activityId: this.data.currentActivityId,
           activityName: currentActivity.name || '',
           scorerDepartmentId,
@@ -920,6 +998,7 @@ module.exports = Behavior({
           clauses
         });
         this.setData({ ruleForm: emptyRuleForm() });
+        this.refreshRuleNatureChoices();
         wx.showToast({
           title: localeCopy.copy_d2758f01a6,
           icon: 'success'
@@ -1097,6 +1176,7 @@ module.exports = Behavior({
     async saveRule() {
       if (!canChangeRule(this, this.data.ruleForm.id ? 'update' : 'create')) return;
       const { id, scorerDepartmentId, scorerDepartment, scorerIdentityId, scorerIdentity, clauses } = this.data.ruleForm;
+      if (!await this.validateRuleNatures(clauses)) return;
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
@@ -1117,6 +1197,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveRateRule', {
           id,
+          natureIds: this.data.ruleForm.natureIds,
           activityId: this.data.currentActivityId,
           activityName: currentActivity.name || '',
           scorerDepartmentId,
@@ -1133,6 +1214,7 @@ module.exports = Behavior({
         }
 
         this.setData({ ruleForm: emptyRuleForm() });
+        this.refreshRuleNatureChoices();
         await this.loadRuleList();
         wx.showToast({
           title: localeCopy.copy_d2758f01a6,

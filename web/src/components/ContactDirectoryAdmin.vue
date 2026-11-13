@@ -14,7 +14,7 @@
       <p v-if="!loading && !rules.length && !loadFailed" class="empty-state">{{ copy.noRules }}</p>
       <article v-for="rule in rules" :key="rule.id" class="list-row stack">
         <label class="row"><input v-model="selected" type="checkbox" :value="rule.id" :disabled="blocked" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
-        <section v-for="section in view.ruleSections(rule, metadata, copy)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><p v-if="section.key !== 'fields'" class="muted">{{ copy.groupMatchHelp }}</p><div v-for="group in section.groups" :key="group.key" class="glass-panel stack-tight"><strong v-if="group.title">{{ group.title }}</strong><span v-if="group.hint" class="muted">{{ group.hint }}</span><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span></div></section>
+        <section v-for="section in view.ruleSections(rule, metadata, copy, relations)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><p v-if="section.key !== 'fields'" class="muted">{{ copy.groupMatchHelp }}</p><div v-for="group in section.groups" :key="group.key" class="glass-panel stack-tight"><strong v-if="group.title">{{ group.title }}</strong><span v-if="group.hint" class="muted">{{ group.hint }}</span><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span></div></section>
         <div class="card-actions">
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule)">{{ copy.edit }}</button>
           <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule, true)">{{ copy.copy }}</button>
@@ -36,11 +36,14 @@
             <button type="button" class="btn btn-secondary" :disabled="blocked" @click="picker = { section, index }">{{ copy.choose }}</button>
           </template>
           <template v-if="clause.type === 'scope'">
+            <p v-if="clause.natureIds == null && !clause.sameNature" class="notice-line">{{ relations.legacyScopeHelp }}</p>
+            <label v-if="section==='targets'" class="row"><input v-model="clause.sameNature" type="checkbox" :disabled="blocked" @change="clause.natureIds=[]" />{{ relations.directorySameNatureSummary }}</label>
+            <div class="field"><span class="field-label">{{ relations.nature }}</span><div class="directory-options"><label v-for="option in metadata.natures || []" :key="option.id" class="selection-option-card" :class="{'personnel-option-selected':(clause.natureIds || []).includes(option.id)}"><input type="checkbox" :checked="(clause.natureIds || []).includes(option.id)" :disabled="blocked" @change="toggleNature(clause,option.id)" />{{ option.name }}</label></div></div>
             <details v-for="dimension in dimensions" :key="dimension.key" class="directory-filter stack-tight">
               <summary><span class="field-label">{{ copy[dimension.label] }}</span><span class="muted">{{ clause[dimension.same] ? copy[dimension.same] : (clause[dimension.key].length ? format(copy.selectedOptions, clause[dimension.key].length) : copy.any) }}</span></summary>
               <label v-if="section === 'targets'" class="row"><input v-model="clause[dimension.same]" type="checkbox" :disabled="blocked" @change="clause[dimension.key] = []" />{{ copy[dimension.same] }}</label>
               <div v-if="!clause[dimension.same]" class="directory-options">
-                <label v-for="option in metadata[dimension.options] || []" :key="option.id" class="selection-option-card" :class="{ 'personnel-option-selected': clause[dimension.key].includes(option.id) }">
+                <label v-for="option in dimensionOptions(dimension,clause)" :key="option.id" class="selection-option-card" :class="{ 'personnel-option-selected': clause[dimension.key].includes(option.id) }">
                   <input v-model="clause[dimension.key]" type="checkbox" :value="option.id" :disabled="blocked" />{{ option.name }}<span v-if="option.departmentId"> · {{ departmentName(option.departmentId) }}</span>
                 </label>
               </div>
@@ -69,10 +72,12 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import GlassDialog from './GlassDialog.vue';
 import copy from '@/locales/zh-CN/shared/contactDirectory.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import view from '@/shared/contactDirectoryView.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
+import { confirmAction } from '@/runtime/notify.js';
 const emit = defineEmits(['busy']);
 const props = defineProps({ disabled: Boolean });
 const metadata = ref({ fields: [], people: [], departments: [], identities: [], workGroups: [] });
@@ -85,7 +90,9 @@ const dimensions = [{ key: 'departmentIds', same: 'sameDepartment', label: 'depa
 const format = (text, count) => text.replace('{count}', count);
 const names = ids => people.value.filter(person => ids.includes(person.id)).map(person => person.name).join('、');
 const departmentName = id => metadata.value.departments.find(item => item.id === id)?.name || '';
-let generation = 0, disposed = false;
+function dimensionOptions(dimension,clause){const options=metadata.value[dimension.options]||[];return dimension.key==='identityCategoryIds'?options.filter(item=>clause.sameNature||(item.natureIds||[]).some(id=>(clause.natureIds||[]).includes(id))):options;}
+async function toggleNature(clause,id){const values=clause.natureIds||[],next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);const invalid=(metadata.value.identities||[]).filter(item=>(clause.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(value=>next.includes(value)));if(invalid.length&&!await confirmAction({title:relations.incompatibleSelectionTitle,body:[relations.incompatibleSelectionHelp,...invalid.map(item=>item.name)].join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:copy.cancel}))return;clause.natureIds=next;delete clause.sameNature;clause.identityCategoryIds=(clause.identityCategoryIds||[]).filter(value=>!invalid.some(item=>item.id===value));}
+let generation = 0, disposed = false, legacyNatureEdit = false;
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 const current = (request, expected) => !disposed && !document.hidden && request === generation && expected === scope();
 async function load() {
@@ -99,6 +106,7 @@ async function load() {
 }
 async function edit(rule, duplicate) {
   draft.value = rule ? view.payload(rule) : view.blankRule();
+  legacyNatureEdit=['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));
   if (duplicate) { delete draft.value.id; delete draft.value.version; }
   await nextTick(); editor.value?.scrollIntoView({ block: 'start' });
 }
@@ -114,7 +122,13 @@ async function write(api, body) {
   } catch (error) { if (current(request, expected)) notice.value = errorText(error, copy.operationFailed); }
   finally { if (!disposed && expected === scope()) busy.value = false; }
 }
-function save() { if (!blocked.value) write('saveContactDirectoryRule', view.payload(draft.value)); }
+async function save() {
+  if(blocked.value)return;
+  if(['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&!(clause.natureIds||[]).length&&!clause.sameNature))){notice.value=relations.selectNatureRequired;return;}
+  const source=draft.value;
+  if(legacyNatureEdit){const clauses=['audience','targets'].flatMap(key=>source[key]).filter(clause=>clause.type==='scope');const labels=(metadata.value.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.directorySameNatureSummary);if(!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel})||draft.value!==source)return;}
+  write('saveContactDirectoryRule',view.payload(source));
+}
 function act(action, rows) { if (!blocked.value) write('batchContactDirectoryRules', { action, rules: rows.map(row => ({ id: row.id, version: row.version })) }); }
 function clear() { generation++; metadata.value = { fields: [], people: [], departments: [], identities: [], workGroups: [] }; rules.value = []; selected.value = []; draft.value = null; picker.value = null; deletion.value = null; busy.value = false; }
 function visibility() { clear(); if (!document.hidden) load(); }

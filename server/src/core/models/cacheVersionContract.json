@@ -1,4 +1,7 @@
 [
+  { "name": "cv_identity_nature_links_i", "table": "identity_nature_links", "event": "INSERT" },
+  { "name": "cv_identity_nature_links_u", "table": "identity_nature_links", "event": "UPDATE" },
+  { "name": "cv_identity_nature_links_d", "table": "identity_nature_links", "event": "DELETE" },
   { "name": "cv_org_venue_purposes_i", "table": "organization_venue_booking_purposes", "event": "INSERT" },
   { "name": "cv_org_venue_purposes_u", "table": "organization_venue_booking_purposes", "event": "UPDATE" },
   { "name": "cv_org_venue_purposes_d", "table": "organization_venue_booking_purposes", "event": "DELETE" },

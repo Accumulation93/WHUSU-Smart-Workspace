@@ -103,6 +103,10 @@ function invoke(handler, body) {
       version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id,domain))`);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111010000_assignment_nature_initialization.sql'), 'utf8'));
+    await admin.query(`CREATE TABLE identities (id VARCHAR(64) PRIMARY KEY,org_id VARCHAR(64) NOT NULL);
+      CREATE TABLE membership_assignments (id VARCHAR(64) PRIMARY KEY,org_id VARCHAR(64) NOT NULL,
+        identity_id VARCHAR(64),assignment_kind VARCHAR(32));`);
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
 
     process.env.DB_HOST = adminConfig.host;
     process.env.DB_PORT = String(adminConfig.port);

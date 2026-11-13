@@ -44,6 +44,7 @@ test('同一成员关系内完全相同的在职岗位元组不得重复创建',
       const source = String(sql);
       executedSql.push(source);
       if (source.includes('organization_dictionary_locks')) return [[]];
+      if (source.includes('FROM identity_nature_rollouts')) return [[{ enabled: 0 }]];
       if (source.includes('FROM assignment_natures')) return [[{ id: 'staff', name: '本会岗位' }]];
       if (source.includes('FROM organization_memberships')) {
         return [[{ id: 'membership-1', person_id: 'person-1' }]];

@@ -109,11 +109,12 @@ function editRule(rule = {}) {
   notice.value = '';
   loadRuleReferences();
 }
+function readNatureIds(rule){const value=rule.natureIds==null?rule.nature_ids:rule.natureIds;if(value==null)return null;if(Array.isArray(value))return value;try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed:[];}catch{return [];}}
 function editFlow(flow = {}) {
   if (blocked.value || !(flow.id ? canWriteRecord.value : canCreateFlow.value)) return;
   editor.value = { type: 'flow', id: flow.id || '', name: flow.name || ui.copy_9835b165c7, isActive: Number(flow.is_active) !== 0,
     allowUserSelect: Number(flow.allow_user_select) === 1, allowDesignateFirst: Number(flow.allow_designate_first) === 1, allowDesignateNext: Number(flow.allow_designate_next) === 1,
-    steps: (flow.steps || []).map(step => ({ name: step.name || '', approvalMode: step.approval_mode, rules: (step.rules || []).map(rule => ({ departmentScope: rule.department_scope || 'all', specificDepartmentId: rule.specific_department_id || '', workGroupScope: rule.work_group_scope || 'all', specificWorkGroupId: rule.specific_work_group_id || '', identityScope: rule.identity_scope || 'all', specificIdentityId: rule.specific_identity_id || '' })) })) };
+    steps: (flow.steps || []).map(step => ({ name: step.name || '', approvalMode: step.approval_mode, rules: (step.rules || []).map(rule => ({ natureIds:readNatureIds(rule),departmentScope: rule.department_scope || 'all', specificDepartmentId: rule.specific_department_id || '', workGroupScope: rule.work_group_scope || 'all', specificWorkGroupId: rule.specific_work_group_id || '', identityScope: rule.identity_scope || 'all', specificIdentityId: rule.specific_identity_id || '' })) })) };
   notice.value = '';
 }
 async function write(name, data, confirmation) {

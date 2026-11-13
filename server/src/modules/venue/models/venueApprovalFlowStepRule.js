@@ -1,5 +1,7 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const identityNatureRule = require('../../../core/models/identityNatureRule');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 const {
   matchesRule,
   matchesAnyRule,
@@ -12,19 +14,19 @@ async function getByStepId(stepId) {
     'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
     [stepId, orgId]
   );
-  return rows;
+  return rows.map(row => ({ ...row, natureIds: natureRulePolicy.normalize(row.nature_ids) }));
 }
 
-async function getByFlowId(flowId) {
+async function getByFlowId(flowId, connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT r.* FROM venue_approval_flow_step_rules r
      JOIN venue_approval_flow_steps s ON s.id = r.step_id
      WHERE s.flow_id = ? AND r.org_id = ?
      ORDER BY s.sort_order, r.sort_order`,
     [flowId, orgId]
   );
-  return rows;
+  return rows.map(row => ({ ...row, natureIds: natureRulePolicy.normalize(row.nature_ids) }));
 }
 
 async function getById(id) {
@@ -33,7 +35,7 @@ async function getById(id) {
     'SELECT * FROM venue_approval_flow_step_rules WHERE id = ? AND org_id = ?',
     [id, orgId]
   );
-  return rows[0] || null;
+  return rows[0] ? { ...rows[0], natureIds: natureRulePolicy.normalize(rows[0].nature_ids) } : null;
 }
 
 async function create(id, data, conn) {
@@ -45,19 +47,21 @@ async function create(id, data, conn) {
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
+  const natureIds = await identityNatureRule.validate(db, orgId, data.natureIds, specificIdentityId);
   await db.query(
     `INSERT INTO venue_approval_flow_step_rules
      (id, step_id, sort_order,
       department_scope, specific_department_id,
       work_group_scope, specific_work_group_id,
       identity_scope, specific_identity_id,
-      org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      nature_ids, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, stepId, sortOrder || 1,
       departmentScope || 'all', specificDepartmentId || null,
       workGroupScope || 'all', specificWorkGroupId || null,
       identityScope || 'all', specificIdentityId || null,
+      natureIds === null ? null : JSON.stringify(natureIds),
       orgId
     ]
   );
@@ -73,6 +77,11 @@ async function update(id, data, conn) {
   const db = conn || pool;
   const fields = [];
   const values = [];
+  if (data.natureIds !== undefined) {
+    const natureIds = await identityNatureRule.validate(db, orgId, data.natureIds, specificIdentityId);
+    fields.push('nature_ids = ?');
+    values.push(natureIds === null ? null : JSON.stringify(natureIds));
+  }
   if (departmentScope !== undefined) { fields.push('department_scope = ?'); values.push(departmentScope); }
   if (specificDepartmentId !== undefined) { fields.push('specific_department_id = ?'); values.push(specificDepartmentId || null); }
   if (workGroupScope !== undefined) { fields.push('work_group_scope = ?'); values.push(workGroupScope); }

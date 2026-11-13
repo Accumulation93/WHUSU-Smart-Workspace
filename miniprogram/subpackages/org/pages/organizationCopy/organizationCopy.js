@@ -8,12 +8,13 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const { describeConfiguration, copiedConfigurationDestination } = require('../../utils/organizationCopyPresentation');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const text = ui.configurationCopy;
+const relations = require('../../../../locales/zh-CN/identityNatureRelations');
 const kinds = ['venue.purposes', 'hr.departments', 'hr.identities', 'hr.workGroups', 'hr.assignmentNatures',
   'audit.templates', 'scoring.templates', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows', 'venue.openRules', 'venue.activityRules',
   'hr.directoryRules', 'calendar.rules', 'authorization.schemes'];
 function recordName(value) { return describeConfiguration('', value, ui).name; }
 Page({
-  data: { ui, text, navTopPx: 0, tone: 'blue', kind: kinds[0], kindIndex: 0, kinds: kinds.map(id => ({ id, name: ui.resources[id] })),
+  data: { ui, text, relations, identityMerge: null, identityDescriptionChoice: '', legacyNatureOptions: [], legacyNatureIds: [], legacyNatureSelected: {}, navTopPx: 0, tone: 'blue', kind: kinds[0], kindIndex: 0, kinds: kinds.map(id => ({ id, name: ui.resources[id] })),
     tabs: ['source', 'incoming', 'drafts', 'outgoing'], tab: 'source', items: [], organizations: [], next: '',
     ready: false, loading: false, busy: false, notice: '', draft: null, references: [], detailReady: false, complete: false,
     picker: null, pickerOptions: [], pickerValue: [], confirmation: null, preview: null, canEditCopy: false },
@@ -31,6 +32,7 @@ Page({
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._mapping = {}; this._requestIds = {}; this._pending = null;
     this.setData({ items: [], organizations: [], next: '', ready: false, loading: false, busy: false, notice: '',
+      identityMerge: null, identityDescriptionChoice: '', legacyNatureOptions: [], legacyNatureIds: [], legacyNatureSelected: {},
       draft: null, references: [], detailReady: false, complete: false, picker: null, pickerOptions: [], pickerValue: [], confirmation: null, preview: null });
   },
   current: function(request) { return this._active && orgSession.isRequestCurrent(this, request); },
@@ -84,20 +86,22 @@ Page({
       const draft = await this.call('getOrganizationConfigurationDraft', { id });
       if (!this.current(request)) return;
       this._mapping = {};
+      this.setData({ identityMerge: null, identityDescriptionChoice: '', legacyNatureIds: [], legacyNatureSelected: {}, legacyNatureOptions: [] });
       this.setData({ draft: Object.assign({}, draft, { name: recordName(draft.activation ? draft.activation.payload : draft.payload), stateText: text[draft.state] }),
         preview: describeConfiguration(draft.kind, draft.activation ? draft.activation.payload : draft.payload, ui), references: [],
         canEditCopy: Boolean(copiedConfigurationDestination(draft)) });
       if (draft.state === 'draft' && draft.shareAvailable) {
         const candidates = await this.call('getOrganizationConfigurationCandidates', { id });
         if (!this.current(request)) return;
-        const references = (candidates.references || []).map(item => {
+        const sourceReferences = draft.kind === 'hr.identities' ? (draft.payload.natureReferences || []).map(item => ({ token: 'nature:' + item.id, kind: 'nature', label: item.name })) : candidates.references || [];
+        const references = sourceReferences.map(item => {
           let choices = item.kind === 'person' ? candidates.people : item.kind === 'assignments' ? candidates.assignments : candidates.choices[item.kind] || [];
           if (item.kind === 'field') choices = choices.filter(value => value.fieldType === item.fieldType);
-          return Object.assign({}, item, { choices, kindLabel: text.referenceKinds[item.kind], selectedIndex: -1, selectedLabel: text.chooseTargetOption });
+          return Object.assign({}, item, { choices, kindLabel: item.kind === 'nature' ? relations.sourceNature : text.referenceKinds[item.kind], selectedIndex: -1, selectedLabel: text.chooseTargetOption });
         });
-        this.setData({ references });
+        this.setData({ references, legacyNatureOptions: candidates.choices && candidates.choices.nature || [] });
       }
-      this.setData({ detailReady: true, complete: !this.data.references.length });
+      this.setData({ detailReady: true, complete: draft.kind === 'hr.identities' ? false : !this.data.references.length });
     } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, ui.operationFailed) }); }
     finally { if (this.current(request)) this.setData({ loading: false }); }
   },
@@ -112,7 +116,7 @@ Page({
     this._mapping[item.token] = selected ? selected.id : '';
     this.setData({ ['references[' + index + '].selectedIndex']: selected ? item.choices.findIndex(value => value.id === selected.id) : -1,
       ['references[' + index + '].selectedLabel']: selected ? [selected.name, selected.assignmentLabel].filter(Boolean).join(' · ') : text.chooseTargetOption,
-      complete: this.data.references.every(value => Boolean(this._mapping[value.token])) });
+      complete: this.data.references.every(value => Boolean(this._mapping[value.token])), identityMerge: null, identityDescriptionChoice: '' });
   },
   openPicker: function(event) {
     if (this.data.busy || this.data.confirmation || !this.data.detailReady) return;
@@ -149,11 +153,38 @@ Page({
     const item = this.data.items[Number(event.currentTarget.dataset.index)]; if (!item || !item.enabled) return;
     this.prepare('revoke', 'revokeOrganizationConfigurationShare', { id: item.id, version: item.version }, text.revokeConfirm(item.name, item.organizationName));
   },
-  applyDraft: function() {
+  toggleLegacyNature: function(event) {
+    if (this.data.busy || this.data.confirmation) return;
+    const id = event.currentTarget.dataset.id;
+    const ids = this.data.legacyNatureIds.slice(), index = ids.indexOf(id);
+    if (index < 0) ids.push(id); else ids.splice(index, 1);
+    this.setData({ legacyNatureIds: ids, legacyNatureSelected: ids.reduce((result, value) => { result[value] = true; return result; }, {}), complete: ids.length > 0, identityMerge: null });
+  },
+  chooseIdentityDescription: function(event) { if (!this.data.busy) this.setData({ identityDescriptionChoice: event.currentTarget.dataset.choice }); },
+  applyDraft: async function() {
     const draft = this.data.draft;
     if (!draft || !draft.shareAvailable || !this.data.detailReady || !this.data.complete) return;
     const mappings = this.data.references.map(item => text.mapping(item.label, item.selectedLabel));
-    this.prepare('apply', 'applyOrganizationConfigurationDraft', { id: draft.id, version: draft.version, references: Object.assign({}, this._mapping) },
+    let resolved = Object.assign({}, this._mapping);
+    if (draft.kind === 'hr.identities') {
+      const natureMapping = {};
+      this.data.references.forEach(item => { natureMapping[item.token.slice(7)] = this._mapping[item.token]; });
+      const natureIds = this.data.references.length ? Array.from(new Set(Object.values(natureMapping))) : this.data.legacyNatureIds.slice();
+      if (!this.data.identityMerge) {
+        const request = orgSession.beginRequest(this, 'identityCopyPreview');
+        this.setData({ busy: true, notice: '' });
+        try {
+          const result = await this.call('saveIdentity', { name: draft.payload.name, description: draft.payload.description || '', natureIds, preview: true });
+          if (!this.current(request)) return;
+          this.setData({ identityMerge: Object.assign({}, result.preview, { help: relations.copyMergeHelp(draft.payload.name), natureText: (result.preview.natureIds || []).map(id => this.data.legacyNatureOptions.find(item => item.id === id)).filter(Boolean).map(item => item.name).join(' · ') }), identityDescriptionChoice: '' });
+        } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, ui.operationFailed) }); }
+        finally { if (this.current(request)) this.setData({ busy: false }); }
+        return;
+      }
+      if (this.data.identityMerge.descriptionConflict && !this.data.identityDescriptionChoice) { this.setData({ notice: relations.chooseDescription }); return; }
+      resolved = { natureIds, natureMapping, impactToken: this.data.identityMerge.impactToken, descriptionChoice: this.data.identityDescriptionChoice };
+    }
+    this.prepare('apply', 'applyOrganizationConfigurationDraft', { id: draft.id, version: draft.version, references: resolved },
       [text.applyConfirm(draft.name)].concat(mappings).join('\n'));
   },
   enableCopy: function() {

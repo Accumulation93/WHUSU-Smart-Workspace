@@ -27,6 +27,9 @@ async function main() {
     await root.query(`CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(org_id,domain))`);
     await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'), 'utf8'));
     Object.assign(process.env, { DB_HOST: host, DB_PORT: String(port), DB_NAME: database, DB_USER: username, DB_PASSWORD: password, AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex') });
     pool = require('../src/config/db');
     const express = require('express');
@@ -164,7 +167,8 @@ async function main() {
     assert.equal(candidates.status, 'success');
     assert.equal(candidates.assignments.length, 2);
     for (const candidate of candidates.assignments) assert.deepEqual(Object.keys(candidate).sort(),
-      ['assignmentId', 'assignmentLabel', 'department', 'hrId', 'identity', 'name', 'workGroup'].sort());
+      ['assignmentId', 'assignmentLabel', 'assignmentNature', 'assignmentNatureName', 'department', 'hrId', 'identity', 'name', 'workGroup'].sort());
+    assert.deepEqual(candidates.assignments.map(item => item.assignmentNature).sort(), ['liaison', 'staff']);
     for (const type of ['identity', 'person']) {
       const id = 'draft-' + type;
       await root.query(`INSERT INTO venue_booking_rules(id,venue_id,org_id,rule_type,is_active,

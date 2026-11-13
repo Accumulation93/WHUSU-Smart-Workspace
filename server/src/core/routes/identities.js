@@ -6,9 +6,9 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const identityModel = require('../models/identity');
 const { resolveRequestAdmin: ensureAdmin } = require('../services/adminRequestContext');
 const { getAuthenticatedContext } = require('../services/authenticatedContext');
-const dictionaryDefinition = require('../models/dictionaryDefinition');
 const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const dictionaryUsage = require('../services/dictionaryUsage');
+const identityNature = require('../models/identityNature');
 
 // listIdentities
 router.post('/listIdentities', async (req, res) => {
@@ -20,9 +20,16 @@ router.post('/listIdentities', async (req, res) => {
       id: safeString(item.id),
       key: safeString(item.id),
       name: safeString(item.name),
-      description: safeString(item.description)
+      description: safeString(item.description),
+      natureIds: item.natureIds,
+      version: item.version,
+      configurationStatus: item.configurationStatus
     })).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-    res.json({ status: 'success', identityCategories: identities, identities });
+    const orgId = await getCurrentOrgId();
+    const connection = require('../../config/db');
+    const natureOptions = await identityNature.natureOptions(connection, orgId);
+    const relationEnabled = await identityNature.enabled(connection, orgId);
+    res.json({ status: 'success', identityCategories: identities, identities, natureOptions, relationEnabled });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -42,16 +49,22 @@ router.post('/saveIdentity', async (req, res) => {
     }
 
     const orgId = req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
-    const saved = await dictionaryDefinition.save('identity', { id, newId: id ? '' : generateId(), name, description,
-      organizationId: orgId, authorizationReference: req.unifiedAuthorization?.reference });
+    const input = { id, newId: id ? '' : generateId(), name, description,
+      organizationId: orgId, authorizationReference: req.unifiedAuthorization?.reference,
+      version: req.body.version, preview: req.body.preview, impactToken: req.body.impactToken,
+      descriptionChoice: req.body.descriptionChoice, forceDetach: req.body.forceDetach };
+    if (Object.prototype.hasOwnProperty.call(req.body, 'natureIds')) input.natureIds = req.body.natureIds;
+    const saved = await identityNature.save(input);
+    if (req.body.preview === true) return res.json(saved);
     if (saved.status === 'duplicate') {
       return res.json({ status: 'duplicate', code: 'identity_duplicate', message: localeCopy.copy_f325d1673b });
     }
     if (saved.status !== 'success') return res.json({ status: saved.status, code: saved.status === 'not_found' ? 'identity_unavailable' : saved.status, message: personnelCopy.dictionaryUnavailable });
-    res.json(id ? { status: 'success', message: localeCopy.copy_4fb370f421 }
-      : { status: 'success', id: saved.id, message: localeCopy.copy_bbea341d01 });
+    res.json({ ...saved, message: id ? localeCopy.copy_4fb370f421 : localeCopy.copy_bbea341d01 });
   } catch (e) {
     if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (e.code === 'identity_unavailable') return res.json({ status: 'not_found', code: e.code, message: personnelCopy.dictionaryUnavailable });
+    if (typeof e.code === 'string' && e.code.startsWith('identity_')) return res.json({ status: 'invalid_params', code: e.code, message: personnelCopy.dictionaryUnavailable });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

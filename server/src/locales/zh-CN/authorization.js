@@ -1,7 +1,13 @@
 'use strict';
 const common = require('./common');
+const identityNatureRelations = require('./identityNatureRelations');
 
 module.exports = Object.freeze({
+  selectNatureRequired: identityNatureRelations.selectNatureRequired,
+  legacyNatureScope: identityNatureRelations.legacyScope,
+  legacyNatureScopeHelp: identityNatureRelations.legacyScopeHelp,
+  chooseNatureFirst: identityNatureRelations.chooseNatureFirst,
+  ruleInvalidCombination: identityNatureRelations.ruleInvalidCombination,
   appName: common.brandName,
   title: '权限管理',
   businessManagement: '管理',

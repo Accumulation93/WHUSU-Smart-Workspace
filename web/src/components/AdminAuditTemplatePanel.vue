@@ -54,6 +54,8 @@ function actionName(action){return({pass:native.copy_8e2f75159e,sign:native.copy
 function conditionView(conditions, starter=false){
   const facts=(conditions||[]).map(condition=>{
     const fact={conditionType:condition.conditionType,unresolved:false};
+    fact.natureIds=condition.natureIds;
+    fact.natureNames=(directory.value.natures||[]).filter(item=>(condition.natureIds||[]).includes(item.id)).map(item=>item.name);
     const ids=value=>String(value||'').split(',').map(value=>value.trim()).filter(Boolean);
     if(condition.conditionType==='person'){
       const wanted=ids(condition.assignmentIds);

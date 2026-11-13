@@ -27,6 +27,9 @@ async function main() {
     await root.query('GRANT ALL PRIVILEGES ON ??.* TO ?@\'%\'', [database, username]);
     await root.query('USE ??', [database]);
     await root.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111102000_scoring_rule_natures.sql'), 'utf8'));
     Object.assign(process.env, { DB_HOST: configuration.host, DB_PORT: String(configuration.port), DB_NAME: database, DB_USER: username, DB_PASSWORD: password,
       AUTH_IDENTITY_SECRET: crypto.randomBytes(32).toString('hex') });
     pool = require('../src/config/db');
@@ -53,6 +56,7 @@ async function main() {
       source.slice(source.indexOf('function snapshotQuestion('), source.indexOf('function historicalParticipant('))
         + '\n({ buildTemplateConfigSignature, buildCalculationContextSnapshot })',
       { safeString: helpers.safeString, toNumber: helpers.toNumber, crypto, participantService: participants,
+        natureCondition: require('../src/modules/scoring/utils/natureCondition'),
         canonicalizeCalculationSnapshot: require('../src/modules/scoring/utils/calculationSnapshotSchema').canonicalizeCalculationSnapshot }
     );
     const clause = { id: 'score-clause', scopeType: 'all_people', requireAllComplete: false,

@@ -1,14 +1,16 @@
 <template>
   <div class="stack">
     <p class="muted">{{ ui.withinGroup }}</p>
+    <p v-if="natureMissing" class="muted">{{ ui.chooseNatureFirst }}</p>
     <details v-for="dimension in dimensions" :key="dimension.key" class="glass-panel">
       <summary class="dimension-summary">
         <strong>{{ dimension.label }}</strong>
         <span class="muted">{{ modelValue[dimension.key] === 'same' ? ui.sameAsViewer : ui.selectionCount((modelValue[dimension.key] || []).length) }}</span>
       </summary>
       <div class="dimension-options">
+        <p v-if="dimension.key === 'identityCategoryId' && invalidIdentitySelection" class="muted">{{ ui.ruleInvalidCombination }}</p>
         <button v-if="relative" type="button" class="dimension-option" :class="{ selected: modelValue[dimension.key] === 'same' }"
-          :aria-pressed="modelValue[dimension.key] === 'same'" :disabled="disabled" @click="toggleSame(dimension.key)">{{ ui.sameAsViewer }}</button>
+          :aria-pressed="modelValue[dimension.key] === 'same'" :disabled="disabled || dimension.key === 'identityCategoryId' && natureMissing" @click="toggleSame(dimension.key)">{{ ui.sameAsViewer }}</button>
         <button v-for="item in choices(dimension.key)" :key="item.id" type="button" class="dimension-option"
           :class="{ selected: isSelected(dimension.key, item.id) }" :aria-pressed="isSelected(dimension.key, item.id)"
           :disabled="disabled" @click="toggle(dimension.key, item.id)">{{ item.name }}</button>
@@ -25,10 +27,25 @@ const emit = defineEmits(['update:modelValue']);
 const dimensions = [{ key: 'natureId', label: ui.nature }, { key: 'departmentId', label: ui.department },
   { key: 'identityCategoryId', label: ui.identityCategory }, { key: 'workGroupId', label: ui.workGroup }];
 const indexes = computed(() => presentation.makeIndexes(props.directory));
-function choices(key) { return Array.from(indexes.value.dimensions[key], ([id, name]) => ({ id, name })); }
+const natureMissing = computed(() => props.modelValue.natureId !== 'same'
+  && !(Array.isArray(props.modelValue.natureId) && props.modelValue.natureId.length));
+function identityAllowed(id) {
+  const nature = props.modelValue.natureId;
+  const identity = (props.directory.dimensions?.identityCategoryId || []).find(item => item.id === id);
+  return !natureMissing.value && identity && Array.isArray(identity.natureIds)
+    && identity.natureIds.some(value => nature === 'same' || nature.includes(value));
+}
+const invalidIdentitySelection = computed(() => Array.isArray(props.modelValue.identityCategoryId)
+  && props.modelValue.identityCategoryId.some(id => !identityAllowed(id)));
+function choices(key) {
+  return Array.from(indexes.value.dimensions[key], ([id, name]) => ({ id, name }))
+    .filter(item => key !== 'identityCategoryId' || identityAllowed(item.id) || isSelected(key, item.id));
+}
 function isSelected(key, id) { return Array.isArray(props.modelValue[key]) && props.modelValue[key].includes(id); }
 function replace(key, selected) {
   if (props.disabled) return;
+  if (key === 'identityCategoryId' && natureMissing.value
+    && (selected === 'same' || selected.some(id => !isSelected(key, id)))) return;
   const next = { ...props.modelValue };
   if (selected.length) next[key] = selected;
   else delete next[key];

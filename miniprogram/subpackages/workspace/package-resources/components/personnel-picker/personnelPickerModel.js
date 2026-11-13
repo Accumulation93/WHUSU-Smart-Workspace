@@ -23,6 +23,8 @@ function assignmentFields(person, assignment) {
     hrId: text(person.hrId || person.id || source.hrId || source.legacyHrId),
     name: text(person.name || person.personName || source.name || source.personName),
     assignmentId: text(source.assignmentId || source.assignment_id || source.id),
+    assignmentNature: text(source.assignmentNature || source.assignmentKind || source.natureId || snapshot.assignmentKind),
+    assignmentNatureLabel: text(source.assignmentNatureLabel || source.assignmentNatureName || source.natureName || snapshot.assignmentNatureLabel || snapshot.assignmentNatureName),
     assignmentLabel: text(source.assignmentLabel || source.assignment_label || source._eligibleAssignmentText || source._selectionText || snapshot.assignmentLabel),
     departmentId: text(source.departmentId || source.department_id || snapshot.departmentId),
     departmentName: text(source.departmentName || source.department_name || source.department || snapshot.departmentName),
@@ -94,7 +96,8 @@ function tupleList(item) {
 }
 
 function tupleMatches(tuple, filters) {
-  return (!filters.department || tuple.departmentName === filters.department)
+  return (!filters.nature || tuple.assignmentNatureLabel === filters.nature)
+    && (!filters.department || tuple.departmentName === filters.department)
     && (!filters.identity || tuple.identityCategoryName === filters.identity)
     && (!filters.workGroup || tuple.workGroupName === filters.workGroup);
 }
@@ -108,6 +111,7 @@ function filterOptions(options, filters) {
     const haystack = [item.name].concat(tuples.reduce(function(parts, tuple) {
       return parts.concat([
         tuple.assignmentLabel,
+        tuple.assignmentNatureLabel,
         tuple.departmentName,
         tuple.identityCategoryName,
         tuple.workGroupName

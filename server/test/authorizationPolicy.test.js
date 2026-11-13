@@ -27,6 +27,15 @@ function decision(policies, overrides = {}) {
     now: Date.parse('2026-10-31T00:00:00.000Z'), businessAllowed: true }, overrides));
 }
 
+test('pending nature identity combinations cannot grant scope access or erase a denial', () => {
+  const pending = { ...resource, assignment: { ...resource.assignment, configurationStatus: 'pending' } };
+  const scope = [{ kind: 'assignmentScope', dimensions: { natureId: ['staff'], identityCategoryId: ['member'] } }];
+  assert.equal(decision([policy({ scopes: scope })], { resource: pending }).allowed, false);
+  assert.equal(decision([policy({ scopes: scope })]).allowed, true);
+  assert.equal(decision([policy(), policy({ id: 'deny-pending', effect: 'deny', scopes: scope })], { resource: pending }).reason, 'explicit_deny');
+  assert.equal(decision([policy()], { resource: pending }).allowed, true);
+});
+
 test('未授权、未知能力、缺少业务校验均拒绝', () => {
   assert.equal(decision([]).allowed, false);
   assert.equal(decision([policy()], { capability: 'unknown' }).reason, 'unknown_capability');

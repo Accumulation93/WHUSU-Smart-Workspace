@@ -9,11 +9,14 @@
       </div>
       <template v-if="clause.type==='people'"><p v-if="names(clause.personIds)" class="muted break-all">{{ names(clause.personIds) }}</p><button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="picker=index">{{ copy.choosePeople }} · {{ clause.personIds.length }}</button></template>
       <template v-if="clause.type==='scope'">
+        <p v-if="clause.natureIds == null && !clause.sameNature" class="notice-line">{{ relations.legacyScopeHelp }}</p>
+        <label v-if="!audience" class="row"><input type="checkbox" :checked="clause.sameNature" :disabled="disabled" @change="setSame(index,{same:'sameNature',key:'natureIds'},$event.target.checked)" />{{ relations.calendarSameNatureSummary }}</label>
+        <div class="field"><span class="field-label">{{ relations.nature }}</span><div class="calendar-options"><label v-for="option in metadata.natures || []" :key="option.id" class="selection-option-card" :class="{'personnel-option-selected':(clause.natureIds || []).includes(option.id)}"><input type="checkbox" :checked="(clause.natureIds || []).includes(option.id)" :disabled="disabled" @change="toggle(index,'natureIds',option.id)" /><span>{{ option.name }}</span></label></div></div>
         <details v-for="dimension in dimensions" :key="dimension.key" class="calendar-condition">
           <summary>{{ copy[dimension.label] }} · {{ clause[dimension.same] ? copy[dimension.same] : (clause[dimension.key] || []).length }}</summary>
           <label v-if="!audience" class="row"><input type="checkbox" :checked="clause[dimension.same]" :disabled="disabled" @change="setSame(index,dimension,$event.target.checked)" />{{ copy[dimension.same] }}</label>
           <div v-if="!clause[dimension.same]" class="calendar-options">
-            <label v-for="option in metadata[dimension.options] || []" :key="option.id" class="selection-option-card" :class="{'personnel-option-selected':(clause[dimension.key] || []).includes(option.id)}">
+            <label v-for="option in dimensionOptions(dimension,clause)" :key="option.id" class="selection-option-card" :class="{'personnel-option-selected':(clause[dimension.key] || []).includes(option.id)}">
               <input type="checkbox" :checked="(clause[dimension.key] || []).includes(option.id)" :disabled="disabled" @change="toggle(index,dimension.key,option.id)" /><span>{{ option.name }}{{ department(option) }}</span>
             </label>
           </div>
@@ -28,14 +31,24 @@
 import {computed,ref} from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
+import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import directory from '@/shared/contactDirectoryView.js';
+import { confirmAction } from '@/runtime/notify.js';
 const props=defineProps({modelValue:{type:Array,required:true},metadata:{type:Object,required:true},audience:Boolean,disabled:Boolean});
 const emit=defineEmits(['update:modelValue']);
 const picker=ref(null), people=computed(()=>directory.peopleOptions(props.metadata.people));
 const dimensions=[{key:'departmentIds',same:'sameDepartment',label:'department',options:'departments'},{key:'identityCategoryIds',same:'sameIdentity',label:'identity',options:'identities'},{key:'workGroupIds',same:'sameWorkGroup',label:'workGroup',options:'workGroups'}];
 function patch(index,work) { if(props.disabled||!props.modelValue[index])return;const list=JSON.parse(JSON.stringify(props.modelValue));work(list[index]);emit('update:modelValue',list); }
 function changeType(index,type) { if(props.disabled)return;const list=JSON.parse(JSON.stringify(props.modelValue));list[index]=directory.blankClause(type);emit('update:modelValue',list); }
-function toggle(index,key,id) { patch(index,clause=>{const values=clause[key] || [];clause[key]=values.includes(id) ? values.filter(value=>value!==id) : values.concat(id);}); }
+function dimensionOptions(dimension,clause){const options=props.metadata[dimension.options]||[];return dimension.key==='identityCategoryIds'?options.filter(item=>clause.sameNature||(item.natureIds||[]).some(id=>(clause.natureIds||[]).includes(id))):options;}
+async function toggle(index,key,id) {
+  const source=props.modelValue[index];if(props.disabled||!source)return;
+  const values=source[key]||[],next=values.includes(id)?values.filter(value=>value!==id):values.concat(id);
+  const invalid=key==='natureIds'?(props.metadata.identities||[]).filter(item=>(source.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(nature=>next.includes(nature))):[];
+  if(invalid.length&&!await confirmAction({title:relations.incompatibleSelectionTitle,body:[relations.incompatibleSelectionHelp,...invalid.map(item=>item.name)].join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:copy.cancel}))return;
+  if(props.modelValue[index]!==source)return;
+  patch(index,clause=>{clause[key]=next;if(key==='natureIds'){delete clause.sameNature;clause.identityCategoryIds=(clause.identityCategoryIds||[]).filter(value=>!invalid.some(item=>item.id===value));}});
+}
 function setSame(index,dimension,value) { patch(index,clause=>{clause[dimension.same]=value;clause[dimension.key]=[];}); }
 function add() { if(props.disabled)return;emit('update:modelValue',props.modelValue.concat(directory.blankClause('scope'))); }
 function remove(index) { if(props.disabled)return;emit('update:modelValue',props.modelValue.filter((_,i)=>i!==index)); }

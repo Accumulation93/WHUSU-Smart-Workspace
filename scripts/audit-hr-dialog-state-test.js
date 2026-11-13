@@ -33,6 +33,7 @@ function createPage() {
     }
   });
 }
+async function run() {
 const page = createPage();
 page.openAuditTemplateStepEditor();
 page.data.auditTemplateStepForm.name = '审批步骤';
@@ -54,7 +55,9 @@ page.closeStepConditionEditor();
 assert.equal(page.data.auditTemplateStepForm.conditions[0].conditionType, 'submitter', '取消不写回编辑副本');
 page.openStepConditionEditor({ currentTarget: { dataset: { index: 0 } } });
 page.onConditionTypeChange({ detail: { value: 0 } });
-page.confirmStepCondition();
+page.data.auditStepConditionForm.legacyNature = false;
+await page.toggleAuditNature({ currentTarget: { dataset: { id: 'staff' } } });
+await page.confirmStepCondition();
 page.confirmAuditTemplateStep();
 page.openAuditTemplateStepEditor({ currentTarget: { dataset: { index: 0 } } });
 assert.equal(page.data.auditTemplateStepForm.conditions[0].conditionType, 'identity_scope', '确认后重开读取编辑结果');
@@ -94,3 +97,5 @@ data.preview.eligible = true;
 assert.equal(evaluate(inputCondition), true);
 assert.equal(evaluate(disabledCondition), false, '正常删除仍沿用原确认要求');
 console.log('审核步骤新增、子条件取消/确认、重开回读和人事删除8种表单条件通过；未执行微信渲染或真实删除。');
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

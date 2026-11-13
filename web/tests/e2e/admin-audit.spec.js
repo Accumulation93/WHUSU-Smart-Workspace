@@ -12,7 +12,7 @@ async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});
   const state={templates:[],stamps:[],permissions:[],calls:[],reject:false,failRead:false};
   const assignment={assignmentId:'a-1',assignmentLabel:'Member · Office',departmentId:'d-1',department:'Office',identityCategoryId:'i-1',identity:'Member',workGroupId:'w-1',workGroup:'Group'};
-  const data={people:[{id:'hr-1',name:'Person A',assignments:[assignment]},{id:'hr-2',name:'Person B',assignments:[]}],departments:[{id:'d-1',name:'Office'}],identities:[{id:'i-1',name:'Member'}],workGroups:[{id:'w-1',name:'Group',departmentId:'d-1'}]};
+  const data={natures:[{id:'staff',name:'Staff'}],people:[{id:'hr-1',name:'Person A',assignments:[assignment]},{id:'hr-2',name:'Person B',assignments:[]}],departments:[{id:'d-1',name:'Office'}],identities:[{id:'i-1',name:'Member',natureIds:['staff']}],workGroups:[{id:'w-1',name:'Group',departmentId:'d-1'}]};
   await page.route('**/api/**',async route=>{
     const name=new URL(route.request().url()).pathname.slice(5),body=route.request().postDataJSON();
     if(!['getMyAdminPermissions','listAuditFlowTemplates','getAuditTemplateEditorData','saveAuditFlowTemplate','deleteAuditFlowTemplate','listStamps','saveStamp','deleteStamp','listStampCandidates','saveStampGrants','listVerificationPermissions','listAuditVerificationCandidates','saveVerificationPermission','listAllAuditSubmissions'].includes(name))return route.fallback();
@@ -68,6 +68,7 @@ async function createTemplate(page,self=false){
   await page.getByLabel(ui.copy_53adcabdff,{exact:true}).fill('New Flow');
   await page.getByRole('button',{name:ui.copy_a59dd7ae8d,exact:true}).click();
   await expect(page.getByRole('dialog').locator('option[value="submitter"]')).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button',{name:'Staff',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:personnel.confirm,exact:true}).click();
   await page.getByRole('button',{name:ui.copy_b79428bf57,exact:true}).click();
   await page.getByRole('dialog').getByLabel(ui.copy_c5dd070c37).fill('Sign Step');
@@ -75,7 +76,7 @@ async function createTemplate(page,self=false){
   if(self){
     await page.getByRole('dialog').locator('select').first().selectOption('submitter');
     await expect(page.getByRole('dialog').getByLabel(personnel.department,{exact:true})).toHaveCount(0);
-  }
+  }else await page.getByRole('dialog').getByRole('button',{name:'Staff',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:personnel.confirm,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:ui.copy_bb0ad94473,exact:true}).click();
 }

@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "app-loading": "/components/app-loading/app-loading",
+    "viewport-portal": "/components/viewport-portal/viewport-portal",
+    "dictionary-load-failure": "/subpackages/scoring/package-resources/subpackages/scoring/pages/admin/components/dictionaryLoadFailure/dictionaryLoadFailure"
+  }
+}

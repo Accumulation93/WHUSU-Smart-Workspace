@@ -1,6 +1,7 @@
 'use strict';
 
 const localeCopy = require('../../locales/zh-CN/personnelPicker');
+const relations = require('../../locales/zh-CN/identityNatureRelations');
 const model = require('./personnelPickerModel');
 
 Component({
@@ -24,6 +25,7 @@ Component({
 
   data: {
     localeCopy,
+    relations, natureOptions: [], natureIndex: 0, nature: '',
     optionCount: 0,
     filteredOptions: [],
     selectedItems: [],
@@ -68,6 +70,7 @@ Component({
       const keys = model.selectedKeys(this.properties.value, this.properties.selectionLevel);
       clearTimeout(this._searchTimer);
       this._refreshOptions(keys, {
+        natureIndex: 0, nature: '',
         departmentIndex: 0,
         identityIndex: 0,
         workGroupIndex: 0,
@@ -84,7 +87,7 @@ Component({
       const normalized = model.normalizeOptions(this.properties.options, this.properties.selectionLevel).map(function(item) {
         return Object.assign({}, item, {
           _displayName: item.name || localeCopy.unnamed,
-          _assignmentText: item.assignmentLabel || localeCopy.assignmentUnavailable
+          _assignmentText: [item.assignmentNatureLabel || relations.natureMissing, item.assignmentLabel || localeCopy.assignmentUnavailable].join(' · ')
         });
       });
       this._options = normalized;
@@ -97,6 +100,7 @@ Component({
       const workGroupOptions = [allLabel].concat(model.optionNames(normalized, 'workGroupName'));
       this._applyView(keys || this.data.draftKeys, Object.assign({
         optionCount: normalized.length,
+        natureOptions: [allLabel].concat(model.optionNames(normalized, 'assignmentNatureLabel')),
         departmentOptions,
         identityOptions,
         workGroupOptions,
@@ -110,6 +114,7 @@ Component({
       const state = Object.assign({}, this.data, changes || {});
       const patch = Object.assign({}, changes || {});
       const filters = {
+        nature: state.nature,
         department: state.department,
         identity: state.identity,
         workGroup: state.workGroup,
@@ -151,6 +156,12 @@ Component({
     onDepartmentChange: function(event) {
       const index = Number(event.detail.value) || 0;
       this._applyView(this.data.draftKeys, { departmentIndex: index, department: index ? this.data.departmentOptions[index] : '' });
+    },
+    onNatureChange: function(event) {
+      const index=Number(event.detail.value)||0, nature=index?this.data.natureOptions[index]:'';
+      const tuples=(this._options||[]).reduce((result,item)=>result.concat(Array.isArray(item.assignments)&&item.assignments.length?item.assignments:[item]),[]).filter(item=>!nature||item.assignmentNatureLabel===nature);
+      const identities=[localeCopy.all].concat(model.optionNames(tuples,'identityCategoryName'));
+      this._applyView(this.data.draftKeys,{natureIndex:index,nature,identityOptions:identities,identityIndex:0,identity:''});
     },
 
     onIdentityChange: function(event) {

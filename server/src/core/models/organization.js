@@ -22,7 +22,7 @@ async function findDependencies(connection, organizationId) {
   const tables = new Set();
   for (const column of columns) {
     // 初始化的性质和缓存版本不是业务资料；自定义性质、规则和变更记录仍然阻止删除。
-    if (['authorization_organizations', 'cache_domain_versions'].includes(column.table_name)) continue;
+    if (['authorization_organizations', 'cache_domain_versions', 'identity_nature_rollouts'].includes(column.table_name)) continue;
     if (column.table_name === 'assignment_natures') {
       const [rows] = await connection.query('SELECT id,name,version FROM assignment_natures WHERE org_id=? FOR UPDATE', [organizationId]);
       if (rows.some(row => !['staff', 'liaison', 'other'].includes(row.id)
@@ -48,6 +48,7 @@ async function removeEmpty(id, authorize) {
     await connection.query('DELETE FROM assignment_natures WHERE org_id=?', [id]);
     await connection.query('DELETE FROM authorization_organizations WHERE org_id=?', [id]);
     await connection.query('DELETE FROM cache_domain_versions WHERE org_id=?', [id]);
+    await connection.query('DELETE FROM identity_nature_rollouts WHERE org_id=?', [id]);
     const [result] = await connection.query('DELETE FROM organizations WHERE id=?', [id]);
     return { status: result.affectedRows === 1 ? 'deleted' : 'not_found' };
   });
@@ -72,6 +73,7 @@ async function create(id, name, reference) {
     await authorizeGovernance(connection, reference, 'create');
     await connection.query('INSERT INTO organizations (id, name) VALUES (?, ?)', [id, name]);
     await assignmentNature.initialize(connection, id);
+    await connection.query('INSERT INTO identity_nature_rollouts(org_id,enabled,enabled_at) VALUES (?,1,UTC_TIMESTAMP())', [id]);
     return { id, name };
   });
 }

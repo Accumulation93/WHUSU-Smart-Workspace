@@ -42,8 +42,9 @@ async function generate(organizationId, reference, publicationId, kind, now) {
       const participants = await require('../services/participants').listParticipants(organizationId, 'assignment', connection);
       categories = [...require('../services/publicationAssignments').collectRuleCategories(participants).values()];
     } else {
-      const [sources] = await connection.query('SELECT grantee_department_id,grantee_identity_id FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, organizationId]);
-      categories = sources.map(row => ({ deptId: row.grantee_department_id, identId: row.grantee_identity_id }));
+      const [sources] = await connection.query('SELECT grantee_department_id,grantee_identity_id,nature_ids FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, organizationId]);
+      categories = sources.map(row => ({ deptId: row.grantee_department_id, identId: row.grantee_identity_id,
+        natureIds: require('../../../core/services/natureRulePolicy').normalize(row.nature_ids) }));
     }
     const [existing] = await connection.query('SELECT grantee_department_id,grantee_identity_id FROM ' + table + ' WHERE publication_id=? AND org_id=?', [publicationId, organizationId]);
     const keys = new Set(existing.map(row => row.grantee_department_id + '::' + row.grantee_identity_id));
@@ -51,8 +52,8 @@ async function generate(organizationId, reference, publicationId, kind, now) {
     for (const category of categories) {
       const key = category.deptId + '::' + category.identId;
       if (keys.has(key)) continue;
-      await connection.query('INSERT INTO ' + table + ' (id,publication_id,grantee_department_id,grantee_identity_id,org_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?)',
-        [generateId(), publicationId, category.deptId, category.identId, organizationId, now, now]);
+      await connection.query('INSERT INTO ' + table + ' (id,publication_id,grantee_department_id,grantee_identity_id,nature_ids,org_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',
+        [generateId(), publicationId, category.deptId, category.identId, category.natureIds === null ? null : JSON.stringify(category.natureIds), organizationId, now, now]);
       keys.add(key);
       createdCount++;
     }

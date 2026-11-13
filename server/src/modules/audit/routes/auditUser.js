@@ -6,6 +6,7 @@ const fs = require('fs');
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
+const natureRulePolicy = require('../../../core/services/natureRulePolicy');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
 
@@ -176,6 +177,7 @@ function buildTemplateConditionMap(allConditions) {
     if (!map[stepId]) map[stepId] = [];
     map[stepId].push({
       conditionType: condition.condition_type,
+      natureIds: natureRulePolicy.normalize(condition.nature_ids),
       personHrIds: condition.person_hr_ids,
       assignmentIds: condition.assignment_ids,
       departmentScope: condition.department_scope,
@@ -575,6 +577,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         id: c.id,
         sortOrder: c.sort_order,
         conditionType: c.condition_type,
+        natureIds: natureRulePolicy.normalize(c.nature_ids),
         personHrIds: c.person_hr_ids,
         assignmentIds: c.assignment_ids,
         departmentScope: c.department_scope,
@@ -1137,6 +1140,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     }
 
     const deptMap = {}, wgMap = {};
+    const natureMap = Object.fromEntries((await require('../../../core/models/assignmentNature').list(pool, orgId)).map(row => [row.id, row.name]));
     if (deptIdSet.size) {
       const [deptRows] = await pool.query(
         'SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?',
@@ -1219,7 +1223,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         // Build condition display strings from step_conditions_json
         const condDisplay = buildStepConditionsDisplay(
           s.step_conditions_json,
-          { hrMap, identityMap, deptMap, wgMap }
+          { hrMap, identityMap, deptMap, wgMap, natureMap }
         );
 
         // Build legacy approverDesc as fallback
@@ -2719,6 +2723,7 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
         const conditions = (step.conditions || []).map(function(condition) {
           return {
             conditionType: condition.condition_type,
+            natureIds: natureRulePolicy.normalize(condition.nature_ids),
             personHrIds: condition.person_hr_ids,
             assignmentIds: condition.assignment_ids,
             departmentScope: condition.department_scope,
@@ -2781,6 +2786,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
       if (!stepConditionMap[sid]) stepConditionMap[sid] = [];
       stepConditionMap[sid].push({
         conditionType: c.condition_type,
+        natureIds: natureRulePolicy.normalize(c.nature_ids),
         personHrIds: c.person_hr_ids,
         assignmentIds: c.assignment_ids,
         departmentScope: c.department_scope,
@@ -2825,6 +2831,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
       const [idRows] = await pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [[...identIdSet], orgId]);
       for (const r of idRows) identityMap[r.id] = safeString(r.name);
     }
+    const natureMap = Object.fromEntries((await require('../../../core/models/assignmentNature').list(pool, orgId)).map(row => [row.id, row.name]));
     const deptMap = {};
     if (deptIdSet.size) {
       const [dRows] = await pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [[...deptIdSet], orgId]);
@@ -2849,7 +2856,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
 
       // Build condition display using shared helper
       const condJson = conds.length ? JSON.stringify(conds) : null;
-      const display = buildStepConditionsDisplay(condJson, { hrMap, identityMap, deptMap, wgMap });
+      const display = buildStepConditionsDisplay(condJson, { hrMap, identityMap, deptMap, wgMap, natureMap });
 
       return {
         stepIndex: Number(ts.sort_order) || idx + 1,
