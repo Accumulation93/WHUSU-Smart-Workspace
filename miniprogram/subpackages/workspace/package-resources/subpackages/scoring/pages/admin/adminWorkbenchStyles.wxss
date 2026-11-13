@@ -6602,6 +6602,8 @@ scroll-view {
   line-height: 1.5;
   color: #1e293b;
 }
- .identity-relations .selection-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
- .identity-relations .selection-option-card { box-sizing: border-box; min-width: 0; min-height: var(--ui-field-control-height); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: 1rpx solid rgba(191,219,254,.8); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.98),rgba(239,246,255,.86)); overflow-wrap: break-word; }
+ .identity-relations .selection-options-grid,
+ .publication-relations .selection-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+ .identity-relations .selection-option-card,
+ .publication-relations .selection-options-grid .selection-option-card { box-sizing: border-box; min-width: 0; min-height: var(--ui-field-control-height); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: 1rpx solid rgba(191,219,254,.8); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.98),rgba(239,246,255,.86)); overflow-wrap: break-word; }
  .identity-relations .field > .selection-option-card + .selection-option-card { margin-top: var(--ui-inline-gap); }

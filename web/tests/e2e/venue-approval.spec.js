@@ -4,6 +4,7 @@ import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages
 import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import manage from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import relations from '../../src/locales/zh-CN/shared/identityNatureRelations.js';
 
 const pending = { id: 'booking-1', title: 'Booking A', venueName: 'Room A', userName: 'Applicant', description: 'Long booking description '.repeat(40),
   creatorAssignmentLabel: 'Saved role', timeStart: '2026-10-10T01:00:00Z', timeEnd: '2026-10-10T02:00:00Z',
@@ -39,7 +40,7 @@ test(`pending venue approval saves and rereads in ${admin ? 'management tab' : '
   await expect(page).toHaveURL(admin ? /\/venue\/manage$/ : /\/venue\/pending$/);
   await dialog.getByRole('button', { name: ui.copy_6986f4a5fd }).click();
   const selection = page.getByRole('dialog', { name: ui.copy_1f13a570b9 });
-  await selection.getByRole('button', { name: 'Person A Role B' }).click();
+  await selection.getByRole('button', { name: 'Person A ' + relations.natureMissing + ' · Role B', exact: true }).click();
   await selection.getByRole('button', { name: picker.confirm, exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Person A · Role B' })).toBeVisible();
   await dialog.getByLabel(ui.copy_bddb855314).fill('Approved by current role');

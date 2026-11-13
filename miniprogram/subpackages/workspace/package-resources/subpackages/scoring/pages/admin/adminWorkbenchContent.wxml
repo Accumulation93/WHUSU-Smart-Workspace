@@ -2265,7 +2265,7 @@
       </block>
     </view>
 
-    <view class="section-stack" wx:if="{{activeTab === 'publications'}}">
+    <view class="section-stack publication-relations" wx:if="{{activeTab === 'publications'}}">
       <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
         <app-loading compact="{{true}}" />
       </view>

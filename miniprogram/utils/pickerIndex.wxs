@@ -1,17 +1,17 @@
 function textOf(item) {
   if (item === null || item === undefined) return '';
   if (typeof item === 'object') {
-    if (item.value !== undefined && item.value !== null) return String(item.value);
-    if (item.id !== undefined && item.id !== null) return String(item.id);
-    if (item.name !== undefined && item.name !== null) return String(item.name);
+    if (item.value !== undefined && item.value !== null) return '' + item.value;
+    if (item.id !== undefined && item.id !== null) return '' + item.id;
+    if (item.name !== undefined && item.name !== null) return '' + item.name;
     return '';
   }
-  return String(item);
+  return '' + item;
 }
 
 function idx(list, value) {
   var arr = list || [];
-  var target = value === null || value === undefined ? '' : String(value);
+  var target = value === null || value === undefined ? '' : '' + value;
   if (target === '') return 0;
   for (var i = 0; i < arr.length; i++) {
     if (textOf(arr[i]) === target) return i;

@@ -63,7 +63,7 @@ test('long participant lists scroll without expanding controls or losing closing
 
 test('participant conditions keep compact actions and preserve selection after save',async({page},info)=>{
   await mockApi(page);
-  const config={status:'success',version:2,canEdit:true,participants:[],targets:[{type:'people',personIds:[]}],people:[{personId:'p',name:'Member A',assignments:[]}],departments:[{id:'d',name:'Department A'}],identities:[],workGroups:[]};
+  const config={status:'success',version:2,canEdit:true,participants:[],targets:[{type:'people',personIds:[]}],people:[{personId:'p',name:'Member A',assignments:[]}],departments:[{id:'d',name:'Department A'}],identities:[],workGroups:[],natures:[{id:'staff',name:'Staff'}]};
   const writes=[];
   await page.route('**/api/getCalendarParticipants',r=>r.fulfill({json:config}));
   await page.route('**/api/saveCalendarParticipants',async r=>{const body=r.request().postDataJSON();writes.push(body);config.targets=body.targets;config.version++;await r.fulfill({json:{status:'success'}});});
@@ -84,14 +84,17 @@ test('participant conditions keep compact actions and preserve selection after s
   await expect(editor.getByText('Member A',{exact:true})).toBeVisible();
   await editor.getByRole('button',{name:copy.addCondition,exact:true}).click();
   const scope=editor.locator('.calendar-condition-card').nth(1);
+  await scope.getByLabel('Staff',{exact:true}).check();
   await scope.locator('summary').first().click();
   await scope.getByLabel('Department A',{exact:true}).check();
-  const selected=await scope.locator('.personnel-option-selected').evaluate(el=>({border:getComputedStyle(el).borderTopWidth,background:getComputedStyle(el).backgroundImage}));
-  expect(selected.border).toBe('1px');expect(selected.background).toContain('linear-gradient');
+  const selected=await scope.locator('.personnel-option-selected').evaluateAll(items=>items.map(el=>({border:getComputedStyle(el).borderTopWidth,background:getComputedStyle(el).backgroundImage})));
+  expect(selected).toHaveLength(2);
+  for(const item of selected){expect(item.border).toBe('1px');expect(item.background).toContain('linear-gradient');}
   expect(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
   await page.screenshot({path:info.outputPath('participant-editor.png'),animations:'disabled'});
   await page.getByRole('button',{name:copy.save,exact:true}).click();
   await expect(page).toHaveURL(/\/web\/calendar$/);
   expect(writes).toHaveLength(1);expect(writes[0].targets[0].personIds).toEqual(['p']);expect(writes[0].targets[1].departmentIds).toEqual(['d']);
+  expect(writes[0].targets[1].natureIds).toEqual(['staff']);
   await page.goto(url);await expect(page.locator('.calendar-condition-card').first().getByText('Member A',{exact:true})).toBeVisible();
 });

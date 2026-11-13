@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import relations from '../../src/locales/zh-CN/shared/identityNatureRelations.js';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
@@ -39,7 +40,7 @@ test('booking opens in place with schedule, purpose, flow and first approver', a
   await dialog.getByLabel(ui.copy_3bc010171a).selectOption('flow-1');
   await dialog.getByRole('button', { name: ui.copy_6986f4a5fd }).click();
   const selection = page.getByRole('dialog', { name: ui.copy_0522689efc });
-  await selection.getByRole('button', { name: 'Approver Role B' }).click();
+  await selection.getByRole('button', { name: 'Approver ' + relations.natureMissing + ' · Role B', exact:true }).click();
   await selection.getByRole('button', { name: picker.confirm, exact: true }).click();
   await dialog.getByRole('button', { name: ui.copy_02ef2f799d }).click();
   await expect.poll(state.reads).toBe(1);

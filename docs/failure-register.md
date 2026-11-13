@@ -1,5 +1,13 @@
 # 已经踩过的坑，和现在防止它再出现的东西
 
+## 2026-11-13：公示性质选择卡缺少页面样式及 WXS 字符串构造器不兼容
+
+原生公示实际界面中，岗位性质选项退化为一行文字和矩形细框。原因是选择卡尺寸、边框与圆角仅在 `.identity-relations` 下定义，公示页面未匹配该作用域。为公示区增加 `.publication-relations`，只对其 `.selection-options-grid` 内的性质卡复用既有受控令牌，不影响规则列表和其他页面。四处查看者、被查看者、指定人、被指定人选择表面共用此规则。`publicationStateContract.test.js` 增加实际宿主与样式作用域检查，严格 UI 审计通过；微信模拟器已确认查看和评优性质卡恢复两列圆角表面，身份候选分别只显示匹配项。
+
+同轮原生 picker 渲染发现 `ReferenceError: String is not defined`：共享 `pickerIndex.wxs` 使用了 WXS 不提供的 `String()`。改为原生字符串拼接，`server/test/pickerIndexWxs.test.js` 在显式不存在 String 构造器的宿主中覆盖编号、名称、数字、空值和未匹配行为。冷编译公示后控制台显示 No errors，两个身份 picker 均可打开。手机、Pad 实体设备未完成现场验证，上传 TLS 失败与本地编译、渲染结果分开记录。
+
+完整 CI 的场地失败另有三类过时前端夹具：旧人员定位未包含性质，新增范围测试未先选择性质，旧参数断言遗漏 natureIds。逐项修正 fixture 与预期，保留拒绝和保存回读断言；场地审批 12 项以及借用/参会人 27 项三档浏览器验证通过，不通过放松业务校验让旧测试通过。
+
 ## 2026-11-13：身份关联改造不能改变旧保存接口的缺失结果
 
 新增模型把不存在及跨组织的身份编号抛为 `identity_unavailable`，路由统一映射为 `invalid_params`，改变了原有 `not_found` 响应。路由恢复该错误的原状态码，保留结构化错误编号。`auditTemplateSaveIntegration.test.js` 通过真实小程序方法预览、确认、保存、编辑和回读，并用旧请求检查不存在与跨组织编号均不写入且返回 `not_found`；不将收到请求当作保存成功。
