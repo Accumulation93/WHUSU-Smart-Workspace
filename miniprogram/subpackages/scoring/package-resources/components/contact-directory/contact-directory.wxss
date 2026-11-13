@@ -1,4 +1,9 @@
 .directory-stack { display: flex; flex-direction: column; gap: var(--ui-field-gap, 16rpx); min-width: 0; }
+.directory-section { padding: var(--ui-list-padding-y) var(--ui-list-padding-x); border: 1px solid rgba(147,197,253,.4); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.92),rgba(246,249,255,.85)); }
+.directory-summary-section + .directory-summary-section { margin-top: var(--ui-field-gap); }
+.directory-add-options { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.directory-stack .directory-small-action.secondary-btn, .directory-stack .directory-small-actions .secondary-btn, .directory-stack .directory-small-actions .danger-btn { flex: none; width: auto; min-width: 0; max-width: 100%; min-height: var(--ui-control-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); margin: 0; border-radius: var(--ui-control-radius); font-size: var(--ui-type-meta); display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; }
+.directory-small-actions.card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-inline-gap); }
 .directory-card { padding: var(--ui-card-padding, 24rpx); border-radius: var(--ui-card-radius); background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(246,249,255,.85)); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 8px 20px rgba(15,23,42,.04), inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); }
 .directory-heading { font-size: var(--ui-type-section); font-weight: 700; line-height: 1.5; color: #0f172a; }
 .directory-search { position: relative; min-width: 0; }

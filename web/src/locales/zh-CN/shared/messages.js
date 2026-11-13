@@ -17,6 +17,7 @@ const sharedModule = Object.freeze({
     venue: '场地',
     scoring: '考核',
     hr: '人事',
+    calendar: '日程',
     system: '其他'
   }),
   messages: Object.freeze({

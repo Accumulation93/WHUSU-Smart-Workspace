@@ -1,6 +1,6 @@
 const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
-const { describeMessage } = require('../../../../utils/messageFactsView');
+const { describeMessage, messageCategory } = require('../../../../utils/messageFactsView');
 const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
 const { formatDetailTime, formatDateOnly } = require('../../../../utils/dateTime');
 const orgSession = require('../../../../utils/orgSession');
@@ -36,6 +36,7 @@ const CATEGORY_LABELS = {
   venue: copy.categoryLabels.venue,
   scoring: copy.categoryLabels.scoring,
   hr: copy.categoryLabels.hr,
+  calendar: copy.categoryLabels.calendar,
   system: copy.categoryLabels.system
 };
 
@@ -585,7 +586,7 @@ Page({
   formatMessageItems(items, isNotification) {
     return (items || []).map(function(item) {
       const extra = {
-        categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? copy.messages.notification : copy.messages.todo),
+        categoryLabel: CATEGORY_LABELS[messageCategory(item)] || (isNotification ? copy.messages.notification : copy.messages.todo),
         createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       };

@@ -1,7 +1,7 @@
 const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const messageScope = require('../../../../utils/messageScope');
-const { describeMessage } = require('../../../../utils/messageFactsView');
+const { describeMessage, messageCategory } = require('../../../../utils/messageFactsView');
 const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
 const { formatDetailTime, formatDateOnly } = require('../../../../utils/dateTime');
 const { activateOrganization } = require('../../../../utils/organizationActivation');
@@ -145,7 +145,7 @@ Page({
   formatItems(items, isNotification) {
     return (items || []).map(function(item) {
       return Object.assign({}, item, {
-        categoryLabel: CATEGORY_LABELS[item.category] || copy.messages.notification,
+        categoryLabel: CATEGORY_LABELS[messageCategory(item)] || copy.messages.notification,
         createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       }, describeMessage(item, messageFactsCopy, {

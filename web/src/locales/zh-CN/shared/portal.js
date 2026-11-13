@@ -10,6 +10,7 @@
  */
 
 import common from './common.js';
+import messages from './messages.js';
 const sharedModule = Object.freeze({
   /* 网页端在门户展示的局部加载提示；小程序门户用同义提示，值保持一致 */
   partialOrganizationLoading: '部分组织的内容暂未加载，请重试',
@@ -17,7 +18,7 @@ const sharedModule = Object.freeze({
   appName: common.brandName,
   pageName: '应用服务',
   organizationName: common.organizationName,
-  categoryLabels: Object.freeze({ audit: '审核', venue: '场地', scoring: '考核', hr: '人事', system: '其他' }),
+  categoryLabels: Object.freeze({ audit: '审核', venue: '场地', scoring: '考核', hr: '人事', calendar: messages.categoryLabels.calendar, system: '其他' }),
   cards: Object.freeze({
     scan: '扫一扫',
     messages: '消息中心',

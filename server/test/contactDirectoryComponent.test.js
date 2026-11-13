@@ -15,7 +15,7 @@ function fixture(api) {
     '../../utils/eventBus': { on: (key, callback) => listeners.set(key, callback), off: (key, callback) => { if (listeners.get(key) === callback) listeners.delete(key); } }
   };
   vm.runInNewContext(fs.readFileSync(filename,'utf8'), { Component: value => {definition=value;}, require: name => mocks[name] || baseRequire(name),
-    wx: { pageScrollTo: value=>scrolls.push(value), setClipboardData() {}, makePhoneCall() {} }, Map, Set, Promise, console });
+    wx: { pageScrollTo: value=>scrolls.push(value), nextTick: callback=>callback(), setClipboardData() {}, makePhoneCall() {} }, Map, Set, Promise, console });
   const component = { properties: {initialKey:''}, data: {...JSON.parse(JSON.stringify(definition.data)),admin:true}, ...definition.methods,
     setData(patch, callback) {
       for (const [key,value] of Object.entries(patch)) {
@@ -35,6 +35,15 @@ async function main() {
   const c=f.component;c.activate();await new Promise(resolve=>setImmediate(resolve));
   c.edit({currentTarget:{dataset:{}}}); c.nameInput({detail:{value:'测试规则'}});
   c.openPeople({currentTarget:{dataset:{section:'audience',index:0}}}); c.confirmPeople({detail:{keys:['p']}});
+  assert.equal(c.data.activeClause,'');
+  c.editSection({currentTarget:{dataset:{section:'targets'}}});
+  c.addClause({currentTarget:{dataset:{section:'targets',type:'people'}}});
+  assert.equal(c.data.activeClause,'targets-1');
+  assert.equal(c.data.draft.targets[1].type,'people');
+  c.editSection({currentTarget:{dataset:{section:'audience'}}});
+  assert.deepEqual(Array.from(c.data.draft.audience[0].personIds),['p']);
+  c.removeClause({currentTarget:{dataset:{section:'targets',index:1}}});
+  c.finishSection();assert.equal(c.data.activeSection,'');
   c.toggleChoice({currentTarget:{dataset:{id:'phone'}}});
   c.save();await new Promise(resolve=>setImmediate(resolve));
   const submitted=calls.find(call=>call.name==='saveContactDirectoryRule').data;
@@ -45,6 +54,7 @@ async function main() {
   c.deleteSelected();c.confirmDelete();await new Promise(resolve=>setImmediate(resolve));
   assert(calls.some(call=>call.name==='batchContactDirectoryRules'));assert.equal(c.data.deleteTargets,null);
   c.clearPrivate();assert.equal(f.listeners.size,0);assert.equal(c.data.people.length,0);
+  assert.equal(c.data.batchMode,false);assert.equal(c.data.activeSection,'');
   let resolveRead;const late=fixture(()=>new Promise(resolve=>{resolveRead=resolve;}));late.component.activate();late.component.clearPrivate();resolveRead(config);await new Promise(resolve=>setImmediate(resolve));
   assert.equal(late.component.data.people.length,0);
   let finishDetail;

@@ -1,11 +1,12 @@
 <template>
   <section v-if="sourceId" class="calendar-participants">
-    <header class="calendar-participants-head"><h3 class="calendar-participants-title">{{ copy.participants }} <span v-if="result">{{ result.participants.length }}</span></h3><button v-if="result?.canEdit" class="btn btn-secondary calendar-participants-action" @click="edit">{{ venueCopy.copy_20f94d2c18 }}</button></header>
+    <header class="calendar-participants-head"><h3 class="calendar-participants-title">{{ copy.participants }} <span v-if="result">{{ result.participants.length }}</span></h3></header>
+    <div v-if="result" class="card-actions"><button v-if="result.participants.length" class="btn btn-secondary calendar-participants-action" :aria-expanded="expanded" @click="expanded=!expanded">{{ expanded ? copy.participantsCollapse : copy.participantsExpand }}</button><button v-if="result.canEdit" class="btn btn-secondary calendar-participants-action" @click="edit">{{ copy.editParticipants }}</button></div>
     <AppLoading v-if="loading" :text="copy.participantsLoading" />
     <div v-if="notice" class="calendar-participants-head"><p class="notice-line">{{ notice }}</p><button v-if="failed" class="btn btn-secondary calendar-participants-action" @click="load">{{ copy.retry }}</button></div>
     <template v-if="result">
       <p v-if="!result.participants.length" class="muted">{{ copy.noParticipants }}</p>
-      <div class="calendar-participants-grid"><article v-for="(person,index) in result.participants" :key="index" class="list-row calendar-participant"><strong><PersonLink :name="person.name" :reference="person.personReference" /></strong><span v-for="(position,i) in person.positions" :key="i" class="calendar-participant-position">{{ [position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · ') }}</span><span v-if="!person.positions.length" class="calendar-participant-position">{{ copy.noPosition }}</span></article></div>
+      <div v-if="expanded" class="calendar-participants-grid"><article v-for="(person,index) in result.participants" :key="index" class="list-row calendar-participant"><strong><PersonLink :name="person.name" :reference="person.personReference" /></strong><span v-for="(position,i) in person.positions" :key="i" class="calendar-participant-position">{{ [position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · ') }}</span><span v-if="!person.positions.length" class="calendar-participant-position">{{ copy.noPosition }}</span></article></div>
     </template>
   </section>
 </template>
@@ -15,12 +16,11 @@ import {useRouter} from 'vue-router';
 import {callApi} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
 import copy from '@/locales/zh-CN/shared/calendar.js';
-import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
 const props=defineProps({sourceKind:String,sourceId:String,occurrenceDate:String});
-const result=ref(null),loading=ref(false),failed=ref(false),notice=ref(''),router=useRouter();let generation=0,disposed=false;
+const expanded=ref(false),result=ref(null),loading=ref(false),failed=ref(false),notice=ref(''),router=useRouter();let generation=0,disposed=false;
 async function load(){const own=++generation;result.value=null;loading.value=false;failed.value=false;notice.value='';if(!props.sourceId||document.hidden)return;loading.value=true;try{const response=await callApi('getCalendarParticipants',{sourceKind:props.sourceKind,sourceId:props.sourceId,occurrenceDate:props.occurrenceDate});if(own!==generation||disposed)return;if(response.status==='success')result.value=response;else{const restricted=['calendar_forbidden','forbidden'].includes(response.status),unavailable=response.status==='calendar_unavailable';failed.value=!restricted&&!unavailable;notice.value=restricted?copy.participantsRestricted:unavailable?copy.participantsUnavailable:copy.participantsFailed;}}catch{if(own===generation&&!disposed){failed.value=true;notice.value=copy.participantsFailed;}}finally{if(own===generation&&!disposed)loading.value=false;}}
 function edit(){router.push({name:'calendarEdit',query:{sourceKind:props.sourceKind,sourceId:props.sourceId}});}
-watch(()=>[props.sourceKind,props.sourceId,props.occurrenceDate,session.context],load,{immediate:true});
+watch(()=>[props.sourceKind,props.sourceId,props.occurrenceDate,session.context],()=>{expanded.value=false;load();},{immediate:true});
 document.addEventListener('visibilitychange',load);onBeforeUnmount(()=>{disposed=true;generation++;document.removeEventListener('visibilitychange',load);});
 </script>
 <style scoped>

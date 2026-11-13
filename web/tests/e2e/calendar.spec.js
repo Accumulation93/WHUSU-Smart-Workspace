@@ -87,7 +87,12 @@ test('日程卡打开人员详情，退出确认不会叠放两个窗口',async(
   await page.route('**/api/getCalendar',route=>route.fulfill({json:{status:'success',items:[item]}}));
   await page.goto('/web/calendar');
   await page.getByRole('button',{name:/工作安排讨论会/}).click();
+  await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
   await expect(page.getByText('测试成员',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:copy.participantsCollapse,exact:true}).click();
+  await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
   await page.getByRole('button',{name:copy.leave,exact:true}).click();
   await expect(page.getByText(copy.leaveConfirm,{exact:true})).toBeVisible();
   await expect(page.getByText('测试成员',{exact:true})).toHaveCount(0);

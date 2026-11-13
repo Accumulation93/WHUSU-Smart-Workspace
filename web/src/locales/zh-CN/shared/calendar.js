@@ -1,6 +1,16 @@
 // 由 scripts/sync-shared-modules.js 从唯一源生成，请勿直接修改；修改唯一源后重新运行 node scripts/sync-shared-modules.js --write
 'use strict';
 const sharedModule = Object.freeze({
+ scopeFieldLine: function(label, value) { return label + '：' + value; },
+ participantPeopleCount: '已指定 {count} 人', editAudienceGroup: '修改', finishAudienceGroup: '完成选择',
+ audiencePeopleEmpty: '尚未选择获得安排权限的人员', audienceScopeEmpty: '尚未设置获得安排权限的岗位范围',
+ participantsExpand: '查看参会名单', participantsCollapse: '收起参会名单', editParticipants: '编辑参会人',
+ participantSources: '参会人设置', participantSourcesHelp: '可以指定人员，也可以按岗位选择范围。',
+ addParticipantPeople: '添加指定人员', addParticipantScope: '按岗位添加人员', participantSelf: '安排人本人',
+ editParticipantSource: '修改', removeParticipantSource: '移除', finishParticipantSource: '完成选择',
+ participantPeopleEmpty: '尚未选择人员', participantScopeEmpty: '尚未设置岗位范围',
+ participantsCount: '参会人（{count} 人）',
+ participantPeopleSummary: function(count, names) { return '指定人员（' + count + ' 人）：' + names; },
  title: '日程', manage: '日程管理', ruleManage: '安排规则', permission: '管理组织日程',
  createRule: '新增规则', copyAddress: '复制订阅地址', subscriptionServer: '服务器地址', subscriptionUsername: '用户名', subscriptionPassword: '专用口令',
  subscriptionSetup: '在手机日历的“添加订阅日历”中填写以下信息，开启 SSL。',

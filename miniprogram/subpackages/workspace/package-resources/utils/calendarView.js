@@ -49,4 +49,21 @@ function timeline(day,offset) {
   finish();
   return Object.assign({},day,{timed,allDayItems:day.items.filter(item=>item.allDay),hours:Array.from({length:24},(_,hour)=>({label:String(hour).padStart(2,'0')+':00',items:timed.filter(item=>Math.floor(item.startMinute/60)===hour)}))});
 }
-module.exports = { addDays, period, move, days, blank, edit, timeline };
+function participantSourceSummary(clause, metadata, copy, relations) {
+  if (clause.type === 'self') return [copy.participantSelf];
+  if (clause.type === 'people') {
+    const ids = clause.personIds || [], matches = (metadata.people || []).filter(person => ids.includes(person.personId));
+    if (!ids.length) return [copy.participantPeopleEmpty];
+    return [matches.length === ids.length ? copy.participantPeopleSummary(ids.length, matches.map(person => person.name).join('、')) : copy.participantPeopleCount.replace('{count}', String(ids.length))];
+  }
+  const lines = [];
+  if (clause.sameNature) lines.push(copy.scopeFieldLine(relations.nature, relations.calendarSameNatureSummary));
+  else if (clause.natureIds == null) lines.push(copy.scopeFieldLine(relations.nature, relations.legacyScope));
+  else if (clause.natureIds.length) lines.push(copy.scopeFieldLine(relations.nature, (metadata.natures || []).filter(item => clause.natureIds.includes(item.id)).map(item => item.name).join('、')));
+  [['departmentIds','departments','sameDepartment','department'], ['identityCategoryIds','identities','sameIdentity','identity'], ['workGroupIds','workGroups','sameWorkGroup','workGroup']].forEach(([key,options,same,label]) => {
+    if (clause[same]) lines.push(copy.scopeFieldLine(copy[label], copy[same]));
+    else if ((clause[key] || []).length) lines.push(copy.scopeFieldLine(copy[label], (metadata[options] || []).filter(item => clause[key].includes(item.id)).map(item => item.name).join('、')));
+  });
+  return lines.length ? lines : [copy.participantScopeEmpty];
+}
+module.exports = { addDays, period, move, days, blank, edit, timeline, participantSourceSummary };

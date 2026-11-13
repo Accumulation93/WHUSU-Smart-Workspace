@@ -17,7 +17,7 @@ Component({
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
   data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
-    draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
+    draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
     attached: function() { this.activate(); },
     detached: function() { this.clearPrivate(); }
@@ -38,7 +38,7 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
+      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
@@ -92,7 +92,16 @@ Component({
       const key = event.currentTarget.dataset.filter;
       this.setData({ ['expandedFilters.' + key]: !this.data.expandedFilters[key] }, () => this.refreshEditor());
     },
-    toggleFields: function() { this.setData({ fieldsExpanded: !this.data.fieldsExpanded }); },
+    toggleFields: function() { this.setData({ activeSection: this.data.activeSection === 'fields' ? '' : 'fields', fieldsExpanded: this.data.activeSection !== 'fields' }); },
+    toggleBatch: function() { if (!this.blocked()) this.setData({ batchMode: !this.data.batchMode }); },
+    toggleRuleDetails: function(event) {
+      const index = this.data.rules.findIndex(rule => rule.id === event.currentTarget.dataset.id);
+      if (index >= 0) this.setData({ ['rules[' + index + '].expanded']: !this.data.rules[index].expanded });
+    },
+    editSection: function(event) { if (!this.blocked()) this.setData({ activeSection: event.currentTarget.dataset.section, activeClause: '' }, () => this.refreshEditor()); },
+    finishSection: function() { this.setData({ activeSection: '', activeClause: '' }, () => this.refreshEditor()); },
+    editClause: function(event) { if (!this.blocked()) this.setData({ activeClause: event.currentTarget.dataset.section + '-' + event.currentTarget.dataset.index }, () => this.refreshEditor()); },
+    finishClause: function() { this.setData({ activeClause: '' }, () => this.refreshEditor()); },
     copyValue: function(event) { wx.setClipboardData({ data: event.currentTarget.dataset.value, success: () => showShortToast(copy.copied), fail: () => showShortToast(copy.copyFailed) }); },
     callPhone: function(event) { wx.makePhoneCall({ phoneNumber: event.currentTarget.dataset.phone }); },
     locate: function(event) {
@@ -120,14 +129,16 @@ Component({
       const draft = existing ? view.payload(existing) : view.blankRule();
       this._legacyNatureEdit=['audience','targets'].some(key=>draft[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));
       if (event.currentTarget.dataset.copy) { delete draft.id; delete draft.version; }
-      this.setData({ draft, expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
+      this.setData({ draft, activeSection: existing ? '' : 'audience', activeClause: existing ? '' : 'audience-0', expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
     },
     refreshEditor: function() {
       const draft = this.data.draft, metadata = this._metadata;
       if (!draft || !metadata) return;
       const peopleById = new Map(this.data.people.map(person => [person.personId, person.name]));
       const departments = new Map(metadata.departments.map(item => [item.id, item.name]));
+      const summaries = view.ruleSections(draft, metadata, copy, relations);
       const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], help: copy[key + 'Help'], typeLabel: copy[key + 'Type'], addLabel: key === 'audience' ? copy.addAudience : copy.addTargets, removeLabel: key === 'audience' ? copy.removeAudience : copy.removeTargets, chooseLabel: key === 'audience' ? copy.chooseAudience : copy.chooseTargets, optionalHelp: key === 'audience' ? copy.audienceOptionalScopeHelp : copy.optionalScopeHelp, clauses: draft[key].map((clause, index) => ({
+        expanded: this.data.activeClause === key + '-' + index, lines: summaries.find(section => section.key === key).groups[index].lines,
         title: copy[key + 'GroupTitle'](index + 1), help: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')],
         sameNature: Boolean(clause.sameNature),legacyNature: clause.natureIds == null && !clause.sameNature,
         natures: (metadata.natures || []).map(item => ({ id:item.id, name:item.name, selected:(clause.natureIds || []).includes(item.id) })),
@@ -145,7 +156,7 @@ Component({
             selected: (clause[dimension.key] || []).includes(option.id) }))
         }))
       })) }));
-      this.setData({ sections, fields: metadata.fields.map(field => Object.assign({}, field, { selected: draft.fieldIds.includes(field.id) })) });
+      this.setData({ sections, fieldsSummary: summaries[2].groups[0].lines[0], fields: metadata.fields.map(field => Object.assign({}, field, { selected: draft.fieldIds.includes(field.id) })) });
     },
     nameInput: function(event) { this.setData({ 'draft.name': event.detail.value }); },
     enabledChange: function(event) { this.setData({ 'draft.enabled': event.detail.value }); },
@@ -158,13 +169,14 @@ Component({
     addClause: function(event) {
       if (this.blocked()) return;
       const key = event.currentTarget.dataset.section;
-      this.setData({ ['draft.' + key]: this.data.draft[key].concat([view.blankClause('scope')]) }, () => this.refreshEditor());
+      const type = event.currentTarget.dataset.type || 'scope', index = this.data.draft[key].length;
+      this.setData({ ['draft.' + key]: this.data.draft[key].concat([view.blankClause(type)]), activeClause: key + '-' + index }, () => { this.refreshEditor(); wx.nextTick(() => this.scrollTo('#directory-clause-' + key + '-' + index)); });
     },
     removeClause: function(event) {
       if (this.blocked()) return;
       const { section, index } = event.currentTarget.dataset;
       if (this.data.draft[section].length < 2) return;
-      this.setData({ ['draft.' + section]: this.data.draft[section].filter((item, i) => i !== Number(index)) }, () => this.refreshEditor());
+      this.setData({ ['draft.' + section]: this.data.draft[section].filter((item, i) => i !== Number(index)), activeClause: '' }, () => this.refreshEditor());
     },
     toggleChoice: async function(event) {
       if (this.blocked()) return;
@@ -197,10 +209,11 @@ Component({
     closePeople: function() { this._picker = null; this.setData({ pickerVisible: false, pickerValue: [] }); this.triggerEvent('pickerchange', { visible: false }); },
     confirmPeople: function(event) {
       if (!this._picker) return;
-      this.setData({ ['draft.' + this._picker.section + '[' + this._picker.index + '].personIds']: event.detail.keys }, () => this.refreshEditor());
+      this.setData({ ['draft.' + this._picker.section + '[' + this._picker.index + '].personIds']: event.detail.keys, activeClause: '' }, () => this.refreshEditor());
       this.closePeople();
     },
     toggleRule: function(event) {
+      if (!this.data.batchMode) return;
       if (this.blocked()) return;
       const id = event.currentTarget.dataset.id;
       const selected = this.data.selected.includes(id) ? this.data.selected.filter(value => value !== id) : this.data.selected.concat([id]);
@@ -214,7 +227,10 @@ Component({
     clearSelection: function() { if (!this.blocked()) this.setSelection([]); },
     save: async function() {
       if(this.blocked())return;
-      if(['audience','targets'].some(key=>this.data.draft[key].some(clause=>clause.type==='scope'&&!(clause.natureIds||[]).length&&!clause.sameNature))){this.setData({notice:relations.selectNatureRequired});return;}
+      for (const section of ['audience','targets']) {
+        const index = this.data.draft[section].findIndex(clause => clause.type === 'scope' && !(clause.natureIds || []).length && !clause.sameNature);
+        if (index >= 0) { this.setData({ notice: relations.selectNatureRequired, activeSection: section, activeClause: section + '-' + index }, () => { this.refreshEditor(); wx.nextTick(() => this.scrollTo('#directory-clause-' + section + '-' + index)); }); return; }
+      }
       const source=this.data.draft;
       if(this._legacyNatureEdit){const clauses=source.audience.concat(source.targets).filter(clause=>clause.type==='scope');const labels=(this._metadata.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.directorySameNatureSummary);const result=await wx.showModal({title:relations.legacyScopeChangeTitle,content:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==source)return;}
       this.write('saveContactDirectoryRule',view.payload(source));

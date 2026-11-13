@@ -1,8 +1,17 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { describeMessage } = require('../../shared/messageFactsView');
+const { describeMessage, messageCategory } = require('../../shared/messageFactsView');
 const copy = require('../../shared/locales/zh-CN/messageFacts');
+
+test('日程提醒兼容历史系统分类，其他通知不误归类', () => {
+  assert.equal(messageCategory({ type: 'calendar_reminder', category: 'system' }), 'calendar');
+  assert.equal(messageCategory({ type: 'calendar_reminder', category: 'calendar' }), 'calendar');
+  assert.equal(messageCategory({ type: 'account_security', category: 'system' }), 'system');
+  assert.equal(messageCategory({ title: 'calendar_reminder', category: 'system' }), 'system');
+  assert.equal(messageCategory({ sourceType: 'venue_approval', category: 'venue' }), 'venue');
+  assert.equal(messageCategory(null), '');
+});
 
 test('历史通知只按类型使用前端语料，不解析后端标题正文', () => {
   const result = describeMessage({ type: 'submission_rejected', title: 'UNTRUSTED_TITLE', description: 'UNTRUSTED_DESCRIPTION' }, copy, { notification: true, canOpen: true });

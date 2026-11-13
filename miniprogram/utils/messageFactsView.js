@@ -1,6 +1,10 @@
 'use strict';
 
 function text(value) { return typeof value === 'string' ? value : ''; }
+function messageCategory(item) {
+  const source = item || {};
+  return source.type === 'calendar_reminder' ? 'calendar' : text(source.category);
+}
 function positive(value) { return Number.isInteger(value) && value > 0; }
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
 function label(map, key, fallback) { return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : fallback; }
@@ -115,4 +119,4 @@ function describeMessage(item, copy, options) {
   return { title, description, detailLines, canOpen, workContextName };
 }
 
-module.exports = { describeMessage, contextLabel };
+module.exports = { describeMessage, contextLabel, messageCategory };

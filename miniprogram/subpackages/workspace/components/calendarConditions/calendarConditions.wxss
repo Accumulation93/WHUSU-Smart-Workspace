@@ -1,4 +1,7 @@
 .calendar-condition-stack,.calendar-condition-card { display:flex;flex-direction:column;gap:var(--ui-inline-gap); }
+.calendar-source-actions, .calendar-source-add { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.calendar-source-actions { justify-content: flex-end; }
+.calendar-source-actions .calendar-condition-action, .calendar-source-add .calendar-condition-action { min-height: var(--ui-control-height); }
 .calendar-condition-toolbar { display:flex;align-items:center;gap:var(--ui-field-gap); }
 .calendar-condition-type { flex:1;min-width:0; }
 .calendar-condition-toolbar .picker-display { min-height:var(--ui-control-height);padding:var(--ui-compact-padding-y) var(--ui-compact-padding-x);font-size:var(--ui-type-body);line-height:1.5; }

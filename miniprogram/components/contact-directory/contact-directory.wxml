@@ -1,5 +1,5 @@
 <view class="directory-stack">
-  <view wx:if="{{!detailKey}}" class="directory-card directory-stack">
+  <view wx:if="{{!detailKey && !draft}}" class="directory-card directory-stack">
     <view class="directory-heading">{{admin ? copy.rules : copy.title}}</view>
     <app-loading wx:if="{{loading || busy}}" text="{{busy ? copy.saving : (admin ? copy.loadingRules : copy.loading)}}" />
     <view wx:if="{{notice}}" class="directory-note">{{notice}}</view>
@@ -10,18 +10,20 @@
     </view>
     <block wx:if="{{admin}}">
       <button class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="edit">{{copy.add}}</button>
-      <view class="directory-note">{{selectedText}}</view>
-      <view wx:if="{{rules.length}}" class="card-actions directory-actions">
+      <button wx:if="{{rules.length}}" class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" bindtap="toggleBatch">{{batchMode ? copy.finishSelection : copy.manageSelection}}</button>
+      <view wx:if="{{batchMode}}" class="directory-note">{{selectedText}}</view>
+      <view wx:if="{{rules.length && batchMode}}" class="card-actions directory-actions directory-small-actions">
         <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="selectAll">{{copy.selectAll}}</button>
         <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="clearSelection">{{copy.clearSelection}}</button>
         <button class="danger-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed || !selected.length}}" bindtap="deleteSelected">{{copy.deleteSelected}}</button>
       </view>
       <view wx:for="{{rules}}" wx:key="id" class="directory-rule">
-        <view class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="toggleRule" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+        <view class="{{batchMode ? 'selection-option-card' : 'directory-rule-summary'}} {{item.selected && batchMode ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected && batchMode}}" catchtap="toggleRule" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
           <view class="directory-value">{{item.name}}</view><view class="directory-note">{{item.enabled ? copy.enabled : copy.disabled}}</view>
-          <view wx:for="{{item.summary}}" wx:for-item="section" wx:key="key" class="directory-stack"><view class="directory-label">{{section.title}}</view><view wx:if="{{section.hint}}" class="directory-note">{{section.hint}}</view><view wx:for="{{section.groups}}" wx:for-item="group" wx:key="key" class="directory-stack"><view wx:if="{{group.title}}" class="directory-value">{{group.title}}</view><view wx:if="{{group.hint}}" class="directory-note">{{group.hint}}</view><view wx:for="{{group.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view></view></view>
+          <view wx:for="{{item.summary}}" wx:for-item="section" wx:key="key" class="directory-summary-section"><view class="directory-label">{{section.title}}</view><view wx:for="{{section.groups}}" wx:for-item="group" wx:key="key"><view wx:for="{{group.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view><view wx:if="{{item.expanded && group.hint}}" class="directory-note">{{group.hint}}</view></view></view>
         </view>
-        <view class="card-actions directory-actions">
+        <view class="card-actions directory-actions directory-small-actions">
+          <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" data-id="{{item.id}}" bindtap="toggleRuleDetails">{{item.expanded ? copy.collapse : copy.expand}}</button>
           <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="edit">{{copy.edit}}</button>
           <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" data-copy="{{true}}" bindtap="edit">{{copy.copy}}</button>
           <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="toggleEnabled">{{item.enabled ? copy.disable : copy.enable}}</button>
@@ -37,15 +39,21 @@
     <view class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="cancelDelete" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.cancel}}</button><button class="danger-btn ui-motion-button" disabled="{{busy}}" bindtap="confirmDelete" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.remove}}</button></view>
   </view>
   <view wx:if="{{admin && draft && !deleteTargets}}" id="directory-editor" class="directory-card directory-stack">
+    <app-loading wx:if="{{busy}}" text="{{copy.saving}}" /><view wx:if="{{notice}}" class="directory-note">{{notice}}</view>
     <view class="directory-label">{{copy.name}}</view><input class="field-input" value="{{draft.name}}" placeholder="{{copy.namePlaceholder}}" disabled="{{busy}}" bindinput="nameInput" />
-    <view wx:for="{{sections}}" wx:for-item="section" wx:key="key" class="directory-stack">
-      <view class="directory-heading">{{section.title}}</view><view class="directory-note">{{section.help}}</view>
-      <view wx:for="{{section.clauses}}" wx:for-item="clause" wx:key="index" class="directory-clause directory-stack">
-        <view class="directory-label">{{clause.title}}</view><view class="directory-note">{{section.typeLabel}}</view>
+    <view wx:for="{{sections}}" wx:for-item="section" wx:key="key" class="directory-section directory-stack">
+      <view class="directory-heading">{{section.title}}</view>
+      <block wx:if="{{activeSection !== section.key}}"><view wx:for="{{section.clauses}}" wx:for-item="clause" wx:key="index"><view wx:for="{{clause.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view></view><view class="card-actions directory-small-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" data-section="{{section.key}}" bindtap="editSection">{{section.key === 'audience' ? copy.editAudience : copy.editTargets}}</button></view></block>
+      <block wx:else><view class="directory-note">{{section.help}}</view>
+      <view wx:for="{{section.clauses}}" wx:for-item="clause" wx:key="index" id="directory-clause-{{section.key}}-{{clause.index}}" class="directory-clause directory-stack">
+        <view class="directory-label">{{clause.title}}</view>
+        <view wx:if="{{!clause.expanded}}"><view wx:for="{{clause.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view></view>
+        <view class="card-actions directory-small-actions"><button wx:if="{{!clause.expanded}}" class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" data-section="{{section.key}}" data-index="{{clause.index}}" bindtap="editClause">{{copy.editGroup}}</button><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy || section.clauses.length === 1}}" data-section="{{section.key}}" data-index="{{clause.index}}" bindtap="removeClause">{{section.removeLabel}}</button></view>
+        <block wx:if="{{clause.expanded}}"><view class="directory-note">{{section.typeLabel}}</view>
         <picker range="{{clause.labels}}" value="{{clause.typeIndex}}" data-section="{{section.key}}" data-index="{{clause.index}}" disabled="{{busy}}" bindchange="typeChange"><view class="field-input">{{clause.labels[clause.typeIndex]}}</view></picker>
         <block wx:if="{{clause.type === 'people'}}">
           <view class="directory-note">{{clause.selectedText}}</view><view>{{clause.names}}</view>
-          <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy}}" data-section="{{section.key}}" data-index="{{clause.index}}" bindtap="openPeople">{{section.chooseLabel}}</button>
+          <button class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" data-section="{{section.key}}" data-index="{{clause.index}}" bindtap="openPeople">{{section.chooseLabel}}</button>
         </block>
         <block wx:if="{{clause.type === 'scope'}}">
           <view class="directory-note">{{section.optionalHelp}}</view><view wx:if="{{section.key === 'targets'}}" class="directory-note">{{copy.sameScopeHelp}}</view>
@@ -60,15 +68,17 @@
           </view>
         </block>
         <view class="directory-note">{{clause.help}}</view>
-        <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy || section.clauses.length === 1}}" data-section="{{section.key}}" data-index="{{clause.index}}" bindtap="removeClause">{{section.removeLabel}}</button>
+        <view class="card-actions directory-small-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" bindtap="finishClause">{{copy.finishGroup}}</button></view></block>
       </view>
-      <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy}}" data-section="{{section.key}}" bindtap="addClause">{{section.addLabel}}</button>
+      <view class="directory-add-options"><button class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" data-section="{{section.key}}" data-type="people" bindtap="addClause">{{section.key === 'audience' ? copy.addAudiencePeople : copy.addTargetPeople}}</button><button class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" data-section="{{section.key}}" data-type="scope" bindtap="addClause">{{section.key === 'audience' ? copy.addAudienceScope : copy.addTargetScope}}</button><button wx:if="{{section.key === 'targets'}}" class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" data-section="targets" data-type="self" bindtap="addClause">{{copy.addTargetSelf}}</button></view>
+      <view class="card-actions directory-small-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" bindtap="finishSection">{{copy.finishSection}}</button></view></block>
     </view>
-    <view class="directory-heading">{{copy.columns}}</view>
-    <view class="directory-filter-head" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" bindtap="toggleFields" aria-expanded="{{fieldsExpanded}}"><view class="directory-label">{{copy.chooseFields}}</view><text class="directory-note">{{fieldsExpanded ? copy.collapse : copy.expand}}</text></view><view class="directory-note">{{copy.baseColumns}}</view>
+    <view class="directory-section directory-stack"><view class="directory-heading">{{copy.columns}}</view><view class="directory-note">{{fieldsSummary}}</view>
+    <view wx:if="{{activeSection !== 'fields'}}" class="card-actions directory-small-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" bindtap="toggleFields">{{copy.editColumns}}</button></view><view class="directory-note">{{copy.baseColumns}}</view>
+    <block wx:if="{{activeSection === 'fields'}}">
     <view wx:if="{{!fields.length}}" class="directory-note">{{copy.noFields}}</view>
-    <view wx:if="{{fieldsExpanded}}" class="directory-options"><view wx:for="{{fields}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="toggleChoice" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">{{item.label}}</view></view>
-    <view class="directory-note">{{copy.columnsHelp}}</view>
+    <view class="directory-options"><view wx:for="{{fields}}" wx:key="id" class="selection-option-card {{item.selected ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected}}" catchtap="toggleChoice" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">{{item.label}}</view></view>
+    <view class="directory-note">{{copy.columnsHelp}}</view><view class="card-actions directory-small-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" bindtap="toggleFields">{{copy.finishSection}}</button></view></block></view>
     <view class="directory-switch"><text>{{copy.enable}}</text><switch color="#2563eb" checked="{{draft.enabled}}" disabled="{{busy}}" bindchange="enabledChange" /></view><view class="directory-note">{{copy.ruleEffectHelp}}</view>
     <view class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy}}" bindtap="cancel">{{copy.cancel}}</button><button class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy || loading || loadFailed}}" bindtap="save">{{copy.save}}</button></view>
   </view>

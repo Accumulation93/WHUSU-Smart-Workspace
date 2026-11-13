@@ -21,12 +21,14 @@ async function openActivity(page,participants,canEdit=true,status='success') {
 test('activity details and people remain compact, readable and editable',async({page},info)=>{
   const dialog=await openActivity(page,[{name:'\u5f20\u540c\u5b66',positions:[{identityCategory:'\u6210\u5458',department:'\u529e\u516c\u5ba4',workGroup:''}]},{name:'\u674e\u540c\u5b66',positions:[]}]);
   await page.screenshot({path:info.outputPath('compact-activity.png'),animations:'disabled'});
-  const action=dialog.locator('.calendar-participants-action');
-  const geometry=await action.evaluate(el=>{const r=el.getBoundingClientRect(),p=el.parentElement.getBoundingClientRect();return {height:r.height,width:r.width,parent:p.width,center:Math.abs(r.y+r.height/2-p.y-p.height/2)};});
+  await expect(dialog.locator('.calendar-participant')).toHaveCount(0);
+  const action=dialog.getByRole('button',{name:copy.editParticipants,exact:true});
+  const geometry=await action.evaluate(el=>{const r=el.getBoundingClientRect(),p=el.parentElement.getBoundingClientRect(),peer=el.parentElement.querySelector('button').getBoundingClientRect();return {height:r.height,width:r.width,parent:p.width,center:Math.abs(r.y+r.height/2-peer.y-peer.height/2)};});
   expect(geometry.height).toBeGreaterThanOrEqual(36);expect(geometry.height).toBeLessThanOrEqual(48);expect(geometry.width).toBeLessThan(geometry.parent/2);expect(geometry.center).toBeLessThan(2);
   const content=await dialog.locator('.activity-detail').boundingBox();expect(content.height).toBeLessThan(390);
   await expect(dialog.locator('.activity-detail ui-icon, .activity-facts img, .activity-facts svg')).toHaveCount(0);
   await expect(dialog.locator('.activity-values')).toContainText(venueCopy.copy_13293d504a);
+  await dialog.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
   const cards=await dialog.locator('.calendar-participant').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height,width:r.width,scroll:n.scrollWidth};}));
   for(const card of cards){expect(card.height).toBeLessThan(95);expect(card.scroll).toBeLessThanOrEqual(card.width+1);}
   if(page.viewportSize().width>=520)expect(Math.abs(cards[0].top-cards[1].top)).toBeLessThan(1);
@@ -52,7 +54,9 @@ test('participant access and loading failures remain visible and can retry',asyn
 test('long participant lists scroll without expanding controls or losing closing actions',async({page},info)=>{
   const participants=Array.from({length:30},(_,i)=>({name:'Participant '+i,positions:[{identityCategory:'Committee member',department:'Long department name for wrapping review',workGroup:'Public activity coordination team'}]}));
   const dialog=await openActivity(page,participants,false);
-  await expect(dialog.locator('.calendar-participants-action')).toHaveCount(0);
+  await expect(dialog.getByRole('button',{name:copy.editParticipants,exact:true})).toHaveCount(0);
+  await expect(dialog.locator('.calendar-participant')).toHaveCount(0);
+  await dialog.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
   await dialog.getByText('Participant 29',{exact:true}).scrollIntoViewIfNeeded();
   await expect(dialog.getByText('Participant 29',{exact:true})).toBeVisible();
   expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
@@ -77,12 +81,13 @@ test('participant conditions keep compact actions and preserve selection after s
   for(const action of await editor.locator('button').all()) {
     const r=await action.boundingBox();expect(r.height).toBeGreaterThanOrEqual(36);expect(r.height).toBeLessThanOrEqual(48);
   }
-  await editor.getByRole('button',{name:copy.choosePeople+' · 0',exact:true}).click();
+  await editor.getByRole('button',{name:copy.choosePeople,exact:true}).click();
   const picker=page.getByRole('dialog');
   await picker.getByText('Member A',{exact:true}).click();
   await picker.getByRole('button',{name:/\u786e\u8ba4/,exact:false}).click();
-  await expect(editor.getByText('Member A',{exact:true})).toBeVisible();
-  await editor.getByRole('button',{name:copy.addCondition,exact:true}).click();
+  await expect(editor.getByText(copy.participantPeopleSummary(1,'Member A'),{exact:true})).toBeVisible();
+  await expect(editor.locator('.calendar-condition-toolbar')).toHaveCount(0);
+  await editor.getByRole('button',{name:copy.addParticipantScope,exact:true}).click();
   const scope=editor.locator('.calendar-condition-card').nth(1);
   await scope.getByLabel('Staff',{exact:true}).check();
   await scope.locator('summary').first().click();
@@ -96,5 +101,6 @@ test('participant conditions keep compact actions and preserve selection after s
   await expect(page).toHaveURL(/\/web\/calendar$/);
   expect(writes).toHaveLength(1);expect(writes[0].targets[0].personIds).toEqual(['p']);expect(writes[0].targets[1].departmentIds).toEqual(['d']);
   expect(writes[0].targets[1].natureIds).toEqual(['staff']);
-  await page.goto(url);await expect(page.locator('.calendar-condition-card').first().getByText('Member A',{exact:true})).toBeVisible();
+  await page.goto(url);await expect(page.locator('.calendar-condition-card').first().getByText(copy.participantPeopleSummary(1,'Member A'),{exact:true})).toBeVisible();
+  await expect(page.locator('.calendar-condition-toolbar')).toHaveCount(0);
 });

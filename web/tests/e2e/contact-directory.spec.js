@@ -95,7 +95,7 @@ test('directory-only admin can configure without loading member records, copy an
   const dialog=page.getByRole('dialog');
   await dialog.getByRole('button').filter({hasText:'Visible candidate'}).click();
   await dialog.getByRole('button',{name:'确认',exact:true}).click();
-  await page.locator('summary').filter({hasText:ui.chooseFields}).click();
+  await page.getByRole('button',{name:ui.editColumns,exact:true}).click();
   await page.getByLabel('Phone',{exact:true}).check();
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:testInfo.outputPath('directory-editor.png'),fullPage:true,animations:'disabled'});
@@ -115,6 +115,7 @@ test('directory-only admin can configure without loading member records, copy an
   await option.click(); await expect(option).toHaveClass(/personnel-option-selected/);
   await filter.locator('summary').click(); await expect(filter).not.toHaveAttribute('open','');
   await page.getByRole('button',{name:ui.cancel,exact:true}).click();
+  await page.getByRole('button',{name:ui.manageSelection,exact:true}).click();
   await page.getByRole('button',{name:ui.selectAll,exact:true}).click();
   await page.getByRole('button',{name:ui.deleteSelected,exact:true}).click();
   await expect(page.getByRole('dialog')).toContainText('2');

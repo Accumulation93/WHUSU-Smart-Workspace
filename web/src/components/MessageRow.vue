@@ -45,7 +45,7 @@ import { computed } from 'vue';
 import UiIcon from '@/components/UiIcon.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { formatListTime, formatDetailTime, formatDateOnly } from '@/runtime/dateTime.js';
-import { describeMessage } from '@/shared/messageFactsView.js';
+import { describeMessage, messageCategory } from '@/shared/messageFactsView.js';
 import messageFactsCopy from '@/locales/zh-CN/shared/messageFacts.js';
 import { messageRoute } from '@/runtime/messageNavigation.js';
 
@@ -81,7 +81,7 @@ const timeText = computed(() => formatListTime(
 ));
 
 const categoryText = computed(() => {
-  return copy.messages.categoryLabels[props.item.category] || '';
+  return copy.messages.categoryLabels[messageCategory(props.item)] || '';
 });
 
 const contextName = computed(() => presentation.value.workContextName);

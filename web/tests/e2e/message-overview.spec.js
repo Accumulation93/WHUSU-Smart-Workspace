@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi, callsOf } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/messageFacts.js';
+import messagesCopy from '../../src/locales/zh-CN/shared/messages.js';
 
 const startTime = '2026-11-10T08:00:00.000Z';
 const endTime = '2026-11-10T10:00:00.000Z';
@@ -28,6 +29,20 @@ async function installMessages(page, notifications, todos = []) {
   await page.route('**/api/listTodos', route => route.fulfill({ json: { status: 'success', items: todos, total: todos.length, nextCursor: '' } }));
   return api;
 }
+
+test('calendar reminders have their own category in portal and messages while security remains system', async ({ page }) => {
+  await installMessages(page, [
+    { id: 'calendar-category', type: 'calendar_reminder', category: 'system', displayFacts: { businessTitle: 'Schedule category check', startTime, endTime } },
+    { id: 'security-category', type: 'account_security', category: 'system', displayFacts: { event: { subtype: 'wechat_recovered' } } }
+  ]);
+  for (const path of ['/web/portal', '/web/messages?tab=notifications']) {
+    await page.goto(path);
+    const calendar = page.locator('.notification-item').filter({ hasText: 'Schedule category check' });
+    await expect(calendar).toContainText(messagesCopy.categoryLabels.calendar);
+    await expect(calendar).not.toContainText(messagesCopy.categoryLabels.system);
+    await expect(page.locator('.notification-item').filter({ hasText: copy.accountWechatRecovered })).toContainText(messagesCopy.categoryLabels.system);
+  }
+});
 
 test('all fourteen notification kinds retain business overview independently of opening details', async ({ page }) => {
   const items = notificationCases.map(([type, facts], index) => ({ id: `overview-${index}`, type, isRead: false,

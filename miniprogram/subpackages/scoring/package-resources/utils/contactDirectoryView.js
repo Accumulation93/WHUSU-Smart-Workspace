@@ -53,9 +53,9 @@ function decorateContact(contact, dateFormatter, copy) {
   return item;
 }
 function ruleSections(rule, metadata, copy, relations) {
-  const clauseLines = clause => {
+  const clauseLines = (clause, section) => {
     if (clause.type === 'self') return [copy.self];
-    if (clause.type === 'people') return [copy.specifiedPeopleLine(clause.personIds.length, (metadata.people || []).filter(person => clause.personIds.includes(person.personId)).map(person => person.name).join('、'))];
+    if (clause.type === 'people') return [clause.personIds.length ? copy.specifiedPeopleLine(clause.personIds.length, (metadata.people || []).filter(person => clause.personIds.includes(person.personId)).map(person => person.name).join('、')) : section === 'audience' ? copy.audienceEmpty : copy.targetsEmpty];
     const nature = !relations ? '' : clause.sameNature ? relations.directorySameNatureSummary : clause.natureIds == null ? relations.legacyScope : (clause.natureIds || []).map(id => ((metadata.natures || []).find(item => item.id === id) || {}).name || copy.unnamed).join('、');
     return [relations ? copy.scopeFieldLine(relations.nature, nature) : nature].concat([['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
       .filter(([key, options, same]) => clause[same] || (clause[key] || []).length)
@@ -67,7 +67,7 @@ function ruleSections(rule, metadata, copy, relations) {
       }).join('、')))));
   };
   return ['audience', 'targets'].map(key => ({ key, title: copy[key], hint: copy[key + 'Help'], groups: rule[key].map((clause, index) => ({
-    key: index, title: copy[key + 'GroupTitle'](index + 1), hint: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')], lines: clauseLines(clause)
+    key: index, title: copy[key + 'GroupTitle'](index + 1), hint: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')], lines: clauseLines(clause, key)
   })) })).concat([{ key: 'fields', title: copy.columns, groups: [{ key: 'fields', title: '', hint: '',
     lines: [rule.fieldIds.map(id => (metadata.fields.find(field => field.id === id) || {}).label || copy.unnamed).join('、') || copy.baseOnly] }] }]);
 }

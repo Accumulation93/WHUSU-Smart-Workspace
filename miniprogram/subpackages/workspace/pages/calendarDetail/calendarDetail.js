@@ -8,11 +8,11 @@ const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const scopes=['instance','following','series'];
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.brandName,loading:false,busy:false,notice:'',detail:null,confirmation:false,action:'',scopeIndex:0,scopeLabels:scopes.map(scope=>copy[scope]),canAdd:false},
+  data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.brandName,loading:false,busy:false,notice:'',detail:null,participantsExpanded:false,confirmation:false,action:'',scopeIndex:0,scopeLabels:scopes.map(scope=>copy[scope]),canAdd:false},
   onLoad:function(options){this._options=options;this.setData({navTopPx:getNavigationBarMetrics().totalHeight});let canAdd=false;try{const platform=wx.getDeviceInfo().platform;canAdd=['ios','android'].includes(platform)&&wx.canIUse('addPhoneCalendar');}catch(_){}this.setData({canAdd});},
   onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
-  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
-  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({detail:null,confirmation:false,busy:false});},
+  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed){orgSession.invalidateRequests(this);this.setData({detail:null,participantsExpanded:false});}this._visible=true;this.load();},
+  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({detail:null,participantsExpanded:false,confirmation:false,busy:false});},
   onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},
   async load(){
     const request=orgSession.beginRequest(this,'detail'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({loading:true,notice:''});
@@ -25,6 +25,7 @@ Page({
       this.setData({detail,loading:false});
     }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}
   },
+  toggleParticipants:function(){if(this.data.detail)this.setData({participantsExpanded:!this.data.participantsExpanded});},
   edit:function(){const item=this.data.detail;if(item)wx.navigateTo({url:'/subpackages/workspace/pages/calendarEdit/calendarEdit?id='+item.id+'&date='+item.occurrenceDate});},
   confirm:function(e){if(!this.data.busy)this.setData({confirmation:true,action:e.currentTarget.dataset.action,scopeIndex:0});},
   close:function(){if(!this.data.busy)this.setData({confirmation:false});},

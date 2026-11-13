@@ -1,5 +1,11 @@
 'use strict';
 module.exports = {
+  manageSelection: '批量管理', finishSelection: '完成',
+  editAudience: '设置查看者', editTargets: '设置可查看人员', editColumns: '设置可见资料',
+  finishSection: '完成设置', finishGroup: '完成选择', editGroup: '修改',
+  audienceEmpty: '尚未选择查看者', targetsEmpty: '尚未选择可查看人员',
+  addAudiencePeople: '添加指定查看者', addAudienceScope: '按岗位添加查看者',
+  addTargetPeople: '添加指定人员', addTargetScope: '按岗位添加人员', addTargetSelf: '允许查看本人资料',
   title: '通讯录', profile: '本人资料', rules: '通讯录查看规则', permission: '通讯录规则管理',
   permissionDescription: '设置哪些人能查看哪些人的通讯录资料。管理规则本身不授予资料查看权限。',
   audience: '哪些人可以查看通讯录', targets: '他们可以查看哪些人', columns: '他们可以查看哪些资料',
