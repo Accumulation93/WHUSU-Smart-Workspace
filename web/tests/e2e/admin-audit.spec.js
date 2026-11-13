@@ -122,6 +122,7 @@ test('步骤窗口短内容自然高度，条件编辑互斥，指定条件显�
   await setup(page);await open(page,'auditTemplates');await page.getByRole('button',{name:ui.copy_b79428bf57,exact:true}).click();
   const dialog=page.getByRole('dialog');const geometry=await dialog.evaluate(node=>{const body=node.querySelector('.dialog-body'),footer=node.querySelector('.dialog-footer');return{scroll:body.scrollHeight,height:body.clientHeight,gap:footer.getBoundingClientRect().top-body.getBoundingClientRect().bottom};});expect(geometry.scroll-geometry.height).toBeLessThan(2);expect(geometry.gap).toBeLessThan(30);
   await dialog.getByRole('button',{name:ui.copy_d3da0e164a,exact:true}).click();await expect(dialog.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Staff',exact:true}).click();
   await dialog.getByLabel(personnel.department,{exact:true}).selectOption('specific');await dialog.getByRole('button',{name:personnel.choose,exact:true}).click();
   const picker=page.getByRole('dialog').last();await picker.getByRole('button',{name:'Office',exact:true}).click();await picker.getByRole('button',{name:personnel.confirm,exact:true}).click();
   await dialog.getByRole('button',{name:personnel.confirm,exact:true}).click();await expect(dialog.getByText(conditions.approvalSpecifiedValues('Office'),{exact:true})).toBeVisible();await expect(dialog.getByLabel(ui.copy_c5dd070c37)).toBeVisible();

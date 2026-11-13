@@ -182,7 +182,7 @@ async function collect(connection, orgId, identityId, removedNatureIds, referenc
   if (tables.has('organization_config_copy_drafts') && tables.has('organization_config_shares')) {
     const [drafts] = await connection.query(`SELECT d.*,s.id AS source_share_id
       FROM organization_config_copy_drafts d JOIN organization_config_shares s ON s.id=d.share_id
-      WHERE s.source_org_id=? AND s.kind='hr.identities' AND s.source_record_id=? AND d.state='draft' FOR UPDATE`, [orgId,identityId]);
+      WHERE s.source_org_id=? AND s.kind=? AND s.source_record_id=? AND d.state='draft' FOR UPDATE`, [orgId,'hr.identities',identityId]);
     for (const draft of drafts) {
       const payload = parse(draft.payload_json);
       const natureIds = (payload?.natureReferences || []).map(item => item.id);

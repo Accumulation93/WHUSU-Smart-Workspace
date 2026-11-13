@@ -82,7 +82,7 @@ test('dictionary saves actual parameters, retains a rejected draft and reads bac
 test('dictionary deletion freezes target, cancel sends nothing and referenced entries stay visible', async ({ page }) => {
   await setup(page);
   let deletes = 0;
-  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [{ id: 'i1', name: 'Protected identity' }] } }));
+  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', relationEnabled: true, natureOptions: [{id:'staff',name:'Staff'}], identities: [{ id: 'i1', name: 'Protected identity', natureIds:['staff'],version:1 }] } }));
   await page.route('**/api/deleteIdentity', route => {
     deletes++;
     expect(route.request().postDataJSON()).toEqual({ id: 'i1' });
@@ -159,7 +159,7 @@ test('identity creation and successful deletion both reread the authoritative li
   await setup(page, { 'hr.identities': true, 'hr.identities.delete': true });
   let rows = [];
   let reads = 0;
-  await page.route('**/api/listIdentities', route => { reads++; return route.fulfill({ json: { status: 'success', identities: rows, natureOptions: [{id:'staff',name:'Staff'}] } }); });
+  await page.route('**/api/listIdentities', route => { reads++; return route.fulfill({ json: { status: 'success', relationEnabled: true, identities: rows, natureOptions: [{id:'staff',name:'Staff'}] } }); });
   await page.route('**/api/saveIdentity', route => {
     const body = route.request().postDataJSON();
     expect(body).toMatchObject({ id: '', name: 'Created identity', description: 'Description', natureIds:['staff'] });
@@ -194,7 +194,7 @@ test('permission read failure remains retryable and does not request an unauthor
     return route.fulfill({ json: attempts === 1 ? { status: 'unavailable', message: 'Permission read failed' }
       : { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'hr.identities': true } } });
   });
-  await page.route('**/api/listIdentities', route => { directoryReads++; return route.fulfill({ json: { status: 'success', identities: [] } }); });
+  await page.route('**/api/listIdentities', route => { directoryReads++; return route.fulfill({ json: { status: 'success', relationEnabled: true, identities: [],natureOptions:[{id:'staff',name:'Staff'}] } }); });
   await page.goto('/web/admin?subApp=hr&tab=departments');
   await expect(page.getByText(feedback.readFailed)).toBeVisible();
   await expect(page.getByText('Permission read failed')).toHaveCount(0);
@@ -210,7 +210,7 @@ test('three dictionary drafts survive tab changes and are discarded when leaving
   await setup(page);
   await page.route('**/api/listDepartments', route => route.fulfill({ json: { status: 'success', departments: [{ id: 'd1', name: 'Department' }] } }));
   await page.route('**/api/listWorkGroups', route => route.fulfill({ json: { status: 'success', workGroups: [] } }));
-  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', identities: [] } }));
+  await page.route('**/api/listIdentities', route => route.fulfill({ json: { status: 'success', relationEnabled:true,natureOptions:[{id:'staff',name:'Staff'}],identities: [] } }));
   await page.goto('/web/admin?subApp=hr&tab=departments');
   await page.getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
   await page.getByLabel(ui.copy_ff6a3c2862).fill('Department draft');

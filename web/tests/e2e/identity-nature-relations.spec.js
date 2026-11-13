@@ -9,7 +9,7 @@ test('identity merge previews and binds the chosen description before saving and
   await page.route('**/api/getMyAdminPermissions',r=>r.fulfill({json:{status:'success',organizationId:'org-1',adminLevel:'admin',permissions:{'hr.identities':true}}}));
   let rows=[{id:'i1',name:'Leader',description:'Original',natureIds:['staff'],version:3}],reads=0;
   const requests=[];
-  await page.route('**/api/listIdentities',r=>{reads++;return r.fulfill({json:{status:'success',identities:rows,natureOptions:[{id:'staff',name:'Staff'},{id:'liaison',name:'Liaison'}]}});});
+  await page.route('**/api/listIdentities',r=>{reads++;return r.fulfill({json:{status:'success',relationEnabled:true,identities:rows,natureOptions:[{id:'staff',name:'Staff'},{id:'liaison',name:'Liaison'}]}});});
   await page.route('**/api/listAssignmentNatures',r=>r.fulfill({json:{status:'success',list:[{id:'staff',name:'Staff'},{id:'liaison',name:'Liaison'}]}}));
   await page.route('**/api/saveIdentity',r=>{const body=r.request().postDataJSON();requests.push(body);if(body.preview)return r.fulfill({json:{status:'success',preview:{id:'i1',version:3,mode:'merge',natureIds:['staff','liaison'],addedNatureIds:['liaison'],removedNatureIds:[],descriptionConflict:true,existingDescription:'Original',incomingDescription:'Incoming',usages:[],impactToken:'frozen-preview'}}});rows=[{...rows[0],description:'Incoming',natureIds:['staff','liaison'],version:4}];return r.fulfill({json:{status:'success',id:'i1'}});});
   await page.goto('/web/admin?subApp=hr&tab=identities');
