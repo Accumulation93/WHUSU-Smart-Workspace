@@ -6,6 +6,7 @@ const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const hrDates = require('../../shared/hrProfileDate').createHrProfileDate(() => ({ offset: 5.5 }));
 const { parseJsonBody } = require('../src/middleware/jsonBodyLimit');
 const { DEFAULT_JSON_BODY_BYTES, LARGE_JSON_BODY_BYTES } = require('../src/config/requestBodyLimits');
 const authorizationPath = require.resolve('../src/core/models/tableFileAuthorization');
@@ -35,8 +36,30 @@ async function run() {
       '../../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8'), {
       module: pageModule, Behavior: value => value,
       require: name => name.endsWith('/tableFile') ? { saveAndShareFile: async (...args) => exported.push(args) }
+        : name.endsWith('/hrProfileDate') ? hrDates
         : name === './adminUtils' ? { showShortToast: message => { throw new Error(String(message)); } } : {}
     });
+    const sourceRow = { currentValues: { time: '2026-11-13T01:02:53Z', text: '01:02:53' }, pendingValues: { time: '2026-11-13T02:03:54Z' } };
+    const sourceBefore = JSON.stringify(sourceRow);
+    let displayExport;
+    const displayPage = { data: { hrProfileFields: [{ id: 'time', label: 'Time', type: 'datetime' }, { id: 'text', label: 'Text', type: 'text' }], hrProfileRows: [sourceRow] },
+      setData(value) { Object.assign(this.data, value); },
+      exportHrProfileFile(headers, rows) { displayExport = { headers, rows }; } };
+    pageModule.exports.methods.exportHrProfiles.call(displayPage);
+    pageModule.exports.methods.confirmHrProfileExport.call(displayPage);
+    assert.equal(displayExport.rows[0].profile_0, '2026-11-13 06:32');
+    assert.equal(displayExport.rows[0].pending_0, '2026-11-13 07:33');
+    assert.equal(displayExport.rows[0].profile_1, '01:02:53');
+    assert.equal(JSON.stringify(sourceRow), sourceBefore);
+    // Read the actual workbook, rather than accepting a captured export request as success.
+    const minuteResult = await (await post('/api/buildTableFile', { ...displayExport, format: 'xlsx', sheetName: 'Time' })).json();
+    assert.equal(minuteResult.status, 'success');
+    const minuteWorkbook = new ExcelJS.Workbook();
+    await minuteWorkbook.xlsx.load(Buffer.from(minuteResult.fileBase64, 'base64'));
+    const minuteCells = JSON.stringify(minuteWorkbook.worksheets[0].getRow(2).values);
+    assert(minuteCells.includes('2026-11-13 06:32'));
+    assert(minuteCells.includes('2026-11-13 07:33'));
+    assert(!minuteCells.includes('T01:02:53'));
     for (const format of ['xlsx', 'csv']) {
       const page = { data: { currentOrganizationName: '测试组织' }, setLoading() {}, setData() {},
         callCloud: async (name, data) => {

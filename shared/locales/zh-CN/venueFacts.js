@@ -19,7 +19,9 @@ module.exports = {
   stepCount: count => `${count} 个审批步骤`,
   timeRange: (start, end) => `${start} 至 ${end}`,
   originalSchedule: (start, end) => `原安排：${start} 至 ${end}`,
+  originalScheduleRange: range => `原安排：${range}`,
   recurrenceValidity: (start, end) => `重复活动有效期：${start} 至 ${end}`,
+  recurrenceValidityRange: range => `重复活动有效期：${range}`,
   unlimitedScope: label => `${label}：不限`,
   timeRangeMissing: '起止时间未完整记录',
   repeatCountMissing: '重复次数未记录'

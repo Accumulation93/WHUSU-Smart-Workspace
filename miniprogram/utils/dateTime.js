@@ -2,6 +2,7 @@
 
 const eventBus = require('./eventBus');
 const timeCopy = require('../locales/zh-CN/time');
+const displayRules = require('./dateTimeFormat');
 
 const STORAGE_KEY = 'systemTimezoneConfig';
 const DEFAULT_SYSTEM_TIMEZONE_OFFSET = 8;
@@ -197,9 +198,26 @@ function formatListTime(value, systemTimezoneOffsetOrOptions, reviewStatus) {
 function formatDetailTime(value, systemTimezoneOffsetOrOptions, reviewStatus) {
   const options = normalizeFormatOptions(systemTimezoneOffsetOrOptions, reviewStatus);
   return appendReviewLabel(
-    formatParts(getShiftedUtcParts(value, options.timezoneOffset), true),
+    formatParts(getShiftedUtcParts(value, options.timezoneOffset), false),
     options.reviewStatus
   );
+}
+
+function formatDisplayTime(value, systemTimezoneOffsetOrOptions, reviewStatus) {
+  const options = normalizeFormatOptions(systemTimezoneOffsetOrOptions, reviewStatus);
+  return displayRules.formatDisplayTime(value, {
+    timezoneOffset: normalizeSystemTimezoneOffset(options.timezoneOffset, getSystemTimezoneConfig().offset),
+    reviewStatus: options.reviewStatus, reviewLabel: timeCopy.historicalTimezoneReviewRequired, copy: timeCopy
+  });
+}
+
+function formatTimeRange(start, end, options) {
+  const source = options || {};
+  return displayRules.formatTimeRange(start, end, {
+    timezoneOffset: normalizeSystemTimezoneOffset(source.timezoneOffset, getSystemTimezoneConfig().offset),
+    startReviewStatus: source.startReviewStatus, endReviewStatus: source.endReviewStatus,
+    reviewLabel: timeCopy.historicalTimezoneReviewRequired, copy: timeCopy
+  });
 }
 
 function formatAbsoluteDate(value, systemTimezoneOffset) {
@@ -267,7 +285,7 @@ function formatSystemClock(value, includeSeconds, systemTimezoneOffset) {
   const parts = getSystemNowParts(value, systemTimezoneOffset);
   if (!parts) return '';
   const base = `${pad(parts.hour)}:${pad(parts.minute)}`;
-  return includeSeconds ? `${base}:${pad(parts.second)}` : base;
+  return base;
 }
 
 function addDateDays(dateValue, amount) {
@@ -308,6 +326,8 @@ module.exports = {
   parseAbsoluteTime,
   formatListTime,
   formatDetailTime,
+  formatDisplayTime,
+  formatTimeRange,
   formatAbsoluteDate,
   formatDateOnly,
   formatClockTime,

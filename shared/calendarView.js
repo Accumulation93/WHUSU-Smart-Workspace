@@ -49,6 +49,28 @@ function timeline(day,offset) {
   finish();
   return Object.assign({},day,{timed,allDayItems:day.items.filter(item=>item.allDay),hours:Array.from({length:24},(_,hour)=>({label:String(hour).padStart(2,'0')+':00',items:timed.filter(item=>Math.floor(item.startMinute/60)===hour)}))});
 }
+function timeText(item, offset, formatters, timeCopy, messageCopy) {
+  const startReviewStatus = item.startAtReviewStatus || item.startTimeReviewStatus;
+  const endReviewStatus = item.endAtReviewStatus || item.endTimeReviewStatus;
+  if (!item.allDay) return formatters.formatTimeRange(item.startAt, item.endAt, {
+    timezoneOffset: offset / 60,
+    startReviewStatus,
+    endReviewStatus
+  }) || formatters.formatDisplayTime(item.startAt, {timezoneOffset: offset / 60, reviewStatus: startReviewStatus})
+    || formatters.formatDisplayTime(item.endAt, {timezoneOffset: offset / 60, reviewStatus: endReviewStatus});
+  const calendarOffset = Number.isFinite(item.timezoneOffset) ? item.timezoneOffset : offset;
+  const startDate = formatters.formatAbsoluteDate(item.startAt, calendarOffset / 60);
+  const endExclusive = formatters.formatAbsoluteDate(item.endAt, calendarOffset / 60);
+  const endDate = endExclusive ? addDays(endExclusive, -1) : '';
+  const displayDate = value => {
+    if (!value) return '';
+    const parts = value.split('-').map(Number);
+    return timeCopy.calendarDate(parts[0], parts[1], parts[2]);
+  };
+  const start = displayDate(startDate), end = displayDate(endDate);
+  if (start && end) return start === end ? messageCopy.allDayDate(start) : messageCopy.allDayDateRange(start, end);
+  return start || end ? messageCopy.allDayDate(start || end) : '';
+}
 function participantSourceSummary(clause, metadata, copy, relations) {
   if (clause.type === 'self') return [copy.participantSelf];
   if (clause.type === 'people') {
@@ -66,4 +88,4 @@ function participantSourceSummary(clause, metadata, copy, relations) {
   });
   return lines.length ? lines : [copy.participantScopeEmpty];
 }
-module.exports = { addDays, period, move, days, blank, edit, timeline, participantSourceSummary };
+module.exports = { addDays, period, move, days, blank, edit, timeline, timeText, participantSourceSummary };

@@ -4,6 +4,8 @@ const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
+const timeCopy=require('../../../../locales/zh-CN/time');
+const messageCopy=require('../../../../locales/zh-CN/messageFacts');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const scopes=['instance','following','series'];
@@ -20,7 +22,7 @@ Page({
       const range=view.period(this._options.selected||this._options.date,this._options.mode||'week',config.timezoneOffset);
       const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
       const detail=result.items.find(item=>item.id===this._options.id&&item.occurrenceDate===this._options.date);if(!detail)throw new Error(copy.unavailable);
-      detail.timeText=time.formatListTime(detail.startAt,config.timezoneOffset/60)+' — '+time.formatListTime(detail.endAt,config.timezoneOffset/60);
+      detail.timeText=view.timeText(detail,config.timezoneOffset,time,timeCopy,messageCopy);
       detail.participants=(detail.participants||[]).map(person=>({name:person.name,personReference:person.personReference||'',positions:person.positions.map(position=>[position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · '))}));
       this.setData({detail,loading:false});
     }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}

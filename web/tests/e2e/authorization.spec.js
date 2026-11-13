@@ -153,6 +153,8 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.locator('.authorization-resource > summary').filter({ hasText: ui.resources['venue.bookings'] }).click();
   await page.getByRole('button', { name: ui.actions.read, exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
+  await page.getByLabel(ui.startsAt, { exact: true }).fill('2026-11-13T10:15');
+  await page.getByLabel(ui.endsAt, { exact: true }).fill('2026-11-14T11:25');
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   await expect(page.getByText(ui.impactCount(1, 1), { exact: true })).toBeVisible();
   expect(calls.saves).toBe(0);
@@ -162,8 +164,12 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   expect(calls.saved).toEqual(calls.preview);
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
+  expect(calls.saved.policy.startsAt).toBe('2026-11-13T02:15:00.000Z');
+  expect(calls.saved.policy.endsAt).toBe('2026-11-14T03:25:00.000Z');
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByLabel(ui.name, { exact: true })).toHaveValue('Test rule');
+  await expect(page.getByLabel(ui.startsAt, { exact: true })).toHaveValue('2026-11-13T10:15');
+  await expect(page.getByLabel(ui.endsAt, { exact: true })).toHaveValue('2026-11-14T11:25');
   await expect(page.getByText(/Example member/)).toBeVisible();
   expect(errors).toEqual([]);
 });

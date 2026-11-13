@@ -90,7 +90,7 @@ import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/pen
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { completeMessageReceipt } from '@/runtime/messageReceipt.js';
 import { showToast } from '@/runtime/notify.js';
-import { formatListTime } from '@/runtime/dateTime.js';
+import { formatListTime, formatTimeRange } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 defineProps({ embedded: Boolean });
@@ -136,10 +136,7 @@ const roleLine = computed(() => {
 });
 
 function timeRange(item) {
-  const start = formatListTime(item.timeStart, item.timeStartReviewStatus);
-  const end = formatListTime(item.timeEnd, item.timeEndReviewStatus);
-  if (!start && !end) return '';
-  return start + ' ' + copy.venue.timeSeparator + ' ' + end;
+  return formatTimeRange(item.timeStart, item.timeEnd, { startReviewStatus: item.timeStartReviewStatus, endReviewStatus: item.timeEndReviewStatus });
 }
 
 function goWorkRole() {

@@ -9,6 +9,8 @@ const activityModel = require('../models/scoreActivity');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
+const systemConfigModel = require('../../../core/models/systemConfig');
+const { formatListTime } = require('../../../utils/dateTime');
 const templateModel = require('../models/scoreTemplate');
 const questionModel = require('../models/scoreQuestion');
 const rateRuleModel = require('../models/rateRule');
@@ -2165,6 +2167,8 @@ router.post('/exportScoreResults', authorizedResultRead('export', async (req, re
       fileName = activityName + localeCopy.copy_3747a7097d;
       headers = [{ key: 'name', label: localeCopy.copy_3c946202ff }, { key: 'studentId', label: localeCopy.copy_cbb853db1b }, { key: 'department', label: localeCopy.copy_bc011e4e3b }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'finalScore', label: localeCopy.copy_80528cd2d0 }, { key: 'submittedScorerCount', label: localeCopy.copy_b07e7eb09d }, { key: 'expectedScorerCount', label: localeCopy.copy_02b5a88c0f }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     } else if (reportType === 'detail') {
+      const systemConfig = await systemConfigModel.get();
+      const timezone = systemConfig ? systemConfig.timezone : undefined;
       headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'scorerDepartment', label: localeCopy.copy_1b48da3bfa }, { key: 'scorerIdentity', label: localeCopy.copy_98dbb06c03 }, { key: 'scorerWorkGroup', label: localeCopy.copy_92042b74b7 }, { key: 'targetName', label: localeCopy.copy_de4dcf6fb4 }, { key: 'targetStudentId', label: localeCopy.copy_ba70cb6582 }, { key: 'targetDepartment', label: localeCopy.copy_155d45cc30 }, { key: 'targetIdentity', label: localeCopy.copy_f15fa8cc75 }, { key: 'targetWorkGroup', label: localeCopy.copy_c5cab60297 }, { key: 'templateName', label: localeCopy.copy_fac1711a09 }, { key: 'question', label: localeCopy.copy_b66cf0dd1d }, { key: 'score', label: localeCopy.copy_011a01321b }, { key: 'maxValue', label: localeCopy.copy_8ca6566932 }, { key: 'weight', label: localeCopy.copy_e3cee0beef }, { key: 'submittedAt', label: localeCopy.copy_6a2da85cb7 }];
       records.forEach((record) => {
         const answers = record.answers || [];
@@ -2191,7 +2195,7 @@ router.post('/exportScoreResults', authorizedResultRead('export', async (req, re
               score: toNumber(answerMap.get(String(question.globalQuestionIndex)), 0),
               maxValue: toNumber(question.maxValue, 0),
               weight: toNumber(template.weight, 0),
-              submittedAt: record.submittedAt || null
+              submittedAt: formatListTime(record.submittedAt, timezone)
             });
           });
         });
@@ -2204,7 +2208,7 @@ router.post('/exportScoreResults', authorizedResultRead('export', async (req, re
             targetDepartment: safeString(record.targetDepartment), targetIdentity: safeString(record.targetIdentity),
             targetWorkGroup: safeString(record.targetWorkGroup || ''),
             templateName: '', question: '', score: '', maxValue: '', weight: '',
-            submittedAt: record.submittedAt || null
+            submittedAt: formatListTime(record.submittedAt, timezone)
           });
         }
       });

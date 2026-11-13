@@ -96,7 +96,7 @@ const MANIFEST = [
   },
   {
     source: 'shared/dateTimeFormat.js',
-    targets: [{ path: 'web/src/shared/dateTimeFormat.js', format: 'esm' }]
+    targets: [{ path: 'miniprogram/utils/dateTimeFormat.js' }, { path: 'web/src/shared/dateTimeFormat.js', format: 'esm' }]
   }
 ];
 

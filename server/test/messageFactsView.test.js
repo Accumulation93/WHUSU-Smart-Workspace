@@ -20,7 +20,7 @@ test('历史通知只按类型使用前端语料，不解析后端标题正文',
   assert.ok(!JSON.stringify(result).includes('UNTRUSTED'));
   const unavailable = describeMessage({ type: 'account_security' }, copy, { notification: true, canOpen: false });
   assert.equal(unavailable.description, copy.accountSecurityUnavailable);
-  assert.equal(unavailable.actionNotice, copy.notificationDetailUnavailable);
+  assert.equal(unavailable.actionNotice, undefined);
   assert.equal(unavailable.canOpen, false);
 });
 
@@ -44,7 +44,7 @@ test('通知保留业务标题、事件步骤和当前进展，不能用当前�
   assert.equal(result.title, 'TITLE');
   assert.equal(result.description, copy.auditProgressStatus);
   assert.ok(result.detailLines.some(line => line.value === copy.stepNameAndOrder(5, 'NOW')));
-  assert.equal(result.actionNotice, copy.notificationDetailUnavailable);
+  assert.equal(result.actionNotice, undefined);
   facts.event.nextStepOrder = 3;
   facts.event.nextStepName = 'TRANSFERRED';
   const transferred = describeMessage({ type: 'submission_progress', displayFacts: facts }, copy, { notification: true });

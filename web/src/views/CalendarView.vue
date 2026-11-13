@@ -15,13 +15,13 @@
       <button v-for="day in days" :key="day.date" class="calendar-date" :class="{'calendar-selected':day.selected,'calendar-today':day.today,'calendar-outside':day.outside}" :aria-label="day.date" :aria-pressed="day.selected" @click="selected=day.date"><strong>{{ day.label }}</strong><span v-if="day.items.length" class="calendar-count">{{ day.items.length }}</span></button>
     </section>
     <section v-if="mode==='week' || mode==='day'" class="calendar-timeline card">
-      <div class="calendar-columns" :style="{'--calendar-columns':days.length}"><section v-for="day in days" :key="day.date" class="stack calendar-column"><strong>{{ day.date }}</strong><span class="muted">{{ copy.allDay }}</span><button v-for="item in day.allDayItems" :key="item.id+item.occurrenceDate" class="calendar-event list-row" @click="open(item)">{{ item.title }}</button><div v-for="hour in day.hours" :key="hour.label" class="calendar-hour"><span class="muted">{{ hour.label }}</span><button v-for="item in hour.items" :key="item.key" class="calendar-event list-row" @click="open(item)"><strong>{{ item.title }}</strong><span>{{ time(item.startAt) }} — {{ time(item.endAt) }}</span><span v-if="item.conflict" class="chip chip-orange">{{ copy.conflictHint }}</span></button></div></section></div>
+      <div class="calendar-columns" :style="{'--calendar-columns':days.length}"><section v-for="day in days" :key="day.date" class="stack calendar-column"><strong>{{ day.date }}</strong><span class="muted">{{ copy.allDay }}</span><button v-for="item in day.allDayItems" :key="item.id+item.occurrenceDate" class="calendar-event list-row" @click="open(item)">{{ item.title }}</button><div v-for="hour in day.hours" :key="hour.label" class="calendar-hour"><span class="muted">{{ hour.label }}</span><button v-for="item in hour.items" :key="item.key" class="calendar-event list-row" @click="open(item)"><strong>{{ item.title }}</strong><span>{{ timeRange(item) }}</span><span v-if="item.conflict" class="chip chip-orange">{{ copy.conflictHint }}</span></button></div></section></div>
     </section>
     <section v-else class="stack">
       <h2 class="section-title">{{ mode==='month' ? selected : selected.slice(0,7) }}</h2><p v-if="!visibleItems.length && !loading && !notice" class="empty-state card">{{ copy.empty }}</p>
-      <button v-for="item in visibleItems" :key="item.id+item.occurrenceDate" class="card calendar-event" @click="open(item)"><span class="chip chip-sky">{{ copy[item.sourceKind] }}</span><strong>{{ item.title }}</strong><span class="muted">{{ item.allDay ? copy.allDay : time(item.startAt) }} — {{ time(item.endAt) }}</span><span>{{ item.location }}</span></button>
+      <button v-for="item in visibleItems" :key="item.id+item.occurrenceDate" class="card calendar-event" @click="open(item)"><span class="chip chip-sky">{{ copy[item.sourceKind] }}</span><strong>{{ item.title }}</strong><span class="muted">{{ timeRange(item) }}</span><span>{{ item.location }}</span></button>
     </section>
-    <GlassDialog v-if="detail && !confirmation" :title="detail.title" :busy="busy" @close="detail=null"><div class="stack"><span class="chip chip-sky">{{ copy[detail.sourceKind] }}</span><strong>{{ time(detail.startAt) }} — {{ time(detail.endAt) }}</strong><p>{{ detail.location }}</p><p class="break-all">{{ detail.description }}</p>
+    <GlassDialog v-if="detail && !confirmation" :title="detail.title" :busy="busy" @close="detail=null"><div class="stack"><span class="chip chip-sky">{{ copy[detail.sourceKind] }}</span><strong>{{ timeRange(detail) }}</strong><p>{{ detail.location }}</p><p class="break-all">{{ detail.description }}</p>
       <section class="stack"><h3 class="section-title">{{ copy.participants }} · {{ detail.participants?.length || 0 }}</h3><div v-if="detail.participants?.length" class="card-actions"><button class="btn btn-secondary btn-sm" :aria-expanded="participantsExpanded" @click="participantsExpanded=!participantsExpanded">{{ participantsExpanded ? copy.participantsCollapse : copy.participantsExpand }}</button></div><p v-else class="muted">{{ copy.noParticipants }}</p><template v-if="participantsExpanded"><article v-for="(person,index) in detail.participants" :key="index" class="list-row stack-tight"><strong><PersonLink :name="person.name" :reference="person.personReference" /></strong><span v-for="(position,i) in person.positions" :key="i" class="muted">{{ [position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · ') }}</span><span v-if="!person.positions.length" class="muted">{{ copy.noPosition }}</span></article></template></section>
       <button class="btn btn-secondary" @click="download(detail)">{{ copy.download }}</button></div><template #footer><button v-if="detail.canUpdate" class="btn btn-primary" @click="edit(detail)">{{ copy.edit }}</button><button v-if="detail.attending && detail.visibility!=='private'" class="btn btn-secondary" @click="confirmation={item:detail,action:'leave',scope:'instance'}">{{ copy.leave }}</button><button v-if="detail.canCancel" class="btn btn-danger" @click="confirmation={item:detail,action:'cancel',scope:'instance'}">{{ copy.cancelEvent }}</button></template></GlassDialog>
     <GlassDialog v-if="confirmation" :title="confirmation.action==='leave' ? copy.leave : copy.cancelEvent" :busy="busy" @close="confirmation=null"><p>{{ confirmation.action==='leave' ? copy.leaveConfirm : copy.cancelConfirm }}</p><strong>{{ confirmation.item.title }}</strong><select v-model="confirmation.scope" class="field-input" :aria-label="copy.scope"><option v-for="scope in ['instance','following','series']" :key="scope" :value="scope">{{ copy[scope] }}</option></select><template #footer><button class="btn btn-secondary" :disabled="busy" @click="confirmation=null">{{ copy.close }}</button><button class="btn btn-danger" :disabled="busy" @click="mutate">{{ confirmation.action==='leave' ? copy.confirmLeave : copy.confirmedCancel }}</button></template></GlassDialog>
@@ -40,10 +40,12 @@ import UiIcon from '@/components/UiIcon.vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import CalendarRules from '@/components/CalendarRules.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
+import timeCopy from '@/locales/zh-CN/shared/time.js';
+import messageCopy from '@/locales/zh-CN/shared/messageFacts.js';
 import view from '@/shared/calendarView.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
-import {formatAbsoluteDate,formatListTime} from '@/runtime/dateTime.js';
+import {formatAbsoluteDate,formatTimeRange,formatDisplayTime} from '@/runtime/dateTime.js';
 import {outputFile} from '@/runtime/fileIO.js';
 const router=useRouter(),route=useRoute(),modes=['month','week','day','list'];
 const today=ref(formatAbsoluteDate(new Date())),selected=ref(String(route.query.date||today.value)),mode=ref('month'),query=ref(''),source=ref(''),managed=ref(false),items=ref([]),metadata=ref({permissions:{},timezoneOffset:480});
@@ -51,7 +53,7 @@ const loading=ref(false),busy=ref(false),notice=ref(''),detail=ref(null),confirm
 let generation=0,disposed=false;
 const participantsExpanded=ref(false);
 watch(detail,()=>{participantsExpanded.value=false;});
-const time=formatListTime;
+const timeRange=item=>view.timeText(item,metadata.value.timezoneOffset,{formatAbsoluteDate,formatTimeRange,formatDisplayTime},timeCopy,messageCopy);
 const range=computed(()=>view.period(selected.value,mode.value,metadata.value.timezoneOffset));
 const filtered=computed(()=>items.value.filter(item=>(!source.value||item.sourceKind===source.value)&&[item.title,item.location].join(' ').toLowerCase().includes(query.value.trim().toLowerCase())));
 const days=computed(()=>view.days(selected.value,mode.value,metadata.value.timezoneOffset,filtered.value,today.value).map(day=>view.timeline(day,metadata.value.timezoneOffset)));

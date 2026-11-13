@@ -40,12 +40,12 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   await schedule.getByRole('button', { name: 'Visible booking', exact: true }).click();
   const detail = page.getByRole('dialog', { name: ui.copy_40d594ac66 });
   await expect(detail.getByText('Allowed applicant')).toBeVisible();
-  await expect(detail.getByText('2035-01-01 14:00 至 2035-01-01 15:00', { exact: true })).toBeVisible();
+  await expect(detail.getByText('2035年1月1日 14:00-15:00', { exact: true })).toBeVisible();
   await detail.getByRole('button', { name: ui.copy_09614cef6c, exact: true }).click();
   await schedule.getByRole('button', { name: 'Planned activity', exact: true }).click();
   const activity = page.getByRole('dialog', { name: ui.copy_c4df6642e3 });
   await expect(activity.getByText('Planned activity')).toBeVisible();
-  await expect(activity.getByText('2035-01-01 16:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 17:00:00', { exact: true })).toBeVisible();
+  await expect(activity.getByText('2035年1月1日 16:00-17:00', { exact: true })).toBeVisible();
   await expect(activity.locator('.chip-sky')).toHaveText('Room A');
   const bounds = await activity.locator('.activity-detail').evaluate(element => ({width:element.clientWidth,scroll:element.scrollWidth}));
   expect(bounds.scroll).toBeLessThanOrEqual(bounds.width + 1);
@@ -81,11 +81,16 @@ test.describe('activity instants follow the system timezone', () => {
       await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
       const schedule = page.getByRole('dialog', { name: 'Room A', exact: true });
       const detail = page.getByRole('dialog', { name: ui.copy_c4df6642e3 });
-      const shifted = value => new Date(Date.parse(value) + offset * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+      const shifted = value => {
+        const date = new Date(Date.parse(value) + offset * 3600000);
+        return [date.getUTCFullYear() + '年' + (date.getUTCMonth() + 1) + '月' + date.getUTCDate() + '日', date.toISOString().slice(11, 16)];
+      };
+      const from = shifted('2026-12-31T18:20:37Z'), to = shifted('2027-01-01T00:40:58Z');
+      const absoluteRange = from[0] + ' ' + from[1] + '-' + (from[0] === to[0] ? '' : to[0] + ' ') + to[1];
       for (const [name, expected] of [
-        ['Absolute activity', shifted('2026-12-31T18:20:37Z') + ' ' + ui.copy_e8d9493a44 + ' ' + shifted('2027-01-01T00:40:58Z')],
-        ['Legacy activity', '2035-01-01 12:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 13:00:00'],
-        ['Fallback activity', '2035-01-01 16:00:00 ' + ui.copy_e8d9493a44 + ' 2035-01-01 17:00:00']
+        ['Absolute activity', absoluteRange],
+        ['Legacy activity', '2035年1月1日 12:00-13:00'],
+        ['Fallback activity', '2035年1月1日 16:00-17:00']
       ]) {
         await schedule.getByRole('button', { name, exact: true }).click();
         await expect(detail.getByText(expected, { exact: true })).toBeVisible();

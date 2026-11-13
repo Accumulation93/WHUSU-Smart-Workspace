@@ -29,7 +29,7 @@
   <GlassDialog v-if="detail" :title="ui.copy_40d594ac66" @close="detail = null"><VenueBookingDetail :booking="detail" /></GlassDialog>
   <GlassDialog v-if="occupied" compact :title="ui.copy_a1f843d887" @close="occupied = null"><p>{{ occupied.timeStart }} {{ ui.copy_e8d9493a44 }} {{ occupied.timeEnd }}</p><p>{{ ui.copy_c46b04a9c5 }}</p></GlassDialog>
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null">
-    <VenueActivityDetail :source-id="activity.ruleId" :occurrence-date="activity.date" :name="activity.activity?.name || activity.ruleName" :venue="venue.name" :occurrence="activityTime('Start') + '\n' + ui.copy_e8d9493a44 + ' ' + activityTime('End')" :cycle="cycleLabel(activity.activity?.cycleType, activity.activity?.cycleValues)" :period="activityCycle(activity.activity)" :note="ui.copy_c1ce05d451" />
+    <VenueActivityDetail :source-id="activity.ruleId" :occurrence-date="activity.date" :name="activity.activity?.name || activity.ruleName" :venue="venue.name" :occurrence="activityTimeRange()" :cycle="cycleLabel(activity.activity?.cycleType, activity.activity?.cycleValues)" :period="activityCycle(activity.activity)" :note="ui.copy_c1ce05d451" />
   </GlassDialog>
   <VenueAdminBookingDialog v-if="adminBooking" :venue="venue" :date="adminBooking.date" :initial-time="adminBooking.time" @close="adminBooking = null" @busy="bookingBusy = $event" @saved="bookingSaved" />
 </template>
@@ -44,7 +44,7 @@ import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { formatDetailTime, formatListTime } from '@/runtime/dateTime.js';
+import { formatTimeRange, formatListTime } from '@/runtime/dateTime.js';
 import { session } from '@/runtime/session.js';
 import { cycleLabel } from '@/runtime/venueRules.js';
 import { addDays, weekStart, toMinute, toTime, startAllowed, scheduleInstant } from '@/runtime/venueTime.js';
@@ -83,7 +83,13 @@ function openBooking(slot) {
 function activityTime(boundary) {
   const slot = activity.value;
   const value = slot?.activity?.['occurrence' + boundary] || slot?.['fullTime' + boundary] || (slot?.date + ' ' + slot?.['time' + boundary]);
-  return formatDetailTime(scheduleInstant(value), slot?.activity?.['occurrence' + boundary + 'ReviewStatus']);
+  return scheduleInstant(value);
+}
+function activityTimeRange() {
+  return formatTimeRange(activityTime('Start'), activityTime('End'), {
+    startReviewStatus: activity.value?.activity?.occurrenceStartReviewStatus,
+    endReviewStatus: activity.value?.activity?.occurrenceEndReviewStatus
+  });
 }
 function activityCycle(value) {
   let meta = value?.cycleValues || {};
@@ -91,12 +97,12 @@ function activityCycle(value) {
   const from = meta.periodStartDate || meta.startDate, to = meta.periodEndDate || meta.endDate;
   const startTime = meta.periodStartTime || meta.startTime, endTime = meta.periodEndTime || meta.endTime;
   const completeRange = from && to && startTime && endTime;
-  if (value?.cycleType === 'datetime_range') return completeRange ? factsCopy.timeRange(from + ' ' + startTime, to + ' ' + endTime) : factsCopy.timeRangeMissing;
-  if (value?.cycleType === 'repeat') return [completeRange ? factsCopy.originalSchedule(from + ' ' + startTime, to + ' ' + endTime) : factsCopy.timeRangeMissing,
+  if (value?.cycleType === 'datetime_range') return completeRange ? formatTimeRange(scheduleInstant(from + ' ' + startTime), scheduleInstant(to + ' ' + endTime)) : factsCopy.timeRangeMissing;
+  if (value?.cycleType === 'repeat') return [completeRange ? factsCopy.originalScheduleRange(formatTimeRange(scheduleInstant(from + ' ' + startTime), scheduleInstant(to + ' ' + endTime))) : factsCopy.timeRangeMissing,
     Number(meta.repeatCount) > 0 ? ui.repeatedOccurrences(Number(meta.repeatCount)) : factsCopy.repeatCountMissing].join('\n');
   const beginning = from ? from + ' ' + (meta.periodStartTime || meta.startTime || '00:00') : ui.copy_f54e24d97d;
   const ending = to ? to + ' ' + (meta.periodEndTime || meta.endTime || '23:59') : ui.copy_b8c87b0fb5;
-  return factsCopy.recurrenceValidity(beginning, ending) + (Number(meta.repeatCount) > 0 ? ' · ' + ui.repeatedOccurrences(Number(meta.repeatCount)) : '');
+  return (from && to ? factsCopy.recurrenceValidityRange(formatTimeRange(scheduleInstant(beginning), scheduleInstant(ending))) : factsCopy.recurrenceValidity(beginning, ending)) + (Number(meta.repeatCount) > 0 ? ' · ' + ui.repeatedOccurrences(Number(meta.repeatCount)) : '');
 }
 function close() { if (!bookingBusy.value) emit('close'); }
 function changeWeek(delta) { if (!bookingBusy.value) { start.value = addDays(start.value, delta); load(); } }

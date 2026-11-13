@@ -3,7 +3,7 @@
 /**
  * 绝对时间与日期型值的展示规则唯一源。
  *
- * 库内绝对时间按 UTC 传递，展示时按系统时区偏移换算；列表精确到分钟，详情精确到秒；
+ * 库内绝对时间按 UTC 传递，展示时按系统时区偏移换算；列表与详情均精确到分钟；
  * 日期型值（YYYY-MM-DD、HH:mm）是日历值，不做时区换算；来源不明的历史时间必须带
  * "时间待核对"标记，标记文字由调用方从语言资源传入。
  *
@@ -123,9 +123,39 @@ function formatListTime(value, options) {
 function formatDetailTime(value, options) {
   const resolved = readOptions(options);
   return appendReviewLabel(
-    formatParts(getShiftedUtcParts(value, resolved.timezoneOffset), true),
+    formatParts(getShiftedUtcParts(value, resolved.timezoneOffset), false),
     resolved.reviewStatus,
     resolved.reviewLabel
+  );
+}
+
+function displayParts(parts, timeCopy) {
+  if (!parts) return null;
+  return { date: timeCopy.calendarDate(parts.year, parts.month, parts.day),
+    clock: timeCopy.minuteTime(pad(parts.hour), pad(parts.minute)) };
+}
+
+function formatDisplayTime(value, options) {
+  const resolved = readOptions(options);
+  const copy = options.copy;
+  const parts = displayParts(getShiftedUtcParts(value, resolved.timezoneOffset), copy);
+  return parts ? appendReviewLabel(copy.minuteDateTime(parts.date, parts.clock), resolved.reviewStatus, resolved.reviewLabel) : '';
+}
+
+function formatTimeRange(startValue, endValue, options) {
+  const source = options || {};
+  const copy = source.copy;
+  const start = displayParts(getShiftedUtcParts(startValue, source.timezoneOffset), copy);
+  const end = displayParts(getShiftedUtcParts(endValue, source.timezoneOffset), copy);
+  if (!start && !end) return '';
+  if (!end) return appendReviewLabel(copy.minuteDateTime(start.date, start.clock), source.startReviewStatus, source.reviewLabel);
+  if (!start) return appendReviewLabel(copy.minuteDateTime(end.date, end.clock), source.endReviewStatus, source.reviewLabel);
+  if (start.date === end.date && source.startReviewStatus !== REVIEW_REQUIRED && source.endReviewStatus !== REVIEW_REQUIRED) {
+    return copy.sameDayTimeRange(start.date, start.clock, end.clock);
+  }
+  return copy.dateTimeRange(
+    appendReviewLabel(copy.minuteDateTime(start.date, start.clock), source.startReviewStatus, source.reviewLabel),
+    appendReviewLabel(copy.minuteDateTime(end.date, end.clock), source.endReviewStatus, source.reviewLabel)
   );
 }
 
@@ -165,6 +195,8 @@ module.exports = {
   getShiftedUtcParts,
   formatListTime,
   formatDetailTime,
+  formatDisplayTime,
+  formatTimeRange,
   formatAbsoluteDate,
   formatDateOnly,
   formatClockTime

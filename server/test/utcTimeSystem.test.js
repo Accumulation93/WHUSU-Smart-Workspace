@@ -35,10 +35,10 @@ function writeFixture(filePath, content) {
 function testServerFormatting() {
   const absolute = '2026-12-31T16:30:45.123Z';
   assert.strictEqual(serverTime.formatListTime(absolute, 8), '2027-01-01 00:30');
-  assert.strictEqual(serverTime.formatDetailTime(absolute, 8), '2027-01-01 00:30:45');
-  assert.strictEqual(serverTime.formatDetailTime(absolute, -12), '2026-12-31 04:30:45');
-  assert.strictEqual(serverTime.formatDetailTime(absolute, 0), '2026-12-31 16:30:45');
-  assert.strictEqual(serverTime.formatDetailTime(absolute, 12), '2027-01-01 04:30:45');
+  assert.strictEqual(serverTime.formatDetailTime(absolute, 8), '2027-01-01 00:30');
+  assert.strictEqual(serverTime.formatDetailTime(absolute, -12), '2026-12-31 04:30');
+  assert.strictEqual(serverTime.formatDetailTime(absolute, 0), '2026-12-31 16:30');
+  assert.strictEqual(serverTime.formatDetailTime(absolute, 12), '2027-01-01 04:30');
   assert.strictEqual(serverTime.formatAbsoluteDate(absolute, 8), '2027-01-01');
   assert.strictEqual(serverTime.formatDateOnly('2026-08-23'), '2026-08-23');
   assert.strictEqual(serverTime.formatDateOnly('2026-02-30'), '');
@@ -73,7 +73,7 @@ function testMiniProgramFormatting() {
   });
   assert.strictEqual(miniProgramTime.formatListTime('2026-12-31T16:30:45.123Z'), '2027-01-01 00:30');
   assert.strictEqual(miniProgramTime.formatListTime('2027-01-01 00:30:45.123'), '2027-01-01 08:30');
-  assert.strictEqual(miniProgramTime.formatDetailTime('2026-12-31T16:30:45.123Z', -12), '2026-12-31 04:30:45');
+  assert.strictEqual(miniProgramTime.formatDetailTime('2026-12-31T16:30:45.123Z', -12), '2026-12-31 04:30');
   assert.strictEqual(miniProgramTime.formatAbsoluteDate('2026-12-31T16:30:45.123Z', 12), '2027-01-01');
   assert.strictEqual(miniProgramTime.formatDateOnly('2026-08-23'), '2026-08-23');
   assert.strictEqual(miniProgramTime.formatDateOnly('2026-02-30'), '');

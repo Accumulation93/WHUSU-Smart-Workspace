@@ -135,6 +135,7 @@ function loadPage(relativePath, responseQueues, runtimeOptions) {
     removeStorageSync(key) { storage.delete(key); },
     setNavigationBarTitle() {},
     showModal(options) { modals.push(options); },
+    showToast(options) { toasts.push(options.title); },
     reLaunch() {}
   };
   const sandbox = {
@@ -432,6 +433,24 @@ async function testPortalMarkAllPartialAndFailureRefreshTruth() {
   assert.deepStrictEqual(successHarness.toasts, []);
 }
 
+async function testUnavailableMessageClicksStayOnPage() {
+  const copy = require('../../shared/locales/zh-CN/messageFacts');
+  for (const pagePath of [
+    'miniprogram/subpackages/main/pages/portal/portal.js',
+    'miniprogram/subpackages/message/pages/messageCenter/messageCenter.js'
+  ]) {
+    const harness = loadPage(pagePath, {});
+    harness.page.data.todos = [{ id: 'todo-unavailable', canOpen: false }];
+    harness.page.data.notifications = [{ id: 'notice-unavailable', canOpen: false, isRead: false }];
+    harness.page.messageSwitchKind = () => { throw new Error('Unexpected role switch'); };
+    await harness.page.onTodoTap({ currentTarget: { dataset: { id: 'todo-unavailable' } } });
+    await harness.page.onNotificationTap({ currentTarget: { dataset: { id: 'notice-unavailable' } } });
+    assert.deepStrictEqual(harness.toasts, [copy.todoDetailUnavailable, copy.notificationDetailUnavailable]);
+    assert.deepStrictEqual(harness.calls, []);
+    assert.strictEqual(harness.page.data.notifications[0].isRead, false);
+  }
+}
+
 function testRegistrationAndServerContract() {
   const appConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'miniprogram/app.json'), 'utf8'));
   const messagePackage = appConfig.subPackages.find((item) => item.root === 'subpackages/message');
@@ -450,6 +469,7 @@ function testRegistrationAndServerContract() {
 
 (async function run() {
   testRegistrationAndServerContract();
+  await testUnavailableMessageClicksStayOnPage();
   await testMessageCenterMarkAllPartialRefreshesTruth();
   await testMessageCenterMarkAllSuccessKeepsOptimisticResult();
   await testMessageCenterMarkAllFailureRollsBackAndRefreshes();

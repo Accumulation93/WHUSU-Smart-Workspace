@@ -27,18 +27,22 @@ const activity={id:'activity-a',name:'活动 A',org_id:'org-a'};
 const cache={historicalIntegrityVerified:true,activity,overviewRows:[{id:'assignment-a',name:'成员 A',studentId:secret,nested:{targetStudentId:secret},finalScore:8}],stats:{totalMembers:1},filterOptions:{}};
 const participants=[{id:'assignment-a',person_id:'person-a',name:'成员 A',student_id:secret,department_id:'',identity_id:'',work_group_id:''}];
 const emptyModel={async getAll(){return [];}};
+const exportRecord={id:'record-a',submitted_at:now};
+const snapshot={scorer:{participantId:'assignment-a',subjectKey:'a',context:{name:'Member A'}},target:{participantId:'assignment-a',subjectKey:'a',context:{name:'Member A'}},rule:{id:'rule-a'},clause:{requiredTargets:[]},templates:[]};
+const exportAnswers=[];
 const computation={finalScoreMap:new Map([['assignment-a',{finalScore:8}]]),submittedByTarget:new Map(),expectedByCount:new Map(),scorerExpectedCount:new Map(),targetSnapshots:new Map(),diagnostics:{acceptedRecords:0,totalRecords:0,skippedRecords:0,reasons:{},records:[]}};
 const mocks={
  '../../../core/services/adminRequestContext':{async resolveRequestAdmin(req){return req.admin;}},
  '../../../utils/orgContext':{async getCurrentOrgId(){return organization;}},
  '../../../config/db':{},
+ '../../../core/models/systemConfig':{async get(){return {timezone:5.5};}},
  '../models/scoreActivity':{async getById(id){return organization==='org-a' && id===activity.id?activity:null;}},
  '../../../core/models/department':emptyModel,'../../../core/models/identity':emptyModel,'../../../core/models/workGroup':emptyModel,
  '../models/scoreTemplate':emptyModel,'../models/scoreQuestion':{},'../models/rateRule':{},'../models/rateRuleClause':{},'../models/clauseTemplateConfig':{},
- '../models/scoreRecord':{async getByActivity(){return [];}},'../models/scoreAnswer':{},
- '../services/participants':{normalizeGranularity(){return 'assignment';},async listParticipants(){return participants;},buildAssignmentLabel(){return '';}},
+ '../models/scoreRecord':{async getByActivity(){return [exportRecord];}},'../models/scoreAnswer':{async getByRecordIds(){return exportAnswers;}},
+ '../services/participants':{normalizeGranularity(){return 'assignment';},async listParticipants(){return participants;},buildAssignmentLabel(){return '';},resolveHistoricalParticipant(){return {};},participantRecordId(){return 'assignment-a';}},
  '../utils/sharedCache':{async versionedKey(key){return key;},async get(key){return key.startsWith('resultLookups:')?null:cache;},async set(){},async invalidateKey(){}},
- '../utils/scoreCalc':{validateCalculationSnapshot(){return {valid:true};},getHistoricalSnapshotFailure(){return null;},async computeActivityScoreMap(){return computation;},async computeValidScoreMap(){return computation;},listScoreCalculationGroups(){return [];}}
+ '../utils/scoreCalc':{validateCalculationSnapshot(){return {ok:true,snapshot,questionCount:exportAnswers.length};},getHistoricalSnapshotFailure(){return null;},async computeActivityScoreMap(){return computation;},async computeValidScoreMap(){return computation;},listScoreCalculationGroups(){return [];}}
 };
 const originalLoad=Module._load;
 Module._load=function(request,parent,isMain){return Object.hasOwn(mocks,request)?mocks[request]:originalLoad.call(this,request,parent,isMain);};
@@ -64,9 +68,17 @@ async function request(endpoint,body,role='admin',org='org-a'){
     const exported=await request('exportScoreResults',{activityId:activity.id,reportType,format:'excel'},role);
     assert.equal(exported.status,'success',exported.message);const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(exported.fileContent,'base64'));
     const rows=[];workbook.worksheets[0].eachRow(row=>rows.push(row.values));const text=JSON.stringify(rows);assert(!text.includes(secret));assert(!text.includes('学号'));if(reportType==='overview')assert(text.includes('成员 A'));
+    if(reportType==='detail'){assert(text.includes('2026-10-13 06:32'));assert(!text.includes('06:32:03'));assert.equal(exportRecord.submitted_at.toISOString(),'2026-10-13T01:02:03.004Z');}
    }
   }
   assert.equal(cache.overviewRows[0].studentId,secret,'不得通过修改缓存假装完成响应保护');
+  snapshot.templates.push({templateId:'template-a',templateName:'Template',questions:[{globalQuestionIndex:1,question:'Question',maxValue:10}]});
+  exportAnswers.push({record_id:'record-a',question_index:1,score:8});
+  const detailExport=await request('exportScoreResults',{activityId:activity.id,reportType:'detail',format:'excel'});
+  assert.equal(detailExport.status,'success');
+  const detailWorkbook=new ExcelJS.Workbook();await detailWorkbook.xlsx.load(Buffer.from(detailExport.fileContent,'base64'));
+  const detailValues=JSON.stringify(detailWorkbook.worksheets[0].getRow(2).values);
+  assert(detailValues.includes('Question'));assert(detailValues.includes('2026-10-13 06:32'));assert.equal(exportRecord.submitted_at,now);
   assert.equal((await request('getScoreResults',{activityId:activity.id},'none')).status,'forbidden');
   assert.equal((await request('getScoreResults',{activityId:activity.id},'admin','org-b')).status,'activity_not_found');
   for(const name of ['results','scoring','publications']){

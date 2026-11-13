@@ -65,7 +65,7 @@ function formatListTime(value, systemTimezoneOffset = DEFAULT_SYSTEM_TIMEZONE_OF
 }
 
 function formatDetailTime(value, systemTimezoneOffset = DEFAULT_SYSTEM_TIMEZONE_OFFSET) {
-  return formatParts(getShiftedUtcParts(value, systemTimezoneOffset), true);
+  return formatParts(getShiftedUtcParts(value, systemTimezoneOffset), false);
 }
 
 function formatAbsoluteDate(value, systemTimezoneOffset = DEFAULT_SYSTEM_TIMEZONE_OFFSET) {
@@ -91,7 +91,7 @@ function formatSystemClock(value = Date.now(), includeSeconds = false, systemTim
   const parts = getSystemNowParts(value, systemTimezoneOffset);
   if (!parts) return '';
   const base = `${pad(parts.hour)}:${pad(parts.minute)}`;
-  return includeSeconds ? `${base}:${pad(parts.second)}` : base;
+  return base;
 }
 
 function formatDateOnly(value) {

@@ -106,7 +106,6 @@
             </view>
             <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
             <view class="notification-desc" wx:for="{{item.detailLines}}" wx:for-item="line" wx:key="label">{{line.label}}: {{line.value}}</view>
-            <view class="notification-desc" wx:if="{{item.actionNotice}}">{{item.actionNotice}}</view>
             <view class="notification-time">{{item.createdAtText}}</view>
           </view>
           <ui-icon wx:if="{{item.canOpen}}" name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />

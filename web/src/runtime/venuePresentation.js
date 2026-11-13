@@ -1,6 +1,5 @@
 import text from '@/locales/zh-CN/shared/generated/subpackages/venue/utils/venueBookingDetail.js';
-import detailText from '@/locales/zh-CN/shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
-import { formatListTime } from './dateTime.js';
+import { formatTimeRange } from './dateTime.js';
 import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
 
 export function venueStatus(booking) {
@@ -30,7 +29,8 @@ export function venueProgress(raw) {
     text: isRejected ? text.copy_fb1a45d8be : isApproved ? text.copy_7602388726 : factsCopy.completedSteps(currentStep, totalSteps) };
 }
 export function venueTimeRange(booking) {
-  const start = formatListTime(booking.fullTimeStart || booking.timeStart, booking.fullTimeStart ? booking.fullTimeStartReviewStatus : booking.timeStartReviewStatus);
-  const end = formatListTime(booking.fullTimeEnd || booking.timeEnd, booking.fullTimeEnd ? booking.fullTimeEndReviewStatus : booking.timeEndReviewStatus);
-  return [start, end].filter(Boolean).join(' ' + detailText.copy_e8d9493a44 + ' ');
+  return formatTimeRange(booking.fullTimeStart || booking.timeStart, booking.fullTimeEnd || booking.timeEnd, {
+    startReviewStatus: booking.fullTimeStart ? booking.fullTimeStartReviewStatus : booking.timeStartReviewStatus,
+    endReviewStatus: booking.fullTimeEnd ? booking.fullTimeEndReviewStatus : booking.timeEndReviewStatus
+  });
 }

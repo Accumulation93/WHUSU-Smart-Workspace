@@ -29,7 +29,9 @@ function addPeriod(lines, facts, label, copy, settings) {
     return;
   }
   const start = dateTime(facts.startTime, settings, facts.startTimeReviewStatus), end = dateTime(facts.endTime, settings, facts.endTimeReviewStatus);
-  if (start && end) addLine(lines, label, copy.timeRange(start, end));
+  if (start && end) addLine(lines, label, typeof settings.formatRange === 'function'
+    ? settings.formatRange(facts.startTime, facts.endTime, { startReviewStatus: facts.startTimeReviewStatus, endReviewStatus: facts.endTimeReviewStatus })
+    : copy.timeRange(start, end));
   else { addLine(lines, copy.startTimeLabel, start); addLine(lines, copy.endTimeLabel, end); }
 }
 
@@ -102,7 +104,7 @@ function describeMessage(item, copy, options) {
     }
     if (!text(facts.businessTitle) && !text(facts.businessNumber) && ['submission_approved', 'submission_rejected', 'booking_approved', 'booking_rejected', 'booking_cancelled', 'hr_profile_approved', 'hr_profile_rejected', 'score_activity_started', 'score_results_published'].includes(kind)) description = '';
     return { title: text(facts.businessTitle) || text(facts.businessNumber) || label(copy.notificationTitles, kind, copy.unknownNotificationTitle),
-      description, detailLines, canOpen, workContextName, actionNotice: canOpen ? '' : copy.notificationDetailUnavailable };
+      description, detailLines, canOpen, workContextName };
   }
   const kind = text(source.sourceType);
   let description = '';

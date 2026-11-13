@@ -64,7 +64,7 @@ import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/
 import mineCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js';
 import { completeMessageReceipt } from '@/runtime/messageReceipt.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { formatListTime } from '@/runtime/dateTime.js';
+import { formatListTime, formatTimeRange } from '@/runtime/dateTime.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -120,10 +120,7 @@ function statusTone(booking) {
 }
 
 function timeRange(booking) {
-  const start = formatListTime(booking.timeStart, booking.timeStartReviewStatus);
-  const end = formatListTime(booking.timeEnd, booking.timeEndReviewStatus);
-  if (!start && !end) return '';
-  return start + ' ' + copy.venue.timeSeparator + ' ' + end;
+  return formatTimeRange(booking.timeStart, booking.timeEnd, { startReviewStatus: booking.timeStartReviewStatus, endReviewStatus: booking.timeEndReviewStatus });
 }
 
 function canCancel(booking) {

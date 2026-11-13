@@ -1,8 +1,8 @@
 import copy from '@/locales/zh-CN/index.js';
 import { requireSuccess } from './api.js';
 import { activateContext, session } from './session.js';
-import { confirmAction } from './notify.js';
-import { notifyModuleBuilding } from './porting.js';
+import { confirmAction, showToast } from './notify.js';
+import messageFactsCopy from '@/locales/zh-CN/shared/messageFacts.js';
 import { armMessageReceipt, cancelMessageReceipt } from './messageReceipt.js';
 
 const targets = {
@@ -39,7 +39,7 @@ let opening = false;
 export async function openMessageTarget(router, item, notification = false) {
   if (opening) return false;
   const destination = messageRoute(item);
-  if (!destination) { notifyModuleBuilding(); return false; }
+  if (!destination) { showToast(notification ? messageFactsCopy.notificationDetailUnavailable : messageFactsCopy.todoDetailUnavailable); return false; }
   opening = true;
   let receipt;
   try {

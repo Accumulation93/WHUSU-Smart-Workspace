@@ -205,7 +205,7 @@ function selectScheme(event) {
 function localTime(value) { return value ? formatListTime(value).replace(' ', 'T') : ''; }
 function changeTime(key, value) {
   if (!value) { draft.value.policy[key] = null; return; }
-  const utc = Date.parse(value + ':00.000Z') - getSystemTimezoneConfig().offset * 60000;
+  const utc = Date.parse(value + ':00.000Z') - getSystemTimezoneConfig().offset * 3600000;
   draft.value.policy[key] = Number.isFinite(utc) ? new Date(utc).toISOString() : value;
 }
 function clear() {

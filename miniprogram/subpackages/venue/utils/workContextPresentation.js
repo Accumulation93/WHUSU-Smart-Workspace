@@ -1,6 +1,6 @@
 const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/workContextPresentation');
 const factsCopy = require('../../../locales/zh-CN/venueFacts');
-const { formatListTime } = require('../../../utils/dateTime');
+const { formatListTime, formatTimeRange } = require('../../../utils/dateTime');
 const orgSession = require('../../../utils/orgSession');
 const authContext = require('../../../utils/authContext');
 
@@ -75,6 +75,10 @@ function decoratePendingBooking(item) {
   });
   row.timeEndText = formatListTime(row.fullTimeEnd || row.timeEnd, {
     reviewStatus: row.fullTimeEnd ? row.fullTimeEndReviewStatus : row.timeEndReviewStatus
+  });
+  row.timeRangeText = formatTimeRange(row.fullTimeStart || row.timeStart, row.fullTimeEnd || row.timeEnd, {
+    startReviewStatus: row.fullTimeStart ? row.fullTimeStartReviewStatus : row.timeStartReviewStatus,
+    endReviewStatus: row.fullTimeEnd ? row.fullTimeEndReviewStatus : row.timeEndReviewStatus
   });
   row.createdAtText = formatListTime(row.createdAt, { reviewStatus: row.createdAtReviewStatus });
   row.requiredWorkContexts = decorateRequiredWorkContexts(row.requiredWorkContexts);

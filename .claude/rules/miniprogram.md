@@ -42,7 +42,7 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 - **弹窗的开关必须能关回去**：`page-meta page-style` 里每个用来禁止页面滚动的开关，都要能在页面脚本里写回 `false`；带输入框的弹窗页面要声明 `dialogLockKeys`，并在页面卸载时调用 `releaseDialogScrollLock()`。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
 - **弹窗里的输入框不能让整页上移**：一律写 `adjust-position="{{false}}"` 并带 `cursor-spacing`；键盘高度写进 `page-style` 的 `--kb-height`，由 `app.wxss` 让弹窗缩到键盘上方，被挡住的字段靠弹窗正文自己滚动看到。必须跑的检查：`scripts/dialog-keyboard-audit.js`。
 - **控件不能被切掉**：不写死高度把内容裁掉、不用一行文字冒充完整的选择框、不让最后一项贴边或被遮住，按钮文字要居中。必须跑的检查：`scripts/ui-control-completeness-test.js`、`scripts/ui-audit.js --strict`、`scripts/button-alignment-test.js`。
-- **日期只显示日期**：日期字段显示成 `2004.08.31`，不带时间也不带时区；日期时间才显示到秒。解析统一用 `utils/hrProfileDate.js`，不许用设备本地时区。
+- **日期只显示日期**：日期字段显示成 `2004.08.31`，不带时间也不带时区；日期时间只显示到分钟。解析统一用 `utils/hrProfileDate.js`，不许用设备本地时区；显示精度不改变原始提交值。
 
 项目中有 **多处 CSS 重名选择器**：
 
@@ -346,6 +346,6 @@ Page({
 ## 12. 绝对时间与系统时区硬规范
 
 - 绝对时间只通过共享时间工具按 `systemTimezoneOffset` 转换，禁止使用设备本地时区、`toLocaleString` 或 `toLocaleDateString`。系统配置版本变化后必须刷新缓存并重新预计算页面时间文本。
-- 列表预计算 `YYYY-MM-DD HH:mm`，详情、验签和安全记录预计算 `YYYY-MM-DD HH:mm:ss`；WXML 只允许绑定 `createdAtText/processedAtText/...`，禁止直接绑定原始 `createdAt/updatedAt/processedAt/signedAt/expiresAt` 或显示 ISO `T...Z`。
+- 列表、详情、验签、安全记录及实时时钟均只预计算到分钟；消息和时间范围复用共享中文格式，同日省略第二日期。WXML 只允许绑定 `createdAtText/processedAtText/...`，禁止直接绑定原始 `createdAt/updatedAt/processedAt/signedAt/expiresAt` 或显示 ISO `T...Z`。原始值、协议及机器输入格式不受显示调整影响。
 - `YYYY-MM-DD` 纯日期、`HH:mm` 每日时刻、时长、提前量和周期规则不做时区转换。历史来源不明的绝对时间仍正常格式化，但必须使用同一业务对象的 `createdAtReviewStatus/processedAtReviewStatus/...` 逐字段传入格式器并显示“历史时区待核对”；禁止把全局待核对状态套到所有时间，也禁止漏传后静默显示。
 - 修改时间展示后必须运行时间审计，并以 UTC−12、UTC、UTC+8、UTC+12 验证跨日、跨月、跨年；纯日期和每日时刻不得漂移。

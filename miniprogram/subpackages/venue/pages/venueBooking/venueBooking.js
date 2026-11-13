@@ -3,7 +3,7 @@ const factsCopy = require('../../../../locales/zh-CN/venueFacts');
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const pendingCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
-const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
+const { computeDisplayStatus, prepareVenueBookingDetail, formatActivityTimeRange } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
@@ -87,15 +87,15 @@ function formatActivityCycleLabel(type, values) {
   const completeRange = meta.periodStartDate && meta.periodStartTime && meta.periodEndDate && meta.periodEndTime;
   const rangeStart = meta.periodStartDate + ' ' + meta.periodStartTime;
   const rangeEnd = meta.periodEndDate + ' ' + meta.periodEndTime;
-  if (type === 'datetime_range') return completeRange ? factsCopy.timeRange(rangeStart, rangeEnd) : factsCopy.timeRangeMissing;
+  if (type === 'datetime_range') return completeRange ? formatActivityTimeRange(rangeStart, rangeEnd) : factsCopy.timeRangeMissing;
   if (type === 'repeat') {
-    return [completeRange ? factsCopy.originalSchedule(rangeStart, rangeEnd) : factsCopy.timeRangeMissing,
+    return [completeRange ? factsCopy.originalScheduleRange(formatActivityTimeRange(rangeStart, rangeEnd)) : factsCopy.timeRangeMissing,
       Number(meta.repeatCount) > 0 ? localeCopy.repeatedOccurrences(Number(meta.repeatCount)) : factsCopy.repeatCountMissing].join('\n');
   }
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
   const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
   const count = Number(meta.repeatCount) > 0 ? ' · ' + localeCopy.repeatedOccurrences(Number(meta.repeatCount)) : '';
-  return factsCopy.recurrenceValidity(start, end) + count;
+  return (meta.periodStartDate && meta.periodEndDate ? factsCopy.recurrenceValidityRange(formatActivityTimeRange(start, end)) : factsCopy.recurrenceValidity(start, end)) + count;
 }
 function calcBlock(ts, te) { const s=timeToMin(ts),e=timeToMin(te); return { top:Math.round((s-BASE_MIN)/60*HOUR_HEIGHT), height:Math.max(Math.round((e-s)/60*HOUR_HEIGHT),20) }; }
 function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s.timeStart),end:timeToMin(s.timeEnd)})); }
@@ -665,7 +665,7 @@ Page({
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       cycleType: activity.cycleType, cycleValues: activity.cycleValues,
-      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? factsCopy.timeRange(formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus), formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus)) : factsCopy.timeRangeMissing,
+      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? formatActivityTimeRange(activity.occurrenceStart, activity.occurrenceEnd, { startReviewStatus: activity.occurrenceStartReviewStatus, endReviewStatus: activity.occurrenceEndReviewStatus }) : factsCopy.timeRangeMissing,
       note: localeCopy.copy_c1ce05d451
     }});
   },

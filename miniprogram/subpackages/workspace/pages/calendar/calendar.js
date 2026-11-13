@@ -4,6 +4,8 @@ const copy=require('../../../../locales/zh-CN/calendar');
 const common=require('../../../../locales/zh-CN/common');
 const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
+const timeCopy=require('../../../../locales/zh-CN/time');
+const messageCopy=require('../../../../locales/zh-CN/messageFacts');
 const {callFunction}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const eventBus=require('../../../../utils/eventBus');
@@ -29,7 +31,7 @@ Page({
       const range=view.period(this.data.selected,this.data.mode,config.timezoneOffset);
       const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:this.data.managed})});if(!current())return;
       if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
-      this._items=result.items.map(item=>Object.assign({},item,{key:item.id+':'+item.occurrenceDate,timeText:time.formatListTime(item.startAt,config.timezoneOffset/60)+' — '+time.formatListTime(item.endAt,config.timezoneOffset/60)}));
+      this._items=result.items.map(item=>Object.assign({},item,{key:item.id+':'+item.occurrenceDate,timeText:view.timeText(item,config.timezoneOffset,time,timeCopy,messageCopy)}));
       this.setData({metadata:config,loading:false});this.render();
     }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}
   },

@@ -36,6 +36,19 @@ test('日程四种视图和空状态可用，页面不横向溢出',async({page}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);
 });
+test('calendar ranges retain actual review fields and the calendar timezone', async ({page}) => {
+  await setup(page);
+  await page.route('**/api/getCalendarConfiguration', route => route.fulfill({json:{status:'success',permissions:{},timezoneOffset:0}}));
+  const item = {id:'review-event',occurrenceDate:'2026-11-14',title:'Review event',sourceKind:'manual',startAt:'2026-11-14T08:30:45Z',startAtReviewStatus:'review_required'};
+  await page.route('**/api/getCalendar', route => route.fulfill({json:{status:'success',items:[item]}}));
+  await page.goto('/web/calendar?date=2026-11-14');
+  await page.locator('.tabs').getByRole('button',{name:copy.list,exact:true}).click();
+  const card = page.getByRole('button').filter({hasText:'Review event'});
+  await expect(card).toContainText('2026年11月14日 08:30 · 时间待核对');
+  await card.click();
+  await expect(page.getByRole('dialog',{name:'Review event'})).toContainText('2026年11月14日 08:30 · 时间待核对');
+});
+
 test('个人日程真实表单参数包含日期时间和提醒',async({page})=>{
   const calls=await setup(page);await page.goto('/web/calendar/edit?date=2026-11-02');
   await page.getByLabel(copy.name,{exact:true}).fill('日程保存回归');

@@ -1,5 +1,5 @@
 import rules from '@/shared/dateTimeFormat.js';
-import timeCopy from '@/locales/zh-CN/time.js';
+import timeCopy from '@/locales/zh-CN/shared/time.js';
 
 /**
  * 网页端时间展示入口。
@@ -51,6 +51,20 @@ export function formatDetailTime(value, reviewStatus) {
     reviewStatus: reviewStatus,
     reviewLabel: timeCopy.historicalTimezoneReviewRequired
   });
+}
+
+export function formatDisplayTime(value, reviewStatusOrOptions) {
+  const options = reviewStatusOrOptions && typeof reviewStatusOrOptions === 'object'
+    ? reviewStatusOrOptions : { reviewStatus: reviewStatusOrOptions };
+  return rules.formatDisplayTime(value, { ...options,
+    timezoneOffset: options.timezoneOffset === undefined ? config.offset : options.timezoneOffset,
+    reviewLabel: timeCopy.historicalTimezoneReviewRequired, copy: timeCopy });
+}
+
+export function formatTimeRange(start, end, options) {
+  return rules.formatTimeRange(start, end, { ...options,
+    timezoneOffset: options?.timezoneOffset === undefined ? config.offset : options.timezoneOffset,
+    reviewLabel: timeCopy.historicalTimezoneReviewRequired, copy: timeCopy });
 }
 
 export function formatAbsoluteDate(value, timezoneOffset) {

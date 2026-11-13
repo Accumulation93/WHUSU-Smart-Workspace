@@ -2,7 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/u
 const factsCopy = require('../../../locales/zh-CN/venueFacts');
 const { buildFlowTimeline } = require('./flowTimeline');
 const { formatAssignmentLabel } = require('./workContextPresentation');
-const { formatListTime, formatDetailTime, parseAbsoluteTime, systemDateTimeToTimestamp, addDateDays } = require('../../../utils/dateTime');
+const { formatListTime, formatDetailTime, formatTimeRange, parseAbsoluteTime, systemDateTimeToTimestamp, addDateDays } = require('../../../utils/dateTime');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -28,7 +28,7 @@ function computeDisplayStatus(item) {
   return item.status || '';
 }
 
-function formatActivityOccurrence(value, reviewStatus) {
+function activityOccurrenceInstant(value) {
   let instant = value;
   // 旧日程仅到分钟的时间是系统墙上时间；ISO 及带秒的绝对时间沿用公共规则。
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(value))) {
@@ -37,7 +37,15 @@ function formatActivityOccurrence(value, reviewStatus) {
       ? systemDateTimeToTimestamp(addDateDays(parts[0], 1), '00:00')
       : systemDateTimeToTimestamp(parts[0], parts[1]);
   }
-  return formatDetailTime(instant, { reviewStatus });
+  return instant;
+}
+
+function formatActivityOccurrence(value, reviewStatus) {
+  return formatDetailTime(activityOccurrenceInstant(value), { reviewStatus });
+}
+
+function formatActivityTimeRange(start, end, options) {
+  return formatTimeRange(activityOccurrenceInstant(start), activityOccurrenceInstant(end), options);
 }
 
 function getSnapshotCompletedSteps(progress) {
@@ -58,6 +66,10 @@ function prepareVenueBookingDetail(item) {
   });
   detail.timeEndText = formatListTime(detail.fullTimeEnd || detail.timeEnd, {
     reviewStatus: detail.fullTimeEnd ? detail.fullTimeEndReviewStatus : detail.timeEndReviewStatus
+  });
+  detail.timeRangeText = formatTimeRange(detail.fullTimeStart || detail.timeStart, detail.fullTimeEnd || detail.timeEnd, {
+    startReviewStatus: detail.fullTimeStart ? detail.fullTimeStartReviewStatus : detail.timeStartReviewStatus,
+    endReviewStatus: detail.fullTimeEnd ? detail.fullTimeEndReviewStatus : detail.timeEndReviewStatus
   });
   detail.createdAtText = formatListTime(detail.createdAt, { reviewStatus: detail.createdAtReviewStatus });
   detail.approvedAtText = formatDetailTime(detail.approvedAt, { reviewStatus: detail.approvedAtReviewStatus });
@@ -107,4 +119,4 @@ function prepareVenueBookingDetail(item) {
   return detail;
 }
 
-module.exports = { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence };
+module.exports = { computeDisplayStatus, prepareVenueBookingDetail, formatActivityOccurrence, formatActivityTimeRange };

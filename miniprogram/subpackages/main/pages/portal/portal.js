@@ -2,7 +2,7 @@ const { callFunction, formatAuditTime, showShortToast, recordMessageRender } = r
 const eventBus = require('../../../../utils/eventBus');
 const { describeMessage, messageCategory } = require('../../../../utils/messageFactsView');
 const messageFactsCopy = require('../../../../locales/zh-CN/messageFacts');
-const { formatDetailTime, formatDateOnly } = require('../../../../utils/dateTime');
+const { formatDisplayTime, formatTimeRange, formatDateOnly } = require('../../../../utils/dateTime');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -592,7 +592,7 @@ Page({
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
       return Object.assign({}, item, extra, describeMessage(item, messageFactsCopy, {
-        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl), formatDateTime: (value, reviewStatus) => formatDetailTime(value, { reviewStatus }), formatDate: formatDateOnly
+        notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl), formatDateTime: (value, reviewStatus) => formatDisplayTime(value, { reviewStatus }), formatRange: formatTimeRange, formatDate: formatDateOnly
       }));
     });
   },
@@ -779,7 +779,8 @@ Page({
   async onTodoTap(e) {
     const id = e.currentTarget.dataset.id;
     const item = (this.data.todos || []).find(function(row) { return row.id === id; });
-    if (!item || item.canOpen === false) return;
+    if (!item) return;
+    if (item.canOpen === false) { wx.showToast({ title: messageFactsCopy.todoDetailUnavailable, icon: 'none' }); return; }
     const switchKind = this.messageSwitchKind(item);
     if (switchKind === 'organization') {
       this.openMessageSwitchDialog(item, 'todo');
@@ -796,7 +797,8 @@ Page({
     if (this._notificationSwiping) return;
     const id = e.currentTarget.dataset.id;
     const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
-    if (!current || current.canOpen === false) return;
+    if (!current) return;
+    if (current.canOpen === false) { wx.showToast({ title: messageFactsCopy.notificationDetailUnavailable, icon: 'none' }); return; }
     const switchKind = this.messageSwitchKind(current);
     if (switchKind === 'organization') {
       this.openMessageSwitchDialog(current, 'notification');

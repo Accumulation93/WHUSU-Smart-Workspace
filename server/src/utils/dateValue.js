@@ -257,7 +257,7 @@ function getSystemDateTimeParts(utcIso, systemTimezoneOffset) {
 function formatDateTimeText(utcIso, systemTimezoneOffset) {
   const parts = getSystemDateTimeParts(utcIso, systemTimezoneOffset);
   if (!parts) return '';
-  return `${pad(parts.year, 4)}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+  return `${pad(parts.year, 4)}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}`;
 }
 
 function formatDatePickerValue(utcIso, systemTimezoneOffset) {

@@ -1617,6 +1617,7 @@ module.exports = Behavior({
           groupLabel: localeCopy.copy_9ec66981b8,
           source: 'profile',
           fieldId: field.id,
+          fieldType: field.type,
           checked: true
         });
         if (pendingFieldMap[field.id]) {
@@ -1626,6 +1627,7 @@ module.exports = Behavior({
             groupLabel: localeCopy.copy_ddb6dca5b6,
             source: 'pending',
             fieldId: field.id,
+            fieldType: field.type,
             checked: true
           });
         }
@@ -1702,9 +1704,11 @@ module.exports = Behavior({
           const currentValues = item.currentValues || {};
           const pendingValues = item.pendingValues || {};
           if (column.source === 'profile') {
-            exportRow[column.key] = currentValues[column.fieldId] || '';
+            const value = currentValues[column.fieldId] || '';
+            exportRow[column.key] = column.fieldType === 'datetime' ? formatDateTimeText(value) : value;
           } else if (column.source === 'pending') {
-            exportRow[column.key] = pendingValues[column.fieldId] || '';
+            const value = pendingValues[column.fieldId] || '';
+            exportRow[column.key] = column.fieldType === 'datetime' ? formatDateTimeText(value) : value;
           } else if (column.source === 'wxBindStatus') {
             const bindStatusTextMap = {
               bound: localeCopy.copy_171e9799a7,

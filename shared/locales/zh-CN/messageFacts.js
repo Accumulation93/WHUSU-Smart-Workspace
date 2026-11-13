@@ -74,6 +74,7 @@ module.exports = {
   unknownNotificationTitle: '工作台通知',
   unknownNotificationDescription: '打开详情，查看这条通知的相关信息。',
   notificationDetailUnavailable: '这条通知暂时无法打开详情。',
+  todoDetailUnavailable: '这项待办暂时无法打开详情。',
   auditProgressUnavailable: '具体审批步骤暂未确认',
   migrationUnavailable: '资料迁移的处理结果暂未确认',
   scoringDeadlineUnavailable: '评分截止时间暂未确认',

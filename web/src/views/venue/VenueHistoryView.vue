@@ -46,7 +46,7 @@ import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { formatListTime } from '@/runtime/dateTime.js';
+import { formatListTime, formatTimeRange } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 import { venueStatusLabel } from '@/runtime/venuePresentation.js';
 
@@ -68,10 +68,7 @@ const roleLine = computed(() => {
 });
 
 function timeRange(item) {
-  const start = formatListTime(item.timeStart, item.timeStartReviewStatus);
-  const end = formatListTime(item.timeEnd, item.timeEndReviewStatus);
-  if (!start && !end) return '';
-  return start + ' ' + copy.venue.timeSeparator + ' ' + end;
+  return formatTimeRange(item.timeStart, item.timeEnd, { startReviewStatus: item.timeStartReviewStatus, endReviewStatus: item.timeEndReviewStatus });
 }
 
 function goWorkRole() {

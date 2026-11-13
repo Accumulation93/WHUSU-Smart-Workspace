@@ -225,7 +225,7 @@ function createHrProfileDate(getSystemTimezoneConfig) {
     const parts = getSystemDateTimeParts(utcIso, timezoneOffset);
     if (!parts) return '';
     return padDatePart(parts.year, 4) + '-' + padDatePart(parts.month) + '-' + padDatePart(parts.day)
-      + ' ' + padDatePart(parts.hour) + ':' + padDatePart(parts.minute) + ':' + padDatePart(parts.second);
+      + ' ' + padDatePart(parts.hour) + ':' + padDatePart(parts.minute);
   }
 
   function formatDateTimePickerDate(utcIso, timezoneOffset) {

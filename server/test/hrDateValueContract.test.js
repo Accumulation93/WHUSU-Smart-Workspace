@@ -44,7 +44,11 @@ assert.strictEqual(mini.normalizeDateLiteral('2006-10-20T23:30:00Z'), '2006-10-2
 assert.strictEqual(server.normalizeDateTimeValue('2006-10-20 23:30:00'), '2006-10-20T23:30:00Z');
 assert.strictEqual(server.normalizeDateTimeValue('2006-10-20T23:30:00+08:00'), '2006-10-20T15:30:00Z');
 // 展示按系统时区，绝不使用设备时区。
-assert.strictEqual(server.formatDateTimeText('2006-10-20T23:30:00Z', 8), '2006-10-21 07:30:00');
+assert.strictEqual(server.formatDateTimeText('2006-10-20T23:30:00Z', 8), '2006-10-21 07:30');
+const preciseInstant = '2026-11-13T23:14:37Z';
+assert.strictEqual(mini.formatDateTimeText(preciseInstant, 8), '2026-11-14 07:14');
+assert.strictEqual(mini.normalizeDateTimeInstant(preciseInstant), preciseInstant);
+assert.strictEqual(server.normalizeDateTimeValue(preciseInstant), preciseInstant);
 
 // 与旧口径的差异必须显式记录：数据库格式现在可识别。
 const databaseFormat = 'Fri Oct 20 2006 08:00:00 GMT+0800（China Standard Time）';

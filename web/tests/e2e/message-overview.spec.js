@@ -10,14 +10,14 @@ const notificationCases = [
   ['submission_approved', { event: { roundOrder: 2 } }, copy.auditApproved, [copy.roundNumber(2)]],
   ['submission_progress', { event: { completedStepOrder: 1, completedStepName: 'Historical review', nextStepOrder: 2, nextStepName: 'Historical next review' }, current: { stepOrder: 4, stepName: 'Current review' } }, copy.auditProgressStatus, [copy.stepNameAndOrder(1, 'Historical review'), copy.stepNameAndOrder(2, 'Historical next review'), copy.stepNameAndOrder(4, 'Current review')]],
   ['submission_rejected', { event: { rejectedStepOrder: 3, rejectedStepName: 'Budget review', reason: 'Missing budget attachment' } }, copy.auditRejected, ['Budget review', 'Missing budget attachment']],
-  ['booking_approved', { venueName: 'North meeting room', startTime, endTime }, copy.venueApproved, ['North meeting room', '2026-11-10', '16:00', '18:00']],
+  ['booking_approved', { venueName: 'North meeting room', startTime, endTime }, copy.venueApproved, ['North meeting room', '2026年11月10日 16:00-18:00']],
   ['booking_rejected', { venueName: 'South meeting room', event: { reason: 'Room already reserved' } }, copy.venueRejected, ['South meeting room', 'Room already reserved']],
   ['booking_cancelled', { venueName: 'Library room' }, copy.venueCancelled, ['Library room']],
   ['hr_profile_approved', {}, copy.profileApproved, []],
   ['hr_profile_rejected', { event: { reason: 'Please verify the phone number' } }, copy.profileRejected, ['Please verify the phone number']],
   ['hr_profile_migration', { sourceOrganizationName: 'Source organization', targetOrganizationName: 'Receiving organization', current: { status: 'executed' } }, copy.migrationCurrentExecuted, ['Source organization', 'Receiving organization']],
-  ['score_activity_started', { deadline: endTime }, copy.scoringStarted, ['2026-11-10', '18:00']],
-  ['score_deadline_24h', { deadline: endTime }, null, ['2026-11-10', '18:00']],
+  ['score_activity_started', { deadline: endTime }, copy.scoringStarted, ['2026年11月10日 18:00']],
+  ['score_deadline_24h', { deadline: endTime }, null, ['2026年11月10日 18:00']],
   ['score_results_published', {}, copy.scoringPublished, []],
   ['calendar_reminder', { allDay: true, startDate: '2026-11-10', endDateInclusive: '2026-11-12' }, null, ['2026-11-10', '2026-11-12']],
   ['account_security', { event: { subtype: 'wechat_recovered' } }, copy.accountWechatRecovered, []]
@@ -40,7 +40,7 @@ test('concise notification cards show each time and matching step only once', as
   const unknown=page.locator('.notification-item').filter({hasText:'Pending schedule'});
   await expect(unknown).toContainText(copy.calendarTimeUnavailable);
   await expect(unknown).not.toContainText(copy.calendarTimeUnknown);
-  await page.screenshot({path:info.outputPath('concise-notifications.png'),fullPage:true});
+  await page.screenshot({path:info.outputPath('concise-notifications.png'),fullPage:true,animations:'disabled'});
 });
 
 async function installMessages(page, notifications, todos = []) {
@@ -49,6 +49,27 @@ async function installMessages(page, notifications, todos = []) {
   await page.route('**/api/listTodos', route => route.fulfill({ json: { status: 'success', items: todos, total: todos.length, nextCursor: '' } }));
   return api;
 }
+
+test('unavailable details explain only after clicking without navigation or read writes', async ({ page }) => {
+  const api = await installMessages(page,
+    [{ id: 'unavailable-notice', type: 'booking_approved', isRead: false, targetUrl: '', displayFacts: { businessTitle: 'Unavailable notice', startTime, endTime } }],
+    [{ id: 'unavailable-todo', sourceType: 'audit_approval', targetUrl: '', displayFacts: { businessTitle: 'Unavailable todo' } }]);
+  for (const path of ['/web/portal', '/web/messages?tab=notifications']) {
+    await page.goto(path);
+    const row = page.locator('.notification-item').filter({ hasText: 'Unavailable notice' });
+    await expect(row).not.toContainText(copy.notificationDetailUnavailable);
+    await row.locator('.message-open').click();
+    await expect(page.getByText(copy.notificationDetailUnavailable, { exact: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(path.split('?')[0]);
+    expect(callsOf(api.calls, 'markNotificationRead')).toHaveLength(0);
+  }
+  await page.goto('/web/messages?tab=todos');
+  const todo = page.locator('.notification-item').filter({ hasText: 'Unavailable todo' });
+  await expect(todo).not.toContainText(copy.todoDetailUnavailable);
+  await todo.locator('.message-open').click();
+  await expect(page.getByText(copy.todoDetailUnavailable, { exact: true })).toBeVisible();
+  expect(callsOf(api.calls, 'markNotificationRead')).toHaveLength(0);
+});
 
 test('calendar reminders have their own category in portal and messages while security remains system', async ({ page }) => {
   await installMessages(page, [
@@ -77,8 +98,8 @@ test('all fourteen notification kinds retain business overview independently of 
     if (entry[2]) await expect(row).toContainText(entry[2]);
     for (const fact of entry[3]) await expect(row).toContainText(fact);
     if (index % 2) {
-      await expect(row.locator('.message-open')).toBeDisabled();
-      await expect(row).toContainText(copy.notificationDetailUnavailable);
+      await expect(row.locator('.message-open')).toBeEnabled();
+      await expect(row).not.toContainText(copy.notificationDetailUnavailable);
     }
   }
   const progress = page.locator('.notification-item').filter({ hasText: 'Business record 1' }).first();
@@ -112,7 +133,7 @@ test('portal preserves long business names and complete details without horizont
   const row = page.locator('.notification-item').filter({ hasText: title.trim() });
   await expect(row).toContainText(copy.venueApproved);
   await expect(row).toContainText('18:00');
-  await expect(row).toContainText(copy.notificationDetailUnavailable);
+  await expect(row).not.toContainText(copy.notificationDetailUnavailable);
   const geometry = await row.evaluate(element => [...element.querySelectorAll('.notification-title, .notification-desc')].map(node => ({
     width: node.clientWidth, scrollWidth: node.scrollWidth, height: node.clientHeight, scrollHeight: node.scrollHeight,
     overflow: getComputedStyle(node).textOverflow, whiteSpace: getComputedStyle(node).whiteSpace
@@ -123,13 +144,13 @@ test('portal preserves long business names and complete details without horizont
     expect(line.whiteSpace).not.toBe('nowrap');
   }
   await row.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath('message-overview.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('message-overview.png'), fullPage: true, animations: 'disabled' });
   await row.evaluate(element => { const scroller = element.closest('.message-preview-scroll'); scroller.scrollTop = scroller.scrollHeight; });
-  const lastLine = row.getByText(copy.notificationDetailUnavailable, { exact: true });
+  const lastLine = row.locator('.notification-desc').last();
   await expect(lastLine).toBeInViewport();
   const bottom = await lastLine.evaluate(element => ({ line: element.getBoundingClientRect().bottom, viewport: element.closest('.message-preview-scroll').getBoundingClientRect().bottom }));
   expect(bottom.line).toBeLessThanOrEqual(bottom.viewport + 1);
-  await page.screenshot({ path: testInfo.outputPath('message-overview-bottom.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('message-overview-bottom.png'), fullPage: true, animations: 'disabled' });
 });
 
 test('historical notifications without event facts do not invent completed steps or parse old text', async ({ page }) => {
@@ -145,7 +166,7 @@ test('historical notifications without event facts do not invent completed steps
   await expect(current).not.toContainText(copy.completedStepLabel);
   const unknown = page.locator('.notification-item').filter({ hasText: copy.auditProgressUnavailable });
   await expect(unknown).toContainText(copy.notificationTitles.submission_progress);
-  await expect(unknown).toContainText(copy.notificationDetailUnavailable);
+  await expect(unknown).not.toContainText(copy.notificationDetailUnavailable);
   await expect(unknown).not.toContainText(copy.currentProgressLabel);
   const migration = page.locator('.notification-item').filter({ hasText: 'Migration history' });
   await expect(migration).toContainText(copy.migrationPending);

@@ -23,7 +23,7 @@ const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueF
 const controlLayoutCopy = require('../../package-resources/locales/zh-CN/controlLayout');
 const adminTimeSelection = require('../../utils/adminTimeSelection');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const { prepareVenueBookingDetail, formatActivityOccurrence } = require('../../utils/venueBookingDetail');
+const { prepareVenueBookingDetail, formatActivityTimeRange } = require('../../utils/venueBookingDetail');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const {
   getSystemDate,
@@ -231,7 +231,7 @@ function formatActivityCycleLabel(type, values) {
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
   if (mode === 'count') return [localeCopy.repeatFrom(start), bookingCopy.repeatedOccurrences(Number(meta.repeatCount) || 0)].join('\n');
   const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
-  return factsCopy.recurrenceValidity(start, end);
+  return meta.periodStartDate && meta.periodEndDate ? factsCopy.recurrenceValidityRange(formatActivityTimeRange(start, end)) : factsCopy.recurrenceValidity(start, end);
 }
 
 function emptyBookingWindow() {
@@ -1877,7 +1877,7 @@ module.exports = Behavior({
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
       cycleType: activity.cycleType, cycleValues: activity.cycleValues,
-      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? factsCopy.timeRange(formatActivityOccurrence(activity.occurrenceStart, activity.occurrenceStartReviewStatus), formatActivityOccurrence(activity.occurrenceEnd, activity.occurrenceEndReviewStatus)) : factsCopy.timeRangeMissing,
+      occurrenceTime: activity.occurrenceStart && activity.occurrenceEnd ? formatActivityTimeRange(activity.occurrenceStart, activity.occurrenceEnd, { startReviewStatus: activity.occurrenceStartReviewStatus, endReviewStatus: activity.occurrenceEndReviewStatus }) : factsCopy.timeRangeMissing,
       note: localeCopy.copy_c1ce05d451
     }});
   },
