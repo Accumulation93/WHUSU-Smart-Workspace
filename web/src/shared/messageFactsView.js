@@ -53,16 +53,14 @@ function describeMessage(item, copy, options) {
     const event = object(facts.event), current = object(facts.current);
     const currentStepVisible = !text(current.status) || current.status === 'pending' || current.status === 'in_progress';
     const kind = text(source.type);
-    let description = copy.unknownNotificationDescription;
+    let description = canOpen ? copy.unknownNotificationDescription : copy.unknownNotificationUnavailable;
     if (kind === 'submission_approved') description = copy.auditApproved;
     else if (kind === 'submission_progress') {
-      description = positive(event.completedStepOrder) ? positive(event.nextStepOrder)
-        ? copy.auditProgress(event.completedStepOrder, event.nextStepOrder) : copy.auditProgressCompleted(event.completedStepOrder)
-        : currentStepVisible && positive(current.stepOrder) ? copy.auditCurrentStep(current.stepOrder) : copy.auditProgressUnknown;
+      description = positive(event.completedStepOrder) || positive(event.nextStepOrder) || text(event.completedStepName) || text(event.nextStepName) || (currentStepVisible && (positive(current.stepOrder) || text(current.stepName))) ? copy.auditProgressStatus : copy.auditProgressUnknown;
       addLine(detailLines, copy.completedStepLabel, stepText(event.completedStepOrder, event.completedStepName, copy));
       addLine(detailLines, copy.nextStepLabel, stepText(event.nextStepOrder, event.nextStepName, copy));
     } else if (kind === 'submission_rejected') {
-      description = positive(event.rejectedStepOrder) ? copy.auditRejectedAt(event.rejectedStepOrder) : copy.auditRejected;
+      description = copy.auditRejected;
       addLine(detailLines, copy.rejectedStepLabel, stepText(event.rejectedStepOrder, event.rejectedStepName, copy));
     } else if (kind === 'booking_approved') description = copy.venueApproved;
     else if (kind === 'booking_rejected') description = copy.venueRejected;
@@ -79,23 +77,31 @@ function describeMessage(item, copy, options) {
     } else if (kind === 'score_activity_started') description = copy.scoringStarted;
     else if (kind === 'score_deadline_24h') {
       const eventDeadline = dateTime(event.deadline, settings, event.deadlineReviewStatus), currentDeadline = dateTime(facts.deadline, settings, facts.deadlineReviewStatus);
-      description = eventDeadline ? copy.scoringDeadline(eventDeadline) : currentDeadline ? copy.currentScoringDeadline(currentDeadline) : copy.scoringDeadlineUnknown;
+      description = eventDeadline || currentDeadline ? copy.scoringDeadlineAction : copy.scoringDeadlineUnknown;
+      addLine(detailLines, eventDeadline ? copy.deadlineLabel : copy.currentDeadlineLabel, eventDeadline || currentDeadline);
     } else if (kind === 'score_results_published') description = copy.scoringPublished;
     else if (kind === 'calendar_reminder') {
-      const start = facts.allDay === true ? '' : dateTime(facts.startTime, settings, facts.startTimeReviewStatus);
-      const hasAllDayDate = facts.allDay === true && (dateOnly(facts.startDate, settings) || dateOnly(facts.endDateInclusive, settings));
-      description = hasAllDayDate ? copy.calendarAllDay : start ? copy.calendarStartsAt(start) : copy.calendarTimeUnknown;
-      if (text(facts.venueName) !== text(facts.location)) addLine(detailLines, copy.venueLabel, text(facts.venueName));
       addPeriod(detailLines, facts, copy.scheduleTimeLabel, copy, settings);
+      description = detailLines.length ? '' : copy.calendarTimeUnknown;
+      if (text(facts.venueName) !== text(facts.location)) addLine(detailLines, copy.venueLabel, text(facts.venueName));
       addLine(detailLines, copy.locationLabel, text(facts.location));
     } else if (kind === 'account_security') description = event.subtype === 'wechat_recovered' ? copy.accountWechatRecovered : copy.accountSecurityUnknown;
     if (kind.startsWith('submission_')) {
       if (positive(event.roundOrder)) addLine(detailLines, copy.roundLabel, copy.roundNumber(event.roundOrder));
-      if (currentStepVisible) addLine(detailLines, copy.currentProgressLabel, stepText(current.stepOrder, current.stepName, copy));
+      const sameNextStep = positive(current.stepOrder) && current.stepOrder === event.nextStepOrder && text(current.stepName) === text(event.nextStepName);
+      if (kind === 'submission_progress' && currentStepVisible && !sameNextStep) addLine(detailLines, copy.currentProgressLabel, stepText(current.stepOrder, current.stepName, copy));
     }
     if (kind.startsWith('booking_')) { addLine(detailLines, copy.venueLabel, text(facts.venueName)); addPeriod(detailLines, facts, copy.bookingTimeLabel, copy, settings); }
-    if (kind.startsWith('score_') && kind !== 'score_deadline_24h') addLine(detailLines, copy.deadlineLabel, dateTime(facts.deadline, settings, facts.deadlineReviewStatus));
+    if (kind === 'score_activity_started') addLine(detailLines, copy.deadlineLabel, dateTime(facts.deadline, settings, facts.deadlineReviewStatus));
     addLine(detailLines, copy.reasonLabel, text(event.reason));
+    if (!canOpen) {
+      if (description === copy.auditProgressUnknown) description = copy.auditProgressUnavailable;
+      else if (description === copy.migrationUnknown) description = copy.migrationUnavailable;
+      else if (description === copy.scoringDeadlineUnknown) description = copy.scoringDeadlineUnavailable;
+      else if (description === copy.calendarTimeUnknown) description = copy.calendarTimeUnavailable;
+      else if (description === copy.accountSecurityUnknown) description = copy.accountSecurityUnavailable;
+    }
+    if (!text(facts.businessTitle) && !text(facts.businessNumber) && ['submission_approved', 'submission_rejected', 'booking_approved', 'booking_rejected', 'booking_cancelled', 'hr_profile_approved', 'hr_profile_rejected', 'score_activity_started', 'score_results_published'].includes(kind)) description = '';
     return { title: text(facts.businessTitle) || text(facts.businessNumber) || label(copy.notificationTitles, kind, copy.unknownNotificationTitle),
       description, detailLines, canOpen, workContextName, actionNotice: canOpen ? '' : copy.notificationDetailUnavailable };
   }
@@ -117,6 +123,7 @@ function describeMessage(item, copy, options) {
     description = text(facts.memberName) ? copy.profileTodo(facts.memberName) : copy.profileTodoUnknown;
   }
   const title = text(facts.businessTitle) || (Object.prototype.hasOwnProperty.call(copy.todoTitles, kind) ? copy.todoTitles[kind] : copy.unknownNotificationTitle);
+  if (!text(facts.businessTitle) && ((kind === 'audit_approval' && !text(facts.submitterName)) || (kind === 'venue_approval' && !text(facts.applicantName)) || (kind === 'hr_profile_review' && !text(facts.memberName)))) description = '';
   return { title, description, detailLines, canOpen, workContextName };
 }
 

@@ -8,8 +8,8 @@ const endTime = '2026-11-10T10:00:00.000Z';
 const auditUrl = '/subpackages/audit/pages/submissionDetail/submissionDetail?id=overview';
 const notificationCases = [
   ['submission_approved', { event: { roundOrder: 2 } }, copy.auditApproved, [copy.roundNumber(2)]],
-  ['submission_progress', { event: { completedStepOrder: 1, completedStepName: 'Historical review', nextStepOrder: 2, nextStepName: 'Historical next review' }, current: { stepOrder: 4, stepName: 'Current review' } }, copy.auditProgress(1, 2), [copy.stepNameAndOrder(1, 'Historical review'), copy.stepNameAndOrder(2, 'Historical next review'), copy.stepNameAndOrder(4, 'Current review')]],
-  ['submission_rejected', { event: { rejectedStepOrder: 3, rejectedStepName: 'Budget review', reason: 'Missing budget attachment' } }, copy.auditRejectedAt(3), ['Budget review', 'Missing budget attachment']],
+  ['submission_progress', { event: { completedStepOrder: 1, completedStepName: 'Historical review', nextStepOrder: 2, nextStepName: 'Historical next review' }, current: { stepOrder: 4, stepName: 'Current review' } }, copy.auditProgressStatus, [copy.stepNameAndOrder(1, 'Historical review'), copy.stepNameAndOrder(2, 'Historical next review'), copy.stepNameAndOrder(4, 'Current review')]],
+  ['submission_rejected', { event: { rejectedStepOrder: 3, rejectedStepName: 'Budget review', reason: 'Missing budget attachment' } }, copy.auditRejected, ['Budget review', 'Missing budget attachment']],
   ['booking_approved', { venueName: 'North meeting room', startTime, endTime }, copy.venueApproved, ['North meeting room', '2026-11-10', '16:00', '18:00']],
   ['booking_rejected', { venueName: 'South meeting room', event: { reason: 'Room already reserved' } }, copy.venueRejected, ['South meeting room', 'Room already reserved']],
   ['booking_cancelled', { venueName: 'Library room' }, copy.venueCancelled, ['Library room']],
@@ -19,9 +19,29 @@ const notificationCases = [
   ['score_activity_started', { deadline: endTime }, copy.scoringStarted, ['2026-11-10', '18:00']],
   ['score_deadline_24h', { deadline: endTime }, null, ['2026-11-10', '18:00']],
   ['score_results_published', {}, copy.scoringPublished, []],
-  ['calendar_reminder', { allDay: true, startDate: '2026-11-10', endDateInclusive: '2026-11-12' }, copy.calendarAllDay, ['2026-11-10', '2026-11-12']],
+  ['calendar_reminder', { allDay: true, startDate: '2026-11-10', endDateInclusive: '2026-11-12' }, null, ['2026-11-10', '2026-11-12']],
   ['account_security', { event: { subtype: 'wechat_recovered' } }, copy.accountWechatRecovered, []]
 ];
+
+test('concise notification cards show each time and matching step only once', async ({page}, info) => {
+  await installMessages(page, [
+    {id:'concise-calendar',type:'calendar_reminder',category:'system',targetUrl:auditUrl,displayFacts:{businessTitle:'Team meeting',startTime,endTime,location:'Room A',venueName:'Room A'}},
+    {id:'concise-progress',type:'submission_progress',category:'audit',targetUrl:auditUrl,displayFacts:{businessTitle:'Budget approval',event:{completedStepOrder:1,completedStepName:'Review',nextStepOrder:2,nextStepName:'Final approval'},current:{stepOrder:2,stepName:'Final approval'}}},
+    {id:'concise-unknown',type:'calendar_reminder',category:'system',targetUrl:'',displayFacts:{businessTitle:'Pending schedule'}}
+  ]);
+  await page.goto('/web/messages?tab=notifications');
+  const calendar=page.locator('.notification-item').filter({hasText:'Team meeting'});
+  await expect(calendar).not.toContainText(copy.startTimeLabel);
+  expect((await calendar.innerText()).match(/16:00/g)).toHaveLength(1);
+  expect((await calendar.innerText()).match(/Room A/g)).toHaveLength(1);
+  const progress=page.locator('.notification-item').filter({hasText:'Budget approval'});
+  expect((await progress.innerText()).match(/Final approval/g)).toHaveLength(1);
+  await expect(progress).not.toContainText(copy.currentProgressLabel);
+  const unknown=page.locator('.notification-item').filter({hasText:'Pending schedule'});
+  await expect(unknown).toContainText(copy.calendarTimeUnavailable);
+  await expect(unknown).not.toContainText(copy.calendarTimeUnknown);
+  await page.screenshot({path:info.outputPath('concise-notifications.png'),fullPage:true});
+});
 
 async function installMessages(page, notifications, todos = []) {
   const api = await mockApi(page, { emptyTodos: true, emptyNotifications: true });
@@ -120,9 +140,10 @@ test('historical notifications without event facts do not invent completed steps
   ]);
   await page.goto('/web/messages?tab=notifications');
   const current = page.locator('.notification-item').filter({ hasText: 'Current authorized record' });
-  await expect(current).toContainText(copy.auditCurrentStep(4));
+  await expect(current).toContainText(copy.auditProgressStatus);
+  await expect(current).toContainText(copy.stepNameAndOrder(4, 'Final review'));
   await expect(current).not.toContainText(copy.completedStepLabel);
-  const unknown = page.locator('.notification-item').filter({ hasText: copy.auditProgressUnknown });
+  const unknown = page.locator('.notification-item').filter({ hasText: copy.auditProgressUnavailable });
   await expect(unknown).toContainText(copy.notificationTitles.submission_progress);
   await expect(unknown).toContainText(copy.notificationDetailUnavailable);
   await expect(unknown).not.toContainText(copy.currentProgressLabel);

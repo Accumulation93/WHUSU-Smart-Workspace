@@ -16,10 +16,10 @@ test('日程提醒兼容历史系统分类，其他通知不误归类', () => {
 test('历史通知只按类型使用前端语料，不解析后端标题正文', () => {
   const result = describeMessage({ type: 'submission_rejected', title: 'UNTRUSTED_TITLE', description: 'UNTRUSTED_DESCRIPTION' }, copy, { notification: true, canOpen: true });
   assert.equal(result.title, copy.notificationTitles.submission_rejected);
-  assert.equal(result.description, copy.auditRejected);
+  assert.equal(result.description, '');
   assert.ok(!JSON.stringify(result).includes('UNTRUSTED'));
   const unavailable = describeMessage({ type: 'account_security' }, copy, { notification: true, canOpen: false });
-  assert.equal(unavailable.description, copy.accountSecurityUnknown);
+  assert.equal(unavailable.description, copy.accountSecurityUnavailable);
   assert.equal(unavailable.actionNotice, copy.notificationDetailUnavailable);
   assert.equal(unavailable.canOpen, false);
 });
@@ -33,7 +33,7 @@ test('待办业务标题原样保留，人员步骤和数量仅用结构化事�
   for (const pendingCount of [undefined, '3', -1, Infinity]) {
     assert.equal(describeMessage({ sourceType: 'scoring_task', displayFacts: { pendingCount } }, copy).description, copy.scoringTodoUnknown);
   }
-  assert.equal(describeMessage({ sourceType: 'audit_approval', displayFacts: { stepOrder: 0 } }, copy).description, copy.auditTodo);
+  assert.equal(describeMessage({ sourceType: 'audit_approval', displayFacts: { stepOrder: 0 } }, copy).description, '');
   const venue = describeMessage({ sourceType: 'venue_approval', displayFacts: { venueName: 'VENUE', currentStepName: 'STEP' } }, copy);
   assert.deepEqual(venue.detailLines, [{ label: copy.venueLabel, value: 'VENUE' }, { label: copy.currentStepLabel, value: 'STEP' }]);
 });
@@ -42,18 +42,18 @@ test('通知保留业务标题、事件步骤和当前进展，不能用当前�
   const facts = { businessTitle: 'TITLE', event: { completedStepOrder: 2, completedStepName: 'DONE', roundOrder: 1 }, current: { stepOrder: 5, stepName: 'NOW' } };
   const result = describeMessage({ type: 'submission_progress', displayFacts: facts }, copy, { notification: true, canOpen: false });
   assert.equal(result.title, 'TITLE');
-  assert.equal(result.description, copy.auditProgressCompleted(2));
+  assert.equal(result.description, copy.auditProgressStatus);
   assert.ok(result.detailLines.some(line => line.value === copy.stepNameAndOrder(5, 'NOW')));
   assert.equal(result.actionNotice, copy.notificationDetailUnavailable);
   facts.event.nextStepOrder = 3;
   facts.event.nextStepName = 'TRANSFERRED';
   const transferred = describeMessage({ type: 'submission_progress', displayFacts: facts }, copy, { notification: true });
-  assert.equal(transferred.description, copy.auditProgress(2, 3));
+  assert.equal(transferred.description, copy.auditProgressStatus);
   assert.ok(transferred.detailLines.some(line => line.label === copy.nextStepLabel && line.value === copy.stepNameAndOrder(3, 'TRANSFERRED')));
   const migrated = describeMessage({ type: 'hr_profile_migration', displayFacts: { current: { status: 'executed' } } }, copy, { notification: true });
   assert.equal(migrated.description, copy.migrationCurrentExecuted);
   const completed = describeMessage({ type: 'submission_progress', displayFacts: { current: { status: 'approved', stepOrder: 4, stepName: 'FINISHED' } } }, copy, { notification: true });
-  assert.equal(completed.description, copy.auditProgressUnknown);
+  assert.equal(completed.description, copy.auditProgressUnavailable);
   assert.ok(!JSON.stringify(completed.detailLines).includes('FINISHED'));
 });
 
@@ -70,9 +70,10 @@ test('时间只接明确时区或全天日期，缺一端不伪造完整范围',
   assert.deepEqual(partial.detailLines, [{ label: copy.startTimeLabel, value: '2026-11-10T08:00:00Z' }]);
   const allDay = describeMessage({ type: 'calendar_reminder', displayFacts: { allDay: true, startDate: '2026-11-10', endDateInclusive: '2026-11-10' } }, copy, options);
   assert.equal(allDay.detailLines[0].value, copy.allDayDate('2026-11-10'));
-  assert.equal(allDay.description, copy.calendarAllDay);
+  assert.equal(allDay.description, '');
   const deadline = describeMessage({ type: 'score_deadline_24h', displayFacts: { deadline: '2026-11-10T08:00:00Z' } }, copy, options);
-  assert.equal(deadline.description, copy.currentScoringDeadline('2026-11-10T08:00:00Z'));
+  assert.equal(deadline.description, copy.scoringDeadlineAction);
+  assert.deepEqual(deadline.detailLines, [{ label: copy.currentDeadlineLabel, value: '2026-11-10T08:00:00Z' }]);
   const seen = [];
   describeMessage({ type: 'booking_approved', displayFacts: { startTime: '2026-11-10T08:00:00Z', startTimeReviewStatus: 'review_required' } }, copy,
     { notification: true, formatDateTime(value, review) { seen.push(review); return value; } });
@@ -101,5 +102,23 @@ test('十四类通知均保留独立业务名称，未知类型不读取对象�
   }
   const unknown = describeMessage({ type: '__proto__' }, copy, { notification: true });
   assert.equal(unknown.title, copy.unknownNotificationTitle);
-  assert.equal(unknown.description, copy.unknownNotificationDescription);
+  assert.equal(unknown.description, copy.unknownNotificationUnavailable);
+});
+
+test('日程仅一处时间，审批同一步去重且不同名称不丢失', () => {
+  const options = { notification: true, canOpen: true, formatDateTime: value => value };
+  const startTime='2026-11-13T08:00:00Z', endTime='2026-11-13T09:00:00Z';
+  for(const times of [{startTime,endTime},{startTime},{endTime}]) {
+    const result=describeMessage({type:'calendar_reminder',displayFacts:{businessTitle:'TITLE',...times}},copy,options);
+    assert.equal(result.description,'');assert.equal(result.detailLines.length,1);
+    for(const value of Object.values(times)) assert.equal(JSON.stringify(result).split(value).length-1,1);
+  }
+  const facts={businessTitle:'TITLE',event:{completedStepOrder:1,nextStepOrder:2,nextStepName:'STEP'},current:{stepOrder:2,stepName:'STEP'}};
+  let result=describeMessage({type:'submission_progress',displayFacts:facts},copy,options);
+  assert.equal(result.detailLines.filter(line=>line.label===copy.currentProgressLabel).length,0);
+  facts.current.stepName='OTHER';
+  result=describeMessage({type:'submission_progress',displayFacts:facts},copy,options);
+  assert.equal(result.detailLines.filter(line=>line.label===copy.currentProgressLabel).length,1);
+  const published=describeMessage({type:'score_results_published',displayFacts:{businessTitle:'TITLE',deadline:endTime}},copy,options);
+  assert.equal(published.description,copy.scoringPublished);assert.equal(published.detailLines.length,0);
 });

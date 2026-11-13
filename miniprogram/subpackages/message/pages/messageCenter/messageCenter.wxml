@@ -55,7 +55,7 @@
               </view>
             </view>
             <view class="message-title">{{item.title}}</view>
-            <view class="message-desc">{{item.description}}</view>
+            <view wx:if="{{item.description}}" class="message-desc">{{item.description}}</view>
             <view class="message-desc" wx:for="{{item.detailLines}}" wx:for-item="line" wx:key="label">{{line.label}}: {{line.value}}</view>
             <view class="message-time">{{item.createdAtText}}</view>
           </view>
@@ -81,7 +81,7 @@
                 </view>
               </view>
               <view class="message-title">{{item.title}}</view>
-              <view class="message-desc">{{item.description}}</view>
+              <view wx:if="{{item.description}}" class="message-desc">{{item.description}}</view>
               <view class="message-desc" wx:for="{{item.detailLines}}" wx:for-item="line" wx:key="label">{{line.label}}: {{line.value}}</view>
               <view class="message-desc" wx:if="{{item.actionNotice}}">{{item.actionNotice}}</view>
               <view class="message-time">{{item.createdAtText}}</view>
