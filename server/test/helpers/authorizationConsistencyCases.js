@@ -60,6 +60,10 @@ module.exports = async function authorizationConsistencyCases({ db, model, edito
     fields: ['profile:jd-field-visible'] };
   await success('saveAuthorizationRule', { name: '本人查询资料项', policy: ownPolicy, expectedRevision: await revision() }, true);
   const own = await success('getEffectiveAuthorization');
+  assert.equal(own.capabilities.find(item => item.capability === 'hr.people.read').grantState, 'granted');
+  assert.equal(own.capabilities.find(item => item.capability === 'hr.people.read').grantBasis, 'rule');
+  assert.equal(own.capabilities.find(item => item.capability === 'scoring.currentActivity.read').grantState, 'not_granted');
+  assert.equal(own.capabilities.find(item => item.capability === 'scoring.currentActivity.read').businessEntry, true);
   assert.deepEqual(own.scopeDirectory.assignments, []);
   assert.deepEqual(own.scopeDirectory.adminGrants, []);
   assert.deepEqual(own.scopeDirectory.dimensions.departmentId, [{ id: 'jd-department', name: '测试部门' }]);

@@ -96,8 +96,6 @@
           <div v-for="step in roundGroup.steps" :key="step.id" class="list-row">
             <div class="list-row-main stack-tight">
               <span class="list-row-title">{{ stepTitle(step) }}</span>
-              <span v-if="!['approved','rejected'].includes(step.status)" class="muted break-all">{{ step.approverDesc }}</span>
-              <ApprovalConditions :value="step.conditionView" />
               <span class="row row-wrap">
                 <span class="chip" :class="stepTone(step)"><span v-if="stepPresentation(step).state === 'active'" aria-hidden="true">◷ </span>{{ stepLabel(step) }}</span>
                 <span v-if="step.comment" class="soft break-all">{{ step.comment }}</span>
@@ -175,9 +173,6 @@ import { signingAssets } from '@/runtime/signingAssets.js';
 import { addMaterial as recordMaterial, deleteLayer } from '@/shared/auditInk.js';
 import { signingDrafts, stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
 import { presentAuditStep, groupAuditRounds } from '@/shared/auditStepView.js';
-import { buildConditions } from '@/shared/auditConditionView.js';
-import conditionCopy from '@/locales/zh-CN/shared/auditConditions.js';
-import ApprovalConditions from '@/components/ApprovalConditions.vue';
 import { auditAssignmentLabel, isAuditAdministrativeContext } from '@/runtime/auditAssignmentLabel.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -244,7 +239,7 @@ function goWorkRole() {
 }
 
 const submission = computed(() => (detail.value && detail.value.submission) || {});
-const steps = computed(() => ((detail.value && detail.value.steps) || []).map(step=>{const conditionView=buildConditions(step,conditionCopy);return {...step,conditionView,approverDesc:conditionView.summary};}));
+const steps = computed(() => (detail.value && detail.value.steps) || []);
 const events = computed(() => (detail.value && detail.value.events) || []);
 const files = computed(() => (detail.value && detail.value.files) || []);
 

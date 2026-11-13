@@ -129,11 +129,37 @@ function recipientCards(rules, schemes, directory, catalog, copy, query = '') {
     }
   }
   const needle = query.trim().toLowerCase();
-  return Array.from(groups.values()).filter(item => !needle || [item.name, item.assignmentLabel].concat(
-    item.grants.map(grant => grant.name + ' ' + grant.identityName + ' ' + grant.capabilityLabels.join(' '))).join(' ').toLowerCase().includes(needle));
+  return Array.from(groups.values()).map(item => {
+    const roleMatches = !needle || [item.name, item.assignmentLabel].join(' ').toLowerCase().includes(needle);
+    const grants = roleMatches ? item.grants : item.grants.filter(grant =>
+      [grant.name, grant.identityName].concat(grant.capabilityLabels).join(' ').toLowerCase().includes(needle));
+    return { ...item, grants, countText: copy.roleGrantCount(grants.length) };
+  }).filter(item => item.grants.length);
 }
 
-const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards });
+function permissionStatus(item, copy) {
+  if (item.grantState === 'blocked') return copy.permissionDenied;
+  if (item.grantState === 'not_granted') return copy.permissionNotAssigned;
+  if (item.grantState !== 'granted') return copy.permissionUnavailable;
+  if (item.grantBasis === 'super_admin') return copy.permissionSuperAdmin;
+  return item.hasRestrictions ? copy.permissionRestricted : copy.permissionAllowed;
+}
 
-export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards };
+function inspectionGroups(capabilities, catalog, copy, range = 'granted', query = '') {
+  const groups = new Map();
+  const needle = query.trim().toLowerCase();
+  for (const item of capabilities || []) {
+    if (item.systemControlled || (range !== 'all' && item.grantState !== 'granted')) continue;
+    const label = capabilityLabel(item.capability, catalog, copy);
+    if (needle && !label.toLowerCase().includes(needle)) continue;
+    const key = item.capability.split('.')[0];
+    if (!groups.has(key)) groups.set(key, { key, label: copy.businessGroups[key] || copy.unknownCapability, items: [] });
+    groups.get(key).items.push({ ...item, label, statusText: permissionStatus(item, copy) });
+  }
+  return Array.from(groups.values()).map(group => ({ ...group, countText: copy.effectiveCount(group.items.length) }));
+}
+
+const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups });
+
+export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups };
 export default sharedModule;

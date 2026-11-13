@@ -6,6 +6,89 @@ const capability = { key: 'venue.bookings.read', resourceType: 'venue.bookings',
 const assignment = { assignmentId: 'job-a', name: 'Example member', natureId: 'staff', natureName: 'Staff', departmentId: 'dept-a', departmentName: 'Department A', identityCategoryId: 'identity-a', identityCategoryName: 'Member' };
 const directory = { assignments: [assignment], adminGrants: [{ adminGrantId: 'grant-a', name: 'Example administrator' }] };
 
+async function openRecipientGrant(page) {
+  const recipient = page.locator('.authorization-recipient').first();
+  if (await recipient.getAttribute('open') === null) await recipient.locator(':scope > summary').click();
+  const grant = recipient.locator('.authorization-grant').first();
+  if (await grant.getAttribute('open') === null) await grant.locator(':scope > summary').click();
+}
+
+test('allocation hierarchy lazily renders large role sets and keeps dynamic grants discoverable', async ({ page }) => {
+  const { state } = await setup(page);
+  const assignments = Array.from({ length: 20 }, (_, index) => ({ ...assignment, assignmentId: 'job-' + index, departmentName: 'Department ' + index }));
+  state.catalog = Array.from({ length: 30 }, (_, index) => ({ ...capability, key: 'venue.operation' + index + '.read' }));
+  state.schemes = [{ id: 'published', name: 'Published permissions', publishedVersion: 1, capabilities: [state.catalog[0].key], publishedCapabilities: [state.catalog[0].key] }];
+  state.rules = assignments.flatMap((person, index) => Array.from({ length: 15 }, (_, number) => ({
+    id: 'rule-' + index + '-' + number, name: 'Permission role ' + number, version: 1, policy: {
+      enabled: true, effect: 'allow', capabilities: state.catalog.map(item => item.key), subjects: [{ kind: 'assignments', ids: [person.assignmentId] }], scopes: [{ kind: 'self' }], fields: null
+    }
+  })));
+  state.rules.push({ id: 'dynamic', name: 'Department allocation', policy: { enabled: true, effect: 'allow', capabilities: [state.catalog[0].key], subjects: [{ kind: 'assignmentScope', dimensions: { departmentId: ['dept-a'] } }], scopes: [{ kind: 'organization' }], fields: null } });
+  await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', assignments, adminGrants: [] } }));
+  await page.goto('/web/admin/authorization');
+  await expect(page.locator('.authorization-recipient')).toHaveCount(20);
+  await expect(page.locator('.authorization-grant')).toHaveCount(0);
+  await expect(page.locator('.authorization-dynamic > summary')).toHaveText(new RegExp(ui.dynamicAssignments));
+  await expect(page.locator('.authorization-recipient > summary').first()).toContainText('Staff · Member · Department 0');
+  await expect(page.locator('.authorization-recipient > summary').first()).toContainText(ui.roleGrantCount(15));
+  await page.locator('.authorization-recipient').first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath('allocation-collapsed.png'), animations: 'disabled' });
+  await page.locator('.authorization-recipient > summary').first().click();
+  await page.locator('.authorization-recipient > summary').first().evaluate(element => element.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => window.scrollBy(0, -80));
+  await page.screenshot({ path: test.info().outputPath('allocation-role-expanded.png'), animations: 'disabled' });
+  await openRecipientGrant(page);
+  await expect(page.locator('.authorization-grant')).toHaveCount(15);
+  await expect(page.locator('.authorization-grant .policy-groups')).toHaveCount(1);
+  await page.locator('.authorization-recipient > summary').first().click();
+  await expect(page.locator('.authorization-grant')).toHaveCount(0);
+  await page.locator('.authorization-recipient > summary').first().click();
+  await expect(page.locator('.authorization-grant[open]')).toHaveCount(1);
+  await expect(page.locator('.authorization-grant .policy-groups')).toHaveCount(1);
+  await page.getByLabel(ui.search, { exact: true }).fill('Permission role 14');
+  await expect(page.locator('.authorization-recipient')).toHaveCount(20);
+  await expect(page.locator('.authorization-grant')).toHaveCount(1);
+  await expect(page.locator('.authorization-grant .policy-groups')).toHaveCount(0);
+  await page.getByLabel(ui.search, { exact: true }).fill('');
+  await page.locator('.authorization-recipient > summary').first().click();
+  await page.locator('.authorization-dynamic > summary').click();
+  await page.locator('.authorization-dynamic .authorization-grant > summary').click();
+  await expect(page.locator('.authorization-dynamic .policy-groups')).toBeVisible();
+  await page.locator('.authorization-dynamic').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath('allocation-dynamic.png'), animations: 'disabled' });
+});
+
+test('inspection defaults to granted and keeps its range through search with factual states', async ({ page }) => {
+  const { state } = await setup(page, true); state.canManage = false; state.canInspectOthers = false;
+  const actions = ['read', 'create', 'update', 'delete', 'export'];
+  state.catalog = actions.map(action => ({ ...capability, key: 'venue.bookings.' + action, action }));
+  const states = ['granted', 'granted', 'blocked', 'not_granted', 'unavailable'];
+  const result = { status: 'success', capabilities: state.catalog.map((item, index) => ({ capability: item.key, grantState: states[index], grantBasis: index === 0 ? 'super_admin' : 'rule', hasRestrictions: index === 1, businessEntry: true, rules: [] })) };
+  await page.route('**/api/getEffectiveAuthorization', route => route.fulfill({ json: result }));
+  await page.goto('/web/admin/authorization');
+  await expect(page.locator('.authorization-resource')).toHaveCount(0);
+  await page.locator('.authorization-module > summary').click();
+  await expect(page.locator('.authorization-resource')).toHaveCount(2);
+  await expect(page.getByText(ui.permissionSuperAdmin, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.permissionRestricted, { exact: true })).toBeVisible();
+  await page.getByLabel(ui.searchEffective).fill(ui.actions.delete);
+  await expect(page.locator('.authorization-module')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.effectiveAssigned, exact: true })).toHaveClass(/tab-active/);
+  await page.getByLabel(ui.searchEffective).fill('');
+  await page.getByRole('button', { name: ui.effectiveAll, exact: true }).click();
+  await expect(page.locator('.authorization-resource')).toHaveCount(5);
+  await expect(page.getByText(ui.permissionDenied, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.permissionNotAssigned, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.permissionUnavailable, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.effectiveHelp, { exact: true })).toHaveCount(1);
+  await page.screenshot({ path: test.info().outputPath('inspection-states.png'), fullPage: true, animations: 'disabled' });
+  result.capabilities.forEach(item => { item.grantState = 'unavailable'; });
+  await page.getByRole('button', { name: ui.effectiveAssigned, exact: true }).click();
+  await page.getByRole('button', { name: ui.refresh, exact: true }).click();
+  await expect(page.getByText(ui.permissionUnavailable, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.noConfiguredPermissions, { exact: true })).toHaveCount(0);
+});
+
 async function setup(page, ordinary = false) {
   await mockApi(page, { activeContextId: ordinary ? 'ctx-assignment' : 'ctx-admin' });
   const state = { status: 'success', mode: 'shadow', revision: 1, isSuper: true, canInspectOthers: true, canManageDelegations: true, rules: [], schemes: [], catalog: [capability], delegations: [] };
@@ -47,11 +130,12 @@ test('authorization identity simplifies assignment to three sections and preserv
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   await expect(page.getByText(ui.impactCount(1, 1), { exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Example member', exact: true })).toBeVisible();
+  await expect(page.locator('.authorization-recipient > summary').getByText('Example member', { exact: true })).toBeVisible();
   expect(calls.saved.schemeId).toBe('identity-a');
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   await page.screenshot({ path: test.info().outputPath('authorization-person-grants.png'), fullPage: true, animations: 'disabled' });
+  await openRecipientGrant(page);
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme, exact: true })).toHaveValue('identity-a');
   await expect(page.getByLabel(ui.ruleName, { exact: true })).toHaveCount(0);
@@ -85,9 +169,10 @@ test('delegated ordinary role assigns an identity from the portal and reads the 
   await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('identity-a');
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Example member', exact: true })).toBeVisible();
+  await expect(page.locator('.authorization-recipient > summary').getByText('Example member', { exact: true })).toBeVisible();
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
+  await openRecipientGrant(page);
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme, exact: true })).toHaveValue('identity-a');
   await expect(page.locator('.panel-head > strong').filter({ hasText: ui.ownRecords })).toBeVisible();
@@ -121,6 +206,7 @@ test('bounded delegation inherits records fields and dates without mixing option
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   expect(calls.saved.delegationId).toBe('bounded-a'); expect(calls.saved.policy.fields).toEqual(envelope.fields);
   expect(calls.saved.policy.scopes).toEqual(envelope.scopes); expect(calls.saved.policy.endsAt).toBe(envelope.endsAt);
+  await openRecipientGrant(page);
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme })).toHaveValue('identity-a');
   await choice.selectOption('bounded-b');
@@ -154,7 +240,7 @@ test('self inspection displays projected fields and scope names without configur
   state.catalog = [{ key: 'hr.people.read', resourceType: 'hr.people', action: 'read' }];
   await page.route('**/api/getEffectiveAuthorization', route => route.fulfill({ json: { status: 'success',
     scopeDirectory: { dimensions: { departmentId: [{ id: 'dept-a', name: 'Department A' }] } }, fieldLabels: { 'profile:badge': 'Badge' },
-    capabilities: [{ capability: 'hr.people.read', status: 'conditional', reason: 'conditional_rule', supportsFields: true, rules: [
+    capabilities: [{ capability: 'hr.people.read', grantState: 'granted', grantBasis: 'rule', status: 'conditional', reason: 'conditional_rule', supportsFields: true, rules: [
       { id: 'rule-a', name: 'Profile access', effect: 'allow', scopes: [{ kind: 'assignmentScope', dimensions: { departmentId: ['dept-a'] } }], fields: ['studentId'], displayFields: [], startsAt: '2026-01-01T00:00:00Z', endsAt: null }
     ] }, { capability: 'authorization.rules.read', systemControlled: true, status: 'conditional', rules: [{ id: 'historic' }] }]
   } }));
@@ -232,6 +318,7 @@ test('field restrictions save and reopen without turning an empty selection into
   expect(calls.preview.policy.fields).toEqual(['text']);
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
+  await openRecipientGrant(page);
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('button', { name: ui.fieldLabels.text, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: ui.fieldLabels.text, exact: true }).click();
@@ -269,6 +356,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   expect(calls.saves).toBe(0);
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
+  await openRecipientGrant(page);
   await expect(page.getByText('Test rule', { exact: true })).toBeVisible();
   expect(calls.saved).toEqual(calls.preview);
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
@@ -476,6 +564,7 @@ test('scheme publication and restoration require an impact preview and append a 
   });
   await page.goto('/web/admin/authorization');
   await page.getByRole('button', { name: ui.schemes, exact: true }).click();
+  await page.locator('.authorization-scheme > summary').click();
   await expect(page.getByText(ui.schemePublishedTitle, { exact: true })).toBeVisible();
   await expect(page.getByText(ui.schemeDraftTitle, { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));

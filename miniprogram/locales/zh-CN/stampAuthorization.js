@@ -12,7 +12,7 @@ module.exports = {
   imageUnsupportedToast: '格式不支持',
   imageTooLarge: '印章图片超过 2 MiB，请压缩或裁剪后重新上传。',
   imageTooLargeToast: '图片过大',
-  imageReadFailed: '图片读取失败，请重新选择。',
+  imageReadFailed: '图片读取失败，请重新选择',
   imageReadFailedToast: '读取失败',
   count: count => '已授权 ' + count + ' 个岗位', editorContext: name => '印章：' + name
 };

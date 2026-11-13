@@ -13,8 +13,8 @@ Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, heroTone: 'blue', tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
-    previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
-    inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectingOther: false, controlledEffective: [],
+    previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', dynamicRules: [], isSuper: false, delegations: [], showDelegations: false,
+    inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -25,8 +25,8 @@ Page({
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
     this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '',
-      inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectingOther: false, controlledEffective: [],
-      ready: false, canCopy: false, cards: [], schemes: [], effective: [], effectiveGroups: [], effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+      inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
+      ready: false, canCopy: false, keyword: '', cards: [], schemes: [], dynamicRules: [], effective: [], effectiveGroups: [], effectiveRange: 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
@@ -60,26 +60,24 @@ Page({
   refreshCards: function() {
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
-    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword),
+    const dates = item => Object.assign({}, item, { startsAtText: item.policy.startsAt ? formatDetailTime(item.policy.startsAt) : '', endsAtText: item.policy.endsAt ? formatDetailTime(item.policy.endsAt) : '' });
+    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
+      dynamicRules: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).filter(item => item.policy.subjects.some(subject => subject.kind === 'assignmentScope')).map(dates),
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
+        countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
         labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)),
         publishedLabels: (item.publishedCapabilities || []).map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
   },
   search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
   refreshEffectiveGroups: function() {
-    const keyword = this.data.keyword.trim().toLowerCase();
-    const groups = [];
-    for (const item of this.data.effective) {
-      if (item.systemControlled || (item.status === 'denied' && !item.rules.length && !keyword)) continue;
-      if (keyword && ![item.label, item.statusText, item.reasonText].join(' ').toLowerCase().includes(keyword)) continue;
-      const key = item.capability.split('.')[0];
-      let group = groups.find(row => row.key === key);
-      if (!group) { group = { key, label: ui.businessGroups[key] || ui.effective, items: [] }; groups.push(group); }
-      group.items.push(item);
-    }
-    this.setData({ effectiveGroups: groups.map(item => Object.assign({}, item, { countText: ui.effectiveCount(item.items.length) })) });
+    this.setData({ effectiveGroups: presentation.inspectionGroups(this.data.effective, this._state && this._state.catalog || [], ui, this.data.effectiveRange, this.data.keyword) });
+  },
+  selectEffectiveRange: function(event) {
+    const range = event.currentTarget.dataset.range;
+    if (!['granted', 'all'].includes(range)) return;
+    this.setData({ effectiveRange: range, effectiveExpanded: {} }); this.refreshEffectiveGroups();
   },
   toggleEffectiveGroup: function(event) {
     const key = event.currentTarget.dataset.key;
@@ -171,15 +169,14 @@ Page({
   },
   inspect: async function() {
     const request = orgSession.beginRequest(this, 'authorizationInspection');
-    this.setData({ inspecting: true, inspectionLoaded: false, inspectingOther: !!this._inspectionTarget, effective: [], effectiveGroups: [], controlledEffective: [], notice: '' });
+    this.setData({ inspecting: true, inspectionLoaded: false, inspectingOther: !!this._inspectionTarget, effective: [], effectiveGroups: [], effectiveExpanded: {}, controlledEffective: [], notice: '' });
     try {
       const result = await callFunction({ name: 'getEffectiveAuthorization', data: this._inspectionTarget || {} });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
-      this.setData({ inspectionLoaded: true, controlledEffective: result.capabilities.filter(item => item.systemControlled && item.rules && item.rules.length).map(item => presentation.capabilityLabel(item.capability, this._state.catalog, ui)), effective: result.capabilities.map(item => Object.assign({}, item, {
+      this.setData({ inspectionLoaded: true, inspectionUnavailable: result.capabilities.some(item => !['granted', 'blocked', 'not_granted'].includes(item.grantState)), controlledEffective: result.capabilities.filter(item => item.systemControlled && item.rules && item.rules.length).map(item => presentation.capabilityLabel(item.capability, this._state.catalog, ui)), effective: result.capabilities.map(item => Object.assign({}, item, {
         label: presentation.capabilityLabel(item.capability, this._state.catalog, ui),
-        statusText: ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[item.status] || ui.denied,
-        reasonText: ui.reasons[item.reason] || ui.businessCheckRequired,
+        statusText: presentation.permissionStatus(item, ui),
         rules: (item.rules || []).map(rule => Object.assign({}, rule, { sections: presentation.policySections(Object.assign({}, rule, { fields: rule.displayFields || [], capabilities: [item.capability], fieldLabels: result.fieldLabels }), result.scopeDirectory || {}, this._state.catalog, ui),
           startsAtText: rule.startsAt ? formatDetailTime(rule.startsAt) : '', endsAtText: rule.endsAt ? formatDetailTime(rule.endsAt) : '' }))
       })) });

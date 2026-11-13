@@ -83,6 +83,33 @@ test('historical assignment fields render on the actual audit detail page', asyn
   await expect(processedStep.getByText(signing.assignmentUnknown, { exact: true })).toHaveCount(0);
 });
 
+test('application detail retains workflow actions without template condition explanations', async ({ page }, testInfo) => {
+  const api = await mockApi(page);
+  const detail = submissionDetail();
+  for (const step of detail.steps) {
+    step.conditionFacts = [
+      { conditionType: 'person', personKind: 'assignment', personNames: ['Condition-only recipient'] },
+      { conditionType: 'submitter' }
+    ];
+    step.approverDesc = 'Condition-only legacy summary';
+  }
+  await page.route('**/api/getSubmissionDetail', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(detail)
+  }));
+  await login(page);
+  await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
+  await expect(page.getByText('部门初审')).toBeVisible();
+  await expect(page.getByText('负责人审批').first()).toBeVisible();
+  await expect(page.getByText('Condition-only recipient', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('Condition-only legacy summary', { exact: false })).toHaveCount(0);
+  await expect(page.locator('.approval-conditions')).toHaveCount(0);
+  await page.getByLabel(copy.audit.approveCommentLabel).fill('Approved after detail review');
+  await page.screenshot({ path: testInfo.outputPath('audit-detail-without-conditions.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: copy.audit.actionApprove }).click();
+  await expect.poll(() => callsOf(api.calls, 'approveStep').length).toBe(1);
+  expect(callsOf(api.calls, 'approveStep')[0].body.stepId).toBe('step-2');
+});
+
 test('待我审批的步骤可以直接通过并带上意见', async ({ page }) => {
   const api = await mockApi(page);
   await login(page);

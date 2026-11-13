@@ -52,17 +52,33 @@
           </details>
         </section>
         <template v-if="!showRules">
-          <p v-if="!recipients.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noDirectGrants }}</p>
-          <article v-for="person in recipients" :key="person.key" class="card stack">
-            <h2 class="section-title">{{ person.name }}</h2><p class="muted">{{ person.assignmentLabel }}</p>
-            <section v-for="grant in person.grants" :key="grant.id" class="glass-panel stack-tight">
-              <div class="panel-head"><strong>{{ grant.identityName }}</strong><span class="chip chip-blue">{{ grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText }}</span></div>
-              <p class="muted">{{ grant.scopeText }}</p><p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
+          <p v-if="!recipients.length" class="empty-state">{{ query ? ui.noMatchingRules : dynamicRules.length ? ui.noDirectGrants : ui.noAssignments }}</p>
+          <details v-for="person in recipients" :key="person.key" :open="!!opened['recipient:' + person.key]" class="card authorization-recipient" @toggle.stop="trackOpen($event, 'recipient:' + person.key)">
+            <summary><strong class="section-title">{{ person.assignmentLabel }}</strong><span class="muted">{{ person.name }}</span><span class="chip chip-blue">{{ person.countText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+            <template v-if="opened['recipient:' + person.key]">
+            <details v-for="grant in person.grants" :key="grant.id" :open="!!opened['grant:' + person.key + ':' + grant.id]" class="glass-panel authorization-grant" @toggle.stop="trackOpen($event, 'grant:' + person.key + ':' + grant.id)">
+              <summary><strong>{{ grant.identityName }}</strong><span class="chip chip-blue">{{ grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+              <template v-if="opened['grant:' + person.key + ':' + grant.id]">
+              <p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
               <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
-              <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" /></details>
-              <div v-if="grant.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
-            </section>
-          </article>
+              <AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" hide-subjects />
+              <div v-if="grant.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click.stop="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
+              </template>
+            </details>
+            </template>
+          </details>
+          <details v-if="dynamicRules.length" :open="!!opened.dynamic" class="card authorization-dynamic" @toggle.stop="trackOpen($event, 'dynamic')">
+            <summary><strong>{{ ui.dynamicAssignments }}</strong><span class="chip chip-blue">{{ ui.roleGrantCount(dynamicRules.length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+            <template v-if="opened.dynamic">
+            <details v-for="rule in dynamicRules" :key="rule.id" :open="!!opened['dynamic:' + rule.id]" class="glass-panel authorization-grant" @toggle.stop="trackOpen($event, 'dynamic:' + rule.id)">
+              <summary><strong>{{ rule.name || ui.unnamed }}</strong><span class="chip chip-blue">{{ rule.effectText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+              <template v-if="opened['dynamic:' + rule.id]">
+              <AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" />
+              <div v-if="rule.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click.stop="edit('rule', rule.id)">{{ ui.adjustPermissions }}</button></div>
+              </template>
+            </details>
+            </template>
+          </details>
         </template>
         <template v-else>
         <section v-if="selecting" class="card stack">
@@ -94,17 +110,19 @@
       <template v-else-if="tab === 'schemes'">
         <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
-        <article v-for="scheme in schemes" :key="scheme.id" class="card stack">
-          <div class="panel-head"><h2 class="section-title">{{ scheme.name }}</h2><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span></div>
-          <section v-if="scheme.publishedVersion" class="stack-tight"><h3 class="field-label">{{ ui.schemePublishedTitle }}</h3><div class="row row-wrap"><span v-for="key in scheme.publishedCapabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></section>
-          <section v-if="scheme.canEdit !== false" class="stack-tight"><h3 class="field-label">{{ ui.schemeDraftTitle }}</h3><div class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></section>
+        <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
+          <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+          <template v-if="opened['scheme:' + scheme.id]">
+          <details v-if="scheme.publishedVersion" :open="!!opened['published:' + scheme.id]" class="glass-panel" @toggle.stop="trackOpen($event, 'published:' + scheme.id)"><summary>{{ ui.schemePublishedTitle }}</summary><div v-if="opened['published:' + scheme.id]" class="row row-wrap"><span v-for="key in scheme.publishedCapabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
+          <details v-if="scheme.canEdit !== false" :open="!!opened['draft:' + scheme.id]" class="glass-panel" @toggle.stop="trackOpen($event, 'draft:' + scheme.id)"><summary>{{ ui.schemeDraftTitle }}</summary><div v-if="opened['draft:' + scheme.id]" class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
           <div class="button-row"><button v-if="scheme.canEdit !== false" type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button v-if="scheme.canPublish !== false" type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
-        </article>
+          </template>
+        </details>
       </template>
       <section v-else class="card stack">
         <div class="panel-head"><h2 class="section-title">{{ inspectionTarget ? ui.effective : ui.ownPermissions }}</h2>
           <button type="button" class="btn btn-secondary" :disabled="inspecting" @click="inspect">{{ ui.refresh }}</button></div>
-        <p class="muted">{{ inspectionTarget ? ui.effectiveHelp : ui.ownPermissionsHelp }}</p>
+        <p v-if="!inspectionTarget" class="muted">{{ ui.ownPermissionsHelp }}</p>
         <AppLoading v-if="inspecting" :text="ui.loading" />
         <p v-if="state.canInspectOthers" class="field-label">{{ ui.inspectOthers }}</p>
         <div v-if="state.canInspectOthers" class="button-row">
@@ -116,16 +134,20 @@
         <p v-if="inspectionNotice" class="notice-line" role="alert">{{ inspectionNotice }}</p>
         <template v-if="effective">
           <p class="muted">{{ inspectionLabel }}</p>
+          <div class="tabs"><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'granted' }" @click="effectiveRange = 'granted'">{{ ui.effectiveAssigned }}</button><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'all' }" @click="effectiveRange = 'all'">{{ ui.effectiveAll }}</button></div>
+          <p class="muted">{{ effectiveRange === 'all' ? ui.effectiveAllHelp : ui.effectiveAssignedHelp }}</p>
+          <p class="muted">{{ ui.effectiveHelp }}</p>
           <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="effectiveQuery" class="search-input" :placeholder="ui.searchEffective" :aria-label="ui.searchEffective" /></label>
-          <p v-if="!effectiveGroups.length" class="muted">{{ inspectionTarget ? ui.noInspectedBusinessPermissions : ui.noEffectiveBusinessPermissions }}</p>
+          <p v-if="!effectiveGroups.length" class="muted">{{ effective.capabilities.some(item => !['granted', 'blocked', 'not_granted'].includes(item.grantState)) ? ui.permissionUnavailable : effectiveQuery ? ui.noMatchingPermissions : ui.noConfiguredPermissions }}</p>
           <details v-if="controlledEffective.length" class="glass-panel"><summary>{{ ui.systemControlledTitle }}</summary><p class="muted">{{ ui.systemControlledHelp }}</p><p v-for="item in controlledEffective" :key="item.capability">{{ capabilityText(item.capability) }}</p></details>
-          <details v-for="group in effectiveGroups" :key="group.key" class="glass-panel authorization-module" :open="!!effectiveQuery">
-            <summary><strong>{{ group.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(group.items.length) }}</span></summary>
-          <details v-for="item in group.items" :key="item.capability" class="authorization-resource">
-            <summary class="effective-summary"><strong>{{ capabilityText(item.capability) }}</strong><span class="chip" :class="item.status === 'denied' ? 'chip-orange' : 'chip-blue'">{{ statusText(item.status) }}</span></summary>
-            <p class="muted">{{ ui.reasons[item.reason] || ui.businessCheckRequired }}</p>
-            <div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div>
+          <details v-for="group in effectiveGroups" :key="group.key" :open="!!opened['module:' + group.key]" class="glass-panel authorization-module" @toggle.stop="trackOpen($event, 'module:' + group.key)">
+            <summary><strong>{{ group.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(group.items.length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+          <template v-if="opened['module:' + group.key]">
+          <details v-for="item in group.items" :key="item.capability" :open="!!opened['operation:' + item.capability]" class="authorization-resource" @toggle.stop="trackOpen($event, 'operation:' + item.capability)">
+            <summary class="effective-summary"><strong>{{ item.label }}</strong><span class="chip" :class="item.grantState !== 'granted' ? 'chip-orange' : 'chip-blue'">{{ item.statusText }}</span><UiIcon v-if="item.rules?.length" class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+            <template v-if="opened['operation:' + item.capability]"><div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div></template>
           </details>
+          </template>
           </details>
         </template>
       </section>
@@ -162,6 +184,12 @@ const ready = ref(false);
 const notice = ref('');
 const effective = ref(null);
 const effectiveQuery = ref('');
+const effectiveRange = ref('granted');
+const opened = ref({});
+function trackOpen(event, key) {
+  if (event.target !== event.currentTarget) return;
+  opened.value[key] = event.currentTarget.open;
+}
 const inspecting = ref(false);
 const inspectionNotice = ref('');
 const inspectionTarget = ref(null);
@@ -182,25 +210,16 @@ const personName = computed(() => session.context?.name || session.user?.name ||
 const roleName = computed(() => roleLabelOf(session.context));
 const organizationName = computed(() => session.context?.organizationName || '');
 const cards = computed(() => presentation.ruleCards(state.value.rules, directory.value, state.value.catalog, ui, query.value));
+const dynamicRules = computed(() => cards.value.filter(rule => rule.policy.subjects.some(subject => subject.kind === 'assignmentScope')));
 const schemes = computed(() => state.value.schemes.filter(item => item.name.toLowerCase().includes(query.value.trim().toLowerCase())));
-const effectiveGroups = computed(() => {
-  const groups = new Map();
-  const query = effectiveQuery.value.trim().toLowerCase();
-  for (const item of effective.value?.capabilities || []) {
-    if (item.systemControlled || (item.status === 'denied' && !item.rules?.length && !query)) continue;
-    if (query && !capabilityText(item.capability).toLowerCase().includes(query)) continue;
-    const key = item.capability.split('.')[0];
-    if (!groups.has(key)) groups.set(key, { key, label: ui.businessGroups[key] || ui.unknownCapability, items: [] });
-    groups.get(key).items.push(item);
-  }
-  return [...groups.values()];
-});
+const effectiveGroups = computed(() => presentation.inspectionGroups(effective.value?.capabilities, state.value.catalog, ui, effectiveRange.value, effectiveQuery.value));
 const controlledEffective = computed(() => (effective.value?.capabilities || []).filter(item => item.systemControlled && item.rules?.length));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
-function statusText(value) { return ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[value] || ui.denied; }
 function clear() {
   canCopy.value = false;
   effectiveQuery.value = '';
+  effectiveRange.value = 'granted';
+  opened.value = {};
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
   showRules.value = false;
@@ -233,6 +252,7 @@ async function inspect() {
   const request = ++inspectionGeneration;
   const current = generation;
   effective.value = null; inspectionNotice.value = ''; inspecting.value = true;
+  opened.value = {};
   try {
     const result = await callApi('getEffectiveAuthorization', inspectionTarget.value || {});
     if (request !== inspectionGeneration || current !== generation) return;
@@ -300,4 +320,8 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 details > summary { cursor: pointer; }
 details[open] > summary { margin-bottom: var(--ui-list-gap); }
+.authorization-recipient > summary, .authorization-grant > summary, .authorization-scheme > summary, .authorization-dynamic > summary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.authorization-recipient > details, .authorization-dynamic > details, .authorization-scheme > details { margin-top: var(--ui-list-gap); }
+.disclosure-chevron { margin-left: auto; flex-shrink: 0; }
+details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
 </style>

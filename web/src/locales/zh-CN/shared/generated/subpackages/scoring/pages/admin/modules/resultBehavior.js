@@ -27,7 +27,7 @@ const sharedModule = Object.freeze({
   copy_a6f7e5f124: '查看明细',
   copy_abb0a3f46c: `{0} 的评分任务完成情况`,
   copy_ad183b164d: '未设置身份类别',
-  copy_bd06e9a531: '评分结果未能加载，请重试。',
+  copy_bd06e9a531: '评分结果未能加载，请重试',
   copy_c59ab1ce4a: '评分结果加载失败，请稍后重试',
   copy_d08849e510: '评分记录已撤销',
   copy_d6c748ac95: '确认撤销',

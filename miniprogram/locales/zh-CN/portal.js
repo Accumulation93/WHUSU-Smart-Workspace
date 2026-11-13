@@ -91,7 +91,7 @@ module.exports = Object.freeze({
     scanFailed: '扫一扫未能打开，请检查微信的相机权限后重试。',
     navLoginAction: '登录',
     authUnavailable: '暂时无法确认登录状态，请重试或重新登录。',
-    authFrozen: '账号已被冻结，请联系管理员处理。',
+    authFrozen: '账号已被冻结，请联系管理员处理',
     authRetryAction: '重试',
     authLoginAction: '去登录',
     noMatchingApps: '没有匹配的应用',

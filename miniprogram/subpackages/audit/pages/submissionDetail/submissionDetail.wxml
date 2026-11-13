@@ -230,8 +230,6 @@
           {{activeApprovalStep.stepText}} · {{activeApprovalStep.actionLabel}}
           <text wx:if="{{activeApprovalStep.round > 1}}" class="approval-round-note">{{localeCopy.copy_bdabcbc8ff}}{{activeApprovalStep.round}}{{localeCopy.copy_d03f1546e9}}</text>
         </view>
-        <view class="approval-step-desc">{{activeApprovalStep.approverDesc}}</view>
-        <approval-conditions value="{{activeApprovalStep.conditionView}}" />
 
         <!-- Signature / Stamp section (hidden for pass-only steps) -->
         <view wx:if="{{activeApprovalStep.actionType !== 'pass'}}" class="approval-sig-section">
@@ -304,7 +302,7 @@
             {{item.name}} · {{item.assignmentLabel}}
             <text data-assignment-id="{{item.assignmentId}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
           </view>
-          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info"><view>{{nextStepInfo.stepText}}</view><approval-conditions value="{{nextStepInfo.conditionView}}" /></view>
+          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info"><view>{{nextStepInfo.stepText}}</view></view>
         </view>
 
         <!-- Action buttons -->
@@ -388,7 +386,6 @@
               <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <!-- Collapsed: key info only -->
                 <view class="flow-step-label">{{node.stepText}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{node.roundText}}</text></view>
-                <view wx:if="{{node.flowIcon !== 'check' && node.flowIcon !== 'cross'}}" class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
@@ -417,8 +414,6 @@
                   <view wx:if="{{node.rejectionReason}}" class="flow-detail-reject">
                     <text class="flow-detail-label">{{localeCopy.copy_edbf7136ff}}</text>{{node.rejectionReason}}
                   </view>
-                  <!-- Conditions detail (multi-condition OR logic) -->
-                  <approval-conditions value="{{node.conditionView}}" />
                   <!-- Round info -->
                   <view wx:if="{{node.round > 1}}" class="flow-detail-round">{{node.roundText}}</view>
                 </view>

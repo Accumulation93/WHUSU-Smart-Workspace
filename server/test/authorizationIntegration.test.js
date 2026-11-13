@@ -475,6 +475,7 @@ async function run() {
     assert.equal(superExplanation.mode, 'shadow');
     assert.equal(superExplanation.role, 'admin');
     assert(superExplanation.capabilities.every(item => item.status === 'business_check_required'));
+    assert(superExplanation.capabilities.every(item => item.grantState === 'granted' && item.grantBasis === 'super_admin'));
     const jobExplanation = await (await post('getEffectiveAuthorization', { role: 'user', subjectId: 'assignment' })).json();
     assert.equal(jobExplanation.subjectId, 'assignment');
     assert.equal(jobExplanation.accountAvailable, true);

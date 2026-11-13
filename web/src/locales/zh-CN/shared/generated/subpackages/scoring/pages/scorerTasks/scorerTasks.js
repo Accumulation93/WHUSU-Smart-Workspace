@@ -34,7 +34,7 @@ const sharedModule = Object.freeze({
   copy_b0bf25e2b8: "导出当前名单",
   copy_b7c3654faa: "没有匹配的评分人",
   copy_b9b9929aee: "评分人",
-  copy_c0d3210812: '未选择评分活动，请返回后重新选择。',
+  copy_c0d3210812: '未选择评分活动，请返回后重新选择',
   copy_c1965e0690: "身份类别",
   copy_c523dc2ef9: `{0} 尚未完成的评分任务`,
   copy_d0de4ea38f: "评分已全部完成",

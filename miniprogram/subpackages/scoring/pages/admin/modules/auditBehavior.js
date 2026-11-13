@@ -1,6 +1,7 @@
 const auditSigningCopy = require('../../../package-resources/locales/zh-CN/auditSigning');
 const auditConditionsCopy = require('../../../package-resources/locales/zh-CN/auditConditions');
 const natureCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
+const commonCopy = require('../../../../../locales/zh-CN/common');
 const { buildConditions, buildStarterConditions } = require('../../../package-resources/utils/auditConditionView');
 const { inputFile } = require('../../../package-resources/utils/fileIO');
 const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
@@ -164,7 +165,7 @@ module.exports = Behavior({
       const next = current.includes(id) ? current.filter(value => value !== id) : current.concat(id);
       const selected = String(form.specificIdentityId || '').split(',').filter(Boolean);
       const invalid = (this.data.identityList || []).filter(item => selected.includes(item.id) && !(item.natureIds || []).some(value => next.includes(value)));
-      if(invalid.length){const answer=await new Promise(resolve=>wx.showModal({title:natureCopy.incompatibleSelectionTitle,content:[natureCopy.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:natureCopy.clearIncompatibleSelection,cancelText:localeCopy.copy_4b213fd88a,success:result=>resolve(result.confirm),fail:()=>resolve(false)}));if(!answer||this.data[prefix]!==form)return;}
+      if(invalid.length){const answer=await new Promise(resolve=>wx.showModal({title:natureCopy.incompatibleSelectionTitle,content:[natureCopy.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:natureCopy.clearIncompatibleSelection,cancelText:commonCopy.actions.cancel,success:result=>resolve(result.confirm),fail:()=>resolve(false)}));if(!answer||this.data[prefix]!==form)return;}
       const kept=selected.filter(value=>!invalid.some(item=>item.id===value));
       this.setData({[prefix+'.natureIds']:next,[prefix+'.natureSelection']:next.reduce((result,value)=>{result[value]=true;return result;},{}),[prefix+'.specificIdentityId']:kept.join(','),[prefix+'.specificIdentityName']:kept.map(value=>this._auditIdentityName(value)).join('、')});
     },

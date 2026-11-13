@@ -45,7 +45,7 @@ const sharedModule = Object.freeze({
   copy_e52119b17e: '请稍后重试',
   copy_f7dbdfa4c2: '批量操作进行中，请稍候',
   copy_fe25ffc934: '请先选择要删除的类别',
-  publicationLoadFailed: '公示设置未能加载，请重试。',
+  publicationLoadFailed: '公示设置未能加载，请重试',
   publicationRetry: '重新加载公示设置'
 });
 

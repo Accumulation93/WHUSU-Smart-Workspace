@@ -25,7 +25,7 @@ module.exports = Object.freeze({
   copy_ba7787dd8d: "浏览场地",
   copy_ce171a2581: '已通过',
   copy_decce2c059: "借用记录",
-  copy_e52119b17e: '借用记录未能加载，请重试。',
+  copy_e52119b17e: '借用记录未能加载，请重试',
   copy_e8d9493a44: "至",
   copy_fd4601c1f9: '已取消',
   endSuccess: '使用已结束',

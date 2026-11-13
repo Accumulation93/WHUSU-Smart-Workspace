@@ -20,7 +20,7 @@ const sharedModule = Object.freeze({
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_ad310c8780: '使用中',
   copy_ce171a2581: '已通过',
-  copy_e52119b17e: '审批记录未能加载，请重试。',
+  copy_e52119b17e: '审批记录未能加载，请重试',
   copy_e8d9493a44: "至",
   copy_f3a46d24ad: "你以当前工作角色审批后，记录会显示在这里。",
   copy_fd4601c1f9: '已取消',

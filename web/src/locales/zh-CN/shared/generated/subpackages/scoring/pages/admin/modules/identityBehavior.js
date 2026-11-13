@@ -11,8 +11,8 @@ const sharedModule = Object.freeze({
   copy_9167d1395d: '删除身份类别',
   copy_b538d2281a: '身份类别列表读取失败',
   copy_e000ed06dd: '身份类别已删除',
-  copy_f5b2fb24f1: '请填写身份类别名称。',
-  copy_f878df1668: '身份类别列表未能加载，请重试。'
+  copy_f5b2fb24f1: '请填写身份类别名称',
+  copy_f878df1668: '身份类别列表未能加载，请重试'
 });
 
 export default sharedModule;

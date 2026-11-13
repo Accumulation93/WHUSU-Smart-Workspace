@@ -10,7 +10,7 @@ const sharedModule = Object.freeze({
   type_unsupported: '目标资料项的类型暂不支持转换，请选择其他处理方式。',
   text_too_short: min => '内容太短，请补充后再试（最低长度：' + min + '）。',
   text_too_long: max => '内容太长，请缩短后再试（最大长度：' + max + '）。',
-  integer_required: '请填写整数，不要带小数。',
+  integer_required: '请填写整数，不要带小数',
   digits_too_short: min => '数字位数不足，至少需要 ' + min + ' 位。',
   digits_too_long: max => '数字位数过多，最多允许 ' + max + ' 位。',
   number_too_small: min => '数值过小，不能小于 ' + min + '。',

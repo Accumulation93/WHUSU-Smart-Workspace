@@ -6,7 +6,7 @@ const sharedModule = Object.freeze({
   copy_c6070950c1: '请选择组织',
   copy_d6a178f6ce: '账号已冻结，请联系管理员',
   copy_d869b80f50: '选择工作角色',
-  copy_db7d9fed8e: '请重新选择组织与工作角色。',
+  copy_db7d9fed8e: '请重新选择组织与工作角色',
   copy_e58fa637eb: '请稍后重试',
   copy_e7c4c49eab: '请重新登录'
 });

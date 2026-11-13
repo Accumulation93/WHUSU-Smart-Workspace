@@ -5,6 +5,19 @@ const editor = require('../../shared/authorizationEditor');
 const presentation = require('../../shared/authorizationPresentation');
 const ui = require('../../shared/locales/zh-CN/authorization');
 
+test('查询范围独立于搜索，四态与未知状态不依赖旧判定字段', () => {
+  const catalog = ['read', 'create', 'update', 'delete', 'export'].map(action => ({ key: 'hr.people.' + action, resourceType: 'hr.people', action }));
+  const states = ['granted', 'blocked', 'not_granted', 'unavailable', 'future'];
+  const items = catalog.map((item, index) => ({ capability: item.key, grantState: states[index], status: 'conditional', rules: [] }));
+  assert.equal(presentation.inspectionGroups(items, catalog, ui)[0].items.length, 1);
+  assert.equal(presentation.inspectionGroups(items, catalog, ui, 'granted', ui.actions.create).length, 0);
+  assert.equal(presentation.inspectionGroups(items, catalog, ui, 'all')[0].items.length, 5);
+  assert.equal(presentation.inspectionGroups(items, catalog, ui, 'all', ui.actions.create)[0].items[0].statusText, ui.permissionDenied);
+  assert.equal(presentation.permissionStatus(items[4], ui), ui.permissionUnavailable);
+  assert.equal(presentation.permissionStatus({ grantState: 'granted', grantBasis: 'super_admin' }, ui), ui.permissionSuperAdmin);
+  assert.equal(presentation.permissionStatus({ grantState: 'granted', hasRestrictions: true }, ui), ui.permissionRestricted);
+});
+
 test('岗位选择数据的可选职能组明确为空字符串，JSON往返不丢字段', () => {
   const options = presentation.personnelOptions({ assignments: [{ assignmentId: 'a', name: '成员', natureId: 'n', natureName: '性质' }] }, 'user');
   assert.equal(options.length, 1);

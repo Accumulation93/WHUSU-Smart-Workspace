@@ -181,13 +181,14 @@ test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派�
   assert.equal(page.data.capabilityBusinesses.length, 0);
 
   const home = pageHarness(source.api, {}, 'authorization');
+  home._state = source.state;
   home.setData({ effective: [
-    { capability: 'venue.bookings.read', label: 'Borrowing', statusText: 'Allowed', reasonText: '' },
-    { capability: 'hr.departments.read', label: 'Departments', statusText: 'Denied', reasonText: '' }
+    { capability: 'venue.bookings.read', grantState: 'granted' },
+    { capability: 'hr.departments.read', grantState: 'granted' }
   ] });
   home.refreshEffectiveGroups();
   assert.equal(home.data.effectiveGroups.length, 2);
-  home.setData({ keyword: 'Departments' }); home.refreshEffectiveGroups();
+  home.setData({ keyword: home.data.ui.resources['hr.departments'] }); home.refreshEffectiveGroups();
   assert.equal(home.data.effectiveGroups.length, 1);
   assert.equal(home.data.effective.length, 2);
   home.onHide();

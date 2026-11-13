@@ -24,7 +24,7 @@ const passwordBinding = Object.freeze({
 
 const authContext = Object.freeze({
   switchFailed: '切换失败，请重试',
-  reopenWorkContext: '请重新打开“组织与工作角色”选择页面。',
+  reopenWorkContext: '请重新打开“组织与工作角色”选择页面',
   selectAccessibleOrganization: '请选择可访问的组织',
   relogin: '登录已失效，请重新登录'
 });

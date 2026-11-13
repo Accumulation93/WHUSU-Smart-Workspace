@@ -4,9 +4,9 @@
       <span class="chip" :class="policy.effect === 'deny' ? 'chip-orange' : 'chip-blue'">{{ sections.effectText }}</span>
       <span class="chip chip-sky">{{ sections.enabledText }}</span>
     </div>
-    <div class="row row-wrap"><span v-for="(label, index) in sections.capabilityLabels" :key="index" class="chip chip-blue">{{ label }}</span></div>
+    <div v-if="!inspection" class="row row-wrap"><span v-for="(label, index) in sections.capabilityLabels" :key="index" class="chip chip-blue">{{ label }}</span></div>
     <div class="policy-groups">
-      <section v-if="sections.subjects.length" class="stack-tight">
+      <section v-if="!hideSubjects && sections.subjects.length" class="stack-tight">
         <h3 class="field-label">{{ delegation ? ui.delegationSubjects : ui.subjects }}</h3>
         <div v-for="section in sections.subjects" :key="section.key" class="stack-tight">
           <strong>{{ section.label }}</strong>
@@ -42,6 +42,7 @@ import presentation from '@/shared/authorizationPresentation.js';
 import ui from '@/locales/zh-CN/shared/authorization.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 const props = defineProps({ policy: { type: Object, required: true }, delegation: { type: Boolean, default: false }, inspection: { type: Boolean, default: false }, supportsFields: { type: Boolean, default: false },
+  hideSubjects: { type: Boolean, default: false },
   directory: { type: Object, required: true }, catalog: { type: Array, required: true },
   fieldLabels: { type: Object, default: () => ({}) } });
 const sections = computed(() => presentation.policySections(props.inspection ? { ...props.policy, fields: props.policy.displayFields || [] } : props.policy, props.directory, props.catalog, ui));

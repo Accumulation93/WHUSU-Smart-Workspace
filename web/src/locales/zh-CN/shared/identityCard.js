@@ -14,7 +14,7 @@ const sharedModule = Object.freeze({
   active: '在职', noPosition: '在职，暂无岗位', adminActive: '管理身份有效',
   organization: '组织', department: '部门', identityCategory: '身份类别', functionGroup: '职能组',
   position: '当前岗位', state: '身份状态',
-  failure: '身份卡暂时无法读取，请重试。', qrFailure: '核验码暂时无法生成，请重试。',
+  failure: '身份卡暂时无法读取，请重试', qrFailure: '核验码暂时无法生成，请重试',
   noIdentity: '当前身份无法生成身份卡，请切换有效工作角色。',
   login: '登录后查看我的身份卡',
   currentTime: '当前时间', checkedAt: '核验时间', open: '查看身份卡'

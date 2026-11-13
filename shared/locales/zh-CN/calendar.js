@@ -29,7 +29,7 @@ module.exports = {
  reminders: '提前提醒', reminderNone: '不提醒', reminderStart: '开始时', reminderFive: '5 分钟前',
  reminderFifteen: '15 分钟前', reminderThirty: '30 分钟前', reminderHour: '1 小时前', reminderDay: '1 天前',
  participants: '参会人', choosePeople: '指定人员', chooseScope: '指定范围', self: '安排人本人',
- participantsLoading: '正在加载参会人', participantsFailed: '参会人未能加载，请重试。',
+ participantsLoading: '正在加载参会人', participantsFailed: '参会人未能加载，请重试',
  participantsRestricted: '当前工作角色无法查看参会名单', participantsUnavailable: '该场次的参会名单暂不可查看',
  department: '部门', identity: '身份类别', workGroup: '职能组', sameDepartment: '与安排人同部门',
  sameIdentity: '与安排人同身份类别', sameWorkGroup: '与安排人同职能组', addCondition: '添加条件组',
@@ -49,13 +49,13 @@ module.exports = {
  onceHint: '这是一次添加，之后的修改和取消不会自动同步到手机日历。',
  subscriptionPrivacy: '订阅地址和专用口令仅供本人使用，请勿分享。', copied: '已复制', added: '已添加', saved: '已保存',
  noPosition: '暂无岗位', noParticipants: '暂无参会人', conflictHint: '这个时段还有其他日程',
- forbidden: '当前工作角色没有操作这项日程的权限。', invalidSchedule: '请检查日程日期、时间和重复设置。',
+ forbidden: '当前工作角色没有操作这项日程的权限。', invalidSchedule: '请检查日程日期、时间和重复设置',
  invalidRule: '请填写规则名称，并选择获得安排权限的人员、可安排的人员和日程操作。', staleReferences: '所选人员或岗位范围已变化，请重新选择。',
  conflict: '这项日程已被修改，请刷新后再操作。', unavailable: '这项日程已取消，或你不在参会名单中。',
- rangeTooLarge: '请选择不超过一年的日期范围。', operationFailed: '日程操作未完成，请刷新查看结果。',
+ rangeTooLarge: '请选择不超过一年的日期范围', operationFailed: '日程操作未完成，请刷新查看结果',
  participationOnly: '此处仅修改参会人；活动时间和取消请返回原场地记录操作。',
  sourceReadOnly: '请从原场地记录修改活动时间或取消活动。', unsupported: '当前设备没有可用的系统日历添加入口。',
  savedReadFailed: '已保存，但更新后的日程尚未加载。请刷新，勿重复提交。',
- reminderTitle: '日程提醒', reminderText: '{title}即将开始。',
- subscriptionRevoked: '此订阅地址已失效。', changeRecurrenceSeries: '修改重复方式时，请选择整个系列。'
+ reminderTitle: '日程提醒', reminderText: '{title}即将开始',
+ subscriptionRevoked: '此订阅地址已失效', changeRecurrenceSeries: '修改重复方式时，请选择整个系列。'
 };

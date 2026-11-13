@@ -7,7 +7,7 @@ const sharedModule = Object.freeze({
   systemDefaultOrganizationHelp: '设置系统默认使用的组织，不切换你当前的工作角色。',
   settingDefaultOrganization: '正在设置默认组织',
   defaultOrganizationSaved: name => '默认组织已设为“' + name + '”。',
-  defaultOrganizationRejected: '默认组织未能设置，请核对后重试。',
+  defaultOrganizationRejected: '默认组织未能设置，请核对后重试',
   defaultOrganizationUnknown: '暂未确认默认组织是否设置成功，请刷新设置后查看。',
   organizationCreatedDefaultUnknown: name => '组织“' + name + '”已创建，但暂未确认默认组织是否设置成功。请刷新设置后查看，不要重复创建组织。',
   organizationCreatedDefaultRejected: name => '组织“' + name + '”已创建，但默认组织未能设置。请在默认组织设置中重新选择，不要重复创建组织。',
