@@ -24,6 +24,15 @@ test('跨组织、跨岗位、角色改变及损坏响应全部拒绝', () => {
   assert.equal(bindAccess(response, null), null);
 });
 
+test('分配与查询资格按明确布尔值保存，并绑定当前工作角色', () => {
+  const access = bindAccess({ ...response, canManageAuthorization: true, canInspectAuthorization: true }, context);
+  assert.equal(access.canManageAuthorization, true);
+  assert.equal(access.canInspectAuthorization, true);
+  assert.equal(bindAccess(response, context).canManageAuthorization, false);
+  assert.equal(bindAccess({ ...response, canManageAuthorization: 'true', canInspectAuthorization: 1 }, context).canInspectAuthorization, false);
+  assert.equal(bindAccess({ ...response, contextId: 'other', canManageAuthorization: true }, context), null);
+});
+
 test('shadow不使用试算能力，绑定结果不受原数组后续变化影响', () => {
   const input = { ...response, capabilities: response.capabilities.slice(), grantedCapabilities: response.grantedCapabilities.slice() };
   const access = bindAccess(input, context);

@@ -1,7 +1,7 @@
 <view class="dimension-note">{{ui.withinGroup}}</view>
 <view wx:if="{{natureMissing}}" class="dimension-note">{{ui.chooseNatureFirst}}</view>
 <view wx:for="{{groups}}" wx:key="key" class="dimension-group">
-  <view class="dimension-heading ui-motion-card" data-key="{{item.key}}" bindtap="expand" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="dimension-title">{{item.label}}</view><view class="dimension-summary">{{item.summary}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
+  <view class="dimension-heading ui-motion-card" data-key="{{item.key}}" bindtap="expand" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="dimension-title">{{item.label}}</view><view class="dimension-summary">{{item.summary}}</view><view class="dimension-icon"><ui-icon name="chevron-right" sizeRole="row-leading" /></view></view>
   <view wx:if="{{expanded[item.key]}}" class="dimension-options">
     <view wx:if="{{item.blocked}}" class="dimension-note">{{ui.chooseNatureFirst}}</view>
     <view wx:if="{{item.incompatible}}" class="dimension-note">{{ui.ruleInvalidCombination}}</view>

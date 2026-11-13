@@ -214,7 +214,7 @@ import { notifyModuleBuilding } from '@/runtime/porting.js';
 import { openMessageTarget } from '@/runtime/messageNavigation.js';
 import { logout, roleLabelOf, session } from '@/runtime/session.js';
 import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
-import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
+import { canOpenAuthorization, canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
 import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 
 const PORTAL_PREVIEW_LIMIT = 6;
@@ -244,10 +244,10 @@ const portalAccess = ref(null);
 const shadowPermissionEntry = ref(false);
 let accessGeneration = 0;
 const cards = computed(() => {
-  const result = cardsForRole(session.activeRole).filter(card => card.key !== 'permissions'
-    || shadowPermissionEntry.value || (portalAccess.value?.mode === 'enforced'
-    && ['authorization.rules.read', 'authorization.schemes.read', 'authorization.effective.read', 'authorization.delegations.read']
-      .some(key => portalAccess.value.grantedCapabilities.includes(key))));
+  const result = cardsForRole(session.activeRole).filter(card => card.key !== 'permissions');
+  if (shadowPermissionEntry.value || canOpenAuthorization(portalAccess.value)) {
+    result.push(cardsForRole('admin').find(card => card.key === 'permissions'));
+  }
   if (canOpenConfigurationCopy(portalAccess.value)) result.push({ key: 'organizationCopy',
     label: authorizationCopy.configurationCopy.title, iconName: 'file', status: 'ready', route: { name: 'organizationCopy' } });
   return result;

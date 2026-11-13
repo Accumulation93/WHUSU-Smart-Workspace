@@ -10,14 +10,14 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 
 Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
-  data: { ui, navTopPx: 0, tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
+  data: { ui, navTopPx: 0, heroTone: 'blue', tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
-  onShow: function() { this._active = true; orgSession.consume(this); this.load(); },
+  onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onHide: function() { this.clear(); },
   onUnload: function() { this.clear(); },
   clear: function() {
@@ -44,7 +44,7 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
-      this.setData({ tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
+      this.setData({ canManage: management.canManage !== false, tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
         tab: management.canManage === false ? 'effective' : this.data.tab });
       this.setData({ ready: true, previewOnly: results[0].mode === 'shadow', isSuper: !!results[0].isSuper,
         delegations: results[0].isSuper ? (results[0].delegations || []).map(item => ({ id: item.id, name: item.name, enabledText: item.enabled ? ui.enabled : ui.disabled })) : [] });
@@ -124,7 +124,8 @@ Page({
     const kind = event.currentTarget.dataset.kind || (this.data.tab === 'schemes' ? 'scheme' : 'rule');
     const id = event.currentTarget.dataset.id;
     navigateToTrustedRoute('/subpackages/org/pages/authorizationEditor/authorizationEditor?kind=' + encodeURIComponent(kind)
-      + (id ? '&id=' + encodeURIComponent(id) : '') + (event.currentTarget.dataset.copy ? '&duplicate=1' : ''));
+      + (id ? '&id=' + encodeURIComponent(id) : '') + (event.currentTarget.dataset.copy ? '&duplicate=1' : '')
+      + (event.currentTarget.dataset.advanced ? '&advanced=1' : ''));
   },
   changes: function(event) {
     const id = event.currentTarget.dataset.id;

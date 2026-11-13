@@ -1333,6 +1333,7 @@ async function run() {
     assert.equal((await (await post('getOrganizationConfigurationDraft', { id: receivedGlobal[0].id }, false, true)).json()).activation, null);
     assert.equal((await post('applyOrganizationConfigurationDraft', { id: receivedGlobal[0].id, version: 1,
       references: { venueId: 'copy-target-venue' } }, false, true)).status, 403);
+    await require('./helpers/assignmentDelegationCases')(admin);
     await require('./helpers/directoryAuthorizationCases')(admin);
     await require('./helpers/hrAuthorizationCases')(admin);
     await require('./helpers/adminAccountAuthorizationCases')(admin);

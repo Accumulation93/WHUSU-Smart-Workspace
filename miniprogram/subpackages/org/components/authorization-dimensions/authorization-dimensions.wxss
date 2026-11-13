@@ -6,6 +6,6 @@
 .dimension-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6rpx 12rpx; text-align: left; }
 .dimension-title { min-width: 0; font-weight: 600; }
 .dimension-summary { grid-column: 1; min-width: 0; color: #64748b; font-size: var(--ui-type-meta); overflow-wrap: anywhere; }
-.dimension-heading ui-icon { grid-column: 2; grid-row: 1 / 3; }
+.dimension-icon { grid-column: 2; grid-row: 1 / 3; }
 .dimension-option { min-width: 0; max-width: 100%; margin: 0; white-space: normal; overflow-wrap: anywhere; }
 @media (min-width: 520px) { .dimension-heading, .dimension-option { min-height: 40px; padding: 8px 10px; } .dimension-group { margin-top: 10px; } .dimension-options { gap: 8px; margin-top: 8px; } }

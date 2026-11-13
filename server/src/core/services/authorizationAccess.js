@@ -19,8 +19,13 @@ async function current(connection, reference) {
   // 业务关系入口不等于管理授权；本人借用读取不能据此开放管理目录。
   const grantedCapabilities = explained.filter(item => item.status === 'conditional' || item.reason === 'super_admin')
     .map(item => item.capability);
+  const canManageAuthorization = state.mode === 'enforced' && (actor.isSuper === true
+    || (await require('./authorizationManagement').activeEnvelopes(connection, actor)).length > 0);
+  const canInspectAuthorization = state.mode === 'enforced' && (actor.isSuper === true
+    || grantedCapabilities.includes('authorization.effective.read'));
   return { mode: state.mode, revision: state.revision, organizationId: actor.organizationId,
-    contextId: actor.contextId, role: actor.role, capabilities, grantedCapabilities };
+    contextId: actor.contextId, role: actor.role, capabilities, grantedCapabilities,
+    canManageAuthorization, canInspectAuthorization };
 }
 
 module.exports = { current };

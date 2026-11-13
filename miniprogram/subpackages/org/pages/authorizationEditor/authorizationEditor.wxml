@@ -1,7 +1,7 @@
 <page-meta page-style="{{(picker ? 'overflow:hidden;' : '') + '--ui-navbar-height:' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{ui.title}}" />
 <view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="admin" />
+  <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="{{heroTone}}" />
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card">{{notice}}</view>
   <button wx:if="{{!ready && !loading}}" class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button>
@@ -43,18 +43,18 @@
     </block>
     <block wx:else>
       <view wx:if="{{kind === 'rule'}}" class="permission-card authorization-toolbar"><view class="permission-admin-meta">{{ui.identityExplanation}}</view><button class="secondary-btn ui-motion-button authorization-edit" disabled="{{busy}}" bindtap="toggleAdvanced" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{advanced ? ui.simpleSettings : ui.advancedSettings}}</button></view>
-      <view wx:if="{{advanced}}" class="permission-card authorization-section"><view class="authorization-label">{{ui.name}}</view><input class="authorization-input" value="{{draft.name}}" bindinput="nameInput" maxlength="80" placeholder="{{kind === 'scheme' ? ui.identityExample : ''}}" disabled="{{busy}}" />
+      <view wx:if="{{advanced}}" class="permission-card authorization-section"><view class="authorization-label">{{kind === 'scheme' ? ui.schemeName : kind === 'delegation' ? ui.delegationName : ui.ruleName}}</view><input class="authorization-input" value="{{draft.name}}" bindinput="nameInput" maxlength="80" placeholder="{{kind === 'scheme' ? ui.identityExample : ''}}" disabled="{{busy}}" />
         <block wx:if="{{kind === 'rule'}}"><view class="authorization-label">{{ui.effect}}</view><view class="authorization-actions"><button class="secondary-btn ui-motion-button authorization-option {{draft.policy.effect === 'allow' ? 'authorization-option-selected' : ''}}" data-effect="allow" disabled="{{busy}}" bindtap="chooseEffect" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allow}}</button><button class="secondary-btn ui-motion-button authorization-option {{draft.policy.effect === 'deny' ? 'authorization-option-selected' : ''}}" data-effect="deny" disabled="{{busy}}" bindtap="chooseEffect" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.deny}}</button></view><view class="authorization-head"><view>{{sections.enabledText}}</view><switch color="#3b82f6" checked="{{draft.policy.enabled}}" disabled="{{busy}}" bindchange="changeEnabled" /></view></block>
       </view>
       <view wx:if="{{kind === 'delegation'}}" class="permission-card">
         <view class="permission-section-title">{{ui.delegateRecipients}}</view>
-        <button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegates" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAdmin}}</button>
+        <view class="authorization-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegateAssignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAssignment}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegates" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAdmin}}</button></view>
         <view wx:for="{{recipientNames}}" wx:key="key">{{item.value}}</view>
         <view class="authorization-head"><view>{{draft.delegationEnabled ? ui.enabled : ui.disabled}}</view><switch color="#3b82f6" checked="{{draft.delegationEnabled}}" disabled="{{busy}}" bindchange="changeEnabled" /></view>
       </view>
       <view wx:if="{{kind !== 'scheme'}}" class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepPeople : kind === 'delegation' ? ui.delegationSubjects : ui.subjects}}</view><view wx:if="{{advanced}}" class="permission-admin-meta">{{ui.betweenGroups}}</view>
-        <view class="authorization-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="assignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAssignment}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="adminGrants" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAdmin}}</button></view>
+        <view class="authorization-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="assignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectRecipientAssignment}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="adminGrants" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectRecipientAdmin}}</button></view>
         <view wx:for="{{sections.subjects}}" wx:key="key" wx:for-item="subject" class="authorization-group">
           <view class="permission-section-head"><view class="authorization-label">{{subject.label}}</view><button class="secondary-btn ui-motion-button" data-part="subjects" data-index="{{index}}" disabled="{{busy}}" bindtap="removeGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.removeCondition}}</button></view>
           <authorization-dimensions wx:if="{{draft.policy.subjects[index].kind === 'assignmentScope'}}" value="{{draft.policy.subjects[index].dimensions}}" directory="{{directory}}" disabled="{{busy}}" data-part="subjects" data-index="{{index}}" bind:change="dimensions" />
@@ -110,6 +110,6 @@
     </block>
     <app-loading wx:if="{{busy}}" text="{{ui.saving}}" />
   </block>
-  <personnel-picker visible="{{!!picker}}" title="{{picker === 'delegates' ? ui.delegateRecipients : ui[picker]}}" options="{{pickerOptions}}" value="{{pickerValue}}" selectionLevel="{{picker === 'assignments' ? 'assignment' : 'person'}}" bind:confirm="confirmPersonnel" bind:cancel="closePersonnel" />
+  <personnel-picker visible="{{!!picker}}" title="{{picker === 'delegates' || picker === 'delegateAssignments' ? ui.delegateRecipients : (ui[picker] || '')}}" options="{{pickerOptions}}" value="{{pickerValue}}" selectionLevel="{{picker === 'assignments' || picker === 'delegateAssignments' ? 'assignment' : 'person'}}" bind:confirm="confirmPersonnel" bind:cancel="closePersonnel" />
   <app-toast />
 </view>

@@ -1,6 +1,6 @@
 <template>
   <div class="page stack authorization-page authorization-workspace">
-    <WorkspaceHero tone="admin" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
+    <WorkspaceHero :tone="session.activeRole === 'admin' ? 'admin' : 'blue'" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
       :organization-name="organizationName" @switch="router.push({ name: 'workRole' })" />
     <nav class="tabs" :aria-label="ui.title">
       <button v-for="item in tabs" :key="item" type="button" class="tab" :class="{ 'tab-active': tab === item }"
@@ -14,7 +14,7 @@
     <template v-else-if="ready">
       <section class="card stack">
         <p class="muted">{{ ui.tabHelp[tab] }}</p>
-        <template v-if="tab === 'rules' && !state.schemes.some(item => item.publishedVersion)"><p>{{ ui.noSchemes }}</p><button type="button" class="btn btn-primary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button></template>
+        <template v-if="tab === 'rules' && state.canManage !== false && !state.schemes.some(item => item.publishedVersion)"><p>{{ ui.firstUse }}</p><button type="button" class="btn btn-primary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button></template>
       </section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
@@ -26,12 +26,31 @@
           <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.search" />
         </label>
         <div class="authorization-tools">
-          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.rules : ui.advancedRules }}</button>
-          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
+          <button v-if="tab === 'rules' && showRules" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
           <button v-if="canCopy" type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
         </div>
       </section>
       <template v-if="tab === 'rules'">
+        <section class="card stack">
+          <details>
+            <summary>{{ ui.advancedManagement }}</summary>
+            <div class="stack">
+              <p class="muted">{{ state.isSuper ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
+              <button type="button" class="btn btn-secondary" @click="edit('rule', undefined, false, true)">{{ ui.createCustomRule }}</button>
+              <template v-if="state.isSuper">
+                <h2 class="section-title">{{ ui.delegations }}</h2>
+                <p class="muted">{{ ui.delegationNotice }}</p>
+                <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
+                <div v-for="item in state.delegations" :key="item.id" class="glass-panel stack-tight">
+                  <strong>{{ item.name }}</strong><span class="muted">{{ item.enabled ? ui.enabled : ui.disabled }}</span>
+                  <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('delegation', item.id)">{{ ui.edit }}</button>
+                  <button type="button" class="btn-quiet btn-quiet-danger" @click="router.push({ name: 'authorizationChanges', query: { kind: 'deleteDelegation', id: item.id } })">{{ ui.revokeDelegation }}</button></div>
+                </div>
+              </template>
+            </div>
+          </details>
+        </section>
         <template v-if="!showRules">
           <p v-if="!recipients.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noDirectGrants }}</p>
           <article v-for="person in recipients" :key="person.key" class="card stack">
@@ -53,30 +72,18 @@
             <button type="button" class="btn btn-danger" :disabled="!selectedRules.length" @click="deleteSelected">{{ ui.deleteSelected }}</button>
           </template>
         </section>
-        <section v-if="state.isSuper" class="card stack">
-          <details><summary>{{ ui.delegations }}</summary>
-            <div class="stack">
-              <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
-              <div v-for="item in state.delegations" :key="item.id" class="glass-panel stack-tight">
-                <strong>{{ item.name }}</strong><span class="muted">{{ item.enabled ? ui.enabled : ui.disabled }}</span>
-                <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('delegation', item.id)">{{ ui.edit }}</button>
-                <button type="button" class="btn-quiet btn-quiet-danger" @click="router.push({ name: 'authorizationChanges', query: { kind: 'deleteDelegation', id: item.id } })">{{ ui.remove }}</button></div>
-              </div>
-            </div>
-          </details>
-        </section>
         <p v-if="!cards.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noRules }}</p>
-        <article v-for="rule in cards" :key="rule.id" class="card stack">
-          <div class="panel-head" :class="{ 'selection-option-card': selecting, 'selection-option-card-selected': selecting && selectedRules.includes(rule.id) }"
+        <article v-for="rule in cards" :key="rule.id" class="card stack" :class="{ 'selection-option-card': selecting, 'selection-option-card-selected': selecting && selectedRules.includes(rule.id) }"
             :role="selecting ? 'checkbox' : undefined" :aria-checked="selecting ? selectedRules.includes(rule.id) : undefined"
-            :tabindex="selecting ? 0 : undefined" @click="selectRule(rule.id)" @keydown.space.prevent="selectRule(rule.id)" @keydown.enter.prevent="selectRule(rule.id)">
+            :tabindex="selecting ? 0 : undefined" @click="selectRule(rule.id)" @keydown.space.self.prevent="selectRule(rule.id)" @keydown.enter.self.prevent="selectRule(rule.id)">
+          <div class="panel-head">
             <h2 class="section-title">{{ rule.name }}</h2>
             <span class="chip" :class="rule.policy.effect === 'deny' ? 'chip-orange' : 'chip-blue'">{{ rule.effectText }}</span>
           </div>
           <div class="row row-wrap"><span v-for="(label, index) in rule.capabilityLabels.slice(0, 3)" :key="index" class="chip chip-sky">{{ label }}</span></div>
           <span class="muted">{{ rule.enabledText }}</span>
-          <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" /></details>
-          <div class="card-actions authorization-rule-actions">
+          <details @click.stop><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" /></details>
+          <div class="card-actions authorization-rule-actions" @click.stop>
             <button type="button" class="btn-quiet authorization-edit" @click="edit('rule', rule.id)">{{ ui.edit }}</button>
             <button type="button" class="btn-quiet" @click="edit('rule', rule.id, true)">{{ ui.copy }}</button>
             <button type="button" class="btn-quiet btn-quiet-danger" @click="changes('delete', rule.id)">{{ ui.remove }}</button>
@@ -95,6 +102,7 @@
       <section v-else class="card stack">
         <div class="panel-head"><h2 class="section-title">{{ ui.effective }}</h2>
           <button type="button" class="btn btn-secondary" :disabled="inspecting" @click="inspect">{{ ui.refresh }}</button></div>
+        <p class="muted">{{ ui.effectiveHelp }}</p>
         <AppLoading v-if="inspecting" :text="ui.loading" />
         <div class="button-row">
           <button type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('user')">{{ ui.inspectAssignment }}</button>
@@ -267,8 +275,8 @@ function selectShown() { selectedRules.value = [...new Set([...selectedRules.val
 function deleteSelected() {
   if (selectedRules.value.length) router.push({ name: 'authorizationChanges', query: { kind: 'delete', ids: JSON.stringify(selectedRules.value) } });
 }
-function edit(kind, id, duplicate = false) {
-  router.push({ name: 'authorizationEditor', query: { kind, ...(id ? { id } : {}), ...(duplicate ? { duplicate: '1' } : {}) } });
+function edit(kind, id, duplicate = false, advanced = false) {
+  router.push({ name: 'authorizationEditor', query: { kind, ...(id ? { id } : {}), ...(duplicate ? { duplicate: '1' } : {}), ...(advanced ? { advanced: '1' } : {}) } });
 }
 function changes(kind, id) { router.push({ name: 'authorizationChanges', query: { kind, id } }); }
 function visibilityChanged() { if (document.hidden) clear(); else load(); }

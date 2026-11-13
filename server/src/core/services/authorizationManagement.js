@@ -5,7 +5,7 @@ const identity = require('../models/authorizationIdentity');
 const model = require('../models/authorization');
 const references = require('../models/authorizationReferences');
 const candidates = require('../models/authorizationCandidates');
-const { normalizePolicy, canDelegate, subjectMatches } = require('./authorizationPolicy');
+const { normalizePolicy, normalizeSubjects, canDelegate, subjectMatches } = require('./authorizationPolicy');
 const { CATALOG } = require('./authorizationCatalog');
 
 function forbidden() { throw Object.assign(new Error('authorization_forbidden'), { code: 'authorization_forbidden' }); }
@@ -17,13 +17,14 @@ async function activeEnvelopes(connection, actor, now = Date.now(), lock = false
     if (!row.enabled) continue;
     const envelope = normalizePolicy(row.envelope, CATALOG);
     // 委托人的主体选择和“可授予谁”的主体选择分别保存，不可混用。
-    const audience = normalizePolicy({ id: row.id, organizationId: row.organizationId, enabled: true,
-      effect: 'allow', capabilities: ['authorization.rules.read'], subjects: row.subjects,
-      scopes: [{ kind: 'organization' }], fields: null }, CATALOG);
+    const audience = normalizeSubjects(row.subjects);
     if (row.organizationId !== actor.organizationId || envelope.organizationId !== actor.organizationId
       || envelope.effect !== 'allow' || !envelope.enabled) forbidden();
     if ((envelope.startsAt && now < Date.parse(envelope.startsAt)) || (envelope.endsAt && now >= Date.parse(envelope.endsAt))) continue;
-    if (audience.subjects.some(subject => subjectMatches(subject, actor))) result.push(envelope);
+    if (audience.some(subject => subjectMatches(subject, actor))) {
+      if (actor.role !== 'admin' && envelope.capabilities.some(key => CATALOG.get(key).governance)) forbidden();
+      result.push(envelope);
+    }
   }
   return result;
 }
@@ -42,7 +43,7 @@ function createGuard(reference) {
   return {
     async authorize(connection) {
       actor = await identity.loadActor(connection, reference, true);
-      if (!actor || actor.role !== 'admin') forbidden();
+      if (!actor) forbidden();
       if (!actor.isSuper && !(await activeEnvelopes(connection, actor)).length) forbidden();
       return actor;
     },
@@ -60,7 +61,7 @@ function createGuard(reference) {
       if ((before && !withinEnvelopes(before, envelopes)) || (after && !withinEnvelopes(after, envelopes))) forbidden();
       // 普通权限分配人不能借编辑规则改变自身管理授权。
       for (const policy of [before, after]) {
-        if (policy && policy.subjects.some(subject => subject.kind === 'adminGrants' && subject.ids.includes(actor.adminGrantId))) forbidden();
+        if (policy && policy.subjects.some(subject => subjectMatches(subject, actor))) forbidden();
       }
     },
     validateReferences: references.validateReferences
@@ -69,7 +70,7 @@ function createGuard(reference) {
 
 async function readManagement(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
-  if (!actor || actor.role !== 'admin') forbidden();
+  if (!actor) forbidden();
   const envelopes = actor.isSuper ? [] : await activeEnvelopes(connection, actor);
   const canManage = actor.isSuper || envelopes.length > 0;
   if (!canManage) {
@@ -102,18 +103,20 @@ async function readManagement(connection, reference) {
 
 async function readCandidates(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
-  if (!actor || actor.role !== 'admin') forbidden();
+  if (!actor) forbidden();
   const envelopes = actor.isSuper ? [] : await activeEnvelopes(connection, actor);
   if (!actor.isSuper && !envelopes.length) forbidden();
   const result = await candidates.read(connection, actor.organizationId);
   result.dimensions = await candidates.readDimensions(connection, actor.organizationId);
   if (actor.isSuper) return result;
   function permitted(target) {
-    return envelopes.some(envelope => envelope.subjects.some(subject => subjectMatches(subject, target)));
+    // 动态条件只能分配同形或更窄条件，不能变成调岗后仍永久生效的指定岗位授权。
+    return envelopes.some(envelope => envelope.subjects.some(subject => subject.kind !== 'assignmentScope'
+      && subjectMatches(subject, target)));
   }
   return {
     dimensions: result.dimensions,
-    assignments: result.assignments.filter(item => permitted({ role: 'user', active: true,
+    assignments: result.assignments.filter(item => item.assignmentId !== (actor.assignment && actor.assignment.id) && permitted({ role: 'user', active: true,
       organizationId: actor.organizationId, personId: item.personId,
       assignment: { id: item.assignmentId, active: true, organizationId: actor.organizationId,
         personId: item.personId, natureId: item.natureId, departmentId: item.departmentId,

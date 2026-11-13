@@ -1,6 +1,6 @@
 <template>
   <div class="page stack authorization-changes authorization-workspace">
-    <WorkspaceHero tone="admin" :page-name="ui.previewChanges" :person-name="personName" :identity-name="roleName" :organization-name="organizationName" @switch="leave" />
+    <WorkspaceHero :tone="session.activeRole === 'admin' ? 'admin' : 'blue'" :page-name="ui.previewChanges" :person-name="personName" :identity-name="roleName" :organization-name="organizationName" @switch="switchRole" />
     <AppLoading v-if="loading" :text="ui.loading" />
     <section v-if="notice" class="card stack" role="alert"><p>{{ notice }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="load">{{ ui.refresh }}</button></section>
     <template v-if="result">
@@ -31,7 +31,7 @@
       <div class="button-row">
         <button type="button" class="btn btn-secondary" :disabled="busy" @click="leave">{{ ui.cancel }}</button>
         <button type="button" class="btn" :class="deleting ? 'btn-danger' : 'btn-primary'" :disabled="busy" @click="confirm">
-          <AppLoading v-if="busy" :text="deleting ? ui.saving : ui.publishing" /><template v-else>{{ deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish }}</template>
+          <AppLoading v-if="busy" :text="deleting ? ui.saving : ui.publishing" /><template v-else>{{ deletingDelegation ? ui.revokeDelegation : deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish }}</template>
         </button>
       </div>
     </template>
@@ -137,6 +137,7 @@ async function confirm() {
   finally { if (request === generation) busy.value = false; }
 }
 function leave() { if (!busy.value) router.push({ name: 'authorization' }); }
+function switchRole() { if (!busy.value) router.push({ name: 'workRole' }); }
 function visibilityChanged() { if (document.hidden) { clear(); busy.value = false; } else load(); }
 onBeforeRouteLeave(() => !busy.value || session.status !== 'authenticated');
 watch(() => [session.status, session.context?.organizationId, session.context?.contextId, route.fullPath].join('|'), load, { immediate: true });

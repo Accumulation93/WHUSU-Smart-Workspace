@@ -20,10 +20,12 @@ function createDelegationDraft(item) {
   return draft;
 }
 
-function setDelegationRecipients(draft, selected) {
+function setDelegationRecipients(draft, selected, kind = 'adminGrants') {
   const next = createDraft(draft);
-  const holder = setPersonnel(createDraft(), 'adminGrants', selected);
-  next.audience = holder.policy.subjects;
+  const holder = createDraft();
+  holder.policy.subjects = clone(next.audience || []);
+  holder.policy.subjects = setPersonnel(holder, kind, selected).policy.subjects;
+  next.audience = holder.policy.subjects.filter(item => item.ids.length);
   return next;
 }
 
@@ -144,10 +146,12 @@ function delegationRequest(draft, expectedRevision, catalog) {
   const error = validation(draft, catalog);
   if (error) throw Object.assign(new Error(error), { code: error });
   if (!Array.isArray(draft.audience) || !draft.audience.length
-    || draft.audience.some(item => item.kind !== 'adminGrants' || !Array.isArray(item.ids) || !item.ids.length)
+    || draft.audience.some(item => !['assignments', 'adminGrants'].includes(item.kind) || !Array.isArray(item.ids) || !item.ids.length)
     || draft.policy.effect !== 'allow' || draft.policy.enabled !== true
     || typeof draft.delegationEnabled !== 'boolean'
-    || draft.policy.capabilities.some(key => catalog.find(item => item.key === key).delegation)) {
+    || draft.policy.capabilities.some(key => catalog.find(item => item.key === key).delegation)
+    || draft.audience.some(item => item.kind === 'assignments')
+      && draft.policy.capabilities.some(key => catalog.find(item => item.key === key).governance)) {
     throw Object.assign(new Error('invalidPolicy'), { code: 'invalidPolicy' });
   }
   return clone({ id: draft.id, version: draft.version, name: draft.name.trim(), enabled: draft.delegationEnabled,

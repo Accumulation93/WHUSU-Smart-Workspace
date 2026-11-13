@@ -4,6 +4,11 @@ const COPY_KINDS = ['scoring.templates', 'hr.departments', 'hr.identities', 'hr.
   'hr.directoryRules', 'audit.templates', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows',
   'venue.openRules', 'venue.activityRules', 'venue.purposes', 'calendar.rules', 'authorization.schemes'];
 
+function canOpenAuthorization(access) {
+  return !!access && access.mode === 'enforced'
+    && (access.canManageAuthorization === true || access.canInspectAuthorization === true);
+}
+
 function canOpenConfigurationCopy(access) {
   if (!access || access.mode !== 'enforced' || !Array.isArray(access.grantedCapabilities)) return false;
   return COPY_KINDS.some(kind => access.grantedCapabilities.includes(kind + '.share')
@@ -21,4 +26,4 @@ function configurationCopyOptions(access, preferredKind, preferredTab) {
   return { kinds, kind, tabs, tab: tabs.includes(preferredTab) ? preferredTab : tabs[0] || '' };
 }
 
-module.exports = { canOpenConfigurationCopy, configurationCopyOptions };
+module.exports = { canOpenAuthorization, canOpenConfigurationCopy, configurationCopyOptions };

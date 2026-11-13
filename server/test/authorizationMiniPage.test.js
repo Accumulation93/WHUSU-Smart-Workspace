@@ -14,8 +14,8 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
   const context = { Page(value) { definition = value; }, wx: { navigateBack() {}, pageScrollTo() {} },
     require(request) {
       if (request.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => ({ mode: 'shadow', grantedCapabilities: [] }) };
-      if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, showShortToast() {} };
-      if (request.endsWith('/utils/orgSession')) return { consume() {}, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
+      if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, createLocalError: message => new Error(message), showShortToast() {} };
+      if (request.endsWith('/utils/orgSession')) return { consume() {}, getSnapshot() { return { role: 'admin' }; }, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
       if (request.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };
       if (request.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute() {} };
       if (request.endsWith('/utils/dateTime')) return { splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
@@ -72,7 +72,7 @@ test('授权身份三步配置保存回读，复杂授权不因切换视图丢�
   page.selectScheme({ detail: { value: 1 } });
   page.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
   await page.review(); await page.save();
-  assert.equal(source.state.rules[0].name, '场地查看员授权');
+  assert.equal(source.state.rules[0].name, require('../../shared/locales/zh-CN/authorization').identityGrantName('场地查看员'));
   assert.equal(source.state.rules[0].schemeId, 'identity-a');
   assert.deepEqual(source.state.rules[0].policy.scopes, [{ kind: 'self' }]);
   const reopened = pageHarness(source.api, { id: 'rule-a' }); await reopened.load();
@@ -278,6 +278,37 @@ test('非超级管理员不能通过直达委托编辑页配置分配权', async
   const data = fixture(); data.state.isSuper = false;
   const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
   assert.equal(page.data.ready, false); assert.ok(page.data.notice);
+});
+
+test('只有查询资格时深链编辑不读取配置候选也不展示表单', async () => {
+  const data = fixture(); data.state.canManage = false;
+  for (const kind of ['rule', 'scheme', 'delegation']) {
+    const page = pageHarness(data.api, { kind }); await page.load();
+    assert.equal(page.data.ready, false);
+    assert.equal(page.data.notice, require('../../shared/locales/zh-CN/authorization').allocationUnavailable);
+  }
+  assert.equal(data.calls.some(item => item.name === 'getAuthorizationCandidates'), false);
+});
+
+test('普通岗位分配者使用岗位编号，保存回读并清空时保留管理身份分配者', async () => {
+  const data = fixture(); const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
+  page.nameInput({ detail: { value: '岗位委托' } });
+  for (const [kind, key] of [['delegateAssignments', 'job-a'], ['delegates', 'grant-a'], ['assignments', 'job-a']]) {
+    page.openPersonnel({ currentTarget: { dataset: { kind } } });
+    assert.equal(page.data.pickerOptions.length, 1);
+    page.confirmPersonnel({ detail: { keys: [key] } });
+  }
+  page.capability({ currentTarget: { dataset: { key: 'venue.bookings.read' } } });
+  page.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
+  await page.review(); await page.save();
+  const saved = data.calls.find(item => item.name === 'saveAuthorizationDelegation').data;
+  assert.deepEqual(saved.subjects, [{ kind: 'assignments', ids: ['job-a'] }, { kind: 'adminGrants', ids: ['grant-a'] }]);
+  const reopen = pageHarness(data.api, { kind: 'delegation', id: 'delegation-a' }); await reopen.load();
+  reopen.openPersonnel({ currentTarget: { dataset: { kind: 'delegateAssignments' } } });
+  assert.deepEqual(Array.from(reopen.data.pickerValue, item => item.assignmentId), ['job-a']);
+  reopen.confirmPersonnel({ detail: { keys: [] } });
+  assert.deepEqual(reopen.data.draft.audience.find(item => item.kind === 'adminGrants').ids, ['grant-a']);
+  assert.deepEqual(reopen.data.draft.policy.subjects, saved.envelope.subjects);
 });
 
 test('规则批量选择保留筛选外已选项，删除页逐条列出版本并确认后提交', async () => {

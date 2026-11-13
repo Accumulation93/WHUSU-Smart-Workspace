@@ -7,10 +7,10 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const { formatListTime } = require('../../../../utils/dateTime');
 
 Page({
-  data: { ui, navTopPx: 0, loading: true, busy: false, notice: '', deleting: false, ready: false,
+  data: { ui, navTopPx: 0, heroTone: 'blue', loading: true, busy: false, notice: '', deleting: false, ready: false,
     targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false },
   onLoad: function(options) { this._options = options; this.setData({ deleting: ['delete', 'deleteDelegation'].includes(options.kind), deletingDelegation: options.kind === 'deleteDelegation', navTopPx: getNavigationBarMetrics().totalHeight }); },
-  onShow: function() { this._active = true; orgSession.consume(this); this.load(); },
+  onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onHide: function() { this.clear(); },
   onUnload: function() { this.clear(); },

@@ -137,7 +137,7 @@ For documentation-only work, verify file existence, link/read order consistency,
 涉及数据库时间、API 时间、列表/详情时间或系统时区的任何改动，必须先读取 `docs/architecture.md` 与 `references/ui-kit-standards.md` 的“绝对时间、日期型值与视图契约”。
 
 - 绝对时间统一以 UTC 存储并由服务端返回 ISO UTC；`system_config.timezone` 只控制显示。小程序使用系统下发的 `systemTimezoneOffset` 与配置版本，禁止跟随设备本地时区。
-- `YYYY-MM-DD`、`HH:mm`、时长、提前量和周期规则不是绝对时间，不做时区转换。列表显示到分钟，详情/验签/安全记录显示到秒。
+- `YYYY-MM-DD`、`HH:mm`、时长、提前量和周期规则不是绝对时间，不做时区转换。列表、详情、验签、安全记录及所有用户可见日期时间统一显示到分钟；同日范围只写一次日期，跨日保留两端日期。存储、接口与证据仍保留原始精度。
 - WXML 只渲染预计算 `*Text` 字段，禁止直接显示原始时间或 ISO `T...Z`；页面不得自行调用 `toLocaleString/toLocaleDateString`。
 - 历史迁移按已确认写入来源分类，无法判断的记录进入逐记录审计；服务端按“记录标识 + 原始绝对时间”下发字段级 `*ReviewStatus`，前端逐字段标记待核对。禁止猜测移动、用全局状态污染全部时间或漏传状态。未通过时间审计、展示映射计数、跨时区测试或迁移分类预检不得发布。
 

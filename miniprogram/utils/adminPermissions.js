@@ -1,6 +1,7 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/adminPermissions');
 const { callFunction, createResultError, createLocalError } = require('./api');
 const { managementTabAllowed, hasCapability } = require('./authorizationAccessView');
+const { canOpenAuthorization } = require('./authorizationEntryView');
 
 const TAB_PERMISSION_MAP = {
   activities: ['scoring.activities'],
@@ -60,8 +61,7 @@ function canAccessPermissionSystem(profile) {
   if (!profile) return false;
   if (profile.authorizationAccessUnavailable) return false;
   if (profile.authorizationAccess && profile.authorizationAccess.mode === 'enforced') {
-    return ['authorization.rules.read', 'authorization.schemes.read', 'authorization.effective.read',
-      'authorization.delegations.read'].some(key => hasCapability(profile.authorizationAccess, key, true));
+    return canOpenAuthorization(profile.authorizationAccess);
   }
   if (profile.adminLevel === 'super_admin') return true;
   return profile.adminLevel === 'admin'

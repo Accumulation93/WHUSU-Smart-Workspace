@@ -7,7 +7,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
-const { canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
+const { canOpenAuthorization, canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const authContext = require('../../../../utils/authContext');
 const identityCardCopy = require('../../../../locales/zh-CN/identityCard');
@@ -256,6 +256,8 @@ Page({
   continuePortalShow(activeSession) {
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
+      this._authorizationEntryAllowed = false;
+      this._copyEntryAllowed = false;
       this._todoFingerprint = ''; this._notificationFingerprint = '';
       this._messageOverviewLoading = false;
       orgSession.invalidateRequests(this);
@@ -326,6 +328,7 @@ Page({
   onHide() {
     deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
+    this._authorizationEntryAllowed = false;
     this._copyEntryAllowed = false;
     this.refreshCurrentUser();
     orgSession.invalidateRequests(this);
@@ -382,6 +385,9 @@ Page({
     const user = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
     const isAdminRole = activeRole === 'admin';
     const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER.slice();
+    if (this._authorizationEntryAllowed && !portalCards.some(card => card.key === 'permissions')) {
+      portalCards.push(PORTAL_CARDS_ADMIN.find(card => card.key === 'permissions'));
+    }
     if (this._copyEntryAllowed) portalCards.push({ key: 'organizationCopy', label: authorizationCopy.configurationCopy.title,
       iconName: 'file', url: '/subpackages/org/pages/organizationCopy/organizationCopy', disabled: false });
 
@@ -428,6 +434,7 @@ Page({
   },
 
   async refreshAuthorizationEntry() {
+    this._authorizationEntryAllowed = false;
     this._copyEntryAllowed = false;
     this.refreshCurrentUser();
     const request = orgSession.beginRequest(this, 'portalAuthorization');
@@ -435,6 +442,7 @@ Page({
       const access = await readCurrentAuthorizationAccess();
       if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request) || !access) return;
       this._copyEntryAllowed = canOpenConfigurationCopy(access);
+      this._authorizationEntryAllowed = canOpenAuthorization(access);
       this.refreshCurrentUser();
     } catch (_) {}
   },

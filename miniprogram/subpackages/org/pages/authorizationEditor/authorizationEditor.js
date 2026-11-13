@@ -10,14 +10,14 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 
 Page({
   openIdentitySettings: function() { if (!this.data.busy) navigateToTrustedRoute('/subpackages/org/pages/authorization/authorization?tab=schemes'); },
-  data: { ui, navTopPx: 0, kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
+  data: { ui, navTopPx: 0, heroTone: 'blue', kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
     draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
     preview: null, originalSections: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
   onLoad: function(options) {
     this._options = options;
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, kind: ['scheme', 'delegation'].includes(options.kind) ? options.kind : 'rule' });
   },
-  onShow: function() { this._active = true; orgSession.consume(this); this.load(); },
+  onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onHide: function() { this.clear(); },
   onUnload: function() { this.clear(); },
@@ -30,7 +30,11 @@ Page({
     const request = orgSession.beginRequest(this, 'authorizationEditor');
     this.setData({ loading: true, ready: false, notice: '' });
     try {
-      const results = await Promise.all([callFunction({ name: 'getAuthorizationManagement', data: {} }), callFunction({ name: 'getAuthorizationCandidates', data: {} })]);
+      const management = await callFunction({ name: 'getAuthorizationManagement', data: {} });
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+      if (management.status !== 'success') throw createResultError(management, ui.operationFailed);
+      if (management.canManage === false) throw createLocalError(ui.allocationUnavailable);
+      const results = [management, await callFunction({ name: 'getAuthorizationCandidates', data: {} })];
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
@@ -48,7 +52,7 @@ Page({
         else if (this.data.kind === 'rule') draft = this._options.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
         else { draft.name = item.name; draft.id = item.id; draft.version = item.version; draft.policy.capabilities = item.capabilities.slice(); }
       }
-      this.setData({ advanced: this.data.kind !== 'rule' || !editor.canSimplify(draft) });
+      this.setData({ advanced: this.data.kind !== 'rule' || this._options.advanced === '1' || !editor.canSimplify(draft) });
       this.setData({ originalSections: draft.id && this.data.kind !== 'scheme'
         ? presentation.policySections(draft.policy, this._directory, this._state.catalog, ui) : null });
       this.updateDraft(draft);
@@ -186,18 +190,25 @@ Page({
   },
   openPersonnel: function(event) {
     const kind = event.currentTarget.dataset.kind;
-    if (!['assignments', 'adminGrants', 'delegates'].includes(kind)) return;
-    const options = presentation.personnelOptions(this._directory, kind === 'assignments' ? 'user' : 'admin');
-    const subject = kind === 'delegates' ? this.data.draft.audience[0] : this.data.draft.policy.subjects.find(item => item.kind === kind);
-    const value = subject ? options.filter(item => subject.ids.includes(kind === 'assignments' ? item.assignmentId : item.adminGrantId)) : [];
+    if (this.data.busy || !['assignments', 'adminGrants', 'delegates', 'delegateAssignments'].includes(kind)) return;
+    const assignment = kind === 'assignments' || kind === 'delegateAssignments';
+    const subjectKind = assignment ? 'assignments' : 'adminGrants';
+    const options = presentation.personnelOptions(this._directory, assignment ? 'user' : 'admin');
+    const subjects = kind === 'delegates' || kind === 'delegateAssignments' ? this.data.draft.audience : this.data.draft.policy.subjects;
+    const subject = subjects.find(item => item.kind === subjectKind);
+    const value = subject ? options.filter(item => subject.ids.includes(assignment ? item.assignmentId : item.adminGrantId)) : [];
     this.setData({ picker: kind, pickerOptions: options, pickerValue: value });
   },
   closePersonnel: function() { this.setData({ picker: '', pickerOptions: [], pickerValue: [] }); },
   confirmPersonnel: function(event) {
     const kind = this.data.picker;
+    if (this.data.busy || !kind) return;
     const keys = event.detail.keys;
-    const selected = this.data.pickerOptions.filter(item => keys.includes(kind === 'assignments' ? item.assignmentId : item.adminGrantId));
-    this.updateDraft(kind === 'delegates' ? editor.setDelegationRecipients(this.data.draft, selected) : editor.setPersonnel(this.data.draft, kind, selected)); this.closePersonnel();
+    const assignment = kind === 'assignments' || kind === 'delegateAssignments';
+    const selected = this.data.pickerOptions.filter(item => keys.includes(assignment ? item.assignmentId : item.adminGrantId));
+    this.updateDraft(kind === 'delegates' || kind === 'delegateAssignments'
+      ? editor.setDelegationRecipients(this.data.draft, selected, assignment ? 'assignments' : 'adminGrants')
+      : editor.setPersonnel(this.data.draft, kind, selected)); this.closePersonnel();
   },
   toggleScope: function(event) {
     const kind = event.currentTarget.dataset.kind;

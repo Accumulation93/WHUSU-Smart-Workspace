@@ -1,7 +1,7 @@
 <template>
   <div class="page stack authorization-editor authorization-workspace">
-    <WorkspaceHero tone="admin" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
-      :organization-name="organizationName" @switch="leave" />
+    <WorkspaceHero :tone="session.activeRole === 'admin' ? 'admin' : 'blue'" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
+      :organization-name="organizationName" @switch="switchRole" />
     <AppLoading v-if="loading" :text="ui.loading" />
     <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
     <button v-if="!ready && !loading" type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
@@ -33,11 +33,11 @@
       <form v-else class="stack" @submit.prevent="review">
         <section v-if="kind === 'rule'" class="card stack"><p class="muted">{{ ui.identityExplanation }}</p><button type="button" class="btn btn-secondary authorization-edit" :disabled="busy" @click="toggleAdvanced">{{ advanced ? ui.simpleSettings : ui.advancedSettings }}</button></section>
         <section v-if="advanced" class="card stack">
-          <label class="field"><span class="field-label">{{ ui.name }}</span><input v-model="draft.name" class="field-input" maxlength="80" :placeholder="kind === 'scheme' ? ui.identityExample : ''" :disabled="busy" required /></label>
+          <label class="field"><span class="field-label">{{ kind === 'scheme' ? ui.schemeName : kind === 'delegation' ? ui.delegationName : ui.ruleName }}</span><input v-model="draft.name" class="field-input" maxlength="80" :placeholder="kind === 'scheme' ? ui.identityExample : ''" :disabled="busy" required /></label>
           <template v-if="kind === 'delegation'">
             <div class="switch-row"><span class="field-label">{{ draft.delegationEnabled ? ui.enabled : ui.disabled }}</span><UiSwitch :checked="draft.delegationEnabled" :label="ui.state" :disabled="busy" @change="draft.delegationEnabled = $event.target.checked" /></div>
             <h2 class="section-title">{{ ui.delegateRecipients }}</h2>
-            <button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegates'">{{ ui.inspectAdmin }}</button>
+            <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegateAssignments'">{{ ui.selectDelegateAssignment }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'delegates'">{{ ui.selectDelegateAdmin }}</button></div>
             <span v-for="item in recipientNames" :key="item.key">{{ item.value }}</span>
           </template>
           <div v-if="kind === 'rule'" class="stack">
@@ -49,7 +49,7 @@
         <section v-if="kind !== 'scheme'" class="card stack">
           <h2 class="section-title">{{ !advanced ? ui.stepPeople : kind === 'delegation' ? ui.delegationSubjects : ui.subjects }}</h2>
           <p v-if="advanced" class="muted">{{ ui.betweenGroups }}</p>
-          <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'assignments'">{{ ui.inspectAssignment }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'adminGrants'">{{ ui.inspectAdmin }}</button></div>
+          <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'assignments'">{{ ui.selectRecipientAssignment }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="picker = 'adminGrants'">{{ ui.selectRecipientAdmin }}</button></div>
           <div v-for="(subject, index) in draft.policy.subjects" :key="index" class="glass-panel stack">
             <div class="panel-head"><strong>{{ subject.kind === 'assignmentScope' ? ui.alternativeGroup(index + 1) : ui[subject.kind] }}</strong><button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="draft.policy.subjects.splice(index, 1)">{{ ui.removeCondition }}</button></div>
             <AuthorizationDimensions v-if="subject.kind === 'assignmentScope'" v-model="subject.dimensions" :directory="directory" :disabled="busy" />
@@ -106,7 +106,7 @@
         </template>
         <div class="button-row"><button type="button" class="btn btn-secondary" :disabled="busy" @click="leave">{{ ui.cancel }}</button><button type="submit" class="btn btn-primary" :disabled="busy"><AppLoading v-if="busy" :text="ui.saving" /><template v-else>{{ kind !== 'scheme' ? ui.previewChanges : ui.saveDraft }}</template></button></div>
       </form>
-      <PersonnelPicker v-if="picker" :key="picker" :title="picker === 'delegates' ? ui.delegateRecipients : ui[picker]" :mode="picker === 'assignments' ? 'assignment' : 'person'"
+      <PersonnelPicker v-if="picker" :key="picker" :title="picker === 'delegates' || picker === 'delegateAssignments' ? ui.delegateRecipients : ui[picker]" :mode="picker === 'assignments' || picker === 'delegateAssignments' ? 'assignment' : 'person'"
         :options="pickerOptions" :value="pickerSelected" :busy="busy" @confirm="confirmPersonnel" @cancel="picker = ''" />
     </template>
   </div>
@@ -151,10 +151,13 @@ const operationQuery = ref('');
 let generation = 0;
 let disposed = false;
 let previewRequest = null;
-const pickerOptions = computed(() => presentation.personnelOptions(directory.value, picker.value === 'assignments' ? 'user' : 'admin'));
+const pickerIsAssignment = computed(() => ['assignments', 'delegateAssignments'].includes(picker.value));
+const pickerIsDelegate = computed(() => ['delegates', 'delegateAssignments'].includes(picker.value));
+const pickerOptions = computed(() => presentation.personnelOptions(directory.value, pickerIsAssignment.value ? 'user' : 'admin'));
 const pickerSelected = computed(() => {
-  const subject = picker.value === 'delegates' ? draft.value.audience?.[0] : draft.value.policy.subjects.find(item => item.kind === picker.value);
-  return subject ? pickerOptions.value.filter(item => subject.ids.includes(picker.value === 'assignments' ? item.assignmentId : item.adminGrantId)) : [];
+  const subjects = pickerIsDelegate.value ? draft.value.audience || [] : draft.value.policy.subjects;
+  const subject = subjects.find(item => item.kind === (pickerIsAssignment.value ? 'assignments' : 'adminGrants'));
+  return subject ? pickerOptions.value.filter(item => subject.ids.includes(pickerIsAssignment.value ? item.assignmentId : item.adminGrantId)) : [];
 });
 const recipientNames = computed(() => presentation.policySections({ subjects: draft.value.audience || [] }, directory.value, state.value.catalog, ui).subjects.flatMap(item => item.lines));
 const fieldOptions = computed(() => editor.availableFields(draft.value, state.value.catalog));
@@ -196,7 +199,12 @@ function addScope(kind) {
   if (kind !== 'assignmentScope' && draft.value.policy.scopes.some(item => item.kind === kind)) return;
   draft.value.policy.scopes.push(kind === 'assignmentScope' ? { kind, dimensions: {} } : { kind });
 }
-function confirmPersonnel(selected) { draft.value = picker.value === 'delegates' ? editor.setDelegationRecipients(draft.value, selected) : editor.setPersonnel(draft.value, picker.value, selected); picker.value = ''; }
+function confirmPersonnel(selected) {
+  if (busy.value || !picker.value) return;
+  draft.value = pickerIsDelegate.value ? editor.setDelegationRecipients(draft.value, selected, pickerIsAssignment.value ? 'assignments' : 'adminGrants')
+    : editor.setPersonnel(draft.value, picker.value, selected);
+  picker.value = '';
+}
 function selectScheme(event) {
   draft.value.schemeId = event.target.value;
   const scheme = state.value.schemes.find(item => item.id === draft.value.schemeId);
@@ -219,7 +227,11 @@ async function load() {
   if (disposed || document.hidden || session.status !== 'authenticated') { loading.value = false; return; }
   const request = generation; loading.value = true;
   try {
-    const responses = await Promise.all([callApi('getAuthorizationManagement', {}), callApi('getAuthorizationCandidates', {})]);
+    const management = await callApi('getAuthorizationManagement', {});
+    if (request !== generation) return;
+    requireSuccess(management);
+    if (management.canManage === false) throw createLocalError(ui.allocationUnavailable);
+    const responses = [management, await callApi('getAuthorizationCandidates', {})];
     if (request !== generation) return;
     responses.forEach(requireSuccess); state.value = responses[0]; directory.value = responses[1];
     if (kind.value === 'delegation') {
@@ -233,7 +245,7 @@ async function load() {
       else if (kind.value === 'rule') draft.value = route.query.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
       else { draft.value.name = item.name; draft.value.id = item.id; draft.value.version = item.version; draft.value.policy.capabilities = [...item.capabilities]; }
     }
-    advanced.value = kind.value !== 'rule' || !editor.canSimplify(draft.value);
+    advanced.value = kind.value !== 'rule' || route.query.advanced === '1' || !editor.canSimplify(draft.value);
     originalPolicy.value = draft.value.id && kind.value !== 'scheme' ? editor.createDraft(draft.value).policy : null;
     ready.value = true;
   } catch (error) { if (request === generation) notice.value = errorText(error, ui.operationFailed); }
@@ -272,6 +284,7 @@ async function save() {
   finally { if (request === generation) busy.value = false; }
 }
 function leave() { router.push({ name: 'authorization' }); }
+function switchRole() { if (!busy.value) router.push({ name: 'workRole' }); }
 function visibilityChanged() { if (document.hidden) clear(); else load(); }
 watch(() => [session.status, session.context?.organizationId, session.context?.contextId, route.fullPath].join('|'), load, { immediate: true });
 document.addEventListener('visibilitychange', visibilityChanged);

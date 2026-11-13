@@ -59,6 +59,11 @@ function normalizeSubject(value, path) {
   invalid(path + '.kind');
 }
 
+function normalizeSubjects(value) {
+  if (!Array.isArray(value) || !value.length || value.length > MAX_CLAUSES) invalid('subjects');
+  return value.map((item, index) => normalizeSubject(item, 'subjects.' + index));
+}
+
 function normalizeScope(value, path) {
   object(value, ['kind', 'ids', 'dimensions'], path);
   if (value.kind === 'organization' || value.kind === 'self') {
@@ -252,4 +257,4 @@ function projectFields(record, decision) {
   return result;
 }
 
-module.exports = { DIMENSIONS, normalizePolicy, preparePolicies, evaluate, canDelegate, projectFields, subjectMatches, scopeMatches };
+module.exports = { DIMENSIONS, normalizePolicy, normalizeSubjects, preparePolicies, evaluate, canDelegate, projectFields, subjectMatches, scopeMatches };

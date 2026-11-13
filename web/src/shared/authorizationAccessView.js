@@ -52,7 +52,9 @@ function bindAccess(result, context) {
     || !result.grantedCapabilities.every(value => typeof value === 'string' && result.capabilities.includes(value))) return null;
   return { mode: result.mode, revision: result.revision, organizationId: result.organizationId,
     contextId: result.contextId, role: result.role, capabilities: result.capabilities.slice(),
-    grantedCapabilities: result.grantedCapabilities.slice() };
+    grantedCapabilities: result.grantedCapabilities.slice(),
+    canManageAuthorization: result.canManageAuthorization === true,
+    canInspectAuthorization: result.canInspectAuthorization === true };
 }
 
 function hasCapability(access, capability, management) {

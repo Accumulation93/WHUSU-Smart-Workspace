@@ -5,14 +5,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const { createRequire } = require('node:module');
-const { configurationCopyOptions } = require('../../shared/authorizationEntryView');
+const { configurationCopyOptions, canOpenAuthorization } = require('../../shared/authorizationEntryView');
 
 function harness() {
   const file = path.resolve(__dirname, '../../miniprogram/utils/adminPermissions.js');
   const localRequire = createRequire(file);
   let snapshot = { role: 'admin', orgId: 'org', contextId: 'context' };
   let profile = { adminLevel: 'super_admin', organizationId: 'org' };
-  let access = { mode: 'enforced', grantedCapabilities: ['authorization.rules.read'], capabilities: ['authorization.rules.read'] }, failFirst = false;
+  let access = { mode: 'enforced', canManageAuthorization: true, grantedCapabilities: ['authorization.rules.read'], capabilities: ['authorization.rules.read'] }, failFirst = false;
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), { module, require(name) {
     if (name === './api') return { callFunction: async () => { if (failFirst) throw new Error('first request'); return { status: 'success', organizationId: 'org', permissions: {}, canAccessPermissionSystem: true }; } };
@@ -83,4 +83,17 @@ test('原生门户权限卡真实页面定义直达新版，普通岗位不出�
   const cards = page.refreshCurrentUser().portalCards;
   assert.equal(cards.some(card => card.key === 'permissions'), false);
   assert.equal(cards.some(card => card.key === 'organizationCopy'), true);
+  page._authorizationEntryAllowed = true;
+  assert.equal(page.refreshCurrentUser().portalCards.filter(card => card.key === 'permissions').length, 1);
+  page._authorizationEntryAllowed = false;
+  assert.equal(page.refreshCurrentUser().portalCards.some(card => card.key === 'permissions'), false);
+});
+
+test('权限入口仅采用明确资格，不从业务能力或治理读取能力猜测', () => {
+  assert.equal(canOpenAuthorization({ mode: 'enforced', canManageAuthorization: true }), true);
+  assert.equal(canOpenAuthorization({ mode: 'enforced', canInspectAuthorization: true }), true);
+  assert.equal(canOpenAuthorization({ mode: 'enforced', grantedCapabilities: ['authorization.rules.read', 'venue.bookings.read'] }), false);
+  assert.equal(canOpenAuthorization({ mode: 'enforced', canManageAuthorization: 'true' }), false);
+  assert.equal(canOpenAuthorization({ mode: 'shadow', canManageAuthorization: true }), false);
+  assert.equal(canOpenAuthorization(null), false);
 });

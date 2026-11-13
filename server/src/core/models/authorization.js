@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const pool = require('../../config/db');
-const { normalizePolicy } = require('../services/authorizationPolicy');
+const { normalizePolicy, normalizeSubjects } = require('../services/authorizationPolicy');
 const { CATALOG } = require('../services/authorizationCatalog');
 const candidates = require('./authorizationCandidates');
 const { describeRuleImpact, describeDelegationImpact } = require('../services/authorizationImpact');
@@ -311,8 +311,10 @@ async function prepareDelegationChange(connection, input, orgId, guard) {
   const envelope = normalizePolicy(Object.assign({}, input.envelope, { id, organizationId: orgId }), CATALOG);
   if (envelope.effect !== 'allow' || typeof input.enabled !== 'boolean'
     || envelope.capabilities.some(key => CATALOG.get(key).delegation)) fail('invalid_authorization_delegation');
-  const audience = normalizePolicy({ id, organizationId: orgId, enabled: input.enabled, effect: 'allow',
-    subjects: input.subjects, capabilities: ['authorization.rules.read'], scopes: [{ kind: 'organization' }], fields: null }, CATALOG);
+  const audience = { organizationId: orgId, subjects: normalizeSubjects(input.subjects),
+    capabilities: [], scopes: [], fields: null };
+  if (audience.subjects.some(subject => subject.kind !== 'adminGrants')
+    && envelope.capabilities.some(key => CATALOG.get(key).governance)) fail('invalid_authorization_delegation');
     const actor = await guard.authorize(connection);
     if (!actor || !actor.isSuper || actor.organizationId !== orgId || !actor.contextId) fail('authorization_forbidden');
     const state = await lockOrganization(connection, orgId);
