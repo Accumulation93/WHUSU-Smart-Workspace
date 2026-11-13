@@ -12,7 +12,8 @@ Page({
   openIdentitySettings: function() { if (!this.data.busy) navigateToTrustedRoute('/subpackages/org/pages/authorization/authorization?tab=schemes'); },
   data: { ui, navTopPx: 0, heroTone: 'blue', kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
     draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
-    preview: null, originalSections: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [] },
+    preview: null, originalSections: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [],
+    requiresDelegation: false, delegationOptions: [], delegationIndex: 0, delegation: null, delegationSections: null, formAvailable: false, inheritedSubjects: false, inheritedPeriods: [], controlledLabels: [], allowRelative: true, canPickAssignments: true, canPickAdmins: true },
   onLoad: function(options) {
     this._options = options;
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, kind: ['scheme', 'delegation'].includes(options.kind) ? options.kind : 'rule' });
@@ -23,7 +24,9 @@ Page({
   onUnload: function() { this.clear(); },
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null; this._previewRequest = null;
-    this.setData({ originalSections: null });
+    this._delegation = null;
+    this.setData({ originalSections: null, delegation: null, delegationSections: null, formAvailable: false,
+      delegationOptions: [], inheritedPeriods: [], inheritedSubjects: false, controlledLabels: [], sensitiveLabels: [], periods: [], previewPeriods: [] });
     this.setData({ ready: false, draft: null, sections: null, capabilityGroups: [], capabilityBusinesses: [], capabilityKeyword: '', selectedCapabilityText: '', expanded: {}, fieldOptions: [], fieldsIncompatible: false, picker: '', pickerOptions: [], pickerValue: [], preview: null, impactRows: [], busy: false, directory: {}, schemes: [], recipientNames: [] });
   },
   load: async function() {
@@ -48,11 +51,21 @@ Page({
       if (this._options.id) {
         const item = (this.data.kind === 'delegation' ? this._state.delegations : this.data.kind === 'rule' ? this._state.rules : this._state.schemes).find(row => row.id === this._options.id);
         if (!item) throw createLocalError(ui.conflict);
+        if (item.canEdit === false) throw createLocalError(ui.delegationNoLongerAvailable);
         if (this.data.kind === 'delegation') draft = editor.createDelegationDraft(item);
         else if (this.data.kind === 'rule') draft = this._options.duplicate === '1' ? editor.copyDraft(item) : editor.createDraft(item);
         else { draft.name = item.name; draft.id = item.id; draft.version = item.version; draft.policy.capabilities = item.capabilities.slice(); }
       }
-      this.setData({ advanced: this.data.kind !== 'rule' || this._options.advanced === '1' || !editor.canSimplify(draft) });
+      const requiresDelegation = !this._state.isSuper && this.data.kind !== 'delegation';
+      const options = this._state.delegationOptions || [];
+      this._delegation = null;
+      if (requiresDelegation) {
+        this._delegation = this._options.id ? options.find(item => editor.withinDelegation(draft, item, this.data.kind === 'scheme')) : options.length === 1 ? options[0] : null;
+        if (this._options.id && !this._delegation) throw createLocalError(ui.delegationNoLongerAvailable);
+        if (this._delegation) draft = editor.selectDelegation(draft, this._delegation, !!this._options.id);
+      }
+      this.setData({ requiresDelegation, delegationOptions: [{ id: '', name: ui.delegationChoicePlaceholder }].concat(options),
+        advanced: this.data.kind !== 'rule' || this._options.advanced === '1' || !editor.canUseIdentityFlow(draft, this._delegation) });
       this.setData({ originalSections: draft.id && this.data.kind !== 'scheme'
         ? presentation.policySections(draft.policy, this._directory, this._state.catalog, ui) : null });
       this.updateDraft(draft);
@@ -64,8 +77,13 @@ Page({
     }
   },
   updateDraft: function(draft) {
+    const delegation = this._delegation;
+    const scopedDirectory = editor.delegationDirectory(this._directory, delegation);
+    const schemes = [{ id: '', name: ui.selectOperations }].concat(editor.assignableSchemes(this._state.schemes, delegation, this._state.catalog, draft));
     const groups = [];
     for (const item of this._state.catalog) {
+      if (item.systemControlled || (delegation && !delegation.envelope.capabilities.includes(item.key))) continue;
+      if (item.governance && (draft.policy.subjects.some(subject => subject.kind !== 'adminGrants') || (draft.audience || []).some(subject => subject.kind === 'assignments'))) continue;
       if (this.data.kind === 'delegation' && item.delegation) continue;
       let group = groups.find(row => row.key === item.resourceType);
       if (!group) { group = { key: item.resourceType, label: ui.resources[item.resourceType] || ui.unknownCapability, items: [] }; groups.push(group); }
@@ -93,22 +111,43 @@ Page({
     }
     const sensitiveLabels = this._state.catalog.filter(item => draft.policy.capabilities.includes(item.key)
       && (['delete', 'export'].includes(item.action) || item.governance || item.delegation)).map(item => presentation.capabilityLabel(item.key, this._state.catalog, ui));
-    this.setData({ draft, sensitiveLabels, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, capabilityBusinesses: businesses, selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
+    this.setData({ draft, schemes, delegation: delegation || null, formAvailable: !this.data.requiresDelegation || !!delegation && (this.data.kind === 'scheme' || !delegation.includesOwnRole),
+      delegationIndex: delegation ? this.data.delegationOptions.findIndex(item => item.id === delegation.id) : 0,
+      delegationSections: delegation ? presentation.policySections(delegation.envelope, this._directory, this._state.catalog, ui) : null,
+      inheritedSubjects: !!(delegation && delegation.envelope.subjects.some(item => item.kind === 'assignmentScope')),
+      inheritedPeriods: delegation ? ['startsAt', 'endsAt'].filter(key => delegation.envelope[key]).map(key => ({ key, label: ui[key], value: formatDetailTime(draft.policy[key]) })) : [],
+      canPickAssignments: !delegation || !!scopedDirectory.assignments.length, canPickAdmins: !delegation || !!scopedDirectory.adminGrants.length,
+      allowRelative: !draft.policy.subjects.some(item => item.kind === 'adminGrants'),
+      controlledLabels: this._state.catalog.filter(item => item.systemControlled && draft.policy.capabilities.includes(item.key)).map(item => presentation.capabilityLabel(item.key, this._state.catalog, ui)),
+      sensitiveLabels, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityGroups: groups, capabilityBusinesses: businesses, selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
       organizationSelected: draft.policy.scopes.some(item => item.kind === 'organization'), selfSelected: draft.policy.scopes.some(item => item.kind === 'self'),
       organizationScope: availableScopes.includes('organization'), selfScope: availableScopes.includes('self'), assignmentScope: availableScopes.includes('assignmentScope'),
       fieldOptions: availableFields.map(key => ({ key, label: fieldLabels[key] || ui.fieldLabels[key] || ui.unavailableReference,
         selected: Boolean(draft.policy.fields && draft.policy.fields.includes(key)) })),
       fieldsIncompatible: Boolean(draft.policy.fields && draft.policy.fields.some(key => !availableFields.includes(key))),
-      schemeIndex: Math.max(0, this.data.schemes.findIndex(item => item.id === draft.schemeId)),
+      schemeIndex: Math.max(0, schemes.findIndex(item => item.id === draft.schemeId)),
       periods: ['startsAt', 'endsAt'].map(key => {
         const pending = draft.policy[key] === '' && this.data.periods.find(item => item.key === key);
         return Object.assign({ key, label: ui[key] }, pending || (draft.policy[key] ? splitSystemDateTime(draft.policy[key]) : { date: '', time: '' }));
       }) });
   },
   nameInput: function(event) { this.setData({ 'draft.name': event.detail.value }); },
+  changeDelegation: async function(event) {
+    const option = this.data.delegationOptions[Number(event.detail.value)];
+    if (this.data.busy || !option || !option.id || (this._delegation && option.id === this._delegation.id)) return;
+    const request = orgSession.beginRequest(this, 'authorizationDelegationChoice');
+    if (this._delegation) {
+      const result = await wx.showModal({ title: ui.changeDelegationTitle, content: ui.changeDelegationNotice, confirmText: ui.confirmChangeDelegation, cancelText: ui.cancel });
+      if (!result.confirm) return;
+    }
+    if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+    this._delegation = option; this._previewRequest = null;
+    this.setData({ advanced: this.data.kind !== 'rule', notice: '', preview: null, expanded: {} });
+    this.updateDraft(editor.selectDelegation(this.data.draft, option));
+  },
   toggleAdvanced: function() {
     if (this.data.busy) return;
-    if (this.data.advanced && !editor.canSimplify(this.data.draft)) { this.setData({ notice: ui.simpleUnavailable }); return; }
+    if (this.data.advanced && !editor.canUseIdentityFlow(this.data.draft, this._delegation)) { this.setData({ notice: ui.simpleUnavailable }); return; }
     this.setData({ advanced: !this.data.advanced, notice: '' });
   },
   searchCapabilities: function(event) { this.setData({ capabilityKeyword: event.detail.value }); this.updateDraft(this.data.draft); },
@@ -193,7 +232,8 @@ Page({
     if (this.data.busy || !['assignments', 'adminGrants', 'delegates', 'delegateAssignments'].includes(kind)) return;
     const assignment = kind === 'assignments' || kind === 'delegateAssignments';
     const subjectKind = assignment ? 'assignments' : 'adminGrants';
-    const options = presentation.personnelOptions(this._directory, assignment ? 'user' : 'admin');
+    const directory = kind === 'delegates' || kind === 'delegateAssignments' ? this._directory : editor.delegationDirectory(this._directory, this._delegation);
+    const options = presentation.personnelOptions(directory, assignment ? 'user' : 'admin');
     const subjects = kind === 'delegates' || kind === 'delegateAssignments' ? this.data.draft.audience : this.data.draft.policy.subjects;
     const subject = subjects.find(item => item.kind === subjectKind);
     const value = subject ? options.filter(item => subject.ids.includes(assignment ? item.assignmentId : item.adminGrantId)) : [];
@@ -213,26 +253,25 @@ Page({
   toggleScope: function(event) {
     const kind = event.currentTarget.dataset.kind;
     if (!['organization', 'self'].includes(kind)) return;
-    const draft = editor.createDraft(this.data.draft);
-    draft.policy.scopes = draft.policy.scopes.some(item => item.kind === kind)
-      ? draft.policy.scopes.filter(item => item.kind !== kind) : draft.policy.scopes.concat({ kind });
-    this.updateDraft(draft);
+    if (this._delegation) return;
+    this.updateDraft(editor.toggleScope(this.data.draft, kind));
   },
   review: async function() {
     if (this.data.busy) return;
+    if (!this.data.formAvailable) { this.setData({ notice: this._delegation && this._delegation.includesOwnRole ? ui.delegationIncludesOwnRole : ui.chooseDelegation }); return; }
     const request = orgSession.beginRequest(this, 'authorizationSave');
     this.setData({ busy: true, notice: '' });
     try {
       if (this.data.kind === 'scheme') {
         const draft = this.data.draft;
         if (!draft.name.trim() || !draft.policy.capabilities.length) throw createLocalError(ui.invalidPolicy);
-        const result = await callFunction({ name: 'saveAuthorizationScheme', data: { id: draft.id, version: draft.version, name: draft.name.trim(), capabilities: draft.policy.capabilities } });
+        const result = await callFunction({ name: 'saveAuthorizationScheme', data: { id: draft.id, version: draft.version, delegationId: draft.delegationId, name: draft.name.trim(), capabilities: draft.policy.capabilities } });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
         showShortToast(ui.saveSuccess); wx.navigateBack();
       } else {
         const draft = this.data.kind === 'rule' && !this.data.advanced
-          ? editor.prepareSimpleDraft(this.data.draft, this._state.schemes, ui) : this.data.draft;
+          ? editor.prepareSimpleDraft(this.data.draft, this.data.schemes, ui, this._delegation) : this.data.draft;
         const payload = this.data.kind === 'delegation' ? editor.delegationRequest(draft, this._state.revision, this._state.catalog) : editor.request(draft, this._state.revision, this._state.catalog);
         const result = await callFunction({ name: this.data.kind === 'delegation' ? 'previewAuthorizationDelegation' : 'previewAuthorizationRule', data: payload });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;

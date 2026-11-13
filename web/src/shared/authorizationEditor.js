@@ -9,6 +9,7 @@ function createDraft(rule) {
     subjects: [], capabilities: [], scopes: [], fields: null, startsAt: null, endsAt: null } };
   const result = { id: rule.id, version: rule.version, name: rule.name,
     schemeId: rule.schemeId || '', policy: rule.policy };
+  if (rule.delegationId) result.delegationId = rule.delegationId;
   if (Array.isArray(rule.audience)) { result.audience = rule.audience; result.delegationEnabled = rule.delegationEnabled; }
   return clone(result);
 }
@@ -65,7 +66,9 @@ function toggleCapability(draft, key, catalog) {
 function availableFields(draft, catalog) {
   const definitions = draft.policy.capabilities.map(key => catalog.find(item => item.key === key));
   if (!definitions.length || definitions.some(item => !item)) return [];
-  return definitions[0].fields.filter(field => definitions.every(item => item.fields.includes(field)));
+  const hasAssignments = draft.policy.subjects.some(subject => subject.kind !== 'adminGrants');
+  return definitions[0].fields.filter(field => definitions.every(item => item.fields.includes(field)
+    && (!hasAssignments || !(item.adminOnlyFields || []).includes(field))));
 }
 
 function availableScopes(draft, catalog) {
@@ -99,10 +102,10 @@ function canSimplify(draft) {
     && (!!draft.schemeId || policy.capabilities.length === 0);
 }
 
-function prepareSimpleDraft(draft, schemes, copy) {
+function prepareSimpleDraft(draft, schemes, copy, option) {
   const next = clone(draft);
   const scheme = schemes.find(item => item.id === next.schemeId && item.publishedVersion);
-  if (!scheme || !canSimplify(next)) throw Object.assign(new Error('chooseIdentity'), { code: 'chooseIdentity' });
+  if (!scheme || !canUseIdentityFlow(next, option)) throw Object.assign(new Error('chooseIdentity'), { code: 'chooseIdentity' });
   if (!next.name.trim()) next.name = Array.from(copy.identityGrantName(scheme.name)).slice(0, 80).join('');
   return next;
 }
@@ -158,8 +161,81 @@ function delegationRequest(draft, expectedRevision, catalog) {
     subjects: draft.audience, envelope: draft.policy, expectedRevision });
 }
 
-const sharedModule = Object.freeze({ createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability,
-  availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest });
+function dimensionsWithin(child, parent) {
+  return Object.keys(parent || {}).every(key => parent[key] === 'same'
+    ? child[key] === 'same' : Array.isArray(child[key]) && child[key].length > 0
+      && child[key].every(id => parent[key].includes(id)));
+}
 
-export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest };
+function clausesWithin(child, parent, scope) {
+  return child.every(item => parent.some(limit => scope && limit.kind === 'organization'
+    || item.kind === limit.kind && (item.kind === 'assignmentScope' ? dimensionsWithin(item.dimensions || {}, limit.dimensions)
+      : item.ids ? item.ids.every(id => (limit.ids || []).includes(id)) : true)));
+}
+
+function withinDelegation(draft, option, scheme = false) {
+  const limit = option.envelope;
+  const policy = draft.policy;
+  if (!limit || !policy.capabilities.every(key => limit.capabilities.includes(key))) return false;
+  if (scheme) return true;
+  return clausesWithin(policy.subjects, limit.subjects, false) && clausesWithin(policy.scopes, limit.scopes, true)
+    && (limit.fields === null || Array.isArray(policy.fields) && policy.fields.every(key => limit.fields.includes(key)))
+    && (!limit.startsAt || policy.startsAt && Date.parse(policy.startsAt) >= Date.parse(limit.startsAt))
+    && (!limit.endsAt || policy.endsAt && Date.parse(policy.endsAt) <= Date.parse(limit.endsAt));
+}
+
+function selectDelegation(draft, option, preserve = false) {
+  const next = preserve ? createDraft(draft) : createDraft();
+  if (draft.id) { next.id = draft.id; next.version = draft.version; }
+  next.delegationId = option.id;
+  if (!preserve) {
+    next.policy.subjects = clone(option.envelope.subjects.filter(item => item.kind === 'assignmentScope'));
+    next.policy.scopes = clone(option.envelope.scopes);
+    next.policy.fields = clone(option.envelope.fields);
+    next.policy.startsAt = option.envelope.startsAt || null;
+    next.policy.endsAt = option.envelope.endsAt || null;
+  }
+  return next;
+}
+
+function delegationDirectory(directory, option) {
+  if (!option) return directory;
+  const subjects = option.envelope.subjects;
+  return Object.assign({}, directory, {
+    assignments: (directory.assignments || []).filter(item => subjects.some(subject => subject.kind === 'assignments' && subject.ids.includes(item.assignmentId))),
+    adminGrants: (directory.adminGrants || []).filter(item => subjects.some(subject => subject.kind === 'adminGrants' && subject.ids.includes(item.adminGrantId)))
+  });
+}
+
+function assignableSchemes(schemes, option, catalog = [], draft) {
+  return schemes.filter(item => item.publishedVersion && (!option
+    || item.publishedCapabilities.every(key => option.envelope.capabilities.includes(key)))
+    && (draft && draft.schemeId === item.id || item.publishedCapabilities.every(key => {
+      const definition = catalog.find(row => row.key === key);
+      return !definition || !definition.systemControlled && (!definition.governance || !draft
+        || !draft.policy.subjects.some(subject => subject.kind !== 'adminGrants'));
+    })));
+}
+
+function toggleScope(draft, kind) {
+  const next = createDraft(draft);
+  if (next.policy.scopes.some(item => item.kind === kind)) next.policy.scopes = next.policy.scopes.filter(item => item.kind !== kind);
+  else next.policy.scopes = kind === 'organization' ? [{ kind }] : next.policy.scopes.filter(item => item.kind !== 'organization').concat({ kind });
+  return next;
+}
+
+function canUseIdentityFlow(draft, option) {
+  if (!option) return canSimplify(draft);
+  const copy = createDraft(draft);
+  copy.policy.fields = null; copy.policy.startsAt = null; copy.policy.endsAt = null;
+  copy.policy.subjects = copy.policy.subjects.filter(item => item.kind !== 'assignmentScope');
+  copy.policy.scopes = copy.policy.scopes.filter(item => item.kind !== 'records');
+  return canSimplify(copy) && withinDelegation(draft, option);
+}
+
+const sharedModule = Object.freeze({ createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability,
+  availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest,
+  withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, canUseIdentityFlow });
+
+export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest, withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, canUseIdentityFlow };
 export default sharedModule;

@@ -485,7 +485,8 @@ async function run() {
     assert(!JSON.stringify(candidateResponse).includes('student'));
     const inspectionCandidates = await (await post('getAuthorizationCandidates', { purpose: 'inspection' })).json();
     assert.equal(inspectionCandidates.assignments.length, 2);
-    assert(inspectionCandidates.adminGrants.some(item => item.adminGrantId === 'grant'));
+    assert(!inspectionCandidates.adminGrants.some(item => item.adminGrantId === 'grant'));
+    assert(inspectionCandidates.adminGrants.some(item => item.adminGrantId === 'regular'));
     assert(!JSON.stringify(inspectionCandidates).includes('personId'));
     assert.equal((await post('getAuthorizationCandidates', { purpose: 'unknown' })).status, 400);
     const page = await (await post('getAuthorizationManagement', {})).json();

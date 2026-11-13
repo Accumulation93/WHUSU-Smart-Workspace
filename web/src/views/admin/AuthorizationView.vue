@@ -13,7 +13,7 @@
     </section>
     <template v-else-if="ready">
       <section class="card stack">
-        <p class="muted">{{ ui.tabHelp[tab] }}</p>
+        <p class="muted">{{ tab === 'rules' && !state.canManageDelegations ? ui.rulesTaskHelp : ui.tabHelp[tab] }}</p>
         <template v-if="tab === 'rules' && state.canManage !== false && !state.schemes.some(item => item.publishedVersion)"><p>{{ ui.firstUse }}</p><button type="button" class="btn btn-primary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button></template>
       </section>
       <section v-if="tab !== 'effective'" class="card stack">
@@ -36,9 +36,9 @@
           <details>
             <summary>{{ ui.advancedManagement }}</summary>
             <div class="stack">
-              <p class="muted">{{ state.isSuper ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
+              <p class="muted">{{ state.canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
               <button type="button" class="btn btn-secondary" @click="edit('rule', undefined, false, true)">{{ ui.createCustomRule }}</button>
-              <template v-if="state.isSuper">
+              <template v-if="state.canManageDelegations">
                 <h2 class="section-title">{{ ui.delegations }}</h2>
                 <p class="muted">{{ ui.delegationNotice }}</p>
                 <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
@@ -60,7 +60,7 @@
               <p class="muted">{{ grant.scopeText }}</p><p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
               <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
               <details><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" /></details>
-              <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
+              <div v-if="grant.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
             </section>
           </article>
         </template>
@@ -74,8 +74,8 @@
         </section>
         <p v-if="!cards.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noRules }}</p>
         <article v-for="rule in cards" :key="rule.id" class="card stack" :class="{ 'selection-option-card': selecting, 'selection-option-card-selected': selecting && selectedRules.includes(rule.id) }"
-            :role="selecting ? 'checkbox' : undefined" :aria-checked="selecting ? selectedRules.includes(rule.id) : undefined"
-            :tabindex="selecting ? 0 : undefined" @click="selectRule(rule.id)" @keydown.space.self.prevent="selectRule(rule.id)" @keydown.enter.self.prevent="selectRule(rule.id)">
+            :role="selecting && rule.canEdit !== false ? 'checkbox' : undefined" :aria-checked="selecting && rule.canEdit !== false ? selectedRules.includes(rule.id) : undefined"
+            :tabindex="selecting && rule.canEdit !== false ? 0 : undefined" @click="selectRule(rule.id)" @keydown.space.self.prevent="selectRule(rule.id)" @keydown.enter.self.prevent="selectRule(rule.id)">
           <div class="panel-head">
             <h2 class="section-title">{{ rule.name }}</h2>
             <span class="chip" :class="rule.policy.effect === 'deny' ? 'chip-orange' : 'chip-blue'">{{ rule.effectText }}</span>
@@ -83,7 +83,7 @@
           <div class="row row-wrap"><span v-for="(label, index) in rule.capabilityLabels.slice(0, 3)" :key="index" class="chip chip-sky">{{ label }}</span></div>
           <span class="muted">{{ rule.enabledText }}</span>
           <details @click.stop><summary>{{ ui.details }}</summary><AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" /></details>
-          <div class="card-actions authorization-rule-actions" @click.stop>
+          <div v-if="rule.canEdit !== false" class="card-actions authorization-rule-actions" @click.stop>
             <button type="button" class="btn-quiet authorization-edit" @click="edit('rule', rule.id)">{{ ui.edit }}</button>
             <button type="button" class="btn-quiet" @click="edit('rule', rule.id, true)">{{ ui.copy }}</button>
             <button type="button" class="btn-quiet btn-quiet-danger" @click="changes('delete', rule.id)">{{ ui.remove }}</button>
@@ -92,19 +92,22 @@
         </template>
       </template>
       <template v-else-if="tab === 'schemes'">
+        <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
         <article v-for="scheme in schemes" :key="scheme.id" class="card stack">
           <div class="panel-head"><h2 class="section-title">{{ scheme.name }}</h2><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span></div>
-          <div class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div>
-          <div class="button-row"><button type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
+          <section v-if="scheme.publishedVersion" class="stack-tight"><h3 class="field-label">{{ ui.schemePublishedTitle }}</h3><div class="row row-wrap"><span v-for="key in scheme.publishedCapabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></section>
+          <section v-if="scheme.canEdit !== false" class="stack-tight"><h3 class="field-label">{{ ui.schemeDraftTitle }}</h3><div class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></section>
+          <div class="button-row"><button v-if="scheme.canEdit !== false" type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button v-if="scheme.canPublish !== false" type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
         </article>
       </template>
       <section v-else class="card stack">
-        <div class="panel-head"><h2 class="section-title">{{ ui.effective }}</h2>
+        <div class="panel-head"><h2 class="section-title">{{ inspectionTarget ? ui.effective : ui.ownPermissions }}</h2>
           <button type="button" class="btn btn-secondary" :disabled="inspecting" @click="inspect">{{ ui.refresh }}</button></div>
-        <p class="muted">{{ ui.effectiveHelp }}</p>
+        <p class="muted">{{ inspectionTarget ? ui.effectiveHelp : ui.ownPermissionsHelp }}</p>
         <AppLoading v-if="inspecting" :text="ui.loading" />
-        <div class="button-row">
+        <p v-if="state.canInspectOthers" class="field-label">{{ ui.inspectOthers }}</p>
+        <div v-if="state.canInspectOthers" class="button-row">
           <button type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('user')">{{ ui.inspectAssignment }}</button>
           <button type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('admin')">{{ ui.inspectAdmin }}</button>
           <button type="button" class="btn btn-secondary" @click="ownInspection">{{ ui.ownRole }}</button>
@@ -114,12 +117,14 @@
         <template v-if="effective">
           <p class="muted">{{ inspectionLabel }}</p>
           <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="effectiveQuery" class="search-input" :placeholder="ui.searchEffective" :aria-label="ui.searchEffective" /></label>
+          <p v-if="!effectiveGroups.length" class="muted">{{ inspectionTarget ? ui.noInspectedBusinessPermissions : ui.noEffectiveBusinessPermissions }}</p>
+          <details v-if="controlledEffective.length" class="glass-panel"><summary>{{ ui.systemControlledTitle }}</summary><p class="muted">{{ ui.systemControlledHelp }}</p><p v-for="item in controlledEffective" :key="item.capability">{{ capabilityText(item.capability) }}</p></details>
           <details v-for="group in effectiveGroups" :key="group.key" class="glass-panel authorization-module" :open="!!effectiveQuery">
             <summary><strong>{{ group.label }}</strong><span class="chip chip-blue">{{ ui.effectiveCount(group.items.length) }}</span></summary>
           <details v-for="item in group.items" :key="item.capability" class="authorization-resource">
             <summary class="effective-summary"><strong>{{ capabilityText(item.capability) }}</strong><span class="chip" :class="item.status === 'denied' ? 'chip-orange' : 'chip-blue'">{{ statusText(item.status) }}</span></summary>
             <p class="muted">{{ ui.reasons[item.reason] || ui.businessCheckRequired }}</p>
-            <div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong></div>
+            <div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div>
           </details>
           </details>
         </template>
@@ -182,6 +187,7 @@ const effectiveGroups = computed(() => {
   const groups = new Map();
   const query = effectiveQuery.value.trim().toLowerCase();
   for (const item of effective.value?.capabilities || []) {
+    if (item.systemControlled || (item.status === 'denied' && !item.rules?.length && !query)) continue;
     if (query && !capabilityText(item.capability).toLowerCase().includes(query)) continue;
     const key = item.capability.split('.')[0];
     if (!groups.has(key)) groups.set(key, { key, label: ui.businessGroups[key] || ui.unknownCapability, items: [] });
@@ -189,6 +195,7 @@ const effectiveGroups = computed(() => {
   }
   return [...groups.values()];
 });
+const controlledEffective = computed(() => (effective.value?.capabilities || []).filter(item => item.systemControlled && item.rules?.length));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function statusText(value) { return ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[value] || ui.denied; }
 function clear() {
@@ -234,7 +241,7 @@ async function inspect() {
   finally { if (request === inspectionGeneration && current === generation) inspecting.value = false; }
 }
 async function openInspection(role) {
-  if (candidateLoading.value) return;
+  if (candidateLoading.value || !state.value.canInspectOthers) return;
   const request = ++candidateGeneration;
   const current = generation;
   candidateLoading.value = true; inspectionNotice.value = '';
@@ -258,7 +265,7 @@ function confirmInspection(selected) {
   closeInspection();
   if (!item) { ownInspection(); return; }
   inspectionTarget.value = { role, subjectId: role === 'user' ? item.assignmentId : item.adminGrantId };
-  inspectionLabel.value = [item.name, role === 'user' ? item.assignmentLabel : ui.adminGrants].filter(Boolean).join(' · ');
+  inspectionLabel.value = [item.name, role === 'user' ? [item.natureName, item.assignmentLabel].filter(Boolean).join(' · ') : ui.adminGrants].filter(Boolean).join(' · ');
   inspect();
 }
 function selectTab(value) {
@@ -269,9 +276,10 @@ function toggleSelection() { showRules.value = true; selecting.value = !selectin
 function toggleRules() { showRules.value = !showRules.value; selecting.value = false; selectedRules.value = []; }
 function selectRule(id) {
   if (!selecting.value) return;
+  if (state.value.rules.find(rule => rule.id === id)?.canEdit === false) return;
   selectedRules.value = selectedRules.value.includes(id) ? selectedRules.value.filter(value => value !== id) : [...selectedRules.value, id];
 }
-function selectShown() { selectedRules.value = [...new Set([...selectedRules.value, ...cards.value.map(item => item.id)])]; }
+function selectShown() { selectedRules.value = [...new Set([...selectedRules.value, ...cards.value.filter(item => item.canEdit !== false).map(item => item.id)])]; }
 function deleteSelected() {
   if (selectedRules.value.length) router.push({ name: 'authorizationChanges', query: { kind: 'delete', ids: JSON.stringify(selectedRules.value) } });
 }

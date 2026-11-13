@@ -7,7 +7,7 @@ const COPY_KINDS = ['scoring.templates', 'hr.departments', 'hr.identities', 'hr.
 
 function canOpenAuthorization(access) {
   return !!access && access.mode === 'enforced'
-    && (access.canManageAuthorization === true || access.canInspectAuthorization === true);
+    && (access.canManageAuthorization === true || access.canInspectOwnAuthorization === true || access.canInspectAuthorization === true);
 }
 
 function canOpenConfigurationCopy(access) {

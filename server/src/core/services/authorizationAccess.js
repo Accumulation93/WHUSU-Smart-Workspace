@@ -21,11 +21,15 @@ async function current(connection, reference) {
     .map(item => item.capability);
   const canManageAuthorization = state.mode === 'enforced' && (actor.isSuper === true
     || (await require('./authorizationManagement').activeEnvelopes(connection, actor)).length > 0);
-  const canInspectAuthorization = state.mode === 'enforced' && (actor.isSuper === true
-    || grantedCapabilities.includes('authorization.effective.read'));
+  let canInspectAuthorization = state.mode === 'enforced' && actor.isSuper === true;
+  if (state.mode === 'enforced' && !actor.isSuper && grantedCapabilities.includes('authorization.effective.read')) {
+    const visible = await require('./authorizationInspection').inspectableCandidates(connection, reference);
+    canInspectAuthorization = visible.assignments.length > 0 || visible.adminGrants.length > 0;
+  }
   return { mode: state.mode, revision: state.revision, organizationId: actor.organizationId,
     contextId: actor.contextId, role: actor.role, capabilities, grantedCapabilities,
-    canManageAuthorization, canInspectAuthorization };
+    canManageAuthorization, canInspectAuthorization,
+    canInspectOwnAuthorization: state.mode === 'enforced', canInspectOthersAuthorization: canInspectAuthorization };
 }
 
 module.exports = { current };

@@ -29,11 +29,44 @@ async function inspect(connection, reference, input = {}) {
       if (!decision.allowed) forbidden();
     }
   }
-  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, CATALOG, now)
+  const explanationCatalog = await require('../models/authorizationProfileFields').catalog(connection, actor.organizationId, CATALOG);
+  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, explanationCatalog, now)
     : [...CATALOG.keys()].map(capability => ({ capability, status: 'denied', reason: 'account_unavailable', rules: [] }));
+  const usedDimensions = new Map();
+  const usedFields = new Set();
+  for (const capability of capabilities) {
+    const definition = explanationCatalog.get(capability.capability);
+    for (const rule of capability.rules) {
+      rule.displayFields = definition.fields.filter(field => (rule.fields === null || rule.fields.includes(field))
+        && (selected.actor.role === 'admin' || !definition.adminOnlyFields.includes(field)));
+      for (const field of rule.displayFields) usedFields.add(field);
+      for (const scope of rule.scopes) {
+        for (const [key, values] of Object.entries(scope.dimensions || {})) {
+          if (!Array.isArray(values)) continue;
+          if (!usedDimensions.has(key)) usedDimensions.set(key, new Set());
+          values.forEach(value => usedDimensions.get(key).add(value));
+        }
+      }
+    }
+  }
+  const dimensions = usedDimensions.size ? await candidates.readDimensions(connection, actor.organizationId) : {};
+  const scopeDirectory = { assignments: [], adminGrants: [], dimensions: {} };
+  for (const [key, ids] of usedDimensions) {
+    scopeDirectory.dimensions[key] = (dimensions[key] || []).filter(item => ids.has(item.id))
+      .map(item => ({ id: item.id, name: item.name }));
+  }
+  const fieldLabels = {};
+  for (const definition of explanationCatalog.values()) {
+    for (const [key, label] of Object.entries(definition.fieldLabels || {})) {
+      if (usedFields.has(key)) fieldLabels[key] = label;
+    }
+  }
   return { mode: state.mode, revision: state.revision, accountAvailable: selected.accountAvailable,
     role: selected.actor.role, subjectId: selected.actor.role === 'admin'
-      ? selected.actor.adminGrantId : selected.actor.assignment && selected.actor.assignment.id || '', capabilities };
+      ? selected.actor.adminGrantId : selected.actor.assignment && selected.actor.assignment.id || '',
+    scopeDirectory, fieldLabels,
+    capabilities: capabilities.map(item => ({ ...item, systemControlled: CATALOG.get(item.capability).systemControlled,
+      supportsFields: explanationCatalog.get(item.capability).fields.length > 0 })) };
 }
 
 // 查询他人权限的候选也逐岗位授权，不能把规则编辑候选目录当作读取他人权限的许可。
@@ -52,6 +85,8 @@ async function inspectableCandidates(connection, reference) {
   function permitted(item, role) {
     const selected = candidateActor(item, actor.organizationId, role);
     const id = role === 'admin' ? item.adminGrantId : item.assignmentId;
+    const ownSubject = actor.role === 'admin' ? actor.adminGrantId : actor.assignment && actor.assignment.id;
+    if (role === actor.role && id === ownSubject) return false;
     return evaluate({ actor, resource: { id, type: 'authorization.effective', organizationId: actor.organizationId,
       ownerPersonId: selected.personId, assignment: selected.assignment }, capability, prepared,
       catalog: CATALOG, now, businessAllowed: true }).allowed;

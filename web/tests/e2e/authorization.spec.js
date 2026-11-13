@@ -8,7 +8,7 @@ const directory = { assignments: [assignment], adminGrants: [{ adminGrantId: 'gr
 
 async function setup(page, ordinary = false) {
   await mockApi(page, { activeContextId: ordinary ? 'ctx-assignment' : 'ctx-admin' });
-  const state = { status: 'success', mode: 'shadow', revision: 1, isSuper: true, rules: [], schemes: [], catalog: [capability], delegations: [] };
+  const state = { status: 'success', mode: 'shadow', revision: 1, isSuper: true, canInspectOthers: true, canManageDelegations: true, rules: [], schemes: [], catalog: [capability], delegations: [] };
   const calls = { saves: 0, previews: 0, reads: 0 };
   await page.route('**/api/getAuthorizationManagement', route => { calls.reads++; return route.fulfill({ json: state }); });
   await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', ...directory } }));
@@ -55,6 +55,7 @@ test('authorization identity simplifies assignment to three sections and preserv
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme, exact: true })).toHaveValue('identity-a');
   await expect(page.getByLabel(ui.ruleName, { exact: true })).toHaveCount(0);
+  await page.locator('summary').filter({ hasText: ui.advancedSettings }).click();
   await page.getByRole('button', { name: ui.advancedSettings, exact: true }).click();
   await page.getByRole('button', { name: ui.deny, exact: true }).click();
   await page.getByRole('button', { name: ui.simpleSettings, exact: true }).click();
@@ -66,6 +67,9 @@ test('authorization identity simplifies assignment to three sections and preserv
 test('delegated ordinary role assigns an identity from the portal and reads the saved scope back', async ({ page }) => {
   const { state, calls } = await setup(page, true);
   state.mode = 'enforced'; state.canManage = true; state.isSuper = false;
+  state.delegationOptions = [{ id: 'delegation-a', name: 'Venue allocation', version: 1, envelope: {
+    capabilities: [capability.key], subjects: [{ kind: 'assignments', ids: ['job-a'] }], scopes: [{ kind: 'self' }], fields: null, startsAt: null, endsAt: null
+  } }];
   state.schemes = [{ id: 'identity-a', name: 'Venue reader', version: 1, publishedVersion: 1,
     capabilities: [capability.key], publishedCapabilities: [capability.key] }];
   await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
@@ -79,7 +83,6 @@ test('delegated ordinary role assigns an identity from the portal and reads the 
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('identity-a');
-  await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Example member', exact: true })).toBeVisible();
@@ -88,6 +91,84 @@ test('delegated ordinary role assigns an identity from the portal and reads the 
   await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
   await expect(page.getByRole('combobox', { name: ui.useScheme, exact: true })).toHaveValue('identity-a');
   await expect(page.locator('.panel-head > strong').filter({ hasText: ui.ownRecords })).toBeVisible();
+});
+
+test('bounded delegation inherits records fields and dates without mixing options and preserves published identity', async ({ page }) => {
+  const { state, calls } = await setup(page, true);
+  state.isSuper = false; state.canManage = true;
+  state.catalog = [{ ...capability, fields: ['text'] }];
+  const envelope = { capabilities: [capability.key], subjects: [{ kind: 'assignments', ids: ['job-a'] }], scopes: [{ kind: 'records', ids: ['record-a'] }], fields: ['text'], startsAt: '2026-01-01T00:00:00.000Z', endsAt: '2027-01-01T00:00:00.000Z' };
+  state.delegationOptions = [{ id: 'bounded-a', name: 'Venue allocation', version: 1, envelope },
+    { id: 'bounded-b', name: 'Admin allocation', version: 1, envelope: { ...envelope, subjects: [{ kind: 'adminGrants', ids: ['grant-a'] }] } }];
+  state.schemes = [{ id: 'identity-a', name: 'Published venue reader', version: 2, publishedVersion: 1, canEdit: false,
+    capabilities: ['hr.departments.read'], publishedCapabilities: [capability.key] }];
+  await page.goto('/web/admin/authorization/edit');
+  const choice = page.getByRole('combobox', { name: ui.delegationChoiceTitle, exact: true });
+  await expect(page.getByText(ui.stepPeople, { exact: true })).toHaveCount(0);
+  await choice.selectOption('bounded-a');
+  await page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /Example member/ }).getByText('Staff', { exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
+  await page.getByRole('combobox', { name: ui.useScheme }).selectOption('identity-a');
+  await expect(page.getByText(ui.inheritedFieldsHelp)).toBeVisible();
+  await expect(page.getByText(ui.inheritedPeriodHelp)).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.allFields, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.currentOrganization, exact: true })).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: test.info().outputPath('authorization-bounded-editor.png'), fullPage: true });
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
+  expect(calls.saved.delegationId).toBe('bounded-a'); expect(calls.saved.policy.fields).toEqual(envelope.fields);
+  expect(calls.saved.policy.scopes).toEqual(envelope.scopes); expect(calls.saved.policy.endsAt).toBe(envelope.endsAt);
+  await page.getByRole('button', { name: ui.adjustPermissions, exact: true }).click();
+  await expect(page.getByRole('combobox', { name: ui.useScheme })).toHaveValue('identity-a');
+  await choice.selectOption('bounded-b');
+  await page.getByRole('dialog').getByRole('button', { name: ui.cancel, exact: true }).click();
+  await expect(choice).toHaveValue('bounded-a');
+  await expect(page.getByRole('combobox', { name: ui.useScheme })).toHaveValue('identity-a');
+  await choice.selectOption('bounded-b');
+  await page.getByRole('dialog').getByRole('button', { name: ui.confirmChangeDelegation, exact: true }).click();
+  await expect(page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.selectRecipientAdmin, exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: ui.useScheme })).toHaveValue('');
+});
+
+test('dynamic qualification containing the actor blocks direct allocation but permits identity draft editing', async ({ page }) => {
+  const { state, calls } = await setup(page, true); state.isSuper = false; state.canManage = true;
+  state.delegationOptions = [{ id: 'dynamic', name: 'Dynamic allocation', includesOwnRole: true, envelope: {
+    capabilities: [capability.key], subjects: [{ kind: 'assignmentScope', dimensions: { departmentId: ['dept-a'] } }], scopes: [{ kind: 'organization' }], fields: null
+  } }];
+  await page.goto('/web/admin/authorization/edit');
+  await expect(page.getByText(ui.delegationIncludesOwnRole)).toBeVisible();
+  await expect(page.getByText(ui.stepPeople, { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  expect(calls.previews).toBe(0);
+  await page.goto('/web/admin/authorization/edit?kind=scheme');
+  await expect(page.getByLabel(ui.schemeName, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.delegationIncludesOwnRole)).toHaveCount(0);
+});
+
+test('self inspection displays projected fields and scope names without configuration or protected fields', async ({ page }) => {
+  const { state } = await setup(page, true); state.canManage = false; state.canInspectOthers = false; state.isSuper = false;
+  state.catalog = [{ key: 'hr.people.read', resourceType: 'hr.people', action: 'read' }];
+  await page.route('**/api/getEffectiveAuthorization', route => route.fulfill({ json: { status: 'success',
+    scopeDirectory: { dimensions: { departmentId: [{ id: 'dept-a', name: 'Department A' }] } }, fieldLabels: { 'profile:badge': 'Badge' },
+    capabilities: [{ capability: 'hr.people.read', status: 'conditional', reason: 'conditional_rule', supportsFields: true, rules: [
+      { id: 'rule-a', name: 'Profile access', effect: 'allow', scopes: [{ kind: 'assignmentScope', dimensions: { departmentId: ['dept-a'] } }], fields: ['studentId'], displayFields: [], startsAt: '2026-01-01T00:00:00Z', endsAt: null }
+    ] }, { capability: 'authorization.rules.read', systemControlled: true, status: 'conditional', rules: [{ id: 'historic' }] }]
+  } }));
+  await page.goto('/web/admin/authorization');
+  await expect(page.getByRole('heading', { name: ui.ownPermissions })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.inspectAssignment })).toHaveCount(0);
+  await page.locator('.authorization-module > summary').click();
+  await page.locator('.effective-summary').click();
+  await expect(page.getByText(ui.effectiveNoVisibleFields)).toBeVisible();
+  await expect(page.getByText('studentId')).toHaveCount(0);
+  await expect(page.getByText(/Department A/)).toBeVisible();
+  await expect(page.getByText(ui.effectiveFieldsHelp)).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: test.info().outputPath('authorization-self-inspection.png'), fullPage: true });
 });
 
 test('authorization cards and grouped editor keep controls visible and preserve filtered selections', async ({ page }) => {
@@ -171,6 +252,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.goto('/web/admin/authorization');
   await expect(page.getByText(ui.previewOnly, { exact: true })).toBeVisible();
   await page.locator('.panel-head').getByRole('button', { name: ui.createRule, exact: true }).click();
+  await page.locator('summary').filter({ hasText: ui.advancedSettings }).click();
   await page.getByRole('button', { name: ui.advancedSettings, exact: true }).click();
   await page.getByLabel(ui.ruleName, { exact: true }).fill('Test rule');
   await page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
@@ -336,13 +418,13 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.locator('summary', { hasText: ui.advancedManagement }).click();
   await page.getByRole('button', { name: ui.createDelegation, exact: true }).click();
   await page.getByLabel(ui.delegationName, { exact: true }).fill('Bounded delegation');
-  await page.getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAdmin, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example administrator/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegationSubjects, exact: true }) }).getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
   await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
@@ -360,7 +442,7 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.locator('summary', { hasText: ui.advancedManagement }).click();
   await page.getByRole('button', { name: ui.edit, exact: true }).click();
   await expect(page.getByLabel(ui.delegationName, { exact: true })).toHaveValue('Bounded delegation');
-  await page.getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('button', { name: /Example member/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('dialog').locator('footer button').last().click();
   await expect(page.getByText('Example administrator · ' + ui.adminGrants, { exact: true })).toBeVisible();
@@ -394,6 +476,10 @@ test('scheme publication and restoration require an impact preview and append a 
   });
   await page.goto('/web/admin/authorization');
   await page.getByRole('button', { name: ui.schemes, exact: true }).click();
+  await expect(page.getByText(ui.schemePublishedTitle, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.schemeDraftTitle, { exact: true })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: test.info().outputPath('authorization-scheme-versions.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: ui.publish, exact: true }).click();
   await expect(page.getByText(ui.publishSchemeNotice)).toBeVisible();
   expect(publications).toBe(0);

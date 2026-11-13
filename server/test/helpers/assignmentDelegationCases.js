@@ -30,18 +30,19 @@ module.exports = async function assignmentDelegationCases(db) {
   const app = express(); app.use(express.json());
   app.use((req, _res, next) => {
     const superUser = req.headers['x-test-role'] === 'super';
+    const ordinaryAdmin = req.headers['x-test-role'] === 'admin';
     req.authAccount = { id: 'jd-account', personId: 'jd-person' };
-    req.authSession = { id: superUser ? 'jd-super-session' : 'jd-user-session' };
-    req.authContext = { personId: 'jd-person', contextId: superUser ? 'jd-super-context' : 'jd-user-context',
-      organizationId: 'job-delegate', role: superUser ? 'admin' : 'user',
-      ...(superUser ? { adminGrantId: 'jd-super' } : { assignmentId: 'jd-actor' }) };
+    req.authSession = { id: superUser ? 'jd-super-session' : ordinaryAdmin ? 'jd-admin-session' : 'jd-user-session' };
+    req.authContext = { personId: 'jd-person', contextId: superUser ? 'jd-super-context' : ordinaryAdmin ? 'jd-admin-context' : 'jd-user-context',
+      organizationId: 'job-delegate', role: superUser || ordinaryAdmin ? 'admin' : 'user',
+      ...(superUser || ordinaryAdmin ? { adminGrantId: superUser ? 'jd-super' : 'jd-admin' } : { assignmentId: 'jd-actor' }) };
     require('../../src/utils/orgContext').orgStorage.run('job-delegate', next);
   });
   app.use('/api', require('../../src/core/routes/authorization'));
   const listener = await new Promise(resolve => { const value = app.listen(0, '127.0.0.1', () => resolve(value)); });
   async function call(action, body = {}, superUser = false) {
     const response = await fetch('http://127.0.0.1:' + listener.address().port + '/api/' + action, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-test-role': superUser ? 'super' : 'user' },
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-test-role': superUser === 'admin' ? 'admin' : superUser ? 'super' : 'user' },
       body: JSON.stringify(body)
     });
     return { code: response.status, data: await response.json() };
@@ -138,6 +139,7 @@ module.exports = async function assignmentDelegationCases(db) {
     await success('deleteAuthorizationDelegation', { id: delegation.id, version: delegation.version, expectedRevision: await revision() }, true);
     assert.equal((await success('getCurrentAuthorizationAccess')).canManageAuthorization, false);
     await rejected('saveAuthorizationRule', { id: saved.id, version: saved.version, name: '撤权后保存', policy: base, expectedRevision: await revision() });
+    await require('./authorizationConsistencyCases')({ db, model, editor, state, revision, call, success, rejected, base });
     console.log('普通岗位委托 HTTP 专项：前端参数保存回读、同人不同岗位、范围越界、自授权、动态目标、方案发布恢复及撤销通过。');
   } finally { await new Promise(resolve => listener.close(resolve)); }
 };

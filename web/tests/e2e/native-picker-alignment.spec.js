@@ -20,6 +20,18 @@ const modules = [
   'workspace/pages/calendar/calendar'
 ];
 for (const width of [320, 390, 768, 1280]) {
+  test(`personnel picker footer owns two equal columns at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const module of ['org/pages/authorizationEditor/authorizationEditor', ...modules]) {
+      const css = styles('miniprogram/app.wxss', width) + styles(`miniprogram/subpackages/${module}.wxss`, width) + styles('miniprogram/components/personnel-picker/personnel-picker.wxss', width);
+      await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}page,view{display:block}${css}*{animation:none!important;transition:none!important}</style><page><view class="personnel-picker-footer button-row ui-dialog-footer" style="width:calc(100% - 40px);max-width:560px;margin:20px"><button class="secondary-btn">Close</button><button class="primary-btn">Confirm</button></view></page>`);
+      const boxes = await page.locator('button').evaluateAll(elements => elements.map(element => { const r = element.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, width: r.width }; }));
+      expect(Math.abs(boxes[0].top - boxes[1].top), module).toBeLessThan(1);
+      expect(Math.abs(boxes[0].width - boxes[1].width), module).toBeLessThan(1);
+      expect(boxes[0].right, module).toBeLessThan(boxes[1].left);
+      expect(boxes[1].right, module).toBeLessThanOrEqual(width);
+    }
+  });
   test(`native picker text is centered without changing inputs at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     for (const module of modules) {

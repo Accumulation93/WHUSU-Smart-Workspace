@@ -37,8 +37,11 @@ function personnelOptions(directory, role) {
     id: item.adminGrantId, adminGrantId: item.adminGrantId, name: item.name, assignments: []
   }));
   return (directory.assignments || []).map(item => ({ assignmentId: item.assignmentId, name: item.name,
-    assignmentLabel: assignmentLabel(item), department: item.departmentName,
-    identity: item.identityCategoryName, workGroup: item.workGroupName }));
+    assignmentLabel: [item.identityCategoryName, item.departmentName, item.workGroupName].filter(Boolean).join(' · '),
+    natureId: item.natureId || '', natureName: item.natureName || '', assignmentNature: item.natureId || '',
+    assignmentNatureLabel: item.natureName || '', departmentId: item.departmentId || '', department: item.departmentName || '',
+    identityCategoryId: item.identityCategoryId || '', identity: item.identityCategoryName || '',
+    workGroupId: item.workGroupId || '', workGroup: item.workGroupName || '' }));
 }
 
 function capabilityLabel(key, catalog, copy) {
@@ -67,6 +70,7 @@ function policySections(policy, directory, catalog, copy) {
   (catalog || []).forEach(item => {
     if ((policy.capabilities || []).includes(item.key)) Object.assign(dynamicFieldLabels, item.fieldLabels || {});
   });
+  Object.assign(dynamicFieldLabels, policy.fieldLabels || {});
   const subjects = (policy.subjects || []).map((subject, index) => {
     let lines;
     if (subject.kind === 'assignments' || subject.kind === 'adminGrants') {
@@ -83,7 +87,9 @@ function policySections(policy, directory, catalog, copy) {
   const scopes = (policy.scopes || []).map((scope, index) => ({ key: index,
     label: { organization: copy.currentOrganization, self: copy.ownRecords,
       records: copy.specifiedCount((scope.ids || []).length), assignmentScope: copy.assignmentScope }[scope.kind] || copy.unavailableReference,
-    lines: scope.kind === 'assignmentScope' ? dimensionLines(scope.dimensions, indexes, copy) : [] }));
+    lines: scope.kind === 'assignmentScope' ? dimensionLines(scope.dimensions, indexes, copy)
+      : scope.kind === 'records' ? Array.from(new Set((policy.capabilities || []).map(key => catalog.find(item => item.key === key)).filter(Boolean).map(item => item.resourceType)))
+        .map(key => ({ key, label: copy.resources[key] || copy.unknownCapability, value: copy.specifiedCount((scope.ids || []).length) })) : [] }));
   return { subjects, scopes, capabilityLabels: (policy.capabilities || []).map(key => capabilityLabel(key, catalog, copy)),
     fieldLabels: policy.fields == null ? [copy.allFields] : policy.fields.map(key => dynamicFieldLabels[key]
       || copy.fieldLabels && copy.fieldLabels[key] || copy.unavailableReference),

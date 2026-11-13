@@ -163,6 +163,8 @@ for (const resource of RESOURCES) {
     CATALOG.set(key, Object.freeze({ key, resourceType: resource.key, action,
       legacy, legacyKeys: Object.freeze(LEGACY_ACTIONS[key] || (legacy ? [legacy] : [])),
       governance: Boolean(resource.governance), delegation: Boolean(resource.delegation),
+      systemControlled: resource.key === 'authorization.rules' || resource.key === 'authorization.delegations'
+        || resource.key === 'authorization.schemes' && !['share', 'receive'].includes(action),
       profileFieldKeys: action !== 'delete' && ['hr.people', 'hr.profileReview'].includes(resource.key),
       businessRoles: Object.freeze(action === 'read' ? (resource.businessReadRoles || []) : (resource.businessActionRoles?.[action] || [])),
       scopes: Object.freeze(resource.scopes || ['organization', 'records', 'self', 'assignmentScope']),

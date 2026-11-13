@@ -18,7 +18,7 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
       if (request.endsWith('/utils/orgSession')) return { consume() {}, getSnapshot() { return { role: 'admin' }; }, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
       if (request.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };
       if (request.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute() {} };
-      if (request.endsWith('/utils/dateTime')) return { splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
+      if (request.endsWith('/utils/dateTime')) return { formatDetailTime: value => value, splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
       return localRequire(request);
     } };
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
@@ -35,7 +35,7 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
 }
 
 function fixture() {
-  const state = { status: 'success', mode: 'shadow', revision: 1, isSuper: true, rules: [], schemes: [], delegations: [], catalog: [
+  const state = { status: 'success', mode: 'shadow', revision: 1, isSuper: true, canInspectOthers: true, canManageDelegations: true, rules: [], schemes: [], delegations: [], catalog: [
     { key: 'venue.bookings.read', resourceType: 'venue.bookings', action: 'read', scopes: ['self', 'organization', 'assignmentScope'], fields: [] }
   ] };
   const directory = { status: 'success', assignments: [{ assignmentId: 'job-a', name: '成员甲', departmentId: 'department-a', departmentName: '部门甲' }], adminGrants: [{ adminGrantId: 'grant-a', name: '管理员甲' }] };
@@ -58,6 +58,28 @@ function fixture() {
   };
   return { state, directory, calls, api };
 }
+
+test('原生授权模板的条件分支不与循环同标签，避免官方编译失去前置条件', () => {
+  for (const pageName of ['authorization', 'authorizationEditor', 'authorizationChanges']) {
+    const source = fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org/pages', pageName, pageName + '.wxml'), 'utf8');
+    let cursor = 0;
+    while (cursor < source.length) {
+      const start = source.indexOf('<', cursor); if (start < 0) break;
+      if (source.startsWith('<!--', start)) { cursor = source.indexOf('-->', start) + 3; continue; }
+      let quote = '', attributes = '', end = start + 1;
+      for (; end < source.length; end++) {
+        const char = source[end];
+        if (quote) { if (char === quote) quote = ''; }
+        else if (char === '"' || char === "'") quote = char;
+        else if (char === '>') break;
+        else attributes += char;
+      }
+      assert.equal(/\bwx:(else|elif)\b/.test(attributes) && /\bwx:for\b/.test(attributes), false, pageName + ':' + source.slice(start, end + 1));
+      cursor = end + 1;
+      if (attributes.startsWith('wxs ')) { const close = source.indexOf('</wxs>', cursor); if (close >= 0) cursor = close + 6; }
+    }
+  }
+});
 
 test('授权身份三步配置保存回读，复杂授权不因切换视图丢失限制', async () => {
   const source = fixture();
@@ -87,6 +109,49 @@ test('授权身份三步配置保存回读，复杂授权不因切换视图丢�
   assert.equal(home.data.recipientCards[0].name, '成员甲');
   assert.equal(home.data.recipientCards[0].grants[0].identityName, '场地查看员');
   home.onHide(); assert.equal(home.data.recipientCards.length, 0);
+});
+
+test('受限资格继承记录、字段和期限，实际原生方法保存回读且不混合第二资格', async () => {
+  const source = fixture();
+  source.state.isSuper = false; source.state.canManage = true;
+  source.state.catalog[0].scopes.push('records'); source.state.catalog[0].fields = ['text'];
+  const envelope = { capabilities: ['venue.bookings.read'], subjects: [{ kind: 'assignments', ids: ['job-a'] }], scopes: [{ kind: 'records', ids: ['record-a'] }], fields: ['text'], startsAt: '2026-01-01T00:00:00.000Z', endsAt: '2027-01-01T00:00:00.000Z' };
+  source.state.delegationOptions = [{ id: 'delegation-a', name: '受限资格', version: 1, envelope }];
+  source.state.schemes = [{ id: 'identity-a', name: '记录查看员', publishedVersion: 1, canEdit: false, capabilities: ['hr.departments.read'], publishedCapabilities: ['venue.bookings.read'] }];
+  const page = pageHarness(source.api); await page.load();
+  assert.equal(page.data.formAvailable, true); assert.equal(page.data.advanced, false);
+  assert.equal(page.data.schemes.length, 2); assert.equal(page.data.inheritedPeriods.length, 2);
+  page.openPersonnel({ currentTarget: { dataset: { kind: 'assignments' } } });
+  page.confirmPersonnel({ detail: { keys: ['job-a'] } }); page.selectScheme({ detail: { value: 1 } });
+  await page.review(); await page.save();
+  assert.equal(source.state.rules[0].delegationId, 'delegation-a');
+  assert.deepEqual(source.state.rules[0].policy.scopes, envelope.scopes);
+  assert.deepEqual(source.state.rules[0].policy.fields, envelope.fields);
+  assert.equal(source.state.rules[0].policy.endsAt, envelope.endsAt);
+  const reopened = pageHarness(source.api, { id: 'rule-a' }); await reopened.load();
+  assert.equal(reopened.data.advanced, false); assert.equal(reopened.data.draft.schemeId, 'identity-a');
+  source.state.delegationOptions.push({ id: 'delegation-b', name: '另一资格', version: 1, envelope: { ...envelope, subjects: [{ kind: 'adminGrants', ids: ['grant-a'] }] } });
+  const multiple = pageHarness(source.api); await multiple.load();
+  assert.equal(multiple.data.formAvailable, false); await multiple.review();
+  assert.equal(multiple.data.notice, require('../../shared/locales/zh-CN/authorization').chooseDelegation);
+  await multiple.changeDelegation({ detail: { value: 2 } });
+  assert.equal(multiple.data.canPickAssignments, false); assert.equal(multiple.data.canPickAdmins, true);
+  multiple.onHide(); assert.equal(multiple.data.delegationOptions.length, 0); assert.equal(multiple.data.inheritedPeriods.length, 0);
+});
+
+test('动态岗位条件完整继承而不改成永久岗位编号', async () => {
+  const source = fixture(); source.state.isSuper = false;
+  source.state.delegationOptions = [{ id: 'dynamic', name: '动态资格', envelope: { capabilities: ['venue.bookings.read'], subjects: [{ kind: 'assignmentScope', dimensions: { departmentId: ['department-a'] } }], scopes: [{ kind: 'organization' }], fields: null } }];
+  const page = pageHarness(source.api); await page.load();
+  assert.equal(page.data.inheritedSubjects, true); assert.equal(page.data.canPickAssignments, false);
+  assert.deepEqual(page.data.draft.policy.subjects, source.state.delegationOptions[0].envelope.subjects);
+  source.state.delegationOptions[0].includesOwnRole = true;
+  const blocked = pageHarness(source.api); await blocked.load(); await blocked.review();
+  assert.equal(blocked.data.formAvailable, false);
+  assert.equal(blocked.data.notice, require('../../shared/locales/zh-CN/authorization').delegationIncludesOwnRole);
+  assert.equal(source.calls.some(item => item.name === 'previewAuthorizationRule'), false);
+  const scheme = pageHarness(source.api, { kind: 'scheme' }); await scheme.load();
+  assert.equal(scheme.data.formAvailable, true);
 });
 
 test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派生资料', async () => {

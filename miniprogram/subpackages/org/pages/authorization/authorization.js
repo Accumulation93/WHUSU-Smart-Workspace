@@ -7,13 +7,14 @@ const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizat
 const { canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { formatDetailTime } = require('../../../../utils/dateTime');
 
 Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, heroTone: 'blue', tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, isSuper: false, delegations: [], showDelegations: false,
-    inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
+    inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectingOther: false, controlledEffective: [],
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -24,7 +25,7 @@ Page({
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
     this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '',
-      inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false,
+      inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectingOther: false, controlledEffective: [],
       ready: false, canCopy: false, cards: [], schemes: [], effective: [], effectiveGroups: [], effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
@@ -44,7 +45,7 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
-      this.setData({ canManage: management.canManage !== false, tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
+      this.setData({ canManage: management.canManage !== false, canInspectOthers: management.canInspectOthers === true, canManageDelegations: management.canManageDelegations === true, tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
         tab: management.canManage === false ? 'effective' : this.data.tab });
       this.setData({ ready: true, previewOnly: results[0].mode === 'shadow', isSuper: !!results[0].isSuper,
         delegations: results[0].isSuper ? (results[0].delegations || []).map(item => ({ id: item.id, name: item.name, enabledText: item.enabled ? ui.enabled : ui.disabled })) : [] });
@@ -63,13 +64,15 @@ Page({
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
-        labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
+        labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)),
+        publishedLabels: (item.publishedCapabilities || []).map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
   },
   search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
   refreshEffectiveGroups: function() {
     const keyword = this.data.keyword.trim().toLowerCase();
     const groups = [];
     for (const item of this.data.effective) {
+      if (item.systemControlled || (item.status === 'denied' && !item.rules.length && !keyword)) continue;
       if (keyword && ![item.label, item.statusText, item.reasonText].join(' ').toLowerCase().includes(keyword)) continue;
       const key = item.capability.split('.')[0];
       let group = groups.find(row => row.key === key);
@@ -89,7 +92,7 @@ Page({
   selectRule: function(event) {
     if (!this.data.selecting) return;
     const id = event.currentTarget.dataset.id;
-    if (!this._state.rules.some(item => item.id === id)) return;
+    if (!this._state.rules.some(item => item.id === id && item.canEdit !== false)) return;
     const selected = Object.assign({}, this.data.selectedRules);
     if (selected[id]) delete selected[id]; else selected[id] = true;
     this.applySelection(selected);
@@ -100,7 +103,7 @@ Page({
   },
   selectShown: function() {
     const selected = Object.assign({}, this.data.selectedRules);
-    this.data.cards.forEach(item => { selected[item.id] = true; });
+    this.data.cards.filter(item => item.canEdit !== false).forEach(item => { selected[item.id] = true; });
     this.applySelection(selected);
   },
   clearSelection: function() { this.applySelection({}); },
@@ -139,7 +142,7 @@ Page({
   },
   openInspection: async function(event) {
     const role = event.currentTarget.dataset.role;
-    if (!['user', 'admin'].includes(role) || this.data.candidateLoading) return;
+    if (!this.data.canInspectOthers || !['user', 'admin'].includes(role) || this.data.candidateLoading) return;
     const request = orgSession.beginRequest(this, 'authorizationInspectionCandidates');
     this.setData({ candidateLoading: true, notice: '' });
     try {
@@ -163,20 +166,22 @@ Page({
     this.closeInspection();
     if (!selected) { this.ownInspection(); return; }
     this._inspectionTarget = { role, subjectId: role === 'user' ? selected.assignmentId : selected.adminGrantId };
-    this.setData({ inspectionLabel: [selected.name, role === 'user' ? selected.assignmentLabel : ui.adminGrants].filter(Boolean).join(' · ') });
+    this.setData({ inspectionLabel: [selected.name, role === 'user' ? [selected.natureName, selected.assignmentLabel].filter(Boolean).join(' · ') : ui.adminGrants].filter(Boolean).join(' · ') });
     this.inspect();
   },
   inspect: async function() {
     const request = orgSession.beginRequest(this, 'authorizationInspection');
-    this.setData({ inspecting: true, effective: [], effectiveGroups: [], notice: '' });
+    this.setData({ inspecting: true, inspectionLoaded: false, inspectingOther: !!this._inspectionTarget, effective: [], effectiveGroups: [], controlledEffective: [], notice: '' });
     try {
       const result = await callFunction({ name: 'getEffectiveAuthorization', data: this._inspectionTarget || {} });
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
-      this.setData({ effective: result.capabilities.map(item => Object.assign({}, item, {
+      this.setData({ inspectionLoaded: true, controlledEffective: result.capabilities.filter(item => item.systemControlled && item.rules && item.rules.length).map(item => presentation.capabilityLabel(item.capability, this._state.catalog, ui)), effective: result.capabilities.map(item => Object.assign({}, item, {
         label: presentation.capabilityLabel(item.capability, this._state.catalog, ui),
         statusText: ({ conditional: ui.conditional, denied: ui.denied, business_check_required: ui.businessCheckRequired })[item.status] || ui.denied,
-        reasonText: ui.reasons[item.reason] || ui.businessCheckRequired
+        reasonText: ui.reasons[item.reason] || ui.businessCheckRequired,
+        rules: (item.rules || []).map(rule => Object.assign({}, rule, { sections: presentation.policySections(Object.assign({}, rule, { fields: rule.displayFields || [], capabilities: [item.capability], fieldLabels: result.fieldLabels }), result.scopeDirectory || {}, this._state.catalog, ui),
+          startsAtText: rule.startsAt ? formatDetailTime(rule.startsAt) : '', endsAtText: rule.endsAt ? formatDetailTime(rule.endsAt) : '' }))
       })) });
       this.refreshEffectiveGroups();
     } catch (error) {

@@ -267,14 +267,14 @@ async function schemeVersions(input, orgId, guard) {
     const [schemes] = await connection.query('SELECT * FROM authorization_schemes WHERE org_id = ? AND id = ?', [orgId, input.id]);
     if (!schemes[0]) fail('authorization_conflict');
     const scheme = schemes[0];
-    await guard.validateChange(connection, scheme, { kind: 'scheme', capabilities: parse(scheme.draft_capabilities_json) });
+    await guard.validateChange(connection, scheme, { kind: 'scheme', capabilities: parse(scheme.draft_capabilities_json) }, true);
     const [rows] = await connection.query(`SELECT version, capabilities_json, created_at AS published_at FROM authorization_scheme_versions
       WHERE org_id = ? AND scheme_id = ? ORDER BY version DESC`, [orgId, input.id]);
     const versions = [];
     for (const row of rows) {
       const capabilities = parse(row.capabilities_json);
       // 委托范围收窄后，历史方案也不得成为读取越界配置的入口。
-      try { await guard.validateChange(connection, null, { kind: 'scheme', capabilities }); }
+      try { await guard.validateChange(connection, { draft_capabilities_json: row.capabilities_json }, { kind: 'scheme', capabilities }, true); }
       catch (error) { if (error.code === 'authorization_forbidden') continue; throw error; }
       versions.push({ version: Number(row.version), capabilities,
         publishedAt: row.published_at instanceof Date ? row.published_at.toISOString() : row.published_at });
@@ -322,6 +322,11 @@ async function prepareDelegationChange(connection, input, orgId, guard) {
     const [rows] = await connection.query('SELECT * FROM authorization_delegations WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, id]);
     const before = rows[0];
     if (input.id && (!before || Number(before.version) !== revision(input.version))) fail('authorization_conflict');
+    const oldEnvelope = before ? parse(before.envelope_json) : null;
+    if (envelope.capabilities.some(key => CATALOG.get(key).systemControlled
+      && !(oldEnvelope && oldEnvelope.capabilities.includes(key)))) fail('invalid_authorization_delegation');
+    if (envelope.subjects.some(subject => subject.kind === 'adminGrants')
+      && envelope.scopes.some(scope => Object.values(scope.dimensions || {}).includes('same'))) fail('invalid_authorization_delegation');
     await guard.validateReferences(connection, audience);
     await guard.validateReferences(connection, envelope);
     const after = { id, organizationId: orgId, name: delegationName, subjects: audience.subjects, envelope, enabled: input.enabled,

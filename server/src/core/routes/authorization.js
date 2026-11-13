@@ -46,7 +46,7 @@ function handler(work) {
       if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
         return res.status(400).json({ status: 'invalid_params', message: copy.invalidPolicy });
       }
-      const data = await work(req.body, reference, createGuard(reference));
+      const data = await work(req.body, reference, createGuard(reference, req.body.delegationId));
       return res.json(Object.assign({ status: 'success' }, data));
     } catch (error) {
       const expected = ERRORS[error.code];

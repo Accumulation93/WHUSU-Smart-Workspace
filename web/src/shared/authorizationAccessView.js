@@ -54,6 +54,8 @@ function bindAccess(result, context) {
     contextId: result.contextId, role: result.role, capabilities: result.capabilities.slice(),
     grantedCapabilities: result.grantedCapabilities.slice(),
     canManageAuthorization: result.canManageAuthorization === true,
+    canInspectOwnAuthorization: result.canInspectOwnAuthorization === true,
+    canInspectOthersAuthorization: result.canInspectOthersAuthorization === true,
     canInspectAuthorization: result.canInspectAuthorization === true };
 }
 
