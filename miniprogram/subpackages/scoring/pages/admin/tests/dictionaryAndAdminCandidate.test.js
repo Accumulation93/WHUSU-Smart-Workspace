@@ -13,6 +13,7 @@ const adminManagementBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 
 const pageWxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
 assert.match(pageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);
 const wxml = pageWxml + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchContent.wxml'), 'utf8');
+const identityManagerWxml = fs.readFileSync(path.join(adminRoot, 'components', 'identityManager', 'identityManager.wxml'), 'utf8');
 const dictionaryLoadFailureWxml = fs.readFileSync(
   path.join(adminRoot, 'components', 'dictionaryLoadFailure', 'dictionaryLoadFailure.wxml'),
   'utf8'
@@ -50,10 +51,12 @@ test('字典加载失败保留已有列表并提供明确失败态与原地重�
 
   assert.match(wxml, /dictionaryLoadState\.departments\.status === 'error'/);
   assert.match(wxml, /dictionaryLoadState\.workGroups\.status === 'error'/);
-  assert.match(wxml, /dictionaryLoadState\.identities\.status === 'error'/);
+  assert.match(wxml, /<identity-manager[\s\S]*?dictionary-load-state="\{\{dictionaryLoadState\}\}"/);
+  assert.match(identityManagerWxml, /dictionaryLoadState\.identities\.status === 'error'/);
   assert.match(wxml, /bindretry="retryDepartmentList"/);
   assert.match(wxml, /bindretry="retryWorkGroupList"/);
-  assert.match(wxml, /bindretry="retryIdentityList"/);
+  assert.match(identityManagerWxml, /bindretry="retryIdentityList"/);
+  assert.match(identityManagerWxml, /dictionaryLoadState\.identities\.status !== 'error' \|\| identityList\.length/);
   assert.match(wxml, /dictionaryLoadState\.departments\.status === 'ready' && !departmentList\.length/);
   assert.match(dictionaryLoadFailureWxml, /\{\{title\}\}/);
   assert.match(dictionaryLoadFailureWxml, /\{\{message\}\}/);
