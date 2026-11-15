@@ -37,6 +37,7 @@ const tagged = view.decorateGroups([{ key: 'd1', name: '部门甲', items: [
 ] }], null, copy);
 const tagCategories = view.tagGroups(tagged, copy);
 assert.deepEqual(tagCategories.map(category => category.key), ['nature', 'department', 'identity', 'workGroup']);
+assert.equal(view.tagGroups(tagged, copy, ['nature:staff']).find(category => category.key === 'nature').selectedCount, 1);
 assert.equal(view.filterGroups(tagged, '', ['department:d1', 'identity:i2']).flatMap(group => group.items).map(item => item.key).join(','), 'b1', '标签筛选不得跨岗位拼接');
 assert.equal(view.filterGroups(tagged, '', ['nature:staff', 'nature:liaison']).flatMap(group => group.items).map(item => item.key).sort().join(','), 'a1,a2,b1', '同类标签按 OR');
 assert.equal(view.filterGroups(tagged, '乙', ['department:d1']).flatMap(group => group.items).map(item => item.key).join(','), 'b1');

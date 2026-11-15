@@ -15,7 +15,7 @@ const dimensions = [
 Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
-  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', tagGroups: [], selectedTags: [], selectedTagsText: '', tagsSelected: false, tagFilterExpanded: false, loading: false, busy: false, notice: '', loadFailed: false,
+  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', tagGroups: [], activeTagCategory: '', activeTagGroup: null, selectedTags: [], tagsSelected: false, tagFilterExpanded: false, loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
@@ -38,7 +38,7 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], selectedTags: [], selectedTagsText: '', tagsSelected: false, tagFilterExpanded: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
+      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], activeTagCategory: '', activeTagGroup: null, selectedTags: [], tagsSelected: false, tagFilterExpanded: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
@@ -72,17 +72,26 @@ Component({
     directoryFilterState: function(query, selectedTags) {
       const available = view.availableTagKeys(this._groups || []);
       const selected = (Array.isArray(selectedTags) ? selectedTags : []).filter(key => available.has(key));
+      const tagGroups = view.tagGroups(this._groups || [], copy, selected);
+      const activeTagGroup = tagGroups.find(group => group.key === this.data.activeTagCategory)
+        || tagGroups.find(group => group.selectedCount > 0) || tagGroups[0] || null;
       return {
         query,
         selectedTags: selected,
-        selectedTagsText: copy.selectedTags.replace('{count}', String(selected.length)),
         tagsSelected: selected.length > 0,
-        tagGroups: view.tagGroups(this._groups || [], copy, selected),
+        tagGroups,
+        activeTagCategory: activeTagGroup ? activeTagGroup.key : '',
+        activeTagGroup,
         groups: view.filterGroups(this._groups || [], query, selected)
       };
     },
     search: function(event) { this.setData(this.directoryFilterState(event.detail.value, this.data.selectedTags)); },
     toggleTagFilter: function() { this.setData({ tagFilterExpanded: !this.data.tagFilterExpanded }); },
+    selectTagCategory: function(event) {
+      const key = String(event.currentTarget.dataset.key || '');
+      const activeTagGroup = this.data.tagGroups.find(group => group.key === key) || null;
+      if (activeTagGroup) this.setData({ activeTagCategory: key, activeTagGroup });
+    },
     toggleTag: function(event) {
       const key = String(event.currentTarget.dataset.key || '');
       if (!key) return;

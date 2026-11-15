@@ -34,9 +34,16 @@ test('directory only renders granted values and navigates visible positions', as
   expect(searchGeometry.textGap).toBeGreaterThanOrEqual(8);
   expect(detailReads).toBe(0);
   await page.getByRole('button', { name: ui.filterByTags }).click();
+  const filterBox = page.locator('.tag-filter');
+  expect((await filterBox.boundingBox()).height).toBeLessThan(200);
+  await expect(filterBox.locator('.tag-options')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Staff role' })).toBeVisible();
+  await page.getByRole('tab', { name: ui.department, exact: true }).click();
   await expect(page.getByRole('button', { name: 'Department A' })).toBeVisible();
   await page.getByRole('button', { name: 'Department A' }).click();
   await expect(page.locator('.directory-position')).toHaveCount(1);
+  await expect(page.locator('.tag-filter-count')).toHaveText('1');
+  await expect(page.locator('.tag-category-count')).toHaveText('1');
   await page.screenshot({ path: testInfo.outputPath('directory-tag-filter.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: ui.clearTagFilters }).click();
   await expect(page.locator('.directory-position')).toHaveCount(2);

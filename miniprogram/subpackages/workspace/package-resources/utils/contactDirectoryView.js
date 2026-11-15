@@ -59,7 +59,8 @@ function tagGroups(groups, copy, selectedTags = []) {
   }
   return Array.from(indexed.values()).filter(category => category.options.length).map(category => Object.assign({}, category, {
     options: category.options.sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
-      .map(option => Object.assign({}, option, { selected: selected.has(option.key) }))
+      .map(option => Object.assign({}, option, { selected: selected.has(option.key) })),
+    selectedCount: category.options.filter(option => selected.has(option.key)).length
   }));
 }
 
