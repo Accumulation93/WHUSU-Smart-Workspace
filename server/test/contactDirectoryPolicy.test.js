@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const policy = require('../src/core/services/contactDirectoryPolicy');
 const view = require('../../shared/contactDirectoryView');
+const copy = require('../../shared/locales/zh-CN/contactDirectory');
 const assignment = (id, departmentId, identityCategoryId, workGroupId = '') => ({ id, departmentId, identityCategoryId, workGroupId });
 const people = [{ personId: 'viewer', assignments: [assignment('v1', 'd1', 'i1'), assignment('v2', 'd2', 'i2')] },
   { personId: 'a', name: '同名', assignments: [assignment('a1', 'd1', 'i1'), assignment('a2', 'd2', 'i2')] },
@@ -28,4 +29,16 @@ assert.equal(removed.enabled, false); assert.deepEqual(removed.targets, []); ass
 const form = view.blankRule(); form.name = '真实表单'; form.audience[0].personIds = ['viewer'];
 assert.deepEqual(policy.normalizeRule(view.payload(form)).targets, [{ type: 'self' }]);
 assert.throws(() => policy.normalizeRule(rule({ targets: [{ type: 'scope', sameDepartment: true, departmentIds: ['d1'] }] })), policy.DirectoryError);
+const tagged = view.decorateGroups([{ key: 'd1', name: '部门甲', items: [
+  { key: 'a1', name: '甲', departmentId: 'd1', departmentName: '部门甲', assignmentNature: 'staff', assignmentNatureName: '本会岗位', identityCategoryId: 'i1', identityCategoryName: '成员', workGroupId: 'w1', workGroupName: '文秘组' },
+  { key: 'a2', name: '甲', departmentId: 'd2', departmentName: '部门乙', assignmentNature: 'liaison', assignmentNatureName: '学院对接岗位', identityCategoryId: 'i2', identityCategoryName: '负责人', workGroupId: '', workGroupName: '' },
+  { key: 'b1', name: '乙', departmentId: 'd1', departmentName: '部门甲', assignmentNature: 'staff', assignmentNatureName: '本会岗位', identityCategoryId: 'i2', identityCategoryName: '负责人', workGroupId: '', workGroupName: '' },
+  { key: 'none', name: '无岗', hasAssignment: false, departmentName: '暂无岗位' }
+] }], null, copy);
+const tagCategories = view.tagGroups(tagged, copy);
+assert.deepEqual(tagCategories.map(category => category.key), ['nature', 'department', 'identity', 'workGroup']);
+assert.equal(view.filterGroups(tagged, '', ['department:d1', 'identity:i2']).flatMap(group => group.items).map(item => item.key).join(','), 'b1', '标签筛选不得跨岗位拼接');
+assert.equal(view.filterGroups(tagged, '', ['nature:staff', 'nature:liaison']).flatMap(group => group.items).map(item => item.key).sort().join(','), 'a1,a2,b1', '同类标签按 OR');
+assert.equal(view.filterGroups(tagged, '乙', ['department:d1']).flatMap(group => group.items).map(item => item.key).join(','), 'b1');
+assert.equal(view.filterGroups(tagged, '', []).flatMap(group => group.items).find(item => item.key === 'none').tags.length, 0);
 console.log('PASS 通讯录逐岗位授权、逐人逐列隔离、未知条件关闭、无岗人员和前端参数');

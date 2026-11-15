@@ -26,10 +26,62 @@ function peopleOptions(people) {
       workGroup: assignment.workGroupName, assignmentLabel: [assignment.identityCategoryName, assignment.departmentName, assignment.workGroupName].filter(Boolean).join(' · ')
     })) }));
 }
-function filterGroups(groups, query) {
+
+const TAG_CATEGORIES = Object.freeze([
+  { key: 'nature', idKey: 'assignmentNature', labelKey: 'nature', displayKey: 'assignmentNatureName' },
+  { key: 'department', idKey: 'departmentId', labelKey: 'department', displayKey: 'departmentName' },
+  { key: 'identity', idKey: 'identityCategoryId', labelKey: 'identity', displayKey: 'identityCategoryName' },
+  { key: 'workGroup', idKey: 'workGroupId', labelKey: 'workGroup', displayKey: 'workGroupName' }
+]);
+
+function contactTags(item) {
+  return TAG_CATEGORIES.flatMap(category => {
+    const id = String(item && item[category.idKey] || '').trim();
+    const label = String(item && item[category.displayKey] || '').trim();
+    return id && label ? [{ key: category.key + ':' + id, category: category.key, id, label }] : [];
+  });
+}
+
+function tagGroups(groups, copy, selectedTags = []) {
+  const selected = new Set((Array.isArray(selectedTags) ? selectedTags : []).map(String));
+  const indexed = new Map(TAG_CATEGORIES.map(category => [category.key, {
+    key: category.key,
+    label: copy[category.labelKey] || '',
+    options: []
+  }]));
+  for (const group of groups || []) {
+    for (const item of group.items || []) {
+      for (const tag of item.tags || []) {
+        const category = indexed.get(tag.category);
+        if (category && !category.options.some(option => option.key === tag.key)) category.options.push(tag);
+      }
+    }
+  }
+  return Array.from(indexed.values()).filter(category => category.options.length).map(category => Object.assign({}, category, {
+    options: category.options.sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+      .map(option => Object.assign({}, option, { selected: selected.has(option.key) }))
+  }));
+}
+
+function availableTagKeys(groups) {
+  return new Set((groups || []).flatMap(group => (group.items || []).flatMap(item => (item.tags || []).map(tag => tag.key))));
+}
+
+function filterGroups(groups, query, selectedTags = []) {
   const needle = String(query || '').trim().toLocaleLowerCase();
-  return (groups || []).map(group => Object.assign({}, group, { items: group.items.filter(item =>
-    [item.name, item.departmentName, item.identityCategoryName, item.workGroupName].join(' ').toLocaleLowerCase().includes(needle)) }))
+  const selected = new Set((Array.isArray(selectedTags) ? selectedTags : []).map(String));
+  const selectedByCategory = new Map();
+  selected.forEach(key => {
+    const category = key.split(':', 1)[0];
+    if (!selectedByCategory.has(category)) selectedByCategory.set(category, new Set());
+    selectedByCategory.get(category).add(key);
+  });
+  return (groups || []).map(group => Object.assign({}, group, { items: group.items.filter(item => {
+    const matchesSearch = [item.name, item.departmentName, item.assignmentNatureName, item.identityCategoryName, item.workGroupName]
+      .join(' ').toLocaleLowerCase().includes(needle);
+    if (!matchesSearch) return false;
+    return Array.from(selectedByCategory.values()).every(keys => (item.tags || []).some(tag => keys.has(tag.key)));
+  }) }))
     .filter(group => group.items.length);
 }
 function decorateGroups(groups, dateFormatter, copy) {
@@ -40,6 +92,7 @@ function decorateGroups(groups, dateFormatter, copy) {
     departmentName: item.hasAssignment === false ? copy.noPosition : item.departmentName,
     positionText: position(item),
     basicText: [item.name, position(item)].filter(Boolean).join(' · '),
+    tags: contactTags(item),
     fields: (item.fields || []).map(field => Object.assign({}, field, {
       value: dateFormatter && field.type === 'date' ? dateFormatter.formatDateTextOnly(field.value)
         : dateFormatter && field.type === 'datetime' ? dateFormatter.formatDateTimeText(field.value) : field.value,
@@ -74,4 +127,5 @@ function ruleSections(rule, metadata, copy, relations) {
 function ruleSummary(rule, metadata, copy, relations) {
   return ruleSections(rule, metadata, copy, relations).map(section => copy.summarySection(section.title, section.groups.map(group => group.lines)));
 }
-module.exports = { blankClause, blankRule, payload, peopleOptions, filterGroups, decorateGroups, decorateContact, ruleSummary, ruleSections };
+module.exports = { blankClause, blankRule, payload, peopleOptions, contactTags, tagGroups, availableTagKeys, filterGroups,
+  decorateGroups, decorateContact, ruleSummary, ruleSections };

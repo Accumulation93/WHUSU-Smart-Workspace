@@ -31,6 +31,7 @@ const rows = [
 let requestedRuleKey = '';
 let scorerParticipant = null;
 const emptyModel = {};
+let currentActivity = { id: 'activity-1', name: '岗位评分', participant_granularity: 'person', is_paused: 0 };
 const mocks = {
   '../../../config/db': {
     async query(sql) {
@@ -54,9 +55,7 @@ const mocks = {
   '../../../core/models/systemConfig': { async get() { return { timezone: 8 }; } },
   '../utils/pubCache': { async invalidate() {} },
   '../models/scoreActivity': {
-    async getCurrent() {
-      return { id: 'activity-1', name: '岗位评分', participant_granularity: 'person', is_paused: 0 };
-    }
+    async getCurrent() { return currentActivity; }
   },
   '../models/scoreTemplate': emptyModel,
   '../models/scoreQuestion': emptyModel,
@@ -137,12 +136,28 @@ async function run() {
   assert.strictEqual(payload.currentActivity.participantGranularity, 'assignment', '评分事实与响应均固定为岗位粒度');
   assert.strictEqual(payload.targets.length, 2, '评分对象必须按岗位一岗一条');
   assert.strictEqual(payload.targets.find((item) => item.id === 'target-a').isScored, true, '旧记录应优先按 assignment id 回接');
+  assert.strictEqual(payload.activityStatus, 'open');
+  assert.strictEqual(payload.canScore, true);
   assert.strictEqual(payload.needsAssignmentDisambiguation, true);
   payload.targets.forEach((item) => {
     assert.strictEqual(item.needsAssignmentDisambiguation, true);
     assert.match(item.assignmentLabel, /^被评身份 · 部门[甲乙]$/);
     assert.strictEqual(Object.prototype.hasOwnProperty.call(item, 'assignmentTitle'), false);
   });
+
+  currentActivity = { ...currentActivity, end_date: '2000-01-01' };
+  payload = undefined;
+  await layer.route.stack[0].handle({
+    headers: { 'x-role': 'user' },
+    get(name) { return name === 'X-Role' ? 'user' : ''; },
+    body: {}
+  }, {
+    json(value) { payload = value; return value; }
+  });
+  assert.strictEqual(payload.status, 'success', '活动结束后仍应展示本人有权查看的评分对象');
+  assert.strictEqual(payload.activityStatus, 'activity_ended');
+  assert.strictEqual(payload.canScore, false);
+  assert.strictEqual(payload.targets.length, 2);
 
   const activity = { id: 'activity-1', name: '岗位评分', participant_granularity: 'person', is_paused: 0 };
   const task = await scoringTaskService.getUserScoringTask(

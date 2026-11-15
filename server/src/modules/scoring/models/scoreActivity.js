@@ -36,6 +36,22 @@ async function getLatestPublished(connection = pool, organizationId) {
   return rows[0] || null;
 }
 
+async function listPublished(connection = pool, organizationId) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query(
+    `SELECT activity.*, publication.id AS publication_id, publication.published_at
+       FROM result_publications publication
+       INNER JOIN score_activities activity
+         ON activity.id = publication.activity_id
+        AND activity.org_id = publication.org_id
+      WHERE publication.is_published = 1
+        AND publication.org_id = ?
+      ORDER BY publication.published_at DESC, publication.updated_at DESC, activity.created_at DESC`,
+    [orgId]
+  );
+  return rows;
+}
+
 async function create(id, data) {
   const { name, description, startDate, endDate, isCurrent, isPaused, createdBy } = data;
   const orgId = await getCurrentOrgId();
@@ -87,4 +103,4 @@ async function togglePause(id, isPaused) {
   );
 }
 
-module.exports = { getAll, getById, getCurrent, getLatestPublished, create, update, remove, clearAllCurrent, togglePause };
+module.exports = { getAll, getById, getCurrent, getLatestPublished, listPublished, create, update, remove, clearAllCurrent, togglePause };

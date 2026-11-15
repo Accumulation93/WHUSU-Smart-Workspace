@@ -34,9 +34,11 @@ async function catalog(connection, orgId, lock = false) {
     WHERE m.org_id = ? AND m.status = 'active' ORDER BY p.id${suffix}`, [orgId]))[0];
   const assignments = (await connection.query(`SELECT a.id, a.membership_id AS membershipId, a.assignment_kind AS nature,
     a.department_id AS departmentId, a.identity_id AS identityCategoryId, a.work_group_id AS workGroupId,
-    d.name AS departmentName, i.name AS identityCategoryName, w.name AS workGroupName
+    n.name AS assignmentNatureName, d.name AS departmentName, i.name AS identityCategoryName, w.name AS workGroupName
     FROM membership_assignments a
     JOIN organization_memberships m ON m.id = a.membership_id AND m.org_id = a.org_id AND m.status = 'active'
+    JOIN assignment_natures n ON n.id = a.assignment_kind COLLATE utf8mb4_unicode_ci
+      AND n.org_id = a.org_id COLLATE utf8mb4_unicode_ci
     JOIN departments d ON d.id = a.department_id AND d.org_id = a.org_id
     JOIN identities i ON i.id = a.identity_id AND i.org_id = a.org_id
     LEFT JOIN work_groups w ON w.id = a.work_group_id AND w.org_id = a.org_id AND w.department_id = a.department_id
@@ -203,7 +205,10 @@ async function read(actor, options = {}) {
       const groupKey = assignment ? assignment.departmentId : '';
       const group = groups.get(groupKey) || { key: generateId(), name: department, hasAssignment: Boolean(assignment), items: [] };
       const card = { key: contactKey(actor, item, nonce), name: item.person.name, departmentName: department, hasAssignment: Boolean(assignment),
+        assignmentNature: assignment ? assignment.nature || '' : '', assignmentNatureName: assignment ? assignment.assignmentNatureName || '' : '',
+        departmentId: assignment ? assignment.departmentId || '' : '', identityCategoryId: assignment ? assignment.identityCategoryId || '' : '',
         identityCategoryName: assignment ? assignment.identityCategoryName : '', workGroupName: assignment ? assignment.workGroupName || '' : '',
+        workGroupId: assignment ? assignment.workGroupId || '' : '',
         fields: (options.summaryOnly === true && !detail ? [] : item.fieldIds).map(id => ({ label: fieldById.get(id).label, type: fieldById.get(id).type,
           value: String(byValue.get(JSON.stringify([item.person.hrId, id])) || '') })), relatedKeys: [] };
       group.items.push(card);

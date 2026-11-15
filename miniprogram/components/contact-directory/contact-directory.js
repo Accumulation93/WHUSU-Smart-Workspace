@@ -15,7 +15,7 @@ const dimensions = [
 Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
-  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', loading: false, busy: false, notice: '', loadFailed: false,
+  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', tagGroups: [], selectedTags: [], selectedTagsText: '', tagsSelected: false, tagFilterExpanded: false, loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
     draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
@@ -38,14 +38,15 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
+      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], selectedTags: [], selectedTagsText: '', tagsSelected: false, tagFilterExpanded: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
     current: function(request) { return this._active && session.isRequestCurrent(this, request); },
     load: async function() {
       const request = session.beginRequest(this, 'directory');
-      this.setData({ loading: true, notice: '', groups: [] });
+      const hasExistingGroups = Boolean(this._groups && this._groups.length);
+      this.setData({ loading: true, notice: '', groups: hasExistingGroups ? this.data.groups : [] });
       try {
         const result = await callFunction({ name: this.data.admin ? 'getContactDirectoryConfiguration' : 'getContactDirectory', data: this.data.admin ? {} : { summaryOnly: true } });
         if (!this.current(request)) return;
@@ -55,7 +56,8 @@ Component({
           this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSections(rule, result, copy, relations) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
         } else {
           this._groups = view.decorateGroups(result.groups, dateFormatter, copy);
-          this.setData({ groups: view.filterGroups(this._groups, this.data.query), loadFailed: false });
+          const filterState = this.directoryFilterState(this.data.query, this.data.selectedTags);
+          this.setData(Object.assign({ loadFailed: false }, filterState));
         }
       } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, copy.loadFailed), loadFailed: true }); }
       finally { if (this.current(request)) {
@@ -67,7 +69,29 @@ Component({
         }
       } }
     },
-    search: function(event) { const query = event.detail.value; this.setData({ query, groups: view.filterGroups(this._groups || [], query) }); },
+    directoryFilterState: function(query, selectedTags) {
+      const available = view.availableTagKeys(this._groups || []);
+      const selected = (Array.isArray(selectedTags) ? selectedTags : []).filter(key => available.has(key));
+      return {
+        query,
+        selectedTags: selected,
+        selectedTagsText: copy.selectedTags.replace('{count}', String(selected.length)),
+        tagsSelected: selected.length > 0,
+        tagGroups: view.tagGroups(this._groups || [], copy, selected),
+        groups: view.filterGroups(this._groups || [], query, selected)
+      };
+    },
+    search: function(event) { this.setData(this.directoryFilterState(event.detail.value, this.data.selectedTags)); },
+    toggleTagFilter: function() { this.setData({ tagFilterExpanded: !this.data.tagFilterExpanded }); },
+    toggleTag: function(event) {
+      const key = String(event.currentTarget.dataset.key || '');
+      if (!key) return;
+      const selected = this.data.selectedTags.includes(key)
+        ? this.data.selectedTags.filter(item => item !== key)
+        : this.data.selectedTags.concat([key]);
+      this.setData(this.directoryFilterState(this.data.query, selected));
+    },
+    clearTags: function() { this.setData(this.directoryFilterState(this.data.query, [])); },
     openContact: async function(event) {
       const key = event.currentTarget.dataset.key || this.data.detailKey;
       const basic = (this._groups || []).flatMap(group => group.items).find(item => item.key === key) || (key === this.properties.initialKey || (this.data.contact && (this.data.contact.related || []).some(item => item.key === key)) ? { key, name: '', related: [] } : null);
@@ -102,7 +126,8 @@ Component({
       const key = event.currentTarget.dataset.key;
       if (!(this._groups || []).some(group => group.items.some(item => item.key === key))) return this.openContact(event);
       session.beginRequest(this, 'contactDetail');
-      this.setData({ query: '', groups: this._groups, contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
+      this.setData(Object.assign({ contact: null, detailKey: '', detailLoading: false, detailNotice: '' },
+        this.directoryFilterState('', this.data.selectedTags)), () => this.scrollTo('#contact-' + key));
     },
     toggleRelated: function(event) {
       const group = Number(event.currentTarget.dataset.group), index = Number(event.currentTarget.dataset.index);

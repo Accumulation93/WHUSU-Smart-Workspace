@@ -51,7 +51,7 @@ test('returning keeps visible cards while rereading and leaving scoring removes 
   await page.locator('.workspace-hero button').click();
   await expect(page).toHaveURL(/\/work-role$/);
   await page.locator('.shell-back').click();
-  await expect(page.getByText(homeCopy.text.noTargets)).toBeVisible();
+  await expect(page.getByText(homeCopy.text.noVisibleTargets)).toBeVisible();
   await expect(page.locator('.target-card')).toHaveCount(0);
 });
 test('paused activity is a business state with its name and no misleading retry or empty message', async ({ page }) => {
@@ -62,6 +62,20 @@ test('paused activity is a business state with its name and no misleading retry 
   await expect(page.getByText(activity.name, { exact: true })).toBeVisible();
   await expect(page.getByText(homeCopy.text.activityPaused)).toBeVisible();
   await expect(page.getByText(homeCopy.text.noTargets)).toHaveCount(0);
+  await expect(page.locator('.targets-card button')).toHaveCount(0);
+});
+
+test('ended activity keeps authorized targets visible for review and disables scoring', async ({ page }) => {
+  await setup(page);
+  const ended = { ...activity, startDate: '2026-01-01', endDate: '2026-02-01' };
+  await page.route('**/api/getCurrentScoreActivity', route => route.fulfill({ json: { status: 'success', activity: ended } }));
+  await page.route('**/api/getRateTargets', route => route.fulfill({
+    json: { status: 'success', currentActivity: ended, activityStatus: 'activity_ended', canScore: false, targets }
+  }));
+  await page.goto('/web/scoring/tasks');
+  await expect(page.getByText(homeCopy.text.activityEndedReadOnly)).toBeVisible();
+  await expect(page.locator('.target-card')).toHaveCount(3);
+  await expect(page.locator('.target-card').first()).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('.targets-card button')).toHaveCount(0);
 });
 

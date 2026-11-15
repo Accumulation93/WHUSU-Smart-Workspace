@@ -6,6 +6,41 @@ const { requireLegacyWrite } = require('../../../core/models/authorizationBusine
 const { authorizationError } = require('../../../core/services/authorizationError');
 const { formatDateOnly } = require('../../../utils/dateTime');
 const activityModel = require('./scoreActivity');
+const authorizationIdentity = require('../../../core/models/authorizationIdentity');
+const publicationAssignments = require('../services/publicationAssignments');
+
+async function latestPublishedForActor(connection, reference, actor) {
+  const candidates = await activityModel.listPublished(connection, reference.organizationId);
+  if (!candidates.length) return null;
+  // 管理员入口保持原有最近公示行为；普通用户必须落到自己确实能查看的最近一次公示。
+  if (!actor || actor.role !== 'user' || !actor.assignment) return candidates[0];
+  const publicationIds = [...new Set(candidates.map(row => row.publication_id))];
+  const placeholders = publicationIds.map(() => '?').join(',');
+  const [viewRules, viewClauses, meritRules, meritClauses] = await Promise.all([
+    connection.query(`SELECT id,publication_id,grantee_department_id,grantee_identity_id,nature_ids
+      FROM pub_view_rules WHERE org_id=? AND publication_id IN (${placeholders})`, [reference.organizationId, ...publicationIds]),
+    connection.query(`SELECT rule_id,COUNT(*) AS count FROM pub_view_rule_clauses
+      WHERE org_id=? AND rule_id IN (SELECT id FROM pub_view_rules WHERE org_id=? AND publication_id IN (${placeholders}))
+      GROUP BY rule_id`, [reference.organizationId, reference.organizationId, ...publicationIds]),
+    connection.query(`SELECT id,publication_id,grantee_department_id,grantee_identity_id,nature_ids
+      FROM pub_merit_rules WHERE org_id=? AND publication_id IN (${placeholders})`, [reference.organizationId, ...publicationIds]),
+    connection.query(`SELECT rule_id,COUNT(*) AS count FROM pub_merit_rule_clauses
+      WHERE org_id=? AND rule_id IN (SELECT id FROM pub_merit_rules WHERE org_id=? AND publication_id IN (${placeholders}))
+      GROUP BY rule_id`, [reference.organizationId, reference.organizationId, ...publicationIds])
+  ]);
+  const counts = (rows) => new Set(rows.map(row => row.rule_id).filter(Boolean));
+  const viewWithClauses = counts(viewClauses[0]);
+  const meritWithClauses = counts(meritClauses[0]);
+  const accessible = publicationIds.map(publicationId => {
+    const view = viewRules[0].some(rule => rule.publication_id === publicationId
+      && viewWithClauses.has(rule.id) && publicationAssignments.matchesRuleGrantee(actor.assignment, rule));
+    const merit = meritRules[0].some(rule => rule.publication_id === publicationId
+      && meritWithClauses.has(rule.id) && publicationAssignments.matchesRuleGrantee(actor.assignment, rule));
+    return view || merit ? publicationId : '';
+  }).filter(Boolean);
+  const publicationId = new Set(accessible);
+  return candidates.find(row => publicationId.has(row.publication_id)) || null;
+}
 
 async function legacySelected(organizationId, latestPublished = false) {
   return pool.withTransaction(async connection => {
@@ -18,7 +53,8 @@ async function selected(reference, latestPublished = false) {
   return pool.withTransaction(async connection => {
     const session = await createAuthorizationSession(connection, reference, { lock: true });
     if (session.mode !== 'enforced') throw authorizationError('authorization_forbidden');
-    const row = latestPublished ? await activityModel.getLatestPublished(connection, reference.organizationId)
+    const actor = latestPublished ? await authorizationIdentity.loadActor(connection, reference) : null;
+    const row = latestPublished ? await latestPublishedForActor(connection, reference, actor)
       : await activityModel.getCurrent(connection, reference.organizationId);
     if (!row) return null;
     const resourceType = latestPublished ? 'scoring.latestPublishedActivity' : 'scoring.currentActivity';

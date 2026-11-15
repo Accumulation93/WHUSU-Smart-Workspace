@@ -22,7 +22,7 @@
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <p v-if="activityNotice" class="notice-line">{{ activityNotice }}</p>
       <div v-if="loading && !targets.length" class="empty-state"><AppLoading :text="home.loadingTargets" /></div>
-      <div v-else-if="!loadNotice && !activityNotice && !targets.length" class="empty-state">{{ home.noTargets }}</div>
+      <div v-else-if="!loadNotice && !activityNotice && !targets.length" class="empty-state">{{ home.noVisibleTargets }}</div>
       <div v-for="group in groups" :key="group.identity" class="stack target-group">
         <span class="chip target-group-label">{{ group.identity }}</span>
         <div v-for="target in group.targets" :key="target.id" class="list-row target-card" role="button"
@@ -122,7 +122,10 @@ async function load() {
     if (activity.value?.id && result.currentActivity?.id && activity.value.id !== result.currentActivity.id) throw new Error();
     if (!activity.value && result.currentActivity) throw new Error();
     targets.value = result.targets;
-    activityNotice.value = activity.value?.isPaused ? home.activityPaused : '';
+    const today = formatAbsoluteDate(new Date());
+    activityNotice.value = activity.value?.isPaused ? home.activityPaused
+      : result.activityStatus === 'activity_ended' || (activity.value?.endDate && today > activity.value.endDate)
+        ? home.activityEndedReadOnly : '';
     loadNotice.value = '';
   } catch (error) {
     if (current()) loadNotice.value = errorText(error, copy.scoring.loadFailed);

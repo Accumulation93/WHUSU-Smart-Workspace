@@ -50,6 +50,8 @@ const text = Object.freeze({
   activityPaused: '当前评分活动已暂停',
   activityNotStarted: '当前评分活动尚未开始',
   activityEnded: '当前评分活动已结束',
+  activityEndedReadOnly: '活动已结束，可查看已提交内容，但不能提交或修改。',
+  noVisibleTargets: '当前工作角色下暂无可查看的评分对象。',
   loadingTargets: '正在加载评分任务',
   refreshTargetsLater: '评分任务未能加载，请重试',
   noTargets: '暂无可评分人员',

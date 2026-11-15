@@ -50,6 +50,12 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     await pool.query("UPDATE score_activities SET is_current=1,description='当前活动说明' WHERE id='rule-activity'");
     await pool.query("INSERT INTO score_activities(id,name,org_id) VALUES ('published-activity','已公示历史活动','submit-a')");
     await pool.query("INSERT INTO result_publications(id,activity_id,is_published,org_id,published_at) VALUES ('published-result','published-activity',1,'submit-a',UTC_TIMESTAMP())");
+    await pool.query("INSERT INTO pub_view_rules(id,publication_id,grantee_department_id,grantee_identity_id,org_id) VALUES ('published-view','published-result','audit-department','audit-identity','submit-a')");
+    await pool.query("INSERT INTO pub_view_rule_clauses(id,rule_id,scope_type,target_identity_id,org_id) VALUES ('published-view-clause','published-view','all_people','audit-identity','submit-a')");
+    await pool.query("INSERT INTO score_activities(id,name,org_id) VALUES ('published-other','其他公示历史活动','submit-a')");
+    await pool.query("INSERT INTO result_publications(id,activity_id,is_published,org_id,published_at) VALUES ('published-other-result','published-other',1,'submit-a',DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY))");
+    await pool.query("INSERT INTO pub_view_rules(id,publication_id,grantee_department_id,grantee_identity_id,org_id) VALUES ('published-other-view','published-other-result','rule-other-department','audit-identity','submit-a')");
+    await pool.query("INSERT INTO pub_view_rule_clauses(id,rule_id,scope_type,target_identity_id,org_id) VALUES ('published-other-clause','published-other-view','all_people','audit-identity','submit-a')");
     assert.equal((await post('getCurrentScoreActivity')).activity.id, 'rule-activity');
     assert.deepEqual((await post('listScoreActivities')).list, []);
     assert.equal((await post('getLatestPublishedScoreActivity')).activity.id, 'published-activity');

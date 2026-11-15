@@ -1670,6 +1670,14 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 
 分配列表按工作角色、权限角色及具体操作分层折叠，并延迟创建隐藏内容，避免大量权限挤在一屏。检查为 `authorizationExplanation.test.js`、`authorizationIntegration.test.js`、`authorizationMiniPage.test.js`、`authorizationSimplification.test.js` 及 `web/tests/e2e/authorization.spec.js`，覆盖全目录与默认范围、未知状态、同人不同岗位、大规模折叠及保存回读。语料必须先由独立语言 Agent 审核再接入；短标签去句号不能误删完整确认或拼接分句标点。
 
+## 2026-11-15：历史评分目录被活动结束和全局最新公示同时隐藏
+
+第四十三届当前考核活动结束后，`getRateTargets` 直接返回空目录，导致普通用户无法查看仍有权访问的评分对象。公示入口又只按全组织发布时间选择最新活动，结果选中了发布时间较晚、但只配置给少数岗位的外联部子考核，使主办考核的查看规则无法使用。生产只读核查同时确认 10,438 条评分快照全部有效，776 个有效岗位全部通过岗位性质与身份类别校验，因此问题在活动选择与展示逻辑，不在历史数据。
+
+修复后，活动结束时仍返回当前工作角色有权查看的评分对象，并以只读状态禁止提交或修改；最近公示改为依次检查发布时间从新到旧的活动，只有当前岗位命中查看或评优规则且对应条款存在时才选择。检查为 `scoringCurrentAssignment.test.js`、`scoringPublishedActivitySelection.test.js` 和 `web/tests/e2e/scoring-directory.spec.js`。后续不得把“全组织最新”直接等同于“当前用户可访问的最新”。
+
+同期通讯录增加岗位标签筛选。同类标签 OR、不同类别 AND，所有类别必须落在同一条岗位记录；标签只从已授权通讯录结果生成。检查为 `contactDirectoryPolicy.test.js` 和 `web/tests/e2e/contact-directory.spec.js`。以后增加人员筛选时必须同时验证跨岗位拼接、同名字典 ID、搜索组合、无岗位联系人和失败后保留旧内容。
+
 ## 2026-11-14：审核岗位性质确认引用未声明的取消文案
 
 审核模板改变岗位性质、需要清除不兼容身份类别时，确认窗口引用了本模块未声明的取消键。该引用来自此前身份性质功能提交，并非本轮短文案调整删除。改为复用公共 `common.actions.cancel`，不新增同义语料。原检查没有实际触发这一分支，故补 `auditNatureConfirmation.test.js`：取消文字有值、取消不修改配置、确认仅清除不兼容身份三项行为在一个实际方法用例验证；连同 `authorizationAuditMini.test.js` 共3项通过，39页注册及原生兼容检查通过。副本生成与微信官方编译由本轮主任务统一执行，未在此冒称现场通过。

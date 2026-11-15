@@ -472,12 +472,10 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
     }
 
     const activityWindowState = await getActivityWindowState(currentActivity);
-    if (activityWindowState !== 'open') {
+    if (activityWindowState !== 'open' && activityWindowState !== 'activity_ended') {
       return respondScoringResponse(res, {
         status: activityWindowState,
-        message: activityWindowState === 'activity_not_started'
-          ? localeCopy.copy_d6213b5668
-          : localeCopy.copy_e4bebdb4ea,
+        message: localeCopy.copy_d6213b5668,
         scorer,
         currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
         targets: []
@@ -554,8 +552,11 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
       currentActivity: {
         id: currentActivity.id,
         name: currentActivity.name,
-        participantGranularity: granularity
+        participantGranularity: granularity,
+        activityStatus: activityWindowState
       },
+      activityStatus: activityWindowState,
+      canScore: activityWindowState === 'open',
       targets: targetPresentation.rows,
       needsAssignmentDisambiguation: targetPresentation.needsAssignmentDisambiguation
     });

@@ -55,6 +55,9 @@ async function main() {
     let cards = (await model.read(actor)).groups.flatMap(group=>group.items);
     assert.equal(cards.length,3); assert.equal(cards.filter(card=>card.relatedKeys.length).length,2);
     assert.deepEqual(cards.map(card=>card.fields.map(field=>field.value)).sort(), [['a-phone'],['a-phone'],['b-email']]);
+    assert(cards.every(card => card.assignmentNatureName === '本会岗位'));
+    const decoratedCards = view.decorateGroups((await model.read(actor)).groups, null, require('../../shared/locales/zh-CN/contactDirectory'));
+    assert.equal(view.filterGroups(decoratedCards, '', ['department:d1', 'identity:i1']).flatMap(group=>group.items).length, 1);
     assert(!JSON.stringify(cards).includes('pending-secret')); assert(!JSON.stringify(cards).includes('personId')); assert(!JSON.stringify(cards).includes('student'));
     const summary = await model.read(actor, { summaryOnly: true });
     const summaries = summary.groups.flatMap(group => group.items);

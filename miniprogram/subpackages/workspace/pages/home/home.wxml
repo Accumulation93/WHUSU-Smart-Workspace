@@ -55,6 +55,9 @@
       <view class="activity-status-banner paused-banner" wx:if="{{activityPaused}}">
         <view class="status-banner-text">{{copy.activityPaused}}</view>
       </view>
+      <view class="activity-status-banner paused-banner" wx:if="{{activityEnded && !activityPaused}}">
+        <view class="status-banner-text">{{copy.activityEndedReadOnly}}</view>
+      </view>
 
       <view class="target-state" wx:if="{{targetsLoading}}"><app-loading text="{{copy.loadingDots}}" /></view>
 

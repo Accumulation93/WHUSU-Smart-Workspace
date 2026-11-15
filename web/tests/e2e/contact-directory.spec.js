@@ -10,13 +10,13 @@ test('directory only renders granted values and navigates visible positions', as
     const body = route.request().postDataJSON();
     if (body.key) {
       detailReads++;
-      return route.fulfill({ json: { status: 'success', contact: { key: 'a', name: 'Same name', departmentName: 'Department A', identityCategoryName: 'Member', workGroupName: '', fields: [{ label: 'Phone', type: 'phone', value: '13800138000' }], relatedKeys: ['b'], relatedPositions: [{key:'b',departmentName:'Department B',identityCategoryName:'Leader',workGroupName:''}] } } });
+      return route.fulfill({ json: { status: 'success', contact: { key: 'a', name: 'Same name', departmentId: 'd1', departmentName: 'Department A', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i1', identityCategoryName: 'Member', workGroupId: '', workGroupName: '', fields: [{ label: 'Phone', type: 'phone', value: '13800138000' }], relatedKeys: ['b'], relatedPositions: [{key:'b',departmentId:'d2',departmentName:'Department B',assignmentNature:'staff',assignmentNatureName:'Staff role',identityCategoryId:'i2',identityCategoryName:'Leader',workGroupName:''}] } } });
     }
     expect(body.summaryOnly).toBe(true);
     reads++;
     return route.fulfill({ json: { status: 'success', groups: [
-      { key: 'g1', name: 'Department A', items: [{ key: 'a', name: 'Same name', departmentName: 'Department A', identityCategoryName: 'Member', workGroupName: '', fields: [], relatedKeys: ['b'] }] },
-      { key: 'g2', name: 'Department B', items: [{ key: 'b', name: 'Same name', departmentName: 'Department B', identityCategoryName: 'Leader', workGroupName: '', fields: [], relatedKeys: ['a'] }] }
+      { key: 'g1', name: 'Department A', items: [{ key: 'a', name: 'Same name', departmentId: 'd1', departmentName: 'Department A', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i1', identityCategoryName: 'Member', workGroupId: '', workGroupName: '', fields: [], relatedKeys: ['b'] }] },
+      { key: 'g2', name: 'Department B', items: [{ key: 'b', name: 'Same name', departmentId: 'd2', departmentName: 'Department B', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i2', identityCategoryName: 'Leader', workGroupId: '', workGroupName: '', fields: [], relatedKeys: ['a'] }] }
     ] } });
   });
   await page.goto('/web/hr/profile');
@@ -33,6 +33,13 @@ test('directory only renders granted values and navigates visible positions', as
   expect(searchGeometry.centerDelta).toBeLessThanOrEqual(1);
   expect(searchGeometry.textGap).toBeGreaterThanOrEqual(8);
   expect(detailReads).toBe(0);
+  await page.getByRole('button', { name: ui.filterByTags }).click();
+  await expect(page.getByRole('button', { name: 'Department A' })).toBeVisible();
+  await page.getByRole('button', { name: 'Department A' }).click();
+  await expect(page.locator('.directory-position')).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath('directory-tag-filter.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: ui.clearTagFilters }).click();
+  await expect(page.locator('.directory-position')).toHaveCount(2);
   await expect(page.getByRole('button', { name: ui.copyBasic })).toHaveCount(0);
   await expect(page.getByRole('link', { name: ui.call })).toHaveCount(0);
   await page.getByRole('searchbox').fill('Member');

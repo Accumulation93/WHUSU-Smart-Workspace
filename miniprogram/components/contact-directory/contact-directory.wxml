@@ -8,6 +8,23 @@
       <view class="directory-search-icon"><ui-icon name="search" sizeRole="context-leading" /></view>
       <input class="field-input directory-search-input" value="{{query}}" placeholder="{{copy.search}}" bindinput="search" />
     </view>
+    <view wx:if="{{!admin && tagGroups.length}}" class="directory-tag-filter directory-stack">
+      <view class="directory-tag-trigger" role="button" aria-expanded="{{tagFilterExpanded}}" bindtap="toggleTagFilter" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+        <view class="directory-person-body"><view class="directory-label">{{copy.filterByTags}}</view><view class="directory-note">{{tagsSelected ? selectedTagsText : copy.tagFilterHelp}}</view></view>
+        <text class="directory-note">{{tagFilterExpanded ? copy.collapse : copy.expand}}</text>
+      </view>
+      <block wx:if="{{tagFilterExpanded}}">
+        <view class="directory-tag-groups">
+          <view wx:for="{{tagGroups}}" wx:key="key" class="directory-tag-group">
+            <view class="directory-label">{{item.label}}</view>
+            <view class="directory-tag-options">
+              <button wx:for="{{item.options}}" wx:for-item="option" wx:key="key" class="secondary-btn directory-tag-option {{option.selected ? 'directory-tag-option-active' : ''}} ui-motion-chip" aria-checked="{{option.selected}}" data-key="{{option.key}}" bindtap="toggleTag" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{option.label}}</button>
+            </view>
+          </view>
+        </view>
+        <button wx:if="{{tagsSelected}}" class="secondary-btn directory-tag-clear ui-motion-button" bindtap="clearTags" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.clearTagFilters}}</button>
+      </block>
+    </view>
     <block wx:if="{{admin}}">
       <button class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="edit">{{copy.add}}</button>
       <button wx:if="{{rules.length}}" class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" bindtap="toggleBatch">{{batchMode ? copy.finishSelection : copy.manageSelection}}</button>
@@ -31,7 +48,7 @@
       </view>
       <view wx:if="{{!loading && !loadFailed && !rules.length}}" class="directory-note">{{copy.noRules}}</view>
     </block>
-    <view wx:elif="{{!loading && !loadFailed && !groups.length}}" class="directory-note">{{query ? copy.noResults : copy.empty}}</view>
+    <view wx:elif="{{!loading && !loadFailed && !groups.length}}" class="directory-note">{{tagsSelected ? copy.tagNoResults : (query ? copy.noResults : copy.empty)}}</view>
   </view>
   <view wx:if="{{deleteTargets}}" id="directory-delete" class="directory-card directory-stack">
     <view class="directory-heading">{{deleteText}}</view>

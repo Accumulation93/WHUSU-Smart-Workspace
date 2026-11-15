@@ -393,6 +393,7 @@ Page({
     publicationActivity: null,
     currentActivityText: copy.text.loadingDots,
     activityPaused: false,
+    activityEnded: false,
     targetList: [],
     targetGroups: [],
     selectedTargetId: '',
@@ -481,7 +482,8 @@ Page({
         currentActivity: null,
         publicationActivity: null,
         currentActivityText: copy.text.loadingDots,
-        activityPaused: false
+        activityPaused: false,
+        activityEnded: false
       });
     }
     this.refreshCurrentUser({ resetPageState: firstEntry || organizationChanged });
@@ -731,7 +733,8 @@ Page({
         this.setData({
           currentActivity: activity,
           currentActivityText: activity ? activity.name : copy.text.noActivity,
-          activityPaused: activity ? !!activity.isPaused : false
+          activityPaused: activity ? !!activity.isPaused : false,
+          activityEnded: Boolean(activity && activity.endDate && getSystemDate() > activity.endDate)
         });
         if (settings.discoverPublication || previousActivityId !== nextActivityId
           || this.data.activeTab === 'results' || this.data.activeTab === 'meritList') {
@@ -743,7 +746,8 @@ Page({
         this.setData({
           currentActivity: null,
           currentActivityText: copy.text.noActivity,
-          activityPaused: false
+          activityPaused: false,
+          activityEnded: false
         });
         if (settings.discoverPublication) this.loadLatestPublishedActivity();
       }
@@ -853,7 +857,7 @@ Page({
       heroIdentity: getDisplayIdentity(currentUser, 'user'),
       targetList: targets,
       targetGroups: targetGroups,
-      targetsEmptyText: targets.length ? '' : copy.text.noTargets,
+      targetsEmptyText: targets.length ? '' : copy.text.noVisibleTargets,
       scoringStats: {
         total: targets.length,
         scored: scoredCount,

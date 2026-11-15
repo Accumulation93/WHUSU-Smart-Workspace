@@ -57,9 +57,11 @@ function matchesRuleGrantee(assignment, rule) {
   if (!assignment || !rule) return false;
   const natures = rule.grantee_nature_ids === undefined
     ? (rule.nature_ids === undefined ? rule.natureIds : rule.nature_ids) : rule.grantee_nature_ids;
-  if (!natureRulePolicy.matches(natures, assignment.assignment_kind || assignment.assignmentKind || assignment.assignmentNature)) return false;
+  if (!natureRulePolicy.matches(natures,
+    assignment.assignment_kind || assignment.assignmentKind || assignment.assignmentNature || assignment.natureId)) return false;
   return safeString(assignment.department_id || assignment.departmentId) === safeString(rule.grantee_department_id || rule.granteeDepartmentId)
-    && safeString(assignment.identity_id || assignment.identityId) === safeString(rule.grantee_identity_id || rule.granteeIdentityId);
+    && safeString(assignment.identity_id || assignment.identityId || assignment.identityCategoryId)
+      === safeString(rule.grantee_identity_id || rule.granteeIdentityId);
 }
 
 function matchesMeritClause(target, clause, viewer) {

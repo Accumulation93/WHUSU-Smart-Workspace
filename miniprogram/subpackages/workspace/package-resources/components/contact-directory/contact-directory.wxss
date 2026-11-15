@@ -9,6 +9,16 @@
 .directory-search { position: relative; min-width: 0; }
 .directory-search-icon { position: absolute; left: 20rpx; top: 0; bottom: 0; display: flex; align-items: center; pointer-events: none; }
 .directory-search .directory-search-input { display: block; padding-left: 76rpx; }
+.directory-tag-filter { padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: 1px solid rgba(147,197,253,.42); border-radius: var(--ui-field-radius); background: linear-gradient(135deg,rgba(255,255,255,.8),rgba(239,246,255,.62)); }
+.directory-tag-trigger { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap,16rpx); width: 100%; min-height: var(--ui-control-height); height: auto; margin: 0; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border: 1px solid rgba(147,197,253,.56); border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,246,255,.86)); color: #1e293b; text-align: left; line-height: 1.45; }
+.directory-tag-groups { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-field-gap,16rpx); }
+.directory-tag-group { display: flex; flex-direction: column; gap: 12rpx; padding-top: 14rpx; border-top: 1px solid rgba(147,197,253,.28); }
+.directory-tag-group:first-of-type { padding-top: 4rpx; border-top: 0; }
+.directory-tag-options { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.directory-tag-option { display: flex; flex: none; align-items: center; justify-content: center; width: auto; min-width: 0; max-width: 100%; min-height: var(--ui-compact-height); height: auto; margin: 0; padding: 8rpx 16rpx; border: 1px solid rgba(147,197,253,.62); border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,rgba(255,255,255,.96),rgba(246,249,255,.88)); color: #334155; font-size: var(--ui-type-label); font-weight: 700; line-height: 1.45; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+.directory-tag-option-active { border-color: var(--ui-blue-700); background: linear-gradient(135deg,rgba(219,234,254,.92),rgba(239,246,255,.94)); color: var(--ui-blue-700); box-shadow: inset 0 1rpx 0 rgba(255,255,255,.9); }
+.directory-tag-clear { align-self: flex-end; flex: none; width: auto; min-width: 0; height: auto; margin: 0; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); }
+.directory-tag-filter > .directory-tag-clear { align-self: flex-end; width: auto; min-width: 0; max-width: 100%; }
 @media (min-width: 520px) { .directory-search-icon { left: 12px; } .directory-search .directory-search-input { padding-left: 44px; } }
 .directory-value { font-size: var(--ui-type-value); font-weight: 700; line-height: 1.5; }
 .directory-note { font-size: var(--ui-type-meta); color: #64748b; line-height: 1.6; }
@@ -35,5 +45,5 @@
 .directory-field-actions { flex: none; }
 .directory-icon-action.secondary-btn { flex: none; width: var(--ui-control-height); min-width: var(--ui-control-height); min-height: var(--ui-control-height); height: auto; margin: 0; padding: 0; border-radius: var(--ui-compact-radius); display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; }
 @media (min-width: 520px) { .directory-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } }
-@media (min-width: 520px) { .directory-card { padding: 20px; } .directory-stack, .directory-options, .directory-actions { gap: 12px; } .directory-clause { padding: 16px 0; } .directory-person-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .directory-department { padding: 4px 12px; } .directory-filter-head { padding: 10px 12px; } .directory-stack .selection-option-card { padding: 10px 12px; } }
+@media (min-width: 520px) { .directory-card { padding: 20px; } .directory-stack, .directory-options, .directory-actions { gap: 12px; } .directory-clause { padding: 16px 0; } .directory-person-grid, .directory-tag-groups { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .directory-department { padding: 4px 12px; } .directory-filter-head { padding: 10px 12px; } .directory-tag-group { padding-top: 10px; } .directory-tag-option { padding: 6px 10px; } .directory-stack .selection-option-card { padding: 10px 12px; } }
 @media (min-width: 900px) { .directory-options { grid-template-columns: repeat(3,minmax(0,1fr)); } }

@@ -6,10 +6,27 @@
         <span class="directory-search-icon"><UiIcon name="search" size-role="context-leading" /></span>
         <input v-model="query" class="field-input" type="search" :placeholder="copy.search" :aria-label="copy.search" />
       </div>
+      <div v-if="tagGroups.length" class="tag-filter stack">
+        <button type="button" class="btn-quiet tag-filter-trigger" :aria-expanded="tagFilterExpanded" @click="tagFilterExpanded = !tagFilterExpanded">
+          <span class="stack-tight tag-filter-copy"><strong>{{ copy.filterByTags }}</strong><span class="muted">{{ tagsSelected ? copy.selectedTags.replace('{count}', String(selectedTags.length)) : copy.tagFilterHelp }}</span></span>
+          <span class="muted">{{ tagFilterExpanded ? copy.collapse : copy.expand }}</span>
+        </button>
+        <template v-if="tagFilterExpanded">
+          <div class="tag-groups">
+            <div v-for="category in tagGroups" :key="category.key" class="tag-group">
+              <span class="tag-group-label">{{ category.label }}</span>
+              <div class="tag-options">
+                <button v-for="option in category.options" :key="option.key" type="button" class="tag-option" :class="{ 'tag-option-active': option.selected }" :aria-pressed="option.selected" @click="toggleTag(option.key)">{{ option.label }}</button>
+              </div>
+            </div>
+          </div>
+          <div v-if="tagsSelected" class="card-actions tag-actions"><button type="button" class="btn btn-secondary" @click="clearTags">{{ copy.clearTagFilters }}</button></div>
+        </template>
+      </div>
       <AppLoading v-if="loading" :text="copy.loading" />
       <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
       <button v-if="notice" class="btn btn-secondary" @click="load">{{ copy.retry }}</button>
-      <p v-if="!loading && !notice && !filtered.length" class="empty-state">{{ query ? copy.noResults : copy.empty }}</p>
+      <p v-if="!loading && !notice && !filtered.length" class="empty-state">{{ tagsSelected ? copy.tagNoResults : (query ? copy.noResults : copy.empty) }}</p>
     </div>
     <template v-if="!detailKey">
       <section v-for="group in filtered" :key="group.key" class="stack">
@@ -55,20 +72,26 @@ import { session } from '@/runtime/session.js';
 import dateFormatter from '@/runtime/hrProfileDate.js';
 import UiIcon from './UiIcon.vue';
 const props = defineProps({ initialKey: { type: String, default: '' } });
-const groups = ref([]), query = ref(''), loading = ref(false), notice = ref('');
+const groups = ref([]), query = ref(''), selectedTags = ref([]), tagFilterExpanded = ref(false), loading = ref(false), notice = ref('');
 const contact = ref(null), detailKey = ref(''), detailLoading = ref(false), detailNotice = ref(''), detailPanel = ref(null);
 const copyNotice = ref('');
 let detailGeneration = 0;
-const filtered = computed(() => view.filterGroups(groups.value, query.value));
+const tagGroups = computed(() => view.tagGroups(groups.value, copy, selectedTags.value));
+const tagsSelected = computed(() => selectedTags.value.length > 0);
+const filtered = computed(() => view.filterGroups(groups.value, query.value, selectedTags.value));
 let generation = 0, disposed = false;
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 async function load() {
   const request = ++generation, expected = scope();
-  groups.value = []; loading.value = true; notice.value = '';
+  loading.value = true; notice.value = '';
   const current = () => !disposed && !document.hidden && request === generation && expected === scope();
   try {
     const result = requireSuccess(await callApi('getContactDirectory', { summaryOnly: true }));
-    if (current()) groups.value = view.decorateGroups(result.groups, dateFormatter, copy);
+    if (current()) {
+      groups.value = view.decorateGroups(result.groups, dateFormatter, copy);
+      const available = view.availableTagKeys(groups.value);
+      selectedTags.value = selectedTags.value.filter(key => available.has(key));
+    }
   } catch (error) { if (current()) notice.value = errorText(error, copy.loadFailed); }
   finally { if (current()) loading.value = false; }
 }
@@ -95,20 +118,38 @@ async function openContact(key) {
   finally { if (current()) detailLoading.value = false; }
 }
 function clearDetail() { detailGeneration++; contact.value = null; detailKey.value = ''; detailLoading.value = false; detailNotice.value = ''; copyNotice.value = ''; }
+function toggleTag(key) {
+  selectedTags.value = selectedTags.value.includes(key)
+    ? selectedTags.value.filter(value => value !== key)
+    : selectedTags.value.concat([key]);
+}
+function clearTags() { selectedTags.value = []; }
 async function locate(key) {
   if (!groups.value.some(group => group.items.some(item => item.key === key))) return openContact(key);
   clearDetail(); query.value = ''; await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
 }
 function activate() { if (/^[a-f0-9]{96}$/.test(props.initialKey)) openContact(props.initialKey); else load(); }
-function visibility() { generation++; clearDetail(); groups.value = []; query.value = ''; if (!document.hidden) activate(); }
+function visibility() { generation++; clearDetail(); groups.value = []; query.value = ''; selectedTags.value = []; if (!document.hidden) activate(); }
 document.addEventListener('visibilitychange', visibility);
-watch([scope, () => props.initialKey], () => { generation++; clearDetail(); groups.value = []; query.value = ''; activate(); }, { immediate: true });
-onBeforeUnmount(() => { disposed = true; generation++; clearDetail(); groups.value = []; document.removeEventListener('visibilitychange', visibility); });
+watch([scope, () => props.initialKey], () => { generation++; clearDetail(); groups.value = []; query.value = ''; selectedTags.value = []; activate(); }, { immediate: true });
+onBeforeUnmount(() => { disposed = true; generation++; clearDetail(); groups.value = []; selectedTags.value = []; document.removeEventListener('visibilitychange', visibility); });
 </script>
 <style scoped>
 .directory-search { position: relative; min-width: 0; }
 .directory-search-icon { position: absolute; left: var(--ui-field-gap); top: 0; bottom: 0; display: flex; align-items: center; pointer-events: none; }
 .directory-search .field-input { padding-left: calc(var(--ui-field-gap) * 5); }
+.tag-filter { padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: var(--ui-field-border); border-radius: var(--ui-field-radius); background: var(--ui-field-bg); }
+.tag-filter-trigger { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap); width: 100%; min-height: var(--ui-control-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border: 1px solid var(--ui-line-blue); border-radius: var(--ui-compact-radius); background: var(--ui-field-bg); color: var(--ui-text-body); text-align: left; }
+.tag-filter-copy { flex: 1; min-width: 0; }
+.tag-groups { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-field-gap); }
+.tag-group { display: grid; gap: var(--ui-label-gap); padding-top: var(--ui-field-gap); border-top: 1px solid var(--ui-line-soft); }
+.tag-group:first-of-type { padding-top: 0; border-top: 0; }
+.tag-group-label { color: var(--ui-text-muted); font-size: var(--ui-type-label); font-weight: 700; }
+.tag-options { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.tag-option { flex: none; width: auto; min-width: 0; max-width: 100%; min-height: var(--ui-compact-height); height: auto; margin: 0; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); border: 1px solid var(--ui-line-blue); border-radius: var(--ui-compact-radius); background: var(--ui-field-bg); color: var(--ui-text-body); font-size: var(--ui-type-label); font-weight: 700; line-height: var(--ui-leading-control); white-space: normal; overflow-wrap: anywhere; }
+.tag-option-active { border-color: var(--ui-blue-700); background: var(--ui-chip-blue-bg); color: var(--ui-blue-700); }
+.tag-actions { justify-content: flex-end; }
+.tag-actions .btn { flex: none; width: auto; min-width: 0; max-width: 100%; }
 .directory-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--ui-card-gap); }
 .directory-position { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap); cursor: pointer; margin: 0; }
 .directory-position > div { min-width: 0; overflow-wrap: anywhere; }
@@ -121,6 +162,6 @@ onBeforeUnmount(() => { disposed = true; generation++; clearDetail(); groups.val
 .directory-field-phone { background: var(--ui-option-selected-bg); }
 .directory-field-actions { flex: none; }
 .directory-icon-action.btn { flex: none; width: var(--ui-control-height); min-width: var(--ui-control-height); min-height: var(--ui-control-height); padding: 0; border-radius: var(--ui-compact-radius); }
-@media (min-width: 520px) { .directory-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (min-width: 520px) { .directory-fields, .tag-groups { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 520px) { .directory-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 </style>
