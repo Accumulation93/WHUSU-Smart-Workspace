@@ -94,7 +94,6 @@
     </view>
   </block>
   <view wx:if="{{detailKey}}" id="directory-detail" class="directory-stack">
-    <view class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" bindtap="closeContact" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.back}}</button></view>
     <view class="directory-card directory-identity">
       <view class="directory-person-body directory-stack"><view class="directory-note">{{copy.details}}</view><view class="directory-heading">{{contact.name}}</view><view class="directory-tags"><text class="directory-department">{{contact.departmentName}}</text><text wx:if="{{contact.identityCategoryName}}" class="directory-note">{{contact.identityCategoryName}}</text><text wx:if="{{contact.workGroupName}}" class="directory-note">{{contact.workGroupName}}</text></view></view>
       <button wx:if="{{!detailLoading && !detailNotice}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyContact}}" data-value="{{contact.copyText}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>

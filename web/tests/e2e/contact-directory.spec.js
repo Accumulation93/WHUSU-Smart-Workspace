@@ -38,6 +38,8 @@ test('directory only renders granted values and navigates visible positions', as
   await page.getByRole('searchbox').fill('Member');
   await expect(page.locator('.directory-position')).toHaveCount(1);
   await page.locator('#contact-a').click();
+  const firstDetailChild = await page.locator('.directory-identity').first().evaluate(element => element.parentElement.firstElementChild.className);
+  expect(firstDetailChild).toContain('directory-identity');
   await expect(page.getByRole('link', { name: ui.call })).toHaveAttribute('href', 'tel:13800138000');
   expect(detailReads).toBe(1);
   const phoneAction = page.getByRole('link', { name: ui.call });
@@ -125,7 +127,7 @@ test('directory-only admin can configure without loading member records, copy an
   await expect(page.getByText(ui.noRules,{exact:true})).toBeVisible(); expect(memberReads).toBe(0);
 });
 
-test('contact detail shows pending feedback, retries, and discards a response after returning', async ({page}) => {
+test('contact detail shows pending feedback, retries, and discards a response after leaving', async ({page}) => {
   await mockApi(page);
   let pending, attempts=0;
   const contact={key:'person',name:'Contact',departmentName:'Department',identityCategoryName:'Member',fields:[],relatedKeys:[]};
@@ -138,9 +140,11 @@ test('contact detail shows pending feedback, retries, and discards a response af
   await page.goto('/web/hr/profile'); await page.getByRole('button',{name:ui.title,exact:true}).click();
   await page.locator('#contact-person').click();
   await expect(page.getByText(ui.loadingDetail,{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:ui.back,exact:true}).click();
+  await page.goto('/web/portal');
   await pending(); await expect(page.getByText('Late value',{exact:true})).toHaveCount(0);
-  await page.locator('#contact-person').click(); await expect(page.getByRole('alert')).toHaveText(ui.contactUnavailable);
+  await page.goto('/web/hr/profile'); await page.getByRole('button',{name:ui.title,exact:true}).click();
+  await page.locator('#contact-person').click();
+  await expect(page.getByRole('alert')).toHaveText(ui.contactUnavailable);
   await page.getByRole('button',{name:ui.retry,exact:true}).click();
   await expect(page.getByRole('button',{name:ui.copyContact,exact:true})).toBeVisible();
   expect(attempts).toBe(3);

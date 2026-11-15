@@ -46,7 +46,7 @@ module.exports = {
   baseColumns: '姓名、部门、身份类别和职能组会一同显示。补充资料未勾选时，仅展示这些基本信息。', noFields: '暂无可开放的补充资料',
   baseOnly: '仅查看基本信息', copyBasic: '复制基本信息',
   empty: '暂无可见联系人', noRules: '暂无通讯录查看规则', search: '搜索姓名、部门、身份类别或职能组', noResults: '没有找到匹配的联系人',
-  details: '联系人详情', back: '返回通讯录', copyContact: '复制可见资料', loadingDetail: '正在加载联系人资料',
+  details: '联系人详情', copyContact: '复制可见资料', loadingDetail: '正在加载联系人资料',
   contactUnavailable: '这位联系人的可见范围已变化，请返回通讯录重新加载。',
   expand: '展开', collapse: '收起', selectedOptions: '已选 {count} 项',
   noPosition: '暂无岗位', noDepartment: '未设置部门', otherPositions: '其他可见岗位', copyValue: '复制', call: '拨打电话',

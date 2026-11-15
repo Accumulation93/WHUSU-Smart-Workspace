@@ -82,12 +82,6 @@ Component({
       } catch (error) { if (this.current(request) && this.data.detailKey === key) this.setData({ detailNotice: getErrorText(error, copy.loadFailed) }); }
       finally { if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false }); }
     },
-    closeContact: function() {
-      const key = this.data.detailKey;
-      session.beginRequest(this, 'contactDetail');
-      this.setData({ contact: null, detailKey: '', detailLoading: false, detailNotice: '' }, () => this.scrollTo('#contact-' + key));
-      if (!this._groups || !this._groups.length) this.load();
-    },
     toggleFilter: function(event) {
       const key = event.currentTarget.dataset.filter;
       this.setData({ ['expandedFilters.' + key]: !this.data.expandedFilters[key] }, () => this.refreshEditor());

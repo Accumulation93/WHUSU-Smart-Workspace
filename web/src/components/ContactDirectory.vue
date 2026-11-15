@@ -23,7 +23,6 @@
       </section>
     </template>
     <section v-else ref="detailPanel" class="stack">
-      <div class="card-actions"><button class="btn btn-secondary" @click="closeContact">{{ copy.back }}</button></div>
       <div class="card directory-identity"><div class="stack-tight"><span class="muted">{{ copy.details }}</span><h2 class="section-title">{{ contact?.name }}</h2><div class="directory-tags"><span class="chip chip-blue">{{ contact?.departmentName }}</span><span v-if="contact?.identityCategoryName" class="chip">{{ contact.identityCategoryName }}</span><span v-if="contact?.workGroupName" class="chip">{{ contact.workGroupName }}</span></div></div><button v-if="!detailLoading && !detailNotice" class="btn btn-secondary directory-icon-action" :aria-label="copy.copyContact" :title="copy.copyContact" @click="copyValue(contact.copyText)"><UiIcon name="copy" size-role="context-leading" /></button></div>
       <AppLoading v-if="detailLoading" :text="copy.loadingDetail" />
       <p v-if="copyNotice" class="notice-line" role="status">{{ copyNotice }}</p>
@@ -96,10 +95,6 @@ async function openContact(key) {
   finally { if (current()) detailLoading.value = false; }
 }
 function clearDetail() { detailGeneration++; contact.value = null; detailKey.value = ''; detailLoading.value = false; detailNotice.value = ''; copyNotice.value = ''; }
-async function closeContact() {
-  const key = detailKey.value; clearDetail(); await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
-  if (!groups.value.length) load();
-}
 async function locate(key) {
   if (!groups.value.some(group => group.items.some(item => item.key === key))) return openContact(key);
   clearDetail(); query.value = ''; await nextTick(); document.getElementById('contact-' + key)?.scrollIntoView({ block: 'center' });
