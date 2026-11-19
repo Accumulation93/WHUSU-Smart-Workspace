@@ -278,16 +278,25 @@ test('连续黑色笔画、三种预设与自定义颜色在画布和透明导�
   expect(result.width).toBeGreaterThan(2000);
 });
 
-test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({ page }) => {
+test('高密度画布与五档硬笔在四倍放大下逐级可辨', async ({ page }) => {
   const state = await setup(page); await enter(page);
-  expect(state.calls.find(item => item.name === 'getAuditFilePreview').body.previewMaxEdge).toBe(4096);
+  await expect.poll(() => state.calls.filter(item => item.name === 'getAuditFilePreview')
+    .some(item => item.body.previewMaxEdge === 4096)).toBe(true);
   const surface = page.locator('.signing-stage canvas');
   const dimensions = await surface.evaluate(canvas => ({ width: canvas.width, css: canvas.getBoundingClientRect().width, dpr: devicePixelRatio }));
   expect(Math.abs(dimensions.width - dimensions.css * dimensions.dpr)).toBeLessThanOrEqual(1);
   for (let i = 0; i < 7; i++) await page.getByRole('button', { name: text.zoomIn, exact: true }).click();
   const measured = [];
-  for (const width of ['1', '2', '3.5']) {
-    await panel(page,'tools'); await page.getByRole('combobox', { name: text.width, exact: true }).selectOption(width);
+  const widths = [
+    { value: 0.15, label: text.widthHairline, millimeters: 0.15 },
+    { value: 0.3, label: text.widthFine, millimeters: 0.3 },
+    { value: 0.5, label: text.widthMedium, millimeters: 0.5 },
+    { value: 0.8, label: text.widthBold, millimeters: 0.8 },
+    { value: 1.2, label: text.widthHeavy, millimeters: 1.2 }
+  ];
+  for (const width of widths) {
+    await panel(page,'tools');
+    await page.getByRole('button', { name: width.label, exact: true }).click();
     await stroke(page);
     const coverage = await page.locator('.signing-export-canvas').evaluate(canvas => {
       const data = canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), 0, 1, canvas.height).data;
@@ -295,15 +304,45 @@ test('高密度画布与三档签字笔在四倍放大下保持清晰', async ({
       return total / devicePixelRatio;
     });
     const rect=await surface.boundingBox();
-    const millimeters=width==='1'?.3:width==='2'?.5:.8;
-    const expected=millimeters*72/25.4*Math.min(rect.width/800,rect.height/400)*Math.pow(1.25,7);
-    expect(Math.abs(coverage - expected)).toBeLessThan(0.6);
+    const expected=width.millimeters*72/25.4*Math.min(rect.width/800,rect.height/400)*Math.pow(1.25,7);
+    expect(Math.abs(coverage - expected)).toBeLessThan(Math.max(0.55, expected * 0.45));
     measured.push(coverage);
     await page.getByRole('button', { name: text.undo, exact: true }).click();
     await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
   }
-  expect(measured[1]).toBeGreaterThan(measured[0] * 1.5);
-  expect(measured[2]).toBeGreaterThan(measured[1] * 1.5);
+  for (let index = 1; index < measured.length; index += 1) {
+    expect(measured[index]).toBeGreaterThan(measured[index - 1] * 1.35);
+  }
+});
+test('签章位置可按左右上下精确调整、居中并可撤销重做', async ({ page }) => {
+  const state = await setup(page);
+  await page.getByRole('button', { name: text.signature, exact: true }).click();
+  await page.getByRole('dialog').getByText('个人签名', { exact: true }).click();
+  await expect(page).toHaveURL(/audit\/signing$/);
+  await page.getByRole('tab', { name: text.move, exact: true }).click();
+  await panel(page, 'layers');
+  const horizontal = page.getByLabel(text.horizontalPosition, { exact: true });
+  const vertical = page.getByLabel(text.verticalPosition, { exact: true });
+  await horizontal.fill('78'); await horizontal.dispatchEvent('change');
+  await vertical.fill('24'); await vertical.dispatchEvent('change');
+  await expect(horizontal).toHaveValue('78');
+  await expect(vertical).toHaveValue('24');
+  await page.getByRole('button', { name: text.undo, exact: true }).click();
+  await expect(vertical).toHaveValue('30');
+  await page.getByRole('button', { name: text.redo, exact: true }).click();
+  await expect(vertical).toHaveValue('24');
+  await page.getByRole('button', { name: text.centerMaterial, exact: true }).click();
+  await expect(horizontal).toHaveValue('50');
+  await expect(vertical).toHaveValue('50');
+  await page.getByRole('button', { name: text.undo, exact: true }).click();
+  await expect(horizontal).toHaveValue('78');
+  await expect(vertical).toHaveValue('24');
+  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
+  await expect.poll(() => state.calls.filter(item => item.name === 'approveStep').length).toBe(1);
+  const material = state.calls.find(item => item.name === 'approveStep').body.signatures[0];
+  expect(material.positionX).toBeCloseTo(0.78, 2);
+  expect(material.positionY).toBeCloseTo(0.24, 2);
 });
 test('确认返回不清历史，重进立即撤销与重做；跨页撤销自动定位', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page);
@@ -445,7 +484,8 @@ test('撤回与驳回按轮次折叠，最后一轮撤回仍默认展开', async
 test('详情先预取图片，重复签署不重新请求；移动旋转删除均可撤销重做', async ({ page }) => {
   const state=await setup(page,{actionType:'both'});
   await expect.poll(()=>state.calls.filter(item=>item.name==='getMyStampImage').length).toBe(1);
-  await expect.poll(()=>state.calls.filter(item=>item.name==='getAuditFilePreview').length).toBe(1);
+  await expect.poll(()=>state.calls.filter(item=>item.name==='getAuditFilePreview').length).toBe(2);
+  const initialPreviewCalls=state.calls.filter(item=>item.name==='getAuditFilePreview').length;
   await page.getByRole('button',{name:text.stamp,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:'测试印章',exact:true}).click();
   await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
@@ -470,7 +510,7 @@ test('详情先预取图片，重复签署不重新请求；移动旋转删除�
   await page.getByRole('button',{name:text.redo,exact:true}).click();
   await page.getByRole('button',{name:text.confirm,exact:true}).click();
   expect(state.calls.filter(item=>item.name==='getMyStampImage')).toHaveLength(1);
-  expect(state.calls.filter(item=>item.name==='getAuditFilePreview')).toHaveLength(1);
+  expect(state.calls.filter(item=>item.name==='getAuditFilePreview')).toHaveLength(initialPreviewCalls);
 });
 
 

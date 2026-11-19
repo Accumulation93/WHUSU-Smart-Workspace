@@ -24,7 +24,7 @@ async function validate(){
   try {
     if(handoff.pad && !handoff.submissionId){valid.value=true;return;}
     const page=handoff.draft.files[handoff.file.id]?.currentPage||1;
-    if(!handoff.pad)initialPreview={page,promise:signingAssets.preview(handoff.draft,handoff.file,page).then(value=>value.response,()=>null)};
+    if(!handoff.pad)initialPreview={page,promise:signingAssets.preview(handoff.draft,handoff.file,page,false,{edge:2048}).then(value=>value.response,()=>null)};
     const detail=requireSuccess(await requests.call('getSubmissionDetail',{submissionId:handoff.submissionId}));
     if(!alive || handoff!==getSigningHandoff())return;
     if(!signingStepCurrent(detail,{...handoff,file:handoff.sourceFile||handoff.file})){handoff.draft.locked=true;notice.value=text.stale;return;}

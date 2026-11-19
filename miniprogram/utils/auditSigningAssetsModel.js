@@ -55,18 +55,23 @@ function createSigningAssets(call, decode) {
     pending.set(key, job.promise); if (background) queue.push(job); else queue.unshift(job); pump();
     return job.promise;
   }
-  async function result(name, data, source) {
-    const response = await call(name, data);
+  async function result(name, data, source, requestOptions) {
+    const response = await call(name, data, requestOptions);
     if (!response || response.status !== 'success') throw new Error('asset_unavailable');
     const src = source ? source(response) : '';
     if (source && !src) throw new Error('asset_unavailable');
     const image = src ? await decode(src) : null;
     return { response, src, image };
   }
-  function preview(draft, file, page, background) {
-    return get(draft, 'file:' + file.id + ':' + file.fileHash + ':' + page, () => result('getAuditFilePreview',
-      { fileId: file.id, page, previewMaxEdge: 4096, previewFormat: 'webp' }, response =>
-        response.data && String(response.previewMime).startsWith('image/') ? 'data:' + response.previewMime + ';base64,' + response.data : ''), background);
+  function preview(draft, file, page, background, options) {
+    const requestedEdge = Number(options && options.edge);
+    const edge = Number.isFinite(requestedEdge) ? Math.max(1024, Math.min(4096, Math.round(requestedEdge))) : 4096;
+    const format = options && options.format === 'png' ? 'png' : 'webp';
+    // 清晰度与格式都属于派生资源身份；高低清预览不能命中同一个缓存项。
+    return get(draft, 'file:' + file.id + ':' + file.fileHash + ':' + page + ':' + edge + ':' + format, () =>
+      result('getAuditFilePreview', { fileId: file.id, page, previewMaxEdge: edge, previewFormat: format }, response =>
+        response.data && String(response.previewMime).startsWith('image/') ? 'data:' + response.previewMime + ';base64,' + response.data : '',
+      { timeout: edge >= 4096 ? 45000 : 30000 }), background);
   }
   function stamp(draft, id, background) {
     return get(draft, 'stamp:' + id, () => result('getMyStampImage',
@@ -80,7 +85,9 @@ function createSigningAssets(call, decode) {
   }
   function warm(draft, files, stamps) {
     if (!draft || draft.locked) return;
-    files.forEach(file => preview(draft, file, draft.files[file.id] && draft.files[file.id].currentPage || 1, true).catch(() => {}));
+    files.forEach(file => preview(draft, file, draft.files[file.id] && draft.files[file.id].currentPage || 1, true, { edge: 2048 })
+      .then(value => preview(draft, file, draft.files[file.id] && draft.files[file.id].currentPage || 1, true, { edge: 4096 }).catch(() => value))
+      .catch(() => {}));
     stamps.forEach(row => stamp(draft, row.id, true).catch(() => {}));
   }
   return { reset, preview, stamp, directory, image, warm, pause() { paused = true; }, resume() { paused = false; pump(); } };

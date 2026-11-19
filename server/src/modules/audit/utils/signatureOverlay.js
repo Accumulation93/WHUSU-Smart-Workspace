@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, degrees } = require('pdf-lib');
 const { hashFile } = require('./hashChain');
 const { signatureGeometry } = require('./auditSignatureGeometry');
+const { displayedPdfPageSize, uprightImageOptions } = require('./auditPageGeometry');
 
 function clamp01(value, fallback) {
   const n = Number(value);
@@ -34,7 +35,8 @@ async function buildSignaturePng(sig, targetWidth) {
 }
 
 async function overlayOnImageBuffer(sourceBuffer, signatures) {
-  const image = sharp(sourceBuffer);
+  // JPEG 的 EXIF 方向先归一化，后续落点与新预览使用同一坐标系。
+  const image = sharp(sourceBuffer).autoOrient();
   const metadata = await image.metadata();
   const imgWidth = metadata.width || 800;
   const imgHeight = metadata.height || 600;
@@ -93,16 +95,18 @@ async function overlayOnPdfBuffer(sourceBuffer, signatures) {
     if (!Number.isInteger(pageNum) || pageNum < 1 || pageNum > pages.length) return null;
     const pageIndex = pageNum - 1;
     const page = pages[pageIndex];
-    const pageSize = page.getSize();
+    const pageSize = displayedPdfPageSize(page);
     const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
     const rotation = clampNumber(sig.rotation, 0, -180, 180);
     if (sig.widthRatio != null) {
       const sourceSize = await sharp(sigBuffer).metadata();
-      const geometry = signatureGeometry(sig, pageSize.width, pageSize.height, sourceSize.width, sourceSize.height, true);
+      const geometry = Object.assign(signatureGeometry(sig, pageSize.width, pageSize.height, sourceSize.width, sourceSize.height, true),
+        { frameWidth: pageSize.width, frameHeight: pageSize.height });
       const rotated = rotation ? await sharp(sigBuffer).rotate(rotation, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer() : sigBuffer;
       const image = await pdfDoc.embedPng(rotated);
-      page.drawImage(image, { x: geometry.left, y: pageSize.height - geometry.top - geometry.rotatedHeight,
-        width: geometry.rotatedWidth, height: geometry.rotatedHeight, opacity: 1 });
+      const placement = uprightImageOptions(page, { ...geometry, width: geometry.rotatedWidth, height: geometry.rotatedHeight });
+      page.drawImage(image, { x: placement.x, y: placement.y, width: placement.width, height: placement.height,
+        rotate: degrees(-placement.rotation), opacity: 1 });
       applied += 1;
       continue;
     }
@@ -120,16 +124,12 @@ async function overlayOnPdfBuffer(sourceBuffer, signatures) {
 
     const sigWidth = Math.max(48, Math.min(pageSize.width * 0.18 * size, pageSize.width * 0.55, 300));
     const sigHeight = (pdfImage.height / pdfImage.width) * sigWidth;
-    const posX = clamp01(sig.positionX, 0.5) * pageSize.width;
-    const posY = clamp01(sig.positionY, 0.5) * pageSize.height;
-
-    page.drawImage(pdfImage, {
-      x: Math.max(0, Math.min(pageSize.width - sigWidth, posX - sigWidth / 2)),
-      y: Math.max(0, Math.min(pageSize.height - sigHeight, pageSize.height - posY - sigHeight / 2)),
-      width: sigWidth,
-      height: sigHeight,
-      opacity: sig.signatureType === 'stamp' ? 0.9 : 0.95
-    });
+    const placement = uprightImageOptions(page, { width: sigWidth, height: sigHeight,
+      centerX: clamp01(sig.positionX, 0.5) * pageSize.width,
+      centerY: clamp01(sig.positionY, 0.5) * pageSize.height,
+      frameWidth: pageSize.width, frameHeight: pageSize.height });
+    page.drawImage(pdfImage, { x: placement.x, y: placement.y, width: placement.width, height: placement.height,
+      rotate: degrees(-placement.rotation), opacity: sig.signatureType === 'stamp' ? 0.9 : 0.95 });
     applied += 1;
   }
 

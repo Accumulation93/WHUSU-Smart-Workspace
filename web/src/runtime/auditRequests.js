@@ -4,11 +4,11 @@ import copy from '@/locales/zh-CN/index.js';
 export function auditRequests() {
   const pending = new Set();
   let disposed = false;
-  async function call(name, data) {
+  async function call(name, data, options = {}) {
     if (disposed) throw new Error('closed');
     const controller = new AbortController();
     const entry = { controller, timer: null, timedOut: false };
-    entry.timer = setTimeout(() => { entry.timedOut = true; controller.abort(); }, 15000);
+    entry.timer = setTimeout(() => { entry.timedOut = true; controller.abort(); }, Math.max(1000, Number(options.timeout) || 15000));
     pending.add(entry);
     try { return await callApi(name, data, { signal: controller.signal }); }
     catch (error) { if (entry.timedOut) throw new Error(copy.errors.requestFailed); throw error; }

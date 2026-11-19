@@ -1,6 +1,7 @@
 @import '../../../main/styles/home.wxss';
 .signing-page { animation: none; transform: none; display: flex; flex-direction: column; padding: var(--ui-inline-gap); padding-bottom: calc(var(--ui-inline-gap) + env(safe-area-inset-bottom)); box-sizing: border-box; }
 .signing-card { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; flex-direction: column; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); margin: 0; animation: none; transform: none; }
+.signing-main { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; flex-direction: column; gap: 4px; }
 .signing-workspace { flex: 1 1 0; min-height: 0; display: block; }
 .signing-card > .section-title { flex: none; }
 .signing-notice { font-size: var(--ui-type-body); line-height: 1.6; color: #64748b; }
@@ -21,10 +22,11 @@
 .signing-layer-item--active .signing-layer-sheet { border-color: #2563eb; color: #2563eb; }
 .signing-layer-rank { position: absolute; right: 0; bottom: 0; font-size: var(--ui-type-micro); color: #64748b; }
 .signing-layer-name { display: block; white-space: nowrap; text-align: center; font-size: var(--ui-type-meta); line-height: 1.5; color: #334155; }
-.signing-adjustments { display: grid; flex: none; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: 20px; padding: 8px 8px 12px; box-sizing: border-box; border-top: 1px solid #e2e8f0; }
+.signing-adjustments { display: grid; flex: none; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; gap: 16px 20px; padding: 12px 10px 16px; box-sizing: border-box; border-top: 1px solid #e2e8f0; }
 .signing-adjustment { min-width: 0; }
 .signing-adjustment-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--ui-type-label); line-height: 1.5; color: #475569; }
-.signing-adjustments slider { display: block; height: 48px; margin: 0 12px; }
+.signing-adjustments slider { display: block; height: 48px; margin: 0 8px; }
+.signing-center-button { grid-column: 1 / -1; width: auto; min-width: 120px; min-height: 40px; margin: 0 auto; padding: 6px 18px; }
 .signing-footer { margin: 0; flex: none; padding-top: 12px; border-top: 1px solid #e2e8f0; }
 .signing-sidepanel { display: flex; flex: none; flex-direction: column; min-width: 0; gap: var(--ui-inline-gap); }
 .signing-save-option { padding: var(--ui-inline-gap); border: 1px solid #cbd5e1; border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,#ffffff,#f8fbff); font-size: var(--ui-type-label); line-height: 1.5; }
@@ -33,7 +35,7 @@
 /* 签署页占满可用视口；工具抽屉浮于画布，不再挤压文件。 */
 page .page.signing-page { padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)) !important; overflow: hidden; }
 page .signing-page .card.signing-card { position: relative; gap: 4px; padding: 0 !important; margin: 0 !important; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
-.signing-sidepanel { position: absolute; z-index: 10; right: 0; top: 44px; bottom: 48px; width: min(360px, 90%); padding: 12px; box-sizing: border-box; border: 1px solid #93c5fd; border-radius: var(--ui-field-radius); background: linear-gradient(135deg,#ffffff,#eff6ff); box-shadow: 0 8px 24px rgba(15,23,42,0.16); }
+.signing-sidepanel { position: relative; z-index: 10; flex: none; width: 100%; max-height: 42%; padding: 12px; box-sizing: border-box; border: 1px solid #93c5fd; border-radius: var(--ui-field-radius); background: linear-gradient(135deg,#ffffff,#eff6ff); box-shadow: 0 8px 24px rgba(15,23,42,0.16); }
 .signing-bottom-bar { display: flex; flex: none; align-items: center; gap: 8px; min-width: 0; }
 .signing-bottom-bar .secondary-btn, .signing-bottom-bar .primary-btn { min-height: 36px; height: auto; padding: 4px 10px; margin: 0; font-size: var(--ui-type-meta); }
 .signing-toggle { flex: none; width: auto; min-width: 0; }
@@ -44,3 +46,7 @@ page .signing-page .card.signing-card { position: relative; gap: 4px; padding: 0
 .signing-pages > view { min-width: 48px; }
 .signing-bottom-bar > .signing-notice { position: absolute; z-index: 11; bottom: 44px; left: 4px; right: 4px; background: linear-gradient(135deg,#ffffff,#eff6ff); padding: 8px; border-radius: var(--ui-field-radius); }
 @media (orientation: portrait) { .signing-bottom-bar { flex-wrap: wrap; } }
+@media (orientation: landscape) {
+  .signing-main--layers { flex-direction: row; align-items: stretch; }
+  .signing-main--layers .signing-sidepanel { width: min(340px, 48%); height: 100%; max-height: 100%; }
+}

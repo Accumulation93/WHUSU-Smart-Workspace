@@ -27,6 +27,8 @@ const MAX_PDF_RENDER_CONCURRENCY = 2;
 let activePdfRenders = 0;
 const pdfRenderQueue = [];
 const previewPixels = require('../utils/previewPixelsCache').createPreviewPixelsCache();
+const { displayedPdfPageSize } = require('../utils/auditPageGeometry');
+const { renderImagePreview } = require('../utils/auditImagePreview');
 
 ensurePrivateDirectory(UPLOAD_DIR);
 
@@ -114,11 +116,14 @@ async function renderPdfPageWithPdfjs(filePath, page, density) {
     }
   };
   const data = new Uint8Array(fs.readFileSync(filePath));
+  const standardFontDataUrl = path.join(path.dirname(require.resolve('pdfjs-dist/legacy/build/pdf.mjs')), '../../standard_fonts')
+    .replace(/\\/g, '/') + '/';
   const loadingTask = pdfjsLib.getDocument({
     data,
     disableWorker: true,
     isEvalSupported: false,
     useSystemFonts: true,
+    standardFontDataUrl,
     canvasFactory
   });
   const pdfDoc = await loadingTask.promise;
@@ -300,17 +305,20 @@ router.post('/getAuditFilePreview', async (req, res) => {
 
     const mimeType = file.mime_type;
     if (mimeType && mimeType.startsWith('image/')) {
-      const dimensions = await require('sharp')(stored.buffer).metadata();
+      const requestedEdge = Number(req.body.previewMaxEdge);
+      const edge = Number.isFinite(requestedEdge) && requestedEdge > 0 ? requestedEdge : 4096;
+      const format = req.body.previewFormat === 'webp' ? 'webp' : 'png';
+      const rendered = await renderImagePreview(stored.buffer, edge, format);
       return res.json({
         status: 'success',
         fileName: file.file_name,
         mimeType,
-        previewMime: mimeType,
+        previewMime: 'image/' + format,
         totalPages: 1,
-        pageWidth: dimensions.width,
-        pageHeight: dimensions.height,
+        pageWidth: rendered.width,
+        pageHeight: rendered.height,
         page: 1,
-        data: stored.buffer.toString('base64')
+        data: rendered.buffer.toString('base64')
       });
     }
 
@@ -331,7 +339,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
             const document = await require('pdf-lib').PDFDocument.load(stored.buffer, { updateMetadata: false });
             totalPages = document.getPageCount() || 1;
             const targetPage = Math.max(1, Math.min(page, totalPages));
-            const pageSize = document.getPages()[targetPage - 1].getSize();
+            const pageSize = displayedPdfPageSize(document.getPages()[targetPage - 1]);
             // 高清签署按有界像素预算重新栅格化 PDF，不把普通预览拉伸成大图。
             const density = edge ? 72 * edge / Math.max(pageSize.width, pageSize.height) : 150;
             const rendered = await renderPdfPage(verifiedPreviewPath, targetPage, req.signal, density);

@@ -21,8 +21,9 @@
       <button v-for="preset in presets" :key="preset.value" class="btn-quiet signing-color" :aria-label="text[preset.label]" :title="text[preset.label]" :aria-pressed="!erasing && color === preset.value" @click="color = preset.value; erasing = false"><span class="signing-swatch" :style="{backgroundColor:preset.value}"></span></button>
       <button class="btn-quiet signing-color" :aria-label="text.custom" :title="text.custom" :aria-expanded="custom" @click="custom = !custom">#</button>
       <button class="btn-quiet" :aria-pressed="erasing" @click="erasing = !erasing">{{ text.erase }}</button>
-      <label class="field signing-width"><span class="field-label">{{ erasing ? text.eraserWidth : text.width }}</span><select v-model.number="penWidth" class="field-input"><option :value="1">{{ text.thin }}</option><option :value="2">{{ text.medium }}</option><option :value="3.5">{{ text.thick }}</option></select></label>
     </div>
+    <div v-if="mode === 'pen' && !erasing" class="signing-pen-styles" role="radiogroup" :aria-label="text.penStyle"><button v-for="style in penStyles" :key="style.value" class="btn-quiet" :class="{'btn-quiet-primary': penStyle === style.value}" :aria-pressed="penStyle === style.value" @click="penStyle = style.value">{{ style.label }}</button></div>
+    <div v-if="mode === 'pen'" class="signing-widths" role="radiogroup" :aria-label="erasing ? text.eraserWidth : text.width"><button v-for="option in widthOptions" :key="option.value" class="signing-width-option" :class="{'signing-width-option--active': penWidth === option.value}" :aria-pressed="penWidth === option.value" @click="penWidth = option.value"><span class="signing-width-stroke" :style="{height:option.height+'px'}"></span><span>{{ option.label }}</span></button></div>
     <div v-if="custom && (mode === 'pen' || mode === 'move')" class="signing-color-panel">
       <label class="field"><span class="field-label">{{ text.hex }}</span><input v-model="colorInput" class="field-input" maxlength="7" @change="applyColor" /></label>
       <label v-for="(label,index) in channelLabels" :key="label" class="field"><span class="field-label">{{ label }}</span><input :value="channels[index]" type="range" min="0" max="255" @input="setChannel(index,$event.target.value)" /></label>
@@ -50,6 +51,9 @@
     <div v-if="mode === 'move' && activeMaterial" class="signing-adjustments">
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.size }}</span><span>{{ Math.round(displayedSize*100) }}%</span></span><input :aria-label="text.size" type="range" min="50" max="220" step="5" :disabled="busy || saving" :value="displayedSize*100" @input="previewAdjustment('size',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="resizeMaterial($event.target.value)" /></label>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.rotation }}</span><span>{{ displayedRotation }}°</span></span><input :aria-label="text.rotation" type="range" min="-180" max="180" step="5" :disabled="busy || saving" :value="displayedRotation" @input="previewAdjustment('rotation',$event.target.value)" @pointercancel="cancelAdjustment" @change="rotateMaterial($event.target.value)" /></label>
+      <label class="field"><span class="signing-adjustment-label"><span>{{ text.horizontalPosition }}</span><span>{{ Math.round(displayedX*100) }}%</span></span><input :aria-label="text.horizontalPosition" type="range" min="0" max="100" step="1" :disabled="busy || saving" :value="displayedX*100" @input="previewAdjustment('positionX',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="positionMaterial('x',$event.target.value)" /></label>
+      <label class="field"><span class="signing-adjustment-label"><span>{{ text.verticalPosition }}</span><span>{{ Math.round(displayedY*100) }}%</span></span><input :aria-label="text.verticalPosition" type="range" min="0" max="100" step="1" :disabled="busy || saving" :value="displayedY*100" @input="previewAdjustment('positionY',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="positionMaterial('y',$event.target.value)" /></label>
+      <button class="btn btn-secondary signing-center-material" :disabled="busy || saving" @click="centerMaterial">{{ text.centerMaterial }}</button>
     </div>
     </div>
     <div class="signing-bottom-bar">
@@ -85,7 +89,10 @@ const emit = defineEmits(['confirm','cancel']);
 const entryLayerId = 'entry_' + nextLayerOrder();
 const saved = clone(props.rollback || props.draft), fileDraft = reactive(signingDrafts.file(props.draft, props.file.id));
 const modes = ['browse','move','pen'], presets = [{label:'black',value:'#000000'},{label:'blue',value:'#0000ff'},{label:'red',value:'#ff0000'}];
-const mode=ref(props.initialMode), color=ref('#000000'), colorInput=ref('#000000'), penWidth=ref(2), erasing=ref(false), custom=ref(false);
+const mode=ref(props.initialMode), color=ref('#000000'), colorInput=ref('#000000'), penWidth=ref(0.5), penStyle=ref('hard'), erasing=ref(false), custom=ref(false);
+const penStyles=[{value:'hard',label:text.hardPen},{value:'soft',label:text.softPen}];
+const widthOptions=[{value:0.15,label:text.widthHairline,height:1},{value:0.3,label:text.widthFine,height:2},
+  {value:0.5,label:text.widthMedium,height:3},{value:0.8,label:text.widthBold,height:5},{value:1.2,label:text.widthHeavy,height:7}];
 const zoom=ref(1), page=ref(fileDraft.currentPage), totalPages=ref(1), busy=ref(true), notice=ref(''), exportNotice=ref(''), saving=ref(false), activeId=ref(props.active);
 const stageRef=ref(null), surfaceRef=ref(null), inkRef=ref(null);
 const channels=computed(()=>[1,3,5].map(offset=>parseInt(normalizeColor(color.value).slice(offset,offset+2),16)));
@@ -101,6 +108,8 @@ function reorderLayer(direction){if(busy.value||saving.value)return;const id=sel
 const adjustment=ref(null);
 const displayedSize=computed(()=>adjustment.value?.values.size ?? activeMaterial.value?.size ?? 1);
 const displayedRotation=computed(()=>adjustment.value?.values.rotation ?? activeMaterial.value?.rotation ?? 0);
+const displayedX=computed(()=>adjustment.value?.values.positionX ?? activeMaterial.value?.positionX ?? 0.5);
+const displayedY=computed(()=>adjustment.value?.values.positionY ?? activeMaterial.value?.positionY ?? 0.5);
 function previewAdjustment(key,value){const material=activeMaterial.value;if(!material||busy.value||saving.value)return;const values={[key]:Number(value)};if(key==='size'&&material.widthRatio!=null)values.widthRatio=clamp(material.widthRatio*values.size/(material.size||1),0.00000001,1);adjustment.value={id:material._idx,values};render();}
 function cancelAdjustment(){adjustment.value=null;render();}
 const activeMaterial=computed(()=>materials.value.find(item=>item._idx===activeId.value));
@@ -125,10 +134,10 @@ let alive=true, sequence=0, observer=null, frame=null, gesture=null, stroke=null
 function applyColor(){ if(!/^#[0-9a-f]{6}$/i.test(colorInput.value)){exportNotice.value=text.colorInvalid;return;} color.value=normalizeColor(colorInput.value); erasing.value=false; exportNotice.value=''; }
 function setChannel(index,value){ const next=channels.value.slice();next[index]=Number(value);color.value='#'+next.map(channel=>channel.toString(16).padStart(2,'0')).join('');colorInput.value=color.value;erasing.value=false; }
 function imageOf(src){return signingAssets.image(props.draft,src).then(image=>{loadedImages.set(src,image);return image;});}
-async function pageData(number) {
+async function pageData(number, options = {}) {
   let value;
   if(props.pad){const size=blankPageSize(fileDraft,surfaceRef.value.getBoundingClientRect());const canvas=document.createElement('canvas');canvas.width=Math.ceil(size.width);canvas.height=Math.ceil(size.height);const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);value={image:await imageOf(canvas.toDataURL()),width:size.width,height:size.height,total:1};}
-  else {const prepared=await signingAssets.preview(props.draft,props.file,number);const response=prepared.response;value={image:prepared.image,width:response.pageWidth,height:response.pageHeight,total:response.totalPages};}
+  else {const prepared=await signingAssets.preview(props.draft,props.file,number,Boolean(options.background),{edge:options.edge||2048});const response=prepared.response;value={image:prepared.image,width:response.pageWidth,height:response.pageHeight,total:response.totalPages};}
   value.width=value.width||value.image.width;value.height=value.height||value.image.height;
   if(!alive)throw Error('closed');
   return value;
@@ -136,7 +145,7 @@ async function pageData(number) {
 async function loadPage(number){
   const request=++sequence;busy.value=true;notice.value='';stroke=null;gesture=null;pointers.clear();
   try {
-    const value=await pageData(number);
+    const value=await pageData(number,{edge:2048});
     if(!alive || request!==sequence)return;
     current=value;page.value=number;fileDraft.currentPage=number;totalPages.value=value.total||1;panX=0;panY=0;zoom.value=1;
     await nextTick();resize();
@@ -148,8 +157,19 @@ async function loadPage(number){
       const box=signatureGeometry(widthRatio===null?material:{...material,widthRatio},value.width,value.height,image.width,image.height,props.file.mimeType==='application/pdf');
       material.widthRatio=box.width/value.width;
     }
+    upgradePage(number,request);
   }catch(_){if(alive && request===sequence){notice.value=text.failed;current=null;}}
   finally{if(alive && request===sequence){busy.value=false;render();}}
+}
+async function upgradePage(number, request){
+  try {
+    const value=await pageData(number,{edge:4096,background:true});
+    if(!alive || request!==sequence || page.value!==number)return;
+    current={...current,image:value.image,width:value.width,height:value.height,total:value.total};
+    render();
+  }catch(_) {
+    // 低清页已能准确浏览、定位和书写；高清升级失败不清空当前工作区。
+  }
 }
 function resize(){render();}
 function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame(()=>{frame=null;if(!current || !surfaceRef.value)return;const surface=surfaceRef.value,context=surface.getContext('2d'),ink=inkRef.value;const rect=surface.getBoundingClientRect();if(!(rect.width>0&&rect.height>0))return;if(props.pad&&!stroke){const blank=blankPageSize(fileDraft,rect);current.width=blank.width;current.height=blank.height;}const size=surfaceSize(rect.width,rect.height,window.devicePixelRatio),ratio=size.ratio;for(const canvas of [surface,ink]){if(canvas.width!==size.width)canvas.width=size.width;if(canvas.height!==size.height)canvas.height=size.height;}camera=fitCamera(rect.width,rect.height,current.width,current.height,zoom.value,panX,panY);context.clearRect(0,0,surface.width,surface.height);context.save();context.scale(ratio,ratio);context.translate(camera.left,camera.top);context.scale(camera.width/current.width,camera.height/current.height);context.drawImage(current.image,0,0,current.width,current.height);
@@ -162,7 +182,7 @@ function render(){if(!alive || frame!==null)return;frame=requestAnimationFrame((
 function point(event){return filePoint(event.clientX,event.clientY,surfaceRef.value.getBoundingClientRect(),camera);}
 function distance(){const values=Array.from(pointers.values());return Math.hypot(values[0].x-values[1].x,values[0].y-values[1].y);}
 function midpoint(){const values=Array.from(pointers.values());return{x:(values[0].x+values[1].x)/2,y:(values[0].y+values[1].y)/2};}
-function start(event){if(busy.value||notice.value||saving.value||!camera)return;event.preventDefault();surfaceRef.value.setPointerCapture(event.pointerId);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size>1){finishMove(false);stroke=null;gesture={kind:'pinch',distance:distance(),zoom:zoom.value,midX:midpoint().x,midY:midpoint().y,panX,panY};render();return;}const p=point(event);if(!p.inside)return;const material=activeMaterial.value;gesture={material:material?{id:material._idx,positionX:material.positionX,positionY:material.positionY}:null,kind:mode.value,x:event.clientX,y:event.clientY,panX,panY,point:p,moved:false,offsetX:material?p.x-material.positionX:0,offsetY:material?p.y-material.positionY:0};if(mode.value==='pen'){stroke={layerId:entryLayerId,page:page.value,type:erasing.value?'erase':'draw',color:color.value,width:penWidthRatio(penWidth.value,{width:current.width,height:current.height,pdf:props.file.mimeType==='application/pdf',pad:props.pad})*(erasing.value?5:1),points:[{x:p.x,y:p.y}]};render();}}
+function start(event){if(busy.value||notice.value||saving.value||!camera)return;event.preventDefault();surfaceRef.value.setPointerCapture(event.pointerId);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size>1){finishMove(false);stroke=null;gesture={kind:'pinch',distance:distance(),zoom:zoom.value,midX:midpoint().x,midY:midpoint().y,panX,panY};render();return;}const p=point(event);if(!p.inside)return;const material=activeMaterial.value;gesture={material:material?{id:material._idx,positionX:material.positionX,positionY:material.positionY}:null,kind:mode.value,x:event.clientX,y:event.clientY,panX,panY,point:p,moved:false,offsetX:material?p.x-material.positionX:0,offsetY:material?p.y-material.positionY:0};if(mode.value==='pen'){stroke={layerId:entryLayerId,page:page.value,type:erasing.value?'erase':'draw',color:color.value,penStyle:penStyle.value,width:penWidthRatio(penWidth.value,{width:current.width,height:current.height,pdf:props.file.mimeType==='application/pdf',pad:props.pad})*(erasing.value?5:1),points:[{x:p.x,y:p.y}]};render();}}
 function move(event){if(!pointers.has(event.pointerId)||!gesture)return;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size>1){const mid=midpoint();zoom.value=clamp(gesture.zoom*distance()/Math.max(1,gesture.distance),1,16);const pan=pinchPan(surfaceRef.value.getBoundingClientRect(),gesture,zoom.value,mid.x,mid.y);panX=pan.x;panY=pan.y;render();return;}const p=point(event),g=gesture;g.moved=g.moved||Math.hypot(event.clientX-g.x,event.clientY-g.y)>3;if(g.kind==='pen'&&stroke){stroke.points.push({x:p.x,y:p.y});}else if(g.kind==='browse'){panX=g.panX+event.clientX-g.x;panY=g.panY+event.clientY-g.y;}else if(g.kind==='move'&&activeMaterial.value&&g.moved){activeMaterial.value.positionX=clamp(p.x-g.offsetX,0,1);activeMaterial.value.positionY=clamp(p.y-g.offsetY,0,1);}render();}
 function finishMove(commit){
   const old=gesture&&gesture.material, material=old&&props.draft.materials.find(item=>item._idx===old.id);
@@ -182,6 +202,8 @@ function commitMaterial(material,values){
 }
 function resizeMaterial(value){adjustment.value=null;const material=activeMaterial.value;if(!material)return;const size=Number(value)/100,values={size};if(material.widthRatio!=null)values.widthRatio=clamp(material.widthRatio*size/(material.size||1),0.00000001,1);commitMaterial(material,values);render();}
 function rotateMaterial(value){adjustment.value=null;if(activeMaterial.value)commitMaterial(activeMaterial.value,{rotation:Number(value)});render();}
+function positionMaterial(axis,value){adjustment.value=null;const material=activeMaterial.value;if(!material)return;commitMaterial(material,axis==='y'?{positionY:Number(value)/100}:{positionX:Number(value)/100});render();}
+function centerMaterial(){adjustment.value=null;if(activeMaterial.value)commitMaterial(activeMaterial.value,{positionX:0.5,positionY:0.5});render();}
 async function changeHistory(forward){if(busy.value||saving.value)return;const target=(forward?redo:undo)(fileDraft.history,props.draft.materials);if(target===null)return;if(target!==page.value)await loadPage(target);else render();}
 async function clearInk(){if(busy.value||saving.value)return;if(await confirmAction({title:text.clearTitle,body:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive||busy.value||saving.value)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
 async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);for(const layer of (props.pad?[null]:inkExportGroups(fileDraft.history,props.draft.materials.filter(item=>item.fileId===props.file.id),number))){const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);const region=layer?groupExportRegion(layer,size.width,size.height):{left:0,top:0,width:size.width,height:size.height};canvas.width=region.width;canvas.height=region.height;if(layer)renderExportGroup(ctx,document.createElement('canvas'),fileDraft.history,layer,size.width,size.height,region);else renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const raw=crop.toDataURL('image/png'),imageData=props.pad?withSignatureWidth(raw,pageWidthMm({pad:true})*bounds.width/size.width):raw;if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+(layer?layer.id+'_page_'+number:number),inkLayerId:layer?layer.id:'',layerOrder:layer?layer.order:0,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/size.width,positionX:(region.left+bounds.left+bounds.width/2)/size.width,positionY:(region.top+bounds.top+bounds.height/2)/size.height,size:1,rotation:0,page:number});}}return exports;}
@@ -213,9 +235,12 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-color{flex:1}
 .signing-swatch{width:var(--ui-signing-swatch-size);height:var(--ui-signing-swatch-size);border-radius:var(--ui-compact-radius)}
 .signing-color[aria-pressed=true]{border-color:var(--ui-blue-700);background:var(--ui-option-selected-bg)}
-.signing-width{display:flex;flex-direction:row;align-items:center;gap:var(--ui-signing-tool-gap)}
-.signing-width .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
-.signing-width{min-width:0;max-width:var(--ui-signing-width-control)}
+.signing-pen-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-signing-tool-gap)}
+.signing-pen-styles .btn-quiet{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
+.signing-widths{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--ui-signing-tool-gap)}
+.signing-width-option{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-width:0;min-height:44px;padding:5px 2px;border:1px solid var(--ui-line);border-radius:var(--ui-compact-radius);background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(246,249,255,.88));color:var(--ui-text-muted);font-size:var(--ui-type-micro);line-height:1.2;cursor:pointer}
+.signing-width-option--active{border-color:var(--ui-blue-700);background:var(--ui-option-selected-bg);color:var(--ui-blue-700);box-shadow:0 4px 9px rgba(37,99,235,.12)}
+.signing-width-stroke{display:block;width:26px;min-height:1px;border-radius:999px;background:currentColor}
 .signing-stage{position:relative;flex:1 1 0;min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-option-selected-bg);box-shadow:inset 0 0 0 2px var(--ui-blue-500)}
 .signing-stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
 .signing-stage-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--ui-field-bg)}
@@ -236,6 +261,7 @@ onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)obse
 .signing-layer-name{display:block;white-space:nowrap;text-align:center;font-size:var(--ui-type-meta);line-height:var(--ui-leading-body)}
 .signing-adjustments{display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-signing-adjustment-gap);padding:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border)}
 .signing-adjustments .field{min-width:0;gap:0}
+.signing-center-material{grid-column:1/-1;justify-self:center;min-width:120px;min-height:var(--ui-signing-tool-height)}
 .signing-adjustment-label{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
 .signing-adjustments input[type=range]{display:block;box-sizing:border-box;width:100%;height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x;accent-color:var(--ui-blue-700)}
 .signing-topbar{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:var(--ui-signing-control-gap);flex:none}

@@ -37,7 +37,7 @@
 | `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 业务图标用 `sizeRole`；手机 rpx、Pad 竖屏/横屏 px 独立收紧；本体受槽位边界约束，不用 emoji |
 | `ui-navbar` | `miniprogram/components/ui-navbar/` | 全站统一顶栏（自绘导航条） | 自己量状态栏与胶囊、自己固定定位与占位、自己在横竖屏切换后重算；`z-index: 90` 必须低于全屏弹窗遮罩（98/99 起），弹窗打开时遮罩能连顶栏一起盖住 |
 | `app-toast` | `miniprogram/components/app-toast/` | 承接全部状态提示（成功、失败、加载、普通提示） | 深色半透明块 + 白色状态图标在上、正文在下；字数不受限，超出视口上限时卡内滚动；三档设备共用一套尺寸，不依赖页面变量继承 |
-| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 独立页面连续签署 | 固定操作区与充满剩余视口的 Canvas 2D，设置和图层面板浮在画布上且正文单独滚动；共享连续路径、硬笔/软笔、五档物理笔宽、颜色、擦除和步骤内撤销历史；PDF/照片按实际页面比例预览，透明层导出 |
+| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 独立页面连续签署 | 紧凑工具栏与充满剩余视口的 Canvas 2D；共享连续路径、硬笔/软笔、五档物理笔宽、颜色、擦除和步骤内撤销历史；PDF/照片按实际页面比例预览，透明层导出 |
 
 统一状态提示契约：`miniprogram/utils/appToast.js` 在小程序启动时接管 `wx.showToast`、`wx.showLoading`、`wx.hideToast`、`wx.hideLoading`，业务调用点保持原生签名不变，也不需要改动；每个页面 WXML 末尾挂一个 `<app-toast />` 实例。提示由组件自绘，替代微信原生提示的固定方框：正文按内容自然换行、行数不限，超过视口上限时在卡片内滚动，任何长度的文案都能完整读到；停留时长按可读字数自适应（下限 1.8 秒、上限 6 秒），加载态由业务显式 `hideLoading` 结束并带 20 秒兜底。没有挂载实例时回退微信原生实现，`options.image` 的自定义图片提示同样保留原生渲染。
 

@@ -1,4 +1,5 @@
 const copy = require('../../package-resources/locales/zh-CN/auditSigning');
+const common = require('../../../../locales/zh-CN/common');
 const assets = require('../../../../utils/auditSigningAssets');
 const ink = require('../../../../utils/auditInk');
 const drafts = require('../../../../utils/auditSigningDrafts');
@@ -9,16 +10,23 @@ const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 Component({
   properties: {
     initialImage: { type: String, value: '' },
-    fileImage: { type: String, value: '', observer() { if (this._surface) this._loadImage(); } },
+    fileImage: { type: String, value: '', observer(next, previous) {
+      if (this._surface) this._loadImage({ preserveCamera: Boolean(next && previous && this._background) });
+    } },
     layoutKey: { type: String, value: '', observer() { wx.nextTick(() => { if (this._alive && this._surface) this.measure(); }); } },
     fileId: { type: String, value: '' }, page: { type: Number, value: 1 },
     documentWidth: { type: Number, value: 800 }, documentHeight: { type: Number, value: 400 },
     pdf: { type: Boolean, value: false }, initialMode: { type: String, value: 'pen' },
     activeId: { type: String, value: '', observer() { this._syncRecolor(); if (this._surface) this._render(); } },
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
-    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 2 }
+    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 0.5 },
+    compactTools: { type: Boolean, value: false }
   },
-  data: { copy, mode: 'pen', color: '#000000', erasing: false, custom: false, toolsExpanded: false,
+  data: { copy, common, mode: 'pen', color: '#000000', penStyle: 'hard', penWidth: 0.5, erasing: false, custom: false, toolsExpanded: false,
+    penStyles: [{ value: 'hard', label: copy.hardPen }, { value: 'soft', label: copy.softPen }],
+    widthOptions: [{ value: 0.15, label: copy.widthHairline, height: 1 },
+      { value: 0.3, label: copy.widthFine, height: 2 }, { value: 0.5, label: copy.widthMedium, height: 3 },
+      { value: 0.8, label: copy.widthBold, height: 5 }, { value: 1.2, label: copy.widthHeavy, height: 7 }],
     red: 0, green: 0, blue: 0, colorInput: '#000000', ready: false, notice: '', undoable: false, redoable: false },
   lifetimes: {
     attached() {
@@ -49,7 +57,7 @@ Component({
   },
   methods: {
     toggleTools() { const expanded = !this.data.toolsExpanded; this.setData({ toolsExpanded: expanded }); this.triggerEvent('toolschange', { expanded }); },
-    closeTools() { this.setData({ toolsExpanded: false }); },
+    closeTools() { this.setData({ toolsExpanded: false }); this.triggerEvent('toolschange', { expanded: false }); },
     _initialize() {
       const query = wx.createSelectorQuery().in(this);
       query.select('#sigSurface').fields({ node: true, size: true, rect: true });
@@ -138,8 +146,10 @@ Component({
       this.setData({ ready: false, notice: copy.failed });
       this.triggerEvent('error');
     },
-    async _loadImage() {
-      const request = (this._request || 0) + 1; this._request = request; this.setData({ ready: false, notice: '' });
+    async _loadImage(options) {
+      const preserveCamera = Boolean(options && options.preserveCamera);
+      const request = (this._request || 0) + 1; this._request = request;
+      this.setData(preserveCamera ? { notice: '' } : { ready: false, notice: '' });
       try {
         const handoff = drafts.getHandoff(), preview = handoff && handoff.preview;
         const source = preview && preview.key === this.properties.fileImage ? preview.src : this.properties.fileImage;
@@ -151,10 +161,18 @@ Component({
         const height = blank ? blank.height : this.properties.documentHeight || this._background && this._background.height || 400;
         this._documentWidth = width; this._documentHeight = height;
         this._resizeSurface();
-        this._zoom = 1; this._panX = 0; this._panY = 0; await this._loadMaterials();
+        if (!preserveCamera) {
+          this._zoom = 1; this._panX = 0; this._panY = 0;
+          await this._loadMaterials();
+        }
         if (!this._alive || request !== this._request) return;
-        this.setData({ ready: true }); this._syncHistory(); this._render(); this.triggerEvent('ready', { width, height });
-      } catch (_) { if (this._alive && request === this._request) this._imageFailure(); }
+        this.setData({ ready: true }); this._syncHistory(); this._render();
+        if (!preserveCamera) this.triggerEvent('ready', { width, height });
+      } catch (_) {
+        if (!this._alive || request !== this._request) return;
+        if (preserveCamera) this._render();
+        else this._imageFailure();
+      }
     },
     async _loadMaterials() {
       const handoff = drafts.getHandoff();
@@ -259,7 +277,8 @@ Component({
         this._gesture = { kind: this.data.mode, x: touch.clientX, y: touch.clientY, panX: this._panX, panY: this._panY,
           offsetX: material ? point.x - material.positionX : 0, offsetY: material ? point.y - material.positionY : 0, moved: false };
         if (this.data.mode === 'pen') this._stroke = { layerId: this._entryLayerId, page: this.properties.page, type: this.data.erasing ? 'erase' : 'draw',
-          color: this.data.color, width: ink.penWidthRatio(this.data.penWidth, { width: this._documentWidth, height: this._documentHeight,
+          color: this.data.color, penStyle: this.data.penStyle,
+          width: ink.penWidthRatio(this.data.penWidth, { width: this._documentWidth, height: this._documentHeight,
             pdf: this.properties.pdf, pad: this._blank }) * (this.data.erasing ? 5 : 1), points: [{ x: point.x, y: point.y }] };
       } else if (this._gesture && this._gesture.kind !== 'pinch') {
         const g = this._gesture; g.moved = g.moved || Math.hypot(touch.clientX - g.x, touch.clientY - g.y) > 3;
@@ -324,7 +343,8 @@ Component({
       const color = '#' + values.map(value => value.toString(16).padStart(2, '0')).join('');
       this.setData({ color, colorInput: color, red: values[0], green: values[1], blue: values[2], erasing: false });
     },
-    setWidth(event) { this.setData({ penWidth: [1, 2, 3.5][Number(event.detail.value)] }); },
+    setPenStyle(event) { this.setData({ penStyle: event.currentTarget.dataset.style === 'soft' ? 'soft' : 'hard', erasing: false }); },
+    setWidth(event) { const value = Number(event.currentTarget.dataset.width); if (Number.isFinite(value) && value > 0) this.setData({ penWidth: value, erasing: false }); },
     toggleEraser() { this.setData({ erasing: !this.data.erasing }); },
     onUndo() { this._historyChange(false); }, onRedo() { this._historyChange(true); },
     _historyChange(forward) {

@@ -13,7 +13,8 @@ const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, workspaceOrientation: 'auto', fileName: '', fileImage: '', fileId: '',
     page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '', layersExpanded: false,
-    loading: true, ready: false, notice: '', saving: false, workspaceMinHeight: 240, materialSize: 100, materialRotation: 0, activeMaterialId: '', layers: [], layerIndex: 0 },
+    loading: true, ready: false, notice: '', saving: false, workspaceMinHeight: 240, toolSettingsExpanded: false, materialSize: 100, materialRotation: 0,
+    materialX: 50, materialY: 50, activeMaterialId: '', layers: [], layerIndex: 0 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
     // 可重建副本清理不参与打开文件；原生文件回调停滞不能挡住内存预览。
@@ -32,7 +33,10 @@ Page({
     this.refreshMaterials(); this.validateStep();
   },
   toggleLayers() { const pad = this.selectComponent('#signingPad'); if (pad) pad.closeTools(); this.setData({ layersExpanded: !this.data.layersExpanded }); },
-  workspaceTools(event) { if (event.detail.expanded) this.setData({ layersExpanded: false }); },
+  workspaceTools(event) {
+    const expanded = Boolean(event.detail.expanded);
+    this.setData(expanded ? { toolSettingsExpanded: true, layersExpanded: false } : { toolSettingsExpanded: false });
+  },
   onShow() {
     const state = orgSession.consume(this);
     if (state.changed || this._scope && !orgSession.isCurrent(this._scope)) {
@@ -57,7 +61,10 @@ Page({
       page: item.page, widthRatio: item.widthRatio == null ? null : item.widthRatio, layerOrder: item.layerOrder
     }));
     const active = materials.find(item => item._idx === this.data.activeId);
-    this.setData({ materials, activeMaterialId: active ? active._idx : '', materialSize: active ? (active.size || 1) * 100 : 100, materialRotation: active ? active.rotation || 0 : 0 });
+    this.setData({ materials, activeMaterialId: active ? active._idx : '',
+      materialSize: active ? (active.size || 1) * 100 : 100, materialRotation: active ? active.rotation || 0 : 0,
+      materialX: active ? Math.round((Number(active.positionX) || 0) * 100) : 50,
+      materialY: active ? Math.round((Number(active.positionY) || 0) * 100) : 50 });
     this.refreshLayers();
   },
   refreshLayers() {
@@ -103,7 +110,8 @@ Page({
       let value;
       if (this._handoff.pad) value = { src: '', width: 800, height: 400, totalPages: 1 };
       else {
-        const prepared = await assets.preview(this._handoff.draft, this._handoff.file, page);
+        // 先让用户进入可操作的清晰页面，高清派生在后台替换；长 PDF 不再卡在首次大图请求。
+        const prepared = await assets.preview(this._handoff.draft, this._handoff.file, page, false, { edge: 2048 });
         const response = prepared.response;
         value = { src: prepared.src, image: prepared.image, width: response.pageWidth || prepared.image.width,
           height: response.pageHeight || prepared.image.height, totalPages: response.totalPages || 1 };
@@ -113,12 +121,26 @@ Page({
       const previewKey = 'preview_' + request + '_' + page;
       this._handoff.preview = { key: previewKey, src: value.src, image: value.image };
       phase = 'canvas_ready';
-      return await new Promise((resolve, reject) => {
+      const shown = await new Promise((resolve, reject) => {
         this._waiter = { resolve, reject };
         this.startCanvasTimer();
         this.setData({ page, width: value.width, height: value.height, totalPages: value.totalPages, fileImage: previewKey, loading: false });
       });
+      this.upgradePreview(page, request);
+      return shown;
     } catch (error) { console.warn('[audit:signing:load]', phase, error && (error.errMsg || error.message) || 'load_failed'); if (this._alive && request === this._request) this.setData({ loading: false, ready: false, notice: copy.failed }); }
+  },
+  async upgradePreview(page, request) {
+    if (this._handoff.pad || !this._alive) return;
+    try {
+      const prepared = await assets.preview(this._handoff.draft, this._handoff.file, page, true, { edge: 4096 });
+      if (!this._alive || request !== this._request || page !== this.data.page || !prepared.src) return;
+      const previewKey = 'preview_high_' + request + '_' + page;
+      this._handoff.preview = { key: previewKey, src: prepared.src, image: prepared.image };
+      this.setData({ fileImage: previewKey });
+    } catch (_) {
+      // 低清页已经可以准确置入和书写；高清升级失败不把工作区变成不可用状态。
+    }
   },
   startCanvasTimer() {
     if (this._readyTimer) clearTimeout(this._readyTimer);
@@ -181,6 +203,15 @@ Page({
   },
   previewSize(event) { this.previewAdjustment('size', Number(event.detail.value) / 100); },
   previewRotation(event) { this.previewAdjustment('rotation', Number(event.detail.value)); },
+  previewPosition(event) {
+    if (this.data.saving || !this.data.ready) return;
+    const axis = event.currentTarget.dataset.axis === 'y' ? 'y' : 'x';
+    const value = Number(event.detail.value) / 100;
+    const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId);
+    const pad = this.selectComponent('#signingPad'); if (!material || !pad) return;
+    pad.previewMaterial(material._idx, axis === 'x' ? { positionX: value } : { positionY: value });
+    this.setData(axis === 'x' ? { materialX: Math.round(value * 100) } : { materialY: Math.round(value * 100) });
+  },
   previewAdjustment(key, value) {
     if (this.data.saving || !this.data.ready) return;
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId);
@@ -203,6 +234,19 @@ Page({
     if (this.data.saving || !this.data.ready) return;
     const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
     this.commitMaterial(material, { rotation: Number(event.detail.value) }); this.cancelAdjustment(); this.syncHistory();
+  },
+  positionMaterial(event) {
+    if (this.data.saving || !this.data.ready) return;
+    const axis = event.currentTarget.dataset.axis === 'y' ? 'y' : 'x';
+    const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
+    this.commitMaterial(material, axis === 'x' ? { positionX: Number(event.detail.value) / 100 } : { positionY: Number(event.detail.value) / 100 });
+    this.cancelAdjustment(); this.syncHistory();
+  },
+  centerMaterial() {
+    if (this.data.saving || !this.data.ready) return;
+    const material = this._handoff.draft.materials.find(item => item._idx === this.data.activeId); if (!material) return;
+    this.commitMaterial(material, { positionX: 0.5, positionY: 0.5 });
+    this.cancelAdjustment(); this.syncHistory();
   },
   toggleSaveTemplate() { if (!this.data.saving) this.setData({ saveTemplate: !this.data.saveTemplate }); },
   openConfirmHelp() { if (this.data.hasStep) this.setData({ confirmHelp: true }); },

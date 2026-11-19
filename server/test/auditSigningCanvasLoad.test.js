@@ -94,11 +94,15 @@ async function main() {
   }
   const pageFile = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/signing/signing.js');
   let pageDefinition;
+  const previewEdges = [];
   const ownRequire = createRequire(pageFile);
   const pageRuntime = { Page(value) { pageDefinition = value; }, console, setTimeout, clearTimeout,
     wx: { env: { USER_DATA_PATH: 'wxfile://usr' }, getFileSystemManager() { return { readdir(options) { options.success({ files: [] }); } }; } },
     require(name) {
-      if (name === '../../../../utils/auditSigningAssets') return { preview: async () => ({ src: source, image: { width: 1200, height: 1800 }, response: { status: 'success', totalPages: 2 } }) };
+      if (name === '../../../../utils/auditSigningAssets') return { preview: async (_draft, _file, _page, _background, options) => {
+        previewEdges.push(options && options.edge);
+        return { src: source, image: { width: 1200, height: 1800 }, response: { status: 'success', totalPages: 2 } };
+      } };
       if (name === '../../../../utils/api') return { callFunction: async () => ({ status: 'success', previewMime: 'image/png', data: 'aW1hZ2U=', totalPages: 2 }) };
       if (name === '../../../../utils/orgSession') return { isCurrent: () => true };
       if (name === '../../package-resources/utils/auditPreviewFiles') return { removeExpiredPreviews: () => new Promise(() => {}), removePreview: () => new Promise(() => {}) };
@@ -118,6 +122,8 @@ async function main() {
   assert.strictEqual(page.data.height, 1800);
   assert(page.data.fileImage.length < 40, '大图片不得通过 setData 传进视图');
   assert(page._handoff.preview.src.startsWith('data:image/png;base64,'), '实际图片只在工作区内存流转');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(previewEdges, [2048, 4096], '先显示可操作页面，再在同一页后台升级高清预览');
   console.log('原生签署内存加载测试通过：存储满、重复解码、旧尺寸与小体积视图数据');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

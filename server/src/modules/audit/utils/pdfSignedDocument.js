@@ -6,6 +6,7 @@ const { Signer } = require('@signpdf/utils');
 const { pdflibAddPlaceholder } = require('@signpdf/placeholder-pdf-lib');
 const { signCms, verifyCms, MAX_CMS_BYTES } = require('./cmsSignature');
 const { MAX_FILE_BYTES, sha256, fail } = require('./signingProtocol');
+const { displayedPdfPageSize, visualPointToPdf } = require('./auditPageGeometry');
 
 class EvidencePdfSigner extends Signer {
   constructor(identity, createManifest) { super(); this.identity = identity; this.createManifest = createManifest; }
@@ -34,10 +35,10 @@ async function signPdfBuffer(buffer, privateKeyPem, certificatePem, options = {}
   if (position) {
     const page = doc.getPages()[Math.max(0, Math.min(doc.getPageCount() - 1, (Number(position.page) || 1) - 1))];
     pdfPage = page;
-    const size = page.getSize();
-    const x = Math.min(1, Math.max(0, Number(position.x) || 0)) * size.width;
-    const y = (1 - Math.min(1, Math.max(0, Number(position.y) || 0))) * size.height;
-    widgetRect = [x, y, Math.min(size.width, x + 1), Math.min(size.height, y + 1)];
+    const size = displayedPdfPageSize(page);
+    const point = visualPointToPdf(page, position.x, position.y);
+    widgetRect = [point.x, point.y, Math.min(size.offsetX + size.rawWidth, point.x + 1),
+      Math.min(size.offsetY + size.rawHeight, point.y + 1)];
   }
   // 清单实际大小不可超过协议上限；签名空间在 ByteRange 确定前分配，禁止签署后扩容。
   const signatureLength = options.createManifest ? (options.signatureCapacity || MAX_CMS_BYTES) : 16384;

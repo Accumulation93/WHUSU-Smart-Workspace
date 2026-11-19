@@ -27,6 +27,7 @@ function appendOperation(history, operation) {
   history.operations.push({ page: Math.max(1, Number(operation.page) || 1),
     layerId: operation.layerId || 'stroke_' + order, layerOrder: (history.operations.find(item => item.type === 'draw' && item.layerId === operation.layerId && item.page === (Number(operation.page) || 1)) || {}).layerOrder || order,
     type: operation.type === 'erase' ? 'erase' : 'draw', color: normalizeColor(operation.color),
+    penStyle: operation.type === 'erase' ? 'eraser' : operation.penStyle === 'soft' ? 'soft' : 'hard',
     width: operation.width, points });
   history.cursor = history.operations.length;
   return true;
@@ -193,10 +194,20 @@ function drawPath(context, operation, width, height) {
   context.lineWidth = operation.width * width;
   context.lineCap = 'round';
   context.lineJoin = 'round';
+  const soft = operation.type !== 'erase' && operation.penStyle === 'soft';
   context.beginPath();
   if (points.length === 1) {
-    context.arc(points[0].x * width, points[0].y * height, context.lineWidth / 2, 0, Math.PI * 2);
-    context.fill();
+    if (soft) {
+      context.globalAlpha = 0.62;
+      context.arc(points[0].x * width, points[0].y * height, context.lineWidth * 0.7, 0, Math.PI * 2);
+      context.fill();
+      context.globalAlpha = 0.96;
+      context.arc(points[0].x * width, points[0].y * height, context.lineWidth * 0.38, 0, Math.PI * 2);
+      context.fill();
+    } else {
+      context.arc(points[0].x * width, points[0].y * height, context.lineWidth / 2, 0, Math.PI * 2);
+      context.fill();
+    }
   } else {
     context.moveTo(points[0].x * width, points[0].y * height);
     // 一条连续路径穿过实际采样点；控制点限制在本段包围盒内，转折不被抹平或过冲。
@@ -209,7 +220,16 @@ function drawPath(context, operation, width, height) {
         clamp(b.x - (next.x - a.x) / 6, lowX, highX) * width,
         clamp(b.y - (next.y - a.y) / 6, lowY, highY) * height, b.x * width, b.y * height);
     }
-    context.stroke();
+    if (soft) {
+      context.globalAlpha = 0.62;
+      context.lineWidth *= 1.4;
+      context.stroke();
+      context.globalAlpha = 0.96;
+      context.lineWidth *= 0.62;
+      context.stroke();
+    } else {
+      context.stroke();
+    }
   }
   context.restore();
 }
@@ -241,7 +261,8 @@ function pageWidthMm(page) {
   return page.pdf ? page.width * 25.4 / 72 : 210 * page.width / Math.min(page.width, page.height);
 }
 function penWidthRatio(preset, page) {
-  const millimeters = preset === 1 ? 0.3 : preset === 3.5 ? 0.8 : 0.5;
+  const widths = { 0.15: 0.15, 0.3: 0.3, 0.5: 0.5, 0.8: 0.8, 1.2: 1.2, 1: 0.3, 2: 0.5, 3.5: 0.8 };
+  const millimeters = widths[Number(preset)] || 0.5;
   return millimeters / pageWidthMm(page);
 }
 

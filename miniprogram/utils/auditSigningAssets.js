@@ -1,6 +1,6 @@
 const { createSigningAssets } = require('./auditSigningAssetsModel');
 let surface = null;
-const assets = createSigningAssets((name, data) => require('./api').callFunction({ name, data }), src => new Promise((resolve, reject) => {
+const assets = createSigningAssets((name, data, options) => require('./api').callFunction(Object.assign({ name, data }, options || {})), src => new Promise((resolve, reject) => {
   if (!surface) surface = wx.createOffscreenCanvas({ type: '2d', width: 1, height: 1 });
   const image = surface.createImage();
   const timer = setTimeout(() => { image.onload = null; image.onerror = null; reject(new Error('image_timeout')); }, 15000);
