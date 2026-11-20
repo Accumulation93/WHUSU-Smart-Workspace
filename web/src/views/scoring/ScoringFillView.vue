@@ -119,6 +119,7 @@ import { callApi, errorText } from '@/runtime/api.js';
 import { formatTemplate } from '@/runtime/audit.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import { formatAbsoluteDate } from '@/runtime/dateTime.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -261,7 +262,10 @@ async function load() {
       loadNotice.value = result.message || copy.scoring.loadFailed;
       return;
     }
-    form.value = result;
+    const endDate = String(result.currentActivity?.endDate || '').slice(0, 10);
+    const ended = Boolean(result.existingRecord && /^\d{4}-\d{2}-\d{2}$/.test(endDate)
+      && formatAbsoluteDate(new Date()) > endDate);
+    form.value = ended ? { ...result, readOnly: true } : result;
     const questions = (result.templateBundle && result.templateBundle.questions) || [];
     const seeded = {};
     questions.forEach((question) => {

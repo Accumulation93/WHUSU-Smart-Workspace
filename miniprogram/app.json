@@ -78,6 +78,16 @@
       ]
     }
   ],
+  "preloadRule": {
+    "subpackages/main/pages/portal/portal": {
+      "network": "wifi",
+      "packages": ["workspace"]
+    },
+    "subpackages/workspace/pages/home/home": {
+      "network": "wifi",
+      "packages": ["scoring"]
+    }
+  },
   "window": {
     "navigationStyle": "default",
     "navigationBarTextStyle": "black",

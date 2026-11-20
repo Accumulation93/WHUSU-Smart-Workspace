@@ -126,8 +126,7 @@ function decorateScoringTarget(item) {
 
 function emptyPublicationState() {
   return {
-    publishedResults: [],
-    publishedGroups: [],
+    publicationMemberCount: 0,
     publishedMeritList: [],
     publishedMeritGroups: [],
     meritRuleGroups: [],
@@ -412,8 +411,7 @@ Page({
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     accountSecurity: emptyAccountSecurityState(),
-    publishedResults: [],
-    publishedGroups: [],
+    publicationMemberCount: 0,
     publishedMeritList: [],
     publishedMeritGroups: [],
     meritRuleGroups: [],
@@ -479,6 +477,8 @@ Page({
     const preservedTab = this.data.activeTab;
     if (organizationChanged) {
       orgSession.invalidateRequests(this);
+      this._publicationRows = null;
+      this._publicationLoadedFor = '';
       this._preferredOrgTab = preservedTab;
       this.setData({
         ...emptyPublicationState(),
@@ -500,7 +500,10 @@ Page({
         if (firstEntry || organizationChanged || !this.data.currentActivity) {
           this.loadCurrentActivity();
           this.loadLatestPublishedActivity();
+        } else if (this._refreshPublicationOnShow && this.data.publicationActivity) {
+          this.checkPublication();
         }
+        this._refreshPublicationOnShow = false;
       }
       if (firstEntry || organizationChanged) this.refreshUserFromCloud();
       if (this._subApp === 'hr') {
@@ -612,13 +615,16 @@ Page({
     this._isPageVisible = false;
     this._restoreManagementTab = this.data.activeTab === 'management';
     this._managementGeneration = (this._managementGeneration || 0) + 1;
-    this.setData({ canManageSubApp: false, managementDialogVisible: false, managementKeyboardHeight: 0 });
+    this._refreshPublicationOnShow = this.data.publicationAccessLoading;
+    this.setData({ canManageSubApp: false, managementDialogVisible: false, managementKeyboardHeight: 0,
+      publicationAccessLoading: false, publicationResultsPending: false, publicationMeritPending: false });
     deviceMetadataReport.cancel(this);
     orgSession.invalidateRequests(this);
   },
 
   onUnload() {
     this.onHide();
+    this._publicationRows = null;
   },
 
   refreshCurrentUser(options) {
@@ -765,7 +771,11 @@ Page({
         }
         const activity = result.activity || null;
         const previousId = (this.data.publicationActivity || {}).id;
-        if (previousId !== (activity || {}).id) this._publicationLoadedFor = '';
+        if (previousId !== (activity || {}).id) {
+          this._publicationLoadedFor = '';
+          this._publicationRows = null;
+          this.setData(emptyPublicationState());
+        }
         this.setData({ publicationActivity: activity });
         if (activity) {
           this.checkPublication();
@@ -891,9 +901,9 @@ Page({
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.processRateTargetsResult(res.result || {}, settings);
       },
-      fail: () => {
+      fail: (error) => {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (!settings.preserveExisting || !this.data.targetList.length) {
+        if (error.statusCode === 403 || !settings.preserveExisting || !this.data.targetList.length) {
           this.setData({
             targetList: [],
             targetGroups: [],
@@ -1389,6 +1399,7 @@ Page({
     const activityId = this.data.publicationActivity ? this.data.publicationActivity.id : '';
     const request = orgSession.beginRequest(this, 'publication');
     if (!activityId) {
+      this._publicationRows = null;
       this.setData(emptyPublicationState());
       this.rebuildUserTabs(true);
       return;
@@ -1398,19 +1409,19 @@ Page({
     this.rebuildUserTabs();
     const current = () => orgSession.isRequestCurrent(this, request)
       && activityId === ((this.data.publicationActivity || {}).id || '');
-    // 两项权限互不依赖并行加载；任一临时失败都保留上次已确认状态，
-    // 不再把网络波动伪装成“没有权限”并删除页签。
-    const resultRequest = new Promise((resolve, reject) => {
-      callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
-    }).catch((error) => ({ __requestFailed: true, error }));
-    const meritRequest = new Promise((resolve, reject) => {
-      callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
-    }).catch((error) => ({ __requestFailed: true, error }));
+    // 直接复用请求 Promise，取消或失效的请求也能结束对应的加载状态。
+    const readPublication = async name => {
+      try {
+        return await callFunction({ name, data: { activityId } });
+      } catch (error) {
+        if (error.statusCode === 403) return { status: 'no_permission' };
+        throw error;
+      }
+    };
     const readResults = async () => {
     try {
-      const res = await resultRequest;
-      if (res.__requestFailed) throw res.error;
-      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.publicationActivity || {}).id || '')) return;
+      const res = await readPublication('getPublicResults');
+      if (!current()) return;
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';
@@ -1423,8 +1434,9 @@ Page({
           ...group,
           groupLabel: publicationView.groupTitle(group, copy.text),
           identityLabel: publicationView.groupIdentity(group),
-          members: (group.members || []).map(m => ({
+          members: (group.members || []).map((m, index) => ({
             ...publicationView.memberView(m),
+            resultKey: m.assignmentId || m.id || group.clauseId + ':' + index,
             sortScore: typeof m.sortScore === 'number' ? m.sortScore : (parseFloat(m.finalScore) || 0)
           })).sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0))
         }));
@@ -1436,65 +1448,57 @@ Page({
         // Legacy: if server returned flat results
         let sorted = [];
         if (flatResults.length && !enrichedGroups.length) {
-          const results = flatResults.map(r => ({
+          const results = flatResults.map((r, index) => ({
             ...publicationView.memberView(r),
+            resultKey: r.assignmentId || r.id || String(index),
             finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
             sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
           }));
           sorted = [...results].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
-        } else if (allMembers.length) {
-          sorted = [...allMembers].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
         }
         sorted.forEach((item, idx) => { item.rank = idx + 1; });
+        const members = enrichedGroups.length ? allMembers : sorted;
 
         // Flatten all members for stats
-        const allScores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+        const allScores = members.map(r => parseFloat(r.finalScore) || 0);
 
         // Grade distribution from all members (for grade filter chips)
         const gradeCountMap = new Map();
-        sorted.forEach(r => {
+        members.forEach(r => {
           const g = r.grade || (isGrade ? copy.text.unrated : '');
           if (g) gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
         });
         const gradeDistribution = Array.from(gradeCountMap.entries())
           .map(([grade, count]) => ({ grade, count }));
 
-        const statsData = isGrade
-          ? { count: sorted.length, maxScore: '--', avgScore: '--' }
+        const statsData = isGrade || members.some(member => member.grade)
+          ? { count: members.length, maxScore: '--', avgScore: '--' }
           : {
-              count: sorted.length,
+              count: members.length,
               maxScore: allScores.length ? Math.max(...allScores).toFixed(1) : '--',
               avgScore: allScores.length ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1) : '--'
             };
 
         // Extract filter options from all members
         const idSet = new Set(); const deptSet = new Set(); const wgSet = new Set();
-        sorted.forEach(r => { if (r.identity) idSet.add(r.identity); if (r.department) deptSet.add(r.department); if (r.workGroup) wgSet.add(r.workGroup); });
+        members.forEach(r => { if (r.identity) idSet.add(r.identity); if (r.department) deptSet.add(r.department); if (r.workGroup) wgSet.add(r.workGroup); });
         const resultIdentities = Array.from(idSet).sort();
         const resultDepartments = Array.from(deptSet).sort();
         const resultWorkGroups = Array.from(wgSet).sort();
 
-        this.setData({ publishedResults: sorted, publishedGroups: enrichedGroups, hasPublication: true, hasViewPerm: true, statsData,
+        this._publicationRows = { flat: sorted, groups: enrichedGroups };
+        this.setData({ publicationMemberCount: members.length, filteredResults: sorted, filteredGroups: enrichedGroups,
+          hasPublication: true, hasViewPerm: true, statsData, filteredStatsData: statsData,
           displayMode, gradeDistribution,
           resultIdentities, resultDepartments, resultWorkGroups,
           resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
-        this.applyResultFilters();
-      } else if (res.status === 'no_permission') {
+      } else if (res.status === 'no_permission' || res.status === 'not_published') {
+        this._publicationRows = null;
         this.setData({
-          publishedResults: [],
-          publishedGroups: [],
+          publicationMemberCount: 0,
           filteredResults: [],
           filteredGroups: [],
-          hasPublication: true,
-          hasViewPerm: false
-        });
-      } else if (res.status === 'not_published') {
-        this.setData({
-          publishedResults: [],
-          publishedGroups: [],
-          filteredResults: [],
-          filteredGroups: [],
-          hasPublication: false,
+          hasPublication: res.status === 'no_permission',
           hasViewPerm: false,
           statsData: { count: 0, maxScore: '--', avgScore: '--' }
         });
@@ -1513,9 +1517,8 @@ Page({
 
     const readMerit = async () => {
     try {
-      const mlRes = await meritRequest;
-      if (mlRes.__requestFailed) throw mlRes.error;
-      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.publicationActivity || {}).id || '')) return;
+      const mlRes = await readPublication('getPublicMeritList');
+      if (!current()) return;
       if (mlRes.status === 'success') {
         const canDes = mlRes.canDesignate === true;
         const canViewMeritList = mlRes.canViewMeritList === true || canDes;
@@ -1539,7 +1542,7 @@ Page({
         for (const c of userClauses) {
           const key = c.targetIdentityId || c.targetIdentity || copy.text.unclassified;
           if (!ruleGroupMap.has(key)) {
-            ruleGroupMap.set(key, { targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
+            ruleGroupMap.set(key, { key, targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
           }
           ruleGroupMap.get(key).targetIdentity = c.targetIdentity || copy.text.unclassified;
           ruleGroupMap.get(key).clauses.push(c);
@@ -1600,8 +1603,7 @@ Page({
   },
 
   applyResultFilters() {
-    const base = this.data.publishedResults || [];
-    const baseGroups = this.data.publishedGroups || [];
+    const { flat: base, groups: baseGroups } = this._publicationRows || { flat: [], groups: [] };
     const idFilter = this.data.resultFilterIdentity || '';
     const deptFilter = this.data.resultFilterDepartment || '';
     const wgFilter = this.data.resultFilterWorkGroup || '';
@@ -1624,9 +1626,7 @@ Page({
     };
 
     // Flat filtered results (legacy)
-    let filtered = base.filter(memberMatches);
-    const sorted = [...filtered].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
-    sorted.forEach((item, idx) => { item.rank = idx + 1; });
+    const filtered = base.filter(memberMatches).map((item, index) => ({ ...item, rank: index + 1 }));
 
     // Filtered groups
     const filteredGroups = baseGroups.map(group => ({
@@ -1637,7 +1637,7 @@ Page({
     // Stats from all filtered members
     const allFiltered = [];
     filteredGroups.forEach(g => { g.members.forEach(m => { allFiltered.push(m); }); });
-    if (!allFiltered.length && sorted.length) sorted.forEach(m => allFiltered.push(m));
+    if (!allFiltered.length) filtered.forEach(item => allFiltered.push(item));
 
     const hasAnyGrade = allFiltered.some(r => r.grade);
     let filteredStatsData;
@@ -1659,7 +1659,7 @@ Page({
       };
     }
     this.setData({
-      filteredResults: sorted,
+      filteredResults: filtered,
       filteredGroups,
       filteredStatsData,
       gradeDistribution: gradeDistribution || this.data.gradeDistribution || []

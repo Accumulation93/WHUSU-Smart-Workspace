@@ -6,6 +6,7 @@ const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { createScoreSignature, isScoreDraftDirty } = require('./scoreDraftGuard');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
+const { getSystemDate } = require('../../../../utils/dateTime');
 
 function assignmentNatureText(value) {
   if (value === 'staff') return localeCopy.assignmentNatureStaff;
@@ -528,13 +529,16 @@ Page({
         self.templateConfigSignature = result.rule ? result.rule.templateConfigSignature : '';
 
         let hasExistingRecord = !!result.existingRecord;
-        let readOnly = result.readOnly === true;
+        const endDate = String((result.currentActivity || {}).endDate || '').slice(0, 10);
+        const ended = result.readOnlyReason === 'activity_ended'
+          || (hasExistingRecord && /^\d{4}-\d{2}-\d{2}$/.test(endDate) && getSystemDate() > endDate);
+        const readOnly = result.readOnly === true || ended;
         let existingRecordId = hasExistingRecord ? String(result.existingRecord.id || '') : '';
         let existingRecordRevision = hasExistingRecord
           ? Math.max(1, Number(result.existingRecord.revisionNumber || 1))
           : 0;
         let existingRecordText = readOnly
-          ? (result.readOnlyReason === 'activity_ended' ? homeCopy.activityEndedReadOnly : localeCopy.historicalReadOnly)
+          ? (ended && result.readOnlyReason !== 'historical_snapshot_degraded' ? homeCopy.activityEndedReadOnly : localeCopy.historicalReadOnly)
           : '';
 
         let summaries = computeSummaries(rawQuestionList);
@@ -984,9 +988,7 @@ Page({
         }
         self._commitCurrentDraft();
         wx.showToast({ title: result.updated || result.revised ? localeCopy.scoreUpdated : localeCopy.copy_69df1816f0, icon: 'success' });
-        self._schedule(function () {
-          wx.navigateBack({ fail: function () { self.redirectHome(); } });
-        }, 1200);
+        wx.navigateBack({ fail: function () { self.redirectHome(); } });
       },
       fail: function () {
         self._schedule(function () {

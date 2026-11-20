@@ -1,7 +1,7 @@
 'use strict';
 
 const pubCache = require('../utils/pubCache');
-const scoreRecord = require('../models/scoreRecord');
+const pool = require('../../../config/db');
 const { resolveHistoricalParticipant } = require('./participants');
 const { computeValidScoreMap } = require('../utils/scoreCalc');
 
@@ -13,17 +13,15 @@ async function load(activityId, orgId) {
   if (saved && saved.finalScoreMap instanceof Map && Array.isArray(saved.historicalTargets)) return saved;
   if (pending.has(handle.key)) return pending.get(handle.key);
   const build = (async () => {
-    const [computed, records] = await Promise.all([
-      computeValidScoreMap(activityId, orgId),
-      scoreRecord.getPublicationTargetSnapshots(activityId, orgId)
-    ]);
     const targets = new Map();
-    for (const record of records) {
+    function collectHistoricalTarget(record) {
       const person = resolveHistoricalParticipant(record, 'target', []);
-      if (!person.assignmentId || person.historicalAssignmentUnavailable) continue;
+      if (!person.assignmentId || person.historicalAssignmentUnavailable) return;
       const { contextSnapshot, studentId, ...facts } = person;
       targets.set(person.assignmentId, facts);
     }
+    const computed = await pool.withTransaction(connection =>
+      computeValidScoreMap(activityId, orgId, { connection, onRecord: collectHistoricalTarget }));
     const data = {
       finalScoreMap: new Map(Array.from(computed.finalScoreMap, ([id, row]) => [id, { finalScore: row.finalScore }])),
       diagnostics: {

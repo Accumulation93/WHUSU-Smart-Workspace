@@ -363,11 +363,11 @@ function buildHistoricalTemplateBundle(record, answers, activityId) {
 async function buildHistoricalScoreForm(record, options) {
   const answers = await scoreAnswerModel.getByRecordId(record.id);
   const templateBundle = buildHistoricalTemplateBundle(record, answers, options.activity.id);
-  const readOnly = options.closed === true || templateBundle.degraded === true;
+  const readOnly = !!options.closedReason || templateBundle.degraded === true;
   return {
     status: 'success',
     readOnly,
-    readOnlyReason: templateBundle.degraded ? 'historical_snapshot_degraded' : (options.closed ? 'activity_ended' : ''),
+    readOnlyReason: templateBundle.degraded ? 'historical_snapshot_degraded' : (options.closedReason || ''),
     readOnlyMessage: templateBundle.degraded ? localeCopy.historicalSnapshotDegraded : '',
     scorer: historicalParticipant(record, 'scorer'),
     target: historicalParticipant(record, 'target'),
@@ -552,34 +552,30 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
     const targetId = safeString(req.body.targetId);
     if (!targetId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
 
-    const activity = await scoreActivityModel.getCurrent();
+    const [activity, actorResult, orgId] = await Promise.all([
+      scoreActivityModel.getCurrent(), resolveCurrentActor(req), getCurrentOrgId()
+    ]);
     if (!activity) return respondScoringResponse(res, { status: 'missing_activity', message: localeCopy.copy_ff48e241fb });
-    const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity();
-    const [scorerRecord, targetRecord, lookups] = await Promise.all([
+    const [scorerRecord, targetRecord, activityWindowState] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
       participantService.resolveParticipant(orgId, targetId, granularity),
-      fetchOrgLookups()
+      getActivityWindowState(activity)
     ]);
     if (!scorerRecord) return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
-    const scorer = normalizeHrPerson(scorerRecord, lookups);
-    scorer.contextId = safeString(actorResult.actor.contextId);
-    scorer.organizationId = safeString(orgId);
-    const activityWindowState = await getActivityWindowState(activity);
     const historicalRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord || { assignment_id: targetId }, activity.id);
     if (historicalRecords.length) {
       return respondScoringResponse(res, await buildHistoricalScoreForm(historicalRecords[0], {
         activity,
         granularity,
-        closed: !targetRecord || activityWindowState === 'activity_ended'
+        closedReason: activityWindowState === 'activity_ended' ? 'activity_ended'
+          : (!targetRecord ? 'target_assignment_inactive' : '')
       }));
     }
     if (!targetRecord) return respondScoringResponse(res, { status: 'target_not_found', message: localeCopy.copy_245da65c1c });
-    const targetPerson = normalizeHrPerson(targetRecord, lookups);
 
     if (activity.is_paused) {
       return respondScoringResponse(res, { status: 'activity_paused', message: localeCopy.copy_5b46959129 });
@@ -594,6 +590,11 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
       });
     }
 
+    const lookups = await fetchOrgLookups();
+    const scorer = normalizeHrPerson(scorerRecord, lookups);
+    scorer.contextId = safeString(actorResult.actor.contextId);
+    scorer.organizationId = safeString(orgId);
+    const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
     if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) {

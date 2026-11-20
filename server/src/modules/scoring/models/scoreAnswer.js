@@ -21,6 +21,16 @@ async function getByRecordIds(recordIds) {
   return rows;
 }
 
+async function getCalculationScores(recordIds, orgId, connection = pool) {
+  if (!recordIds.length) return [];
+  const [rows] = await connection.query(
+    `SELECT record_id, question_index, score FROM score_answers
+      WHERE record_id IN (${recordIds.map(() => '?').join(',')}) AND org_id = ?`,
+    [...recordIds, orgId]
+  );
+  return rows;
+}
+
 async function create(id, recordId, questionIndex, score) {
   const orgId = await getCurrentOrgId();
   await pool.query(
@@ -45,4 +55,4 @@ async function createMany(answers) {
   );
 }
 
-module.exports = { getByRecordId, getByRecordIds, create, createMany, removeByRecordId };
+module.exports = { getByRecordId, getByRecordIds, getCalculationScores, create, createMany, removeByRecordId };

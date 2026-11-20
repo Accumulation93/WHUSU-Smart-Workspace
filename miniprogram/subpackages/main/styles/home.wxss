@@ -1565,7 +1565,7 @@ scroll-view {
   background: rgba(241,245,249,0.40);
 }
 .result-group-head-left {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8rpx 12rpx; flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 14rpx; flex: 1; min-width: 0;
 }
 .result-group-label {
   font-size: var(--ui-type-emphasis); font-weight: 700; color: #1e293b;
@@ -1580,13 +1580,6 @@ scroll-view {
 }
 .result-group-mode-score {
   background: rgba(37,99,235,0.10); color: #2563eb;
-}
-.result-group-identity {
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-wrap: anywhere;
-  background: var(--ui-tone-info-bg, rgba(14,165,233,0.10));
-  color: var(--ui-tone-info-text, #075985);
 }
 .result-group-head-right {
   display: flex; align-items: center; gap: 10rpx; flex-shrink: 0;

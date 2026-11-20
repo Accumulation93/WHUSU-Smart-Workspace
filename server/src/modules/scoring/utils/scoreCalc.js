@@ -4,7 +4,8 @@
  */
 const crypto = require('crypto');
 const { safeString, toNumber, roundScore } = require('../../../utils/helpers');
-const pool = require('../../../config/db');
+const scoreRecord = require('../models/scoreRecord');
+const scoreAnswer = require('../models/scoreAnswer');
 const sharedCache = require('./sharedCache');
 const { logger } = require('../../../utils/logger');
 const { validateCalculationPolicySignature } = require('./calculationSnapshotSignature');
@@ -171,6 +172,7 @@ function getHistoricalSnapshotFailure(diagnostics) {
 const pendingComputations = new Map();
 
 async function computeValidScoreMap(activityId, orgId, options = {}) {
+  if (options.connection || options.onRecord) return calculateScoreMap(activityId, orgId, options);
   const scope = JSON.stringify([activityId, orgId, !!options.includeCounts,
     options.visibleTargetIds ? Array.from(options.visibleTargetIds).sort() : null,
     options.diagnosticRecordIds ? Array.from(options.diagnosticRecordIds).sort() : null]);
@@ -191,163 +193,151 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
   const visibleTargetIds = options.visibleTargetIds;
   // 诊断范围只裁剪错误说明及计数，绝不删减参与最终分计算的输入。
   const diagnosticRecordIds = options.diagnosticRecordIds;
-  // 只取计算必需的列：不再把评分人/被评人的上下文快照整列拉回内存。
-  const [recordRows] = await pool.query(
-    `SELECT id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
-            target_id, target_person_id, target_assignment_id, template_config_signature,
-            submitted_at, calculation_context_snapshot
-       FROM score_records
-      WHERE activity_id = ? AND org_id = ?`,
-    [activityId, orgId]
-  );
-  const answerMap = new Map();
-  if (recordRows.length) {
-    const recordIds = recordRows.map((record) => record.id);
-    // 一次 IN 上万个主键会让 MySQL 解析与回包都变得很慢，这里按 400 条一批拉取。
-    const ANSWER_BATCH_SIZE = 400;
-    for (let start = 0; start < recordIds.length; start += ANSWER_BATCH_SIZE) {
-      const batch = recordIds.slice(start, start + ANSWER_BATCH_SIZE);
-      const placeholders = batch.map(() => '?').join(',');
-      const [answerRows] = await pool.query(
-        `SELECT record_id, question_index, score FROM score_answers
-          WHERE record_id IN (${placeholders}) AND org_id = ?
-          ORDER BY record_id, question_index`,
-        batch.concat(orgId)
-      );
-      answerRows.forEach((answer) => {
-        if (!answerMap.has(answer.record_id)) answerMap.set(answer.record_id, new Map());
-        answerMap.get(answer.record_id).set(Number(answer.question_index), toNumber(answer.score, 0));
-      });
-    }
-  }
-
   const diagnostics = {
-    totalRecords: diagnosticRecordIds ? recordRows.filter(row => diagnosticRecordIds.has(row.id)).length : recordRows.length,
+    totalRecords: 0,
     acceptedRecords: 0,
     skippedRecords: 0,
     reasons: {},
     records: []
   };
   const candidates = [];
-  for (const record of recordRows) {
+  const completionBuckets = new Map();
+  const targetSnapshots = new Map();
+  const policySignatures = new Map();
+  const batchSize = 256;
+  let cursor = null;
+  while (true) {
+    const records = await scoreRecord.getCalculationBatch(activityId, orgId, cursor, batchSize, {
+      connection: options.connection, includeTargetContext: Boolean(options.onRecord)
+    });
+    if (!records.length) break;
+    const answerMap = new Map();
+    const answerRows = await scoreAnswer.getCalculationScores(records.map(record => record.id), orgId, options.connection);
+    for (const answer of answerRows) {
+      if (!answerMap.has(answer.record_id)) answerMap.set(answer.record_id, new Map());
+      answerMap.get(answer.record_id).set(Number(answer.question_index), toNumber(answer.score, 0));
+    }
+    for (const record of records) {
+      if (options.onRecord) options.onRecord(record);
+      if (!diagnosticRecordIds || diagnosticRecordIds.has(record.id)) diagnostics.totalRecords++;
+      collectCandidate(record, answerMap.get(record.id));
+    }
+    if (records.length < batchSize) break;
+    const last = records[records.length - 1];
+    cursor = { submitted_at: last.submitted_at, id: last.id };
+  }
+
+  function collectCandidate(record, answers = new Map()) {
     const validation = validateCalculationSnapshot(record, activityId);
     if (!validation.ok) {
       addDiagnostic(diagnostics, record.id, validation.reason, diagnosticRecordIds);
-      continue;
+      return;
     }
     const snapshot = validation.snapshot;
     const targetId = safeString(snapshot.target.participantId);
-    if (visibleTargetIds && !visibleTargetIds.has(targetId)) continue;
+    if (visibleTargetIds && !visibleTargetIds.has(targetId)) return;
     if (snapshot.rule.allowSelfAssessment !== true
       && safeString(snapshot.scorer.personId)
       && safeString(snapshot.scorer.personId) === safeString(snapshot.target.personId)) {
       addDiagnostic(diagnostics, record.id, 'self_assessment_snapshot_violation', diagnosticRecordIds);
-      continue;
+      return;
     }
-    const answers = answerMap.get(record.id) || new Map();
     if (answers.size !== validation.questionCount) {
       addDiagnostic(diagnostics, record.id, 'answer_count_mismatch', diagnosticRecordIds);
-      continue;
+      return;
     }
-    let answersComplete = true;
     for (let index = 1; index <= validation.questionCount; index += 1) {
-      if (!answers.has(index) || !Number.isFinite(answers.get(index))) {
-        answersComplete = false;
-        break;
+      if (!Number.isFinite(answers.get(index))) {
+        addDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch', diagnosticRecordIds);
+        return;
       }
     }
-    if (!answersComplete) {
-      addDiagnostic(diagnostics, record.id, 'answer_snapshot_mismatch', diagnosticRecordIds);
-      continue;
+
+    if (!targetSnapshots.has(targetId)) targetSnapshots.set(targetId, snapshot.target);
+    const requireAll = snapshot.clause.requireAllComplete === true;
+    let completion = null;
+    if (requireAll || options.includeCounts) {
+      const key = safeString(snapshot.scorer.subjectKey) + '||' + safeString(snapshot.calculationPolicySignature);
+      if (!completionBuckets.has(key)) {
+        completionBuckets.set(key, {
+          required: snapshot.clause.requiredTargets.map(target => ({
+            id: safeString(target.participantId || target.assignmentId), key: safeString(target.subjectKey)
+          })),
+          completed: new Set(),
+          counted: false,
+          missing: false
+        });
+      }
+      completion = completionBuckets.get(key);
+      completion.completed.add(safeString(snapshot.target.subjectKey));
     }
-    candidates.push({ record, snapshot, answers, targetId });
+    const signedPolicy = snapshot.calculationPolicySignature;
+    let policySignature = Number(snapshot.version) >= CALCULATION_SNAPSHOT_VERSION
+      ? policySignatures.get(signedPolicy) : '';
+    if (!policySignature) {
+      policySignature = buildAggregationPolicySignature(snapshot);
+      if (Number(snapshot.version) >= CALCULATION_SNAPSHOT_VERSION) policySignatures.set(signedPolicy, policySignature);
+    }
+    const scorerCategoryKey = safeString(snapshot.rule.scorerDepartmentId)
+      + '::' + safeString(snapshot.rule.scorerIdentityCategoryId);
+    const templates = snapshot.templates.map(template => ({
+      templateId: safeString(template.templateId),
+      weight: Number(template.weight),
+      method: safeString(template.calculationMethod) || 'weighted_average',
+      trimHigh: Number(template.trimHighCount || 0),
+      trimLow: Number(template.trimLowCount || 0),
+      score: template.questions.reduce((sum, question) => sum + answers.get(Number(question.globalQuestionIndex)), 0)
+    }));
+    candidates.push({ recordId: record.id, scorerId: safeString(snapshot.scorer.participantId), targetId,
+      requireAll, completion, policySignature, scorerCategoryKey, templates });
   }
 
-  const completionBuckets = new Map();
-  candidates.forEach((candidate) => {
-    const key = safeString(candidate.snapshot.scorer.subjectKey)
-      + '||' + safeString(candidate.snapshot.calculationPolicySignature);
-    if (!completionBuckets.has(key)) {
-      completionBuckets.set(key, {
-        required: new Set(candidate.snapshot.clause.requiredTargets.map((target) => safeString(target.subjectKey))),
-        completed: new Set()
-      });
-    }
-    completionBuckets.get(key).completed.add(safeString(candidate.snapshot.target.subjectKey));
-    candidate.completionKey = key;
-  });
-
-  const incompleteBuckets = new Set();
-  completionBuckets.forEach((bucket, key) => {
-    for (const required of bucket.required) {
-      if (!bucket.completed.has(required)) {
-        incompleteBuckets.add(key);
-        break;
-      }
-    }
-  });
+  for (const bucket of completionBuckets.values()) {
+    bucket.missing = bucket.required.some(target => !bucket.completed.has(target.key));
+  }
 
   const calculationMap = new Map();
   const submittedByTarget = new Map();
   const expectedByCount = new Map();
   const scorerExpectedSets = new Map();
-  const countedCompletionBuckets = new Set();
-  const targetSnapshots = new Map();
 
-  candidates.forEach((candidate) => {
-    const snapshot = candidate.snapshot;
-    const scorerId = safeString(snapshot.scorer.participantId);
-    if (!targetSnapshots.has(candidate.targetId)) {
-      targetSnapshots.set(candidate.targetId, snapshot.target);
+  for (const candidate of candidates) {
+    const { scorerId, targetId, completion, recordId, scorerCategoryKey, policySignature } = candidate;
+    if (options.includeCounts) {
+      if (!submittedByTarget.has(targetId)) submittedByTarget.set(targetId, new Set());
+      submittedByTarget.get(targetId).add(scorerId);
     }
-    if (!submittedByTarget.has(candidate.targetId)) submittedByTarget.set(candidate.targetId, new Set());
-    submittedByTarget.get(candidate.targetId).add(scorerId);
-
-    if (options.includeCounts && !countedCompletionBuckets.has(candidate.completionKey)) {
-      countedCompletionBuckets.add(candidate.completionKey);
+    if (options.includeCounts && !completion.counted) {
+      completion.counted = true;
       if (!scorerExpectedSets.has(scorerId)) scorerExpectedSets.set(scorerId, new Set());
-      snapshot.clause.requiredTargets.forEach((requiredTarget) => {
-        const requiredId = safeString(requiredTarget.participantId || requiredTarget.assignmentId);
-        const requiredKey = safeString(requiredTarget.subjectKey);
-        if (requiredId) expectedByCount.set(requiredId, (expectedByCount.get(requiredId) || 0) + 1);
-        if (requiredKey) scorerExpectedSets.get(scorerId).add(requiredKey);
+      completion.required.forEach(target => {
+        if (target.id) expectedByCount.set(target.id, (expectedByCount.get(target.id) || 0) + 1);
+        if (target.key) scorerExpectedSets.get(scorerId).add(target.key);
       });
     }
-
-    if (snapshot.clause.requireAllComplete === true && incompleteBuckets.has(candidate.completionKey)) {
-      addDiagnostic(diagnostics, candidate.record.id, 'required_targets_incomplete', diagnosticRecordIds);
-      return;
+    if (candidate.requireAll && completion.missing) {
+      addDiagnostic(diagnostics, recordId, 'required_targets_incomplete', diagnosticRecordIds);
+      continue;
     }
-
-    const scorerCategoryKey = safeString(snapshot.rule.scorerDepartmentId)
-      + '::' + safeString(snapshot.rule.scorerIdentityCategoryId);
-    const policySignature = buildAggregationPolicySignature(snapshot);
-    snapshot.templates.forEach((template) => {
-      let templateScore = 0;
-      template.questions.forEach((question) => {
-        templateScore += candidate.answers.get(Number(question.globalQuestionIndex));
-      });
-      const groupKey = candidate.targetId
-        + '||' + scorerCategoryKey
-        + '||' + safeString(template.templateId)
-        + '||' + policySignature;
+    for (const template of candidate.templates) {
+      const groupKey = targetId + '||' + scorerCategoryKey + '||' + template.templateId + '||' + policySignature;
       if (!calculationMap.has(groupKey)) {
         calculationMap.set(groupKey, {
-          targetId: candidate.targetId,
+          targetId,
           scorerGroupKey: scorerCategoryKey,
-          templateId: safeString(template.templateId),
+          templateId: template.templateId,
           policySignature,
-          weight: Number(template.weight),
-          method: safeString(template.calculationMethod) || 'weighted_average',
-          trimHigh: Number(template.trimHighCount || 0),
-          trimLow: Number(template.trimLowCount || 0),
+          weight: template.weight,
+          method: template.method,
+          trimHigh: template.trimHigh,
+          trimLow: template.trimLow,
           scores: []
         });
       }
-      calculationMap.get(groupKey).scores.push(templateScore);
-    });
-    if (!diagnosticRecordIds || diagnosticRecordIds.has(candidate.record.id)) diagnostics.acceptedRecords += 1;
-  });
+      calculationMap.get(groupKey).scores.push(template.score);
+    }
+    if (!diagnosticRecordIds || diagnosticRecordIds.has(recordId)) diagnostics.acceptedRecords++;
+  }
 
   const finalScoreMap = new Map();
   calculationMap.forEach((item) => {

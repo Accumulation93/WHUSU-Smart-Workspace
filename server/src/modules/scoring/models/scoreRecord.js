@@ -170,12 +170,16 @@ async function getCompletionTargets(participant, activityId, includeHistory = fa
   return rows;
 }
 
-async function getPublicationTargetSnapshots(activityId, orgId) {
-  const [rows] = await pool.query(
-    `SELECT target_id, target_person_id, target_assignment_id, target_context_snapshot
+async function getCalculationBatch(activityId, orgId, cursor, limit, { connection = pool, includeTargetContext = false } = {}) {
+  const targetColumns = includeTargetContext ? ', target_id, target_person_id, target_assignment_id, target_context_snapshot' : '';
+  const boundary = cursor ? 'AND (submitted_at > ? OR (submitted_at = ? AND id > ?))' : '';
+  const params = cursor ? [activityId, orgId, cursor.submitted_at, cursor.submitted_at, cursor.id, limit] : [activityId, orgId, limit];
+  const [rows] = await connection.query(
+    `SELECT id, submitted_at, template_config_signature, calculation_context_snapshot${targetColumns}
        FROM score_records
-      WHERE activity_id = ? AND org_id = ?`,
-    [activityId, orgId]
+      WHERE activity_id = ? AND org_id = ? ${boundary}
+      ORDER BY submitted_at, id LIMIT ?`,
+    params
   );
   return rows;
 }
@@ -253,7 +257,7 @@ async function remove(id) {
 module.exports = {
   getAll,
   getByActivity,
-  getPublicationTargetSnapshots,
+  getCalculationBatch,
   getById,
   getByTarget,
   getByScorerTarget,

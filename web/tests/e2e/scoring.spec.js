@@ -151,7 +151,7 @@ test('没有评分对象时给出空状态', async ({ page }) => {
   await login(page);
 
   await page.goto(`${WEB_BASE}/scoring/tasks`);
-  await expect(page.getByText(homeCopy.text.noTargets)).toBeVisible();
+  await expect(page.getByText(homeCopy.text.noVisibleTargets)).toBeVisible();
 });
 
 test('评分填写按题目校验并与服务端约定一致', async ({ page }) => {

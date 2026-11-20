@@ -203,7 +203,15 @@ async function refresh() {
       if (!['no_permission', 'not_published'].includes(response.status)) requireSuccess(response);
       if (response.status === 'success' && (name === 'getPublicResults' ? !Array.isArray(response.groups) && !Array.isArray(response.results) : !Array.isArray(response.meritList))) throw new Error();
       value.value = response; notice.value = '';
-    } catch (error) { if (current()) notice.value = errorText(error, copy.scoring.loadFailed); }
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 'forbidden' || error.status === 'no_permission') {
+        value.value = { status: 'no_permission' };
+        notice.value = '';
+      } else {
+        notice.value = errorText(error, copy.scoring.loadFailed);
+      }
+    }
   }));
   if (current()) { loading.value = false; normalizeTab(); }
 }
