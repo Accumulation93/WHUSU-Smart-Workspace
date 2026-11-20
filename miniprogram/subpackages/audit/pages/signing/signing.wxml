@@ -1,5 +1,5 @@
 <page-meta page-orientation="{{workspaceOrientation}}" page-style="--ui-navbar-height: {{navTopPx}}px; {{confirmHelp ? 'overflow: hidden;' : ''}}" />
-<ui-navbar title="{{navigationTitle}}" />
+<ui-navbar id="signingNavbar" title="{{navigationTitle}}" intercept-back="{{true}}" bindback="cancel" />
 <view class="page signing-page" style="min-height: calc(100vh - {{navTopPx}}px); height: calc(100vh - {{navTopPx}}px)">
   <view class="card signing-card">
     <view wx:if="{{loading}}" class="signing-notice"><app-loading text="{{copy.loading}}" /></view>

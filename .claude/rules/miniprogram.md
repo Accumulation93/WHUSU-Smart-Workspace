@@ -171,6 +171,8 @@ self._lastUpdateTime = now;
 
 用户在 2026-10-14 明确要求连续笔画，不允许普通 view 小线段。仅独立签署页普通布局使用可视 Canvas 2D，实时与导出共用 shared/auditInk.js。触点 clientX/clientY 与当前 viewport rect、文件相机一次转换为页内比例，不加 DPR、scrollTop 或经验偏移。禁止放在 Portal、祖先 transform 或入场位移动画内；普通弹窗仍禁止可视原生 Canvas。步骤内存草稿、颜色、局部擦除、撤销重做与附件/PDF 规则见 .claude/rules/audit.md 第 3 节及 docs/ui-kit.md。
 
+所有签署入口都必须在进入页记录进入前方向；用户通过顶栏返回时不会经过签署页 `cancel()`。空白签名板虽然强制横屏，文件签署与定位页使用 `auto`，两者返回后都必须由进入页在 `onShow` 使用自身 `page-meta` 先恢复记录方向，再恢复 `auto`，不能继承签署页或设备上一屏的横屏状态。
+
 ### 3.14 编译器 runtime helper 缺失
 
 原生小程序当前设置为 `nodeModules: false`，运行时不会自动提供 `@swc/runtime` 或 `@babel/runtime`。本项目曾同时配置 `"swc": false` 与 `"disableSWC": false`；开发者工具实际以 `disableSWC === false` 为准启用 SWC，含对象展开、计算属性、async 等语法的页面被转换为未打包的 runtime helper。关闭 SWC 后，Babel enhance 与热重载组合又曾生成 `@babel/runtime/helpers/*`，并遗漏 `unsupportedIterableToArray` 等 helper 的递归依赖。两类故障都会造成主包和分包页面无法注册。全局 `Page(uiPreview.attach({...}))` 曾扩大过影响范围，但不是唯一触发条件。

@@ -62,9 +62,11 @@ function loadComponent(options) {
 function createInstance(definition, properties) {
   const instance = {
     data: Object.assign({}, definition.data, properties || {}),
+    events: [],
     setData(patch) {
       Object.assign(this.data, patch);
-    }
+    },
+    triggerEvent(name, detail) { this.events.push({ name, detail }); }
   };
   Object.assign(instance, definition.methods);
   return instance;
@@ -219,6 +221,12 @@ function makeInstance(settings, properties) {
   const rootPage = makeInstance({ pageDepth: 1 }, { backMode: 'auto', leftMode: 'back' });
   rootPage.instance.onBackTap();
   assert.deepStrictEqual(rootPage.calls.navigateBack, [], '没有返回键时不得触发返回');
+
+  const intercepted = makeInstance({ pageDepth: 2 }, { backMode: 'auto', leftMode: 'back', interceptBack: true });
+  intercepted.instance.onBackTap();
+  assert.deepStrictEqual(intercepted.calls.navigateBack, [], '页面接管返回时不得直接重建页面栈');
+  assert.deepStrictEqual(intercepted.instance.events, [{ name: 'back', detail: undefined }],
+    '签署页必须先收到返回事件，完成方向恢复和草稿撤销后再离开');
 }
 
 // —— 模板与样式契约 ——

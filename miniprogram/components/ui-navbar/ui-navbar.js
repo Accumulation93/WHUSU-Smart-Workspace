@@ -84,6 +84,7 @@ Component({
     title: { type: String, value: '' },
     // auto：有上一页才显示返回键；always：总是显示；never：不显示
     backMode: { type: String, value: 'auto' },
+    interceptBack: { type: Boolean, value: false },
     // back：左侧是返回键；slot：左侧由页面自定义
     leftMode: { type: String, value: 'back' },
     placeholder: { type: Boolean, value: true },
@@ -186,6 +187,10 @@ Component({
 
     onBackTap() {
       if (!this.data.showBack) return;
+      if (this.data.interceptBack) {
+        this.triggerEvent('back');
+        return;
+      }
       wx.navigateBack({
         delta: 1,
         fail: () => {

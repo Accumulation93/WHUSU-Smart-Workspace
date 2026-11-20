@@ -8,5 +8,6 @@
     "ui-navbar": "/components/ui-navbar/ui-navbar",
     "person-link": "/subpackages/audit/package-resources/components/person-link/person-link"
   },
-  "navigationStyle": "custom"
+  "navigationStyle": "custom",
+  "pageOrientation": "auto"
 }
