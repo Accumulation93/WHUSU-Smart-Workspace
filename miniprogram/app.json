@@ -90,6 +90,7 @@
   },
   "window": {
     "navigationStyle": "default",
+    "pageOrientation": "portrait",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "",
     "navigationBarBackgroundColor": "#ffffff"

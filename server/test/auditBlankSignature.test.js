@@ -6,11 +6,16 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const source = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/signing/signing.js');
 const ownRequire = createRequire(source);
-let definition, current = true, rejectSave = false, exportEmpty = false;
+let definition, current = true, rejectSave = false, rejectBack = false, exportEmpty = false;
 const calls = [], order = [];
 vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
   Page(value) { definition = value; }, console, setTimeout, clearTimeout,
-  wx: { navigateBack(options = {}) { order.push('back'); if (options.success) options.success(); } },
+  wx: { navigateBack(options = {}) {
+    order.push('back');
+    if (rejectBack) {
+      options.fail({ errMsg: 'navigateBack:fail' });
+    } else if (options.success) options.success();
+  } },
   require(name) {
     if (name.endsWith('/orgSession')) return { isCurrent: () => current };
     if (name.endsWith('/api')) return { ...ownRequire(name), callFunction: async options => { calls.push(options); return { status: rejectSave ? 'error' : 'success' }; } };
@@ -20,9 +25,9 @@ vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
 function instance(saveTemplate) {
   const draft = { files: {}, materials: [], locked: false };
   return { ...definition, _alive: true, _scope: {}, _fileDraft: { history: { cursor: 1, operations: [{ page: 1 }] } },
-    _handoff: { pad: true, draft, entryOrientation: 'portrait', confirm(values) { order.push('confirm'); assert.equal(values[0].imageData, 'data:image/png;base64,YQ=='); } },
+    _handoff: { pad: true, draft, confirm(values) { order.push('confirm'); assert.equal(values[0].imageData, 'data:image/png;base64,YQ=='); } },
     data: { ready: true, page: 1, fileId: 'blank', workspaceOrientation: 'landscape', allowSaveTemplate: true, saveTemplate },
-    setData(values) { Object.assign(this.data, values); },
+    setData(values, callback) { Object.assign(this.data, values); if (callback) callback(); },
     selectComponent() { return { exportPage: async () => exportEmpty ? null : { imageData: 'data:image/png;base64,YQ==', page: 1 } }; }
   };
 }
@@ -63,8 +68,15 @@ function instance(saveTemplate) {
   current = false; exportEmpty = false; const stale = instance(true); await stale.confirm();
   assert.equal(calls.length, 2); assert.equal(order.length, 0);
   current = true; order.length = 0; const cancelled = instance(false); await cancelled.cancel();
-  assert.equal(cancelled.data.workspaceOrientation, 'portrait', '顶栏返回取消时必须恢复进入签名板前的方向');
+  assert.equal(cancelled.data.workspaceOrientation, 'portrait', '签名页退出前先交还竖屏');
   assert.deepEqual(order, ['back']);
+  rejectBack = true;
+  const failedBack = instance(false);
+  failedBack.cancel();
+  assert.equal(failedBack.data.workspaceOrientation, 'landscape', '返回失败时恢复当前签名板模式');
+  assert.equal(failedBack._leaving, false);
+  assert.equal(failedBack._finished, false);
+  rejectBack = false;
   const managerSource = path.resolve(__dirname, '../../miniprogram/subpackages/audit/pages/signatureManager/signatureManager.js');
   const managerRequire = createRequire(managerSource);
   let managerDefinition, rows = [{ id: 'saved', imageData: 'data:image/png;base64,YQ==' }];

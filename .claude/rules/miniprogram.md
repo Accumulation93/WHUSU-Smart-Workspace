@@ -171,7 +171,7 @@ self._lastUpdateTime = now;
 
 用户在 2026-10-14 明确要求连续笔画，不允许普通 view 小线段。仅独立签署页普通布局使用可视 Canvas 2D，实时与导出共用 shared/auditInk.js。触点 clientX/clientY 与当前 viewport rect、文件相机一次转换为页内比例，不加 DPR、scrollTop 或经验偏移。禁止放在 Portal、祖先 transform 或入场位移动画内；普通弹窗仍禁止可视原生 Canvas。步骤内存草稿、颜色、局部擦除、撤销重做与附件/PDF 规则见 .claude/rules/audit.md 第 3 节及 docs/ui-kit.md。
 
-所有签署入口都必须在进入页记录进入前方向；用户通过顶栏返回时不会经过签署页 `cancel()`。空白签名板虽然强制横屏，文件签署与定位页使用 `auto`，两者返回后都必须由进入页在 `onShow` 使用自身 `page-meta` 先恢复记录方向，再恢复 `auto`，不能继承签署页或设备上一屏的横屏状态。
+屏幕方向以 `app.json` 的竖屏配置为默认，支持轮换的专业页面明确声明例外。文件签署与定位页使用 `auto`，空白签名板设置为 `landscape`。旋转工作区的显式退出统一交还竖屏，返回落点也声明竖屏。普通页面不得记忆上一页方向或开启延时切回自动旋转。验证须覆盖顶栏、取消、确认与原生返回，并连续返回至最初页面。
 
 ### 3.14 编译器 runtime helper 缺失
 

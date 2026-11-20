@@ -9,5 +9,5 @@
     "person-link": "/subpackages/audit/package-resources/components/person-link/person-link"
   },
   "navigationStyle": "custom",
-  "pageOrientation": "auto"
+  "pageOrientation": "portrait"
 }

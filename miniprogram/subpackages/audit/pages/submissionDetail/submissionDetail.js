@@ -57,17 +57,6 @@ function decorateAdHocSteps(steps) {
   });
 }
 
-function currentViewportOrientation() {
-  try {
-    const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync();
-    const width = Number(info.screenWidth || info.windowWidth);
-    const height = Number(info.screenHeight || info.windowHeight);
-    return width > height ? 'landscape' : 'portrait';
-  } catch (_) {
-    return 'portrait';
-  }
-}
-
 Page({
   // 顶栏高度：顶栏自绘后 100vh 是整屏高度，横竖屏切换要重算页面容器的补偿高度。
   applyNavigationBarMetrics() {
@@ -82,7 +71,6 @@ Page({
   data: {
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
-    detailOrientation: 'auto',
     localeCopy,
     signingCopy, directApprovalCopy, signingReadFailed: false, pendingActionRead: false,
     directSteps: [], directMaterialSteps: [], directStepId: '', directApprovalNotice: '', directApproving: false,
@@ -338,7 +326,6 @@ Page({
   onShow() {
     this.bindDialogKeyboard();
     this._pageActive = true;
-    this.restoreSigningOrientation();
     if (!orgSession.consume(this).changed) {
       this.refreshActiveWorkContext();
       if (this._signingDraft) this.restoreSigningMaterials();
@@ -352,8 +339,6 @@ Page({
   onHide() {
     this.unbindDialogKeyboard();
     this._pageActive = false;
-    if (this._orientationRestoreTimer) clearTimeout(this._orientationRestoreTimer);
-    this._orientationRestoreTimer = null;
     if (this._actionTimer) {
       clearTimeout(this._actionTimer);
       this._actionTimer = null;
@@ -364,8 +349,6 @@ Page({
     this.unbindDialogKeyboard();
     this.releaseDialogScrollLock();
     this._pageActive = false;
-    if (this._orientationRestoreTimer) clearTimeout(this._orientationRestoreTimer);
-    this._orientationRestoreTimer = null;
     orgSession.invalidateRequests(this);
     if (this._actionTimer) {
       clearTimeout(this._actionTimer);
@@ -1882,8 +1865,6 @@ Page({
   },
 
   _showSignaturePad(fileId, closeSourcePicker) {
-    const entryOrientation = currentViewportOrientation();
-    this._signingEntryOrientation = entryOrientation;
     this.setData({
       currentSignatureFileId: fileId,
       signaturePadVisible: false,
@@ -1895,7 +1876,6 @@ Page({
     const file = { id: 'blank-signature-' + Date.now(), fileName: signingCopy.padTitle };
     signingDrafts.setHandoff({ draft: { files: {}, materials: [], locked: false }, file, pad: true,
       sourceFile: this.data.files.find(item => item.id === fileId),
-      entryOrientation,
       allowSaveTemplate: true, mode: 'pen', submissionId: this.data.submissionId,
       stepId, round: this.data.activeApprovalStep.round || 1, directApproval: !!this.data.directStepId,
       confirm: exports => {
@@ -1904,19 +1884,6 @@ Page({
         this.onSignatureConfirm({ detail: { imageData: exports[0].imageData } });
       } });
     navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
-  },
-
-  restoreSigningOrientation() {
-    const orientation = this._signingEntryOrientation;
-    if (!orientation) return;
-    this._signingEntryOrientation = '';
-    if (this._orientationRestoreTimer) clearTimeout(this._orientationRestoreTimer);
-    this.setData({ detailOrientation: orientation }, () => {
-      this._orientationRestoreTimer = setTimeout(() => {
-        this._orientationRestoreTimer = null;
-        if (this._pageActive) this.setData({ detailOrientation: 'auto' });
-      }, 320);
-    });
   },
 
   openStepDraft(step, files, directApproval) {
@@ -1965,8 +1932,6 @@ Page({
   openSigningWorkspace(fileId, mode, active, autoOpened) {
     const draft = this.ensureSigningDraft(), file = (this.data.files || []).find(item => item.id === fileId);
     if (!draft || !file || draft.locked || draft.pendingRead) return;
-    const entryOrientation = currentViewportOrientation();
-    this._signingEntryOrientation = entryOrientation;
     const rollback = autoOpened && this._materialRollback || inkHistory.clone(draft);
     this._materialRollback = null;
     const prepared = this._preparedSigningPreview;
@@ -1974,7 +1939,7 @@ Page({
       ? prepared : this.prepareSigningPreview(fileId);
     this._preparedSigningPreview = null;
     signingDrafts.setHandoff({ draft, file, mode: mode || 'browse', active: active || '', rollback, directApproval: !!this.data.directStepId,
-      previewRequest, entryOrientation,
+      previewRequest,
       submissionId: this.data.submissionId, stepId: this.data.activeApprovalStep.id, round: this.data.activeApprovalStep.round || 1,
       confirm: () => { if (this._pageActive && this._signingStepId === this.data.activeApprovalStepId) this.restoreSigningMaterials(); } });
     navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');

@@ -10,15 +10,6 @@ const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetr
 const { signingStepCurrent } = require('../../utils/auditStepView');
 const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 
-function currentViewportOrientation() {
-  try {
-    const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync();
-    return Number(info.screenWidth || info.windowWidth) > Number(info.screenHeight || info.windowHeight) ? 'landscape' : 'portrait';
-  } catch (_) {
-    return 'portrait';
-  }
-}
-
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, workspaceOrientation: 'auto', fileName: '', fileImage: '', fileId: '',
     page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '', layersExpanded: false,
@@ -30,7 +21,6 @@ Page({
     previewFiles.removeExpiredPreviews().catch(() => {});
     orgSession.consume(this);
     this._handoff = drafts.getHandoff();
-    this._entryOrientation = this._handoff && this._handoff.entryOrientation || currentViewportOrientation();
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
     if (!this._handoff || this._handoff.draft.locked) { this.setData({ loading: false, notice: copy.draftLost }); return; }
     this._handoff.entryLayerId = 'entry_' + ink.nextLayerOrder();
@@ -299,25 +289,33 @@ Page({
       if (!this._alive || !orgSession.isCurrent(this._scope) || this._handoff.draft.locked) return;
       this._fileDraft.exports = exports; this._finished = true;
       const handoff = this._handoff;
-      await this.restoreEntryOrientation();
-      await new Promise((resolve, reject) => wx.navigateBack({ success: () => {
+      await new Promise((resolve, reject) => this.leaveWorkspace(() => {
         if (orgSession.isCurrent(this._scope) && !handoff.draft.locked && handoff.confirm) handoff.confirm(exports);
         resolve();
-      }, fail: error => { this._finished = false; reject(error); } }));
+      }, error => { this._finished = false; reject(error); }));
     } catch (error) { if (this._alive) this.setData({ exportNotice: savingSignature ? getErrorText(error) : error.message === 'too_large' ? copy.tooLarge : copy.exportFailed }); }
     finally { if (this._alive) this.setData({ saving: false }); }
   },
-  restoreEntryOrientation() {
-    const orientation = this._entryOrientation || 'portrait';
-    if (this.data.workspaceOrientation === orientation) return Promise.resolve();
-    this.setData({ workspaceOrientation: orientation });
-    return new Promise(resolve => setTimeout(resolve, 80));
+  leaveWorkspace(success, fail) {
+    this._leaving = true;
+    const orientation = this.data.workspaceOrientation;
+    const back = () => wx.navigateBack({
+      delta: 1,
+      success,
+      fail: error => {
+        this._leaving = false;
+        if (this._alive && orientation !== 'portrait') this.setData({ workspaceOrientation: orientation });
+        fail(error);
+      }
+    });
+    // 先让原生窗口收到竖屏。普通目标页继续按自身配置显示，不再异步切回自动旋转。
+    if (orientation === 'portrait') back();
+    else this.setData({ workspaceOrientation: 'portrait' }, back);
   },
-  async cancel() {
-    if (this.data.saving || this.data.processing) return;
+  cancel() {
+    if (this._leaving || this.data.saving || this.data.processing) return;
     if (this._saved && this._handoff) drafts.restore(this._handoff.draft, this._saved);
     this._finished = true;
-    await this.restoreEntryOrientation();
-    wx.navigateBack();
+    this.leaveWorkspace(undefined, () => { this._finished = false; });
   }
 });
