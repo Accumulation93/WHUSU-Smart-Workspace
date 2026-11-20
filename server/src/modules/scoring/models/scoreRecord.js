@@ -193,16 +193,25 @@ async function getByParticipantPair(scorer, target, activityId) {
   if (!scorerAssignmentId || !targetAssignmentId) {
     return getByScorerTarget(scorerLegacyHrId, targetLegacyHrId, activityId);
   }
+  const scorerSubjectKey = 'assignment:' + scorerAssignmentId;
+  const targetSubjectKey = 'assignment:' + targetAssignmentId;
+  // 先用两种岗位键定位小集合，再读取大字段。跨列 OR 直接查询宽行会扫描并排序整批快照。
   const [rows] = await pool.query(
-    `SELECT * FROM score_records
-      WHERE org_id = ? AND activity_id = ?
-        AND (scorer_assignment_id = ? OR scorer_subject_key = ?)
-        AND (target_assignment_id = ? OR target_subject_key = ?)
-      ORDER BY submitted_at DESC`,
+    `SELECT sr.* FROM score_records sr
+      JOIN (
+        SELECT id FROM score_records
+         WHERE org_id = ? AND activity_id = ? AND scorer_assignment_id = ?
+           AND (target_assignment_id = ? OR target_subject_key = ?)
+        UNION DISTINCT
+        SELECT id FROM score_records
+         WHERE org_id = ? AND activity_id = ? AND scorer_subject_key = ?
+           AND (target_assignment_id = ? OR target_subject_key = ?)
+      ) matched ON matched.id = sr.id
+      WHERE sr.org_id = ? ORDER BY sr.submitted_at DESC`,
     [
-      orgId, activityId,
-      scorerAssignmentId, 'assignment:' + scorerAssignmentId,
-      targetAssignmentId, 'assignment:' + targetAssignmentId
+      orgId, activityId, scorerAssignmentId, targetAssignmentId, targetSubjectKey,
+      orgId, activityId, scorerSubjectKey, targetAssignmentId, targetSubjectKey,
+      orgId
     ]
   );
   return rows;
