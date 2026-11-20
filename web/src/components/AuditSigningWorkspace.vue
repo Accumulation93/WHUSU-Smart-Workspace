@@ -1,78 +1,94 @@
 <template>
-  <section class="card signing-workspace">
-    <div class="signing-main">
+  <section class="signing-workspace">
     <div class="signing-topbar">
     <div class="tabs" role="tablist">
       <button v-for="value in modes" :key="value" class="tab" :class="{'tab-active': mode === value}" :aria-selected="mode === value" role="tab" @click="mode = value">{{ text[value] }}</button>
     </div>
     <div class="signing-toolbar signing-actions" role="toolbar" :aria-label="text.title">
-      <button class="btn-quiet" :aria-label="text.undo" :title="text.undo" :disabled="!fileDraft.history.cursor || busy" @click="changeHistory(false)">↶</button>
-      <button class="btn-quiet" :aria-label="text.redo" :title="text.redo" :disabled="fileDraft.history.cursor >= fileDraft.history.operations.length || busy" @click="changeHistory(true)">↷</button>
-      <button class="btn-quiet" :aria-label="text.clear" :title="text.clear" :disabled="busy" @click="clearInk">⌫</button>
+      <button class="btn-quiet" :disabled="!fileDraft.history.cursor || busy" @click="changeHistory(false)">{{ text.undo }}</button>
+      <button class="btn-quiet" :disabled="fileDraft.history.cursor >= fileDraft.history.operations.length || busy" @click="changeHistory(true)">{{ text.redo }}</button>
+      <button class="btn-quiet" :aria-label="text.clear" :title="text.clear" :disabled="busy" @click="clearInk"><UiIcon name="trash" /></button>
       <button class="btn-quiet" :aria-label="text.zoomOut" :title="text.zoomOut" :disabled="busy" @click="setZoom(zoom / 1.25)">−</button>
       <button class="btn-quiet" :aria-label="text.zoomIn" :title="text.zoomIn" :disabled="busy" @click="setZoom(zoom * 1.25)">+</button>
-      <button class="btn-quiet" :aria-label="text.fit" :title="text.fit" :disabled="busy" @click="setZoom(1, true)">⊡</button>
-      <button class="btn-quiet" :aria-label="text.tools" :aria-expanded="toolsExpanded" @click="toolsExpanded = !toolsExpanded; layersExpanded = false">✎</button>
+      <button class="btn-quiet signing-action-label" :disabled="busy" @click="setZoom(1, true)">{{ text.fit }}</button>
+      <button class="btn-quiet signing-action-label" :class="{'btn-quiet-primary': toolsExpanded}" :aria-expanded="toolsExpanded" :disabled="mode === 'browse'" @click="toolsExpanded = !toolsExpanded; layersExpanded = false">{{ text.tools }}</button>
     </div>
     </div>
-    <div v-if="toolsExpanded" class="signing-toolpanel">
-    <div class="signing-panel-heading"><span>{{ text.tools }}</span><button class="btn-quiet" :aria-label="text.closeTools" @click="toolsExpanded = false">×</button></div>
+    <div class="signing-stage" ref="stageRef">
+      <canvas ref="surfaceRef" :aria-label="pad ? text.padTitle : text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
+      <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
+    <section v-if="toolsExpanded && mode !== 'browse'" class="signing-panel signing-toolpanel" :aria-label="text.tools">
+    <div class="signing-panel-heading"><strong>{{ text.tools }}</strong><button class="btn-quiet signing-panel-close" :aria-label="text.closeTools" @click="toolsExpanded = false"><UiIcon name="x" /></button></div>
+    <div class="signing-panel-body">
     <div v-if="mode === 'pen' || mode === 'move'" class="signing-toolbar signing-palette" role="toolbar" :aria-label="text.color">
       <button v-for="preset in presets" :key="preset.value" class="btn-quiet signing-color" :aria-label="text[preset.label]" :title="text[preset.label]" :aria-pressed="!erasing && color === preset.value" @click="color = preset.value; erasing = false"><span class="signing-swatch" :style="{backgroundColor:preset.value}"></span></button>
-      <button class="btn-quiet signing-color" :aria-label="text.custom" :title="text.custom" :aria-expanded="custom" @click="custom = !custom">#</button>
-      <button class="btn-quiet" :aria-pressed="erasing" @click="erasing = !erasing">{{ text.erase }}</button>
+      <button class="btn-quiet signing-custom-color" :class="{'btn-quiet-primary': custom}" :aria-expanded="custom" @click="custom = !custom">{{ text.custom }}</button>
     </div>
-    <div v-if="mode === 'pen' && !erasing" class="signing-pen-styles" role="radiogroup" :aria-label="text.penStyle"><button v-for="style in penStyles" :key="style.value" class="btn-quiet" :class="{'btn-quiet-primary': penStyle === style.value}" :aria-pressed="penStyle === style.value" @click="penStyle = style.value">{{ style.label }}</button></div>
+    <div v-if="mode === 'pen'" class="signing-pen-styles" :class="{'signing-pen-styles--single': erasing}" role="group" :aria-label="text.penStyle">
+      <template v-if="!erasing"><button v-for="style in penStyles" :key="style.value" class="btn-quiet" :class="{'btn-quiet-primary': penStyle === style.value}" :aria-pressed="penStyle === style.value" @click="penStyle = style.value">{{ style.label }}</button></template>
+      <button class="btn-quiet" :class="{'btn-quiet-primary': erasing}" :aria-pressed="erasing" @click="erasing = !erasing">{{ text.erase }}</button>
+    </div>
+    <div v-if="mode === 'pen'" class="signing-width-heading">{{ erasing ? text.eraserWidth : text.width }}</div>
     <div v-if="mode === 'pen'" class="signing-widths" role="radiogroup" :aria-label="erasing ? text.eraserWidth : text.width"><button v-for="option in widthOptions" :key="option.value" class="signing-width-option" :class="{'signing-width-option--active': penWidth === option.value}" :aria-pressed="penWidth === option.value" @click="penWidth = option.value"><span class="signing-width-stroke" :style="{height:option.height+'px'}"></span><span>{{ option.label }}</span></button></div>
     <div v-if="custom && (mode === 'pen' || mode === 'move')" class="signing-color-panel">
       <label class="field"><span class="field-label">{{ text.hex }}</span><input v-model="colorInput" class="field-input" maxlength="7" @change="applyColor" /></label>
       <label v-for="(label,index) in channelLabels" :key="label" class="field"><span class="field-label">{{ label }}</span><input :value="channels[index]" type="range" min="0" max="255" @input="setChannel(index,$event.target.value)" /></label>
     </div>
-    <button v-if="activeId && (!activeMaterial || activeMaterial.signatureType==='signature')" class="btn-quiet" :disabled="busy || saving" @click="recolorSelected">{{ text.recolor }}</button>
+    <button v-if="currentLayerId && (!activeMaterial || activeMaterial.signatureType==='signature')" class="btn-quiet" :disabled="busy || saving" @click="recolorSelected">{{ text.recolor }}</button>
     </div>
-    <div class="signing-stage" ref="stageRef">
-      <canvas ref="surfaceRef" :aria-label="text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
-      <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
+    </section>
+    <section v-if="layersExpanded && !busy && !notice" class="signing-panel signing-sidepanel" :aria-label="text.layers">
+    <div class="signing-panel-heading">
+      <div class="signing-layer-heading"><strong>{{ text.layers }}</strong><span v-if="layers.length">{{ text.pageLayerCount.replace('{0}', layers.length) }}</span></div>
+      <button class="btn-quiet signing-panel-close" :aria-label="text.closeLayers" @click="layersExpanded = false"><UiIcon name="x" /></button>
     </div>
-    </div>
-    <div v-if="layersExpanded" class="signing-sidepanel">
-    <div class="signing-toolbar signing-layer-toolbar">
-      <div class="signing-layer-heading">{{ text.layers }}<span class="muted">{{ layers.length }}</span></div>
-      <button class="btn-quiet" :aria-label="text.layerUp" :title="text.layerUp" :disabled="busy || saving || displayLayers.findIndex(layer=>layer.id===(selectedLayer||displayLayers[0]?.id))<=0" @click="reorderLayer(1)">↑</button>
-      <button class="btn-quiet" :aria-label="text.layerDown" :title="text.layerDown" :disabled="busy || saving || displayLayers.findIndex(layer=>layer.id===(selectedLayer||displayLayers[0]?.id))>=displayLayers.length-1" @click="reorderLayer(-1)">↓</button>
-      <button class="btn-quiet btn-quiet-danger" :aria-label="text.remove" :disabled="busy || saving || !layers.length" @click="removeLayer">×</button>
-    </div>
+    <div class="signing-panel-body">
+    <p v-if="!layers.length" class="muted">{{ text.layersEmpty }}</p>
+    <template v-else>
     <div class="signing-layer-strip" role="listbox" :aria-label="text.layers">
-      <div v-for="(layer,index) in displayLayers" :key="layer.id" class="signing-layer-item" role="option" :aria-selected="(selectedLayer || displayLayers[0]?.id) === layer.id" :aria-label="layerName(layer)" :tabindex="busy || saving ? -1 : 0" @click="chooseLayer(layer.id)" @keydown.enter.prevent="chooseLayer(layer.id)" @keydown.space.prevent="chooseLayer(layer.id)">
-        <div class="signing-layer-preview"><div class="signing-layer-sheet"><span>{{ layer.kind === 'draw' ? '✎' : '◎' }}</span></div><span class="signing-layer-rank">{{ index + 1 }}</span></div>
+      <div v-for="(layer,index) in displayLayers" :key="layer.id" class="signing-layer-item" role="option" :aria-selected="currentLayerId === layer.id" :aria-label="layerName(layer)" :tabindex="busy || saving ? -1 : 0" @click="chooseLayer(layer.id)" @keydown.enter.prevent="chooseLayer(layer.id)" @keydown.space.prevent="chooseLayer(layer.id)">
+        <div class="signing-layer-preview"><div class="signing-layer-sheet"><UiIcon :name="layer.kind === 'draw' ? 'edit' : layer.material.signatureType === 'stamp' ? 'shield' : 'signature'" /></div><span class="signing-layer-rank">{{ index + 1 }}</span></div>
         <span class="signing-layer-name" :title="layerName(layer)">{{ layerName(layer) }}</span>
       </div>
     </div>
-    <div v-if="mode === 'move' && activeMaterial" class="signing-adjustments">
+    <div class="signing-layer-toolbar">
+      <button class="btn-quiet" :disabled="busy || saving || currentLayerIndex <= 0" @click="reorderLayer(1)">{{ text.layerUp }}</button>
+      <button class="btn-quiet" :disabled="busy || saving || currentLayerIndex < 0 || currentLayerIndex >= displayLayers.length - 1" @click="reorderLayer(-1)">{{ text.layerDown }}</button>
+      <button class="btn-quiet btn-quiet-danger" :disabled="busy || saving || currentLayerIndex < 0" @click="removeLayer">{{ text.removeLayer }}</button>
+    </div>
+    <div v-if="mode === 'move' && activeMaterial && currentLayerId === activeMaterial._idx" class="signing-adjustments">
+      <strong class="signing-adjustment-heading">{{ text.layerAdjustments }}</strong>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.size }}</span><span>{{ Math.round(displayedSize*100) }}%</span></span><input :aria-label="text.size" type="range" min="50" max="220" step="5" :disabled="busy || saving" :value="displayedSize*100" @input="previewAdjustment('size',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="resizeMaterial($event.target.value)" /></label>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.rotation }}</span><span>{{ displayedRotation }}°</span></span><input :aria-label="text.rotation" type="range" min="-180" max="180" step="5" :disabled="busy || saving" :value="displayedRotation" @input="previewAdjustment('rotation',$event.target.value)" @pointercancel="cancelAdjustment" @change="rotateMaterial($event.target.value)" /></label>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.horizontalPosition }}</span><span>{{ Math.round(displayedX*100) }}%</span></span><input :aria-label="text.horizontalPosition" type="range" min="0" max="100" step="1" :disabled="busy || saving" :value="displayedX*100" @input="previewAdjustment('positionX',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="positionMaterial('x',$event.target.value)" /></label>
       <label class="field"><span class="signing-adjustment-label"><span>{{ text.verticalPosition }}</span><span>{{ Math.round(displayedY*100) }}%</span></span><input :aria-label="text.verticalPosition" type="range" min="0" max="100" step="1" :disabled="busy || saving" :value="displayedY*100" @input="previewAdjustment('positionY',$event.target.value/100)" @pointercancel="cancelAdjustment" @change="positionMaterial('y',$event.target.value)" /></label>
       <button class="btn btn-secondary signing-center-material" :disabled="busy || saving" @click="centerMaterial">{{ text.centerMaterial }}</button>
     </div>
+    <p v-else-if="mode === 'move'" class="muted">{{ text.positionEmpty }}</p>
+    </template>
+    </div>
+    </section>
     </div>
     <div class="signing-bottom-bar">
-    <button v-if="submissionId" class="btn-quiet" :aria-label="text.draftConfirmHelpAction" @click="confirmHelp=true"><UiIcon name="toast-info" /></button>
-    <button class="btn-quiet" :aria-expanded="layersExpanded" @click="layersExpanded = !layersExpanded; toolsExpanded = false">{{ text.adjustLayers }} {{ layers.length }}</button>
-    <div class="signing-toolbar" v-if="totalPages > 1"><button class="btn-quiet" :disabled="page <= 1 || busy" @click="loadPage(page - 1)">◀</button><span>{{ page }} / {{ totalPages }}</span><button class="btn-quiet" :disabled="page >= totalPages || busy" @click="loadPage(page + 1)">▶</button></div>
-    <p v-if="exportNotice" class="notice-line">{{ exportNotice }}</p>
+    <div class="signing-footer-tools">
+    <button class="btn-quiet" :class="{'btn-quiet-primary':layersExpanded}" :aria-expanded="layersExpanded" :disabled="busy || !!notice || saving" @click="layersExpanded = !layersExpanded; toolsExpanded = false">{{ text.layers }}</button>
+    <div class="signing-pages" v-if="totalPages > 1"><button class="btn-quiet" :aria-label="text.previousPage" :disabled="page <= 1 || busy || saving" @click="loadPage(page - 1)"><UiIcon name="chevron-left" /></button><span :aria-label="text.pagePosition.replace('{0}', page).replace('{1}', totalPages)">{{ page }} / {{ totalPages }}</span><button class="btn-quiet" :aria-label="text.nextPage" :disabled="page >= totalPages || busy || saving" @click="loadPage(page + 1)"><UiIcon name="chevron-right" /></button></div>
+    <button v-if="submissionId && !pad" class="btn-quiet signing-help" @click="confirmHelp=true">{{ text.draftConfirmHelpAction }}</button>
     <label v-if="allowSaveTemplate" class="selection-option-card"><input type="checkbox" v-model="saveTemplate" :disabled="saving" />{{ text.saveToLibrary }}</label>
-    <div class="signing-footer"><button class="btn btn-secondary" :disabled="saving" @click="cancel">{{ text.cancel }}</button><button class="btn btn-primary" :disabled="busy || !!notice || saving" @click="confirm">{{ text.confirm }}</button></div>
+    </div>
+    <p v-if="exportNotice" class="notice-line">{{ exportNotice }}</p>
+    <div class="signing-footer"><button class="btn btn-secondary" :disabled="saving" @click="cancel">{{ text.cancel }}</button><button class="btn btn-primary" :disabled="busy || !!notice || saving" @click="confirm">{{ submissionId && !pad ? text.saveDraftAndReturn : text.confirm }}</button></div>
     </div>
     <canvas ref="inkRef" class="signing-export-canvas"></canvas>
   </section>
-  <GlassDialog v-if="confirmHelp" :title="text.draftConfirmHelpTitle" @close="confirmHelp=false"><p>{{ text.draftConfirmHelp }}</p><template #footer><button class="btn btn-secondary" @click="confirmHelp=false">{{ text.close }}</button></template></GlassDialog>
+  <GlassDialog v-if="confirmHelp" :title="text.draftConfirmHelpTitle" @close="confirmHelp=false"><p>{{ text.draftConfirmHelp }}</p></GlassDialog>
 </template>
 <script setup>
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, reactive, watch } from 'vue';
 import text from '@/locales/zh-CN/shared/auditSigning.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import GlassDialog from '@/components/GlassDialog.vue';
+import UiIcon from '@/components/UiIcon.vue';
 import { confirmAction } from '@/runtime/notify.js';
 import { signingDrafts, restoreDraft } from '@/runtime/signingDrafts.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
@@ -100,11 +116,12 @@ const channelLabels=[text.redChannel,text.greenChannel,text.blueChannel];
 const materials=computed(()=>props.draft.materials.filter(item=>item.fileId===props.file.id).sort((a,b)=>a.layerOrder-b.layerOrder));
 const layers=computed(()=>signingLayers(fileDraft.history,materials.value,page.value));
 const displayLayers=computed(()=>layers.value.slice().reverse());
-const selectedLayer=ref(props.active);
-const layerName=layer=>layer.kind==='draw'?text.stroke+' '+layer.number:layer.material.stampName||text.signature;
-function chooseLayer(id){if(busy.value||saving.value)return;activeId.value=id;selectedLayer.value=id;}
-function removeLayer(){if(busy.value||saving.value)return;const id=selectedLayer.value||displayLayers.value[0]?.id;deleteLayer(fileDraft.history,props.draft.materials,page.value,id);render();}
-function reorderLayer(direction){if(busy.value||saving.value)return;const id=selectedLayer.value||displayLayers.value[0]?.id;if(moveLayer(fileDraft.history,materials.value,page.value,id,direction)){selectedLayer.value=id;render();}}
+const currentLayerIndex=computed(()=>displayLayers.value.findIndex(layer=>layer.id===activeId.value));
+const currentLayerId=computed(()=>displayLayers.value[currentLayerIndex.value]?.id);
+const layerName=layer=>layer.kind==='draw'?text.strokeLayerName.replace('{0}',layer.number):layer.material.stampName||(layer.material.signatureType==='stamp'?text.stamp:text.signature);
+function chooseLayer(id){if(busy.value||saving.value)return;activeId.value=id;}
+function removeLayer(){if(busy.value||saving.value||!currentLayerId.value)return;deleteLayer(fileDraft.history,props.draft.materials,page.value,currentLayerId.value);render();}
+function reorderLayer(direction){if(busy.value||saving.value||!currentLayerId.value)return;if(moveLayer(fileDraft.history,materials.value,page.value,currentLayerId.value,direction))render();}
 const adjustment=ref(null);
 const displayedSize=computed(()=>adjustment.value?.values.size ?? activeMaterial.value?.size ?? 1);
 const displayedRotation=computed(()=>adjustment.value?.values.rotation ?? activeMaterial.value?.rotation ?? 0);
@@ -205,77 +222,127 @@ function rotateMaterial(value){adjustment.value=null;if(activeMaterial.value)com
 function positionMaterial(axis,value){adjustment.value=null;const material=activeMaterial.value;if(!material)return;commitMaterial(material,axis==='y'?{positionY:Number(value)/100}:{positionX:Number(value)/100});render();}
 function centerMaterial(){adjustment.value=null;if(activeMaterial.value)commitMaterial(activeMaterial.value,{positionX:0.5,positionY:0.5});render();}
 async function changeHistory(forward){if(busy.value||saving.value)return;const target=(forward?redo:undo)(fileDraft.history,props.draft.materials);if(target===null)return;if(target!==page.value)await loadPage(target);else render();}
-async function clearInk(){if(busy.value||saving.value)return;if(await confirmAction({title:text.clearTitle,body:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive||busy.value||saving.value)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
+async function clearInk(){if(busy.value||saving.value)return;if(await confirmAction({title:props.pad?text.clearPadTitle:text.clearTitle,body:props.pad?text.clearPadBody:text.clearBody,confirmText:text.clear,cancelText:text.cancel,danger:true})){if(!alive||busy.value||saving.value)return;appendOperation(fileDraft.history,{page:page.value,type:'clear'});render();}}
 async function exportPages(){const exports=[];const pages=Array.from(new Set(fileDraft.history.operations.slice(0,fileDraft.history.cursor).map(operation=>operation.page)));for(const number of pages){const value=await pageData(number);for(const layer of (props.pad?[null]:inkExportGroups(fileDraft.history,props.draft.materials.filter(item=>item.fileId===props.file.id),number))){const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const size=exportSize(value.width,value.height);const region=layer?groupExportRegion(layer,size.width,size.height):{left:0,top:0,width:size.width,height:size.height};canvas.width=region.width;canvas.height=region.height;if(layer)renderExportGroup(ctx,document.createElement('canvas'),fileDraft.history,layer,size.width,size.height,region);else renderInk(ctx,fileDraft.history,number,canvas.width,canvas.height);const bounds=alphaBounds(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);if(!bounds)continue;const crop=document.createElement('canvas');crop.width=bounds.width;crop.height=bounds.height;crop.getContext('2d').drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,bounds.width,bounds.height);const raw=crop.toDataURL('image/png'),imageData=props.pad?withSignatureWidth(raw,pageWidthMm({pad:true})*bounds.width/size.width):raw;if(imageData.length>Math.ceil(2*1024*1024*4/3)+64)throw Error('too_large');exports.push({_idx:'ink_'+props.file.id+'_'+(layer?layer.id+'_page_'+number:number),inkLayerId:layer?layer.id:'',layerOrder:layer?layer.order:0,fileId:props.file.id,signatureType:'signature',imageData,widthRatio:bounds.width/size.width,positionX:(region.left+bounds.left+bounds.width/2)/size.width,positionY:(region.top+bounds.top+bounds.height/2)/size.height,size:1,rotation:0,page:number});}}return exports;}
 async function confirm(){saving.value=true;exportNotice.value='';let savingSignature=false;try{fileDraft.exports=await exportPages();if(props.pad&&!fileDraft.exports.length){exportNotice.value=text.empty;return;}if(props.allowSaveTemplate&&saveTemplate.value){savingSignature=true;requireSuccess(await requests.call('saveSignature',{id:'',name:text.signature,imageData:fileDraft.exports[0].imageData}),text.signatureSaveFailed);savingSignature=false;}if(!alive)return;finished=true;emit('confirm',fileDraft.exports);}catch(error){exportNotice.value=savingSignature?errorText(error):error.message==='too_large'?text.tooLarge:text.exportFailed;}finally{saving.value=false;}}
 function cancel(){restoreDraft(props.draft,saved);finished=true;emit('cancel');}
 onMounted(()=>{observer=new ResizeObserver(resize);observer.observe(stageRef.value);loadPage(page.value);});
-watch([mode,activeId],()=>{cancelAdjustment();cancelGesture();render();});
+watch([mode,activeId],()=>{if(mode.value==='browse')toolsExpanded.value=false;cancelAdjustment();cancelGesture();render();});
 watch(materials,render,{deep:true});
-watch(displayLayers,value=>{if(!value.some(layer=>layer.id===selectedLayer.value))selectedLayer.value=value[0]?.id||'';});
 watch(color,value=>{colorInput.value=value;});
 onBeforeUnmount(()=>{alive=false;sequence+=1;requests.dispose();if(observer)observer.disconnect();if(frame!==null)cancelAnimationFrame(frame);if(!finished)restoreDraft(props.draft,saved);pointers.clear();});
 </script>
 <style scoped>
-.signing-main{display:contents}
-.signing-sidepanel{display:flex;flex:none;min-width:0;flex-direction:column;gap:var(--ui-signing-tool-gap)}
-.signing-layer-toolbar{flex-wrap:nowrap}
-.signing-layer-actions{display:flex;justify-content:flex-end;flex:none}
-.signing-layer-toolbar .field{flex:1;min-width:0;flex-direction:row;align-items:center}
-.signing-layer-toolbar .field-input{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
-.signing-layer-toolbar .field-label,.signing-width .field-label{flex:none;white-space:nowrap}
-.signing-workspace{position:relative;display:grid;flex:1 1 0;min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(120px,1fr) auto;gap:var(--ui-signing-tool-gap);padding:var(--ui-signing-tool-gap)}
-.signing-workspace .panel-head{margin:0;flex:none}
-.signing-workspace .tabs{margin:0;flex:none;min-height:0;padding:0}
-.signing-workspace .tab{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);font-size:var(--ui-type-meta)}
-.signing-toolbar,.signing-objects{display:flex;flex:none;align-items:center;flex-wrap:wrap;gap:var(--ui-signing-tool-gap)}
-.signing-actions{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-.signing-toolbar .btn-quiet{min-width:0;min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap);border-radius:var(--ui-compact-radius)}
-.signing-palette{flex-wrap:nowrap}
-.signing-color{flex:1}
-.signing-swatch{width:var(--ui-signing-swatch-size);height:var(--ui-signing-swatch-size);border-radius:var(--ui-compact-radius)}
-.signing-color[aria-pressed=true]{border-color:var(--ui-blue-700);background:var(--ui-option-selected-bg)}
-.signing-pen-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-signing-tool-gap)}
-.signing-pen-styles .btn-quiet{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap)}
-.signing-widths{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--ui-signing-tool-gap)}
-.signing-width-option{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-width:0;min-height:44px;padding:5px 2px;border:1px solid var(--ui-line);border-radius:var(--ui-compact-radius);background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(246,249,255,.88));color:var(--ui-text-muted);font-size:var(--ui-type-micro);line-height:1.2;cursor:pointer}
-.signing-width-option--active{border-color:var(--ui-blue-700);background:var(--ui-option-selected-bg);color:var(--ui-blue-700);box-shadow:0 4px 9px rgba(37,99,235,.12)}
-.signing-width-stroke{display:block;width:26px;min-height:1px;border-radius:999px;background:currentColor}
-.signing-stage{position:relative;flex:1 1 0;min-height:var(--ui-signing-stage-min-height);width:100%;overflow:hidden;border-radius:var(--ui-field-radius);background:var(--ui-option-selected-bg);box-shadow:inset 0 0 0 2px var(--ui-blue-500)}
-.signing-stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
-.signing-stage-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--ui-field-bg)}
-.signing-footer{padding-top:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border);display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-action-gap)}
-.signing-export-canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.signing-color-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-field-gap)}
-.signing-color-panel input[type=range]{height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x}
-.signing-layer-toolbar .btn-quiet{min-width:var(--ui-control-height)}
-.signing-layer-toolbar .btn-quiet,.signing-layer-toolbar .field-input{min-height:var(--ui-control-height)}
-.signing-layer-heading{display:flex;flex:1;align-items:center;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
-.signing-layer-strip{display:flex;flex:none;gap:var(--ui-signing-control-gap);height:var(--ui-signing-layer-height);overflow-x:auto;overflow-y:hidden;padding:var(--ui-signing-tool-gap);box-sizing:border-box}
-.signing-layer-item{flex:0 0 auto;min-width:var(--ui-signing-layer-width);padding:var(--ui-signing-tool-gap);box-sizing:border-box;border-bottom:2px solid transparent;cursor:pointer}
-.signing-layer-item[aria-selected=true]{border-bottom-color:var(--ui-blue-700);background:var(--ui-option-selected-bg)}
-.signing-layer-preview{position:relative;display:flex;justify-content:center;height:var(--ui-signing-preview-height)}
-.signing-layer-sheet{display:flex;align-items:center;justify-content:center;width:var(--ui-signing-sheet-width);height:var(--ui-signing-sheet-height);border:var(--ui-result-label-border);background:var(--ui-field-bg);box-shadow:var(--ui-signing-sheet-shadow);color:var(--ui-text-muted);font-size:var(--ui-type-emphasis)}
-.signing-layer-item[aria-selected=true] .signing-layer-sheet{border-color:var(--ui-blue-700);color:var(--ui-blue-700)}
-.signing-layer-rank{position:absolute;right:0;bottom:0;font-size:var(--ui-type-micro);color:var(--ui-text-muted)}
-.signing-layer-name{display:block;white-space:nowrap;text-align:center;font-size:var(--ui-type-meta);line-height:var(--ui-leading-body)}
-.signing-adjustments{display:grid;flex:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ui-signing-adjustment-gap);padding:var(--ui-signing-control-gap);border-top:var(--ui-result-label-border)}
-.signing-adjustments .field{min-width:0;gap:0}
-.signing-center-material{grid-column:1/-1;justify-self:center;min-width:120px;min-height:var(--ui-signing-tool-height)}
-.signing-adjustment-label{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-inline-gap);font-size:var(--ui-type-label)}
-.signing-adjustments input[type=range]{display:block;box-sizing:border-box;width:100%;height:var(--ui-signing-slider-height);margin:0;padding:0 var(--ui-signing-control-gap);touch-action:pan-x;accent-color:var(--ui-blue-700)}
-.signing-topbar{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:var(--ui-signing-control-gap);flex:none}
-.signing-stage,.signing-toolpanel,.signing-sidepanel{grid-column:1;grid-row:2;min-height:0}
-.signing-topbar{grid-column:1;grid-row:1}
-.signing-bottom-bar{grid-column:1;grid-row:3}
-.signing-toolpanel,.signing-sidepanel{position:relative;z-index:4;width:min(360px,96%);overflow:auto;padding:var(--ui-signing-control-gap);box-sizing:border-box;background:var(--ui-card-bg);border:var(--ui-result-label-border);border-radius:var(--ui-field-radius);box-shadow:var(--ui-card-shadow);backdrop-filter:blur(12px)}
-.signing-toolpanel{justify-self:start}
-.signing-sidepanel{justify-self:end}
-.signing-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-signing-tool-gap);margin-bottom:var(--ui-signing-control-gap)}
-.signing-bottom-bar{display:flex;align-items:center;flex:none;gap:var(--ui-signing-control-gap);flex-wrap:wrap}
-.signing-bottom-bar .selection-option-card{padding:var(--ui-signing-tool-gap);min-height:var(--ui-signing-tool-height);font-size:var(--ui-type-meta)}
-.signing-footer{margin-left:auto;padding:0;border:0;gap:var(--ui-signing-control-gap)}
-.signing-footer .btn{min-height:var(--ui-signing-tool-height);padding:var(--ui-signing-tool-gap) var(--ui-signing-control-gap);font-size:var(--ui-type-meta)}
-.signing-bottom-bar .notice-line{position:absolute;bottom:var(--ui-control-height);background:var(--ui-card-bg)}
-@media(max-width:519px){.signing-topbar{grid-template-columns:minmax(0,1fr)}}
+.signing-workspace {
+  display: grid; flex: 1 1 0; min-height: 0;
+  grid-template-rows: auto minmax(var(--ui-signing-stage-min-height),1fr) auto;
+  gap: var(--ui-inline-gap);
+}
+.signing-topbar, .signing-bottom-bar, .signing-panel {
+  border: var(--ui-result-label-border);
+  border-radius: var(--ui-field-radius);
+  background: var(--ui-field-bg);
+  box-shadow: var(--ui-card-shadow);
+}
+.signing-topbar, .signing-bottom-bar { display: grid; gap: var(--ui-inline-gap); padding: var(--ui-inline-gap); }
+.signing-workspace .tabs { margin: 0; min-height: 0; padding: 0; }
+.signing-workspace .tab, .signing-workspace .btn-quiet, .signing-footer .btn {
+  min-height: var(--ui-signing-tool-height); padding: var(--ui-signing-tool-gap) var(--ui-inline-gap);
+  border-radius: var(--ui-compact-radius); font-size: var(--ui-type-meta); line-height: var(--ui-leading-control); white-space: nowrap;
+}
+.signing-actions { display: grid; grid-template-columns: repeat(2,minmax(max-content,1fr)) repeat(3,minmax(0,1fr)) repeat(2,minmax(max-content,1.65fr)); gap: var(--ui-signing-tool-gap); }
+.signing-actions .btn-quiet { min-width: 0; padding-inline: var(--ui-signing-tool-gap); }
+.signing-actions .signing-action-label { padding-inline: var(--ui-inline-gap); }
+.signing-stage {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  border: 1px solid var(--ui-line-blue); border-radius: var(--ui-field-radius); background: var(--ui-option-selected-bg);
+}
+.signing-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+.signing-stage-state { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--ui-inline-gap); background: var(--ui-field-bg); }
+.signing-export-canvas { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.signing-panel {
+  position: absolute; z-index: 2; display: grid; grid-template-rows: auto minmax(0,1fr);
+  width: min(400px,calc(100% - 2 * var(--ui-inline-gap)));
+  max-height: calc(100% - 2 * var(--ui-inline-gap)); overflow: hidden;
+  box-sizing: border-box; backdrop-filter: blur(12px);
+}
+.signing-toolpanel { top: var(--ui-inline-gap); left: var(--ui-inline-gap); }
+.signing-sidepanel { right: var(--ui-inline-gap); bottom: var(--ui-inline-gap); max-height: 65%; }
+.signing-panel-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--ui-inline-gap);
+  padding: var(--ui-inline-gap) var(--ui-signing-control-gap); border-bottom: var(--ui-result-label-border);
+  font-size: var(--ui-type-emphasis);
+}
+.signing-panel .signing-panel-close { flex: none; width: var(--ui-signing-tool-height); padding: 0; }
+.signing-panel-body {
+  display: grid; grid-template-columns: minmax(0,1fr); align-content: start; gap: var(--ui-signing-control-gap); min-height: 0;
+  overflow: auto; overscroll-behavior: contain; padding: var(--ui-signing-control-gap);
+}
+.signing-panel-body > p { margin: 0; }
+.signing-palette, .signing-pen-styles, .signing-widths, .signing-layer-toolbar { display: grid; gap: var(--ui-signing-tool-gap); }
+.signing-palette { grid-template-columns: repeat(3,var(--ui-signing-tool-height)) minmax(0,1fr); }
+.signing-swatch { width: var(--ui-signing-swatch-size); height: var(--ui-signing-swatch-size); border-radius: var(--ui-compact-radius); }
+.signing-color[aria-pressed=true], .signing-width-option--active { border-color: var(--ui-blue-700); background: var(--ui-option-selected-bg); color: var(--ui-blue-700); }
+.signing-pen-styles, .signing-layer-toolbar { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.signing-pen-styles--single { grid-template-columns: minmax(0,1fr); }
+.signing-widths { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.signing-width-heading { margin-bottom: calc(-1 * var(--ui-signing-tool-gap)); font-size: var(--ui-type-meta); color: var(--ui-text-muted); }
+.signing-width-option {
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  gap: var(--ui-signing-tool-gap); min-width: 0; min-height: var(--ui-signing-tool-height); padding: var(--ui-signing-tool-gap);
+  border: 1px solid var(--ui-line); border-radius: var(--ui-compact-radius); background: var(--ui-field-bg);
+  color: var(--ui-text-muted); font-size: var(--ui-type-micro); line-height: var(--ui-leading-control); cursor: pointer;
+}
+.signing-width-option--active { border-color: var(--ui-blue-700); background: var(--ui-option-selected-bg); color: var(--ui-blue-700); }
+.signing-width-stroke { display: block; width: 26px; min-height: 1px; border-radius: 999px; background: currentColor; }
+.signing-color-panel { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-field-gap); }
+.signing-color-panel .field { min-width: 0; }
+.signing-color-panel .field-input { width: 100%; min-width: 0; }
+.signing-layer-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ui-inline-gap); }
+.signing-layer-heading > span { font-size: var(--ui-type-meta); color: var(--ui-text-muted); }
+.signing-layer-strip { display: flex; gap: var(--ui-inline-gap); min-width: 0; overflow-x: auto; padding-bottom: var(--ui-signing-tool-gap); }
+.signing-layer-item {
+  flex: 0 0 auto; min-width: var(--ui-signing-layer-width); padding: var(--ui-signing-tool-gap) var(--ui-inline-gap);
+  border: 1px solid var(--ui-line); border-radius: var(--ui-compact-radius); background: var(--ui-card-bg); cursor: pointer;
+}
+.signing-layer-item[aria-selected=true] { border-color: var(--ui-blue-700); background: var(--ui-option-selected-bg); }
+.signing-layer-preview { position: relative; display: flex; justify-content: center; align-items: center; height: var(--ui-signing-preview-height); }
+.signing-layer-sheet {
+  display: grid; place-items: center; width: var(--ui-signing-sheet-width); height: var(--ui-signing-sheet-height);
+  border: 1px solid var(--ui-line-blue); border-radius: var(--ui-signing-tool-gap); background: var(--ui-field-bg); box-shadow: var(--ui-signing-sheet-shadow);
+}
+.signing-layer-rank { position: absolute; right: 0; bottom: 0; font-size: var(--ui-type-micro); color: var(--ui-text-muted); font-variant-numeric: tabular-nums; }
+.signing-layer-name { display: block; white-space: nowrap; text-align: center; font-size: var(--ui-type-meta); line-height: var(--ui-leading-body); }
+.signing-adjustments {
+  display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-inline-gap) var(--ui-signing-adjustment-gap);
+  padding: var(--ui-signing-control-gap) 0 var(--ui-signing-tool-gap); border-top: var(--ui-result-label-border);
+}
+.signing-adjustments .field { min-width: 0; gap: 0; }
+.signing-adjustment-heading, .signing-center-material { grid-column: 1/-1; }
+.signing-adjustment-label { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--ui-signing-tool-gap); font-size: var(--ui-type-meta); }
+.signing-panel input[type=range] {
+  display: block; box-sizing: border-box; width: 100%; height: var(--ui-signing-slider-height); margin: 0;
+  padding: 0 var(--ui-signing-control-gap); touch-action: pan-x; accent-color: var(--ui-blue-700);
+}
+
+.signing-bottom-bar { position: relative; }
+.signing-footer-tools, .signing-pages { display: flex; align-items: center; gap: var(--ui-inline-gap); min-width: 0; }
+.signing-pages, .signing-help { margin-left: auto; }
+.signing-pages > span { min-width: 52px; text-align: center; white-space: nowrap; font-size: var(--ui-type-meta); font-variant-numeric: tabular-nums; }
+.signing-pages .btn-quiet { width: var(--ui-signing-tool-height); padding: 0; }
+.signing-footer-tools .selection-option-card { min-height: var(--ui-signing-tool-height); padding: var(--ui-signing-tool-gap) var(--ui-inline-gap); font-size: var(--ui-type-meta); }
+.signing-footer { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-inline-gap); }
+.signing-bottom-bar .notice-line { position: absolute; z-index: 3; bottom: calc(100% + var(--ui-inline-gap)); left: 0; right: 0; margin: 0; background: var(--ui-field-bg); }
+@media (min-width: 650px) {
+  .signing-topbar { grid-template-columns: minmax(0,3fr) minmax(0,7fr); }
+  .signing-bottom-bar { grid-template-columns: minmax(0,1fr) auto; }
+  .signing-pages, .signing-help { margin-left: 0; }
+  .signing-footer { grid-template-columns: minmax(80px,auto) minmax(108px,auto); }
+  .signing-sidepanel { max-height: calc(100% - 2 * var(--ui-inline-gap)); }
+}
+@media (min-width: 650px) and (max-height: 500px) {
+  .signing-workspace { --ui-signing-tool-height: 34px; gap: var(--ui-signing-tool-gap); }
+  .signing-topbar, .signing-bottom-bar { padding: var(--ui-signing-tool-gap); }
+}
 </style>

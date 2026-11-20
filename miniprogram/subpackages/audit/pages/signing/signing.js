@@ -22,8 +22,8 @@ function currentViewportOrientation() {
 Page({
   data: { copy, common, navigationTitle: copy.title, navTopPx: 0, workspaceOrientation: 'auto', fileName: '', fileImage: '', fileId: '',
     page: 1, totalPages: 1, width: 800, height: 400, pdf: false, mode: 'browse', materials: [], activeId: '', layersExpanded: false,
-    loading: true, ready: false, notice: '', saving: false, workspaceMinHeight: 240, toolSettingsExpanded: false, materialSize: 100, materialRotation: 0,
-    materialX: 50, materialY: 50, activeMaterialId: '', layers: [], layerIndex: 0 },
+    loading: true, ready: false, notice: '', saving: false, materialSize: 100, materialRotation: 0,
+    materialX: 50, materialY: 50, activeMaterialId: '', layers: [], layerIndex: -1 },
   onLoad() {
     this._alive = true; this._scope = orgSession.getSnapshot(); this._cache = {}; this._previewPaths = [];
     // 可重建副本清理不参与打开文件；原生文件回调停滞不能挡住内存预览。
@@ -36,16 +36,21 @@ Page({
     this._handoff.entryLayerId = 'entry_' + ink.nextLayerOrder();
     this._saved = ink.clone(this._handoff.rollback || this._handoff.draft);
     this._fileDraft = drafts.store.file(this._handoff.draft, this._handoff.file.id);
-    this.setData({ workspaceOrientation: this._handoff.pad === true ? 'landscape' : 'auto', fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
-      allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false, hasStep: !!this._handoff.submissionId,
+    this.setData({ workspaceOrientation: this._handoff.pad === true ? 'landscape' : 'auto', navigationTitle: this._handoff.pad ? copy.padTitle : copy.title, fileName: this._handoff.file.fileName, fileId: this._handoff.file.id,
+      allowSaveTemplate: this._handoff.allowSaveTemplate === true, saveTemplate: false, hasStep: !!this._handoff.submissionId && !this._handoff.pad,
       mode: this._handoff.mode || 'browse', activeId: this._handoff.active || '',
       pdf: this._handoff.file.mimeType === 'application/pdf' });
     this.refreshMaterials(); this.validateStep();
   },
-  toggleLayers() { const pad = this.selectComponent('#signingPad'); if (pad) pad.closeTools(); this.setData({ layersExpanded: !this.data.layersExpanded }); },
+  toggleLayers() {
+    if (this.data.layersExpanded) { this.closeLayers(); return; }
+    const pad = this.selectComponent('#signingPad');
+    if (pad) pad.closeTools();
+    this.setData({ layersExpanded: true });
+  },
+  closeLayers() { this.setData({ layersExpanded: false }); },
   workspaceTools(event) {
-    const expanded = Boolean(event.detail.expanded);
-    this.setData(expanded ? { toolSettingsExpanded: true, layersExpanded: false } : { toolSettingsExpanded: false });
+    if (event.detail.expanded && this.data.layersExpanded) this.closeLayers();
   },
   onShow() {
     const state = orgSession.consume(this);
@@ -54,7 +59,7 @@ Page({
     } else if (this._waiter) this.startCanvasTimer();
   },
   onHide() { if (this._readyTimer) clearTimeout(this._readyTimer); this._readyTimer = null; },
-  onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
+  onResize() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onPageScroll() { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); },
   onUnload() {
     this._alive = false; if (this._readyTimer) clearTimeout(this._readyTimer);
@@ -80,8 +85,14 @@ Page({
   refreshLayers() {
     if (!this._fileDraft || !this._fileDraft.history) return;
     const layers = ink.signingLayers(this._fileDraft.history, this._handoff.draft.materials.filter(item => item.fileId === this.data.fileId), this.data.page)
-      .reverse().map((layer, index) => { const name = layer.kind === 'draw' ? copy.stroke + ' ' + layer.number : layer.material.stampName || copy.signature; return { id: layer.id, kind: layer.kind, name, label: (index + 1) + ' · ' + name }; });
-    this.setData({ layers, layerIndex: Math.max(0, layers.findIndex(layer => layer.id === this.data.activeId)) });
+      .reverse().map(layer => ({
+        id: layer.id,
+        icon: layer.kind === 'draw' ? 'edit' : layer.material.signatureType === 'stamp' ? 'shield' : 'signature',
+        recolorable: layer.kind === 'draw' || layer.material.signatureType === 'signature',
+        name: layer.kind === 'draw' ? copy.strokeLayerName.replace('{0}', layer.number) : layer.material.stampName || (layer.material.signatureType === 'stamp' ? copy.stamp : copy.signature)
+      }));
+    const layerIndex = layers.findIndex(layer => layer.id === this.data.activeId);
+    this.setData({ layers, layerIndex, recolorable: layerIndex >= 0 && layers[layerIndex].recolorable, layerCountText: copy.pageLayerCount.replace('{0}', layers.length) });
   },
   chooseLayer(event) {
     if (this.data.saving || !this.data.ready) return;
@@ -188,8 +199,7 @@ Page({
     this.refreshMaterials(); this.syncHistory();
   },
   historyPage(event) { this.loadPage(event.detail.page); },
-  workspaceLayout(event) { if (this.data.workspaceMinHeight !== event.detail.minimum) this.setData({ workspaceMinHeight: event.detail.minimum }); },
-  workspaceMode(event) { this.cancelAdjustment(); this.setData({ mode: event.detail.mode }, () => { const pad = this.selectComponent('#signingPad'); if (pad) pad.measure(); }); },
+  workspaceMode(event) { this.cancelAdjustment(); this.setData({ mode: event.detail.mode }); },
   chooseMaterial(event) { this.setData({ activeId: event.currentTarget.dataset.id }); this.refreshMaterials(); },
   moveMaterial(event) {
     const value = event.detail, material = this._handoff.draft.materials.find(item => item._idx === value.id);

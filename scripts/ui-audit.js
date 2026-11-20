@@ -1838,7 +1838,8 @@ const signaturePadStyle = fs.readFileSync(signaturePadStylePath, 'utf8');
 const signaturePageBase = path.join(MINI_ROOT, 'subpackages', 'audit', 'pages', 'submissionDetail', 'submissionDetail');
 const signaturePageSource = fs.readFileSync(`${signaturePageBase}.js`, 'utf8');
 const signatureCoordinateIssues = [];
-if (!/select\('#sigSurface'\)\.fields\(\{\s*node:\s*true,\s*size:\s*true,\s*rect:\s*true\s*\}\)/.test(signaturePadSource)) {
+if (!/select\('#sigSurface'\)\.fields\(\{\s*node:\s*true\s*\}\)/.test(signaturePadSource) ||
+  !/select\('#sigViewport'\)\.fields\(\{\s*size:\s*true,\s*rect:\s*true\s*\}\)/.test(signaturePadSource)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '连续签名画布必须读取实际节点与视口 rect' });
 }
 if (!/ink\.filePoint\(Number\(touch\.clientX\),\s*Number\(touch\.clientY\),\s*this\._rect,\s*this\._camera\)/.test(signaturePadSource) ||
@@ -1848,7 +1849,8 @@ if (!/ink\.filePoint\(Number\(touch\.clientX\),\s*Number\(touch\.clientY\),\s*th
 if (/Number\(t\.(?:x|y|pageX|pageY)\)/.test(signaturePadSource)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名板禁止直接使用 Touch.x/y 或 pageX/pageY' });
 }
-if (!/<canvas[^>]*type="2d"[^>]*id="sigSurface"[^>]*catchtouchstart="onTouchStart"/.test(signaturePadWxml) ||
+if (!/<canvas[^>]*type="2d"[^>]*id="sigSurface"/.test(signaturePadWxml) ||
+  !/<view[^>]*id="sigViewport"[^>]*catchtouchstart="onTouchStart"/.test(signaturePadWxml) ||
   /sigpad-ink-segment|_createSegment/.test(signaturePadWxml + signaturePadSource)) {
   signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '独立签署页必须使用连续 Canvas 路径，禁止 view 小线段拼接' });
 }

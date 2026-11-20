@@ -6,6 +6,10 @@ const drafts = require('../../../../utils/auditSigningDrafts');
 const { signatureGeometry } = require('../../utils/auditSignatureGeometry');
 const previewFiles = require('../../package-resources/utils/auditPreviewFiles');
 
+function removePanelFrame(path) {
+  if (path) wx.getFileSystemManager().unlink({ filePath: path, fail() {} });
+}
+
 // 连续画布只用于普通布局工作区，禁止放入 Portal 或祖先变换弹窗。
 Component({
   properties: {
@@ -13,14 +17,15 @@ Component({
     fileImage: { type: String, value: '', observer(next, previous) {
       if (this._surface) this._loadImage({ preserveCamera: Boolean(next && previous && this._background) });
     } },
-    layoutKey: { type: String, value: '', observer() { wx.nextTick(() => { if (this._alive && this._surface) this.measure(); }); } },
     fileId: { type: String, value: '' }, page: { type: Number, value: 1 },
     documentWidth: { type: Number, value: 800 }, documentHeight: { type: Number, value: 400 },
     pdf: { type: Boolean, value: false }, initialMode: { type: String, value: 'pen' },
-    activeId: { type: String, value: '', observer() { this._syncRecolor(); if (this._surface) this._render(); } },
+    activeId: { type: String, value: '', observer() { if (this._surface) this._render(); } },
+    recolorable: { type: Boolean, value: false },
+    overlayVisible: { type: Boolean, value: false, observer() { if (this._surface) this._syncPanelPreview(); } },
+    navigationHeight: { type: Number, value: 0, observer() { this.measureAfterResize(); } },
     materials: { type: Array, value: [], observer() { if (this._surface) this._loadMaterials().catch(() => this._imageFailure()); } },
-    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 0.5 },
-    compactTools: { type: Boolean, value: false }
+    penColor: { type: String, value: '#000000' }, penWidth: { type: Number, value: 0.5 }
   },
   data: { copy, common, mode: 'pen', color: '#000000', penStyle: 'hard', penWidth: 0.5, erasing: false, custom: false, toolsExpanded: false,
     penStyles: [{ value: 'hard', label: copy.hardPen }, { value: 'soft', label: copy.softPen }],
@@ -43,6 +48,8 @@ Component({
       this._alive = false; this._queue = []; this._gesture = null; this._stroke = null;
       if (this._frame != null && this._surface && this._surface.cancelAnimationFrame) this._surface.cancelAnimationFrame(this._frame);
       if (this._timer) clearTimeout(this._timer);
+      this._clearResizeChecks();
+      this._clearPanelPreview(false);
       this._imagePaths.forEach(path => previewFiles.removePreview(path));
     }
   },
@@ -52,37 +59,135 @@ Component({
       if (this._frame != null && this._surface && this._surface.cancelAnimationFrame) this._surface.cancelAnimationFrame(this._frame);
       if (this._timer) clearTimeout(this._timer);
       this._frame = null; this._timer = null;
+      this._clearResizeChecks();
+      this._clearPanelPreview(true);
     },
-    show() { this._hidden = false; if (this._surface) { this.measure(); this._render(); } }
+    show() { this._hidden = false; if (this._surface) { this.measure(); this._render(); } },
+    resize() { this.measureAfterResize(); }
   },
   methods: {
-    toggleTools() { const expanded = !this.data.toolsExpanded; this.setData({ toolsExpanded: expanded }); this.triggerEvent('toolschange', { expanded }); },
-    closeTools() { this.setData({ toolsExpanded: false }); this.triggerEvent('toolschange', { expanded: false }); },
+    toggleTools() {
+      if (this.data.toolsExpanded) { this.closeTools(); return; }
+      this.setData({ toolsExpanded: true }, () => this._syncPanelPreview());
+      this.triggerEvent('toolschange', { expanded: true });
+    },
+    closeTools() {
+      if (!this.data.toolsExpanded) return;
+      if (this.data.keyboardPanelMax) wx.hideKeyboard();
+      this.setData({ toolsExpanded: false, keyboardPanelMax: 0 }, () => this._syncPanelPreview());
+    },
+    updateColorKeyboard(event) {
+      const height = Number(event.detail.height) || 0;
+      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      const keyboardPanelMax = height && this._rect ? Math.max(80, Math.floor(info.windowHeight - height - this._rect.top - 12)) : 0;
+      this.setData({ keyboardPanelMax });
+    },
     _initialize() {
       const query = wx.createSelectorQuery().in(this);
-      query.select('#sigSurface').fields({ node: true, size: true, rect: true });
+      query.select('#sigSurface').fields({ node: true });
       query.select('#sigInkCanvas').fields({ node: true });
       query.select('#sigExportCanvas').fields({ node: true });
+      query.select('#sigViewport').fields({ size: true, rect: true });
       query.exec(rows => {
         if (!this._alive) return;
-        if (!rows[0] || !rows[0].node || !rows[0].width || !rows[0].height || !rows[1] || !rows[1].node || !rows[2] || !rows[2].node) { this._imageFailure(); return; }
-        this._surface = rows[0].node; this._rect = rows[0]; this._layer = rows[1].node; this._export = rows[2].node;
+        if (!rows[0] || !rows[0].node || !rows[1] || !rows[1].node || !rows[2] || !rows[2].node || !rows[3] || !rows[3].width || !rows[3].height) { this._imageFailure(); return; }
+        this._surface = rows[0].node; this._rect = rows[3]; this._layer = rows[1].node; this._export = rows[2].node;
         this._resizeSurface();
         this._ctx = this._surface.getContext('2d'); this._inkCtx = this._layer.getContext('2d'); this._loadImage();
       });
     },
+    _clearResizeChecks() {
+      (this._resizeChecks || []).forEach(timer => clearTimeout(timer));
+      this._resizeChecks = [];
+    },
+    measureAfterResize() {
+      if (!this._alive || this._hidden || !this._surface) return;
+      this._clearResizeChecks();
+      // 旋转先通知逻辑层，真实画布和顶栏可能在后续视图帧才稳定。
+      this._resizeChecks = [0, 100, 320].map(delay => setTimeout(() => {
+        if (this._alive && !this._hidden) this.measure();
+      }, delay));
+    },
     measure() {
       const query = wx.createSelectorQuery().in(this);
-      query.select('#sigSurface').fields({ size: true, rect: true });
-      query.selectAll('.sigpad-tools, .sigpad-notice').boundingClientRect();
+      query.select('#sigViewport').fields({ size: true, rect: true });
       query.exec(rows => {
-        if (this._alive && rows[0]) {
-          const controls = rows[1] || [];
-          const minimum = Math.ceil(120 + controls.reduce((sum, rect) => sum + rect.height + 4, 0));
-          if (minimum !== this._minimumHeight) { this._minimumHeight = minimum; this.triggerEvent('layoutchange', { minimum }); }
-          if (this._surface) { this._applyViewport(rows[0]); this._render(); }
-        }
+        if (this._alive && this._surface && this._applyViewport(rows[0])) this._render();
       });
+    },
+    _panelOpen() { return this.data.toolsExpanded || this.properties.overlayVisible; },
+    _syncPanelPreview() {
+      if (this._panelOpen()) this._render();
+      else this._clearPanelPreview(true);
+    },
+    _clearPanelPreview(render) {
+      this._panelEpoch = (this._panelEpoch || 0) + 1;
+      clearTimeout(this._panelTimer);
+      clearTimeout(this._panelFallbackTimer);
+      this._panelTimer = null;
+      this._panelFallbackTimer = null;
+      this._panelDirty = false;
+      const paths = [this._panelPath, this._previousPanelPath].filter(Boolean);
+      this._panelPath = null;
+      this._previousPanelPath = null;
+      if (render && (this.data.panelPreviewVisible || this.data.panelPreview)) {
+        this.setData({ panelPreview: '', panelPreviewVisible: false, panelPreviewStale: false }, () => paths.forEach(removePanelFrame));
+      } else paths.forEach(removePanelFrame);
+    },
+    showPanelPreview() {
+      if (!this._alive || !this._panelOpen() || !this._panelPath) return;
+      if (!this.data.panelPreviewVisible || this.data.panelPreviewStale) this.setData({ panelPreviewVisible: true, panelPreviewStale: false });
+      clearTimeout(this._panelFallbackTimer);
+      removePanelFrame(this._previousPanelPath);
+      this._previousPanelPath = null;
+      if (this._panelDirty) this._queuePanelPreview();
+    },
+    panelPreviewFailed() {
+      if (!this._alive || this._hidden || !this._panelOpen()) return;
+      removePanelFrame(this._panelPath);
+      this._panelPath = null;
+      removePanelFrame(this._previousPanelPath);
+      this._previousPanelPath = null;
+      this.setData({ panelPreview: '', panelPreviewVisible: true, panelPreviewStale: true });
+    },
+    _queuePanelPreview() {
+      if (!this._panelOpen() || this._hidden || !this._alive) return;
+      this._panelDirty = true;
+      if (this._panelTimer || this._panelCapture || this._previousPanelPath) return;
+      const epoch = this._panelEpoch;
+      this._panelTimer = setTimeout(() => {
+        this._panelTimer = null;
+        if (!this._alive || this._hidden || epoch !== this._panelEpoch) return;
+        this._panelDirty = false;
+        this._panelCapture = true;
+        const canvas = this._surface;
+        const scale = Math.min(1, 1080 / Math.max(canvas.width, canvas.height));
+        if (!this.data.panelPreviewVisible) this._panelFallbackTimer = setTimeout(() => {
+          if (epoch === this._panelEpoch && !this.data.panelPreviewVisible) this.setData({ panelPreviewVisible: true, panelPreviewStale: true });
+        }, 800);
+        // 原生画布可能盖住普通控件。浮层打开时显示等比例帧，后台画布继续渲染。
+        wx.canvasToTempFilePath({
+          canvas, fileType: 'png', destWidth: Math.round(canvas.width * scale), destHeight: Math.round(canvas.height * scale),
+          success: result => {
+            if (!this._alive || this._hidden || !this._panelOpen() || epoch !== this._panelEpoch) {
+              removePanelFrame(result.tempFilePath);
+              return;
+            }
+            this._previousPanelPath = this._panelPath;
+            this._panelPath = result.tempFilePath;
+            this.setData({ panelPreview: result.tempFilePath });
+          },
+          fail: () => {
+            if (epoch !== this._panelEpoch) return;
+            if (!this.data.panelPreviewVisible) this.panelPreviewFailed();
+            else if (!this.data.panelPreviewStale) this.setData({ panelPreviewStale: true });
+          },
+          complete: () => {
+            this._panelCapture = false;
+            if (this._panelDirty) this._queuePanelPreview();
+          }
+        }, this);
+      }, this.data.panelPreviewVisible ? 80 : 0);
     },
     _applyViewport(rect) {
       if (!rect || !(rect.width > 0) || !(rect.height > 0)) return false;
@@ -194,12 +299,10 @@ Component({
     },
     previewMaterial(id, values) { this._controlPreview = values ? { id, values } : null; this._render(); },
     _materialSource(item) { return this._materialSources && this._materialSources[item._idx] || item.imageData || item.previewSrc; },
-    _syncRecolor() { const material = (this.properties.materials || []).find(item => item._idx === this.properties.activeId); this.setData({ recolorable: !!this.properties.activeId && (!material || material.signatureType === 'signature') }); },
-    _syncHistory() { this._syncRecolor(); this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
+    _syncHistory() { this.setData({ undoable: this._history.cursor > 0, redoable: this._history.cursor < this._history.operations.length }); this.triggerEvent('layerschange'); },
     _render() {
       if (!this._alive || this._hidden || !this._surface || this._frame != null) return;
-      const draw = () => {
-        this._frame = null; if (!this._alive) return;
+      const paint = () => {
         this._resizeSurface();
         const width = this._documentWidth, height = this._documentHeight;
         this._camera = ink.fitCamera(this._rect.width, this._rect.height, width, height, this._zoom, this._panX, this._panY);
@@ -238,6 +341,12 @@ Component({
           ctx.drawImage(this._layer, 0, 0);
         }
       };
+      const draw = () => {
+        this._frame = null;
+        if (!this._alive) return;
+        paint();
+        this._queuePanelPreview();
+      };
       if (this._surface.requestAnimationFrame) this._frame = this._surface.requestAnimationFrame(draw);
       else { this._frame = 1; this._timer = setTimeout(() => { this._timer = null; draw(); }, 16); }
     },
@@ -250,7 +359,7 @@ Component({
     _point(touch) { return ink.filePoint(Number(touch.clientX), Number(touch.clientY), this._rect, this._camera); },
     onTouchStart(event) {
       if (!this.data.ready || this._recoloring) return; this._preparing = true; this._queue = [{ type: 'start', event }];
-      wx.createSelectorQuery().in(this).select('#sigSurface').fields({ size: true, rect: true }).exec(rows => {
+      wx.createSelectorQuery().in(this).select('#sigViewport').fields({ size: true, rect: true }).exec(rows => {
         if (!this._alive || !this._applyViewport(rows[0])) { this._queue = []; this._preparing = false; return; } this._preparing = false;
         const queue = this._queue; this._queue = []; queue.forEach(item => this._touch(item.type, item.event));
       });
@@ -292,7 +401,7 @@ Component({
       if (type === 'end') { if (this._stroke) ink.appendOperation(this._history, Object.assign({}, this._stroke, { layerId: this._entryLayerId })); this._stroke = null; this._gesture = null; this._syncHistory(); }
       this._render();
     },
-    setMode(event) { this.onTouchCancel(); const mode = event.currentTarget.dataset.mode; this.setData({ mode }, () => this.measure()); this.triggerEvent('modechange', { mode }); },
+    setMode(event) { this.onTouchCancel(); const mode = event.currentTarget.dataset.mode; this.setData({ mode }); if (mode === 'browse') this.closeTools(); this.triggerEvent('modechange', { mode }); },
     setColor(event) { this._setColor(event.currentTarget.dataset.color); },
     async recolorSelected() {
       if (!this.data.ready || this._recoloring) return;
@@ -331,7 +440,7 @@ Component({
       const color = ink.normalizeColor(value), channels = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16));
       this.setData({ color, colorInput: color, red: channels[0], green: channels[1], blue: channels[2], erasing: false, notice: '' });
     },
-    toggleCustom() { this.setData({ custom: !this.data.custom }, () => this.measure()); },
+    toggleCustom() { this.setData({ custom: !this.data.custom }); },
     setHex(event) {
       const value = event.detail.value;
       if (!/^#[0-9a-f]{6}$/i.test(value)) { this.setData({ notice: copy.colorInvalid }); return; }
@@ -344,14 +453,14 @@ Component({
       this.setData({ color, colorInput: color, red: values[0], green: values[1], blue: values[2], erasing: false });
     },
     setPenStyle(event) { this.setData({ penStyle: event.currentTarget.dataset.style === 'soft' ? 'soft' : 'hard', erasing: false }); },
-    setWidth(event) { const value = Number(event.currentTarget.dataset.width); if (Number.isFinite(value) && value > 0) this.setData({ penWidth: value, erasing: false }); },
+    setWidth(event) { const value = Number(event.currentTarget.dataset.width); if (Number.isFinite(value) && value > 0) this.setData({ penWidth: value }); },
     toggleEraser() { this.setData({ erasing: !this.data.erasing }); },
     onUndo() { this._historyChange(false); }, onRedo() { this._historyChange(true); },
     _historyChange(forward) {
       this.onTouchCancel(); const page = (forward ? ink.redo : ink.undo)(this._history, this._draft && this._draft.materials); this.triggerEvent('historychange'); this._syncHistory();
       if (page != null && page !== this.properties.page) this.triggerEvent('pagechange', { page }); else this._render();
     },
-    onClear() { wx.showModal({ title: copy.clearTitle, content: copy.clearBody, success: result => {
+    onClear() { wx.showModal({ title: this._blank ? copy.clearPadTitle : copy.clearTitle, content: this._blank ? copy.clearPadBody : copy.clearBody, success: result => {
       if (!this._alive || !result.confirm) return;
       ink.appendOperation(this._history, { page: this.properties.page, type: 'clear' }); this._syncHistory(); this._render();
     } }); },

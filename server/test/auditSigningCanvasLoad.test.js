@@ -28,17 +28,19 @@ async function main() {
   assert.strictEqual(await instance._image(source), image, '同页签章共享已解码图片');
   // 布局切换后先同步缓冲与相机，再处理已经排队的触点。
   const ink = require('../../shared/auditInk');
-  // 横屏工具并排后按容器实际高度计算，不能累加同一行的按钮组。
-  let measuredMinimum;
-  const measuredPad = { ...definition.methods, _alive: true, triggerEvent(name, detail) { measuredMinimum = detail.minimum; } };
+  // 工具面板不参与视口测量，尺寸读取只针对画布。
+  const currentRect = { width: 636, height: 126 };
+  let rendered = false;
+  const measuredPad = { ...definition.methods, _alive: true, _surface: {},
+    _applyViewport(rect) { assert.equal(rect,currentRect); return true; },
+    _render() { rendered = true; }
+  };
   runtime.wx.createSelectorQuery = () => ({
-    in() { return this; }, select() { return this; }, fields() { return this; },
-    selectAll(selector) { assert.equal(selector, '.sigpad-tools, .sigpad-notice'); return this; },
-    boundingClientRect() { return this; },
-    exec(callback) { callback([{ width: 636, height: 126 }, [{ height: 84 }]]); }
+    in() { return this; }, select(selector) { assert.equal(selector,'#sigViewport'); return this; }, fields() { return this; },
+    exec(callback) { callback([currentRect]); }
   });
   measuredPad.measure();
-  assert.equal(measuredMinimum, 208);
+  assert.equal(rendered,true);
   const touchPad = { ...definition.methods, _rect: { left: 32, top: 140 } };
   for (const viewport of [{ width: 790, height: 174 }, { width: 350, height: 580 }, { width: 1200, height: 600 }]) {
     const blankDraft = { history: ink.createHistory() };

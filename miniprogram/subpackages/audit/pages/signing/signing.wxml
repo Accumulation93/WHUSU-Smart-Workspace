@@ -1,45 +1,58 @@
 <page-meta page-orientation="{{workspaceOrientation}}" page-style="--ui-navbar-height: {{navTopPx}}px; {{confirmHelp ? 'overflow: hidden;' : ''}}" />
 <ui-navbar id="signingNavbar" title="{{navigationTitle}}" intercept-back="{{true}}" bindback="cancel" />
-<view class="page signing-page" style="min-height: calc(100vh - {{navTopPx}}px); height: calc(100vh - {{navTopPx}}px)">
-  <view class="card signing-card">
-    <view wx:if="{{loading}}" class="signing-notice"><app-loading text="{{copy.loading}}" /></view>
-    <view wx:if="{{notice}}" class="signing-notice">{{notice}}<button class="secondary-btn" bindtap="retry" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retry}}</button></view>
-    <view class="signing-main {{layersExpanded ? 'signing-main--layers' : ''}}">
-    <signature-pad class="signing-workspace" wx:if="{{!loading && !notice}}" id="signingPad" file-id="{{fileId}}" file-image="{{fileImage}}" document-width="{{width}}" document-height="{{height}}" page="{{page}}" pdf="{{pdf}}" initial-mode="{{mode}}" active-id="{{activeId}}" materials="{{materials}}" compact-tools="{{toolSettingsExpanded || layersExpanded}}" layout-key="{{mode + layers.length + activeMaterialId + workspaceMinHeight + navTopPx}}" style="min-height: {{workspaceMinHeight}}px" bindtoolschange="workspaceTools" bindlayoutchange="workspaceLayout" bindlayerschange="refreshLayers" bindhistorychange="historyChanged" bindrecolor="recolorMaterial" bindprocessing="workspaceProcessing" bindmodechange="workspaceMode" bindready="onCanvasReady" binderror="onCanvasError" bindplacement="moveMaterial" bindgeometry="materialGeometry" bindpagechange="historyPage" />
-    <scroll-view wx:if="{{layersExpanded}}" class="signing-sidepanel" scroll-y enhanced show-scrollbar="{{true}}">
-    <view class="signing-layer-toolbar">
-      <view class="signing-layer-heading">{{copy.layers}}<text class="signing-layer-count">{{layers.length}}</text></view>
-      <button class="secondary-btn" aria-label="{{copy.layerUp}}" data-direction="1" disabled="{{layerIndex <= 0 || saving || !ready}}" bindtap="reorderLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">↑</button>
-      <button class="secondary-btn" aria-label="{{copy.layerDown}}" data-direction="-1" disabled="{{layerIndex >= layers.length - 1 || saving || !ready}}" bindtap="reorderLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">↓</button>
-      <button class="secondary-btn" aria-label="{{copy.remove}}" disabled="{{!layers.length || saving || !ready}}" bindtap="removeLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</button>
+<view class="signing-page" style="height: calc(100vh - {{navTopPx}}px)">
+    <view class="signing-main">
+    <view wx:if="{{loading}}" class="signing-stage-message"><app-loading text="{{copy.loading}}" /></view>
+    <view wx:if="{{notice}}" class="signing-stage-message"><text>{{notice}}</text><button class="secondary-btn" bindtap="retry" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.retry}}</button></view>
+    <signature-pad class="signing-workspace" wx:if="{{!loading && !notice}}" id="signingPad" navigation-height="{{navTopPx}}" file-id="{{fileId}}" file-image="{{fileImage}}" document-width="{{width}}" document-height="{{height}}" page="{{page}}" pdf="{{pdf}}" initial-mode="{{mode}}" active-id="{{activeId}}" recolorable="{{recolorable}}" overlay-visible="{{layersExpanded || confirmHelp}}" materials="{{materials}}" bindtoolschange="workspaceTools" bindlayerschange="refreshLayers" bindhistorychange="historyChanged" bindrecolor="recolorMaterial" bindprocessing="workspaceProcessing" bindmodechange="workspaceMode" bindready="onCanvasReady" binderror="onCanvasError" bindplacement="moveMaterial" bindgeometry="materialGeometry" bindpagechange="historyPage">
+    <view wx:if="{{layersExpanded && ready && !notice && !loading}}" class="signing-sidepanel {{!layers.length ? 'signing-sidepanel--empty' : ''}} {{mode === 'move' && activeMaterialId && layerIndex >= 0 ? 'signing-sidepanel--adjustments' : ''}}">
+    <view class="signing-layer-header">
+      <view class="signing-layer-heading"><text>{{copy.layers}}</text><text wx:if="{{layers.length}}" class="signing-layer-count">{{layerCountText}}</text></view>
+      <button class="secondary-btn" aria-label="{{copy.closeLayers}}" bindtap="closeLayers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" /></button>
     </view>
+    <scroll-view class="signing-layer-scroll" scroll-y enhanced show-scrollbar="{{true}}">
+    <view class="signing-layer-content">
+    <view wx:if="{{!layers.length}}" class="signing-notice">{{copy.layersEmpty}}</view>
+    <block wx:else>
     <scroll-view class="signing-layer-strip" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="signing-layer-items">
-        <view wx:for="{{layers}}" wx:key="id" class="signing-layer-item {{layerIndex === index ? 'signing-layer-item--active' : ''}}" data-index="{{index}}" bindtap="chooseLayer" aria-label="{{item.label}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="signing-layer-preview"><view class="signing-layer-sheet"><text>{{item.kind === 'draw' ? '✎' : '◎'}}</text></view><text class="signing-layer-rank">{{index + 1}}</text></view>
+        <view wx:for="{{layers}}" wx:key="id" class="signing-layer-item {{layerIndex === index ? 'signing-layer-item--active' : ''}}" data-index="{{index}}" bindtap="chooseLayer" aria-role="button" aria-pressed="{{layerIndex === index}}" aria-label="{{item.name}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="signing-layer-preview"><view class="signing-layer-sheet"><ui-icon name="{{item.icon}}" /></view><text class="signing-layer-rank">{{index + 1}}</text></view>
           <text class="signing-layer-name">{{item.name}}</text>
         </view>
       </view>
     </scroll-view>
-    <view class="signing-adjustments" wx:if="{{mode === 'move' && activeMaterialId}}">
-      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.size}}</text><text>{{materialSize}}%</text></view><slider min="50" max="220" value="{{materialSize}}" step="5" block-size="24" disabled="{{saving || !ready}}" bindchanging="previewSize" bindtouchcancel="cancelAdjustment" bindchange="resizeMaterial" /></view>
-      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.rotation}}</text><text>{{materialRotation}}°</text></view><slider min="-180" max="180" value="{{materialRotation}}" step="5" block-size="24" disabled="{{saving || !ready}}" bindchanging="previewRotation" bindtouchcancel="cancelAdjustment" bindchange="rotateMaterial" /></view>
-      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.horizontalPosition}}</text><text>{{materialX}}%</text></view><slider min="0" max="100" value="{{materialX}}" step="1" block-size="24" disabled="{{saving || !ready}}" data-axis="x" bindchanging="previewPosition" bindtouchcancel="cancelAdjustment" bindchange="positionMaterial" /></view>
-      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.verticalPosition}}</text><text>{{materialY}}%</text></view><slider min="0" max="100" value="{{materialY}}" step="1" block-size="24" disabled="{{saving || !ready}}" data-axis="y" bindchanging="previewPosition" bindtouchcancel="cancelAdjustment" bindchange="positionMaterial" /></view>
+    <view class="signing-layer-toolbar">
+      <button class="secondary-btn" data-direction="1" disabled="{{layerIndex <= 0 || saving || !ready}}" bindtap="reorderLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.layerUp}}</button>
+      <button class="secondary-btn" data-direction="-1" disabled="{{layerIndex < 0 || layerIndex >= layers.length - 1 || saving || !ready}}" bindtap="reorderLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.layerDown}}</button>
+      <button class="danger-btn" disabled="{{layerIndex < 0 || saving || !ready}}" bindtap="removeLayer" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.removeLayer}}</button>
+    </view>
+    <view class="signing-adjustments" wx:if="{{mode === 'move' && activeMaterialId && layerIndex >= 0}}">
+      <view class="signing-adjustment-heading">{{copy.layerAdjustments}}</view>
+      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.size}}</text><text>{{materialSize}}%</text></view><slider min="50" max="220" value="{{materialSize}}" step="5" block-size="24" activeColor="#3b82f6" backgroundColor="#dbe7f4" disabled="{{saving || !ready}}" bindchanging="previewSize" bindtouchcancel="cancelAdjustment" bindchange="resizeMaterial" /></view>
+      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.rotation}}</text><text>{{materialRotation}}°</text></view><slider min="-180" max="180" value="{{materialRotation}}" step="5" block-size="24" activeColor="#3b82f6" backgroundColor="#dbe7f4" disabled="{{saving || !ready}}" bindchanging="previewRotation" bindtouchcancel="cancelAdjustment" bindchange="rotateMaterial" /></view>
+      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.horizontalPosition}}</text><text>{{materialX}}%</text></view><slider min="0" max="100" value="{{materialX}}" step="1" block-size="24" activeColor="#3b82f6" backgroundColor="#dbe7f4" disabled="{{saving || !ready}}" data-axis="x" bindchanging="previewPosition" bindtouchcancel="cancelAdjustment" bindchange="positionMaterial" /></view>
+      <view class="signing-adjustment"><view class="signing-adjustment-label"><text>{{copy.verticalPosition}}</text><text>{{materialY}}%</text></view><slider min="0" max="100" value="{{materialY}}" step="1" block-size="24" activeColor="#3b82f6" backgroundColor="#dbe7f4" disabled="{{saving || !ready}}" data-axis="y" bindchanging="previewPosition" bindtouchcancel="cancelAdjustment" bindchange="positionMaterial" /></view>
       <button class="secondary-btn signing-center-button" disabled="{{saving || !ready}}" bindtap="centerMaterial" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.centerMaterial}}</button>
+    </view>
+    <view wx:elif="{{mode === 'move'}}" class="signing-notice">{{copy.positionEmpty}}</view>
+    </block>
     </view>
     </scroll-view>
     </view>
-    <view class="signing-bottom-bar">
-    <button wx:if="{{hasStep}}" class="secondary-btn signing-toggle" aria-label="{{copy.draftConfirmHelpAction}}" bindtap="openConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="toast-info" sizeRole="context-leading" /></button>
-    <button class="secondary-btn signing-toggle" aria-expanded="{{layersExpanded}}" bindtap="toggleLayers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.adjustLayers}} {{layers.length}}</button>
-    <view class="signing-pages" wx:if="{{totalPages > 1}}"><button class="secondary-btn" disabled="{{page <= 1 || loading || saving}}" bindtap="previous" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">◀</button><view>{{page}} / {{totalPages}}</view><button class="secondary-btn" disabled="{{page >= totalPages || loading || saving}}" bindtap="next" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">▶</button></view>
-    <view wx:if="{{allowSaveTemplate}}" class="selection-option-card signing-save-option {{saveTemplate ? 'selection-option-card-selected' : ''}}" aria-role="checkbox" aria-checked="{{saveTemplate}}" catchtap="toggleSaveTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveToLibrary}}</view>
-    <view wx:if="{{exportNotice}}" class="signing-notice">{{exportNotice}}</view>
-    <view wx:if="{{saving || processing}}" class="signing-notice"><app-loading text="{{copy.loading}}" /></view>
-    <view class="button-row signing-footer"><button class="secondary-btn" disabled="{{saving || processing}}" bindtap="cancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" disabled="{{!ready || loading || notice || saving || processing}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.confirm}}</button></view>
+    </signature-pad>
     </view>
-  </view>
+    <view class="signing-bottom-bar">
+    <view class="signing-footer-tools">
+    <button class="{{layersExpanded ? 'primary-btn' : 'secondary-btn'}} signing-toggle" disabled="{{!ready || loading || saving}}" aria-expanded="{{layersExpanded}}" bindtap="toggleLayers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.layers}}</button>
+    <view class="signing-pages" wx:if="{{totalPages > 1}}"><button class="secondary-btn" aria-label="{{copy.previousPage}}" disabled="{{page <= 1 || loading || saving}}" bindtap="previous" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="chevron-left" /></button><text>{{page}} / {{totalPages}}</text><button class="secondary-btn" aria-label="{{copy.nextPage}}" disabled="{{page >= totalPages || loading || saving}}" bindtap="next" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="chevron-right" /></button></view>
+    <button wx:if="{{hasStep}}" class="secondary-btn signing-help" bindtap="openConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.draftConfirmHelpAction}}</button>
+    <view wx:if="{{allowSaveTemplate}}" class="selection-option-card signing-save-option {{saveTemplate ? 'selection-option-card-selected' : ''}}" aria-role="checkbox" aria-checked="{{saveTemplate}}" catchtap="toggleSaveTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveToLibrary}}</view>
+    </view>
+    <view wx:if="{{exportNotice}}" class="signing-notice">{{exportNotice}}</view>
+    <view wx:if="{{saving || processing}}" class="signing-notice"><app-loading text="{{saving ? (hasStep ? copy.savingDraft : copy.preparingSignature) : copy.processing}}" /></view>
+    <view class="signing-footer"><button class="secondary-btn" disabled="{{saving || processing}}" bindtap="cancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button><button class="primary-btn" disabled="{{!ready || loading || notice || saving || processing}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{hasStep ? copy.saveDraftAndReturn : copy.confirm}}</button></view>
+    </view>
 </view>
 <app-toast />
 <viewport-portal wx:if="{{confirmHelp}}">
@@ -48,7 +61,7 @@
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact ui-dialog-shell--grid" catchtap="noop">
       <view class="ui-dialog-header"><view class="ui-dialog-title">{{copy.draftConfirmHelpTitle}}</view></view>
       <scroll-view class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}"><view class="ui-dialog-scroll-content">{{copy.draftConfirmHelp}}</view></scroll-view>
-      <view class="ui-dialog-footer"><button class="secondary-btn" bindtap="closeConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</button></view>
+      <view class="ui-dialog-footer"><button class="secondary-btn" bindtap="closeConfirmHelp" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{common.actions.close}}</button></view>
     </view>
   </view>
 </viewport-portal>

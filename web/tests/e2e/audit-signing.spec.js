@@ -88,7 +88,7 @@ test('超管直批逐步骤签署并使用本人有权使用的印章', async ({
 async function enter(page, index = 0) {
   await page.getByRole('button', { name: text.addInk, exact: true }).nth(index).click();
   await expect(page).toHaveURL(/audit\/signing$/);
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
   await expect(page.locator('.signing-stage canvas')).toBeVisible();
 }
 
@@ -97,12 +97,12 @@ test('新签名未打开定位也按中档0.5mm提交，签名库重用保留尺
   const state=await setup(page);
   await page.getByRole('button',{name:text.signature,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:text.newSignature,exact:true}).click();
-  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:signingConfirmation,exact:true})).toBeEnabled();
   const box=await page.locator('.signing-stage canvas').boundingBox();
   await page.mouse.move(box.x+box.width*.2,box.y+box.height*.5);await page.mouse.down();
   await page.mouse.move(box.x+box.width*.8,box.y+box.height*.5,{steps:30});await page.mouse.up();
   await page.getByLabel(text.saveToLibrary).check();
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   await expect(page).toHaveURL(/submission\/submission-1$/);
   state.refused=true;
   await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
@@ -121,8 +121,8 @@ test('新签名未打开定位也按中档0.5mm提交，签名库重用保留尺
   if(process.env.PHYSICAL_SIGNATURE_PARAMETERS&&info.project.name==='computer')await writeFile(process.env.PHYSICAL_SIGNATURE_PARAMETERS,JSON.stringify(first));
   await page.getByRole('button',{name:text.signature,exact:true}).click();
   await page.getByRole('dialog').getByText('个人签名',{exact:true}).click();
-  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await expect(page.getByRole('button',{name:signingConfirmation,exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
   await expect.poll(()=>state.calls.filter(c=>c.name==='approveStep').length).toBe(2);
   const second=state.calls.filter(c=>c.name==='approveStep')[1].body.signatures;
@@ -134,7 +134,7 @@ test('空白签名板首笔前随旋转铺满，横屏左右边缘可书写并�
   const state=await setup(page);
   await page.getByRole('button',{name:text.signature,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:text.newSignature,exact:true}).click();
-  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:signingConfirmation,exact:true})).toBeEnabled();
   for(const viewport of [{width:844,height:390},{width:390,height:844},{width:844,height:390}]){
     await page.setViewportSize(viewport);
     await expect.poll(()=>page.locator('.signing-stage canvas').evaluate(canvas=>{
@@ -149,7 +149,7 @@ test('空白签名板首笔前随旋转铺满，横屏左右边缘可书写并�
   await page.mouse.move(box.x+box.width*.02,box.y+box.height*.5); await page.mouse.down();
   await page.mouse.move(box.x+box.width*.98,box.y+box.height*.5,{steps:45}); await page.mouse.up();
   await page.getByLabel(text.saveToLibrary).check();
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   await expect.poll(()=>state.calls.filter(c=>c.name==='saveSignature').length).toBe(1);
   const saved=state.calls.find(c=>c.name==='saveSignature').body.imageData;
   const dimensions=await page.evaluate(async src=>{const img=new Image();img.src=src;await img.decode();return {width:img.width,height:img.height};},saved);
@@ -160,24 +160,24 @@ test('空白签名板可选保存，已有签名改色可以撤销重做', async
   const state = await setup(page);
   await page.getByRole('button', { name: text.signature, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: text.newSignature, exact: true }).click();
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
   await expect(page.getByLabel(text.saveToLibrary)).not.toBeChecked();
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await expect(page.getByText(text.empty, { exact: true })).toBeVisible();
   await stroke(page);
   await page.getByLabel(text.saveToLibrary).check();
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await expect(page).toHaveURL(/submission\/submission-1$/);
   expect(state.calls.filter(item => item.name === 'saveSignature')).toHaveLength(1);
   const saved = state.calls.find(item => item.name === 'saveSignature').body.imageData;
   expect(saved).toMatch(/^data:image\/png;base64,/);
   await page.getByRole('button', { name: text.move, exact: true }).first().click();
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
   await panel(page,'tools'); await page.getByRole('button', { name: text.red, exact: true }).click();
   await page.getByRole('button', { name: text.recolor, exact: true }).click();
   await page.getByRole('button', { name: text.undo, exact: true }).click();
   await page.getByRole('button', { name: text.redo, exact: true }).click();
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item => item.name === 'approveStep').length).toBe(1);
   const image = state.calls.find(item => item.name === 'approveStep').body.signatures[0].imageData;
@@ -193,7 +193,7 @@ test('空白签名板可选保存，已有签名改色可以撤销重做', async
   expect(counts.red).toBeGreaterThan(100); expect(counts.other).toBe(0);
 });
 async function panel(page, kind, open = true) {
-  const button=page.getByRole('button', {name:kind === 'tools' ? text.tools : new RegExp('^'+text.adjustLayers)});
+  const button=page.getByRole('button', {name:kind === 'tools' ? text.tools : text.layers, exact:true});
   if ((await button.getAttribute('aria-expanded')) !== String(open)) await button.click();
 }
 async function stroke(page, y = 0.5, left = 0.2, right = 0.8) {
@@ -260,7 +260,7 @@ test('连续黑色笔画、三种预设与自定义颜色在画布和透明导�
   await page.getByLabel(text.hex).fill('#12abcd'); await page.getByLabel(text.hex).press('Tab'); await stroke(page, 0.56);
   await expect.poll(async () => (await pixels(page)).custom).toBeGreaterThan(50);
   const colored = await pixels(page); expect(colored.black).toBeGreaterThan(100); expect(colored.blue).toBeGreaterThan(100); expect(colored.red).toBeGreaterThan(100);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await expect(page).toHaveURL(/submission\/submission-1$/);
   expect(state.calls.filter(item => item.name === 'approveStep')).toHaveLength(0);
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
@@ -337,7 +337,7 @@ test('签章位置可按左右上下精确调整、居中并可撤销重做', as
   await page.getByRole('button', { name: text.undo, exact: true }).click();
   await expect(horizontal).toHaveValue('78');
   await expect(vertical).toHaveValue('24');
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item => item.name === 'approveStep').length).toBe(1);
   const material = state.calls.find(item => item.name === 'approveStep').body.signatures[0];
@@ -346,34 +346,34 @@ test('签章位置可按左右上下精确调整、居中并可撤销重做', as
 });
 test('确认返回不清历史，重进立即撤销与重做；跨页撤销自动定位', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page);
-  await page.getByRole('button', { name: '▶', exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible(); await stroke(page);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
+  await page.getByRole('button', { name: text.nextPage, exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible(); await stroke(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page);
   await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeEnabled();
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText('1 / 2', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: text.redo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
   await page.getByRole('button', { name: text.redo, exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await expect(page).toHaveURL(/submission\/submission-1$/);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await expect(page).toHaveURL(/submission\/submission-1$/);
 });
 test('取消恢复进入前历史，清空覆盖附件所有页且撤销恢复', async ({ page }) => {
   await setup(page); await enter(page); await stroke(page);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page);
   await stroke(page, 0.47); await page.getByRole('button', { name: text.cancel, exact: true }).click(); await enter(page);
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
   await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeDisabled();
   await page.getByRole('button', { name: text.redo, exact: true }).click();
-  await page.getByRole('button', { name: '▶', exact: true }).click(); await stroke(page);
+  await page.getByRole('button', { name: text.nextPage, exact: true }).click(); await stroke(page);
   await page.getByRole('button', { name: text.clear, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: text.clear, exact: true }).click();
   await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
-  await page.getByRole('button', { name: '◀', exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
+  await page.getByRole('button', { name: text.previousPage, exact: true }).click(); await expect.poll(async () => (await pixels(page)).alpha).toBe(0);
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect(page.getByText('2 / 2', { exact: true })).toBeVisible(); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
 });
 test('两个附件分别保留笔画历史，刷新后不保留登录内草稿', async ({ page }) => {
   await setup(page, { twoFiles: true }); await enter(page); await stroke(page);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page, 1);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page, 1);
   await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeDisabled(); await stroke(page);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page);
   await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
   await page.reload(); await expect(page.getByText(text.draftLost, { exact: true })).toBeVisible();
 });
@@ -382,7 +382,7 @@ test('橡皮擦仅局部擦除本步骤笔画，重进仍可撤销擦除', async
   await panel(page,'tools'); await page.getByRole('button', { name: text.erase, exact: true }).click(); await stroke(page, 0.5, 0.45, 0.55);
   await expect.poll(async () => (await pixels(page)).black).toBeLessThan(before.black);
   expect((await pixels(page)).black).toBeGreaterThan(50);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page);
   await page.getByRole('button', { name: text.undo, exact: true }).click(); await expect.poll(async () => (await pixels(page)).black).toBe(before.black);
 });
 test('重叠签章只移动明确选中的对象，拖动保持抓取位置并且取消新增回退', async ({ page }) => {
@@ -390,19 +390,19 @@ test('重叠签章只移动明确选中的对象，拖动保持抓取位置并�
   async function add() {
     await page.getByRole('button', { name: text.stamp, exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: '测试印章', exact: true }).click();
-    await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: text.confirm, exact: true }).click();
+    await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   }
   await add(); await add();
   await page.getByRole('button', { name: text.move, exact: true }).nth(0).click();
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
   await page.locator('.signing-stage canvas').scrollIntoViewIfNeeded();
   const box = await page.locator('.signing-stage canvas').boundingBox();
   const fileWidth = Math.min(box.width, box.height * 2), fileHeight = fileWidth / 2;
   await page.mouse.move(box.x + box.width / 2 + 4, box.y + box.height / 2 - fileHeight * 0.2);
   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + fileWidth * 0.2 + 4, box.y + box.height / 2, { steps: 12 }); await page.mouse.up();
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
-  await enter(page); await stroke(page); await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
+  await enter(page); await stroke(page); await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item => item.name === 'approveStep').length).toBe(1);
   const stamps = state.calls.find(item => item.name === 'approveStep').body.signatures.filter(item => item.signatureType === 'stamp');
@@ -412,16 +412,16 @@ test('重叠签章只移动明确选中的对象，拖动保持抓取位置并�
 });
 test('文件加载失败时禁止确认和落笔，原地重试恢复', async ({ page }) => {
   const state = await setup(page, { failPreview: true }); await page.getByRole('button', { name: text.addInk, exact: true }).click();
-  await expect(page.getByText(text.failed, { exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeDisabled();
+  await expect(page.getByText(text.failed, { exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeDisabled();
   await stroke(page); expect((await pixels(page)).alpha).toBe(0);
   state.failPreview = false; await page.getByRole('button', { name: text.retry, exact: true }).click();
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled(); await stroke(page); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled(); await stroke(page); await expect.poll(async () => (await pixels(page)).black).toBeGreaterThan(100);
 });
 test('审批拒绝保留书写，成功后读取失败只重读且不能重复审批', async ({ page }) => {
-  const state = await setup(page); await enter(page); await stroke(page); await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  const state = await setup(page); await enter(page); await stroke(page); await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   state.refused = true; await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click(); await expect(page.locator('.notice-line', { hasText: feedback.forbidden })).toBeVisible();
   await expect(page.getByText('本步骤暂不能处理', {exact:true})).toHaveCount(0);
-  await enter(page); await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeEnabled(); await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await enter(page); await expect(page.getByRole('button', { name: text.undo, exact: true })).toBeEnabled(); await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   state.refused = false; state.failRead = true; await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect(page.getByRole('button', { name: copy.audit.actionApprove, exact: true })).toBeDisabled();
   await expect(page.locator('.notice-line', { hasText: text.pendingRead })).toBeVisible();
@@ -437,7 +437,7 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   const state = await setup(page); await enter(page);
   await stroke(page); await stroke(page, 0.48);
   await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click(); await enter(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click(); await enter(page);
   await panel(page,'tools'); await page.getByRole('button', { name: text.red, exact: true }).click(); await stroke(page);
   await panel(page,'layers'); const layers = page.locator('.signing-layer-strip');
   await expect(layers.getByRole('option')).toHaveCount(2);
@@ -455,9 +455,9 @@ test('每次进入形成一个图层，排序与撤销在重进和导出保持�
   await page.getByRole('button', { name: text.redo, exact: true }).click();
   await expect(layers.getByRole('option').first()).toHaveAttribute('aria-label', text.stroke + ' 1');
   await expect.poll(async()=> (await centerPixel())[0]).toBeLessThan(redOnTop[0]);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await enter(page); await panel(page,'layers'); await expect(layers.getByRole('option')).toHaveCount(2);
-  await page.getByRole('button', { name: text.confirm, exact: true }).click();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
   await page.getByRole('button', { name: copy.audit.actionApprove, exact: true }).click();
   await expect.poll(() => state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
   expect(state.calls.find(item=>item.name==='approveStep').body.signatures).toHaveLength(2);
@@ -488,7 +488,7 @@ test('详情先预取图片，重复签署不重新请求；移动旋转删除�
   const initialPreviewCalls=state.calls.filter(item=>item.name==='getAuditFilePreview').length;
   await page.getByRole('button',{name:text.stamp,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:'测试印章',exact:true}).click();
-  await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:signingConfirmation,exact:true})).toBeEnabled();
   const canvas=page.locator('.signing-stage canvas'),box=await canvas.boundingBox();
   await page.mouse.click(box.x+box.width*0.7,box.y+box.height*0.5);
   await page.getByRole('button',{name:text.undo,exact:true}).click();
@@ -498,17 +498,17 @@ test('详情先预取图片，重复签署不重新请求；移动旋转删除�
   await expect(rotation).toHaveValue('45');
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('0');
   await page.getByRole('button',{name:text.redo,exact:true}).click();await expect(rotation).toHaveValue('45');
-  await page.getByRole('button',{name:text.remove,exact:true}).click();
+  await page.getByRole('button',{name:text.removeLayer,exact:true}).click();
   await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(0);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await expect(rotation).toHaveValue('45');
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   await enter(page);await stroke(page);await stroke(page,0.4);
   await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(2);
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();await enter(page);
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();await enter(page);
   await page.getByRole('button',{name:text.undo,exact:true}).click();await page.getByRole('button',{name:text.undo,exact:true}).click();
   await panel(page,'layers'); await expect(page.locator('.signing-layer-strip [role=option]')).toHaveCount(1);
   await page.getByRole('button',{name:text.redo,exact:true}).click();
-  await page.getByRole('button',{name:text.confirm,exact:true}).click();
+  await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   expect(state.calls.filter(item=>item.name==='getMyStampImage')).toHaveLength(1);
   expect(state.calls.filter(item=>item.name==='getAuditFilePreview')).toHaveLength(initialPreviewCalls);
 });
@@ -518,7 +518,7 @@ test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换�
   await setup(page, { actionType: 'both' });
   await page.getByRole('button', { name: text.stamp, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: '测试印章', exact: true }).click();
-  await expect(page.getByRole('button', { name: text.confirm, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
   const sizes = [{width:310,height:650},{width:390,height:844},{width:844,height:390},{width:768,height:1024},{width:1280,height:720}];
   for (const size of sizes) {
     await page.setViewportSize(size);
@@ -555,17 +555,65 @@ test('调整滑条与底栏隔离，拖动实时预览且一次撤销，切换�
   }
 });
 
+test('签章面板开关不改变画布尺寸、像素缓冲或缩放位置，末项仍可操作', async ({ page }, info) => {
+  await setup(page, { actionType:'both' });
+  const layout = () => page.locator('.signing-stage canvas').evaluate(async canvas => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const { x, y, width, height } = canvas.getBoundingClientRect();
+    return { x, y, width, height, buffer:[canvas.width,canvas.height], pixels:canvas.toDataURL() };
+  });
+  await page.getByRole('button', { name:text.stamp, exact:true }).click();
+  await page.getByRole('dialog').getByRole('button', { name:'测试印章', exact:true }).click();
+  await expect(page.getByRole('button', { name:text.saveDraftAndReturn, exact:true })).toBeEnabled();
+  for (const size of [{width:310,height:650},{width:390,height:844},{width:844,height:390},{width:768,height:1024},{width:1280,height:720}]) {
+    await page.setViewportSize(size);
+    await page.getByRole('button', { name:text.fit, exact:true }).click();
+    const initial = await layout();
+    for (let index=0;index<5;index++) await page.getByRole('button', { name:text.zoomIn, exact:true }).click();
+    await expect.poll(async () => (await layout()).pixels).not.toBe(initial.pixels);
+    const zoomed = await layout();
+    for (const kind of ['tools','layers','tools','layers']) {
+      await panel(page,kind);
+      expect(await layout()).toEqual(zoomed);
+    }
+    const sheet = page.getByRole('region',{name:text.layers,exact:true});
+    await expect(sheet.getByText(text.pageLayerCount.replace('{0}',1),{exact:true})).toBeVisible();
+    const last = sheet.getByRole('button',{name:text.centerMaterial,exact:true});
+    await last.scrollIntoViewIfNeeded();
+    expect(await last.evaluate(node => {
+      const box = node.getBoundingClientRect(), viewport = node.closest('.signing-panel-body').getBoundingClientRect();
+      return box.top >= viewport.top && box.bottom <= viewport.bottom + 1 && node.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+    await sheet.getByRole('button',{name:text.closeLayers,exact:true}).click();
+    expect(await layout()).toEqual(zoomed);
+    await panel(page,'tools');
+    const custom = page.getByRole('button',{name:text.custom,exact:true});
+    if (await custom.getAttribute('aria-expanded') !== 'true') await custom.click();
+    const blue = page.getByRole('slider',{name:text.blueChannel,exact:true});
+    await blue.scrollIntoViewIfNeeded();
+    await expect(blue).toBeInViewport();
+    await page.getByRole('button',{name:text.closeTools,exact:true}).click();
+    expect(await layout()).toEqual(zoomed);
+    await page.screenshot({ path:info.outputPath('stable-signing-'+size.width+'.png') });
+  }
+  await page.getByRole('button',{name:text.draftConfirmHelpAction,exact:true}).click();
+  const help = page.getByRole('dialog',{name:text.draftConfirmHelpTitle});
+  await expect(help.getByText(text.draftConfirmHelp,{exact:true})).toBeVisible();
+  await help.getByRole('button',{name:common.actions.close,exact:true}).click();
+  await expect(help).toHaveCount(0);
+});
+
 for(const mode of ['signature','stamp','both'])test('签名或盖章允许 '+mode+' 并拒绝空材料',async({page})=>{
   const state=await setup(page,{actionType:'either'});
   await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
   await expect(page.locator('.notice-line')).toContainText(text.eitherRequired);
   expect(state.calls.filter(item=>item.name==='approveStep')).toHaveLength(0);
-  if(mode!=='stamp'){await enter(page);await stroke(page);await page.getByRole('button',{name:text.confirm,exact:true}).click();}
+  if(mode!=='stamp'){await enter(page);await stroke(page);await page.getByRole('button',{name:signingConfirmation,exact:true}).click();}
   if(mode!=='signature'){
     await page.getByRole('button',{name:text.stamp,exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:'测试印章',exact:true}).click();
-    await expect(page.getByRole('button',{name:text.confirm,exact:true})).toBeEnabled();
-    await page.getByRole('button',{name:text.confirm,exact:true}).click();
+    await expect(page.getByRole('button',{name:signingConfirmation,exact:true})).toBeEnabled();
+    await page.getByRole('button',{name:signingConfirmation,exact:true}).click();
   }
   await page.getByRole('button',{name:copy.audit.actionApprove,exact:true}).click();
   await expect.poll(()=>state.calls.filter(item=>item.name==='approveStep').length).toBe(1);
