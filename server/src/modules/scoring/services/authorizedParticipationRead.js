@@ -23,17 +23,18 @@ function authorizedParticipationRead(kind, handler) {
       } else {
         const publication = await require('../models/resultPublication').getByActivity(safeString(req.body.activityId));
         if (!publication) return res.status(403).json({ status: 'forbidden', message: copy.copy_f048be09ae });
-        await pool.withTransaction(connection => authorization.checkPublication(req, connection, organizationId,
-          publication.id, kind, 'read'));
-        if (kind === 'scoring.meritSelections' && payload.canDesignate) {
-          try {
-            await pool.withTransaction(connection => authorization.checkPublication(req, connection, organizationId, publication.id, kind, 'update'));
-          } catch (error) {
-            if (error.code !== 'authorization_forbidden') throw error;
-            payload.canDesignate = false;
-            payload.designationCandidates = [];
+        await pool.withTransaction(async connection => {
+          await authorization.checkPublication(req, connection, organizationId, publication.id, kind, 'read');
+          if (kind === 'scoring.meritSelections' && payload.canDesignate) {
+            try {
+              await authorization.checkPublication(req, connection, organizationId, publication.id, kind, 'update', false);
+            } catch (error) {
+              if (error.code !== 'authorization_forbidden') throw error;
+              payload.canDesignate = false;
+              payload.designationCandidates = [];
+            }
           }
-        }
+        });
       }
       return res.json(payload);
     } catch (error) {

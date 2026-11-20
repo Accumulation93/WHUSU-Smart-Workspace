@@ -194,7 +194,7 @@ const publicMeritStart = routeSource.indexOf("router.post('/getPublicMeritList'"
 const publicMeritEnd = routeSource.indexOf("router.post('/submitMeritListDesignations'", publicMeritStart);
 const publicMeritSource = routeSource.slice(publicMeritStart, publicMeritEnd);
 assert.match(publicMeritSource, /resolveCurrentActor\(req\)/);
-assert.match(publicMeritSource, /actorResult\.actor\.assignmentId/);
+assert.match(publicMeritSource, /resolveActorParticipant\(orgId, actorResult\.actor, 'assignment'\)/);
 assert.match(publicMeritSource, /buildDesignationCandidates/);
 assert.match(publicMeritSource, /targetAssignmentId/);
 assert.doesNotMatch(publicMeritSource, /viewerHr|allHrMembers|hrByIdentity/, '当前授权与候选生成不得读取 hr_info 岗位字段');

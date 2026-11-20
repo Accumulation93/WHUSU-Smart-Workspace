@@ -139,15 +139,28 @@ function canonicalizeCalculationSnapshot(source) {
 function stableJson(value) {
   if (Array.isArray(value)) return '[' + value.map(stableJson).join(',') + ']';
   if (value && typeof value === 'object') {
-    return '{' + Object.keys(value).sort().map((key) => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}';
+    return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}';
   }
   return JSON.stringify(value);
+}
+
+function sameCanonicalValue(value, canonical) {
+  if (value === canonical) return true;
+  if (!value || !canonical || typeof value !== 'object' || typeof canonical !== 'object') return false;
+  if (Array.isArray(canonical)) {
+    return Array.isArray(value) && value.length === canonical.length
+      && canonical.every((item, index) => sameCanonicalValue(value[index], item));
+  }
+  if (Array.isArray(value)) return false;
+  const keys = Object.keys(canonical);
+  return Object.keys(value).length === keys.length
+    && keys.every(key => Object.hasOwn(value, key) && sameCanonicalValue(value[key], canonical[key]));
 }
 
 function isCanonicalCalculationSnapshot(snapshot) {
   try {
     return [CALCULATION_SNAPSHOT_VERSION, NATURE_CALCULATION_SNAPSHOT_VERSION].includes(Number(snapshot && snapshot.version))
-      && stableJson(snapshot) === stableJson(canonicalizeCalculationSnapshot(snapshot));
+      && sameCanonicalValue(snapshot, canonicalizeCalculationSnapshot(snapshot));
   } catch (_) {
     return false;
   }
@@ -166,5 +179,6 @@ module.exports = {
   canonicalizeCalculationSnapshot,
   isCanonicalCalculationSnapshot,
   isSupportedCalculationSnapshotVersion,
+  sameCanonicalValue,
   stableJson
 };

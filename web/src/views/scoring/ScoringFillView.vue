@@ -32,13 +32,13 @@
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <p v-if="form.readOnly" class="notice-line">
         {{ copy.scoring.readOnlyNotice }}
-        <span v-if="form.readOnlyReason"> {{ copy.scoring.readOnlyReason }}</span>
+        <span v-if="form.readOnlyReason === 'historical_snapshot_degraded'"> {{ copy.scoring.readOnlyReason }}</span>
       </p>
 
       <section class="card stack">
         <div class="info-head">
           <span class="section-title">{{ scoreCopy.copy_ad5ba99be4 }}</span>
-          <span v-if="form.readOnly" class="chip chip-orange">{{ scoreCopy.historicalReadOnlyShort }}</span>
+          <span v-if="form.readOnlyReason === 'historical_snapshot_degraded'" class="chip chip-orange">{{ scoreCopy.historicalReadOnlyShort }}</span>
         </div>
         <p v-if="form.readOnly && !questions.length" class="empty-state">{{ scoreCopy.historicalRecordEmpty }}</p>
 

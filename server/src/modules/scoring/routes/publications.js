@@ -17,12 +17,11 @@ const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
 const activityModel = require('../models/scoreActivity');
-const scoreRecordModel = require('../models/scoreRecord');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const pool = require('../../../config/db');
 const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const pubCache = require('../utils/pubCache');
+const publicationSummary = require('../services/publicationSummary');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
@@ -1052,12 +1051,7 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const [viewerRecord, participantRows, lookups, scoreRecords] = await Promise.all([
-      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
-      participantService.listParticipants(orgId, granularity),
-      fetchOrgLookups(),
-      scoreRecordModel.getByActivity(activityId)
-    ]);
+    const viewerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
     if (!viewerRecord) return respondScoringResponse(res, { status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
     const viewer = {
       id: safeString(viewerRecord.id),
@@ -1106,6 +1100,19 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       }
     }
 
+    const [participantRows, lookups, summary] = await Promise.all([
+      participantService.listParticipants(orgId, granularity),
+      fetchOrgLookups(),
+      publicationSummary.load(activityId, orgId)
+    ]);
+    const historicalFailure = require('../utils/scoreCalc').getHistoricalSnapshotFailure(summary.diagnostics);
+    if (historicalFailure) {
+      return respondScoringResponse(res, Object.assign({}, historicalFailure, {
+        message: historicalFailure.status === 'historical_snapshot_missing'
+          ? localeCopy.historicalSnapshotMissing
+          : localeCopy.historicalSnapshotInvalid
+      }));
+    }
     const normalizedMembers = participantRows.map(m => ({
       id: safeString(m.id), assignmentId: safeString(m.assignment_id || m.id),
       assignmentKind: safeString(m.assignment_kind), name: safeString(m.name), studentId: safeString(m.student_id),
@@ -1116,15 +1123,12 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       workGroup: lookups.workGroupsById.get(safeString(m.work_group_id)) || ''
     }));
     const membersByAssignmentId = new Map(normalizedMembers.map((member) => [member.assignmentId, member]));
-    scoreRecords.forEach((record) => {
-      const historical = participantService.resolveHistoricalParticipant(record, 'target', []);
-      if (!historical.assignmentId || historical.historicalAssignmentUnavailable) return;
+    for (const historical of summary.historicalTargets) {
       membersByAssignmentId.set(historical.assignmentId, {
         id: historical.assignmentId,
         assignmentId: historical.assignmentId,
         assignmentKind: historical.assignmentNature,
         name: historical.name,
-        studentId: historical.studentId,
         personId: historical.personId,
         departmentId: historical.departmentId,
         identityId: historical.identityCategoryId,
@@ -1133,11 +1137,12 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
         identity: historical.identityCategory,
         workGroup: historical.workGroup,
         assignmentLabel: historical.assignmentLabel,
-        historicalOnly: !normalizedMembers.some((member) => member.assignmentId === historical.assignmentId)
+        historicalOnly: !membersByAssignmentId.has(historical.assignmentId)
       });
-    });
+    }
     const memberPresentation = participantService.decorateAssignmentDisambiguation(Array.from(membersByAssignmentId.values()));
     const allMembers = memberPresentation.rows;
+    const memberById = new Map(allMembers.map(member => [member.id, member]));
 
     function matchScope(target, clause) {
       if (!natureRulePolicy.matches(clause.nature_ids, target.assignmentKind)) return false;
@@ -1160,38 +1165,6 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
         if (matchScope(m, clause)) { targetSet.add(m.id); allVisibleIds.add(m.id); }
       }
       clauseTargetMap.set(clause.id, targetSet);
-    }
-
-    // ── Score computation with shared pubCache ──
-    // Full three-layer score map is deterministic for a given (activity, org).
-    // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
-    // Cache auto-expires after 5 min; invalidated on score submission.
-    const cacheHandle = await pubCache.open(activityId, orgId);
-    let cached = await pubCache.get(activityId, orgId, cacheHandle);
-    let computed = false;
-    if (!cached || !cached.diagnostics) {
-      if (cached) await pubCache.invalidate(activityId, orgId);
-      const { computeValidScoreMap } = require('../utils/scoreCalc');
-      cached = await computeValidScoreMap(activityId, orgId, {});
-      computed = true;
-    }
-    const { getHistoricalSnapshotFailure } = require('../utils/scoreCalc');
-    const historicalFailure = getHistoricalSnapshotFailure(cached.diagnostics);
-    if (historicalFailure) {
-      return respondScoringResponse(res, Object.assign({}, historicalFailure, {
-        message: historicalFailure.status === 'historical_snapshot_missing'
-          ? localeCopy.historicalSnapshotMissing
-          : localeCopy.historicalSnapshotInvalid
-      }));
-    }
-    if (computed) await pubCache.set(activityId, orgId, cached, cacheHandle);
-    const fullScoreMap = (cached instanceof Map) ? cached : (cached && cached.finalScoreMap instanceof Map ? cached.finalScoreMap : new Map());
-
-    // Filter cached full map to visible targets only (pure O(1) Map.get, no side effects)
-    const scoreMap = new Map();
-    for (const tid of allVisibleIds) {
-      const sd = fullScoreMap.get(tid);
-      if (sd) scoreMap.set(tid, sd);
     }
 
     // Debug: log viewer score stats (non-sensitive aggregate only)
@@ -1230,9 +1203,9 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
 
       const members = [];
       for (const targetId of targetIds) {
-        const member = allMembers.find(m => m.id === targetId);
+        const member = memberById.get(targetId);
         if (!member) continue;
-        const scoreData = scoreMap.get(member.id);
+        const scoreData = summary.finalScoreMap.get(member.id);
         const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
 
         const entry = {
@@ -1316,12 +1289,7 @@ router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSel
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
-    const viewerAssignment = activeAssignments.find((assignment) => (
-      publicationAssignments.assignmentIdOf(assignment) === safeString(actorResult.actor.assignmentId)
-      && (!safeString(actorResult.actor.personId) || safeString(assignment.person_id) === safeString(actorResult.actor.personId))
-      && (!safeString(actorResult.actor.membershipId) || safeString(assignment.membership_id) === safeString(actorResult.actor.membershipId))
-    ));
+    const viewerAssignment = await participantService.resolveActorParticipant(orgId, actorResult.actor, 'assignment');
     if (!viewerAssignment) {
       return respondScoringResponse(res, { status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
     }
@@ -1339,22 +1307,15 @@ router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSel
       canDesignate = matchingMeritClauses.length > 0;
     }
 
-    const designations = await designationModel.getByPublication(publication.id);
-    // Only include designations linked to clauses under the viewer's OWN matching rules.
-    // Build clause set from matchingRules only (not ALL publication rules).
-    const viewerClauseIds = new Set();
-    matchingMeritClauses.forEach((clause) => viewerClauseIds.add(clause.id));
-    const lookups = await fetchOrgLookups();
+    const [visibleDesignations, lookups, activeAssignments] = canDesignate ? await Promise.all([
+      designationModel.getVisibleByClauses(publication.id, orgId, matchingMeritClauses.map(clause => clause.id)),
+      fetchOrgLookups(),
+      participantService.listParticipants(orgId, 'assignment')
+    ]) : [[], null, []];
     const result = [];
-    const visibleDesignations = designations.filter((item) => (
-      item.clause_id && viewerClauseIds.has(item.clause_id)
-    ));
     const designationPresentations = buildDesignationPresentations(visibleDesignations, lookups);
     for (let index = 0; index < visibleDesignations.length; index += 1) {
       const d = visibleDesignations[index];
-      const cid = d.clause_id || '';
-      // Only show designations that belong to the viewer's own merit rule clauses
-      if (!cid || !viewerClauseIds.has(cid)) continue;
       const presentation = designationPresentations[index];
       result.push({
         id: d.id,

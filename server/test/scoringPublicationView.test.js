@@ -5,8 +5,10 @@ const view = require('../../shared/scoringPublicationView');
 const copy = require('../../shared/locales/zh-CN/home').text;
 
 test('publication groups use scope facts without accepting server display labels', () => {
-  assert.equal(view.groupTitle({scopeType:'same_work_group_identity',targetIdentityName:'category'},copy), copy.publicationGroupWorkGroupIdentity('category'));
-  assert.equal(view.groupTitle({scopeType:'same_work_group_identity',groupLabel:'untrusted'},copy),copy.publicationGroupUnknown);
+  const group = {scopeType:'same_work_group_identity',targetIdentityName:'category'};
+  assert.equal(view.groupTitle(group,copy), copy.publicationGroupWorkGroup);
+  assert.equal(view.groupIdentity(group), 'category');
+  assert.equal(view.groupIdentity({scopeType:'same_work_group_identity',groupLabel:'untrusted'}),'');
   assert.equal(view.groupTitle({scopeType:'future',groupLabel:'untrusted'},copy),copy.publicationGroupUnknown);
   assert.equal(view.groupTitle({scopeType:'all_people',targetIdentityName:'unused'},copy),copy.publicationGroupOrganization);
 });

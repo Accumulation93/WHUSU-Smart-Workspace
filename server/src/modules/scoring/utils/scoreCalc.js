@@ -100,7 +100,9 @@ function validateCalculationSnapshot(record, activityId) {
   if (!recordSignature || recordSignature !== safeString(snapshot.templateConfigSignature)) {
     return { ok: false, reason: 'template_signature_mismatch' };
   }
-  if (!validateCalculationPolicySignature(snapshot, snapshot.calculationPolicySignature)) {
+  // v2/v3 已由规范化比较核对签名，旧版需要独立校验。
+  if (Number(snapshot.version) < CALCULATION_SNAPSHOT_VERSION
+    && !validateCalculationPolicySignature(snapshot, snapshot.calculationPolicySignature)) {
     return { ok: false, reason: 'calculation_policy_signature_mismatch' };
   }
 
@@ -319,6 +321,7 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
 
     const scorerCategoryKey = safeString(snapshot.rule.scorerDepartmentId)
       + '::' + safeString(snapshot.rule.scorerIdentityCategoryId);
+    const policySignature = buildAggregationPolicySignature(snapshot);
     snapshot.templates.forEach((template) => {
       let templateScore = 0;
       template.questions.forEach((question) => {
@@ -327,13 +330,13 @@ async function calculateScoreMap(activityId, orgId, options = {}) {
       const groupKey = candidate.targetId
         + '||' + scorerCategoryKey
         + '||' + safeString(template.templateId)
-        + '||' + buildAggregationPolicySignature(snapshot);
+        + '||' + policySignature;
       if (!calculationMap.has(groupKey)) {
         calculationMap.set(groupKey, {
           targetId: candidate.targetId,
           scorerGroupKey: scorerCategoryKey,
           templateId: safeString(template.templateId),
-          policySignature: buildAggregationPolicySignature(snapshot),
+          policySignature,
           weight: Number(template.weight),
           method: safeString(template.calculationMethod) || 'weighted_average',
           trimHigh: Number(template.trimHighCount || 0),

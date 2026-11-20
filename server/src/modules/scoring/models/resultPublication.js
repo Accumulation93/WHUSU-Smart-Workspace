@@ -44,4 +44,12 @@ async function remove(id) {
   await pool.query('DELETE FROM result_publications WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByActivity, getById, create, update, remove };
+async function listPublishedActivities() {
+  const [rows] = await pool.query(
+    `SELECT org_id, activity_id FROM result_publications
+      WHERE is_published = 1 ORDER BY published_at DESC, id LIMIT 50`
+  );
+  return rows;
+}
+
+module.exports = { getByActivity, getById, create, update, remove, listPublishedActivities };

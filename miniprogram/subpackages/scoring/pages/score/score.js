@@ -1,4 +1,5 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/score/score');
+const homeCopy = require('../../../../locales/zh-CN/home').text;
 const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
@@ -533,7 +534,7 @@ Page({
           ? Math.max(1, Number(result.existingRecord.revisionNumber || 1))
           : 0;
         let existingRecordText = readOnly
-          ? (result.readOnlyMessage || localeCopy.historicalReadOnly)
+          ? (result.readOnlyReason === 'activity_ended' ? homeCopy.activityEndedReadOnly : localeCopy.historicalReadOnly)
           : '';
 
         let summaries = computeSummaries(rawQuestionList);

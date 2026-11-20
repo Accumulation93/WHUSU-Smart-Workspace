@@ -26,9 +26,9 @@
       <div v-for="group in groups" :key="group.identity" class="stack target-group">
         <span class="chip target-group-label">{{ group.identity }}</span>
         <div v-for="target in group.targets" :key="target.id" class="list-row target-card" role="button"
-          :tabindex="blocked ? -1 : 0" :aria-disabled="blocked" @click="openScore(target)"
+          :tabindex="canOpenScore(target) ? 0 : -1" :aria-disabled="!canOpenScore(target)" @click="openScore(target)"
           @keydown.enter.prevent="openScore(target)" @keydown.space.prevent="openScore(target)">
-          <div class="target-main"><span class="target-name break-all"><PersonLink :name="target.name" :assignment-id="target.assignmentId" /></span>
+          <div class="target-main"><span class="target-name break-all">{{ target.name }}</span>
             <span class="target-tags"><span v-if="target.identity" class="chip chip-blue">{{ target.identity }}</span>
               <span class="chip" :class="isScored(target) ? 'chip-green' : 'chip-orange'">{{ isScored(target) ? copy.scoring.scoreStatusScored : copy.scoring.scoreStatusPending }}</span>
             </span>
@@ -57,7 +57,6 @@ import homeCopy from '@/locales/zh-CN/shared/home.js';
 import scoreCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/score/score.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatAbsoluteDate } from '@/runtime/dateTime.js';
-import { showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 defineOptions({ name: 'ScoringTasksView' });
@@ -68,14 +67,15 @@ const activity = ref(null);
 const activityNotice = ref('');
 const loading = ref(true);
 const loadNotice = ref('');
+const canScore = ref(false);
 let generation = 0;
 let active = false;
 const scope = () => [session.user?.id, session.context?.organizationId, session.context?.contextId].join('|');
 const displayName = computed(() => session.context?.name || session.user?.name || '');
 const orgName = computed(() => session.context?.organizationName || '');
 const roleLine = computed(() => session.context?.assignmentLabel || session.context?.identityName || roleLabelOf(session.context));
-const blocked = computed(() => loading.value || !!loadNotice.value || !!activityNotice.value);
 const isScored = target => target.scoreStatus ? target.scoreStatus === 'scored' : target.isScored === true;
+const canOpenScore = target => Boolean(target.id && !loading.value && !loadNotice.value && (isScored(target) || canScore.value));
 const stats = computed(() => {
   const scored = targets.value.filter(isScored).length;
   return [{ label: home.totalTargets, value: targets.value.length }, { label: home.completed, value: scored, tone: 'stat-completed' },
@@ -103,6 +103,7 @@ async function load() {
   const expected = scope();
   const current = () => active && request === generation && expected === scope();
   loading.value = true;
+  canScore.value = false;
   try {
     const [activityRead, targetRead] = await Promise.allSettled([callApi('getCurrentScoreActivity', {}), callApi('getRateTargets', {})]);
     if (!current()) return;
@@ -126,6 +127,7 @@ async function load() {
     activityNotice.value = activity.value?.isPaused ? home.activityPaused
       : result.activityStatus === 'activity_ended' || (activity.value?.endDate && today > activity.value.endDate)
         ? home.activityEndedReadOnly : '';
+    canScore.value = result.canScore ?? !activityNotice.value;
     loadNotice.value = '';
   } catch (error) {
     if (current()) loadNotice.value = errorText(error, copy.scoring.loadFailed);
@@ -134,10 +136,7 @@ async function load() {
   }
 }
 function openScore(target) {
-  if (blocked.value || !target.id) return;
-  const today = formatAbsoluteDate(new Date());
-  if (activity.value?.startDate && today < activity.value.startDate) return showToast(home.activityNotStarted);
-  if (activity.value?.endDate && today > activity.value.endDate) return showToast(home.activityEnded);
+  if (!canOpenScore(target)) return;
   router.push({ name: 'scoringFill', params: { id: target.id } });
 }
 onActivated(() => { active = true; load(); });

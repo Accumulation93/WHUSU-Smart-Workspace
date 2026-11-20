@@ -10,7 +10,7 @@
 
 const sharedCache = require('./sharedCache');
 
-const TTL = 300000; // 5 minutes
+const TTL = 24 * 60 * 60 * 1000;
 
 function cacheKey(activityId, orgId) {
   return `pubCache:${activityId}:${orgId}`;
@@ -58,7 +58,7 @@ function storableToMaps(value) {
 }
 
 async function open(activityId, orgId) {
-  return { key: await sharedCache.versionedKey(cacheKey(activityId, orgId), orgId), startedAt: Date.now() };
+  return { key: await sharedCache.versionedKey(cacheKey(activityId, orgId) + ':summary-v1', orgId), startedAt: Date.now() };
 }
 
 async function get(activityId, orgId, handle) {

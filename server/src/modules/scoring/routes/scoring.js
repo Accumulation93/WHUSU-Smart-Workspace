@@ -118,29 +118,8 @@ function normalizeClause(clauseData, templateConfigs) {
   };
 }
 
-function buildClauseScopes(clauses, scorer) {
-  const scopes = [];
-  for (const clause of clauses) {
-    if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
-      continue;
-    }
-    const s = { scopeType: clause.scopeType };
-    if (clause.scopeType === 'all_people') { scopes.push(s); return scopes; }
-    if (clause.scopeType === 'same_department_identity') { s.departmentId = scorer.departmentId; s.identityId = clause.targetIdentityId; }
-    else if (clause.scopeType === 'same_department_all') { s.departmentId = scorer.departmentId; }
-    else if (clause.scopeType === 'same_work_group_identity') { s.departmentId = scorer.departmentId; s.workGroupId = scorer.workGroupId; s.identityId = clause.targetIdentityId; }
-    else if (clause.scopeType === 'same_work_group_all') { s.departmentId = scorer.departmentId; s.workGroupId = scorer.workGroupId; }
-    else if (clause.scopeType === 'identity_only') { s.identityId = clause.targetIdentityId; }
-    else { continue; }
-    scopes.push(s);
-  }
-  return scopes;
-}
-
-async function loadRuleFull(ruleId) {
-  const rule = await rateRuleModel.getById(ruleId);
-  if (!rule) return null;
-  const clauses = await rateRuleClauseModel.getByRuleId(ruleId);
+async function loadRuleFull(rule) {
+  const clauses = await rateRuleClauseModel.getByRuleId(rule.id);
   const clauseIds = clauses.map(c => c.id);
   const configs = await clauseTemplateConfigModel.getByClauseIds(clauseIds);
   const configsByClause = new Map();
@@ -281,11 +260,13 @@ function buildCalculationContextSnapshot(options) {
 
 function historicalParticipant(record, side) {
   const historical = participantService.resolveHistoricalParticipant(record, side, []);
+  const subjectKey = safeString(record[side + '_subject_key']);
+  const assignmentId = historical.assignmentId || (subjectKey.startsWith('assignment:') ? subjectKey.slice(11) : '');
   return {
-    id: safeString(historical.assignmentId),
-    participantId: safeString(historical.assignmentId),
+    id: assignmentId,
+    participantId: assignmentId,
     personId: safeString(historical.personId),
-    assignmentId: safeString(historical.assignmentId),
+    assignmentId,
     assignmentNature: safeString(historical.assignmentNature),
     assignmentLabel: safeString(historical.assignmentLabel),
     name: safeString(historical.name),
@@ -382,12 +363,12 @@ function buildHistoricalTemplateBundle(record, answers, activityId) {
 async function buildHistoricalScoreForm(record, options) {
   const answers = await scoreAnswerModel.getByRecordId(record.id);
   const templateBundle = buildHistoricalTemplateBundle(record, answers, options.activity.id);
-  const readOnly = templateBundle.degraded === true;
+  const readOnly = options.closed === true || templateBundle.degraded === true;
   return {
     status: 'success',
     readOnly,
-    readOnlyReason: readOnly ? 'historical_snapshot_degraded' : '',
-    readOnlyMessage: readOnly ? localeCopy.historicalSnapshotDegraded : '',
+    readOnlyReason: templateBundle.degraded ? 'historical_snapshot_degraded' : (options.closed ? 'activity_ended' : ''),
+    readOnlyMessage: templateBundle.degraded ? localeCopy.historicalSnapshotDegraded : '',
     scorer: historicalParticipant(record, 'scorer'),
     target: historicalParticipant(record, 'target'),
     currentActivity: {
@@ -416,7 +397,6 @@ async function buildHistoricalScoreForm(record, options) {
 
 router.post('/getRateTargets', authorizedParticipationRead('targets', async (req, res) => {
   try {
-    const lookups = await fetchOrgLookups();
     let scorer = null;
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok) {
@@ -441,10 +421,13 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
       return respondScoringResponse(res, { status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
     }
 
-    const currentActivity = await scoreActivityModel.getCurrent();
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity();
-    const scorerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
+    const [currentActivity, scorerRecord, lookups] = await Promise.all([
+      scoreActivityModel.getCurrent(),
+      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
+      fetchOrgLookups()
+    ]);
     if (!scorerRecord) {
       return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     }
@@ -484,23 +467,20 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
 
     // Find matching rule
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
-    const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
+    const [rule, scoredRecords] = await Promise.all([
+      rateRuleModel.getByKey(currentActivity.id, scorerKey),
+      scoreRecordModel.getCompletionTargets(scorerRecord, currentActivity.id, true)
+    ]);
 
-    if (!rule || !rule.is_active || !natureCondition.matches(rule.nature_ids, scorer)) {
+    const activeRule = rule && rule.is_active && natureCondition.matches(rule.nature_ids, scorer);
+    if (!activeRule && !scoredRecords.length && activityWindowState === 'open') {
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
-    const ruleFull = await loadRuleFull(rule.id);
-
-    // Get scored targets
-    const scoredRecords = await scoreRecordModel.getByScorerParticipant(scorerRecord, currentActivity.id);
-
-    // Collect targets from all clauses — load only scoped HR records
+    const [ruleFull, allHrInfo] = activeRule ? await Promise.all([
+      loadRuleFull(rule), participantService.listParticipants(orgId, granularity)
+    ]) : [null, []];
     const targetMap = new Map();
-    const clauseScopes = buildClauseScopes(ruleFull.clauses, scorer);
-    const allHrInfo = clauseScopes.length
-      ? await participantService.listParticipants(orgId, granularity)
-      : [];
     const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
       ? participantService.createRecordParticipantResolver(allHrInfo)
       : (record, side) => participantService.participantRecordId(record, side, granularity);
@@ -508,36 +488,27 @@ router.post('/getRateTargets', authorizedParticipationRead('targets', async (req
       scoredRecords.map((record) => resolveRecordParticipantId(record, 'target')).filter(Boolean)
     );
 
-    for (const clause of ruleFull.clauses) {
-      if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
-        continue;
+    const clauses = (ruleFull?.clauses || []).filter(clause => clause.templateConfigs.length > 0);
+    function addTarget(person, isScored) {
+      targetMap.set(person.id, {
+        ...person, isScored,
+        scoreStatus: isScored ? 'scored' : 'pending',
+        scoreStatusText: isScored ? scoringCopy.scoreStatusScored : scoringCopy.scoreStatusPending
+      });
+    }
+    for (const item of allHrInfo) {
+      if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(item, scorerRecord)) continue;
+      const person = normalizeHrPerson(item, lookups);
+      if (clauses.some(clause => matchesClauseTarget(clause, scorer, person))) {
+        addTarget(person, scoredTargetIdSet.has(person.id));
       }
-
-      const targets = allHrInfo.filter(item => {
-        const target = normalizeHrPerson(item, lookups);
-        if (!natureCondition.matches(clause.natureIds, target)) return false;
-        if (clause.scopeType === 'same_department_identity') return target.departmentId === scorer.departmentId && target.identityId === clause.targetIdentityId;
-        if (clause.scopeType === 'same_department_all') return target.departmentId === scorer.departmentId;
-        if (clause.scopeType === 'same_work_group_identity') return target.departmentId === scorer.departmentId && target.workGroupId === scorer.workGroupId && target.identityId === clause.targetIdentityId;
-        if (clause.scopeType === 'same_work_group_all') return target.departmentId === scorer.departmentId && target.workGroupId === scorer.workGroupId;
-        if (clause.scopeType === 'identity_only') return target.identityId === clause.targetIdentityId;
-        if (clause.scopeType === 'all_people') return true;
-        return false;
-      });
-
-      targets.forEach(item => {
-        if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(item, scorerRecord)) return;
-        if (!targetMap.has(item.id)) {
-          const person = normalizeHrPerson(item, lookups);
-          const isScored = scoredTargetIdSet.has(item.id);
-          targetMap.set(item.id, {
-            ...person,
-            isScored,
-            scoreStatus: isScored ? 'scored' : 'pending',
-            scoreStatusText: isScored ? scoringCopy.scoreStatusScored : scoringCopy.scoreStatusPending
-          });
-        }
-      });
+    }
+    for (const record of scoredRecords) {
+      const id = resolveRecordParticipantId(record, 'target');
+      if (!id || targetMap.has(id)) continue;
+      const person = historicalParticipant(record, 'target');
+      if (person.assignmentId && person.assignmentId !== id) continue;
+      addTarget({ ...person, id, assignmentId: id }, true);
     }
 
     const sortedTargets = Array.from(targetMap.values()).sort((a, b) => {
@@ -595,26 +566,25 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
       fetchOrgLookups()
     ]);
     if (!scorerRecord) return respondScoringResponse(res, { status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
-    if (!targetRecord) return respondScoringResponse(res, { status: 'target_not_found', message: localeCopy.copy_245da65c1c });
     const scorer = normalizeHrPerson(scorerRecord, lookups);
     scorer.contextId = safeString(actorResult.actor.contextId);
     scorer.organizationId = safeString(orgId);
-    const targetPerson = normalizeHrPerson(targetRecord, lookups);
-    const historicalRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activity.id);
+    const activityWindowState = await getActivityWindowState(activity);
+    const historicalRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord || { assignment_id: targetId }, activity.id);
     if (historicalRecords.length) {
       return respondScoringResponse(res, await buildHistoricalScoreForm(historicalRecords[0], {
         activity,
         granularity,
-        scorer,
-        target: targetPerson
+        closed: !targetRecord || activityWindowState === 'activity_ended'
       }));
     }
+    if (!targetRecord) return respondScoringResponse(res, { status: 'target_not_found', message: localeCopy.copy_245da65c1c });
+    const targetPerson = normalizeHrPerson(targetRecord, lookups);
 
     if (activity.is_paused) {
       return respondScoringResponse(res, { status: 'activity_paused', message: localeCopy.copy_5b46959129 });
     }
 
-    const activityWindowState = await getActivityWindowState(activity);
     if (activityWindowState !== 'open') {
       return respondScoringResponse(res, {
         status: activityWindowState,
@@ -630,26 +600,13 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
-    const ruleFull = await loadRuleFull(rule.id);
+    const ruleFull = await loadRuleFull(rule);
 
     // Find matching clauses for this target — load only the target record
     const matchedClauseEntries = [];
 
     for (const clause of ruleFull.clauses) {
-      if (!natureCondition.matches(clause.natureIds, targetPerson)) continue;
-      if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
-        continue;
-      }
-
-      let match = false;
-      if (clause.scopeType === 'same_department_identity') match = targetPerson.departmentId === scorer.departmentId && targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'same_department_all') match = targetPerson.departmentId === scorer.departmentId;
-      else if (clause.scopeType === 'same_work_group_identity') match = targetPerson.departmentId === scorer.departmentId && targetPerson.workGroupId === scorer.workGroupId && targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'same_work_group_all') match = targetPerson.departmentId === scorer.departmentId && targetPerson.workGroupId === scorer.workGroupId;
-      else if (clause.scopeType === 'identity_only') match = targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'all_people') match = true;
-
-      if (match) {
+      if (matchesClauseTarget(clause, scorer, targetPerson)) {
         matchedClauseEntries.push({ person: targetPerson, clause });
       }
     }
@@ -671,8 +628,10 @@ router.post('/getScoreFormData', authorizedParticipationRead('form', async (req,
 
     // Load templates and questions
     const templateIds = configuredClauseEntry.clause.templateConfigs.map(c => c.templateId);
-    const templateDocs = await Promise.all(templateIds.map(id => scoreTemplateModel.getById(id, orgId)));
-    const questionsByTemplate = await Promise.all(templateIds.map(id => scoreQuestionModel.getByTemplateId(id)));
+    const [templateDocs, questionsByTemplate] = await Promise.all([
+      Promise.all(templateIds.map(id => scoreTemplateModel.getById(id, orgId))),
+      Promise.all(templateIds.map(id => scoreQuestionModel.getByTemplateId(id)))
+    ]);
 
     const templatesById = new Map();
     const templateDocsList = [];
@@ -935,12 +894,11 @@ router.post('/submitScoreRecord', async (req, res) => {
     const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
     // 必须与事务内的判定用同一口径（岗位键），否则前置查询可能查不到已存在记录，
     // 于是流程落到“新建”分支、再在事务里撞到同一对记录报“已在其他位置更新”。
-    const existingRecords = await scoreRecordModel.getBySubjectsOrPersons(activityId, {
-      scorerSubjectKey,
-      scorerPersonId: safeString(scorerRecord.person_id),
-      targetSubjectKey,
-      targetPersonId: safeString(targetRecord.person_id)
-    });
+    const activityWindowState = await getActivityWindowState(activity);
+    if (activityWindowState === 'activity_ended') {
+      return respondScoringResponse(res, { status: activityWindowState, message: localeCopy.copy_725b89a6cd });
+    }
+    const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activityId);
     if (existingRecords.length) {
       return await updateExistingScoreRecord({
         req,
@@ -962,7 +920,6 @@ router.post('/submitScoreRecord', async (req, res) => {
     if (activity.is_paused) {
       return respondScoringResponse(res, { status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
     }
-    const activityWindowState = await getActivityWindowState(activity);
     if (activityWindowState !== 'open') {
       return respondScoringResponse(res, {
         status: activityWindowState,
@@ -978,43 +935,17 @@ router.post('/submitScoreRecord', async (req, res) => {
       return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_50b40b1390 });
     }
 
-    const ruleFull = await loadRuleFull(rule.id);
+    const ruleFull = await loadRuleFull(rule);
 
     // Validate target is in scope — check only the target person, not all HR
-    let matchedClause = null;
-    let targetInScope = false;
-
-    for (const clause of ruleFull.clauses) {
-      if (!clause.templateConfigs.length) continue;
-      if (!natureCondition.matches(clause.natureIds, targetPerson)) continue;
-      if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) continue;
-
-      let match = false;
-      if (clause.scopeType === 'same_department_identity') match = targetPerson.departmentId === scorer.departmentId && targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'same_department_all') match = targetPerson.departmentId === scorer.departmentId;
-      else if (clause.scopeType === 'same_work_group_identity') match = targetPerson.departmentId === scorer.departmentId && targetPerson.workGroupId === scorer.workGroupId && targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'same_work_group_all') match = targetPerson.departmentId === scorer.departmentId && targetPerson.workGroupId === scorer.workGroupId;
-      else if (clause.scopeType === 'identity_only') match = targetPerson.identityId === clause.targetIdentityId;
-      else if (clause.scopeType === 'all_people') match = true;
-
-      if (match) {
-        targetInScope = true;
-        if (!matchedClause || !matchedClause.templateConfigs.length) {
-          matchedClause = clause;
-        }
-      }
-    }
-
-    if (!targetInScope) {
+    const matchedClause = ruleFull.clauses.find(clause =>
+      clause.templateConfigs.length > 0 && matchesClauseTarget(clause, scorer, targetPerson));
+    if (!matchedClause) {
       return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
       return respondScoringResponse(res, { status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
     }
-    if (!matchedClause) {
-      return respondScoringResponse(res, { status: 'missing_rule', message: localeCopy.copy_bce1328642 });
-    }
-
     // Build question bundle from templates (parallel)
     const questionBundle = [];
     const templatesById = new Map();

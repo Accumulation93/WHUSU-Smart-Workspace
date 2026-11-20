@@ -70,11 +70,12 @@
             wx:key="id"
             wx:for-item="target"
             data-id="{{target.id}}"
+            data-score-status="{{target.scoreStatus}}"
             data-name="{{target.name}}"
             bindtap="selectTarget"
            hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="target-main">
-              <view class="target-name"><person-link name="{{target.name}}" assignment-id="{{target.assignmentId}}" /></view>
+              <view class="target-name">{{target.name}}</view>
               <view class="target-tags">
                 <view class="target-identity">{{target.identity}}</view>
                 <view class="target-status {{target.scoreStatus === 'scored' ? 'target-status-scored' : 'target-status-pending'}}">
@@ -94,11 +95,14 @@
   </view>
 
   <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
-    <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationResultsPending && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
       <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
-    <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationResultsFailed}}">
+      <button class="ui-btn ui-btn--secondary" bindtap="retryPublication">{{copy.reloadProfile}}</button>
+    </view>
+    <view class="card empty-state-card" wx:if="{{!publicationResultsPending && !publicationResultsFailed && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
       <view class="empty-title">{{copy.noPublication}}</view>
     </view>
@@ -171,6 +175,7 @@
           <view class="result-group-head ui-motion-chip" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="result-group-head-left">
               <view class="result-group-label">{{group.groupLabel}}</view>
+              <view class="result-group-mode-chip result-group-identity" wx:if="{{group.identityLabel}}">{{group.identityLabel}}</view>
               <view class="result-group-mode-chip {{group.displayMode === 'grade' ? 'result-group-mode-grade' : 'result-group-mode-score'}}">{{group.displayMode === 'grade' ? copy.grade : copy.score}}</view>
             </view>
             <view class="result-group-head-right">
@@ -227,19 +232,18 @@
   </view>
 
   <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
-    <view class="card empty-state-card" wx:if="{{publicationAccessLoading && !hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationMeritPending && !hasMeritPerm}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.loadingDots}}" /></view></view>
       <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
-    <view class="card empty-state-card" wx:if="{{!publicationAccessLoading && !hasPublication}}">
+    <view class="card empty-state-card" wx:if="{{publicationMeritFailed}}">
+      <button class="ui-btn ui-btn--secondary" bindtap="retryPublication">{{copy.reloadProfile}}</button>
+    </view>
+    <view class="card empty-state-card" wx:if="{{!publicationMeritPending && !publicationMeritFailed && !hasMeritPerm}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
       <view class="empty-title">{{copy.noMeritList}}</view>
     </view>
-    <view class="card empty-state-card" wx:if="{{hasPublication && !hasMeritPerm}}">
-      <view class="empty-illustration"><view class="empty-icon-star"><ui-icon name="star" tone="primary" size="46" ariaLabel="{{copy.noMeritList}}" /></view></view>
-      <view class="empty-title">{{copy.noMeritList}}</view>
-    </view>
-    <view wx:if="{{hasPublication && hasMeritPerm}}">
+    <view wx:if="{{hasMeritPerm}}">
       <view class="section-control-card section-control-card--stacked">
         <view class="info-head">
           <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="{{copy.merit}}" /><text>{{copy.meritList}}</text></view>

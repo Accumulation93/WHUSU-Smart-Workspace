@@ -17,6 +17,7 @@ const { buildDueAt } = require('./src/modules/scoring/services/scoringTaskServic
 const POLL_MS = 60 * 1000;
 let running = false;
 let timer = null;
+let publicationWarmup = null;
 let lastMaintenanceDay = '';
 
 async function enqueueScheduledScoringEvents() {
@@ -88,13 +89,25 @@ async function start() {
   await pool.query('SELECT 1');
   await verifySchemaContract(pool);
   await tick();
-  timer = setInterval(tick, POLL_MS);
+  warmScoringPublication();
+  timer = setInterval(() => {
+    tick();
+    warmScoringPublication();
+  }, POLL_MS);
   console.log('[notification-worker] started');
+}
+
+function warmScoringPublication() {
+  if (publicationWarmup) return;
+  publicationWarmup = require('./src/modules/scoring/services/publicationSummary').warmNextPublishedActivity()
+    .catch(error => console.error('[scoring-publication]', error.code || error.name))
+    .finally(() => { publicationWarmup = null; });
 }
 
 async function shutdown() {
   if (timer) clearInterval(timer);
   while (running) await new Promise((resolve) => setTimeout(resolve, 100));
+  await publicationWarmup;
   await pool.end();
   process.exit(0);
 }

@@ -46,6 +46,7 @@
           <button type="button" class="publication-group-head" :aria-expanded="expanded === group.clauseId || filteredGroups.length === 1"
             @click="expanded = expanded === group.clauseId ? '' : group.clauseId">
             <span class="publication-group-label">{{ group.groupLabel }}</span>
+            <span v-if="group.identityLabel" class="chip chip-sky">{{ group.identityLabel }}</span>
             <span class="chip" :class="group.displayMode === 'grade' ? 'chip-orange' : 'chip-blue'">{{ group.displayMode === 'grade' ? home.grade : home.score }}</span>
             <span class="muted">{{ group.members.length }}{{ home.personSuffix }}</span><span>{{ expanded === group.clauseId ? '▲' : '▼' }}</span>
           </button>
@@ -70,7 +71,7 @@
       </section>
       <section v-for="group in meritGroups" :key="group.key" class="card stack merit-group">
         <div class="row row-wrap merit-group-head"><span class="chip chip-blue">{{ group.label }}</span><span class="muted">{{ group.quota }}</span>
-          <button v-if="merit.canDesignate === true" type="button" class="btn-quiet" :disabled="loading || saving || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
+          <button v-if="merit.canDesignate === true" type="button" class="btn-quiet" :disabled="saving || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
         </div>
         <div v-for="member in group.members" :key="member.id" class="list-row merit-member">
           <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
@@ -125,7 +126,9 @@ const panelData = computed(() => tab.value === 'results' ? results.value : merit
 const displayMode = computed(() => results.value?.displayMode || 'score');
 const sorted = rows => rows.map(item => ({ ...item, sortScore: typeof item.sortScore === 'number' ? item.sortScore : parseFloat(item.finalScore) || 0 }))
   .sort((a, b) => b.sortScore - a.sortScore);
-const groups = computed(() => (results.value?.groups || []).map(group => ({ ...group, groupLabel: publicationView.groupTitle(group, home), members: sorted((group.members || []).map(publicationView.memberView)) })));
+const groups = computed(() => (results.value?.groups || []).map(group => ({ ...group,
+  groupLabel: publicationView.groupTitle(group, home), identityLabel: publicationView.groupIdentity(group),
+  members: sorted((group.members || []).map(publicationView.memberView)) })));
 const members = computed(() => groups.value.length ? sorted(groups.value.flatMap(group => group.members)) : sorted((results.value?.results || []).map(publicationView.memberView)));
 function matches(member) {
   return ['identity', 'department', 'workGroup'].every(key => !filters[key] || member[key] === filters[key])
@@ -163,7 +166,7 @@ const meritGroups = computed(() => {
 const departmentCount = computed(() => new Set((merit.value?.meritList || []).map(member => member.department).filter(Boolean)).size);
 function clearFilters() { for (const key of Object.keys(filters)) filters[key] = ''; }
 function toggleFilter(key, value) { filters[key] = filters[key] === value ? '' : value; }
-function selectTab(key) { if (saving.value) return; tab.value = key; if (key !== 'scoring' && activityId.value) refresh(); }
+function selectTab(key) { if (!saving.value) tab.value = key; }
 function normalizeTab() { if (!tabs.value.some(item => item.key === tab.value)) tab.value = 'scoring'; }
 async function discover() {
   const request = ++generation;
@@ -205,7 +208,7 @@ async function refresh() {
   if (current()) { loading.value = false; normalizeTab(); }
 }
 function openPicker(group) {
-  if (loading.value || saving.value || meritError.value || discoveryError.value || merit.value?.canDesignate !== true) return;
+  if (saving.value || meritError.value || discoveryError.value || merit.value?.canDesignate !== true) return;
   const ids = new Set(group.clauses.map(clause => clause.targetIdentityId));
   const options = (merit.value.designationCandidates || []).filter(item => ids.has(item.targetIdentityId)).map(item => ({ ...item, assignmentId: item.assignmentId || item.id }));
   picker.value = { ...group, options, selected: options.filter(item => item.isSelected), publicationId: merit.value.publicationId };

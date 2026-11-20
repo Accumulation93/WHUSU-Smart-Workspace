@@ -19,6 +19,17 @@ async function getByPermission(permissionId) {
   return rows;
 }
 
+async function getVisibleByClauses(publicationId, orgId, clauseIds) {
+  if (!clauseIds.length) return [];
+  const [rows] = await pool.query(
+    `SELECT id, clause_id, target_hr_id, target_assignment_id, target_context_snapshot
+       FROM merit_list_designations
+      WHERE publication_id = ? AND org_id = ? AND clause_id IN (${clauseIds.map(() => '?').join(',')})`,
+    [publicationId, orgId, ...clauseIds]
+  );
+  return rows;
+}
+
 async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -62,4 +73,4 @@ async function removeByPermission(permissionId) {
   await pool.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [permissionId, orgId]);
 }
 
-module.exports = { getByPublication, getByPermission, getById, create, remove, removeByPermission };
+module.exports = { getByPublication, getByPermission, getVisibleByClauses, getById, create, remove, removeByPermission };

@@ -101,6 +101,7 @@ const mocks = {
   '../../../core/models/department': { async getAll() { return [{ id: 'department-1', name: '部门' }]; } },
   '../../../core/models/identity': { async getAll() { return [{ id: 'identity-scorer', name: '评分人' }, { id: 'identity-target', name: '被评人' }]; } },
   '../../../core/models/workGroup': { async getAll() { return []; } },
+  '../../../core/models/systemConfig': { async get() { return { timezone: 8 }; } },
   '../utils/pubCache': { async invalidate(activityId, orgId) { cacheInvalidated = activityId === 'activity-1' && orgId === 'org-1'; } },
   '../models/scoreActivity': {
     async getById() { return { id: 'activity-1', name: '活动', is_paused: 1, participant_granularity: 'assignment' }; }

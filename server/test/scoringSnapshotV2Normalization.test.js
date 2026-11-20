@@ -11,7 +11,7 @@ const { buildCalculationPolicySignature } = require('../src/modules/scoring/util
 const {
   canonicalizeCalculationSnapshot,
   isCanonicalCalculationSnapshot,
-  stableJson
+  sameCanonicalValue
 } = require('../src/modules/scoring/utils/calculationSnapshotSchema');
 const { validateCalculationSnapshot } = require('../src/modules/scoring/utils/scoreCalc');
 const { scanRows } = require('../scripts/normalizeScoreCalculationSnapshots');
@@ -84,7 +84,7 @@ assert.deepStrictEqual(validateCalculationSnapshot({
 
 const reordered = {};
 Object.keys(canonical).sort().forEach((key) => { reordered[key] = canonical[key]; });
-assert.strictEqual(stableJson(reordered), stableJson(canonical), 'MySQL JSON 键重排不能改变 v2 结构判定');
+assert.strictEqual(sameCanonicalValue(reordered, canonical), true, 'MySQL JSON 键重排不能改变 v2 结构判定');
 
 const root = path.resolve(__dirname, '..');
 const migration = fs.readFileSync(

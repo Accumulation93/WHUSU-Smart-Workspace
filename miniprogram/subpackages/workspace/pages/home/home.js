@@ -133,6 +133,10 @@ function emptyPublicationState() {
     meritRuleGroups: [],
     meritDeptCount: 0,
     publicationAccessLoading: false,
+    publicationResultsPending: false,
+    publicationMeritPending: false,
+    publicationResultsFailed: false,
+    publicationMeritFailed: false,
     hasPublication: false,
     hasViewPerm: false,
     hasMeritPerm: false,
@@ -494,7 +498,8 @@ Page({
           preserveExisting: !organizationChanged && this.data.targetList.length > 0
         });
         if (firstEntry || organizationChanged || !this.data.currentActivity) {
-          this.loadCurrentActivity({ discoverPublication: true });
+          this.loadCurrentActivity();
+          this.loadLatestPublishedActivity();
         }
       }
       if (firstEntry || organizationChanged) this.refreshUserFromCloud();
@@ -535,10 +540,10 @@ Page({
     const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
     const tabs = [];
     if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: copy.text.scoring });
-    if (allowed.indexOf('results') !== -1 && (this.data.hasViewPerm || this.data.publicationAccessLoading)) {
+    if (allowed.indexOf('results') !== -1 && (this.data.hasViewPerm || this.data.publicationResultsPending || this.data.publicationResultsFailed)) {
       tabs.push({ key: 'results', label: copy.text.results });
     }
-    if (allowed.indexOf('meritList') !== -1 && (this.data.hasMeritPerm || this.data.publicationAccessLoading)) {
+    if (allowed.indexOf('meritList') !== -1 && (this.data.hasMeritPerm || this.data.publicationMeritPending || this.data.publicationMeritFailed)) {
       tabs.push({ key: 'meritList', label: copy.text.meritList });
     }
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: directoryCopy.profile });
@@ -682,8 +687,9 @@ Page({
       this.loadAuditVerificationAccess();
     }
     if (tab === 'results' || tab === 'meritList') {
-      if (this.data.publicationActivity) this.checkPublication();
-      else this.loadLatestPublishedActivity();
+      if (this.data.publicationActivity) {
+        if (!this._publicationLoadedFor && !this.data.publicationAccessLoading) this.checkPublication();
+      } else this.loadLatestPublishedActivity();
     }
   },
 
@@ -719,8 +725,7 @@ Page({
     if (workbench) workbench.workbenchReachBottom();
   },
 
-  loadCurrentActivity(options) {
-    const settings = options || {};
+  loadCurrentActivity() {
     const request = orgSession.beginRequest(this, 'currentActivity');
     callFunction({
       name: 'getCurrentScoreActivity',
@@ -728,18 +733,12 @@ Page({
         if (!orgSession.isRequestCurrent(this, request)) return;
         const result = res.result || {};
         const activity = result.activity || null;
-        const previousActivityId = this.data.currentActivity ? this.data.currentActivity.id : '';
-        const nextActivityId = activity ? activity.id : '';
         this.setData({
           currentActivity: activity,
           currentActivityText: activity ? activity.name : copy.text.noActivity,
           activityPaused: activity ? !!activity.isPaused : false,
           activityEnded: Boolean(activity && activity.endDate && getSystemDate() > activity.endDate)
         });
-        if (settings.discoverPublication || previousActivityId !== nextActivityId
-          || this.data.activeTab === 'results' || this.data.activeTab === 'meritList') {
-          this.loadLatestPublishedActivity();
-        }
       },
       fail: () => {
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -749,7 +748,6 @@ Page({
           activityPaused: false,
           activityEnded: false
         });
-        if (settings.discoverPublication) this.loadLatestPublishedActivity();
       }
     });
   },
@@ -766,6 +764,8 @@ Page({
           return;
         }
         const activity = result.activity || null;
+        const previousId = (this.data.publicationActivity || {}).id;
+        if (previousId !== (activity || {}).id) this._publicationLoadedFor = '';
         this.setData({ publicationActivity: activity });
         if (activity) {
           this.checkPublication();
@@ -1282,13 +1282,15 @@ Page({
   },
 
   selectTarget(e) {
-    const { id, name } = e.currentTarget.dataset;
-    if (this.data.activityPaused) {
+    const { id, name, scoreStatus } = e.currentTarget.dataset;
+    if (!id) return;
+    const alreadyScored = scoreStatus === 'scored';
+    if (!alreadyScored && this.data.activityPaused) {
       wx.showToast({ title: copy.text.activityPaused, icon: 'none' });
       return;
     }
     const activity = this.data.currentActivity;
-    if (activity) {
+    if (activity && !alreadyScored) {
       const today = getSystemDate();
       if (activity.startDate) {
         if (today < activity.startDate) {
@@ -1391,8 +1393,11 @@ Page({
       this.rebuildUserTabs(true);
       return;
     }
-    this.setData({ publicationAccessLoading: true });
+    this.setData({ publicationAccessLoading: true, publicationResultsPending: true, publicationMeritPending: true,
+      publicationResultsFailed: false, publicationMeritFailed: false });
     this.rebuildUserTabs();
+    const current = () => orgSession.isRequestCurrent(this, request)
+      && activityId === ((this.data.publicationActivity || {}).id || '');
     // 两项权限互不依赖并行加载；任一临时失败都保留上次已确认状态，
     // 不再把网络波动伪装成“没有权限”并删除页签。
     const resultRequest = new Promise((resolve, reject) => {
@@ -1401,6 +1406,7 @@ Page({
     const meritRequest = new Promise((resolve, reject) => {
       callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
     }).catch((error) => ({ __requestFailed: true, error }));
+    const readResults = async () => {
     try {
       const res = await resultRequest;
       if (res.__requestFailed) throw res.error;
@@ -1416,6 +1422,7 @@ Page({
         const enrichedGroups = groups.map(group => ({
           ...group,
           groupLabel: publicationView.groupTitle(group, copy.text),
+          identityLabel: publicationView.groupIdentity(group),
           members: (group.members || []).map(m => ({
             ...publicationView.memberView(m),
             sortScore: typeof m.sortScore === 'number' ? m.sortScore : (parseFloat(m.finalScore) || 0)
@@ -1491,12 +1498,20 @@ Page({
           hasViewPerm: false,
           statsData: { count: 0, maxScore: '--', avgScore: '--' }
         });
+      } else {
+        this.setData({ publicationResultsFailed: true });
       }
     } catch (e) {
-      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (current()) this.setData({ publicationResultsFailed: true });
+    } finally {
+      if (current()) {
+        this.setData({ publicationResultsPending: false });
+        this.rebuildUserTabs(true);
+      }
     }
+    };
 
-    if (!orgSession.isRequestCurrent(this, request)) return;
+    const readMerit = async () => {
     try {
       const mlRes = await meritRequest;
       if (mlRes.__requestFailed) throw mlRes.error;
@@ -1557,16 +1572,31 @@ Page({
           userDesigCandidates: [],
           userDesigPubId: ''
         });
+      } else {
+        this.setData({ publicationMeritFailed: true });
       }
     } catch (e) {
-      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (current()) this.setData({ publicationMeritFailed: true });
+    } finally {
+      if (current()) {
+        this.setData({ publicationMeritPending: false });
+        this.rebuildUserTabs(true);
+      }
     }
+    };
 
-    if (orgSession.isRequestCurrent(this, request)) {
-      this._publicationLoadedFor = [orgSession.getSnapshot().contextId, activityId].join('::');
+    await Promise.all([readResults(), readMerit()]);
+    if (current()) {
+      this._publicationLoadedFor = !this.data.publicationResultsFailed && !this.data.publicationMeritFailed
+        ? [orgSession.getSnapshot().contextId, activityId].join('::') : '';
       this.setData({ publicationAccessLoading: false });
       this.rebuildUserTabs(true);
     }
+  },
+
+  retryPublication() {
+    if (this.data.publicationActivity) this.checkPublication();
+    else this.loadLatestPublishedActivity();
   },
 
   applyResultFilters() {

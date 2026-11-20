@@ -77,6 +77,10 @@ test('ended activity keeps authorized targets visible for review and disables sc
   await expect(page.locator('.target-card')).toHaveCount(3);
   await expect(page.locator('.target-card').first()).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('.targets-card button')).toHaveCount(0);
+  const reviewed = page.locator('.target-card').filter({ hasText: 'Member B' });
+  await expect(reviewed).toHaveAttribute('aria-disabled', 'false');
+  await reviewed.press('Enter');
+  await expect(page).toHaveURL(/\/scoring\/fill\/a3$/);
 });
 
 test('retained directory does not reload management permissions while a scoring form is active', async ({ page }) => {

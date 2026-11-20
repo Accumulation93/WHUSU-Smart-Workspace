@@ -30,7 +30,9 @@ assert.match(publicationRoute, /publicationViewRuleHasMeritRule/,
   '查看规则删除必须保护评优规则依赖');
 assert.match(publicationRoute, /assertDesignationTargetsAvailable/,
   '评优名单保存必须拒绝抢占其他条款的既有指定');
-assert.match(publicationRoute, /resolveHistoricalParticipant\(record, 'target', \[\]\)/,
+assert.match(publicationRoute, /summary\.historicalTargets/,
+  '公开结果必须用历史岗位摘要补齐结果');
+assert.match(read('src/modules/scoring/services/publicationSummary.js'), /resolveHistoricalParticipant\(record, 'target', \[\]\)/,
   '公开结果必须合并历史被评分岗位快照');
 assert.match(publicationRoute, /assignmentCandidates/,
   '公示管理接口必须直接提供评分岗位候选');

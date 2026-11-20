@@ -36,7 +36,7 @@ assert((resultsSource.match(/getHistoricalSnapshotFailure\(diagnostics\)/g) || [
 assert(resultsSource.includes("status === 'historical_snapshot_missing'")
   && publicationsSource.includes("status === 'historical_snapshot_missing'"),
   '管理结果与公开结果必须显式返回 historical_snapshot_missing');
-assert(publicationsSource.includes('getHistoricalSnapshotFailure(cached.diagnostics)'),
+assert(publicationsSource.includes('getHistoricalSnapshotFailure(summary.diagnostics)'),
   '公开结果不得从缓存吞掉历史快照诊断');
 assert((resultsSource.match(/inspectImmutableRecords\(enrichedRecords, activityId/g) || []).length >= 2,
   '管理端详情链和导出链都必须先校验不可变提交快照');

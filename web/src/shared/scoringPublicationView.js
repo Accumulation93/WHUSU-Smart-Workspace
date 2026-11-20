@@ -3,11 +3,15 @@
 
 function groupTitle(group, copy) {
   const source = group || {};
-  const name = String(source.targetIdentityName || '').trim();
-  if (source.scopeType === 'same_department_identity') return name ? copy.publicationGroupDepartmentIdentity(name) : copy.publicationGroupUnknown;
-  if (source.scopeType === 'same_work_group_identity') return name ? copy.publicationGroupWorkGroupIdentity(name) : copy.publicationGroupUnknown;
-  return ({ own_results: copy.publicationGroupOwn, same_department_all: copy.publicationGroupDepartment,
-    same_work_group_all: copy.publicationGroupWorkGroup, all_people: copy.publicationGroupOrganization })[source.scopeType] || copy.publicationGroupUnknown;
+  return ({ own_results: copy.publicationGroupOwn,
+    same_department_identity: copy.publicationGroupDepartment, same_department_all: copy.publicationGroupDepartment,
+    same_work_group_identity: copy.publicationGroupWorkGroup, same_work_group_all: copy.publicationGroupWorkGroup,
+    all_people: copy.publicationGroupOrganization })[source.scopeType] || copy.publicationGroupUnknown;
+}
+
+function groupIdentity(group) {
+  return ['same_department_identity', 'same_work_group_identity'].includes(group.scopeType)
+    ? String(group.targetIdentityName || '').trim() : '';
 }
 
 function memberView(member) {
@@ -16,7 +20,7 @@ function memberView(member) {
     workGroup: facts.workGroupName || '', grade: facts.gradeName || '' });
 }
 
-const sharedModule = Object.freeze({ groupTitle, memberView });
+const sharedModule = Object.freeze({ groupTitle, groupIdentity, memberView });
 
-export { groupTitle, memberView };
+export { groupTitle, groupIdentity, memberView };
 export default sharedModule;

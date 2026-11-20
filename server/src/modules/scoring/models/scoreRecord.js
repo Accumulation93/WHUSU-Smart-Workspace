@@ -141,10 +141,24 @@ async function getByScorerParticipant(participant, activityId) {
 }
 
 // 待办仅使用不可变岗位关联，不读取大体积答案和计算快照。
-async function getCompletionTargets(participant, activityId) {
+async function getCompletionTargets(participant, activityId, includeHistory = false) {
   const orgId = await getCurrentOrgId();
   const assignmentId = String(participant && (participant.assignment_id || participant.assignmentId || participant.id) || '');
   if (!assignmentId) return [];
+  if (includeHistory) {
+    const [rows] = await pool.query(
+      `SELECT id, target_id, target_person_id, target_assignment_id, target_subject_key, target_context_snapshot
+         FROM score_records
+        WHERE org_id = ? AND activity_id = ? AND scorer_assignment_id = ?
+        UNION ALL
+       SELECT id, target_id, target_person_id, target_assignment_id, target_subject_key, target_context_snapshot
+         FROM score_records
+        WHERE org_id = ? AND activity_id = ? AND scorer_subject_key = ?
+          AND NOT (scorer_assignment_id <=> ?)`,
+      [orgId, activityId, assignmentId, orgId, activityId, 'assignment:' + assignmentId, assignmentId]
+    );
+    return rows;
+  }
   const [rows] = await pool.query(
     `SELECT target_assignment_id, target_subject_key FROM score_records
       WHERE org_id = ? AND activity_id = ? AND scorer_assignment_id = ?
@@ -152,6 +166,16 @@ async function getCompletionTargets(participant, activityId) {
      SELECT target_assignment_id, target_subject_key FROM score_records
       WHERE org_id = ? AND activity_id = ? AND scorer_subject_key = ?`,
     [orgId, activityId, assignmentId, orgId, activityId, 'assignment:' + assignmentId]
+  );
+  return rows;
+}
+
+async function getPublicationTargetSnapshots(activityId, orgId) {
+  const [rows] = await pool.query(
+    `SELECT target_id, target_person_id, target_assignment_id, target_context_snapshot
+       FROM score_records
+      WHERE activity_id = ? AND org_id = ?`,
+    [activityId, orgId]
   );
   return rows;
 }
@@ -229,6 +253,7 @@ async function remove(id) {
 module.exports = {
   getAll,
   getByActivity,
+  getPublicationTargetSnapshots,
   getById,
   getByTarget,
   getByScorerTarget,
