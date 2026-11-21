@@ -100,7 +100,7 @@
       <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
     <view class="card empty-state-card" wx:if="{{publicationResultsFailed}}">
-      <button class="secondary-btn ui-motion-button" bindtap="retryPublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
+      <button class="secondary-btn publication-retry-btn ui-motion-button" bindtap="retryPublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
     </view>
     <view class="card empty-state-card" wx:if="{{!publicationResultsPending && !publicationResultsFailed && !hasPublication}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
@@ -237,7 +237,7 @@
       <view class="empty-title"><app-loading text="{{copy.loadingDots}}" /></view>
     </view>
     <view class="card empty-state-card" wx:if="{{publicationMeritFailed}}">
-      <button class="secondary-btn ui-motion-button" bindtap="retryPublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
+      <button class="secondary-btn publication-retry-btn ui-motion-button" bindtap="retryPublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
     </view>
     <view class="card empty-state-card" wx:if="{{!publicationMeritPending && !publicationMeritFailed && !hasMeritPerm}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>

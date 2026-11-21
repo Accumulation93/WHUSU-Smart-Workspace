@@ -478,7 +478,7 @@ Page({
     if (organizationChanged) {
       orgSession.invalidateRequests(this);
       this._publicationRows = null;
-      this._publicationLoadedFor = '';
+      this._publicationLoaded = false;
       this._preferredOrgTab = preservedTab;
       this.setData({
         ...emptyPublicationState(),
@@ -694,7 +694,7 @@ Page({
     }
     if (tab === 'results' || tab === 'meritList') {
       if (this.data.publicationActivity) {
-        if (!this._publicationLoadedFor && !this.data.publicationAccessLoading) this.checkPublication();
+        if (!this._publicationLoaded && !this.data.publicationAccessLoading) this.checkPublication();
       } else this.loadLatestPublishedActivity();
     }
   },
@@ -772,7 +772,7 @@ Page({
         const activity = result.activity || null;
         const previousId = (this.data.publicationActivity || {}).id;
         if (previousId !== (activity || {}).id) {
-          this._publicationLoadedFor = '';
+          this._publicationLoaded = false;
           this._publicationRows = null;
           this.setData(emptyPublicationState());
         }
@@ -1393,7 +1393,7 @@ Page({
     }
   },
 
-  async checkPublication() {
+  async checkPublication(retryFailed = false) {
     const activeRole = orgSession.getSnapshot().role || '';
     if (activeRole !== 'user') return;
     const activityId = this.data.publicationActivity ? this.data.publicationActivity.id : '';
@@ -1404,7 +1404,9 @@ Page({
       this.rebuildUserTabs(true);
       return;
     }
-    this.setData({ publicationAccessLoading: true, publicationResultsPending: true, publicationMeritPending: true,
+    const loadResults = !retryFailed || this.data.publicationResultsFailed;
+    const loadMerit = !retryFailed || this.data.publicationMeritFailed;
+    this.setData({ publicationAccessLoading: true, publicationResultsPending: loadResults, publicationMeritPending: loadMerit,
       publicationResultsFailed: false, publicationMeritFailed: false });
     this.rebuildUserTabs();
     const current = () => orgSession.isRequestCurrent(this, request)
@@ -1588,17 +1590,17 @@ Page({
     }
     };
 
-    await Promise.all([readResults(), readMerit()]);
+    await Promise.all([loadResults && readResults(), loadMerit && readMerit()]);
     if (current()) {
-      this._publicationLoadedFor = !this.data.publicationResultsFailed && !this.data.publicationMeritFailed
-        ? [orgSession.getSnapshot().contextId, activityId].join('::') : '';
+      this._publicationLoaded = true;
       this.setData({ publicationAccessLoading: false });
       this.rebuildUserTabs(true);
     }
   },
 
   retryPublication() {
-    if (this.data.publicationActivity) this.checkPublication();
+    if (this.data.publicationAccessLoading) return;
+    if (this.data.publicationActivity) this.checkPublication(true);
     else this.loadLatestPublishedActivity();
   },
 

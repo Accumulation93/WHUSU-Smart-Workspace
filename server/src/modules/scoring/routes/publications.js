@@ -11,6 +11,7 @@ const { nowMysqlUtc } = require('../../../utils/dateTime');
 const { logger } = require('../../../utils/logger');
 const { resolveRequestAdmin: resolveAdmin } = require('../../../core/services/adminRequestContext');
 const { getAuthenticatedContext } = require('../../../core/services/authenticatedContext');
+const { referenceFromRequest } = require('../../../core/services/authorizationReference');
 const publicationModel = require('../models/resultPublication');
 const designationModel = require('../models/meritListDesignation');
 const departmentModel = require('../../../core/models/department');
@@ -1034,20 +1035,21 @@ router.post('/removeMeritListDesignation', (req, res) => {
 });
 
 // ─── getPublicResults (user-facing) ───
-router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedResults', async (req, res) => {
+router.post('/getPublicResults', async (req, res) => {
   try {
     const activityId = safeString(req.body.activityId);
     if (!getAuthenticatedContext(req)) return respondScoringResponse(res, { status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
-    const publication = await publicationModel.getByActivity(activityId);
+    const [publication, activity, actorResult, orgId] = await Promise.all([
+      publicationModel.getByActivity(activityId),
+      activityModel.getById(activityId),
+      resolveCurrentActor(req),
+      getCurrentOrgId()
+    ]);
     if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
-
-    const orgId = await getCurrentOrgId();
-    const activity = await activityModel.getById(activityId);
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const granularity = participantService.normalizeGranularity();
-    const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
@@ -1076,34 +1078,21 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
     );
     if (!matchingClauses.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
-    // Load per-clause grade bands in one batch
-    const gradeBandsByClause = new Map();
-    {
-      const clauseIds = matchingClauses.map(c => c.id);
-      if (clauseIds.length > 0) {
-        const ph = clauseIds.map(() => '?').join(',');
-        try {
-          const [allGradeBands] = await pool.query(
-            `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
-            [...clauseIds, orgId]
-          );
-          allGradeBands.forEach(gb => {
-            if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
-            gradeBandsByClause.get(gb.clause_id).push({
-              minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
-              gradeName: safeString(gb.grade_name)
-            });
-          });
-        } catch (e) {
-          logger.warn('Failed to load grade bands in getPublicResults', { error: e.message });
-        }
-      }
+    if (referenceFromRequest(req)) {
+      await withTransaction(connection =>
+        participationAuthorization.checkPublication(req, connection, orgId, publication.id, 'scoring.publishedResults', 'read'));
     }
 
-    const [participantRows, lookups, summary] = await Promise.all([
+    const gradeClauseIds = matchingClauses.filter(clause => clause.display_mode === 'grade').map(clause => clause.id);
+    const [participantRows, lookups, summary, [gradeBands]] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       fetchOrgLookups(),
-      publicationSummary.load(activityId, orgId)
+      publicationSummary.load(activityId, orgId),
+      gradeClauseIds.length ? pool.query(
+        `SELECT clause_id, min_score, max_score, grade_name FROM pub_grade_bands
+          WHERE clause_id IN (?) AND org_id = ? ORDER BY clause_id, sort_order`,
+        [gradeClauseIds, orgId]
+      ) : [[]]
     ]);
     const historicalFailure = require('../utils/scoreCalc').getHistoricalSnapshotFailure(summary.diagnostics);
     if (historicalFailure) {
@@ -1112,6 +1101,13 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
           ? localeCopy.historicalSnapshotMissing
           : localeCopy.historicalSnapshotInvalid
       }));
+    }
+    const gradeBandsByClause = new Map();
+    for (const band of gradeBands) {
+      if (!gradeBandsByClause.has(band.clause_id)) gradeBandsByClause.set(band.clause_id, []);
+      gradeBandsByClause.get(band.clause_id).push({
+        minScore: Number(band.min_score), maxScore: Number(band.max_score), gradeName: safeString(band.grade_name)
+      });
     }
     const normalizedMembers = participantRows.map(m => ({
       id: safeString(m.id), assignmentId: safeString(m.assignment_id || m.id),
@@ -1142,7 +1138,6 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
     }
     const memberPresentation = participantService.decorateAssignmentDisambiguation(Array.from(membersByAssignmentId.values()));
     const allMembers = memberPresentation.rows;
-    const memberById = new Map(allMembers.map(member => [member.id, member]));
 
     function matchScope(target, clause) {
       if (!natureRulePolicy.matches(clause.nature_ids, target.assignmentKind)) return false;
@@ -1156,23 +1151,6 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       return false;
     }
 
-    // Build clause → target mapping (each target can appear in multiple clauses)
-    const clauseTargetMap = new Map(); // clauseId → Set of target IDs
-    const allVisibleIds = new Set();
-    for (const clause of matchingClauses) {
-      const targetSet = new Set();
-      for (const m of allMembers) {
-        if (matchScope(m, clause)) { targetSet.add(m.id); allVisibleIds.add(m.id); }
-      }
-      clauseTargetMap.set(clause.id, targetSet);
-    }
-
-    // Debug: log viewer score stats (non-sensitive aggregate only)
-    logger.debug('getPublicResults viewer stats', {
-      viewerId: (viewer.id || '').slice(0, 8),
-      visibleTargetCount: allVisibleIds.size
-    });
-
     // Build scope label lookup
     const scopeLabelMap = {
       own_results: scoringCopy.scopeShortOwnResults,
@@ -1185,13 +1163,7 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
 
     // Build per-clause groups
     const groups = [];
-    const seenMemberInClause = new Map(); // memberId → Set of clauseIds (for dedup across clauses)
-    const memberCache = new Map(); // memberId → enriched member data
-
     for (const clause of matchingClauses) {
-      const targetIds = clauseTargetMap.get(clause.id) || new Set();
-      if (!targetIds.size) continue;
-
       const clauseDisplayMode = safeString(clause.display_mode) || 'score';
       const clauseGradeBands = gradeBandsByClause.get(clause.id) || [];
       const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
@@ -1202,9 +1174,8 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       if (clauseDisplayMode === 'grade') groupLabel = groupLabel + localeCopy.copy_880ad7309d;
 
       const members = [];
-      for (const targetId of targetIds) {
-        const member = memberById.get(targetId);
-        if (!member) continue;
+      for (const member of allMembers) {
+        if (!matchScope(member, clause)) continue;
         const scoreData = summary.finalScoreMap.get(member.id);
         const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
 
@@ -1237,16 +1208,7 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
         members.push(entry);
       }
 
-      // Debug: log first group's aggregate stats (no individual scores)
-      if (members.length > 0) {
-        logger.debug('getPublicResults clause summary', {
-          clauseId: clause.id,
-          scopeType: safeString(clause.scope_type),
-          displayMode: clauseDisplayMode,
-          bandCount: clauseGradeBands.length,
-          memberCount: members.length
-        });
-      }
+      if (!members.length) continue;
 
       // Sort members by score descending
       members.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
@@ -1267,8 +1229,14 @@ router.post('/getPublicResults', authorizedParticipationRead('scoring.publishedR
       needsAssignmentDisambiguation: memberPresentation.needsAssignmentDisambiguation,
       groups
     });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
-}));
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') {
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    }
+    logger.error('getPublicResults failed', { requestId: req.requestId, error: error.code || error.message });
+    return respondScoringResponse(res.status(500), { status: 'error' });
+  }
+});
 
 // ─── getPublicMeritList (user-facing) ───
 router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSelections', async (req, res) => {
