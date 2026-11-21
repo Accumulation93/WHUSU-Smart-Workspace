@@ -20,6 +20,7 @@
       <span class="stack-tight"><strong>{{ item.name }}</strong><span v-if="mode === 'assignment'"><span>{{ natureLabel(item) || relations.natureMissing }}</span> · {{ item.assignmentLabel }}</span><span v-else v-for="assignment in item.assignments || []" :key="assignment.assignmentId"><span>{{ natureLabel(assignment) || relations.natureMissing }}</span> · {{ assignment.assignmentLabel }}</span></span>
     </button>
     <template #footer>
+      <div v-if="$slots.footerFeedback" class="personnel-picker-feedback"><slot name="footerFeedback" /></div>
       <button type="button" class="btn btn-secondary" :disabled="busy" @click="$emit('cancel')">{{ ui.cancelSelection }}</button>
       <button type="button" class="btn btn-primary" :disabled="busy || confirmDisabled" @click="$emit('confirm', options.filter(item => selected.includes(keyOf(item))))">{{ ui.confirm }}</button>
     </template>
@@ -30,7 +31,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
 import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
-const props = defineProps({ title: String, busy: Boolean, confirmDisabled: Boolean, multiple: {type:Boolean,default:true}, mode: { type: String, default: 'assignment' }, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
+const props = defineProps({ title: String, busy: Boolean, confirmDisabled: Boolean, emitSelectionChange: Boolean, multiple: {type:Boolean,default:true}, mode: { type: String, default: 'assignment' }, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
 const emit = defineEmits(['cancel', 'confirm', 'selectionchange']);
 const query = ref('');
 const keyOf = item => props.mode === 'person' ? item.id : item.assignmentId;
@@ -45,10 +46,13 @@ const filtered = computed(() => props.options.filter(item => ((!Object.values(fi
   && [item.name, ...tuples(item).map(tuple => tuple.assignmentLabel)].join(' ').toLowerCase().includes(query.value.trim().toLowerCase())));
 function toggle(id) {
   selected.value = selected.value.includes(id) ? selected.value.filter(value => value !== id) : props.multiple ? [...selected.value, id] : [id];
-  emit('selectionchange', { count: selected.value.length });
+  if (props.emitSelectionChange) emit('selectionchange', { count: selected.value.length });
 }
 </script>
 <style scoped>
 .personnel-option { width: 100%; text-align: left; color: var(--ui-text); font: inherit; cursor: pointer; }
 .personnel-option-selected { border-color: var(--ui-blue-700); background: var(--ui-chip-blue-bg); }
+.personnel-picker-feedback { flex: 0 0 100%; }
+.personnel-picker-feedback:empty { display: none; }
+:global(.dialog-footer:has(.personnel-picker-feedback)) { flex-wrap: wrap; }
 </style>

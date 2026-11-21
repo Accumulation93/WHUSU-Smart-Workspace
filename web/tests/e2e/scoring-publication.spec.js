@@ -178,8 +178,9 @@ test('legacy over-quota roster retains all 14 records and edits only the chosen 
   await page.getByRole('tab', { name: home.meritList, exact: true }).click();
   const groups = page.locator('.merit-group');
   const first = groups.first();
+  await expect(groups).toHaveCount(2);
   await expect(page.locator('.merit-member')).toHaveCount(14);
-  await expect(page.locator('.publication-stat strong').filter({ hasText: award.savedCount.replace('{saved}', '14') })).toBeVisible();
+  await expect(page.locator('.merit-saved-stat strong')).toHaveText('14');
   await expect(first.getByText(award.savedOverCount.replace('{extra}', '3'))).toBeVisible();
   await expect(first.getByText(homeCopy.format.exactQuota(8))).toBeVisible();
   await expect(groups.last().getByText(homeCopy.format.exactQuota(3))).toBeVisible();
@@ -188,11 +189,16 @@ test('legacy over-quota roster retains all 14 records and edits only the chosen 
   const options = dialog.locator('.personnel-option');
   await expect(options).toHaveCount(11);
   const confirm = dialog.getByRole('button', { name: pickerCopy.confirm, exact: true });
-  await expect(dialog.getByText(award.selectFewer.replace('{extra}', '3'))).toBeVisible();
+  const excessNotice = award.selectFewer.replace('{extra}', '3');
+  await expect(dialog.getByText(excessNotice)).toBeVisible();
   await confirm.click();
+  await confirm.click();
+  await expect(page.locator('.toast-layer').getByText(excessNotice)).toHaveCount(2);
+  await expect(dialog.getByRole('alert')).toHaveText(excessNotice);
   expect(writes).toBe(0);
   for (let index = 0; index < 3; index++) await options.nth(index).click();
   await confirm.click();
+  await expect(page.locator('.toast-layer').getByText(award.saveSuccess)).toBeVisible();
   await expect(page.locator('.merit-member')).toHaveCount(11);
   expect(writes).toBe(1);
   expect(ratingReads).toBe(1);
@@ -221,6 +227,7 @@ test('a dropped save response preserves the selection and reloads the authoritat
   await expect(dialog.locator('.personnel-option').last()).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: home.reloadProfile, exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.toast-layer').getByText(award.saveSuccess)).toBeVisible();
   await expect(page.locator('.merit-member')).toContainText('Department B');
   expect(writes).toBe(1);
 });

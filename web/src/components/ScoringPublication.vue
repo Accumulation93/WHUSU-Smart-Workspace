@@ -72,16 +72,18 @@
       <section class="section-control-card stack">
         <div class="info-head"><span class="section-title">{{ home.meritList }}</span><span class="chip">{{ home.totalPrefix }} {{ meritGroups.length }} {{ home.groupSuffix }}</span></div>
         <div class="publication-stats">
-          <div class="publication-stat"><strong>{{ meritSummary.savedCount }}</strong><span v-if="meritSummary.requiredCount">{{ meritSummary.requiredCount }}</span></div>
+          <div class="publication-stat"><strong>{{ meritGroups.length }}</strong><span>{{ home.meritGroup }}</span></div>
+          <div class="publication-stat merit-saved-stat"><strong>{{ meritSummary.savedCount }}</strong><span>{{ home.designatedCount }}</span><span v-if="meritSummary.requiredCount">{{ meritSummary.requiredCount }}</span></div>
           <div class="publication-stat"><strong>{{ meritSummary.departmentCount }}</strong><span>{{ home.involvedDepartments }}</span></div>
         </div>
       </section>
       <section v-for="group in meritGroups" :key="group.key" class="card stack merit-group">
         <div class="row row-wrap merit-group-head"><span class="chip chip-blue">{{ group.label }}</span>
+          <span v-if="group.quota" class="muted">{{ group.quota }}</span>
           <button v-if="merit.canDesignate === true && group.clauses.length" type="button" class="btn-quiet" :disabled="saving || meritReloading || savedMeritRefreshFailed || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
         </div>
-        <div class="row row-wrap">
-          <span class="chip chip-blue">{{ group.savedCount }}</span><span v-if="group.quota" class="muted">{{ group.quota }}</span><span v-if="group.overCount" class="chip chip-orange">{{ group.overCount }}</span>
+        <div class="row row-wrap merit-group-facts">
+          <span class="muted">{{ group.savedCount }}</span><span v-if="group.overCount" class="merit-group-over">{{ group.overCount }}</span>
         </div>
         <div v-for="member in group.members" :key="member.id" class="list-row merit-member">
           <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
@@ -91,10 +93,15 @@
       </section>
     </template>
   </div>
-  <PersonnelPicker v-if="picker" v-slot="{ selectedCount }" :title="home.designateMeritList" :options="picker.options" :value="picker.selected" :busy="saving"
-    :confirm-disabled="saveUnknown !== null" @cancel="picker = null" @confirm="saveDesignations" @selectionchange="clearSaveError">
-    <p>{{ picker.quota }}</p><p v-if="saveError || selectionNotice(selectedCount)" class="notice-line" role="status">{{ saveError || selectionNotice(selectedCount) }}</p>
-    <button v-if="saveUnknown !== null" type="button" class="btn-quiet" :disabled="meritReloading" @click="refreshMeritAfterSave">{{ home.reloadProfile }}</button>
+  <PersonnelPicker v-if="picker" :title="home.designateMeritList" :options="picker.options" :value="picker.selected" :busy="saving"
+    :confirm-disabled="saveUnknown !== null" emit-selection-change @cancel="picker = null" @confirm="saveDesignations" @selectionchange="clearSaveError">
+    <template #default="{ selectedCount }">
+      <p>{{ picker.quota }}</p><p v-if="saveError || selectionNotice(selectedCount)" class="notice-line" role="status">{{ saveError || selectionNotice(selectedCount) }}</p>
+      <button v-if="saveUnknown !== null" type="button" class="btn-quiet" :disabled="meritReloading" @click="refreshMeritAfterSave">{{ home.reloadProfile }}</button>
+    </template>
+    <template v-if="validationAttempt" #footerFeedback>
+      <p :key="validationAttempt.id" class="notice-line" role="alert">{{ validationAttempt.message }}</p>
+    </template>
   </PersonnelPicker>
 </template>
 
@@ -127,6 +134,7 @@ const savedMeritRefreshFailed = ref(false);
 const picker = ref(null);
 const saveError = ref('');
 const saveUnknown = ref(null);
+const validationAttempt = ref(null);
 const expanded = ref('');
 const filters = reactive({ search: '', identity: '', department: '', workGroup: '', grade: '' });
 const groupPages = ref({});
@@ -134,6 +142,7 @@ let active = false;
 let generation = 0;
 let meritGeneration = 0;
 let meritReadGeneration = 0;
+let validationSequence = 0;
 const scope = () => [session.user?.id, session.context?.organizationId, session.context?.contextId].join('|');
 const hasMerit = computed(() => merit.value?.canDesignate === true || merit.value?.canViewMeritList === true);
 const tabs = computed(() => [
@@ -182,7 +191,7 @@ const publicationStats = computed(() => {
   return { count: filteredMembers.value.length, ...scoreStats.value };
 });
 const meritGroups = computed(() => publicationView.awardGroups(merit.value || {}, homeCopy, award));
-const meritSummary = computed(() => publicationView.awardSummary(meritGroups.value, merit.value?.meritList || [], homeCopy, award));
+const meritSummary = computed(() => publicationView.awardSummary(meritGroups.value, merit.value?.meritList || [], homeCopy));
 function clearFilters() { for (const key of Object.keys(filters)) filters[key] = ''; }
 function toggleFilter(key, value) { filters[key] = filters[key] === value ? '' : value; }
 async function changeResultPage(group, step) {
@@ -256,9 +265,13 @@ function openPicker(group) {
   picker.value = { ...group, ...publicationView.awardPicker(group, merit.value.designationCandidates || []), publicationId: merit.value.publicationId };
   saveError.value = '';
   saveUnknown.value = null;
+  validationAttempt.value = null;
 }
 function selectionNotice(count) { return publicationView.awardSelectionNotice(picker.value, count, award); }
-function clearSaveError() { if (saveUnknown.value === null) saveError.value = ''; }
+function clearSaveError() {
+  validationAttempt.value = null;
+  if (saveUnknown.value === null) saveError.value = '';
+}
 async function refreshMeritAfterSave() {
   if (meritReloading.value || !activityId.value) return;
   const expected = scope();
@@ -281,7 +294,7 @@ async function refreshMeritAfterSave() {
       if (!group || response.canDesignate !== true || response.publicationId !== editor.publicationId) picker.value = null;
       else if (publicationView.awardSavedMatches(group, unknown)) {
         picker.value = null;
-        showToast(home.saved);
+        showToast(award.saveSuccess);
       } else {
         Object.assign(editor, group, { clauseIds: group.clauses.map(clause => clause.id) });
         saveError.value = award.savedListDiffers;
@@ -304,7 +317,13 @@ async function saveDesignations(selected) {
   const editor = picker.value;
   if (saving.value || saveUnknown.value !== null || !editor?.publicationId) return;
   const designationAssignmentIds = [...new Set(selected.map(item => item.assignmentId))];
-  if (selectionNotice(designationAssignmentIds.length)) return;
+  const mismatch = selectionNotice(designationAssignmentIds.length);
+  if (mismatch) {
+    saveError.value = '';
+    validationAttempt.value = { id: ++validationSequence, message: mismatch };
+    showToast(mismatch);
+    return;
+  }
   const expected = scope();
   const id = activityId.value;
   const request = ++meritGeneration;
@@ -316,7 +335,7 @@ async function saveDesignations(selected) {
     if (!current()) return;
     if (result.status !== 'success') { saveError.value = publicationView.awardSaveNotice(result, editor, designationAssignmentIds.length, award); return; }
     picker.value = null;
-    showToast(home.saved);
+    showToast(award.saveSuccess);
     await refreshMeritAfterSave();
   } catch (error) {
     if (current() && !error.silent) {
@@ -333,6 +352,7 @@ function clearMeritEditor() {
   meritReadGeneration++;
   picker.value = null;
   saveUnknown.value = null;
+  validationAttempt.value = null;
   saving.value = false;
   meritReloading.value = false;
 }
@@ -366,5 +386,7 @@ onBeforeUnmount(() => { active = false; generation++; clearMeritEditor(); result
 .publication-group-head > .chip, .publication-group-head > .muted { flex: none; }
 .publication-group-body { padding: 0 var(--ui-inline-gap) var(--ui-list-padding-y); }
 .merit-group-head > button { margin-left: auto; }
+.merit-group-facts { font-size: var(--ui-type-meta); }
+.merit-group-over { color: var(--ui-chip-orange-text); }
 .merit-member { display: flex; flex-direction: column; align-items: stretch; gap: var(--ui-label-gap); }
 </style>

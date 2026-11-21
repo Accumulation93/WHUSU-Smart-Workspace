@@ -3,6 +3,7 @@ const path = require('node:path');
 
 const storage = {};
 const calls = [];
+const toasts = [];
 let pendingTargets = null;
 let failPublication = false;
 let designatedRows = [];
@@ -22,7 +23,7 @@ global.wx = {
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
   setNavigationBarTitle() {},
-  showToast() {},
+  showToast(options) { toasts.push(options.title); },
   pageScrollTo() {},
   redirectTo() {}
 };
@@ -214,6 +215,10 @@ async function flush() {
   assert.equal(page.data.showUserDesigPopup, true);
   assert.equal(page.data.userDesigSelectedList.length, 3);
   await page.confirmSharedUserDesignation({ detail: { keys: designationOptions.map(option => option.id) } });
+  await page.confirmSharedUserDesignation({ detail: { keys: designationOptions.map(option => option.id) } });
+  assert.deepEqual(toasts.slice(-2), Array(2).fill(award.selectFewer.replace('{extra}', '1')));
+  await page.confirmSharedUserDesignation({ detail: { keys: ['assignment-1'] } });
+  assert.equal(toasts.at(-1), award.selectMore.replace('{missing}', '1'));
   assert.equal(designationWrites.length, 0);
 
   const publicReadsBeforeSave = calls.filter(name => name === 'getPublicResults').length;
@@ -222,6 +227,7 @@ async function flush() {
   assert.deepEqual(designationWrites[0], { clauseIds: ['merit-clause'], clauseId: 'merit-clause', publicationId: 'publication-1', designationAssignmentIds: validSelection.detail.keys });
   assert.equal(page.data.meritRuleGroups[0].members.length, 2);
   assert.equal(page.data.showUserDesigPopup, false);
+  assert.equal(toasts.at(-1), award.saveSuccess);
   assert.equal(calls.filter(name => name === 'getPublicResults').length, publicReadsBeforeSave);
 
   page.openUserDesignation({ currentTarget: { dataset: { groupKey: 'merit-clause' } } });
@@ -234,6 +240,7 @@ async function flush() {
   await page.refreshMeritAfterSave();
   assert.equal(page.data.showUserDesigPopup, false);
   assert.equal(designationWrites.length, 2);
+  assert.equal(toasts.at(-1), award.saveSuccess);
 
   console.log('评分工作台返回加载与页签稳定性、评优名额及保存核对测试通过');
 })().catch((error) => {

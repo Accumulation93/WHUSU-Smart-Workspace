@@ -1543,7 +1543,7 @@ Page({
     const canEditMerit = response.canDesignate === true;
     this.setData({
       meritRuleGroups: groups,
-      meritSummary: publicationView.awardSummary(groups, roster, copy, awardCopy),
+      meritSummary: publicationView.awardSummary(groups, roster, copy),
       hasMeritPerm: response.canViewMeritList === true || canEditMerit,
       canEditMerit,
       userDesigCandidates: response.designationCandidates || [],
@@ -1571,7 +1571,7 @@ Page({
             this.closeUserDesignation();
           } else if (publicationView.awardSavedMatches(group, unknown.unknownSelection)) {
             this.closeUserDesignation();
-            wx.showToast({ title: copy.text.saved, icon: 'success' });
+            wx.showToast({ title: awardCopy.saveSuccess, icon: 'success' });
           } else {
             unknown.group = group;
             unknown.clauseIds = group.clauses.map(clause => clause.id);
@@ -1763,6 +1763,7 @@ Page({
     const mismatch = publicationView.awardSelectionNotice(editor.group, selected, awardCopy);
     if (mismatch) {
       this.setData({ userDesigNotice: mismatch, userDesigError: '' });
+      wx.showToast({ title: mismatch, icon: 'none' });
       return;
     }
     const activityId = (this.data.publicationActivity || {}).id;
@@ -1780,7 +1781,7 @@ Page({
         this.setData({ userDesigError: publicationView.awardSaveNotice(result, editor.group, selected, awardCopy) });
         return;
       }
-      wx.showToast({ title: copy.text.saved, icon: 'success' });
+      wx.showToast({ title: awardCopy.saveSuccess, icon: 'success' });
       this.setData({ showUserDesigPopup: false });
       await this.refreshMeritAfterSave();
     } catch (error) {

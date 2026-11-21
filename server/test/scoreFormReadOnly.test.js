@@ -54,18 +54,20 @@ let activeHistoricalRecord = {
 };
 let currentTemplateReads = 0;
 let historicalParticipantAvailable = true;
+let activityEndDate = '2999-01-01';
 
 const emptyModel = {};
 const mocks = {
   '../../../core/models/department': { async getAll() { return [{ id: 'department-1', name: '部门' }]; } },
   '../../../core/models/identity': { async getAll() { return [{ id: 'identity-scorer', name: '评分人' }, { id: 'identity-target', name: '被评人' }]; } },
   '../../../core/models/workGroup': { async getAll() { return []; } },
+  '../../../core/models/systemConfig': { async get() { return { timezone: 8 }; } },
   '../utils/pubCache': { async invalidate() {} },
   '../models/scoreActivity': {
     async getCurrent() {
       return {
         id: 'activity-1', name: '活动', is_paused: 1,
-        start_date: '2099-01-01', end_date: '2000-01-01',
+        start_date: '2000-01-01', end_date: activityEndDate,
         participant_granularity: 'assignment'
       };
     }
@@ -156,6 +158,16 @@ assert(layer, '缺少 getScoreFormData 路由');
   assert.strictEqual(answerReads, 1, '结构冲突时应按不可变历史题目快照映射历史答案');
   assert.strictEqual(currentTemplateReads, 0, '历史评分不得再读取当前模板来解释旧答案');
   assert.strictEqual(payload.currentActivity.id, 'activity-1', '活动暂停或时间范围变化后历史记录仍须正常打开');
+
+  activityEndDate = '2001-01-01';
+  await layer.route.stack[0].handle({ body: { targetId: target.id } }, {
+    json(value) { payload = value; return value; }
+  });
+  assert.strictEqual(payload.status, 'success');
+  assert.strictEqual(payload.readOnly, true);
+  assert.strictEqual(payload.readOnlyReason, 'activity_ended');
+  assert.strictEqual(payload.templateBundle.questions[0].score, '88');
+  activityEndDate = '2999-01-01';
 
   activeHistoricalRecord = Object.assign({}, activeHistoricalRecord, {
     calculation_context_snapshot: JSON.stringify(Object.assign({}, historicalCalculationSnapshot, {

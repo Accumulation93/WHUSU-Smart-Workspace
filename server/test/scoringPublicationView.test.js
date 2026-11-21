@@ -77,7 +77,7 @@ test('award groups use clause provenance after identity changes and take the max
   ] }, home, awardCopy);
   assert.deepEqual(groups.map(group => group.members.map(member => member.assignmentId)), [['active-a'], ['active-b'], ['legacy-c']]);
   assert.deepEqual(groups.map(group => group.limit), [8, 3, 0]);
-  assert.equal(view.awardSummary(groups, roster, home, awardCopy).requiredCount, '');
+  assert.equal(view.awardSummary(groups, roster, home).requiredCount, '');
   const picker = view.awardPicker(groups[0], [
     { id: 'active-a', clauseIds: ['clause-a'] },
     { id: 'active-b', clauseIds: ['clause-b'], isSelected: true },

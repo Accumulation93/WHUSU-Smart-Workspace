@@ -386,7 +386,7 @@ async function main() {
   assert.equal(f.page.data.hrTemplateErrorCount, 4);
   assert.equal(f.page.data.hrProfileTemplateForm.fields[1].errorText, '资料项名称“重复名”重复，请修改。');
   assert.equal(f.page.data.hrProfileTemplateForm.fields[2].errorText, '最小长度不能大于最大长度');
-  assert.equal(f.page.data.hrProfileTemplateForm.fields[3].errorText, '请输入数字；不限制时可留空。');
+  assert.equal(f.page.data.hrProfileTemplateForm.fields[3].errorText, templateCopy.fieldNumberInvalid);
   assert.equal(f.page.data.hrProfileTemplateForm.fields[4].errorText, '序列资料项至少需要一个选项');
   assert.equal(f.scrolls[f.scrolls.length - 1].selector, '#hr-template-field-v2', '滚到第一处问题');
 

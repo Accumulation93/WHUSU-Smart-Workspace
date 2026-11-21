@@ -21,14 +21,15 @@
 
 ## 评优名单编辑
 
-前端逻辑设计核对了已保存人数和规则名额各自的数据来源，并确认两个端都应保留已保存的超额成员。语言 Agent 放行 `scoringPublication.awardSelection`，实施 Agent 接入两端和共享人员选择器。固定名额与上限复用 `home.format.exactQuota`、`home.format.maximumQuota`，已选数量保留人员选择器原有统计，提交成功复用 `home.text.saved`。
+前端逻辑设计核对了已保存人数和规则名额各自的数据来源，并确认两个端都应保留已保存的超额成员。语言 Agent 放行 `scoringPublication.awardSelection`，实施 Agent 接入两端和共享人员选择器。固定名额与上限复用 `home.format.exactQuota`、`home.format.maximumQuota`，已选数量保留人员选择器原有统计，确认保存使用本功能的 `saveSuccess`。
 
 | 情境 | 语料键 |
 |---|---|
 | 已保存名册与规则名额分开显示 | `savedCount`、`savedOverCount`、现有固定名额及人数上限 |
-| 正在选择，尚缺或超过名额 | `selectMore`、`selectFewer` |
+| 正在选择或点击确认时，尚缺或超过名额 | `selectMore`、`selectFewer` |
 | 服务端确认人数不符、人员重复或已超出当前评优范围 | `saveTooFew`、`saveTooMany`、`saveOverMaximum`、`saveAlreadyAssigned`、`saveCandidateChanged` |
 | 规则变化、公示关闭、当前岗位权限变化和已确认失败 | `saveRulesChanged`、`savePublicationClosed`、`saveNoPermission`、`saveFailed` |
+| 已确认保存或通过重新读取确认 | `saveSuccess` |
 | 保存响应未知，或成功后重新读取失败 | `saveResultUnknown`、`savedListDiffers`、`savedNotRefreshed` |
 
 名额报错只采用状态码和结构化人数。未知状态先读回评优名单，选择器保持原草稿。已知保存成功时只重新读取评优名单，保留考核结果的分页与加载进度。

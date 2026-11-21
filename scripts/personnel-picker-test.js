@@ -88,3 +88,9 @@ for (const file of ['miniprogram/subpackages/scoring/pages/admin/adminWorkbenchC
   assert(!content.includes('selection-card-toggle'), file + ' 不得恢复独立选择控件');
   assert(content.includes('selection-option-card-selected'), file + ' 必须使用整卡选中状态');
 }
+
+instance.properties.emitSelectionChange = true;
+instance.toggleOption({ currentTarget: { dataset: { key: 'a-2' } } });
+assert.strictEqual(events[2].name, 'selectionchange');
+assert.strictEqual(events[2].payload.count, 1);
+assert.deepStrictEqual(Object.keys(events[2].payload), ['count'], '显式订阅的草稿变化只发送数量');

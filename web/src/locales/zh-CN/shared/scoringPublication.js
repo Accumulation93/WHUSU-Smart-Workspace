@@ -20,6 +20,7 @@ const sharedModule = Object.freeze({
     saveRulesChanged: '评优规则已更新，请重新加载名单后再选择。',
     savePublicationClosed: '这份评优名单已关闭，暂时无法修改。',
     saveNoPermission: '当前岗位无权修改这份评优名单。',
+    saveSuccess: '评优名单已保存',
     saveFailed: '评优名单未能保存，请重试。',
     saveResultUnknown: '无法确认名单是否已保存，请先重新加载。',
     savedListDiffers: '重新加载的名单与本次选择不同，请核对后再保存。',

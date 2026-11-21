@@ -29,6 +29,8 @@ async function main() {
     await admin.query("INSERT INTO organizations(id,name) VALUES ('org','测试组织'),('other','其他组织')");
     await admin.query("INSERT INTO departments(id,name,org_id) VALUES ('d1','部门甲','org'),('d2','部门乙','org')");
     await admin.query("INSERT INTO identities(id,name,org_id) VALUES ('i1','成员','org'),('i2','负责人','org')");
+    await admin.query("INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','org','本会岗位')");
+    await admin.query("INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('org','i1','staff'),('org','i2','staff')");
     for (const [id,name] of [['v','查看者'],['a','同名'],['b','同名'],['nojob','无岗位']]) {
       await admin.query('INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES (?,?,?,?)',[id,name,id,id]);
       await admin.query('INSERT INTO hr_info(id,name,student_id,org_id) VALUES (?,?,?,?)',['h'+id,name,id,'org']);

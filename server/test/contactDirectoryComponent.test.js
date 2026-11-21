@@ -69,9 +69,10 @@ async function main() {
   assert.equal(lazyCalls.length,1);
   const opening=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
   assert.equal(lazy.component.data.detailLoading,true);
-  lazy.component.closeContact();
+  lazy.component.clearPrivate();
   finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await opening;
   assert.equal(lazy.component.data.contact,null);
+  lazy.component.activate(); await new Promise(resolve=>setImmediate(resolve));
   const secondOpen=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
   finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await secondOpen;
   assert(lazy.component.data.contact.copyText.includes('电话：13800138000'));
@@ -83,7 +84,11 @@ async function main() {
   assert.equal(direct.component.data.contact.related[0].label,'Department · Role');
   await direct.component.openContact({currentTarget:{dataset:{key:'other'}}});
   assert.equal(directCalls[1].data.key,'other'); assert.equal(direct.component.data.contact.key,'other');
-  direct.component.closeContact(); await new Promise(resolve=>setImmediate(resolve)); assert.equal(directCalls[2].data.summaryOnly,true);
+  direct.component.clearPrivate();
+  assert.equal(direct.component.data.contact,null);
+  assert.equal(directCalls.length,2);
+  direct.component.properties.initialKey=''; direct.component.activate(); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(directCalls[2].data.summaryOnly,true);
   direct.component.clearPrivate();
   console.log('PASS 小程序真实保存参数、人员确认、删除取消/确认、处理提示、隐藏清理和迟到响应丢弃');
 }

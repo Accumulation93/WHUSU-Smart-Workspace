@@ -92,9 +92,9 @@ function awardGroups(merit, home, copy) {
   }));
 }
 
-function awardSummary(groups, roster, home, copy) {
+function awardSummary(groups, roster, home) {
   return {
-    savedCount: formatAward(copy.savedCount, { saved: roster.length }),
+    savedCount: roster.length,
     requiredCount: groups.length && groups.every(group => group.exact && group.limit)
       ? home.format.exactQuota(groups.reduce((total, group) => total + group.limit, 0)) : '',
     departmentCount: new Set(roster.map(member => member.departmentId || member.department).filter(Boolean)).size

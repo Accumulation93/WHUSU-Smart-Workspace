@@ -20,6 +20,7 @@ Component({
     loading: { type: Boolean, value: false },
     errorText: { type: String, value: '' },
     contextText: { type: String, value: '' },
+    emitSelectionChange: { type: Boolean, value: false },
     confirmDisabled: { type: Boolean, value: false },
     confirmLoading: { type: Boolean, value: false }
   },
@@ -149,7 +150,7 @@ Component({
       if (!key) return;
       const keys = model.toggleSelection(this.data.draftKeys, key, this.properties.multiple);
       this._applyView(keys, null, true);
-      this.triggerEvent('selectionchange', { count: keys.length });
+      if (this.properties.emitSelectionChange) this.triggerEvent('selectionchange', { count: keys.length });
     },
 
     toggleSelectedExpanded: function() {
