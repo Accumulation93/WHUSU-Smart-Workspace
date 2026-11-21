@@ -61,7 +61,7 @@ async function main() {
         if (name.includes('locales/')) return require(path.resolve(base, name));
         if (name.endsWith('/api')) return { callFunction, showShortToast() {}, getErrorText: error => error.message };
         if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
-        if (name.endsWith('/venueRuleDisplay')) return require(path.resolve(base, name));
+        if (name.endsWith('/venueRuleDisplay') || name.endsWith('/venueBookingDetail')) return require(path.resolve(base, name));
         return {};
       },
       wx: { nextTick: callback => callback() }

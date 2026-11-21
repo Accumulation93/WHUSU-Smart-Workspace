@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('assert');
+process.env.DB_USER ||= 'test-only';
+process.env.DB_PASSWORD ||= 'test-only';
 const fs = require('fs');
 const Module = require('module');
 const path = require('path');

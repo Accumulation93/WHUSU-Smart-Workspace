@@ -33,6 +33,8 @@ async function codeChecks() {
   await run('git', ['diff', '--check']);
 }
 async function browserChecks() {
+  const workers = Number(executionEnv.WHUSU_CI_BROWSER_WORKERS || 2);
+  if (!Number.isInteger(workers) || workers < 1 || workers > 8) throw new Error('WHUSU_CI_BROWSER_WORKERS 必须为 1 至 8 的整数');
   await npm(['run', 'build'], path.join(root, 'web'));
   const vite = await import(pathToFileURL(path.join(root, 'web/node_modules/vite/dist/node/index.js')).href);
   const port = Number(process.env.PLAYWRIGHT_PORT || 4173);
@@ -40,7 +42,7 @@ async function browserChecks() {
     preview: { host: '127.0.0.1', port, strictPort: true } });
   try {
     await run(process.execPath, ['scripts/parity-audit.mjs', 'http://127.0.0.1:' + port + '/web'], path.join(root, 'web'));
-    await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=2'], path.join(root, 'web'), { ...executionEnv, PLAYWRIGHT_REUSE: '1' });
+    await run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--workers=' + workers], path.join(root, 'web'), { ...executionEnv, PLAYWRIGHT_REUSE: '1' });
   } finally {
     await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()));
   }

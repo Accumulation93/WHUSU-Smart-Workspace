@@ -31,6 +31,8 @@ async function main() {
     await root.query("INSERT INTO organizations(id,name) VALUES ('org','组织甲'),('other','组织乙')");
     await root.query("INSERT INTO departments(id,name,org_id) VALUES ('d','部门甲','org')");
     await root.query("INSERT INTO identities(id,name,org_id) VALUES ('i','成员','org')");
+    await root.query("INSERT INTO assignment_natures(id,org_id,name) VALUES ('staff','org','本会岗位')");
+    await root.query("INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('org','i','staff')");
     for (const person of ['a','b','c']) {
       await root.query('INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES (?,?,?,?)',[person,person,person,person]);
       await root.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES (?,?,?,'org')",['h'+person,person,person]);

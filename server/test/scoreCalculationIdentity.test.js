@@ -1,4 +1,6 @@
 const assert = require('assert');
+process.env.DB_USER ||= 'test-only';
+process.env.DB_PASSWORD ||= 'test-only';
 const Module = require('module');
 const crypto = require('crypto');
 
